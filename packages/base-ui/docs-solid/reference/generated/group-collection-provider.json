@@ -1,0 +1,16 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {},
+  "name": "GroupCollectionProvider",
+  "props": {
+    "children": {
+      "detailedType": "React.ReactNode",
+      "required": true,
+      "type": "ReactNode"
+    },
+    "items": {
+      "required": true,
+      "type": "any[]"
+    }
+  }
+}

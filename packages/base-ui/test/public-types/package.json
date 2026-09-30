@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@base-ui/react": "workspace:*",
+    "react": "catalog:"
+  },
+  "name": "@base-ui/test-public-types",
+  "private": true,
+  "scripts": {
+    "release:test": "tsc --noEmit"
+  }
+}

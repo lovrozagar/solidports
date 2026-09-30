@@ -1,0 +1,69 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {
+    "data-disabled": {
+      "description": "Present when the radio group is disabled."
+    }
+  },
+  "description": "Provides a shared state to a series of radio buttons.\nRenders a `<div>` element.",
+  "name": "RadioGroup",
+  "props": {
+    "class": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: RadioGroup.State) => string | undefined)",
+      "type": "string | ((state: RadioGroup.State) => string | undefined)"
+    },
+    "defaultValue": {
+      "description": "The uncontrolled value of the radio button that should be initially selected.\n\nTo render a controlled radio group, use the `value` prop instead.",
+      "detailedType": "Value | undefined",
+      "type": "Value"
+    },
+    "disabled": {
+      "default": "false",
+      "description": "Whether the component should ignore user interaction.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "inputRef": {
+      "description": "A ref to access the hidden input element.",
+      "detailedType": "React.Ref<HTMLInputElement> | undefined",
+      "type": "Ref<HTMLInputElement>"
+    },
+    "name": {
+      "description": "Identifies the field when a form is submitted.",
+      "detailedType": "string | undefined",
+      "type": "string"
+    },
+    "onValueChange": {
+      "description": "Callback fired when the value changes.",
+      "detailedType": "| ((\n    value: Value,\n    eventDetails: Radio.Group.ChangeEventDetails,\n  ) => void)\n| undefined",
+      "type": "((value: Value, eventDetails: Radio.Group.ChangeEventDetails) => void)"
+    },
+    "readOnly": {
+      "default": "false",
+      "description": "Whether the user should be unable to select a different radio button in the group.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((\n    props: HTMLProps,\n    state: RadioGroup.State,\n  ) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: RadioGroup.State) => ReactElement)"
+    },
+    "required": {
+      "default": "false",
+      "description": "Whether the user must choose a value before submitting a form.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((state: RadioGroup.State) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: RadioGroup.State) => CSSProperties | undefined)"
+    },
+    "value": {
+      "description": "The controlled value of the radio item that should be currently selected.\n\nTo render an uncontrolled radio group, use the `defaultValue` prop instead.",
+      "detailedType": "Value | undefined",
+      "type": "Value"
+    }
+  }
+}

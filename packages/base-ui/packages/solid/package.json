@@ -1,0 +1,128 @@
+{
+  "author": "MUI Team",
+  "bugs": {
+    "url": "https://github.com/lovrozagar/solidports/issues"
+  },
+  "dependencies": {
+    "@babel/runtime": "catalog:",
+    "@floating-ui/dom": "catalog:",
+    "@floating-ui/utils": "catalog:",
+    "tabbable": "catalog:"
+  },
+  "description": "Base UI is a library of headless ('unstyled') Solid components and low-level hooks. You gain complete control over your app's CSS and accessibility features.",
+  "devDependencies": {
+    "@solidjs/router": "catalog:",
+    "@solidjs/testing-library": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/chai": "catalog:",
+    "@types/chai-dom": "catalog:",
+    "@types/sinon": "catalog:",
+    "babel-plugin-macros": "catalog:",
+    "babel-preset-solid": "catalog:",
+    "chai": "catalog:",
+    "clsx": "catalog:",
+    "eslint-plugin-solid": "catalog:",
+    "sinon": "catalog:",
+    "solid-js": "catalog:",
+    "typescript": "catalog:",
+    "vite-plugin-solid": "catalog:"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./accordion": "./src/accordion/index.ts",
+    "./alert-dialog": "./src/alert-dialog/index.ts",
+    "./autocomplete": "./src/autocomplete/index.ts",
+    "./avatar": "./src/avatar/index.ts",
+    "./button": "./src/button/index.ts",
+    "./checkbox": "./src/checkbox/index.ts",
+    "./checkbox-group": "./src/checkbox-group/index.ts",
+    "./collapsible": "./src/collapsible/index.ts",
+    "./combobox": "./src/combobox/index.ts",
+    "./context-menu": "./src/context-menu/index.ts",
+    "./csp-provider": "./src/csp-provider/index.ts",
+    "./dialog": "./src/dialog/index.ts",
+    "./direction-provider": "./src/direction-provider/index.ts",
+    "./drawer": "./src/drawer/index.ts",
+    "./field": "./src/field/index.ts",
+    "./fieldset": "./src/fieldset/index.ts",
+    "./form": "./src/form/index.ts",
+    "./input": "./src/input/index.ts",
+    "./menu": "./src/menu/index.ts",
+    "./menubar": "./src/menubar/index.ts",
+    "./merge-props": "./src/merge-props/index.ts",
+    "./meter": "./src/meter/index.ts",
+    "./navigation-menu": "./src/navigation-menu/index.ts",
+    "./number-field": "./src/number-field/index.ts",
+    "./otp-field": "./src/otp-field/index.ts",
+    "./popover": "./src/popover/index.ts",
+    "./preview-card": "./src/preview-card/index.ts",
+    "./progress": "./src/progress/index.ts",
+    "./radio": "./src/radio/index.ts",
+    "./radio-group": "./src/radio-group/index.ts",
+    "./scroll-area": "./src/scroll-area/index.ts",
+    "./select": "./src/select/index.ts",
+    "./separator": "./src/separator/index.ts",
+    "./slider": "./src/slider/index.ts",
+    "./switch": "./src/switch/index.ts",
+    "./tabs": "./src/tabs/index.ts",
+    "./toast": "./src/toast/index.ts",
+    "./toggle": "./src/toggle/index.ts",
+    "./toggle-group": "./src/toggle-group/index.ts",
+    "./toolbar": "./src/toolbar/index.ts",
+    "./tooltip": "./src/tooltip/index.ts",
+    "./types": "./src/types/index.ts",
+    "./unstable-use-media-query": "./src/unstable-use-media-query/index.ts",
+    "./use-render": "./src/use-render/index.ts",
+    "./utils": "./src/utils/index.ts"
+  },
+  "funding": {
+    "type": "opencollective",
+    "url": "https://opencollective.com/mui-org"
+  },
+  "homepage": "https://base-ui.com",
+  "imports": {
+    "#formatErrorMessage": "./src/utils/formatErrorMessage.ts",
+    "#test-utils": "./test/index.ts",
+    "#utils/*": "./src/utils/*.ts"
+  },
+  "keywords": [
+    "solid",
+    "solid-component",
+    "mui",
+    "unstyled",
+    "a11y"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "name": "@solidports/base-ui",
+  "peerDependencies": {
+    "babel-preset-solid": "1.9.6",
+    "solid-js": "1.9.7"
+  },
+  "private": false,
+  "publishConfig": {
+    "access": "public",
+    "directory": "build"
+  },
+  "repository": {
+    "directory": "packages/base-ui/packages/solid",
+    "type": "git",
+    "url": "git+https://github.com/lovrozagar/solidports.git"
+  },
+  "scripts": {
+    "build": "node ./scripts-new/cli/index.mjs build --ignore \"**/*.template.js\" --copy .npmignore --noCheck",
+    "prebuild": "rimraf --glob build build-tests \"*.tsbuildinfo\"",
+    "release": "bun build && bun publish",
+    "test": "cross-env VITEST_ENV=jsdom vitest",
+    "test:package": "publint ./build && cross-env NPM_CONFIG_CACHE=/tmp/base-ui-npm-cache attw --pack ./build --exclude-entrypoints package.json --exclude-entrypoints esm --exclude-entrypoints cjs",
+    "ts:specific": "bun --filter \"@solidports/base-ui\" exec tsc -p tsconfig.build.json --noEmit --skipLibCheck",
+    "type:check": "tsc --noEmit -p tsconfig.build.json --skipLibCheck",
+    "typescript": "tsc -b tsconfig.json"
+  },
+  "sideEffects": false,
+  "type": "commonjs",
+  "version": "1.4.1-sp.1"
+}

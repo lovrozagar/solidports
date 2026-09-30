@@ -1,0 +1,5 @@
+{
+  "command": "bunx tsc --noEmit 2>&1 | grep public/solid-ports/recharts",
+  "errorsCount": 0,
+  "note": "Zero errors scoped to public/solid-ports/recharts"
+}

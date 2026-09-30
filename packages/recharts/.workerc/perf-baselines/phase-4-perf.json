@@ -1,0 +1,45 @@
+{
+  "measuredAt": "2026-05-02T23:07:30.589Z",
+  "passes": 5,
+  "routes": [
+    {
+      "id": "pie",
+      "react": {
+        "avgRafMs": 0.009,
+        "rafCount": 447.2,
+        "tFirstPaint": 858.8
+      },
+      "solid": {
+        "avgRafMs": 0.2346,
+        "rafCount": 424.4,
+        "tFirstPaint": 852.4
+      }
+    },
+    {
+      "id": "radar",
+      "react": {
+        "avgRafMs": 0.0099,
+        "rafCount": 383.6,
+        "tFirstPaint": 148.2
+      },
+      "solid": {
+        "avgRafMs": 0.0241,
+        "rafCount": 376.8,
+        "tFirstPaint": 147.4
+      }
+    },
+    {
+      "id": "radial",
+      "react": {
+        "avgRafMs": 0.0149,
+        "rafCount": 190.4,
+        "tFirstPaint": 145.8
+      },
+      "solid": {
+        "avgRafMs": 0.2264,
+        "rafCount": 188.2,
+        "tFirstPaint": 142.6
+      }
+    }
+  ]
+}

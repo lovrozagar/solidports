@@ -1,0 +1,37 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {
+    "data-highlighted": {
+      "description": "Present when the link is highlighted."
+    }
+  },
+  "description": "A link in the menu that can be used to navigate to a different page or section.\nRenders an `<a>` element.",
+  "name": "MenuLinkItem",
+  "props": {
+    "class": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: Menu.LinkItem.State) => string | undefined)",
+      "type": "string | ((state: Menu.LinkItem.State) => string | undefined)"
+    },
+    "closeOnClick": {
+      "default": "false",
+      "description": "Whether to close the menu when the item is clicked.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "label": {
+      "description": "Overrides the text label to use when the item is matched during keyboard text navigation.",
+      "detailedType": "string | undefined",
+      "type": "string"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((\n    props: HTMLProps,\n    state: Menu.LinkItem.State,\n  ) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: Menu.LinkItem.State) => ReactElement)"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((\n    state: Menu.LinkItem.State,\n  ) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: Menu.LinkItem.State) => CSSProperties | undefined)"
+    }
+  }
+}

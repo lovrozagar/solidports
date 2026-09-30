@@ -1,0 +1,20 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"printWidth": 120,
+	"useTabs": true,
+	"semi": true,
+	"singleQuote": false,
+	"ignorePatterns": [
+		"dist/**",
+		"coverage/**",
+		"**/dist/**",
+		"**/build/**",
+		"**/build-tests/**",
+		"**/coverage/**",
+		"**/test-results/**",
+		"**/playwright-report/**",
+		"packages/base-ui/**",
+		"packages/recharts/**",
+		"*.lock",
+	],
+}

@@ -1,0 +1,23 @@
+{
+	"dependencies": {
+		"@solidports/recharts": "workspace:*",
+		"clsx": "catalog:",
+		"solid-js": "catalog:"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "catalog:",
+		"tailwindcss": "catalog:",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vite-plugin-solid": "catalog:"
+	},
+	"name": "@solidports/recharts-examples-shadcn",
+	"private": true,
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite",
+		"preview": "vite preview",
+		"typecheck": "tsc --noEmit"
+	},
+	"type": "module"
+}

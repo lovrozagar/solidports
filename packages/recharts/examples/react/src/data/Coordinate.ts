@@ -1,0 +1,21 @@
+/*
+ * Verbatim copy of upstream recharts storybook fixture.
+ * Source: recharts@3.8.1 storybook/stories/data/Coordinate.ts
+ * License: MIT (c) recharts contributors. See ../../../../LICENSE.
+ */
+const coordinateData = [
+	{ x: 9, y: 5 },
+	{ x: 15, y: 30 },
+	{ x: 28, y: 50 },
+	{ x: 500, y: 200 },
+]
+
+const coordinateWithValueData = [
+	{ x: 10, y: 50, value: 100 },
+	{ x: 150, y: 150, value: 100 },
+	{ x: 290, y: 70, value: 100 },
+	{ x: 430, y: 60, value: 100 },
+	{ x: 570, y: 30, value: 100 },
+]
+
+export { coordinateData, coordinateWithValueData }

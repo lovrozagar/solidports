@@ -1,0 +1,309 @@
+/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
+import { reconcile } from 'solid-js/store';
+import type { Form } from '../../form';
+import { useFormContext } from '../../form/FormContext';
+import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
+import { mergeProps } from '../../merge-props';
+import { access, useRef, type MaybeAccessor, type ReactLikeRef } from '../../solid-helpers';
+import { EMPTY_OBJECT } from '../../utils/empty';
+import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';
+import { useTimeout } from '../../utils/useTimeout';
+import { DEFAULT_VALIDITY_STATE } from '../utils/constants';
+import { getCombinedFieldValidityData } from '../utils/getCombinedFieldValidityData';
+import type { FieldRootState, FieldValidityData } from './FieldRoot';
+
+const validityKeys = Object.keys(DEFAULT_VALIDITY_STATE) as Array<keyof ValidityState>;
+
+function isOnlyValueMissing(state: Record<keyof ValidityState, boolean> | undefined) {
+  if (!state || state.valid || !state.valueMissing) {
+    return false;
+  }
+
+  let onlyValueMissing = false;
+
+  for (const key of validityKeys) {
+    if (key === 'valid') {
+      continue;
+    }
+    if (key === 'valueMissing') {
+      onlyValueMissing = state[key];
+    } else if (state[key]) {
+      onlyValueMissing = false;
+    }
+  }
+
+  return onlyValueMissing;
+}
+
+export function useFieldValidation(
+  params: UseFieldValidationParameters,
+): UseFieldValidationReturnValue {
+  const { formRef, setFormRef, clearErrors } = useFormContext();
+
+  const validityData = () => access(params.validityData);
+  const validationDebounceTime = () => access(params.validationDebounceTime);
+  const invalid = () => access(params.invalid);
+  const state = () => access(params.state);
+  const name = () => access(params.name);
+
+  const { controlId, getDescriptionProps } = useLabelableContext();
+
+  const timeout = useTimeout();
+  const inputRef = useRef<HTMLInputElement | null | undefined>(null);
+
+  const commit = async (value: unknown, revalidate = false) => {
+    const inputRefValue = inputRef.current;
+    if (!inputRefValue) {
+      return;
+    }
+
+    if (revalidate) {
+      if (state().valid !== false) {
+        return;
+      }
+
+      const currentNativeValidity = inputRefValue.validity;
+
+      if (!currentNativeValidity.valueMissing) {
+        // The 'valueMissing' (required) condition has been resolved by the user typing.
+        // Temporarily mark the field as valid for this onChange event.
+        // Other native errors (e.g., typeMismatch) will be caught by full validation on blur or submit.
+        const nextValidityData = {
+          error: '',
+          errors: [],
+          initialValue: validityData().initialValue,
+          state: { ...DEFAULT_VALIDITY_STATE, valid: true },
+          value,
+        };
+        inputRefValue.setCustomValidity('');
+
+        const resolvedControlId = controlId();
+        if (resolvedControlId) {
+          if (formRef.fields[resolvedControlId]) {
+            setFormRef(
+              'fields',
+              resolvedControlId,
+              'validityData',
+              reconcile(getCombinedFieldValidityData(nextValidityData, false)), // invalid = false,
+            );
+          }
+        }
+        params.setValidityData(nextValidityData);
+        return;
+      }
+
+      // Value is still missing, or other conditions apply.
+      // Let's use a representation of current validity for isOnlyValueMissing.
+      const currentNativeValidityObject = validityKeys.reduce(
+        (acc, key) => {
+          acc[key] = currentNativeValidity[key];
+          return acc;
+        },
+        {} as Record<keyof ValidityState, boolean>,
+      );
+
+      // If it's (still) natively invalid due to something other than just valueMissing,
+      // then bail from this revalidation on change to avoid "scolding" for other errors.
+      if (!currentNativeValidityObject.valid && !isOnlyValueMissing(currentNativeValidityObject)) {
+        return;
+      }
+
+      // If valueMissing is still true AND it's the only issue, or if the field is now natively valid,
+      // let it fall through to the main validation logic below.
+    }
+
+    function getState(el: HTMLInputElement) {
+      const computedState = validityKeys.reduce(
+        (acc, key) => {
+          acc[key] = el.validity[key];
+          return acc;
+        },
+        {} as Record<keyof ValidityState, boolean>,
+      );
+
+      let hasOnlyValueMissingError = false;
+
+      for (const key of validityKeys) {
+        if (key === 'valid') {
+          continue;
+        }
+        if (key === 'valueMissing' && computedState[key]) {
+          hasOnlyValueMissingError = true;
+        } else if (computedState[key]) {
+          return computedState;
+        }
+      }
+
+      // Only make `valueMissing` mark the field invalid if it's been changed
+      // to reduce error noise.
+      if (hasOnlyValueMissingError && !params.markedDirtyRef.current) {
+        computedState.valid = true;
+        computedState.valueMissing = false;
+      }
+      return computedState;
+    }
+
+    timeout.clear();
+
+    let result: null | string | string[] = null;
+    let validationErrors: string[] = [];
+
+    const nextState = getState(inputRefValue);
+
+    let defaultValidationMessage;
+    const validateOnChange = params.shouldValidateOnChange();
+
+    if (inputRefValue.validationMessage && !validateOnChange) {
+      // not validating on change, if there is a `validationMessage` from
+      // native validity, set errors and skip calling the custom validate fn
+      defaultValidationMessage = inputRefValue.validationMessage;
+      validationErrors = [inputRefValue.validationMessage];
+    } else {
+      // call the validate function because either
+      // - validating on change, or
+      // - native constraint validations passed, custom validity check is next
+      const formValues = Object.values(formRef.fields).reduce((acc, field) => {
+        if (field.name) {
+          acc[field.name] = field.getValue();
+        }
+        return acc;
+      }, {} as Form.Values);
+
+      const resultOrPromise = params.validate(value, formValues);
+      if (
+        typeof resultOrPromise === 'object' &&
+        resultOrPromise !== null &&
+        'then' in resultOrPromise
+      ) {
+        result = await resultOrPromise;
+      } else {
+        result = resultOrPromise;
+      }
+
+      if (result !== null) {
+        nextState.valid = false;
+        nextState.customError = true;
+
+        if (Array.isArray(result)) {
+          validationErrors = result;
+          inputRefValue.setCustomValidity(result.join('\n'));
+        } else if (result) {
+          validationErrors = [result];
+          inputRefValue.setCustomValidity(result);
+        }
+      } else if (validateOnChange) {
+        // validate function returned no errors, if validating on change
+        // we need to clear the custom validity state
+        inputRefValue.setCustomValidity('');
+        nextState.customError = false;
+
+        if (inputRefValue.validationMessage) {
+          defaultValidationMessage = inputRefValue.validationMessage;
+          validationErrors = [inputRefValue.validationMessage];
+        } else if (inputRefValue.validity.valid && !nextState.valid) {
+          nextState.valid = true;
+        }
+      }
+    }
+
+    const nextValidityData = {
+      error: defaultValidationMessage ?? (Array.isArray(result) ? result[0] : (result ?? '')),
+      errors: validationErrors,
+      initialValue: validityData().initialValue,
+      state: nextState,
+      value,
+    };
+
+    const resolvedControlId = controlId();
+    if (resolvedControlId) {
+      if (formRef.fields[resolvedControlId]) {
+        setFormRef(
+          'fields',
+          resolvedControlId,
+          'validityData',
+          reconcile(getCombinedFieldValidityData(nextValidityData, invalid())),
+        );
+      }
+    }
+
+    params.setValidityData(nextValidityData);
+  };
+
+  const getValidationProps = (externalProps = {}) =>
+    mergeProps<any>(
+      getDescriptionProps,
+      state().valid === false ? { 'aria-invalid': true } : EMPTY_OBJECT,
+      externalProps,
+    );
+
+  const getInputValidationProps = (externalProps = {}) =>
+    mergeProps<'input'>(
+      {
+        onInput(event) {
+          // Workaround for https://github.com/facebook/react/issues/9023
+          if (event.defaultPrevented) {
+            return;
+          }
+
+          clearErrors(name());
+
+          if (!params.shouldValidateOnChange()) {
+            commit(event.currentTarget.value, true);
+            return;
+          }
+
+          if (invalid()) {
+            return;
+          }
+
+          const element = event.currentTarget;
+
+          if (element.value === '') {
+            // Ignore the debounce time for empty values.
+            commit(element.value);
+            return;
+          }
+
+          timeout.clear();
+
+          const validationDebounceTimeValue = validationDebounceTime();
+          const commitFn = () => commit(element.value);
+          if (validationDebounceTimeValue) {
+            timeout.start(validationDebounceTimeValue, commitFn);
+          } else {
+            commitFn();
+          }
+        },
+      },
+      getValidationProps(externalProps),
+    );
+
+  return {
+    commit,
+    getInputValidationProps,
+    getValidationProps,
+    inputRef,
+  };
+}
+
+export interface UseFieldValidationParameters {
+  setValidityData: (data: FieldValidityData) => void;
+  validate: (
+    value: unknown,
+    formValues: Form.Values,
+  ) => string | string[] | null | Promise<string | string[] | null>;
+  validityData: MaybeAccessor<FieldValidityData>;
+  validationDebounceTime: MaybeAccessor<number>;
+  invalid: MaybeAccessor<boolean>;
+  markedDirtyRef: ReactLikeRef<boolean>;
+  state: MaybeAccessor<FieldRootState>;
+  name: MaybeAccessor<string | undefined>;
+  shouldValidateOnChange: () => boolean;
+}
+
+export interface UseFieldValidationReturnValue {
+  getValidationProps: (props?: HTMLProps | BaseUIHTMLProps) => BaseUIHTMLProps;
+  getInputValidationProps: (props?: HTMLProps | BaseUIHTMLProps) => BaseUIHTMLProps;
+  inputRef: ReactLikeRef<HTMLInputElement | null | undefined>;
+  commit: (value: unknown, revalidate?: boolean) => Promise<void>;
+}

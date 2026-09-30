@@ -1,0 +1,26 @@
+{
+  "updatedAt": "2026-04-26T20:48:50.166Z",
+  "packages": [
+    {
+      "name": "@recharts/devtools",
+      "version": "0.0.11",
+      "registry": "npm",
+      "path": "repos/github.com/recharts/devtools",
+      "fetchedAt": "2026-04-26T06:26:56.172Z"
+    },
+    {
+      "name": "solid-js",
+      "version": "1.9.12",
+      "registry": "npm",
+      "path": "repos/github.com/solidjs/solid",
+      "fetchedAt": "2026-04-26T16:14:54.972Z"
+    },
+    {
+      "name": "recharts",
+      "version": "3.8.1",
+      "registry": "npm",
+      "path": "repos/github.com/recharts/recharts",
+      "fetchedAt": "2026-04-26T20:48:50.165Z"
+    }
+  ]
+}

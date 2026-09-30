@@ -1,0 +1,19 @@
+{
+	"devDependencies": {
+		"@playwright/test": "catalog:",
+		"@types/node": "catalog:",
+		"@types/pngjs": "6.0.5",
+		"pixelmatch": "7.2.0",
+		"pngjs": "7.0.0",
+		"typescript": "catalog:"
+	},
+	"name": "@solidports/recharts-examples-visual",
+	"private": true,
+	"scripts": {
+		"visual": "playwright test",
+		"visual:report": "playwright show-report",
+		"visual:ui": "playwright test --ui",
+		"visual:update": "playwright test --update-snapshots"
+	},
+	"type": "module"
+}

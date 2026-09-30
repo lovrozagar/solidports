@@ -1,0 +1,19 @@
+{
+	"dependencies": {
+		"@solidports/recharts": "workspace:*",
+		"solid-js": "catalog:"
+	},
+	"devDependencies": {
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vite-plugin-solid": "catalog:"
+	},
+	"name": "@solidports/recharts-examples-basic",
+	"private": true,
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite",
+		"preview": "vite preview"
+	},
+	"type": "module"
+}

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "types": [
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ]
+  },
+  "exclude": [
+    "node_modules",
+    "build"
+  ],
+  "extends": "../tsconfig.base.json",
+  "include": [
+    "e2e/**/*",
+    "regressions/**/*",
+    "./*.ts"
+  ]
+}

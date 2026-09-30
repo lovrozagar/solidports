@@ -1,0 +1,31 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": ["typescript", "unicorn", "oxc"],
+	"env": {
+		"browser": true,
+		"node": true
+	},
+	"ignorePatterns": [
+		"dist/**",
+		"coverage/**",
+		"**/dist/**",
+		"**/build/**",
+		"**/build-tests/**",
+		"**/coverage/**",
+		"**/test-results/**",
+		"**/playwright-report/**",
+		"packages/base-ui/**",
+		"packages/recharts/**"
+	],
+	"categories": {
+		"correctness": "error",
+		"suspicious": "warn"
+	},
+	"rules": {
+		"no-unused-vars": "warn",
+		"no-underscore-dangle": "off",
+		"no-unassigned-vars": "off",
+		"unicorn/no-array-sort": "off",
+		"unicorn/prefer-string-starts-ends-with": "warn"
+	}
+}

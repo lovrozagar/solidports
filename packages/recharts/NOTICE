@@ -1,0 +1,19 @@
+@solidports/recharts — NOTICE
+
+This package is a SolidJS port of recharts (https://github.com/recharts/recharts).
+
+Upstream project:  recharts
+Upstream license:  MIT
+Upstream source:   https://github.com/recharts/recharts/tree/v3.8.1
+Upstream authors:  recharts contributors (https://github.com/recharts/recharts/graphs/contributors)
+
+Pinned upstream tag: v3.8.1 (released 2026-03-25)
+Port started:        2026-04-24
+
+Applied upstream SHAs
+---------------------
+(populated by sync workflow — see .kb/porting/upstream-sync.md)
+
+Human actions pending
+---------------------
+- Publish `@solidports/recharts` from github.com/lovrozagar/solidports

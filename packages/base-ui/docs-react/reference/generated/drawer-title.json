@@ -1,0 +1,22 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {},
+  "description": "A heading that labels the drawer.\nRenders an `<h2>` element.",
+  "name": "DrawerTitle",
+  "props": {
+    "className": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: Drawer.Title.State) => string | undefined)",
+      "type": "string | ((state: Drawer.Title.State) => string | undefined)"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((\n    props: HTMLProps,\n    state: Drawer.Title.State,\n  ) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: Drawer.Title.State) => ReactElement)"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((state: Drawer.Title.State) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: Drawer.Title.State) => CSSProperties | undefined)"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+import { createMemo, type JSX } from 'solid-js';
+import { FloatingDelayGroup } from '../../floating-ui-solid';
+import { TooltipProviderContext } from './TooltipProviderContext';
+
+/**
+ * Provides a shared delay for multiple tooltips. The grouping logic ensures that
+ * once a tooltip becomes visible, the adjacent tooltips will be shown instantly.
+ *
+ * Documentation: [Base UI Tooltip](https://base-ui.com/react/components/tooltip)
+ */
+export function TooltipProvider(props: TooltipProvider.Props) {
+  const timeout = () => props.timeout ?? 400;
+
+  const contextValue: TooltipProviderContext = {
+    closeDelay: () => props.closeDelay,
+    delay: () => props.delay,
+  };
+
+  const delayValue = createMemo(() => ({ close: props.closeDelay, open: props.delay }));
+
+  return (
+    <TooltipProviderContext.Provider value={contextValue}>
+      <FloatingDelayGroup delay={delayValue()} timeoutMs={timeout()}>
+        {props.children}
+      </FloatingDelayGroup>
+    </TooltipProviderContext.Provider>
+  );
+}
+
+export interface TooltipProviderProps {
+  children?: JSX.Element;
+  /**
+   * How long to wait before opening a tooltip. Specified in milliseconds.
+   */
+  delay?: number | undefined;
+  /**
+   * How long to wait before closing a tooltip. Specified in milliseconds.
+   */
+  closeDelay?: number | undefined;
+  /**
+   * Another tooltip will open instantly if the previous tooltip
+   * is closed within this timeout. Specified in milliseconds.
+   * @default 400
+   */
+  timeout?: number | undefined;
+}
+
+export namespace TooltipProvider {
+  export type Props = TooltipProviderProps;
+}

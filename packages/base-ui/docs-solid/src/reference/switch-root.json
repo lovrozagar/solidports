@@ -1,0 +1,121 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {
+    "data-checked": {
+      "description": "Present when the switch is checked."
+    },
+    "data-dirty": {
+      "description": "Present when the switch's value has changed (when wrapped in Field.Root)."
+    },
+    "data-disabled": {
+      "description": "Present when the switch is disabled."
+    },
+    "data-filled": {
+      "description": "Present when the switch is active (when wrapped in Field.Root)."
+    },
+    "data-focused": {
+      "description": "Present when the switch is focused (when wrapped in Field.Root)."
+    },
+    "data-invalid": {
+      "description": "Present when the switch is in invalid state (when wrapped in Field.Root)."
+    },
+    "data-readonly": {
+      "description": "Present when the switch is readonly."
+    },
+    "data-required": {
+      "description": "Present when the switch is required."
+    },
+    "data-touched": {
+      "description": "Present when the switch has been touched (when wrapped in Field.Root)."
+    },
+    "data-unchecked": {
+      "description": "Present when the switch is not checked."
+    },
+    "data-valid": {
+      "description": "Present when the switch is in valid state (when wrapped in Field.Root)."
+    }
+  },
+  "description": "Represents the switch itself.\nRenders a `<span>` element and a hidden `<input>` beside.",
+  "name": "SwitchRoot",
+  "props": {
+    "checked": {
+      "description": "Whether the switch is currently active.\n\nTo render an uncontrolled switch, use the `defaultChecked` prop instead.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "class": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: Switch.Root.State) => string | undefined)",
+      "type": "string | ((state: Switch.Root.State) => string | undefined)"
+    },
+    "defaultChecked": {
+      "default": "false",
+      "description": "Whether the switch is initially active.\n\nTo render a controlled switch, use the `checked` prop instead.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "disabled": {
+      "default": "false",
+      "description": "Whether the component should ignore user interaction.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "id": {
+      "description": "The id of the switch element.",
+      "detailedType": "string | undefined",
+      "type": "string"
+    },
+    "inputRef": {
+      "description": "A ref to access the hidden `<input>` element.",
+      "detailedType": "React.Ref<HTMLInputElement> | undefined",
+      "type": "Ref<HTMLInputElement>"
+    },
+    "name": {
+      "description": "Identifies the field when a form is submitted.",
+      "detailedType": "string | undefined",
+      "type": "string"
+    },
+    "nativeButton": {
+      "default": "false",
+      "description": "Whether the component renders a native `<button>` element when replacing it\nvia the `render` prop.\nSet to `true` if the rendered element is a native button.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "onCheckedChange": {
+      "description": "Event handler called when the switch is activated or deactivated.",
+      "detailedType": "| ((\n    checked: boolean,\n    eventDetails: Switch.Root.ChangeEventDetails,\n  ) => void)\n| undefined",
+      "type": "((checked: boolean, eventDetails: Switch.Root.ChangeEventDetails) => void)"
+    },
+    "readOnly": {
+      "default": "false",
+      "description": "Whether the user should be unable to activate or deactivate the switch.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((\n    props: HTMLProps,\n    state: Switch.Root.State,\n  ) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: Switch.Root.State) => ReactElement)"
+    },
+    "required": {
+      "default": "false",
+      "description": "Whether the user must activate the switch before submitting a form.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((state: Switch.Root.State) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: Switch.Root.State) => CSSProperties | undefined)"
+    },
+    "uncheckedValue": {
+      "description": "The value submitted with the form when the switch is off.\nBy default, unchecked switches do not submit any value, matching native checkbox behavior.",
+      "detailedType": "string | undefined",
+      "type": "string"
+    },
+    "value": {
+      "description": "The value submitted with the form when the switch is on.\nBy default, switch submits the \"on\" value, matching native checkbox behavior.",
+      "detailedType": "string | undefined",
+      "type": "string"
+    }
+  }
+}

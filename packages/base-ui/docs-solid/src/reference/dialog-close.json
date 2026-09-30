@@ -1,0 +1,32 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {
+    "data-disabled": {
+      "description": "Present when the button is disabled."
+    }
+  },
+  "description": "A button that closes the dialog.\nRenders a `<button>` element.",
+  "name": "DialogClose",
+  "props": {
+    "class": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: Dialog.Close.State) => string | undefined)",
+      "type": "string | ((state: Dialog.Close.State) => string | undefined)"
+    },
+    "nativeButton": {
+      "default": "true",
+      "description": "Whether the component renders a native `<button>` element when replacing it\nvia the `render` prop.\nSet to `false` if the rendered element is not a button (e.g. `<div>`).",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((\n    props: HTMLProps,\n    state: Dialog.Close.State,\n  ) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: Dialog.Close.State) => ReactElement)"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((state: Dialog.Close.State) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: Dialog.Close.State) => CSSProperties | undefined)"
+    }
+  }
+}

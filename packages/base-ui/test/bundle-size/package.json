@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "@base-ui/react": "workspace:*",
+    "@base-ui/utils": "workspace:*",
+    "@mui/internal-bundle-size-checker": "catalog:",
+    "radix-ui": "catalog:"
+  },
+  "description": "Bundle size measurement workspace for MUI packages",
+  "devDependencies": {
+    "cross-env": "catalog:"
+  },
+  "name": "@base-ui/test-bundle-size",
+  "private": true,
+  "scripts": {
+    "check": "cross-env NODE_OPTIONS=\"--max-old-space-size=4096\" bundle-size-checker --output ../size-snapshot.json"
+  }
+}

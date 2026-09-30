@@ -1,0 +1,75 @@
+import { splitComponentProps } from '../../solid-helpers';
+import { popupStateMapping } from '../../utils/popupStateMapping';
+import type { BaseUIComponentProps } from '../../utils/types';
+import type { Align, Side } from '../../utils/useAnchorPositioning';
+import { useRenderElement } from '../../utils/useRenderElement';
+import { usePreviewCardPositionerContext } from '../positioner/PreviewCardPositionerContext';
+import { usePreviewCardRootContext } from '../root/PreviewCardContext';
+
+/**
+ * Displays an element positioned against the preview card anchor.
+ * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Preview Card](https://base-ui.com/react/components/preview-card)
+ */
+export function PreviewCardArrow(componentProps: PreviewCardArrow.Props) {
+  const [, , elementProps] = splitComponentProps(componentProps, []);
+
+  const { store } = usePreviewCardRootContext();
+  const { side, align, arrowUncentered, arrowRef, arrowStyles } = usePreviewCardPositionerContext();
+  const open = store.useState('open');
+
+  const state: PreviewCardArrow.State = {
+    get align() {
+      return align();
+    },
+    get open() {
+      return open();
+    },
+    get side() {
+      return side();
+    },
+    get uncentered() {
+      return arrowUncentered();
+    },
+  };
+
+  const element = useRenderElement('div', componentProps, {
+    props: [
+      {
+        get style() {
+          return arrowStyles();
+        },
+        'aria-hidden': true,
+      },
+      elementProps,
+    ],
+    ref: (el) => {
+      arrowRef.current = el;
+    },
+    state,
+    stateAttributesMapping: popupStateMapping,
+  });
+
+  return <>{element()}</>;
+}
+
+export interface PreviewCardArrowState {
+  /**
+   * Whether the preview card is currently open.
+   */
+  open: boolean;
+  side: Side;
+  align: Align;
+  uncentered: boolean;
+}
+
+export interface PreviewCardArrowProps extends BaseUIComponentProps<
+  'div',
+  PreviewCardArrow.State
+> {}
+
+export namespace PreviewCardArrow {
+  export type State = PreviewCardArrowState;
+  export type Props = PreviewCardArrowProps;
+}

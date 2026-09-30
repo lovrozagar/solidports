@@ -1,0 +1,943 @@
+{
+  "expectedFailTests": 2,
+  "failedFiles": 6,
+  "failedTests": 3,
+  "infraTimeoutFiles": [
+    {
+      "note": "Requires preview servers running on port 5183. Times out when servers not up before vitest run.",
+      "path": "test/perf/animation.bench.test.ts"
+    },
+    {
+      "note": "Requires preview servers running on port 5183/5184. Times out when servers not up.",
+      "path": "test/perf/baseline.bench.test.ts"
+    },
+    {
+      "note": "Requires preview servers running on port 5183/5184. Times out when servers not up.",
+      "path": "test/perf/mount.bench.test.ts"
+    }
+  ],
+  "knownFailingFiles": [
+    "test/chart/LineChart.spec.tsx",
+    "test/chart/AreaChart.spec.tsx",
+    "test/chart/AccessibilityScans.spec.tsx"
+  ],
+  "passedFiles": 247,
+  "passedTests": 4912,
+  "perFileBreakdown": {
+    "test/_debug/portal-context.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/_debug/portal-renderprop-context.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/animation/AnimationManager.spec.ts": {
+      "failed": 0,
+      "passed": 11,
+      "skipped": 0
+    },
+    "test/animation/CSSTransitionAnimate.timing.spec.tsx": {
+      "failed": 9,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/animation/JavascriptAnimate.timing.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 3
+    },
+    "test/animation/configUpdate.spec.ts": {
+      "failed": 0,
+      "passed": 21,
+      "skipped": 0
+    },
+    "test/animation/easing.spec.ts": {
+      "failed": 0,
+      "passed": 20,
+      "skipped": 0
+    },
+    "test/animation/timeoutController.spec.ts": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/animation/util.spec.ts": {
+      "failed": 0,
+      "passed": 11,
+      "skipped": 0
+    },
+    "test/cartesian/Area.animation.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 7
+    },
+    "test/cartesian/Area.spec.tsx": {
+      "failed": 0,
+      "passed": 162,
+      "skipped": 6
+    },
+    "test/cartesian/Bar.truncateByDomain.spec.tsx": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0
+    },
+    "test/cartesian/Bar/Bar.spec.tsx": {
+      "failed": 0,
+      "passed": 113,
+      "skipped": 4
+    },
+    "test/cartesian/Brush.eventReactivity.spec.tsx": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/cartesian/Brush.stacked.spec.tsx": {
+      "failed": 0,
+      "passed": 6,
+      "skipped": 0
+    },
+    "test/cartesian/CartesianGrid.spec.tsx": {
+      "failed": 0,
+      "passed": 405,
+      "skipped": 10
+    },
+    "test/cartesian/ErrorBar.spec.tsx": {
+      "failed": 4,
+      "passed": 9,
+      "skipped": 9
+    },
+    "test/cartesian/Line.animation.spec.tsx": {
+      "failed": 0,
+      "passed": 30,
+      "skipped": 7
+    },
+    "test/cartesian/Line.spec.tsx": {
+      "failed": 0,
+      "passed": 17,
+      "skipped": 1
+    },
+    "test/cartesian/ReferenceArea.spec.tsx": {
+      "failed": 0,
+      "passed": 16,
+      "skipped": 10
+    },
+    "test/cartesian/ReferenceDot.spec.tsx": {
+      "failed": 0,
+      "passed": 13,
+      "skipped": 2
+    },
+    "test/cartesian/ReferenceLine/ReferenceLine.spec.tsx": {
+      "failed": 0,
+      "passed": 21,
+      "skipped": 2
+    },
+    "test/cartesian/ReferenceLine/getEndPoints.spec.tsx": {
+      "failed": 0,
+      "passed": 24,
+      "skipped": 0
+    },
+    "test/cartesian/XAxis/XAxis.categorydomain.spec.tsx": {
+      "failed": 0,
+      "passed": 36,
+      "skipped": 0
+    },
+    "test/cartesian/XAxis/XAxis.dataKey.spec.tsx": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/cartesian/XAxis/XAxis.hide.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/cartesian/XAxis/XAxis.numberdomain.spec.tsx": {
+      "failed": 0,
+      "passed": 59,
+      "skipped": 6
+    },
+    "test/cartesian/XAxis/XAxis.padding.spec.tsx": {
+      "failed": 0,
+      "passed": 29,
+      "skipped": 1
+    },
+    "test/cartesian/XAxis/XAxis.tick.spec.tsx": {
+      "failed": 0,
+      "passed": 9,
+      "skipped": 3
+    },
+    "test/cartesian/XAxis/XAxis.timescale.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/cartesian/YAxis/YAxis.interval-zero.spec.tsx": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/cartesian/YAxis/YAxis.label.spec.tsx": {
+      "failed": 0,
+      "passed": 9,
+      "skipped": 2
+    },
+    "test/cartesian/YAxis/YAxis.spec.tsx": {
+      "failed": 0,
+      "passed": 69,
+      "skipped": 3
+    },
+    "test/cartesian/YAxis/YAxis.tick.spec.tsx": {
+      "failed": 0,
+      "passed": 9,
+      "skipped": 3
+    },
+    "test/cartesian/YAxis/YAxis.ticks.spec.tsx": {
+      "failed": 0,
+      "passed": 20,
+      "skipped": 0
+    },
+    "test/cartesian/ZAxis.spec.tsx": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 1
+    },
+    "test/cartesian/getCartesianPosition.spec.ts": {
+      "failed": 0,
+      "passed": 50,
+      "skipped": 0
+    },
+    "test/cartesian/getEquidistantTicks.spec.ts": {
+      "failed": 0,
+      "passed": 14,
+      "skipped": 0
+    },
+    "test/cartesian/getTicks.spec.ts": {
+      "failed": 0,
+      "passed": 26,
+      "skipped": 0
+    },
+    "test/chart/AccessibilityLayer.spec.tsx": {
+      "failed": 0,
+      "passed": 41,
+      "skipped": 5
+    },
+    "test/chart/AccessibilityScans.spec.tsx": {
+      "failed": 0,
+      "passed": 0,
+      "skipped": 0
+    },
+    "test/chart/AreaChart.spec.tsx": {
+      "failed": 0,
+      "passed": 0,
+      "skipped": 0
+    },
+    "test/chart/AreaChart.stacked.spec.tsx": {
+      "failed": 0,
+      "passed": 35,
+      "skipped": 0
+    },
+    "test/chart/BarChart.spec.tsx": {
+      "failed": 0,
+      "passed": 89,
+      "skipped": 8
+    },
+    "test/chart/CategoricalChart.spec.tsx": {
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0
+    },
+    "test/chart/ComposedChart.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/chart/LineChart.multiseries.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/chart/LineChart.spec.tsx": {
+      "failed": 0,
+      "passed": 0,
+      "skipped": 0
+    },
+    "test/chart/RadarChart.spec.tsx": {
+      "failed": 0,
+      "passed": 29,
+      "skipped": 1
+    },
+    "test/chart/RadialBarChart.spec.tsx": {
+      "failed": 0,
+      "passed": 20,
+      "skipped": 4
+    },
+    "test/chart/RechartsWrapper.eventReactivity.spec.tsx": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0
+    },
+    "test/chart/Sankey.spec.tsx": {
+      "failed": 0,
+      "passed": 23,
+      "skipped": 0
+    },
+    "test/chart/Sankey.tooltipReactivity.spec.tsx": {
+      "failed": 0,
+      "passed": 6,
+      "skipped": 0
+    },
+    "test/chart/ScatterChart.spec.tsx": {
+      "failed": 0,
+      "passed": 56,
+      "skipped": 3
+    },
+    "test/chart/Treemap.spec.tsx": {
+      "failed": 0,
+      "passed": 21,
+      "skipped": 0
+    },
+    "test/chart/Treemap.tooltipReactivity.spec.tsx": {
+      "failed": 0,
+      "passed": 6,
+      "skipped": 0
+    },
+    "test/chart/chartEvents.spec.tsx": {
+      "failed": 0,
+      "passed": 54,
+      "skipped": 0
+    },
+    "test/chart/responsive.spec.tsx": {
+      "failed": 0,
+      "passed": 83,
+      "skipped": 0
+    },
+    "test/component/Customized.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/component/Label.spec.tsx": {
+      "failed": 0,
+      "passed": 38,
+      "skipped": 5
+    },
+    "test/component/Legend.itemSorter.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 10
+    },
+    "test/component/Legend.spec.tsx": {
+      "failed": 0,
+      "passed": 316,
+      "skipped": 4
+    },
+    "test/component/Tooltip/ActiveDot.spec.tsx": {
+      "failed": 0,
+      "passed": 6,
+      "skipped": 8
+    },
+    "test/component/Tooltip/Tooltip.animation.spec.tsx": {
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0
+    },
+    "test/component/Tooltip/Tooltip.dynamicPosition.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/component/Tooltip/Tooltip.formatter.spec.tsx": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/component/Tooltip/Tooltip.multipleDataArrays.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 1
+    },
+    "test/component/Tooltip/Tooltip.offset.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/component/Tooltip/Tooltip.payload.spec.tsx": {
+      "failed": 0,
+      "passed": 54,
+      "skipped": 4
+    },
+    "test/component/Tooltip/Tooltip.sync.spec.tsx": {
+      "failed": 0,
+      "passed": 90,
+      "skipped": 7
+    },
+    "test/component/Tooltip/Tooltip.visibility.spec.tsx": {
+      "failed": 0,
+      "passed": 291,
+      "skipped": 11
+    },
+    "test/component/Tooltip/defaultIndex.spec.tsx": {
+      "failed": 0,
+      "passed": 11,
+      "skipped": 0
+    },
+    "test/component/Tooltip/itemSorter.spec.tsx": {
+      "failed": 0,
+      "passed": 62,
+      "skipped": 9
+    },
+    "test/component/Tooltip/tooltipEventType.spec.tsx": {
+      "failed": 0,
+      "passed": 102,
+      "skipped": 0
+    },
+    "test/component/responsiveContainerUtils.spec.ts": {
+      "failed": 0,
+      "passed": 20,
+      "skipped": 0
+    },
+    "test/container/ClipPath.spec.tsx": {
+      "failed": 0,
+      "passed": 24,
+      "skipped": 0
+    },
+    "test/container/chartDimensions.spec.tsx": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 19
+    },
+    "test/helper/consoleWarningToError.spec.ts": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/helper/trim.spec.ts": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0
+    },
+    "test/hooks/useActiveTooltipDataPoints.spec.tsx": {
+      "failed": 0,
+      "passed": 21,
+      "skipped": 0
+    },
+    "test/hooks/useAxisDomain.spec.tsx": {
+      "failed": 0,
+      "passed": 40,
+      "skipped": 2
+    },
+    "test/hooks/useAxisScale.spec.tsx": {
+      "failed": 0,
+      "passed": 13,
+      "skipped": 0
+    },
+    "test/hooks/useAxisTicks.spec.tsx": {
+      "failed": 0,
+      "passed": 6,
+      "skipped": 0
+    },
+    "test/hooks/useOffset.spec.tsx": {
+      "failed": 0,
+      "passed": 13,
+      "skipped": 0
+    },
+    "test/perf/animation.bench.test.ts": {
+      "failed": 1,
+      "passed": 0,
+      "skipped": 0
+    },
+    "test/perf/baseline.bench.test.ts": {
+      "failed": 1,
+      "passed": 0,
+      "skipped": 0
+    },
+    "test/perf/mount.bench.test.ts": {
+      "failed": 1,
+      "passed": 0,
+      "skipped": 0
+    },
+    "test/polar/Pie/Pie.spec.tsx": {
+      "failed": 0,
+      "passed": 53,
+      "skipped": 6
+    },
+    "test/polar/PolarAngleAxis.spec.tsx": {
+      "failed": 0,
+      "passed": 113,
+      "skipped": 2
+    },
+    "test/polar/PolarGrid.spec.tsx": {
+      "failed": 0,
+      "passed": 12,
+      "skipped": 1
+    },
+    "test/polar/PolarRadiusAxis.spec.tsx": {
+      "failed": 0,
+      "passed": 75,
+      "skipped": 2
+    },
+    "test/polar/Radar.animation.spec.tsx": {
+      "failed": 0,
+      "passed": 19,
+      "skipped": 0
+    },
+    "test/polar/Radar.labelListReactivity.spec.tsx": {
+      "failed": 0,
+      "passed": 6,
+      "skipped": 0
+    },
+    "test/polar/RadialBar/RadialBar.spec.tsx": {
+      "failed": 0,
+      "passed": 58,
+      "skipped": 1
+    },
+    "test/shape/ActiveShape.spec.tsx": {
+      "failed": 0,
+      "passed": 6,
+      "skipped": 3
+    },
+    "test/shape/Cross.spec.tsx": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/shape/Dot.spec.tsx": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0
+    },
+    "test/shape/Rectangle.spec.tsx": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0
+    },
+    "test/shape/Sector.spec.tsx": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/shape/Trapezoid.spec.tsx": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/state/chartDataSlice.spec.ts": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/state/externalEventsMiddleware.spec.ts": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/state/graphicalItemsSlice.spec.ts": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/state/hooks.spec.tsx": {
+      "failed": 0,
+      "passed": 6,
+      "skipped": 0
+    },
+    "test/state/hooks/useChartOffsetInternal.spec.tsx": {
+      "failed": 0,
+      "passed": 18,
+      "skipped": 0
+    },
+    "test/state/mouseEventsMiddleware.spec.ts": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 1
+    },
+    "test/state/optionsSlice.spec.ts": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/state/referenceElementsSlice.spec.ts": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/state/selectors/axisSelectors.spec.tsx": {
+      "failed": 0,
+      "passed": 111,
+      "skipped": 2
+    },
+    "test/state/selectors/barStackSelectors.spec.tsx": {
+      "failed": 0,
+      "passed": 13,
+      "skipped": 0
+    },
+    "test/state/selectors/cartesianAxisSlice.spec.ts": {
+      "failed": 0,
+      "passed": 1,
+      "skipped": 1
+    },
+    "test/state/selectors/combiners/combineActiveTooltipIndex.spec.ts": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/state/selectors/combiners/combineDisplayedStackedData.spec.ts": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/state/selectors/lineSelectors.spec.tsx": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/state/selectors/selectActiveTooltipIndex.spec.tsx": {
+      "failed": 0,
+      "passed": 17,
+      "skipped": 1
+    },
+    "test/state/selectors/selectAllAxes.spec.tsx": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/state/selectors/selectAxisScale.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/state/selectors/selectBarRectangles.stackOffset.spec.tsx": {
+      "failed": 0,
+      "passed": 24,
+      "skipped": 0
+    },
+    "test/state/selectors/selectCartesianItemsSettings.spec.tsx": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/state/selectors/selectChartOffset.spec.tsx": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/state/selectors/selectDisplayedData.spec.tsx": {
+      "failed": 0,
+      "passed": 13,
+      "skipped": 0
+    },
+    "test/state/selectors/selectIsTooltipActive.spec.tsx": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0
+    },
+    "test/state/selectors/selectRealScaleType.spec.tsx": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/state/selectors/selectStackGroups.spec.tsx": {
+      "failed": 0,
+      "passed": 8,
+      "skipped": 1
+    },
+    "test/state/selectors/selectors.spec.tsx": {
+      "failed": 0,
+      "passed": 85,
+      "skipped": 0
+    },
+    "test/state/throttling.spec.ts": {
+      "failed": 0,
+      "passed": 9,
+      "skipped": 0
+    },
+    "test/synchronisation/useChartSynchronisation.spec.tsx": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0
+    },
+    "test/util/BarUtils.spec.tsx": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0
+    },
+    "test/util/CartesianUtils/CartesianUtils.spec.ts": {
+      "failed": 0,
+      "passed": 79,
+      "skipped": 0
+    },
+    "test/util/CartesianUtils/rectWithPoints.spec.ts": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/util/ChartUtils.spec.tsx": {
+      "failed": 0,
+      "passed": 50,
+      "skipped": 0
+    },
+    "test/util/ChartUtils/appendOffsetOfLegend.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/util/ChartUtils/getCateCoordinateOfLine.spec.ts": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/util/ChartUtils/getStackedData.spec.ts": {
+      "failed": 0,
+      "passed": 26,
+      "skipped": 0
+    },
+    "test/util/ChartUtils/truncateByDomain.spec.ts": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0
+    },
+    "test/util/DataUtils.spec.ts": {
+      "failed": 0,
+      "passed": 62,
+      "skipped": 0
+    },
+    "test/util/DomUtils.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/util/FunnelUtils.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/util/Global.spec.ts": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/util/LRUCache.spec.ts": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/util/LogUtils.spec.ts": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/util/PolarUtils.spec.ts": {
+      "failed": 0,
+      "passed": 16,
+      "skipped": 0
+    },
+    "test/util/ReactUtils.spec.tsx": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 7
+    },
+    "test/util/ReduceCssCalcPrototype.spec.ts": {
+      "failed": 0,
+      "passed": 19,
+      "skipped": 0
+    },
+    "test/util/ShallowEqual.spec.ts": {
+      "failed": 0,
+      "passed": 12,
+      "skipped": 0
+    },
+    "test/util/TickUtils.spec.ts": {
+      "failed": 0,
+      "passed": 15,
+      "skipped": 0
+    },
+    "test/util/axisPropsAreEqual.spec.ts": {
+      "failed": 0,
+      "passed": 14,
+      "skipped": 0
+    },
+    "test/util/cursor/getCursorPoints.spec.ts": {
+      "failed": 0,
+      "passed": 7,
+      "skipped": 0
+    },
+    "test/util/cursor/getCursorRectangle.spec.ts": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 0
+    },
+    "test/util/errorValue.spec.ts": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0
+    },
+    "test/util/getRelativeCoordinate.spec.ts": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0
+    },
+    "test/util/isArray.spec-d.ts": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/util/isDomainSpecifiedByUser.spec.ts": {
+      "failed": 0,
+      "passed": 95,
+      "skipped": 0
+    },
+    "test/util/isWellBehavedNumber.spec.ts": {
+      "failed": 0,
+      "passed": 38,
+      "skipped": 0
+    },
+    "test/util/payload/getUniqPayload.spec.ts": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/util/propsAreEqual.spec.ts": {
+      "failed": 0,
+      "passed": 11,
+      "skipped": 0
+    },
+    "test/util/resolveDefaultProps.spec-d.ts": {
+      "failed": 0,
+      "passed": 11,
+      "skipped": 0
+    },
+    "test/util/resolveDefaultProps.spec.tsx": {
+      "failed": 0,
+      "passed": 31,
+      "skipped": 0
+    },
+    "test/util/round.spec.ts": {
+      "failed": 0,
+      "passed": 19,
+      "skipped": 0
+    },
+    "test/util/scale/arithmetic.spec.ts": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0
+    },
+    "test/util/scale/createCategoricalInverse.spec.ts": {
+      "failed": 0,
+      "passed": 10,
+      "skipped": 0
+    },
+    "test/util/scale/getTickValuesFixedDomain.test.ts": {
+      "failed": 0,
+      "passed": 17,
+      "skipped": 0
+    },
+    "test/util/svgPropertiesAndEvents.spec.ts": {
+      "failed": 0,
+      "passed": 8,
+      "skipped": 0
+    },
+    "test/util/svgPropertiesNoEvents.spec.tsx": {
+      "failed": 0,
+      "passed": 19,
+      "skipped": 0
+    },
+    "test/util/tooltip/translate.spec.ts": {
+      "failed": 0,
+      "passed": 33,
+      "skipped": 0
+    },
+    "test/util/useAnimationId.spec.tsx": {
+      "failed": 0,
+      "passed": 3,
+      "skipped": 0
+    },
+    "test/util/useUniqueId.spec.ts": {
+      "failed": 0,
+      "passed": 5,
+      "skipped": 0
+    },
+    "test/zIndex/AllZIndexPortals.spec.tsx": {
+      "failed": 0,
+      "passed": 2,
+      "skipped": 0
+    },
+    "test/zIndex/DefaultZIndexes.spec.ts": {
+      "failed": 0,
+      "passed": 9,
+      "skipped": 0
+    },
+    "test/zIndex/getZIndexFromUnknown.spec.ts": {
+      "failed": 0,
+      "passed": 25,
+      "skipped": 0
+    },
+    "test/zIndex/zIndexSelectors.spec.ts": {
+      "failed": 0,
+      "passed": 4,
+      "skipped": 1
+    }
+  },
+  "phase0Fixes": {
+    "appliedAt": "2026-04-27T19:24:00Z",
+    "filesModified": [
+      "src/animation/CSSTransitionAnimate.tsx",
+      "src/cartesian/ErrorBar.tsx",
+      "src/chart/Treemap.tsx"
+    ],
+    "summary": "CSSTransitionAnimate WAAPI removed; CSS transition: restored in childStyle memo; children prop reverted to 1-arg matching upstream. Callers (ErrorBar, Treemap) updated to drop ref param.",
+    "testsFixed": [
+      {
+        "nowPassing": 9,
+        "path": "test/animation/CSSTransitionAnimate.timing.spec.tsx",
+        "previouslyFailing": 9
+      },
+      {
+        "nowPassing": 13,
+        "path": "test/cartesian/ErrorBar.spec.tsx",
+        "previouslyFailing": 4
+      }
+    ]
+  },
+  "preExistingFailingFiles": [],
+  "sacredReactivityFiles": [
+    {
+      "actualPassing": 4,
+      "expectedPassing": 4,
+      "path": "test/cartesian/Brush.eventReactivity.spec.tsx",
+      "status": "GREEN"
+    },
+    {
+      "actualPassing": 5,
+      "expectedPassing": 5,
+      "path": "test/chart/RechartsWrapper.eventReactivity.spec.tsx",
+      "status": "GREEN"
+    },
+    {
+      "actualPassing": 6,
+      "expectedPassing": 6,
+      "path": "test/chart/Sankey.tooltipReactivity.spec.tsx",
+      "status": "GREEN"
+    },
+    {
+      "actualPassing": 6,
+      "expectedPassing": 6,
+      "path": "test/chart/Treemap.tooltipReactivity.spec.tsx",
+      "status": "GREEN"
+    },
+    {
+      "actualPassing": 6,
+      "expectedPassing": 6,
+      "path": "test/polar/Radar.labelListReactivity.spec.tsx",
+      "status": "GREEN"
+    }
+  ],
+  "sacredReactivityTotal": 27,
+  "skippedFiles": 7,
+  "skippedTests": 304,
+  "todoTests": 9,
+  "totalFiles": 260,
+  "totalTests": 5230
+}

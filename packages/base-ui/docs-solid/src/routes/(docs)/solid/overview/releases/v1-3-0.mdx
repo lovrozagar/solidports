@@ -1,0 +1,81 @@
+# v1.3.0
+
+<Subtitle>Mar 12, 2026</Subtitle>
+<Meta name="description" content="v1.3.0 release notes. Mar 12, 2026." />
+
+## General changes
+
+- Warn when a component function is rendered directly
+- Reset `openMethod` after close transition
+- Fire Space activation on `keydown` in composite widgets
+- Skip CSS-hidden items during keyboard navigation in composite widgets
+- Optimize hot paths in `useHover` hooks and `safePolygon`
+- Snap `--anchor-width` and `--anchor-height` to device pixel grid
+- Fix outside press dismissal when a component is portaled into a shadow DOM
+- Fix nested hoverable popups
+- Apply `data-base-ui-inert` to highest-level node
+- Fix portable types
+
+## Accordion
+
+- Add generic `Value` typing
+
+## Autocomplete
+
+- Respect a `null` `filter` prop; add `InputGroup` part
+
+## Avatar
+
+- Remove fallback transition logic and prevent premature image display
+
+## Button
+
+- Avoid checking `disabled` twice in `onKeyDown` and `onKeyUp`
+
+## Checkbox
+
+- Add automatic `aria-labelledby` support
+
+## Combobox
+
+- Multiple improvements including field attribute handling, inline input preservation, SSR ARIA fixes, virtualized grid navigation, and new parts
+
+## Drawer
+
+- Now stable (breaking change—no longer marked as preview); improved touch handling and swipe behavior
+
+## Field
+
+- Fix validation when `Form` errors and `invalid` prop coexist
+
+## Menu
+
+- Prevent pointer-leave focus stealing; optimize pointer-events; fix `closeDelay`; implement content transitions
+
+## Navigation Menu
+
+- Support nested inline menus; fix close propagation and delayed trigger switches
+
+## Popover
+
+- Focus trapping improvements when close button is rendered inside
+
+## Select
+
+- Fix hidden input fallback, placeholder rendering, drag-to-select clicks, type definitions
+
+## Slider
+
+- Add `Label` part; stop validation commit on `touchend`
+
+## Tabs
+
+- Re-render indicator position on resize
+
+## Toast
+
+- Enable closing all toasts; prevent duplicate `onClose` calls
+
+## Tooltip
+
+- Add `closeOnClick` prop

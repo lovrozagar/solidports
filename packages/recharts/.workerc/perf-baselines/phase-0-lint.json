@@ -1,0 +1,8 @@
+{
+  "command": "bunx oxlint -A sort-keys src",
+  "errorsCount": 0,
+  "files": [],
+  "filesScanned": 262,
+  "rulesApplied": 209,
+  "warningsCount": 0
+}

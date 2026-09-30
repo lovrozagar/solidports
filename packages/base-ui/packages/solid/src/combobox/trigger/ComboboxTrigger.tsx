@@ -1,0 +1,350 @@
+/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
+import { createEffect, mergeProps as solidMergeProps } from 'solid-js';
+import type { FieldRoot } from '../../field/root/FieldRoot';
+import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useClick, useTypeahead } from '../../floating-ui-solid';
+import { contains, getTarget, stopEvent } from '../../floating-ui-solid/utils';
+import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
+import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
+import { splitComponentProps } from '../../solid-helpers';
+import { useButton } from '../../internals/use-button';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import { getPseudoElementBounds } from '../../utils/getPseudoElementBounds';
+import { ownerDocument } from '../../utils/owner';
+import { REASONS } from '../../utils/reasons';
+import { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
+import type { Side } from '../../utils/useAnchorPositioning';
+import { useRenderElement } from '../../utils/useRenderElement';
+import { useTimeout } from '../../utils/useTimeout';
+import {
+  useComboboxDerivedItemsContext,
+  useComboboxFloatingContext,
+  useComboboxInputValueContext,
+  useComboboxRootContext,
+} from '../root/ComboboxRootContext';
+import { triggerStateAttributesMapping } from '../utils/stateAttributesMapping';
+
+const BOUNDARY_OFFSET = 2;
+
+/**
+ * A button that opens the popup.
+ * Renders a `<button>` element.
+ */
+export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
+  const [, local, elementProps] = splitComponentProps(componentProps, [
+    'nativeButton',
+    'disabled',
+    'id',
+  ]);
+  const nativeButton = () => local.nativeButton ?? true;
+  const disabledProp = () => local.disabled ?? false;
+  const idProp = () => local.id;
+
+  const {
+    state: fieldState,
+    disabled: fieldDisabled,
+    setTouched,
+    setFocused,
+    validationMode,
+    validation,
+  } = useFieldRootContext();
+  const { labelId } = useLabelableContext();
+  const { store } = useComboboxRootContext();
+  const { filteredItems } = useComboboxDerivedItemsContext();
+
+  const selectionMode = store.useSelector('selectionMode');
+  const comboboxDisabled = store.useSelector('disabled');
+  const readOnly = store.useSelector('readOnly');
+  const required = store.useSelector('required');
+  const mounted = store.useSelector('mounted');
+  const popupSideValue = store.useState('popupSide');
+  const positionerElement = store.useState('positionerElement');
+  const listboxId = store.useState('listboxId');
+  const triggerElement = store.useState('triggerElement');
+  const inputInsidePopup = store.useState('inputInsidePopup');
+  const rootId = store.useSelector('id');
+  const open = store.useSelector('open');
+  const selectedValue = store.useSelector('selectedValue');
+  const activeIndex = store.useState('activeIndex');
+  const selectedIndex = store.useState('selectedIndex');
+  const hasSelectedValue = store.useSelector('hasSelectedValue');
+
+  const { context: floatingRootContext } = useComboboxFloatingContext();
+  const inputValue = useComboboxInputValueContext();
+
+  const focusTimeout = useTimeout();
+
+  const disabled = () => fieldDisabled() || comboboxDisabled() || disabledProp();
+  const listEmpty = () => filteredItems().length === 0;
+  const popupSide = () => (mounted() && positionerElement() ? popupSideValue() : null);
+
+  useLabelableId({ id: () => (inputInsidePopup() ? idProp() : undefined) });
+  const id = () => (inputInsidePopup() ? (idProp() ?? rootId()) : idProp());
+
+  let currentPointerTypeRef = '';
+
+  function trackPointerType(event: PointerEvent) {
+    currentPointerTypeRef = event.pointerType;
+  }
+
+  // Update the floating root context to use the trigger element when it differs from the current reference.
+  // This ensures useClick and useTypeahead attach handlers to the correct element.
+  createEffect(() => {
+    if (!inputInsidePopup()) {
+      return;
+    }
+    if (triggerElement() && triggerElement() !== floatingRootContext.state.domReferenceElement) {
+      floatingRootContext.set('domReferenceElement', triggerElement());
+    }
+  });
+
+  const triggerTypeahead = useTypeahead({
+    get context() {
+      return floatingRootContext;
+    },
+    props: {
+      get activeIndex() {
+        return activeIndex();
+      },
+      get enabled() {
+        return !open() && !readOnly() && !comboboxDisabled() && selectionMode() === 'single';
+      },
+      get listRef() {
+        return store.context.labelsRef;
+      },
+      onMatch(index) {
+        const nextSelectedValue = store.context.valuesRef[index];
+        if (nextSelectedValue !== undefined) {
+          store.context.setSelectedValue(nextSelectedValue, createChangeEventDetails('none'));
+        }
+      },
+      get selectedIndex() {
+        return selectedIndex();
+      },
+    },
+  });
+
+  const triggerClick = useClick({
+    get context() {
+      return floatingRootContext;
+    },
+    props: {
+      get enabled() {
+        return !readOnly() && !comboboxDisabled();
+      },
+      get event() {
+        return 'mousedown' as const;
+      },
+    },
+  });
+
+  const { buttonRef, getButtonProps } = useButton({
+    disabled,
+    native: nativeButton,
+  });
+
+  const state: ComboboxTrigger.State = solidMergeProps(fieldState, {
+    get disabled() {
+      return disabled();
+    },
+    get listEmpty() {
+      return listEmpty();
+    },
+    get open() {
+      return open();
+    },
+    get placeholder() {
+      return !hasSelectedValue();
+    },
+    get popupSide() {
+      return popupSide();
+    },
+  });
+
+  const setTriggerElement = (element: HTMLElement | null | undefined) => {
+    store.set('triggerElement', element);
+  };
+
+  const element = useRenderElement('button', componentProps, {
+    get props() {
+      return [
+        store.selectors.triggerProps,
+        triggerClick.reference,
+        triggerTypeahead.reference,
+        {
+          get id() {
+            return id();
+          },
+          get tabIndex() {
+            return inputInsidePopup() ? 0 : -1;
+          },
+          get role() {
+            return inputInsidePopup() ? 'combobox' : undefined;
+          },
+          get 'aria-expanded'() {
+            return open() ? 'true' : 'false';
+          },
+          get 'aria-haspopup'() {
+            return inputInsidePopup() ? 'dialog' : 'listbox';
+          },
+          get 'aria-controls'() {
+            return open() ? listboxId() : undefined;
+          },
+          get 'aria-required'() {
+            return inputInsidePopup() ? required() || undefined : undefined;
+          },
+          get 'aria-labelledby'() {
+            return labelId();
+          },
+          onPointerDown: trackPointerType,
+          onPointerEnter: trackPointerType,
+          onFocus() {
+            setFocused(true);
+            if (disabled() || readOnly()) {
+              return;
+            }
+
+            focusTimeout.start(0, store.context.forceMount);
+          },
+          onBlur(event: FocusEvent) {
+            // If focus is moving into the popup, don't count it as a blur.
+            if (contains(positionerElement(), event.relatedTarget as Element | null)) {
+              return;
+            }
+
+            setTouched(true);
+            setFocused(false);
+
+            if (validationMode() === 'onBlur') {
+              const valueToValidate = selectionMode() === 'none' ? inputValue() : selectedValue();
+              validation.commit(valueToValidate);
+            }
+          },
+          onMouseDown(event: MouseEvent) {
+            if (disabled() || readOnly()) {
+              return;
+            }
+
+            if (!inputInsidePopup()) {
+              floatingRootContext.set('domReferenceElement', event.currentTarget);
+            }
+
+            // Ensure items are registered for initial selection highlight.
+            store.context.forceMount();
+
+            if (currentPointerTypeRef !== 'touch') {
+              store.state.inputRef?.focus();
+
+              if (!inputInsidePopup()) {
+                event.preventDefault();
+              }
+            }
+
+            if (open()) {
+              return;
+            }
+
+            const doc = ownerDocument(event.currentTarget as Element | null);
+
+            function handleMouseUp(mouseEvent: MouseEvent) {
+              const triggerEl = triggerElement();
+              if (!triggerEl) {
+                return;
+              }
+
+              const mouseUpTarget = getTarget(mouseEvent) as Element | null;
+              const positioner = store.state.positionerElement;
+              const list = store.state.listElement;
+
+              if (
+                contains(triggerEl, mouseUpTarget) ||
+                contains(positioner, mouseUpTarget) ||
+                contains(list, mouseUpTarget) ||
+                mouseUpTarget === triggerEl
+              ) {
+                return;
+              }
+
+              const bounds = getPseudoElementBounds(triggerEl);
+
+              const withinHorizontal =
+                mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET &&
+                mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET;
+              const withinVertical =
+                mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET &&
+                mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET;
+
+              if (withinHorizontal && withinVertical) {
+                return;
+              }
+
+              store.context.setOpen(false, createChangeEventDetails('cancel-open', mouseEvent));
+            }
+
+            if (inputInsidePopup()) {
+              doc.addEventListener('mouseup', handleMouseUp, { once: true });
+            }
+          },
+          onKeyDown(event: KeyboardEvent) {
+            if (disabled() || readOnly()) {
+              return;
+            }
+
+            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+              stopEvent(event);
+              store.context.setOpen(true, createChangeEventDetails(REASONS.listNavigation, event));
+              store.state.inputRef?.focus();
+            }
+          },
+        },
+        validation ? validation.getValidationProps(elementProps as any) : elementProps,
+        getButtonProps,
+      ];
+    },
+    ref: (el) => {
+      buttonRef(el);
+      setTriggerElement(el);
+    },
+    state,
+    stateAttributesMapping: triggerStateAttributesMapping,
+  });
+
+  return <>{element()}</>;
+}
+
+export interface ComboboxTriggerState extends FieldRoot.State {
+  /**
+   * Whether the popup is open.
+   */
+  open: boolean;
+  /**
+   * Whether the component should ignore user interaction.
+   */
+  disabled: boolean;
+  /**
+   * Indicates which side the corresponding popup is positioned relative to its anchor.
+   */
+  popupSide: Side | null;
+  /**
+   * Present when the corresponding items list is empty.
+   */
+  listEmpty: boolean;
+  /**
+   * Whether the combobox doesn't have a value.
+   */
+  placeholder: boolean;
+}
+
+export interface ComboboxTriggerProps
+  extends NativeButtonProps, BaseUIComponentProps<'button', ComboboxTrigger.State> {
+  /**
+   * Whether the component should ignore user interaction.
+   * @default false
+   */
+  disabled?: boolean | undefined;
+}
+
+export namespace ComboboxTrigger {
+  export type State = ComboboxTriggerState;
+  export type Props = ComboboxTriggerProps;
+}

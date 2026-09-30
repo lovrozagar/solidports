@@ -1,0 +1,37 @@
+import type { MaybeAccessor } from '../solid-helpers';
+
+export type StateAttributesMapping<State> = {
+  [Property in keyof State]?: (
+    state: State[Property],
+  ) => Record<string, MaybeAccessor<string>> | null;
+};
+
+export function getStateAttributesProps<State>(
+  state: State,
+  customMapping?: StateAttributesMapping<State>,
+) {
+  const props: Record<string, string> = {};
+
+  /* eslint-disable-next-line guard-for-in */
+  for (const key in state) {
+    const value = state[key];
+
+    const mapper = customMapping?.[key];
+    if (mapper) {
+      const customProps = mapper(value);
+      if (customProps != null) {
+        Object.assign(props, customProps);
+      }
+
+      continue;
+    }
+
+    if (value === true) {
+      props[`data-${key.toLowerCase()}`] = '';
+    } else if (value) {
+      props[`data-${key.toLowerCase()}`] = value.toString();
+    }
+  }
+
+  return props;
+}

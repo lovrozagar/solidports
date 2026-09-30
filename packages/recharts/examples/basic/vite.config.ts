@@ -1,0 +1,14 @@
+import { defineConfig } from "vite"
+import solid from "vite-plugin-solid"
+
+export default defineConfig({
+	plugins: [solid()],
+	server: {
+		port: 5183,
+		strictPort: true,
+	},
+	preview: {
+		port: 5183,
+		strictPort: true,
+	},
+})

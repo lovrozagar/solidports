@@ -1,0 +1,18 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {},
+  "description": "Enables RTL behavior for Base UI components.",
+  "name": "DirectionProvider",
+  "props": {
+    "children": {
+      "detailedType": "React.ReactNode",
+      "type": "ReactNode"
+    },
+    "direction": {
+      "default": "'ltr'",
+      "description": "The reading direction of the text",
+      "detailedType": "'ltr' | 'rtl' | undefined",
+      "type": "TextDirection"
+    }
+  }
+}

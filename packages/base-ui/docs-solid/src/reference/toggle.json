@@ -1,0 +1,59 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {
+    "data-pressed": {
+      "description": "Present when the toggle button is pressed."
+    }
+  },
+  "description": "A two-state button that can be on or off.\nRenders a `<button>` element.",
+  "name": "Toggle",
+  "props": {
+    "class": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: Toggle.State) => string | undefined)",
+      "type": "string | ((state: Toggle.State) => string | undefined)"
+    },
+    "defaultPressed": {
+      "default": "false",
+      "description": "Whether the toggle button is currently pressed.\nThis is the uncontrolled counterpart of `pressed`.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "disabled": {
+      "default": "false",
+      "description": "Whether the component should ignore user interaction.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "nativeButton": {
+      "default": "true",
+      "description": "Whether the component renders a native `<button>` element when replacing it\nvia the `render` prop.\nSet to `false` if the rendered element is not a button (e.g. `<div>`).",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "onPressedChange": {
+      "description": "Callback fired when the pressed state is changed.",
+      "detailedType": "| ((\n    pressed: boolean,\n    eventDetails: Toggle.ChangeEventDetails,\n  ) => void)\n| undefined",
+      "type": "((pressed: boolean, eventDetails: Toggle.ChangeEventDetails) => void)"
+    },
+    "pressed": {
+      "description": "Whether the toggle button is currently pressed.\nThis is the controlled counterpart of `defaultPressed`.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((props: HTMLProps, state: Toggle.State) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: Toggle.State) => ReactElement)"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((state: Toggle.State) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: Toggle.State) => CSSProperties | undefined)"
+    },
+    "value": {
+      "description": "A unique string that identifies the toggle when used\ninside a toggle group.",
+      "detailedType": "string | undefined",
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,327 @@
+/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
+'use client';
+import {
+  createEffect,
+  createMemo,
+  createRenderEffect,
+  onMount,
+  Show,
+  type JSX,
+} from 'solid-js';
+import {
+  FloatingTree,
+  useDismiss,
+  useFloatingParentNodeId,
+  useFloatingTree,
+  useInteractions,
+  useRole,
+  useSyncedFloatingRootContext,
+} from '../../floating-ui-solid';
+import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
+import {
+  createChangeEventDetails,
+  type BaseUIChangeEventDetails,
+} from '../../utils/createBaseUIEventDetails';
+import {
+  useImplicitActiveTrigger,
+  useOpenStateTransitions,
+  type PayloadChildRenderFunction,
+} from '../../utils/popups';
+import { REASONS } from '../../utils/reasons';
+import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
+import { PopoverHandle } from '../store/PopoverHandle';
+import { PopoverStore } from '../store/PopoverStore';
+import { PopoverRootContext, usePopoverRootContext } from './PopoverRootContext';
+
+function PopoverRootComponent<Payload>(props: PopoverRoot.Props<Payload>) {
+  const parentPopoverContext = usePopoverRootContext(true);
+  const openProp = () => props.open;
+  const defaultOpen = () => props.defaultOpen ?? false;
+  const modal = () => props.modal ?? false;
+  const triggerIdProp = () => props.triggerId;
+  const defaultTriggerIdProp = () => props.defaultTriggerId ?? null;
+
+  const internalStore = PopoverStore({
+    get activeTriggerId() {
+      return defaultTriggerIdProp();
+    },
+    get modal() {
+      return modal();
+    },
+    get open() {
+      return defaultOpen();
+    },
+    get openProp() {
+      return openProp();
+    },
+    get triggerIdProp() {
+      return triggerIdProp();
+    },
+  });
+
+  return (
+    <Show when={props.handle?.store ?? internalStore} keyed>
+      {(resolvedStore) => (
+        <PopoverRootComponentImpl
+          {...props}
+          parentPopoverContext={parentPopoverContext}
+          store={resolvedStore as any}
+        />
+      )}
+    </Show>
+  );
+}
+
+function PopoverRootComponentImpl<Payload>(
+  props: PopoverRoot.Props<Payload> & {
+    parentPopoverContext: ReturnType<typeof usePopoverRootContext>;
+    store: PopoverStore<Payload>;
+  },
+) {
+  const openProp = () => props.open;
+  const defaultOpen = () => props.defaultOpen ?? false;
+  const modal = () => props.modal ?? false;
+  const triggerIdProp = () => props.triggerId;
+  const defaultTriggerIdProp = () => props.defaultTriggerId ?? null;
+
+  const open = () => props.store.select('open');
+  const payload = () => props.store.select('payload') as Payload | undefined;
+
+  const { openMethod, triggerProps: interactionTypeTriggerProps } = useOpenInteractionType(open);
+
+  useImplicitActiveTrigger({
+    get store() {
+      return props.store;
+    },
+  });
+  const { forceUnmount } = useOpenStateTransitions({
+    onUnmount: () => {
+      props.store.update({ stickIfOpen: true, openChangeReason: null });
+    },
+    get open() {
+      return open();
+    },
+    get store() {
+      return props.store;
+    },
+  });
+
+  createEffect(() => {
+    if (!open()) {
+      props.store.context.stickIfOpenTimeout.clear();
+    }
+  });
+
+  const handleImperativeClose = () => {
+    props.store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction));
+  };
+
+  const floatingTreeFromContext = useFloatingTree();
+  const floatingRootContext = useSyncedFloatingRootContext({
+    get onOpenChange() {
+      return props.store.setOpen;
+    },
+    get popupStore() {
+      return props.store;
+    },
+  });
+
+  createRenderEffect(() => {
+    props.store.context.onOpenChange = props.onOpenChange;
+    props.store.context.onOpenChangeComplete = props.onOpenChangeComplete;
+    props.store.context.floatingRootContext = floatingRootContext;
+
+    if (floatingTreeFromContext) {
+      props.store.context.floatingTreeRoot = floatingTreeFromContext;
+    } else if (props.parentPopoverContext) {
+      props.store.context.floatingTreeRoot =
+        props.parentPopoverContext.store.context.floatingTreeRoot;
+    }
+
+    props.store.useControlledProp('openProp', openProp);
+    props.store.useControlledProp('triggerIdProp', triggerIdProp);
+  });
+
+  // Support initially open state when uncontrolled
+  onMount(() => {
+    if (openProp() === undefined && props.store.state.open === false && defaultOpen() === true) {
+      props.store.update({
+        activeTriggerId: defaultTriggerIdProp(),
+        open: true,
+      });
+    }
+
+    if (props.actionsRef) {
+      props.actionsRef.current = { close: handleImperativeClose, unmount: forceUnmount };
+    }
+  });
+
+  const dismiss = useDismiss({
+    get context() {
+      return floatingRootContext;
+    },
+    props: {
+      get externalTree() {
+        return props.store.context.floatingTreeRoot;
+      },
+      outsidePressEvent: {
+        // Ensure `aria-hidden` on outside elements is removed immediately
+        // on outside press when trapping focus.
+        get mouse() {
+          return modal() === 'trap-focus' ? 'sloppy' : 'intentional';
+        },
+        touch: 'sloppy',
+      },
+    },
+  });
+
+  const role = useRole({
+    get context() {
+      return floatingRootContext;
+    },
+  });
+
+  const { getReferenceProps, getFloatingProps, getTriggerProps } = useInteractions([dismiss, role]);
+
+  const activeTriggerProps = createMemo(() => getReferenceProps(interactionTypeTriggerProps));
+  const inactiveTriggerProps = createMemo(() => getTriggerProps(interactionTypeTriggerProps));
+  const popupProps = createMemo(() => getFloatingProps());
+  const nested = createMemo(() => useFloatingParentNodeId() != null);
+
+  createRenderEffect(() => {
+    props.store.useSyncedValues({
+      activeTriggerProps,
+      inactiveTriggerProps,
+      modal,
+      nested,
+      openMethod,
+      popupProps,
+    });
+  });
+
+  const popoverContext: PopoverRootContext<Payload> = {
+    get store() {
+      return props.store;
+    },
+  };
+
+  return (
+    <PopoverRootContext.Provider value={popoverContext as PopoverRootContext<unknown>}>
+      <ComponentWithPayload payload={payload} children={props.children} />
+    </PopoverRootContext.Provider>
+  );
+}
+
+/**
+ * Groups all parts of the popover.
+ * Doesn’t render its own HTML element.
+ *
+ * Documentation: [Base UI Popover](https://base-ui.com/react/components/popover)
+ */
+export function PopoverRoot<Payload = unknown>(props: PopoverRoot.Props<Payload>) {
+  const context = usePopoverRootContext(true);
+
+  return (
+    <Show
+      when={context}
+      fallback={
+        <FloatingTree>
+          <PopoverRootComponent {...props} />
+        </FloatingTree>
+      }
+    >
+      <PopoverRootComponent {...props} />
+    </Show>
+  );
+}
+
+export interface PopoverRootState {}
+
+export interface PopoverRootProps<Payload = unknown> {
+  /**
+   * Whether the popover is initially open.
+   *
+   * To render a controlled popover, use the `open` prop instead.
+   * @default false
+   */
+  defaultOpen?: boolean | undefined;
+  /**
+   * Whether the popover is currently open.
+   */
+  open?: boolean | undefined;
+  /**
+   * Event handler called when the popover is opened or closed.
+   */
+  onOpenChange?:
+    | ((open: boolean, eventDetails: PopoverRoot.ChangeEventDetails) => void)
+    | undefined;
+  /**
+   * Event handler called after any animations complete when the popover is opened or closed.
+   */
+  onOpenChangeComplete?: ((open: boolean) => void) | undefined;
+  /**
+   * A ref to imperative actions.
+   * - `unmount`: When specified, the popover will not be unmounted when closed.
+   * Instead, the `unmount` function must be called to unmount the popover manually.
+   * Useful when the popover's animation is controlled by an external library.
+   * - `close`: Closes the dialog imperatively when called.
+   */
+  actionsRef?: ReactLikeRef<PopoverRoot.Actions | null> | undefined;
+  /**
+   * Determines if the popover enters a modal state when open.
+   * - `true`: user interaction is limited to the popover: document page scroll is locked, and pointer interactions on outside elements are disabled.
+   * - `false`: user interaction with the rest of the document is allowed.
+   * - `'trap-focus'`: focus is trapped inside the popover, but document page scroll is not locked and pointer interactions outside of it remain enabled.
+   * @default false
+   */
+  modal?: (boolean | 'trap-focus') | undefined;
+  /**
+   * ID of the trigger that the popover is associated with.
+   * This is useful in conjuntion with the `open` prop to create a controlled popover.
+   * There's no need to specify this prop when the popover is uncontrolled (i.e. when the `open` prop is not set).
+   */
+  triggerId?: (string | null) | undefined;
+  /**
+   * ID of the trigger that the popover is associated with.
+   * This is useful in conjuntion with the `defaultOpen` prop to create an initially open popover.
+   */
+  defaultTriggerId?: (string | null) | undefined;
+  /**
+   * A handle to associate the popover with a trigger.
+   * If specified, allows external triggers to control the popover's open state.
+   */
+  handle?: PopoverHandle<Payload> | undefined;
+  /**
+   * The content of the popover.
+   * This can be a regular React node or a render function that receives the `payload` of the active trigger.
+   */
+  children?: JSX.Element | PayloadChildRenderFunction<Payload>;
+}
+
+export interface PopoverRootActions {
+  unmount: () => void;
+  close: () => void;
+}
+
+export type PopoverRootChangeEventReason =
+  | typeof REASONS.triggerHover
+  | typeof REASONS.triggerFocus
+  | typeof REASONS.triggerPress
+  | typeof REASONS.outsidePress
+  | typeof REASONS.escapeKey
+  | typeof REASONS.closePress
+  | typeof REASONS.focusOut
+  | typeof REASONS.imperativeAction
+  | typeof REASONS.none;
+export type PopoverRootChangeEventDetails =
+  BaseUIChangeEventDetails<PopoverRoot.ChangeEventReason> & {
+    preventUnmountOnClose(): void;
+  };
+
+export namespace PopoverRoot {
+  export type State = PopoverRootState;
+  export type Props<Payload = unknown> = PopoverRootProps<Payload>;
+  export type Actions = PopoverRootActions;
+  export type ChangeEventReason = PopoverRootChangeEventReason;
+  export type ChangeEventDetails = PopoverRootChangeEventDetails;
+}

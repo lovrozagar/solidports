@@ -1,0 +1,32 @@
+{
+  "intersect": [
+    "line",
+    "bar",
+    "area",
+    "composed",
+    "pie",
+    "radar",
+    "radial",
+    "scatter",
+    "funnel",
+    "sankey",
+    "treemap",
+    "sunburst"
+  ],
+  "measureSet": [
+    "line",
+    "bar",
+    "area",
+    "composed",
+    "pie",
+    "radar",
+    "radial",
+    "scatter",
+    "funnel",
+    "sankey",
+    "treemap",
+    "sunburst"
+  ],
+  "onlyReact": [],
+  "onlySolid": []
+}

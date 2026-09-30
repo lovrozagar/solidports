@@ -1,0 +1,34 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"compilerOptions": {
+		"allowSyntheticDefaultImports": true,
+		"declaration": true,
+		"declarationDir": "./dist",
+		"esModuleInterop": true,
+		"ignoreDeprecations": "6.0",
+		"jsx": "preserve",
+		"jsxImportSource": "solid-js",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"noImplicitAny": true,
+		"noImplicitThis": true,
+		"noUncheckedIndexedAccess": true,
+		"outDir": "./dist",
+		"skipLibCheck": true,
+		"sourceMap": true,
+		"strict": true,
+		"strictBindCallApply": true,
+		"strictFunctionTypes": true,
+		"strictNullChecks": true,
+		"strictPropertyInitialization": true,
+		"target": "ESNext",
+		"types": [
+			"vitest/globals",
+			"node"
+		],
+		"useUnknownInCatchVariables": true
+	},
+	"include": [
+		"./src/**/*"
+	]
+}

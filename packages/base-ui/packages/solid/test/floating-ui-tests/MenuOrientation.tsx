@@ -1,0 +1,559 @@
+import c from 'clsx';
+import {
+  batch,
+  createContext,
+  createEffect,
+  createSignal,
+  on,
+  onCleanup,
+  Show,
+  splitProps,
+  useContext,
+  type Accessor,
+  type JSX,
+} from 'solid-js';
+import { CompositeList } from '../../src/internals/composite/list/CompositeList';
+import { useCompositeListItem } from '../../src/internals/composite/list/useCompositeListItem';
+import {
+  autoUpdate,
+  flip,
+  FloatingFocusManager,
+  FloatingNode,
+  FloatingPortal,
+  FloatingTree,
+  offset,
+  safePolygon,
+  shift,
+  useClick,
+  useDismiss,
+  useFloating,
+  useFloatingNodeId,
+  useFloatingParentNodeId,
+  useFloatingTree,
+  useHover,
+  useInteractions,
+  useListNavigation,
+  useRole,
+  useTypeahead,
+} from '../../src/floating-ui-solid';
+import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyRootContext';
+import { callEventHandler, defaultProps } from '../../src/solid-helpers';
+
+type MenuContextType = {
+  getItemProps: ReturnType<typeof useInteractions>['getItemProps'];
+  activeIndex: Accessor<number | null>;
+  setActiveIndex: (value: number | null) => void;
+  setHasFocusInside: (value: boolean) => void;
+  allowHover: Accessor<boolean>;
+  isOpen: Accessor<boolean>;
+  setIsOpen: (value: boolean) => void;
+  parent: MenuContextType | null;
+  orientation: Accessor<'vertical' | 'horizontal' | 'both'>;
+};
+
+const MenuContext = createContext<MenuContextType>({
+  getItemProps: () => ({}),
+  activeIndex: () => null,
+  setActiveIndex: () => {},
+  setHasFocusInside: () => {},
+  allowHover: () => true,
+  isOpen: () => false,
+  setIsOpen: () => {},
+  parent: null,
+  orientation: () => 'vertical' as const,
+});
+
+interface MenuProps {
+  label: string;
+  nested?: boolean;
+  children?: JSX.Element;
+  keepMounted?: boolean;
+  orientation?: 'vertical' | 'horizontal' | 'both';
+  cols?: number;
+}
+
+/** @internal */
+export function MenuComponent(
+  // { children, label, keepMounted = false, cols, orientation: orientationOption, ...props },
+  componentProps: MenuProps & JSX.HTMLAttributes<HTMLButtonElement>,
+) {
+  const props = defaultProps(componentProps, { keepMounted: false });
+  const [local, elementProps] = splitProps(props, [
+    'children',
+    'label',
+    'keepMounted',
+    'cols',
+    'orientation',
+  ]);
+  const [isOpen, setIsOpen] = createSignal(false);
+  const [activeIndex, setActiveIndex] = createSignal<number | null>(null);
+  const [allowHover, setAllowHover] = createSignal(false);
+  const [hasFocusInside, setHasFocusInside] = createSignal(false);
+
+  const compositeListRefs = {
+    elements: [] as Array<HTMLButtonElement | null>,
+    labels: [] as Array<string | null>,
+  };
+
+  const tree = useFloatingTree();
+  const nodeId = useFloatingNodeId();
+  const parentId = useFloatingParentNodeId();
+  const isNested = parentId != null;
+  const orientation = () => local.orientation ?? (local.cols ? 'both' : 'vertical');
+
+  const parent = useContext(MenuContext);
+  const item = useCompositeListItem();
+
+  const { floatingStyles, refs, context } = useFloating({
+    get nodeId() {
+      return nodeId();
+    },
+    get open() {
+      return isOpen();
+    },
+    onOpenChange: setIsOpen,
+    get placement() {
+      return isNested ? 'right-start' : 'bottom-start';
+    },
+    get middleware() {
+      return [
+        offset({ mainAxis: isNested ? 0 : 4, alignmentAxis: isNested ? -4 : 0 }),
+        flip(),
+        shift(),
+      ];
+    },
+    whileElementsMounted: autoUpdate,
+  });
+
+  const fallbackContext = getEmptyRootContext();
+  const hoverContext = () => (isNested && allowHover() ? context : fallbackContext);
+
+  const hover = useHover({
+    get context() {
+      return hoverContext();
+    },
+    props: {
+      delay: { open: 75 },
+      handleClose: safePolygon({ blockPointerEvents: true }),
+    },
+  });
+  const click = useClick({
+    context,
+    props: {
+      event: 'mousedown',
+      get toggle() {
+        return !isNested || !allowHover();
+      },
+      ignoreMouse: isNested,
+    },
+  });
+  const role = useRole({ context, props: { role: 'menu' } });
+  const dismiss = useDismiss({ context, props: { bubbles: true } });
+  const listNavigation = useListNavigation({
+    context,
+    props: {
+      listRef: compositeListRefs.elements,
+      get activeIndex() {
+        return activeIndex();
+      },
+      nested: isNested,
+      onNavigate: setActiveIndex,
+      get orientation() {
+        return orientation();
+      },
+      get cols() {
+        return local.cols;
+      },
+    },
+  });
+  const typeahead = useTypeahead({
+    context,
+    props: {
+      listRef: compositeListRefs.labels,
+      onMatch: (index) => (isOpen() ? setActiveIndex(index) : undefined),
+      get activeIndex() {
+        return activeIndex();
+      },
+    },
+  });
+
+  const { getReferenceProps, getFloatingProps, getItemProps } = useInteractions([
+    hover,
+    click,
+    role,
+    dismiss,
+    listNavigation,
+    typeahead,
+  ]);
+
+  // Event emitter allows you to communicate across tree components.
+  // This effect closes all menus when an item gets clicked anywhere
+  // in the tree.
+  createEffect(() => {
+    if (!tree) {
+      return;
+    }
+
+    function handleTreeClick() {
+      setIsOpen(false);
+    }
+
+    function onSubMenuOpen(event: { nodeId: string; parentId: string }) {
+      if (event.nodeId !== nodeId() && event.parentId === parentId) {
+        setIsOpen(false);
+      }
+    }
+
+    tree.events.on('click', handleTreeClick);
+    tree.events.on('menuopen', onSubMenuOpen);
+
+    onCleanup(() => {
+      tree.events.off('click', handleTreeClick);
+      tree.events.off('menuopen', onSubMenuOpen);
+    });
+  });
+
+  createEffect(() => {
+    if (isOpen() && tree) {
+      tree.events.emit('menuopen', { parentId, nodeId: nodeId() });
+    }
+  });
+
+  // Determine if "hover" logic can run based on the modality of input. This
+  // prevents unwanted focus synchronization as menus open and close with
+  // keyboard navigation and the cursor is resting on the menu.
+  createEffect(
+    on(allowHover, () => {
+      function onPointerMove({ pointerType }: PointerEvent) {
+        if (pointerType !== 'touch') {
+          setAllowHover(true);
+        }
+      }
+
+      function onKeyDown() {
+        setAllowHover(false);
+      }
+
+      window.addEventListener('pointermove', onPointerMove, {
+        once: true,
+        capture: true,
+      });
+      window.addEventListener('keydown', onKeyDown, true);
+      onCleanup(() => {
+        window.removeEventListener('pointermove', onPointerMove, {
+          capture: true,
+        });
+        window.removeEventListener('keydown', onKeyDown, true);
+      });
+    }),
+  );
+
+  return (
+    <FloatingNode id={nodeId()}>
+      <button
+        type="button"
+        ref={(el) => {
+          refs.setReference(el);
+          item.setRef(el);
+          // eslint-disable-next-line solid/reactivity
+          props.ref = el;
+        }}
+        data-open={isOpen() ? '' : undefined}
+        // eslint-disable-next-line no-nested-ternary
+        tabIndex={!isNested ? props.tabIndex : parent.activeIndex() === item.index() ? 0 : -1}
+        class={c(
+          props.class || 'flex items-center justify-between gap-4 rounded px-2 py-1 text-left',
+          {
+            'focus:bg-blue-500 outline-none focus:text-white': isNested,
+            'bg-blue-500 text-white': isOpen() && isNested && !hasFocusInside(),
+            'bg-slate-200 rounded px-2 py-1': isNested && isOpen() && hasFocusInside(),
+            'bg-slate-200': !isNested && isOpen(),
+          },
+        )}
+        {...getReferenceProps(
+          parent.getItemProps<HTMLButtonElement>({
+            ...elementProps,
+            onFocus(event) {
+              batch(() => {
+                callEventHandler(props.onFocus, event);
+                setHasFocusInside(false);
+                parent.setHasFocusInside(true);
+              });
+            },
+            onMouseEnter(event) {
+              batch(() => {
+                callEventHandler(props.onMouseEnter, event);
+                if (parent.allowHover() && parent.isOpen()) {
+                  parent.setActiveIndex(item.index());
+                }
+              });
+            },
+          }),
+        )}
+      >
+        {props.label}
+        <Show when={isNested}>
+          <span aria-hidden class="ml-4">
+            Icon
+          </span>
+        </Show>
+      </button>
+      <MenuContext.Provider
+        value={{
+          activeIndex,
+          setActiveIndex,
+          getItemProps,
+          setHasFocusInside,
+          allowHover,
+          isOpen,
+          setIsOpen,
+          parent,
+          orientation,
+        }}
+      >
+        <CompositeList refs={compositeListRefs}>
+          <Show when={props.keepMounted || isOpen()}>
+            <FloatingPortal>
+              <FloatingFocusManager
+                context={context}
+                modal={false}
+                initialFocus={!isNested}
+                returnFocus={!isNested}
+              >
+                <div
+                  ref={refs.setFloating}
+                  class={c(
+                    'border-slate-900/10 rounded border bg-white bg-clip-padding p-1 shadow-lg outline-none',
+                    {
+                      'flex flex-col': !local.cols && orientation() !== 'horizontal',
+                    },
+                    {
+                      'flex flex-row': orientation() === 'horizontal',
+                    },
+                    {
+                      [`grid grid-cols-[repeat(var(--cols),_minmax(0,_1fr))] gap-3`]: local.cols,
+                    },
+                  )}
+                  style={{
+                    ...floatingStyles(),
+                    '--cols': local.cols,
+                    // eslint-disable-next-line no-nested-ternary
+                    visibility: !props.keepMounted ? undefined : isOpen() ? 'visible' : 'hidden',
+                  }}
+                  aria-hidden={!isOpen()}
+                  {...getFloatingProps({})}
+                >
+                  {local.children}
+                </div>
+              </FloatingFocusManager>
+            </FloatingPortal>
+          </Show>
+        </CompositeList>
+      </MenuContext.Provider>
+    </FloatingNode>
+  );
+}
+
+interface MenuItemProps {
+  label: string;
+  disabled?: boolean;
+}
+
+/** @internal */
+export function MenuItem(props: MenuItemProps & JSX.HTMLAttributes<HTMLButtonElement>) {
+  const [local, elementProps] = splitProps(props, ['label', 'disabled']);
+  const menu = useContext(MenuContext);
+  const item = useCompositeListItem({ label: () => (local.disabled ? null : local.label) });
+  const tree = useFloatingTree();
+  const isActive = () => item.index() === menu.activeIndex();
+
+  return (
+    <button
+      {...elementProps}
+      ref={(el) => {
+        item.setRef(el);
+        // eslint-disable-next-line solid/reactivity
+        props.ref = el;
+      }}
+      type="button"
+      role="menuitem"
+      disabled={local.disabled}
+      tabIndex={isActive() ? 0 : -1}
+      class={c('focus:bg-blue-500 flex rounded px-2 py-1 text-left outline-none focus:text-white', {
+        'opacity-40': local.disabled,
+      })}
+      {...menu.getItemProps<HTMLButtonElement>({
+        active: isActive(),
+        onClick(event) {
+          callEventHandler(props.onClick, event);
+          tree?.events.emit('click');
+        },
+        onFocus(event) {
+          batch(() => {
+            callEventHandler(props.onFocus, event);
+            menu.setHasFocusInside(true);
+          });
+        },
+        onMouseEnter(event) {
+          callEventHandler(props.onMouseEnter, event);
+          if (menu.allowHover() && menu.isOpen()) {
+            menu.setActiveIndex(item.index());
+          }
+        },
+        onKeyDown(event) {
+          function closeParents(parent: MenuContextType | null) {
+            parent?.setIsOpen(false);
+            if (parent?.parent) {
+              closeParents(parent.parent);
+            }
+          }
+
+          if (
+            event.key === 'ArrowRight' &&
+            // If the root reference is in a menubar, close parents
+            tree?.nodesRef[0].context?.elements.domReference()?.closest('[role="menubar"]')
+          ) {
+            closeParents(menu.parent);
+          }
+        },
+      })}
+    >
+      {local.label}
+    </button>
+  );
+}
+
+/** @internal */
+export function Menu(props: MenuProps & JSX.HTMLAttributes<HTMLButtonElement>) {
+  const parentId = useFloatingParentNodeId();
+
+  return (
+    <Show when={parentId === null} fallback={<MenuComponent {...props} />}>
+      <FloatingTree>
+        <MenuComponent {...props} />
+      </FloatingTree>
+    </Show>
+  );
+}
+
+/** @internal */
+export function HorizontalMenu() {
+  return (
+    <>
+      <h1 class="mb-8 text-5xl font-bold">Horizontal menu</h1>
+      <div class="border-slate-400 mb-4 grid h-[20rem] place-items-center rounded border lg:w-[40rem]">
+        <Menu label="Edit" orientation="horizontal">
+          <MenuItem
+            label="Undo"
+            onClick={() => {
+              // eslint-disable-next-line no-console
+              return console.log('Undo');
+            }}
+          />
+          <MenuItem label="Redo" />
+          <MenuItem label="Cut" disabled />
+          <Menu label="Copy as" keepMounted>
+            <MenuItem label="Text" />
+            <MenuItem label="Video" />
+            <Menu label="Image" keepMounted cols={2}>
+              <MenuItem label=".png" />
+              <MenuItem label=".jpg" />
+              <MenuItem label=".svg" />
+              <MenuItem label=".gif" />
+            </Menu>
+            <MenuItem label="Audio" />
+          </Menu>
+          <Menu label="Share">
+            <MenuItem label="Mail" />
+            <MenuItem label="Instagram" />
+          </Menu>
+        </Menu>
+      </div>
+    </>
+  );
+}
+
+/** @internal */
+export function VerticalMenu() {
+  return (
+    <>
+      <h1 class="mb-8 text-5xl font-bold">Vertical menu</h1>
+      <div class="border-slate-400 mb-4 grid h-[20rem] place-items-center rounded border lg:w-[40rem]">
+        <Menu label="Edit">
+          <MenuItem
+            label="Undo"
+            onClick={() => {
+              // eslint-disable-next-line no-console
+              return console.log('Undo');
+            }}
+          />
+          <MenuItem label="Redo" />
+          <MenuItem label="Cut" disabled />
+          <Menu label="Copy as" keepMounted orientation="horizontal">
+            <MenuItem label="Text" />
+            <MenuItem label="Video" />
+            <Menu label="Image" keepMounted cols={2}>
+              <MenuItem label=".png" />
+              <MenuItem label=".jpg" />
+              <MenuItem label=".svg" />
+              <MenuItem label=".gif" />
+            </Menu>
+            <MenuItem label="Audio" />
+          </Menu>
+          <Menu label="Share">
+            <MenuItem label="Mail" />
+            <MenuItem label="Instagram" />
+          </Menu>
+        </Menu>
+      </div>
+    </>
+  );
+}
+
+/** @internal */
+export function HorizontalMenuWithHorizontalSubmenus() {
+  return (
+    <>
+      <h1 class="mb-8 text-5xl font-bold">Horizontal menu with horizontal submenus</h1>
+      <div class="border-slate-400 mb-4 grid h-[20rem] place-items-center rounded border lg:w-[40rem]">
+        <Menu label="Edit" orientation="horizontal">
+          <MenuItem
+            label="Undo"
+            onClick={() => {
+              // eslint-disable-next-line no-console
+              return console.log('Undo');
+            }}
+          />
+          <MenuItem label="Redo" />
+          <MenuItem label="Cut" disabled />
+          <Menu label="Copy as" keepMounted orientation="horizontal">
+            <MenuItem label="Text" />
+            <MenuItem label="Video" />
+            <Menu label="Image" keepMounted cols={2}>
+              <MenuItem label=".png" />
+              <MenuItem label=".jpg" />
+              <MenuItem label=".svg" />
+              <MenuItem label=".gif" />
+            </Menu>
+            <MenuItem label="Audio" />
+          </Menu>
+          <Menu label="Share">
+            <MenuItem label="Mail" />
+            <MenuItem label="Instagram" />
+          </Menu>
+        </Menu>
+      </div>
+    </>
+  );
+}
+
+/** @internal */
+export function Main() {
+  return (
+    <>
+      <HorizontalMenu />
+      <VerticalMenu />
+      <HorizontalMenuWithHorizontalSubmenus />
+    </>
+  );
+}

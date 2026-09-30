@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"isolatedModules": true,
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"noUncheckedIndexedAccess": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ESNext",
+		"types": [
+			"node"
+		]
+	},
+	"include": [
+		"playwright.config.ts",
+		"tests"
+	]
+}

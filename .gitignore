@@ -1,0 +1,42 @@
+# dependencies
+node_modules
+**/node_modules
+
+# build
+**/dist/
+**/build/
+**/build-tests/
+**/*.tsbuildinfo
+**/.wrangler/
+**/.output
+**/.nitro
+**/.vinxi
+**/.vercel/
+**/.netlify/
+
+# testing
+**/coverage/
+**/test-results/
+**/playwright-report/
+
+# editor / os
+.DS_Store
+*.swp
+*.log
+
+# secrets
+.env
+.env.*
+
+# local
+.local
+*.local
+.tmp
+.tmp-*
+.temp
+ISSUES.md
+
+.cache/
+
+# regenerable upstream clones
+packages/recharts/opensrc/repos

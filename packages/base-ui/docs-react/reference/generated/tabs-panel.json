@@ -1,0 +1,48 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {
+    "data-activation-direction": {
+      "description": "Indicates the direction of the activation (based on the previous active tab).",
+      "type": "'left' | 'right' | 'up' | 'down' | 'none'"
+    },
+    "data-hidden": {
+      "description": "Present when the panel is hidden."
+    },
+    "data-index": {
+      "description": "Indicates the index of the tab panel."
+    },
+    "data-orientation": {
+      "description": "Indicates the orientation of the tabs.",
+      "type": "'horizontal' | 'vertical'"
+    }
+  },
+  "description": "A panel displayed when the corresponding tab is active.\nRenders a `<div>` element.",
+  "name": "TabsPanel",
+  "props": {
+    "className": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: Tabs.Panel.State) => string | undefined)",
+      "type": "string | ((state: Tabs.Panel.State) => string | undefined)"
+    },
+    "keepMounted": {
+      "default": "false",
+      "description": "Whether to keep the HTML element in the DOM while the panel is hidden.",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((\n    props: HTMLProps,\n    state: Tabs.Panel.State,\n  ) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: Tabs.Panel.State) => ReactElement)"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((state: Tabs.Panel.State) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: Tabs.Panel.State) => CSSProperties | undefined)"
+    },
+    "value": {
+      "description": "The value of the TabPanel. It will be shown when the Tab with the corresponding value is active.",
+      "required": true,
+      "type": "Tabs.Tab.Value"
+    }
+  }
+}

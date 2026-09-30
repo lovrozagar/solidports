@@ -1,0 +1,30 @@
+{
+  "devDependencies": {
+    "@base-ui/react": "workspace:*",
+    "@base-ui/utils": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "@testing-library/jest-dom": "catalog:",
+    "@types/chai": "catalog:",
+    "@types/chai-dom": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/sinon": "catalog:",
+    "chai": "catalog:",
+    "docs-react": "workspace:^",
+    "es-toolkit": "catalog:",
+    "is-wsl": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router": "catalog:",
+    "sinon": "catalog:",
+    "util": "catalog:",
+    "webpack": "catalog:",
+    "yargs": "catalog:"
+  },
+  "name": "@base-ui/monorepo-tests",
+  "private": true,
+  "scripts": {
+    "typescript": "tsc -p tsconfig.json"
+  }
+}

@@ -1,0 +1,297 @@
+import { isOverflowElement } from '@floating-ui/utils/dom';
+import { createEffect, onCleanup } from 'solid-js';
+import { access, type MaybeAccessor } from '../solid-helpers';
+import { isIOS, isWebKit } from './detectBrowser';
+import { NOOP } from './empty';
+import { ownerDocument, ownerWindow } from './owner';
+import { AnimationFrame } from './useAnimationFrame';
+import { useTimeout } from './useTimeout';
+
+let originalHtmlStyles: Partial<CSSStyleDeclaration> = {};
+let originalBodyStyles: Partial<CSSStyleDeclaration> = {};
+let originalHtmlScrollBehavior = '';
+
+function hasInsetScrollbars(referenceElement: Element | null | undefined) {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+  const doc = ownerDocument(referenceElement ?? null);
+  const win = ownerWindow(doc);
+  return win.innerWidth - doc.documentElement.clientWidth > 0;
+}
+
+function supportsStableScrollbarGutter(referenceElement: Element | null | undefined) {
+  const supported =
+    typeof CSS !== 'undefined' && CSS.supports && CSS.supports('scrollbar-gutter', 'stable');
+
+  if (!supported || typeof document === 'undefined') {
+    return false;
+  }
+
+  const doc = ownerDocument(referenceElement ?? null);
+  const html = doc.documentElement;
+  const body = doc.body;
+
+  const scrollContainer = isOverflowElement(html) ? html : body;
+
+  const originalScrollContainerOverflowY = scrollContainer.style.overflowY;
+  const originalHtmlStyleGutter = html.style.scrollbarGutter;
+
+  html.style.scrollbarGutter = 'stable';
+
+  scrollContainer.style.overflowY = 'scroll';
+  const before = scrollContainer.offsetWidth;
+
+  scrollContainer.style.overflowY = 'hidden';
+  const after = scrollContainer.offsetWidth;
+
+  scrollContainer.style.overflowY = originalScrollContainerOverflowY;
+  html.style.scrollbarGutter = originalHtmlStyleGutter;
+
+  return before === after;
+}
+
+function preventScrollOverlayScrollbars(referenceElement: Element | null | undefined) {
+  const doc = ownerDocument(referenceElement ?? null);
+  const html = doc.documentElement;
+  const body = doc.body;
+
+  // If an `overflow` style is present on <html>, we need to lock it, because a lock on <body>
+  // won't have any effect.
+  // But if <body> has an `overflow` style (like `overflow-x: hidden`), we need to lock it
+  // instead, as sticky elements shift otherwise.
+  const elementToLock = isOverflowElement(html) ? html : body;
+  const originalElementToLockStyles = {
+    overflowX: elementToLock.style.overflowX,
+    overflowY: elementToLock.style.overflowY,
+  };
+
+  Object.assign(elementToLock.style, {
+    overflowX: 'hidden',
+    overflowY: 'hidden',
+  });
+
+  return () => {
+    Object.assign(elementToLock.style, originalElementToLockStyles);
+  };
+}
+
+function preventScrollInsetScrollbars(referenceElement: Element | null | undefined) {
+  const doc = ownerDocument(referenceElement ?? null);
+  const html = doc.documentElement;
+  const body = doc.body;
+  const win = ownerWindow(html);
+
+  let scrollTop = 0;
+  let scrollLeft = 0;
+  let updateGutterOnly = false;
+  const resizeFrame = AnimationFrame.create();
+
+  // Pinch-zoom in Safari causes a shift. Just don't lock scroll if there's any pinch-zoom.
+  if (isWebKit && (win.visualViewport?.scale ?? 1) !== 1) {
+    return () => {};
+  }
+
+  function lockScroll() {
+    /* DOM reads: */
+
+    const htmlStyles = win.getComputedStyle(html);
+    const bodyStyles = win.getComputedStyle(body);
+    const htmlScrollbarGutterValue = htmlStyles.scrollbarGutter || '';
+    const hasBothEdges = htmlScrollbarGutterValue.includes('both-edges');
+    const scrollbarGutterValue = hasBothEdges ? 'stable both-edges' : 'stable';
+
+    scrollTop = html.scrollTop;
+    scrollLeft = html.scrollLeft;
+
+    originalHtmlStyles = {
+      overflowX: html.style.overflowX,
+      overflowY: html.style.overflowY,
+      scrollbarGutter: html.style.scrollbarGutter,
+    };
+    originalHtmlScrollBehavior = html.style.scrollBehavior;
+
+    originalBodyStyles = {
+      boxSizing: body.style.boxSizing,
+      height: body.style.height,
+      overflowX: body.style.overflowX,
+      overflowY: body.style.overflowY,
+      position: body.style.position,
+      scrollBehavior: body.style.scrollBehavior,
+      width: body.style.width,
+    };
+
+    const isScrollableY = html.scrollHeight > html.clientHeight;
+    const isScrollableX = html.scrollWidth > html.clientWidth;
+    const hasConstantOverflowY =
+      htmlStyles.overflowY === 'scroll' || bodyStyles.overflowY === 'scroll';
+    const hasConstantOverflowX =
+      htmlStyles.overflowX === 'scroll' || bodyStyles.overflowX === 'scroll';
+
+    // Values can be negative in Firefox
+    const scrollbarWidth = Math.max(0, win.innerWidth - body.clientWidth);
+    const scrollbarHeight = Math.max(0, win.innerHeight - body.clientHeight);
+
+    // Avoid shift due to the default <body> margin. This does cause elements to be clipped
+    // with whitespace. Warn if <body> has margins?
+    const marginY = parseFloat(bodyStyles.marginTop) + parseFloat(bodyStyles.marginBottom);
+    const marginX = parseFloat(bodyStyles.marginLeft) + parseFloat(bodyStyles.marginRight);
+    const elementToLock = isOverflowElement(html) ? html : body;
+
+    updateGutterOnly = supportsStableScrollbarGutter(referenceElement);
+
+    /*
+     * DOM writes:
+     * Do not read the DOM past this point!
+     */
+
+    if (updateGutterOnly) {
+      html.style.scrollbarGutter = scrollbarGutterValue;
+      elementToLock.style.overflowY = 'hidden';
+      elementToLock.style.overflowX = 'hidden';
+      return;
+    }
+
+    Object.assign(html.style, {
+      overflowX: 'hidden',
+      overflowY: 'hidden',
+      scrollbarGutter: scrollbarGutterValue,
+    });
+
+    if (isScrollableY || hasConstantOverflowY) {
+      html.style.overflowY = 'scroll';
+    }
+    if (isScrollableX || hasConstantOverflowX) {
+      html.style.overflowX = 'scroll';
+    }
+
+    Object.assign(body.style, {
+      boxSizing: 'border-box',
+      height:
+        marginY || scrollbarHeight ? `calc(100dvh - ${marginY + scrollbarHeight}px)` : '100dvh',
+      overflow: 'hidden',
+      position: 'relative',
+      scrollBehavior: 'unset',
+      width: marginX || scrollbarWidth ? `calc(100vw - ${marginX + scrollbarWidth}px)` : '100vw',
+    });
+
+    body.scrollTop = scrollTop;
+    body.scrollLeft = scrollLeft;
+    html.setAttribute('data-base-ui-scroll-locked', '');
+    html.style.scrollBehavior = 'unset';
+  }
+
+  function cleanup() {
+    Object.assign(html.style, originalHtmlStyles);
+    Object.assign(body.style, originalBodyStyles);
+
+    if (!updateGutterOnly) {
+      html.scrollTop = scrollTop;
+      html.scrollLeft = scrollLeft;
+      html.removeAttribute('data-base-ui-scroll-locked');
+      html.style.scrollBehavior = originalHtmlScrollBehavior;
+    }
+  }
+
+  function handleResize() {
+    cleanup();
+    resizeFrame.request(lockScroll);
+  }
+
+  lockScroll();
+  win.addEventListener('resize', handleResize);
+
+  return () => {
+    resizeFrame.cancel();
+    cleanup();
+    // Sometimes this cleanup can be run after test teardown
+    // because it is called in a `setTimeout(fn, 0)`,
+    // in which case `removeEventListener` wouldn't be available,
+    // so we check for it to avoid test failures.
+    if (typeof win.removeEventListener === 'function') {
+      win.removeEventListener('resize', handleResize);
+    }
+  };
+}
+
+class ScrollLocker {
+  lockCount = 0;
+  restore = null as (() => void) | null;
+  timeoutLock = useTimeout();
+  timeoutUnlock = useTimeout();
+
+  acquire(referenceElement: Element | null) {
+    this.lockCount += 1;
+    if (this.lockCount === 1 && this.restore === null) {
+      this.timeoutLock.start(0, () => this.lock(referenceElement));
+    }
+    return this.release;
+  }
+
+  release = () => {
+    this.lockCount -= 1;
+    if (this.lockCount === 0 && this.restore) {
+      this.timeoutUnlock.start(0, this.unlock);
+    }
+  };
+
+  private unlock = () => {
+    if (this.lockCount === 0 && this.restore) {
+      this.restore?.();
+      this.restore = null;
+    }
+  };
+
+  private lock(referenceElement: Element | null) {
+    if (this.lockCount === 0 || this.restore !== null) {
+      return;
+    }
+
+    const doc = ownerDocument(referenceElement);
+    const html = doc.documentElement;
+    const htmlOverflowY = ownerWindow(html).getComputedStyle(html).overflowY;
+
+    // If the site author already hid overflow on <html>, respect it and bail out.
+    if (htmlOverflowY === 'hidden' || htmlOverflowY === 'clip') {
+      this.restore = NOOP;
+      return;
+    }
+
+    const isOverflowHiddenLock = isIOS || !hasInsetScrollbars(referenceElement);
+
+    // On iOS, scroll locking does not work if the navbar is collapsed. Due to numerous
+    // side effects and bugs that arise on iOS, it must be researched extensively before
+    // being enabled to ensure it doesn't cause the following issues:
+    // - Textboxes must scroll into view when focused, nor cause a glitchy scroll animation.
+    // - The navbar must not force itself into view and cause layout shift.
+    // - Scroll containers must not flicker upon closing a popup when it has an exit animation.
+    this.restore = isOverflowHiddenLock
+      ? preventScrollOverlayScrollbars(referenceElement)
+      : preventScrollInsetScrollbars(referenceElement);
+  }
+}
+
+const SCROLL_LOCKER = new ScrollLocker();
+
+/**
+ * Locks the scroll of the document when enabled.
+ *
+ * @param enabled - Whether to enable the scroll lock.
+ * @param referenceElement - Element to use as a reference for lock calculations.
+ */
+export function useScrollLock(params: {
+  enabled: MaybeAccessor<boolean>;
+  referenceElement?: MaybeAccessor<Element | null | undefined>;
+}) {
+  const enabled = () => access(params.enabled) ?? true;
+  const referenceElement = () => access(params.referenceElement) ?? null;
+
+  createEffect(() => {
+    if (!enabled()) {
+      return;
+    }
+
+    const cleanup = SCROLL_LOCKER.acquire(referenceElement());
+    onCleanup(cleanup);
+  });
+}

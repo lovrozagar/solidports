@@ -1,0 +1,120 @@
+# OTP Field
+
+<Subtitle>
+  A one-time password input composed of individual character slots.
+</Subtitle>
+
+<Meta name="description" content="A high-quality, unstyled SolidJS OTP field component." />
+
+<Demo path="otp-field/hero" />
+
+## Usage guidelines
+
+- **Form controls must have an accessible name**: Provide a label via the `<label>` element associated to `OTPField.Root` through `id` / `for`, or wrap with [Field](/solid/components/field). Each `OTPField.Input` should also carry an `aria-label` describing its position.
+- **One code per group**: A single `OTPField.Root` represents one verification code. Render N `OTPField.Input` children where N matches the `length` prop.
+- **Validation type**: Defaults to `numeric`. Use `validationType="alphanumeric"` for codes containing letters; the input adjusts `inputMode` and sanitization accordingly.
+
+## Anatomy
+
+Import the components and place them together:
+
+```jsx title="Anatomy"
+import { OTPField } from '@solidports/base-ui/otp-field';
+
+<OTPField.Root length={6}>
+  <OTPField.Input />
+  <OTPField.Input />
+  <OTPField.Input />
+  <OTPField.Input />
+  <OTPField.Input />
+  <OTPField.Input />
+</OTPField.Root>;
+```
+
+The `Separator` part is re-exported from `@solidports/base-ui/separator` and may be placed between groups of inputs for visual grouping (for example, three slots, a separator, three more slots).
+
+## Examples
+
+### Alphanumeric verification codes
+
+Set `validationType="alphanumeric"` to accept letters and digits. The input mode adapts to suggest a text keyboard on mobile.
+
+```tsx title="Alphanumeric OTP"
+<OTPField.Root length={6} validationType="alphanumeric">
+  {/* ... */}
+</OTPField.Root>
+```
+
+### Auto-submit on completion
+
+Pass `autoSubmit` to submit the surrounding form as soon as the user fills the final slot.
+
+```tsx title="Auto-submit on completion"
+<form>
+  <OTPField.Root length={6} autoSubmit>
+    {/* ... */}
+  </OTPField.Root>
+</form>
+```
+
+### Masked entry
+
+Pass `mask` to render bullet characters in place of the typed digits, similar to a password input.
+
+```tsx title="Masked OTP"
+<OTPField.Root length={6} mask>
+  {/* ... */}
+</OTPField.Root>
+```
+
+### Reading and reacting to changes
+
+Track the current value with `value` / `onValueChange`, and react to a fully-typed code with `onValueComplete`.
+
+```tsx title="Controlled with completion handler"
+import { createSignal } from "solid-js";
+import { OTPField } from "@solidports/base-ui/otp-field";
+
+function ControlledOTP() {
+  const [value, setValue] = createSignal("");
+  return (
+    <OTPField.Root
+      length={6}
+      value={value()}
+      onValueChange={(next) => setValue(next)}
+      onValueComplete={(code) => verify(code)}
+    >
+      {/* ... */}
+    </OTPField.Root>
+  );
+}
+```
+
+## API reference
+
+### Root
+
+<Reference component="OTPField" parts="Root" />
+
+### Input
+
+<Reference component="OTPField" parts="Input" />
+
+### Separator
+
+<Reference component="Separator" />
+
+export const metadata = {
+  keywords: [
+    "Solid OTP",
+    "OTP Field",
+    "One-time Password",
+    "Verification Code",
+    "MFA Input",
+    "2FA Input",
+    "PIN Input",
+    "Headless Solid Components",
+    "Unstyled OTP Input",
+    "Base UI",
+  ],
+};

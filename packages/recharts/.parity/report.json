@@ -1,0 +1,86 @@
+{
+  "deferred": [
+    {
+      "alias": null,
+      "kind": "value",
+      "name": "createHorizontalChart",
+      "source": "./util/createCartesianCharts"
+    },
+    {
+      "alias": null,
+      "kind": "value",
+      "name": "createVerticalChart",
+      "source": "./util/createCartesianCharts"
+    },
+    {
+      "alias": null,
+      "kind": "value",
+      "name": "createCentricChart",
+      "source": "./util/createPolarCharts"
+    },
+    {
+      "alias": null,
+      "kind": "value",
+      "name": "createRadialChart",
+      "source": "./util/createPolarCharts"
+    },
+    {
+      "alias": null,
+      "kind": "type",
+      "name": "TypedHorizontalChartContext",
+      "source": "./util/createCartesianCharts"
+    },
+    {
+      "alias": null,
+      "kind": "type",
+      "name": "TypedVerticalChartContext",
+      "source": "./util/createCartesianCharts"
+    },
+    {
+      "alias": null,
+      "kind": "type",
+      "name": "NoFunnel",
+      "source": "./util/createCartesianCharts"
+    },
+    {
+      "alias": null,
+      "kind": "type",
+      "name": "TypedCentricChartContext",
+      "source": "./util/createPolarCharts"
+    },
+    {
+      "alias": null,
+      "kind": "type",
+      "name": "TypedRadialChartContext",
+      "source": "./util/createPolarCharts"
+    },
+    {
+      "alias": null,
+      "kind": "type",
+      "name": "NoRadial",
+      "source": "./util/createPolarCharts"
+    },
+    {
+      "alias": null,
+      "kind": "type",
+      "name": "NoCentric",
+      "source": "./util/createPolarCharts"
+    }
+  ],
+  "extras_unexplained": [],
+  "generated_at": "2026-04-26T13:13:18.518Z",
+  "intentional_additions": {
+    "_SolidJSXCamelAugmentMarker": "Module-augmentation marker; forces JSX camelCase augmentation when the package is imported (no upstream equivalent — Solid-only mechanism)."
+  },
+  "kind_drift": [],
+  "missing": [],
+  "solid_count": 206,
+  "summary": {
+    "common": 205,
+    "deferred": 11,
+    "extras_unexplained": 0,
+    "kind_drift": 0,
+    "missing": 0
+  },
+  "upstream_count": 216
+}

@@ -1,0 +1,148 @@
+{
+  "defaultMode": "one-to-one",
+  "excluded": [
+    "src/animation/react-smooth/**",
+    "src/**/*.d.ts",
+    "test/scripts/sync-playwright-versions.spec.ts",
+    "test/**/__snapshots__/**",
+    "test/**/snapshots/**"
+  ],
+  "overrides": {
+    "src/hooks.ts": {
+      "mode": "heavy-rewrite",
+      "notes": "React hooks (useRef, useState, useEffect, useCallback) replaced with Solid primitives",
+      "target": [
+        "src/hooks.ts"
+      ]
+    },
+    "src/state/RechartsReduxContext.tsx": {
+      "mode": "rename",
+      "notes": "Renamed to drop Redux-legacy file name; same Solid context, plus exports `useChartStore` (Phase 4 batch 6)",
+      "target": [
+        "src/state/RechartsStoreContext.tsx"
+      ]
+    },
+    "src/state/externalEventsMiddleware.ts": {
+      "mode": "merge",
+      "notes": "Same as mouseEventsMiddleware — consolidated into `events.ts`. raf scheduler retained on standalone module pending test migration.",
+      "target": [
+        "src/state/events.ts"
+      ]
+    },
+    "src/state/hooks.ts": {
+      "mode": "drop",
+      "notes": "Deleted Phase 4 batch 6. `useChartStore` lives in `src/state/RechartsStoreContext.tsx`. Test-only `useAppSelector`/`useAppDispatch` moved to `test/helper/legacyDispatch.ts`.",
+      "target": []
+    },
+    "src/state/keyboardEventsMiddleware.ts": {
+      "mode": "merge",
+      "notes": "Same as mouseEventsMiddleware — consolidated into `events.ts`.",
+      "target": [
+        "src/state/events.ts"
+      ]
+    },
+    "src/state/mouseEventsMiddleware.ts": {
+      "mode": "merge",
+      "notes": "Throttled handler factory + sync action thunks consolidated into `createEventHandlers(store, setStore, actions)`. Standalone module retained until tests migrate (Phase 4 batch 6 deferral).",
+      "target": [
+        "src/state/events.ts"
+      ]
+    },
+    "src/state/reduxDevtoolsJsonStringifyReplacer.ts": {
+      "mode": "drop",
+      "notes": "Deleted Phase 4 batch 6 — Redux DevTools shim no longer applicable.",
+      "target": []
+    },
+    "src/state/store.ts": {
+      "mode": "heavy-rewrite",
+      "notes": "Redux configureStore replaced with Solid createStore; middleware chain dropped; RechartsStoreProvider wires Solid context",
+      "target": [
+        "src/state/store.ts"
+      ]
+    },
+    "src/state/touchEventsMiddleware.ts": {
+      "mode": "merge",
+      "notes": "Same as mouseEventsMiddleware — consolidated into `events.ts`.",
+      "target": [
+        "src/state/events.ts"
+      ]
+    },
+    "src/util/ReactUtils.ts": {
+      "mode": "heavy-rewrite",
+      "notes": "React.Children/cloneElement dropped; polymorphic render handled via typed render-props + Solid children() getter",
+      "target": [
+        "src/util/ReactUtils.ts"
+      ]
+    },
+    "src/util/YAxisUtils.tsx": {
+      "mode": "rename",
+      "notes": "Extension mismatch — same logical file",
+      "target": [
+        "src/util/YAxisUtils.ts"
+      ]
+    },
+    "src/util/getClassNameFromUnknown.tsx": {
+      "mode": "rename",
+      "notes": "Upstream uses .tsx extension; port uses .ts (no JSX in this file)",
+      "target": [
+        "src/util/getClassNameFromUnknown.ts"
+      ]
+    },
+    "src/util/getRadiusAndStrokeWidthFromDot.tsx": {
+      "mode": "rename",
+      "notes": "Extension mismatch — same logical file",
+      "target": [
+        "src/util/getRadiusAndStrokeWidthFromDot.ts"
+      ]
+    },
+    "src/util/resolveDefaultProps.tsx": {
+      "mode": "rename",
+      "notes": "Extension mismatch — same logical file",
+      "target": [
+        "src/util/resolveDefaultProps.ts"
+      ]
+    },
+    "src/util/useAnimationId.tsx": {
+      "mode": "rename",
+      "notes": "Extension mismatch — same logical file",
+      "target": [
+        "src/util/useAnimationId.ts"
+      ]
+    },
+    "src/zIndex/DefaultZIndexes.tsx": {
+      "mode": "rename",
+      "notes": "Extension mismatch — same logical file",
+      "target": [
+        "src/zIndex/DefaultZIndexes.ts"
+      ]
+    },
+    "src/zIndex/getZIndexFromUnknown.tsx": {
+      "mode": "rename",
+      "notes": "Extension mismatch — same logical file",
+      "target": [
+        "src/zIndex/getZIndexFromUnknown.ts"
+      ]
+    }
+  },
+  "solid_additions": {
+    "src/util/CamelCaseSVGAttrs.ts": {
+      "notes": "Solid-specific: maps camelCase SVG attribute names for JSX compatibility; no upstream equivalent"
+    }
+  },
+  "unported_upstream": {
+    "src/state/renderedTicksSlice.ts": {
+      "notes": "Upstream-only slice; not yet ported — may be needed for tick rendering Phase 3+"
+    },
+    "src/util/createCartesianCharts.tsx": {
+      "notes": "Upstream utility; not yet ported"
+    },
+    "src/util/createPolarCharts.tsx": {
+      "notes": "Upstream utility; not yet ported"
+    },
+    "src/util/usePrefersReducedMotion.ts": {
+      "notes": "Upstream hook; not yet ported — needed for animation Phase 3+"
+    }
+  },
+  "upstream_sha_pinned": "5b10788d082424d026480d63d18ca5c8a5a5628f",
+  "version": 1
+}

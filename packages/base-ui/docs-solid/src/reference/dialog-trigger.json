@@ -1,0 +1,50 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {
+    "data-disabled": {
+      "description": "Present when the trigger is disabled."
+    },
+    "data-popup-open": {
+      "description": "Present when the corresponding dialog is open."
+    }
+  },
+  "description": "A button that opens the dialog.\nRenders a `<button>` element.",
+  "name": "DialogTrigger",
+  "props": {
+    "class": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: Dialog.Trigger.State) => string | undefined)",
+      "type": "string | ((state: Dialog.Trigger.State) => string | undefined)"
+    },
+    "handle": {
+      "description": "A handle to associate the trigger with a dialog.\nCan be created with the Dialog.createHandle() method.",
+      "detailedType": "{} | undefined",
+      "type": "Dialog.Handle<Payload>"
+    },
+    "id": {
+      "description": "ID of the trigger. In addition to being forwarded to the rendered element,\nit is also used to specify the active trigger for the dialogs in controlled mode (with the Dialog.Root `triggerId` prop).",
+      "detailedType": "string | undefined",
+      "type": "string"
+    },
+    "nativeButton": {
+      "default": "true",
+      "description": "Whether the component renders a native `<button>` element when replacing it\nvia the `render` prop.\nSet to `false` if the rendered element is not a button (e.g. `<div>`).",
+      "detailedType": "boolean | undefined",
+      "type": "boolean"
+    },
+    "payload": {
+      "description": "A payload to pass to the dialog when it is opened.",
+      "detailedType": "Payload | undefined",
+      "type": "Payload"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((\n    props: HTMLProps,\n    state: Dialog.Trigger.State,\n  ) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: Dialog.Trigger.State) => ReactElement)"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((\n    state: Dialog.Trigger.State,\n  ) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: Dialog.Trigger.State) => CSSProperties | undefined)"
+    }
+  }
+}

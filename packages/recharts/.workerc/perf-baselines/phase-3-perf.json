@@ -1,0 +1,71 @@
+{
+  "measuredAt": "2026-05-02T17:00:44.813Z",
+  "passes": 3,
+  "routes": [
+    {
+      "id": "line",
+      "react": {
+        "avgRafMs": 0.00452,
+        "rafCount": 678,
+        "tFirstPaint": 529
+      },
+      "solid": {
+        "avgRafMs": 0.03163,
+        "rafCount": 693,
+        "tFirstPaint": 527
+      }
+    },
+    {
+      "id": "bar",
+      "react": {
+        "avgRafMs": 0.00972,
+        "rafCount": 15,
+        "tFirstPaint": 530
+      },
+      "solid": {
+        "avgRafMs": 0.01799,
+        "rafCount": 29,
+        "tFirstPaint": 523
+      }
+    },
+    {
+      "id": "area",
+      "react": {
+        "avgRafMs": 0.00528,
+        "rafCount": 543,
+        "tFirstPaint": 529
+      },
+      "solid": {
+        "avgRafMs": 0.0082,
+        "rafCount": 557,
+        "tFirstPaint": 524
+      }
+    },
+    {
+      "id": "scatter",
+      "react": {
+        "avgRafMs": 0.00556,
+        "rafCount": 5,
+        "tFirstPaint": 528
+      },
+      "solid": {
+        "avgRafMs": 0.13167,
+        "rafCount": 9,
+        "tFirstPaint": 523
+      }
+    },
+    {
+      "id": "composed",
+      "react": {
+        "avgRafMs": 0.00708,
+        "rafCount": 273,
+        "tFirstPaint": 529
+      },
+      "solid": {
+        "avgRafMs": 0.03278,
+        "rafCount": 278,
+        "tFirstPaint": 523
+      }
+    }
+  ]
+}

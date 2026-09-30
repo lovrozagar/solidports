@@ -1,0 +1,100 @@
+# v1.4.0
+
+<Subtitle>Apr 13, 2026</Subtitle>
+<Meta name="description" content="v1.4.0 release notes. Apr 13, 2026." />
+
+## General changes
+
+- Improve `render` prop warning accuracy
+- Fix `preventBaseUIHandler` runtime wrapping
+- Fix Uncaught TypeError: Converting circular structure to JSON
+- Expose `form` prop on hidden inputs
+- Add `suppressHydrationWarning` to hidden inputs
+- Fix outside-press dismissal in a shared shadow root
+- Fix `Positioner` not repositioning to a different trigger when reopened with `keepMounted`
+- Lock scroll of full-width anchored `modal` popups with touch input
+
+## Alert Dialog
+
+- Fix detached trigger HMR with recreated handles
+
+## Autocomplete
+
+- Fix initial live region announcements
+
+## Avatar
+
+- Fix flash when image is cached
+
+## Checkbox
+
+- Fix uncontrolled default initialization
+- Prevent input state changes in `readOnly` mode
+
+## Collapsible
+
+- Fix open state when `keepMounted` has no transitions
+
+## Combobox
+
+- Multiple fixes including clicks in Chips/InputGroup areas, iOS viewport settling, live region announcements, scroll lock prevention, browser autofill, item taps, and keyboard navigation
+
+## Dialog
+
+- Fix detached trigger HMR with recreated handles
+
+## Drawer
+
+- Touch scroll, nested swipe, cleanup, and nested stack fixes
+
+## Field
+
+- Fix form error matching in `<Field.Error>`
+
+## Menu
+
+- Fix SubmenuTrigger disabled state and preserve dialog focus
+
+## Navigation Menu
+
+- Remove invalid `aria-orientation`, add generic typing, fix trigger sizing and pointer events, submenu navigation, and transition width
+
+## Number Field
+
+- Fix format rounding error on blur
+
+## OTP Field
+
+- Add preview component for one-time password entry
+
+## Popover
+
+- Remove stray focus guards, sync hover open event state
+
+## Preview Card
+
+- Fix hover reopen race conditions
+
+## Select
+
+- Browser autofill, touch animations, highlight, scroll arrows, and RTL positioning fixes
+
+## Slider
+
+- Edge thumb alignment, TalkBack focus targets, keyboard rounding, and prehydration script fixes
+
+## Switch
+
+- Prevent input state changes in `readOnly` mode
+
+## Tabs
+
+- Fix `activationDirection` on programmatic changes and first render; skip client-only prehydration scripts
+
+## Toast
+
+- Keep viewport expanded during touch swipe; add upsert support; fix timer resumption
+
+## Toggle Group
+
+- Fix incorrect keyboard navigation on cross axis

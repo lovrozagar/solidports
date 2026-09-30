@@ -1,0 +1,26 @@
+{
+  "cssVariables": {},
+  "dataAttributes": {
+    "data-popup-open": {
+      "description": "Present when the corresponding popup is open."
+    }
+  },
+  "description": "An icon that indicates that the trigger button opens a select popup.\nRenders a `<span>` element.",
+  "name": "SelectIcon",
+  "props": {
+    "className": {
+      "description": "CSS class applied to the element, or a function that\nreturns a class based on the component’s state.",
+      "detailedType": "| string\n| ((state: Select.Icon.State) => string | undefined)",
+      "type": "string | ((state: Select.Icon.State) => string | undefined)"
+    },
+    "render": {
+      "description": "Allows you to replace the component’s HTML element\nwith a different tag, or compose it with another component.\n\nAccepts a `ReactElement` or a function that returns the element to render.",
+      "detailedType": "| ReactElement\n| ((\n    props: HTMLProps,\n    state: Select.Icon.State,\n  ) => ReactElement)",
+      "type": "ReactElement | ((props: HTMLProps, state: Select.Icon.State) => ReactElement)"
+    },
+    "style": {
+      "detailedType": "| React.CSSProperties\n| ((state: Select.Icon.State) => CSSProperties | undefined)\n| undefined",
+      "type": "CSSProperties | ((state: Select.Icon.State) => CSSProperties | undefined)"
+    }
+  }
+}
