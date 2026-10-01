@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { computeLinePoints, type LinePointItem } from "../../cartesian/Line"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { AxisId, XAxisSettings, YAxisSettings } from "../cartesianAxisSlice"
 import { selectChartDataWithIndexesIfNotInPanoramaPosition4 } from "./dataSelectors"
 import { selectChartLayout } from "../../context/chartLayoutContext"
@@ -14,7 +14,7 @@ import type { ChartData } from "../chartDataSlice"
 import type { CartesianGraphicalItemSettings, GraphicalItemId } from "../graphicalItemsSlice"
 import type { LineSettings } from "../types/LineSettings"
 
-/** Optional overrides — when supplied, bypass the _solid probe path on hot animation frames. */
+/** Optional overrides — when supplied, bypass the axis-settings lookup on hot animation frames. */
 export type LineAxisOverrides = {
 	xAxis?: XAxisSettings
 	yAxis?: YAxisSettings
@@ -22,7 +22,7 @@ export type LineAxisOverrides = {
 }
 
 const selectXAxisWithScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	xAxisId: AxisId,
 	_yAxisId: AxisId,
 	isPanorama: boolean,
@@ -30,14 +30,14 @@ const selectXAxisWithScale = (
 ) => selectAxisWithScale(state, "xAxis", xAxisId, isPanorama, override)
 
 const selectXAxisTicks = (
-	state: RechartsRootState,
+	state: ChartState,
 	xAxisId: AxisId,
 	_yAxisId: AxisId,
 	isPanorama: boolean,
 ) => selectTicksOfGraphicalItem(state, "xAxis", xAxisId, isPanorama)
 
 const selectYAxisWithScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	_xAxisId: AxisId,
 	yAxisId: AxisId,
 	isPanorama: boolean,
@@ -45,14 +45,14 @@ const selectYAxisWithScale = (
 ) => selectAxisWithScale(state, "yAxis", yAxisId, isPanorama, override)
 
 const selectYAxisTicks = (
-	state: RechartsRootState,
+	state: ChartState,
 	_xAxisId: AxisId,
 	yAxisId: AxisId,
 	isPanorama: boolean,
 ) => selectTicksOfGraphicalItem(state, "yAxis", yAxisId, isPanorama)
 
 function selectBandSize(
-	state: RechartsRootState,
+	state: ChartState,
 	xAxisId: AxisId,
 	yAxisId: AxisId,
 	isPanorama: boolean,
@@ -82,7 +82,7 @@ function isLineSettings(item: CartesianGraphicalItemSettings): item is LineSetti
  * So here instead of reading the dataKey from the props, we always read it from the state.
  */
 function selectSynchronisedLineSettings(
-	state: RechartsRootState,
+	state: ChartState,
 	_xAxisId: AxisId,
 	_yAxisId: AxisId,
 	_isPanorama: boolean,
@@ -93,7 +93,7 @@ function selectSynchronisedLineSettings(
 }
 
 export function selectLinePoints(
-	state: RechartsRootState,
+	state: ChartState,
 	xAxisId: AxisId,
 	yAxisId: AxisId,
 	isPanorama: boolean,

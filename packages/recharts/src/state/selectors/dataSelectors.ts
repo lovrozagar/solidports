@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { RechartsRootState } from "../store"
+import { ChartState } from "../store"
 import { ChartDataState } from "../chartDataSlice"
 
 /**
@@ -11,10 +11,10 @@ import { ChartDataState } from "../chartDataSlice"
  *
  * So instead of this selector, consider using either selectChartDataAndAlwaysIgnoreIndexes or selectChartDataWithIndexesIfNotInPanorama
  *
- * @param state RechartsRootState
+ * @param state ChartState
  * @returns data defined on the chart root element, such as BarChart or ScatterChart
  */
-export const selectChartDataWithIndexes = (state: RechartsRootState): ChartDataState =>
+export const selectChartDataWithIndexes = (state: ChartState): ChartDataState =>
 	state.chartData
 
 /**
@@ -22,7 +22,7 @@ export const selectChartDataWithIndexes = (state: RechartsRootState): ChartDataS
  * Useful for when you want to render the full range of data, even if a Brush is active.
  * For example: in the Brush panorama, in Legend, in Tooltip.
  */
-export function selectChartDataAndAlwaysIgnoreIndexes(state: RechartsRootState): ChartDataState {
+export function selectChartDataAndAlwaysIgnoreIndexes(state: ChartState): ChartDataState {
 	const dataState = selectChartDataWithIndexes(state)
 	const dataEndIndex = dataState.chartData != null ? dataState.chartData.length - 1 : 0
 	return {
@@ -34,7 +34,7 @@ export function selectChartDataAndAlwaysIgnoreIndexes(state: RechartsRootState):
 }
 
 export const selectChartDataWithIndexesIfNotInPanoramaPosition4 = (
-	state: RechartsRootState,
+	state: ChartState,
 	_unused1: unknown,
 	_unused2: unknown,
 	isPanorama: boolean,
@@ -46,7 +46,7 @@ export const selectChartDataWithIndexesIfNotInPanoramaPosition4 = (
 }
 
 export const selectChartDataWithIndexesIfNotInPanoramaPosition3 = (
-	state: RechartsRootState,
+	state: ChartState,
 	_unused1: unknown,
 	isPanorama: boolean,
 ): ChartDataState => {

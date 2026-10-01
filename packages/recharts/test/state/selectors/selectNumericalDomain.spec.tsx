@@ -1,4 +1,4 @@
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { selectNumericalDomain } from "../../../src/state/selectors/axisSelectors"
 import { defaultAxisId } from "../../../src/state/cartesianAxisSlice"
 import {
@@ -11,7 +11,7 @@ import { Bar, BarChart, XAxis } from "../../../src"
 import { PageData } from "../../_data"
 
 describe("selectNumericalDomain", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectNumericalDomain(state, "xAxis", defaultAxisId, false)
 
 	shouldReturnUndefinedOutOfContext(selector)

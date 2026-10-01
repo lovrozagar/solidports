@@ -1,3 +1,19 @@
+## 1.8.0-sp.1 — 2026-10-01
+
+Solid port of `@base-ui/react@1.8.0` (1.4.1 → 1.8.0).
+
+- **OTP Field**: public `sanitizeValue` renamed to `normalizeValue`. Normalization now runs after whitespace and `validationType` filtering, then clamps to `length`.
+- **Combobox**: `Combobox.createItems()` collection API for derived values and labels.
+- **Autocomplete**: dedicated `Trigger`, `InputGroup`, and `Separator` parts (same shape as `@base-ui/react@1.8.0`).
+- **Drawer**: `Drawer.VirtualKeyboardProvider` for keyboard-aware bottom sheets; `Drawer.createHandle()`; `Drawer` public namespace (preview `DrawerPreview` alias retired).
+- **Internals**: Solid `internals/` export map matches 1.8.0 React (`csp-context`, `useAnchorPositioning`, `getDisabledMountTransitionStyles`, popup/store/field helpers).
+- **Reference snapshot**: nested `packages/react` is `@base-ui/react@1.8.0`; nested `packages/utils` is `@base-ui/utils@0.4.0`.
+
+### Upstream tracking
+
+- React base: `@base-ui/react@1.8.0` snapshot in `packages/react/src/` (mui/base-ui@v1.8.0, commit `47b4052`)
+- Next sync target: next upstream minor after v1.8.0.
+
 ## 1.4.1-sp.1 — 2026-04-24
 
 First release under `@solidports/base-ui` namespace.
@@ -19,4 +35,4 @@ First release under `@solidports/base-ui` namespace.
 ### Upstream tracking
 
 - React base: `@base-ui/react@1.4.1` snapshot in `packages/react/src/` (byte-identical to mui/base-ui@v1.4.1)
-- Next sync target: v1.5.0 whenever upstream ships.
+- Planned next sync at the time: v1.5.0.

@@ -1,9 +1,18 @@
 # Workflow: adding a docs demo (Solid)
 
+Public pages and demos in `docs/solid` are **generated** from `docs/react`.
+Do not hand-edit generated MDX or `src/demos/solid/**`.
+
+```bash
+bun run docs:sync        # refresh docs/react from mui/base-ui@DOCS_TAG
+bun run docs:generate    # rewrite Solid MDX + demos
+bun run docs:dev
+```
+
 ## When to use
 
-You need to add a new demo (or port a React demo) to the Solid docs site
-under `docs-solid/`.
+You need a new demo that is not in upstream yet, or you are fixing the
+generator. Upstream demos belong in `docs/react` via `docs:sync`.
 
 ## Inputs you need
 
@@ -13,20 +22,20 @@ under `docs-solid/`.
 - Which **styling form**: CSS Modules, Tailwind, or both. The repo
   default for hero demos is **both**.
 - Whether the demo must also exist in the React docs at
-  `docs/src/app/(docs)/react/<component>/` for parity.
+  `docs/react/src/app/(docs)/react/<component>/` for parity.
 
 ## Steps
 
 1. **Find the React reference demo.** Look under
-   `docs/src/app/(docs)/react/<component>/` (or
-   `docs/src/app/(private)/experiments/` if it's an experiment). Read
+   `docs/react/src/app/(docs)/react/<component>/` (or
+   `docs/react/src/app/(private)/experiments/` if it's an experiment). Read
    both styling variants.
 
-2. **Mirror the directory layout** in `docs-solid`:
+2. **Mirror the directory layout** in `docs/solid`:
 
    ```text
-   docs-solid/src/demos/solid/<component>/<demo>/css-modules/
-   docs-solid/src/demos/solid/<component>/<demo>/tailwind/
+   docs/solid/src/demos/solid/<component>/<demo>/css-modules/
+   docs/solid/src/demos/solid/<component>/<demo>/tailwind/
    ```
 
    Use existing components' `hero` demos as the styling reference. From
@@ -43,7 +52,7 @@ under `docs-solid/`.
    - Empty boolean ARIA attrs: explicit `aria-hidden="true"`, not bare.
 
 4. **Wire the demo into the docs page.** Update
-   `docs-solid/src/content/solid/components/<component>.mdx` to
+   `docs/solid/src/routes/(docs)/solid/components/<component>.mdx` to
    reference the new demo. Match how other demos on the same page are
    declared.
 
@@ -55,11 +64,9 @@ under `docs-solid/`.
 6. **Lint + format:**
 
    ```bash
-   pnpm typescript
-   pnpm eslint
-   pnpm prettier
-   pnpm stylelint
-   pnpm markdownlint
+   bun run typecheck
+   bun run lint
+   bun run fmt
    ```
 
 7. **Update the component's KB file.** In

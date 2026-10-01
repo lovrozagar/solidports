@@ -51,7 +51,7 @@ import {
 	selectRadialBarSectors,
 } from "../state/selectors/radialBarSelectors"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { RechartsStateContext } from "../state/_solid/RechartsStateContext"
+import { RechartsStateContext } from "../state/RechartsStateContext"
 import type { AngleAxisSettings, RadiusAxisSettings } from "../state/polarAxisSlice"
 import { selectActiveTooltipIndex } from "../state/selectors/tooltipSelectors"
 import { SetPolarLegendPayload } from "../state/SetLegendPayload"

@@ -95,5 +95,5 @@ None.
 ## Test commands
 
 ```bash
-pnpm test:solid:jsdom Collapsible --no-watch --reporter=agent
+bun run test:solid:jsdom Collapsible --no-watch --reporter=agent
 ```

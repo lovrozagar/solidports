@@ -95,7 +95,7 @@ export function testPropForwarding(
 
     it('forwards the custom `style` attribute defined on the render function', async () => {
       render(element, {
-        render: (props) => (
+        render: (props: Record<string, unknown>) => (
           <Dynamic
             component={Element}
             {...props}
@@ -115,7 +115,7 @@ export function testPropForwarding(
 
     it('forwards the custom `style` attribute defined on the render function', async () => {
       render(element, {
-        render: (props) => (
+        render: (props: Record<string, unknown>) => (
           <Dynamic
             component={Element}
             {...props}

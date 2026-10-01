@@ -13,16 +13,15 @@ import type { LegendSettings } from "../legendSlice"
 import { appendOffsetOfLegend } from "../../util/ChartUtils"
 import { selectChartHeight, selectChartWidth, selectMargin } from "./containerSelectors"
 import { selectAllXAxes, selectAllYAxes } from "./selectAllAxes"
-import { DEFAULT_Y_AXIS_WIDTH } from "../../util/Constants"
-import type { RechartsRootState } from "../store"
+import { DEFAULT_X_AXIS_HEIGHT, DEFAULT_Y_AXIS_WIDTH } from "../../util/Constants"
+import type { ChartState } from "../store"
+import { readChartState } from "../chartState"
 
-export const selectBrushHeight = (state: RechartsRootState) => {
-	const solidBrush = (state._solid as Partial<typeof state._solid>).brush
-	/* Legacy compat shim — _solid.brush absent when tests partially override _solid */
-	return solidBrush?.height ?? state.brush?.height ?? 0
+export const selectBrushHeight = (state: ChartState) => {
+	return readChartState(state).brush.height ?? 0
 }
 
-function selectLeftAxesOffset(state: RechartsRootState): number {
+function selectLeftAxesOffset(state: ChartState): number {
 	const yAxes = selectAllYAxes(state)
 	return yAxes.reduce((result: number, entry: YAxisSettings): number => {
 		if (entry.orientation === "left" && !entry.mirror && !entry.hide) {
@@ -33,7 +32,7 @@ function selectLeftAxesOffset(state: RechartsRootState): number {
 	}, 0)
 }
 
-function selectRightAxesOffset(state: RechartsRootState): number {
+function selectRightAxesOffset(state: ChartState): number {
 	const yAxes = selectAllYAxes(state)
 	return yAxes.reduce((result: number, entry: YAxisSettings): number => {
 		if (entry.orientation === "right" && !entry.mirror && !entry.hide) {
@@ -44,21 +43,23 @@ function selectRightAxesOffset(state: RechartsRootState): number {
 	}, 0)
 }
 
-function selectTopAxesOffset(state: RechartsRootState): number {
+function selectTopAxesOffset(state: ChartState): number {
 	const xAxes = selectAllXAxes(state)
 	return xAxes.reduce((result: number, entry: XAxisSettings): number => {
 		if (entry.orientation === "top" && !entry.mirror && !entry.hide) {
-			return result + entry.height
+			const height = typeof entry.height === "number" ? entry.height : DEFAULT_X_AXIS_HEIGHT
+			return result + height
 		}
 		return result
 	}, 0)
 }
 
-function selectBottomAxesOffset(state: RechartsRootState): number {
+function selectBottomAxesOffset(state: ChartState): number {
 	const xAxes = selectAllXAxes(state)
 	return xAxes.reduce((result: number, entry: XAxisSettings): number => {
 		if (entry.orientation === "bottom" && !entry.mirror && !entry.hide) {
-			return result + entry.height
+			const height = typeof entry.height === "number" ? entry.height : DEFAULT_X_AXIS_HEIGHT
+			return result + height
 		}
 		return result
 	}, 0)
@@ -70,7 +71,7 @@ function selectBottomAxesOffset(state: RechartsRootState): number {
  * @param state root state
  * @return ChartOffsetInternal
  */
-export function selectChartOffsetInternal(state: RechartsRootState): ChartOffsetInternal {
+export function selectChartOffsetInternal(state: ChartState): ChartOffsetInternal {
 	const chartWidth: number = selectChartWidth(state)
 	const chartHeight: number = selectChartHeight(state)
 	const margin: Margin = selectMargin(state)
@@ -112,7 +113,7 @@ export function selectChartOffsetInternal(state: RechartsRootState): ChartOffset
 	}
 }
 
-export function selectChartViewBox(state: RechartsRootState): CartesianViewBoxRequired {
+export function selectChartViewBox(state: ChartState): CartesianViewBoxRequired {
 	const offset = selectChartOffsetInternal(state)
 	return {
 		height: offset.height,
@@ -122,7 +123,7 @@ export function selectChartViewBox(state: RechartsRootState): CartesianViewBoxRe
 	}
 }
 
-export function selectAxisViewBox(state: RechartsRootState): CartesianViewBoxRequired {
+export function selectAxisViewBox(state: ChartState): CartesianViewBoxRequired {
 	const width = selectChartWidth(state)
 	const height = selectChartHeight(state)
 	return {

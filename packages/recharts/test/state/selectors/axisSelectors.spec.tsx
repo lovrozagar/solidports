@@ -19,7 +19,7 @@ import {
 	selectSmallestDistanceBetweenValues,
 	selectXAxisSettings,
 } from "../../../src/state/selectors/axisSelectors"
-import { createRechartsStore, RechartsRootState } from "../../../src/state/store"
+import { createRechartsStore, ChartState } from "../../../src/state/store"
 import {
 	Area,
 	Bar,
@@ -1243,7 +1243,7 @@ describe("selectHasBar", () => {
 })
 
 describe("selectCalculatedPadding", () => {
-	const selector = (state: RechartsRootState) => selectCalculatedXAxisPadding(state, 0, false)
+	const selector = (state: ChartState) => selectCalculatedXAxisPadding(state, 0, false)
 
 	shouldReturnUndefinedOutOfContext(selector)
 	shouldReturnFromInitialState(selector, 0)
@@ -1350,7 +1350,7 @@ describe("selectCalculatedPadding", () => {
 })
 
 describe("selectSmallestDistanceBetweenValues", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectSmallestDistanceBetweenValues(state, "xAxis", 0, false)
 
 	shouldReturnUndefinedOutOfContext(selector)
@@ -1487,7 +1487,7 @@ describe("selectSmallestDistanceBetweenValues", () => {
 })
 
 describe("selectCartesianGraphicalItemsData", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectCartesianGraphicalItemsData(state, "xAxis", "x")
 
 	shouldReturnUndefinedOutOfContext(selector)
@@ -1707,7 +1707,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 })
 
 describe("selectAllAppliedValues", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectAllAppliedValues(state, "xAxis", defaultAxisId, false)
 
 	shouldReturnUndefinedOutOfContext(selector)
@@ -1881,7 +1881,7 @@ describe("selectAllAppliedValues", () => {
 })
 
 describe("selectErrorBarsSettings", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectErrorBarsSettings(state, "xAxis", defaultAxisId)
 
 	shouldReturnUndefinedOutOfContext(selector)
@@ -2332,7 +2332,7 @@ describe("selectErrorBarsSettings", () => {
 })
 
 describe("selectNiceTicks", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectNiceTicks(state, "xAxis", defaultAxisId, false)
 
 	shouldReturnUndefinedOutOfContext(selector)
@@ -2494,7 +2494,7 @@ describe("mergeDomains", () => {
 })
 
 describe("selectAxisWithScale", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectAxisWithScale(state, "xAxis", defaultAxisId, false)
 
 	shouldReturnUndefinedOutOfContext(selector)

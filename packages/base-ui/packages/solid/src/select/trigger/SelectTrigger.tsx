@@ -289,9 +289,9 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
           },
         },
         getButtonProps,
+        validation.getValidationProps(elementProps as JSX.HTMLAttributes<HTMLButtonElement>),
         /* prevent nested useButton from overwriting the combobox role, e.g. <Toolbar.Button render={<Select.Trigger />} /> */
         { role: 'combobox' as const },
-        validation.getValidationProps(elementProps as JSX.HTMLAttributes<HTMLButtonElement>),
       ];
     },
     ref: (el) => {

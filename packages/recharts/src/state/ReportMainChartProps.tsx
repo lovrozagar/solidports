@@ -1,8 +1,8 @@
-import { createRenderEffect, onCleanup, useContext } from "solid-js"
+import { createRenderEffect, onCleanup } from "solid-js"
 import type { LayoutType, Margin } from "../util/types"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { initialLayoutState } from "./layoutSlice"
-import { RechartsStoreContext } from "./RechartsStoreContext"
+import { useOptionalChartState } from "./useChartState"
 
 /**
  * "Main" props are props that are only accepted on the main chart,
@@ -14,7 +14,7 @@ type MainChartProps = {
 }
 
 export function ReportMainChartProps(props: MainChartProps): null {
-	const ctx = useContext(RechartsStoreContext)
+	const ctx = useOptionalChartState()
 	if (ctx == null) {
 		return null
 	}
@@ -34,8 +34,8 @@ export function ReportMainChartProps(props: MainChartProps): null {
 	   on first read. */
 	createRenderEffect(() => {
 		if (!isPanorama) {
-			ctx.setStore("layout", "layoutType", props.layout)
-			ctx.setStore("layout", "margin", {
+			ctx.setState("layout", "layoutType", props.layout)
+			ctx.setState("layout", "margin", {
 				bottom: props.margin.bottom ?? initialLayoutState.margin.bottom,
 				left: props.margin.left ?? initialLayoutState.margin.left,
 				right: props.margin.right ?? initialLayoutState.margin.right,
@@ -46,8 +46,8 @@ export function ReportMainChartProps(props: MainChartProps): null {
 
 	onCleanup(() => {
 		if (!isPanorama) {
-			ctx.setStore("layout", "layoutType", initialLayoutState.layoutType)
-			ctx.setStore("layout", "margin", { ...initialLayoutState.margin })
+			ctx.setState("layout", "layoutType", initialLayoutState.layoutType)
+			ctx.setState("layout", "margin", { ...initialLayoutState.margin })
 		}
 	})
 

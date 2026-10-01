@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { createEffect } from "solid-js"
 import { render } from "@solidjs/testing-library"
-import { createRechartsStore, RechartsRootState } from "../../../src/state/store"
+import { createRechartsStore, ChartState } from "../../../src/state/store"
 import { selectAxisScale } from "../../../src/state/selectors/axisSelectors"
 import {
 	assertStableBetweenRenders,
@@ -85,7 +85,7 @@ describe("selectAxisScale", () => {
 				</BarChart>
 			))
 
-			assertStableBetweenRenders(renderTestCase, (state: RechartsRootState) =>
+			assertStableBetweenRenders(renderTestCase, (state: ChartState) =>
 				selectAxisScale(state, "xAxis", "0", false),
 			)
 		})

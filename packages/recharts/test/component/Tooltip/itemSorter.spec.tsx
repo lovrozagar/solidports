@@ -23,7 +23,7 @@ import {
 } from "../../../src"
 import { PageData } from "../../_data"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { expectTooltipPayload, showTooltip } from "./tooltipTestHelpers"
 import {
 	barChartMouseHoverTooltipSelector,
@@ -47,7 +47,7 @@ describe("itemSorter in ComposedChart", () => {
 	describe("without name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<ComposedChart width={300} height={300} data={PageData}>
@@ -614,7 +614,7 @@ describe("itemSorter in ComposedChart", () => {
 	describe("with name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<ComposedChart width={300} height={300} data={PageData}>
@@ -921,7 +921,7 @@ describe("itemSorter in PieChart", () => {
 
 	function renderTestCase<T>(
 		itemSorter: TooltipItemSorter | undefined,
-		selector?: Selector<RechartsRootState, T, never>,
+		selector?: Selector<ChartState, T, never>,
 	) {
 		return createSelectorTestCase((props) => (
 			<PieChart width={300} height={300}>
@@ -973,7 +973,7 @@ describe("itemSorter in RadarChart", () => {
 	describe("without name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<RadarChart width={600} height={600} data={PageData}>
@@ -1161,7 +1161,7 @@ describe("itemSorter in RadarChart", () => {
 	describe("with name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<RadarChart width={600} height={600} data={PageData}>
@@ -1301,7 +1301,7 @@ describe("itemSorter in RadialBarChart", () => {
 	describe("without name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<RadialBarChart width={600} height={600} data={PageData}>
@@ -1617,7 +1617,7 @@ describe("itemSorter in RadialBarChart", () => {
 	describe("with name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<RadialBarChart width={600} height={600} data={PageData}>
@@ -1965,7 +1965,7 @@ describe("itemSorter in stacked BarChart", () => {
 	describe("without name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<BarChart width={300} height={300} data={PageData}>
@@ -2153,7 +2153,7 @@ describe("itemSorter in stacked BarChart", () => {
 	describe("with name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<BarChart width={300} height={300} data={PageData}>
@@ -2366,7 +2366,7 @@ describe("itemSorter in stacked AreaChart", () => {
 	describe("without name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<AreaChart width={300} height={300} data={PageData}>
@@ -2554,7 +2554,7 @@ describe("itemSorter in stacked AreaChart", () => {
 	describe("with name prop", () => {
 		function renderTestCase<T>(
 			itemSorter: TooltipItemSorter | undefined,
-			selector?: Selector<RechartsRootState, T, never>,
+			selector?: Selector<ChartState, T, never>,
 		) {
 			return createSelectorTestCase((props) => (
 				<AreaChart width={300} height={300} data={PageData}>

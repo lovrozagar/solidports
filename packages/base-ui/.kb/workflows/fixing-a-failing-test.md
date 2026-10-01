@@ -17,8 +17,8 @@ and fix it.
 1. **Reproduce in isolation.**
 
    ```bash
-   pnpm test:solid:jsdom <TestNameOrPattern> --no-watch --reporter=agent
-   pnpm test:solid:chromium <TestNameOrPattern> --no-watch --reporter=agent
+   bun run test:solid:jsdom <TestNameOrPattern> --no-watch --reporter=agent
+   bun run test:solid:chromium <TestNameOrPattern> --no-watch --reporter=agent
    ```
 
    Run only the failing env first.
@@ -49,15 +49,15 @@ and fix it.
    other envs to make sure the fix didn't regress anything else:
 
    ```bash
-   pnpm test:solid:jsdom <Pattern> --no-watch --reporter=agent
-   pnpm test:solid:chromium <Pattern> --no-watch --reporter=agent
+   bun run test:solid:jsdom <Pattern> --no-watch --reporter=agent
+   bun run test:solid:chromium <Pattern> --no-watch --reporter=agent
    ```
 
 6. **Lint + typecheck** any source files you touched:
 
    ```bash
-   pnpm typescript
-   pnpm eslint
+   bun run typecheck
+   bun run lint
    ```
 
 7. **If the failure exposed a new cross-cutting Solid sharp edge**,
@@ -70,7 +70,7 @@ and fix it.
 - [ ] The originally failing test passes in its original env.
 - [ ] Other envs (at minimum jsdom + chromium) still pass for the same
   pattern.
-- [ ] `pnpm typescript` and `pnpm eslint` clean for changed files.
+- [ ] `bun run typecheck` and `bun run lint` clean for changed files.
 - [ ] If a new cross-cutting gotcha was discovered, it's in
   `../solid/gotchas.md`.
 

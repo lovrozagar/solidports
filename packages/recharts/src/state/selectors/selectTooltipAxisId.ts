@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
-import { RechartsRootState } from "../store"
+import { ChartState } from "../store"
 import { AxisId } from "../cartesianAxisSlice"
 import { selectTooltipSettings } from "./selectTooltipSettings"
 
-export const selectTooltipAxisId = (state: RechartsRootState): AxisId =>
+export const selectTooltipAxisId = (state: ChartState): AxisId =>
 	selectTooltipSettings(state).axisId

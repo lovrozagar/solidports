@@ -19,7 +19,7 @@ export default {
   },
   overrides: [
     {
-      files: ['docs-react/**/*'],
+      files: ['docs/react/**/*'],
       extends: ['stylelint-config-tailwindcss'],
       rules: {
         // https://github.com/zhilidali/stylelint-config-tailwindcss/issues/12
@@ -30,7 +30,7 @@ export default {
     },
     {
       // Not fixing experiments for now
-      files: ['docs-react/src/app/[(]private[)]/experiments/**/*'],
+      files: ['docs/react/src/app/[(]private[)]/experiments/**/*'],
       rules: {
         'block-no-redundant-nested-style-rules': null,
         'no-descending-specificity': null,

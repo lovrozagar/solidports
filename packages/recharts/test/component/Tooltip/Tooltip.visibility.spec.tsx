@@ -808,6 +808,8 @@ describe("Tooltip visibility", () => {
 				align: "center",
 				itemSorter: "value",
 				layout: "horizontal",
+				offset: 0,
+				position: undefined,
 				verticalAlign: "bottom",
 			}
 			expectLastCalledWith(spy, expected)
@@ -1163,7 +1165,7 @@ describe("Tooltip visibility", () => {
 					index: null,
 				},
 				settings: {
-					active: undefined,
+					active: false,
 					axisId: 0,
 					defaultIndex: undefined,
 					shared: undefined,
@@ -1255,7 +1257,7 @@ describe("Tooltip visibility", () => {
 					index: null,
 				},
 				settings: {
-					active: undefined,
+					active: false,
 					axisId: 0,
 					defaultIndex: undefined,
 					shared: undefined,

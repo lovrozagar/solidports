@@ -15,7 +15,7 @@ template.
 | Aspect                          | Status               |
 | :------------------------------ | :------------------- |
 | Ported (`packages/solid/`)      | yes / partial / no   |
-| Docs ported (`docs-solid/`)  | yes / partial / no   |
+| Docs ported (`docs/solid/`)  | yes / partial / no   |
 | Tests passing (jsdom)           | yes / no / unknown   |
 | Tests passing (chromium)        | yes / no / unknown   |
 | Last reviewed                   | YYYY-MM-DD           |
@@ -32,8 +32,8 @@ template.
 
 - React (read-only): `packages/react/src/<component>/`
 - Solid (target):    `packages/solid/src/<component>/`
-- Docs (target):     `docs-solid/src/content/solid/components/<component>.mdx`
-- Demos (target):    `docs-solid/src/demos/solid/<component>/`
+- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/<component>.mdx`
+- Demos (target):    `docs/solid/src/demos/solid/<component>/`
 
 ## Open issues
 
@@ -42,5 +42,5 @@ template.
 ## Quick test
 
 ```bash
-pnpm test:solid:jsdom <PascalCaseComponentName> --no-watch --reporter=agent
+bun run test:solid:jsdom <PascalCaseComponentName> --no-watch --reporter=agent
 ```

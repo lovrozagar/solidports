@@ -26,10 +26,13 @@ export function FloatingPortalLite(componentProps: FloatingPortalLite.Props<any>
         componentProps.ref(el);
       } else if (
         componentProps.ref !== null &&
+        componentProps.ref !== undefined &&
         typeof componentProps.ref === 'object' &&
         'current' in componentProps.ref
       ) {
         (componentProps.ref as { current: unknown }).current = el;
+      } else {
+        (componentProps as { ref: HTMLDivElement | null | undefined }).ref = el ?? null;
       }
     },
   });

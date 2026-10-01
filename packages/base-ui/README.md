@@ -2,7 +2,7 @@
 
 # _(WIP)_ This project is a work in progress.
 
-- Library is compatible with **@base-ui-components/react@1.0.0-beta.1**
+- Library is compatible with **@base-ui/react@1.8.0**
 - Docs have everything copied over from the original React-based docs so **_a lot_** of discrepancies in text are present
 
 ### Please, consider supporting an awesome Base UI team directly on [OpenCollective](https://opencollective.com/mui-org). This port is a gesture of appreciation of an increadible work they've been doing.
@@ -20,6 +20,8 @@ npm install @solidports/base-ui
 ## Documentation
 
 ### [base-ui-docs-solid.vercel.app](https://base-ui-docs-solid.vercel.app/)
+
+Solid docs live in `docs/solid/`. The React docs snapshot is `docs/react/`.
 To get started, check out the [Base UI documentation](https://base-ui.com/react/overview/quick-start).
 
 ## Contributing

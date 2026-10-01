@@ -121,6 +121,15 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
   const value = () => valueUnwrapped() ?? null;
 
   const inputRef = useRef<HTMLInputElement | null | undefined>(null);
+  const focusInput = () => {
+    const input = inputRef.current;
+    if (!input) {
+      return;
+    }
+    const length = input.value.length;
+    input.setSelectionRange(length, length);
+    input.focus();
+  };
   const allowInputSyncRef = useRef<boolean | null>(true);
   const formatOptionsRef = useRef(local.format);
   const valueRef = useRef(value());
@@ -408,6 +417,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
   const contextValue: NumberFieldRootContext = {
     allowInputSyncRef,
     disabled,
+    focusInput,
     formatOptionsRef,
     getAllowedNonNumericKeys,
     getStepAmount,

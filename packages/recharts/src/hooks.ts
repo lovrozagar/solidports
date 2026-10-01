@@ -11,14 +11,13 @@ import {
 	selectAxisWithScale,
 	selectTicksOfAxis,
 } from "./state/selectors/axisSelectors"
-import { useChartStore } from "./state/RechartsStoreContext"
-import { useOptionalChartState } from "./state/_solid/useChartState"
+import { useOptionalChartState } from "./state/useChartState"
+import type { ChartState } from "./state/chartState"
 import { useIsPanorama } from "./context/PanoramaContext"
 import {
 	selectActiveLabel,
 	selectActiveTooltipCoordinate,
 	selectActiveTooltipDataPoints,
-	selectIsTooltipActive,
 } from "./state/selectors/tooltipSelectors"
 import type { ChartOffset, PlotArea } from "./types"
 import { selectChartOffset } from "./state/selectors/selectChartOffset"
@@ -27,18 +26,24 @@ import type { CategoricalDomain, Coordinate, NumberDomain, CartesianTickItem } f
 import type { ActiveLabel } from "./synchronisation/types"
 import type { BandPosition } from "./util/scale/RechartsScale"
 
+function useSelectorState(): ChartState | undefined {
+	const chart = useOptionalChartState()
+	if (chart == null) return undefined
+	return chart.state
+}
+
 export const useXAxis = (xAxisId: AxisId): BaseAxisWithScale | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisWithScale(ctx.store, "xAxis", xAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisWithScale(state, "xAxis", xAxisId, isPanorama)
 }
 
 export const useYAxis = (yAxisId: AxisId): BaseAxisWithScale | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisWithScale(ctx.store, "yAxis", yAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisWithScale(state, "yAxis", yAxisId, isPanorama)
 }
 
 /**
@@ -87,10 +92,10 @@ export type InverseScaleFunction = (pixelValue: number) => unknown
 export const useXAxisScale = (
 	xAxisId: AxisId = defaultAxisId,
 ): ScaleFunction | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	const scale = selectAxisScale(ctx.store, "xAxis", xAxisId, isPanorama)
+	if (state == null) return undefined
+	const scale = selectAxisScale(state, "xAxis", xAxisId, isPanorama)
 	return scale?.map
 }
 
@@ -118,10 +123,10 @@ export const useXAxisScale = (
 export const useYAxisScale = (
 	yAxisId: AxisId = defaultAxisId,
 ): ScaleFunction | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	const scale = selectAxisScale(ctx.store, "yAxis", yAxisId, isPanorama)
+	if (state == null) return undefined
+	const scale = selectAxisScale(state, "yAxis", yAxisId, isPanorama)
 	return scale?.map
 }
 
@@ -141,10 +146,10 @@ export const useYAxisScale = (
 export const useXAxisInverseScale = (
 	xAxisId: AxisId = defaultAxisId,
 ): InverseScaleFunction | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisInverseScale(ctx.store, "xAxis", xAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisInverseScale(state, "xAxis", xAxisId, isPanorama)
 }
 
 /**
@@ -158,10 +163,10 @@ export const useXAxisInverseScale = (
 export const useXAxisInverseDataSnapScale = (
 	xAxisId: AxisId = defaultAxisId,
 ): InverseScaleFunction | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisInverseDataSnapScale(ctx.store, "xAxis", xAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisInverseDataSnapScale(state, "xAxis", xAxisId, isPanorama)
 }
 
 /**
@@ -175,10 +180,10 @@ export const useXAxisInverseDataSnapScale = (
 export const useXAxisInverseTickSnapScale = (
 	xAxisId: AxisId = defaultAxisId,
 ): InverseScaleFunction | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisInverseTickSnapScale(ctx.store, "xAxis", xAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisInverseTickSnapScale(state, "xAxis", xAxisId, isPanorama)
 }
 
 /**
@@ -191,10 +196,10 @@ export const useXAxisInverseTickSnapScale = (
 export const useYAxisInverseScale = (
 	yAxisId: AxisId = defaultAxisId,
 ): InverseScaleFunction | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisInverseScale(ctx.store, "yAxis", yAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisInverseScale(state, "yAxis", yAxisId, isPanorama)
 }
 
 /**
@@ -208,10 +213,10 @@ export const useYAxisInverseScale = (
 export const useYAxisInverseDataSnapScale = (
 	yAxisId: AxisId = defaultAxisId,
 ): InverseScaleFunction | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisInverseDataSnapScale(ctx.store, "yAxis", yAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisInverseDataSnapScale(state, "yAxis", yAxisId, isPanorama)
 }
 
 /**
@@ -225,10 +230,10 @@ export const useYAxisInverseDataSnapScale = (
 export const useYAxisInverseTickSnapScale = (
 	yAxisId: AxisId = defaultAxisId,
 ): InverseScaleFunction | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisInverseTickSnapScale(ctx.store, "yAxis", yAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisInverseTickSnapScale(state, "yAxis", yAxisId, isPanorama)
 }
 
 /**
@@ -241,10 +246,10 @@ export const useYAxisInverseTickSnapScale = (
 export const useXAxisTicks = (
 	xAxisId: AxisId = defaultAxisId,
 ): ReadonlyArray<CartesianTickItem> | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectTicksOfAxis(ctx.store, "xAxis", xAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectTicksOfAxis(state, "xAxis", xAxisId, isPanorama)
 }
 
 /**
@@ -257,10 +262,10 @@ export const useXAxisTicks = (
 export const useYAxisTicks = (
 	yAxisId: AxisId = defaultAxisId,
 ): ReadonlyArray<CartesianTickItem> | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectTicksOfAxis(ctx.store, "yAxis", yAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectTicksOfAxis(state, "yAxis", yAxisId, isPanorama)
 }
 
 /**
@@ -323,9 +328,9 @@ export const useCartesianScale = (
  * @since 3.0
  */
 export const useActiveTooltipLabel = (): ActiveLabel => {
-	const ctx = useChartStore()
-	if (ctx == null) return undefined
-	return selectActiveLabel(ctx.store)
+	const state = useSelectorState()
+	if (state == null) return undefined
+	return selectActiveLabel(state)
 }
 
 /**
@@ -355,9 +360,9 @@ export const useActiveTooltipLabel = (): ActiveLabel => {
  * @since 3.1
  */
 export const useOffset = (): ChartOffset | undefined => {
-	const ctx = useChartStore()
-	if (ctx == null) return undefined
-	return selectChartOffset(ctx.store)
+	const state = useSelectorState()
+	if (state == null) return undefined
+	return selectChartOffset(state)
 }
 
 /**
@@ -379,9 +384,9 @@ export const useOffset = (): ChartOffset | undefined => {
  * @since 3.1
  */
 export const usePlotArea = (): PlotArea | undefined => {
-	const ctx = useChartStore()
-	if (ctx == null) return undefined
-	return selectPlotArea(ctx.store)
+	const state = useSelectorState()
+	if (state == null) return undefined
+	return selectPlotArea(state)
 }
 
 /**
@@ -401,9 +406,9 @@ export const usePlotArea = (): PlotArea | undefined => {
  * @returns Data points that are currently visible in a Tooltip
  */
 export const useActiveTooltipDataPoints = <T = unknown>(): ReadonlyArray<T> | undefined => {
-	const ctx = useChartStore()
-	if (ctx == null) return undefined
-	return selectActiveTooltipDataPoints(ctx.store) as ReadonlyArray<T> | undefined
+	const state = useSelectorState()
+	if (state == null) return undefined
+	return selectActiveTooltipDataPoints(state) as ReadonlyArray<T> | undefined
 }
 
 /**
@@ -418,10 +423,10 @@ export const useActiveTooltipDataPoints = <T = unknown>(): ReadonlyArray<T> | un
 export const useXAxisDomain = (
 	xAxisId: AxisId = defaultAxisId,
 ): NumberDomain | CategoricalDomain | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisDomain(ctx.store, "xAxis", xAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisDomain(state, "xAxis", xAxisId, isPanorama)
 }
 
 /**
@@ -434,10 +439,10 @@ export const useXAxisDomain = (
 export const useYAxisDomain = (
 	yAxisId: AxisId = defaultAxisId,
 ): NumberDomain | CategoricalDomain | undefined => {
-	const ctx = useChartStore()
+	const state = useSelectorState()
 	const isPanorama = useIsPanorama()
-	if (ctx == null) return undefined
-	return selectAxisDomain(ctx.store, "yAxis", yAxisId, isPanorama)
+	if (state == null) return undefined
+	return selectAxisDomain(state, "yAxis", yAxisId, isPanorama)
 }
 
 /**
@@ -449,13 +454,9 @@ export const useYAxisDomain = (
  * @since 3.7
  */
 export const useIsTooltipActive = (): boolean => {
-	const newCtx = useOptionalChartState()
-	/* prefer new-state active when populated — subscribes to _solid store for reactivity */
-	const newActive = newCtx?.state.tooltip.settings.active
-	if (newActive !== undefined) return newActive
-	const ctx = useChartStore()
-	if (ctx == null) return false
-	return selectIsTooltipActive(ctx.store) ?? false
+	const chart = useOptionalChartState()
+	if (chart == null) return false
+	return chart.state.tooltip.settings.active === true
 }
 
 /**
@@ -467,23 +468,9 @@ export const useIsTooltipActive = (): boolean => {
  * @since 3.7
  */
 export const useActiveTooltipCoordinate = (): Coordinate | undefined => {
-	const newCtx = useOptionalChartState()
-	/* reading active subscribes to _solid store; return value must differ when active flips */
-	const newActive = newCtx?.state.tooltip.settings.active
-	const ctx = useChartStore()
-	if (ctx == null) return undefined
-	const coordinate = selectActiveTooltipCoordinate(ctx.store)
-	/* when new state is available, prefer it; inactive = no coordinate */
-	if (newActive !== undefined) {
-		if (!newActive) return undefined
-		/* active=true: return legacy coord or {x:0,y:0} so value changes from undefined */
-		return coordinate != null ? { x: coordinate.x, y: coordinate.y } : { x: 0, y: 0 }
-	}
-	if (coordinate == null) {
-		return undefined
-	}
-	return {
-		x: coordinate.x,
-		y: coordinate.y,
-	}
+	const chart = useOptionalChartState()
+	if (chart == null) return undefined
+	if (chart.state.tooltip.settings.active !== true) return undefined
+	const coordinate = selectActiveTooltipCoordinate(chart.state)
+	return coordinate != null ? { x: coordinate.x, y: coordinate.y } : { x: 0, y: 0 }
 }

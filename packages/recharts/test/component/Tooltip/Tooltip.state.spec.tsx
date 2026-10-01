@@ -18,7 +18,7 @@ describe("Tooltip state integration", () => {
 			const expected: TooltipSettingsState = {
 				active: true,
 				axisId: "my-axis-id",
-				defaultIndex: "4",
+				defaultIndex: 4,
 				shared: true,
 				trigger: "click",
 			}
@@ -36,7 +36,7 @@ describe("Tooltip state integration", () => {
 		test("should publish its settings to Redux store", () => {
 			const { spy } = renderTestCase((state) => state.tooltip.settings)
 			const expected: TooltipSettingsState = {
-				active: undefined,
+				active: false,
 				axisId: 0,
 				defaultIndex: undefined,
 				shared: undefined,

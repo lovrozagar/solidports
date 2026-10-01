@@ -2,9 +2,9 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { BarChart, Brush, XAxis, YAxis, Bar } from "../../../src"
-import { useChartState } from "../../../src/state/_solid/useChartState"
+import { useChartState } from "../../../src/state/useChartState"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "../../../src/state/_solid/chartState"
+import type { ChartState } from "../../../src/state/chartState"
 
 const data = [
 	{ name: "A", value: 100 },
@@ -14,7 +14,7 @@ const data = [
 
 describe("Phase 5 — Brush dual-writes to new chartState", () => {
 	it("Brush component populates state.brush on mount", () => {
-		/* Phase 5 RED: Brush writes to legacy RechartsRootState.brush only — new
+		/* Phase 5 RED: Brush writes to legacy ChartState.brush only — new
 		   chartState.brush remains at initial zeros after mount. After GREEN: Brush
 		   dual-writes to new chartState.brush so state.brush.height matches prop. */
 		let capturedState: ChartState | undefined

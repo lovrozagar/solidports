@@ -4,14 +4,14 @@ import {
 	shouldReturnUndefinedOutOfContext,
 } from "../../helper/selectorTestHelpers"
 import { selectAxisDomainIncludingNiceTicks } from "../../../src/state/selectors/axisSelectors"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { Bar, BarChart, XAxis } from "../../../src"
 import { PageData } from "../../_data"
 import { defaultAxisId } from "../../../src/state/cartesianAxisSlice"
 
 describe("selectAxisDomainIncludingNiceTicks", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectAxisDomainIncludingNiceTicks(state, "xAxis", defaultAxisId, false)
 	shouldReturnUndefinedOutOfContext(selector)
 	shouldReturnFromInitialState(selector, undefined)

@@ -47,6 +47,7 @@ import {
   stringifyAsLabel,
   stringifyAsValue,
 } from '../../utils/resolveValueLabel';
+import type { ComboboxItemCollection, ItemCollection } from '../items/itemCollection';
 import { HTMLProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
@@ -156,6 +157,53 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
   const hasInputValue = () =>
     inputValueProp() !== undefined || defaultInputValueProp() !== undefined;
   const hasItems = () => props.items !== undefined;
+
+  const collection = createMemo(() => {
+    const itemsProp = props.items as unknown;
+    if (itemsProp == null || Array.isArray(itemsProp)) {
+      return null;
+    }
+    const maybe = itemsProp as ItemCollection<any, any>;
+    if (typeof maybe.label !== 'function') {
+      throw new Error(
+        'Base UI: the `items` prop received an object that is not a collection, ' +
+          'so its items cannot be read. Pass an array of items, an array of groups with items, ' +
+          'or the result of `createItems()`. ' +
+          'See https://base-ui.com/react/components/combobox#createitems',
+      );
+    }
+    return maybe;
+  });
+
+  const items = createMemo(
+    () =>
+      (collection() ? collection()!.data : props.items) as
+        | readonly any[]
+        | readonly Group<any>[]
+        | undefined,
+  );
+
+  const itemToStringLabel = createMemo(() => {
+    const col = collection();
+    const prop = props.itemToStringLabel;
+    if (!col) {
+      return prop;
+    }
+    return (itemValue: any) =>
+      col.label(
+        itemValue,
+        props.isItemEqualToValue ?? defaultItemEquality,
+        (unresolvedValue: any) => stringifyAsLabel(unresolvedValue, prop),
+      );
+  });
+
+  const filterItemToString = createMemo(() => {
+    const col = collection();
+    if (!col) {
+      return props.itemToStringLabel;
+    }
+    return (item: any) => col.itemLabel(item);
+  });
   const hasFilteredItemsProp = () => filteredItemsProp() !== undefined;
 
   const autoHighlightMode = createMemo<false | 'input-change' | 'always'>(() => {
@@ -182,11 +230,11 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     if (single() && !queryChangedAfterOpen()) {
       return createSingleSelectionCollatorFilter(
         collatorFilter,
-        props.itemToStringLabel,
+        filterItemToString(),
         selectedValue(),
       );
     }
-    return createCollatorItemFilter(collatorFilter, props.itemToStringLabel);
+    return createCollatorItemFilter(collatorFilter, filterItemToString());
   });
 
   // If neither inputValue nor defaultInputValue are provided, derive it from the
@@ -215,7 +263,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     state: 'open',
   });
 
-  const isGrouped = createMemo(() => isGroupedItems(props.items));
+  const isGrouped = createMemo(() => isGroupedItems(items()));
   const query = createMemo(
     () => closeQuery() ?? (inputValue() === '' ? '' : String(inputValue()).trim()),
   );
@@ -240,15 +288,16 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
   );
 
   const flatItems = createMemo<readonly any[]>(() => {
-    if (!props.items) {
+    const resolvedItems = items();
+    if (!resolvedItems) {
       return EMPTY_ARRAY;
     }
 
     if (isGrouped()) {
-      return props.items.flatMap((group) => group.items);
+      return resolvedItems.flatMap((group) => (group as Group<any>).items);
     }
 
-    return props.items;
+    return resolvedItems;
   });
 
   const filteredItems = createMemo<Value[] | Group<Value>[]>(() => {
@@ -256,7 +305,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
       return filteredItemsProp() as Value[] | Group<Value>[];
     }
 
-    if (!props.items) {
+    if (!items()) {
       return EMPTY_ARRAY as Value[];
     }
 
@@ -264,7 +313,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     const filterFn = filter();
     const limitResolved = limit();
     if (isGrouped()) {
-      const groupedItems = props.items as Group<Value>[];
+      const groupedItems = items() as Group<Value>[];
       const resultingGroups: Group<Value>[] = [];
       let currentCount = 0;
 
@@ -405,7 +454,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
         return getReferenceProps();
       },
       isGrouped,
-      items: () => props.items,
+      items,
       modal,
       mounted: () => mounted(),
       name,
@@ -465,12 +514,12 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
   });
 
   const forceMount = () => {
-    if (props.items) {
+    if (items()) {
       // Ensure typeahead works on a closed list.
       labelsRef.splice(
         0,
         labelsRef.length,
-        ...flatFilteredItems().map((item) => stringifyAsLabel(item, props.itemToStringLabel)),
+        ...flatFilteredItems().map((item) => stringifyAsLabel(item, itemToStringLabel())),
       );
     } else {
       store.set('forceMounted', true);
@@ -804,7 +853,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
       return;
     }
 
-    const registry = props.items ? flatItems() : allValuesRef;
+    const registry = items() ? flatItems() : allValuesRef;
 
     if (multiple()) {
       const currentValue = Array.isArray(selectedValue()) ? selectedValue() : [];
@@ -818,7 +867,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
   });
 
   createEffect(() => {
-    if (props.items) {
+    if (items()) {
       valuesRef.splice(0, valuesRef.length, ...flatFilteredItems());
       listRef.length = flatFilteredItems().length;
     }
@@ -976,7 +1025,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
 
   createEffect(
     on(
-      () => props.items,
+      items,
       () => {
         if (!single() || hasInputValue() || inputInsidePopup() || queryChangedAfterOpen()) {
           return;
@@ -1270,7 +1319,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
                     }
                   }
 
-                  if (props.items) {
+                  if (items()) {
                     handleChange();
                   } else {
                     forceMount();
@@ -1434,7 +1483,11 @@ interface ComboboxRootProps<ItemValue> {
    * The items to be displayed in the list.
    * Can be either a flat array of items or an array of groups with items.
    */
-  items?: (readonly any[] | readonly Group<any>[]) | undefined;
+  items?:
+    | readonly any[]
+    | readonly Group<any>[]
+    | ComboboxItemCollection<any, any>
+    | undefined;
   /**
    * Filtered items to display in the list.
    * When provided, the list will use these items instead of filtering the `items` prop internally.

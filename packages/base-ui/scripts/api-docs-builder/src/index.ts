@@ -241,13 +241,13 @@ async function run(options: RunOptions) {
   if (componentsMetadata.size > 0) {
     const componentsPagePath = path.resolve(
       path.dirname(path.dirname(path.dirname(options.configPath))),
-      'docs-react/src/app/(docs)/react/components/page.mdx',
+      'docs/react/src/app/(docs)/react/components/page.mdx',
     );
 
     // Base directory for docs (matches baseDir in next.config.mjs transformMarkdownMetadata)
     const docsPath = path.resolve(
       path.dirname(path.dirname(path.dirname(options.configPath))),
-      'docs',
+      'docs/react',
     );
 
     const docsBasePath = path.dirname(componentsPagePath);

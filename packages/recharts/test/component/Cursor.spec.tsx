@@ -8,7 +8,7 @@ import {
 	type CursorProps,
 } from "../../src/component/Cursor"
 import { assertNotNull } from "../helper/assertNotNull"
-import type { RechartsRootState } from "../../src/state/store"
+import type { ChartState } from "../../src/state/store"
 import { RechartsStoreProvider } from "../../src/state/RechartsStoreProvider"
 import { arrayTooltipSearcher } from "../../src/state/optionsSlice"
 import { produceState } from "../helper/produceState"
@@ -36,7 +36,7 @@ const connectedProps: CursorConnectedProps = {
 	...defaultProps,
 }
 
-const preloadedState: Partial<RechartsRootState> = {
+const preloadedState: Partial<ChartState> = {
 	options: {
 		chartName: "",
 		defaultTooltipEventType: "axis",
@@ -45,13 +45,13 @@ const preloadedState: Partial<RechartsRootState> = {
 	},
 }
 
-const preloadedRadialState: Partial<RechartsRootState> = produceState((draft) => {
+const preloadedRadialState: Partial<ChartState> = produceState((draft) => {
 	draft.layout.layoutType = "radial"
 	draft.layout.margin = { bottom: 33, left: 4, right: 22, top: 11 }
 	draft.tooltip.itemInteraction.hover.active = true
 })
 
-const preloadedScatterState: Partial<RechartsRootState> = produceState((draft) => {
+const preloadedScatterState: Partial<ChartState> = produceState((draft) => {
 	draft.options.chartName = "ScatterChart"
 	draft.options.tooltipPayloadSearcher = arrayTooltipSearcher
 	draft.tooltip.itemInteraction.hover.active = true

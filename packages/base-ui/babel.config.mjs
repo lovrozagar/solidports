@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const errorCodesPath = path.join(dirname, 'docs-react/src/error-codes.json');
+const errorCodesPath = path.join(dirname, 'docs/react/src/error-codes.json');
 
 export default function getBabelConfig(api) {
   const baseConfig = getBaseConfig(api);

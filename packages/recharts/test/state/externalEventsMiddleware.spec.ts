@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest"
 import { Store } from "@reduxjs/toolkit"
 import { externalEventAction } from "../../src/state/externalEventsMiddleware"
-import { createRechartsStore, RechartsRootState } from "../../src/state/store"
+import { createRechartsStore, ChartState } from "../../src/state/store"
 
 describe("externalEventsMiddleware", () => {
-	let store: Store<RechartsRootState>, mockHandler: ReturnType<typeof vi.fn>, mockEvent: Event
+	let store: Store<ChartState>, mockHandler: ReturnType<typeof vi.fn>, mockEvent: Event
 
 	/* Default suite-wide fake-timer config doesn't fake rAF; this suite needs it. */
 	beforeAll(() => {

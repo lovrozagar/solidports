@@ -183,8 +183,8 @@ to React mechanics:
 ## Test entry points
 
 ```bash
-pnpm test:jsdom Collapsible --no-watch
-pnpm test:chromium Collapsible --no-watch
+bun run test:jsdom Collapsible --no-watch
+bun run test:chromium Collapsible --no-watch
 ```
 
 Test files:

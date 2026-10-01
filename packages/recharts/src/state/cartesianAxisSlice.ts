@@ -95,10 +95,13 @@ export type CartesianAxisSettings = BaseCartesianAxis &
 		tickFormatter: TickFormatter | undefined
 	}
 
+export type XAxisHeight = number | "auto"
+
 export type XAxisSettings = CartesianAxisSettings & {
 	padding: XAxisPadding
-	height: number
+	height: XAxisHeight
 	orientation: XAxisOrientation
+	heightHistory?: number[]
 }
 
 export type YAxisWidth = number | "auto"

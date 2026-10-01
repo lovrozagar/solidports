@@ -1,5 +1,5 @@
 import { describe, it } from "vitest"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { selectYAxisPosition } from "../../../src/state/selectors/axisSelectors"
 import {
 	assertStableBetweenRenders,
@@ -12,7 +12,7 @@ import { PageData } from "../../_data"
 import { defaultAxisId } from "../../../src/state/cartesianAxisSlice"
 
 describe("selectYAxisPosition", () => {
-	const selector: Selector<RechartsRootState, ReturnType<typeof selectYAxisPosition>, []> = (
+	const selector: Selector<ChartState, ReturnType<typeof selectYAxisPosition>, []> = (
 		state,
 	) => selectYAxisPosition(state, defaultAxisId)
 

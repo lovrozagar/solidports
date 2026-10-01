@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
 import type { JSX } from "solid-js"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import {
 	type BaseAxisWithScale,
 	selectAxisWithScale,
@@ -32,7 +32,7 @@ import {
 import type { AllStackGroups, StackSeries } from "../../util/stacks/stackTypes"
 import type { BarSettings } from "../types/BarSettings"
 
-/** Optional overrides — bypass the _solid probe path on hot animation frames. */
+/** Optional overrides — bypass the axis-settings lookup on hot animation frames. */
 export type BarAxisOverrides = {
 	xAxis?: XAxisSettings
 	yAxis?: YAxisSettings
@@ -49,7 +49,7 @@ import {
 import { combineBarPosition } from "./combiners/combineBarPosition"
 
 function selectSynchronisedBarSettings(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 ): BarSettings | undefined {
 	const graphicalItems = selectUnfilteredCartesianItems(state)
@@ -59,7 +59,7 @@ function selectSynchronisedBarSettings(
 }
 
 export function selectMaxBarSize(
-	_state: RechartsRootState,
+	_state: ChartState,
 	id: GraphicalItemId,
 ): number | undefined {
 	const barSettings = selectSynchronisedBarSettings(_state, id)
@@ -67,7 +67,7 @@ export function selectMaxBarSize(
 }
 
 export function selectAllVisibleBars(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): ReadonlyArray<BarSettings> {
@@ -90,7 +90,7 @@ export function selectAllVisibleBars(
 export type SizeList = ReadonlyArray<BarCategory>
 
 const selectBarStackGroups = (
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): AllStackGroups | undefined => {
@@ -106,7 +106,7 @@ const selectBarStackGroups = (
 	return selectStackGroups(state, "xAxis", xAxisId, isPanorama)
 }
 
-export const selectBarCartesianAxisSize = (state: RechartsRootState, id: GraphicalItemId) => {
+export const selectBarCartesianAxisSize = (state: ChartState, id: GraphicalItemId) => {
 	const layout = selectChartLayout(state)
 	const xAxisId = selectXAxisIdFromGraphicalItemId(state, id)
 	const yAxisId = selectYAxisIdFromGraphicalItemId(state, id)
@@ -120,7 +120,7 @@ export const selectBarCartesianAxisSize = (state: RechartsRootState, id: Graphic
 }
 
 export function selectBarSizeList(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): SizeList {
@@ -132,7 +132,7 @@ export function selectBarSizeList(
 }
 
 export function selectBarBandSize(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): number {
@@ -164,7 +164,7 @@ export function selectBarBandSize(
 }
 
 export function selectAxisBandSize(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): number | undefined {
@@ -204,7 +204,7 @@ export type BarWithPosition = {
 }
 
 export function selectAllBarPositions(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): ReadonlyArray<BarWithPosition> | undefined {
@@ -220,7 +220,7 @@ export function selectAllBarPositions(
 }
 
 const selectXAxisWithScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 	override?: XAxisSettings,
@@ -233,7 +233,7 @@ const selectXAxisWithScale = (
 }
 
 const selectYAxisWithScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 	override?: YAxisSettings,
@@ -245,7 +245,7 @@ const selectYAxisWithScale = (
 	return selectAxisWithScale(state, "yAxis", yAxisId, isPanorama, override)
 }
 
-const selectXAxisTicks = (state: RechartsRootState, id: GraphicalItemId, isPanorama: boolean) => {
+const selectXAxisTicks = (state: ChartState, id: GraphicalItemId, isPanorama: boolean) => {
 	const xAxisId = selectXAxisIdFromGraphicalItemId(state, id)
 	if (xAxisId == null) {
 		return undefined
@@ -253,7 +253,7 @@ const selectXAxisTicks = (state: RechartsRootState, id: GraphicalItemId, isPanor
 	return selectTicksOfGraphicalItem(state, "xAxis", xAxisId, isPanorama)
 }
 
-const selectYAxisTicks = (state: RechartsRootState, id: GraphicalItemId, isPanorama: boolean) => {
+const selectYAxisTicks = (state: ChartState, id: GraphicalItemId, isPanorama: boolean) => {
 	const yAxisId = selectYAxisIdFromGraphicalItemId(state, id)
 	if (yAxisId == null) {
 		return undefined
@@ -262,7 +262,7 @@ const selectYAxisTicks = (state: RechartsRootState, id: GraphicalItemId, isPanor
 }
 
 export function selectBarPosition(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): BarPositionPosition | undefined {
@@ -273,7 +273,7 @@ export function selectBarPosition(
 }
 
 export function selectStackedDataOfItem(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): StackSeries | undefined {
@@ -284,7 +284,7 @@ export function selectStackedDataOfItem(
 }
 
 export function selectBarRectangles(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 	cells: ReadonlyArray<JSX.Element> | undefined,

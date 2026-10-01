@@ -2,7 +2,7 @@
 import { type Accessor, createContext, createMemo, useContext } from "solid-js"
 import type { CartesianViewBoxRequired, ChartOffsetInternal } from "../../util/types"
 import type { XAxisSettings, YAxisSettings } from "../cartesianAxisSlice"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import {
 	selectChartOffsetInternal,
 	selectChartViewBox,
@@ -26,7 +26,7 @@ const ChartSelectorsContext = createContext<ChartSelectorsValue>()
  * Creates provider-level memos for arg-free selectors.
  * Call once per chart provider; memos share across all descendant consumers.
  */
-export function createChartSelectors(store: RechartsRootState): ChartSelectorsValue {
+export function createChartSelectors(store: ChartState): ChartSelectorsValue {
 	const allXAxes = createMemo(() => selectAllXAxes(store))
 	const allYAxes = createMemo(() => selectAllYAxes(store))
 	const axisViewBox = createMemo(() => selectAxisViewBox(store))

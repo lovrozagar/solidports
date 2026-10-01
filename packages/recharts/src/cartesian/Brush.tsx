@@ -12,7 +12,7 @@ import type { DataConsumer, DataKey, Padding } from "../util/types"
 import { useChartData, useDataIndex } from "../context/chartDataContext"
 import type { BrushStartEndIndex, OnBrushUpdate } from "../context/brushUpdateContext"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import type { ChartData } from "../state/chartDataSlice"
 import type { BrushSettings } from "../state/brushSlice"
 import { PanoramaContextProvider } from "../context/PanoramaContext"
@@ -723,6 +723,7 @@ function BrushWithState(
 
 function BrushInternal(props: InternalProps) {
 	const ctx = useChartStore()
+	const newCtx = useOptionalChartState()
 	/* arrow thunks: dataIndexes is read inside event handler (onChange) where
 	   bare snapshot would freeze; chartData is multi-use across Show predicate
 	   and JSX. See GOTCHA-011. */
@@ -732,10 +733,10 @@ function BrushInternal(props: InternalProps) {
 
 	createEffect(() => {
 		if (props.startIndex !== undefined) {
-			ctx?.setStore("chartData", "dataStartIndex", props.startIndex)
+			newCtx?.setState("chartData", "dataStartIndex", props.startIndex)
 		}
 		if (props.endIndex !== undefined) {
-			ctx?.setStore("chartData", "dataEndIndex", props.endIndex)
+			newCtx?.setState("chartData", "dataEndIndex", props.endIndex)
 		}
 	})
 
@@ -747,10 +748,10 @@ function BrushInternal(props: InternalProps) {
 		if (nextState.startIndex !== idx.startIndex || nextState.endIndex !== idx.endIndex) {
 			onChangeFromProps()?.(nextState)
 			if (nextState.startIndex !== undefined) {
-				ctx?.setStore("chartData", "dataStartIndex", nextState.startIndex)
+				newCtx?.setState("chartData", "dataStartIndex", nextState.startIndex)
 			}
 			if (nextState.endIndex !== undefined) {
-				ctx?.setStore("chartData", "dataEndIndex", nextState.endIndex)
+				newCtx?.setState("chartData", "dataEndIndex", nextState.endIndex)
 			}
 		}
 	}

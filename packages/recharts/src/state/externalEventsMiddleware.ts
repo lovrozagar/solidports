@@ -1,7 +1,6 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "./store"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "./_solid/chartState"
+import type { ChartState } from "./chartState"
 import type { CategoricalChartFunc } from "../chart/types"
 import type { MouseHandlerDataParam } from "../synchronisation/types"
 import {
@@ -34,8 +33,8 @@ export type ExternalEventHandlers = {
  * from the same DOM element. Different event types should NOT cancel each other's animation frames.
  */
 export function createExternalEventHandlers(
-	store: RechartsRootState,
-	_setStore: SetStoreFunction<RechartsRootState>,
+	store: ChartState,
+	_setStore: SetStoreFunction<ChartState>,
 ): ExternalEventHandlers {
 	/*
 	 * We need a Map keyed by event type because this handler handles MULTIPLE different event types
@@ -171,7 +170,7 @@ type ExternalEventActionInput<E extends Event> = {
  */
 export const externalEventAction =
 	<E extends Event>(payload: ExternalEventActionInput<E>) =>
-	(_setStore: SetStoreFunction<RechartsRootState>, store: RechartsRootState, _setChartState?: SetStoreFunction<ChartState> | undefined) => {
+	(_setStore: SetStoreFunction<ChartState>, store: ChartState) => {
 		const { handler, reactEvent } = payload
 		if (handler == null) {
 			return

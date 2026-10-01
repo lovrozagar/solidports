@@ -16,9 +16,9 @@ import type { OTPFieldRootState } from '../root/OTPFieldRoot';
 import { inputStateAttributesMapping } from '../utils/stateAttributesMapping';
 import {
   normalizeOTPValue,
+  normalizeOTPValueWithDetails,
   removeOTPCharacter,
   replaceOTPValue,
-  stripOTPWhitespace,
 } from '../utils/otp';
 
 /**
@@ -55,7 +55,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     reportValueInvalid,
     readOnly,
     required,
-    sanitizeValue,
+    normalizeValue,
     setValue,
     state,
     validationType,
@@ -164,15 +164,14 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       }
 
       const rawValue = (event.currentTarget as HTMLInputElement).value;
-      const nextDigits = normalizeOTPValue(
+      const [nextDigits, didRejectCharacters] = normalizeOTPValueWithDetails(
         rawValue,
         length(),
         validationType(),
-        sanitizeValue(),
+        normalizeValue(),
       );
-      const didSanitize = stripOTPWhitespace(rawValue).length > nextDigits.length;
 
-      if (didSanitize) {
+      if (didRejectCharacters) {
         reportValueInvalid(
           rawValue,
           createGenericEventDetails(REASONS.inputChange, event),
@@ -198,7 +197,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
         nextDigits,
         length(),
         validationType(),
-        sanitizeValue(),
+        normalizeValue(),
       );
 
       const committedValue = setValue(
@@ -303,10 +302,14 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
 
       pevent.preventDefault();
 
-      const nextDigits = normalizeOTPValue(rawValue, length(), validationType(), sanitizeValue());
-      const didSanitize = stripOTPWhitespace(rawValue).length > nextDigits.length;
+      const [nextDigits, didRejectCharacters] = normalizeOTPValueWithDetails(
+        rawValue,
+        length(),
+        validationType(),
+        normalizeValue(),
+      );
 
-      if (didSanitize) {
+      if (didRejectCharacters) {
         reportValueInvalid(
           rawValue,
           createGenericEventDetails(REASONS.inputPaste, pevent),
@@ -318,7 +321,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       }
 
       const committedValue = setValue(
-        replaceOTPValue(value(), index(), nextDigits, length(), validationType(), sanitizeValue()),
+        replaceOTPValue(value(), index(), nextDigits, length(), validationType(), normalizeValue()),
         createChangeEventDetails(REASONS.inputPaste, pevent),
       );
 

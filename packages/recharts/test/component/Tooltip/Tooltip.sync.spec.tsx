@@ -2149,31 +2149,25 @@ describe("Tooltip coordinate bounding in synchronization", () => {
 				),
 			)
 
-			const {
-				spyA: viewBoxSpyA,
-				spyB: viewBoxSpyB,
-				spyC: viewBoxSpyC,
-			} = renderTestCase((state) => selectChartViewBox(state))
+			const { wrapperA, spyA, spyB, spyC } = renderTestCase((state) => ({
+				sync: selectSynchronisedTooltipState(state),
+				viewBox: selectChartViewBox(state),
+			}))
 
 			if (
-				viewBoxSpyA.mock.lastCall == null ||
-				viewBoxSpyB.mock.lastCall == null ||
-				viewBoxSpyC.mock.lastCall == null
+				spyA.mock.lastCall == null ||
+				spyB.mock.lastCall == null ||
+				spyC.mock.lastCall == null
 			) {
-				throw new Error("Expected all viewBox spies to have been called at least once")
+				throw new Error("Expected all spies to have been called at least once")
 			}
 
-			const chartAViewBox = viewBoxSpyA.mock.lastCall[0]
-			const chartBViewBox = viewBoxSpyB.mock.lastCall[0]
-			const chartCViewBox = viewBoxSpyC.mock.lastCall[0]
+			const chartAViewBox = spyA.mock.lastCall[0].viewBox
+			const chartBViewBox = spyB.mock.lastCall[0].viewBox
+			const chartCViewBox = spyC.mock.lastCall[0].viewBox
 
-			// Sanity check
 			expect(chartAViewBox).not.toEqual(chartBViewBox)
 			expect(chartBViewBox).not.toEqual(chartCViewBox)
-
-			const { wrapperA, spyA, spyB, spyC } = renderTestCase((state) =>
-				selectSynchronisedTooltipState(state),
-			)
 
 			showTooltipOnCoordinate(wrapperA, lineChartMouseHoverTooltipSelector, {
 				clientX: 100,
@@ -2186,16 +2180,14 @@ describe("Tooltip coordinate bounding in synchronization", () => {
 				)
 			}
 
-			// Chart A should have no synchronised interaction (it's the sender)
-			const syncStateA = spyA.mock.lastCall[0]
+			const syncStateA = spyA.mock.lastCall[0].sync
 			expect(syncStateA.active).toBe(false)
 
-			// Charts B and C should receive Chart A's viewBox as sourceViewBox
-			const syncStateB = spyB.mock.lastCall[0]
+			const syncStateB = spyB.mock.lastCall[0].sync
 			expect(syncStateB.active).toBe(true)
 			expect(syncStateB.sourceViewBox).toEqual(chartAViewBox)
 
-			const syncStateC = spyC.mock.lastCall[0]
+			const syncStateC = spyC.mock.lastCall[0].sync
 			expect(syncStateC.active).toBe(true)
 			expect(syncStateC.sourceViewBox).toEqual(chartAViewBox)
 		})

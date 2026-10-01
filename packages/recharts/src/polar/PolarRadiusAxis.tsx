@@ -26,7 +26,7 @@ import {
 } from "../util/types"
 import type { RadiusAxisSettings } from "../state/polarAxisSlice"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { RechartsStateContext } from "../state/_solid/RechartsStateContext"
+import { RechartsStateContext } from "../state/RechartsStateContext"
 import { selectPolarAxisScale, selectPolarAxisTicks } from "../state/selectors/polarScaleSelectors"
 import { selectPolarViewBox } from "../state/selectors/polarAxisSelectors"
 import { defaultPolarRadiusAxisProps } from "./defaultPolarRadiusAxisProps"
@@ -271,11 +271,7 @@ function SetRadiusAxisSettings(
 				)
 			})
 		}
-		/* Legacy compat shim — keeps state.polarAxis.radiusAxis populated for tests reading the legacy slice shape. */
-		ctx?.setStore("polarAxis", "radiusAxis", id, s)
-		onCleanup(() => {
-			ctx?.setStore("polarAxis", "radiusAxis", produce((axes) => { delete (axes as Record<string, unknown>)[id] }))
-		})
+
 	})
 	return null
 }

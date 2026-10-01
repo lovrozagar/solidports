@@ -1,5 +1,5 @@
 import { createRenderer } from '#test-utils';
-import { DrawerPreview as Drawer } from '@solidports/base-ui/drawer';
+import { Drawer } from '@solidports/base-ui/drawer';
 import { screen } from '@mui/internal-test-utils';
 import { createSignal } from 'solid-js';
 import { expect } from 'vitest';

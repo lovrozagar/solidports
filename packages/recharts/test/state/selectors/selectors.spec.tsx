@@ -8,7 +8,7 @@ import {
 	selectTooltipPayload,
 	selectTooltipPayloadConfigurations,
 } from "../../../src/state/selectors/selectors"
-import { createRechartsStore, RechartsRootState } from "../../../src/state/store"
+import { createRechartsStore, ChartState } from "../../../src/state/store"
 import { RechartsStoreProvider } from "../../../src/state/RechartsStoreProvider"
 import {
 	RelativePointer,
@@ -150,7 +150,7 @@ const allTooltipCombinations: ReadonlyArray<TestCaseTooltipCombination> = [
 ]
 const allTooltipEventTypes: ReadonlyArray<TooltipEventType> = ["axis", "item"]
 
-const preloadedState: Partial<RechartsRootState> = {
+const preloadedState: Partial<ChartState> = {
 	options: {
 		chartName: "",
 		defaultTooltipEventType: "axis",
@@ -230,7 +230,7 @@ describe("useTooltipEventType", () => {
 				expect(eventType).toBe(expected)
 				return null
 			}
-			const myPreloadedState: Partial<RechartsRootState> = {
+			const myPreloadedState: Partial<ChartState> = {
 				options: {
 					chartName: "",
 					defaultTooltipEventType,
@@ -719,7 +719,7 @@ describe("selectActiveCoordinate", () => {
 })
 
 describe("selectTooltipPayloadConfigurations", () => {
-	let exampleStore: Store<RechartsRootState>
+	let exampleStore: Store<ChartState>
 
 	beforeEach(() => {
 		exampleStore = createRechartsStore()
@@ -1157,7 +1157,7 @@ describe("selectActiveIndexFromChartPointer", () => {
 		relativeY: 10,
 	}
 
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectActivePropsFromChartPointer(state, exampleChartPointer)
 
 	shouldReturnUndefinedOutOfContext(selector)

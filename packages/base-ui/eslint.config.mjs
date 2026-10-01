@@ -32,7 +32,7 @@ const NO_RESTRICTED_IMPORTS_PATHS_TOP_LEVEL_PACKAGES = [
 ];
 
 export default defineConfig(
-  globalIgnores(['./examples', './playground/vite-app/dist', './docs-solid-v2']),
+  globalIgnores(['./examples', './playground/vite-app/dist']),
   createBaseConfig({
     baseDirectory: dirname,
   }),
@@ -118,7 +118,7 @@ export default defineConfig(
   baseSpecRules,
   {
     name: 'MUI ESLint config for docs',
-    files: [`docs-react/**/*${EXTENSION_TS}`],
+    files: [`docs/react/**/*${EXTENSION_TS}`],
     extends: createDocsConfig(),
     rules: {
       '@typescript-eslint/no-use-before-define': 'off',
@@ -142,7 +142,7 @@ export default defineConfig(
     },
   },
   {
-    files: [`docs-react/src/app/(private)/experiments/**/*${EXTENSION_TS}`],
+    files: [`docs/react/src/app/(private)/experiments/**/*${EXTENSION_TS}`],
     rules: {
       '@typescript-eslint/no-use-before-define': 'off',
       'no-alert': 'off',
@@ -151,7 +151,7 @@ export default defineConfig(
     },
   },
   {
-    files: [`docs-react/src/app/(docs)/react/utils/use-render/demos/**/*${EXTENSION_TS}`],
+    files: [`docs/react/src/app/(docs)/react/utils/use-render/demos/**/*${EXTENSION_TS}`],
     rules: {
       'jsx-a11y/control-has-associated-label': 'off',
       'react/button-has-type': 'off',
@@ -160,10 +160,10 @@ export default defineConfig(
   {
     name: 'Disable image rule for demos',
     files: [
-      `docs-react/src/app/(docs)/**/demos/**/*${EXTENSION_TS}`,
-      `docs-react/src/app/(private)/experiments/**/*${EXTENSION_TS}`,
+      `docs/react/src/app/(docs)/**/demos/**/*${EXTENSION_TS}`,
+      `docs/react/src/app/(private)/experiments/**/*${EXTENSION_TS}`,
     ],
-    ignores: ['docs-react/src/app/(private)/experiments/**/page.tsx'],
+    ignores: ['docs/react/src/app/(private)/experiments/**/page.tsx'],
     rules: {
       '@next/next/no-img-element': 'off',
     },

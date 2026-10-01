@@ -1,7 +1,7 @@
 import { createEffect, onCleanup } from "solid-js"
 import type { ChartData } from "../state/chartDataSlice"
 import { useChartStore } from "../state/RechartsStoreContext"
-import type { RechartsRootState } from "../state/store"
+import type { ChartState } from "../state/store"
 import type { BrushStartEndIndex } from "./brushUpdateContext"
 import { useIsPanorama } from "./PanoramaContext"
 
@@ -45,7 +45,7 @@ export const SetComputedData = (props: { computedData: unknown }): null => {
 	return null
 }
 
-const selectChartData = (state: RechartsRootState): ChartData | undefined =>
+const selectChartData = (state: ChartState): ChartData | undefined =>
 	state.chartData.chartData
 
 /**
@@ -72,7 +72,7 @@ export const useChartData = (): ChartData | undefined => {
 	return ctx ? selectChartData(ctx.store) : undefined
 }
 
-const selectDataIndex = (state: RechartsRootState): BrushStartEndIndex => {
+const selectDataIndex = (state: ChartState): BrushStartEndIndex => {
 	const { dataStartIndex, dataEndIndex } = state.chartData
 	return { endIndex: dataEndIndex, startIndex: dataStartIndex }
 }

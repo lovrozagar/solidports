@@ -35,13 +35,13 @@ exactly "Follows React 1:1." — the empty case is itself information.>
 ## Files (target)
 
 - `packages/solid/src/<component>/<file>.tsx`
-- `docs-solid/src/<...>/<file>.tsx`
+- `docs/solid/src/<...>/<file>.tsx`
 
 ## Test commands
 
 ```bash
-pnpm test:solid:jsdom <Name> --no-watch --reporter=agent
-pnpm test:solid:chromium <Name> --no-watch --reporter=agent
+bun run test:solid:jsdom <Name> --no-watch --reporter=agent
+bun run test:solid:chromium <Name> --no-watch --reporter=agent
 ```
 
 ---

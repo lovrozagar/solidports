@@ -1,7 +1,5 @@
-import { batch } from "solid-js"
 import type { Coordinate, DataKey } from "../util/types"
-import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import type { TooltipPayload } from "../state/tooltipSlice"
 
 /**
@@ -40,7 +38,6 @@ export const useMouseEnterItemDispatch = <
 	dataKey: DataKey<unknown> | undefined,
 	graphicalItemId: string,
 ) => {
-	const ctx = useChartStore()
 	const newCtx = useOptionalChartState()
 	return (data: T, index: number) => (event: MouseEvent & { currentTarget: E }) => {
 		readHandler(onMouseEnterFromProps)?.(data, index, event)
@@ -52,8 +49,6 @@ export const useMouseEnterItemDispatch = <
 			index: String(index),
 		}
 		newCtx?.setState("tooltip", "itemInteraction", "hover", hoverPayload)
-		/* Legacy compat shim — tests reading state.tooltip.itemInteraction directly. */
-		ctx?.setStore("tooltip", "itemInteraction", "hover", hoverPayload)
 	}
 }
 
@@ -63,12 +58,10 @@ export const useMouseLeaveItemDispatch = <
 >(
 	onMouseLeaveFromProps: EventHandlerSource<T, E>,
 ) => {
-	const ctx = useChartStore()
 	const newCtx = useOptionalChartState()
 	return (data: T, index: number) => (event: MouseEvent & { currentTarget: E }) => {
 		readHandler(onMouseLeaveFromProps)?.(data, index, event)
 		newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-		ctx?.setStore("tooltip", "itemInteraction", "hover", "active", false)
 	}
 }
 
@@ -80,7 +73,6 @@ export const useMouseClickItemDispatch = <
 	dataKey: DataKey<unknown> | undefined,
 	graphicalItemId: string,
 ) => {
-	const ctx = useChartStore()
 	const newCtx = useOptionalChartState()
 	return (data: T, index: number) => (event: MouseEvent & { currentTarget: E }) => {
 		readHandler(onMouseClickFromProps)?.(data, index, event)
@@ -92,6 +84,5 @@ export const useMouseClickItemDispatch = <
 			index: String(index),
 		}
 		newCtx?.setState("tooltip", "itemInteraction", "click", clickPayload)
-		ctx?.setStore("tooltip", "itemInteraction", "click", clickPayload)
 	}
 }

@@ -3,21 +3,17 @@ import { createEffect, onCleanup, useContext } from "solid-js"
 import { produce } from "solid-js/store"
 import { AxisDomain, BaseAxisProps, ScaleType } from "../util/types"
 import type { AxisId, ZAxisSettings } from "../state/cartesianAxisSlice"
-import { RechartsStateContext } from "../state/_solid/RechartsStateContext"
-import { useChartStore } from "../state/RechartsStoreContext"
+import { RechartsStateContext } from "../state/RechartsStateContext"
 import { AxisRange, implicitZAxis } from "../state/selectors/axisSelectors"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { CustomScaleDefinition } from "../util/scale/CustomScaleDefinition"
 
 function SetZAxisSettings(props: ZAxisSettings): null {
-	const ctx = useChartStore()
 	const stateCtx = useContext(RechartsStateContext)
 	let prevSettings: ZAxisSettings | null = null
 
 	createEffect(() => {
 		stateCtx?.setState("cartesianAxes", "zAxis", String(props.id), { settings: props })
-		/* Legacy compat shim — keeps state.cartesianAxis.zAxis populated for tests reading the legacy slice shape. */
-		ctx?.setStore("cartesianAxis", "zAxis", String(props.id), props)
 		/* eslint-disable-next-line solid/reactivity -- storing the proxy reference for identity comparison; entire block is inside createEffect (tracked) */
 		prevSettings = props
 	})
@@ -27,7 +23,6 @@ function SetZAxisSettings(props: ZAxisSettings): null {
 			const strId = String(prevSettings.id)
 			/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
 			stateCtx?.setState("cartesianAxes", "zAxis", produce((axes) => { delete axes[strId] }))
-			ctx?.setStore("cartesianAxis", "zAxis", produce((axes) => { delete axes[strId] }))
 			prevSettings = null
 		}
 	})

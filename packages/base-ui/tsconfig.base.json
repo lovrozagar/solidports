@@ -30,11 +30,11 @@
       "@solidports/base-ui/*": [
         "./packages/solid/src/*"
       ],
-      "docs-react/*": [
-        "./docs-react/*"
+      "docs/*": [
+        "./docs/react/*"
       ],
-      "docs-solid/*": [
-        "./docs-solid/*"
+      "@solidports/docs/*": [
+        "./docs/solid/*"
       ]
     },
     "skipLibCheck": true,
@@ -46,6 +46,6 @@
     "**/build",
     "**/build-tests",
     "**/node_modules",
-    "docs-react/export"
+    "docs/react/export"
   ]
 }

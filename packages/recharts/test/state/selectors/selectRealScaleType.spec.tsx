@@ -1,4 +1,4 @@
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { selectRealScaleType } from "../../../src/state/selectors/axisSelectors"
 import {
 	assertStableBetweenRenders,
@@ -10,7 +10,7 @@ import { BarChart } from "../../../src"
 import { PageData } from "../../_data"
 
 describe("selectRealScaleType", () => {
-	const selector = (state: RechartsRootState) => selectRealScaleType(state, "xAxis", 0)
+	const selector = (state: ChartState) => selectRealScaleType(state, "xAxis", 0)
 
 	shouldReturnUndefinedOutOfContext(selector)
 	shouldReturnFromInitialState(selector, "band")

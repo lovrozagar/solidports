@@ -6,9 +6,8 @@
  * They prove the pure-function contract is unchanged — only call sites change.
  */
 import { describe, expect, it } from "vitest"
-import { createStore } from "solid-js/store"
-import { createInitialState } from "../../../src/state/store"
-import type { RechartsRootState } from "../../../src/state/store"
+import { createRechartsStore } from "../../../src/state/store"
+import type { ChartState } from "../../../src/state/store"
 import {
 	selectChartOffsetInternal,
 	selectChartViewBox,
@@ -23,8 +22,8 @@ import { createActions } from "../../../src/state/actions"
 
 /* ── fixed state fixture ─────────────────────────────────────────── */
 
-function makeState(overrides?: Partial<RechartsRootState>): RechartsRootState {
-	const [store, setStore] = createStore(createInitialState())
+function makeState(): ChartState {
+	const [store, setStore] = createRechartsStore()
 	const actions = createActions(store, setStore)
 
 	actions.setChartSize({ height: 600, width: 800 })
@@ -84,7 +83,6 @@ function makeState(overrides?: Partial<RechartsRootState>): RechartsRootState {
 		unit: undefined,
 	})
 
-	void overrides
 	return store
 }
 
@@ -120,7 +118,7 @@ describe("selectChartOffsetInternal — behaviour invariance", () => {
 	})
 
 	it("never returns negative width or height", () => {
-		const [store] = createStore(createInitialState())
+		const [store] = createRechartsStore()
 		/* no size set — stays 0×0 */
 		const offset = selectChartOffsetInternal(store)
 		expect(offset.width).toBeGreaterThanOrEqual(0)
@@ -204,7 +202,7 @@ describe("selectAxisViewBox — behaviour invariance", () => {
 
 describe("selectAllXAxes — behaviour invariance", () => {
 	it("returns empty array from initial state", () => {
-		const [store] = createStore(createInitialState())
+		const [store] = createRechartsStore()
 		expect(selectAllXAxes(store)).toEqual([])
 	})
 
@@ -216,7 +214,7 @@ describe("selectAllXAxes — behaviour invariance", () => {
 	})
 
 	it("adding a second x axis increases count", () => {
-		const [store, setStore] = createStore(createInitialState())
+		const [store, setStore] = createRechartsStore()
 		const actions = createActions(store, setStore)
 		actions.addXAxis({
 			allowDataOverflow: false,
@@ -291,7 +289,7 @@ describe("selectAllXAxes — behaviour invariance", () => {
 
 describe("selectAllYAxes — behaviour invariance", () => {
 	it("returns empty array from initial state", () => {
-		const [store] = createStore(createInitialState())
+		const [store] = createRechartsStore()
 		expect(selectAllYAxes(store)).toEqual([])
 	})
 
@@ -303,7 +301,7 @@ describe("selectAllYAxes — behaviour invariance", () => {
 	})
 
 	it("adding a second y axis increases count", () => {
-		const [store, setStore] = createStore(createInitialState())
+		const [store, setStore] = createRechartsStore()
 		const actions = createActions(store, setStore)
 		actions.addYAxis({
 			allowDataOverflow: false,
@@ -378,7 +376,7 @@ describe("selectAllYAxes — behaviour invariance", () => {
 
 describe("selectXAxisSettingsNoDefaults — behaviour invariance", () => {
 	it("returns undefined for missing axisId", () => {
-		const [store] = createStore(createInitialState())
+		const [store] = createRechartsStore()
 		expect(selectXAxisSettingsNoDefaults(store, 99)).toBeUndefined()
 	})
 
@@ -391,7 +389,7 @@ describe("selectXAxisSettingsNoDefaults — behaviour invariance", () => {
 	})
 
 	it("axisId=1 is independent from axisId=0", () => {
-		const [store, setStore] = createStore(createInitialState())
+		const [store, setStore] = createRechartsStore()
 		const actions = createActions(store, setStore)
 		const xAxis0 = {
 			allowDataOverflow: false,
@@ -427,7 +425,7 @@ describe("selectXAxisSettingsNoDefaults — behaviour invariance", () => {
 	})
 
 	it("registering a different axisId does not affect existing axisId result", () => {
-		const [store, setStore] = createStore(createInitialState())
+		const [store, setStore] = createRechartsStore()
 		const actions = createActions(store, setStore)
 		const base = {
 			allowDataOverflow: false,
@@ -476,7 +474,7 @@ describe("selectXAxisSettingsNoDefaults — behaviour invariance", () => {
 
 describe("selectYAxisSettingsNoDefaults — behaviour invariance", () => {
 	it("returns undefined for missing axisId", () => {
-		const [store] = createStore(createInitialState())
+		const [store] = createRechartsStore()
 		expect(selectYAxisSettingsNoDefaults(store, 99)).toBeUndefined()
 	})
 
@@ -489,7 +487,7 @@ describe("selectYAxisSettingsNoDefaults — behaviour invariance", () => {
 	})
 
 	it("axisId=1 is independent from axisId=0", () => {
-		const [store, setStore] = createStore(createInitialState())
+		const [store, setStore] = createRechartsStore()
 		const actions = createActions(store, setStore)
 		const base = {
 			allowDataOverflow: false,
@@ -525,7 +523,7 @@ describe("selectYAxisSettingsNoDefaults — behaviour invariance", () => {
 	})
 
 	it("registering a different axisId does not affect existing axisId result", () => {
-		const [store, setStore] = createStore(createInitialState())
+		const [store, setStore] = createRechartsStore()
 		const actions = createActions(store, setStore)
 		const base = {
 			allowDataOverflow: false,

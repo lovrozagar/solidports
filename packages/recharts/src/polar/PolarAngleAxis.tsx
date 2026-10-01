@@ -23,7 +23,7 @@ import { degreeToRadian, polarToCartesian } from "../util/PolarUtils"
 import { cloneJsxNodeWithProps, isJsxNode } from "../util/ReactUtils"
 import type { AngleAxisSettings } from "../state/polarAxisSlice"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { RechartsStateContext } from "../state/_solid/RechartsStateContext"
+import { RechartsStateContext } from "../state/RechartsStateContext"
 import {
 	selectPolarAngleAxisTicks,
 	selectPolarAxisScale,
@@ -328,11 +328,7 @@ function SetAngleAxisSettings(props: AngleAxisSettingsReporter): JSX.Element {
 				)
 			})
 		}
-		/* Legacy compat shim — keeps state.polarAxis.angleAxis populated for tests reading the legacy slice shape. */
-		ctx?.setStore("polarAxis", "angleAxis", id, s)
-		onCleanup(() => {
-			ctx?.setStore("polarAxis", "angleAxis", produce((axes) => { delete (axes as Record<string, unknown>)[id] }))
-		})
+
 	})
 
 	return <Show when={settingsAreSynchronized()}>{props.children}</Show>

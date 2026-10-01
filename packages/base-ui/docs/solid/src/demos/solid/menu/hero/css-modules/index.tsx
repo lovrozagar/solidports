@@ -1,0 +1,43 @@
+import { type JSX } from 'solid-js';
+
+import { Menu } from '@solidports/base-ui/menu';
+import styles from './index.module.css';
+
+export default function ExampleMenu() {
+  return (
+    <Menu.Root>
+      <Menu.Trigger class={styles.Button}>
+        Song <CaretDownIcon />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner class={styles.Positioner} sideOffset={8} align="start">
+          <Menu.Popup class={styles.Popup}>
+            <Menu.Item class={styles.Item}>Add to Library</Menu.Item>
+            <Menu.Item class={styles.Item}>Add to Playlist</Menu.Item>
+            <Menu.Separator class={styles.Separator} />
+            <Menu.Item class={styles.Item}>Play Next</Menu.Item>
+            <Menu.Item class={styles.Item}>Play Last</Menu.Item>
+            <Menu.Separator class={styles.Separator} />
+            <Menu.Item class={styles.Item}>Favorite</Menu.Item>
+            <Menu.Item class={styles.Item}>Share</Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
+function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      {...props}
+      style={{ display: 'block', ...props.style }}
+    >
+      <path d="M12 6H4l4 4.5z" />
+    </svg>
+  );
+}

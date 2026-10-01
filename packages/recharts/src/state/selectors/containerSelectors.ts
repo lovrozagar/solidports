@@ -1,12 +1,12 @@
 /* eslint-disable import/no-cycle */
-import { RechartsRootState } from "../store"
+import { ChartState } from "../store"
 import { Margin } from "../../util/types"
 
-export const selectChartWidth = (state: RechartsRootState): number => state.layout.width
+export const selectChartWidth = (state: ChartState): number => state.layout.width
 
-export const selectChartHeight = (state: RechartsRootState): number => state.layout.height
+export const selectChartHeight = (state: ChartState): number => state.layout.height
 
-export const selectContainerScale: (state: RechartsRootState) => number = (state) =>
+export const selectContainerScale: (state: ChartState) => number = (state) =>
 	state.layout.scale
 
-export const selectMargin = (state: RechartsRootState): Margin => state.layout.margin
+export const selectMargin = (state: ChartState): Margin => state.layout.margin

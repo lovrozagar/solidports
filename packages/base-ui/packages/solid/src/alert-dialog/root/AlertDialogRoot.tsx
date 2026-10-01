@@ -1,11 +1,7 @@
-import { untrack, type Accessor } from 'solid-js';
 import type { DialogRoot } from '../../dialog/root/DialogRoot';
-import { IsDrawerContext } from '../../dialog/root/DialogRoot';
-import { DialogRootContext, useDialogRootContext } from '../../dialog/root/DialogRootContext';
-import { useDialogRoot } from '../../dialog/root/useDialogRoot';
+import { useRenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
 import { DialogHandle } from '../../dialog/store/DialogHandle';
-import { DialogStore } from '../../dialog/store/DialogStore';
-import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
+import { type ReactLikeRef } from '../../solid-helpers';
 import { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 
 /**
@@ -15,75 +11,7 @@ import { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
  * Documentation: [Base UI Alert Dialog](https://base-ui.com/react/components/alert-dialog)
  */
 export function AlertDialogRoot<Payload>(props: AlertDialogRoot.Props<Payload>) {
-  const openProp = () => props.open;
-  const defaultOpen = () => props.defaultOpen ?? false;
-  const triggerIdProp = () => props.triggerId;
-  const defaultTriggerIdProp = () => props.defaultTriggerId ?? null;
-
-  const parentDialogRootContext = useDialogRootContext(true);
-  const nested = () => Boolean(parentDialogRootContext);
-
-  const store = untrack(
-    () =>
-      props.handle?.store ??
-      DialogStore<Payload>({
-        get activeTriggerId() {
-          return defaultTriggerIdProp();
-        },
-        disablePointerDismissal: true,
-        modal: true,
-        get nested() {
-          return nested();
-        },
-        get open() {
-          return defaultOpen();
-        },
-        get openProp() {
-          return openProp();
-        },
-        role: 'alertdialog',
-        get triggerIdProp() {
-          return triggerIdProp();
-        },
-      }),
-  );
-
-  store.useControlledProp('openProp', openProp);
-  store.useControlledProp('triggerIdProp', triggerIdProp);
-  store.useSyncedValue('nested', nested);
-  store.useContextCallback('onOpenChange', (open, details) =>
-    props.onOpenChange?.(open, details),
-  );
-  store.useContextCallback('onOpenChangeComplete', (open) => props.onOpenChangeComplete?.(open));
-
-  const payload = store.useState('payload') as Accessor<Payload | undefined>;
-
-  useDialogRoot({
-    get actionsRef() {
-      return props.actionsRef;
-    },
-    isDrawer: false,
-    get onOpenChange() {
-      return props.onOpenChange;
-    },
-    get parentContext() {
-      return parentDialogRootContext?.store.context;
-    },
-    store,
-    get triggerIdProp() {
-      return triggerIdProp();
-    },
-  });
-
-  const contextValue: DialogRootContext<Payload> = { store };
-
-  return (
-    <IsDrawerContext.Provider value={false}>
-      <DialogRootContext.Provider value={contextValue as DialogRootContext}>
-        <ComponentWithPayload payload={payload} children={props.children} />
-      </DialogRootContext.Provider>
-    </IsDrawerContext.Provider>
-  );
+  return useRenderDialogRoot('alert-dialog', props);
 }
 
 export interface AlertDialogRootState {}

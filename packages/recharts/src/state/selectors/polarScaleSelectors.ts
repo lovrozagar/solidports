@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { AxisId } from "../cartesianAxisSlice"
 import {
 	combineAxisTicks,
@@ -27,7 +27,7 @@ import type { CustomScaleDefinition } from "../../util/scale/CustomScaleDefiniti
 import { combineConfiguredScale } from "./combiners/combineConfiguredScale"
 
 export const selectPolarAxis = (
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	axisId: AxisId,
 ) => {
@@ -45,7 +45,7 @@ export const selectPolarAxis = (
 }
 
 const selectPolarAxisRangeWithReversed = (
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	axisId: AxisId,
 ) => {
@@ -63,7 +63,7 @@ const selectPolarAxisRangeWithReversed = (
 }
 
 function selectPolarConfiguredScale(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	polarAxisId: AxisId,
 ): CustomScaleDefinition | undefined {
@@ -76,7 +76,7 @@ function selectPolarConfiguredScale(
 }
 
 export function selectPolarAxisScale(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	polarAxisId: AxisId,
 ): RechartsScale | undefined {
@@ -84,7 +84,7 @@ export function selectPolarAxisScale(
 }
 
 export function selectPolarCategoricalDomain(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	polarAxisId: AxisId,
 ): ReadonlyArray<unknown> | undefined {
@@ -97,7 +97,7 @@ export function selectPolarCategoricalDomain(
 }
 
 export function selectPolarAxisTicks(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	polarAxisId: AxisId,
 	isPanorama: boolean,
@@ -116,7 +116,7 @@ export function selectPolarAxisTicks(
 }
 
 export function selectPolarAngleAxisTicks(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: "angleAxis",
 	polarAxisId: AxisId,
 	isPanorama: boolean,
@@ -142,7 +142,7 @@ export function selectPolarAngleAxisTicks(
 }
 
 export function selectPolarGraphicalItemAxisTicks(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	polarAxisId: AxisId,
 	isPanorama: boolean,

@@ -2,10 +2,10 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { LineChart, Line, XAxis, YAxis } from "../../src"
-import { useChartState } from "../../src/state/_solid/useChartState"
+import { useChartState } from "../../src/state/useChartState"
 import { selectLinePoints } from "../../src/state/selectors/lineSelectors"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "../../src/state/_solid/chartState"
+import type { ChartState } from "../../src/state/chartState"
 
 /* Numeric data so a number-type XAxis with domain produces a real path. */
 const data = [

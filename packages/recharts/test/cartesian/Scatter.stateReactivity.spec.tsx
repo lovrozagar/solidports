@@ -2,10 +2,10 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { ScatterChart, Scatter, XAxis, YAxis } from "../../src"
-import { useChartState } from "../../src/state/_solid/useChartState"
+import { useChartState } from "../../src/state/useChartState"
 import { selectScatterPoints } from "../../src/state/selectors/scatterSelectors"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "../../src/state/_solid/chartState"
+import type { ChartState } from "../../src/state/chartState"
 
 /* x and y differ in magnitude so switching dataKey produces a visually distinct translate. */
 const data = [

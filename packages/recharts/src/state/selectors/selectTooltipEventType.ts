@@ -1,14 +1,14 @@
 /* eslint-disable import/no-cycle */
-import { RechartsRootState } from "../store"
+import { ChartState } from "../store"
 import { TooltipEventType } from "../../util/types"
 import { useChartStore } from "../RechartsStoreContext"
 import { SharedTooltipSettings } from "../tooltipSlice"
 
-export const selectDefaultTooltipEventType = (state: RechartsRootState): TooltipEventType =>
+export const selectDefaultTooltipEventType = (state: ChartState): TooltipEventType =>
 	state.options.defaultTooltipEventType
 
 export const selectValidateTooltipEventTypes = (
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<TooltipEventType> | undefined => state.options.validateTooltipEventTypes
 
 export function combineTooltipEventType(
@@ -27,7 +27,7 @@ export function combineTooltipEventType(
 }
 
 export function selectTooltipEventType(
-	state: RechartsRootState,
+	state: ChartState,
 	shared: SharedTooltipSettings,
 ): TooltipEventType {
 	const defaultTooltipEventType = selectDefaultTooltipEventType(state)

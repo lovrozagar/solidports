@@ -11,7 +11,7 @@ export { MenuItem as Item } from '../menu/item/MenuItem';
 export { MenuLinkItem as LinkItem } from '../menu/link-item/MenuLinkItem';
 export { MenuPopup as Popup } from '../menu/popup/MenuPopup';
 export { MenuPortal as Portal } from '../menu/portal/MenuPortal';
-export { MenuPositioner as Positioner } from '../menu/positioner/MenuPositioner';
+export { ContextMenuPositioner as Positioner } from './positioner/ContextMenuPositioner';
 export { MenuRadioGroup as RadioGroup } from '../menu/radio-group/MenuRadioGroup';
 export { MenuRadioItemIndicator as RadioItemIndicator } from '../menu/radio-item-indicator/MenuRadioItemIndicator';
 export { MenuRadioItem as RadioItem } from '../menu/radio-item/MenuRadioItem';

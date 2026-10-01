@@ -59,7 +59,7 @@ import type { AxisId } from "../state/cartesianAxisSlice"
 import { GraphicalItemClipPath, useNeedsClip } from "./GraphicalItemClipPath"
 import { selectScatterPoints } from "../state/selectors/scatterSelectors"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import type { BaseAxisWithScale, ZAxisWithScale } from "../state/selectors/axisSelectors"
 import { implicitZAxis } from "../state/selectors/axisSelectors"
 import { useIsPanorama } from "../context/PanoramaContext"
@@ -706,7 +706,7 @@ function ScatterImpl(props: WithIdRequired<Props>) {
 	const stateCtx = useOptionalChartState()
 
 	/* perf: cache selector result; without memo every consumer read triggers full chain.
-	   Axis reactivity: selectScatterPoints reads ctx.store._solid.cartesianAxes (Solid proxy)
+	   Axis reactivity: selectScatterPoints reads ctx.store.cartesianAxes (Solid proxy)
 	   without untrack — this memo tracks those signals.
 	   Item reactivity: read .settings (not just the entry) so Solid tracks fine-grained
 	   property writes like dataKey — reading only the container object doesn't subscribe
@@ -717,7 +717,7 @@ function ScatterImpl(props: WithIdRequired<Props>) {
 		void (rawItem?.type === "scatter" ? rawItem.settings?.dataKey : undefined)
 		const itemSettings =
 			rawItem != null && rawItem.type === "scatter"
-				? (rawItem as import("../state/_solid/chartState").ScatterState).settings
+				? (rawItem as import("../state/chartState").ScatterState).settings
 				: undefined
 		return ctx
 			? selectScatterPoints(

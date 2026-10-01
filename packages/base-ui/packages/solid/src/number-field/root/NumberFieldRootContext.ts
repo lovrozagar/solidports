@@ -39,6 +39,7 @@ export interface NumberFieldRootContext {
     value: number | null,
     eventDetails: NumberFieldRoot.CommitEventDetails,
   ) => void;
+  focusInput: () => void;
 }
 
 export const NumberFieldRootContext = createContext<NumberFieldRootContext>();

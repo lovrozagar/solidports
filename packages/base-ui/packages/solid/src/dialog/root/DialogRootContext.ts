@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'solid-js';
 import { DialogStore } from '../store/DialogStore';
 
+export const IsDrawerContext = createContext(false);
+
 export interface DialogRootContext<Payload = unknown> {
   store: DialogStore<Payload>;
 }

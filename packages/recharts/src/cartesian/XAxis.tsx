@@ -21,8 +21,9 @@ import {
 } from "../util/types"
 import { useChartStore } from "../state/RechartsStoreContext"
 import { useContext } from "solid-js"
-import { RechartsStateContext } from "../state/_solid/RechartsStateContext"
+import { RechartsStateContext } from "../state/RechartsStateContext"
 import type {
+	XAxisHeight,
 	XAxisOrientation,
 	XAxisPadding,
 	XAxisSettings,
@@ -68,10 +69,11 @@ interface XAxisProps<DataPointType = unknown, DataValueType = unknown> extends O
 	xAxisId?: string | number
 	/**
 	 * Height of the axis in pixels.
+	 * `auto` will attempt to resize the axis based on its content.
 	 *
 	 * @defaultValue 30
 	 */
-	height?: number
+	height?: XAxisHeight
 	/**
 	 * If set true, flips ticks around the axis line, displaying the labels inside the chart instead of outside.
 	 * @defaultValue false
@@ -179,7 +181,6 @@ export type Props = Omit<
 function SetXAxisSettings(
 	props: Omit<XAxisSettings, "type"> & { type: AxisDomainTypeInput },
 ): null {
-	const ctx = useChartStore()
 	const stateCtx = useContext(RechartsStateContext)
 	let prevSettings: XAxisSettings | null = null
 	const evaluatedType = (): EvaluatedAxisDomainType | undefined => {
@@ -207,8 +208,6 @@ function SetXAxisSettings(
 			return
 		}
 		stateCtx?.setState("cartesianAxes", "xAxis", String(s.id), { settings: s })
-		/* Legacy compat shim — keeps state.cartesianAxis.xAxis populated for tests reading the legacy slice shape. */
-		ctx?.setStore("cartesianAxis", "xAxis", String(s.id), s)
 		prevSettings = s
 	})
 
@@ -217,7 +216,6 @@ function SetXAxisSettings(
 			const strId = String(prevSettings.id)
 			/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
 			stateCtx?.setState("cartesianAxes", "xAxis", produce((axes) => { delete axes[strId] }))
-			ctx?.setStore("cartesianAxis", "xAxis", produce((axes) => { delete axes[strId] }))
 			prevSettings = null
 		}
 	})

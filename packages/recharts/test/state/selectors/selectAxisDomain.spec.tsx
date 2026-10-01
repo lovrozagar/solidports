@@ -1,5 +1,5 @@
 import { describe, it } from "vitest"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { selectAxisDomain } from "../../../src/state/selectors/axisSelectors"
 import {
 	assertStableBetweenRenders,
@@ -12,7 +12,7 @@ import { PageData } from "../../_data"
 import { defaultAxisId } from "../../../src/state/cartesianAxisSlice"
 
 describe("selectAxisDomain stable rendering", () => {
-	const selector: Selector<RechartsRootState, ReturnType<typeof selectAxisDomain>, []> = (state) =>
+	const selector: Selector<ChartState, ReturnType<typeof selectAxisDomain>, []> = (state) =>
 		selectAxisDomain(state, "xAxis", defaultAxisId, false)
 
 	shouldReturnUndefinedOutOfContext(selector)

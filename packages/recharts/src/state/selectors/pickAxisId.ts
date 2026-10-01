@@ -1,5 +1,5 @@
-import { RechartsRootState } from "../store"
+import { ChartState } from "../store"
 import { AxisId } from "../cartesianAxisSlice"
 
-export const pickAxisId = (_state: RechartsRootState, _axisType: unknown, axisId: AxisId): AxisId =>
+export const pickAxisId = (_state: ChartState, _axisType: unknown, axisId: AxisId): AxisId =>
 	axisId

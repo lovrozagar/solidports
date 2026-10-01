@@ -11,7 +11,7 @@ const DEFAULT_SCROLL_DISTANCE = 8;
 const TOUCH_TIMEOUT = 50;
 const MAX_POINTER_MOVES_AFTER_TOUCH = 3;
 
-function isTouchLikePointerType(pointerType: string) {
+export function isTouchLikePointerType(pointerType: string) {
   return pointerType === 'touch' || pointerType === 'pen';
 }
 

@@ -2,8 +2,8 @@
 import { describe, expect, it } from "vitest"
 import { render, fireEvent } from "@solidjs/testing-library"
 import type { JSX } from "solid-js"
-import { useChartState } from "../../../src/state/_solid/useChartState"
-import { RechartsStateProvider } from "../../../src/state/_solid/RechartsStateProvider"
+import { useChartState } from "../../../src/state/useChartState"
+import { RechartsStateProvider } from "../../../src/state/RechartsStateProvider"
 
 /* Renders state.chartSize.width as text. */
 const WidthReader = (): JSX.Element => {

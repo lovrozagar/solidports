@@ -2,7 +2,7 @@ import * as React from 'react';
 import * as ReactDOMClient from 'react-dom/client';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router';
 import TestViewer from './TestViewer';
-import 'docs-react/src/styles.css';
+import 'docs/src/styles.css';
 
 interface Fixture {
   Component: React.ComponentType<unknown>;
@@ -77,8 +77,8 @@ function excludeDemoFixture(suite: string, name: string, path: string) {
 
 // Also use all public demos to avoid code duplication.
 const globbedDemos = import.meta.glob<{ default: React.ComponentType<unknown> }>(
-  // technically it should be 'docs-react/src/app/\\(public\\)/\\(content\\)/react/**/*.tsx' but tinyglobby doesn't resolve this on Windows
-  'docs-react/src/app/?docs?/react/**/*.tsx',
+  // technically it should be 'docs/react/src/app/\\(public\\)/\\(content\\)/react/**/*.tsx' but tinyglobby doesn't resolve this on Windows
+  'docs/react/src/app/?docs?/react/**/*.tsx',
   { eager: true },
 );
 

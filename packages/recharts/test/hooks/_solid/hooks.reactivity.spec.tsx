@@ -3,8 +3,8 @@ import { createMemo, createRenderEffect, on } from "solid-js"
 import { describe, expect, it, vi } from "vitest"
 import { render } from "@solidjs/testing-library"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "../../../src/state/_solid/chartState"
-import { useChartState } from "../../../src/state/_solid/useChartState"
+import type { ChartState } from "../../../src/state/chartState"
+import { useChartState } from "../../../src/state/useChartState"
 import {
 	useIsTooltipActive,
 	useActiveTooltipCoordinate,

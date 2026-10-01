@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "paths": {
+      "@solidports/base-ui": [
+        "../../packages/solid/src/index.ts"
+      ],
+      "@solidports/base-ui/*": [
+        "../../packages/solid/src/*/index.ts"
+      ]
+    },
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ESNext",
+    "types": [
+      "vinxi/types/client"
+    ]
+  },
+  "include": [
+    "src",
+    "app.config.ts"
+  ]
+}

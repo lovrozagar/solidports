@@ -8,7 +8,7 @@ import { RechartsStoreContext } from "../../src/state/RechartsStoreContext"
 import { selectTooltipState } from "../../src/state/selectors/selectTooltipState"
 import { assertNotNull } from "../helper/assertNotNull"
 import type { SankeyData } from "../../src/chart/Sankey"
-import type { RechartsRootState } from "../../src/state/store"
+import type { ChartState } from "../../src/state/store"
 
 /*
  * Regression tests for GOTCHA-005 createMemo fix in SetSankeyTooltipEntrySettings.
@@ -28,7 +28,7 @@ import type { RechartsRootState } from "../../src/state/store"
  * before the store is fully populated).
  */
 
-function StoreCapture(props: { ref: (store: RechartsRootState) => void }): null {
+function StoreCapture(props: { ref: (store: ChartState) => void }): null {
 	const ctx = useContext(RechartsStoreContext)
 	if (ctx != null) {
 		/* eslint-disable-next-line solid/reactivity -- intentional one-shot mount callback, not a tracked read */
@@ -47,7 +47,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 	 * tooltipItemPayloads is populated at mount with the correct nameKey.
 	 */
 	it("SetSankeyTooltipEntrySettings populates nameKey correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -68,7 +68,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 	 * dataKey is populated correctly at mount.
 	 */
 	it("SetSankeyTooltipEntrySettings populates dataKey correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -88,7 +88,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 	 * fill is populated correctly at mount.
 	 */
 	it("SetSankeyTooltipEntrySettings populates fill correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -110,7 +110,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 	 * passed reactively; createMemo ensures the read happens at effect time.
 	 */
 	it("SetSankeyTooltipEntrySettings populates dataDefinedOnItem at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -131,7 +131,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 	 * name (display label) is populated correctly at mount.
 	 */
 	it("SetSankeyTooltipEntrySettings populates name correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -151,7 +151,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 	 * stroke is populated correctly at mount.
 	 */
 	it("SetSankeyTooltipEntrySettings populates stroke correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (

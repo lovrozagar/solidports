@@ -22,6 +22,8 @@ describe("selectLegendSettings", () => {
 		align: "center",
 		itemSorter: "value",
 		layout: "horizontal",
+		offset: 0,
+		position: undefined,
 		verticalAlign: "middle",
 	})
 
@@ -43,6 +45,8 @@ describe("selectLegendSettings", () => {
 			align: "left",
 			itemSorter: "value",
 			layout: "vertical",
+			offset: 0,
+			position: undefined,
 			verticalAlign: "top",
 		}
 		expect(legendSettingsSpy).toHaveBeenLastCalledWith(expected)

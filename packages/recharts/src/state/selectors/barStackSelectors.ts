@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { NormalizedStackId } from "../../util/ChartUtils"
 import type { BarSettings } from "../types/BarSettings"
 import { selectUnfilteredCartesianItems } from "./axisSelectors"
@@ -7,7 +7,7 @@ import type { CartesianGraphicalItemSettings } from "../graphicalItemsSlice"
 import { selectBarRectangles } from "./barSelectors"
 
 export function selectAllBarsInStack(
-	state: RechartsRootState,
+	state: ChartState,
 	stackId: NormalizedStackId,
 	isPanorama: boolean,
 ): ReadonlyArray<BarSettings> {
@@ -21,7 +21,7 @@ export function selectAllBarsInStack(
 }
 
 function selectAllBarIdsInStack(
-	state: RechartsRootState,
+	state: ChartState,
 	stackId: NormalizedStackId,
 	isPanorama: boolean,
 ) {
@@ -62,7 +62,7 @@ export const expandRectangle = (
 }
 
 function combineStackRects(
-	state: RechartsRootState,
+	state: ChartState,
 	stackId: NormalizedStackId,
 	isPanorama: boolean,
 ): ReadonlyArray<BarStackItem | undefined> {
@@ -78,7 +78,7 @@ function combineStackRects(
 }
 
 export function selectStackRects(
-	state: RechartsRootState,
+	state: ChartState,
 	stackId: NormalizedStackId,
 	isPanorama: boolean,
 ): ReadonlyArray<BarStackItem | undefined> {

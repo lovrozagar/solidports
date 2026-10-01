@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { ActiveTooltipProps } from "../tooltipSlice"
 import { selectChartLayout } from "../../context/chartLayoutContext"
 import { selectTooltipAxisRangeWithReverse, selectTooltipAxisTicks } from "./tooltipSelectors"
@@ -10,7 +10,7 @@ import type { RelativePointer } from "../../util/types"
 import { selectTooltipAxisType } from "./selectTooltipAxisType"
 
 export function selectActivePropsFromChartPointer(
-	state: RechartsRootState,
+	state: ChartState,
 	chartPointer: RelativePointer,
 ): ActiveTooltipProps | undefined {
 	return combineActiveProps(

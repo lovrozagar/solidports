@@ -5,13 +5,13 @@ import {
 	shouldReturnFromInitialState,
 	shouldReturnUndefinedOutOfContext,
 } from "../../helper/selectorTestHelpers"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { pageData } from "../../_data"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
 
 describe("selectScatterPoints", () => {
-	const selector = (state: RechartsRootState) => {
+	const selector = (state: ChartState) => {
 		return selectScatterPoints(state, 0, 0, 0, "scatter-id", undefined, false)
 	}
 

@@ -2,9 +2,9 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { LineChart, Line, XAxis, YAxis, Tooltip } from "../../../src"
-import { useChartState } from "../../../src/state/_solid/useChartState"
+import { useChartState } from "../../../src/state/useChartState"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "../../../src/state/_solid/chartState"
+import type { ChartState } from "../../../src/state/chartState"
 
 const data = [
 	{ name: "A", value: 100 },
@@ -14,7 +14,7 @@ const data = [
 
 describe("Phase 5 — Tooltip dual-writes to new chartState", () => {
 	it("Tooltip component populates state.tooltip.settings on mount", () => {
-		/* Phase 5 RED: Tooltip writes settings to legacy RechartsRootState.tooltip only — new
+		/* Phase 5 RED: Tooltip writes settings to legacy ChartState.tooltip only — new
 		   chartState.tooltip.settings.trigger stays 'hover' (initial default) even when
 		   trigger='click' is passed. After GREEN: Tooltip dual-writes settings. */
 		let capturedState: ChartState | undefined

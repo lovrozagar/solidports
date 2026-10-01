@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { AngleAxisForRadar, RadarComposedData, RadiusAxisForRadar } from "../../polar/Radar"
 import { computeRadarPoints } from "../../polar/Radar"
 import type { BaseAxisWithScale } from "./axisSelectors"
@@ -21,12 +21,12 @@ import { combineRealScaleType } from "./combiners/combineRealScaleType"
 import { selectChartName } from "./rootPropsSelectors"
 
 const selectRadiusAxisScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 ): RechartsScale | undefined => selectPolarAxisScale(state, "radiusAxis", radiusAxisId)
 
 function selectRadiusAxisForRadar(
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 ): RadiusAxisForRadar | undefined {
 	const scale = selectRadiusAxisScale(state, radiusAxisId)
@@ -37,7 +37,7 @@ function selectRadiusAxisForRadar(
 }
 
 export function selectRadiusAxisForBandSize(
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 ): BaseAxisWithScale | undefined {
 	const axisSettings = selectRadiusAxis(state, radiusAxisId)
@@ -52,7 +52,7 @@ export function selectRadiusAxisForBandSize(
 }
 
 const selectRadiusAxisTicks = (
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 	_angleAxisId: AxisId,
 	isPanorama: boolean,
@@ -61,19 +61,19 @@ const selectRadiusAxisTicks = (
 }
 
 const selectAngleAxisForRadar = (
-	state: RechartsRootState,
+	state: ChartState,
 	_radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 ): AngleAxisSettings => selectAngleAxis(state, angleAxisId)
 
 const selectPolarAxisScaleForRadar = (
-	state: RechartsRootState,
+	state: ChartState,
 	_radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 ): RechartsScale | undefined => selectPolarAxisScale(state, "angleAxis", angleAxisId)
 
 export function selectAngleAxisForBandSize(
-	state: RechartsRootState,
+	state: ChartState,
 	_radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 ): BaseAxisWithScale | undefined {
@@ -89,7 +89,7 @@ export function selectAngleAxisForBandSize(
 }
 
 const selectAngleAxisTicks = (
-	state: RechartsRootState,
+	state: ChartState,
 	_radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 	isPanorama: boolean,
@@ -98,7 +98,7 @@ const selectAngleAxisTicks = (
 }
 
 export function selectAngleAxisWithScaleAndViewport(
-	state: RechartsRootState,
+	state: ChartState,
 	_radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 ): AngleAxisForRadar | undefined {
@@ -119,7 +119,7 @@ export function selectAngleAxisWithScaleAndViewport(
 }
 
 function selectAngleAxisWithScaleAndViewportWithOverride(
-	state: RechartsRootState,
+	state: ChartState,
 	_radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 	override: AngleAxisSettings,
@@ -158,7 +158,7 @@ function selectAngleAxisWithScaleAndViewportWithOverride(
 }
 
 function selectBandSizeOfAxis(
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 	isPanorama: boolean,
@@ -176,7 +176,7 @@ function selectBandSizeOfAxis(
 }
 
 function selectSynchronisedRadarDataKey(
-	state: RechartsRootState,
+	state: ChartState,
 	radarId: GraphicalItemId,
 ): DataKey<unknown> | undefined {
 	const graphicalItems = selectUnfilteredPolarItems(state)
@@ -188,7 +188,7 @@ function selectSynchronisedRadarDataKey(
 }
 
 export function selectRadarPoints(
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 	isPanorama: boolean,

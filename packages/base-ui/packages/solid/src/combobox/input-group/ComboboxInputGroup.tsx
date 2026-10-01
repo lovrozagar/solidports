@@ -22,7 +22,7 @@ import { handleInputPress } from '../utils/handleInputPress';
 export function ComboboxInputGroup(componentProps: ComboboxInputGroup.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { state: fieldState } = useFieldRootContext(false);
+  const { state: fieldState } = useFieldRootContext();
   const { store } = useComboboxRootContext();
   const { filteredItems } = useComboboxDerivedItemsContext();
 

@@ -3,6 +3,7 @@ import { createStore, type SetStoreFunction } from 'solid-js/store';
 import type { FloatingRootContext } from '../../floating-ui-solid';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../constants';
+import type { SolidStore } from '../store/SolidStoreV2';
 import { HTMLProps } from '../types';
 import { TransitionStatus } from '../useTransitionStatus';
 import { PopupTriggerMap } from './popupTriggerMap';
@@ -154,3 +155,17 @@ export const popupStoreSelectors = {
 };
 
 export type PopupStoreSelectors = typeof popupStoreSelectors;
+
+/**
+ * Store members a detached handle-backed trigger reads or invokes for trigger registration and data
+ * forwarding.
+ */
+export type PopupTriggerStoreKeys = 'context' | 'select' | 'set' | 'state' | 'update' | 'useState';
+
+/**
+ * The subset of a popup store that trigger registration and data forwarding rely on.
+ */
+export type PopupTriggerDataStore<State extends PopupStoreState<unknown>> = Pick<
+  SolidStore<State, PopupStoreContext<never>, PopupStoreSelectors>,
+  PopupTriggerStoreKeys
+>;

@@ -26,7 +26,7 @@ import { rootStateAttributesMapping } from '../utils/stateAttributesMapping';
 import {
   getOTPValidationConfig,
   normalizeOTPValue,
-  stripOTPWhitespace,
+  normalizeOTPValueWithDetails,
   type OTPValidationType,
 } from '../utils/otp';
 import type { FieldRootState } from '../../field/root/FieldRoot';
@@ -53,7 +53,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     'mask',
     'inputMode',
     'validationType',
-    'sanitizeValue',
+    'normalizeValue',
     'disabled',
     'readOnly',
     'required',
@@ -69,7 +69,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   const mask = () => local.mask ?? false;
   const inputModeProp = () => local.inputMode;
   const validationType = () => local.validationType ?? ('numeric' as OTPValidationType);
-  const sanitizeValue = () => local.sanitizeValue;
+  const normalizeValue = () => local.normalizeValue;
   const disabledProp = () => local.disabled ?? false;
   const readOnly = () => local.readOnly ?? false;
   const required = () => local.required ?? false;
@@ -129,7 +129,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   const inputMode = () => inputModeProp() ?? validationConfig()?.inputMode;
   const hasValidLength = () => Number.isInteger(length()) && length() > 0;
 
-  const value = () => normalizeOTPValue(valueUnwrapped(), length(), validationType(), sanitizeValue());
+  const value = () => normalizeOTPValue(valueUnwrapped(), length(), validationType(), normalizeValue());
   const filled = () => value() !== '';
 
   const [inputCount, setInputCount] = createSignal(0);
@@ -177,14 +177,6 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       );
     });
 
-    createEffect(() => {
-      const sv = sanitizeValue();
-      const vt = validationType();
-      if (sv == null || vt === 'none') {
-        return;
-      }
-      warn('<OTPField.Root> `sanitizeValue` is only used when `validationType="none"`.', '');
-    });
   }
 
   /* Use the solid `useField` hook — equivalent to useRegisterFieldControl in React. */
@@ -256,23 +248,38 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     if (pendingCompleteValue != null) {
       pendingCompleteValueRef.current = null;
       if (pendingCompleteValue.value === currentValue) {
-        local.onValueComplete?.(currentValue, pendingCompleteValue.eventDetails);
-        if (autoSubmit()) {
-          requestSubmit();
-        }
+        completeValue(currentValue, pendingCompleteValue.eventDetails);
       }
     }
 
   });
+
+  function completeValue(completedValue: string, eventDetails: OTPFieldRoot.CompleteEventDetails) {
+    local.onValueComplete?.(completedValue, eventDetails);
+    if (autoSubmit()) {
+      requestSubmit();
+    }
+  }
 
   function setValue(
     nextValue: string,
     details: OTPFieldRoot.ChangeEventDetails,
   ): string | null {
     const currentValue = value();
-    const normalizedValue = normalizeOTPValue(nextValue, length(), validationType(), sanitizeValue());
+    const normalizedValue = normalizeOTPValue(nextValue, length(), validationType(), normalizeValue());
+    const canComplete =
+      details.reason === REASONS.inputChange || details.reason === REASONS.inputPaste;
+    const completeEventDetails =
+      canComplete &&
+      normalizedValue.length === length() &&
+      (currentValue.length !== length() || details.reason === REASONS.inputPaste)
+        ? createGenericEventDetails(details.reason, details.event)
+        : null;
 
     if (normalizedValue === currentValue) {
+      if (completeEventDetails != null) {
+        completeValue(normalizedValue, completeEventDetails);
+      }
       return null;
     }
 
@@ -284,9 +291,9 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
 
     setValueUnwrapped(normalizedValue);
 
-    if (normalizedValue.length === length() && currentValue.length !== length()) {
+    if (completeEventDetails != null) {
       pendingCompleteValueRef.current = {
-        eventDetails: createGenericEventDetails(details.reason, details.event),
+        eventDetails: completeEventDetails,
         value: normalizedValue,
       };
     } else if (normalizedValue.length !== length()) {
@@ -399,7 +406,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     readOnly,
     reportValueInvalid,
     required,
-    sanitizeValue,
+    normalizeValue,
     setValue,
     state,
     validationType,
@@ -438,14 +445,14 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
         }
 
         const rawValue = event.currentTarget.value;
-        const normalizedValue = normalizeOTPValue(
+        const [normalizedValue, didRejectCharacters] = normalizeOTPValueWithDetails(
           rawValue,
           length(),
           validationType(),
-          sanitizeValue(),
+          normalizeValue(),
         );
 
-        if (stripOTPWhitespace(rawValue).length > normalizedValue.length) {
+        if (didRejectCharacters) {
           reportValueInvalid(
             rawValue,
             createGenericEventDetails(REASONS.inputChange, event),
@@ -532,7 +539,18 @@ export interface OTPFieldRootProps
   inputMode?: JSX.HTMLAttributes<HTMLInputElement>['inputMode'] | undefined;
   /** @default 'numeric' */
   validationType?: OTPFieldRoot.ValidationType | undefined;
-  sanitizeValue?: ((value: string) => string) | undefined;
+  /**
+   * Function that normalizes the OTP value after whitespace and `validationType` filtering.
+   * It runs whenever OTP Field normalizes a value, including initial/default values, controlled
+   * values, and user edits.
+   *
+   * The returned value is filtered by `validationType` again, then clamped to `length`.
+   * It should be idempotent because OTP Field may normalize the same value more than once while
+   * handling edits, storing state, and rendering controlled or uncontrolled values. Non-idempotent
+   * normalizers can compound across those normalization passes. Characters rejected while
+   * normalizing typed or pasted text are reported through `onValueInvalid`.
+   */
+  normalizeValue?: ((value: string) => string) | undefined;
   /** @default false */
   required?: boolean | undefined;
   /** @default false */

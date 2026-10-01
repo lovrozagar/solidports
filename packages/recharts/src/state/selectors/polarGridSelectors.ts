@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { RechartsRootState } from "../store"
+import { ChartState } from "../store"
 import { AxisId } from "../cartesianAxisSlice"
 import { selectPolarAxisTicks } from "./polarScaleSelectors"
 
@@ -12,7 +12,7 @@ export type PolarRadius = Array<number>
    are skipped on cache hit, and downstream memos never refresh (GOTCHA-003).
    Plain functions let Solid track the proxy reads naturally. */
 export function selectPolarGridAngles(
-	state: RechartsRootState,
+	state: ChartState,
 	angleAxisId: AxisId,
 ): PolarAngles | undefined {
 	const ticks = selectPolarAxisTicks(state, "angleAxis", angleAxisId, false)
@@ -23,7 +23,7 @@ export function selectPolarGridAngles(
 }
 
 export function selectPolarGridRadii(
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 ): PolarRadius | undefined {
 	const ticks = selectPolarAxisTicks(state, "radiusAxis", radiusAxisId, false)

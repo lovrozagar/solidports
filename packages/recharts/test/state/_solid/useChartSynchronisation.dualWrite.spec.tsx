@@ -2,12 +2,11 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { LineChart, Line, XAxis, YAxis, Tooltip } from "../../../src"
-import { useChartState } from "../../../src/state/_solid/useChartState"
+import { useChartState } from "../../../src/state/useChartState"
 import { useChartStore } from "../../../src/state/RechartsStoreContext"
 import { eventCenter, TOOLTIP_SYNC_EVENT } from "../../../src/util/Events"
-import type { ChartState } from "../../../src/state/_solid/chartState"
+import type { ChartState } from "../../../src/state/chartState"
 import type { TooltipSyncState } from "../../../src/state/tooltipSlice"
-import type { RechartsRootState } from "../../../src/state/store"
 
 const data = [
 	{ name: "A", value: 100 },
@@ -19,7 +18,7 @@ const SYNC_ID = "test-sync-5b"
 
 function setupSyncChart() {
 	let capturedState: ChartState | undefined
-	let capturedStore: RechartsRootState | undefined
+	let capturedStore: ChartState | undefined
 
 	const Capture = (): null => {
 		capturedState = useChartState().state

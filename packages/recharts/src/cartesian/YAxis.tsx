@@ -25,7 +25,7 @@ import type {
 } from "../state/cartesianAxisSlice"
 import { useChartStore } from "../state/RechartsStoreContext"
 import { useContext } from "solid-js"
-import { RechartsStateContext } from "../state/_solid/RechartsStateContext"
+import { RechartsStateContext } from "../state/RechartsStateContext"
 import {
 	implicitYAxis,
 	selectTicksOfAxis,
@@ -193,7 +193,6 @@ export type Props = Omit<
 function SetYAxisSettings(
 	props: Omit<YAxisSettings, "type"> & { type: AxisDomainTypeInput },
 ): null {
-	const ctx = useChartStore()
 	const stateCtx = useContext(RechartsStateContext)
 	let prevSettings: YAxisSettings | null = null
 	const evaluatedType = (): EvaluatedAxisDomainType | undefined => {
@@ -221,8 +220,6 @@ function SetYAxisSettings(
 			return
 		}
 		stateCtx?.setState("cartesianAxes", "yAxis", String(s.id), { settings: s })
-		/* Legacy compat shim — keeps state.cartesianAxis.yAxis populated for tests reading the legacy slice shape. */
-		ctx?.setStore("cartesianAxis", "yAxis", String(s.id), s)
 		prevSettings = s
 	})
 
@@ -231,7 +228,6 @@ function SetYAxisSettings(
 			const strId = String(prevSettings.id)
 			/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
 			stateCtx?.setState("cartesianAxes", "yAxis", produce((axes) => { delete axes[strId] }))
-			ctx?.setStore("cartesianAxis", "yAxis", produce((axes) => { delete axes[strId] }))
 			prevSettings = null
 		}
 	})

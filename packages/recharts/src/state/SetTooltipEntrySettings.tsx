@@ -2,14 +2,12 @@ import { createEffect, onCleanup } from "solid-js"
 import { produce } from "solid-js/store"
 import type { TooltipPayloadConfiguration } from "./tooltipSlice"
 import { useIsPanorama } from "../context/PanoramaContext"
-import { useOptionalChartState } from "./_solid/useChartState"
-import { useChartStore } from "./RechartsStoreContext"
+import { useOptionalChartState } from "./useChartState"
 
 export function SetTooltipEntrySettings(props: {
 	tooltipEntrySettings: TooltipPayloadConfiguration
 }): null {
 	const ctx = useOptionalChartState()
-	const legacyCtx = useChartStore()
 	const isPanorama = useIsPanorama()
 	let prevSettings: TooltipPayloadConfiguration | null = null
 
@@ -21,14 +19,6 @@ export function SetTooltipEntrySettings(props: {
 		const current = props.tooltipEntrySettings
 		if (prevSettings === null) {
 			ctx?.setState(
-				"tooltip",
-				"tooltipItemPayloads",
-				produce((items) => {
-					;(items as TooltipPayloadConfiguration[]).push(current)
-				}),
-			)
-			/* Legacy compat shim — tests reading state.tooltip.tooltipItemPayloads. */
-			legacyCtx?.setStore(
 				"tooltip",
 				"tooltipItemPayloads",
 				produce((items) => {
@@ -48,17 +38,6 @@ export function SetTooltipEntrySettings(props: {
 					}
 				}),
 			)
-			legacyCtx?.setStore(
-				"tooltip",
-				"tooltipItemPayloads",
-				produce((items) => {
-					const mutableItems = items as TooltipPayloadConfiguration[]
-					const idx = mutableItems.indexOf(prev)
-					if (idx !== -1) {
-						mutableItems[idx] = current
-					}
-				}),
-			)
 		}
 		prevSettings = current
 	})
@@ -67,17 +46,6 @@ export function SetTooltipEntrySettings(props: {
 		if (prevSettings) {
 			const toRemove = prevSettings
 			ctx?.setState(
-				"tooltip",
-				"tooltipItemPayloads",
-				produce((items) => {
-					const mutableItems = items as TooltipPayloadConfiguration[]
-					const idx = mutableItems.indexOf(toRemove)
-					if (idx !== -1) {
-						mutableItems.splice(idx, 1)
-					}
-				}),
-			)
-			legacyCtx?.setStore(
 				"tooltip",
 				"tooltipItemPayloads",
 				produce((items) => {

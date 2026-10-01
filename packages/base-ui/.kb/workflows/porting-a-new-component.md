@@ -48,8 +48,8 @@ yet exist (or is incomplete) under `packages/solid/src/`.
 6. **Run the test matrix:**
 
    ```bash
-   pnpm test:solid:jsdom <PascalCaseName> --no-watch --reporter=agent
-   pnpm test:solid:chromium <PascalCaseName> --no-watch --reporter=agent
+   bun run test:solid:jsdom <PascalCaseName> --no-watch --reporter=agent
+   bun run test:solid:chromium <PascalCaseName> --no-watch --reporter=agent
    ```
 
 7. **Port the demo** if in scope. See
@@ -57,9 +57,9 @@ yet exist (or is incomplete) under `packages/solid/src/`.
 8. **Lint + typecheck:**
 
    ```bash
-   pnpm typescript
-   pnpm eslint
-   pnpm prettier
+   bun run typecheck
+   bun run lint
+   bun run fmt
    ```
 
 9. **Update KB.**
@@ -73,11 +73,11 @@ yet exist (or is incomplete) under `packages/solid/src/`.
 
 - [ ] `packages/solid/src/<component>/` exists and type-checks.
 - [ ] jsdom + chromium test commands pass for `<PascalCaseName>`.
-- [ ] `pnpm typescript`, `pnpm eslint`, `pnpm prettier` clean for changed
+- [ ] `bun run typecheck`, `bun run lint`, `bun run fmt` clean for changed
   files.
 - [ ] `components/<name>.md` exists in `.kb/` with up-to-date status.
 - [ ] Any new cross-cutting workaround has a `GOTCHA-NNN` entry.
-- [ ] If docs were in scope: `docs-solid` demo renders without console
+- [ ] If docs were in scope: `docs/solid` demo renders without console
   errors.
 
 ## See also

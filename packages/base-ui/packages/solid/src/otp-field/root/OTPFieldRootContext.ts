@@ -22,7 +22,7 @@ export interface OTPFieldRootContext {
   reportValueInvalid: (value: string, details: OTPFieldRoot.InvalidEventDetails) => void;
   readOnly: Accessor<boolean>;
   required: Accessor<boolean>;
-  sanitizeValue: Accessor<((value: string) => string) | undefined>;
+  normalizeValue: Accessor<((value: string) => string) | undefined>;
   setValue: (value: string, details: OTPFieldRoot.ChangeEventDetails) => string | null;
   state: OTPFieldRootState;
   validationType: Accessor<OTPFieldRoot.ValidationType>;

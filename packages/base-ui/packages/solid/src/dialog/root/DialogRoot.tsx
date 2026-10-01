@@ -1,14 +1,13 @@
-import { type Accessor, createContext, type JSX, onMount, useContext } from 'solid-js';
-import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
+import { type JSX } from 'solid-js';
+import { type ReactLikeRef } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { type PayloadChildRenderFunction } from '../../utils/popups';
 import { REASONS } from '../../utils/reasons';
 import { DialogHandle } from '../store/DialogHandle';
-import { DialogStore } from '../store/DialogStore';
-import { DialogRootContext, useDialogRootContext } from './DialogRootContext';
-import { useDialogRoot } from './useDialogRoot';
+import { IsDrawerContext } from './DialogRootContext';
+import { useRenderDialogRoot } from './useRenderDialogRoot';
 
-export const IsDrawerContext = createContext(false);
+export { IsDrawerContext };
 
 /**
  * Groups all parts of the dialog.
@@ -17,93 +16,10 @@ export const IsDrawerContext = createContext(false);
  * Documentation: [Base UI Dialog](https://base-ui.com/react/components/dialog)
  */
 export function DialogRoot<Payload>(props: DialogRoot.Props<Payload>) {
-  const openProp = () => props.open;
-  const defaultOpen = () => props.defaultOpen ?? false;
-  const disablePointerDismissal = () => props.disablePointerDismissal ?? false;
-  const modal = () => props.modal ?? true;
-  const triggerIdProp = () => props.triggerId;
-  const defaultTriggerIdProp = () => props.defaultTriggerId ?? null;
-
-  const parentDialogRootContext = useDialogRootContext(true);
-  const isDrawer = useContext(IsDrawerContext);
-  const nested = () => Boolean(parentDialogRootContext);
-
-  /* set-once at init — matches upstream React useStore(handle?.store, ...) semantics */
-  const store =
-    // eslint-disable-next-line solid/reactivity
-    props.handle?.store ??
-    DialogStore<Payload>({
-      get activeTriggerId() {
-        return defaultTriggerIdProp();
-      },
-      get disablePointerDismissal() {
-        return disablePointerDismissal();
-      },
-      get modal() {
-        return modal();
-      },
-      get nested() {
-        return nested();
-      },
-      get open() {
-        return defaultOpen();
-      },
-      get openProp() {
-        return openProp();
-      },
-      get triggerIdProp() {
-        return triggerIdProp();
-      },
-    });
-
-  // Support initially open state when uncontrolled
-  onMount(() => {
-    if (openProp() === undefined && store.state.open === false && defaultOpen() === true) {
-      store.update({
-        activeTriggerId: defaultTriggerIdProp(),
-        open: true,
-      });
-    }
-  });
-
-  store.useControlledProp('openProp', openProp);
-  store.useControlledProp('triggerIdProp', triggerIdProp);
-
-  store.useSyncedValues({ disablePointerDismissal, modal, nested });
-  store.useContextCallback('onOpenChange', (open, details) =>
-    props.onOpenChange?.(open, details),
-  );
-  store.useContextCallback('onOpenChangeComplete', (open) => props.onOpenChangeComplete?.(open));
-
-  const payload = store.useState('payload') as Accessor<Payload | undefined>;
-
-  useDialogRoot({
-    get actionsRef() {
-      return props.actionsRef;
-    },
-    isDrawer,
-    get onOpenChange() {
-      return props.onOpenChange;
-    },
-    get parentContext() {
-      return parentDialogRootContext?.store.context;
-    },
-    store,
-    get triggerIdProp() {
-      return triggerIdProp();
-    },
-  });
-
-  const contextValue: DialogRootContext<Payload> = { store };
-
-  return (
-    <IsDrawerContext.Provider value={false}>
-      <DialogRootContext.Provider value={contextValue as DialogRootContext}>
-        <ComponentWithPayload payload={payload} children={props.children} />
-      </DialogRootContext.Provider>
-    </IsDrawerContext.Provider>
-  );
+  return useRenderDialogRoot('dialog', props);
 }
+
+export interface DialogRootState {}
 
 export interface DialogRootProps<Payload = unknown> {
   /**
@@ -122,6 +38,9 @@ export interface DialogRootProps<Payload = unknown> {
    * - `true`: user interaction is limited to just the dialog: focus is trapped, document page scroll is locked, and pointer interactions on outside elements are disabled.
    * - `false`: user interaction with the rest of the document is allowed.
    * - `'trap-focus'`: focus is trapped inside the dialog, but document page scroll is not locked and pointer interactions outside of it remain enabled.
+   *
+   * When `modal` is `true` or `'trap-focus'`, render `<Dialog.Close>` inside `<Dialog.Popup>` so
+   * touch screen readers can escape the popup.
    * @default true
    */
   modal?: (boolean | 'trap-focus') | undefined;
@@ -135,6 +54,7 @@ export interface DialogRootProps<Payload = unknown> {
   onOpenChangeComplete?: ((open: boolean) => void) | undefined;
   /**
    * Determines whether the dialog should close on outside clicks.
+   * For non-modal dialogs, this also prevents the dialog from closing when focus moves outside of it.
    * @default false
    */
   disablePointerDismissal?: boolean | undefined;
@@ -160,7 +80,7 @@ export interface DialogRootProps<Payload = unknown> {
   /**
    * ID of the trigger that the dialog is associated with.
    * This is useful in conjunction with the `open` prop to create a controlled dialog.
-   * There's no need to specify this prop when the popover is uncontrolled (i.e. when the `open` prop is not set).
+   * There's no need to specify this prop when the dialog is uncontrolled (i.e. when the `open` prop is not set).
    */
   triggerId?: (string | null) | undefined;
   /**
@@ -190,6 +110,7 @@ export type DialogRootChangeEventDetails =
   };
 
 export namespace DialogRoot {
+  export type State = DialogRootState;
   export type Props<Payload = unknown> = DialogRootProps<Payload>;
   export type Actions = DialogRootActions;
   export type ChangeEventReason = DialogRootChangeEventReason;

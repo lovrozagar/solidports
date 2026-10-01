@@ -6,11 +6,41 @@ import type {
 } from "../component/DefaultLegendContent"
 import type { LegendItemSorter } from "../component/Legend"
 
+/** Keyword or coordinate position; same vocabulary as Label. Avoids importing CartesianLabelPosition (cycle). */
+export type LegendPosition =
+	| "top"
+	| "left"
+	| "right"
+	| "bottom"
+	| "inside"
+	| "outside"
+	| "insideLeft"
+	| "insideRight"
+	| "insideTop"
+	| "insideBottom"
+	| "insideTopLeft"
+	| "insideBottomLeft"
+	| "insideTopRight"
+	| "insideBottomRight"
+	| "insideStart"
+	| "insideEnd"
+	| "end"
+	| "center"
+	| "centerTop"
+	| "centerBottom"
+	| "middle"
+	| {
+			x?: number | string
+			y?: number | string
+	  }
+
 export type LegendSettings = {
 	align: HorizontalAlignmentType
 	itemSorter: LegendItemSorter | null
 	layout: LayoutType
 	verticalAlign: VerticalAlignmentType
+	position?: LegendPosition
+	offset?: number
 }
 
 /**

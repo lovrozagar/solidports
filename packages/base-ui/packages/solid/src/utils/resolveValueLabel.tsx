@@ -15,20 +15,28 @@ interface LabeledItem {
 }
 
 export interface Group<Item = any> {
-  value: unknown;
-  items: Item[];
+  [key: string]: unknown;
+  items: ReadonlyArray<Item>;
+}
+
+function isGroup(item: any): item is Group<any> {
+  return typeof item === 'object' && item != null && Array.isArray(item.items);
 }
 
 export function isGroupedItems(
   items: ReadonlyArray<any | Group<any>> | undefined,
-): items is Group<any>[] {
-  return (
-    items != null &&
-    items.length > 0 &&
-    typeof items[0] === 'object' &&
-    items[0] != null &&
-    'items' in items[0]
-  );
+): items is ReadonlyArray<Group<any>> {
+  // A group must carry an actual `items` array: key presence alone would misclassify an item
+  // with an unrelated or optional `items` field.
+  return isGroup(items?.[0]);
+}
+
+export function flattenLeafItems<Item>(
+  items: readonly Item[] | readonly Group<Item>[],
+): readonly Item[] {
+  return isGroupedItems(items)
+    ? (items as readonly Group<Item>[]).flatMap((group) => group.items)
+    : (items as readonly Item[]);
 }
 
 /**
@@ -50,7 +58,7 @@ export function hasNullItemLabel(items: ItemsInput): boolean {
     return false;
   }
 
-  for (const item of items) {
+  for (const item of items as ReadonlyArray<LabeledItem>) {
     if (item && item.value == null && item.label != null) {
       return true;
     }

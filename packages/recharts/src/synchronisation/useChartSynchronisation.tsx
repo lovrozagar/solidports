@@ -1,7 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { batch, createEffect, onCleanup } from "solid-js"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
 import {
 	selectEventEmitter,
 	selectSyncId,
@@ -31,7 +30,6 @@ function useTooltipSyncEventsListener() {
 		return
 	}
 	const { store, setStore } = ctx
-	const setChartState = useOptionalChartState()?.setState
 	/* Capture isPanorama at owner setup. The listener fires from a non-Solid
 	   event bus (no owner on the call stack), so `useContext` inside `useViewBox`
 	   would return the default. Read viewBox directly off the captured store
@@ -95,9 +93,9 @@ function useTooltipSyncEventsListener() {
 					}
 
 					const syncPayload = { ...incomingState, coordinate: scaledCoordinate }
-					setChartState?.("tooltip", "syncInteraction", syncPayload)
+					setStore("tooltip", "syncInteraction", syncPayload)
 				} else {
-					setChartState?.("tooltip", "syncInteraction", incomingState)
+					setStore("tooltip", "syncInteraction", incomingState)
 				}
 				return
 			}
@@ -147,7 +145,7 @@ function useTooltipSyncEventsListener() {
 					label: undefined,
 					sourceViewBox: undefined,
 				}
-				setChartState?.("tooltip", "syncInteraction", deactivatePayload)
+				setStore("tooltip", "syncInteraction", deactivatePayload)
 				return
 			}
 
@@ -168,7 +166,7 @@ function useTooltipSyncEventsListener() {
 				label: incomingState.label,
 				sourceViewBox: incomingState.sourceViewBox,
 			}
-			setChartState?.("tooltip", "syncInteraction", activePayload)
+			setStore("tooltip", "syncInteraction", activePayload)
 		}
 		eventCenter.on(TOOLTIP_SYNC_EVENT, listener)
 

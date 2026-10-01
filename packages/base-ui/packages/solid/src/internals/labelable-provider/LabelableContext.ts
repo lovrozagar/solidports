@@ -1,4 +1,3 @@
-'use client';
 import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
 import { NOOP } from '../../utils/noop';
 import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';

@@ -51,7 +51,7 @@ import { useAnimationId } from "../util/useAnimationId"
 import { RequiresDefaultProps, resolveDefaultProps } from "../util/resolveDefaultProps"
 import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import { SetPolarGraphicalItem } from "../state/SetGraphicalItem"
-import { RechartsStateContext } from "../state/_solid/RechartsStateContext"
+import { RechartsStateContext } from "../state/RechartsStateContext"
 import { PiePresentationProps, PieSettings } from "../state/types/PieSettings"
 import {
 	svgPropertiesNoEvents,

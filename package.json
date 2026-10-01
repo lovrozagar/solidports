@@ -6,8 +6,7 @@
 		"packages": [
 			"packages/base-ui",
 			"packages/base-ui/packages/*",
-			"packages/base-ui/docs-react",
-			"packages/base-ui/docs-solid",
+			"packages/base-ui/docs/*",
 			"packages/base-ui/test",
 			"packages/base-ui/test/*",
 			"packages/base-ui/scripts/*",
@@ -114,7 +113,7 @@
 			"react-is": "19.2.7",
 			"react-reconciler": "0.33.0",
 			"react-router": "8.2.0",
-			"recharts": "3.9.2",
+			"recharts": "3.10.1",
 			"rehype-pretty-code": "0.14.4",
 			"remark": "^15.0.1",
 			"remark-frontmatter": "5.0.0",
@@ -159,9 +158,17 @@
 			"zod": "4.4.3"
 		}
 	},
+	"overrides": {
+		"typescript": "5.9.2"
+	},
 	"type": "module",
 	"scripts": {
 		"prepare": "git config --get core.hooksPath >/dev/null || git config core.hooksPath .githooks || true",
+		"docs:dev": "bun --filter @solidports/docs dev",
+		"docs:react:dev": "bun run --cwd packages/base-ui/docs/react dev",
+		"docs:sync": "bun packages/base-ui/scripts/docs/sync-docs-react.mjs",
+		"docs:generate": "bun packages/base-ui/scripts/docs/generate-solid-docs.mjs",
+		"docs:bootstrap": "bun run docs:sync && bun install && rm -rf packages/base-ui/docs/react/node_modules/@mui/internal-docs-infra/node_modules/typescript && bun run docs:generate",
 		"test": "bun run --filter @solidports/recharts test",
 		"test:base-ui": "bun run --filter @base-ui/monorepo test:solid:jsdom",
 		"test:recharts": "bun run --filter @solidports/recharts test",

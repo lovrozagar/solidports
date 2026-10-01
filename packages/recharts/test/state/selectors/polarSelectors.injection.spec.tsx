@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { selectRadarPoints } from "../../../src/state/selectors/radarSelectors"
 import { selectRadialBarSectors } from "../../../src/state/selectors/radialBarSelectors"
-import { createInitialState } from "../../../src/state/store"
-import type { RechartsRootState } from "../../../src/state/store"
+import { createInitialChartState } from "../../../src/state/chartState"
+import type { ChartState } from "../../../src/state/store"
 import type { AngleAxisSettings, RadiusAxisSettings } from "../../../src/state/polarAxisSlice"
 import type { RadialBarSettings } from "../../../src/state/types/RadialBarSettings"
 import { implicitAngleAxis, implicitRadiusAxis } from "../../../src/state/selectors/polarAxisSelectors"
@@ -56,62 +56,47 @@ const baseRadialBarSettings: RadialBarSettings = {
 	type: "radialBar",
 }
 
-function makeStateWithSolidPolarAxis(opts: {
-	solidAngle?: Partial<AngleAxisSettings>
-	solidRadius?: Partial<RadiusAxisSettings>
-}): RechartsRootState {
-	const base = createInitialState()
-
-	const polarAxes: Record<string, unknown> = {}
-
-	if (opts.solidAngle !== undefined) {
-		polarAxes["angleAxis"] = { "0": { settings: { ...baseAngleAxis, ...opts.solidAngle } } }
-	}
-	if (opts.solidRadius !== undefined) {
-		polarAxes["radiusAxis"] = { "0": { settings: { ...baseRadiusAxis, ...opts.solidRadius } } }
-	}
-
-	;(base as Record<string, unknown>)["_solid"] = { polarAxes }
-
-	return base
+function asRoot(state: ReturnType<typeof createInitialChartState>): ChartState {
+	return state as unknown as ChartState
 }
 
-describe("Phase 4 — polar selector override-param injection", () => {
+function makeState(opts: {
+	angle?: Partial<AngleAxisSettings>
+	radius?: Partial<RadiusAxisSettings>
+}): ChartState {
+	return asRoot(
+		createInitialChartState({
+			polarAxes: {
+				angleAxis:
+					opts.angle !== undefined
+						? { "0": { settings: { ...baseAngleAxis, ...opts.angle } } }
+						: {},
+				radiusAxis:
+					opts.radius !== undefined
+						? { "0": { settings: { ...baseRadiusAxis, ...opts.radius } } }
+						: {},
+			},
+		}),
+	)
+}
+
+describe("polar selector override-param injection", () => {
 	describe("selectRadarPoints", () => {
 		it("is a callable function with correct minimum arity", () => {
-			/* Structural contract — must exist and accept (state, radiusAxisId, angleAxisId, isPanorama, radarId). */
 			expect(typeof selectRadarPoints).toBe("function")
 			expect(selectRadarPoints.length).toBeGreaterThanOrEqual(5)
 		})
 
 		it("returns undefined when no axis scale is available (no polarOptions)", () => {
-			/* With no PolarOptions mounted, scale is undefined — selector returns undefined.
-			   This verifies the selector doesn't throw on minimal state. */
-			const state = createInitialState()
+			const state = asRoot(createInitialChartState())
 			const result = selectRadarPoints(state, "0", "0", false, "radar-0")
 			expect(result).toBeUndefined()
 		})
 
-		it("threadable: accepts angleAxis override param without throwing", () => {
-			/* Phase 4 RED: selectRadarPoints has no override parameter — calling with extra
-			   arg is silently ignored and the selector uses legacy axis.
-			   Phase 4 GREEN: override param accepted; selector uses provided angle axis
-			   settings instead of reading from state. */
-			const state = makeStateWithSolidPolarAxis({ solidAngle: { dataKey: "SOLID" } })
+		it("accepts angleAxis override param without throwing", () => {
+			const state = makeState({ angle: { dataKey: "CHART" } })
 			const angleOverride: AngleAxisSettings = { ...baseAngleAxis, dataKey: "OVERRIDE" }
-
-			const result = (selectRadarPoints as (
-				s: RechartsRootState,
-				radiusAxisId: string,
-				angleAxisId: string,
-				isPanorama: boolean,
-				radarId: string,
-				angleOverride?: AngleAxisSettings,
-			) => unknown)(state, "0", "0", false, "radar-0", angleOverride)
-
-			/* When override is wired, the selector uses "OVERRIDE" dataKey not "SOLID".
-			   Until Phase 4 GREEN: result is undefined (no scale) — the key assertion is
-			   that the call itself does NOT throw and the override param is accepted. */
+			const result = selectRadarPoints(state, "0", "0", false, "radar-0", angleOverride)
 			expect(result === undefined || typeof result === "object").toBe(true)
 		})
 	})
@@ -123,29 +108,22 @@ describe("Phase 4 — polar selector override-param injection", () => {
 		})
 
 		it("returns an empty array when no axis scale is available", () => {
-			const state = createInitialState()
+			const state = asRoot(createInitialChartState())
 			const result = selectRadialBarSectors(state, "0", "0", baseRadialBarSettings, undefined)
 			expect(Array.isArray(result)).toBe(true)
 		})
 
-		it("threadable: accepts radiusAxis override param without throwing", () => {
-			/* Phase 4 RED: selectRadialBarSectors has no override parameter — extra arg ignored,
-			   selector uses legacy axis.
-			   Phase 4 GREEN: override param accepted; selector uses provided radius axis settings. */
-			const state = makeStateWithSolidPolarAxis({ solidRadius: { domain: [0, 500] } })
+		it("accepts radiusAxis override param without throwing", () => {
+			const state = makeState({ radius: { domain: [0, 500] } })
 			const radiusOverride: RadiusAxisSettings = { ...baseRadiusAxis, domain: [0, 9999] }
-
-			const result = (selectRadialBarSectors as (
-				s: RechartsRootState,
-				radiusAxisId: string,
-				angleAxisId: string,
-				settings: RadialBarSettings,
-				cells: undefined,
-				radiusOverride?: RadiusAxisSettings,
-			) => unknown)(state, "0", "0", baseRadialBarSettings, undefined, radiusOverride)
-
-			/* Until Phase 4 GREEN: result is an empty array (no scale/polarOptions).
-			   Key assertion: call does NOT throw and the parameter is accepted. */
+			const result = selectRadialBarSectors(
+				state,
+				"0",
+				"0",
+				baseRadialBarSettings,
+				undefined,
+				radiusOverride,
+			)
 			expect(Array.isArray(result) || typeof result === "object").toBe(true)
 		})
 	})

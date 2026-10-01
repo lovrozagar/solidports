@@ -1,6 +1,6 @@
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 import type { SetStoreFunction } from "solid-js/store"
-import type { RechartsRootState } from "./store"
+import type { ChartState } from "./store"
 
 export type ZIndexEntry = {
 	/**
@@ -45,7 +45,7 @@ export function isDefaultZIndex(zIndex: number): boolean {
 /* Solid's setStore("zIndex","zIndexMap",N,key,...) crashes when zIndexMap[N]
    is undefined (custom zIndex outside DefaultZIndexes). Pre-seed before nested write. */
 const ensureZIndexEntry = (
-	setStore: SetStoreFunction<RechartsRootState>,
+	setStore: SetStoreFunction<ChartState>,
 	zIndex: number,
 	currentMap: Record<number, ZIndexEntry>,
 ): void => {
@@ -59,7 +59,7 @@ const ensureZIndexEntry = (
 
 export const registerZIndexPortalElement =
 	(payload: { element: Element; isPanorama: boolean; zIndex: number }) =>
-	(setStore: SetStoreFunction<RechartsRootState>, store: RechartsRootState) => {
+	(setStore: SetStoreFunction<ChartState>, store: ChartState) => {
 		ensureZIndexEntry(setStore, payload.zIndex, store.zIndex.zIndexMap)
 		const key = payload.isPanorama ? "panoramaElement" : "element"
 		setStore("zIndex", "zIndexMap", payload.zIndex, key, payload.element)
@@ -67,7 +67,7 @@ export const registerZIndexPortalElement =
 
 export const unregisterZIndexPortalElement =
 	(payload: { isPanorama: boolean; zIndex: number }) =>
-	(setStore: SetStoreFunction<RechartsRootState>, store: RechartsRootState) => {
+	(setStore: SetStoreFunction<ChartState>, store: ChartState) => {
 		ensureZIndexEntry(setStore, payload.zIndex, store.zIndex.zIndexMap)
 		const key = payload.isPanorama ? "panoramaElement" : "element"
 		setStore("zIndex", "zIndexMap", payload.zIndex, key, undefined)
@@ -75,20 +75,20 @@ export const unregisterZIndexPortalElement =
 
 export const addZIndexLayer =
 	(payload: { zIndex: number }) =>
-	(setStore: SetStoreFunction<RechartsRootState>, store: RechartsRootState) => {
+	(setStore: SetStoreFunction<ChartState>, store: ChartState) => {
 		ensureZIndexEntry(setStore, payload.zIndex, store.zIndex.zIndexMap)
 		setStore("zIndex", "zIndexMap", payload.zIndex, "consumers", (c: number) => c + 1)
 	}
 
 export const removeZIndexLayer =
 	(payload: { zIndex: number }) =>
-	(setStore: SetStoreFunction<RechartsRootState>) => {
+	(setStore: SetStoreFunction<ChartState>) => {
 		setStore("zIndex", "zIndexMap", payload.zIndex, "consumers", (c: number) => Math.max(0, c - 1))
 	}
 
 export const registerZIndexPortal =
 	(payload: { zIndex: number }) =>
-	(setStore: SetStoreFunction<RechartsRootState>, store: RechartsRootState) => {
+	(setStore: SetStoreFunction<ChartState>, store: ChartState) => {
 		const existing = store.zIndex.zIndexMap[payload.zIndex]
 		if (existing) {
 			setStore("zIndex", "zIndexMap", payload.zIndex, "consumers", existing.consumers + 1)
@@ -103,7 +103,7 @@ export const registerZIndexPortal =
 
 export const unregisterZIndexPortal =
 	(payload: { zIndex: number }) =>
-	(setStore: SetStoreFunction<RechartsRootState>, store: RechartsRootState) => {
+	(setStore: SetStoreFunction<ChartState>, store: ChartState) => {
 		const existing = store.zIndex.zIndexMap[payload.zIndex]
 		if (existing) {
 			const newConsumers = existing.consumers - 1

@@ -1,10 +1,10 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "./store"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "./_solid/chartState"
+import type { ChartState } from "./chartState"
 import { selectActivePropsFromChartPointer } from "./selectors/selectActivePropsFromChartPointer"
 import { getRelativeCoordinate } from "../util/getRelativeCoordinate"
 import { selectTooltipEventType } from "./selectors/selectTooltipEventType"
+import { readChartState } from "./chartState"
 import {
 	DATA_ITEM_GRAPHICAL_ITEM_ID_ATTRIBUTE_NAME,
 	DATA_ITEM_INDEX_ATTRIBUTE_NAME,
@@ -23,9 +23,8 @@ export type TouchEventHandlers = {
  * Replaces the Redux createListenerMiddleware pattern for touch events.
  */
 export function createTouchEventHandlers(
-	store: RechartsRootState,
-	_setStore: SetStoreFunction<RechartsRootState>,
-	setChartState: SetStoreFunction<ChartState>,
+	store: ChartState,
+	setStore: SetStoreFunction<ChartState>,
 ): TouchEventHandlers {
 	let rafId: number | null = null
 	let timeoutId: ReturnType<typeof setTimeout> | null = null
@@ -64,7 +63,10 @@ export function createTouchEventHandlers(
 				return
 			}
 
-			const tooltipEventType = selectTooltipEventType(store, store._solid.tooltip.settings.shared)
+			const tooltipEventType = selectTooltipEventType(
+				store,
+				readChartState(store).tooltip.settings.shared,
+			)
 			if (tooltipEventType === "axis") {
 				const latestTouchPointer = latestChartPointers?.[0]
 				if (latestTouchPointer == null) {
@@ -74,7 +76,7 @@ export function createTouchEventHandlers(
 				}
 				const activeProps = selectActivePropsFromChartPointer(store, latestTouchPointer)
 				if (activeProps?.activeIndex != null) {
-					setChartState("tooltip", "axisInteraction", "hover", {
+					setStore("tooltip", "axisInteraction", "hover", {
 						active: true,
 						coordinate: activeProps.activeCoordinate,
 						dataKey: undefined,
@@ -103,7 +105,7 @@ export function createTouchEventHandlers(
 				const { dataKey } = settings
 				const coordinate = selectTooltipCoordinate(store, itemIndex, graphicalItemId)
 
-				setChartState("tooltip", "itemInteraction", "hover", {
+				setStore("tooltip", "itemInteraction", "hover", {
 					active: true,
 					coordinate,
 					dataKey,
@@ -148,14 +150,16 @@ export function createTouchEventHandlers(
 export const touchEventAction =
 	(touchEvent: TouchEvent) =>
 	(
-		setStore: SetStoreFunction<RechartsRootState>,
-		store: RechartsRootState,
-		setChartState?: SetStoreFunction<ChartState> | undefined,
+		setStore: SetStoreFunction<ChartState>,
+		store: ChartState,
 	) => {
 		if (touchEvent.touches == null || touchEvent.touches.length === 0) {
 			return
 		}
-		const tooltipEventType = selectTooltipEventType(store, store._solid.tooltip.settings.shared)
+		const tooltipEventType = selectTooltipEventType(
+			store,
+			readChartState(store).tooltip.settings.shared,
+		)
 		if (tooltipEventType === "axis") {
 			const firstTouch = touchEvent.touches[0]
 			if (firstTouch == null) {
@@ -176,7 +180,6 @@ export const touchEventAction =
 					index: activeProps.activeIndex,
 				}
 				setStore("tooltip", "axisInteraction", "hover", payload)
-				setChartState?.("tooltip", "axisInteraction", "hover", payload)
 			}
 		} else if (tooltipEventType === "item") {
 			const touch = touchEvent.touches[0]
@@ -205,8 +208,6 @@ export const touchEventAction =
 				graphicalItemId,
 				index: itemIndex,
 			}
-			/* Legacy compat shim — tests reading state.tooltip.itemInteraction directly. */
 			setStore("tooltip", "itemInteraction", "hover", payload)
-			setChartState?.("tooltip", "itemInteraction", "hover", payload)
 		}
 	}

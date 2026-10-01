@@ -1,3 +1,3 @@
-import { RechartsRootState } from "../store"
+import { ChartState } from "../store"
 
-export const pickAxisType = <T>(_state: RechartsRootState, axisType: T): T => axisType
+export const pickAxisType = <T>(_state: ChartState, axisType: T): T => axisType

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { createEffect } from "solid-js"
 import { fireEvent, render } from "@solidjs/testing-library"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { selectStackGroups } from "../../../src/state/selectors/axisSelectors"
 import {
 	shouldReturnFromInitialState,
@@ -18,7 +18,7 @@ import { AreaSettings } from "../../../src/state/types/AreaSettings"
 import { createSignal, type JSX } from "solid-js"
 
 describe("selectStackGroups", () => {
-	const selector = (state: RechartsRootState) => selectStackGroups(state, "xAxis", 0, false)
+	const selector = (state: ChartState) => selectStackGroups(state, "xAxis", 0, false)
 
 	shouldReturnUndefinedOutOfContext(selector)
 	shouldReturnFromInitialState(selector, {})
@@ -223,7 +223,7 @@ describe("selectStackGroups", () => {
 
 		describe("on initial render", () => {
 			it("should select two graphical items in stack group in the DOM insertion order", () => {
-				const { spy } = renderTestCase((state: RechartsRootState) =>
+				const { spy } = renderTestCase((state: ChartState) =>
 					selectStackGroups(state, "xAxis", 0, false),
 				)
 				const expectedArea1: AreaSettings = {
@@ -287,7 +287,7 @@ describe("selectStackGroups", () => {
 			// https://github.com/recharts/recharts/issues/5992
 			/* Cluster D: legend click doesn't propagate hide state to graphical items */
 			it.skip("should keep the order of graphical items in stack group", () => {
-				const { container, spy } = renderTestCase((state: RechartsRootState) =>
+				const { container, spy } = renderTestCase((state: ChartState) =>
 					selectStackGroups(state, "xAxis", 0, false),
 				)
 

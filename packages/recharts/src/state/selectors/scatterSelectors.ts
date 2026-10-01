@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import type { JSX } from "solid-js"
 import { computeScatterPoints, type ScatterPointItem } from "../../cartesian/Scatter"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { AxisId, XAxisSettings, YAxisSettings } from "../cartesianAxisSlice"
 import { selectChartDataWithIndexesIfNotInPanoramaPosition4 } from "./dataSelectors"
 import type { ChartData, ChartDataState } from "../chartDataSlice"
@@ -15,7 +15,7 @@ import {
 import type { ScatterSettings } from "../types/ScatterSettings"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 
-/** Optional overrides — bypass the _solid probe path on hot animation frames. */
+/** Optional overrides — bypass the axis-settings lookup on hot animation frames. */
 export type ScatterAxisOverrides = {
 	xAxis?: XAxisSettings
 	yAxis?: YAxisSettings
@@ -23,30 +23,30 @@ export type ScatterAxisOverrides = {
 }
 
 const selectXAxisWithScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	xAxisId: AxisId,
 	isPanorama: boolean,
 	override?: XAxisSettings,
 ) => selectAxisWithScale(state, "xAxis", xAxisId, isPanorama, override)
 
-const selectXAxisTicks = (state: RechartsRootState, xAxisId: AxisId, isPanorama: boolean) =>
+const selectXAxisTicks = (state: ChartState, xAxisId: AxisId, isPanorama: boolean) =>
 	selectTicksOfGraphicalItem(state, "xAxis", xAxisId, isPanorama)
 
 const selectYAxisWithScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	yAxisId: AxisId,
 	isPanorama: boolean,
 	override?: YAxisSettings,
 ) => selectAxisWithScale(state, "yAxis", yAxisId, isPanorama, override)
 
-const selectYAxisTicks = (state: RechartsRootState, yAxisId: AxisId, isPanorama: boolean) =>
+const selectYAxisTicks = (state: ChartState, yAxisId: AxisId, isPanorama: boolean) =>
 	selectTicksOfGraphicalItem(state, "yAxis", yAxisId, isPanorama)
 
-const selectZAxis = (state: RechartsRootState, zAxisId: AxisId): ZAxisWithScale | undefined =>
+const selectZAxis = (state: ChartState, zAxisId: AxisId): ZAxisWithScale | undefined =>
 	selectZAxisWithScale(state, "zAxis", zAxisId, false)
 
 function selectSynchronisedScatterSettings(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 ): ScatterSettings | undefined {
 	const graphicalItems = selectUnfilteredCartesianItems(state)
@@ -56,7 +56,7 @@ function selectSynchronisedScatterSettings(
 }
 
 export function selectScatterPoints(
-	state: RechartsRootState,
+	state: ChartState,
 	xAxisId: AxisId,
 	yAxisId: AxisId,
 	zAxisId: AxisId,

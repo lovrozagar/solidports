@@ -1,8 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { createMemo, splitProps } from "solid-js"
 import type { ChartOptions } from "../state/optionsSlice"
-import { RechartsStateProvider } from "../state/_solid/RechartsStateProvider"
-import { RechartsStoreProvider } from "../state/RechartsStoreProvider"
+import { RechartsStateProvider } from "../state/RechartsStateProvider"
 import { ChartDataContextProvider } from "../context/chartDataContext"
 import { ReportMainChartProps } from "../state/ReportMainChartProps"
 import { ReportChartProps } from "../state/ReportChartProps"
@@ -138,10 +137,8 @@ export function PolarChart(props: PolarChartOptions) {
 	})
 
 	return (
-		<RechartsStateProvider>
-			<RechartsStoreProvider preloadedState={{ options: options() }}>
-				<PolarChartInner categoricalChartProps={props.categoricalChartProps} ref={props.ref} />
-			</RechartsStoreProvider>
+		<RechartsStateProvider preloadedState={{ options: options() }}>
+			<PolarChartInner categoricalChartProps={props.categoricalChartProps} ref={props.ref} />
 		</RechartsStateProvider>
 	)
 }

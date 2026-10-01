@@ -1,9 +1,9 @@
 /* eslint-disable import/no-cycle */
 import { selectChartOffset } from "./selectChartOffset"
 import { selectChartHeight, selectChartWidth } from "./containerSelectors"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 
-export function selectPlotArea(state: RechartsRootState) {
+export function selectPlotArea(state: ChartState) {
 	const offset = selectChartOffset(state)
 	const chartWidth = selectChartWidth(state)
 	const chartHeight = selectChartHeight(state)

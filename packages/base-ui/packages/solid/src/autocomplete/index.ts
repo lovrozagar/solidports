@@ -1,8 +1,15 @@
 export * as Autocomplete from './index.parts';
 
 export type * from './root/AutocompleteRoot';
+export type * from './trigger/AutocompleteTrigger';
+export type * from './input-group/AutocompleteInputGroup';
 export type * from './item/AutocompleteItem';
 export type * from './value/AutocompleteValue';
+
+export type {
+  AutocompleteSeparatorProps,
+  AutocompleteSeparatorState,
+} from './separator/AutocompleteSeparator';
 
 export type {
   ComboboxInputProps as AutocompleteInputProps,
@@ -62,11 +69,6 @@ export type {
   ComboboxEmptyProps as AutocompleteEmptyProps,
   ComboboxEmptyState as AutocompleteEmptyState,
 } from '../combobox/empty/ComboboxEmpty';
-export type {
-  ComboboxTriggerProps as AutocompleteTriggerProps,
-  ComboboxTriggerState as AutocompleteTriggerState,
-} from '../combobox/trigger/ComboboxTrigger';
-
 export type {
   Filter as AutocompleteFilter,
   UseFilterOptions as AutocompleteFilterOptions,

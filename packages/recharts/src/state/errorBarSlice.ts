@@ -3,7 +3,7 @@ import type { SetStoreFunction } from "solid-js/store"
 import type { ErrorBarDirection } from "../cartesian/ErrorBar"
 import type { DataKey } from "../util/types"
 import type { GraphicalItemId } from "./graphicalItemsSlice"
-import type { RechartsRootState } from "./store"
+import type { ChartState } from "./store"
 
 /**
  * ErrorBars have lot more settings but all the others are scoped to the component itself.
@@ -39,7 +39,7 @@ export const initialErrorBarState: ErrorBarsState = {}
 
 export const addErrorBar =
 	(payload: { errorBar: ErrorBarsSettings; itemId: GraphicalItemId }) =>
-	(setStore: SetStoreFunction<RechartsRootState>) => {
+	(setStore: SetStoreFunction<ChartState>) => {
 		setStore(
 			"errorBars",
 			produce((errorBars: ErrorBarsState) => {
@@ -51,7 +51,7 @@ export const addErrorBar =
 
 export const removeErrorBar =
 	(payload: { errorBar: ErrorBarsSettings; itemId: GraphicalItemId }) =>
-	(setStore: SetStoreFunction<RechartsRootState>) => {
+	(setStore: SetStoreFunction<ChartState>) => {
 		setStore(
 			"errorBars",
 			produce((errorBars: ErrorBarsState) => {
@@ -68,7 +68,7 @@ export const replaceErrorBar =
 		prev: ErrorBarsSettings
 		next: ErrorBarsSettings
 	}) =>
-	(setStore: SetStoreFunction<RechartsRootState>) => {
+	(setStore: SetStoreFunction<ChartState>) => {
 		setStore(
 			"errorBars",
 			produce((errorBars: ErrorBarsState) => {

@@ -1,5 +1,5 @@
 import { createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
-import { DrawerPreview as Drawer } from '@solidports/base-ui/drawer';
+import { Drawer } from '@solidports/base-ui/drawer';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import { beforeAll, describe, expect, it, vi } from 'vitest';

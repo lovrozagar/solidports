@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import type { JSX } from "solid-js"
 import { computePieSectors, type PieSectorDataItem } from "../../polar/Pie"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import { selectChartDataAndAlwaysIgnoreIndexes } from "./dataSelectors"
 import type { ChartData, ChartDataState } from "../chartDataSlice"
 import type { ChartOffsetInternal } from "../../util/types"
@@ -13,7 +13,7 @@ import type { PieSettings } from "../types/PieSettings"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 
 function selectSynchronisedPieSettings(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 ): PieSettings | undefined {
 	const graphicalItems = selectUnfilteredPolarItems(state)
@@ -25,7 +25,7 @@ function selectSynchronisedPieSettings(
 const emptyArray: ReadonlyArray<Record<string, unknown>> = []
 
 export function selectDisplayedData(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	cells: ReadonlyArray<Record<string, unknown>> | undefined,
 	pieSettingsOverride?: PieSettings,
@@ -58,7 +58,7 @@ export function selectDisplayedData(
 }
 
 export function selectPieLegend(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	cells: ReadonlyArray<Record<string, unknown>> | undefined,
 ): ReadonlyArray<LegendPayload> | undefined {
@@ -90,7 +90,7 @@ export function selectPieLegend(
 }
 
 export function selectPieSectors(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	cells: ReadonlyArray<Record<string, unknown>> | undefined,
 	pieSettingsOverride?: PieSettings,

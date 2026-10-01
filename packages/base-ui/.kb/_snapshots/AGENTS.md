@@ -1,67 +1,77 @@
-<!-- KB SNAPSHOT — do not edit by hand. Source: /Users/msv/codeforfun/base-ui/AGENTS.md. Last synced: 2026-04-16. -->
-
 <!-- markdownlint-disable MD038 -->
 
-# Repository Guidelines
+# Base UI fork (SolidPorts)
 
-This repository contains the source code and documentation for Base UI: a headless, unstyled React component library.
+This tree is the Base UI fork inside the SolidPorts monorepo (`packages/base-ui`).
+Repo-wide rules live in the monorepo root `AGENTS.md`. This file is the fork map.
 
-## Project structure
+## Layout
 
-- Unless I explicitly say otherwise, any request to implement a feature, fix, or other code change should be treated as applying only to `packages/solid/` or `docs-solid-v2/`.
-- Source code for components and private utils is in `packages/react/`.
-- Source code for public shared utils is in `packages/utils/`.
-- Experiments are located at `docs/src/app/(private)/experiments/`. Use for creating demos that require manual testing in the browser.
-- Public documentation is located at `docs/src/app/(docs)/react/`. Alter the docs where necessary when changes must be visible to library users.
-- When creating public demos on the docs, refer to the `hero` demo for the given component and largely follow its styles (both CSS Modules and Tailwind CSS versions). Other demos may also contain relevant styling. Do not add custom styling beyond the critical layout styles necessary for new demos.
+```
+packages/react/     @base-ui/react snapshot — read, replace on version bump
+packages/utils/     @base-ui/utils snapshot — same
+packages/solid/     @solidports/base-ui — only living library
+docs/react/         mui/base-ui `docs/` at the same tag — snapshot
+docs/solid/         SolidStart docs — only living docs
+.kb/                maintainer/agent notes for the Solid port
+```
 
-## Code guidelines
+Snapshot in, Solid out. Do not rewrite `packages/react`, `packages/utils`, or
+`docs/react` to match Solid.
 
-- Always use the `useTimeout` utility from `@base-ui/utils/useTimeout` instead of `window.setTimeout`, and `useAnimationFrame` from `@base-ui/utils/useAnimationFrame` instead of `requestAnimationFrame`. Search for other example usage in the codebase if unsure how to use them.
-- Use the `useStableCallback` utility from `@base-ui/utils/useStableCallback` instead of `React.useCallback` if the function is called within an effect or event handler. The utility cannot be used to memoize functions that are called directly in the body of a component (during render), so continue with `React.useCallback` in those scenarios.
-- Always use the `useIsoLayoutEffect` utility from `@base-ui/utils/useIsoLayoutEffect` instead of `React.useLayoutEffect`.
-- Avoid duplicating logic where necessary. If two components can share logic (such as event handlers), define the logic/handlers in the parent and share it through a context to the child; use the existing context if it exists.
+## Scope
 
-## Linting, typechecking, and formatting
+Unless the request says otherwise, implement only in `packages/solid/` or
+`docs/solid/`.
 
-- Do not randomly cast (for example `as any`) if there are no type errors without doing so. Run `pnpm typescript` to verify types.
-- Ensure your changes pass linting - run `pnpm eslint`.
-- Ensure your styles pass stylelint - run `pnpm stylelint`.
-- Ensure your markdown passes markdownlint - run `pnpm markdownlint`.
-- Ensure your changes are formatted correctly - run `pnpm prettier`.
-- When you change a public component API (props or JSDoc), run `pnpm docs:api`.
+Public docs and demos: `docs/solid/src/routes/(docs)/solid/` and
+`docs/solid/src/demos/solid/<component>/<demo>/{css-modules,tailwind}/`.
+Use the component's `hero` demo as the styling reference. Add only the layout
+styles the demo needs.
 
-## Testing
+React docs reference: `docs/react/src/app/(docs)/react/`. Experiments in the
+snapshot live at `docs/react/src/app/(private)/experiments/`.
 
-- Run tests in JSDOM env with `pnpm test:jsdom {name} --no-watch` such as `pnpm test:jsdom NumberField --no-watch` or `pnpm test:jsdom parse --no-watch`.
-- Run tests in Chromium env with `pnpm test:chromium {name} --no-watch` such as `pnpm test:chromium NumberField --no-watch` or `pnpm test:jsdom parse --no-watch`.
-- If you made changes to the source code, ensure you verify your changes by running tests (see above), and writing new tests where applicable. If tests require the browser because, for example, they require layout measurements, restrict it to the Chromium env by using `it.skipIf(isJSDOM)` or `describe.skipIf(isJSDOM)` (search other tests for example usage if unsure).
-- Follow the established conventions in existing tests. Each file/component is tested with the filename `name.test.tsx`. For example, `PopoverRoot.test.tsx` is next to its source file `PopoverRoot.tsx`.
-- Tests use `vitest`'s `expect()` and `fn()`, do not assume they have methods of other libraries' APIs. Search existing tests for example usage if unsure. The repository is transitioning from `chai` and `sinon`, prefer `vitest` native functions for all new code.
+## Commands
 
-## Commit guidelines
+From the monorepo root:
 
-- Commit messages follow the format `[scope] Imperative summary` (for example `[popover] Fix focus trap`). Choose scopes that mirror package or component names that were changed.
-- Use `[all components]` scope for changes that broadly affect most components.
+```bash
+bun run docs:sync             # clone mui/base-ui@v1.8.0 docs → docs/react
+bun run docs:generate         # generate docs/solid pages + demos from docs/react
+bun run docs:dev              # Solid docs (Vinxi, port 3001)
+bun run docs:react:dev        # React docs snapshot (Next, port 3005)
+```
+
+From `packages/base-ui`:
+
+```bash
+bun run docs:dev
+bun run docs:build
+bun run docs:api              # Solid API reference JSON
+bun run docs:react:dev
+bun run test:solid:jsdom NumberField --no-watch
+bun run test:solid:chromium NumberField --no-watch
+```
+
+From the monorepo root: `bun run fmt`, `bun run lint`, `bun run typecheck`,
+`bun run test:base-ui`.
+
+## Solid
+
+Follow the monorepo root `AGENTS.md` reactivity rules (no prop destructure,
+`createMemo` for derived values, `createEffect` + `onCleanup`, `onMount`,
+`batch` for multiple setters). Porting notes: `.kb/README.md`.
+
+## Tests
+
+Colocate as `Name.test.tsx` next to `Name.tsx`. Prefer vitest `expect()` /
+`vi.fn()`. Browser-only cases: `it.skipIf(isJSDOM)` / `describe.skipIf(isJSDOM)`.
+New skips need a one-line Solid-runtime reason.
 
 ## Errors
 
-These guidelines apply only to errors thrown by public packages.
-
-Every error message must:
-
-1. **Say what happened** - Describe the problem clearly
-2. **Say why it's a problem** - Explain the consequence
-3. **Point toward how to solve it** - Give actionable guidance
-
-Format:
-
-- Prefix with `Base UI: `
-- Use string concatenation for readability
-- Include a documentation link when applicable (`https://base-ui.com/...`)
-
-### Error Minifier
-
-You MUST run `pnpm extract-error-codes` to update `docs/src/error-codes.json` every time you add or update an error message in an `Error` constructor.
-
-**Important:** If the update created a new error code, but the new and original message have the same number of arguments and semantics haven't changed, update the original error in `error-codes.json` instead of creating a new code.
+Public error messages: prefix `Base UI: `, say what happened, why it matters,
+and how to fix it. After changing `Error` constructors, run
+`bun run extract-error-codes` (writes `docs/react/src/error-codes.json`).
+Update an existing code when the argument count and meaning stay the same.

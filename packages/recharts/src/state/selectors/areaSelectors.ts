@@ -7,7 +7,7 @@ import {
 	selectTicksOfGraphicalItem,
 	selectUnfilteredCartesianItems,
 } from "./axisSelectors"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { AxisId, XAxisSettings, YAxisSettings } from "../cartesianAxisSlice"
 import { selectChartLayout } from "../../context/chartLayoutContext"
 import { selectChartDataWithIndexesIfNotInPanoramaPosition3 } from "./dataSelectors"
@@ -28,7 +28,7 @@ import {
 	selectYAxisIdFromGraphicalItemId,
 } from "./graphicalItemSelectors"
 
-/** Optional overrides — bypass the _solid probe path on hot animation frames. */
+/** Optional overrides — bypass the axis-settings lookup on hot animation frames. */
 export type AreaAxisOverrides = {
 	xAxis?: XAxisSettings
 	yAxis?: YAxisSettings
@@ -49,7 +49,7 @@ export type ComputedArea = {
 }
 
 const selectXAxisWithScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
 	override?: XAxisSettings,
@@ -63,7 +63,7 @@ const selectXAxisWithScale = (
 	)
 
 const selectXAxisTicks = (
-	state: RechartsRootState,
+	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
 ) =>
@@ -75,7 +75,7 @@ const selectXAxisTicks = (
 	)
 
 const selectYAxisWithScale = (
-	state: RechartsRootState,
+	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
 	override?: YAxisSettings,
@@ -89,7 +89,7 @@ const selectYAxisWithScale = (
 	)
 
 const selectYAxisTicks = (
-	state: RechartsRootState,
+	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
 ) =>
@@ -101,7 +101,7 @@ const selectYAxisTicks = (
 	)
 
 function selectBandSize(
-	state: RechartsRootState,
+	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
 	overrides?: AreaAxisOverrides,
@@ -118,7 +118,7 @@ function selectBandSize(
 }
 
 function selectSynchronisedAreaSettings(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 ): AreaSettings | undefined {
 	const graphicalItems = selectUnfilteredCartesianItems(state)
@@ -127,14 +127,14 @@ function selectSynchronisedAreaSettings(
 		| undefined
 }
 
-const selectNumericalAxisType = (state: RechartsRootState): "xAxis" | "yAxis" => {
+const selectNumericalAxisType = (state: ChartState): "xAxis" | "yAxis" => {
 	const layout = selectChartLayout(state)
 	const isXAxisCategorical = isCategoricalAxis(layout, "xAxis")
 	return isXAxisCategorical ? "yAxis" : "xAxis"
 }
 
 const selectNumericalAxisIdFromGraphicalItemId = (
-	state: RechartsRootState,
+	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 ): AxisId => {
 	const axisType = selectNumericalAxisType(state)
@@ -145,7 +145,7 @@ const selectNumericalAxisIdFromGraphicalItemId = (
 }
 
 const selectNumericalAxisStackGroups = (
-	state: RechartsRootState,
+	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
 ): Record<StackId, StackGroup> | undefined =>
@@ -157,7 +157,7 @@ const selectNumericalAxisStackGroups = (
 	)
 
 export function selectGraphicalItemStackedData(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 ): ReadonlyArray<StackDataPoint> | undefined {
@@ -181,7 +181,7 @@ export function selectGraphicalItemStackedData(
 }
 
 export function selectArea(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 	isPanorama: boolean,
 	overrides?: AreaAxisOverrides,

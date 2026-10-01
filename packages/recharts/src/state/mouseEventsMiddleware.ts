@@ -1,12 +1,12 @@
 /* eslint-disable import/no-cycle */
 import { batch } from "solid-js"
-import type { RechartsRootState } from "./store"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "./_solid/chartState"
+import type { ChartState } from "./chartState"
 import type { RelativePointer, HTMLMousePointer } from "../util/types"
 import { selectActivePropsFromChartPointer } from "./selectors/selectActivePropsFromChartPointer"
 import { selectTooltipEventType } from "./selectors/selectTooltipEventType"
 import { getRelativeCoordinate } from "../util/getRelativeCoordinate"
+import { readChartState } from "./chartState"
 
 export type MouseEventHandlers = {
 	handleMouseClick: (mousePointer: HTMLMousePointer) => void
@@ -18,9 +18,8 @@ export type MouseEventHandlers = {
  * Replaces the Redux createListenerMiddleware pattern.
  */
 export function createMouseEventHandlers(
-	store: RechartsRootState,
-	_setStore: SetStoreFunction<RechartsRootState>,
-	setChartState?: SetStoreFunction<ChartState>,
+	store: ChartState,
+	setStore: SetStoreFunction<ChartState>,
 ): MouseEventHandlers {
 	/*
 	 * This single rafId is safe because:
@@ -40,7 +39,7 @@ export function createMouseEventHandlers(
 			getRelativeCoordinate(mousePointer),
 		)
 		if (activeProps?.activeIndex != null) {
-			setChartState?.("tooltip", "axisInteraction", "click", {
+			setStore("tooltip", "axisInteraction", "click", {
 				active: true,
 				coordinate: activeProps.activeCoordinate,
 				dataKey: undefined,
@@ -75,7 +74,10 @@ export function createMouseEventHandlers(
 			 * Here we read a fresh state again inside the callback to ensure we have the latest state values
 			 * after any potential actions that may have been dispatched between the original event and this callback.
 			 */
-			const tooltipEventType = selectTooltipEventType(store, store._solid.tooltip.settings.shared)
+			const tooltipEventType = selectTooltipEventType(
+				store,
+				readChartState(store).tooltip.settings.shared,
+			)
 			if (latestChartPointer == null) {
 				rafId = null
 				timeoutId = null
@@ -89,7 +91,7 @@ export function createMouseEventHandlers(
 			if (tooltipEventType === "axis") {
 				const activeProps = selectActivePropsFromChartPointer(store, latestChartPointer)
 				if (activeProps?.activeIndex != null) {
-					setChartState?.("tooltip", "axisInteraction", "hover", {
+					setStore("tooltip", "axisInteraction", "hover", {
 						active: true,
 						coordinate: activeProps.activeCoordinate,
 						dataKey: undefined,
@@ -100,8 +102,8 @@ export function createMouseEventHandlers(
 					/* Mouse moves inside svg but out of plot area — flip `active` only, mirror
 					   upstream mouseLeaveChart so coordinate/index survive for the active=true
 					   prop and animation tail. */
-					setChartState?.("tooltip", "axisInteraction", "hover", "active", false)
-					setChartState?.("tooltip", "itemInteraction", "hover", "active", false)
+					setStore("tooltip", "axisInteraction", "hover", "active", false)
+					setStore("tooltip", "itemInteraction", "hover", "active", false)
 				}
 			}
 			rafId = null
@@ -132,9 +134,8 @@ export function createMouseEventHandlers(
 export const mouseClickAction =
 	(mousePointer: HTMLMousePointer) =>
 	(
-		setStore: SetStoreFunction<RechartsRootState>,
-		store: RechartsRootState,
-		setChartState?: SetStoreFunction<ChartState> | undefined,
+		setStore: SetStoreFunction<ChartState>,
+		store: ChartState,
 	) => {
 		const activeProps = selectActivePropsFromChartPointer(
 			store,
@@ -148,21 +149,21 @@ export const mouseClickAction =
 				graphicalItemId: undefined,
 				index: activeProps.activeIndex,
 			}
-			/* Legacy compat shim — tests reading state.tooltip.axisInteraction directly. */
 			setStore("tooltip", "axisInteraction", "click", payload)
-			setChartState?.("tooltip", "axisInteraction", "click", payload)
 		}
 	}
 
 export const mouseMoveAction =
 	(mousePointer: HTMLMousePointer) =>
 	(
-		setStore: SetStoreFunction<RechartsRootState>,
-		store: RechartsRootState,
-		setChartState?: SetStoreFunction<ChartState> | undefined,
+		setStore: SetStoreFunction<ChartState>,
+		store: ChartState,
 	) => {
 		const chartPointer = getRelativeCoordinate(mousePointer)
-		const tooltipEventType = selectTooltipEventType(store, store._solid.tooltip.settings.shared)
+		const tooltipEventType = selectTooltipEventType(
+			store,
+			readChartState(store).tooltip.settings.shared,
+		)
 		if (tooltipEventType === "axis") {
 			const activeProps = selectActivePropsFromChartPointer(store, chartPointer)
 			if (activeProps?.activeIndex != null) {
@@ -173,15 +174,11 @@ export const mouseMoveAction =
 					graphicalItemId: undefined,
 					index: activeProps.activeIndex,
 				}
-				/* Legacy compat shim — tests reading state.tooltip.axisInteraction directly. */
 				setStore("tooltip", "axisInteraction", "hover", payload)
-				setChartState?.("tooltip", "axisInteraction", "hover", payload)
 			} else {
 				batch(() => {
 					setStore("tooltip", "axisInteraction", "hover", "active", false)
 					setStore("tooltip", "itemInteraction", "hover", "active", false)
-					setChartState?.("tooltip", "axisInteraction", "hover", "active", false)
-					setChartState?.("tooltip", "itemInteraction", "hover", "active", false)
 				})
 			}
 		}

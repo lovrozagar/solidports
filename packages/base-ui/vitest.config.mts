@@ -16,7 +16,7 @@ export default defineConfig({
 		},
 		projects: [
 			"packages/*/vitest.config.mts",
-			"docs-react/vitest.config.mts",
+			"docs/react/vitest.config.mts",
 			"test/e2e/vitest.config.mts",
 			"test/regressions/vitest.config.mts",
 		],

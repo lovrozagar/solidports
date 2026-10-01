@@ -2,10 +2,10 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { BarChart, Bar, XAxis, YAxis, Legend, RadarChart, Radar, PolarAngleAxis } from "../../../src"
-import { useChartState } from "../../../src/state/_solid/useChartState"
+import { useChartState } from "../../../src/state/useChartState"
 import { mockGetBoundingClientRect } from "../../helper/mockGetBoundingClientRect"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "../../../src/state/_solid/chartState"
+import type { ChartState } from "../../../src/state/chartState"
 
 const data = [
 	{ name: "A", value: 100 },
@@ -15,7 +15,7 @@ const data = [
 
 describe("Phase 5 — Legend dual-writes to new chartState", () => {
 	it("Legend component populates state.legend.settings on mount", () => {
-		/* Phase 5 RED: Legend writes to legacy RechartsRootState.legend only — new
+		/* Phase 5 RED: Legend writes to legacy ChartState.legend only — new
 		   chartState.legend.settings remains at initial defaults. After GREEN: Legend
 		   dual-writes so state.legend.settings.align matches the 'left' prop. */
 		let capturedState: ChartState | undefined
@@ -92,16 +92,13 @@ describe("Phase 5 — Legend dual-writes to new chartState", () => {
 			</BarChart>
 		))
 
-		const itemsBefore = container.querySelectorAll(".recharts-legend-item").length
-
 		capturedSetState!("legend", "payload", [
 			[{ value: "injected-0", type: "line", id: "injected-0", color: "#ff0000" }],
 			[{ value: "injected-1", type: "line", id: "injected-1", color: "#0000ff" }],
 		] as never)
 
-		/* Phase 5 RED: legend items unchanged — new state payload mutation not observed. */
-		const itemsAfter = container.querySelectorAll(".recharts-legend-item").length
-		expect(itemsAfter).not.toBe(itemsBefore)
+		expect(container.textContent).toContain("injected-0")
+		expect(container.textContent).toContain("injected-1")
 	})
 
 	it("cartesian chart SetLegendPayload populates state.legend.payload", () => {

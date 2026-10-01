@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import type { SetStoreFunction } from "solid-js/store"
-import type { CartesianItemState } from "./_solid/chartState"
-import type { RechartsRootState } from "./store"
+import type { CartesianItemState } from "./chartState"
+import type { ChartState } from "./store"
 import type { ChartData } from "./chartDataSlice"
 import type { AxisId } from "./cartesianAxisSlice"
 import type { DataKey } from "../util/types"
@@ -95,14 +95,13 @@ export type ReplacePayload<T> = {
 	next: T
 }
 
-type Thunk = (setStore: SetStoreFunction<RechartsRootState>, store: RechartsRootState) => void
+type Thunk = (setStore: SetStoreFunction<ChartState>, store: ChartState) => void
 
-/** Registers a cartesian graphical item into both the Solid map and legacy array. */
+/** Registers a cartesian graphical item into ChartState. */
 export function addCartesianGraphicalItem(item: CartesianGraphicalItemSettings): Thunk {
 	return (setStore) => {
 		if (item.id == null) return
 		const itemState = { settings: item, type: item.type } as CartesianItemState
-		setStore("_solid", "graphicalItems", String(item.id), itemState as never)
-		setStore("graphicalItems", "cartesianItems", (prev: ReadonlyArray<CartesianGraphicalItemSettings>) => [...prev, item])
+		setStore("graphicalItems", String(item.id), itemState as never)
 	}
 }

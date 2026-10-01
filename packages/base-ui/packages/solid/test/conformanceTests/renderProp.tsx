@@ -71,7 +71,7 @@ export function testRenderProp(
           <Dynamic
             component={element}
             ref={instanceFromRef}
-            render={(props) => <Wrapper {...props} />}
+            render={(props: Record<string, any>) => <Wrapper {...props} />}
             data-testid="wrapped"
             {...(button && { nativeButton })}
           />
@@ -124,7 +124,7 @@ export function testRenderProp(
             class="component-classname"
             data-testid="test-component"
             {...(button && { nativeButton })}
-            render={(props) => (
+            render={(props: Record<string, any>) => (
               <Dynamic
                 component={Element}
                 {...props}
@@ -150,7 +150,7 @@ export function testRenderProp(
             class={() => 'conditional-component-classname'}
             data-testid="test-component"
             {...(button && { nativeButton })}
-            render={(props) => (
+            render={(props: Record<string, any>) => (
               <Dynamic
                 component={Element}
                 {...props}

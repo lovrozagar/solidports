@@ -44,4 +44,4 @@ useEffect timing, etc. Skip when none.>
 
 <Test file paths or commands relevant for this topic.>
 
-- `pnpm test:jsdom <Name> --no-watch`
+- `bun run test:jsdom <Name> --no-watch`

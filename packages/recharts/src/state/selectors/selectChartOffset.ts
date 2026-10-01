@@ -2,9 +2,9 @@
 import { selectChartOffsetInternal } from "./selectChartOffsetInternal"
 import type { ChartOffsetInternal } from "../../util/types"
 import type { ChartOffset } from "../../types"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 
-export function selectChartOffset(state: RechartsRootState): ChartOffset {
+export function selectChartOffset(state: ChartState): ChartOffset {
 	const offsetInternal: ChartOffsetInternal = selectChartOffsetInternal(state)
 	return {
 		bottom: offsetInternal.bottom,

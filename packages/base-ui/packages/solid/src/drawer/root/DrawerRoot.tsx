@@ -7,9 +7,8 @@ import {
   onCleanup,
   type JSX,
 } from 'solid-js';
-import { Dialog } from '../../dialog';
-import { IsDrawerContext } from '../../dialog/root/DialogRoot';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
+import { RenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
 import type { DialogHandle } from '../../dialog/store/DialogHandle';
 import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
 import {
@@ -187,27 +186,26 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
 
   return (
     <DrawerRootContext.Provider value={contextValue}>
-      <IsDrawerContext.Provider value={true}>
-        <Dialog.Root
-          open={openProp()}
-          defaultOpen={defaultOpen()}
-          onOpenChange={handleOpenChange}
-          onOpenChangeComplete={props.onOpenChangeComplete}
-          disablePointerDismissal={disablePointerDismissal()}
-          modal={modal()}
-          actionsRef={props.actionsRef}
-          handle={props.handle}
-          triggerId={triggerIdProp()}
-          defaultTriggerId={defaultTriggerIdProp()}
-        >
-          {(data) => (
-            <>
-              <DrawerProviderReporter />
-              <ComponentWithPayload payload={() => data.payload} children={props.children} />
-            </>
-          )}
-        </Dialog.Root>
-      </IsDrawerContext.Provider>
+      <RenderDialogRoot
+        mode="drawer"
+        open={openProp()}
+        defaultOpen={defaultOpen()}
+        onOpenChange={handleOpenChange}
+        onOpenChangeComplete={props.onOpenChangeComplete}
+        disablePointerDismissal={disablePointerDismissal()}
+        modal={modal()}
+        actionsRef={props.actionsRef}
+        handle={props.handle}
+        triggerId={triggerIdProp()}
+        defaultTriggerId={defaultTriggerIdProp()}
+      >
+        {(data) => (
+          <>
+            <DrawerProviderReporter />
+            <ComponentWithPayload payload={() => data.payload} children={props.children} />
+          </>
+        )}
+      </RenderDialogRoot>
     </DrawerRootContext.Provider>
   );
 }

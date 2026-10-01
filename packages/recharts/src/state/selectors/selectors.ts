@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
 import sortBy from "es-toolkit/compat/sortBy"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import { selectChartName } from "./rootPropsSelectors"
 
 /**
@@ -56,13 +56,13 @@ import {
 } from "../../util/getActiveCoordinate"
 import { inRangeOfSector } from "../../util/PolarUtils"
 
-export function selectOrderedTooltipTicks(state: RechartsRootState) {
+export function selectOrderedTooltipTicks(state: ChartState) {
 	const ticks = selectTooltipAxisTicks(state)
 	return sortBy(ticks, (o) => o.coordinate)
 }
 
 export function selectTooltipInteractionState(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 	defaultIndex: TooltipIndex | undefined,
@@ -76,7 +76,7 @@ export function selectTooltipInteractionState(
 }
 
 export function selectActiveIndex(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 	defaultIndex: TooltipIndex | undefined,
@@ -90,7 +90,7 @@ export function selectActiveIndex(
 }
 
 export function selectTooltipDataKey(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 ): DataKey<unknown> | undefined {
@@ -111,7 +111,7 @@ export function selectTooltipDataKey(
 }
 
 export function selectTooltipPayloadConfigurations(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 	defaultIndex: TooltipIndex | undefined,
@@ -125,7 +125,7 @@ export function selectTooltipPayloadConfigurations(
 }
 
 export function selectCoordinateForDefaultIndex(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 	defaultIndex: TooltipIndex | undefined,
@@ -142,7 +142,7 @@ export function selectCoordinateForDefaultIndex(
 }
 
 export function selectActiveCoordinate(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 	defaultIndex: TooltipIndex | undefined,
@@ -163,7 +163,7 @@ export function selectActiveCoordinate(
 }
 
 export function selectActiveLabel(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 	defaultIndex: TooltipIndex | undefined,
@@ -175,7 +175,7 @@ export function selectActiveLabel(
 }
 
 export function selectTooltipPayload(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 	defaultIndex: TooltipIndex | undefined,
@@ -192,7 +192,7 @@ export function selectTooltipPayload(
 }
 
 export function selectIsTooltipActive(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipEventType: TooltipEventType | undefined,
 	trigger: TooltipTrigger,
 	defaultIndex: TooltipIndex | undefined,

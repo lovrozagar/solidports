@@ -5,7 +5,7 @@
 | Aspect | Status |
 | :--- | :--- |
 | Ported (`packages/solid/`) | partial — known issues |
-| Docs ported (`docs-solid/`) | unknown |
+| Docs ported (`docs/solid/`) | unknown |
 | Tests passing (jsdom) | unknown |
 | Tests passing (chromium) | unknown |
 | Last reviewed | 2026-04-16 |
@@ -20,8 +20,8 @@
 
 - React (read-only): `packages/react/src/select/`
 - Solid (target):    `packages/solid/src/select/`
-- Docs (target):     `docs-solid/src/content/solid/components/select.mdx`
-- Demos (target):    `docs-solid/src/demos/solid/select/`
+- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/select.mdx`
+- Demos (target):    `docs/solid/src/demos/solid/select/`
 
 ## Open issues
 
@@ -32,6 +32,6 @@
 ## Quick test
 
 ```bash
-pnpm test:solid:jsdom Select --no-watch --reporter=agent
-pnpm test:solid:chromium Select --no-watch --reporter=agent
+bun run test:solid:jsdom Select --no-watch --reporter=agent
+bun run test:solid:chromium Select --no-watch --reporter=agent
 ```

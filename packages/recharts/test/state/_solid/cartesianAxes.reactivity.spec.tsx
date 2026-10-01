@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import type { JSX } from "solid-js"
 import { createEffect } from "solid-js"
-import { useChartState } from "../../../src/state/_solid/useChartState"
+import { useChartState } from "../../../src/state/useChartState"
 import { LineChart, XAxis, YAxis, Line } from "../../../src"
 
 /* Reads xAxis[id].settings.dataKey from new chartState. */

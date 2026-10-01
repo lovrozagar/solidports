@@ -90,6 +90,6 @@ the click-handler batching pattern used in collapsible.
 ## Test commands
 
 ```bash
-pnpm test:solid:jsdom Collapsible --no-watch --reporter=agent
-pnpm test:solid:chromium NavigationMenu --no-watch --reporter=agent
+bun run test:solid:jsdom Collapsible --no-watch --reporter=agent
+bun run test:solid:chromium NavigationMenu --no-watch --reporter=agent
 ```

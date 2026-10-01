@@ -9,13 +9,13 @@ import { pageData } from "../../_data"
 import { Pie, PieChart, PieSectorDataItem } from "../../../src"
 import { assertNotNull } from "../../helper/assertNotNull"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
 
 const cells: ReadonlyArray<JSX.Element> = []
 
 describe("selectPieSectors", () => {
-	const selector = (state: RechartsRootState) => selectPieSectors(state, "pie-id", cells)
+	const selector = (state: ChartState) => selectPieSectors(state, "pie-id", cells)
 
 	shouldReturnUndefinedOutOfContext(selector)
 	shouldReturnFromInitialState(selector, undefined)

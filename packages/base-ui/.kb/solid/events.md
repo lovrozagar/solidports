@@ -81,6 +81,6 @@ None new. Component-specific event quirks live in the relevant
 ## Test commands
 
 ```bash
-pnpm test:solid:jsdom NavigationMenu --no-watch --reporter=agent
-pnpm test:solid:chromium NavigationMenu --no-watch --reporter=agent
+bun run test:solid:jsdom NavigationMenu --no-watch --reporter=agent
+bun run test:solid:chromium NavigationMenu --no-watch --reporter=agent
 ```

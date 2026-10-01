@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "./store"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "./_solid/chartState"
+import type { ChartState } from "./chartState"
+import { readChartState } from "./chartState"
 import {
 	selectTooltipAxisDomain,
 	selectTooltipAxisTicks,
@@ -22,9 +22,8 @@ export type KeyboardEventHandlers = {
  * Replaces the Redux createListenerMiddleware pattern for keyboard navigation.
  */
 export function createKeyboardEventHandlers(
-	store: RechartsRootState,
-	_setStore: SetStoreFunction<RechartsRootState>,
-	setChartState: SetStoreFunction<ChartState>,
+	store: ChartState,
+	setStore: SetStoreFunction<ChartState>,
 ): KeyboardEventHandlers {
 	let rafId: number | null = null
 	let timeoutId: ReturnType<typeof setTimeout> | null = null
@@ -52,7 +51,7 @@ export function createKeyboardEventHandlers(
 				if (!accessibilityLayerIsActive) {
 					return
 				}
-				const keyboardInteraction = store._solid.tooltip.keyboardInteraction
+				const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
 				const currentKey = latestKeyboardActionPayload
 				if (currentKey !== "ArrowRight" && currentKey !== "ArrowLeft" && currentKey !== "Enter") {
 					return
@@ -77,7 +76,7 @@ export function createKeyboardEventHandlers(
 						"hover",
 						String(keyboardInteraction.index),
 					)
-					setChartState("tooltip", "keyboardInteraction", {
+					setStore("tooltip", "keyboardInteraction", {
 						active: !keyboardInteraction.active,
 						coordinate,
 						dataKey: undefined,
@@ -101,7 +100,7 @@ export function createKeyboardEventHandlers(
 					String(nextIndex),
 				)
 
-				setChartState("tooltip", "keyboardInteraction", {
+				setStore("tooltip", "keyboardInteraction", {
 					active: true,
 					coordinate,
 					dataKey: undefined,
@@ -143,14 +142,14 @@ export function createKeyboardEventHandlers(
 		if (!accessibilityLayerIsActive) {
 			return
 		}
-		const keyboardInteraction = store._solid.tooltip.keyboardInteraction
+		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
 		if (keyboardInteraction.active) {
 			return
 		}
 		if (keyboardInteraction.index == null) {
 			const nextIndex = "0"
 			const coordinate = selectCoordinateForDefaultIndex(store, "axis", "hover", String(nextIndex))
-			setChartState("tooltip", "keyboardInteraction", {
+			setStore("tooltip", "keyboardInteraction", {
 				active: true,
 				coordinate,
 				dataKey: undefined,
@@ -165,9 +164,9 @@ export function createKeyboardEventHandlers(
 		if (!accessibilityLayerIsActive) {
 			return
 		}
-		const keyboardInteraction = store._solid.tooltip.keyboardInteraction
+		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
 		if (keyboardInteraction.active) {
-			setChartState("tooltip", "keyboardInteraction", {
+			setStore("tooltip", "keyboardInteraction", {
 				active: false,
 				coordinate: keyboardInteraction.coordinate,
 				dataKey: undefined,
@@ -187,15 +186,14 @@ export function createKeyboardEventHandlers(
 export const focusAction =
 	() =>
 	(
-		_setStore: SetStoreFunction<RechartsRootState>,
-		store: RechartsRootState,
-		setChartState?: SetStoreFunction<ChartState> | undefined,
+		setStore: SetStoreFunction<ChartState>,
+		store: ChartState,
 	) => {
 		const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
 		if (!accessibilityLayerIsActive) {
 			return
 		}
-		const keyboardInteraction = store._solid.tooltip.keyboardInteraction
+		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
 		if (keyboardInteraction.active) {
 			return
 		}
@@ -209,22 +207,21 @@ export const focusAction =
 				graphicalItemId: undefined,
 				index: nextIndex,
 			}
-			setChartState?.("tooltip", "keyboardInteraction", payload)
+			setStore("tooltip", "keyboardInteraction", payload)
 		}
 	}
 
 export const blurAction =
 	() =>
 	(
-		_setStore: SetStoreFunction<RechartsRootState>,
-		store: RechartsRootState,
-		setChartState?: SetStoreFunction<ChartState> | undefined,
+		setStore: SetStoreFunction<ChartState>,
+		store: ChartState,
 	) => {
 		const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
 		if (!accessibilityLayerIsActive) {
 			return
 		}
-		const keyboardInteraction = store._solid.tooltip.keyboardInteraction
+		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
 		if (keyboardInteraction.active) {
 			const payload = {
 				active: false,
@@ -233,22 +230,21 @@ export const blurAction =
 				graphicalItemId: undefined,
 				index: keyboardInteraction.index,
 			}
-			setChartState?.("tooltip", "keyboardInteraction", payload)
+			setStore("tooltip", "keyboardInteraction", payload)
 		}
 	}
 
 export const keyDownAction =
 	(key: string) =>
 	(
-		_setStore: SetStoreFunction<RechartsRootState>,
-		store: RechartsRootState,
-		setChartState?: SetStoreFunction<ChartState> | undefined,
+		setStore: SetStoreFunction<ChartState>,
+		store: ChartState,
 	) => {
 		const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
 		if (!accessibilityLayerIsActive) {
 			return
 		}
-		const keyboardInteraction = store._solid.tooltip.keyboardInteraction
+		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
 		if (key !== "ArrowRight" && key !== "ArrowLeft" && key !== "Enter") {
 			return
 		}
@@ -277,7 +273,7 @@ export const keyDownAction =
 				graphicalItemId: undefined,
 				index: keyboardInteraction.index,
 			}
-			setChartState?.("tooltip", "keyboardInteraction", payload)
+			setStore("tooltip", "keyboardInteraction", payload)
 			return
 		}
 		const direction = selectChartDirection(store)
@@ -295,5 +291,5 @@ export const keyDownAction =
 			graphicalItemId: undefined,
 			index: nextIndex.toString(),
 		}
-		setChartState?.("tooltip", "keyboardInteraction", payload)
+		setStore("tooltip", "keyboardInteraction", payload)
 	}

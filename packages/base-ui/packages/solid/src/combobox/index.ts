@@ -26,7 +26,12 @@ export type * from './input-group/ComboboxInputGroup';
 export type * from './status/ComboboxStatus';
 export type * from './collection/ComboboxCollection';
 
+export type * from './separator/ComboboxSeparator';
+
 export type {
   Filter as ComboboxFilter,
   UseComboboxFilterOptions as ComboboxFilterOptions,
 } from './root/utils/useFilter';
+
+export type { ComboboxPrimitiveValue, CreateComboboxItemsOptions } from './items/createItems';
+export type { ComboboxItemCollection } from './items/itemCollection';

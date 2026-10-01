@@ -1,6 +1,6 @@
 import type { SetStoreFunction } from "solid-js/store"
 import type { EventThrottlingProps } from "../util/types"
-import type { RechartsRootState } from "./store"
+import type { ChartState } from "./store"
 
 export type EventSettingsState = Required<EventThrottlingProps>
 
@@ -11,7 +11,7 @@ export const initialEventSettingsState: EventSettingsState = {
 
 export const setEventSettings =
 	(settings: Partial<EventSettingsState>) =>
-	(setStore: SetStoreFunction<RechartsRootState>) => {
+	(setStore: SetStoreFunction<ChartState>) => {
 		if (settings.throttleDelay !== undefined) {
 			setStore("eventSettings", "throttleDelay", settings.throttleDelay)
 		}

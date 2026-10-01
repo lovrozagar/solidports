@@ -20,7 +20,7 @@ If you are an agent: read this file end to end. Import only from the package exp
 
 | Package                                                  | Upstream                                                | Status                                                                                      |
 | -------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [`@solidports/base-ui`](packages/base-ui/packages/solid) | [MUI Base UI](https://github.com/mui/base-ui) v1.4.1    | Solid port of the headless component library. Docs at `packages/base-ui/docs-solid`.        |
+| [`@solidports/base-ui`](packages/base-ui/packages/solid) | [MUI Base UI](https://github.com/mui/base-ui) v1.8.0    | Solid port of the headless component library. Docs at `packages/base-ui/docs/solid`.        |
 | [`@solidports/recharts`](packages/recharts)              | [recharts](https://github.com/recharts/recharts) v3.8.1 | Solid port of the charting library. Test parity was 28% (1224 / 4338) at the last snapshot. |
 
 Both trees last lived in the private monorepo and were removed on 19 Aug 2026. This repo restores the 18 Aug 2026 snapshot (`b622cc453`) and continues the ports here.
@@ -46,7 +46,7 @@ pnpm add @solidports/recharts solid-js
 
 ## Base UI
 
-Headless, unstyled Solid components. Public API tracks `@base-ui/react@1.4.1`.
+Headless, unstyled Solid components. Public API tracks `@base-ui/react@1.8.0`.
 
 ```tsx
 import { Dialog } from "@solidports/base-ui/dialog";
@@ -67,7 +67,7 @@ export function Example() {
 }
 ```
 
-The Solid package lives at `packages/base-ui/packages/solid`. The surrounding `packages/base-ui` tree is the MUI Base UI fork: `packages/react` is the upstream reference, `packages/utils` is shared, `docs-react` / `docs-solid` are the docs apps.
+The Solid package lives at `packages/base-ui/packages/solid`. The surrounding `packages/base-ui` tree is the MUI Base UI fork: `packages/react` is the upstream reference, `packages/utils` is shared, `docs/react` is the docs snapshot, `docs/solid` is the Solid docs app.
 
 Please support the Base UI team on [OpenCollective](https://opencollective.com/mui-org).
 
@@ -113,8 +113,9 @@ bun run dev
 ```
 packages/base-ui/                 MUI Base UI fork (React reference + Solid port + docs)
 packages/base-ui/packages/solid   published `@solidports/base-ui`
-packages/base-ui/packages/react   upstream React reference (v1.4.1)
-packages/base-ui/docs-solid       Solid docs app
+packages/base-ui/packages/react   upstream React reference (v1.8.0)
+packages/base-ui/docs/react       upstream docs snapshot
+packages/base-ui/docs/solid       Solid docs app
 packages/recharts/                published `@solidports/recharts`
 packages/recharts/examples/       basic / react / shadcn / visual harnesses
 ```

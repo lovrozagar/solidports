@@ -400,7 +400,7 @@ export function MenuItem(props: MenuItemProps & JSX.HTMLAttributes<HTMLButtonEle
             menu.setActiveIndex(item.index());
           }
         },
-        onKeyDown(event) {
+        onKeyDown(event: KeyboardEvent) {
           function closeParents(parent: MenuContextType | null) {
             parent?.setIsOpen(false);
             if (parent?.parent) {

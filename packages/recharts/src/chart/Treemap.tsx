@@ -31,10 +31,9 @@ import type {
 } from "../state/tooltipSlice"
 import { SetTooltipEntrySettings } from "../state/SetTooltipEntrySettings"
 import type { ChartOptions } from "../state/optionsSlice"
-import { RechartsStateProvider } from "../state/_solid/RechartsStateProvider"
-import { RechartsStoreProvider } from "../state/RechartsStoreProvider"
+import { RechartsStateProvider } from "../state/RechartsStateProvider"
 import { ReportEventSettings } from "../state/ReportEventSettings"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import { isPositiveNumber } from "../util/isWellBehavedNumber"
 import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
 import { CSSTransitionAnimate } from "../animation/CSSTransitionAnimate"
@@ -1051,8 +1050,7 @@ export function Treemap(outsideProps: Props): JSX.Element {
 	const props = resolveDefaultProps(restProps, defaultTreeMapProps)
 
 	return (
-		<RechartsStateProvider>
-			<RechartsStoreProvider preloadedState={{ options: chartOptions }}>
+		<RechartsStateProvider preloadedState={{ options: chartOptions }}>
 			<ReportChartMargin margin={defaultTreemapMargin} />
 			<ReportEventSettings
 				throttleDelay={props.throttleDelay}
@@ -1084,7 +1082,6 @@ export function Treemap(outsideProps: Props): JSX.Element {
 			>
 				<TreemapDispatchInject {...props}>{childrenSplit.children}</TreemapDispatchInject>
 			</RechartsWrapper>
-			</RechartsStoreProvider>
 		</RechartsStateProvider>
 	)
 }

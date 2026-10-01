@@ -1,9 +1,8 @@
 /* eslint-disable import/no-cycle */
 import type { SetStoreFunction } from "solid-js/store"
-import type { RechartsRootState } from "./store"
 import type { CategoricalChartFunc } from "../chart/types"
 import type { HTMLMousePointer } from "../util/types"
-import type { ChartState } from "./_solid/chartState"
+import type { ChartState } from "./chartState"
 import {
 	mouseClickAction,
 	mouseMoveAction,
@@ -45,13 +44,12 @@ export type ChartEventHandlers = {
  * `setStore` calls inside each thunk with `actions.<method>()`.
  */
 export function createEventHandlers(
-	store: RechartsRootState,
-	setStore: SetStoreFunction<RechartsRootState>,
-	setChartState?: SetStoreFunction<ChartState> | undefined,
+	store: ChartState,
+	setStore: SetStoreFunction<ChartState>,
 ): ChartEventHandlers {
 	return {
 		handleBlur(): void {
-			blurAction()(setStore, store, setChartState)
+			blurAction()(setStore, store)
 		},
 		handleExternalEvent<E extends Event>(
 			event: E,
@@ -60,19 +58,19 @@ export function createEventHandlers(
 			externalEventAction({ handler, reactEvent: event })(setStore, store)
 		},
 		handleFocus(): void {
-			focusAction()(setStore, store, setChartState)
+			focusAction()(setStore, store)
 		},
 		handleKeyDown(key: KeyboardEvent["key"]): void {
-			keyDownAction(key)(setStore, store, setChartState)
+			keyDownAction(key)(setStore, store)
 		},
 		handleMouseClick(mousePointer: HTMLMousePointer): void {
-			mouseClickAction(mousePointer)(setStore, store, setChartState)
+			mouseClickAction(mousePointer)(setStore, store)
 		},
 		handleMouseMove(mousePointer: HTMLMousePointer): void {
-			mouseMoveAction(mousePointer)(setStore, store, setChartState)
+			mouseMoveAction(mousePointer)(setStore, store)
 		},
 		handleTouchMove(touchEvent: TouchEvent): void {
-			touchEventAction(touchEvent)(setStore, store, setChartState)
+			touchEventAction(touchEvent)(setStore, store)
 		},
 	}
 }

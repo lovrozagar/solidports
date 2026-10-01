@@ -6,7 +6,7 @@ import type { NameType, Payload, ValueType } from "../component/DefaultTooltipCo
 import type { CartesianViewBoxRequired, Coordinate, DataKey, PolarCoordinate } from "../util/types"
 import type { AxisId } from "./cartesianAxisSlice"
 import type { GraphicalItemId } from "./graphicalItemsSlice"
-import type { RechartsRootState } from "./store"
+import type { ChartState } from "./store"
 
 /**
  * One Tooltip can display multiple TooltipPayloadEntries at a time.
@@ -336,7 +336,7 @@ export type KeyboardTooltipActionPayload = {
 	activeCoordinate: Coordinate | undefined
 }
 
-type Thunk = (setStore: SetStoreFunction<RechartsRootState>, store: RechartsRootState) => void
+type Thunk = (setStore: SetStoreFunction<ChartState>, store: ChartState) => void
 
 /** Action creator thunk — dispatches axis hover interaction into the legacy store. */
 export function setMouseOverAxisIndex(payload: AxisTooltipActionPayload): Thunk {
@@ -349,7 +349,6 @@ export function setMouseOverAxisIndex(payload: AxisTooltipActionPayload): Thunk 
 			index: payload.activeIndex,
 		}
 		setStore("tooltip", "axisInteraction", "hover", axisPayload)
-		setStore("_solid", "tooltip", "axisInteraction", "hover", axisPayload)
 	}
 }
 
@@ -357,7 +356,6 @@ export function setMouseOverAxisIndex(payload: AxisTooltipActionPayload): Thunk 
 export function setSyncInteraction(payload: TooltipSyncState): Thunk {
 	return (setStore) => {
 		setStore("tooltip", "syncInteraction", payload)
-		setStore("_solid", "tooltip", "syncInteraction", payload)
 	}
 }
 
@@ -365,7 +363,6 @@ export function setSyncInteraction(payload: TooltipSyncState): Thunk {
 export function addTooltipEntrySettings(payload: TooltipPayloadConfiguration): Thunk {
 	return (setStore) => {
 		setStore("tooltip", "tooltipItemPayloads", (prev: ReadonlyArray<TooltipPayloadConfiguration>) => [...prev, payload])
-		setStore("_solid", "tooltip", "tooltipItemPayloads", (prev: ReadonlyArray<TooltipPayloadConfiguration>) => [...prev, payload])
 	}
 }
 
@@ -375,8 +372,6 @@ export function mouseLeaveChart(): Thunk {
 		batch(() => {
 			setStore("tooltip", "axisInteraction", "hover", "active", false)
 			setStore("tooltip", "itemInteraction", "hover", "active", false)
-			setStore("_solid", "tooltip", "axisInteraction", "hover", "active", false)
-			setStore("_solid", "tooltip", "itemInteraction", "hover", "active", false)
 		})
 	}
 }
@@ -386,7 +381,6 @@ export function mouseLeaveItem(): Thunk {
 	return (setStore) => {
 		batch(() => {
 			setStore("tooltip", "itemInteraction", "hover", "active", false)
-			setStore("_solid", "tooltip", "itemInteraction", "hover", "active", false)
 		})
 	}
 }
@@ -403,7 +397,6 @@ export function setActiveMouseOverItemIndex(payload: GraphicalItemTooltipActionP
 		}
 		batch(() => {
 			setStore("tooltip", "itemInteraction", "hover", itemPayload)
-			setStore("_solid", "tooltip", "itemInteraction", "hover", itemPayload)
 		})
 	}
 }
@@ -420,7 +413,6 @@ export function setActiveClickItemIndex(payload: GraphicalItemTooltipActionPaylo
 		}
 		batch(() => {
 			setStore("tooltip", "itemInteraction", "click", itemPayload)
-			setStore("_solid", "tooltip", "itemInteraction", "click", itemPayload)
 		})
 	}
 }
@@ -433,16 +425,6 @@ export function setMouseClickAxisIndex(payload: AxisTooltipActionPayload): Thunk
 			setStore("tooltip", "syncInteraction", "sourceViewBox", undefined)
 			setStore("tooltip", "keyboardInteraction", "active", false)
 			setStore("tooltip", "axisInteraction", "click", {
-				active: true,
-				coordinate: payload.activeCoordinate,
-				dataKey: payload.activeDataKey,
-				graphicalItemId: undefined,
-				index: payload.activeIndex,
-			})
-			setStore("_solid", "tooltip", "syncInteraction", "active", false)
-			setStore("_solid", "tooltip", "syncInteraction", "sourceViewBox", undefined)
-			setStore("_solid", "tooltip", "keyboardInteraction", "active", false)
-			setStore("_solid", "tooltip", "axisInteraction", "click", {
 				active: true,
 				coordinate: payload.activeCoordinate,
 				dataKey: payload.activeDataKey,

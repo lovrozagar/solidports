@@ -1,5 +1,5 @@
 import { describe, it } from "vitest"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import { selectCartesianItemsSettings } from "../../../src/state/selectors/axisSelectors"
 import {
 	assertStableBetweenRenders,
@@ -14,7 +14,7 @@ import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
 
 describe("selectCartesianItemsSettings", () => {
 	const selector: Selector<
-		RechartsRootState,
+		ChartState,
 		ReturnType<typeof selectCartesianItemsSettings>,
 		[]
 	> = (state) => selectCartesianItemsSettings(state, "xAxis", defaultAxisId)

@@ -1,4 +1,4 @@
-import type { RechartsRootState } from "../state/store"
+import type { ChartState } from "../state/store"
 import { DefaultZIndexes } from "./DefaultZIndexes"
 
 /**
@@ -8,7 +8,7 @@ import { DefaultZIndexes } from "./DefaultZIndexes"
  * It also returns undefined in case the z-index portal has not been rendered yet.
  */
 export function selectZIndexPortalElement(
-	state: RechartsRootState,
+	state: ChartState,
 	zIndex: number | undefined,
 	isPanorama: boolean,
 ): Element | undefined {
@@ -25,7 +25,7 @@ export function selectZIndexPortalElement(
 	return entry.element
 }
 
-export function selectAllRegisteredZIndexes(state: RechartsRootState): ReadonlyArray<number> {
+export function selectAllRegisteredZIndexes(state: ChartState): ReadonlyArray<number> {
 	const zIndexMap = state.zIndex.zIndexMap
 	const allNumbers = Object.keys(zIndexMap)
 		.map((zIndexStr) => parseInt(zIndexStr, 10))

@@ -31,8 +31,8 @@
   token-efficient agent runs:
 
   ```bash
-  pnpm test:solid:jsdom <Name> --no-watch --reporter=agent
-  pnpm test:solid:chromium <Name> --no-watch --reporter=agent
+  bun run test:solid:jsdom <Name> --no-watch --reporter=agent
+  bun run test:solid:chromium <Name> --no-watch --reporter=agent
   ```
 
 - The `render` abstraction owns ref placement — see
@@ -52,5 +52,5 @@ appended here (or moved to `./gotchas.md` if cross-cutting).
 ## Test commands
 
 ```bash
-pnpm test:solid:jsdom --no-watch --reporter=agent
+bun run test:solid:jsdom --no-watch --reporter=agent
 ```

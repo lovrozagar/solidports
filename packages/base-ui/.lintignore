@@ -1,9 +1,9 @@
 .git
 /coverage
-/docs/next-env.d.ts
-/docs/.next
-/docs/export
-/docs/src/app/(private)/playground/
+/docs/react/next-env.d.ts
+/docs/react/.next
+/docs/react/export
+/docs/react/src/app/(private)/playground/
 /packages/react/**/*.min.*
 build
 build-tests

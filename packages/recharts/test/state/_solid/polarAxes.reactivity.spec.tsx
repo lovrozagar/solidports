@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import type { JSX } from "solid-js"
-import { useChartState } from "../../../src/state/_solid/useChartState"
+import { useChartState } from "../../../src/state/useChartState"
 import { PieChart, RadarChart, PolarAngleAxis, PolarRadiusAxis, Pie, Radar } from "../../../src"
 
 /* Reads angleAxis[id].settings.dataKey from new chartState. */

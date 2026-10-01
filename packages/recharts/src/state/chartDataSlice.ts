@@ -1,6 +1,6 @@
 import type { SetStoreFunction } from "solid-js/store"
 import type { BrushStartEndIndex } from "../context/brushUpdateContext"
-import type { RechartsRootState } from "./store"
+import type { ChartState } from "./store"
 
 /**
  * This is the data that's coming through main chart `data` prop
@@ -53,7 +53,7 @@ export type BrushStartEndIndexActionPayload = Partial<BrushStartEndIndex>
 
 export const setDataStartEndIndexes =
 	(payload: BrushStartEndIndexActionPayload) =>
-	(setStore: SetStoreFunction<RechartsRootState>) => {
+	(setStore: SetStoreFunction<ChartState>) => {
 		if (payload.startIndex !== undefined) {
 			setStore("chartData", "dataStartIndex", payload.startIndex)
 		}
@@ -67,7 +67,7 @@ export const setDataStartEndIndexes =
    Upstream: src/state/chartDataSlice.ts reducer setChartData. */
 export const setChartData =
 	(data: ChartData | undefined) =>
-	(setStore: SetStoreFunction<RechartsRootState>) => {
+	(setStore: SetStoreFunction<ChartState>) => {
 		setStore("chartData", "chartData", data)
 		if (data == null) {
 			setStore("chartData", "dataStartIndex", 0)
@@ -83,5 +83,5 @@ export const setChartData =
 
 export const setComputedData =
 	(data: unknown) =>
-	(setStore: SetStoreFunction<RechartsRootState>) =>
+	(setStore: SetStoreFunction<ChartState>) =>
 		setStore("chartData", "computedData", data)

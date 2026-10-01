@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest"
 import { expectTypeOf } from "vitest"
 import { createEffect, createRoot } from "solid-js"
 import { createStore } from "solid-js/store"
-import { createInitialChartState } from "../../../src/state/_solid/chartState"
-import type { XAxisState, YAxisState, ZAxisState } from "../../../src/state/_solid/chartState"
+import { createInitialChartState } from "../../../src/state/chartState"
+import type { XAxisState, YAxisState, ZAxisState } from "../../../src/state/chartState"
 import type { XAxisSettings, YAxisSettings, ZAxisSettings } from "../../../src/state/cartesianAxisSlice"
 
 /* XAxisSettings fixture — dataKey is the field we probe. */

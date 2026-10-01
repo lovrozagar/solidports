@@ -11,7 +11,7 @@ import type {
 	TrapezoidViewBox,
 } from "../util/types"
 import { useChartStore } from "../state/RechartsStoreContext"
-import type { RechartsRootState } from "../state/store"
+import type { ChartState } from "../state/store"
 import { selectChartViewBox } from "../state/selectors/selectChartOffsetInternal"
 import { selectChartHeight, selectChartWidth } from "../state/selectors/containerSelectors"
 import { useIsPanorama } from "./PanoramaContext"
@@ -111,7 +111,7 @@ export const useMargin = (): Margin | undefined => {
 	return ctx?.store.layout.margin
 }
 
-export const selectChartLayout = (state: RechartsRootState): LayoutType => state.layout.layoutType
+export const selectChartLayout = (state: ChartState): LayoutType => state.layout.layoutType
 
 export const useChartLayout = (): LayoutType | undefined => {
 	const ctx = useChartStore()
@@ -126,7 +126,7 @@ export const useCartesianChartLayout = (): CartesianLayout | undefined => {
 	return undefined
 }
 
-export const selectPolarChartLayout = (state: RechartsRootState): PolarLayout | undefined => {
+export const selectPolarChartLayout = (state: ChartState): PolarLayout | undefined => {
 	const layout = state.layout.layoutType
 	if (layout === "centric" || layout === "radial") {
 		return layout

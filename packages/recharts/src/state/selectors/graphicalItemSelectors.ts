@@ -1,8 +1,9 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 import { AxisId, defaultAxisId } from "../cartesianAxisSlice"
-import type { CartesianItemState } from "../_solid/chartState"
+import type { CartesianItemState } from "../chartState"
+import { readChartState } from "../chartState"
 
 function isCartesianItem(item: { type: string }): item is CartesianItemState {
 	return (
@@ -14,20 +15,20 @@ function isCartesianItem(item: { type: string }): item is CartesianItemState {
 }
 
 export function selectXAxisIdFromGraphicalItemId(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 ): AxisId {
-	const graphicalItems = (state._solid as Partial<typeof state._solid>).graphicalItems
+	const graphicalItems = readChartState(state).graphicalItems
 	const entry = graphicalItems?.[id]
 	if (entry == null || !isCartesianItem(entry)) return defaultAxisId
 	return entry.settings.xAxisId ?? defaultAxisId
 }
 
 export function selectYAxisIdFromGraphicalItemId(
-	state: RechartsRootState,
+	state: ChartState,
 	id: GraphicalItemId,
 ): AxisId {
-	const graphicalItems = (state._solid as Partial<typeof state._solid>).graphicalItems
+	const graphicalItems = readChartState(state).graphicalItems
 	const entry = graphicalItems?.[id]
 	if (entry == null || !isCartesianItem(entry)) return defaultAxisId
 	return entry.settings.yAxisId ?? defaultAxisId

@@ -1,17 +1,17 @@
 /* eslint-disable import/no-cycle */
-import { createEffect, onCleanup, useContext } from "solid-js"
+import { createEffect, onCleanup } from "solid-js"
 import type { UpdatableChartOptions } from "./rootPropsSlice"
 import { initialRootPropsState } from "./rootPropsSlice"
-import { RechartsStoreContext } from "./RechartsStoreContext"
+import { useOptionalChartState } from "./useChartState"
 
 export function ReportChartProps(props: UpdatableChartOptions): null {
-	const ctx = useContext(RechartsStoreContext)
+	const ctx = useOptionalChartState()
 	if (ctx == null) {
 		return null
 	}
 
 	createEffect(() => {
-		ctx.setStore("rootProps", {
+		ctx.setState("rootProps", {
 			accessibilityLayer: props.accessibilityLayer,
 			barCategoryGap: props.barCategoryGap,
 			barGap: props.barGap,
@@ -27,7 +27,7 @@ export function ReportChartProps(props: UpdatableChartOptions): null {
 	})
 
 	onCleanup(() => {
-		ctx.setStore("rootProps", { ...initialRootPropsState })
+		ctx.setState("rootProps", { ...initialRootPropsState })
 	})
 
 	return null

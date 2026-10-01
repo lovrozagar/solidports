@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
 import type { AppliedChartData, ChartData } from "../chartDataSlice"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { AxisId, BaseCartesianAxis } from "../cartesianAxisSlice"
 import { selectChartDataAndAlwaysIgnoreIndexes } from "./dataSelectors"
 import {
@@ -23,7 +23,8 @@ import {
 	selectRenderableAxisSettings,
 } from "./axisSelectors"
 import type { PolarGraphicalItemSettings } from "../graphicalItemsSlice"
-import type { PolarItemState } from "../_solid/chartState"
+import type { PolarItemState } from "../chartState"
+import { readChartState } from "../chartState"
 import type { CategoricalDomain, NumberDomain } from "../../util/types"
 import { selectChartLayout } from "../../context/chartLayoutContext"
 import { getValueByDataKey } from "../../util/ChartUtils"
@@ -33,24 +34,22 @@ import { combineCheckedDomain } from "./combiners/combineCheckedDomain"
 export type PolarAxisType = "angleAxis" | "radiusAxis"
 
 export const selectUnfilteredPolarItems = (
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<PolarGraphicalItemSettings> => {
-	const solidItems = (state._solid as Partial<typeof state._solid>).graphicalItems
-	if (solidItems != null) {
-		return Object.values(solidItems)
-			.filter(
-				(item): item is PolarItemState =>
-					item.type === "pie" || item.type === "radar" || item.type === "radialBar",
-			)
-			.filter((item) => item.settings !== null && typeof item.settings === "object")
-			.map((item) => item.settings)
-	}
-	/* Legacy compat shim */
-	return state.graphicalItems.polarItems
+	return Object.values(readChartState(state).graphicalItems)
+		.filter(
+			(item): item is PolarItemState =>
+				item != null &&
+				typeof item === "object" &&
+				"type" in item &&
+				(item.type === "pie" || item.type === "radar" || item.type === "radialBar"),
+		)
+		.filter((item) => item.settings !== null && typeof item.settings === "object")
+		.map((item) => item.settings)
 }
 
 export function selectPolarItemsSettings(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	polarAxisId: AxisId,
 ): ReadonlyArray<PolarGraphicalItemSettings> {
@@ -61,7 +60,7 @@ export function selectPolarItemsSettings(
 }
 
 function selectPolarGraphicalItemsData(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	polarAxisId: AxisId,
 ): ChartData {
@@ -69,7 +68,7 @@ function selectPolarGraphicalItemsData(
 }
 
 export function selectPolarDisplayedData(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	polarAxisId: AxisId,
 ): ChartData {
@@ -80,7 +79,7 @@ export function selectPolarDisplayedData(
 }
 
 export function selectPolarAppliedValues(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	axisId: AxisId,
 ): AppliedChartData {
@@ -92,7 +91,7 @@ export function selectPolarAppliedValues(
 }
 
 export function selectAllPolarAppliedNumericalValues(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	axisId: AxisId,
 ): ReadonlyArray<AppliedChartDataWithErrorDomain> {
@@ -130,7 +129,7 @@ export function selectAllPolarAppliedNumericalValues(
 const unsupportedInPolarChart = (): undefined => undefined
 
 function selectDomainOfAllPolarAppliedNumericalValues(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	axisId: AxisId,
 ): NumberDomain | undefined {
@@ -144,7 +143,7 @@ function selectDomainOfAllPolarAppliedNumericalValues(
 }
 
 function selectPolarNumericalDomain(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	axisId: AxisId,
 ): NumberDomain | undefined {
@@ -161,7 +160,7 @@ function selectPolarNumericalDomain(
 }
 
 export function selectPolarAxisDomain(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	polarAxisId: AxisId,
 ): NumberDomain | CategoricalDomain | undefined {
@@ -177,7 +176,7 @@ export function selectPolarAxisDomain(
 }
 
 export function selectPolarNiceTicks(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	polarAxisId: AxisId,
 ): ReadonlyArray<number> | undefined {
@@ -189,7 +188,7 @@ export function selectPolarNiceTicks(
 }
 
 export function selectPolarAxisDomainIncludingNiceTicks(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	polarAxisId: AxisId,
 ): NumberDomain | CategoricalDomain | undefined {
@@ -202,7 +201,7 @@ export function selectPolarAxisDomainIncludingNiceTicks(
 }
 
 export function selectPolarAxisCheckedDomain(
-	state: RechartsRootState,
+	state: ChartState,
 	axisType: PolarAxisType,
 	polarAxisId: AxisId,
 ): NumberDomain | CategoricalDomain | undefined {

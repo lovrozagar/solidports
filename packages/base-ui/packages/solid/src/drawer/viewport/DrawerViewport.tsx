@@ -24,6 +24,7 @@ import { DrawerPopupDataAttributes } from '../popup/DrawerPopupDataAttributes';
 import { useDrawerProviderContext } from '../provider/DrawerProviderContext';
 import { useDrawerRootContext, type DrawerSnapPoint } from '../root/DrawerRootContext';
 import { useDrawerSnapPoints } from '../root/useDrawerSnapPoints';
+import { useDrawerVirtualKeyboardContext } from '../virtual-keyboard-provider/DrawerVirtualKeyboardContext';
 import { DrawerViewportContext } from './DrawerViewportContext';
 
 const MIN_SWIPE_THRESHOLD = 10;
@@ -57,6 +58,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
   } = useDrawerRootContext();
   const providerContext = useDrawerProviderContext(true);
   const setVisualState = providerContext?.setVisualState;
+  const virtualKeyboard = useDrawerVirtualKeyboardContext();
 
   const open = store.useState('open');
   const mounted = store.useState('mounted');
@@ -944,14 +946,17 @@ export function DrawerViewport(props: DrawerViewport.Props) {
             swipePointerProps().onPointerUp?.(event);
           },
           onTouchCancel(event) {
+            virtualKeyboard?.onTouchCancel();
             resetTouchTrackingState();
             swipeTouchProps().onTouchCancel?.(event);
           },
           onTouchEnd(event) {
+            virtualKeyboard?.onTouchEnd(event);
             resetTouchTrackingState();
             swipeTouchProps().onTouchEnd?.(event);
           },
           onTouchMove(event) {
+            virtualKeyboard?.onTouchMove(event);
             if (isReactTouchEventOnRangeInput(event)) {
               return;
             }
@@ -1011,6 +1016,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
               allowSwipe,
             };
 
+            virtualKeyboard?.onTouchStart(event);
             swipeTouchProps().onTouchStart?.(event);
           },
         },

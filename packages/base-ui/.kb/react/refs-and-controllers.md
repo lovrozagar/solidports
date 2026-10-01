@@ -81,5 +81,5 @@ What rerenders are mainly used for:
 This pattern is exercised by every animation-aware component test. Canonical:
 
 ```bash
-pnpm test:jsdom Collapsible --no-watch
+bun run test:jsdom Collapsible --no-watch
 ```

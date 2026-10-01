@@ -61,11 +61,9 @@ Flat, grep-friendly list of every KB file. Routing logic lives in
 - [`./workflows/fixing-a-failing-test.md`](./workflows/fixing-a-failing-test.md)
 - [`./workflows/adding-a-docs-demo.md`](./workflows/adding-a-docs-demo.md)
 
-## Snapshots (drift-detection)
+## Snapshots
 
-- [`./_snapshots/README.md`](./_snapshots/README.md) — operating rules.
-- `_snapshots/AGENTS.md`
-- `_snapshots/CLAUDE.md`
-- `_snapshots/cursor-base-ui-solid-port.SKILL.md`
-- `_snapshots/cursor-solid-rules.AGENTS.md`
-- `_snapshots/cursor-testing.SKILL.md`
+- [`./_snapshots/README.md`](./_snapshots/README.md)
+- `_snapshots/AGENTS.md` — `packages/base-ui/AGENTS.md`
+- `_snapshots/root-AGENTS.md` — monorepo root `AGENTS.md`
+- archived Cursor/msviderok copies: `CLAUDE.md`, `cursor-*.md`

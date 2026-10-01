@@ -1,35 +1,29 @@
 {
+  "name": "@base-ui/react",
+  "version": "1.8.0",
   "author": "MUI Team",
+  "description": "Base UI is a library of headless ('unstyled') React components and low-level hooks. You gain complete control over your app's CSS and accessibility features.",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "react-component",
+    "mui",
+    "unstyled",
+    "base-ui",
+    "a11y"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mui/base-ui.git",
+    "directory": "packages/react"
+  },
   "bugs": {
     "url": "https://github.com/mui/base-ui/issues"
   },
-  "dependencies": {
-    "@babel/runtime": "catalog:",
-    "@base-ui/utils": "workspace:*",
-    "@floating-ui/react-dom": "catalog:",
-    "@floating-ui/utils": "catalog:",
-    "use-sync-external-store": "catalog:"
-  },
-  "description": "Base UI is a library of headless ('unstyled') React components and low-level hooks. You gain complete control over your app's CSS and accessibility features.",
-  "devDependencies": {
-    "@date-fns/tz": "catalog:",
-    "@testing-library/react": "catalog:",
-    "@testing-library/user-event": "catalog:",
-    "@types/luxon": "catalog:",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "@types/use-sync-external-store": "catalog:",
-    "clsx": "catalog:",
-    "date-fns": "catalog:",
-    "luxon": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:",
-    "react-router": "catalog:",
-    "typescript": "catalog:",
-    "vitest-browser-react": "catalog:"
-  },
-  "engines": {
-    "node": ">=14.0.0"
+  "homepage": "https://base-ui.com",
+  "funding": {
+    "type": "opencollective",
+    "url": "https://opencollective.com/mui-org"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -42,8 +36,8 @@
     "./checkbox-group": "./src/checkbox-group/index.ts",
     "./collapsible": "./src/collapsible/index.ts",
     "./combobox": "./src/combobox/index.ts",
-    "./context-menu": "./src/context-menu/index.ts",
     "./csp-provider": "./src/csp-provider/index.ts",
+    "./context-menu": "./src/context-menu/index.ts",
     "./dialog": "./src/dialog/index.ts",
     "./direction-provider": "./src/direction-provider/index.ts",
     "./drawer": "./src/drawer/index.ts",
@@ -51,40 +45,6 @@
     "./fieldset": "./src/fieldset/index.ts",
     "./form": "./src/form/index.ts",
     "./input": "./src/input/index.ts",
-    "./internals/RequestQueue": "./src/internals/RequestQueue.ts",
-    "./internals/TimeoutManager": "./src/internals/TimeoutManager.ts",
-    "./internals/areArraysEqual": "./src/internals/areArraysEqual.ts",
-    "./internals/clamp": "./src/internals/clamp.ts",
-    "./internals/composite": "./src/internals/composite/index.ts",
-    "./internals/constants": "./src/internals/constants.ts",
-    "./internals/createBaseUIEventDetails": "./src/internals/createBaseUIEventDetails.ts",
-    "./internals/direction-context": "./src/internals/direction-context/index.ts",
-    "./internals/field-constants": "./src/internals/field-constants/index.ts",
-    "./internals/field-register-control": "./src/internals/field-register-control/index.ts",
-    "./internals/field-root-context": "./src/internals/field-root-context/index.ts",
-    "./internals/filter": "./src/internals/filter.ts",
-    "./internals/form-context": "./src/internals/form-context/index.ts",
-    "./internals/getStateAttributesProps": "./src/internals/getStateAttributesProps.ts",
-    "./internals/itemEquality": "./src/internals/itemEquality.ts",
-    "./internals/labelable-provider": "./src/internals/labelable-provider/index.ts",
-    "./internals/noop": "./src/internals/noop.ts",
-    "./internals/reasons": "./src/internals/reasons.ts",
-    "./internals/resolveValueLabel": "./src/internals/resolveValueLabel.tsx",
-    "./internals/serializeValue": "./src/internals/serializeValue.ts",
-    "./internals/shadowDom": "./src/internals/shadowDom.ts",
-    "./internals/stateAttributesMapping": "./src/internals/stateAttributesMapping.ts",
-    "./internals/temporal": "./src/internals/temporal/index.ts",
-    "./internals/temporal-adapter-date-fns": "./src/internals/temporal-adapter-date-fns/index.ts",
-    "./internals/temporal-adapter-luxon": "./src/internals/temporal-adapter-luxon/index.ts",
-    "./internals/types": "./src/internals/types.ts",
-    "./internals/use-button": "./src/internals/use-button/index.ts",
-    "./internals/useAnimationsFinished": "./src/internals/useAnimationsFinished.ts",
-    "./internals/useBaseUiId": "./src/internals/useBaseUiId.ts",
-    "./internals/useOpenChangeComplete": "./src/internals/useOpenChangeComplete.tsx",
-    "./internals/usePressAndHold": "./src/internals/usePressAndHold.ts",
-    "./internals/useRenderElement": "./src/internals/useRenderElement.tsx",
-    "./internals/useTransitionStatus": "./src/internals/useTransitionStatus.ts",
-    "./internals/useValueChanged": "./src/internals/useValueChanged.ts",
     "./menu": "./src/menu/index.ts",
     "./menubar": "./src/menubar/index.ts",
     "./merge-props": "./src/merge-props/index.ts",
@@ -110,27 +70,87 @@
     "./tooltip": "./src/tooltip/index.ts",
     "./types": "./src/types/index.ts",
     "./unstable-use-media-query": "./src/unstable-use-media-query/index.ts",
-    "./use-render": "./src/use-render/index.ts"
+    "./use-render": "./src/use-render/index.ts",
+    "./internals/composite": "./src/internals/composite/index.ts",
+    "./internals/constants": "./src/internals/constants.ts",
+    "./internals/createBaseUIEventDetails": "./src/internals/createBaseUIEventDetails.ts",
+    "./internals/csp-context": "./src/internals/csp-context/index.ts",
+    "./internals/direction-context": "./src/internals/direction-context/index.ts",
+    "./internals/field-constants": "./src/internals/field-constants/index.ts",
+    "./internals/field-register-control": "./src/internals/field-register-control/index.ts",
+    "./internals/field-root-context": "./src/internals/field-root-context/index.ts",
+    "./internals/filter": "./src/internals/filter.ts",
+    "./internals/itemEquality": "./src/internals/itemEquality.ts",
+    "./internals/form-context": "./src/internals/form-context/index.ts",
+    "./internals/getDisabledMountTransitionStyles": "./src/internals/getDisabledMountTransitionStyles.ts",
+    "./internals/getStateAttributesProps": "./src/internals/getStateAttributesProps.ts",
+    "./internals/labelable-provider": "./src/internals/labelable-provider/index.ts",
+    "./internals/noop": "./src/internals/noop.ts",
+    "./internals/reasons": "./src/internals/reasons.ts",
+    "./internals/resolveValueLabel": "./src/internals/resolveValueLabel.tsx",
+    "./internals/RequestQueue": "./src/internals/RequestQueue.ts",
+    "./internals/serializeValue": "./src/internals/serializeValue.ts",
+    "./internals/stateAttributesMapping": "./src/internals/stateAttributesMapping.ts",
+    "./internals/temporal": "./src/internals/temporal/index.ts",
+    "./internals/temporal-adapter-date-fns": "./src/internals/temporal-adapter-date-fns/index.ts",
+    "./internals/temporal-adapter-luxon": "./src/internals/temporal-adapter-luxon/index.ts",
+    "./internals/TimeoutManager": "./src/internals/TimeoutManager.ts",
+    "./internals/types": "./src/internals/types.ts",
+    "./internals/use-button": "./src/internals/use-button/index.ts",
+    "./internals/useBaseUiId": "./src/internals/useBaseUiId.ts",
+    "./internals/useAnchorPositioning": "./src/internals/useAnchorPositioning.ts",
+    "./internals/useAnimationsFinished": "./src/internals/useAnimationsFinished.ts",
+    "./internals/useOpenChangeComplete": "./src/internals/useOpenChangeComplete.tsx",
+    "./internals/usePressAndHold": "./src/internals/usePressAndHold.ts",
+    "./internals/useRenderElement": "./src/internals/useRenderElement.tsx",
+    "./internals/useValueChanged": "./src/internals/useValueChanged.ts",
+    "./internals/useTransitionStatus": "./src/internals/useTransitionStatus.ts"
   },
-  "funding": {
-    "type": "opencollective",
-    "url": "https://opencollective.com/mui-org"
-  },
-  "homepage": "https://base-ui.com",
   "imports": {
+    "#test-utils": "./test/index.ts",
     "#formatErrorMessage": "@base-ui/utils/formatErrorMessage",
-    "#test-utils": "./test/index.ts"
+    "#prehydration/tabs/indicator": {
+      "browser": "./src/internals/prehydrationScript.stub.ts",
+      "default": "./src/tabs/indicator/prehydrationScript.min.ts"
+    },
+    "#prehydration/slider/thumb": {
+      "browser": "./src/internals/prehydrationScript.stub.ts",
+      "default": "./src/slider/thumb/prehydrationScript.min.ts"
+    }
   },
-  "keywords": [
-    "react",
-    "react-component",
-    "mui",
-    "unstyled",
-    "base-ui",
-    "a11y"
-  ],
-  "license": "MIT",
-  "name": "@base-ui/react",
+  "scripts": {
+    "prebuild": "rimraf --glob build build-tests build-typecheck published-docs \"*.tsbuildinfo\" && node ./scripts/stagePublishedDocs.mjs",
+    "build": "code-infra build --ignore \"**/*.template.js\" --copy .npmignore --copy \"published-docs/**:docs\" --tsgo",
+    "test:package": "publint --pack bun && attw --pack ./build --exclude-entrypoints package.json",
+    "release": "bun build && bun publish",
+    "test": "cross-env VITEST_ENV=jsdom vitest",
+    "types:check": "api-extractor run --config api-extractor.json",
+    "typescript": "tsc -b tsconfig.json"
+  },
+  "dependencies": {
+    "@babel/runtime": "catalog:",
+    "@base-ui/utils": "workspace:*",
+    "@floating-ui/react-dom": "catalog:",
+    "@floating-ui/utils": "catalog:",
+    "use-sync-external-store": "catalog:"
+  },
+  "devDependencies": {
+    "@date-fns/tz": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
+    "@types/luxon": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/use-sync-external-store": "catalog:",
+    "clsx": "catalog:",
+    "date-fns": "catalog:",
+    "luxon": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-router": "catalog:",
+    "typescript": "catalog:",
+    "vitest-browser-react": "catalog:"
+  },
   "peerDependencies": {
     "@date-fns/tz": "^1.2.0",
     "@types/react": "^17 || ^18 || ^19",
@@ -149,24 +169,12 @@
       "optional": true
     }
   },
+  "sideEffects": false,
   "publishConfig": {
     "access": "public",
     "directory": "build"
   },
-  "repository": {
-    "directory": "packages/react",
-    "type": "git",
-    "url": "git+https://github.com/mui/base-ui.git"
-  },
-  "scripts": {
-    "build": "code-infra build --ignore \"**/*.template.js\" --copy .npmignore",
-    "prebuild": "rimraf --glob build build-tests \"*.tsbuildinfo\"",
-    "release": "bun build && bun publish",
-    "test": "cross-env VITEST_ENV=jsdom vitest",
-    "test:package": "publint --pack bun && attw --pack ./build --exclude-entrypoints package.json --exclude-entrypoints esm --exclude-entrypoints cjs",
-    "typescript": "tsc -b tsconfig.json"
-  },
-  "sideEffects": false,
-  "type": "commonjs",
-  "version": "1.4.1"
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }

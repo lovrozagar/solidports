@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createRechartsStore, RechartsRootState } from "../../../src/state/store"
+import { createRechartsStore, ChartState } from "../../../src/state/store"
 import {
 	selectXAxisRange,
 	selectAxisRangeWithReverse,
@@ -15,7 +15,7 @@ import { PageData } from "../../_data"
 import { setActiveMouseOverItemIndex } from "../../../src/state/tooltipSlice"
 
 describe("selectAxisRangeWithReverse", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectAxisRangeWithReverse(state, "xAxis", "0", false)
 
 	shouldReturnUndefinedOutOfContext(selector)

@@ -87,14 +87,14 @@ Tests:
 
 Docs/demos:
 
-- `docs-solid/src/content/solid/components/collapsible.mdx`
-- `docs-solid/src/demos/solid/collapsible/hero/{css-modules,tailwind}/`
+- `docs/solid/src/routes/(docs)/solid/components/collapsible.mdx`
+- `docs/solid/src/demos/solid/collapsible/hero/{css-modules,tailwind}/`
 
 ## Test commands
 
 ```bash
-pnpm test:solid:jsdom Collapsible --no-watch --reporter=agent
-pnpm test:solid:chromium Collapsible --no-watch --reporter=agent
+bun run test:solid:jsdom Collapsible --no-watch --reporter=agent
+bun run test:solid:chromium Collapsible --no-watch --reporter=agent
 ```
 
 ## Debugging checklist

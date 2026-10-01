@@ -12,7 +12,7 @@ import { selectActiveTooltipCoordinate } from "../../src/state/selectors/tooltip
 import { assertNotNull } from "../helper/assertNotNull"
 import { showTooltip } from "../component/Tooltip/tooltipTestHelpers"
 import { treemapNodeChartMouseHoverTooltipSelector } from "../component/Tooltip/tooltipMouseHoverSelectors"
-import type { RechartsRootState } from "../../src/state/store"
+import type { ChartState } from "../../src/state/store"
 
 /*
  * Regression tests for GOTCHA-005 createMemo fix in Treemap.
@@ -41,7 +41,7 @@ import type { RechartsRootState } from "../../src/state/store"
  *      fix — coordinate reads nodeProps reactively via createMemo).
  */
 
-function StoreCapture(props: { ref: (store: RechartsRootState) => void }): null {
+function StoreCapture(props: { ref: (store: ChartState) => void }): null {
 	const ctx = useContext(RechartsStoreContext)
 	if (ctx != null) {
 		/* eslint-disable-next-line solid/reactivity -- intentional one-shot mount callback, not a tracked read */
@@ -56,7 +56,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 	 * Verifies the createMemo settings object is built and pushed to the store.
 	 */
 	it("SetTreemapTooltipEntrySettings populates nameKey correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -84,7 +84,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 	 * dataKey is populated correctly at mount.
 	 */
 	it("SetTreemapTooltipEntrySettings populates dataKey correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -111,7 +111,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 	 * fill is populated correctly at mount.
 	 */
 	it("SetTreemapTooltipEntrySettings populates fill correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -141,7 +141,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 	 * signal is populated would capture undefined.
 	 */
 	it("SetTreemapTooltipEntrySettings populates dataDefinedOnItem at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -171,7 +171,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 	 * createMemo rather than a plain object snapshotted at component body run time.
 	 */
 	it("ContentItemWithEvents dispatches valid activeCoordinate on hover", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		const { container } = renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -208,7 +208,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 	 * Tooltip is visible on hover and the payload includes one item.
 	 */
 	it("tooltip is visible on hover and payload is populated", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		const { container } = renderWithSignals(
 			(_p: Record<string, never>) => (

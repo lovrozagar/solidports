@@ -5,7 +5,7 @@
 | Aspect                          | Status                                  |
 | :------------------------------ | :-------------------------------------- |
 | Ported (`packages/solid/`)      | yes                                     |
-| Docs ported (`docs-solid/`)  | yes                                     |
+| Docs ported (`docs/solid/`)  | yes                                     |
 | Tests passing (jsdom)           | unknown — re-run before relying on it   |
 | Tests passing (chromium)        | unknown — re-run before relying on it   |
 | Last reviewed                   | 2026-04-16                              |
@@ -23,8 +23,8 @@
 
 - React (read-only): `packages/react/src/collapsible/`
 - Solid (target):    `packages/solid/src/collapsible/`
-- Docs (target):     `docs-solid/src/content/solid/components/collapsible.mdx`
-- Demos (target):    `docs-solid/src/demos/solid/collapsible/`
+- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/collapsible.mdx`
+- Demos (target):    `docs/solid/src/demos/solid/collapsible/`
 
 ## Open issues
 
@@ -34,6 +34,6 @@ that may surface here are tracked in [`../solid/gotchas.md`](../solid/gotchas.md
 ## Quick test
 
 ```bash
-pnpm test:solid:jsdom Collapsible --no-watch --reporter=agent
-pnpm test:solid:chromium Collapsible --no-watch --reporter=agent
+bun run test:solid:jsdom Collapsible --no-watch --reporter=agent
+bun run test:solid:chromium Collapsible --no-watch --reporter=agent
 ```

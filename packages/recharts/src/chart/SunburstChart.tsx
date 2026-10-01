@@ -22,13 +22,12 @@ import type {
 	TooltipPayloadSearcher,
 } from "../state/tooltipSlice"
 import { SetTooltipEntrySettings } from "../state/SetTooltipEntrySettings"
-import { RechartsStateProvider } from "../state/_solid/RechartsStateProvider"
-import { RechartsStoreProvider } from "../state/RechartsStoreProvider"
+import { RechartsStateProvider } from "../state/RechartsStateProvider"
 import { ReportEventSettings } from "../state/ReportEventSettings"
 import type { ChartCoordinate, DataKey, EventThrottlingProps, Margin, Percent } from "../util/types"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
-import type { RechartsRootState } from "../state/store"
+import { useOptionalChartState } from "../state/useChartState"
+import type { ChartState } from "../state/chartState"
 import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import type { WithIdRequired } from "../util/useUniqueId"
 import type { RequiresDefaultProps } from "../util/resolveDefaultProps"
@@ -234,7 +233,7 @@ const addToSunburstNodeIndex = (
 	return `${activeTooltipIndexSoFar}children[${indexInChildrenArr}]`
 }
 
-const preloadedState: Partial<RechartsRootState> = {
+const preloadedState: Partial<ChartState> = {
 	options: {
 		chartName: "Sunburst",
 		defaultTooltipEventType: "item",
@@ -456,8 +455,7 @@ export function SunburstChart(outsideProps: SunburstChartProps): JSX.Element {
 	const [childrenSplit, restProps] = splitProps(outsideProps, ["children"])
 	const props = resolveDefaultProps(restProps, defaultSunburstChartProps)
 	return (
-		<RechartsStateProvider>
-			<RechartsStoreProvider preloadedState={preloadedState}>
+		<RechartsStateProvider preloadedState={preloadedState}>
 			<ReportChartSize width={props.width} height={props.height} />
 			<ReportChartMargin margin={defaultSunburstMargin} />
 			<ReportEventSettings
@@ -490,7 +488,6 @@ export function SunburstChart(outsideProps: SunburstChartProps): JSX.Element {
 					)}
 				</RegisterGraphicalItemId>
 			</RechartsWrapper>
-			</RechartsStoreProvider>
 		</RechartsStateProvider>
 	)
 }

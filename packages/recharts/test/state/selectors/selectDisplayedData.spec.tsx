@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { createEffect } from "solid-js"
 import { generateMockData } from "../../_data/generateMockData"
-import { createRechartsStore, RechartsRootState } from "../../../src/state/store"
+import { createRechartsStore, ChartState } from "../../../src/state/store"
 import {
 	selectAllAppliedValues,
 	selectAxisDomain,
@@ -18,7 +18,7 @@ import {
 import { useIsPanorama } from "../../../src/context/PanoramaContext"
 import { BarChart, Brush, Line, LineChart, XAxis } from "../../../src"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
-import { setLegendSize } from "../../../src/state/legendSlice"
+import { createActions } from "../../../src/state/actions"
 import { expectXAxisTicks } from "../../helper/expectAxisTicks"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 
@@ -27,7 +27,7 @@ const data1 = mockData.slice(0, 5)
 const data2 = mockData.slice(5)
 
 describe("selectDisplayedData", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectDisplayedData(state, "xAxis", defaultAxisId, false)
 
 	shouldReturnUndefinedOutOfContext(selector)
@@ -139,7 +139,7 @@ describe("selectDisplayedData", () => {
 	it("should not recompute when an irrelevant property in the state changes", () => {
 		const [store, setStore] = createRechartsStore()
 		const result1 = selectDisplayedData(store, "xAxis", "0", false)
-		setLegendSize({ height: 20, width: 10 })(setStore, store)
+		createActions(store, setStore).setLegendSize({ height: 20, width: 10 })
 		const result2 = selectDisplayedData(store, "xAxis", "0", false)
 		expect(result1).toEqual(result2)
 	})

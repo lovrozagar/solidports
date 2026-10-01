@@ -8,7 +8,7 @@ import { renderWithSignals } from "../helper/renderWithSignals"
 import { RechartsStoreContext } from "../../src/state/RechartsStoreContext"
 import { selectTooltipState } from "../../src/state/selectors/selectTooltipState"
 import { assertNotNull } from "../helper/assertNotNull"
-import type { RechartsRootState } from "../../src/state/store"
+import type { ChartState } from "../../src/state/store"
 
 /*
  * Regression tests for SetRadarTooltipEntrySettings and RadarLabelListProvider
@@ -30,7 +30,7 @@ import type { RechartsRootState } from "../../src/state/store"
  * The tests below verify correct initial-mount population.
  */
 
-function StoreCapture(props: { ref: (store: RechartsRootState) => void }): null {
+function StoreCapture(props: { ref: (store: ChartState) => void }): null {
 	const ctx = useContext(RechartsStoreContext)
 	if (ctx != null) {
 		/* eslint-disable-next-line solid/reactivity -- intentional one-shot mount callback, not a tracked read */
@@ -44,7 +44,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 	 * tooltipItemPayloads is populated at mount with correct dataKey.
 	 */
 	it("SetRadarTooltipEntrySettings populates dataKey correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -66,7 +66,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 	 * name is populated correctly at mount.
 	 */
 	it("SetRadarTooltipEntrySettings populates name correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -87,7 +87,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 	 * fill is populated correctly at mount.
 	 */
 	it("SetRadarTooltipEntrySettings populates fill correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -108,7 +108,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 	 * hide=true is populated correctly at mount.
 	 */
 	it("SetRadarTooltipEntrySettings populates hide=true correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -131,7 +131,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 	 * both the color and stroke fields.
 	 */
 	it("SetRadarTooltipEntrySettings populates stroke correctly at mount", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (
@@ -155,7 +155,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 	 * reactively; this test verifies the tooltip settings are unaffected.
 	 */
 	it("tooltip payload correctly populated when label=true (RadarLabelListProvider active)", () => {
-		let store: RechartsRootState | undefined
+		let store: ChartState | undefined
 
 		renderWithSignals(
 			(_p: Record<string, never>) => (

@@ -46,7 +46,7 @@ import type { BaseAxisWithScale } from "../state/selectors/axisSelectors"
 import type { ChartData } from "../state/chartDataSlice"
 import type { AreaPointItem, ComputedArea } from "../state/selectors/areaSelectors"
 import { selectArea } from "../state/selectors/areaSelectors"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { useCartesianChartLayout, useChartLayout } from "../context/chartLayoutContext"
 import { useChartName } from "../state/selectors/selectors"
@@ -743,14 +743,14 @@ function AreaImpl(props: WithIdRequired<Props>) {
 	const isPanorama = useIsPanorama()
 
 	/* perf: cache selector result; without memo every consumer read triggers full chain.
-	   Axis reactivity: selectArea reads ctx.store._solid.cartesianAxes (Solid proxy) without
+	   Axis reactivity: selectArea reads ctx.store.cartesianAxes (Solid proxy) without
 	   untrack — this memo tracks those signals.
 	   Item reactivity: explicit graphicalItems[id] read tracks item settings mutations. */
 	const areaData = createMemo(() => {
 		const rawItem = stateCtx?.state.graphicalItems[props.id]
 		const itemSettings =
 			rawItem != null && rawItem.type === "area"
-				? (rawItem as import("../state/_solid/chartState").AreaState).settings
+				? (rawItem as import("../state/chartState").AreaState).settings
 				: undefined
 		return ctx
 			? selectArea(

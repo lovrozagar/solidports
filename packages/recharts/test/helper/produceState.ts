@@ -1,13 +1,13 @@
 import { createStore, produce } from "solid-js/store"
-import type { RechartsRootState } from "../../src/state/store"
-import { createInitialState } from "../../src/state/store"
+import type { ChartState } from "../../src/state/chartState"
+import { createInitialChartState } from "../../src/state/chartState"
 
 /**
- * Creates an initial Solid store, applies mutations via produce,
+ * Creates an initial ChartState store, applies mutations via produce,
  * and returns the resulting state snapshot.
  */
-export function produceState(cb: (draft: RechartsRootState) => void): RechartsRootState {
-	const [store, setStore] = createStore(createInitialState())
+export function produceState(cb: (draft: ChartState) => void): ChartState {
+	const [store, setStore] = createStore(createInitialChartState())
 	setStore(produce(cb))
 	return store
 }

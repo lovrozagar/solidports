@@ -1,4 +1,3 @@
-export { Separator } from '../separator/Separator';
 export { SelectArrow as Arrow } from './arrow/SelectArrow';
 export { SelectBackdrop as Backdrop } from './backdrop/SelectBackdrop';
 export { SelectGroupLabel as GroupLabel } from './group-label/SelectGroupLabel';
@@ -16,3 +15,4 @@ export { SelectScrollDownArrow as ScrollDownArrow } from './scroll-down-arrow/Se
 export { SelectScrollUpArrow as ScrollUpArrow } from './scroll-up-arrow/SelectScrollUpArrow';
 export { SelectTrigger as Trigger } from './trigger/SelectTrigger';
 export { SelectValue as Value } from './value/SelectValue';
+export { SelectSeparator as Separator } from './separator/SelectSeparator';

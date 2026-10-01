@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { render } from "@solidjs/testing-library"
-import { RechartsRootState } from "../../../src/state/store"
+import { ChartState } from "../../../src/state/store"
 import {
 	selectAngleAxisForBandSize,
 	selectAngleAxisWithScaleAndViewport,
@@ -18,7 +18,7 @@ import { assertNotNull } from "../../helper/assertNotNull"
 import { createEffect, createSignal } from "solid-js"
 
 describe("selectRadarPoints", () => {
-	const selector = (state: RechartsRootState) =>
+	const selector = (state: ChartState) =>
 		selectRadarPoints(state, 0, 0, false, "radar-value")
 
 	shouldReturnUndefinedOutOfContext(selector)
@@ -469,7 +469,7 @@ describe("selectRadarPoints", () => {
 })
 
 describe("selectRadiusAxisForBandSize", () => {
-	const selector = (state: RechartsRootState) => selectRadiusAxisForBandSize(state, 0)
+	const selector = (state: ChartState) => selectRadiusAxisForBandSize(state, 0)
 
 	shouldReturnUndefinedOutOfContext(selector)
 	shouldReturnFromInitialState(selector, undefined)
@@ -512,7 +512,7 @@ describe("selectRadiusAxisForBandSize", () => {
 })
 
 describe("selectAngleAxisForBandSize", () => {
-	const selector = (state: RechartsRootState) => selectAngleAxisForBandSize(state, 0, 0)
+	const selector = (state: ChartState) => selectAngleAxisForBandSize(state, 0, 0)
 
 	shouldReturnUndefinedOutOfContext(selector)
 	shouldReturnFromInitialState(selector, undefined)
@@ -555,7 +555,7 @@ describe("selectAngleAxisForBandSize", () => {
 })
 
 describe("selectAngleAxisWithScaleAndViewport", () => {
-	const selector = (state: RechartsRootState) => selectAngleAxisWithScaleAndViewport(state, 0, 0)
+	const selector = (state: ChartState) => selectAngleAxisWithScaleAndViewport(state, 0, 0)
 
 	shouldReturnUndefinedOutOfContext(selector)
 	shouldReturnFromInitialState(selector, undefined)

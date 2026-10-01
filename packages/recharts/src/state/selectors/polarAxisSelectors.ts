@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { AxisId } from "../cartesianAxisSlice"
 import type { AngleAxisSettings, RadiusAxisSettings } from "../polarAxisSlice"
 import type { PolarChartOptions } from "../polarOptionsSlice"
@@ -14,6 +14,7 @@ import type { AxisRange } from "./axisSelectors"
 import { combineAxisRangeWithReverse } from "./combiners/combineAxisRangeWithReverse"
 import { selectChartLayout, selectPolarChartLayout } from "../../context/chartLayoutContext"
 import { getAxisTypeBasedOnLayout } from "../../util/getAxisTypeBasedOnLayout"
+import { readChartState } from "../chartState"
 
 export const implicitAngleAxis: Omit<AngleAxisSettings, "type"> & { type: AxisDomainTypeInput } = {
 	allowDataOverflow: defaultPolarAngleAxisProps.allowDataOverflow,
@@ -53,23 +54,17 @@ export const implicitRadiusAxis: Omit<RadiusAxisSettings, "type"> & { type: Axis
 	}
 
 const selectAngleAxisNoDefaults = (
-	state: RechartsRootState,
+	state: ChartState,
 	angleAxisId: AxisId | undefined,
 ): AngleAxisSettings | undefined => {
 	if (angleAxisId == null) {
 		return undefined
 	}
-	const solidPolarAxes = (state._solid as Partial<typeof state._solid>).polarAxes
-	const solidEntry = solidPolarAxes?.angleAxis?.[String(angleAxisId)]?.settings
-	if (solidEntry != null) {
-		return solidEntry
-	}
-	/* Legacy compat shim — fallback when _solid.polarAxes absent or axis not yet registered */
-	return state.polarAxis.angleAxis[String(angleAxisId)]
+	return readChartState(state).polarAxes.angleAxis?.[String(angleAxisId)]?.settings
 }
 
 export function selectAngleAxis(
-	state: RechartsRootState,
+	state: ChartState,
 	angleAxisId: AxisId | undefined,
 	override?: AngleAxisSettings,
 ): AngleAxisSettings {
@@ -90,20 +85,14 @@ export function selectAngleAxis(
 }
 
 const selectRadiusAxisNoDefaults = (
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 ): RadiusAxisSettings | undefined => {
-	const solidPolarAxes = (state._solid as Partial<typeof state._solid>).polarAxes
-	const solidEntry = solidPolarAxes?.radiusAxis?.[String(radiusAxisId)]?.settings
-	if (solidEntry != null) {
-		return solidEntry
-	}
-	/* Legacy compat shim */
-	return state.polarAxis.radiusAxis[String(radiusAxisId)]
+	return readChartState(state).polarAxes.radiusAxis?.[String(radiusAxisId)]?.settings
 }
 
 export function selectRadiusAxis(
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 	override?: RadiusAxisSettings,
 ): RadiusAxisSettings {
@@ -123,10 +112,10 @@ export function selectRadiusAxis(
 	}
 }
 
-export const selectPolarOptions = (state: RechartsRootState): PolarChartOptions | null =>
+export const selectPolarOptions = (state: ChartState): PolarChartOptions | null =>
 	state.polarOptions
 
-export function selectMaxRadius(state: RechartsRootState): number {
+export function selectMaxRadius(state: ChartState): number {
 	return getMaxRadius(
 		selectChartWidth(state),
 		selectChartHeight(state),
@@ -134,7 +123,7 @@ export function selectMaxRadius(state: RechartsRootState): number {
 	)
 }
 
-function selectInnerRadius(state: RechartsRootState): number | undefined {
+function selectInnerRadius(state: ChartState): number | undefined {
 	const polarChartOptions = selectPolarOptions(state)
 	const maxRadius = selectMaxRadius(state)
 	if (polarChartOptions == null) {
@@ -143,7 +132,7 @@ function selectInnerRadius(state: RechartsRootState): number | undefined {
 	return getPercentValue(polarChartOptions.innerRadius, maxRadius, 0)
 }
 
-export function selectOuterRadius(state: RechartsRootState): number | undefined {
+export function selectOuterRadius(state: ChartState): number | undefined {
 	const polarChartOptions = selectPolarOptions(state)
 	const maxRadius = selectMaxRadius(state)
 	if (polarChartOptions == null) {
@@ -160,12 +149,12 @@ const combineAngleAxisRange = (polarOptions: PolarChartOptions | null): AxisRang
 	return [startAngle, endAngle]
 }
 
-export function selectAngleAxisRange(state: RechartsRootState): AxisRange {
+export function selectAngleAxisRange(state: ChartState): AxisRange {
 	return combineAngleAxisRange(selectPolarOptions(state))
 }
 
 export function selectAngleAxisRangeWithReversed(
-	state: RechartsRootState,
+	state: ChartState,
 	angleAxisId: AxisId,
 ): AxisRange | undefined {
 	return combineAxisRangeWithReverse(
@@ -175,7 +164,7 @@ export function selectAngleAxisRangeWithReversed(
 }
 
 export function selectRadiusAxisRange(
-	state: RechartsRootState,
+	state: ChartState,
 	_radiusAxisId: AxisId,
 ): AxisRange | undefined {
 	const maxRadius = selectMaxRadius(state)
@@ -188,7 +177,7 @@ export function selectRadiusAxisRange(
 }
 
 export function selectRadiusAxisRangeWithReversed(
-	state: RechartsRootState,
+	state: ChartState,
 	radiusAxisId: AxisId,
 ): AxisRange | undefined {
 	return combineAxisRangeWithReverse(
@@ -197,7 +186,7 @@ export function selectRadiusAxisRangeWithReversed(
 	)
 }
 
-export function selectPolarViewBox(state: RechartsRootState): PolarViewBoxRequired | undefined {
+export function selectPolarViewBox(state: ChartState): PolarViewBoxRequired | undefined {
 	const layout: LayoutType = selectChartLayout(state)
 	const polarOptions = selectPolarOptions(state)
 	const innerRadius = selectInnerRadius(state)

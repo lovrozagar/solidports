@@ -17,3 +17,4 @@ export type * from './scroll-down-arrow/SelectScrollDownArrow';
 export type * from './scroll-up-arrow/SelectScrollUpArrow';
 export type * from './trigger/SelectTrigger';
 export type * from './value/SelectValue';
+export type * from './separator/SelectSeparator';

@@ -1,13 +1,17 @@
 'use client';
 import * as React from 'react';
+import { useTestInteractions } from '#test-utils';
 import {
   FloatingFocusManager,
   useClick,
   useDismiss,
   useFloating,
-  useInteractions,
   useListNavigation,
 } from '../../src/floating-ui-react';
+import styles from './ComplexGrid.module.css';
+import { gridNavigationWithColumns } from './gridNavigationWithColumns';
+
+const grid = gridNavigationWithColumns(7);
 
 interface Props {
   orientation?: 'horizontal' | 'both';
@@ -35,18 +39,18 @@ export function Main({ orientation = 'horizontal', loopFocus = false, rtl = fals
 
   const disabledIndices = [0, 1, 2, 3, 4, 5, 6, 9, 14, 23, 35];
 
-  const { getReferenceProps, getFloatingProps, getItemProps } = useInteractions([
+  const { getReferenceProps, getFloatingProps, getItemProps } = useTestInteractions([
     useClick(context),
     useListNavigation(context, {
       listRef,
       activeIndex,
       onNavigate: setActiveIndex,
-      cols: 7,
       orientation,
       loopFocus,
       rtl,
       openOnArrowKeyDown: false,
       disabledIndices,
+      grid,
     }),
     useDismiss(context),
   ]);
@@ -54,7 +58,7 @@ export function Main({ orientation = 'horizontal', loopFocus = false, rtl = fals
   return (
     <React.Fragment>
       <h1>Complex Grid</h1>
-      <div className="container">
+      <div className={styles.Container}>
         <button ref={refs.setReference} type="button" {...getReferenceProps()}>
           Reference
         </button>
@@ -63,7 +67,7 @@ export function Main({ orientation = 'horizontal', loopFocus = false, rtl = fals
             <div
               ref={refs.setFloating}
               data-testid="floating"
-              className="grid gap-2"
+              className={styles.Grid}
               style={{
                 ...floatingStyles,
                 display: 'grid',
@@ -83,7 +87,7 @@ export function Main({ orientation = 'horizontal', loopFocus = false, rtl = fals
                   ref={(node) => {
                     listRef.current[index] = node;
                   }}
-                  className="border border-black disabled:opacity-20"
+                  className={styles.Item}
                   {...getItemProps()}
                 >
                   Item {index}

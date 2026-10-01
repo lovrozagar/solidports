@@ -1,6 +1,6 @@
 const { resolve } = require('node:path');
 
-const errorCodesPath = resolve(__dirname, './docs-react/public/static/error-codes.json');
+const errorCodesPath = resolve(__dirname, '../../docs/react/src/error-codes.json');
 const missingError = process.env.MUI_EXTRACT_ERROR_CODES === 'true' ? 'write' : 'annotate';
 const baseUIPackageJson = require('./package.json');
 

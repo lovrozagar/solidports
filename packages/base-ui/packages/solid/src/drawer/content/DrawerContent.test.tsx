@@ -1,5 +1,5 @@
 import { createRenderer, describeConformance } from '#test-utils';
-import { DrawerPreview as Drawer } from '@solidports/base-ui/drawer';
+import { Drawer } from '@solidports/base-ui/drawer';
 import { screen } from '@solidjs/testing-library';
 import { describe, expect, it } from 'vitest';
 

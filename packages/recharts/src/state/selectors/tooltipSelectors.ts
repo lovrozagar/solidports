@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
+import { readChartState } from "../chartState"
 import {
 	type AxisRange,
 	combineAppliedValues,
@@ -111,12 +112,12 @@ import { combineRealScaleType } from "./combiners/combineRealScaleType"
 import { combineConfiguredScale } from "./combiners/combineConfiguredScale"
 import type { CustomScaleDefinition } from "../../util/scale/CustomScaleDefinition"
 
-export function selectTooltipAxisRealScaleType(state: RechartsRootState): D3ScaleType | undefined {
+export function selectTooltipAxisRealScaleType(state: ChartState): D3ScaleType | undefined {
 	return combineRealScaleType(selectTooltipAxis(state), selectHasBar(state), selectChartName(state))
 }
 
 export function selectAllUnfilteredGraphicalItems(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<CartesianGraphicalItemSettings | PolarGraphicalItemSettings> {
 	return [
 		...selectUnfilteredCartesianItems(state),
@@ -124,12 +125,12 @@ export function selectAllUnfilteredGraphicalItems(
 	]
 }
 
-function selectTooltipAxisPredicate(state: RechartsRootState) {
+function selectTooltipAxisPredicate(state: ChartState) {
 	return itemAxisPredicate(selectTooltipAxisType(state), selectTooltipAxisId(state))
 }
 
 export function selectAllGraphicalItemsSettings(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<GraphicalItemSettings> {
 	return combineGraphicalItemsSettings(
 		selectAllUnfilteredGraphicalItems(state),
@@ -139,12 +140,12 @@ export function selectAllGraphicalItemsSettings(
 }
 
 function selectAllStackedGraphicalItemsSettings(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<DefinitelyStackedGraphicalItem> {
 	return selectAllGraphicalItemsSettings(state).filter(isStacked)
 }
 
-export function selectTooltipGraphicalItemsData(state: RechartsRootState): ChartData {
+export function selectTooltipGraphicalItemsData(state: ChartState): ChartData {
 	return combineGraphicalItemsData(selectAllGraphicalItemsSettings(state))
 }
 
@@ -154,14 +155,14 @@ export function selectTooltipGraphicalItemsData(state: RechartsRootState): Chart
  * because Tooltip never displays inside the panorama anyway
  * so we don't need to worry what would happen there.
  */
-export function selectTooltipDisplayedData(state: RechartsRootState): ChartData {
+export function selectTooltipDisplayedData(state: ChartState): ChartData {
 	return combineDisplayedData(
 		selectTooltipGraphicalItemsData(state),
 		selectChartDataWithIndexes(state),
 	)
 }
 
-function selectTooltipStackedData(state: RechartsRootState): DisplayedStackedData {
+function selectTooltipStackedData(state: ChartState): DisplayedStackedData {
 	return combineDisplayedStackedData(
 		selectAllStackedGraphicalItemsSettings(state),
 		selectChartDataWithIndexes(state),
@@ -169,7 +170,7 @@ function selectTooltipStackedData(state: RechartsRootState): DisplayedStackedDat
 	)
 }
 
-function selectAllTooltipAppliedValues(state: RechartsRootState): AppliedChartData {
+function selectAllTooltipAppliedValues(state: ChartState): AppliedChartData {
 	return combineAppliedValues(
 		selectTooltipDisplayedData(state),
 		selectTooltipAxis(state),
@@ -177,16 +178,16 @@ function selectAllTooltipAppliedValues(state: RechartsRootState): AppliedChartDa
 	)
 }
 
-function selectTooltipAxisDomainDefinition(state: RechartsRootState): AxisDomain | undefined {
+function selectTooltipAxisDomainDefinition(state: ChartState): AxisDomain | undefined {
 	return getDomainDefinition(selectTooltipAxis(state))
 }
 
-function selectTooltipDataOverflow(state: RechartsRootState): boolean {
+function selectTooltipDataOverflow(state: ChartState): boolean {
 	return selectTooltipAxis(state).allowDataOverflow
 }
 
 function selectTooltipDomainFromUserPreferences(
-	state: RechartsRootState,
+	state: ChartState,
 ): NumberDomain | undefined {
 	return numericalDomainSpecifiedWithoutRequiringData(
 		selectTooltipAxisDomainDefinition(state),
@@ -195,12 +196,12 @@ function selectTooltipDomainFromUserPreferences(
 }
 
 function selectAllStackedGraphicalItems(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<DefinitelyStackedGraphicalItem> {
 	return selectAllGraphicalItemsSettings(state).filter(isStacked)
 }
 
-function selectTooltipStackGroups(state: RechartsRootState): Record<StackId, StackGroup> {
+function selectTooltipStackGroups(state: ChartState): Record<StackId, StackGroup> {
 	return combineStackGroups(
 		selectTooltipStackedData(state),
 		selectAllStackedGraphicalItems(state),
@@ -209,7 +210,7 @@ function selectTooltipStackGroups(state: RechartsRootState): Record<StackId, Sta
 	)
 }
 
-function selectTooltipDomainOfStackGroups(state: RechartsRootState): NumberDomain | undefined {
+function selectTooltipDomainOfStackGroups(state: ChartState): NumberDomain | undefined {
 	return combineDomainOfStackGroups(
 		selectTooltipStackGroups(state),
 		selectChartDataWithIndexes(state),
@@ -219,13 +220,13 @@ function selectTooltipDomainOfStackGroups(state: RechartsRootState): NumberDomai
 }
 
 function selectTooltipItemsSettingsExceptStacked(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<GraphicalItemSettings> {
 	return filterGraphicalNotStackedItems(selectAllGraphicalItemsSettings(state))
 }
 
 function selectTooltipDomainOfAllAppliedNumericalValuesIncludingErrorValues(
-	state: RechartsRootState,
+	state: ChartState,
 ): NumberDomain | undefined {
 	return combineDomainOfAllAppliedNumericalValuesIncludingErrorValues(
 		selectTooltipDisplayedData(state),
@@ -237,7 +238,7 @@ function selectTooltipDomainOfAllAppliedNumericalValuesIncludingErrorValues(
 }
 
 function selectReferenceDotsByTooltipAxis(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<ReferenceDotSettings> | undefined {
 	return filterReferenceElements(
 		selectReferenceDots(state),
@@ -246,12 +247,12 @@ function selectReferenceDotsByTooltipAxis(
 	)
 }
 
-function selectTooltipReferenceDotsDomain(state: RechartsRootState): NumberDomain | undefined {
+function selectTooltipReferenceDotsDomain(state: ChartState): NumberDomain | undefined {
 	return combineDotsDomain(selectReferenceDotsByTooltipAxis(state), selectTooltipAxisType(state))
 }
 
 function selectReferenceAreasByTooltipAxis(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<ReferenceAreaSettings> | undefined {
 	return filterReferenceElements(
 		selectReferenceAreas(state),
@@ -260,12 +261,12 @@ function selectReferenceAreasByTooltipAxis(
 	)
 }
 
-function selectTooltipReferenceAreasDomain(state: RechartsRootState): NumberDomain | undefined {
+function selectTooltipReferenceAreasDomain(state: ChartState): NumberDomain | undefined {
 	return combineAreasDomain(selectReferenceAreasByTooltipAxis(state), selectTooltipAxisType(state))
 }
 
 function selectReferenceLinesByTooltipAxis(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<ReferenceLineSettings> | undefined {
 	return filterReferenceElements(
 		selectReferenceLines(state),
@@ -274,11 +275,11 @@ function selectReferenceLinesByTooltipAxis(
 	)
 }
 
-function selectTooltipReferenceLinesDomain(state: RechartsRootState): NumberDomain | undefined {
+function selectTooltipReferenceLinesDomain(state: ChartState): NumberDomain | undefined {
 	return combineLinesDomain(selectReferenceLinesByTooltipAxis(state), selectTooltipAxisType(state))
 }
 
-function selectTooltipReferenceElementsDomain(state: RechartsRootState): NumberDomain | undefined {
+function selectTooltipReferenceElementsDomain(state: ChartState): NumberDomain | undefined {
 	return mergeDomains(
 		selectTooltipReferenceDotsDomain(state),
 		selectTooltipReferenceLinesDomain(state),
@@ -286,7 +287,7 @@ function selectTooltipReferenceElementsDomain(state: RechartsRootState): NumberD
 	)
 }
 
-function selectTooltipNumericalDomain(state: RechartsRootState): NumberDomain | undefined {
+function selectTooltipNumericalDomain(state: ChartState): NumberDomain | undefined {
 	return combineNumericalDomain(
 		selectTooltipAxis(state),
 		selectTooltipAxisDomainDefinition(state),
@@ -300,7 +301,7 @@ function selectTooltipNumericalDomain(state: RechartsRootState): NumberDomain | 
 }
 
 export function selectTooltipAxisDomain(
-	state: RechartsRootState,
+	state: ChartState,
 ): NumberDomain | CategoricalDomain | undefined {
 	return combineAxisDomain(
 		selectTooltipAxis(state),
@@ -313,7 +314,7 @@ export function selectTooltipAxisDomain(
 	)
 }
 
-function selectTooltipNiceTicks(state: RechartsRootState): ReadonlyArray<number> | undefined {
+function selectTooltipNiceTicks(state: ChartState): ReadonlyArray<number> | undefined {
 	return combineNiceTicks(
 		selectTooltipAxisDomain(state),
 		selectTooltipAxis(state),
@@ -322,7 +323,7 @@ function selectTooltipNiceTicks(state: RechartsRootState): ReadonlyArray<number>
 }
 
 export function selectTooltipAxisDomainIncludingNiceTicks(
-	state: RechartsRootState,
+	state: ChartState,
 ): NumberDomain | CategoricalDomain | undefined {
 	return combineAxisDomainWithNiceTicks(
 		selectTooltipAxis(state),
@@ -332,18 +333,18 @@ export function selectTooltipAxisDomainIncludingNiceTicks(
 	)
 }
 
-const selectTooltipAxisRange = (state: RechartsRootState): AxisRange | undefined => {
+const selectTooltipAxisRange = (state: ChartState): AxisRange | undefined => {
 	const axisType = selectTooltipAxisType(state)
 	const axisId = selectTooltipAxisId(state)
 	const isPanorama = false
 	return selectAxisRange(state, axisType, axisId, isPanorama)
 }
 
-export function selectTooltipAxisRangeWithReverse(state: RechartsRootState): AxisRange | undefined {
+export function selectTooltipAxisRangeWithReverse(state: ChartState): AxisRange | undefined {
 	return combineAxisRangeWithReverse(selectTooltipAxis(state), selectTooltipAxisRange(state))
 }
 
-function selectTooltipConfiguredScale(state: RechartsRootState): CustomScaleDefinition | undefined {
+function selectTooltipConfiguredScale(state: ChartState): CustomScaleDefinition | undefined {
 	return combineConfiguredScale(
 		selectTooltipAxis(state),
 		selectTooltipAxisRealScaleType(state),
@@ -352,12 +353,12 @@ function selectTooltipConfiguredScale(state: RechartsRootState): CustomScaleDefi
 	)
 }
 
-export function selectTooltipAxisScale(state: RechartsRootState): RechartsScale | undefined {
+export function selectTooltipAxisScale(state: ChartState): RechartsScale | undefined {
 	return rechartsScaleFactory(selectTooltipConfiguredScale(state))
 }
 
 function selectTooltipDuplicateDomain(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<unknown> | undefined {
 	return combineDuplicateDomain(
 		selectChartLayout(state),
@@ -368,7 +369,7 @@ function selectTooltipDuplicateDomain(
 }
 
 export function selectTooltipCategoricalDomain(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<unknown> | undefined {
 	return combineCategoricalDomain(
 		selectChartLayout(state),
@@ -450,7 +451,7 @@ const combineTicksOfTooltipAxis = (
  * - {@link combineGraphicalItemTicks}
  */
 export function selectTooltipAxisTicks(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<TickItem> | undefined {
 	return combineTicksOfTooltipAxis(
 		selectChartLayout(state),
@@ -464,27 +465,25 @@ export function selectTooltipAxisTicks(
 	)
 }
 
-function selectTooltipEventType(state: RechartsRootState): TooltipEventType | undefined {
+function selectTooltipEventType(state: ChartState): TooltipEventType | undefined {
 	const defaultTooltipEventType = selectDefaultTooltipEventType(state)
 	const validateTooltipEventType = selectValidateTooltipEventTypes(state)
 	const settings: TooltipSettingsState = selectTooltipSettings(state)
 	return combineTooltipEventType(settings.shared, defaultTooltipEventType, validateTooltipEventType)
 }
 
-const selectTooltipTrigger = (state: RechartsRootState) => {
-	const solidTooltip = (state._solid as Partial<typeof state._solid>).tooltip
-	return (solidTooltip ?? state.tooltip).settings.trigger
+const selectTooltipTrigger = (state: ChartState) => {
+	return readChartState(state).tooltip.settings.trigger
 }
 
-const selectDefaultIndex = (state: RechartsRootState): TooltipIndex | undefined => {
-	const solidTooltip = (state._solid as Partial<typeof state._solid>).tooltip
-	const raw = (solidTooltip ?? state.tooltip).settings.defaultIndex
+const selectDefaultIndex = (state: ChartState): TooltipIndex | undefined => {
+	const raw = readChartState(state).tooltip.settings.defaultIndex
 	if (typeof raw === "number") return String(raw)
 	return raw
 }
 
 function selectTooltipInteractionState(
-	state: RechartsRootState,
+	state: ChartState,
 ): TooltipInteractionState | undefined {
 	return combineTooltipInteractionState(
 		selectTooltipState(state),
@@ -494,7 +493,7 @@ function selectTooltipInteractionState(
 	)
 }
 
-export function selectActiveTooltipIndex(state: RechartsRootState): TooltipIndex | null {
+export function selectActiveTooltipIndex(state: ChartState): TooltipIndex | null {
 	return combineActiveTooltipIndex(
 		selectTooltipInteractionState(state),
 		selectTooltipDisplayedData(state),
@@ -503,11 +502,11 @@ export function selectActiveTooltipIndex(state: RechartsRootState): TooltipIndex
 	)
 }
 
-export function selectActiveLabel(state: RechartsRootState): ActiveLabel {
+export function selectActiveLabel(state: ChartState): ActiveLabel {
 	return combineActiveLabel(selectTooltipAxisTicks(state), selectActiveTooltipIndex(state))
 }
 
-export function selectActiveTooltipDataKey(state: RechartsRootState): DataKey<unknown> | undefined {
+export function selectActiveTooltipDataKey(state: ChartState): DataKey<unknown> | undefined {
 	const tooltipInteraction = selectTooltipInteractionState(state)
 	if (!tooltipInteraction) {
 		return undefined
@@ -515,7 +514,7 @@ export function selectActiveTooltipDataKey(state: RechartsRootState): DataKey<un
 	return tooltipInteraction.dataKey
 }
 
-export function selectActiveTooltipGraphicalItemId(state: RechartsRootState): string | undefined {
+export function selectActiveTooltipGraphicalItemId(state: ChartState): string | undefined {
 	const tooltipInteraction = selectTooltipInteractionState(state)
 	if (!tooltipInteraction) {
 		return undefined
@@ -523,7 +522,7 @@ export function selectActiveTooltipGraphicalItemId(state: RechartsRootState): st
 	return tooltipInteraction.graphicalItemId
 }
 
-function selectTooltipPayloadConfigurations(state: RechartsRootState) {
+function selectTooltipPayloadConfigurations(state: ChartState) {
 	return combineTooltipPayloadConfigurations(
 		selectTooltipState(state),
 		selectTooltipEventType(state),
@@ -532,7 +531,7 @@ function selectTooltipPayloadConfigurations(state: RechartsRootState) {
 	)
 }
 
-function selectTooltipCoordinateForDefaultIndex(state: RechartsRootState): Coordinate | undefined {
+function selectTooltipCoordinateForDefaultIndex(state: ChartState): Coordinate | undefined {
 	return combineCoordinateForDefaultIndex(
 		selectChartWidth(state),
 		selectChartHeight(state),
@@ -544,7 +543,7 @@ function selectTooltipCoordinateForDefaultIndex(state: RechartsRootState): Coord
 	)
 }
 
-export function selectActiveTooltipCoordinate(state: RechartsRootState): Coordinate | undefined {
+export function selectActiveTooltipCoordinate(state: ChartState): Coordinate | undefined {
 	const tooltipInteractionState = selectTooltipInteractionState(state)
 	const defaultIndexCoordinate = selectTooltipCoordinateForDefaultIndex(state)
 	if (tooltipInteractionState?.coordinate) {
@@ -553,12 +552,12 @@ export function selectActiveTooltipCoordinate(state: RechartsRootState): Coordin
 	return defaultIndexCoordinate
 }
 
-export function selectIsTooltipActive(state: RechartsRootState): boolean {
+export function selectIsTooltipActive(state: ChartState): boolean {
 	const tooltipInteractionState = selectTooltipInteractionState(state)
 	return tooltipInteractionState?.active ?? false
 }
 
-export function selectActiveTooltipPayload(state: RechartsRootState): TooltipPayload | undefined {
+export function selectActiveTooltipPayload(state: ChartState): TooltipPayload | undefined {
 	return combineTooltipPayload(
 		selectTooltipPayloadConfigurations(state),
 		selectActiveTooltipIndex(state),
@@ -570,7 +569,7 @@ export function selectActiveTooltipPayload(state: RechartsRootState): TooltipPay
 	)
 }
 
-export function selectActiveTooltipDataPoints(state: RechartsRootState) {
+export function selectActiveTooltipDataPoints(state: ChartState) {
 	const payload = selectActiveTooltipPayload(state)
 	if (payload == null) {
 		return undefined

@@ -49,7 +49,7 @@ import type { BaseAxisWithScale } from "../state/selectors/axisSelectors"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { selectLinePoints } from "../state/selectors/lineSelectors"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import type { AxisId } from "../state/cartesianAxisSlice"
 import { SetLegendPayload } from "../state/SetLegendPayload"
 import { useAnimationId } from "../util/useAnimationId"
@@ -670,7 +670,7 @@ function LineImpl(props: WithIdRequired<Props>) {
 	   read during the animation loop triggers a fresh selector chain (selectLinePoints
 	   → selectAxisWithScale → axis recompute), costing 16ms/frame. Memoizing collapses
 	   that to one recompute per store-change.
-	   Axis reactivity: selectLinePoints reads ctx.store._solid.cartesianAxes (a Solid store
+	   Axis reactivity: selectLinePoints reads ctx.store.cartesianAxes (a Solid store
 	   proxy) without untrack — this memo tracks those signals directly.
 	   Item reactivity: explicit read of stateCtx.state.graphicalItems[id] tracks mutations
 	   to graphicalItems (e.g. dataKey change) and passes updated settings to the selector. */
@@ -678,7 +678,7 @@ function LineImpl(props: WithIdRequired<Props>) {
 		const rawItem = stateCtx?.state.graphicalItems[resolved.id]
 		const itemSettings =
 			rawItem != null && rawItem.type === "line"
-				? (rawItem as import("../state/_solid/chartState").LineState).settings
+				? (rawItem as import("../state/chartState").LineState).settings
 				: undefined
 		return ctx
 			? selectLinePoints(

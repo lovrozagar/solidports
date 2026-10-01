@@ -2,10 +2,10 @@
 import { describe, expect, it } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { RadarChart, Radar, PolarAngleAxis, PolarRadiusAxis } from "../../src"
-import { useChartState } from "../../src/state/_solid/useChartState"
+import { useChartState } from "../../src/state/useChartState"
 import { selectRadarPoints } from "../../src/state/selectors/radarSelectors"
 import type { SetStoreFunction } from "solid-js/store"
-import type { ChartState } from "../../src/state/_solid/chartState"
+import type { ChartState } from "../../src/state/chartState"
 
 const data = [
 	{ subject: "Math", value: 120 },

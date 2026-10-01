@@ -19,6 +19,23 @@ describe('@solidports/base-ui', () => {
     });
   });
 
+  it.skipIf(!isJSDOM)('should resolve internals and auxiliary exports', async () => {
+    const packageJson = await import('../package.json');
+    const subpathExports = packageJson.exports;
+
+    const internalKeys = Object.keys(subpathExports).filter((key) =>
+      key.startsWith('./internals/'),
+    );
+
+    await Promise.all(
+      internalKeys.map(async (subpath) => {
+        const importSpecifier = `@solidports/base-ui/${subpath.replace('./', '')}`;
+        const module = await import(/* @vite-ignore */ importSpecifier);
+        expect(module, `${subpath} failed to resolve`).to.not.equal(undefined);
+      }),
+    );
+  });
+
   it.skipIf(!isJSDOM)('should have the correct root exports', async () => {
     const packageJson = await import('../package.json');
     const subpathExports = packageJson.exports;
@@ -26,7 +43,10 @@ describe('@solidports/base-ui', () => {
     await Promise.all(
       Object.keys(subpathExports)
         .filter(
-          (key) => !['.', './utils', './types'].includes(key) && !key.startsWith('./unstable-'),
+          (key) =>
+            !['.', './utils', './types'].includes(key) &&
+            !key.startsWith('./unstable-') &&
+            !key.startsWith('./internals/'),
         )
         .map(async (subpath) => {
           const importSpecifier = `@solidports/base-ui/${subpath.replace('./', '')}`;

@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { RechartsRootState } from "../store"
+import { ChartState } from "../store"
 import { selectChartLayout } from "../../context/chartLayoutContext"
 
 /**
@@ -12,7 +12,7 @@ export type AllAxisTypes = "xAxis" | "yAxis" | "zAxis" | "radiusAxis" | "angleAx
  */
 export type RenderableAxisType = "xAxis" | "yAxis" | "angleAxis" | "radiusAxis"
 
-export const selectTooltipAxisType = (state: RechartsRootState): RenderableAxisType => {
+export const selectTooltipAxisType = (state: ChartState): RenderableAxisType => {
 	const layout = selectChartLayout(state)
 
 	if (layout === "horizontal") {

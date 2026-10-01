@@ -12,6 +12,7 @@ import omit from "es-toolkit/compat/omit"
 import { clsx } from "clsx"
 import { selectActiveIndex } from "../state/selectors/selectors"
 import { useChartStore } from "../state/RechartsStoreContext"
+import { readChartState } from "../state/chartState"
 import { Layer } from "../container/Layer"
 import type { Props as TrapezoidProps } from "../shape/Trapezoid"
 import {
@@ -295,7 +296,7 @@ function FunnelTrapezoids(funnelTrapProps: FunnelTrapezoidsProps) {
 			? selectActiveIndex(
 					ctx.store,
 					"item",
-					ctx.store._solid.tooltip.settings.trigger,
+					readChartState(ctx.store).tooltip.settings.trigger,
 					undefined,
 				)
 			: undefined,

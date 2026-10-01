@@ -1,6 +1,5 @@
 /* eslint-disable import/no-cycle */
 import { createEffect, createMemo, mergeProps, Show, type JSX } from "solid-js"
-import { produce } from "solid-js/store"
 import { BarePortal } from "../util/BarePortal"
 import {
 	DefaultTooltipContent,
@@ -32,7 +31,7 @@ import {
 import { useTooltipPortal } from "../context/tooltipPortalContext"
 import type { TooltipTrigger } from "../chart/types"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import type {
 	TooltipIndex,
 	TooltipPayload,
@@ -310,7 +309,7 @@ export function Tooltip(outsideProps: TooltipProps<ValueType, NameType>) {
 		typeof props.defaultIndex === "number" ? String(props.defaultIndex) : props.defaultIndex
 
 	createEffect(() => {
-		/* Write only defined active so _solid initial `active:false` is preserved
+		/* Write only defined active so ChartState initial `active:false` is preserved
 		   when Tooltip mounts without an explicit `active` prop. */
 		const newSettingsUpdate: Partial<TooltipSettingsState> = {
 			axisId: props.axisId,
@@ -320,26 +319,6 @@ export function Tooltip(outsideProps: TooltipProps<ValueType, NameType>) {
 		}
 		if (props.active !== undefined) newSettingsUpdate.active = props.active
 		newCtx?.setState("tooltip", "settings", newSettingsUpdate as TooltipSettingsState)
-		/* Legacy compat shim — legacy store holds defaultIndex as string and needs
-		   active:undefined written explicitly (Solid merge drops undefined keys). */
-		if (ctx != null) {
-			const activeValue = props.active
-			const axisId = props.axisId
-			const legacyDefaultIndex = defaultIndexAsString()
-			const shared = props.shared
-			const trigger = props.trigger
-			ctx.setStore(
-				"tooltip",
-				"settings",
-				produce((s: TooltipSettingsState) => {
-					s.active = activeValue
-					s.axisId = axisId
-					s.defaultIndex = legacyDefaultIndex
-					s.shared = shared
-					s.trigger = trigger
-				}),
-			)
-		}
 	})
 
 	const viewBox = () => useViewBox()

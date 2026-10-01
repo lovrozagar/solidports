@@ -16,8 +16,7 @@ import { useLegendPayload } from "../context/legendPayloadContext"
 import { type ElementOffset, useElementOffset } from "../util/useElementOffset"
 import { useChartHeight, useChartWidth, useMargin } from "../context/chartLayoutContext"
 import type { LegendSettings } from "../state/legendSlice"
-import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 
 function defaultUniqBy(entry: LegendPayload) {
@@ -193,27 +192,20 @@ export type Props = Omit<DefaultLegendContentProps, "payload" | "ref" | "vertica
 
 function LegendSettingsDispatcher(props: LegendSettings): null {
 	const newCtx = useOptionalChartState()
-	const ctx = useChartStore()
 	createEffect(() => {
 		const s = { align: props.align, itemSorter: props.itemSorter, layout: props.layout, verticalAlign: props.verticalAlign }
 		newCtx?.setState("legend", "settings", s)
-		/* Legacy compat shim — dual-write keeps state.legend.settings current for selectors */
-		ctx?.setStore("legend", "settings", s)
 	})
 	return null
 }
 
 function LegendSizeDispatcher(props: Size): null {
 	const newCtx = useOptionalChartState()
-	const ctx = useChartStore()
 	createEffect(() => {
 		const s = { height: props.height, width: props.width }
 		newCtx?.setState("legend", "size", s)
-		/* Legacy compat shim */
-		ctx?.setStore("legend", "size", s)
 		onCleanup(() => {
 			newCtx?.setState("legend", "size", { height: 0, width: 0 })
-			ctx?.setStore("legend", "size", { height: 0, width: 0 })
 		})
 	})
 	return null

@@ -64,7 +64,7 @@ import { useChartLayout } from "../context/chartLayoutContext"
 import { selectBarRectangles } from "../state/selectors/barSelectors"
 import type { BaseAxisWithScale } from "../state/selectors/axisSelectors"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { selectActiveTooltipIndex } from "../state/selectors/tooltipSelectors"
 import { SetLegendPayload } from "../state/SetLegendPayload"
@@ -899,7 +899,7 @@ function BarImpl(props: InternalBarProps & { children?: JSX.Element }) {
 		void (rawItem?.type === "bar" ? rawItem.settings?.maxBarSize : undefined)
 		const itemSettings =
 			rawItem != null && rawItem.type === "bar"
-				? (rawItem as import("../state/_solid/chartState").BarState).settings
+				? (rawItem as import("../state/chartState").BarState).settings
 				: undefined
 		return ctx
 			? selectBarRectangles(

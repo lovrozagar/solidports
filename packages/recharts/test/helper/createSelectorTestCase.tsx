@@ -12,7 +12,7 @@ import type { Mock } from "vitest"
 import { vi } from "vitest"
 import { render } from "@solidjs/testing-library"
 import { useAppSelectorWithStableTest } from "./selectorTestHelpers"
-import type { RechartsRootState } from "../../src/state/store"
+import type { ChartState } from "../../src/state/store"
 import type { MockAnimationManager } from "../animation/MockProgressAnimationManager"
 import { assertUniqueHtmlIds } from "../util/assertUniqueHtmlIds"
 import { AnimationManagerContext } from "../../src/animation/useAnimationManager"
@@ -78,12 +78,12 @@ export type SolidHook<T> = {
 
 /* Solid hooks take no args; Redux-style selectors take state (+ optional args).
    Arity-based detection survives anonymous arrow wrappers (() => useFoo()). */
-function isSolidHook<T>(fn: SolidHook<T> | ((state: RechartsRootState) => T)): fn is SolidHook<T> {
+function isSolidHook<T>(fn: SolidHook<T> | ((state: ChartState) => T)): fn is SolidHook<T> {
 	return fn.length === 0 || /^use[A-Z].*$/.test(fn.name)
 }
 
 function getComp<T>(
-	selector: SolidHook<T> | ((state: RechartsRootState) => T) | undefined,
+	selector: SolidHook<T> | ((state: ChartState) => T) | undefined,
 	spy: Mock<(selectorResult: T | undefined) => void>,
 	generation: () => number,
 ): () => null {
@@ -137,7 +137,7 @@ function getComp<T>(
  */
 export function createSelectorTestCase(InitialComponent: Component<{ children: JSX.Element }>) {
 	return function renderTestCase<T>(
-		selector?: SolidHook<T> | ((state: RechartsRootState) => T) | undefined,
+		selector?: SolidHook<T> | ((state: ChartState) => T) | undefined,
 	): TestCaseResult<T> {
 		const spy: Mock<(selectorResult: T | undefined) => void> = vi.fn()
 		const animationManager = new CompositeAnimationManager()
@@ -250,7 +250,7 @@ export function createSynchronisedSelectorTestCase(
 	ComponentC?: Component<{ children: JSX.Element }>,
 ) {
 	return function renderTestCase<T>(
-		selector: (state: RechartsRootState) => T | undefined = () => undefined,
+		selector: (state: ChartState) => T | undefined = () => undefined,
 	): {
 		container: Element
 		debug: () => void

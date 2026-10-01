@@ -1,19 +1,19 @@
 /* eslint-disable import/no-cycle */
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import type { TooltipIndex, TooltipPayloadConfiguration } from "../tooltipSlice"
 import type { Coordinate } from "../../util/types"
 import { selectTooltipState } from "./selectTooltipState"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 
 function selectAllTooltipPayloadConfiguration(
-	state: RechartsRootState,
+	state: ChartState,
 ): ReadonlyArray<TooltipPayloadConfiguration> {
 	const tooltipState = selectTooltipState(state)
 	return tooltipState.tooltipItemPayloads
 }
 
 export function selectTooltipCoordinate(
-	state: RechartsRootState,
+	state: ChartState,
 	tooltipIndex: TooltipIndex,
 	graphicalItemId: GraphicalItemId,
 ): Coordinate | undefined {

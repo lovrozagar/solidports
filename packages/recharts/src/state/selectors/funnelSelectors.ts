@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { computeFunnelTrapezoids, type FunnelTrapezoidItem } from "../../cartesian/Funnel"
 import type { ChartData } from "../chartDataSlice"
-import type { RechartsRootState } from "../store"
+import type { ChartState } from "../store"
 import { selectChartOffsetInternal } from "./selectChartOffsetInternal"
 import { selectChartDataAndAlwaysIgnoreIndexes } from "./dataSelectors"
 import type { ChartOffsetInternal, DataKey, TooltipType } from "../../util/types"
@@ -21,7 +21,7 @@ export type ResolvedFunnelSettings = {
 }
 
 export function selectFunnelTrapezoids(
-	state: RechartsRootState,
+	state: ChartState,
 	funnelSettings: ResolvedFunnelSettings,
 ): ReadonlyArray<FunnelTrapezoidItem> {
 	const offset: ChartOffsetInternal = selectChartOffsetInternal(state)

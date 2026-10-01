@@ -1,5 +1,5 @@
 import { expectType } from '#test-utils';
-import { DrawerPreview as Drawer } from '@solidports/base-ui/drawer';
+import { Drawer } from '@solidports/base-ui/drawer';
 import { REASONS } from '../../utils/reasons';
 
 type DrawerChangeHandler = NonNullable<Drawer.Root.Props['onOpenChange']>;

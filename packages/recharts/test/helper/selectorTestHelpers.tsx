@@ -4,7 +4,7 @@ import { useContext } from "solid-js"
 import { useAppSelector } from "../helper/legacyDispatch"
 import { RechartsStoreContext } from "../../src/state/RechartsStoreContext"
 import { createInitialState, createRechartsStore } from "../../src/state/store"
-import type { RechartsRootState } from "../../src/state/store"
+import type { ChartState } from "../../src/state/store"
 import { createSelectorTestCase } from "./createSelectorTestCase"
 
 /**
@@ -13,14 +13,14 @@ import { createSelectorTestCase } from "./createSelectorTestCase"
  * this returns undefined — matching the React+Redux behaviour
  * where useSelector returns undefined outside a Provider.
  */
-function useAppSelectorSafe<T>(selector: (state: RechartsRootState) => T): T | undefined {
+function useAppSelectorSafe<T>(selector: (state: ChartState) => T): T | undefined {
 	const ctx = useContext(RechartsStoreContext)
 	if (ctx == null) return undefined
 	return selector(ctx.store)
 }
 
 export function shouldReturnUndefinedOutOfContext(
-	selector: (state: RechartsRootState) => unknown,
+	selector: (state: ChartState) => unknown,
 ): void {
 	it("should return undefined when called out of Recharts context", () => {
 		const spy = vi.fn()
@@ -35,7 +35,7 @@ export function shouldReturnUndefinedOutOfContext(
 }
 
 export function shouldReturnFromInitialState<T>(
-	selector: (state: RechartsRootState) => T,
+	selector: (state: ChartState) => T,
 	expectedReturn: T,
 ): void {
 	const valueDescription = JSON.stringify(expectedReturn)
@@ -68,9 +68,9 @@ export function shouldReturnFromInitialState<T>(
  */
 export function assertStableBetweenRenders<T>(
 	renderTestCase: ReturnType<typeof createSelectorTestCase>,
-	selector: (state: RechartsRootState) => T,
+	selector: (state: ChartState) => T,
 ) {
-	let storeRef: RechartsRootState | undefined
+	let storeRef: ChartState | undefined
 	const StoreCapture = (): null => {
 		const ctx = useContext(RechartsStoreContext)
 		if (ctx == null) throw new Error("StoreCapture used outside RechartsStoreContext")
@@ -143,9 +143,9 @@ function structuralEqualIgnoringFunctions(a: unknown, b: unknown): boolean {
  * Structural equality with function-shape parity is the real contract.
  */
 export function useAppSelectorWithStableTest<T>(
-	selector: (state: RechartsRootState) => T,
+	selector: (state: ChartState) => T,
 ): T | undefined {
-	return useAppSelector((state: RechartsRootState) => {
+	return useAppSelector((state: ChartState) => {
 		const result1 = selector(state)
 		const result2 = selector(state)
 		expect(structuralEqualIgnoringFunctions(result1, result2)).toBe(true)

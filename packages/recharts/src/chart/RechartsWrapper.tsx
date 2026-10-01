@@ -3,7 +3,7 @@ import type { JSX } from "solid-js"
 import { batch, createSignal, onCleanup } from "solid-js"
 import { clsx } from "clsx"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import { useSynchronisedEventsFromOtherCharts } from "../synchronisation/useChartSynchronisation"
 import { useReportScale } from "../util/useReportScale"
 import type { ExternalMouseEvents } from "./types"
@@ -401,10 +401,6 @@ export function RechartsWrapper(props: RechartsWrapperProps) {
 		batch(() => {
 			newCtx?.setState("tooltip", "axisInteraction", "hover", "active", false)
 			newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-			/* Mirror the legacy store so selectTooltipState's legacy-vs-_solid
-			   check doesn't see stale active=true from prior mouseMoveAction. */
-			ctx?.setStore("tooltip", "axisInteraction", "hover", "active", false)
-			ctx?.setStore("tooltip", "itemInteraction", "hover", "active", false)
 		})
 		if (mouseEntered) {
 			mouseEntered = false
@@ -438,9 +434,6 @@ export function RechartsWrapper(props: RechartsWrapperProps) {
 		batch(() => {
 			newCtx?.setState("tooltip", "axisInteraction", "hover", "active", false)
 			newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-			/* Mirror legacy — symmetric with mouseMoveAction dual-write. */
-			ctx?.setStore("tooltip", "axisInteraction", "hover", "active", false)
-			ctx?.setStore("tooltip", "itemInteraction", "hover", "active", false)
 		})
 		if (mouseEntered) {
 			mouseEntered = false

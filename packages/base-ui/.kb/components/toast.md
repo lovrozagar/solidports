@@ -5,7 +5,7 @@
 | Aspect | Status |
 | :--- | :--- |
 | Ported (`packages/solid/`) | partial — animation / dismiss bugs |
-| Docs ported (`docs-solid/`) | demo present, behavior buggy |
+| Docs ported (`docs/solid/`) | demo present, behavior buggy |
 | Tests passing (jsdom) | unknown |
 | Tests passing (chromium) | unknown |
 | Last reviewed | 2026-04-16 |
@@ -18,8 +18,8 @@ No dedicated Solid topic file yet — issues below are component-specific.
 
 - React (read-only): `packages/react/src/toast/`
 - Solid (target):    `packages/solid/src/toast/`
-- Docs (target):     `docs-solid/src/content/solid/components/toast.mdx`
-- Demos (target):    `docs-solid/src/demos/solid/toast/`
+- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/toast.mdx`
+- Demos (target):    `docs/solid/src/demos/solid/toast/`
 
 ## Open issues
 
@@ -43,6 +43,6 @@ When investigating, inspect:
 ## Quick test
 
 ```bash
-pnpm test:solid:jsdom Toast --no-watch --reporter=agent
-pnpm test:solid:chromium Toast --no-watch --reporter=agent
+bun run test:solid:jsdom Toast --no-watch --reporter=agent
+bun run test:solid:chromium Toast --no-watch --reporter=agent
 ```

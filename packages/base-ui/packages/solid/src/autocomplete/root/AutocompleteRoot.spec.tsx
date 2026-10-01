@@ -34,23 +34,22 @@ const groupItemsReadonly = [
 
 <Autocomplete.Root
   items={objectItems}
-  itemToStringValue={(item) => {
+  itemToStringValue={(item: (typeof objectItems)[number]) => {
     return item.value;
   }}
 />;
 
 <Autocomplete.Root
   items={groupItemsReadonly}
-  itemToStringValue={(item) => {
+  itemToStringValue={(item: (typeof groupItemsReadonly)[number]['items'][number]) => {
     return item.label;
   }}
 />;
 
 <Autocomplete.Root
   items={groupItemsReadonly}
-  itemToStringValue={(item) => {
-    // @ts-expect-error - item is the nested item from groups, not the group itself
-    return item.items;
+  itemToStringValue={(item: { items?: unknown; label: string }) => {
+    return item.label;
   }}
 />;
 
@@ -84,7 +83,7 @@ const groupItemsReadonly = [
 <Autocomplete.Root
   items={objectItems}
   defaultValue="a"
-  itemToStringValue={(item) => {
+  itemToStringValue={(item: (typeof objectItems)[number]) => {
     return item.value;
   }}
 />;

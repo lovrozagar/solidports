@@ -1,11 +1,11 @@
 import { createContext, useContext } from "solid-js"
-import type { RechartsRootState } from "./store"
+import type { ChartState } from "./chartState"
 import type { SetStoreFunction } from "solid-js/store"
 import type { ChartEventHandlers } from "./events"
 
 export type ChartStoreContextValue = {
-	store: RechartsRootState
-	setStore: SetStoreFunction<RechartsRootState>
+	store: ChartState
+	setStore: SetStoreFunction<ChartState>
 	events: ChartEventHandlers
 }
 

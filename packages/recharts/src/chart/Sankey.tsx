@@ -24,10 +24,9 @@ import {
 	useChartWidth,
 } from "../context/chartLayoutContext"
 import { RechartsWrapper } from "./RechartsWrapper"
-import { RechartsStateProvider } from "../state/_solid/RechartsStateProvider"
-import { RechartsStoreProvider } from "../state/RechartsStoreProvider"
+import { RechartsStateProvider } from "../state/RechartsStateProvider"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/_solid/useChartState"
+import { useOptionalChartState } from "../state/useChartState"
 import type {
 	TooltipIndex,
 	TooltipPayloadConfiguration,
@@ -909,15 +908,12 @@ function SankeyLinkElement(props: {
 			index: activeIndex,
 		}
 		newCtx?.setState("tooltip", "itemInteraction", "hover", hoverPayload)
-		/* Legacy compat shim — tests reading state.tooltip.itemInteraction directly. */
-		ctx?.setStore("tooltip", "itemInteraction", "hover", hoverPayload)
 		props.onMouseEnter(props.props, e)
 	}
 	const fireLeave = (e: MouseEvent) => {
 		if (!entered) return
 		entered = false
 		newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-		ctx?.setStore("tooltip", "itemInteraction", "hover", "active", false)
 		props.onMouseLeave(props.props, e)
 	}
 	const events = {
@@ -930,7 +926,6 @@ function SankeyLinkElement(props: {
 				index: activeIndex,
 			}
 			newCtx?.setState("tooltip", "itemInteraction", "click", clickPayload)
-			ctx?.setStore("tooltip", "itemInteraction", "click", clickPayload)
 			props.onClick(props.props, e)
 		},
 		onMouseEnter: fireEnter,
@@ -1064,15 +1059,12 @@ function NodeElement(props: {
 			index: activeIndex,
 		}
 		newCtx?.setState("tooltip", "itemInteraction", "hover", hoverPayload)
-		/* Legacy compat shim — tests reading state.tooltip.itemInteraction directly. */
-		ctx?.setStore("tooltip", "itemInteraction", "hover", hoverPayload)
 		props.onMouseEnter(props.props, e)
 	}
 	const fireLeave = (e: MouseEvent) => {
 		if (!entered) return
 		entered = false
 		newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-		ctx?.setStore("tooltip", "itemInteraction", "hover", "active", false)
 		props.onMouseLeave(props.props, e)
 	}
 	const events = {
@@ -1085,7 +1077,6 @@ function NodeElement(props: {
 				index: activeIndex,
 			}
 			newCtx?.setState("tooltip", "itemInteraction", "click", clickPayload)
-			ctx?.setStore("tooltip", "itemInteraction", "click", clickPayload)
 			props.onClick(props.props, e)
 		},
 		onMouseEnter: fireEnter,
@@ -1298,8 +1289,7 @@ export function Sankey(outsideProps: Props): JSX.Element {
 	const props: PropsWithResolvedDefaults = resolveDefaultProps(restProps, sankeyDefaultProps)
 
 	return (
-		<RechartsStateProvider>
-			<RechartsStoreProvider preloadedState={{ options }}>
+		<RechartsStateProvider preloadedState={{ options }}>
 			<ReportChartSize width={props.width} height={props.height} />
 			<ReportChartMargin margin={props.margin} />
 			<ReportEventSettings
@@ -1349,7 +1339,6 @@ export function Sankey(outsideProps: Props): JSX.Element {
 					)}
 				</RegisterGraphicalItemId>
 			</RechartsWrapper>
-		</RechartsStoreProvider>
 		</RechartsStateProvider>
 	)
 }

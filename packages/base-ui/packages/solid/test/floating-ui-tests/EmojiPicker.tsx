@@ -154,7 +154,7 @@ export function Main() {
     context,
     props: {
       listRef,
-      onNavigate: (index) => (open() ? setActiveIndex(index) : undefined),
+      onNavigate: (index: number | null) => (open() ? setActiveIndex(index) : undefined),
       get activeIndex() {
         return activeIndex();
       },
@@ -245,7 +245,7 @@ export function Main() {
                     value={search()}
                     aria-controls={filteredEmojis().length === 0 ? noResultsId() : undefined}
                     {...getInputProps<HTMLInputElement>({
-                      onInput(event) {
+                      onInput(event: InputEvent & { target: HTMLInputElement }) {
                         setActiveIndex(null);
                         setSearch(event.target.value);
                       },
@@ -269,9 +269,9 @@ export function Main() {
                               {...getItemProps({
                                 onClick: handleEmojiClick,
                                 // TODO: need to figure out why is ref getting overwritten if it's above?
-                                ref(node) {
+                                ref(node: HTMLElement | null) {
                                   const idx = index;
-                                  listRef[idx] = node ?? null;
+                                  listRef[idx] = node ?? undefined;
                                   onCleanup(() => {
                                     listRef[idx] = undefined;
                                   });

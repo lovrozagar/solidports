@@ -3,7 +3,7 @@ import type { Dimensions } from '../types';
 import { ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, ARROW_UP } from './constants';
 import { stopEvent } from './event';
 
-type DisabledIndices =
+export type DisabledIndices =
   | ReadonlyArray<number>
   | ((index?: number) => boolean | ReadonlyArray<number>);
 
@@ -83,7 +83,7 @@ export function getGridNavigatedIndex(
     onLoop?: ((event: KeyboardEvent, prevIndex: number, nextIndex: number) => number) | undefined;
     rtl: boolean;
     cols: number;
-    disabledIndices: DisabledIndices;
+    disabledIndices?: DisabledIndices | undefined;
     minIndex: number;
     maxIndex: number;
     prevIndex: number;

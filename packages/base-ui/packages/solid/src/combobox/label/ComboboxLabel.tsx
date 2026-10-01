@@ -21,7 +21,7 @@ export function ComboboxLabel(componentProps: ComboboxLabel.Props) {
     'id',
   ]);
 
-  const fieldRootContext = useFieldRootContext(false);
+  const fieldRootContext = useFieldRootContext();
   const { store } = useComboboxRootContext();
   const { setLabelId } = useLabelableContext();
 

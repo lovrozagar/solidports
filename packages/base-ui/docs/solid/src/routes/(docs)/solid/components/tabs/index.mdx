@@ -1,0 +1,84 @@
+{/* Generated from docs/react by `bun run docs:generate`. Do not edit by hand. */}
+
+# Tabs
+
+<Subtitle>A component for toggling between related panels on the same page.</Subtitle>
+
+<Meta
+  name="description"
+  content="A high-quality, unstyled Solid tabs component for toggling between related panels on the same page."
+/>
+
+<Demo path="tabs/hero" />
+
+## Anatomy
+
+Import the component and assemble its parts:
+
+```jsx title="Anatomy"
+import { Tabs } from '@solidports/base-ui/tabs';
+
+<Tabs.Root>
+  <Tabs.List>
+    <Tabs.Tab />
+    <Tabs.Indicator />
+  </Tabs.List>
+  <Tabs.Panel />
+</Tabs.Root>;
+```
+
+## Examples
+
+### Animated panels
+
+Animate panels as they activate using the `data-starting-style` and `data-ending-style` attributes.
+The `data-activation-direction` attribute indicates which direction the newly active tab is relative to the previously active one, letting panels slide in from the correct side.
+
+<Demo path="tabs/animated-panels" />
+
+### Links
+
+Use the `render` prop and set `nativeButton={false}` on `<Tabs.Tab>` to render tabs as anchor elements.
+
+```jsx title="Tabs as links"
+import { Tabs } from '@solidports/base-ui/tabs';
+import Link from 'next/link';
+
+<Tabs.Root>
+  <Tabs.List>
+    {/* @highlight-start */}
+    {/* @highlight-text "nativeButton={false}" "render" */}
+    <Tabs.Tab nativeButton={false} render={<Link href="/overview" />} value="overview">
+      Overview
+    </Tabs.Tab>
+    {/* @highlight-end */}
+  </Tabs.List>
+  {/* ... */}
+</Tabs.Root>;
+```
+
+## API reference
+
+<Reference component="Tabs" parts="Root, List, Tab, Indicator, Panel" />
+
+export const metadata = {
+  keywords: [
+    'React Tabs',
+    'Tabbed Interface Component',
+    'Tab Panel',
+    'Tab Control',
+    'Tabbed Navigation',
+    'Tabbed UI',
+    'Page Switcher',
+    'Content Switcher',
+    'View Switcher',
+    'Tab List Indicator',
+    'Tablist',
+    'Tabpanel',
+    'Keyboard Navigation Tabs',
+    'Controlled Tabs',
+    'Accessible Tabs',
+    'Headless Solid Components',
+    'Base UI',
+  ],
+};

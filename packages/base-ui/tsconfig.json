@@ -4,10 +4,10 @@
   "include": [],
   "references": [
     {
-      "path": "docs-react/tsconfig.json"
+      "path": "docs/react/tsconfig.json"
     },
     {
-      "path": "docs-solid/tsconfig.json"
+      "path": "docs/solid/tsconfig.json"
     },
     {
       "path": "packages/react/tsconfig.json"
