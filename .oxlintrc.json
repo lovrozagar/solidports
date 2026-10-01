@@ -15,7 +15,9 @@
 		"**/test-results/**",
 		"**/playwright-report/**",
 		"packages/base-ui/**",
-		"packages/recharts/**"
+		"packages/recharts/**",
+		"packages/flare-ui/**",
+		"packages/flare-ui-consumer/**"
 	],
 	"categories": {
 		"correctness": "error",

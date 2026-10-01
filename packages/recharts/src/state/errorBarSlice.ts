@@ -1,9 +1,6 @@
-import { produce } from "solid-js/store"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ErrorBarDirection } from "../cartesian/ErrorBar"
 import type { DataKey } from "../util/types"
 import type { GraphicalItemId } from "./graphicalItemsSlice"
-import type { ChartState } from "./store"
 
 /**
  * ErrorBars have lot more settings but all the others are scoped to the component itself.
@@ -30,51 +27,3 @@ export type ErrorBarsSettings = {
 export type ErrorBarsState = Record<GraphicalItemId, ReadonlyArray<ErrorBarsSettings>>
 
 export const initialErrorBarState: ErrorBarsState = {}
-
-/* GOTCHA-013: callers (ReportErrorBarSettings) dispatch from inside a createEffect.
-   Setter-fn form `setStore(path, (prev) => ...)` reads `prev` inside the tracked scope,
-   which subscribes the effect to the very key being written → infinite loop. produce()
-   mutates in place without registering a read on the array reference, breaking the
-   feedback cycle. Same pattern used by SetCartesianGraphicalItem. */
-
-export const addErrorBar =
-	(payload: { errorBar: ErrorBarsSettings; itemId: GraphicalItemId }) =>
-	(setStore: SetStoreFunction<ChartState>) => {
-		setStore(
-			"errorBars",
-			produce((errorBars: ErrorBarsState) => {
-				const list = errorBars[payload.itemId] ?? []
-				errorBars[payload.itemId] = [...list, payload.errorBar]
-			}),
-		)
-	}
-
-export const removeErrorBar =
-	(payload: { errorBar: ErrorBarsSettings; itemId: GraphicalItemId }) =>
-	(setStore: SetStoreFunction<ChartState>) => {
-		setStore(
-			"errorBars",
-			produce((errorBars: ErrorBarsState) => {
-				const list = errorBars[payload.itemId]
-				if (list == null) return
-				errorBars[payload.itemId] = list.filter((e) => e !== payload.errorBar)
-			}),
-		)
-	}
-
-export const replaceErrorBar =
-	(payload: {
-		itemId: GraphicalItemId
-		prev: ErrorBarsSettings
-		next: ErrorBarsSettings
-	}) =>
-	(setStore: SetStoreFunction<ChartState>) => {
-		setStore(
-			"errorBars",
-			produce((errorBars: ErrorBarsState) => {
-				const list = errorBars[payload.itemId]
-				if (list == null) return
-				errorBars[payload.itemId] = list.map((e) => (e === payload.prev ? payload.next : e))
-			}),
-		)
-	}

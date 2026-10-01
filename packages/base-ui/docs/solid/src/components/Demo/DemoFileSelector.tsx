@@ -55,7 +55,11 @@ export function DemoFileSelector(props: DemoFileSelectorProps) {
         </Show>
       }
     >
-      <Tabs.Root value={props.selectedFileName} onValueChange={onValueChange}>
+      <Tabs.Root
+        class="DemoTabsRoot"
+        value={props.selectedFileName}
+        onValueChange={onValueChange}
+      >
         <Tabs.List class="DemoTabsList" aria-label="Files">
           <For each={tabs()}>
             {(tab) => (
@@ -73,7 +77,8 @@ export function DemoFileSelector(props: DemoFileSelectorProps) {
                         onTabClick(event)
                       }}
                     >
-                      {tab.name}
+                      {/* Span paints above the active tab's ::before fill. */}
+                      <span>{tab.name}</span>
                     </a>
                   )
                 }}

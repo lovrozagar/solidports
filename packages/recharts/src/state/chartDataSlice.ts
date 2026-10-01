@@ -1,6 +1,4 @@
-import type { SetStoreFunction } from "solid-js/store"
 import type { BrushStartEndIndex } from "../context/brushUpdateContext"
-import type { ChartState } from "./store"
 
 /**
  * This is the data that's coming through main chart `data` prop
@@ -50,38 +48,3 @@ export const initialChartDataState: ChartDataState = {
 }
 
 export type BrushStartEndIndexActionPayload = Partial<BrushStartEndIndex>
-
-export const setDataStartEndIndexes =
-	(payload: BrushStartEndIndexActionPayload) =>
-	(setStore: SetStoreFunction<ChartState>) => {
-		if (payload.startIndex !== undefined) {
-			setStore("chartData", "dataStartIndex", payload.startIndex)
-		}
-		if (payload.endIndex !== undefined) {
-			setStore("chartData", "dataEndIndex", payload.endIndex)
-		}
-	}
-
-/* Mirrors upstream: when setting new chart data, sync dataEndIndex to length-1
-   so selectors that slice by [start, end] see the whole range by default.
-   Upstream: src/state/chartDataSlice.ts reducer setChartData. */
-export const setChartData =
-	(data: ChartData | undefined) =>
-	(setStore: SetStoreFunction<ChartState>) => {
-		setStore("chartData", "chartData", data)
-		if (data == null) {
-			setStore("chartData", "dataStartIndex", 0)
-			setStore("chartData", "dataEndIndex", 0)
-			return
-		}
-		if (data.length > 0) {
-			setStore("chartData", "dataEndIndex", (prev: number) =>
-				prev !== data.length - 1 ? data.length - 1 : prev,
-			)
-		}
-	}
-
-export const setComputedData =
-	(data: unknown) =>
-	(setStore: SetStoreFunction<ChartState>) =>
-		setStore("chartData", "computedData", data)

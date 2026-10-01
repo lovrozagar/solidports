@@ -6,7 +6,10 @@ import { BarChart } from "../../src/chart/BarChart"
 import { Bar } from "../../src/cartesian/Bar"
 import { ErrorBar } from "../../src/cartesian/ErrorBar"
 import { useAppSelector } from "../helper/legacyDispatch"
-import { selectAllErrorBarSettings } from "../../src/state/selectors/axisSelectors"
+import {
+	selectAllErrorBarSettings,
+	selectUnfilteredCartesianItems,
+} from "../../src/state/selectors/axisSelectors"
 
 describe("graphical-item mount-order debug", () => {
 	it("logs spy calls to identify timing issue", () => {
@@ -18,14 +21,15 @@ describe("graphical-item mount-order debug", () => {
 		const Comp = () => {
 			const value = createMemo(() => {
 				const v = useAppSelector((s) => {
-					console.log("SELECTOR EVAL, items.length=", s.graphicalItems.cartesianItems.length, "errorBars keys=", Object.keys(s.errorBars).length)
+					const itemCount = Object.values(s.graphicalItems).filter(Boolean).length
+					console.log("SELECTOR EVAL, items.length=", itemCount, "errorBars keys=", Object.keys(s.errorBars).length)
 					return s.errorBars
 				})
 				console.log("MEMO eval, v defined?", v != null, "type:", typeof v)
 				return v
 			})
 			const items = createMemo(() => {
-				const arr = useAppSelector((s) => s.graphicalItems.cartesianItems)
+				const arr = useAppSelector(selectUnfilteredCartesianItems)
 				console.log("ITEMS MEMO ran, len=", arr?.length)
 				return arr
 			})

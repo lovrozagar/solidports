@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest"
 import { createEffect } from "solid-js"
 import { useAppDispatch, useAppSelector } from "../helper/legacyDispatch"
 import { RechartsStoreProvider } from "../../src/state/RechartsStoreProvider"
-import { setChartData } from "../../src/state/chartDataSlice"
+import { useChartState } from "../../src/state/useChartState"
+import { createActions } from "../../src/state/actions"
 
 describe("useAppSelector", () => {
 	it("should return undefined when used outside of Redux context", () => {
@@ -46,14 +47,14 @@ describe("useAppSelector", () => {
 		expect.assertions(2)
 		const Spy = (): null => {
 			const state = useAppSelector((s) => s)
-			const dispatch = useAppDispatch()
+			const chart = useChartState()
 			let dispatched = false
 			createEffect(() => {
 				const data = state?.chartData.chartData
 				if (!dispatched) {
 					expect(data).toBe(undefined)
 					dispatched = true
-					dispatch(setChartData([]))
+					createActions(chart.state, chart.setState).setChartData([])
 					return
 				}
 				expect(data).toEqual([])

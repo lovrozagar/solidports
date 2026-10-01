@@ -254,8 +254,9 @@
     --color-docs-infra-syntax-nullish: var(--color-blue);
   }
 
+  /* HTML tags stay colored text. Shiki marks them with --syntax-tag; React uses .di-ht. */
   /* stylelint-disable-next-line selector-pseudo-class-disallowed-list */
-  .MdCode[data-inline]:not(:has(> .di-ht)) {
+  .MdCode[data-inline]:not(:has(> .di-ht)):not(:has([style*='--syntax-tag'])) {
     display: inline-block;
     background-color: var(--color-line-highlight);
     padding: 0.05em 0.2em;

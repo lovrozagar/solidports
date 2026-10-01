@@ -18,7 +18,7 @@ export function CssVariablesReferenceTable(props: CssVariablesReferenceTableProp
     <>
       <Accordion.Root {...(rest as JSX.HTMLAttributes<HTMLElement>)} class={clsx(local.class, "xs:hidden")}>
         <Accordion.HeaderRow>
-          <Accordion.HeaderCell class="pl-[0.75rem]">CSS Variable</Accordion.HeaderCell>
+          <Accordion.HeaderCell>CSS Variable</Accordion.HeaderCell>
         </Accordion.HeaderRow>
         <For each={entries()}>
           {([name, cssVariable], index) => (

@@ -20,6 +20,8 @@ Unless the request says otherwise, a feature or fix applies only to:
 
 - `packages/base-ui/packages/solid` for Base UI
 - `packages/recharts` for Recharts
+- `packages/flare-ui` for Flare UI
+- `packages/flare-ui-consumer` for the Flare UI gallery
 
 `packages/base-ui/packages/react` is the upstream reference. Do not "fix" it to
 match Solid. Docs live in `packages/base-ui/docs/solid`. `packages/base-ui/docs/react` is the upstream docs snapshot.

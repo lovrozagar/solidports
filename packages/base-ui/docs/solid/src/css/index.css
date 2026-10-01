@@ -39,6 +39,7 @@
 @import '../components/ReferenceTable/ReferenceTable.css';
 
 @import './syntax.css';
+@import '../syntax-highlighting/index.css';
 
 @import './utilities/index.css';
 

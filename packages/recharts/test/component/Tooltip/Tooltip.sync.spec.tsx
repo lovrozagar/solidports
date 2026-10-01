@@ -49,12 +49,12 @@ import {
 } from "../../helper/createSelectorTestCase"
 import { selectSyncId, selectSyncMethod } from "../../../src/state/selectors/rootPropsSelectors"
 import { createRechartsStore } from "../../../src/state/store"
+import { createActions } from "../../../src/state/actions"
 import {
 	selectActiveCoordinate,
 	selectActiveIndex,
 	selectIsTooltipActive,
 } from "../../../src/state/selectors/selectors"
-import { setMouseOverAxisIndex, setSyncInteraction } from "../../../src/state/tooltipSlice"
 import { selectActiveTooltipIndex } from "../../../src/state/selectors/tooltipSelectors"
 import { mockGetBoundingClientRect } from "../../helper/mockGetBoundingClientRect"
 import { selectSynchronisedTooltipState } from "../../../src/synchronisation/syncSelectors"
@@ -522,46 +522,44 @@ describe("Tooltip synchronization", () => {
 
 	describe("selectActiveCoordinate", () => {
 		it("should return undefined for initial state", () => {
-			const store = createRechartsStore()
-			const actual = selectActiveCoordinate(store.getState(), "axis", "hover", undefined)
+			const [store] = createRechartsStore()
+			const actual = selectActiveCoordinate(store, "axis", "hover", undefined)
 			expect(actual).toEqual(undefined)
 		})
 
 		it("should return coordinate after mouseMoveAction", () => {
-			const store = createRechartsStore()
-			store.dispatch(
-				setMouseOverAxisIndex({
-					activeCoordinate: { x: 3, y: 4 },
-					activeDataKey: "uv",
-					activeIndex: "1",
-				}),
-			)
-			const actual = selectActiveCoordinate(store.getState(), "axis", "hover", undefined)
+			const [store, setStore] = createRechartsStore()
+			const actions = createActions(store, setStore)
+			actions.setMouseOverAxisIndex({
+				activeCoordinate: { x: 3, y: 4 },
+				activeDataKey: "uv",
+				activeIndex: "1",
+			})
+			const actual = selectActiveCoordinate(store, "axis", "hover", undefined)
 			expect(actual).toEqual({ x: 3, y: 4 })
 		})
 
 		it("should return coordinate after setSyncInteraction", () => {
-			const store = createRechartsStore()
-			store.dispatch(
-				setSyncInteraction({
-					active: true,
-					coordinate: { x: 5, y: 6 },
-					dataKey: "uv",
-					graphicalItemId: undefined,
-					index: "1",
-					label: "Page B",
-					sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
-				}),
-			)
-			const actual = selectActiveCoordinate(store.getState(), "axis", "hover", undefined)
+			const [store, setStore] = createRechartsStore()
+			const actions = createActions(store, setStore)
+			actions.setSyncInteraction({
+				active: true,
+				coordinate: { x: 5, y: 6 },
+				dataKey: "uv",
+				graphicalItemId: undefined,
+				index: "1",
+				label: "Page B",
+				sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
+			})
+			const actual = selectActiveCoordinate(store, "axis", "hover", undefined)
 			expect(actual).toEqual({ x: 5, y: 6 })
 		})
 	})
 
 	describe("selectIsTooltipActive", () => {
 		it("should return false for initial state", () => {
-			const store = createRechartsStore()
-			const actual = selectIsTooltipActive(store.getState(), "axis", "hover", undefined)
+			const [store] = createRechartsStore()
+			const actual = selectIsTooltipActive(store, "axis", "hover", undefined)
 			expect(actual).toEqual({
 				activeIndex: null,
 				isActive: false,
@@ -569,15 +567,14 @@ describe("Tooltip synchronization", () => {
 		})
 
 		it("should return true after mouseMoveAction", () => {
-			const store = createRechartsStore()
-			store.dispatch(
-				setMouseOverAxisIndex({
-					activeCoordinate: { x: 0, y: 0 },
-					activeDataKey: "uv",
-					activeIndex: "1",
-				}),
-			)
-			const actual = selectIsTooltipActive(store.getState(), "axis", "hover", undefined)
+			const [store, setStore] = createRechartsStore()
+			const actions = createActions(store, setStore)
+			actions.setMouseOverAxisIndex({
+				activeCoordinate: { x: 0, y: 0 },
+				activeDataKey: "uv",
+				activeIndex: "1",
+			})
+			const actual = selectIsTooltipActive(store, "axis", "hover", undefined)
 			expect(actual).toEqual({
 				activeIndex: "1",
 				isActive: true,
@@ -585,19 +582,18 @@ describe("Tooltip synchronization", () => {
 		})
 
 		it("should return true after setSyncInteraction", () => {
-			const store = createRechartsStore()
-			store.dispatch(
-				setSyncInteraction({
-					active: true,
-					coordinate: { x: 0, y: 0 },
-					dataKey: "uv",
-					graphicalItemId: undefined,
-					index: "1",
-					label: "Page B",
-					sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
-				}),
-			)
-			const actual = selectIsTooltipActive(store.getState(), "axis", "hover", undefined)
+			const [store, setStore] = createRechartsStore()
+			const actions = createActions(store, setStore)
+			actions.setSyncInteraction({
+				active: true,
+				coordinate: { x: 0, y: 0 },
+				dataKey: "uv",
+				graphicalItemId: undefined,
+				index: "1",
+				label: "Page B",
+				sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
+			})
+			const actual = selectIsTooltipActive(store, "axis", "hover", undefined)
 			expect(actual).toEqual({
 				activeIndex: "1",
 				isActive: true,
@@ -607,38 +603,36 @@ describe("Tooltip synchronization", () => {
 
 	describe("selectActiveIndex", () => {
 		it("should return null for initial state", () => {
-			const store = createRechartsStore()
-			const actual = selectActiveIndex(store.getState(), "axis", "hover", undefined)
+			const [store] = createRechartsStore()
+			const actual = selectActiveIndex(store, "axis", "hover", undefined)
 			expect(actual).toEqual(null)
 		})
 
 		it("should return index after mouseMoveAction", () => {
-			const store = createRechartsStore()
-			store.dispatch(
-				setMouseOverAxisIndex({
-					activeCoordinate: { x: 0, y: 0 },
-					activeDataKey: "uv",
-					activeIndex: "1",
-				}),
-			)
-			const actual = selectActiveIndex(store.getState(), "axis", "hover", undefined)
+			const [store, setStore] = createRechartsStore()
+			const actions = createActions(store, setStore)
+			actions.setMouseOverAxisIndex({
+				activeCoordinate: { x: 0, y: 0 },
+				activeDataKey: "uv",
+				activeIndex: "1",
+			})
+			const actual = selectActiveIndex(store, "axis", "hover", undefined)
 			expect(actual).toEqual("1")
 		})
 
 		it("should return index after setSyncInteraction", () => {
-			const store = createRechartsStore()
-			store.dispatch(
-				setSyncInteraction({
-					active: true,
-					coordinate: { x: 0, y: 0 },
-					dataKey: "uv",
-					graphicalItemId: undefined,
-					index: "2",
-					label: "Page B",
-					sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
-				}),
-			)
-			const actual = selectActiveIndex(store.getState(), "axis", "hover", undefined)
+			const [store, setStore] = createRechartsStore()
+			const actions = createActions(store, setStore)
+			actions.setSyncInteraction({
+				active: true,
+				coordinate: { x: 0, y: 0 },
+				dataKey: "uv",
+				graphicalItemId: undefined,
+				index: "2",
+				label: "Page B",
+				sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
+			})
+			const actual = selectActiveIndex(store, "axis", "hover", undefined)
 			expect(actual).toEqual("2")
 		})
 	})

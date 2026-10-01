@@ -11,10 +11,15 @@ import { theme } from "./theme"
 declare global {
   // eslint-disable-next-line no-var
   var __shiki__: HighlighterCore | undefined
+  // eslint-disable-next-line no-var
+  var __shikiVersion__: number | undefined
 }
 
+const THEME_VERSION = 4
+
 export function getHighlighter(): HighlighterCore {
-  if (!globalThis.__shiki__) {
+  if (!globalThis.__shiki__ || globalThis.__shikiVersion__ !== THEME_VERSION) {
+    globalThis.__shikiVersion__ = THEME_VERSION
     globalThis.__shiki__ = createHighlighterCoreSync({
       themes: [theme],
       langs: [tsxLang, jsxLang, cssLang],

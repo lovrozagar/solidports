@@ -3,7 +3,7 @@ import { createEffect, createSignal } from "solid-js"
 import { render } from "@solidjs/testing-library"
 import { mockGetBoundingClientRect } from "../../helper/mockGetBoundingClientRect"
 import { useAppSelector } from "../../helper/legacyDispatch"
-import { setChartSize, setScale } from "../../../src/state/layoutSlice"
+import { createActions } from "../../../src/state/actions"
 import {
 	selectChartHeight,
 	selectChartWidth,
@@ -25,14 +25,14 @@ describe("selectContainerScale", () => {
 	shouldReturnFromInitialState(selectContainerScale, 1)
 
 	it("should return 1 in an initial state", () => {
-		const store = createRechartsStore()
-		expect(selectContainerScale(store.getState())).toBe(1)
+		const [store] = createRechartsStore()
+		expect(selectContainerScale(store)).toBe(1)
 	})
 
 	it("should return scale after it was set using an action", () => {
-		const store = createRechartsStore()
-		store.dispatch(setScale(1.25))
-		expect(selectContainerScale(store.getState())).toBe(1.25)
+		const [store, setStore] = createRechartsStore()
+		createActions(store, setStore).setScale(1.25)
+		expect(selectContainerScale(store)).toBe(1.25)
 	})
 
 	it("should return scale as the ratio of DOMRect / offsetWidth", () => {
@@ -134,9 +134,9 @@ describe("selectChartWidth", () => {
 	shouldReturnFromInitialState(selectChartWidth, 0)
 
 	it("should return width when set from action", () => {
-		const store = createRechartsStore()
-		store.dispatch(setChartSize({ height: 300, width: 500 }))
-		expect(selectChartWidth(store.getState())).toBe(500)
+		const [store, setStore] = createRechartsStore()
+		createActions(store, setStore).setChartSize({ height: 300, width: 500 })
+		expect(selectChartWidth(store)).toBe(500)
 	})
 
 	it("should return width from root chart props, and update it when props change", () => {
@@ -163,9 +163,9 @@ describe("selectChartHeight", () => {
 	shouldReturnFromInitialState(selectChartHeight, 0)
 
 	it("should return height when set from action", () => {
-		const store = createRechartsStore()
-		store.dispatch(setChartSize({ height: 300, width: 500 }))
-		expect(selectChartHeight(store.getState())).toBe(300)
+		const [store, setStore] = createRechartsStore()
+		createActions(store, setStore).setChartSize({ height: 300, width: 500 })
+		expect(selectChartHeight(store)).toBe(300)
 	})
 
 	it("should return height from root chart props, and update it when props change", () => {

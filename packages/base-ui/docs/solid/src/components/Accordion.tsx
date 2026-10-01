@@ -186,6 +186,10 @@ export function HeaderRow(props: JSX.HTMLAttributes<HTMLDivElement>) {
 }
 
 export function HeaderCell(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <div class={clsx("AccordionHeaderCell", local.class)} {...rest} />
+  const [local, rest] = splitProps(props, ["class", "children"])
+  return (
+    <div class={clsx("AccordionHeaderCell", local.class)} {...rest}>
+      <span class="AccordionHeaderCellInner">{local.children}</span>
+    </div>
+  )
 }

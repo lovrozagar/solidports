@@ -9,6 +9,7 @@ import {
 	selectTooltipPayloadConfigurations,
 } from "../../../src/state/selectors/selectors"
 import { createRechartsStore, ChartState } from "../../../src/state/store"
+import { createActions } from "../../../src/state/actions"
 import { RechartsStoreProvider } from "../../../src/state/RechartsStoreProvider"
 import {
 	RelativePointer,
@@ -17,25 +18,14 @@ import {
 	TooltipEventType,
 } from "../../../src/util/types"
 import { useAppSelector } from "../../helper/legacyDispatch"
-import {
-	addTooltipEntrySettings,
-	mouseLeaveChart,
-	mouseLeaveItem,
-	setActiveClickItemIndex,
-	setActiveMouseOverItemIndex,
-	setMouseClickAxisIndex,
-	setMouseOverAxisIndex,
+import type {
 	TooltipIndex,
 	TooltipPayload,
 	TooltipPayloadConfiguration,
 	TooltipPayloadEntry,
 } from "../../../src/state/tooltipSlice"
-import {
-	ChartDataState,
-	initialChartDataState,
-	setChartData,
-	setDataStartEndIndexes,
-} from "../../../src/state/chartDataSlice"
+import type { ChartDataState } from "../../../src/state/chartDataSlice"
+import { initialChartDataState } from "../../../src/state/chartDataSlice"
 import { TooltipTrigger } from "../../../src/chart/types"
 import { produceState } from "../../helper/produceState"
 import { arrayTooltipSearcher } from "../../../src/state/optionsSlice"
@@ -267,13 +257,14 @@ describe("selectTooltipPayload", () => {
 	it.each(allTooltipCombinations)(
 		"initial state should return undefined for $tooltipEventType $trigger",
 		({ tooltipEventType, trigger }) => {
-			const [store, setStore] = createRechartsStore()
+			const [store] = createRechartsStore()
 			expect(selectTooltipPayload(store, tooltipEventType, trigger, undefined)).toEqual(undefined)
 		},
 	)
 
 	it("should return settings and data from axis hover, if activeIndex is set for the item", () => {
 		const [store, setStore] = createRechartsStore(preloadedState)
+		const actions = createActions(store, setStore)
 		const tooltipSettings1: TooltipPayloadConfiguration = {
 			dataDefinedOnItem: undefined,
 			getPosition: noop,
@@ -314,14 +305,14 @@ describe("selectTooltipPayload", () => {
 			unit: "bar",
 			value: 10,
 		}
-		addTooltipEntrySettings(tooltipSettings1)(setStore, store)
-		addTooltipEntrySettings(tooltipSettings2)(setStore, store)
+		actions.addTooltipEntrySettings(tooltipSettings1)
+		actions.addTooltipEntrySettings(tooltipSettings2)
 		expect(selectTooltipPayload(store, "axis", "hover", undefined)).toEqual(undefined)
-		setMouseOverAxisIndex({
+		actions.setMouseOverAxisIndex({
 			activeCoordinate,
 			activeDataKey: undefined,
 			activeIndex: "1",
-		})(setStore, store)
+		})
 		expect(selectTooltipPayload(store, "axis", "hover", undefined)).toEqual([
 			expectedEntry1,
 			expectedEntry2,
@@ -330,6 +321,7 @@ describe("selectTooltipPayload", () => {
 
 	it("should return settings and data if defaultIndex is provided", () => {
 		const [store, setStore] = createRechartsStore(preloadedState)
+		const actions = createActions(store, setStore)
 		const tooltipSettings1: TooltipPayloadConfiguration = {
 			dataDefinedOnItem: undefined,
 			getPosition: noop,
@@ -370,8 +362,8 @@ describe("selectTooltipPayload", () => {
 			unit: "bar",
 			value: 10,
 		}
-		addTooltipEntrySettings(tooltipSettings1)(setStore, store)
-		addTooltipEntrySettings(tooltipSettings2)(setStore, store)
+		actions.addTooltipEntrySettings(tooltipSettings1)
+		actions.addTooltipEntrySettings(tooltipSettings2)
 		expect(selectTooltipPayload(store, "axis", "hover", "1")).toEqual([
 			expectedEntry1,
 			expectedEntry2,
@@ -380,6 +372,7 @@ describe("selectTooltipPayload", () => {
 
 	it("should fill in chartData, if it is not defined on the item for item hover", () => {
 		const [store, setStore] = createRechartsStore(preloadedState)
+		const actions = createActions(store, setStore)
 		const tooltipSettings: TooltipPayloadConfiguration = {
 			dataDefinedOnItem: undefined,
 			getPosition: noop,
@@ -393,17 +386,17 @@ describe("selectTooltipPayload", () => {
 				unit: "bar",
 			},
 		}
-		addTooltipEntrySettings(tooltipSettings)(setStore, store)
-		setChartData([
+		actions.addTooltipEntrySettings(tooltipSettings)
+		actions.setChartData([
 			{ x: 1, y: 2 },
 			{ x: 3, y: 4 },
-		])(setStore, store)
-		setActiveMouseOverItemIndex({
+		])
+		actions.setActiveMouseOverItemIndex({
 			activeCoordinate,
 			activeDataKey: "y",
 			activeGraphicalItemId: tooltipSettings.settings.graphicalItemId,
 			activeIndex: "0",
-		})(setStore, store)
+		})
 
 		const expectedEntry: TooltipPayloadEntry = {
 			dataKey: "y",
@@ -422,6 +415,7 @@ describe("selectTooltipPayload", () => {
 
 	it("should return sliced data if set by Brush for item hover", () => {
 		const [store, setStore] = createRechartsStore(preloadedState)
+		const actions = createActions(store, setStore)
 		const tooltipSettings: TooltipPayloadConfiguration = {
 			dataDefinedOnItem: [
 				{ x: 1, y: 2 },
@@ -437,19 +431,19 @@ describe("selectTooltipPayload", () => {
 				stroke: "red",
 			},
 		}
-		addTooltipEntrySettings(tooltipSettings)(setStore, store)
-		setChartData([
+		actions.addTooltipEntrySettings(tooltipSettings)
+		actions.setChartData([
 			{ x: 1, y: 2 },
 			{ x: 3, y: 4 },
-		])(setStore, store)
+		])
 		expect(selectTooltipPayload(store, "item", "hover", undefined)).toEqual(undefined)
-		setActiveMouseOverItemIndex({
+		actions.setActiveMouseOverItemIndex({
 			activeCoordinate,
 			activeDataKey: "y",
 			activeGraphicalItemId: tooltipSettings.settings.graphicalItemId,
 			activeIndex: "0",
-		})(setStore, store)
-		setDataStartEndIndexes({ endIndex: 10, startIndex: 1 })(setStore, store)
+		})
+		actions.setDataStartEndIndexes({ endIndex: 10, startIndex: 1 })
 		const expectedEntry: TooltipPayloadEntry = {
 			dataKey: "y",
 			fill: "green",
@@ -619,21 +613,22 @@ describe("selectActiveCoordinate", () => {
 
 	it("should return coordinates when mouseOverAxisIndex is fired and stop returning them after mouseLeaveChart", () => {
 		const [store, setStore] = createRechartsStore(preloadedState)
+		const actions = createActions(store, setStore)
 
 		const initialState = createRechartsStore().getState()
 		const expected: Coordinate | PolarCoordinate | undefined = { x: 100, y: 150 }
 		expect(selectActiveCoordinate(initialState, "axis", "hover", undefined)).toBe(undefined)
 
-		setMouseOverAxisIndex({
+		actions.setMouseOverAxisIndex({
 			activeCoordinate: expected,
 			activeDataKey: undefined,
 			activeIndex: "1",
-		})(setStore, store)
+		})
 
 		/* GOTCHA-003: Solid store wraps values in a proxy, so .toBe identity through dispatch+select is unstable. */
 		expect(selectActiveCoordinate(store, "axis", "hover", undefined)).toEqual(expected)
 
-		mouseLeaveChart()(setStore, store)
+		actions.mouseLeaveChart()
 
 		expect(selectActiveCoordinate(store, "axis", "hover", undefined)).toEqual({ x: 100, y: 150 })
 		/* the selector stops returning the coordinates but they should still be present in store for the next animation */
@@ -642,45 +637,47 @@ describe("selectActiveCoordinate", () => {
 
 	it("should return coordinates when mouseClickAxisIndex is fired and keep them after mouseLeaveChart", () => {
 		const [store, setStore] = createRechartsStore(preloadedState)
+		const actions = createActions(store, setStore)
 
 		const initialState = createRechartsStore().getState()
 		const expected: Coordinate | PolarCoordinate | undefined = { x: 100, y: 150 }
 		expect(selectActiveCoordinate(initialState, "axis", "click", undefined)).toBe(undefined)
 
-		setMouseClickAxisIndex({
+		actions.setMouseClickAxisIndex({
 			activeCoordinate: expected,
 			activeDataKey: undefined,
 			activeIndex: "1",
-		})(setStore, store)
+		})
 
 		/* GOTCHA-003: Solid store wraps values in a proxy, so .toBe identity through dispatch+select is unstable. */
 		expect(selectActiveCoordinate(store, "axis", "click", undefined)).toEqual(expected)
 
-		mouseLeaveChart()(setStore, store)
+		actions.mouseLeaveChart()
 
 		expect(selectActiveCoordinate(store, "axis", "click", undefined)).toEqual(expected)
 	})
 
 	it("should return coordinates when mouseOverItemIndex is fired and keep them after mouseLeaveItem", () => {
 		const [store, setStore] = createRechartsStore(preloadedState)
+		const actions = createActions(store, setStore)
 
 		const initialState = createRechartsStore().getState()
 		const expected: Coordinate | PolarCoordinate | undefined = { x: 100, y: 150 }
 		expect(selectActiveCoordinate(initialState, "item", "hover", undefined)).toBe(undefined)
 
-		setActiveMouseOverItemIndex({
+		actions.setActiveMouseOverItemIndex({
 			activeCoordinate: expected,
 			activeDataKey: undefined,
 			activeGraphicalItemId: "id-1",
 			activeIndex: "1",
-		})(setStore, store)
+		})
 
 		/* GOTCHA-003: Solid store proxy breaks .toBe identity through dispatch. */
 		expect(selectActiveCoordinate(store, "item", "hover", undefined)).toEqual(expected)
 
 		/* neither of these reset the coordinates and the selector does NOT stop returning them */
-		mouseLeaveItem()(setStore, store)
-		mouseLeaveChart()(setStore, store)
+		actions.mouseLeaveItem()
+		actions.mouseLeaveChart()
 
 		expect(selectActiveCoordinate(store, "item", "hover", undefined)).toEqual({
 			x: 100,
@@ -692,6 +689,7 @@ describe("selectActiveCoordinate", () => {
 
 	it("should return coordinates when mouseClickItemIndex is fired and keep them after mouseLeaveItem", () => {
 		const [store, setStore] = createRechartsStore(preloadedState)
+		const actions = createActions(store, setStore)
 
 		const initialState = createRechartsStore().getState()
 		const expected: Coordinate | PolarCoordinate | undefined = {
@@ -700,31 +698,34 @@ describe("selectActiveCoordinate", () => {
 		}
 		expect(selectActiveCoordinate(initialState, "item", "click", undefined)).toBe(undefined)
 
-		setActiveClickItemIndex({
+		actions.setActiveClickItemIndex({
 			activeCoordinate: expected,
 			activeDataKey: undefined,
 			activeGraphicalItemId: "id-1",
 			activeIndex: "1",
-		})(setStore, store)
+		})
 
 		/* GOTCHA-003: Solid store proxy breaks .toBe identity through dispatch. */
 		expect(selectActiveCoordinate(store, "item", "click", undefined)).toEqual(expected)
 
 		/* neither of these should reset coordinate */
-		mouseLeaveItem()(setStore, store)
-		mouseLeaveChart()(setStore, store)
+		actions.mouseLeaveItem()
+		actions.mouseLeaveChart()
 
 		expect(selectActiveCoordinate(store, "item", "click", undefined)).toEqual(expected)
 	})
 })
 
 describe("selectTooltipPayloadConfigurations", () => {
-	let exampleStore: Store<ChartState>
+	let exampleStore: ReturnType<typeof createRechartsStore>
+	let exampleActions: ReturnType<typeof createActions>
 
 	beforeEach(() => {
 		exampleStore = createRechartsStore()
-		exampleStore.dispatch(addTooltipEntrySettings(exampleTooltipPayloadConfiguration1))
-		exampleStore.dispatch(addTooltipEntrySettings(exampleTooltipPayloadConfiguration2))
+		const [state, setStore] = exampleStore
+		exampleActions = createActions(state, setStore)
+		exampleActions.addTooltipEntrySettings(exampleTooltipPayloadConfiguration1)
+		exampleActions.addTooltipEntrySettings(exampleTooltipPayloadConfiguration2)
 	})
 
 	describe.each(allTooltipCombinations)(
@@ -743,7 +744,7 @@ describe("selectTooltipPayloadConfigurations", () => {
 			})
 
 			it("should return empty array from empty state", () => {
-				const [store, setStore] = createRechartsStore()
+				const [store] = createRechartsStore()
 				expect(
 					selectTooltipPayloadConfigurations(store, tooltipEventType, trigger, undefined),
 				).toEqual([])
@@ -767,61 +768,53 @@ describe("selectTooltipPayloadConfigurations", () => {
 	)
 
 	it("should filter by dataKey with tooltipEventType: item and trigger: hover", () => {
-		exampleStore.dispatch(
-			setActiveMouseOverItemIndex({
+		exampleActions.setActiveMouseOverItemIndex({
 				activeCoordinate: undefined,
 				activeDataKey: "dataKey1",
 				activeGraphicalItemId: exampleTooltipPayloadConfiguration1.settings.graphicalItemId,
 				activeIndex: "1",
-			}),
-		)
+			})
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", undefined),
 		).toEqual([exampleTooltipPayloadConfiguration1])
-		exampleStore.dispatch(
-			setActiveMouseOverItemIndex({
+		exampleActions.setActiveMouseOverItemIndex({
 				activeCoordinate: undefined,
 				activeDataKey: "dataKey2",
 				activeGraphicalItemId: exampleTooltipPayloadConfiguration2.settings.graphicalItemId,
 				activeIndex: "1",
-			}),
-		)
+			})
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", undefined),
 		).toEqual([exampleTooltipPayloadConfiguration2])
 	})
 
 	it("should return nothing if the tooltipEventType is hover but the only interactions are clicks", () => {
-		exampleStore.dispatch(
-			setActiveClickItemIndex({
+		exampleActions.setActiveClickItemIndex({
 				activeCoordinate: undefined,
 				activeDataKey: "dataKey1",
 				activeGraphicalItemId: "foo",
 				activeIndex: "1",
-			}),
-		)
+			})
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", undefined),
 		).toEqual([])
-		exampleStore.dispatch(setMouseClickAxisIndex({ activeDataKey: "dataKey2", activeIndex: "1" }))
+		exampleActions.setMouseClickAxisIndex({ activeDataKey: "dataKey2", activeIndex: "1" })
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", undefined),
 		).toEqual([])
 	})
 
 	it("should return nothing if the tooltipEventType is click but the only interactions are hovers", () => {
-		exampleStore.dispatch(
-			setActiveMouseOverItemIndex({
+		exampleActions.setActiveMouseOverItemIndex({
 				activeCoordinate: undefined,
 				activeDataKey: "dataKey1",
 				activeGraphicalItemId: "foo",
 				activeIndex: "1",
-			}),
-		)
+			})
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "click", undefined),
 		).toEqual([])
-		exampleStore.dispatch(setMouseOverAxisIndex({ activeDataKey: "dataKey2", activeIndex: "1" }))
+		exampleActions.setMouseOverAxisIndex({ activeDataKey: "dataKey2", activeIndex: "1" })
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "click", undefined),
 		).toEqual([])
@@ -835,28 +828,24 @@ describe("selectTooltipPayloadConfigurations", () => {
 		})
 
 		it("should return configuration that matches the dataKey after user has started interacting", () => {
-			exampleStore.dispatch(
-				setActiveMouseOverItemIndex({
+			exampleActions.setActiveMouseOverItemIndex({
 					activeCoordinate: undefined,
 					activeDataKey: "dataKey2",
 					activeGraphicalItemId: exampleTooltipPayloadConfiguration2.settings.graphicalItemId,
 					activeIndex: "1",
-				}),
-			)
+				})
 			expect(
 				selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", "1"),
 			).toEqual([exampleTooltipPayloadConfiguration2])
 		})
 
 		it("should return empty array if user interacted with a an item that is not represented in the tooltip payloads", () => {
-			exampleStore.dispatch(
-				setActiveMouseOverItemIndex({
+			exampleActions.setActiveMouseOverItemIndex({
 					activeCoordinate: undefined,
 					activeDataKey: "dataKey-notPresentInPayloads",
 					activeGraphicalItemId: "id-notPresentInPayloads",
 					activeIndex: "1",
-				}),
-			)
+				})
 			expect(
 				selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", "1"),
 			).toEqual([])
@@ -881,7 +870,7 @@ describe("selectIsTooltipActive", () => {
 			})
 
 			it("should return false from initial state", () => {
-				const [store, setStore] = createRechartsStore()
+				const [store] = createRechartsStore()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -889,7 +878,7 @@ describe("selectIsTooltipActive", () => {
 			})
 
 			it("should return true if a defaultIndex has been set", () => {
-				const [store, setStore] = createRechartsStore()
+				const [store] = createRechartsStore()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, "1")).toEqual({
 					activeIndex: "1",
 					isActive: true,
@@ -905,12 +894,13 @@ describe("selectIsTooltipActive", () => {
 			it("should return false if user is clicking on a graphical item", () => {
 				/* in browser, this is difficult to reproduce - one usually has to mouse over first before clicking */
 				const [store, setStore] = createRechartsStore()
-				setActiveClickItemIndex({
+				const actions = createActions(store, setStore)
+				actions.setActiveClickItemIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -920,11 +910,12 @@ describe("selectIsTooltipActive", () => {
 			it("should return false if user is clicking on an axis", () => {
 				/* in browser, this is difficult to reproduce - one usually has to mouse over first before clicking */
 				const [store, setStore] = createRechartsStore()
-				setMouseClickAxisIndex({
+				const actions = createActions(store, setStore)
+				actions.setMouseClickAxisIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -936,25 +927,23 @@ describe("selectIsTooltipActive", () => {
 			const tooltipEventType = "item"
 			it("should return true if user is hovering over a graphical item but not axis", () => {
 				const [store, setStore] = createRechartsStore()
-				setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })(
-					setStore,
-					store,
-				)
+				const actions = createActions(store, setStore)
+				actions.setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
 				})
-				setActiveMouseOverItemIndex({
+				actions.setActiveMouseOverItemIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
-				mouseLeaveItem()(setStore, store)
+				actions.mouseLeaveItem()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -963,17 +952,18 @@ describe("selectIsTooltipActive", () => {
 
 			it("should return false after mouse leaves the chart element", () => {
 				const [store, setStore] = createRechartsStore()
-				setActiveMouseOverItemIndex({
+				const actions = createActions(store, setStore)
+				actions.setActiveMouseOverItemIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeGraphicalItemId: "id-1",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
-				mouseLeaveChart()(setStore, store)
+				actions.mouseLeaveChart()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -986,35 +976,33 @@ describe("selectIsTooltipActive", () => {
 			it(`should return true if user is hovering over an axis,
           and then continue returning true when user hovers over and then leaves a graphical item`, () => {
 				const [store, setStore] = createRechartsStore()
-				setActiveMouseOverItemIndex({
+				const actions = createActions(store, setStore)
+				actions.setActiveMouseOverItemIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
 				})
-				setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })(
-					setStore,
-					store,
-				)
+				actions.setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
-				setActiveMouseOverItemIndex({
+				actions.setActiveMouseOverItemIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
-				mouseLeaveItem()(setStore, store)
+				actions.mouseLeaveItem()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
@@ -1031,12 +1019,13 @@ describe("selectIsTooltipActive", () => {
 		describe.each(allTooltipEventTypes)("tooltipEventType: %s", (tooltipEventType) => {
 			it("should return false if user is hovering over a graphical item", () => {
 				const [store, setStore] = createRechartsStore()
-				setActiveMouseOverItemIndex({
+				const actions = createActions(store, setStore)
+				actions.setActiveMouseOverItemIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -1045,10 +1034,8 @@ describe("selectIsTooltipActive", () => {
 
 			it("should return false if user is hovering over an axis", () => {
 				const [store, setStore] = createRechartsStore()
-				setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: null })(
-					setStore,
-					store,
-				)
+				const actions = createActions(store, setStore)
+				actions.setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: null })
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -1061,35 +1048,33 @@ describe("selectIsTooltipActive", () => {
 			it(`should return true if user is clicking a graphical item and continue returning true forever,
           because recharts does not allow ever turning off a tooltip that was triggered by a click`, () => {
 				const [store, setStore] = createRechartsStore()
-				setActiveClickItemIndex({
+				const actions = createActions(store, setStore)
+				actions.setActiveClickItemIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
-				setActiveClickItemIndex({
+				actions.setActiveClickItemIndex({
 					activeCoordinate,
 					activeDataKey: undefined,
 					activeGraphicalItemId: "bar",
 					activeIndex: "2",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
 				})
-				mouseLeaveItem()(setStore, store)
+				actions.mouseLeaveItem()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
 				})
-				setMouseClickAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })(
-					setStore,
-					store,
-				)
+				actions.setMouseClickAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
@@ -1098,10 +1083,8 @@ describe("selectIsTooltipActive", () => {
 
 			it("should return false if user is clicking on an axis", () => {
 				const [store, setStore] = createRechartsStore()
-				setMouseClickAxisIndex({ activeCoordinate, activeDataKey: "dataKey1", activeIndex: "1" })(
-					setStore,
-					store,
-				)
+				const actions = createActions(store, setStore)
+				actions.setMouseClickAxisIndex({ activeCoordinate, activeDataKey: "dataKey1", activeIndex: "1" })
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -1113,35 +1096,36 @@ describe("selectIsTooltipActive", () => {
 			const tooltipEventType = "axis"
 			it("should return true if user is clicking on an axis, and continue returning true forever", () => {
 				const [store, setStore] = createRechartsStore()
-				setMouseClickAxisIndex({
+				const actions = createActions(store, setStore)
+				actions.setMouseClickAxisIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
-				setMouseClickAxisIndex({
+				actions.setMouseClickAxisIndex({
 					activeCoordinate,
 					activeDataKey: undefined,
 					activeIndex: "2",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
 				})
-				mouseLeaveItem()(setStore, store)
+				actions.mouseLeaveItem()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
 				})
-				setActiveClickItemIndex({
+				actions.setActiveClickItemIndex({
 					activeCoordinate,
 					activeDataKey: "dataKey1",
 					activeGraphicalItemId: "id-1",
 					activeIndex: "1",
-				})(setStore, store)
+				})
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
@@ -1226,7 +1210,7 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 	})
 
 	it("should return empty array for initial state", () => {
-		const [store, setStore] = createRechartsStore()
+		const [store] = createRechartsStore()
 		expect(selectTooltipState(store).tooltipItemPayloads).toEqual([])
 	})
 

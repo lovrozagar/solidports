@@ -1,11 +1,14 @@
-import { createSignal, For, onMount, Show, splitProps, type JSX } from "solid-js"
+import { createMemo, createSignal, For, onMount, Show, splitProps, type JSX } from "solid-js"
 import clsx from "clsx"
 import { Link } from "../Link"
+import * as CodeBlock from "../CodeBlock"
 import * as Accordion from "../Accordion"
+import { highlightInline } from "../../syntax-highlighting/highlight"
 import * as DescriptionList from "../DescriptionList"
 import type { PropDef as BasePropDef } from "./types"
 import { TableCode } from "../TableCode"
 import * as ReferenceTableTooltip from "./ReferenceTableTooltip"
+import { sortPropEntries } from "./propOrder"
 
 /* Tooltip.Portal crashes hydration with `template2 is not a function` — the portal
    moves subtree to body, so SSR markers don't line up with client. Gate the tooltip
@@ -49,18 +52,22 @@ interface Props extends JSX.HTMLAttributes<HTMLElement> {
   caption?: string
 }
 
-const TRIGGER_GRID_LAYOUT =
-  "xs:grid " +
-  "xs:grid-cols-[theme(spacing.48)_1fr_theme(spacing.10)] " +
-  "sm:grid-cols-[theme(spacing.56)_1fr_theme(spacing.10)] " +
-  "md:grid-cols-[5fr_7fr_4.5fr_theme(spacing.10)] "
-
-const PANEL_GRID_LAYOUT =
-  "max-xs:flex max-xs:flex-col " +
-  "min-xs:gap-0 " +
-  "xs:grid-cols-[theme(spacing.48)_1fr_theme(spacing.10)] " +
-  "sm:grid-cols-[theme(spacing.56)_1fr_theme(spacing.10)] " +
-  "md:grid-cols-[5fr_11.5fr_theme(spacing.10)] "
+function InlineDescription(props: { text: string }) {
+  const parts = () => props.text.split(/(`[^`]+`)/g)
+  return (
+    <For each={parts()}>
+      {(part) =>
+        part.startsWith("`") && part.endsWith("`") ? (
+          <code class="Code MdCode" data-inline>
+            {part.slice(1, -1)}
+          </code>
+        ) : (
+          part.replace(/\s*\n+\s*/g, " ")
+        )
+      }
+    </For>
+  )
+}
 
 function getShortPropType(name: string, type: string | undefined) {
   if (/^(on|get)[A-Z].*/.test(name)) return { type: "function", detailedType: true }
@@ -119,22 +126,35 @@ export function ReferenceAccordion(props: Props) {
     "renameTo",
     "nameLabel",
     "caption",
+    "class",
+    "style",
   ])
   const captionId = () => `${local.name}-caption`
   const nameLabel = () => local.nameLabel ?? "Prop"
   const caption = () => local.caption ?? "Component props table"
-  const entries = () => Object.entries(local.data)
+  const entries = createMemo(() =>
+    nameLabel() === "Prop" ? sortPropEntries(local.data) : Object.entries(local.data),
+  )
+  const rowsStyle = createMemo((): JSX.CSSProperties => ({
+    "--rows": String(Object.keys(local.data).length),
+    ...(typeof local.style === "object" && local.style ? local.style : {}),
+  }))
 
   return (
-    <Accordion.Root aria-describedby={captionId()} {...rest}>
+    <Accordion.Root
+      aria-describedby={captionId()}
+      {...rest}
+      class={clsx("ReferenceAccordionRoot", local.class)}
+      style={rowsStyle()}
+    >
       <span id={captionId()} style={visuallyHidden} aria-hidden>
         {caption()}
       </span>
-      <Accordion.HeaderRow class={clsx("grid", TRIGGER_GRID_LAYOUT)}>
+      <Accordion.HeaderRow class="ReferenceHeaderRow">
         <Accordion.HeaderCell>{nameLabel()}</Accordion.HeaderCell>
-        <Accordion.HeaderCell class="max-xs:hidden">Type</Accordion.HeaderCell>
-        <Accordion.HeaderCell class="max-md:hidden">Default</Accordion.HeaderCell>
-        <Accordion.HeaderCell class="max-md:hidden w-10" />
+        <Accordion.HeaderCell class="ReferenceHeaderTypeCell">Type</Accordion.HeaderCell>
+        <Accordion.HeaderCell class="ReferenceHeaderDefaultCell">Default</Accordion.HeaderCell>
+        <Accordion.HeaderCell class="ReferenceHeaderIconCell" />
       </Accordion.HeaderRow>
       <For each={entries()}>
         {([name, prop], index) => {
@@ -154,16 +174,21 @@ export function ReferenceAccordion(props: Props) {
                 id={id}
                 index={index()}
                 aria-label={`${nameLabel()}: ${name},${prop.required ? " required," : ""} type: ${shortPropTypeName} ${prop.default !== undefined ? `(default: ${prop.default})` : ""}`}
-                class={clsx("min-h-min scroll-mt-12 p-0 md:scroll-mt-0", TRIGGER_GRID_LAYOUT)}
+                class="ReferenceTrigger"
               >
-                <Accordion.Scrollable class="px-3">
-                  <TableCode class="text-navy whitespace-nowrap">{name}</TableCode>
-                  {prop.required ? (
-                    <sup class="top-[-0.3em] text-xs text-red-800">*</sup>
-                  ) : null}
+                <Accordion.Scrollable class="ReferenceNameCell">
+                  <TableCode class="bui-ws-nw" style={{ color: "var(--color-navy)" }}>
+                    {name}
+                  </TableCode>
+                  <sup
+                    class="ReferenceRequired"
+                    style={{ display: prop.required ? "inline" : "none" }}
+                  >
+                    *
+                  </sup>
                 </Accordion.Scrollable>
                 <Show when={prop.type}>
-                  <Accordion.Scrollable class="px-3 flex items-baseline text-sm leading-none break-keep whitespace-nowrap max-xs:hidden">
+                  <Accordion.Scrollable class="ReferenceTypeCell">
                     <TypeCell
                       detailedDisplayType={detailedDisplayType}
                       displayType={displayType}
@@ -173,17 +198,17 @@ export function ReferenceAccordion(props: Props) {
                     />
                   </Accordion.Scrollable>
                 </Show>
-                <Accordion.Scrollable class="max-md:hidden break-keep whitespace-nowrap px-3">
+                <Accordion.Scrollable class="ReferenceDefaultCell">
                   <Show
                     when={!(prop.required || prop.default === undefined)}
-                    fallback={<TableCode class="text-(--syntax-nullish)">—</TableCode>}
+                    fallback={<TableCode style={{ color: "var(--color-docs-infra-syntax-nullish)" }}>—</TableCode>}
                   >
                     <TableCode>{prop.default}</TableCode>
                   </Show>
                 </Accordion.Scrollable>
-                <span class="flex justify-center max-xs:ml-auto max-xs:mr-3">
+                <span class="ReferenceIconWrap">
                   <svg
-                    class="AccordionIcon translate-y-px"
+                    class="AccordionIcon ReferenceIcon"
                     width="10"
                     height="10"
                     viewBox="0 0 10 10"
@@ -196,10 +221,7 @@ export function ReferenceAccordion(props: Props) {
               </Accordion.Trigger>
               <Accordion.Panel>
                 <Accordion.Content>
-                  <DescriptionList.Root
-                    class={clsx("text-gray-600 max-xs:py-3", PANEL_GRID_LAYOUT)}
-                    aria-label="Info"
-                  >
+                  <DescriptionList.Root class="ReferenceContent" aria-label="Info">
                     <DescriptionList.Item>
                       <DescriptionList.Term>Name</DescriptionList.Term>
                       <DescriptionList.Details>
@@ -211,15 +233,17 @@ export function ReferenceAccordion(props: Props) {
                     <Show when={prop.description}>
                       <DescriptionList.Item>
                         <DescriptionList.Term separator>Description</DescriptionList.Term>
-                        <DescriptionList.Details class="[&_[role='figure']]:mt-1 [&_[role='figure']]:mb-1">
-                          {prop.description}
+                        <DescriptionList.Details class="ReferenceDescription">
+                          <InlineDescription text={prop.description ?? ""} />
                         </DescriptionList.Details>
                       </DescriptionList.Item>
                     </Show>
                     <DescriptionList.Item>
                       <DescriptionList.Term separator>Type</DescriptionList.Term>
                       <DescriptionList.Details>
-                        <TableCode>{detailedDisplayType}</TableCode>
+                        <CodeBlock.Root>
+                          <code innerHTML={highlightInline(detailedDisplayType, "tsx")} />
+                        </CodeBlock.Root>
                       </DescriptionList.Details>
                     </DescriptionList.Item>
                     <Show when={prop.default !== undefined}>
@@ -233,7 +257,7 @@ export function ReferenceAccordion(props: Props) {
                     <Show when={prop.example}>
                       <DescriptionList.Item>
                         <DescriptionList.Term separator>Example</DescriptionList.Term>
-                        <DescriptionList.Details class="*:my-0">
+                        <DescriptionList.Details class="ReferenceExampleReset">
                           <TableCode>{prop.example}</TableCode>
                         </DescriptionList.Details>
                       </DescriptionList.Item>

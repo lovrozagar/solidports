@@ -282,6 +282,18 @@ function transformDemoTsx(src) {
     text = lines.join('\n');
   }
   text = text.replace(/\btoasts\./g, 'toasts().');
+  /* Solid's style inliner writes object keys verbatim. CamelCase is not a CSS property. */
+  text = text.replace(/\bmarginLeft:/g, '"margin-left":');
+  text = text.replace(/\bborderTop:/g, '"border-top":');
+  text = text.replace(/\bminWidth:/g, '"min-width":');
+  text = text.replace(
+    /return toasts\(\)\.map\(\(([^)]+)\) => \(([\s\S]*?)\)\);/g,
+    'return (\n    <For each={toasts()}>\n      {($1) => ($2)}\n    </For>\n  );',
+  );
+  text = text.replace(
+    /return toasts\(\)\.map\(\(([^)]+)\) => (<[^;]+)\);/g,
+    'return (\n    <For each={toasts()}>\n      {($1) => $2}\n    </For>\n  );',
+  );
   text = text.replace(/render=\{<([A-Za-z0-9.]+) \/>\}/g, 'render={(props) => <$1 {...props} />}');
   text = text.replace(/\{value\.map\(/g, '{(Array.isArray(value) ? value : []).map(');
   text = text.replace(/<Select\.Label\b/g, '<label');
@@ -301,6 +313,7 @@ function transformDemoTsx(src) {
   if (text.includes('createMemo(')) needed.push('createMemo');
   if (text.includes('createUniqueId(')) needed.push('createUniqueId');
   if (/\bonCleanup\(/.test(text)) needed.push('onCleanup');
+  if (text.includes('<For')) needed.push('For');
   const typeJsx = /JSX\.(SvgSVGAttributes|CSSProperties|Element)/.test(text);
   if (needed.length > 0 || typeJsx) {
     const names = [...new Set(needed)];

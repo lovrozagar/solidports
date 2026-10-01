@@ -3,7 +3,7 @@ import { Select } from "@solidports/base-ui/select"
 import clsx from "clsx"
 import { CaretSortIcon } from "../icons/CaretSortIcon"
 import "./Select.css"
-import { ThickCheckIcon } from "../icons/ThickCheckIcon"
+import { CheckIcon } from "../icons/CheckIcon"
 
 export const Root = Select.Root
 
@@ -63,7 +63,13 @@ export function Item(props: Select.Item.Props) {
   ])
   return (
     <Select.Item class={clsx("SelectItem", local.class)} {...(rest as Select.Item.Props)}>
-      <Select.ItemIndicator class="SelectItemIndicator" render={() => <ThickCheckIcon />} />
+      <Select.ItemIndicator
+        class="SelectItemIndicator"
+        render={(itemProps) => {
+          const { children: _children, ...iconProps } = itemProps
+          return <CheckIcon {...iconProps} />
+        }}
+      />
       <Select.ItemText class="SelectItemText">{local.children}</Select.ItemText>
     </Select.Item>
   )

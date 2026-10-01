@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest"
 import { eventCenter, TOOLTIP_SYNC_EVENT } from "../../src/util/Events"
-import { setSyncInteraction } from "../../src/state/tooltipSlice"
 import { expectLastCalledWith } from "../helper/expectLastCalledWith"
 
 describe("eventCenter", () => {

@@ -39,6 +39,7 @@ export const theme = {
       scope: "keyword",
       settings: { foreground: "var(--syntax-keyword)" },
     },
+
     {
       scope: ["storage", "storage.type"],
       settings: { foreground: "var(--syntax-keyword)" },
@@ -122,6 +123,20 @@ export const theme = {
     },
     {
       scope: "support.constant",
+      settings: { foreground: "var(--syntax-entity)" },
+    },
+    {
+      /* Match the React docs: CSS selectors blue, property names plain, values blue. */
+      scope: ["support.constant.property-value.css"],
+      settings: { foreground: "var(--syntax-constant)" },
+    },
+    {
+      scope: ["support.type.property-name.css", "support.type.property-name"],
+      settings: { foreground: "var(--syntax-default)" },
+    },
+    {
+      /* `.root` is violet in the React docs, not the default text color. */
+      scope: ["entity.other.attribute-name.class.css", "entity.other.attribute-name.id.css"],
       settings: { foreground: "var(--syntax-entity)" },
     },
     {

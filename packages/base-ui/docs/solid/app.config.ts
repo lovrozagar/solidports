@@ -17,6 +17,7 @@ import { rehypeKbd } from "./src/components/Kbd/rehypeKbd.mjs"
 import { rehypeReference } from "./src/components/ReferenceTable/rehypeReference.mjs"
 import { rehypeSyntaxHighlighting } from "./src/syntax-highlighting/index.mjs"
 
+
 export default defineConfig({
   extensions: ["tsx", "ts", "mdx", "md"],
   vite: {

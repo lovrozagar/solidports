@@ -1638,4 +1638,66 @@ describe("Line animation", () => {
 			expectLines(container, [{ d: "M5,5L23,27.5L41,27.5L59,50L77,32.45L95,52.475" }])
 		})
 	})
+
+	describe("shape prop", () => {
+		function CustomLineShape(props: {
+			animationElapsedTime?: number
+			isAnimating?: boolean
+			isEntrance?: boolean
+		}) {
+			return (
+				<path
+					class="custom-line-shape"
+					data-t={props.animationElapsedTime}
+					data-is-animating={String(props.isAnimating)}
+					data-is-entrance={String(props.isEntrance)}
+				/>
+			)
+		}
+
+		const renderShapeTestCase = createSelectorTestCase((props) => (
+			<LineChart width={100} height={100} data={PageData}>
+				<Line dataKey="uv" animationEasing="linear" shape={CustomLineShape} />
+				{props.children}
+			</LineChart>
+		))
+
+		it("should render custom shape instead of default Curve", async () => {
+			const { container, animationManager } = renderShapeTestCase()
+			await animationManager.completeAnimation()
+
+			const customShapes = container.querySelectorAll(".custom-line-shape")
+			expect(customShapes.length).toBeGreaterThan(0)
+		})
+
+		it("should pass animationElapsedTime, isAnimating, isEntrance props to custom shape during animation", async () => {
+			const { container, animationManager } = renderShapeTestCase()
+
+			await animationManager.setAnimationProgress(0.5)
+			const shape = container.querySelector(".custom-line-shape")
+			assertNotNull(shape)
+			expect(shape.getAttribute("data-t")).toBe("0.5")
+			expect(shape.getAttribute("data-is-animating")).toBe("true")
+			expect(shape.getAttribute("data-is-entrance")).toBe("true")
+		})
+
+		it("should skip strokeDasharray entrance animation when custom shape is provided", async () => {
+			const { container, animationManager } = renderShapeTestCase()
+
+			await animationManager.setAnimationProgress(0.5)
+			const shape = container.querySelector(".custom-line-shape")
+			assertNotNull(shape)
+			expect(shape.getAttribute("stroke-dasharray")).toBeNull()
+		})
+
+		it("should have isAnimating=true on the very first render to prevent flash of wrong content", () => {
+			const { container } = renderShapeTestCase()
+
+			const shape = container.querySelector(".custom-line-shape")
+			assertNotNull(shape)
+			expect(shape.getAttribute("data-is-animating")).toBe("true")
+			expect(shape.getAttribute("data-is-entrance")).toBe("true")
+			expect(shape.getAttribute("data-t")).toBe("0")
+		})
+	})
 })

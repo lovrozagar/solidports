@@ -29,7 +29,7 @@ export function ReturnValueReferenceTable(props: ReturnValueReferenceTableProps)
         class={clsx(local.class, "xs:hidden")}
       >
         <Accordion.HeaderRow>
-          <Accordion.HeaderCell class="pl-3">Type</Accordion.HeaderCell>
+          <Accordion.HeaderCell>Type</Accordion.HeaderCell>
         </Accordion.HeaderRow>
         <For each={entries()}>
           {([name, def], index) => {

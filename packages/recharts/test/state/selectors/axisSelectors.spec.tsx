@@ -42,7 +42,7 @@ import {
 } from "../../../src"
 import { misbehavedData, PageData } from "../../_data"
 import { ExpectAxisDomain, expectXAxisTicks } from "../../helper/expectAxisTicks"
-import { addCartesianGraphicalItem } from "../../../src/state/graphicalItemsSlice"
+import { createActions } from "../../../src/state/actions"
 import { defaultAxisId, XAxisSettings } from "../../../src/state/cartesianAxisSlice"
 import { AxisDomain } from "../../../src/util/types"
 import { ChartData } from "../../../src/state/chartDataSlice"
@@ -1494,7 +1494,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 	shouldReturnFromInitialState(selector, [])
 
 	it("should be stable", () => {
-		const store = createRechartsStore()
+		const [store, setStore] = createRechartsStore()
 		const settings: BarSettings = {
 			barSize: "",
 			data: PageData,
@@ -1510,9 +1510,9 @@ describe("selectCartesianGraphicalItemsData", () => {
 			yAxisId: "y",
 			zAxisId: 0,
 		}
-		store.dispatch(addCartesianGraphicalItem(settings))
-		const result1 = selectCartesianGraphicalItemsData(store.getState(), "xAxis", "x")
-		const result2 = selectCartesianGraphicalItemsData(store.getState(), "xAxis", "x")
+		createActions(store, setStore).addCartesianGraphicalItem(settings)
+		const result1 = selectCartesianGraphicalItemsData(store, "xAxis", "x")
+		const result2 = selectCartesianGraphicalItemsData(store, "xAxis", "x")
 		expect(result1).toEqual(result2)
 	})
 
@@ -2308,7 +2308,7 @@ describe("selectErrorBarsSettings", () => {
 	})
 
 	it("should be stable with data", () => {
-		const store = createRechartsStore()
+		const [store, setStore] = createRechartsStore()
 		const settings: BarSettings = {
 			barSize: undefined,
 			data: [],
@@ -2324,9 +2324,9 @@ describe("selectErrorBarsSettings", () => {
 			yAxisId: "",
 			zAxisId: 0,
 		}
-		store.dispatch(addCartesianGraphicalItem(settings))
-		const result1 = selectErrorBarsSettings(store.getState(), "xAxis", defaultAxisId)
-		const result2 = selectErrorBarsSettings(store.getState(), "xAxis", defaultAxisId)
+		createActions(store, setStore).addCartesianGraphicalItem(settings)
+		const result1 = selectErrorBarsSettings(store, "xAxis", defaultAxisId)
+		const result2 = selectErrorBarsSettings(store, "xAxis", defaultAxisId)
 		expect(result1).toEqual(result2)
 	})
 })

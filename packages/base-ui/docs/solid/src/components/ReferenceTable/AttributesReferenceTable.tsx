@@ -20,7 +20,7 @@ export function AttributesReferenceTable(props: AttributesReferenceTableProps) {
     <>
       <Accordion.Root {...(rest as JSX.HTMLAttributes<HTMLElement>)} class={clsx(local.class, "xs:hidden")}>
         <Accordion.HeaderRow>
-          <Accordion.HeaderCell class="pl-[0.75rem]">Attribute</Accordion.HeaderCell>
+          <Accordion.HeaderCell>Attribute</Accordion.HeaderCell>
         </Accordion.HeaderRow>
         <For each={entries()}>
           {([name, attribute], index) => (

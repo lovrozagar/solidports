@@ -25,6 +25,7 @@ import {
 } from "../../helper/parameterizedTestCases"
 import { useAppSelector } from "../../helper/legacyDispatch"
 import { CartesianGraphicalItemSettings } from "../../../src/state/graphicalItemsSlice"
+import { selectUnfilteredCartesianItems } from "../../../src/state/selectors/axisSelectors"
 import { expectActiveBars, expectBars, getAllBars } from "../../helper/expectBars"
 import { expectLabels } from "../../helper/expectLabel"
 import { createSelectorTestCase, rechartsTestRender } from "../../helper/createSelectorTestCase"
@@ -1322,7 +1323,7 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 		it("should report its props to redux state, and remove them when removed from DOM", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => spy(useAppSelector((state) => state.graphicalItems.cartesianItems)))
+				createEffect(() => spy(useAppSelector(selectUnfilteredCartesianItems)))
 				return null
 			}
 
@@ -1370,8 +1371,7 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 		it("should report default props to redux state", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				const cartesianItems = useAppSelector((state) => state.graphicalItems.cartesianItems)
-				spy(cartesianItems)
+				createEffect(() => spy(useAppSelector(selectUnfilteredCartesianItems)))
 				return null
 			}
 
@@ -1648,7 +1648,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 				},
 				keyboardInteraction: noInteraction,
 				settings: {
-					active: undefined,
+					active: false,
 					axisId: 0,
 					defaultIndex: undefined,
 					shared: false,
@@ -1721,7 +1721,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 				},
 				keyboardInteraction: noInteraction,
 				settings: {
-					active: undefined,
+					active: false,
 					axisId: 0,
 					defaultIndex: undefined,
 					shared: false,

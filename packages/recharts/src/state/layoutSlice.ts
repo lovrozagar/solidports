@@ -1,6 +1,4 @@
-import type { SetStoreFunction } from "solid-js/store"
-import type { LayoutType, Margin, Size } from "../util/types"
-import type { ChartState } from "./store"
+import type { LayoutType, Margin } from "../util/types"
 
 export type ChartLayoutState = {
 	layoutType: LayoutType
@@ -21,20 +19,3 @@ export const initialLayoutState: ChartLayoutState = {
 	scale: 1,
 	width: 0,
 }
-
-export const setChartSize =
-	(size: Size) =>
-	(setStore: SetStoreFunction<ChartState>) => {
-		setStore("layout", "width", size.width)
-		setStore("layout", "height", size.height)
-	}
-
-export const setMargin =
-	(margin: Margin) =>
-	(setStore: SetStoreFunction<ChartState>) =>
-		setStore("layout", "margin", margin)
-
-export const setScale =
-	(scale: number) =>
-	(setStore: SetStoreFunction<ChartState>) =>
-		setStore("layout", "scale", scale)

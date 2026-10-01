@@ -18,9 +18,9 @@ export default function ExampleCheckboxGroup() {
       onValueChange={setValue}
       allValues={fruits}
       class={styles.CheckboxGroup}
-      style={{ marginLeft: '1rem' }}
+      style={{ "margin-left": "1rem" }}
     >
-      <label class={styles.Item} id={id} style={{ marginLeft: '-1rem' }}>
+      <label class={styles.Item} id={id} style={{ "margin-left": "-1rem" }}>
         <Checkbox.Root class={styles.Checkbox} parent>
           <Checkbox.Indicator
             class={styles.Indicator}

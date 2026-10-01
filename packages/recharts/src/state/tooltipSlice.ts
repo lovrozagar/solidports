@@ -1,12 +1,9 @@
 /* eslint-disable import/no-cycle */
-import { batch } from "solid-js"
-import type { SetStoreFunction } from "solid-js/store"
 import type { TooltipTrigger } from "../chart/types"
 import type { NameType, Payload, ValueType } from "../component/DefaultTooltipContent"
 import type { CartesianViewBoxRequired, Coordinate, DataKey, PolarCoordinate } from "../util/types"
 import type { AxisId } from "./cartesianAxisSlice"
 import type { GraphicalItemId } from "./graphicalItemsSlice"
-import type { ChartState } from "./store"
 
 /**
  * One Tooltip can display multiple TooltipPayloadEntries at a time.
@@ -334,103 +331,4 @@ export type KeyboardTooltipActionPayload = {
    * based on the activeIndex and domain and range.
    */
 	activeCoordinate: Coordinate | undefined
-}
-
-type Thunk = (setStore: SetStoreFunction<ChartState>, store: ChartState) => void
-
-/** Action creator thunk — dispatches axis hover interaction into the legacy store. */
-export function setMouseOverAxisIndex(payload: AxisTooltipActionPayload): Thunk {
-	return (setStore) => {
-		const axisPayload: TooltipInteractionState = {
-			active: true,
-			coordinate: payload.activeCoordinate,
-			dataKey: payload.activeDataKey,
-			graphicalItemId: undefined,
-			index: payload.activeIndex,
-		}
-		setStore("tooltip", "axisInteraction", "hover", axisPayload)
-	}
-}
-
-/** Action creator thunk — dispatches sync interaction into the legacy store. */
-export function setSyncInteraction(payload: TooltipSyncState): Thunk {
-	return (setStore) => {
-		setStore("tooltip", "syncInteraction", payload)
-	}
-}
-
-/** Appends a tooltip payload configuration for a graphical item. */
-export function addTooltipEntrySettings(payload: TooltipPayloadConfiguration): Thunk {
-	return (setStore) => {
-		setStore("tooltip", "tooltipItemPayloads", (prev: ReadonlyArray<TooltipPayloadConfiguration>) => [...prev, payload])
-	}
-}
-
-/** Clears hover-active flags on both axis and item interactions. */
-export function mouseLeaveChart(): Thunk {
-	return (setStore) => {
-		batch(() => {
-			setStore("tooltip", "axisInteraction", "hover", "active", false)
-			setStore("tooltip", "itemInteraction", "hover", "active", false)
-		})
-	}
-}
-
-/** Clears hover-active flag on item interaction only. */
-export function mouseLeaveItem(): Thunk {
-	return (setStore) => {
-		batch(() => {
-			setStore("tooltip", "itemInteraction", "hover", "active", false)
-		})
-	}
-}
-
-/** Sets item hover interaction state. */
-export function setActiveMouseOverItemIndex(payload: GraphicalItemTooltipActionPayload): Thunk {
-	return (setStore) => {
-		const itemPayload = {
-			active: true,
-			coordinate: payload.activeCoordinate,
-			dataKey: payload.activeDataKey,
-			graphicalItemId: payload.activeGraphicalItemId,
-			index: payload.activeIndex,
-		}
-		batch(() => {
-			setStore("tooltip", "itemInteraction", "hover", itemPayload)
-		})
-	}
-}
-
-/** Sets item click interaction state. */
-export function setActiveClickItemIndex(payload: GraphicalItemTooltipActionPayload): Thunk {
-	return (setStore) => {
-		const itemPayload = {
-			active: true,
-			coordinate: payload.activeCoordinate,
-			dataKey: payload.activeDataKey,
-			graphicalItemId: payload.activeGraphicalItemId,
-			index: payload.activeIndex,
-		}
-		batch(() => {
-			setStore("tooltip", "itemInteraction", "click", itemPayload)
-		})
-	}
-}
-
-/** Sets axis click interaction state, clearing sync/keyboard first. */
-export function setMouseClickAxisIndex(payload: AxisTooltipActionPayload): Thunk {
-	return (setStore) => {
-		batch(() => {
-			setStore("tooltip", "syncInteraction", "active", false)
-			setStore("tooltip", "syncInteraction", "sourceViewBox", undefined)
-			setStore("tooltip", "keyboardInteraction", "active", false)
-			setStore("tooltip", "axisInteraction", "click", {
-				active: true,
-				coordinate: payload.activeCoordinate,
-				dataKey: payload.activeDataKey,
-				graphicalItemId: undefined,
-				index: payload.activeIndex,
-			})
-		})
-	}
 }

@@ -8,6 +8,7 @@ export function rehypeJsxExpressions() {
       // First, filter out nodes that seem like a potential match
       if (node.value?.includes('>;')) {
         const line = ancestors.find((ancestor) => ancestor.properties?.['data-line'] !== undefined);
+        if (!line) return
 
         // Verify that the line passes a stricter check
         if (/^\s*<.+>;\s*$/.test(toString(line))) {

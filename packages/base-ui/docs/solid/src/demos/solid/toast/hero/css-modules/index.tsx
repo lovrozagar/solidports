@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 
 
 import { Toast } from '@solidports/base-ui/toast';
@@ -38,15 +38,19 @@ function ToastButton() {
 
 function ToastList() {
   const { toasts } = Toast.useToastManager();
-  return toasts().map((toast) => (
-    <Toast.Root key={toast.id} toast={toast} class={styles.Toast}>
-      <Toast.Content class={styles.Content}>
-        <div class={styles.Text}>
-          <Toast.Title class={styles.Title} />
-          <Toast.Description class={styles.Description} />
-        </div>
-        <Toast.Close class={styles.Close}>Dismiss</Toast.Close>
-      </Toast.Content>
-    </Toast.Root>
-  ));
+  return (
+    <For each={toasts()}>
+      {(toast) => (
+        <Toast.Root toast={toast} class={styles.Toast}>
+          <Toast.Content class={styles.Content}>
+            <div class={styles.Text}>
+              <Toast.Title class={styles.Title} />
+              <Toast.Description class={styles.Description} />
+            </div>
+            <Toast.Close class={styles.Close}>Dismiss</Toast.Close>
+          </Toast.Content>
+        </Toast.Root>
+      )}
+    </For>
+  );
 }

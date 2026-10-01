@@ -27,8 +27,13 @@ import { useButton } from '../../internals/use-button';
 import { EMPTY_ARRAY, ownerVisuallyHidden, PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { FocusGuard } from '../../utils/FocusGuard';
+import { getCssDimensions } from '../../utils/getCssDimensions';
+import { ownerWindow } from '../../utils/owner';
 import { pressableTriggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
+import { TransitionStatusDataAttributes } from '../../utils/stateAttributesMapping';
+import { addEventListener } from '../../utils/addEventListener';
+import { useAnimationsFinished } from '../../utils/useAnimationsFinished';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useAnimationFrame } from '../../utils/useAnimationFrame';
 import { useTimeout } from '../../utils/useTimeout';
@@ -39,8 +44,11 @@ import {
   useNavigationMenuRootContext,
   useNavigationMenuTreeContext,
 } from '../root/NavigationMenuRootContext';
+import { NavigationMenuPopupCssVars } from '../popup/NavigationMenuPopupCssVars';
+import { NavigationMenuPositionerCssVars } from '../positioner/NavigationMenuPositionerCssVars';
 import { NAVIGATION_MENU_TRIGGER_IDENTIFIER } from '../utils/constants';
 import { isOutsideMenuEvent } from '../utils/isOutsideMenuEvent';
+import { setSharedFixedSize } from '../utils/setSharedFixedSize';
 
 /**
  * Opens the navigation menu popup when hovered or clicked, revealing the
@@ -66,7 +74,10 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     setFloatingRootContext,
     popupElement,
     viewportElement,
+    transitionStatus,
     rootRef,
+    popupAutoSizeResetRef,
+    currentContentRef,
     beforeOutsideRef,
     afterOutsideRef,
     afterInsideRef,
@@ -85,6 +96,12 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
 
   const stickIfOpenTimeout = useTimeout();
   const focusFrame = useAnimationFrame();
+  const mutationFrame = useAnimationFrame();
+  const resizeFrame = useAnimationFrame();
+  const sizeFrame = useAnimationFrame();
+  const prevSizeRef = useRef({ width: 0, height: 0 });
+  const skipAutoSizeSyncRef = useRef(false);
+  const runOnceAnimationsFinish = useAnimationsFinished(popupElement);
 
   const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null | undefined>(
     undefined,
@@ -107,11 +124,221 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     setTriggerElement(element);
   };
 
+  const cancelAutoSizeReset = (force = false) => {
+    if (!force && popupAutoSizeResetRef.current.owner !== itemValue()) {
+      return;
+    }
+    popupAutoSizeResetRef.current.abortController?.abort();
+    popupAutoSizeResetRef.current.abortController = null;
+    popupAutoSizeResetRef.current.owner = null;
+  };
+
+  const setAutoSizes = (element: HTMLElement) => {
+    element.style.setProperty(NavigationMenuPopupCssVars.popupWidth, 'auto');
+    element.style.setProperty(NavigationMenuPopupCssVars.popupHeight, 'auto');
+  };
+
+  const clearFixedSizes = (popup: HTMLElement, positioner: HTMLElement) => {
+    popup.style.removeProperty(NavigationMenuPopupCssVars.popupWidth);
+    popup.style.removeProperty(NavigationMenuPopupCssVars.popupHeight);
+    positioner.style.removeProperty(NavigationMenuPositionerCssVars.positionerWidth);
+    positioner.style.removeProperty(NavigationMenuPositionerCssVars.positionerHeight);
+  };
+
+  const scheduleAutoSizeReset = (popup: HTMLElement) => {
+    cancelAutoSizeReset(true);
+    const abortController = new AbortController();
+    popupAutoSizeResetRef.current.abortController = abortController;
+    popupAutoSizeResetRef.current.owner = itemValue();
+    runOnceAnimationsFinish(() => {
+      popupAutoSizeResetRef.current.abortController = null;
+      popupAutoSizeResetRef.current.owner = null;
+      setAutoSizes(popup);
+    }, abortController.signal);
+  };
+
+  const handleValueChange = (popup: HTMLElement, positioner: HTMLElement) => {
+    cancelAutoSizeReset(true);
+
+    const fromWidth = prevSizeRef.current.width || popup.offsetWidth;
+    const fromHeight = prevSizeRef.current.height || popup.offsetHeight;
+
+    /* Measure the incoming content at its natural size, then put the old pixel
+       size back before paint. `auto` cannot transition to a length. */
+    popup.style.setProperty(NavigationMenuPopupCssVars.popupWidth, 'auto');
+    popup.style.setProperty(NavigationMenuPopupCssVars.popupHeight, 'auto');
+    const toWidth = popup.offsetWidth || fromWidth;
+    const toHeight = popup.offsetHeight || fromHeight;
+
+    popup.style.setProperty(NavigationMenuPopupCssVars.popupWidth, `${fromWidth}px`);
+    popup.style.setProperty(NavigationMenuPopupCssVars.popupHeight, `${fromHeight}px`);
+    positioner.style.setProperty(NavigationMenuPositionerCssVars.positionerWidth, `${fromWidth}px`);
+    positioner.style.setProperty(
+      NavigationMenuPositionerCssVars.positionerHeight,
+      `${fromHeight}px`,
+    );
+    void popup.offsetWidth;
+
+    sizeFrame.request(() => {
+      sizeFrame.request(() => {
+        if (!isActiveItem()) {
+          return;
+        }
+        popup.style.setProperty(NavigationMenuPopupCssVars.popupWidth, `${toWidth}px`);
+        popup.style.setProperty(NavigationMenuPopupCssVars.popupHeight, `${toHeight}px`);
+        positioner.style.setProperty(
+          NavigationMenuPositionerCssVars.positionerWidth,
+          `${toWidth}px`,
+        );
+        positioner.style.setProperty(
+          NavigationMenuPositionerCssVars.positionerHeight,
+          `${toHeight}px`,
+        );
+        prevSizeRef.current = { width: toWidth, height: toHeight };
+        scheduleAutoSizeReset(popup);
+      });
+    });
+  };
+
   createEffect(() => {
     if (!open()) {
       stickIfOpenTimeout.clear();
+      mutationFrame.cancel();
+      resizeFrame.cancel();
+      sizeFrame.cancel();
+      cancelAutoSizeReset(true);
+      skipAutoSizeSyncRef.current = false;
       setPointerType('');
     }
+  });
+
+  createEffect(() => {
+    if (!mounted()) {
+      prevSizeRef.current = { width: 0, height: 0 };
+    }
+  });
+
+  createEffect(() => {
+    const popup = popupElement();
+    if (!popup || typeof ResizeObserver !== 'function') {
+      return;
+    }
+    const resizeObserver = new ResizeObserver(() => {
+      prevSizeRef.current = {
+        width: popup.offsetWidth,
+        height: popup.offsetHeight,
+      };
+    });
+    resizeObserver.observe(popup);
+    onCleanup(() => {
+      resizeObserver.disconnect();
+    });
+  });
+
+  createEffect(() => {
+    if (!open() || !isActiveItem()) {
+      return;
+    }
+    const popup = popupElement();
+    const positioner = positionerElement();
+    if (!popup || !positioner) {
+      return;
+    }
+    const win = ownerWindow(positioner);
+    const handleResize = () => {
+      resizeFrame.cancel();
+      resizeFrame.request(() => {
+        sizeFrame.cancel();
+        cancelAutoSizeReset(true);
+        clearFixedSizes(popup, positioner);
+        const { width, height } = getCssDimensions(popup);
+        if (width === 0 || height === 0) {
+          return;
+        }
+        prevSizeRef.current = { width, height };
+        setAutoSizes(popup);
+        positioner.style.setProperty(NavigationMenuPositionerCssVars.positionerWidth, `${width}px`);
+        positioner.style.setProperty(
+          NavigationMenuPositionerCssVars.positionerHeight,
+          `${height}px`,
+        );
+      });
+    };
+    const unsubscribe = addEventListener(win, 'resize', handleResize);
+    onCleanup(() => {
+      resizeFrame.cancel();
+      unsubscribe();
+    });
+  });
+
+  createEffect(() => {
+    const active = isActiveItem();
+    const popup = popupElement();
+    const positioner = positionerElement();
+    const observedElement = currentContentRef.current;
+    if (!active || !observedElement || !popup || !positioner || typeof MutationObserver !== 'function') {
+      return;
+    }
+    transitionStatus();
+    const mutationObserver = new MutationObserver(() => {
+      if (
+        transitionStatus() === 'starting' ||
+        popup.hasAttribute(TransitionStatusDataAttributes.startingStyle)
+      ) {
+        sizeFrame.cancel();
+        cancelAutoSizeReset(true);
+        clearFixedSizes(popup, positioner);
+        const { width, height } = getCssDimensions(popup);
+        if (width === 0 || height === 0) {
+          return;
+        }
+        prevSizeRef.current = { width, height };
+        setAutoSizes(popup);
+        positioner.style.setProperty(NavigationMenuPositionerCssVars.positionerWidth, `${width}px`);
+        positioner.style.setProperty(
+          NavigationMenuPositionerCssVars.positionerHeight,
+          `${height}px`,
+        );
+        return;
+      }
+      const popupWidth = popup.style.getPropertyValue(NavigationMenuPopupCssVars.popupWidth);
+      const popupHeight = popup.style.getPropertyValue(NavigationMenuPopupCssVars.popupHeight);
+      const isResizing =
+        popupWidth !== '' && popupWidth !== 'auto' && popupHeight !== '' && popupHeight !== 'auto';
+      if (!isResizing) {
+        prevSizeRef.current = {
+          width: popup.offsetWidth || prevSizeRef.current.width,
+          height: popup.offsetHeight || prevSizeRef.current.height,
+        };
+      }
+      handleValueChange(popup, positioner);
+    });
+    mutationObserver.observe(observedElement, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['hidden'],
+    });
+    onCleanup(() => {
+      mutationObserver.disconnect();
+    });
+  });
+
+  createEffect(() => {
+    const active = isActiveItem();
+    const isOpen = open();
+    const popup = popupElement();
+    const positioner = positionerElement();
+    transitionStatus();
+    if (!(active && isOpen && popup && positioner)) {
+      return;
+    }
+    if (skipAutoSizeSyncRef.current) {
+      skipAutoSizeSyncRef.current = false;
+      return;
+    }
+    handleValueChange(popup, positioner);
   });
 
   createEffect(() => {
@@ -157,6 +384,25 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
       }
 
       if (nextOpen) {
+        /* Lock the current pixel size before the content swaps. Width/height only
+           transition between two px values; `auto` jumps. */
+        const popup = popupElement();
+        const positioner = positionerElement();
+        if (popup && positioner && popup.offsetWidth > 0 && popup.offsetHeight > 0) {
+          const width = popup.offsetWidth;
+          const height = popup.offsetHeight;
+          prevSizeRef.current = { width, height };
+          popup.style.setProperty(NavigationMenuPopupCssVars.popupWidth, `${width}px`);
+          popup.style.setProperty(NavigationMenuPopupCssVars.popupHeight, `${height}px`);
+          positioner.style.setProperty(
+            NavigationMenuPositionerCssVars.positionerWidth,
+            `${width}px`,
+          );
+          positioner.style.setProperty(
+            NavigationMenuPositionerCssVars.positionerHeight,
+            `${height}px`,
+          );
+        }
         setValue(itemValue(), eventDetails);
       } else {
         setValue(null, eventDetails);

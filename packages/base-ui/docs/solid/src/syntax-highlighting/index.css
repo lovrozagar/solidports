@@ -13,12 +13,6 @@
 
 [data-language='css'] {
   --syntax-variable: var(--color-navy);
-
-  /* Target CSS property names – ugly but works */
-  & [style='color: var(--syntax-constant)']:first-child,
-  & [style='color:var(--syntax-constant)']:first-child {
-    --syntax-constant: var(--color-foreground);
-  }
 }
 
 /* Collapse most colors to blue for inline code */

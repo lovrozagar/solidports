@@ -12,7 +12,7 @@ import {
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { Bar, BarChart, XAxis } from "../../../src"
 import { PageData } from "../../_data"
-import { setActiveMouseOverItemIndex } from "../../../src/state/tooltipSlice"
+import { createActions } from "../../../src/state/actions"
 
 describe("selectAxisRangeWithReverse", () => {
 	const selector = (state: ChartState) =>
@@ -34,15 +34,15 @@ describe("selectAxisRangeWithReverse", () => {
 	})
 	it("should not recompute when an irrelevant property in the state changes", () => {
 		const [store, setStore] = createRechartsStore()
+		const actions = createActions(store, setStore)
 		const result1 = selectAxisRangeWithReverse(store, "xAxis", "0", false)
 		const xAxisRange1 = selectXAxisRange(store, "0", false)
-		;(setActiveMouseOverItemIndex({
+		actions.setActiveMouseOverItemIndex({
 			activeCoordinate: undefined,
 			activeDataKey: "x",
 			activeGraphicalItemId: "foo",
 			activeIndex: "7",
-		}),
-			(setStore, store))
+		})
 		const result2 = selectAxisRangeWithReverse(store, "xAxis", "0", false)
 		const xAxisRange2 = selectXAxisRange(store, "0", false)
 		expect(xAxisRange1).toEqual(xAxisRange2)

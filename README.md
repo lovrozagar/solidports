@@ -2,9 +2,9 @@
 
 1:1 Solid ports of React libraries. Same public API, Solid reactivity underneath.
 
-This repo is the source of [`@solidports/base-ui`](https://www.npmjs.com/package/@solidports/base-ui) and [`@solidports/recharts`](https://www.npmjs.com/package/@solidports/recharts).
+This repo is the source of [`@solidports/base-ui`](https://www.npmjs.com/package/@solidports/base-ui), [`@solidports/recharts`](https://www.npmjs.com/package/@solidports/recharts), and [`@solidports/flare-ui`](packages/flare-ui).
 
-If you are an agent: read this file end to end. Import only from the package exports. Work in `packages/base-ui/packages/solid` or `packages/recharts` unless the request says otherwise.
+If you are an agent: read this file end to end. Import only from the package exports. Work in `packages/base-ui/packages/solid`, `packages/recharts`, `packages/flare-ui`, or `packages/flare-ui-consumer` unless the request says otherwise.
 
 ## Table of contents
 
@@ -12,6 +12,7 @@ If you are an agent: read this file end to end. Import only from the package exp
 - [Install](#install)
 - [Base UI](#base-ui)
 - [Recharts](#recharts)
+- [Flare UI](#flare-ui)
 - [Repository layout](#repository-layout)
 - [Develop](#develop)
 - [License](#license)
@@ -22,6 +23,7 @@ If you are an agent: read this file end to end. Import only from the package exp
 | -------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | [`@solidports/base-ui`](packages/base-ui/packages/solid) | [MUI Base UI](https://github.com/mui/base-ui) v1.8.0    | Solid port of the headless component library. Docs at `packages/base-ui/docs/solid`.        |
 | [`@solidports/recharts`](packages/recharts)              | [recharts](https://github.com/recharts/recharts) v3.8.1 | Solid port of the charting library. Test parity was 28% (1224 / 4338) at the last snapshot. |
+| [`@solidports/flare-ui`](packages/flare-ui)              | Flare UI snapshot `b622cc453`                           | ShadCN-shaped Solid components wrapping `@solidports/base-ui` 1.8.0-sp.1.                   |
 
 Both trees last lived in the private monorepo and were removed on 19 Aug 2026. This repo restores the 18 Aug 2026 snapshot (`b622cc453`) and continues the ports here.
 
@@ -32,16 +34,19 @@ Consumers need Solid 1.9. This repo develops on [Bun](https://bun.sh) 1.3+.
 ```bash
 bun add @solidports/base-ui solid-js
 bun add @solidports/recharts solid-js
+bun add @solidports/flare-ui solid-js @solidports/base-ui tailwindcss
 ```
 
 ```bash
 npm install @solidports/base-ui solid-js
 npm install @solidports/recharts solid-js
+npm install @solidports/flare-ui solid-js @solidports/base-ui tailwindcss
 ```
 
 ```bash
 pnpm add @solidports/base-ui solid-js
 pnpm add @solidports/recharts solid-js
+pnpm add @solidports/flare-ui solid-js @solidports/base-ui tailwindcss
 ```
 
 ## Base UI
@@ -108,6 +113,16 @@ cd packages/recharts/examples/basic
 bun run dev
 ```
 
+## Flare UI
+
+ShadCN-shaped Solid components wrapping `@solidports/base-ui`. The design-system gallery lives in [`packages/flare-ui-consumer`](packages/flare-ui-consumer): all 42 components on one page, with Dark and RTL switches.
+
+```bash
+bun run dev:flare-ui
+```
+
+Open [http://localhost:4100](http://localhost:4100). Playwright still uses the isolated fixture on port 4099.
+
 ## Repository layout
 
 ```
@@ -118,6 +133,8 @@ packages/base-ui/docs/react       upstream docs snapshot
 packages/base-ui/docs/solid       Solid docs app
 packages/recharts/                published `@solidports/recharts`
 packages/recharts/examples/       basic / react / shadcn / visual harnesses
+packages/flare-ui/                published `@solidports/flare-ui`
+packages/flare-ui-consumer/       private gallery — all 42 components, Dark + RTL, port 4100
 ```
 
 Porting notes live in each package's `.kb/`.
@@ -131,6 +148,8 @@ bun install
 bun run typecheck
 bun run test                 # @solidports/recharts unit
 bun run test:base-ui         # @solidports/base-ui jsdom
+bun run test:flare-ui        # @solidports/flare-ui Playwright chromium-ltr
+bun run dev:flare-ui         # gallery at http://localhost:4100
 bun run lint
 bun run fmt:check
 ```

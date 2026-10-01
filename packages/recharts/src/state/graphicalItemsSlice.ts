@@ -1,7 +1,4 @@
 /* eslint-disable import/no-cycle */
-import type { SetStoreFunction } from "solid-js/store"
-import type { CartesianItemState } from "./chartState"
-import type { ChartState } from "./store"
 import type { ChartData } from "./chartDataSlice"
 import type { AxisId } from "./cartesianAxisSlice"
 import type { DataKey } from "../util/types"
@@ -71,37 +68,7 @@ export interface BasePolarGraphicalItemSettings extends GraphicalItemSettings {
 
 export type PolarGraphicalItemSettings = PieSettings | RadarSettings | RadialBarSettings
 
-export type GraphicalItemsState = {
-	/**
-	 * This is an array of all cartesian graphical items and their settings.
-	 * Graphical item is a visual representation of data on the chart.
-	 * Some examples are: Line, Bar.
-	 *
-	 * The order is arbitrary; do not expect that indexes here will be the same as indexes elsewhere.
-	 */
-	cartesianItems: ReadonlyArray<CartesianGraphicalItemSettings>
-	/**
-	 * This is an array of all polar graphical items and their settings.
-	 * Graphical item is a visual representation of data on the chart.
-	 * Some examples are: Pie, Radar, RadialBar
-	 *
-	 * The order is arbitrary; do not expect that indexes here will be the same as indexes elsewhere.
-	 */
-	polarItems: ReadonlyArray<PolarGraphicalItemSettings>
-}
-
 export type ReplacePayload<T> = {
 	prev: T
 	next: T
-}
-
-type Thunk = (setStore: SetStoreFunction<ChartState>, store: ChartState) => void
-
-/** Registers a cartesian graphical item into ChartState. */
-export function addCartesianGraphicalItem(item: CartesianGraphicalItemSettings): Thunk {
-	return (setStore) => {
-		if (item.id == null) return
-		const itemState = { settings: item, type: item.type } as CartesianItemState
-		setStore("graphicalItems", String(item.id), itemState as never)
-	}
 }

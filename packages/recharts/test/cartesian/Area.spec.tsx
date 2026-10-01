@@ -21,7 +21,11 @@ import {
 } from "../helper/parameterizedTestCases"
 import { useAppSelector } from "../helper/legacyDispatch"
 import { CartesianGraphicalItemSettings } from "../../src/state/graphicalItemsSlice"
-import { BaseAxisWithScale, implicitYAxis } from "../../src/state/selectors/axisSelectors"
+import {
+	BaseAxisWithScale,
+	implicitYAxis,
+	selectUnfilteredCartesianItems,
+} from "../../src/state/selectors/axisSelectors"
 import { mockXAxisWithScale, mockYAxisWithScale } from "../helper/mockAxes"
 import { useLegendPayload } from "../../src/context/legendPayloadContext"
 import { selectTooltipPayloadConfigurations } from "../../src/state/selectors/selectors"
@@ -676,7 +680,7 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 			const spy = vi.fn()
 			const Comp = (): null => {
 				createEffect(() => {
-					const cartesianItems = useAppSelector((state) => state.graphicalItems.cartesianItems)
+					const cartesianItems = useAppSelector(selectUnfilteredCartesianItems)
 					spy(cartesianItems)
 				})
 				return null
@@ -729,8 +733,7 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 		it("should report default props to redux state", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				const cartesianItems = useAppSelector((state) => state.graphicalItems.cartesianItems)
-				spy(cartesianItems)
+				createEffect(() => spy(useAppSelector(selectUnfilteredCartesianItems)))
 				return null
 			}
 			const data2 = [1, 2, 3]
@@ -765,10 +768,10 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 		it.skip("should remember the auto-generated ID between renders", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				const cartesianItems = useAppSelector((state) => state.graphicalItems.cartesianItems)
+				const cartesianItems = useAppSelector(selectUnfilteredCartesianItems)
 				assertNotNull(cartesianItems)
 				if (cartesianItems.length > 1) {
-					throw new Error("Expected only one item in cartesianItems")
+					throw new Error("Expected only one cartesian graphical item")
 				}
 				if (cartesianItems.length === 1) {
 					spy(cartesianItems[0].id)

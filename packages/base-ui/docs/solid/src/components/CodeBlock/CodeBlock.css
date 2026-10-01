@@ -22,6 +22,20 @@
       padding-left: 0.75rem;
       padding-right: 0.75rem;
     }
+
+    /* Newlines between line spans must not become extra blank rows. */
+    & pre,
+    & pre code {
+      white-space: normal;
+    }
+
+    /* rehype-pretty-code emits [data-line] without the React `.frame` wrapper. */
+    & [data-line] {
+      display: block;
+      white-space: pre;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
   }
 
   /* Inline code placed directly in a block has no `.frame` or `pre` to carry the inset above. */
