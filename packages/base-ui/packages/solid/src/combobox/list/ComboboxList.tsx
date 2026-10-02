@@ -1,10 +1,13 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, Show, type Accessor, type JSX } from 'solid-js';
+import { createTrackedEffect, Show } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { stopEvent } from '../../floating-ui-solid/utils';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { ComboboxCollection } from '../collection/ComboboxCollection';
 import { useComboboxPositionerContext } from '../positioner/ComboboxPositionerContext';
 import {
@@ -54,7 +57,7 @@ export function ComboboxList(componentProps: ComboboxList.Props) {
     },
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     store.set('listboxId', listboxId());
   });
 
@@ -79,7 +82,7 @@ export function ComboboxList(componentProps: ComboboxList.Props) {
            * and not an accessor.
            */
           when={typeof local.children === 'function' && local.children.length > 0 && local.children}
-          fallback={local.children as JSX.Element}
+          fallback={local.children}
         >
           {(children) => <ComboboxCollection>{children}</ComboboxCollection>}
         </Show>
@@ -91,18 +94,14 @@ export function ComboboxList(componentProps: ComboboxList.Props) {
         {
           'aria-multiselectable': multiple() ? ('true' as const) : undefined,
           id: listboxId(),
-          'on:keydown': {
-            capture: true,
-            handleEvent() {
+          ref: withCaptureListeners({
+            keydown: () => {
               store.set('keyboardActiveRef', true);
             },
-          },
-          'on:pointermove': {
-            capture: true,
-            handleEvent() {
+            pointermove: () => {
               store.set('keyboardActiveRef', false);
             },
-          },
+          }),
           onKeyDown(event: KeyboardEvent) {
             if (disabled() || readOnly()) {
               return;
@@ -129,7 +128,7 @@ export function ComboboxList(componentProps: ComboboxList.Props) {
             }
           },
           role: (grid() ? 'grid' : 'listbox') as 'grid' | 'listbox',
-          tabIndex: -1,
+          tabindex: -1,
         },
         elementProps,
       ];

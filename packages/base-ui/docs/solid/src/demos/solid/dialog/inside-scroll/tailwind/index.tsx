@@ -22,7 +22,7 @@ export default function InsideScrollDialog() {
               <ScrollArea.Viewport class="flex-auto min-h-0 overflow-y-auto overscroll-contain outline-none">
                 <ScrollArea.Content class="flex flex-col">
                   {CONTENT_SECTIONS.map((item) => (
-                    <section class="flex flex-col gap-1 p-4" key={item.title}>
+                    <section class="flex flex-col gap-1 p-4">
                       <h3 class="text-sm font-bold">{item.title}</h3>
                       <p class="text-sm text-neutral-700 dark:text-neutral-300">{item.body}</p>
                     </section>

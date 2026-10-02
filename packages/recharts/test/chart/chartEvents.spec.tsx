@@ -1,4 +1,5 @@
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../helper/render"
+import { flush } from "solid-js"
 import { describe, it, expect, vi, Mock, beforeEach } from "vitest"
 import {
 	SankeyChartCase,
@@ -72,6 +73,7 @@ describe("chart wrapper events", () => {
 			fireEvent.click(getSurface(container), { clientX: 10, clientY: 10 })
 			// external handler middleware is called within requestAnimationFrame
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expect(spies.onClick).toHaveBeenCalled()
 		})
@@ -86,12 +88,14 @@ describe("chart wrapper events", () => {
 			))
 			fireEvent.mouseOver(getSurface(container), { clientX: 10, clientY: 10 })
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expect(spies.onMouseEnter).toHaveBeenCalledTimes(1)
 			expect(spies.onMouseMove).not.toHaveBeenCalled()
 			expect(spies.onMouseLeave).not.toHaveBeenCalled()
 			fireEvent.mouseMove(getSurface(container), { clientX: 20, clientY: 20 })
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expect(spies.onMouseMove).toHaveBeenCalled()
 			expect(spies.onMouseLeave).not.toHaveBeenCalled()
@@ -99,6 +103,7 @@ describe("chart wrapper events", () => {
 			   Use mouseOut on svg → bubbles to wrapper div onMouseOut handler. */
 			fireEvent.mouseOut(getSurface(container), { relatedTarget: null })
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expect(spies.onMouseLeave).toHaveBeenCalled()
 		})
@@ -115,6 +120,7 @@ describe("chart wrapper events", () => {
 				changedTouches: [{ pageX: 10, pageY: 10 }],
 			})
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expect(spies.onTouchStart).toHaveBeenCalled()
 			expect(spies.onTouchMove).not.toHaveBeenCalled()
@@ -123,6 +129,7 @@ describe("chart wrapper events", () => {
 				changedTouches: [{ pageX: 20, pageY: 20 }],
 			})
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expect(spies.onTouchMove).toHaveBeenCalled()
 			expect(spies.onTouchEnd).not.toHaveBeenCalled()
@@ -130,6 +137,7 @@ describe("chart wrapper events", () => {
 				changedTouches: [{ pageX: 20, pageY: 20 }],
 			})
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expect(spies.onTouchEnd).toHaveBeenCalled()
 		})
@@ -202,6 +210,7 @@ describe("chart wrapper event data", () => {
 			const { container } = renderTestCase()
 			fireEvent.click(getSurface(container), { clientX: 10, clientY: 10 })
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expectLastCalledWithData(spies.onClick, {
 				activeCoordinate: { x: 37.5, y: 10 },
@@ -235,6 +244,7 @@ describe("chart wrapper event data", () => {
 			expect(spies.onMouseEnter).toHaveBeenCalledTimes(0)
 			fireEvent.mouseOver(getSurface(container), { clientX: 10, clientY: 10 })
 			vi.runOnlyPendingTimers()
+			flush()
 			expect(spies.onMouseEnter).toHaveBeenCalledTimes(1)
 			expectLastCalledWithData(spies.onMouseEnter, {
 				activeCoordinate: { x: 37.5, y: 10 },
@@ -246,6 +256,7 @@ describe("chart wrapper event data", () => {
 			})
 			fireEvent.mouseMove(getSurface(container), { clientX: 20, clientY: 20 })
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expectLastCalledWithData(spies.onMouseMove, {
 				activeCoordinate: { x: 37.5, y: 20 },
@@ -258,6 +269,7 @@ describe("chart wrapper event data", () => {
 			/* GOTCHA-016-C: mouseleave doesn't bubble; use mouseOut. */
 			fireEvent.mouseOut(getSurface(container), { relatedTarget: null })
 			vi.runOnlyPendingTimers()
+			flush()
 
 			expectLastCalledWithData(spies.onMouseLeave, {
 				activeCoordinate: {

@@ -1,4 +1,5 @@
-import { createSignal, Show, splitProps, type JSX } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   flip,
   FloatingFocusManager,
@@ -15,6 +16,7 @@ import {
   useInteractions,
 } from '../../src/floating-ui-solid';
 import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyRootContext';
+import { splitProps } from '../../src/solid-1-compat';
 
 interface SubItemProps {
   label: string;

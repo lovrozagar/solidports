@@ -1,7 +1,10 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
+import { createSignal, flush } from "solid-js"
 import { describe, expect, it, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { observe } from "../../helper/observe"
+import { trackSpy } from "../../helper/trackSpy"
+
+import { render } from "../../helper/render"
 import { useAppSelector } from "../../helper/legacyDispatch"
 import { selectTicksOfAxis } from "../../../src/state/selectors/axisSelectors"
 import { BarChart, Brush, Customized, XAxis } from "../../../src"
@@ -22,7 +25,7 @@ describe("brush and startIndex + endIndex", () => {
 		const axisDomainSpy = vi.fn()
 		const ticksSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() =>
+			observe(() =>
 				ticksSpy(useAppSelector((state) => selectTicksOfAxis(state, "xAxis", 0, false))),
 			)
 			return null
@@ -87,17 +90,18 @@ describe("brush and startIndex + endIndex", () => {
 			},
 		])
 	})
-	it.skip("should hide ticks when Brush travellers move", () => {
+	it("should hide ticks when Brush travellers move", () => {
 		const axisDomainSpy = vi.fn()
 		const ticksSpy = vi.fn()
 		const Comp = (): null => {
-			ticksSpy(useAppSelector((state) => selectTicksOfAxis(state, "xAxis", 0, false)))
+			trackSpy(ticksSpy, () => useAppSelector((state) => selectTicksOfAxis(state, "xAxis", 0, false)))
 			return null
 		}
-		const { container, rerender } = render(() => (
+		const [brushRange, setBrushRange] = createSignal<{ startIndex?: number; endIndex?: number }>({})
+		const { container } = render(() => (
 			<BarChart width={300} height={300} data={data}>
 				<XAxis dataKey="x" type="category" />
-				<Brush />
+				<Brush startIndex={brushRange().startIndex} endIndex={brushRange().endIndex} />
 				<Customized
 					component={() => <ExpectAxisDomain assert={axisDomainSpy} axisType="xAxis" />}
 				/>
@@ -187,16 +191,8 @@ describe("brush and startIndex + endIndex", () => {
 			},
 		])
 
-		rerender(() => (
-			<BarChart width={300} height={300} data={data}>
-				<XAxis dataKey="x" type="category" />
-				<Brush startIndex={1} endIndex={4} />
-				<Customized
-					component={() => <ExpectAxisDomain assert={axisDomainSpy} axisType="xAxis" />}
-				/>
-				<Comp />
-			</BarChart>
-		))
+		setBrushRange({ endIndex: 4, startIndex: 1 })
+		flush()
 
 		expect(axisDomainSpy).toHaveBeenLastCalledWith([100, 120, 170, 140])
 		expect(ticksSpy).toHaveBeenLastCalledWith([

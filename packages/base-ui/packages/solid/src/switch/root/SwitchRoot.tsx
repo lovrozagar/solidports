@@ -1,12 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import {
-  batch,
-  createEffect,
-  on,
-  onMount,
-  mergeProps as solidMergeProps,
-  type JSX,
-} from 'solid-js';
+import { createEffect, onSettled } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useField } from '../../field/useField';
@@ -27,6 +21,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import { stateAttributesMapping } from '../stateAttributesMapping';
 import { SwitchRootContext } from './SwitchRootContext';
+import { on, mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * Represents the switch itself.
@@ -56,10 +51,10 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
   const nameProp = () => local.name;
   const formProp = () => local.form;
   const ariaLabelledByProp = () => local['aria-labelledby'];
-  const nativeButton = () => local.nativeButton ?? false;
+  const nativeButton = () => Boolean(local.nativeButton);
   const readOnly = () => local.readOnly ?? false;
   const required = () => local.required ?? false;
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
 
   const { clearErrors } = useFormContext();
   const {
@@ -80,7 +75,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
   const disabled = () => fieldDisabled() || disabledProp();
   const name = () => fieldName() ?? nameProp();
 
-  const onCheckedChange: Exclude<typeof local.onCheckedChange, undefined> = (checked, event) => {
+  const onCheckedChange = (checked: boolean, event: SwitchRoot.ChangeEventDetails) => {
     local.onCheckedChange?.(checked, event);
   };
 
@@ -115,14 +110,13 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     value: checked,
   });
 
-  onMount(() => {
+  onSettled(() => {
     if (inputRef) {
       setFilled(inputRef.checked);
     }
   });
 
-  createEffect(
-    on(
+  createEffect(...on(
       checked,
       (checkedValue) => {
         clearErrors(name());
@@ -146,16 +140,16 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
 
   const rootProps: JSX.HTMLAttributes<HTMLSpanElement> = {
     get 'aria-checked'() {
-      return checked();
+      return checked() ? 'true' : 'false';
     },
     get 'aria-labelledby'() {
       return ariaLabelledBy();
     },
     get 'aria-readonly'() {
-      return readOnly() || undefined;
+      return readOnly() ? 'true' : undefined;
     },
     get 'aria-required'() {
-      return required() || undefined;
+      return required() ? 'true' : undefined;
     },
     get id() {
       return nativeButton() ? controlId() : id();
@@ -165,14 +159,14 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
         return;
       }
 
-      batch(() => {
+      {
         setTouched(true);
         setFocused(false);
 
         if (validationMode() === 'onBlur') {
           validation.commit(inputRef?.checked);
         }
-      });
+      };
     },
     onClick(event) {
       if (readOnly() || disabled()) {
@@ -201,7 +195,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
 
   const inputProps = mergeProps<'input'>(
     {
-      'aria-hidden': true,
+      'aria-hidden': 'true',
       get checked() {
         return checked();
       },
@@ -223,7 +217,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
           return;
         }
 
-        batch(() => {
+        {
           const nextChecked = event.target.checked;
 
           const eventDetails = createChangeEventDetails(REASONS.none, lastClickEvent ?? event);
@@ -236,7 +230,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
           }
 
           setCheckedState(nextChecked);
-        });
+        };
       },
       onFocus() {
         switchRef?.focus();
@@ -254,7 +248,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
       get style() {
         return name() ? visuallyHiddenInput : visuallyHidden;
       },
-      tabIndex: -1,
+      tabindex: -1,
       type: 'checkbox',
     },
     validation.getInputValidationProps,
@@ -303,13 +297,13 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
   });
 
   return (
-    <SwitchRootContext.Provider value={context}>
+    <SwitchRootContext value={context}>
       {element()}
       {!checked() && name() && local.uncheckedValue !== undefined && (
         <input type="hidden" form={formProp()} name={name()} value={local.uncheckedValue} />
       )}
       <input {...(inputProps as any)} />
-    </SwitchRootContext.Provider>
+    </SwitchRootContext>
   );
 }
 

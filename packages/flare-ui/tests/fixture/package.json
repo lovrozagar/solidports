@@ -9,14 +9,15 @@
 	},
 	"dependencies": {
 		"@solidjs/router": "catalog:",
+		"@solidjs/web": "catalog:",
 		"@solidports/base-ui": "workspace:*",
 		"@solidports/flare-ui": "workspace:*",
 		"solid-js": "catalog:"
 	},
 	"devDependencies": {
+		"@solidjs/vite-plugin": "catalog:",
 		"@tailwindcss/vite": "catalog:",
 		"typescript": "catalog:",
-		"vite": "catalog:",
-		"vite-plugin-solid": "catalog:"
+		"vite": "catalog:"
 	}
 }

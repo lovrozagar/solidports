@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isElement } from '@floating-ui/utils/dom';
-import { createEffect } from 'solid-js';
+import { createTrackedEffect, createEffect } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { PopupTriggerMap } from '../../utils/popups';
@@ -26,7 +26,7 @@ export function useFloatingRootContext(options: UseFloatingRootContextOptions): 
   const nested = useFloatingParentNodeId() != null;
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       const optionDomReference = props.elements?.reference;
       if (optionDomReference && !isElement(optionDomReference)) {
         console.error(
@@ -59,28 +59,32 @@ export function useFloatingRootContext(options: UseFloatingRootContextOptions): 
     triggerElements: new PopupTriggerMap(),
   });
 
-  createEffect(() => {
-    const ref = props.elements?.reference;
-    const valuesToSync: Writeable<Partial<FloatingRootState>> = {
-      floatingId: floatingId(),
-      open: props.open,
-    };
+  createEffect(
+    () => {
+      const ref = props.elements?.reference;
+      const valuesToSync: Writeable<Partial<FloatingRootState>> = {
+        floatingId: floatingId(),
+        open: props.open,
+      };
 
-    // Only sync elements that are defined to avoid overwriting existing ones
-    if (ref !== undefined) {
-      valuesToSync.referenceElement = ref;
-      valuesToSync.domReferenceElement = isElement(ref) ? ref : null;
-    }
+      // Only sync elements that are defined to avoid overwriting existing ones
+      if (ref !== undefined) {
+        valuesToSync.referenceElement = ref;
+        valuesToSync.domReferenceElement = isElement(ref) ? ref : null;
+      }
 
-    if (props.elements?.floating !== undefined) {
-      valuesToSync.floatingElement = props.elements.floating;
-    }
+      if (props.elements?.floating !== undefined) {
+        valuesToSync.floatingElement = props.elements.floating;
+      }
 
-    store.context.onOpenChange = props.onOpenChange;
-    store.context.nested = nested;
-
-    store.update(valuesToSync);
-  });
+      return { valuesToSync, onOpenChange: props.onOpenChange };
+    },
+    ({ valuesToSync, onOpenChange }) => {
+      store.context.onOpenChange = onOpenChange;
+      store.context.nested = nested;
+      store.update(valuesToSync);
+    },
+  );
 
   return store;
 }

@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { splitComponentProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -80,7 +80,7 @@ export function DrawerSwipeArea(componentProps: DrawerSwipeArea.Props) {
     'disabled',
     'swipeDirection',
   ]);
-  const disabled = () => local.disabled ?? false;
+  const disabled = () => Boolean(local.disabled);
   const swipeDirectionProp = () => local.swipeDirection;
 
   const { store } = useDialogRootContext();
@@ -98,7 +98,9 @@ export function DrawerSwipeArea(componentProps: DrawerSwipeArea.Props) {
   let appliedSwipeStylesRef = false;
   let popupTransitionRef = null as string | null;
 
-  const swipeAreaId = useBaseUiId(() => componentProps.id);
+  const swipeAreaId = useBaseUiId(() =>
+    typeof componentProps.id === 'string' ? componentProps.id : undefined,
+  );
   const registerTrigger = useTriggerRegistration({
     get id() {
       return swipeAreaId();
@@ -108,8 +110,8 @@ export function DrawerSwipeArea(componentProps: DrawerSwipeArea.Props) {
 
   const open = store.useState('open');
 
-  const resolvedSwipeDirection = () =>
-    swipeDirectionProp() ?? oppositeSwipeDirection[swipeDirection()];
+  const resolvedSwipeDirection = (): DrawerSwipeDirection =>
+    (swipeDirectionProp() ?? oppositeSwipeDirection[swipeDirection()]) as DrawerSwipeDirection;
   const dismissDirection = () => oppositeSwipeDirection[resolvedSwipeDirection()];
   const enabled = () => !disabled() && (!open() || swipeActive());
 
@@ -383,7 +385,7 @@ export function DrawerSwipeArea(componentProps: DrawerSwipeArea.Props) {
   const swipeTouchProps = swipe.getTouchProps();
   const resetSwipe = swipe.reset;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!enabled()) {
       resetSwipe();
       resetDragDelta();
@@ -416,7 +418,7 @@ export function DrawerSwipeArea(componentProps: DrawerSwipeArea.Props) {
       return [
         {
           role: 'presentation' as const,
-          'aria-hidden': true,
+          'aria-hidden': 'true',
           get style() {
             return {
               pointerEvents: !enabled() ? 'none' : undefined,

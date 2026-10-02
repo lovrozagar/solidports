@@ -1,5 +1,5 @@
 import { isElement } from '@floating-ui/utils/dom';
-import { createEffect, onCleanup, mergeProps as solidMergeProps } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
@@ -18,6 +18,7 @@ import {
 } from './useHoverInteractionSharedState';
 import { type HandleClose } from './useHover';
 import { getDelay, getRestMs } from './useHoverShared';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export interface UseHoverReferenceInteractionProps {
   enabled?: boolean | undefined;
@@ -78,7 +79,7 @@ export function useHoverReferenceInteraction(parameters: {
   /* Track whether the last close was driven by hover — used to detect re-entry during close transition. */
   let isHoverCloseActiveRef = false;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (props.isActiveTrigger) {
       setInstanceState('handleCloseOptions', props.handleClose?.__options);
     }
@@ -116,7 +117,7 @@ export function useHoverReferenceInteraction(parameters: {
 
     const targetElement = target as Element;
     return (
-      allTriggers.hasMatchingElement((trigger) => contains(trigger, targetElement)) &&
+      allTriggers.hasMatchingElement((trigger: Element) => contains(trigger, targetElement)) &&
       (!currentDomReference || !contains(currentDomReference, targetElement))
     );
   };
@@ -164,16 +165,28 @@ export function useHoverReferenceInteraction(parameters: {
   }
 
   /* When closing before opening, clear delay timeouts to cancel from showing. */
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!props.enabled) {
       return;
     }
 
     store().context.events.on('openchange', onOpenChangeLocal);
-    onCleanup(() => store().context.events.off('openchange', onOpenChangeLocal));
-  });
+    _c.push(() => store().context.events.off('openchange', onOpenChangeLocal));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!props.enabled) {
       return;
     }
@@ -336,7 +349,7 @@ export function useHoverReferenceInteraction(parameters: {
       }
     }
 
-    onCleanup(
+    _c.push(
       mergeCleanups(
         store().select('open') && addEventListener(trigger, 'mouseleave', onScrollMouseLeave),
         props.move && addEventListener(trigger, 'mousemove', onMouseEnter, { once: true }),
@@ -344,7 +357,13 @@ export function useHoverReferenceInteraction(parameters: {
         addEventListener(trigger, 'mouseleave', onMouseLeave),
       ),
     );
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function setPointerRef(event: PointerEvent) {
     setInstanceState('pointerType', event.pointerType);

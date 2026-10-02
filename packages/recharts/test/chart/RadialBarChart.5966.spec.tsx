@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect } from "vitest"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
 import { PolarAngleAxis, RadialBar, RadialBarChart } from "../../src"

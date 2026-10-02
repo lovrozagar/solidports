@@ -1,16 +1,15 @@
 import c from 'clsx';
 import {
+  createTrackedEffect,
   createContext,
   createEffect,
   createSignal,
-  on,
   onCleanup,
   Show,
-  splitProps,
   useContext,
-  type Accessor,
-  type JSX,
 } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../src/internals/composite/list/CompositeList';
 import { useCompositeListItem } from '../../src/internals/composite/list/useCompositeListItem';
 import {
@@ -38,6 +37,7 @@ import {
 } from '../../src/floating-ui-solid';
 import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyRootContext';
 import { callEventHandler, defaultProps } from '../../src/solid-helpers';
+import { on, splitProps } from '../../src/solid-1-compat';
 
 type MenuContextType = {
   getItemProps: ReturnType<typeof useInteractions>['getItemProps'];
@@ -203,7 +203,7 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
   // Event emitter allows you to communicate across tree components.
   // This effect closes all menus when an item gets clicked anywhere
   // in the tree.
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!tree) {
       return;
     }
@@ -227,7 +227,7 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
     });
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (isOpen() && tree) {
       tree.events.emit('menuopen', { parentId, nodeId: nodeId() });
     }
@@ -236,8 +236,7 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
   // Determine if "hover" logic can run based on the modality of input. This
   // prevents unwanted focus synchronization as menus open and close with
   // keyboard navigation and the cursor is resting on the menu.
-  createEffect(
-    on(allowHover, () => {
+  createEffect(...on(allowHover, () => {
       function onPointerMove({ pointerType }: PointerEvent) {
         if (pointerType !== 'touch') {
           setAllowHover(true);
@@ -277,7 +276,7 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
         }}
         data-open={isOpen() ? '' : undefined}
         // eslint-disable-next-line no-nested-ternary
-        tabIndex={!isNested ? props.tabIndex : parent.activeIndex() === item.index() ? 0 : -1}
+        tabindex={!isNested ? props.tabIndex : parent.activeIndex() === item.index() ? 0 : -1}
         class={c(
           props.class || 'flex items-center justify-between gap-4 rounded px-2 py-1 text-left',
           {
@@ -311,7 +310,7 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
           </span>
         </Show>
       </button>
-      <MenuContext.Provider
+      <MenuContext
         value={{
           activeIndex,
           setActiveIndex,
@@ -362,7 +361,7 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
             </FloatingPortal>
           </Show>
         </CompositeList>
-      </MenuContext.Provider>
+      </MenuContext>
     </FloatingNode>
   );
 }
@@ -394,7 +393,7 @@ export function MenuItem(props: MenuItemProps & JSX.HTMLAttributes<HTMLButtonEle
       type="button"
       role="menuitem"
       disabled={local.disabled}
-      tabIndex={isActive() ? 0 : -1}
+      tabindex={isActive() ? 0 : -1}
       class={c('focus:bg-blue-500 flex rounded px-2 py-1 text-left outline-none focus:text-white', {
         'opacity-40': local.disabled,
       })}

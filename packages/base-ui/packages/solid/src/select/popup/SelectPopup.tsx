@@ -1,4 +1,5 @@
-import { createEffect, onCleanup, onMount, type JSX } from 'solid-js';
+import { createTrackedEffect, onCleanup, onSettled } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { COMPOSITE_KEYS } from '../../internals/composite/composite';
 import { useCSPContext } from '../../csp-provider/CSPContext';
 import { FloatingFocusManager } from '../../floating-ui-solid';
@@ -226,11 +227,14 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     handleScrollArrowVisibility();
   };
 
-  onMount(() => {
+  onSettled(() => {
     scrollHandlerRef.current = handleScroll;
   });
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const handleOpenChange = (details: { open: boolean; nativeEvent: Event }) => {
       if (!details.open) {
         closeTypeRef = getInteractionType(details.nativeEvent);
@@ -238,10 +242,16 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     };
 
     events.on('openchange', handleOpenChange);
-    onCleanup(() => {
+    _c.push(() => {
       events.off('openchange', handleOpenChange);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   useOpenChangeComplete({
     onComplete() {
@@ -268,7 +278,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     },
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const positionerEl = positionerElement();
     if (!positionerEl || !popupRef.current || Object.keys(originalPositionerStylesRef).length) {
       return;
@@ -287,7 +297,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     };
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (open() || alignItemWithTriggerActive()) {
       return;
     }
@@ -299,7 +309,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     clearStyles(positionerElement(), originalPositionerStylesRef);
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       return;
     }
@@ -313,7 +323,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const popupElement = popupRef.current;
     const positionerEl = positionerElement();
     const triggerEl = triggerElement();
@@ -470,7 +480,10 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     });
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const positionerEl = positionerElement();
     if (!alignItemWithTriggerActive() || !positionerEl || !open()) {
       return;
@@ -484,10 +497,16 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
 
     win.addEventListener('resize', handleResize);
 
-    onCleanup(() => {
+    _c.push(() => {
       win.removeEventListener('resize', handleResize);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const getInitialFocus = () => {
     const items = listRef.current;
@@ -524,7 +543,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     return popupRef.current ?? true;
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       return;
     }
@@ -592,7 +611,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     });
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const isOpen = open();
 
     if (previousOpenRef && !isOpen) {

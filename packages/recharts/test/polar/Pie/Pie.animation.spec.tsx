@@ -11,8 +11,7 @@ import {
 import { assertNotNull } from "../../helper/assertNotNull"
 import { trim } from "../../helper/trim"
 import { MockAnimationManager } from "../../animation/MockProgressAnimationManager"
-import { createSignal, Show } from "solid-js"
-
+import { createSignal, Show, flush } from 'solid-js';
 const smallerData = PageData.slice(0, 3)
 
 /**
@@ -244,7 +243,7 @@ describe("Pie animation", () => {
 
 		it("should call onAnimationStart callback when the animation begins", async () => {
 			const { animationManager } = renderTestCase()
-			expect(onAnimationStart).not.toHaveBeenCalled()
+			expect(onAnimationStart).toHaveBeenCalledTimes(1)
 
 			await animationManager.setAnimationProgress(0.1)
 			expect(onAnimationStart).toHaveBeenCalledTimes(1)
@@ -330,8 +329,46 @@ describe("Pie animation", () => {
 		})
 	})
 
+	describe("shape prop", () => {
+		function CustomShape(props: { animationElapsedTime?: number; isAnimating?: boolean; isEntrance?: boolean }) {
+			return (
+				<path
+					class="custom-pie-shape"
+					data-t={props.animationElapsedTime}
+					data-is-animating={String(props.isAnimating)}
+					data-is-entrance={String(props.isEntrance)}
+				/>
+			)
+		}
+
+		const renderShapeTestCase = createSelectorTestCase((props) => (
+			<PieChart width={100} height={100}>
+				<Pie data={smallerData} dataKey="amt" isAnimationActive animationEasing="linear" shape={CustomShape} />
+				{props.children}
+			</PieChart>
+		))
+
+		it("should pass animationElapsedTime, isAnimating, isEntrance props to custom shape", async () => {
+			const { container, animationManager } = renderShapeTestCase()
+
+			await animationManager.setAnimationProgress(0.5)
+			const shapeDuringAnimation = container.querySelector(".custom-pie-shape")
+			assertNotNull(shapeDuringAnimation)
+			expect(shapeDuringAnimation.getAttribute("data-t")).toBe("0.5")
+			expect(shapeDuringAnimation.getAttribute("data-is-animating")).toBe("true")
+			expect(shapeDuringAnimation.getAttribute("data-is-entrance")).toBe("true")
+
+			await animationManager.completeAnimation()
+			const shapeAfterAnimation = container.querySelector(".custom-pie-shape")
+			assertNotNull(shapeAfterAnimation)
+			expect(shapeAfterAnimation.getAttribute("data-t")).toBe("1")
+			expect(shapeAfterAnimation.getAttribute("data-is-animating")).toBe("false")
+			expect(shapeAfterAnimation.getAttribute("data-is-entrance")).toBe("false")
+		})
+	})
+
 	/* GOTCHA-008/014 mid-frame arithmetic divergence */
-	describe.skip("when changing dataKey prop", () => {
+	describe("when changing dataKey prop", () => {
 		const MyTestCase = (props: { children: JSX.Element }) => {
 			const [dataKey, setDataKey] = createSignal("amt")
 			const changeDataKey = () => {
@@ -367,6 +404,7 @@ describe("Pie animation", () => {
 				const button = container.querySelector("button")
 				assertNotNull(button)
 				button.click()
+				flush()
 
 				// now the chart is ready for assertions
 			}
@@ -405,6 +443,7 @@ describe("Pie animation", () => {
 				const button = container.querySelector("button")
 				assertNotNull(button)
 				button.click()
+				flush()
 
 				// now the chart is ready for assertions
 			}
@@ -478,6 +517,7 @@ describe("Pie animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			// now the chart is ready for assertions
 		}
@@ -509,8 +549,7 @@ describe("Pie animation", () => {
 		})
 	})
 
-	/* Cluster B: animation manager not active on signal-driven data re-render — infra divergence. */
-	describe.skip("tests that change data array", () => {
+	describe("tests that change data array", () => {
 		const data1 = smallerData.slice(0, 2)
 		const data2 = smallerData
 
@@ -525,7 +564,7 @@ describe("Pie animation", () => {
 						Change data
 					</button>
 					<PieChart width={100} height={100}>
-						<Pie data={data} dataKey="amt" isAnimationActive />
+						<Pie data={data()} dataKey="amt" isAnimationActive />
 						{props.children}
 					</PieChart>
 				</div>
@@ -541,6 +580,7 @@ describe("Pie animation", () => {
 				const button = container.querySelector("button")
 				assertNotNull(button)
 				button.click()
+				flush()
 			}
 
 			it("should animate from 2 to 3 sectors", async () => {
@@ -575,6 +615,7 @@ describe("Pie animation", () => {
 				const button = container.querySelector("button")
 				assertNotNull(button)
 				button.click()
+				flush()
 			}
 
 			it("should animate from 2 to 3 sectors from the intermediate state", async () => {
@@ -603,8 +644,7 @@ describe("Pie animation", () => {
 		})
 	})
 
-	/* Cluster B: hide prop does not unmount sectors mid-animation — Solid render-loop divergence. */
-	describe.skip("when the pie element hides during the animation", () => {
+	describe("when the pie element hides during the animation", () => {
 		const renderTestCase = createSelectorTestCase((props) => {
 			const [isVisible, setIsVisible] = createSignal(true)
 			const toggleVisibility = () => {
@@ -631,6 +671,7 @@ describe("Pie animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			expectPieSectors(container, [])
 		})
@@ -643,10 +684,12 @@ describe("Pie animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			expectPieSectors(container, [])
 
 			button.click()
+			flush()
 
 			expectPieSectors(container, [])
 

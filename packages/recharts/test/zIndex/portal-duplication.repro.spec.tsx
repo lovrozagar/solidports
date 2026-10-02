@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../helper/render"
 import { AreaChart, CartesianGrid } from "../../src"
 import type { HorizontalCoordinatesGenerator } from "../../src/cartesian/CartesianGrid"
 

@@ -18,6 +18,7 @@ export const defaultPolarAngleAxisProps = {
 	orientation: "outer",
 	reversed: false,
 	scale: "auto",
+	niceTicks: "auto",
 	tick: true,
 	tickLine: true,
 	tickSize: 8,

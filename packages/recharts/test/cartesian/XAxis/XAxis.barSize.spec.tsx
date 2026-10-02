@@ -1,7 +1,9 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { observe } from "../../helper/observe"
+import { trackSpy } from "../../helper/trackSpy"
+
+import { render } from "../../helper/render"
 import { useAppSelector } from "../../helper/legacyDispatch"
 import { Bar, BarChart, Customized, XAxis, YAxis } from "../../../src"
 import { ExpectAxisDomain, expectXAxisTicks } from "../../helper/expectAxisTicks"
@@ -42,58 +44,58 @@ describe("XAxis barSize", () => {
 
 		expectBars(container, [
 			{
-				d: "M 65.8377,135 h 5 v 130 h -5 Z",
+				d: "M 65.8377,135 h 6 v 130 h -6 Z",
 				height: "130",
 				radius: "0",
-				width: "5",
+				width: "6",
 				x: "65.8377",
 				y: "135",
 			},
 			{
-				d: "M 144.8179,120.5556 h 5 v 144.4444 h -5 Z",
+				d: "M 144.8179,120.5556 h 6 v 144.4444 h -6 Z",
 				height: "144.4444",
 				radius: "0",
-				width: "5",
+				width: "6",
 				x: "144.8179",
 				y: "120.5556",
 			},
 			{
-				d: "M 73.0177,91.6667 h 5 v 173.3333 h -5 Z",
+				d: "M 73.0177,91.6667 h 6 v 173.3333 h -6 Z",
 				height: "173.3333",
 				radius: "0",
-				width: "5",
+				width: "6",
 				x: "73.0177",
 				y: "91.6667",
 			},
 			{
-				d: "M 216.6181,19.4444 h 5 v 245.5556 h -5 Z",
+				d: "M 216.6181,19.4444 h 6 v 245.5556 h -6 Z",
 				height: "245.5556",
 				radius: "0",
-				width: "5",
+				width: "6",
 				x: "216.6181",
 				y: "19.4444",
 			},
 			{
-				d: "M 180.718,62.7778 h 5 v 202.2222 h -5 Z",
+				d: "M 180.718,62.7778 h 6 v 202.2222 h -6 Z",
 				height: "202.2222",
 				radius: "0",
-				width: "5",
+				width: "6",
 				x: "180.718",
 				y: "62.7778",
 			},
 			{
-				d: "M 288.4183,48.3333 h 5 v 216.6667 h -5 Z",
+				d: "M 288.4183,48.3333 h 6 v 216.6667 h -6 Z",
 				height: "216.6667",
 				radius: "0",
-				width: "5",
+				width: "6",
 				x: "288.4183",
 				y: "48.3333",
 			},
 			{
-				d: "M 202.2581,106.1111 h 5 v 158.8889 h -5 Z",
+				d: "M 202.2581,106.1111 h 6 v 158.8889 h -6 Z",
 				height: "158.8889",
 				radius: "0",
-				width: "5",
+				width: "6",
 				x: "202.2581",
 				y: "106.1111",
 			},
@@ -117,14 +119,14 @@ describe("XAxis barSize", () => {
 		const totalAxisSizeSpy = vi.fn()
 
 		const Comp = (): null => {
-			createEffect(() => {
-				chartDataSpy(useAppSelector(selectChartDataWithIndexes))
+			observe(() => {
+				trackSpy(chartDataSpy, () => useAppSelector(selectChartDataWithIndexes))
 				yAxisTicksSpy(
 					useAppSelector((state) => selectTicksOfGraphicalItem(state, "yAxis", 0, false)),
 				)
-				barBandSizeSpy(useAppSelector((state) => selectBarBandSize(state, "my-bar-id", false)))
-				barPositionsSpy(useAppSelector((state) => selectAllBarPositions(state, "my-bar-id", false)))
-				barSizeListSpy(useAppSelector((state) => selectBarSizeList(state, "my-bar-id", false)))
+				trackSpy(barBandSizeSpy, () => useAppSelector((state) => selectBarBandSize(state, "my-bar-id", false)))
+				trackSpy(barPositionsSpy, () => useAppSelector((state) => selectAllBarPositions(state, "my-bar-id", false)))
+				trackSpy(barSizeListSpy, () => useAppSelector((state) => selectBarSizeList(state, "my-bar-id", false)))
 				totalAxisSizeSpy(
 					useAppSelector((state) => selectBarCartesianAxisSize(state, "my-bar-id")),
 				)

@@ -1,4 +1,4 @@
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import { useSyncedFloatingRootContext } from '../../floating-ui-solid/hooks/useSyncedFloatingRootContext';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
 import type { ReactLikeRef } from '../../solid-helpers';
@@ -13,6 +13,7 @@ import { REASONS } from '../../utils/reasons';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { type PreviewCardRoot } from '../root/PreviewCardRoot';
 import { CLOSE_DELAY } from '../utils/constants';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   instantType: 'dismiss' | 'focus' | undefined;

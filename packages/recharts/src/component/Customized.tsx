@@ -1,9 +1,11 @@
 /**
  * @fileOverview Customized
  */
-import { type Component, type JSX } from "solid-js"
-import { Dynamic } from "solid-js/web"
-
+import { untrack } from 'solid-js';
+import { splitProps } from '../util/solid-1-compat';
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
 import { Layer } from "../container/Layer"
 
 type Comp<P extends Record<string, unknown>> = Component<P> | JSX.Element
@@ -30,20 +32,17 @@ export type Props<P extends Record<string, unknown>, C extends Comp<P>> = P & {
 export function Customized<P extends Record<string, unknown>, C extends Comp<P>>(
 	allProps: Props<P, C>,
 ) {
-	let child: JSX.Element | undefined
-
-	/* eslint-disable solid/reactivity -- Customized is a deprecated wrapper; component prop is structural/stable, not reactive at runtime */
-	if (typeof allProps.component === "function") {
-		const { component, ...rest } = allProps
-		child = <Dynamic component={component as Component<Record<string, unknown>>} {...rest} />
-	} else {
-		/*
-		 * In Solid, <Comp /> eagerly evaluates — components returning null yield null.
-		 * Accept any value including null (spy components in tests return null).
-		 */
-		child = allProps.component as JSX.Element
-	}
-	/* eslint-enable solid/reactivity */
+	const [local, rest] = splitProps(allProps, ["component"])
+	/* Read once: a JSX.Element getter would create the element again on each read.
+	   The component prop is structural (deprecated wrapper), not reactive. */
+	const component = untrack(() => local.component)
+	const child: JSX.Element =
+		typeof component === "function" ? (
+			<Dynamic component={component as Component<Record<string, unknown>>} {...rest} />
+		) : (
+			/* Solid evaluates <Comp /> eagerly; components returning null yield null. */
+			(component as JSX.Element)
+		)
 
 	return <Layer class="recharts-customized-wrapper">{child}</Layer>
 }

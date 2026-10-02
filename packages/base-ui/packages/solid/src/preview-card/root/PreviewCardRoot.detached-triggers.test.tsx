@@ -22,7 +22,7 @@ describe('<PreviewCard.Root />', () => {
       const popupId = randomStringValue();
       const { user } = render(() => (
         <PreviewCard.Root>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" delay={0}>
             Trigger 1
           </PreviewCard.Trigger>
@@ -77,7 +77,7 @@ describe('<PreviewCard.Root />', () => {
         <PreviewCard.Root>
           {(data: NumberPayload) => (
             <>
-              <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+              <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
               <PreviewCard.Trigger href="#" delay={0} payload={1}>
                 Trigger 1
               </PreviewCard.Trigger>
@@ -114,7 +114,7 @@ describe('<PreviewCard.Root />', () => {
     it('should open the preview card with any trigger on focus', async () => {
       render(() => (
         <PreviewCard.Root>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" delay={0}>
             Trigger 1
           </PreviewCard.Trigger>
@@ -168,7 +168,7 @@ describe('<PreviewCard.Root />', () => {
       const popupId = randomStringValue();
       const { user } = render(() => (
         <PreviewCard.Root>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" delay={0}>
             Trigger 1
           </PreviewCard.Trigger>
@@ -208,7 +208,7 @@ describe('<PreviewCard.Root />', () => {
         <PreviewCard.Root>
           {(data: NumberPayload) => (
             <>
-              <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+              <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
               <PreviewCard.Trigger href="#" payload={1} delay={0}>
                 Trigger 1
               </PreviewCard.Trigger>
@@ -249,7 +249,7 @@ describe('<PreviewCard.Root />', () => {
         <PreviewCard.Root>
           {(data: NumberPayload) => (
             <>
-              <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+              <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
               <PreviewCard.Trigger href="#" payload={1} delay={0}>
                 Trigger 1
               </PreviewCard.Trigger>
@@ -285,7 +285,7 @@ describe('<PreviewCard.Root />', () => {
         <PreviewCard.Root>
           {(data: NumberPayload) => (
             <>
-              <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+              <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
               <PreviewCard.Trigger href="#" payload={1} delay={0}>
                 Trigger 1
               </PreviewCard.Trigger>
@@ -324,7 +324,7 @@ describe('<PreviewCard.Root />', () => {
 
         return (
           <div>
-            <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+            <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
             <PreviewCard.Root
               open={open()}
               triggerId={activeTrigger()}
@@ -389,7 +389,7 @@ describe('<PreviewCard.Root />', () => {
         <PreviewCard.Root handle={testPreviewCard} defaultOpen defaultTriggerId={triggerId}>
           {(data: NumberPayload) => (
             <>
-              <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+              <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
               <PreviewCard.Trigger href="#" handle={testPreviewCard} payload={1}>
                 Trigger 1
               </PreviewCard.Trigger>
@@ -422,7 +422,7 @@ describe('<PreviewCard.Root />', () => {
       const popupId = randomStringValue();
       const { user } = render(() => (
         <div>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" handle={testPreviewCard} delay={0}>
             Trigger 1
           </PreviewCard.Trigger>
@@ -483,7 +483,7 @@ describe('<PreviewCard.Root />', () => {
       const testPreviewCard = PreviewCard.createHandle();
       render(() => (
         <div>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" handle={testPreviewCard} delay={0}>
             Trigger 1
           </PreviewCard.Trigger>
@@ -539,7 +539,7 @@ describe('<PreviewCard.Root />', () => {
       const testPreviewCard = PreviewCard.createHandle<number>();
       const { user } = render(() => (
         <div>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" handle={testPreviewCard} payload={1} delay={0}>
             Trigger 1
           </PreviewCard.Trigger>
@@ -576,7 +576,7 @@ describe('<PreviewCard.Root />', () => {
       const testPreviewCard = PreviewCard.createHandle<number>();
       render(() => (
         <>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" handle={testPreviewCard} payload={1} delay={0}>
             Trigger 1
           </PreviewCard.Trigger>
@@ -618,7 +618,7 @@ describe('<PreviewCard.Root />', () => {
 
         return (
           <div style={{ margin: '50px' }}>
-            <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+            <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
             <PreviewCard.Trigger
               href="#"
               handle={testPreviewCard}
@@ -712,7 +712,7 @@ describe('<PreviewCard.Root />', () => {
       const triggerId = randomStringValue();
       render(() => (
         <>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" handle={testPreviewCard} payload={1}>
             Trigger 1
           </PreviewCard.Trigger>
@@ -747,7 +747,7 @@ describe('<PreviewCard.Root />', () => {
       function Test() {
         return (
           <>
-            <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+            <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
             <PreviewCard.Trigger href="#" handle={testPreviewCard} payload={1} delay={0}>
               Trigger 1
             </PreviewCard.Trigger>
@@ -801,7 +801,7 @@ describe('<PreviewCard.Root />', () => {
       const handle = PreviewCard.createHandle();
       render(() => (
         <div>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" handle={handle} id="trigger">
             Trigger
           </PreviewCard.Trigger>
@@ -838,7 +838,7 @@ describe('<PreviewCard.Root />', () => {
       const handle = PreviewCard.createHandle<number>();
       render(() => (
         <div>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <PreviewCard.Trigger href="#" handle={handle} id="trigger1" payload={1}>
             Trigger 1
           </PreviewCard.Trigger>

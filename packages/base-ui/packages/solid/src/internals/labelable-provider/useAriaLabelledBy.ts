@@ -1,4 +1,5 @@
-import { createEffect, createSignal, type Accessor } from 'solid-js';
+import { createTrackedEffect, createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 
 type LabelSource = HTMLElement & { labels?: NodeListOf<HTMLLabelElement> | null | undefined };
@@ -43,7 +44,7 @@ function getAriaLabelledBy(labelSource?: LabelSource | null, generatedLabelId?: 
  * Falls back to DOM label scanning when no explicit prop or context labelId is provided.
  */
 export function useAriaLabelledBy(
-  explicitAriaLabelledBy: Accessor<string | undefined>,
+  explicitAriaLabelledBy: Accessor<string | false | undefined>,
   labelId: Accessor<string | undefined>,
   labelSourceRef: Accessor<LabelSource | null | undefined>,
   enableFallback = true,
@@ -55,7 +56,7 @@ export function useAriaLabelledBy(
   const [fallbackAriaLabelledBy, setFallbackAriaLabelledBy] = createSignal<string | undefined>();
 
   /* Run after each render so DOM association changes are reflected even when deps unchanged. */
-  createEffect(() => {
+  createTrackedEffect(() => {
     const explicit = explicitAriaLabelledBy();
     const label = labelId();
     const nextAriaLabelledBy =
@@ -68,5 +69,8 @@ export function useAriaLabelledBy(
 
   /* returned accessor — caller invokes in their tracked scope */
   // eslint-disable-next-line solid/reactivity
-  return () => explicitAriaLabelledBy() ?? labelId() ?? fallbackAriaLabelledBy();
+  return () => {
+    const explicit = explicitAriaLabelledBy();
+    return (typeof explicit === 'string' ? explicit : undefined) ?? labelId() ?? fallbackAriaLabelledBy();
+  };
 }

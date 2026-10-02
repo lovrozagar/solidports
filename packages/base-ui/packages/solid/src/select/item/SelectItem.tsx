@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { batch, createEffect, createMemo, onCleanup, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, onCleanup } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   IndexGuessBehavior,
   useCompositeListItem,
@@ -30,8 +31,8 @@ export function SelectItem(componentProps: SelectItem.Props) {
     'nativeButton',
   ]);
   const itemValue = () => local.value ?? null;
-  const disabled = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? false;
+  const disabled = () => Boolean(local.disabled);
+  const nativeButton = () => Boolean(local.nativeButton);
 
   const textRef = useRef<HTMLDivElement | null | undefined>(null);
   const listItem = useCompositeListItem({
@@ -65,11 +66,14 @@ export function SelectItem(componentProps: SelectItem.Props) {
   const hasRegistered = () => index() !== -1;
 
   const indexRef = useRef(0);
-  createEffect(() => {
+  createTrackedEffect(() => {
     indexRef.current = listItem.index();
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!hasRegistered()) {
       return;
     }
@@ -78,12 +82,18 @@ export function SelectItem(componentProps: SelectItem.Props) {
     const idx = listItem.index();
     values[idx] = itemValue();
 
-    onCleanup(() => {
+    _c.push(() => {
       delete values[idx];
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!hasRegistered()) {
       return;
     }
@@ -135,7 +145,7 @@ export function SelectItem(componentProps: SelectItem.Props) {
   });
 
   function commitSelection(event: MouseEvent) {
-    batch(() => {
+    {
       const selectedValue = store.state.value;
       if (multiple()) {
         const currentValue = Array.isArray(selectedValue) ? selectedValue : [];
@@ -147,12 +157,12 @@ export function SelectItem(componentProps: SelectItem.Props) {
         setValue(itemValue(), createChangeEventDetails(REASONS.itemPress, event));
         setOpen(false, createChangeEventDetails(REASONS.itemPress, event));
       }
-    });
+    };
   }
 
   const defaultProps: HTMLProps = {
     get 'aria-selected'() {
-      return selected();
+      return selected() ? 'true' : 'false';
     },
     onClick(event) {
       const wasPointerDown = didPointerDownRef;
@@ -272,7 +282,7 @@ export function SelectItem(componentProps: SelectItem.Props) {
       };
     },
     role: 'option',
-    get tabIndex() {
+    get tabindex() {
       return highlighted() ? 0 : -1;
     },
   };
@@ -296,7 +306,7 @@ export function SelectItem(componentProps: SelectItem.Props) {
     textRef,
   };
 
-  return <SelectItemContext.Provider value={contextValue}>{element()}</SelectItemContext.Provider>;
+  return <SelectItemContext value={contextValue}>{element()}</SelectItemContext>;
 }
 
 export interface SelectItemState {

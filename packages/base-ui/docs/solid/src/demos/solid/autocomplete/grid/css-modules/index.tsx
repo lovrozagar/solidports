@@ -1,4 +1,5 @@
-import { createSignal, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -79,7 +80,6 @@ export default function ExampleEmojiPicker() {
                   >
                     {(group: EmojiGroup) => (
                       <Autocomplete.Group
-                        key={group.value}
                         items={group.items}
                         class={styles.Group}
                       >
@@ -88,10 +88,9 @@ export default function ExampleEmojiPicker() {
                         </Autocomplete.GroupLabel>
                         <div class={styles.Grid} role="presentation">
                           {chunkArray(group.items, COLUMNS).map((row, rowIdx) => (
-                            <Autocomplete.Row key={rowIdx} class={styles.Row}>
+                            <Autocomplete.Row class={styles.Row}>
                               {row.map((rowItem) => (
                                 <Autocomplete.Item
-                                  key={rowItem.emoji}
                                   value={rowItem}
                                   class={styles.Item}
                                   onClick={() => {

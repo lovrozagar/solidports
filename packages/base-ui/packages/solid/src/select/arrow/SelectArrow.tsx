@@ -50,7 +50,7 @@ export function SelectArrow(componentProps: SelectArrow.Props) {
         get style() {
           return arrowStyles();
         },
-        'aria-hidden': true,
+        'aria-hidden': 'true',
       },
       elementProps,
     ],

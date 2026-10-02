@@ -1,5 +1,4 @@
-import type { JSX } from "solid-js"
-
+import type { JSX } from '@solidjs/web';
 export function ExternalLinkIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" {...props}>

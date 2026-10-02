@@ -1,57 +1,18 @@
-/* @jsxImportSource solid-js */
-import {
-	createMemo,
-	createRenderEffect,
-	createSignal,
-	on,
-	type Component,
-	type JSX,
-} from "solid-js"
-import { Dynamic } from "solid-js/web"
+/* @jsxImportSource @solidjs/web */
+import { createMemo, createRenderEffect, createSignal, flush } from 'solid-js';
+import { structurallyEqual } from "./structurallyEqual"
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
 import type { Mock } from "vitest"
 import { vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "./render"
 import { useAppSelectorWithStableTest } from "./selectorTestHelpers"
 import type { ChartState } from "../../src/state/store"
 import type { MockAnimationManager } from "../animation/MockProgressAnimationManager"
 import { assertUniqueHtmlIds } from "../util/assertUniqueHtmlIds"
-import { AnimationManagerContext } from "../../src/animation/useAnimationManager"
+import { AnimationControllerProvider } from "../../src/animation/useAnimationController"
 import { CompositeAnimationManager } from "../animation/CompositeAnimationManager"
-
-/* Function-aware structural equality. Selectors returning RechartsScale-bearing
-   objects build fresh function closures (bandwidth/ticks/range/map) on every call;
-   .toBe / Object.is fails on those even when the underlying scale is identical.
-   Treat any two functions as equal so the memo can dedupe value-equal re-runs and
-   still match React's bailout-by-equality semantics from useSelector. */
-function spyEquals(prev: unknown, next: unknown): boolean {
-	if (Object.is(prev, next)) return true
-	if (typeof prev === "function" && typeof next === "function") return true
-	if (prev == null || next == null) return false
-	if (typeof prev !== "object" || typeof next !== "object") return false
-	if (Array.isArray(prev) !== Array.isArray(next)) return false
-	if (Array.isArray(prev) && Array.isArray(next)) {
-		if (prev.length !== next.length) return false
-		for (let i = 0; i < prev.length; i++) {
-			if (!spyEquals(prev[i], next[i])) return false
-		}
-		return true
-	}
-	const aKeys = Object.keys(prev as Record<string, unknown>)
-	const bKeys = Object.keys(next as Record<string, unknown>)
-	if (aKeys.length !== bKeys.length) return false
-	for (const key of aKeys) {
-		if (!Object.hasOwn(next as Record<string, unknown>, key)) return false
-		if (
-			!spyEquals(
-				(prev as Record<string, unknown>)[key],
-				(next as Record<string, unknown>)[key],
-			)
-		) {
-			return false
-		}
-	}
-	return true
-}
 
 type TestCaseResult<T> = {
 	animationManager: MockAnimationManager
@@ -94,7 +55,7 @@ function getComp<T>(
 		return (): null => {
 			/* Hooks return bare T (GOTCHA-011). Call selector() inside the
 			   memo so its store-proxy reads track and the memo re-runs on
-			   each store change. spyEquals collapses RechartsScale closure
+			   each store change. structurallyEqual collapses RechartsScale closure
 			   identity so the spy fires only on real shape changes.
 			   generation() forces re-fire when rerenderSameComponent
 			   runs against the same state. */
@@ -103,10 +64,9 @@ function getComp<T>(
 					generation()
 					return selector()
 				},
-				undefined,
-				{ equals: spyEquals },
+				{ equals: structurallyEqual },
 			)
-			createRenderEffect(on(value, (v) => spy(v)))
+			createRenderEffect(value, (v) => spy(v))
 			return null
 		}
 	}
@@ -116,10 +76,9 @@ function getComp<T>(
 				generation()
 				return useAppSelectorWithStableTest(selector)
 			},
-			undefined,
-			{ equals: spyEquals },
+			{ equals: structurallyEqual },
 		)
-		createRenderEffect(on(value, (v) => spy(v)))
+		createRenderEffect(value, (v) => spy(v))
 		return null
 	}
 }
@@ -142,7 +101,12 @@ export function createSelectorTestCase(InitialComponent: Component<{ children: J
 		const spy: Mock<(selectorResult: T | undefined) => void> = vi.fn()
 		const animationManager = new CompositeAnimationManager()
 
-		const [getWrapper, setWrapper] = createSignal(InitialComponent, { equals: false })
+		/* Solid 2 `createSignal(fn)` treats `fn` as a compute, not a stored value.
+		   Box the wrapper component so Dynamic receives a real component. */
+		const [getWrapper, setWrapper] = createSignal(
+			{ component: InitialComponent },
+			{ equals: false },
+		)
 
 		/**
 		 * A generation counter that increments on each "rerender".
@@ -155,22 +119,24 @@ export function createSelectorTestCase(InitialComponent: Component<{ children: J
 		const Comp = getComp(selector, spy, generation)
 
 		const { container, debug, getByText, queryByText, unmount } = render(() => (
-			<AnimationManagerContext.Provider value={animationManager.factory}>
-				<Dynamic component={getWrapper()}>
+			<AnimationControllerProvider value={animationManager.factory}>
+				<Dynamic component={getWrapper().component}>
 					<Comp />
 				</Dynamic>
-			</AnimationManagerContext.Provider>
+			</AnimationControllerProvider>
 		))
 
 		/* vitest 4.1.3 + fake-timers-in-setup-file hang on runOnlyPendingTimers/runAllTimers.
 		   advanceTimersByTime(0) flushes same-tick pending without the hang. */
 		vi.advanceTimersByTime(0)
+		flush()
 		assertUniqueHtmlIds(container)
 
 		const myRerender = (NextComponent: Component<{ children: JSX.Element }>): void => {
-			setWrapper(() => NextComponent)
+			setWrapper(() => ({ component: NextComponent }))
 			setGeneration((g) => g + 1)
 			vi.advanceTimersByTime(0)
+			flush()
 		}
 
 		const rerenderSameComponent = () => {
@@ -274,10 +240,9 @@ export function createSynchronisedSelectorTestCase(
 			return (): null => {
 				const value = createMemo<U | undefined>(
 					() => useAppSelectorWithStableTest(selector) as U | undefined,
-					undefined,
-					{ equals: spyEquals },
+					{ equals: structurallyEqual },
 				)
-				createRenderEffect(on(value, (v) => spy(v)))
+				createRenderEffect(value, (v) => spy(v))
 				return null
 			}
 		}

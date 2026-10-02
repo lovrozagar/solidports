@@ -2,7 +2,7 @@ import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Toast } from '@solidports/base-ui/toast';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
-import { createEffect, createSignal, For } from 'solid-js';
+import { createTrackedEffect, createSignal, For } from 'solid-js';
 import type { ToastManagerAddOptions } from '../useToastManager';
 import { Button, List } from '../utils/test-utils';
 
@@ -49,7 +49,7 @@ describe('<Toast.Root />', () => {
       const [toastId, setToastId] = createSignal<string | null>(null);
       let addedRef = false;
 
-      createEffect(() => {
+      createTrackedEffect(() => {
         if (addedRef) {
           return;
         }

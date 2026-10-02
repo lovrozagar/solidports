@@ -1,5 +1,7 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { createEffect, createMemo, createSignal, onCleanup, Show, type JSX } from "solid-js"
+import { createMemo, createSignal, onCleanup, Show, createEffect, untrack } from 'solid-js';
+import type { WithoutRemoveFalse } from "../util/types"
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import { scalePoint } from "victory-vendor/d3-scale"
 import range from "es-toolkit/compat/range"
@@ -22,6 +24,7 @@ import type { RequiresDefaultProps } from "../util/resolveDefaultProps"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
 import { cloneJsxNodeWithProps, isJsxNode } from "../util/ReactUtils"
+import { teardownWrite } from "../state/teardownWrite"
 
 type BrushTravellerType = JSX.Element | ((travellerProps: TravellerProps) => JSX.Element)
 
@@ -57,10 +60,10 @@ interface BrushProps<DataPointType = unknown, DataValueType = unknown> extends D
 	alwaysShowText?: boolean
 }
 
-export type Props = Omit<JSX.GSVGAttributes<SVGGElement>, "onChange" | "onDragEnd" | "ref"> &
+export type Props = WithoutRemoveFalse<Omit<JSX.GSVGAttributes<SVGGElement>, "onChange" | "onDragEnd" | "ref">> &
 	BrushProps
 
-type InternalProps = Omit<JSX.GSVGAttributes<SVGGElement>, "onChange" | "onDragEnd" | "ref"> &
+type InternalProps = WithoutRemoveFalse<Omit<JSX.GSVGAttributes<SVGGElement>, "onChange" | "onDragEnd" | "ref">> &
 	RequiresDefaultProps<BrushProps, typeof defaultBrushProps>
 
 type BrushTravellerId = "startX" | "endX"
@@ -108,6 +111,14 @@ function DefaultTraveller(props: TravellerProps) {
 
 /* eslint-disable solid/reactivity -- travellerType/travellerProps reads are structural type checks at component setup; Traveller is called once per mount, not in a reactive context */
 function Traveller(props: {
+	travellerType: BrushTravellerType | undefined
+	travellerProps: TravellerProps
+}): JSX.Element {
+	return <>{renderTraveller(props)}</>
+}
+
+/* Runs inside Traveller's JSX expression so every reactive read is tracked. */
+function renderTraveller(props: {
 	travellerType: BrushTravellerType | undefined
 	travellerProps: TravellerProps
 }) {
@@ -291,7 +302,9 @@ function Slide(props: {
 		<rect
 			class="recharts-brush-slide"
 			onMouseEnter={(e) => props.onMouseEnter(e)}
+			onMouseOver={(e) => props.onMouseEnter(e)}
 			onMouseLeave={(e) => props.onMouseLeave(e)}
+			onMouseOut={(e) => props.onMouseLeave(e)}
 			onMouseDown={(e) => props.onMouseDown(e)}
 			onTouchStart={(e) => props.onTouchStart(e)}
 			style={{ cursor: "move" }}
@@ -381,8 +394,10 @@ function BrushWithState(
 			x: props.x,
 		})
 
-	const [startX, setStartX] = createSignal(scaleData().startX ?? 0)
-	const [endX, setEndX] = createSignal(scaleData().endX ?? 0)
+	/* Seed traveller positions before first render, like upstream's derived state. */
+	const initialScale = untrack(scaleData)
+	const [startX, setStartX] = createSignal(initialScale.startX ?? 0)
+	const [endX, setEndX] = createSignal(initialScale.endX ?? 0)
 	const [isTextActive, setIsTextActive] = createSignal(false)
 	const [isSlideMoving, setIsSlideMoving] = createSignal(false)
 	const [isTravellerMoving, setIsTravellerMoving] = createSignal(false)
@@ -392,12 +407,87 @@ function BrushWithState(
 	let brushMoveStartX = 0
 	let movingTravellerId: BrushTravellerId | undefined
 	let leaveTimer: number | null = null
+	let prevData: ChartData | undefined
+	let prevWidth: number | undefined
+	let prevX: number | undefined
+	let prevTravellerWidth: number | undefined
+	let prevStartIndexControlledFromProps: number | undefined
+	let prevEndIndexControlledFromProps: number | undefined
 
-	createEffect(() => {
-		const sd = scaleData()
-		if (sd.startX != null) setStartX(sd.startX)
-		if (sd.endX != null) setEndX(sd.endX)
-	})
+	createEffect(
+		() => ({
+			data: props.data,
+			endControlled: props.endIndexControlledFromProps,
+			endIndex: props.endIndex,
+			interacting: isSlideMoving() || isTravellerMoving() || isTravellerFocused() || isTextActive(),
+			startControlled: props.startIndexControlledFromProps,
+			startIndex: props.startIndex,
+			travellerWidth: props.travellerWidth,
+			width: props.width,
+			x: props.x,
+		}),
+		(input) => untrack(() => {
+		const { data, endControlled, endIndex, interacting, startControlled, startIndex, travellerWidth, width, x } = input
+		const sd = createScale({
+			data,
+			endIndex,
+			startIndex,
+			travellerWidth,
+			width,
+			x,
+		})
+
+		if (data !== prevData) {
+			prevData = data
+			prevWidth = width
+			prevX = x
+			prevTravellerWidth = travellerWidth
+			prevStartIndexControlledFromProps = startControlled
+			prevEndIndexControlledFromProps = endControlled
+			if (sd.startX != null) setStartX(sd.startX)
+			if (sd.endX != null) setEndX(sd.endX)
+			return
+		}
+
+		if (width !== prevWidth || x !== prevX || travellerWidth !== prevTravellerWidth) {
+			prevWidth = width
+			prevX = x
+			prevTravellerWidth = travellerWidth
+			if (sd.startX != null) setStartX(sd.startX)
+			if (sd.endX != null) setEndX(sd.endX)
+			return
+		}
+
+		if (interacting) {
+			return
+		}
+
+		if (startControlled != null && prevStartIndexControlledFromProps !== startControlled) {
+			prevStartIndexControlledFromProps = startControlled
+			const next = createScale({
+				data,
+				endIndex,
+				startIndex: startControlled,
+				travellerWidth,
+				width,
+				x,
+			})
+			if (next.startX != null) setStartX(next.startX)
+		}
+		if (endControlled != null && prevEndIndexControlledFromProps !== endControlled) {
+			prevEndIndexControlledFromProps = endControlled
+			const next = createScale({
+				data,
+				endIndex: endControlled,
+				startIndex,
+				travellerWidth,
+				width,
+				x,
+			})
+			if (next.endX != null) setEndX(next.endX)
+		}
+		}),
+	)
 
 	const detachDragEndListener = () => {
 		window.removeEventListener("mouseup", handleDragEnd, true)
@@ -570,6 +660,15 @@ function BrushWithState(
 
 	const handleEnterSlideOrTraveller = () => setIsTextActive(true)
 	const handleLeaveSlideOrTraveller = () => setIsTextActive(false)
+	/* React's onMouseEnter/Leave derive from mouseover/mouseout; a mouseout into one of the
+	   traveller's own children is not a leave. */
+	const handleOutSlideOrTraveller = (e: MouseEvent) => {
+		const next = e.relatedTarget as Node | null
+		if (next != null && (e.currentTarget as Element).contains(next)) {
+			return
+		}
+		handleLeaveSlideOrTraveller()
+	}
 
 	const calculatedY = () => props.y + (props.dy ?? 0)
 
@@ -645,7 +744,8 @@ function BrushWithState(
 				/>
 				{/* Start traveller */}
 				<Layer
-					tabIndex={0}
+					tabindex={0}
+					/* eslint-disable-next-line jsx-a11y/prefer-tag-over-role -- SVG has no <input>; upstream uses role="slider" on the traveller group */
 					role="slider"
 					aria-label={ariaLabelBrush()}
 					aria-valuemin={0}
@@ -653,7 +753,9 @@ function BrushWithState(
 					aria-valuenow={startX()}
 					class="recharts-brush-traveller"
 					onMouseEnter={handleEnterSlideOrTraveller}
+					onMouseOver={handleEnterSlideOrTraveller}
 					onMouseLeave={handleLeaveSlideOrTraveller}
+					onMouseOut={handleOutSlideOrTraveller}
 					onMouseDown={(e: MouseEvent) => handleTravellerDragStart("startX", e)}
 					onTouchStart={(e: TouchEvent) => handleTravellerDragStart("startX", e)}
 					onKeyDown={(e: KeyboardEvent) => {
@@ -670,7 +772,8 @@ function BrushWithState(
 				</Layer>
 				{/* End traveller */}
 				<Layer
-					tabIndex={0}
+					tabindex={0}
+					/* eslint-disable-next-line jsx-a11y/prefer-tag-over-role -- SVG has no <input>; upstream uses role="slider" on the traveller group */
 					role="slider"
 					aria-label={ariaLabelBrush()}
 					aria-valuemin={0}
@@ -678,7 +781,9 @@ function BrushWithState(
 					aria-valuenow={endX()}
 					class="recharts-brush-traveller"
 					onMouseEnter={handleEnterSlideOrTraveller}
+					onMouseOver={handleEnterSlideOrTraveller}
 					onMouseLeave={handleLeaveSlideOrTraveller}
+					onMouseOut={handleOutSlideOrTraveller}
 					onMouseDown={(e: MouseEvent) => handleTravellerDragStart("endX", e)}
 					onTouchStart={(e: TouchEvent) => handleTravellerDragStart("endX", e)}
 					onKeyDown={(e: KeyboardEvent) => {
@@ -724,21 +829,25 @@ function BrushWithState(
 function BrushInternal(props: InternalProps) {
 	const ctx = useChartStore()
 	const newCtx = useOptionalChartState()
-	/* arrow thunks: dataIndexes is read inside event handler (onChange) where
-	   bare snapshot would freeze; chartData is multi-use across Show predicate
-	   and JSX. See GOTCHA-011. */
-	const chartData = () => useChartData()
-	const dataIndexes = () => useDataIndex()
+	/* Memos resolve context at setup, so event handlers can read them later. */
+	const chartData = createMemo(() => useChartData())
+	const dataIndexes = createMemo(() => useDataIndex())
 	const onChangeFromProps = () => props.onChange
 
-	createEffect(() => {
-		if (props.startIndex !== undefined) {
-			newCtx?.setState("chartData", "dataStartIndex", props.startIndex)
-		}
-		if (props.endIndex !== undefined) {
-			newCtx?.setState("chartData", "dataEndIndex", props.endIndex)
-		}
-	})
+	createEffect(
+		() => {
+			chartData()
+			return { endIndex: props.endIndex, startIndex: props.startIndex }
+		},
+		({ endIndex, startIndex }) => {
+			if (startIndex !== undefined) {
+				newCtx?.setState("chartData", "dataStartIndex", startIndex)
+			}
+			if (endIndex !== undefined) {
+				newCtx?.setState("chartData", "dataEndIndex", endIndex)
+			}
+		},
+	)
 
 	useBrushChartSynchronisation()
 
@@ -786,12 +895,17 @@ function BrushInternal(props: InternalProps) {
 
 function BrushSettingsDispatcher(props: BrushSettings): null {
 	const newCtx = useOptionalChartState()
-	createEffect(() => {
-		newCtx?.setState("brush", { height: props.height, padding: props.padding, width: props.width, x: props.x, y: props.y })
-		onCleanup(() => {
-			newCtx?.setState("brush", { height: 0, padding: { bottom: 0, left: 0, right: 0, top: 0 }, width: 0, x: 0, y: 0 })
-		})
-	})
+	createEffect(
+		() => ({ height: props.height, padding: props.padding, width: props.width, x: props.x, y: props.y }),
+		(settings) => {
+			newCtx?.setState("brush", settings)
+			return () => {
+				teardownWrite(() => {
+					newCtx?.setState("brush", { height: 0, padding: { bottom: 0, left: 0, right: 0, top: 0 }, width: 0, x: 0, y: 0 })
+				})
+			}
+		},
+	)
 	return null
 }
 

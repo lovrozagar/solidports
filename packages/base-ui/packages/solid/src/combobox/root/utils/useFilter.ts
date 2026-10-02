@@ -1,7 +1,8 @@
 /* eslint-disable typescript/no-explicit-any -- generic item type for filter callback */
-import { splitProps } from 'solid-js';
+
 import { stringifyAsLabel } from '../../../utils/resolveValueLabel';
 import { createCollatorItemFilter, createSingleSelectionCollatorFilter } from './index';
+import { splitProps } from '../../../solid-1-compat';
 
 export interface UseFilterOptions extends Intl.CollatorOptions {
   /**

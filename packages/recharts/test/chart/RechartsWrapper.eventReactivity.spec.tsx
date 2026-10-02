@@ -1,7 +1,8 @@
 /* eslint-disable import/no-cycle, sort-keys */
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { fireEvent } from "../helper/render"
 import { BarChart } from "../../src"
 import { renderWithSignals } from "../helper/renderWithSignals"
 import { assertNotNull } from "../helper/assertNotNull"
@@ -38,6 +39,7 @@ describe("RechartsWrapper event handler reactivity", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const wrapper = container.querySelector(".recharts-wrapper")
 		assertNotNull(wrapper)
@@ -45,15 +47,18 @@ describe("RechartsWrapper event handler reactivity", () => {
 		/* mousemove is rAF-throttled — flush pending timers to trigger the callback */
 		fireEvent.mouseMove(wrapper)
 		vi.runOnlyPendingTimers()
+		flush()
 
 		expect(spyA).toHaveBeenCalledTimes(1)
 		expect(spyB).not.toHaveBeenCalled()
 
 		update({ onMouseMove: spyB })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		fireEvent.mouseMove(wrapper)
 		vi.runOnlyPendingTimers()
+		flush()
 
 		expect(spyB).toHaveBeenCalledTimes(1)
 		/* spyA must NOT have been called a second time */
@@ -75,21 +80,25 @@ describe("RechartsWrapper event handler reactivity", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const wrapper = container.querySelector(".recharts-wrapper")
 		assertNotNull(wrapper)
 
 		fireEvent.click(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyA).toHaveBeenCalledTimes(1)
 		expect(spyB).not.toHaveBeenCalled()
 
 		update({ onClick: spyB })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		fireEvent.click(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyB).toHaveBeenCalledTimes(1)
 		expect(spyA).toHaveBeenCalledTimes(1)
@@ -110,12 +119,14 @@ describe("RechartsWrapper event handler reactivity", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const wrapper = container.querySelector(".recharts-wrapper")
 		assertNotNull(wrapper)
 
 		fireEvent.mouseEnter(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyA).toHaveBeenCalledTimes(1)
 		expect(spyB).not.toHaveBeenCalled()
@@ -124,9 +135,11 @@ describe("RechartsWrapper event handler reactivity", () => {
 		/* Reset mouseEntered dedupe flag by leaving then re-entering */
 		fireEvent.mouseLeave(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		fireEvent.mouseEnter(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyB).toHaveBeenCalledTimes(1)
 		expect(spyA).toHaveBeenCalledTimes(1)
@@ -147,6 +160,7 @@ describe("RechartsWrapper event handler reactivity", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const wrapper = container.querySelector(".recharts-wrapper")
 		assertNotNull(wrapper)
@@ -154,20 +168,25 @@ describe("RechartsWrapper event handler reactivity", () => {
 		/* Enter first so leave can fire */
 		fireEvent.mouseEnter(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 		fireEvent.mouseLeave(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyA).toHaveBeenCalledTimes(1)
 		expect(spyB).not.toHaveBeenCalled()
 
 		update({ onMouseLeave: spyB })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		/* Enter again so leave can fire */
 		fireEvent.mouseEnter(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 		fireEvent.mouseLeave(wrapper)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyB).toHaveBeenCalledTimes(1)
 		expect(spyA).toHaveBeenCalledTimes(1)
@@ -188,19 +207,23 @@ describe("RechartsWrapper event handler reactivity", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const wrapper = container.querySelector(".recharts-wrapper")
 		assertNotNull(wrapper)
 
 		fireEvent.mouseMove(wrapper)
 		vi.runOnlyPendingTimers()
+		flush()
 		expect(spyA).toHaveBeenCalledTimes(1)
 
 		update({ onMouseMove: undefined })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		fireEvent.mouseMove(wrapper)
 		vi.runOnlyPendingTimers()
+		flush()
 
 		/* Handler removed — must not be called again */
 		expect(spyA).toHaveBeenCalledTimes(1)

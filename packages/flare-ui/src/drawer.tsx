@@ -1,9 +1,10 @@
 import { Drawer as BaseDrawer } from "@solidports/base-ui/drawer";
-import { Show, splitProps } from "solid-js";
-import type { JSX } from "solid-js";
+import { Show } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { mergeClass } from "./utils/merge-class.ts";
 import { cn } from "./utils/cn.ts";
 import { X } from "./icons/x.tsx";
+import { splitProps } from "./utils/solid-1-compat";
 
 export const Drawer = BaseDrawer.Root;
 export const DrawerTrigger = BaseDrawer.Trigger;

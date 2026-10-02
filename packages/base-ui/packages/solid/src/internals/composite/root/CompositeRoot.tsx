@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Metadata/State across composite items; State extends Record<string, any> mirrors React port */
-import { batch, type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useDirection } from '../../../direction-provider/DirectionContext';
 import { access, defaultProps, splitComponentProps, type ReactLikeRef } from '../../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../../utils/constants';
@@ -79,19 +79,19 @@ export function CompositeRoot<Metadata extends {}, State extends Record<string, 
   });
 
   return (
-    <CompositeRootContext.Provider value={contextValue}>
+    <CompositeRootContext value={contextValue}>
       <CompositeList<Metadata>
         refs={elementsRefs}
         onMapChange={(newMap) => {
-          batch(() => {
+          {
             props.onMapChange?.(newMap);
             onMapChangeUnwrapped(newMap);
-          });
+          };
         }}
       >
         {element()}
       </CompositeList>
-    </CompositeRootContext.Provider>
+    </CompositeRootContext>
   );
 }
 

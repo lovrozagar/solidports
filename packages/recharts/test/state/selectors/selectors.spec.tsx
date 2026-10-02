@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, test, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { flush, untrack } from "solid-js"
+import { observe } from "../../helper/observe"
+
+import { render } from "../../helper/render"
 import {
 	selectActiveCoordinate,
 	selectActiveIndex,
@@ -204,7 +206,7 @@ describe("useTooltipEventType", () => {
 	it("should return undefined when outside of Redux context", () => {
 		expect.assertions(1)
 		const Comp = (): null => {
-			const eventType = useTooltipEventType(undefined)
+			const eventType = untrack(() => useTooltipEventType(undefined))
 			expect(eventType).toBe(undefined)
 			return null
 		}
@@ -216,7 +218,7 @@ describe("useTooltipEventType", () => {
 		({ shared, defaultTooltipEventType, validateTooltipEventTypes, expected }) => {
 			expect.assertions(1)
 			const Comp = (): null => {
-				const eventType = useTooltipEventType(shared)
+				const eventType = untrack(() => useTooltipEventType(shared))
 				expect(eventType).toBe(expected)
 				return null
 			}
@@ -244,9 +246,9 @@ describe("selectTooltipPayload", () => {
 		({ tooltipEventType, trigger }) => {
 			expect.assertions(1)
 			const Comp = (): null => {
-				const payload = useAppSelectorWithStableTest((state) =>
+				const payload = untrack(() => useAppSelectorWithStableTest((state) =>
 					selectTooltipPayload(state, tooltipEventType, trigger, undefined),
-				)
+				))
 				expect(payload).toBe(undefined)
 				return null
 			}
@@ -306,13 +308,16 @@ describe("selectTooltipPayload", () => {
 			value: 10,
 		}
 		actions.addTooltipEntrySettings(tooltipSettings1)
+		flush()
 		actions.addTooltipEntrySettings(tooltipSettings2)
+		flush()
 		expect(selectTooltipPayload(store, "axis", "hover", undefined)).toEqual(undefined)
 		actions.setMouseOverAxisIndex({
 			activeCoordinate,
 			activeDataKey: undefined,
 			activeIndex: "1",
 		})
+		flush()
 		expect(selectTooltipPayload(store, "axis", "hover", undefined)).toEqual([
 			expectedEntry1,
 			expectedEntry2,
@@ -363,7 +368,9 @@ describe("selectTooltipPayload", () => {
 			value: 10,
 		}
 		actions.addTooltipEntrySettings(tooltipSettings1)
+		flush()
 		actions.addTooltipEntrySettings(tooltipSettings2)
+		flush()
 		expect(selectTooltipPayload(store, "axis", "hover", "1")).toEqual([
 			expectedEntry1,
 			expectedEntry2,
@@ -387,16 +394,19 @@ describe("selectTooltipPayload", () => {
 			},
 		}
 		actions.addTooltipEntrySettings(tooltipSettings)
+		flush()
 		actions.setChartData([
 			{ x: 1, y: 2 },
 			{ x: 3, y: 4 },
 		])
+		flush()
 		actions.setActiveMouseOverItemIndex({
 			activeCoordinate,
 			activeDataKey: "y",
 			activeGraphicalItemId: tooltipSettings.settings.graphicalItemId,
 			activeIndex: "0",
 		})
+		flush()
 
 		const expectedEntry: TooltipPayloadEntry = {
 			dataKey: "y",
@@ -432,10 +442,12 @@ describe("selectTooltipPayload", () => {
 			},
 		}
 		actions.addTooltipEntrySettings(tooltipSettings)
+		flush()
 		actions.setChartData([
 			{ x: 1, y: 2 },
 			{ x: 3, y: 4 },
 		])
+		flush()
 		expect(selectTooltipPayload(store, "item", "hover", undefined)).toEqual(undefined)
 		actions.setActiveMouseOverItemIndex({
 			activeCoordinate,
@@ -443,7 +455,9 @@ describe("selectTooltipPayload", () => {
 			activeGraphicalItemId: tooltipSettings.settings.graphicalItemId,
 			activeIndex: "0",
 		})
+		flush()
 		actions.setDataStartEndIndexes({ endIndex: 10, startIndex: 1 })
+		flush()
 		const expectedEntry: TooltipPayloadEntry = {
 			dataKey: "y",
 			fill: "green",
@@ -470,9 +484,9 @@ describe("selectTooltipPayload", () => {
 			"item",
 		)
 		const expectedEntry1: TooltipPayloadEntry = {
-			color: undefined,
+			color: "color",
 			dataKey: "x",
-			fill: undefined,
+			fill: "fill",
 			graphicalItemId: "graphicalItemId1",
 			name: "stature",
 			nameKey: "nameKey1",
@@ -485,9 +499,9 @@ describe("selectTooltipPayload", () => {
 			value: 100,
 		}
 		const expectedEntry2: TooltipPayloadEntry = {
-			color: undefined,
+			color: "color",
 			dataKey: "y",
-			fill: undefined,
+			fill: "fill",
 			graphicalItemId: "graphicalItemId1",
 			name: "weight",
 			nameKey: "nameKey1",
@@ -529,9 +543,113 @@ describe("selectTooltipPayload", () => {
 		expect(actual).toEqual([expected])
 	})
 
-	it.todo(
-		"should do something - not quite sure what exactly yet - with tooltipAxis.allowDuplicatedCategory",
-	)
+	it("should use label-based search when tooltipEventType is axis and tooltipAxisDataKey is provided", () => {
+		const chartDataState: ChartDataState = {
+			...initialChartDataState,
+			chartData: [
+				{ name: "Page A", pv: 100 },
+				{ name: "Page B", pv: 200 },
+				{ name: "Page A", pv: 300 },
+			],
+			dataStartIndex: 0,
+			dataEndIndex: 2,
+		}
+		const tooltipPayloadConfiguration: TooltipPayloadConfiguration = {
+			settings: {
+				dataKey: "pv",
+				nameKey: "name",
+				graphicalItemId: "bar-1",
+				name: undefined,
+			},
+			dataDefinedOnItem: undefined,
+			getPosition: noop,
+		}
+		const activeLabel = "Page A"
+		const actual: TooltipPayload | undefined = combineTooltipPayload(
+			[tooltipPayloadConfiguration],
+			"0",
+			chartDataState,
+			"name",
+			activeLabel,
+			arrayTooltipSearcher,
+			"axis",
+		)
+		expect(actual).toHaveLength(1)
+		expect(actual?.[0].payload).toEqual({ name: "Page A", pv: 100 })
+		expect(actual?.[0].value).toBe(100)
+	})
+
+	it("should fall back to index-based search when label-based search returns undefined", () => {
+		const chartDataState: ChartDataState = {
+			...initialChartDataState,
+			chartData: [
+				{ name: "Page A", pv: 100 },
+				{ name: "Page B", pv: 200 },
+				{ name: "Page A", pv: 300 },
+			],
+			dataStartIndex: 0,
+			dataEndIndex: 2,
+		}
+		const tooltipPayloadConfiguration: TooltipPayloadConfiguration = {
+			settings: {
+				dataKey: "pv",
+				nameKey: "name",
+				graphicalItemId: "bar-1",
+				name: undefined,
+			},
+			dataDefinedOnItem: undefined,
+			getPosition: noop,
+		}
+		const activeLabel = "NonExistent"
+		const actual: TooltipPayload | undefined = combineTooltipPayload(
+			[tooltipPayloadConfiguration],
+			"1",
+			chartDataState,
+			"name",
+			activeLabel,
+			arrayTooltipSearcher,
+			"axis",
+		)
+		expect(actual).toHaveLength(1)
+		expect(actual?.[0].payload).toEqual({ name: "Page B", pv: 200 })
+		expect(actual?.[0].value).toBe(200)
+	})
+
+	it("should fall back to index-based search for duplicate categories when label does not match any data entry", () => {
+		const chartDataState: ChartDataState = {
+			...initialChartDataState,
+			chartData: [
+				{ category: "A", value: 10 },
+				{ category: "A", value: 20 },
+				{ category: "B", value: 30 },
+			],
+			dataStartIndex: 0,
+			dataEndIndex: 2,
+		}
+		const tooltipPayloadConfiguration: TooltipPayloadConfiguration = {
+			settings: {
+				dataKey: "value",
+				nameKey: "category",
+				graphicalItemId: "bar-1",
+				name: undefined,
+			},
+			dataDefinedOnItem: undefined,
+			getPosition: noop,
+		}
+		const activeLabel = "NonExistent"
+		const actual: TooltipPayload | undefined = combineTooltipPayload(
+			[tooltipPayloadConfiguration],
+			"1",
+			chartDataState,
+			"category",
+			activeLabel,
+			arrayTooltipSearcher,
+			"axis",
+		)
+		expect(actual).toHaveLength(1)
+		expect(actual?.[0].payload).toEqual({ category: "A", value: 20 })
+		expect(actual?.[0].value).toBe(20)
+	})
 })
 
 describe("selectActiveIndex", () => {
@@ -625,10 +743,13 @@ describe("selectActiveCoordinate", () => {
 			activeIndex: "1",
 		})
 
+		flush()
+
 		/* GOTCHA-003: Solid store wraps values in a proxy, so .toBe identity through dispatch+select is unstable. */
 		expect(selectActiveCoordinate(store, "axis", "hover", undefined)).toEqual(expected)
 
 		actions.mouseLeaveChart()
+		flush()
 
 		expect(selectActiveCoordinate(store, "axis", "hover", undefined)).toEqual({ x: 100, y: 150 })
 		/* the selector stops returning the coordinates but they should still be present in store for the next animation */
@@ -649,10 +770,13 @@ describe("selectActiveCoordinate", () => {
 			activeIndex: "1",
 		})
 
+		flush()
+
 		/* GOTCHA-003: Solid store wraps values in a proxy, so .toBe identity through dispatch+select is unstable. */
 		expect(selectActiveCoordinate(store, "axis", "click", undefined)).toEqual(expected)
 
 		actions.mouseLeaveChart()
+		flush()
 
 		expect(selectActiveCoordinate(store, "axis", "click", undefined)).toEqual(expected)
 	})
@@ -672,12 +796,16 @@ describe("selectActiveCoordinate", () => {
 			activeIndex: "1",
 		})
 
+		flush()
+
 		/* GOTCHA-003: Solid store proxy breaks .toBe identity through dispatch. */
 		expect(selectActiveCoordinate(store, "item", "hover", undefined)).toEqual(expected)
 
 		/* neither of these reset the coordinates and the selector does NOT stop returning them */
 		actions.mouseLeaveItem()
+		flush()
 		actions.mouseLeaveChart()
+		flush()
 
 		expect(selectActiveCoordinate(store, "item", "hover", undefined)).toEqual({
 			x: 100,
@@ -705,12 +833,16 @@ describe("selectActiveCoordinate", () => {
 			activeIndex: "1",
 		})
 
+		flush()
+
 		/* GOTCHA-003: Solid store proxy breaks .toBe identity through dispatch. */
 		expect(selectActiveCoordinate(store, "item", "click", undefined)).toEqual(expected)
 
 		/* neither of these should reset coordinate */
 		actions.mouseLeaveItem()
+		flush()
 		actions.mouseLeaveChart()
+		flush()
 
 		expect(selectActiveCoordinate(store, "item", "click", undefined)).toEqual(expected)
 	})
@@ -725,7 +857,9 @@ describe("selectTooltipPayloadConfigurations", () => {
 		const [state, setStore] = exampleStore
 		exampleActions = createActions(state, setStore)
 		exampleActions.addTooltipEntrySettings(exampleTooltipPayloadConfiguration1)
+		flush()
 		exampleActions.addTooltipEntrySettings(exampleTooltipPayloadConfiguration2)
+		flush()
 	})
 
 	describe.each(allTooltipCombinations)(
@@ -734,9 +868,9 @@ describe("selectTooltipPayloadConfigurations", () => {
 			it("should return undefined when outside of Redux context", () => {
 				expect.assertions(1)
 				const Comp = (): null => {
-					const result = useAppSelectorWithStableTest((state) =>
+					const result = untrack(() => useAppSelectorWithStableTest((state) =>
 						selectTooltipPayloadConfigurations(state, tooltipEventType, trigger, undefined),
-					)
+					))
 					expect(result).toBe(undefined)
 					return null
 				}
@@ -774,6 +908,7 @@ describe("selectTooltipPayloadConfigurations", () => {
 				activeGraphicalItemId: exampleTooltipPayloadConfiguration1.settings.graphicalItemId,
 				activeIndex: "1",
 			})
+		flush()
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", undefined),
 		).toEqual([exampleTooltipPayloadConfiguration1])
@@ -783,6 +918,7 @@ describe("selectTooltipPayloadConfigurations", () => {
 				activeGraphicalItemId: exampleTooltipPayloadConfiguration2.settings.graphicalItemId,
 				activeIndex: "1",
 			})
+		flush()
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", undefined),
 		).toEqual([exampleTooltipPayloadConfiguration2])
@@ -795,10 +931,12 @@ describe("selectTooltipPayloadConfigurations", () => {
 				activeGraphicalItemId: "foo",
 				activeIndex: "1",
 			})
+		flush()
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", undefined),
 		).toEqual([])
 		exampleActions.setMouseClickAxisIndex({ activeDataKey: "dataKey2", activeIndex: "1" })
+		flush()
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", undefined),
 		).toEqual([])
@@ -811,10 +949,12 @@ describe("selectTooltipPayloadConfigurations", () => {
 				activeGraphicalItemId: "foo",
 				activeIndex: "1",
 			})
+		flush()
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "click", undefined),
 		).toEqual([])
 		exampleActions.setMouseOverAxisIndex({ activeDataKey: "dataKey2", activeIndex: "1" })
+		flush()
 		expect(
 			selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "click", undefined),
 		).toEqual([])
@@ -834,6 +974,7 @@ describe("selectTooltipPayloadConfigurations", () => {
 					activeGraphicalItemId: exampleTooltipPayloadConfiguration2.settings.graphicalItemId,
 					activeIndex: "1",
 				})
+			flush()
 			expect(
 				selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", "1"),
 			).toEqual([exampleTooltipPayloadConfiguration2])
@@ -846,6 +987,7 @@ describe("selectTooltipPayloadConfigurations", () => {
 					activeGraphicalItemId: "id-notPresentInPayloads",
 					activeIndex: "1",
 				})
+			flush()
 			expect(
 				selectTooltipPayloadConfigurations(exampleStore.getState(), "item", "hover", "1"),
 			).toEqual([])
@@ -860,9 +1002,9 @@ describe("selectIsTooltipActive", () => {
 			it("should return undefined when outside of Redux state", () => {
 				expect.assertions(1)
 				const Comp = (): null => {
-					const result = useAppSelectorWithStableTest((state) =>
+					const result = untrack(() => useAppSelectorWithStableTest((state) =>
 						selectIsTooltipActive(state, tooltipEventType, trigger, undefined),
-					)
+					))
 					expect(result).toBe(undefined)
 					return null
 				}
@@ -901,6 +1043,7 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -916,6 +1059,7 @@ describe("selectIsTooltipActive", () => {
 					activeDataKey: "dataKey1",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -929,6 +1073,7 @@ describe("selectIsTooltipActive", () => {
 				const [store, setStore] = createRechartsStore()
 				const actions = createActions(store, setStore)
 				actions.setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -939,11 +1084,13 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
 				actions.mouseLeaveItem()
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -959,11 +1106,13 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "id-1",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
 				actions.mouseLeaveChart()
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -983,11 +1132,13 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
 				})
 				actions.setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
@@ -998,11 +1149,13 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
 				})
 				actions.mouseLeaveItem()
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
@@ -1026,6 +1179,7 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -1036,6 +1190,7 @@ describe("selectIsTooltipActive", () => {
 				const [store, setStore] = createRechartsStore()
 				const actions = createActions(store, setStore)
 				actions.setMouseOverAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: null })
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -1055,6 +1210,7 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "foo",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
@@ -1065,16 +1221,19 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "bar",
 					activeIndex: "2",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
 				})
 				actions.mouseLeaveItem()
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
 				})
 				actions.setMouseClickAxisIndex({ activeCoordinate, activeDataKey: undefined, activeIndex: "1" })
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
@@ -1085,6 +1244,7 @@ describe("selectIsTooltipActive", () => {
 				const [store, setStore] = createRechartsStore()
 				const actions = createActions(store, setStore)
 				actions.setMouseClickAxisIndex({ activeCoordinate, activeDataKey: "dataKey1", activeIndex: "1" })
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: null,
 					isActive: false,
@@ -1102,6 +1262,7 @@ describe("selectIsTooltipActive", () => {
 					activeDataKey: "dataKey1",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "1",
 					isActive: true,
@@ -1111,11 +1272,13 @@ describe("selectIsTooltipActive", () => {
 					activeDataKey: undefined,
 					activeIndex: "2",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
 				})
 				actions.mouseLeaveItem()
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
@@ -1126,6 +1289,7 @@ describe("selectIsTooltipActive", () => {
 					activeGraphicalItemId: "id-1",
 					activeIndex: "1",
 				})
+				flush()
 				expect(selectIsTooltipActive(store, tooltipEventType, trigger, undefined)).toEqual({
 					activeIndex: "2",
 					isActive: true,
@@ -1151,7 +1315,7 @@ describe("selectActiveIndexFromChartPointer", () => {
 		const tooltipActiveSpy = vi.fn()
 		mockGetBoundingClientRect({ height: 100, width: 100 })
 		const Comp = (): null => {
-			createEffect(() =>
+			observe(() =>
 				tooltipActiveSpy(
 					useAppSelector((state) =>
 						selectActivePropsFromChartPointer(state, exampleChartPointer),
@@ -1180,12 +1344,12 @@ describe("selectActiveIndexFromChartPointer", () => {
 		expect.assertions(1)
 		mockGetBoundingClientRect({ height: 100, width: 100 })
 		const Comp = (): null => {
-			const result1 = useAppSelector((state) =>
+			const result1 = untrack(() => useAppSelector((state) =>
 				selectActivePropsFromChartPointer(state, exampleChartPointer),
-			)
-			const result2 = useAppSelector((state) =>
+			))
+			const result2 = untrack(() => useAppSelector((state) =>
 				selectActivePropsFromChartPointer(state, exampleChartPointer),
-			)
+			))
 			expect(result1).toEqual(result2)
 			return null
 		}
@@ -1202,7 +1366,7 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 	it("should return undefined when called outside of Redux context", () => {
 		expect.assertions(1)
 		const Comp = (): null => {
-			const payload = useAppSelector(selectTooltipState)
+			const payload = untrack(() => useAppSelector(selectTooltipState))
 			expect(payload).toBe(undefined)
 			return null
 		}
@@ -1217,7 +1381,7 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 	it("should return empty array in an empty chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const tooltipData = useAppSelector(selectTooltipState)?.tooltipItemPayloads.map(
 					(tp) => tp.dataDefinedOnItem,
 				)
@@ -1236,7 +1400,7 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 	it("should return all tooltip payloads defined on graphical items in ComposedChart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const tooltipData = useAppSelector(selectTooltipState)?.tooltipItemPayloads.map(
 					(tp) => tp.dataDefinedOnItem,
 				)
@@ -1415,7 +1579,7 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 	it("should return all payloads in PieChart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const tooltipData = useAppSelector(selectTooltipState)?.tooltipItemPayloads.map(
 					(tp) => tp.dataDefinedOnItem,
 				)
@@ -1435,7 +1599,9 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 			[
 				[
 					{
+						color: "#808080",
 						dataKey: "x",
+						fill: "#808080",
 						graphicalItemId: "pie-1",
 						name: 0,
 						payload: { x: 1 },
@@ -1445,7 +1611,9 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 				],
 				[
 					{
+						color: "#808080",
 						dataKey: "x",
+						fill: "#808080",
 						graphicalItemId: "pie-1",
 						name: 1,
 						payload: { x: 2 },
@@ -1455,7 +1623,9 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 				],
 				[
 					{
+						color: "#808080",
 						dataKey: "x",
+						fill: "#808080",
 						graphicalItemId: "pie-1",
 						name: 2,
 						payload: { x: 3 },
@@ -1467,7 +1637,9 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 			[
 				[
 					{
+						color: "#808080",
 						dataKey: "y",
+						fill: "#808080",
 						graphicalItemId: "pie-2",
 						name: 0,
 						payload: { y: 10 },
@@ -1477,7 +1649,9 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 				],
 				[
 					{
+						color: "#808080",
 						dataKey: "y",
+						fill: "#808080",
 						graphicalItemId: "pie-2",
 						name: 1,
 						payload: { y: 20 },
@@ -1487,7 +1661,9 @@ describe("selectTooltipState.tooltipItemPayloads", () => {
 				],
 				[
 					{
+						color: "#808080",
 						dataKey: "y",
+						fill: "#808080",
 						graphicalItemId: "pie-2",
 						name: 2,
 						payload: { y: 30 },

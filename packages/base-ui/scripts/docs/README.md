@@ -13,4 +13,6 @@ Steps:
 
 1. `docs:sync` — clone `mui/base-ui@TAG`, copy `docs/` → `docs/react`, overlay only workspace paths (`workspaceRoot`, tsconfig `../../packages`, package name `docs`).
 2. `bun install`
-3. `docs:generate` — wipe Solid routes/demos and regenerate MDX, demos, CSS, fonts, sitemap from `docs/react`.
+3. `docs:generate` — regenerate MDX, demos, CSS, fonts, sitemap from `docs/react`. Files are rewritten only when their content changes and stale files are pruned, so it is safe to run next to `docs:dev`.
+
+When a transform cannot port a demo, put the hand-ported file in `docs/solid/overrides/demos/<path>`; it replaces the generated one. To leave a demo and its MDX section out (for example, no Solid 2 library exists yet), add it to `EXCLUDED` in `generate-solid-docs.mjs`.

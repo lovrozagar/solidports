@@ -1,5 +1,4 @@
 /* eslint-disable import/no-cycle */
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "./chartState"
 import { selectActivePropsFromChartPointer } from "./selectors/selectActivePropsFromChartPointer"
 import { getRelativeCoordinate } from "../util/getRelativeCoordinate"
@@ -14,6 +13,8 @@ import { selectAllGraphicalItemsSettings } from "./selectors/tooltipSelectors"
 import type { RelativePointer } from "../util/types"
 import { createEventProxy } from "../util/createEventProxy"
 
+import { type SetStoreFunction } from '../util/solid-1-compat';
+import { setTooltipInteraction } from "./tooltipInteraction"
 export type TouchEventHandlers = {
 	handleTouchMove: (touchEvent: TouchEvent) => void
 }
@@ -76,7 +77,7 @@ export function createTouchEventHandlers(
 				}
 				const activeProps = selectActivePropsFromChartPointer(store, latestTouchPointer)
 				if (activeProps?.activeIndex != null) {
-					setStore("tooltip", "axisInteraction", "hover", {
+					setTooltipInteraction(setStore, "axisInteraction", "hover", {
 						active: true,
 						coordinate: activeProps.activeCoordinate,
 						dataKey: undefined,
@@ -105,7 +106,7 @@ export function createTouchEventHandlers(
 				const { dataKey } = settings
 				const coordinate = selectTooltipCoordinate(store, itemIndex, graphicalItemId)
 
-				setStore("tooltip", "itemInteraction", "hover", {
+				setTooltipInteraction(setStore, "itemInteraction", "hover", {
 					active: true,
 					coordinate,
 					dataKey,
@@ -179,7 +180,7 @@ export const touchEventAction =
 					graphicalItemId: undefined,
 					index: activeProps.activeIndex,
 				}
-				setStore("tooltip", "axisInteraction", "hover", payload)
+				setTooltipInteraction(setStore, "axisInteraction", "hover", payload)
 			}
 		} else if (tooltipEventType === "item") {
 			const touch = touchEvent.touches[0]
@@ -208,6 +209,6 @@ export const touchEventAction =
 				graphicalItemId,
 				index: itemIndex,
 			}
-			setStore("tooltip", "itemInteraction", "hover", payload)
+			setTooltipInteraction(setStore, "itemInteraction", "hover", payload)
 		}
 	}

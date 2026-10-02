@@ -5,7 +5,7 @@ import { Form } from '@solidports/base-ui/form';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 describe('<Autocomplete.Root />', () => {
   beforeEach(() => {

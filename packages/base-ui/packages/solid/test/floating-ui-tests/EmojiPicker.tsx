@@ -1,16 +1,15 @@
 import c from 'clsx';
 import {
-  createEffect,
+  createTrackedEffect,
   createMemo,
   createSignal,
-  Index,
+  For,
   Match,
   onCleanup,
   Show,
-  splitProps,
   Switch,
-  type JSX,
 } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   arrow,
   autoUpdate,
@@ -28,6 +27,7 @@ import {
 import type { Placement } from '../../src/floating-ui-solid/types';
 import { useId } from '../../src/utils/useId';
 import { Button } from './Button';
+import { splitProps } from '../../src/solid-1-compat';
 
 const emojis = [
   {
@@ -92,7 +92,7 @@ function Option(props: OptionProps) {
       aria-selected={local.selected}
       disabled={local.name === 'orange'}
       aria-label={local.name}
-      tabIndex={-1}
+      tabindex={-1}
       data-active={local.active ? '' : undefined}
       type="button"
     >
@@ -174,7 +174,7 @@ export function Main() {
     getItemProps,
   } = useInteractions([listNavigation]);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (open()) {
       setPlacement(resultantPlacement());
     } else {
@@ -260,7 +260,7 @@ export function Main() {
                     </Match>
                     <Match when={filteredEmojis().length > 0}>
                       <div class="grid grid-cols-3" role="listbox">
-                        <Index each={filteredEmojis()}>
+                        <For keyed={false} each={filteredEmojis()}>
                           {(item, index) => (
                             <Option
                               name={item().name}
@@ -281,7 +281,7 @@ export function Main() {
                               {item().emoji}
                             </Option>
                           )}
-                        </Index>
+                        </For>
                       </div>
                     </Match>
                   </Switch>

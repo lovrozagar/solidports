@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
-import { createEffect, createSignal } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { trackSpy } from "../../helper/trackSpy"
+import { createSignal, flush } from 'solid-js'
+import { render } from "../../helper/render"
 import { mockGetBoundingClientRect } from "../../helper/mockGetBoundingClientRect"
 import { useAppSelector } from "../../helper/legacyDispatch"
 import { createActions } from "../../../src/state/actions"
@@ -32,6 +33,7 @@ describe("selectContainerScale", () => {
 	it("should return scale after it was set using an action", () => {
 		const [store, setStore] = createRechartsStore()
 		createActions(store, setStore).setScale(1.25)
+		flush()
 		expect(selectContainerScale(store)).toBe(1.25)
 	})
 
@@ -103,7 +105,7 @@ describe("selectMargin", () => {
 	it("should return margin from root chart props, and update it when props change", () => {
 		const marginSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => marginSpy(useAppSelector(selectMargin)))
+			trackSpy(marginSpy, () => useAppSelector(selectMargin))
 			return null
 		}
 		const [margin, setMargin] = createSignal({ bottom: 10, left: 10, right: 10, top: 10 })
@@ -120,6 +122,7 @@ describe("selectMargin", () => {
 		})
 
 		setMargin({ bottom: 20, left: 20, right: 20, top: 20 })
+		flush()
 		expect(marginSpy).toHaveBeenLastCalledWith({
 			bottom: 20,
 			left: 20,
@@ -136,13 +139,14 @@ describe("selectChartWidth", () => {
 	it("should return width when set from action", () => {
 		const [store, setStore] = createRechartsStore()
 		createActions(store, setStore).setChartSize({ height: 300, width: 500 })
+		flush()
 		expect(selectChartWidth(store)).toBe(500)
 	})
 
 	it("should return width from root chart props, and update it when props change", () => {
 		const widthSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => widthSpy(useAppSelector(selectChartWidth)))
+			trackSpy(widthSpy, () => useAppSelector(selectChartWidth))
 			return null
 		}
 		const [width, setWidth] = createSignal(500)
@@ -154,6 +158,7 @@ describe("selectChartWidth", () => {
 		expect(widthSpy).toHaveBeenLastCalledWith(500)
 
 		setWidth(600)
+		flush()
 		expect(widthSpy).toHaveBeenLastCalledWith(600)
 	})
 })
@@ -165,13 +170,14 @@ describe("selectChartHeight", () => {
 	it("should return height when set from action", () => {
 		const [store, setStore] = createRechartsStore()
 		createActions(store, setStore).setChartSize({ height: 300, width: 500 })
+		flush()
 		expect(selectChartHeight(store)).toBe(300)
 	})
 
 	it("should return height from root chart props, and update it when props change", () => {
 		const heightSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => heightSpy(useAppSelector(selectChartHeight)))
+			trackSpy(heightSpy, () => useAppSelector(selectChartHeight))
 			return null
 		}
 		const [height, setHeight] = createSignal(300)
@@ -183,6 +189,7 @@ describe("selectChartHeight", () => {
 		expect(heightSpy).toHaveBeenLastCalledWith(300)
 
 		setHeight(400)
+		flush()
 		expect(heightSpy).toHaveBeenLastCalledWith(400)
 	})
 })

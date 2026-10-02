@@ -1,5 +1,5 @@
-/* @jsxImportSource solid-js */
-import { render, screen } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { render, screen } from "../helper/render"
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect } from "vitest"
 import {

@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
-import { splitProps } from "solid-js"
-import type { Component, JSX } from "solid-js"
+/* @jsxImportSource @solidjs/web */
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { CartesianLayout, EventThrottlingProps, PolarChartProps } from "../../src/util/types"
 import {
 	AreaChart,
@@ -23,6 +23,7 @@ import {
 import { exampleSankeyData, exampleSunburstData, exampleTreemapData, PageData } from "../_data"
 import type { TooltipIndex } from "../../src/state/tooltipSlice"
 
+import { splitProps } from '../../src/util/solid-1-compat';
 /**
  * Parameterized test cases for running the same tests
  * across different chart types.

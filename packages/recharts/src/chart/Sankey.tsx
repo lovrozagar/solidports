@@ -1,5 +1,7 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { batch, createMemo, For, Show, splitProps, type JSX } from "solid-js"
+import { createMemo, For, Show, untrack } from 'solid-js';
+import type { WithoutRemoveFalse } from "../util/types"
+import type { JSX } from '@solidjs/web';
 import maxBy from "es-toolkit/compat/maxBy"
 import sumBy from "es-toolkit/compat/sumBy"
 import get from "es-toolkit/compat/get"
@@ -25,6 +27,7 @@ import {
 } from "../context/chartLayoutContext"
 import { RechartsWrapper } from "./RechartsWrapper"
 import { RechartsStateProvider } from "../state/RechartsStateProvider"
+import { createInitialLayoutState } from "../state/chartState"
 import { useChartStore } from "../state/RechartsStoreContext"
 import { useOptionalChartState } from "../state/useChartState"
 import type {
@@ -49,6 +52,8 @@ import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import type { GraphicalItemId } from "../state/graphicalItemsSlice"
 import { initialEventSettingsState } from "../state/eventSettingsSlice"
 
+import { splitProps } from '../util/solid-1-compat';
+import { setTooltipInteraction } from "../state/tooltipInteraction"
 const interpolationGenerator = (a: number, b: number) => {
 	const ka = +a
 	const kb = b - ka
@@ -56,6 +61,11 @@ const interpolationGenerator = (a: number, b: number) => {
 }
 
 const centerY = (node: SankeyNode) => node.y + node.dy / 2
+
+const cubicValue = (start: number, control1: number, control2: number, end: number, t: number): number => {
+	const inverseT = 1 - t
+	return inverseT ** 3 * start + 3 * inverseT ** 2 * t * control1 + 3 * inverseT * t ** 2 * control2 + t ** 3 * end
+}
 
 /* TODO why is this not reading dataKey? */
 const getValue = (entry: LinkDataItem | SankeyNode | undefined): number =>
@@ -136,9 +146,16 @@ const updateDepthOfTargets = (tree: SankeyNode[], curNode: SankeyNode) => {
 		const target = tree[targetNode]
 
 		if (target) {
-			target.depth = Math.max(curNode.depth + 1, target.depth)
-
-			updateDepthOfTargets(tree, target)
+			const newDepth = curNode.depth + 1
+			/*
+			 * Only recurse when the depth grows. Depth is the longest path to a node, so once it stops increasing
+			 * the subtree is already up to date; without this guard every path through the graph is walked
+			 * separately, which explodes combinatorially on dense graphs.
+			 */
+			if (newDepth > target.depth) {
+				target.depth = newDepth
+				updateDepthOfTargets(tree, target)
+			}
 		}
 	}
 }
@@ -212,7 +229,7 @@ const getDepthTree = (tree: SankeyNode[]): SankeyNode[][] => {
 	return result
 }
 
-type LinkDataItemDy = LinkDataItem & { dy: number }
+type LinkDataItemDy = LinkDataItem & { dy: number; sy?: number; ty?: number }
 
 type SankeyVerticalAlign = "justify" | "top"
 
@@ -223,11 +240,15 @@ const updateYOfTree = (
 	links: ReadonlyArray<LinkDataItem>,
 	verticalAlign: SankeyVerticalAlign,
 ): Array<LinkDataItemDy> => {
-	const yRatio: number = Math.min(
-		...depthTree.map(
-			(nodes) => (height - (nodes.length - 1) * nodePadding) / sumBy(nodes, getValue),
-		),
+	let yRatio: number = Math.min(
+		...depthTree.map((nodes) => {
+			const value = sumBy(nodes, getValue)
+			return value === 0 ? Infinity : (height - (nodes.length - 1) * nodePadding) / value
+		}),
 	)
+	if (yRatio === Infinity) {
+		yRatio = 0
+	}
 
 	for (let d = 0, maxDepth = depthTree.length; d < maxDepth; d++) {
 		const nodes = depthTree[d]
@@ -337,7 +358,7 @@ const relaxLeftToRight = (
 			if (node.sourceLinks.length) {
 				const sourceSum = getSumOfIds(links, node.sourceLinks)
 				const weightedSum = getSumWithWeightedSource(tree, links, node.sourceLinks)
-				const y = weightedSum / sourceSum
+				const y = sourceSum === 0 ? centerY(node) : weightedSum / sourceSum
 
 				node.y += (y - centerY(node)) * alpha
 			}
@@ -369,7 +390,7 @@ const relaxRightToLeft = (
 			if (node.targetLinks.length) {
 				const targetSum = getSumOfIds(links, node.targetLinks)
 				const weightedSum = getSumWithWeightedTarget(tree, links, node.targetLinks)
-				const y = weightedSum / targetSum
+				const y = targetSum === 0 ? centerY(node) : weightedSum / targetSum
 
 				node.y += (y - centerY(node)) * alpha
 			}
@@ -421,8 +442,7 @@ const updateYOfLinks = (tree: SankeyNode[], links: LinkDataItemDy[]): void => {
 			const link = links[targetLink]
 
 			if (link) {
-				/* updateYOfLinks modifies the links array to add sy in place */
-				;(link as LinkDataItemDy & { sy: number }).sy = sy
+				link.sy = sy
 				sy += link.dy
 			}
 		}
@@ -435,15 +455,132 @@ const updateYOfLinks = (tree: SankeyNode[], links: LinkDataItemDy[]): void => {
 			const link = links[sourceLink]
 
 			if (link) {
-				/* updateYOfLinks modifies the links array to add ty in place */
-				;(link as LinkDataItemDy & { ty: number }).ty = ty
+				link.ty = ty
 				ty += link.dy
 			}
 		}
 	}
 }
 
-const computeData = ({
+const getLinkYAtX = (sourceNode: SankeyNode, targetNode: SankeyNode, link: LinkDataItemDy, x: number): number => {
+	const sourceX = sourceNode.x + sourceNode.dx
+	const targetX = targetNode.x
+	const progress = targetX === sourceX ? 0 : (x - sourceX) / (targetX - sourceX)
+	const boundedProgress = Math.min(Math.max(progress, 0), 1)
+	const sourceY = sourceNode.y + (link.sy ?? 0) + link.dy / 2
+	const targetY = targetNode.y + (link.ty ?? 0) + link.dy / 2
+
+	return cubicValue(sourceY, sourceY, targetY, targetY, boundedProgress)
+}
+
+const resolveNodeLinkCollisions = (
+	tree: SankeyNode[],
+	depthTree: SankeyNode[][],
+	links: LinkDataItemDy[],
+	height: number,
+	nodePadding: number,
+) => {
+	const depthByNode = new Map<SankeyNode, number>()
+
+	for (let depth = 0; depth < depthTree.length; depth++) {
+		const nodes = depthTree[depth]
+		if (nodes == null) {
+			continue
+		}
+
+		for (const node of nodes) {
+			depthByNode.set(node, depth)
+		}
+	}
+
+	for (let depth = 0; depth < depthTree.length; depth++) {
+		const nodes = depthTree[depth]
+		if (nodes == null || nodes.length === 0) {
+			continue
+		}
+
+		const depthX = nodes[0] == null ? undefined : nodes[0].x + nodes[0].dx / 2
+		if (depthX == null) {
+			continue
+		}
+
+		const fixedObstacles = links.flatMap(link => {
+			const sourceNode = tree[link.source]
+			const targetNode = tree[link.target]
+			if (sourceNode == null || targetNode == null) {
+				return []
+			}
+
+			const sourceDepth = depthByNode.get(sourceNode)
+			const targetDepth = depthByNode.get(targetNode)
+			if (sourceDepth == null || targetDepth == null) {
+				return []
+			}
+
+			if (depth <= Math.min(sourceDepth, targetDepth) || depth >= Math.max(sourceDepth, targetDepth)) {
+				return []
+			}
+
+			const y = getLinkYAtX(sourceNode, targetNode, link, depthX) - link.dy / 2
+			return [{ y, dy: link.dy, fixed: true as const }]
+		})
+
+		const containedNodeObstacles = fixedObstacles.filter(obstacle =>
+			nodes.some(node => node.y >= obstacle.y && node.y + node.dy <= obstacle.y + obstacle.dy),
+		)
+
+		if (containedNodeObstacles.length === 0) {
+			continue
+		}
+
+		type CollisionItem = { node: SankeyNode; fixed: false } | { y: number; dy: number; fixed: true }
+		const getItemY = (item: CollisionItem): number => (item.fixed ? item.y : item.node.y)
+		const getItemHeight = (item: CollisionItem): number => (item.fixed ? item.dy : item.node.dy)
+		let items: CollisionItem[] = [
+			...nodes.map(node => ({ node, fixed: false as const })),
+			...containedNodeObstacles,
+		].sort((a, b) => getItemY(a) - getItemY(b))
+
+		let nextY = 0
+		for (const item of items) {
+			if (item.fixed) {
+				nextY = Math.max(nextY, item.y + item.dy + nodePadding)
+				continue
+			}
+
+			if (item.node.y < nextY) {
+				item.node.y = nextY
+			}
+			nextY = item.node.y + item.node.dy + nodePadding
+		}
+
+		items = items.sort((a, b) => getItemY(a) - getItemY(b))
+
+		let previousY = height + nodePadding
+		for (let i = items.length - 1; i >= 0; i--) {
+			const item = items[i]
+			if (item == null) {
+				continue
+			}
+
+			if (item.fixed) {
+				previousY = Math.min(previousY, item.y - nodePadding)
+				continue
+			}
+
+			/* This backward pass only keeps moved nodes within the chart bounds.
+			   It intentionally does not iterate again against fixed obstacles above,
+			   because this fix is scoped to the fully-contained skipped-depth case. */
+			const dy = item.node.y + getItemHeight(item) + nodePadding - previousY
+			if (dy > 0) {
+				item.node.y -= dy
+			}
+			previousY = item.node.y
+		}
+	}
+}
+
+export const computeData = ({
 	data,
 	width,
 	height,
@@ -494,6 +631,9 @@ const computeData = ({
 	}
 
 	updateYOfLinks(tree, linksWithDy)
+	resolveNodeLinkCollisions(tree, depthTree, linksWithDy, height, nodePadding)
+	updateYOfLinks(tree, linksWithDy)
+
 	/* updateYOfLinks modifies the links array to add sy and ty in place */
 	const newLinks: ReadonlyArray<SankeyLink> = linksWithDy as unknown as ReadonlyArray<SankeyLink>
 
@@ -652,6 +792,11 @@ type SankeyLinkOptions = ((props: LinkProps) => JSX.Element) | JSX.PathSVGAttrib
 
 interface SankeyProps extends EventThrottlingProps {
 	/**
+	 * Tab order of the chart surface. Upstream's React `tabIndex`; the native `tabindex`
+	 * attribute is accepted too. Defaults to 0 when `accessibilityLayer` is on.
+	 */
+	tabIndex?: number
+	/**
 	 * Name represents each sector in the tooltip.
 	 * This allows you to extract the name from the data:
 	 *
@@ -748,6 +893,14 @@ interface SankeyProps extends EventThrottlingProps {
 	class?: string
 	children?: JSX.Element
 	/**
+	 * Turn on accessibility support for keyboard-only and screen reader users.
+	 *
+	 * @defaultValue true
+	 */
+	accessibilityLayer?: boolean
+	title?: string
+	desc?: string
+	/**
 	 * Empty space around the container.
 	 *
 	 * @defaultValue {"top":5,"right":5,"bottom":5,"left":5}
@@ -756,15 +909,15 @@ interface SankeyProps extends EventThrottlingProps {
 	/**
 	 * The customized event handler of click on the area in this group
 	 */
-	onClick?: (item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent) => void
+	onClick?: (item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mouseenter on the area in this group
 	 */
-	onMouseEnter?: (item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent) => void
+	onMouseEnter?: (item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mouseleave on the area in this group
 	 */
-	onMouseLeave?: (item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent) => void
+	onMouseLeave?: (item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * Whether to sort the nodes on the y axis, or to display them as user-defined.
 	 * @default true
@@ -787,7 +940,7 @@ interface SankeyProps extends EventThrottlingProps {
 	id?: string
 }
 
-export type Props = SankeyProps
+export type Props = WithoutRemoveFalse<Omit<JSX.SvgSVGAttributes<SVGSVGElement>, keyof SankeyProps | "ref">> & SankeyProps
 
 export type SankeyElementType = "node" | "link"
 
@@ -882,14 +1035,16 @@ function SankeyLinkElement(props: {
 	props: LinkProps
 	i: number
 	linkContent: SankeyLinkOptions | undefined
-	onMouseEnter: (linkProps: LinkProps, e: MouseEvent) => void
-	onMouseLeave: (linkProps: LinkProps, e: MouseEvent) => void
-	onClick: (linkProps: LinkProps, e: MouseEvent) => void
+	onMouseEnter: (linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseLeave: (linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onClick: (linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	dataKey: DataKey<unknown>
 }): JSX.Element {
 	/* eslint-disable solid/reactivity -- props.props and props.i are stable identifiers captured once at mount */
-	const activeCoordinate = getLinkCoordinateOfTooltip(props.props)
-	const activeIndex = `link-${props.i}`
+	const linkProps = untrack(() => props.props)
+	const linkIndex = untrack(() => props.i)
+	const activeCoordinate = getLinkCoordinateOfTooltip(linkProps)
+	const activeIndex = `link-${linkIndex}`
 	/* eslint-enable solid/reactivity */
 
 	const ctx = useChartStore()
@@ -897,7 +1052,7 @@ function SankeyLinkElement(props: {
 
 	/* GOTCHA-016-C: bind both enter/leave AND over/out so fireEvent.mouseEnter, fireEvent.mouseOver, and user.hover all dispatch. Track per-instance entry state — `user.hover` fires mouseenter then mouseover; we dedupe by toggling once per real entry. */
 	let entered = false
-	const fireEnter = (e: MouseEvent) => {
+	const fireEnter = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 		if (entered) return
 		entered = true
 		const hoverPayload = {
@@ -907,17 +1062,17 @@ function SankeyLinkElement(props: {
 			graphicalItemId: props.graphicalItemId,
 			index: activeIndex,
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "hover", hoverPayload)
-		props.onMouseEnter(props.props, e)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "hover", hoverPayload)
+		props.onMouseEnter(linkProps, e)
 	}
-	const fireLeave = (e: MouseEvent) => {
+	const fireLeave = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 		if (!entered) return
 		entered = false
 		newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-		props.onMouseLeave(props.props, e)
+		props.onMouseLeave(linkProps, e)
 	}
 	const events = {
-		onClick: (e: MouseEvent) => {
+		onClick: (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 			const clickPayload = {
 				active: true,
 				coordinate: activeCoordinate,
@@ -925,8 +1080,8 @@ function SankeyLinkElement(props: {
 				graphicalItemId: props.graphicalItemId,
 				index: activeIndex,
 			}
-			newCtx?.setState("tooltip", "itemInteraction", "click", clickPayload)
-			props.onClick(props.props, e)
+			if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "click", clickPayload)
+			props.onClick(linkProps, e)
 		},
 		onMouseEnter: fireEnter,
 		onMouseOver: fireEnter,
@@ -938,7 +1093,7 @@ function SankeyLinkElement(props: {
 		<Layer>
 			{renderLinkItem(
 				props.linkContent,
-				props.props,
+				linkProps,
 				events as unknown as Record<string, ((e: Event) => void) | undefined>,
 			)}
 		</Layer>
@@ -950,9 +1105,9 @@ function AllSankeyLinkElements(props: {
 	modifiedLinks: ReadonlyArray<LinkProps>
 	links: ReadonlyArray<SankeyLink>
 	linkContent: SankeyLinkOptions | undefined
-	onMouseEnter: (linkProps: LinkProps, e: MouseEvent) => void
-	onMouseLeave: (linkProps: LinkProps, e: MouseEvent) => void
-	onClick: (linkProps: LinkProps, e: MouseEvent) => void
+	onMouseEnter: (linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseLeave: (linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onClick: (linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	dataKey: DataKey<unknown>
 }): JSX.Element {
 	return (
@@ -1033,22 +1188,24 @@ function NodeElement(props: {
 	props: NodeProps
 	nodeContent: SankeyNodeOptions | undefined
 	i: number
-	onMouseEnter: (nodeProps: NodeProps, e: MouseEvent) => void
-	onMouseLeave: (nodeProps: NodeProps, e: MouseEvent) => void
-	onClick: (nodeProps: NodeProps, e: MouseEvent) => void
+	onMouseEnter: (nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseLeave: (nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onClick: (nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	dataKey: DataKey<unknown>
 }): JSX.Element {
 	const ctx = useChartStore()
 	const newCtx = useOptionalChartState()
 
 	/* eslint-disable solid/reactivity -- props.props and props.i are stable identifiers captured once at mount */
-	const activeCoordinate = getNodeCoordinateOfTooltip(props.props)
-	const activeIndex = `node-${props.i}`
+	const nodeProps = untrack(() => props.props)
+	const nodeIndex = untrack(() => props.i)
+	const activeCoordinate = getNodeCoordinateOfTooltip(nodeProps)
+	const activeIndex = `node-${nodeIndex}`
 	/* eslint-enable solid/reactivity */
 
 	/* GOTCHA-016-C: same pattern as SankeyLinkElement — bind both enter/leave AND over/out, dedupe via per-instance entry flag. */
 	let entered = false
-	const fireEnter = (e: MouseEvent) => {
+	const fireEnter = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 		if (entered) return
 		entered = true
 		const hoverPayload = {
@@ -1058,17 +1215,17 @@ function NodeElement(props: {
 			graphicalItemId: props.graphicalItemId,
 			index: activeIndex,
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "hover", hoverPayload)
-		props.onMouseEnter(props.props, e)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "hover", hoverPayload)
+		props.onMouseEnter(nodeProps, e)
 	}
-	const fireLeave = (e: MouseEvent) => {
+	const fireLeave = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 		if (!entered) return
 		entered = false
 		newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-		props.onMouseLeave(props.props, e)
+		props.onMouseLeave(nodeProps, e)
 	}
 	const events = {
-		onClick: (e: MouseEvent) => {
+		onClick: (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 			const clickPayload = {
 				active: true,
 				coordinate: activeCoordinate,
@@ -1076,8 +1233,8 @@ function NodeElement(props: {
 				graphicalItemId: props.graphicalItemId,
 				index: activeIndex,
 			}
-			newCtx?.setState("tooltip", "itemInteraction", "click", clickPayload)
-			props.onClick(props.props, e)
+			if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "click", clickPayload)
+			props.onClick(nodeProps, e)
 		},
 		onMouseEnter: fireEnter,
 		onMouseOver: fireEnter,
@@ -1089,7 +1246,7 @@ function NodeElement(props: {
 		<Layer>
 			{renderNodeItem(
 				props.nodeContent,
-				props.props,
+				nodeProps,
 				events as unknown as Record<string, ((e: Event) => void) | undefined>,
 			)}
 		</Layer>
@@ -1100,9 +1257,9 @@ function AllNodeElements(props: {
 	graphicalItemId: GraphicalItemId
 	modifiedNodes: ReadonlyArray<NodeProps>
 	nodeContent: SankeyNodeOptions | undefined
-	onMouseEnter: (nodeProps: NodeProps, e: MouseEvent) => void
-	onMouseLeave: (nodeProps: NodeProps, e: MouseEvent) => void
-	onClick: (nodeProps: NodeProps, e: MouseEvent) => void
+	onMouseEnter: (nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseLeave: (nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onClick: (nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	dataKey: DataKey<unknown>
 }): JSX.Element {
 	return (
@@ -1126,6 +1283,7 @@ function AllNodeElements(props: {
 }
 
 export const sankeyDefaultProps = {
+	accessibilityLayer: true,
 	align: "justify",
 	dataKey: "value",
 	iterations: 32,
@@ -1144,8 +1302,8 @@ type PropsWithResolvedDefaults = RequiresDefaultProps<Props, typeof sankeyDefaul
 type InternalSankeyProps = WithIdRequired<PropsWithResolvedDefaults>
 
 function SankeyImpl(props: InternalSankeyProps): JSX.Element {
-	const width = () => useChartWidth()
-	const height = () => useChartHeight()
+	const width = createMemo(() => useChartWidth())
+	const height = createMemo(() => useChartHeight())
 
 	const computed = createMemo(() => {
 		const w = width()
@@ -1206,25 +1364,40 @@ function SankeyImpl(props: InternalSankeyProps): JSX.Element {
 		}
 	})
 
-	function handleMouseEnter(item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent) {
+	function handleMouseEnter(item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent & { currentTarget: SVGGraphicsElement }) {
 		if (props.onMouseEnter) {
 			props.onMouseEnter(item, type, e)
 		}
 	}
 
-	function handleMouseLeave(item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent) {
+	function handleMouseLeave(item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent & { currentTarget: SVGGraphicsElement }) {
 		if (props.onMouseLeave) {
 			props.onMouseLeave(item, type, e)
 		}
 	}
 
-	function handleClick(item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent) {
+	function handleClick(item: NodeProps | LinkProps, type: SankeyElementType, e: MouseEvent & { currentTarget: SVGGraphicsElement }) {
 		if (props.onClick) {
 			props.onClick(item, type, e)
 		}
 	}
 
 	const attrs = () => svgPropertiesNoEvents(props)
+
+	const tabIndex = () => {
+		const explicit = props.tabIndex ?? props.tabindex
+		if (typeof explicit === "number") {
+			return explicit
+		}
+		return props.accessibilityLayer ? 0 : undefined
+	}
+
+	const role = () => {
+		if (typeof props.role === "string") {
+			return props.role
+		}
+		return props.accessibilityLayer ? "application" : undefined
+	}
 
 	return (
 		<Show
@@ -1238,7 +1411,15 @@ function SankeyImpl(props: InternalSankeyProps): JSX.Element {
 			<SetComputedData
 				computedData={{ links: computed().modifiedLinks, nodes: computed().modifiedNodes }}
 			/>
-			<Surface {...attrs()} width={width() ?? 0} height={height() ?? 0}>
+			<Surface
+				{...attrs()}
+				title={props.title}
+				desc={props.desc}
+				role={role()}
+				tabindex={tabIndex()}
+				width={width() ?? 0}
+				height={height() ?? 0}
+			>
 				{props.children}
 				<AllSankeyLinkElements
 					graphicalItemId={props.id}
@@ -1246,26 +1427,26 @@ function SankeyImpl(props: InternalSankeyProps): JSX.Element {
 					modifiedLinks={computed().modifiedLinks}
 					linkContent={props.link}
 					dataKey={props.dataKey}
-					onMouseEnter={(linkProps: LinkProps, e: MouseEvent) =>
+					onMouseEnter={(linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) =>
 						handleMouseEnter(linkProps, "link", e)
 					}
-					onMouseLeave={(linkProps: LinkProps, e: MouseEvent) =>
+					onMouseLeave={(linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) =>
 						handleMouseLeave(linkProps, "link", e)
 					}
-					onClick={(linkProps: LinkProps, e: MouseEvent) => handleClick(linkProps, "link", e)}
+					onClick={(linkProps: LinkProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => handleClick(linkProps, "link", e)}
 				/>
 				<AllNodeElements
 					graphicalItemId={props.id}
 					modifiedNodes={computed().modifiedNodes}
 					nodeContent={props.node}
 					dataKey={props.dataKey}
-					onMouseEnter={(nodeProps: NodeProps, e: MouseEvent) =>
+					onMouseEnter={(nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) =>
 						handleMouseEnter(nodeProps, "node", e)
 					}
-					onMouseLeave={(nodeProps: NodeProps, e: MouseEvent) =>
+					onMouseLeave={(nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) =>
 						handleMouseLeave(nodeProps, "node", e)
 					}
-					onClick={(nodeProps: NodeProps, e: MouseEvent) => handleClick(nodeProps, "node", e)}
+					onClick={(nodeProps: NodeProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => handleClick(nodeProps, "node", e)}
 				/>
 			</Surface>
 		</Show>
@@ -1289,7 +1470,14 @@ export function Sankey(outsideProps: Props): JSX.Element {
 	const props: PropsWithResolvedDefaults = resolveDefaultProps(restProps, sankeyDefaultProps)
 
 	return (
-		<RechartsStateProvider preloadedState={{ options }}>
+		<RechartsStateProvider
+			preloadedState={{
+				layout: untrack(() =>
+					createInitialLayoutState({ height: props.height, margin: props.margin, width: props.width }),
+				),
+				options,
+			}}
+		>
 			<ReportChartSize width={props.width} height={props.height} />
 			<ReportChartMargin margin={props.margin} />
 			<ReportEventSettings

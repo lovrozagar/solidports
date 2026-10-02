@@ -1,5 +1,6 @@
 import { expect, vi } from "vitest"
-import { fireEvent } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { fireEvent } from "../../helper/render"
 import { assertNotNull } from "../../helper/assertNotNull"
 import type { Coordinate } from "../../../src/util/types"
 
@@ -56,6 +57,7 @@ function showTooltipWithEvent(
 	 * that the tooltip state is updated before we return.
 	 */
 	vi.advanceTimersByTime(0)
+	flush()
 	return tooltipTriggerElement
 }
 

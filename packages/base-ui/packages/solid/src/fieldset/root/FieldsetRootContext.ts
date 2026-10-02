@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 
 export interface FieldsetRootContext {
   legendId: Accessor<string | undefined>;
@@ -13,7 +14,7 @@ export const FieldsetRootContext = createContext<FieldsetRootContext>({
   setLegendId: (() => {}) as any,
 });
 
-export function useFieldsetRootContext(optional: true): FieldsetRootContext | undefined;
+export function useFieldsetRootContext(optional: true): FieldsetRootContext | null;
 export function useFieldsetRootContext(optional?: false): FieldsetRootContext;
 export function useFieldsetRootContext(optional = false) {
   const context = useContext(FieldsetRootContext);

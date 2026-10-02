@@ -1,6 +1,5 @@
 import { Legend, RadialBar, RadialBarChart, Tooltip } from "@solidports/recharts"
-import type { Component } from "solid-js"
-
+import type { Component } from 'solid-js';
 import { pageDataWithFillColor } from "../data"
 
 export const RadialBarChartExample: Component = () => (

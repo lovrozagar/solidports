@@ -24,7 +24,7 @@ export default function ExampleDrawerUncontained() {
 
               <ul class={styles.Actions} aria-label="Profile actions">
                 {ACTIONS.map((action, index) => (
-                  <li key={action} class={styles.Action}>
+                  <li class={styles.Action}>
                     {index === 0 && (
                       <Drawer.Close class={styles.VisuallyHidden}>
                         Close action sheet

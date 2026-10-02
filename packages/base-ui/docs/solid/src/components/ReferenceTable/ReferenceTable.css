@@ -103,13 +103,6 @@
     margin-bottom: 0.25rem;
   }
 
-  .ReferenceDescription code[data-inline] {
-    display: inline-block;
-    background-color: var(--color-line-highlight);
-    padding: 0.05em 0.2em;
-    border-radius: 0.25rem;
-  }
-
   .ReferenceExampleReset > * {
     margin-top: 0;
     margin-bottom: 0;

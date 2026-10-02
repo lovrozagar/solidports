@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { computeScatterPoints, type ScatterPointItem } from "../../cartesian/Scatter"
 import type { ChartState } from "../store"
 import type { AxisId, XAxisSettings, YAxisSettings } from "../cartesianAxisSlice"

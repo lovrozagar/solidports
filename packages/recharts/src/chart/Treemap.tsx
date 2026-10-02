@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { createMemo, createSignal, For, Show, splitProps, type JSX } from "solid-js"
+import { createMemo, createSignal, For, Show, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import omit from "es-toolkit/compat/omit"
 import get from "es-toolkit/compat/get"
 
@@ -32,17 +33,20 @@ import type {
 import { SetTooltipEntrySettings } from "../state/SetTooltipEntrySettings"
 import type { ChartOptions } from "../state/optionsSlice"
 import { RechartsStateProvider } from "../state/RechartsStateProvider"
+import { createInitialLayoutState } from "../state/chartState"
 import { ReportEventSettings } from "../state/ReportEventSettings"
 import { useOptionalChartState } from "../state/useChartState"
 import { isPositiveNumber } from "../util/isWellBehavedNumber"
 import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
-import { CSSTransitionAnimate } from "../animation/CSSTransitionAnimate"
+import { CSSTransitionAnimate, extractCssEasing } from "../animation/CSSTransitionAnimate"
 import type { RequiresDefaultProps } from "../util/resolveDefaultProps"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import type { GraphicalItemId } from "../state/graphicalItemsSlice"
 import { initialEventSettingsState } from "../state/eventSettingsSlice"
 
+import { splitProps } from '../util/solid-1-compat';
+import { setTooltipInteraction } from "../state/tooltipInteraction"
 const NODE_VALUE_KEY = "value"
 
 /**
@@ -182,6 +186,61 @@ const filterRect = (node: TreemapNode): RectanglePosition => ({
 	y: node.y,
 })
 
+const NEST_INDEX_HEIGHT = 30
+
+const getTreemapRenderHeight = (height: number, type: Props["type"]) => {
+	if (type === "nest") {
+		return height - NEST_INDEX_HEIGHT
+	}
+	return height
+}
+
+const insetRect = (rect: RectanglePosition, nodeInset: number): RectanglePosition => {
+	if (!Number.isFinite(nodeInset) || nodeInset <= 0) {
+		return rect
+	}
+
+	const clampedPadding = Math.min(nodeInset, rect.width / 2, rect.height / 2)
+
+	return {
+		x: rect.x + clampedPadding,
+		y: rect.y + clampedPadding,
+		width: Math.max(rect.width - clampedPadding * 2, 0),
+		height: Math.max(rect.height - clampedPadding * 2, 0),
+	}
+}
+
+const applyGapToChildren = (
+	children: ReadonlyArray<TreemapNodeWithArea>,
+	parentRect: RectanglePosition,
+	nodeGap: number,
+): ReadonlyArray<TreemapNodeWithArea> => {
+	if (!Number.isFinite(nodeGap) || nodeGap <= 0) {
+		return children
+	}
+
+	const halfGap = nodeGap / 2
+	const parentRight = parentRect.x + parentRect.width
+	const parentBottom = parentRect.y + parentRect.height
+
+	return children.map((child) => {
+		const childRight = child.x + child.width
+		const childBottom = child.y + child.height
+		const leftInset = child.x > parentRect.x ? halfGap : 0
+		const rightInset = childRight < parentRight ? halfGap : 0
+		const topInset = child.y > parentRect.y ? halfGap : 0
+		const bottomInset = childBottom < parentBottom ? halfGap : 0
+
+		return {
+			...child,
+			x: child.x + leftInset,
+			y: child.y + topInset,
+			width: Math.max(child.width - leftInset - rightInset, 0),
+			height: Math.max(child.height - topInset - bottomInset, 0),
+		}
+	})
+}
+
 type TreemapNodeWithArea = TreemapNode & { area: number }
 
 /* Compute the area for each child based on value & scale. */
@@ -320,11 +379,17 @@ const position = (
 type AreaArray<T> = Array<T> & { area: number }
 
 /* Recursively arranges the specified node's children into squarified rows. */
-const squarify = (node: TreemapNode, aspectRatio: number): TreemapNode => {
+const squarify = (
+	node: TreemapNode,
+	aspectRatio: number,
+	nodeInset: number,
+	nodeGap: number,
+): TreemapNode => {
 	const { children } = node
 
 	if (children && children.length) {
-		let rect: RectanglePosition = filterRect(node)
+		const layoutRect: RectanglePosition = insetRect(filterRect(node), nodeInset)
+		let rect: RectanglePosition = layoutRect
 		const row = [] as unknown as AreaArray<TreemapNodeWithArea>
 		let best = Infinity
 		let child, score
@@ -367,9 +432,11 @@ const squarify = (node: TreemapNode, aspectRatio: number): TreemapNode => {
 			row.length = row.area = 0
 		}
 
+		const childrenWithGaps = applyGapToChildren(scaleChildren, layoutRect, nodeGap)
+
 		return {
 			...node,
-			children: scaleChildren.map((c) => squarify(c, aspectRatio)),
+			children: childrenWithGaps.map((c) => squarify(c, aspectRatio, nodeInset, nodeGap)),
 		}
 	}
 
@@ -417,6 +484,24 @@ export interface Props<
 	 * @default 1.618033988749895
 	 */
 	aspectRatio?: number
+
+	/**
+	 * The inset between a parent node and its child nodes.
+	 *
+	 * Insets a parent node's available area before laying out its children.
+	 * This creates space between a parent boundary and its child nodes.
+	 * @default 0
+	 */
+	nodeInset?: number
+
+	/**
+	 * The gap between the nodes.
+	 *
+	 * Adds spacing between sibling nodes at the same depth level.
+	 * This does not inset children from their parent boundary.
+	 * @default 0
+	 */
+	nodeGap?: number
 
 	/**
 	 * If set to a function, the function will be called to render the content.
@@ -479,15 +564,15 @@ export interface Props<
 	 */
 	onAnimationEnd?: () => void
 
-	onMouseEnter?: (node: TreemapNode, e: MouseEvent) => void
+	onMouseEnter?: (node: TreemapNode, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 
-	onMouseLeave?: (node: TreemapNode, e: MouseEvent) => void
+	onMouseLeave?: (node: TreemapNode, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 
 	onClick?: (node: TreemapNode) => void
 
 	/**
 	 * If set false, animation of treemap will be disabled.
-	 * If set "auto", the animation will be disabled in SSR and enabled in browser.
+	 * If set "auto", animation is disabled during SSR and when the user prefers reduced motion.
 	 * @default 'auto'
 	 */
 	isAnimationActive?: boolean | "auto"
@@ -522,11 +607,11 @@ type ContentItemProps = {
 	type: string
 	colorPanel: ReadonlyArray<string> | undefined
 	dataKey: DataKey<unknown>
-	onClick?: (e: MouseEvent) => void
-	onMouseEnter?: (e: MouseEvent) => void
-	onMouseLeave?: (e: MouseEvent) => void
-	onMouseOver?: (e: MouseEvent) => void
-	onMouseOut?: (e: MouseEvent) => void
+	onClick?: (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseEnter?: (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseLeave?: (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseOver?: (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseOut?: (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 }
 
 /* eslint-disable solid/reactivity -- ContentItem reads are structural checks at setup; props are stable per render since component is created fresh per node */
@@ -545,9 +630,21 @@ function ContentItem(props: ContentItemProps): JSX.Element {
 		)
 	}
 	/* optimize default shape */
-	const { x, y, width, height, index } = props.nodeProps
+	const { x, y, width, height, index } = untrack(() => ({
+		height: props.nodeProps.height,
+		index: props.nodeProps.index,
+		width: props.nodeProps.width,
+		x: props.nodeProps.x,
+		y: props.nodeProps.y,
+	}))
 	let arrow: JSX.Element | null = null
-	if (width > 10 && height > 10 && props.nodeProps.children && props.type === "nest") {
+	if (
+		width > 10 &&
+		height > 10 &&
+		props.nodeProps.children &&
+		props.type === "nest" &&
+		props.nodeProps.depth > 0
+	) {
 		arrow = (
 			<Polygon
 				points={[
@@ -569,12 +666,15 @@ function ContentItem(props: ContentItemProps): JSX.Element {
 	}
 
 	const colors = props.colorPanel || COLOR_PANEL
+	const rectProps = untrack(() => omit(props.nodeProps, ["children"]))
 	return (
 		<g>
 			<Rectangle
-				fill={props.nodeProps.depth < 2 ? colors[index % colors.length] : "rgba(255,255,255,0)"}
+				fill={untrack(() =>
+					props.nodeProps.depth < 2 ? colors[index % colors.length] : "rgba(255,255,255,0)",
+				)}
 				stroke="#fff"
-				{...omit(props.nodeProps, ["children"])}
+				{...rectProps}
 				onMouseEnter={props.onMouseEnter}
 				onMouseOver={props.onMouseOver}
 				onMouseLeave={props.onMouseLeave}
@@ -609,7 +709,7 @@ function ContentItemWithEvents(props: ContentItemProps): JSX.Element {
 			graphicalItemId: props.id,
 			index: props.nodeProps.tooltipIndex,
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "hover", hoverPayload)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "hover", hoverPayload)
 	}
 	const fireLeave = () => {
 		if (!entered) return
@@ -627,7 +727,7 @@ function ContentItemWithEvents(props: ContentItemProps): JSX.Element {
 			graphicalItemId: props.id,
 			index: props.nodeProps.tooltipIndex,
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "click", clickPayload)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "click", clickPayload)
 	}
 	return (
 		<ContentItem
@@ -687,6 +787,8 @@ export const defaultTreeMapProps = {
 	isAnimationActive: "auto",
 	isUpdateAnimationActive: "auto",
 	nameKey: "name",
+	nodeGap: 0,
+	nodeInset: 0,
 	type: "flat",
 	...initialEventSettingsState,
 } as const satisfies Partial<Props>
@@ -709,7 +811,7 @@ function TreemapItem(itemProps: {
 	const translateX = -x - width
 	const translateY = 0
 
-	const onMouseEnter = (e: MouseEvent) => {
+	const onMouseEnter = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 		if (
 			(itemProps.isLeaf || itemProps.treemapProps.type === "nest") &&
 			typeof itemProps.treemapProps.onMouseEnter === "function"
@@ -718,7 +820,7 @@ function TreemapItem(itemProps: {
 		}
 	}
 
-	const onMouseLeave = (e: MouseEvent) => {
+	const onMouseLeave = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 		if (
 			(itemProps.isLeaf || itemProps.treemapProps.type === "nest") &&
 			typeof itemProps.treemapProps.onMouseLeave === "function"
@@ -728,7 +830,7 @@ function TreemapItem(itemProps: {
 	}
 
 	const onClick = () => {
-		if (itemProps.treemapProps.type === "nest") {
+		if (itemProps.treemapProps.type === "nest" && itemProps.nodeProps.depth > 0) {
 			itemProps.onNestClick(itemProps.nodeProps)
 		}
 		if (
@@ -758,7 +860,7 @@ function TreemapItem(itemProps: {
 			to="translate(0, 0)"
 			attributeName="transform"
 			begin={itemProps.treemapProps.animationBegin}
-			easing={itemProps.treemapProps.animationEasing}
+			easing={extractCssEasing(itemProps.treemapProps.animationEasing)}
 			isActive={itemProps.treemapProps.isAnimationActive}
 			duration={itemProps.treemapProps.animationDuration}
 			onAnimationStart={handleAnimationStart}
@@ -779,9 +881,7 @@ function TreemapItem(itemProps: {
 							...itemProps.nodeProps,
 							height,
 							isAnimationActive: itemProps.treemapProps.isAnimationActive,
-							isUpdateAnimationActive:
-								itemProps.treemapProps.isUpdateAnimationActive === false ||
-								itemProps.treemapProps.isUpdateAnimationActive === "auto",
+							isUpdateAnimationActive: !itemProps.treemapProps.isUpdateAnimationActive,
 							width,
 							x,
 							y,
@@ -799,12 +899,7 @@ function TreemapItem(itemProps: {
 function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 	const newCtx = useOptionalChartState()
 
-	const [formatRoot, setFormatRoot] = createSignal<TreemapNode | null>(null)
-	const [currentRoot, setCurrentRoot] = createSignal<TreemapNode | undefined>(undefined)
-	const [nestIndex, setNestIndex] = createSignal<Array<TreemapNode>>([])
-
-	/* Derived state: compute on data/type/width/height/dataKey/aspectRatio changes */
-	const computed = createMemo(() => {
+	const derivedTree = createMemo(() => {
 		const root: TreemapNode = computeNode({
 			dataKey: props.dataKey,
 			depth: 0,
@@ -812,26 +907,48 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 			nameKey: props.nameKey,
 			node: {
 				children: props.data,
-				height: props.height,
+				height: getTreemapRenderHeight(props.height, props.type),
 				width: props.width,
 				x: 0,
 				y: 0,
 			} as unknown as TreemapNode,
 		})
-		const fRoot: TreemapNode = squarify(root, props.aspectRatio)
-
-		setFormatRoot(fRoot)
-		setCurrentRoot(root)
-		setNestIndex([root])
-
+		const fRoot: TreemapNode = squarify(
+			root,
+			props.aspectRatio,
+			props.nodeInset,
+			props.nodeGap,
+		)
 		return { currentRoot: root, formatRoot: fRoot }
 	})
+
+	const [nest, setNest] = createSignal<{
+		currentRoot: TreemapNode
+		formatRoot: TreemapNode
+		nestIndex: Array<TreemapNode>
+	} | null>(null)
+
+	const formatRoot = createMemo(
+		() => nest()?.formatRoot ?? derivedTree().formatRoot,
+	)
+	const currentRoot = createMemo(
+		() => nest()?.currentRoot ?? derivedTree().currentRoot,
+	)
+	const nestIndex = createMemo(
+		() => nest()?.nestIndex ?? [derivedTree().currentRoot],
+	)
 
 	function handleClick(node: TreemapNode) {
 		if (props.type === "nest" && node.children) {
 			const root = computeNode({
 				depth: 0,
-				node: { ...node, height: props.height, width: props.width, x: 0, y: 0 },
+				node: {
+					...node,
+					height: getTreemapRenderHeight(props.height, props.type),
+					width: props.width,
+					x: 0,
+					y: 0,
+				},
 				index: 0,
 				dataKey: props.dataKey,
 				nameKey: props.nameKey,
@@ -839,11 +956,12 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 				nestedActiveTooltipIndex: node.tooltipIndex,
 			})
 
-			const fRoot = squarify(root, props.aspectRatio)
-			const currentNestIndex = nestIndex()
-			setFormatRoot(fRoot)
-			setCurrentRoot(root)
-			setNestIndex([...currentNestIndex, node])
+			const fRoot = squarify(root, props.aspectRatio, props.nodeInset, props.nodeGap)
+			setNest({
+				currentRoot: root,
+				formatRoot: fRoot,
+				nestIndex: [...nestIndex(), node],
+			})
 		}
 		if (props.onClick) {
 			props.onClick(node)
@@ -853,7 +971,13 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 	function handleNestIndex(node: TreemapNode, i: number) {
 		const root = computeNode({
 			depth: 0,
-			node: { ...node, height: props.height, width: props.width, x: 0, y: 0 },
+			node: {
+				...node,
+				height: getTreemapRenderHeight(props.height, props.type),
+				width: props.width,
+				x: 0,
+				y: 0,
+			},
 			index: 0,
 			dataKey: props.dataKey,
 			nameKey: props.nameKey,
@@ -861,18 +985,19 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 			nestedActiveTooltipIndex: node.tooltipIndex,
 		})
 
-		const fRoot = squarify(root, props.aspectRatio)
-
-		setFormatRoot(fRoot)
-		setCurrentRoot(node)
-		setNestIndex(nestIndex().slice(0, i + 1))
+		const fRoot = squarify(root, props.aspectRatio, props.nodeInset, props.nodeGap)
+		setNest({
+			currentRoot: node,
+			formatRoot: fRoot,
+			nestIndex: nestIndex().slice(0, i + 1),
+		})
 	}
 
 	function renderNode(root: TreemapNode, node: TreemapNode): JSX.Element | null {
-		const nodeProps = { ...svgPropertiesNoEvents(props), ...node, root }
+		const nodeProps = untrack(() => ({ ...svgPropertiesNoEvents(props), ...node, root }))
 		const isLeaf = node.children == null || node.children.length === 0
 
-		const curRoot = currentRoot()
+		const curRoot = untrack(() => currentRoot())
 		const isCurrentRootChild = (curRoot?.children || []).filter(
 			(item: TreemapNode) => item.depth === node.depth && item.name === node.name,
 		)
@@ -900,8 +1025,6 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 	}
 
 	function renderAllNodes(): JSX.Element | null {
-		/* access reactive computation to ensure it's tracked */
-		computed()
 		const fRoot = formatRoot()
 
 		if (fRoot == null) {
@@ -911,47 +1034,42 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 		return renderNode(fRoot, fRoot)
 	}
 
+	function renderNestIndexContent(item: TreemapNode, i: number): JSX.Element | string {
+		if (typeof props.nestIndexContent === "function") {
+			return props.nestIndexContent(item, i)
+		}
+		/* TODO need to verify nameKey type */
+		const rawName = get(item, props.nameKey as string, "root")
+		return typeof rawName === "string" ? rawName : "root"
+	}
+
 	/* render nest treemap */
 	function renderNestIndex(): JSX.Element {
-		/* eslint-disable solid/reactivity -- i() is the <For> index accessor; reads inside the For callback ARE tracked */
 		return (
 			<div
 				class="recharts-treemap-nest-index-wrapper"
 				style={{ "margin-top": "8px", "text-align": "center" }}
 			>
 				<For each={nestIndex()}>
-					{(item: TreemapNode, i) => {
-						/* TODO need to verify nameKey type */
-						const rawName = get(item, props.nameKey as string, "root")
-						const name: string = typeof rawName === "string" ? rawName : "root"
-						let content: JSX.Element | string
-						if (typeof props.nestIndexContent === "function") {
-							content = props.nestIndexContent(item, i())
-						} else {
-							content = name
-						}
-
-						return (
-							<div
-								onClick={() => handleNestIndex(item, i())}
-								class="recharts-treemap-nest-index-box"
-								style={{
-									background: "#000",
-									color: "#fff",
-									cursor: "pointer",
-									display: "inline-block",
-									"margin-right": "3px",
-									padding: "0 7px",
-								}}
-							>
-								{content}
-							</div>
-						)
-					}}
+					{(item: TreemapNode, i) => (
+						<div
+							onClick={() => handleNestIndex(item, i())}
+							class="recharts-treemap-nest-index-box"
+							style={{
+								background: "#000",
+								color: "#fff",
+								cursor: "pointer",
+								display: "inline-block",
+								"margin-right": "3px",
+								padding: "0 7px",
+							}}
+						>
+							{renderNestIndexContent(item, i())}
+						</div>
+					)}
 				</For>
 			</div>
 		)
-		/* eslint-enable solid/reactivity */
 	}
 
 	function handleTouchMove(e: TouchEvent) {
@@ -982,7 +1100,7 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 			graphicalItemId: props.id,
 			index: itemIndex,
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "hover", itemPayload)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "hover", itemPayload)
 	}
 
 	const attrs = () => svgPropertiesNoEvents(props)
@@ -1000,7 +1118,7 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 			<Surface
 				{...attrs()}
 				width={props.width}
-				height={props.type === "nest" ? props.height - 30 : props.height}
+				height={getTreemapRenderHeight(props.height, props.type)}
 				onTouchMove={handleTouchMove}
 			>
 				{renderAllNodes()}
@@ -1016,11 +1134,14 @@ function TreemapDispatchInject(
 ): JSX.Element | null {
 	/* width/height arrive after layout dispatch; gate on Show so the body
 	   re-evaluates once dimensions populate. See GOTCHA-011. */
-	const width = () => useChartWidth()
-	const height = () => useChartHeight()
+	const width = createMemo(() => useChartWidth())
+	const height = createMemo(() => useChartHeight())
+	const hasSize = createMemo(
+		() => isPositiveNumber(width()) && isPositiveNumber(height()),
+	)
 	const [childrenSplit, restProps] = splitProps(props, ["children"])
 	return (
-		<Show when={isPositiveNumber(width()) && isPositiveNumber(height())}>
+		<Show when={hasSize()}>
 			<RegisterGraphicalItemId id={restProps.id} type="treemap">
 				{(id) => (
 					<TreemapWithState
@@ -1050,7 +1171,14 @@ export function Treemap(outsideProps: Props): JSX.Element {
 	const props = resolveDefaultProps(restProps, defaultTreeMapProps)
 
 	return (
-		<RechartsStateProvider preloadedState={{ options: chartOptions }}>
+		<RechartsStateProvider
+			preloadedState={{
+				layout: untrack(() =>
+					createInitialLayoutState({ height: props.height, margin: defaultTreemapMargin, width: props.width }),
+				),
+				options: chartOptions,
+			}}
+		>
 			<ReportChartMargin margin={defaultTreemapMargin} />
 			<ReportEventSettings
 				throttleDelay={props.throttleDelay}

@@ -12,7 +12,7 @@ import { FieldsetRootContext } from './FieldsetRootContext';
  */
 export function FieldsetRoot(componentProps: FieldsetRoot.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled']);
-  const disabled = () => local.disabled ?? false;
+  const disabled = () => Boolean(local.disabled);
 
   const [legendId, setLegendId] = createSignal<string | undefined>();
 
@@ -41,7 +41,7 @@ export function FieldsetRoot(componentProps: FieldsetRoot.Props) {
   });
 
   return (
-    <FieldsetRootContext.Provider value={contextValue}>{element()}</FieldsetRootContext.Provider>
+    <FieldsetRootContext value={contextValue}>{element()}</FieldsetRootContext>
   );
 }
 

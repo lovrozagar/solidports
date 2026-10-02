@@ -1,6 +1,6 @@
 import { isElement } from '@floating-ui/utils/dom';
-import { createEffect, on, onCleanup, untrack } from 'solid-js';
-import { produce } from 'solid-js/store';
+import { createTrackedEffect, createEffect, onCleanup, untrack } from 'solid-js';
+
 import { defaultProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
@@ -16,8 +16,10 @@ import {
   applySafePolygonPointerEventsMutation,
   clearSafePolygonPointerEventsMutation,
   useHoverInteractionSharedState,
+  type HoverInteraction,
 } from './useHoverInteractionSharedState';
 import { getDelay, isClickLikeOpenEvent as isClickLikeOpenEventShared } from './useHoverShared';
+import { on } from '../../solid-1-compat';
 
 export type UseHoverFloatingInteractionProps = {
   /**
@@ -96,7 +98,7 @@ export function useHoverFloatingInteraction(parameters: {
     setInstanceState('interactedInside', target?.closest('[aria-haspopup]') != null);
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       /* untrack: setInstanceState and clearPointerEvents both read from the
        * hoverState Solid store. Those reads must not establish tracking
@@ -106,11 +108,11 @@ export function useHoverFloatingInteraction(parameters: {
        * effect, creating a reactive cycle that overflows the call stack. */
       untrack(() => {
         setInstanceState(
-          produce((i) => {
+          (i: HoverInteraction) => {
             i.pointerType = undefined;
             i.restTimeoutPending = false;
             i.interactedInside = false;
-          }),
+          },
         );
         clearPointerEvents();
       });
@@ -121,8 +123,7 @@ export function useHoverFloatingInteraction(parameters: {
     clearPointerEvents();
   });
 
-  createEffect(
-    on(
+  createEffect(...on(
       [() => props.enabled, open, domReferenceElement, floatingElement],
       ([enabled, isOpen, domReference, floatingEl]) => {
         if (!enabled) {
@@ -170,8 +171,7 @@ export function useHoverFloatingInteraction(parameters: {
 
   const childClosedTimeout = useTimeout();
 
-  createEffect(
-    on([() => props.enabled, floatingElement], ([enabled, floating]) => {
+  createEffect(...on([() => props.enabled, floatingElement], ([enabled, floating]) => {
       if (!enabled) {
         return;
       }

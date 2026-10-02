@@ -1,5 +1,4 @@
-import type { JSX } from "solid-js"
-
+import type { JSX } from '@solidjs/web';
 export function MarkdownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   return (
     <svg

@@ -1,8 +1,10 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
-import type { JSX } from "solid-js"
-import { createEffect } from "solid-js"
+import { flush } from "solid-js"
+import { observe } from "../../helper/observe"
+import { render } from "../../helper/render"
+import type { JSX } from '@solidjs/web';
+
 import { useChartState } from "../../../src/state/useChartState"
 import { LineChart, XAxis, YAxis, Line } from "../../../src"
 
@@ -62,6 +64,7 @@ describe("Phase 2 — cartesianAxes dual-write reactivity", () => {
 		/* Fails RED: XAxis.tsx never writes initial entry, so neither initial nor
 		   manual write reaches the reader in the expected shape. */
 		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, { dataKey: "y" } as never)
+		flush()
 		expect(getByTestId("x-reader-0").textContent).toBe("y")
 	})
 
@@ -91,7 +94,7 @@ describe("Phase 2 — cartesianAxes dual-write reactivity", () => {
 		const OuterCapture = (): null => {
 			const ctx = useChartState()
 			outerSetState = ctx.setState
-			createEffect(() => {
+			observe(() => {
 				outerSpy.push(ctx.state.cartesianAxes.xAxis["__panorama_probe__"]?.settings?.dataKey)
 			})
 			return null
@@ -100,7 +103,7 @@ describe("Phase 2 — cartesianAxes dual-write reactivity", () => {
 		/* Panorama probe: mounted inside Brush sub-chart, must share the same context. */
 		const PanoramaProbe = (): null => {
 			const ctx = useChartState()
-			createEffect(() => {
+			observe(() => {
 				panoramaSpy.push(ctx.state.cartesianAxes.xAxis["__panorama_probe__"]?.settings?.dataKey)
 			})
 			return null
@@ -121,6 +124,7 @@ describe("Phase 2 — cartesianAxes dual-write reactivity", () => {
 		))
 
 		outerSetState!("cartesianAxes", "xAxis", "__panorama_probe__", "settings" as never, { dataKey: "shared" } as never)
+		flush()
 
 		/* Both arrays must contain "shared" — same context, same state. */
 		expect(panoramaSpy).toContain("shared")

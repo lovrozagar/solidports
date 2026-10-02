@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
 import type { AppliedChartData, ChartData } from "../chartDataSlice"
+import { selectChartDataSliceIgnoringIndexes } from "./dataSelectors"
 import type { ChartState } from "../store"
 import type { AxisId, BaseCartesianAxis } from "../cartesianAxisSlice"
 import { selectChartDataAndAlwaysIgnoreIndexes } from "./dataSelectors"
@@ -139,6 +140,7 @@ function selectDomainOfAllPolarAppliedNumericalValues(
 		selectPolarItemsSettings(state, axisType, axisId),
 		selectAllErrorBarSettings(state),
 		axisType,
+		selectChartDataSliceIgnoringIndexes(state),
 	)
 }
 

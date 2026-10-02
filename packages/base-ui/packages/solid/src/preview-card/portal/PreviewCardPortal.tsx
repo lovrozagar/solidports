@@ -1,7 +1,8 @@
-import { Show, splitProps } from 'solid-js';
+import { Show } from 'solid-js';
 import { FloatingPortalLite } from '../../utils/FloatingPortalLite';
 import { usePreviewCardRootContext } from '../root/PreviewCardContext';
 import { PreviewCardPortalContext } from './PreviewCardPortalContext';
+import { splitProps } from '../../solid-1-compat';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -21,9 +22,9 @@ export function PreviewCardPortal(props: PreviewCardPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <PreviewCardPortalContext.Provider value={keepMounted}>
+      <PreviewCardPortalContext value={keepMounted}>
         <FloatingPortalLite {...portalProps} />
-      </PreviewCardPortalContext.Provider>
+      </PreviewCardPortalContext>
     </Show>
   );
 }

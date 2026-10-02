@@ -1,6 +1,6 @@
 import { Dialog as BaseDialog } from "@solidports/base-ui/dialog";
 import { Show } from "solid-js";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { mergeClass } from "./utils/merge-class.ts";
 import { cn } from "./utils/cn.ts";
 import { X } from "./icons/x.tsx";

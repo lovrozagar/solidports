@@ -1,4 +1,4 @@
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import { contains } from '../../floating-ui-solid/utils';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -12,6 +12,7 @@ import {
 } from '../root/ComboboxRootContext';
 import { triggerStateAttributesMapping } from '../utils/stateAttributesMapping';
 import { handleInputPress } from '../utils/handleInputPress';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * A wrapper for the input and its associated controls.

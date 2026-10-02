@@ -1,4 +1,5 @@
-import { createEffect, Show, type JSX } from 'solid-js';
+import { createTrackedEffect, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { contains, isOutsideEvent } from '../../floating-ui-solid/utils';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
 import { splitComponentProps } from '../../solid-helpers';
@@ -103,7 +104,7 @@ export function NavigationMenuViewport(componentProps: NavigationMenuViewport.Pr
   const domReference = () =>
     (floatingRootContext() || EMPTY_ROOT_CONTEXT).useState('domReferenceElement')();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const ref = domReference();
     if (ref) {
       prevTriggerElementRef.current = ref;

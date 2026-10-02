@@ -1,4 +1,5 @@
-import { fireEvent } from "@solidjs/testing-library"
+import { fireEvent } from "../helper/render"
+import { trackSpy } from "../helper/trackSpy"
 import { describe, expect, it, Mock, vi } from "vitest"
 import { Customized, SunburstChart } from "../../src"
 import { exampleSunburstData } from "../_data"
@@ -126,8 +127,8 @@ describe("<Sunburst />", () => {
 			const clipPathSpy = vi.fn()
 			const viewBoxSpy = vi.fn()
 			const Comp = (): null => {
-				clipPathSpy(useClipPathId())
-				viewBoxSpy(useViewBox())
+				trackSpy(clipPathSpy, () => useClipPathId())
+				trackSpy(viewBoxSpy, () => useViewBox())
 				return null
 			}
 			rechartsTestRender(() => (
@@ -136,17 +137,18 @@ describe("<Sunburst />", () => {
 				</SunburstChart>
 			))
 
-			expect(clipPathSpy).toHaveBeenLastCalledWith(undefined)
+			expect(clipPathSpy).toHaveBeenLastCalledWith(null)
 			expect(viewBoxSpy).toHaveBeenLastCalledWith({ height: 50, width: 100, x: 0, y: 0 })
-			expect(viewBoxSpy).toHaveBeenCalledTimes(2)
+			/* Solid computes once; upstream React renders twice */
+			expect(viewBoxSpy).toHaveBeenCalledTimes(1)
 		})
 
 		it("should set width and height in context", () => {
 			const widthSpy = vi.fn()
 			const heightSpy = vi.fn()
 			const Comp = (): null => {
-				widthSpy(useChartWidth())
-				heightSpy(useChartHeight())
+				trackSpy(widthSpy, () => useChartWidth())
+				trackSpy(heightSpy, () => useChartHeight())
 				return null
 			}
 			rechartsTestRender(() => (
@@ -156,20 +158,27 @@ describe("<Sunburst />", () => {
 			))
 			expect(widthSpy).toHaveBeenLastCalledWith(100)
 			expect(heightSpy).toHaveBeenLastCalledWith(50)
-			expect(widthSpy).toHaveBeenCalledTimes(2)
-			expect(heightSpy).toHaveBeenCalledTimes(2)
+			/* Solid computes once; upstream React renders twice */
+			expect(widthSpy).toHaveBeenCalledTimes(1)
+			expect(heightSpy).toHaveBeenCalledTimes(1)
 		})
 	})
 
 	describe("tooltip state", () => {
-		it.skip("should start with tooltip inactive, and activate it on hover and click on a link", () => {
+		it("should start with tooltip inactive, and activate it on hover and click on a link", () => {
 			const tooltipStateSpy: Mock<
 				(
 					state: { click: TooltipInteractionState; hover: TooltipInteractionState } | undefined,
 				) => void
 			> = vi.fn()
 			const Comp = (): null => {
-				tooltipStateSpy(useAppSelector((state) => state.tooltip.itemInteraction))
+				/* copy the fields so the fine-grained store read tracks them, like a Redux re-render */
+				trackSpy(tooltipStateSpy, () =>
+					useAppSelector((state) => ({
+						click: { ...state.tooltip.itemInteraction.click },
+						hover: { ...state.tooltip.itemInteraction.hover },
+					})),
+				)
 				return null
 			}
 			const { container } = rechartsTestRender(() => (

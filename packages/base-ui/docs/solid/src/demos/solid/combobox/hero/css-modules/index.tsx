@@ -1,4 +1,5 @@
-import { createUniqueId, type JSX } from 'solid-js';
+import { createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -31,7 +32,7 @@ export default function ExampleCombobox() {
             </Combobox.Empty>
             <Combobox.List class={styles.List}>
               {(item: Fruit) => (
-                <Combobox.Item key={item.value} value={item} class={styles.Item}>
+                <Combobox.Item value={item} class={styles.Item}>
                   <Combobox.ItemIndicator class={styles.ItemIndicator}>
                     <CheckIcon />
                   </Combobox.ItemIndicator>

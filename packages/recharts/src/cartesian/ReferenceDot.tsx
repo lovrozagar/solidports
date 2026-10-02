@@ -1,5 +1,8 @@
 /* eslint-disable import/no-cycle */
-import { createEffect, onCleanup, Show, type JSX } from "solid-js"
+import { Show, createEffect } from 'solid-js';
+import { ShapeOption } from "../util/ShapeElementProps"
+import type { CamelCaseSVGAttrs } from "../util/CamelCaseSVGAttrs"
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import { Layer } from "../container/Layer"
 import { Dot, type Props as DotProps } from "../shape/Dot"
@@ -9,7 +12,6 @@ import {
 	type ImplicitLabelType,
 } from "../component/Label"
 import { isNumOrStr } from "../util/DataUtils"
-import { cloneJsxNodeWithProps, isJsxNode } from "../util/ReactUtils"
 import { type IfOverflow, type Overflowable } from "../util/IfOverflow"
 import type { ReferenceDotSettings } from "../state/referenceElementsSlice"
 import { useChartStore } from "../state/RechartsStoreContext"
@@ -26,8 +28,17 @@ import { ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 import type { Coordinate } from "../util/types"
 import { CartesianScaleHelperImpl } from "../util/scale/CartesianScaleHelper"
+import { isSameStoreEntry } from "../state/storeIdentity"
+import { teardownWrite } from "../state/teardownWrite"
 
-interface ReferenceDotProps extends Overflowable, ZIndexable {
+type ReferenceCoordinateValue = number | string
+
+interface ReferenceDotProps<
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	XValueType extends ReferenceCoordinateValue = any,
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	YValueType extends ReferenceCoordinateValue = any,
+> extends Overflowable, ZIndexable {
 	/**
 	 * The radius of the dot in pixels.
 	 *
@@ -42,7 +53,7 @@ interface ReferenceDotProps extends Overflowable, ZIndexable {
 	 *
 	 * @example <ReferenceDot x="January" y="2026" />
 	 */
-	x?: number | string
+	x?: XValueType
 	/**
 	 * The y-coordinate of the center of the dot.
 	 *
@@ -51,7 +62,7 @@ interface ReferenceDotProps extends Overflowable, ZIndexable {
 	 *
 	 * @example <ReferenceDot x="January" y="2026" />
 	 */
-	y?: number | string
+	y?: YValueType
 
 	className?: number | string
 	/**
@@ -100,40 +111,46 @@ interface ReferenceDotProps extends Overflowable, ZIndexable {
 	/**
 	 * The customized event handler of click in this chart.
 	 */
-	onClick?: (dotProps: DotProps, e: MouseEvent) => void
+	onClick?: (dotProps: DotProps, e: MouseEvent & { currentTarget: SVGCircleElement }) => void
 	/**
 	 * The customized event handler of mousedown in this chart.
 	 */
-	onMouseDown?: (dotProps: DotProps, e: MouseEvent) => void
+	onMouseDown?: (dotProps: DotProps, e: MouseEvent & { currentTarget: SVGCircleElement }) => void
 	/**
 	 * The customized event handler of mouseup in this chart.
 	 */
-	onMouseUp?: (dotProps: DotProps, e: MouseEvent) => void
+	onMouseUp?: (dotProps: DotProps, e: MouseEvent & { currentTarget: SVGCircleElement }) => void
 	/**
 	 * The customized event handler of mouseover in this chart.
 	 */
-	onMouseOver?: (dotProps: DotProps, e: MouseEvent) => void
+	onMouseOver?: (dotProps: DotProps, e: MouseEvent & { currentTarget: SVGCircleElement }) => void
 	/**
 	 * The customized event handler of mouseout in this chart.
 	 */
-	onMouseOut?: (dotProps: DotProps, e: MouseEvent) => void
+	onMouseOut?: (dotProps: DotProps, e: MouseEvent & { currentTarget: SVGCircleElement }) => void
 	/**
 	 * The customized event handler of mouseenter in this chart.
 	 */
-	onMouseEnter?: (dotProps: DotProps, e: MouseEvent) => void
+	onMouseEnter?: (dotProps: DotProps, e: MouseEvent & { currentTarget: SVGCircleElement }) => void
 	/**
 	 * The customized event handler of mousemove in this chart.
 	 */
-	onMouseMove?: (dotProps: DotProps, e: MouseEvent) => void
+	onMouseMove?: (dotProps: DotProps, e: MouseEvent & { currentTarget: SVGCircleElement }) => void
 	/**
 	 * The customized event handler of mouseleave in this chart.
 	 */
-	onMouseLeave?: (dotProps: DotProps, e: MouseEvent) => void
+	onMouseLeave?: (dotProps: DotProps, e: MouseEvent & { currentTarget: SVGCircleElement }) => void
 	children?: JSX.Element
 }
 
-export type Props = Omit<DotProps, "cx" | "cy" | "clipDot" | "dangerouslySetInnerHTML"> &
-	ReferenceDotProps
+export type Props<
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	XValueType extends ReferenceCoordinateValue = any,
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	YValueType extends ReferenceCoordinateValue = any,
+> = Omit<DotProps, "cx" | "cy" | "clipDot" | "dangerouslySetInnerHTML"> &
+	CamelCaseSVGAttrs &
+	ReferenceDotProps<XValueType, YValueType>
 
 const useCoordinate = (
 	x: number | string | undefined,
@@ -166,23 +183,19 @@ const useCoordinate = (
 
 function ReportReferenceDot(props: ReferenceDotSettings): null {
 	const ctx = useChartStore()
-	createEffect(() => {
-		ctx?.setStore("referenceElements", "dots", (prev) => [...prev, props])
-		onCleanup(() => {
-			ctx?.setStore("referenceElements", "dots", (prev) => prev.filter((d) => d !== props))
-		})
-	})
+	/* The props proxy is registered once; selectors read its fields lazily. */
+	createEffect(
+		() => props,
+		(element) => {
+			ctx?.setStore("referenceElements", "dots", (prev) => [...prev, element])
+			return () => {
+				teardownWrite(() => {
+					ctx?.setStore("referenceElements", "dots", (prev) => prev.filter((d) => !isSameStoreEntry(d, element)))
+				})
+			}
+		},
+	)
 	return null
-}
-
-const renderDot = (option: Props["shape"], dotProps: DotProps) => {
-	if (typeof option === "function") {
-		return (option as (p: DotProps) => JSX.Element)(dotProps)
-	}
-	if (isJsxNode(option)) {
-		return <>{cloneJsxNodeWithProps(option, dotProps as unknown as Record<string, unknown>) as unknown as JSX.Element}</>
-	}
-	return <Dot {...dotProps} cx={dotProps.cx} cy={dotProps.cy} class="recharts-reference-dot-dot" />
 }
 
 function ReferenceDotImpl(props: PropsWithDefaults) {
@@ -209,7 +222,13 @@ function ReferenceDotImpl(props: PropsWithDefaults) {
 				return (
 					<ZIndexLayer zIndex={props.zIndex}>
 						<Layer class={clsx("recharts-reference-dot", props.className)}>
-							{renderDot(props.shape, dotProps())}
+							<ShapeOption
+								option={props.shape}
+								shapeProps={dotProps() as Record<string, unknown>}
+								renderDefault={(shapeProps) => (
+									<Dot {...(shapeProps as DotProps)} class="recharts-reference-dot-dot" />
+								)}
+							/>
 							<CartesianLabelContextProvider
 								x={cx() - props.r}
 								y={cy() - props.r}
@@ -231,12 +250,12 @@ function ReferenceDotImpl(props: PropsWithDefaults) {
 
 export const referenceDotDefaultProps = {
 	fill: "#fff",
-	"fill-opacity": 1,
+	fillOpacity: 1,
 	ifOverflow: "discard",
 	label: false,
 	r: 10,
 	stroke: "#ccc",
-	"stroke-width": 1,
+	strokeWidth: 1,
 	xAxisId: 0,
 	yAxisId: 0,
 	zIndex: DefaultZIndexes.scatter,
@@ -258,7 +277,7 @@ type PropsWithDefaults = RequiresDefaultProps<Props, typeof referenceDotDefaultP
  * @provides CartesianLabelContext
  * @consumes CartesianChartContext
  */
-export function ReferenceDot(outsideProps: Props) {
+function ReferenceDotFn(outsideProps: Props): JSX.Element {
 	const props = resolveDefaultProps(outsideProps, referenceDotDefaultProps)
 	return (
 		<>
@@ -275,4 +294,11 @@ export function ReferenceDot(outsideProps: Props) {
 	)
 }
 
+/**
+ * Typed entry point: the generics constrain props at the call site, like upstream.
+ */
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped usage accepts any data */
+export const ReferenceDot = ReferenceDotFn as (<XValueType extends number | string = any, YValueType extends number | string = any>(
+	props: Props<XValueType, YValueType>,
+) => JSX.Element) & { displayName?: string }
 ReferenceDot.displayName = "ReferenceDot"

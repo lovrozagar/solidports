@@ -1,10 +1,11 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { For, Show, type JSX } from "solid-js"
+import { createMemo, For, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import { Dot, type Props as DotProps } from "../shape/Dot"
 import { Layer } from "../container/Layer"
 import type { DataKey, DotItemDotProps, DotType } from "../util/types"
-import { isClipDot } from "../util/ReactUtils"
+import { cloneJsxNodeWithProps, isClipDot, isJsxNode } from "../util/ReactUtils"
 import { svgPropertiesAndEventsFromUnknown } from "../util/svgPropertiesAndEvents"
 import type { ZIndexable } from "../zIndex/ZIndexLayer"
 import { ZIndexLayer } from "../zIndex/ZIndexLayer"
@@ -23,10 +24,21 @@ type DotItemProps = {
 	className: string
 }
 
-function DotItem(props: DotItemProps) {
+function DotItem(props: DotItemProps): JSX.Element {
+	return <>{renderDotItem(props)}</>
+}
+
+/* Runs inside DotItem's JSX expression so every reactive read is tracked. */
+function renderDotItem(props: DotItemProps) {
 	/* eslint-disable solid/reactivity -- option/dotProps types are structural (stable at mount); conditional branches run once intentionally */
 	if (typeof props.option === "function") {
 		return (props.option as (p: DotItemDotProps) => JSX.Element)(props.dotProps)
+	}
+	if (isJsxNode(props.option)) {
+		return cloneJsxNodeWithProps(
+			props.option,
+			props.dotProps as unknown as Record<string, unknown>,
+		) as unknown as JSX.Element
 	}
 	/* eslint-enable solid/reactivity */
 
@@ -97,20 +109,18 @@ interface DotsProps extends ZIndexable {
 
 export function Dots(props: DotsProps) {
 	const zIndex = () => props.zIndex ?? DefaultZIndexes.scatter
+	const clipDot = createMemo(() => isClipDot(props.dot))
+	const customDotProps = createMemo(() => svgPropertiesAndEventsFromUnknown(props.dot))
+	const layerClipPath = () => {
+		if (props.needClip && props.clipPathId != null) {
+			return `url(#clipPath-${clipDot() ? "" : "dots-"}${props.clipPathId})`
+		}
+		return undefined
+	}
 
 	return (
 		<Show when={shouldRenderDots(props.points, props.dot)}>
 			{(() => {
-				const clipDot = isClipDot(props.dot)
-				const customDotProps = svgPropertiesAndEventsFromUnknown(props.dot)
-
-				const layerClipPath = () => {
-					if (props.needClip && props.clipPathId != null) {
-						return `url(#clipPath-${clipDot ? "" : "dots-"}${props.clipPathId})`
-					}
-					return undefined
-				}
-
 				return (
 					<ZIndexLayer zIndex={zIndex()}>
 						<Layer class={props.className} clip-path={layerClipPath()}>
@@ -119,7 +129,7 @@ export function Dots(props: DotsProps) {
 									const dotItemProps = (): DotItemDotProps => ({
 										r: 3,
 										...props.baseProps,
-										...customDotProps,
+										...customDotProps(),
 										index: i(),
 										cx: entry.x ?? undefined,
 										cy: entry.y ?? undefined,

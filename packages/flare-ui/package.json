@@ -82,6 +82,9 @@
 	"devDependencies": {
 		"@axe-core/playwright": "catalog:",
 		"@playwright/test": "catalog:",
+		"@solidjs/signals": "catalog:",
+		"@solidjs/vite-plugin": "catalog:",
+		"@solidjs/web": "catalog:",
 		"@solidports/base-ui": "workspace:*",
 		"@tailwindcss/vite": "catalog:",
 		"@types/node": "catalog:",
@@ -89,12 +92,12 @@
 		"tailwindcss": "catalog:",
 		"typescript": "catalog:",
 		"vite": "catalog:",
-		"vite-plugin-solid": "catalog:",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
+		"@solidjs/web": ">=2.0.0-rc.13",
 		"@solidports/base-ui": "*",
-		"solid-js": "^1.9.0",
+		"solid-js": ">=2.0.0-rc.13",
 		"tailwindcss": "^4.0.0"
 	}
 }

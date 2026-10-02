@@ -1,4 +1,6 @@
-import { createEffect, onCleanup, type JSX, type Setter } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
+import type { Setter } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useId } from '../../utils/useId';
 import { useToastRootContext } from '../root/ToastRootContext';
 import { hasRenderableChildren } from './isRenderableNode';
@@ -32,16 +34,25 @@ export function useToastLabelElement(
 ): JSX.Element {
   const shouldRender = () => hasRenderableChildren(element);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!shouldRender()) {
       return;
     }
     const currentId = id();
     setId(currentId);
-    onCleanup(() => {
+    _c.push(() => {
       setId((existing) => (existing === currentId ? undefined : existing));
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   return shouldRender() ? element : null;
 }

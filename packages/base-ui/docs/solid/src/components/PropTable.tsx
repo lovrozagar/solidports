@@ -1,5 +1,5 @@
-import { createResource, For, Show, Suspense, type Component } from "solid-js"
-
+import { createMemo, For, Show, Loading } from 'solid-js';
+import type { Component } from 'solid-js';
 interface PropDef {
   type?: string
   default?: string
@@ -85,13 +85,12 @@ export function PropTable(props: PropTableProps) {
 }
 
 function PropTableSection(props: { component: string; part: string }) {
-  const [def] = createResource(
-    () => ({ c: props.component, p: props.part }),
-    ({ c, p }) => loadReference(buildFilename(c, p || undefined)),
+  const def = createMemo(() =>
+    loadReference(buildFilename(props.component, props.part || undefined)),
   )
 
   return (
-    <Suspense fallback={<div class="PropTableLoading">Loading API…</div>}>
+    <Loading fallback={<div class="PropTableLoading">Loading API…</div>}>
       <Show
         when={def()}
         fallback={
@@ -102,7 +101,7 @@ function PropTableSection(props: { component: string; part: string }) {
       >
         {(definition) => <ReferenceRenderer def={definition()} showHeading={Boolean(props.part)} />}
       </Show>
-    </Suspense>
+    </Loading>
   )
 }
 

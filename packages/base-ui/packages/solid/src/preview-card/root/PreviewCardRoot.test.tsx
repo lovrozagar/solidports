@@ -3,8 +3,9 @@ import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { createSignal, splitProps } from 'solid-js';
+import { createSignal } from 'solid-js';
 import { CLOSE_DELAY, OPEN_DELAY } from '../utils/constants';
+import { splitProps } from '../../solid-1-compat';
 
 describe('<PreviewCard.Root />', () => {
   beforeEach(() => {

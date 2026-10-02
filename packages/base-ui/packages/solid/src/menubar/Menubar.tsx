@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createSignal, onCleanup, onMount, type ParentProps } from "solid-js"
+import { createSignal, onCleanup, onSettled } from 'solid-js';
+import type { ParentProps } from 'solid-js';
 import { CompositeRoot } from "../internals/composite/root/CompositeRoot"
 import {
 	FloatingNode,
@@ -40,7 +41,7 @@ export function Menubar(props: Menubar.Props) {
 	const orientation = () => local.orientation ?? "horizontal"
 	const loopFocus = () => local.loopFocus ?? true
 	const modal = () => local.modal ?? true
-	const disabled = () => local.disabled ?? false
+	const disabled = () => Boolean(local.disabled)
 	const idProp = () => local.id
 
 	const [contentElement, setContentElement] = createSignal<HTMLElement | null | undefined>()
@@ -74,7 +75,7 @@ export function Menubar(props: Menubar.Props) {
 	}
 
 	return (
-		<MenubarContext.Provider value={context}>
+		<MenubarContext value={context}>
 			<FloatingTree>
 				<MenubarContent>
 					<CompositeRoot
@@ -102,7 +103,7 @@ export function Menubar(props: Menubar.Props) {
 					</CompositeRoot>
 				</MenubarContent>
 			</FloatingTree>
-		</MenubarContext.Provider>
+		</MenubarContext>
 	)
 }
 
@@ -133,12 +134,21 @@ function MenubarContent(props: ParentProps) {
 		}
 	}
 
-	onMount(() => {
+	onSettled(() => {
+		const _c: Array<() => void> = [];
+		(() => {
+
 		menuEvents.on("menuopenchange", onSubmenuOpenChange)
-		onCleanup(() => {
+		_c.push(() => {
 			menuEvents.off("menuopenchange", onSubmenuOpenChange)
 		})
-	})
+			})();
+		return () => {
+		  for (let i = _c.length - 1; i >= 0; i -= 1) {
+		    _c[i]();
+		  }
+		};
+})
 
 	return <FloatingNode id={nodeId()}>{props.children}</FloatingNode>
 }

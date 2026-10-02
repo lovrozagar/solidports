@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { DialogDescription } from '../../dialog/description/DialogDescription';
 import type { BaseUIComponentProps } from '../../utils/types';
 

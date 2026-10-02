@@ -1,7 +1,8 @@
 import { createRenderEffect, onCleanup } from 'solid-js';
-import { createStore, type SetStoreFunction, type Store } from 'solid-js/store';
+import type { Store } from 'solid-js';
 import { useTimeout } from '../../utils/useTimeout';
 import type { FloatingRootContext, SafePolygonOptions } from '../types';
+import { createStore, type SetStoreFunction } from '../../solid-1-compat';
 
 export { isInteractiveElement } from '../utils';
 
@@ -44,11 +45,14 @@ function createHoverInteractionSharedState(): HoverInteractionSharedState {
 export function useHoverInteractionSharedState(options: {
   store: FloatingRootContext;
 }): HoverInteractionSharedState {
-  createRenderEffect(() => {
-    if (!options.store.context.dataRef.hoverInteractionState) {
-      options.store.context.dataRef.hoverInteractionState = createHoverInteractionSharedState();
-    }
-  });
+  createRenderEffect(
+    () => options.store.context.dataRef,
+    (dataRef) => {
+      if (!dataRef.hoverInteractionState) {
+        dataRef.hoverInteractionState = createHoverInteractionSharedState();
+      }
+    },
+  );
 
   onCleanup(() => {
     options.store.context.dataRef.hoverInteractionState?.[0].openChangeTimeout.clear();

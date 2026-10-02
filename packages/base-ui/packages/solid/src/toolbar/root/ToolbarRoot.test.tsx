@@ -3,7 +3,7 @@ import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direc
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { type Orientation } from '../../utils/types';
 
 describe('<Toolbar.Root />', () => {

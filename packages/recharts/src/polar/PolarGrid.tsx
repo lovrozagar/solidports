@@ -1,6 +1,7 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { createMemo, Show, For } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import type { WithoutRemoveFalse } from "../util/types"
+import { createMemo, Show, For } from 'solid-js';
 import { clsx } from "clsx"
 import { polarToCartesian } from "../util/PolarUtils"
 import { AxisId } from "../state/cartesianAxisSlice"
@@ -83,7 +84,7 @@ interface PolarGridProps extends ZIndexable {
 	zIndex?: number
 }
 
-export type Props = JSX.LineSVGAttributes<SVGLineElement> & PolarGridProps
+export type Props = WithoutRemoveFalse<JSX.LineSVGAttributes<SVGLineElement>> & PolarGridProps
 
 type PropsWithDefaults = Props & {
 	cx: number
@@ -122,39 +123,43 @@ const getPolygonPath = (
 
 /* Draw axis of radial line */
 function PolarAngles(props: PropsWithDefaults): JSX.Element {
-	/* eslint-disable solid/reactivity -- guards run at parent re-render; data-driven but stable within a render pass */
-	if (!props.polarAngles || !props.polarAngles.length || !props.radialLines) {
-		return null
-	}
-	/* eslint-enable solid/reactivity */
-	const polarAnglesProps = {
+	const polarAnglesProps = createMemo(() => ({
 		stroke: "#ccc",
 		...svgPropertiesNoEvents(props),
-	}
+	}))
 
 	return (
-		<g class="recharts-polar-grid-angle">
-			<For each={props.polarAngles}>
-				{(entry) => {
-					const start = polarToCartesian(props.cx, props.cy, props.innerRadius, entry)
-					const end = polarToCartesian(props.cx, props.cy, props.outerRadius, entry)
+		<Show when={props.polarAngles != null && props.polarAngles.length > 0 && props.radialLines}>
+			<g class="recharts-polar-grid-angle">
+				<For each={props.polarAngles}>
+					{(entry) => {
+						const start = createMemo(() => polarToCartesian(props.cx, props.cy, props.innerRadius, entry))
+						const end = createMemo(() => polarToCartesian(props.cx, props.cy, props.outerRadius, entry))
 
-					return <line {...polarAnglesProps} x1={start.x} y1={start.y} x2={end.x} y2={end.y} />
-				}}
-			</For>
-		</g>
+						return <line {...polarAnglesProps()} x1={start().x} y1={start().y} x2={end().x} y2={end().y} />
+					}}
+				</For>
+			</g>
+		</Show>
 	)
+}
+
+function useConcentricSvgProps(props: ConcentricProps) {
+	return createMemo(() => {
+		const { ref: _ref, ...svgProps } = svgPropertiesNoEvents(props) ?? {}
+		return svgProps
+	})
 }
 
 /* Draw concentric circles */
 function ConcentricCircle(props: ConcentricProps): JSX.Element {
-	const { ref: _ref, ...svgProps } = svgPropertiesNoEvents(props) ?? {}
+	const svgProps = useConcentricSvgProps(props)
 
 	return (
 		<circle
 			stroke="#ccc"
 			fill="none"
-			{...svgProps}
+			{...svgProps()}
 			class={clsx(
 				"recharts-polar-grid-concentric-circle",
 				String((props as unknown as Record<string, unknown>).className ?? ""),
@@ -168,13 +173,13 @@ function ConcentricCircle(props: ConcentricProps): JSX.Element {
 
 /* Draw concentric polygons */
 function ConcentricPolygon(props: ConcentricProps): JSX.Element {
-	const { ref: _ref, ...svgProps } = svgPropertiesNoEvents(props) ?? {}
+	const svgProps = useConcentricSvgProps(props)
 
 	return (
 		<path
 			stroke="#ccc"
 			fill="none"
-			{...svgProps}
+			{...svgProps()}
 			class={clsx(
 				"recharts-polar-grid-concentric-polygon",
 				String((props as unknown as Record<string, unknown>).className ?? ""),
@@ -186,35 +191,32 @@ function ConcentricPolygon(props: ConcentricProps): JSX.Element {
 
 /* Draw concentric axis */
 function ConcentricGridPath(props: PropsWithDefaults): JSX.Element {
-	/* eslint-disable solid/reactivity -- guards/derived locals run at parent re-render; stable within a render pass */
-	if (!props.polarRadius || !props.polarRadius.length) {
-		return null
-	}
-
-	const maxPolarRadius: number = Math.max(...props.polarRadius)
-	const renderBackground = props.fill && props.fill !== "none"
-	/* eslint-enable solid/reactivity */
+	const maxPolarRadius = createMemo(() => Math.max(...(props.polarRadius ?? [])))
+	const renderBackground = createMemo(() => props.fill != null && props.fill !== "none")
 
 	return (
-		<g class="recharts-polar-grid-concentric">
-			{/* Render background as separate first child to do not cover strokes of smaller figures */}
-			<Show when={renderBackground && props.gridType === "circle"}>
-				<ConcentricCircle {...props} radius={maxPolarRadius} />
-			</Show>
-			<Show when={renderBackground && props.gridType !== "circle"}>
-				<ConcentricPolygon {...props} radius={maxPolarRadius} />
-			</Show>
+		<Show when={props.polarRadius != null && props.polarRadius.length > 0}>
+			<g class="recharts-polar-grid-concentric">
+				{/* Render background as separate first child to do not cover strokes of smaller figures */}
+				<Show when={renderBackground() && props.gridType === "circle"}>
+					<ConcentricCircle {...props} radius={maxPolarRadius()} />
+				</Show>
+				<Show when={renderBackground() && props.gridType !== "circle"}>
+					<ConcentricPolygon {...props} radius={maxPolarRadius()} />
+				</Show>
 
-			<For each={props.polarRadius}>
-				{(entry: number) => {
-					if (props.gridType === "circle") {
-						return <ConcentricCircle {...props} fill="none" radius={entry} />
-					}
-
-					return <ConcentricPolygon {...props} fill="none" radius={entry} />
-				}}
-			</For>
-		</g>
+				<For each={props.polarRadius}>
+					{(entry: number) => (
+						<Show
+							when={props.gridType === "circle"}
+							fallback={<ConcentricPolygon {...props} fill="none" radius={entry} />}
+						>
+							<ConcentricCircle {...props} fill="none" radius={entry} />
+						</Show>
+					)}
+				</For>
+			</g>
+		</Show>
 	)
 }
 

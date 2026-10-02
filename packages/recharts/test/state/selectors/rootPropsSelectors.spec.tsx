@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
-import { createEffect, createSignal } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { trackSpy } from "../../helper/trackSpy"
+import { createSignal, untrack, flush } from 'solid-js'
+import { render } from "../../helper/render"
 import { createRechartsStore } from "../../../src/state/store"
 import { Bar, BarChart, Customized } from "../../../src"
 import {
@@ -24,7 +25,7 @@ describe("selectRootMaxBarSize", () => {
 	it("should return undefined in an empty chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest((state) => selectRootMaxBarSize(state))))
+			trackSpy(spy, () => useAppSelectorWithStableTest((state) => selectRootMaxBarSize(state)))
 			return null
 		}
 		render(() => (
@@ -37,7 +38,7 @@ describe("selectRootMaxBarSize", () => {
 	it("should return and update maxBarSize defined on chart root", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest((state) => selectRootMaxBarSize(state))))
+			trackSpy(spy, () => useAppSelectorWithStableTest((state) => selectRootMaxBarSize(state)))
 			return null
 		}
 		const [maxBarSize, setMaxBarSize] = createSignal(10)
@@ -50,6 +51,7 @@ describe("selectRootMaxBarSize", () => {
 		expectLastCalledWith(spy, 10)
 
 		setMaxBarSize(20)
+		flush()
 
 		expectLastCalledWith(spy, 20)
 	})
@@ -61,7 +63,7 @@ describe("selectBarGap", () => {
 	it("should return default value in a chart without barGap prop", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest((state) => selectBarGap(state))))
+			trackSpy(spy, () => useAppSelectorWithStableTest((state) => selectBarGap(state)))
 			return null
 		}
 		render(() => (
@@ -74,7 +76,7 @@ describe("selectBarGap", () => {
 	it("should return and update barGap defined on chart root", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest((state) => selectBarGap(state))))
+			trackSpy(spy, () => useAppSelectorWithStableTest((state) => selectBarGap(state)))
 			return null
 		}
 		const [barGap, setBarGap] = createSignal(10)
@@ -86,6 +88,7 @@ describe("selectBarGap", () => {
 		expectLastCalledWith(spy, 10)
 
 		setBarGap(20)
+		flush()
 
 		expectLastCalledWith(spy, 20)
 	})
@@ -97,7 +100,7 @@ describe("selectBarCategoryGap", () => {
 	it("should return undefined when called outside of Redux context", () => {
 		expect.assertions(1)
 		const Comp = (): null => {
-			const result = useAppSelectorWithStableTest((state) => selectBarCategoryGap(state))
+			const result = untrack(() => useAppSelectorWithStableTest((state) => selectBarCategoryGap(state)))
 			expect(result).toBe(undefined)
 			return null
 		}
@@ -110,7 +113,7 @@ describe("selectBarCategoryGap", () => {
 	it("should return default value in an empty chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest((state) => selectBarCategoryGap(state))))
+			trackSpy(spy, () => useAppSelectorWithStableTest((state) => selectBarCategoryGap(state)))
 			return null
 		}
 		render(() => (
@@ -123,7 +126,7 @@ describe("selectBarCategoryGap", () => {
 	it("should return and update barCategoryGap defined on chart root", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest((state) => selectBarCategoryGap(state))))
+			trackSpy(spy, () => useAppSelectorWithStableTest((state) => selectBarCategoryGap(state)))
 			return null
 		}
 		const [gap, setGap] = createSignal<number | string>(10)
@@ -135,6 +138,7 @@ describe("selectBarCategoryGap", () => {
 		expectLastCalledWith(spy, 10)
 
 		setGap(20)
+		flush()
 
 		expectLastCalledWith(spy, 20)
 	})
@@ -146,7 +150,7 @@ describe("selectRootBarSize", () => {
 	it("should return undefined in an empty chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest((state) => selectRootBarSize(state))))
+			trackSpy(spy, () => useAppSelectorWithStableTest((state) => selectRootBarSize(state)))
 			return null
 		}
 		render(() => (
@@ -159,7 +163,7 @@ describe("selectRootBarSize", () => {
 	it("should return and update barSize defined on chart root", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest((state) => selectRootBarSize(state))))
+			trackSpy(spy, () => useAppSelectorWithStableTest((state) => selectRootBarSize(state)))
 			return null
 		}
 		const [size, setSize] = createSignal<number | string>(10)
@@ -171,6 +175,7 @@ describe("selectRootBarSize", () => {
 		expectLastCalledWith(spy, 10)
 
 		setSize(20)
+		flush()
 
 		expectLastCalledWith(spy, 20)
 	})
@@ -183,7 +188,7 @@ describe("selectSyncMethod", () => {
 	it("should return and update syncMethod defined on chart root", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest(selectSyncMethod)))
+			trackSpy(spy, () => useAppSelectorWithStableTest(selectSyncMethod))
 			return null
 		}
 		const fn = () => 1
@@ -196,6 +201,7 @@ describe("selectSyncMethod", () => {
 		expectLastCalledWith(spy, "value")
 
 		setMethod(() => fn)
+		flush()
 
 		expectLastCalledWith(spy, fn)
 	})

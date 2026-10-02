@@ -128,6 +128,12 @@ export const calculateActiveTickIndex = (
 		range != null &&
 		Math.abs(Math.abs(range[1] - range[0]) - 360) <= 1e-6
 	) {
+		const span = range[1] - range[0]
+		/* The pointer may sit in the wrap-around gap of a full circle; test it shifted by ±360 too. */
+		const isInside = (lowerLimit: number, upperLimit: number, inclusiveLower: boolean): boolean =>
+			[coordinate, coordinate + span, coordinate - span].some(
+				(c) => (inclusiveLower ? c >= lowerLimit : c > lowerLimit) && c <= upperLimit,
+			)
 		for (let i = 0; i < len; i++) {
 			const before = i > 0 ? unsortedTicks[i - 1]?.coordinate : unsortedTicks[len - 1]?.coordinate
 			const cur = unsortedTicks[i]?.coordinate
@@ -159,8 +165,8 @@ export const calculateActiveTickIndex = (
 				]
 
 				if (
-					(coordinate > sameInterval[0] && coordinate <= sameInterval[1]) ||
-					(coordinate >= diffInterval[0] && coordinate <= diffInterval[1])
+					isInside(sameInterval[0], sameInterval[1], false) ||
+					isInside(diffInterval[0] ?? 0, diffInterval[1] ?? 0, true)
 				) {
 					return unsortedTicks[i]?.index
 				}
@@ -168,7 +174,7 @@ export const calculateActiveTickIndex = (
 				const minValue = Math.min(before, after)
 				const maxValue = Math.max(before, after)
 
-				if (coordinate > (minValue + cur) / 2 && coordinate <= (maxValue + cur) / 2) {
+				if (isInside((minValue + cur) / 2, (maxValue + cur) / 2, false)) {
 					return unsortedTicks[i]?.index
 				}
 			}

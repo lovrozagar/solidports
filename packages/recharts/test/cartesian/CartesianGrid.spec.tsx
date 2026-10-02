@@ -1,6 +1,7 @@
 import { describe, test, it, expect, vi, Mock } from "vitest"
-import { render } from "@solidjs/testing-library"
-import { createEffect } from "solid-js"
+import { observe } from "../helper/observe"
+import { render } from "../helper/render"
+
 import {
 	CartesianGrid,
 	LineChart,
@@ -239,7 +240,7 @@ describe("CartesianGrid", () => {
 	it("should render all ticks from LineChart Biaxial storybook", () => {
 		const scaleSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const scale = useAppSelector((state) => selectAxisScale(state, "yAxis", "left", false))
 				scaleSpy(scale?.domain())
 			})
@@ -1457,11 +1458,10 @@ describe.each(allChartsThatSupportCartesianGrid)(
 					})
 				})
 
-				/* Cluster C: React vNode-as-prop pattern, no Solid equivalent.
-				 * Re-verified: spy receives empty `{}` props instead of full grid props
-				 * (offset/xAxis/yAxis/horizontalPoints/verticalPoints), the cloneElement
-				 * + sneaky-prop injection has no Solid analogue. */
-				describe.skip("horizontal as an element", () => {
+				/* Solid evaluates `<Horizontal />` before the grid sees it, so a user component passed as
+				 * an element cannot receive injected props (upstream clones it). The Solid equivalent is
+				 * passing the component itself. */
+				describe("horizontal as an element", () => {
 					it("should pass props, add default stroke, and then render result of the function", () => {
 						const spy = vi.fn()
 						const Horizontal = (props: unknown) => {
@@ -1474,7 +1474,7 @@ describe.each(allChartsThatSupportCartesianGrid)(
 									{...exampleCartesianGridDimensions}
 									verticalPoints={verticalPoints}
 									horizontalPoints={horizontalPoints}
-									horizontal={<Horizontal />}
+									horizontal={Horizontal}
 								/>
 							</ChartElement>
 						))
@@ -1489,7 +1489,7 @@ describe.each(allChartsThatSupportCartesianGrid)(
 							horizontalFill: [],
 							horizontalPoints,
 							index: expect.any(Number),
-							key: undefined,
+							key: expect.stringMatching(/line-[0-9]/),
 							offset: {
 								bottom: 5,
 								brushBottom: 5,
@@ -1655,8 +1655,8 @@ describe.each(allChartsThatSupportCartesianGrid)(
 					})
 				})
 
-				/* Cluster C: same vNode-clone-with-injected-props issue as horizontal. */
-				describe.skip("vertical as an element", () => {
+				/* Same as horizontal: pass the component itself. */
+				describe("vertical as an element", () => {
 					it("should pass props, add default stroke, and then render result of the function", () => {
 						const spy = vi.fn()
 						const Vertical = (props: unknown) => {
@@ -1669,7 +1669,7 @@ describe.each(allChartsThatSupportCartesianGrid)(
 									{...exampleCartesianGridDimensions}
 									verticalPoints={verticalPoints}
 									horizontalPoints={horizontalPoints}
-									vertical={<Vertical />}
+									vertical={Vertical}
 								/>
 							</ChartElement>
 						))
@@ -1682,7 +1682,7 @@ describe.each(allChartsThatSupportCartesianGrid)(
 							horizontalFill: [],
 							horizontalPoints,
 							index: expect.any(Number),
-							key: undefined,
+							key: expect.stringMatching(/line-[0-9]/),
 							offset: {
 								bottom: 5,
 								brushBottom: 5,

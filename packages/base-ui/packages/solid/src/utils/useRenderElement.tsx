@@ -1,6 +1,8 @@
 /* eslint-disable typescript/no-explicit-any -- generic render-element handles arbitrary State and tag types; tightening to unknown forces consumers to assert at every state-attribute mapping */
-import { Show, type JSX, type ValidComponent } from 'solid-js';
-import { Dynamic, type DynamicProps } from 'solid-js/web';
+import { Show, createMemo, merge } from 'solid-js';
+import type { JSX, ValidComponent } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
+import type { DynamicProps } from '@solidjs/web';
 import { mergeProps } from '../merge-props/mergeProps';
 import { access, type MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
@@ -12,6 +14,7 @@ import type {
   BaseUIHTMLProps,
   ComponentRenderFn,
   HTMLProps,
+  IntrinsicRefElement,
   UseRenderElementRef,
 } from './types';
 
@@ -23,9 +26,11 @@ import type {
  * @param params Additional parameters for rendering the element.
  */
 export function useRenderElement<
-  State extends Record<string, MaybeAccessor<any>>,
-  RenderedElementType extends Element,
   TagName extends keyof JSX.IntrinsicElements | undefined,
+  State extends Record<string, MaybeAccessor<any>>,
+  RenderedElementType extends Element = TagName extends keyof JSX.IntrinsicElements
+    ? IntrinsicRefElement<TagName>
+    : Element,
   Enabled extends boolean | undefined = undefined,
   RenderFnElement extends ValidComponent = ValidComponent,
 >(
@@ -34,105 +39,119 @@ export function useRenderElement<
   params: useRenderElement.Parameters<State, RenderedElementType, TagName, Enabled>,
 ): (props?: HTMLProps) => Enabled extends false ? null : JSX.Element {
   const state = () => params.state ?? (EMPTY_OBJECT as State);
+
+  const Resolved = (renderProps: HTMLProps) => {
+    // Solid 2 component bodies are not tracking scopes. mergeProps also snapshots
+    // source keys at call time, so state `data-*` attrs (open, starting-style, checked)
+    // must be rebuilt in a memo or they freeze on first paint.
+    const applyRef = (el: any) => {
+      if (typeof componentProps.ref === 'function') {
+        componentProps.ref(el);
+      } else if (
+        componentProps.ref != null &&
+        typeof componentProps.ref === 'object' &&
+        'current' in (componentProps.ref as any)
+      ) {
+        /* User passed a ReactLikeRef — write to .current so consumers (e.g. `anchor={containerRef}`) see the live element. */
+        (componentProps.ref as { current: unknown }).current = el;
+      }
+
+      const paramsRefs = Array.isArray(params.ref) ? params.ref.flat(Infinity) : [params.ref];
+      // eslint-disable-next-line no-plusplus
+      for (let i = 0; i < paramsRefs.length; i++) {
+        const r = paramsRefs[i];
+        if (typeof r === 'function') {
+          (r as Function)(el);
+        } else if (r != null && typeof r === 'object' && 'current' in r) {
+          (r as { current: unknown }).current = el;
+        }
+      }
+    };
+
+    const merged = createMemo(() =>
+      mergeProps([
+        renderProps,
+
+        { ref: applyRef },
+
+        typeof componentProps.render === 'object' ? (componentProps.render as object) : {},
+
+        getStateAttributesProps(state(), params.stateAttributesMapping),
+
+        mergeProps(Array.isArray(params.props) ? params.props.flat() : params.props),
+
+        {
+          get class() {
+            return resolveClassName(componentProps.class, state());
+          },
+          // Strip `component` from DOM/render-fn props. Solid 2 merge overwrites with
+          // undefined, so the real tag must be passed as Dynamic's `component` *after*
+          // this spread — never as a sibling prop that this undefined can clobber.
+          component: undefined,
+
+          get style() {
+            return resolveStyle(componentProps.style, state());
+          },
+        },
+      ]),
+    );
+
+    const resolvedChildren = () => {
+      if (params.children != null) return params.children;
+      const render = componentProps.render;
+      /* `<a/>`-style JSX renders to an HTMLElement at evaluation time; HTMLElement always has a (live) `children` HTMLCollection, so the old
+         `'children' in render` check trapped here and returned an empty collection — dropping the consumer's actual children. Only honor `render.children` for plain config objects ({component, children}). */
+      if (render && typeof render === 'object' && !(render instanceof Node) && 'children' in render) {
+        return (render as { children?: JSX.Element }).children;
+      }
+      // Parts that forward children through `params.props` (e.g. NavigationMenu.Link via
+      // CompositeItem) only carry them in the merged props. The JSX child below overrides the
+      // spread, and Solid 2 lets an `undefined` override win, so fall back to the merged value.
+      return componentProps.children ?? (merged() as { children?: JSX.Element }).children;
+    };
+
+    const tag = () => {
+      const render = componentProps.render;
+      if (typeof render === 'string') {
+        return render;
+      }
+      if (render && typeof render === 'object' && 'component' in render) {
+        return (render as { component: ValidComponent }).component;
+      }
+      return access(element);
+    };
+
+    const intrinsicTag = () => access(element);
+
+    if (typeof componentProps.render === 'function') {
+      // Render functions receive the part's children in their props, as `<Dynamic>` passed them
+      // before the Solid 2 port (`render={(props) => <Toggle {...props} />}`). The getter keeps
+      // them lazy so they are created inside the rendered component's context, like React elements.
+      const withChildren = (props: HTMLProps) =>
+        merge(props, {
+          get children() {
+            return resolvedChildren();
+          },
+        });
+      return <>{componentProps.render(withChildren(merged()), state())}</>;
+    }
+
+    return (
+      <Dynamic
+        {...(intrinsicTag() === 'button' ? { type: 'button' } : {})}
+        {...(intrinsicTag() === 'img' ? { alt: '' } : {})}
+        {...merged()}
+        component={tag()}
+      >
+        {resolvedChildren()}
+      </Dynamic>
+    );
+  };
+
   const Component = (props: HTMLProps) => {
     return (
       <Show when={access(params.enabled) ?? true}>
-        <Dynamic
-          component={(p: any) => {
-            if (typeof componentProps.render === 'function') {
-              return componentProps.render(p, params.state ?? (EMPTY_OBJECT as State));
-            }
-
-            if (
-              componentProps.render &&
-              typeof componentProps.render === 'object' &&
-              'component' in componentProps.render
-            ) {
-              return <Dynamic {...p} component={componentProps.render.component} />;
-            }
-
-            return (
-              <Dynamic
-                component={
-                  typeof componentProps.render === 'string'
-                    ? componentProps.render
-                    : access(element)
-                }
-                {...(access(element) === 'button' ? { type: 'button' } : {})}
-                {...(access(element) === 'img' ? { alt: '' } : {})}
-                {...p}
-              />
-            );
-          }}
-          {...mergeProps([
-            props,
-
-            {
-              ref: (el: any) => {
-                if (typeof componentProps.ref === 'function') {
-                  componentProps.ref(el);
-                } else if (
-                  componentProps.ref != null &&
-                  typeof componentProps.ref === 'object' &&
-                  'current' in (componentProps.ref as any)
-                ) {
-                  /* User passed a ReactLikeRef — write to .current so consumers (e.g. `anchor={containerRef}`) see the live element. */
-                  (componentProps.ref as { current: unknown }).current = el;
-                } else {
-                  componentProps.ref = el;
-                }
-
-                const paramsRefs = Array.isArray(params.ref)
-                  ? params.ref.flat(Infinity)
-                  : [params.ref];
-                // eslint-disable-next-line no-plusplus
-                for (let i = 0; i < paramsRefs.length; i++) {
-                  const r = paramsRefs[i];
-                  if (typeof r === 'function') {
-                    (r as Function)(el);
-                  } else if (r != null && typeof r === 'object' && 'current' in r) {
-                    (r as { current: unknown }).current = el;
-                  } else {
-                    paramsRefs[i] = el;
-                  }
-                }
-              },
-            },
-
-            typeof componentProps.render === 'object' ? (componentProps.render as object) : {},
-
-            getStateAttributesProps(state(), params.stateAttributesMapping),
-
-            mergeProps(Array.isArray(params.props) ? params.props.flat() : params.props),
-
-            {
-              get class() {
-                return resolveClassName(componentProps.class, state());
-              },
-              component: undefined,
-
-              get style() {
-                return resolveStyle(componentProps.style, state());
-              },
-            },
-          ])}
-        >
-          {(() => {
-            if (params.children != null) return params.children;
-            const render = componentProps.render;
-            /* `<a/>`-style JSX renders to an HTMLElement at evaluation time; HTMLElement always has a (live) `children` HTMLCollection, so the old
-               `'children' in render` check trapped here and returned an empty collection — dropping the consumer's actual children. Only honor `render.children` for plain config objects ({component, children}). */
-            if (
-              render &&
-              typeof render === 'object' &&
-              !(render instanceof Node) &&
-              'children' in render
-            ) {
-              return (render as { children?: JSX.Element }).children;
-            }
-            return componentProps.children;
-          })()}
-        </Dynamic>
+        <Resolved {...props} />
       </Show>
     );
   };
@@ -194,6 +213,7 @@ export type UseRenderElementParameters<
         | RenderFunctionProps<TagName, State>
         | BaseUIHTMLProps
         | JSX.HTMLAttributes<HTMLElement>
+        | Record<string, any>
         | undefined
         | ((
             props: BaseUIHTMLProps,
@@ -202,6 +222,7 @@ export type UseRenderElementParameters<
             | RenderFunctionProps<TagName, State>
             | BaseUIHTMLProps
             | JSX.HTMLAttributes<HTMLElement>
+            | Record<string, any>
             | undefined
             | ((
                 props: BaseUIHTMLProps,

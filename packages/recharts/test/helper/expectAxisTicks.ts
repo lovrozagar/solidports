@@ -1,5 +1,5 @@
 import { expect } from "vitest"
-import { createEffect } from "solid-js"
+import { trackSpy } from "./trackSpy"
 import { assertNotNull } from "./assertNotNull"
 import type { AxisId } from "../../src/state/cartesianAxisSlice"
 import { selectAxisScale } from "../../src/state/selectors/axisSelectors"
@@ -47,16 +47,11 @@ export function ExpectAxisDomain(props: {
 	axisId?: AxisId
 	axisType: "xAxis" | "yAxis"
 }): null {
-	/* createEffect tracks scale reactively — graphical-item dispatch lands AFTER setup,
-	   so a setup-time read sees `undefined`. Spy needs to reflect the latest value, not
-	   the first one. Plain useAppSelector returns a fresh RechartsScale wrapper each call
-	   (closures over d3 scale) — useAppSelectorWithStableTest's structural .toEqual fails
-	   on those function-typed properties; see GOTCHA-003. */
-	createEffect(() => {
-		const scale = useAppSelector((state) =>
-			selectAxisScale(state, props.axisType, props.axisId ?? 0, false),
-		)
-		props.assert(scale?.domain())
-	})
+	/* Graphical-item dispatch lands after setup, so the spy must see every later value.
+	   Plain useAppSelector returns a fresh RechartsScale wrapper each call (closures over
+	   the d3 scale); compare domains, not scales. See GOTCHA-003. */
+	trackSpy(props.assert, () =>
+		useAppSelector((state) => selectAxisScale(state, props.axisType, props.axisId ?? 0, false))?.domain(),
+	)
 	return null
 }

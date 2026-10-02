@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { TextDirection } from '../../direction-provider';
 import type { Orientation } from '../../utils/types';
 import type { AccordionRoot, AccordionValue } from './AccordionRoot';
@@ -16,11 +17,11 @@ export interface AccordionRootContext {
   value: Accessor<AccordionValue>;
 }
 
-export const AccordionRootContext = createContext<AccordionRootContext>();
+export const AccordionRootContext = createContext<AccordionRootContext | null>(null);
 
 export function useAccordionRootContext() {
   const context = useContext(AccordionRootContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: AccordionRootContext is missing. Accordion parts must be placed within <Accordion.Root>.',
     );

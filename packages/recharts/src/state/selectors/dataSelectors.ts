@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { ChartState } from "../store"
-import { ChartDataState } from "../chartDataSlice"
+import { ChartData, ChartDataState } from "../chartDataSlice"
 
 /**
  * This selector always returns the data with the indexes set by a Brush.
@@ -45,6 +45,24 @@ export const selectChartDataWithIndexesIfNotInPanoramaPosition4 = (
 	return selectChartDataWithIndexes(state)
 }
 
+/**
+ * Returns the chart-level data sliced by the Brush indexes (full range in the panorama).
+ */
+export const selectChartDataSliceIfNotInPanorama = (
+	state: ChartState,
+	_unused1: unknown,
+	_unused2: unknown,
+	isPanorama: boolean,
+): ChartData => {
+	const { chartData, dataStartIndex, dataEndIndex } = selectChartDataWithIndexesIfNotInPanoramaPosition4(
+		state,
+		_unused1,
+		_unused2,
+		isPanorama,
+	)
+	return chartData != null ? chartData.slice(dataStartIndex, dataEndIndex + 1) : []
+}
+
 export const selectChartDataWithIndexesIfNotInPanoramaPosition3 = (
 	state: ChartState,
 	_unused1: unknown,
@@ -54,4 +72,16 @@ export const selectChartDataWithIndexesIfNotInPanoramaPosition3 = (
 		return selectChartDataAndAlwaysIgnoreIndexes(state)
 	}
 	return selectChartDataWithIndexes(state)
+}
+
+/** Chart-level data slice ignoring Brush indexes (polar charts always use the full range). */
+export function selectChartDataSliceIgnoringIndexes(state: ChartState): ChartData {
+	const { chartData, dataStartIndex, dataEndIndex } = selectChartDataAndAlwaysIgnoreIndexes(state)
+	return chartData != null ? chartData.slice(dataStartIndex, dataEndIndex + 1) : []
+}
+
+/** Chart-level data slice honoring Brush indexes (tooltip never renders in the panorama). */
+export function selectChartDataSliceWithIndexes(state: ChartState): ChartData {
+	const { chartData, dataStartIndex, dataEndIndex } = selectChartDataWithIndexes(state)
+	return chartData != null ? chartData.slice(dataStartIndex, dataEndIndex + 1) : []
 }

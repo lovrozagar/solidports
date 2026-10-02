@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { batch, createEffect, onCleanup } from "solid-js"
+import { createEffect, untrack, createMemo } from 'solid-js';
 import { useChartStore } from "../state/RechartsStoreContext"
 import {
 	selectEventEmitter,
@@ -11,7 +11,7 @@ import type { TooltipIndex, TooltipSyncState } from "../state/tooltipSlice"
 import { selectTooltipDataKey } from "../state/selectors/selectors"
 import type { Coordinate, TickItem, TooltipEventType } from "../util/types"
 import type { TooltipTrigger } from "../chart/types"
-import { selectTooltipAxisTicks } from "../state/selectors/tooltipSelectors"
+import { selectActiveTooltipGraphicalItemId, selectTooltipAxisTicks } from "../state/selectors/tooltipSelectors"
 import { selectSynchronisedTooltipState } from "./syncSelectors"
 import { selectChartLayout, useViewBox } from "../context/chartLayoutContext"
 import { useIsPanorama } from "../context/PanoramaContext"
@@ -50,17 +50,27 @@ function useTooltipSyncEventsListener() {
 		}
 	}
 
-	createEffect(() => {
-		const mySyncId = selectSyncId(store)
-		const myEventEmitter = selectEventEmitter(store)
-		const syncMethod = selectSyncMethod(store)
-		const tooltipTicks = selectTooltipAxisTicks(store)
-		const layout = selectChartLayout(store)
-
-		if (mySyncId == null) {
+	createEffect(
+		() => {
+			const mySyncId = selectSyncId(store)
+			/* Unsynchronised charts must not track the tooltip ticks (every data point). */
+			if (mySyncId == null) {
+				return null
+			}
+			return {
+				layout: selectChartLayout(store),
+				myEventEmitter: selectEventEmitter(store),
+				mySyncId,
+				syncMethod: selectSyncMethod(store),
+				tooltipTicks: selectTooltipAxisTicks(store),
+			}
+		},
+		(sync) => {
+		if (sync == null) {
 			/* This chart is not synchronised with any other chart so we don't need to listen for any events. */
-			return
+			return undefined
 		}
+		const { layout, myEventEmitter, mySyncId, syncMethod, tooltipTicks } = sync
 
 		const listener = (
 			incomingSyncId: number | string,
@@ -75,6 +85,26 @@ function useTooltipSyncEventsListener() {
 				/* This event is not for this chart */
 				return
 			}
+
+			/*
+			 * Handle source chart deactivation (mouseLeave) for ALL sync methods.
+			 * This must be checked before any syncMethod-specific logic to ensure
+			 * sourceViewBox is cleared, which allows isReceivingSynchronisation
+			 * to become false and lets the normal emission flow resume.
+			 */
+			if (incomingState.active === false) {
+				setStore("tooltip", "syncInteraction", {
+					active: false,
+					coordinate: undefined,
+					dataKey: undefined,
+					graphicalItemId: undefined,
+					index: null,
+					label: undefined,
+					sourceViewBox: undefined,
+				})
+				return
+			}
+
 			if (syncMethod === "index") {
 				const vb = viewBox()
 				if (vb && incomingState?.coordinate && incomingState.sourceViewBox) {
@@ -130,13 +160,8 @@ function useTooltipSyncEventsListener() {
 			const { coordinate } = incomingState
 
 			const vbSync = viewBox()
-			if (
-				activeTick == null ||
-				incomingState.active === false ||
-				coordinate == null ||
-				vbSync == null
-			) {
-				const deactivatePayload = {
+			if (coordinate == null || vbSync == null) {
+				setStore("tooltip", "syncInteraction", {
 					active: false,
 					coordinate: undefined,
 					dataKey: undefined,
@@ -144,8 +169,32 @@ function useTooltipSyncEventsListener() {
 					index: null,
 					label: undefined,
 					sourceViewBox: undefined,
-				}
-				setStore("tooltip", "syncInteraction", deactivatePayload)
+				})
+				return
+			}
+
+			if (activeTick == null) {
+				/*
+				 * The label from the source chart doesn't match any tick in this chart.
+				 * This happens when synced charts have different data arrays
+				 * (e.g., one chart has 3 data points while another has 252).
+				 *
+				 * We set active: false so the tooltip hides (correct — no data for this date),
+				 * but we keep sourceViewBox set to signal that we're still receiving sync events.
+				 * The emission guard in useTooltipChartSynchronisation checks sourceViewBox
+				 * (not active) to decide whether to suppress outgoing sync events.
+				 * Without this, the chart would emit a counter-sync event with active: false,
+				 * cascading to clear tooltips on ALL other synced charts.
+				 */
+				setStore("tooltip", "syncInteraction", {
+					active: false,
+					coordinate: undefined,
+					dataKey: undefined,
+					graphicalItemId: undefined,
+					index: null,
+					label: undefined,
+					sourceViewBox: incomingState.sourceViewBox,
+				})
 				return
 			}
 
@@ -168,12 +217,15 @@ function useTooltipSyncEventsListener() {
 			}
 			setStore("tooltip", "syncInteraction", activePayload)
 		}
-		eventCenter.on(TOOLTIP_SYNC_EVENT, listener)
+		/* Listeners fire inside another chart's effect; they read this chart's current state. */
+		const untrackedListener: typeof listener = (...args) => untrack(() => listener(...args))
+		eventCenter.on(TOOLTIP_SYNC_EVENT, untrackedListener)
 
-		onCleanup(() => {
-			eventCenter.off(TOOLTIP_SYNC_EVENT, listener)
-		})
-	})
+		return () => {
+			eventCenter.off(TOOLTIP_SYNC_EVENT, untrackedListener)
+		}
+		},
+	)
 }
 
 function useBrushSyncEventsListener() {
@@ -183,13 +235,12 @@ function useBrushSyncEventsListener() {
 	}
 	const { store, setStore } = ctx
 
-	createEffect(() => {
-		const mySyncId = selectSyncId(store)
-		const myEventEmitter = selectEventEmitter(store)
-
+	createEffect(
+		() => ({ myEventEmitter: selectEventEmitter(store), mySyncId: selectSyncId(store) }),
+		({ myEventEmitter, mySyncId }) => {
 		if (mySyncId == null) {
 			/* This chart is not synchronised with any other chart so we don't need to listen for any events. */
-			return
+			return undefined
 		}
 
 		const listener = (
@@ -206,12 +257,15 @@ function useBrushSyncEventsListener() {
 				setStore("chartData", "dataEndIndex", action.endIndex)
 			}
 		}
-		eventCenter.on(BRUSH_SYNC_EVENT, listener)
+		/* Listeners fire inside another chart's effect; they read this chart's current state. */
+		const untrackedListener: typeof listener = (...args) => untrack(() => listener(...args))
+		eventCenter.on(BRUSH_SYNC_EVENT, untrackedListener)
 
-		onCleanup(() => {
-			eventCenter.off(BRUSH_SYNC_EVENT, listener)
-		})
-	})
+		return () => {
+			eventCenter.off(BRUSH_SYNC_EVENT, untrackedListener)
+		}
+		},
+	)
 }
 
 /**
@@ -228,11 +282,14 @@ export function useSynchronisedEventsFromOtherCharts() {
 	}
 	const { store, setStore } = ctx
 
-	createEffect(() => {
-		if (store.options.eventEmitter == null) {
-			setStore("options", "eventEmitter", Symbol("rechartsEventEmitter"))
-		}
-	})
+	createEffect(
+		() => store.options.eventEmitter,
+		(eventEmitter) => {
+			if (eventEmitter == null) {
+				setStore("options", "eventEmitter", Symbol("rechartsEventEmitter"))
+			}
+		},
+	)
 
 	useTooltipSyncEventsListener()
 	useBrushSyncEventsListener()
@@ -268,38 +325,49 @@ export function useTooltipChartSynchronisation(
 		return
 	}
 	const { store } = ctx
-	const viewBox = () => useViewBox()
+	const viewBox = createMemo(() => useViewBox())
 
-	createEffect(() => {
-		const activeDataKey = selectTooltipDataKey(store, tooltipEventType(), trigger())
-		const eventEmitterSymbol = selectEventEmitter(store)
-		const syncId = selectSyncId(store)
-		const tooltipState = selectSynchronisedTooltipState(store)
-		const isReceivingSynchronisation = tooltipState?.active
+	createEffect(
+		() => {
+			const syncId = selectSyncId(store)
+			if (syncId == null) {
+				return null
+			}
+			const activeDataKey = selectTooltipDataKey(store, tooltipEventType(), trigger())
+			const eventEmitterSymbol = selectEventEmitter(store)
+			const tooltipState = selectSynchronisedTooltipState(store)
+			/*
+			 * Use sourceViewBox (not active) to detect incoming synchronisation. It is set whenever
+			 * another chart sends us a sync event, even when our own tooltip stays inactive, so charts
+			 * with sparse data do not emit counter-sync events that clear the other tooltips.
+			 */
+			const isReceivingSynchronisation = tooltipState?.sourceViewBox != null
 
-		if (isReceivingSynchronisation) {
-			/* Already receiving sync — emitting back would loop. */
-			return
-		}
-		if (syncId == null) {
-			return
-		}
-		if (eventEmitterSymbol == null) {
-			return
-		}
-		const labelValue = activeLabel()
-		const idxValue = activeIndex()
-		const syncState: TooltipSyncState = {
-			active: isTooltipActive(),
-			coordinate: activeCoordinate(),
-			dataKey: activeDataKey,
-			graphicalItemId: undefined,
-			index: idxValue ?? null,
-			label: typeof labelValue === "number" ? String(labelValue) : labelValue,
-			sourceViewBox: viewBox(),
-		}
-		eventCenter.emit(TOOLTIP_SYNC_EVENT, syncId, syncState, eventEmitterSymbol)
-	})
+			if (isReceivingSynchronisation) {
+				return null
+			}
+			if (eventEmitterSymbol == null) {
+				return null
+			}
+			const labelValue = activeLabel()
+			const idxValue = activeIndex()
+			const syncState: TooltipSyncState = {
+				active: isTooltipActive(),
+				coordinate: activeCoordinate(),
+				dataKey: activeDataKey,
+				graphicalItemId: selectActiveTooltipGraphicalItemId(store),
+				index: idxValue ?? null,
+				label: typeof labelValue === "number" ? String(labelValue) : labelValue,
+				sourceViewBox: viewBox(),
+			}
+			return { eventEmitterSymbol, syncId, syncState }
+		},
+		(sync) => {
+			if (sync != null) {
+				eventCenter.emit(TOOLTIP_SYNC_EVENT, sync.syncId, sync.syncState, sync.eventEmitterSymbol)
+			}
+		},
+	)
 }
 
 export function useBrushChartSynchronisation() {
@@ -309,21 +377,28 @@ export function useBrushChartSynchronisation() {
 	}
 	const { store } = ctx
 
-	createEffect(() => {
-		const syncId = selectSyncId(store)
-		const eventEmitterSymbol = selectEventEmitter(store)
-		const brushStartIndex = store.chartData.dataStartIndex
-		const brushEndIndex = store.chartData.dataEndIndex
+	createEffect(
+		() => {
+			const syncId = selectSyncId(store)
+			const eventEmitterSymbol = selectEventEmitter(store)
+			const brushStartIndex = store.chartData.dataStartIndex
+			const brushEndIndex = store.chartData.dataEndIndex
 
-		if (
-			syncId == null ||
-			brushStartIndex == null ||
-			brushEndIndex == null ||
-			eventEmitterSymbol == null
-		) {
-			return
-		}
-		const syncAction: BrushStartEndIndex = { endIndex: brushEndIndex, startIndex: brushStartIndex }
-		eventCenter.emit(BRUSH_SYNC_EVENT, syncId, syncAction, eventEmitterSymbol)
-	})
+			if (
+				syncId == null ||
+				brushStartIndex == null ||
+				brushEndIndex == null ||
+				eventEmitterSymbol == null
+			) {
+				return null
+			}
+			const syncAction: BrushStartEndIndex = { endIndex: brushEndIndex, startIndex: brushStartIndex }
+			return { eventEmitterSymbol, syncAction, syncId }
+		},
+		(sync) => {
+			if (sync != null) {
+				eventCenter.emit(BRUSH_SYNC_EVENT, sync.syncId, sync.syncAction, sync.eventEmitterSymbol)
+			}
+		},
+	)
 }

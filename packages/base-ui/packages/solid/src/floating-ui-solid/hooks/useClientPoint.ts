@@ -1,10 +1,11 @@
 /* eslint-disable typescript/no-explicit-any -- empty virtual reference placeholder cast */
 import { getWindow } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, createSignal, on, onCleanup } from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import type { ContextData, ElementProps, FloatingContext, FloatingRootContext } from '../types';
 import { contains, getTarget, isMouseLikePointerType } from '../utils';
+import { on } from '../../solid-1-compat';
 
 function createVirtualElement(
   domElement: Element | null | undefined,
@@ -178,8 +179,7 @@ export function useClientPoint(parameters: {
     }
   }
 
-  createEffect(
-    on([open, floating, () => props.enabled], () => {
+  createEffect(...on([open, floating, () => props.enabled], () => {
       if (!openCheck() || !props.enabled) {
         return;
       }
@@ -193,21 +193,20 @@ export function useClientPoint(parameters: {
           cleanupListenerRef = null;
         };
         cleanupListenerRef = addEventListener(win, 'mousemove', handleMouseMove);
-        onCleanup(cleanup);
-        return;
+        return cleanup;
       }
 
       store().set('positionReference', domReference());
     }),
   );
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (props.enabled && !floating()) {
       initialRef = false;
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!props.enabled && open()) {
       initialRef = true;
     }

@@ -1,4 +1,5 @@
-import { batch, createEffect, on, type JSX } from 'solid-js';
+import { createEffect } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useField } from '../../field/useField';
 import { fieldValidityMapping } from '../../field/utils/constants';
@@ -30,6 +31,7 @@ import {
   PERSIAN_DETECT_RE,
 } from '../utils/parse';
 import { stateAttributesMapping as numberFieldStateAttributesMapping } from '../utils/stateAttributesMapping';
+import { on } from '../../solid-1-compat';
 
 const stateAttributesMapping = {
   ...fieldValidityMapping,
@@ -100,8 +102,7 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
     value,
   });
 
-  createEffect(
-    on(
+  createEffect(...on(
       value,
       (val, previousValue) => {
         const validateOnChange = shouldValidateOnChange();
@@ -142,17 +143,17 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
     get disabled() {
       return disabled();
     },
-    get readOnly() {
+    get readonly() {
       return readOnly();
     },
-    get inputMode() {
+    get inputmode() {
       return inputMode();
     },
     get value() {
       return inputValue();
     },
     get 'aria-invalid'() {
-      return invalid() || undefined;
+      return invalid() ? 'true' : undefined;
     },
     get 'aria-labelledby'() {
       return labelId();
@@ -439,11 +440,11 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
       const parsedValue = parseNumber(pastedData, locale(), formatOptionsRef.current);
 
       if (parsedValue !== null) {
-        batch(() => {
+        {
           allowInputSyncRef.current = false;
           setValue(parsedValue, createChangeEventDetails(REASONS.inputPaste, event));
           setInputValue(pastedData);
-        });
+        };
       }
     },
   };

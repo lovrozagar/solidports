@@ -1,4 +1,5 @@
-import { createSignal, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -20,7 +21,7 @@ export default function ExampleAsyncAutocomplete() {
         <>
           <span
             class="inline-block size-3 animate-spin rounded-full border border-current border-r-transparent rtl:border-r-current rtl:border-l-transparent"
-            aria-hidden
+            aria-hidden="true"
           />
           Searching…
         </>
@@ -103,7 +104,6 @@ export default function ExampleAsyncAutocomplete() {
               <Autocomplete.List>
                 {(movie: Movie) => (
                   <Autocomplete.Item
-                    key={movie.id}
                     class="group flex cursor-default py-2 pr-2 pl-2 text-sm leading-4 outline-hidden select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-0 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                     value={movie}
                   >

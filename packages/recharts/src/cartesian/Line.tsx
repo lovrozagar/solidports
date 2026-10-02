@@ -1,17 +1,12 @@
 /* eslint-disable import/no-cycle */
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	mergeProps,
-	Show,
-	splitProps,
-	type JSX,
-} from "solid-js"
+import type { Formatter } from "../component/DefaultTooltipContent"
+import { createMemo, createSignal, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import type { CurveType, Props as CurveProps } from "../shape/Curve"
 import { Layer } from "../container/Layer"
 import {
+	LabelListContextBridge,
 	CartesianLabelListContextProvider,
 	type CartesianLabelListEntry,
 	type ImplicitLabelListType,
@@ -53,13 +48,19 @@ import { useOptionalChartState } from "../state/useChartState"
 import type { AxisId } from "../state/cartesianAxisSlice"
 import { SetLegendPayload } from "../state/SetLegendPayload"
 import { useAnimationId } from "../util/useAnimationId"
+import { useAnimatedLineLength } from "./useAnimatedLineLength"
+import { LineDrawShape } from "./LineDrawShape"
+import type { LineDrawShapeProps } from "./LineDrawShape"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { usePlotArea } from "../hooks"
 import type { WithIdRequired } from "../util/useUniqueId"
 import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import { SetCartesianGraphicalItem } from "../state/SetGraphicalItem"
 import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
-import { JavascriptAnimate } from "../animation/JavascriptAnimate"
+import { AnimatedItems, useAnimationCallbacks } from "../animation/AnimatedItems"
+import type { AnimationInterpolateFn } from "../animation/AnimatedItems"
+import { matchByIndex } from "../animation/matchBy"
+import type { AnimationItem, AnimationMatchByProp } from "../animation/matchBy"
 import { svgPropertiesAndEvents } from "../util/svgPropertiesAndEvents"
 import { getRadiusAndStrokeWidthFromDot } from "../util/getRadiusAndStrokeWidthFromDot"
 import { Shape } from "../util/ActiveShapeUtils"
@@ -69,6 +70,7 @@ import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 import type { GraphicalItemId } from "../state/graphicalItemsSlice"
 import type { ChartData } from "../state/chartDataSlice"
 
+import { mergeProps, splitProps } from '../util/solid-1-compat';
 export interface LinePointItem {
 	readonly value: number
 	readonly payload?: unknown
@@ -89,6 +91,8 @@ interface InternalLineProps extends ZIndexable {
 	animationBegin: number
 	animationDuration: AnimationDuration
 	animationEasing: AnimationTiming
+	animationInterpolateFn: AnimationInterpolateFn<LinePointItem, CartesianLayout>
+	animationMatchBy: AnimationMatchByProp<LinePointItem>
 
 	className?: string
 	connectNulls: boolean
@@ -103,7 +107,7 @@ interface InternalLineProps extends ZIndexable {
 	layout: "horizontal" | "vertical"
 	left: number
 	legendType: LegendType
-	shape?: ActiveShape<CurveProps, SVGPathElement>
+	shape: ActiveShape<LineDrawShapeProps, SVGPathElement>
 
 	name?: string | number
 	needClip?: boolean
@@ -113,6 +117,7 @@ interface InternalLineProps extends ZIndexable {
 
 	points: ReadonlyArray<LinePointItem>
 	tooltipType?: TooltipType
+	formatter?: Formatter
 	top: number
 	type?: CurveType
 	unit?: string | number | null
@@ -140,6 +145,25 @@ interface LineProps<DataPointType = unknown, DataValueType = unknown>
 	animationDuration?: AnimationDuration
 	/** @defaultValue ease */
 	animationEasing?: AnimationTiming
+	/**
+	 * Custom animation function for interpolating data items.
+	 * When provided, this replaces the default animation interpolation.
+	 *
+	 * @since 3.9
+	 * @see {@link https://recharts.github.io/en-US/guide/animations/ Animations guide}
+	 */
+	animationInterpolateFn?: AnimationInterpolateFn<LinePointItem, CartesianLayout>
+	/**
+	 * Strategy for matching previous items to next items during animation.
+	 *
+	 * - `matchByIndex` (default): match by array position with proportional stretching
+	 * - `matchAppend`: match sequentially by index and treat newly appended items as new
+	 * - `matchByDataKey('someKey')`: match by a data key from the payload
+	 * - Custom function `(item, index) => key`: match by the returned key
+	 *
+	 * @defaultValue index
+	 */
+	animationMatchBy?: AnimationMatchByProp<LinePointItem>
 	className?: string
 	/** @defaultValue false */
 	connectNulls?: boolean
@@ -154,11 +178,22 @@ interface LineProps<DataPointType = unknown, DataValueType = unknown>
 	label?: ImplicitLabelListType
 	/** @defaultValue line */
 	legendType?: LegendType
-	shape?: ActiveShape<CurveProps, SVGPathElement>
+	/**
+	 * The shape of the line. Defaults to `LineDrawShape`, which reveals the path via
+	 * stroke-dasharray during the entrance animation.
+	 * During animations, a function shape also receives `animationElapsedTime`,
+	 * `isAnimating`, `isEntrance`, and `visibleLength`.
+	 */
+	shape?: ActiveShape<LineDrawShapeProps, SVGPathElement>
 	name?: string | number
 	onAnimationEnd?: () => void
 	onAnimationStart?: () => void
 	tooltipType?: TooltipType
+	/**
+	 * Formats the value displayed in the tooltip for this Line.
+	 * When set, takes precedence over the `formatter` prop on the Tooltip component.
+	 */
+	formatter?: Formatter
 	/** @defaultValue linear */
 	type?: CurveType
 	unit?: string | number | null
@@ -183,7 +218,8 @@ type LineSvgProps = Omit<CurveProps, "points" | "pathRef" | "ref" | "layout" | "
 
 type InternalProps = LineSvgProps & InternalLineProps
 
-export type Props = LineSvgProps & LineProps
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped items accept any data */
+export type Props<DataPointType = any, DataValueType = any> = LineSvgProps & LineProps<DataPointType, DataValueType>
 
 /* eslint-disable solid/reactivity -- plain utility fn; Props parameter is not a Solid reactive proxy at this call site */
 const computeLegendPayloadFromAreaData = (props: Props): ReadonlyArray<LegendPayload> => {
@@ -212,6 +248,7 @@ function SetLineTooltipEntrySettings(
 		| "hide"
 		| "unit"
 		| "tooltipType"
+		| "formatter"
 		| "id"
 	>,
 ) {
@@ -224,6 +261,7 @@ function SetLineTooltipEntrySettings(
 			color: props.stroke,
 			dataKey: props.dataKey,
 			fill: props.fill,
+			formatter: props.formatter,
 			graphicalItemId: props.id,
 			hide: props.hide,
 			name: getTooltipNameProp(props.name, props.dataKey),
@@ -237,46 +275,12 @@ function SetLineTooltipEntrySettings(
 	return <SetTooltipEntrySettings tooltipEntrySettings={tooltipEntrySettings()} />
 }
 
-const generateSimpleStrokeDasharray = (totalLength: number, length: number): string => {
-	return `${length}px ${totalLength - length}px`
-}
-
-function repeat(lines: number[], count: number) {
-	const linesUnit = lines.length % 2 !== 0 ? [...lines, 0] : lines
-	let result: number[] = []
-
-	for (let i = 0; i < count; ++i) {
-		result.push(...linesUnit)
+function getTotalLength(mainCurve: SVGPathElement | null): number {
+	try {
+		return (mainCurve && mainCurve.getTotalLength && mainCurve.getTotalLength()) || 0
+	} catch {
+		return 0
 	}
-
-	return result
-}
-
-const getStrokeDasharray = (length: number, totalLength: number, lines: number[]) => {
-	const lineLength = lines.reduce((pre, next) => pre + next)
-
-	if (!lineLength) {
-		return generateSimpleStrokeDasharray(totalLength, length)
-	}
-
-	const count = Math.floor(length / lineLength)
-	const remainLength = length % lineLength
-	const restLength = totalLength - length
-
-	let remainLines: number[] = []
-	for (let i = 0, sum = 0; i < lines.length; sum += lines[i] ?? 0, ++i) {
-		const lineValue = lines[i]
-		if (lineValue != null && sum + lineValue > remainLength) {
-			remainLines = [...lines.slice(0, i), remainLength - sum]
-			break
-		}
-	}
-
-	const emptyLines = remainLines.length % 2 === 0 ? [0, restLength] : [restLength]
-
-	return [...repeat(lines, count), ...remainLines, ...emptyLines]
-		.map((line) => `${line}px`)
-		.join(", ")
 }
 
 function LineDotsWrapper(props: {
@@ -342,16 +346,27 @@ function StaticCurve(props: {
 	pathRef: { current: SVGPathElement | null } | undefined
 	points: ReadonlyArray<LinePointItem>
 	allProps: InternalProps
-	strokeDasharray?: string
+	animationElapsedTime?: number
+	isAnimating?: boolean
+	isEntrance?: boolean
+	visibleLength?: number | null
 }) {
 	/* GOTCHA-014: spreads + reactive attrs go through mergeProps lazy memos. If the first
 	   property read happens inside an event handler (no owner), Solid warns. Hoist
 	   derived attrs into setup-scope createMemos so the memo's owner is the component. */
-	const eventProps = createMemo(() => svgPropertiesAndEvents(props.allProps))
+	/* eslint-disable-next-line solid/reactivity -- splitProps keeps lazy getters; reads happen in the memo below */
+	const [, others] = splitProps(props.allProps, [
+		"type",
+		"layout",
+		"connectNulls",
+		"needClip",
+		"shape",
+		"strokeDasharray",
+	])
+	const eventProps = createMemo(() => svgPropertiesAndEvents(others))
 	const clipPath = createMemo(() =>
 		props.allProps.needClip ? `url(#clipPath-${props.clipPathId})` : undefined,
 	)
-	const dasharray = createMemo(() => props.strokeDasharray ?? props.allProps.strokeDasharray)
 
 	return (
 		<>
@@ -360,15 +375,20 @@ function StaticCurve(props: {
 					{...eventProps()}
 					shapeType="curve"
 					option={props.allProps.shape}
+					DefaultShape={LineDrawShape}
 					class="recharts-line-curve"
 					clip-path={clipPath()}
 					connectNulls={props.allProps.connectNulls}
 					fill="none"
 					layout={props.allProps.layout}
 					points={props.points}
-					strokeDasharray={dasharray()}
+					strokeDasharray={props.allProps.strokeDasharray}
 					type={props.allProps.type}
 					pathRef={props.pathRef}
+					animationElapsedTime={props.animationElapsedTime}
+					isAnimating={props.isAnimating}
+					isEntrance={props.allProps.animateNewValues ? props.isEntrance : false}
+					visibleLength={props.visibleLength}
 				/>
 			</Show>
 			<LineDotsWrapper
@@ -380,12 +400,66 @@ function StaticCurve(props: {
 	)
 }
 
-function getTotalLength(mainCurve: SVGPathElement | null | undefined): number {
-	try {
-		return (mainCurve && mainCurve.getTotalLength && mainCurve.getTotalLength()) || 0
-	} catch {
-		return 0
+function averageShift(items: ReadonlyArray<AnimationItem<LinePointItem>>): number {
+	let total = 0
+	let count = 0
+	for (const item of items) {
+		if (item.status === "matched" && item.prev.x != null && item.next.x != null) {
+			total += item.next.x - item.prev.x
+			count++
+		}
 	}
+	return count > 0 ? total / count : 0
+}
+
+const defaultLineAnimateItems: AnimationInterpolateFn<LinePointItem, CartesianLayout> = (
+	items,
+	animationElapsedTime,
+) => {
+	if (items == null) {
+		// First render: return empty, stroke-dasharray handles the reveal
+		return []
+	}
+	// At animationElapsedTime=1 return only the non-removed items
+	if (animationElapsedTime === 1) return items.flatMap((item) => (item.status === "removed" ? [] : [item.next]))
+
+	const shift = averageShift(items)
+
+	const result: LinePointItem[] = []
+
+	for (const item of items) {
+		if (item.status === "matched") {
+			result.push({
+				...item.next,
+				x: interpolate(item.prev.x, item.next.x, animationElapsedTime),
+				y: interpolate(item.prev.y, item.next.y, animationElapsedTime),
+			})
+		} else if (item.status === "added") {
+			if (item.next.x != null) {
+				// Extrapolate entry position: the point starts where it "would have been"
+				const entryX = item.next.x - shift
+				result.push({
+					...item.next,
+					x: interpolate(entryX, item.next.x, animationElapsedTime),
+					y: item.next.y,
+				})
+			} else {
+				result.push(item.next)
+			}
+		} else if (item.status === "removed") {
+			if (item.prev.x != null) {
+				const exitX = item.prev.x + shift
+				result.push({
+					...item.prev,
+					x: interpolate(item.prev.x, exitX, animationElapsedTime),
+					y: item.prev.y,
+				})
+			}
+			// else: removed items are simply dropped
+		}
+	}
+
+	return result
 }
 
 function CurveWithAnimation(props: {
@@ -396,163 +470,74 @@ function CurveWithAnimation(props: {
 	/* GOTCHA-014-J: ref-object shape `{ current }` matches upstream React `useRef`.
 	   Tests assert `pathRef: { current: <SVGPathElement> }` on the props payload
 	   passed to user click/mouse handlers. Curve's `<path>` writes via callback
-	   into `pathRef.current`. Animation closures read `pathRef.current` on every
-	   tick so getTotalLength sees the live mounted node. */
-	const pathRef: { current: SVGPathElement | null } = { current: null }
-	let longestAnimatedLength = 0
-	let startingPoint = 0
-	let lastAnimationId = ""
-
-	const animationId = useAnimationId(() => props.allProps.points, "recharts-line-")
-
-	/* GOTCHA-014-G: snapshot prevPoints + diff factor at the moment animationId
-	   flips. Upstream React re-runs setup on every parent render, freshly reading
-	   the ref. Solid setup runs once, so we key the snapshot on animationId — the
-	   memo re-evaluates exactly when a new animation starts, mirroring React's
-	   per-render ref read. */
-	const animationContext = createMemo(() => {
-		animationId()
-		const prevPoints = props.previousPointsRef.current
-		return {
-			prevPoints,
-			prevPointsDiffFactor: prevPoints
-				? prevPoints.length / props.allProps.points.length
-				: 1,
-		}
-	})
-
-	const [isAnimating, setIsAnimating] = createSignal(false)
-	const showLabels = () => !isAnimating()
-
-	const handleAnimationEnd = () => {
-		if (typeof props.allProps.onAnimationEnd === "function") {
-			props.allProps.onAnimationEnd()
-		}
-		setIsAnimating(false)
+	   into `pathRef.current`. */
+	/* Signal-backed so the dasharray memos re-run once the <path> ref attaches; React
+	   gets the same re-measure from the re-render after onAnimationStart. */
+	const [pathElement, setPathElement] = createSignal<SVGPathElement | null>(null, { ownedWrite: true })
+	const pathRef: { current: SVGPathElement | null } = {
+		get current() {
+			return pathElement()
+		},
+		set current(element: SVGPathElement | null) {
+			setPathElement(() => element)
+		},
 	}
 
-	const handleAnimationStart = () => {
-		if (typeof props.allProps.onAnimationStart === "function") {
-			props.allProps.onAnimationStart()
-		}
-		setIsAnimating(true)
-	}
+	const { isAnimating, handleAnimationStart, handleAnimationEnd } = useAnimationCallbacks(
+		() => props.allProps.onAnimationStart,
+		() => props.allProps.onAnimationEnd,
+	)
+	/* Same content-compared identity AnimatedItems uses for its animation id. */
+	const lengthAnimationId = useAnimationId(() => props.allProps.points, "recharts-line-length-")
+	const getVisibleLength = useAnimatedLineLength(lengthAnimationId)
+
+	// Guard for totalLength: don't update previousPointsRef before SVG path is measured
+	const shouldUpdatePreviousRef = (animationElapsedTime: number) =>
+		animationElapsedTime > 0 && getTotalLength(pathRef.current) > 0
 
 	return (
-		<LineLabelListProvider points={props.allProps.points} showLabels={showLabels()}>
+		<LineLabelListProvider points={props.allProps.points} showLabels={!isAnimating()}>
 			{/* GOTCHA-017: user JSX (ErrorBar) memoized via children() helper inside
 			   SetErrorBarContext.Provider scope so createComponent(ErrorBar) captures
 			   live ctx Accessor, not initial-default. Single read site. */}
 			<GraphicalItemChildrenScope>{props.allProps.children}</GraphicalItemChildrenScope>
-			<JavascriptAnimate
-				animationId={animationId()}
-				begin={props.allProps.animationBegin}
-				duration={props.allProps.animationDuration}
-				isActive={props.allProps.isAnimationActive}
-				easing={props.allProps.animationEasing}
-				onAnimationEnd={handleAnimationEnd}
+			<AnimatedItems
+				animationInput={props.allProps.points}
+				animationIdPrefix="recharts-line-"
+				items={props.allProps.points}
+				previousItemsRef={props.previousPointsRef}
+				isAnimationActive={props.allProps.isAnimationActive}
+				animationBegin={props.allProps.animationBegin}
+				animationDuration={props.allProps.animationDuration}
+				animationEasing={props.allProps.animationEasing}
 				onAnimationStart={handleAnimationStart}
+				onAnimationEnd={handleAnimationEnd}
+				animationInterpolateFn={props.allProps.animationInterpolateFn}
+				animationMatchBy={props.allProps.animationMatchBy}
+				shouldUpdatePreviousRef={shouldUpdatePreviousRef}
+				layout={props.allProps.layout}
 			>
-				{(t: () => number) => {
-					/* GOTCHA-014: children fn invoked once; reactive derivations live in
-					   memos so StaticCurve's path stays mounted with attribute-only updates
-					   per tick. Tests holding captured `path` refs see live attrs. */
-					/* perf: cache totalLength per animationId — getTotalLength forces SVG
-					   layout flush, so calling it every rAF tick produced 2.5ms+ avg work
-					   per frame (vs 0.005ms in React, which captures totalLength once per
-					   render). Re-read only when animationId changes (data swap). */
-					let cachedTotalLength = 0
-					let cachedForAnimationId = ""
-					const getTotalLengthCached = (): number => {
-						const id = animationId()
-						if (cachedForAnimationId === id && cachedTotalLength > 0) {
-							return cachedTotalLength
-						}
-						const len = getTotalLength(pathRef.current)
-						if (len > 0) {
-							cachedTotalLength = len
-							cachedForAnimationId = id
-						}
-						return len
-					}
-					const dasharrayMemo = createMemo(() => {
-						const tValue = t()
-						const totalLength = getTotalLengthCached()
-						if (lastAnimationId !== animationId()) {
-							startingPoint = longestAnimatedLength
-							lastAnimationId = animationId()
-						}
-						const lengthInterpolated = interpolate(
-							startingPoint,
-							totalLength + startingPoint,
-							tValue,
-						)
-						const curLength = Math.min(lengthInterpolated, totalLength)
-						let currentStrokeDasharray: string | undefined
-						if (props.allProps.isAnimationActive) {
-							if (props.allProps.strokeDasharray) {
-								const lines = `${props.allProps.strokeDasharray}`
-									.split(/[,\s]+/gim)
-									.map((num) => parseFloat(num))
-								currentStrokeDasharray = getStrokeDasharray(curLength, totalLength, lines)
-							} else {
-								currentStrokeDasharray = generateSimpleStrokeDasharray(totalLength, curLength)
-							}
-						} else {
-							currentStrokeDasharray =
-								props.allProps.strokeDasharray == null
-									? undefined
-									: String(props.allProps.strokeDasharray)
-						}
-						if (tValue > 0 && totalLength > 0) {
-							longestAnimatedLength = Math.max(longestAnimatedLength, curLength)
-						}
-						return currentStrokeDasharray
-					})
-					const stepDataMemo = createMemo(() => {
-						const ctx = animationContext()
-						const tValue = t()
-						if (ctx.prevPoints) {
-							return tValue === 1
-								? props.allProps.points
-								: props.allProps.points.map((entry, index): LinePointItem => {
-										const prevPointIndex = Math.floor(index * ctx.prevPointsDiffFactor)
-										const prev = ctx.prevPoints?.[prevPointIndex]
-										if (prev) {
-											return {
-												...entry,
-												x: interpolate(prev.x, entry.x, tValue),
-												y: interpolate(prev.y, entry.y, tValue),
-											}
-										}
-										if (props.allProps.animateNewValues) {
-											return {
-												...entry,
-												x: interpolate(props.allProps.width * 2, entry.x, tValue),
-												y: interpolate(props.allProps.height / 2, entry.y, tValue),
-											}
-										}
-										return { ...entry, x: entry.x, y: entry.y }
-									})
-						}
-						return props.allProps.points
-					})
-					createEffect(() => {
-						if (t() > 0 && getTotalLengthCached() > 0) {
-							props.previousPointsRef.current = stepDataMemo()
-						}
-					})
+				{(stepData, animationElapsedTime, isEntrance) => {
+					const animationActive = () => isAnimating() || animationElapsedTime() < 1
+					const visibleLength = createMemo(() =>
+						animationActive()
+							? getVisibleLength(animationElapsedTime(), getTotalLength(pathRef.current))
+							: null,
+					)
 					return (
 						<StaticCurve
 							allProps={props.allProps}
-							points={stepDataMemo()}
+							points={stepData()}
 							clipPathId={props.clipPathId}
 							pathRef={pathRef}
-							strokeDasharray={dasharrayMemo()}
+							animationElapsedTime={animationElapsedTime()}
+							isAnimating={animationActive()}
+							isEntrance={isEntrance()}
+							visibleLength={visibleLength()}
 						/>
 					)
 				}}
-			</JavascriptAnimate>
+			</AnimatedItems>
 			<LabelListFromLabelProp label={props.allProps.label} />
 		</LineLabelListProvider>
 	)
@@ -640,6 +625,8 @@ export const defaultLineProps = {
 	animationBegin: 0,
 	animationDuration: 1500,
 	animationEasing: "ease",
+	animationInterpolateFn: defaultLineAnimateItems,
+	animationMatchBy: matchByIndex,
 	connectNulls: false,
 	dot: true,
 	fill: "#fff",
@@ -647,6 +634,7 @@ export const defaultLineProps = {
 	isAnimationActive: "auto",
 	label: false,
 	legendType: "line",
+	shape: LineDrawShape,
 	stroke: "#3182bd",
 	strokeWidth: 1,
 	type: "linear",
@@ -658,11 +646,11 @@ export const defaultLineProps = {
 function LineImpl(props: WithIdRequired<Props>) {
 	const resolved = resolveDefaultProps(props, defaultLineProps)
 
-	const needClipResult = () => useNeedsClip(resolved.xAxisId, resolved.yAxisId)
+	const needClipResult = createMemo(() => useNeedsClip(resolved.xAxisId, resolved.yAxisId))
 	/* arrow thunks: bare hooks, but callsites repeatedly read inside Show predicate
 	   and render-fn — thunk preserves callsite shape and reactivity. See GOTCHA-011. */
-	const plotArea = () => usePlotArea()
-	const layout = () => useChartLayout()
+	const plotArea = createMemo(() => usePlotArea())
+	const layout = createMemo(() => useChartLayout())
 	const isPanorama = useIsPanorama()
 	const ctx = useChartStore()
 	const stateCtx = useOptionalChartState()
@@ -810,7 +798,7 @@ export function computeLinePoints({
  * @provides ErrorBarContext
  * @consumes CartesianChartContext
  */
-export function Line(outsideProps: Props) {
+function LineFn(outsideProps: Props) {
 	/* GOTCHA-013 + GOTCHA-014: split children, then mergeProps for the defaults
 	   layer. resolveDefaultProps `{...realProps}` snapshots the props proxy at
 	   first render — animationEasing, isAnimationActive and every other prop
@@ -845,6 +833,7 @@ export function Line(outsideProps: Props) {
 							hide={props.hide}
 							unit={props.unit}
 							tooltipType={props.tooltipType}
+							formatter={props.formatter}
 							id={id}
 						/>
 						<SetCartesianGraphicalItem
@@ -865,16 +854,18 @@ export function Line(outsideProps: Props) {
 							dataPointFormatter={errorBarDataPointFormatter}
 							errorBarOffset={0}
 						>
-							{(() => {
-								/* GOTCHA-017 (session 34): memoize children INSIDE SetErrorBarContext
-								   so ErrorBar JSX createComponent captures the live Provider. */
-								const memoizedChildren = createMemo(() => childrenProps.children)
-								return (
-									<LineImpl {...props} id={id}>
-										{memoizedChildren()}
-									</LineImpl>
-								)
-							})()}
+							<LabelListContextBridge>
+								{(() => {
+									/* GOTCHA-017 (session 34): memoize children INSIDE SetErrorBarContext
+									   so ErrorBar JSX createComponent captures the live Provider. */
+									const memoizedChildren = createMemo(() => childrenProps.children)
+									return (
+										<LineImpl {...props} id={id}>
+											{memoizedChildren()}
+										</LineImpl>
+									)
+								})()}
+							</LabelListContextBridge>
 						</SetErrorBarContext>
 					</>
 				)
@@ -883,4 +874,14 @@ export function Line(outsideProps: Props) {
 	)
 }
 
+/**
+ * Typed entry point: the generics constrain `data`/`dataKey` at the call site, like upstream.
+ */
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped items accept any data */
+export const Line = LineFn as {
+	<DataPointType = any, DataValueType = any>(props: Props<DataPointType, DataValueType>): JSX.Element
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream fallback overload for mismatched data/dataKey */
+	(props: Props<any, any>): JSX.Element
+	displayName?: string
+}
 Line.displayName = "Line"

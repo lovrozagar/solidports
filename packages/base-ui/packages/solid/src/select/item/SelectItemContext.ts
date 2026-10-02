@@ -1,4 +1,5 @@
-import { type Accessor, createContext, useContext } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 
 export interface SelectItemContext {
@@ -9,7 +10,7 @@ export interface SelectItemContext {
   hasRegistered: Accessor<boolean>;
 }
 
-export const SelectItemContext = createContext<SelectItemContext | undefined>(undefined);
+export const SelectItemContext = createContext<SelectItemContext | null>(null);
 
 export function useSelectItemContext() {
   const context = useContext(SelectItemContext);

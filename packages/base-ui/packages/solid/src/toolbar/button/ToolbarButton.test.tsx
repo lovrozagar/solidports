@@ -35,11 +35,11 @@ describe('<Toolbar.Button />', () => {
     refInstanceof: window.HTMLButtonElement,
     render: (node, props) => {
       return render(() => (
-        <ToolbarRootContext.Provider value={testToolbarContext}>
-          <CompositeRootContext.Provider value={testCompositeContext}>
+        <ToolbarRootContext value={testToolbarContext}>
+          <CompositeRootContext value={testCompositeContext}>
             {node(props!)}
-          </CompositeRootContext.Provider>
-        </ToolbarRootContext.Provider>
+          </CompositeRootContext>
+        </ToolbarRootContext>
       ));
     },
     testComponentPropWith: 'button',

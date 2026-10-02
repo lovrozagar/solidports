@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { ProgressRoot, ProgressStatus } from './ProgressRoot';
 
 export type ProgressRootContext = {
@@ -26,11 +27,11 @@ export type ProgressRootContext = {
 /**
  * @internal
  */
-export const ProgressRootContext = createContext<ProgressRootContext | undefined>(undefined);
+export const ProgressRootContext = createContext<ProgressRootContext | null>(null);
 
 export function useProgressRootContext() {
   const context = useContext(ProgressRootContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: ProgressRootContext is missing. Progress parts must be placed within <Progress.Root>.',
     );

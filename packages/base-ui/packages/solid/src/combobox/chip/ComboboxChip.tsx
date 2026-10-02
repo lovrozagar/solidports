@@ -90,12 +90,12 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
   const element = useRenderElement('div', componentProps, {
     props: [
       {
-        tabIndex: -1,
+        tabindex: -1,
         get 'aria-disabled'() {
-          return disabled() || undefined;
+          return disabled() ? 'true' : undefined;
         },
         get 'aria-readonly'() {
-          return readOnly() || undefined;
+          return readOnly() ? 'true' : undefined;
         },
         onFocus(event: FocusEvent) {
           if (open()) {
@@ -141,7 +141,7 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
   };
 
   return (
-    <ComboboxChipContext.Provider value={contextValue}>{element()}</ComboboxChipContext.Provider>
+    <ComboboxChipContext value={contextValue}>{element()}</ComboboxChipContext>
   );
 }
 

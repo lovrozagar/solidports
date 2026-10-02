@@ -1,12 +1,5 @@
-import {
-  createContext,
-  createSignal,
-  onMount,
-  useContext,
-  type Accessor,
-  type ParentProps,
-} from "solid-js"
-
+import { createContext, createSignal, onSettled, useContext } from 'solid-js';
+import type { Accessor, ParentProps } from 'solid-js';
 export interface DemoVariantSelectorContextValue {
   selectedVariant: Accessor<string | null>
   setSelectedVariant: (value: string | null) => void
@@ -53,7 +46,7 @@ export function DemoVariantSelectorProvider(props: Props) {
     }
   }
 
-  onMount(() => {
+  onSettled(() => {
     const variantPref = localStorage.getItem(VARIANT_STORAGE_KEY)
     const languagePref = localStorage.getItem(LANGUAGE_STORAGE_KEY)
     if (variantPref) {
@@ -67,7 +60,7 @@ export function DemoVariantSelectorProvider(props: Props) {
   })
 
   return (
-    <DemoVariantSelectorContext.Provider
+    <DemoVariantSelectorContext
       value={{
         selectedVariant,
         setSelectedVariant,
@@ -76,6 +69,6 @@ export function DemoVariantSelectorProvider(props: Props) {
       }}
     >
       {props.children}
-    </DemoVariantSelectorContext.Provider>
+    </DemoVariantSelectorContext>
   )
 }

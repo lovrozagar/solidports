@@ -1,5 +1,5 @@
 import c from 'clsx';
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 /** @internal */
 export function Button(props: JSX.ButtonHTMLAttributes<HTMLButtonElement>) {

@@ -7,16 +7,9 @@ import { useRef } from '@solidports/base-ui/solid-helpers';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import {
-  createDeferred,
-  createMemo,
-  createSignal,
-  createUniqueId,
-  For,
-  Index,
-  type Accessor,
-  type JSX,
-} from 'solid-js';
+import { createDeferred, createMemo, createSignal, createUniqueId, For } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { REASONS } from '../../utils/reasons';
@@ -2838,14 +2831,14 @@ describe('<Combobox.Root />', () => {
             <Combobox.Value>
               {(value: Accessor<string[]>) => (
                 <>
-                  <Index each={value()}>
+                  <For keyed={false} each={value()}>
                     {(item) => (
                       <Combobox.Chip>
                         {item()}
                         <Combobox.ChipRemove aria-label={`Remove ${item()}`} />
                       </Combobox.Chip>
                     )}
-                  </Index>
+                  </For>
                   <Combobox.Input data-testid="input" />
                 </>
               )}

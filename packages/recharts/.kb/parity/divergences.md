@@ -40,7 +40,7 @@ Upstream uses React's synthetic-event types: `React.MouseEventHandler<Elt>`, `Re
 
 Why safe: handlers fire on the same DOM events with the same payload shape (`event.currentTarget`, `event.clientX`, etc.). Solid does not synthesize a wrapper — `event` is the real DOM event — but recharts handlers don't use any React-only synthetic-event APIs (no `event.persist()`, no pooling).
 
-Caveat: when recharts hands a *handler payload* to the user (e.g. `onClick(data, index, event)` on Bar/Pie/Scatter), the `event` argument is now the native DOM event. Test suites that assert `event.nativeEvent` or React-pool-specific behavior fail and are skipped/reskipped per `.kb/test-skiplist.md`.
+Caveat: when recharts hands a *handler payload* to the user (e.g. `onClick(data, index, event)` on Bar/Pie/Scatter), the `event` argument is now the native DOM event. Tests that assert `event.nativeEvent` or React-pool-specific behavior are adapted to the native event with a comment.
 
 ## CSS / SVG attribute typing
 
@@ -66,3 +66,7 @@ Tracked in `.kb/parity/todo.md` and allowlisted in `scripts/parity-audit.ts::UPS
 - `TypedHorizontalChartContext`, `TypedVerticalChartContext`, `TypedCentricChartContext`, `TypedRadialChartContext`, `NoFunnel`, `NoRadial`, `NoCentric` (7 type exports)
 
 These are convenience generic-typed wrappers for end-users — they don't power any internal chart logic. Deferred to a post-consumer-validation pass. See `.upstream/map.json::unported_upstream`.
+
+## Test lint overrides
+
+`.oxlintrc.json` turns off `vitest/valid-title`, `vitest/require-to-throw-message` and `unicorn/no-new-array` for test files. Ported upstream specs use titles with trailing spaces or duplicate prefixes, bare `toThrow()`, and `new Array(n)` verbatim; titles must stay identical for the test-parity audit.

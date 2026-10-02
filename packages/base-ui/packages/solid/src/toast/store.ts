@@ -1,6 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- toast Data is generic at consumer; ToastObject<any> erases consumer type at store level */
-import { createMemo, mergeProps as solidMergeProps, type Accessor } from 'solid-js';
-import { createStore, produce, type SetStoreFunction, type Store } from 'solid-js/store';
+import { createMemo } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { Store } from 'solid-js';
 import { activeElement, contains, getTarget } from '../floating-ui-solid/utils';
 import { access, type MaybeAccessor } from '../solid-helpers';
 import { generateId } from '../utils/generateId';
@@ -15,6 +16,7 @@ import {
 } from './useToastManager';
 import { isFocusVisible } from './utils/focusVisible';
 import { resolvePromiseOptions } from './utils/resolvePromiseOptions';
+import { mergeProps as solidMergeProps, createStore, type SetStoreFunction } from '../solid-1-compat';
 
 type ToastInternalUpdateOptions<Data extends object> = Partial<Omit<ToastObject<Data>, 'id'>>;
 type UpdateToastBehavior = {
@@ -148,13 +150,13 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     refs.delete(toastId());
 
     setState(
-      produce((s) => {
+      (s: State) => {
         s.toasts.splice(index, 1);
         if (s.toasts.length === 0) {
           s.hovering = false;
           s.focused = false;
         }
-      }),
+      },
     );
   }
 
@@ -197,12 +199,12 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     // (e.g. recalculateHeight) that call updateToastInternal and expect
     // the timer to already be registered.
     setState(
-      produce((s) => {
+      (s: State) => {
         s.toasts.unshift(toastToAdd);
-        const active = s.toasts.filter((t) => t.transitionStatus !== 'ending');
+        const active = s.toasts.filter((t: ToastObject<any>) => t.transitionStatus !== 'ending');
         if (active.length > s.limit) {
           const excessCount = active.length - s.limit;
-          const limitedIds = new Set(active.slice(-excessCount).map((t) => t.id));
+          const limitedIds = new Set(active.slice(-excessCount).map((t: ToastObject<any>) => t.id));
           for (const t of s.toasts) {
             t.limited = limitedIds.has(t.id);
           }
@@ -211,7 +213,7 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
             t.limited = false;
           }
         }
-      }),
+      },
     );
 
     return id;
@@ -259,7 +261,7 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
       storeUpdates.updateKey = (prevToast.updateKey ?? 0) + 1;
     }
 
-    setState('toasts', (toast) => toast.id === toastId, storeUpdates);
+    setState('toasts', (toast: ToastObject<any>) => toast.id === toastId, storeUpdates);
 
     const nextToast = { ...prevToast, ...updates, ...storeUpdates };
     const nextTimeout = nextToast.timeout ?? timeout;
@@ -327,7 +329,7 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     handleFocusManagement(toastId);
 
     setState(
-      produce((s) => {
+      (s: State) => {
         let activeIndex = 0;
         for (const item of s.toasts) {
           if (closeAll || item.id === id) {
@@ -345,7 +347,7 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
           s.hovering = false;
           s.focused = false;
         }
-      }),
+      },
     );
 
     for (const fn of onCloseCallbacks) {

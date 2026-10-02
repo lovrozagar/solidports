@@ -1,6 +1,9 @@
 import { describe, expect, it, Mock, test, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { fireEvent, render, screen } from "@solidjs/testing-library"
+import { untrack, createSignal, flush, Show } from "solid-js"
+import { observe } from "../helper/observe"
+import { trackSpy } from "../helper/trackSpy"
+
+import { fireEvent, render, screen } from "../helper/render"
 import {
 	Area,
 	Brush,
@@ -31,6 +34,7 @@ import { useLegendPayload } from "../../src/context/legendPayloadContext"
 import { selectTooltipPayloadConfigurations } from "../../src/state/selectors/selectors"
 import { assertNotNull } from "../helper/assertNotNull"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
+import { AreaRevealShape } from "../../src/cartesian/AreaRevealShape"
 import { AreaSettings } from "../../src/state/types/AreaSettings"
 import { expectLastCalledWith } from "../helper/expectLastCalledWith"
 import { userEventSetup } from "../helper/userEventSetup"
@@ -675,11 +679,10 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 	})
 
 	describe("state integration", () => {
-		/* Cluster D: render() has no rerender from @solidjs/testing-library */
-		it.skip("should report its props to redux state, and remove them when removed from DOM", () => {
+		it("should report its props to redux state, and remove them when removed from DOM", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 					const cartesianItems = useAppSelector(selectUnfilteredCartesianItems)
 					spy(cartesianItems)
 				})
@@ -687,19 +690,22 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 			}
 			const data2 = [1, 2, 3]
 
-			const { rerender } = render(() => (
+			const [mounted, setMounted] = createSignal(true)
+			render(() => (
 				<ChartElement data={data}>
-					<Area
-						dataKey="value"
-						data={data2}
-						xAxisId={7}
-						yAxisId={9}
-						stackId="q"
-						hide
-						id="my-custom-area-id"
-						connectNulls
-						baseValue={123}
-					/>
+					<Show when={mounted()}>
+						<Area
+							dataKey="value"
+							data={data2}
+							xAxisId={7}
+							yAxisId={9}
+							stackId="q"
+							hide
+							id="my-custom-area-id"
+							connectNulls
+							baseValue={123}
+						/>
+					</Show>
 					<Comp />
 				</ChartElement>
 			))
@@ -722,18 +728,15 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 			]
 			expectLastCalledWith(spy, expected)
 
-			rerender(() => (
-				<ChartElement data={data}>
-					<Comp />
-				</ChartElement>
-			))
+			setMounted(false)
+			flush()
 			expectLastCalledWith(spy, [])
 		})
 
 		it("should report default props to redux state", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => spy(useAppSelector(selectUnfilteredCartesianItems)))
+				trackSpy(spy, () => useAppSelector(selectUnfilteredCartesianItems))
 				return null
 			}
 			const data2 = [1, 2, 3]
@@ -764,24 +767,26 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 			expectLastCalledWith(spy, expected)
 		})
 
-		/* Cluster D: signal-rerender + spy. */
-		it.skip("should remember the auto-generated ID between renders", () => {
+		it("should remember the auto-generated ID between renders", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				const cartesianItems = useAppSelector(selectUnfilteredCartesianItems)
-				assertNotNull(cartesianItems)
-				if (cartesianItems.length > 1) {
-					throw new Error("Expected only one cartesian graphical item")
-				}
-				if (cartesianItems.length === 1) {
-					spy(cartesianItems[0].id)
-				}
+				observe(() => {
+					const cartesianItems = useAppSelector(selectUnfilteredCartesianItems)
+					assertNotNull(cartesianItems)
+					if (cartesianItems.length > 1) {
+						throw new Error("Expected only one cartesian graphical item")
+					}
+					if (cartesianItems.length === 1) {
+						spy(cartesianItems[0].id)
+					}
+				})
 				return null
 			}
 
-			const { rerender } = render(() => (
+			const [name, setName] = createSignal<string | undefined>(undefined)
+			render(() => (
 				<ChartElement data={data}>
-					<Area dataKey="value" />
+					<Area dataKey="value" name={name()} />
 					<Comp />
 				</ChartElement>
 			))
@@ -789,28 +794,26 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 			const firstId = spy.mock.calls[0][0]
 			expect(firstId).toMatch("area-")
 
-			rerender(() => (
-				<ChartElement data={data}>
-					<Area dataKey="value" name="updated prop" />
-					<Comp />
-				</ChartElement>
-			))
+			setName("updated prop")
+			flush()
 
-			const secondId = spy.mock.calls[1][0]
+			const secondId = spy.mock.calls[spy.mock.calls.length - 1][0]
 			expect(secondId).toBe(firstId)
 		})
 
-		/* Cluster D: legend payload kebabization differs (`stroke-width` vs `strokeWidth`) */
-		it.skip("should add a record to Legend payload, and remove it when the element is removed", () => {
+		it("should add a record to Legend payload, and remove it when the element is removed", () => {
 			const legendSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => legendSpy(useLegendPayload()))
+				trackSpy(legendSpy, () => useLegendPayload())
 				return null
 			}
 
-			const { rerender } = render(() => (
+			const [mounted, setMounted] = createSignal(true)
+			render(() => (
 				<ChartElement data={data}>
-					<Area dataKey="value" />
+					<Show when={mounted()}>
+						<Area dataKey="value" />
+					</Show>
 					<Comp />
 				</ChartElement>
 			))
@@ -825,6 +828,8 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 						animationBegin: 0,
 						animationDuration: 1500,
 						animationEasing: "ease",
+						animationInterpolateFn: expect.any(Function),
+						animationMatchBy: "index",
 						connectNulls: false,
 						dataKey: "value",
 						dot: false,
@@ -834,6 +839,7 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 						isAnimationActive: "auto",
 						label: false,
 						legendType: "line",
+						shape: AreaRevealShape,
 						stroke: "#3182bd",
 						strokeWidth: 1,
 						type: "linear",
@@ -846,16 +852,12 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 				},
 			])
 
-			rerender(() => (
-				<ChartElement data={data}>
-					<Comp />
-				</ChartElement>
-			))
+			setMounted(false)
+			flush()
 
 			expect(legendSpy).toHaveBeenLastCalledWith([])
 		})
 
-		/* Cluster D: legend payload kebabization differs */
 		it("should add a record to Legend and Tooltip payloads", () => {
 			const legendSpy = vi.fn()
 			const tooltipSpy: Mock<
@@ -863,14 +865,12 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 			> = vi.fn()
 
 			const Comp = (): null => {
-				createEffect(() => {
-					legendSpy(useLegendPayload())
-					tooltipSpy(
-						useAppSelector((state) =>
-							selectTooltipPayloadConfigurations(state, "axis", "hover", undefined),
-						),
-					)
-				})
+				trackSpy(legendSpy, () => useLegendPayload())
+				trackSpy(tooltipSpy, () =>
+					useAppSelector((state) =>
+						selectTooltipPayloadConfigurations(state, "axis", "hover", undefined),
+					),
+				)
 				return null
 			}
 
@@ -892,6 +892,8 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 						animationBegin: 0,
 						animationDuration: 1500,
 						animationEasing: "ease",
+						animationInterpolateFn: expect.any(Function),
+						animationMatchBy: "index",
 						connectNulls: false,
 						dataKey: "value",
 						dot: false,
@@ -901,6 +903,7 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 						isAnimationActive: "auto",
 						label: false,
 						legendType: "line",
+						shape: AreaRevealShape,
 						stroke: "#3182bd",
 						strokeWidth: 1,
 						type: "linear",
@@ -938,8 +941,8 @@ describe.each(chartsThatSupportArea)("<Area /> as a child of $testName", ({ Char
 			const tooltipSpy = vi.fn()
 
 			const Comp = (): null => {
-				legendSpy(useLegendPayload())
-				tooltipSpy(
+				trackSpy(legendSpy, () => useLegendPayload())
+				trackSpy(tooltipSpy, () =>
 					useAppSelector((state) =>
 						selectTooltipPayloadConfigurations(state, "axis", "hover", undefined),
 					),

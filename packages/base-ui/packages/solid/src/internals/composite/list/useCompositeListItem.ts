@@ -1,4 +1,5 @@
-import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { createEffect, createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { access, type MaybeAccessor } from '../../../solid-helpers';
 import type { CompositeMetadata } from './CompositeList';
 import { useCompositeListContext } from './CompositeListContext';
@@ -76,24 +77,24 @@ export function useCompositeListItem<Metadata>(
     }
   }
 
-  createEffect(() => {
-    if (externalIndex() != null) {
-      return;
-    }
-
-    const node = componentRef();
-    if (node) {
-      context.register(node, params.metadata);
-      context.subscribeMapChange(onMapChange);
-    }
-
-    onCleanup(() => {
-      if (node) {
-        context.unregister(node);
-        context.unsubscribeMapChange(onMapChange);
+  createEffect(
+    () => [componentRef(), externalIndex()] as const,
+    ([node, index]) => {
+      if (index != null) {
+        return;
       }
-    });
-  });
+      if (node) {
+        context.register(node, params.metadata);
+        context.subscribeMapChange(onMapChange);
+      }
+      return () => {
+        if (node) {
+          context.unregister(node);
+          context.unsubscribeMapChange(onMapChange);
+        }
+      };
+    },
+  );
 
   return {
     index,

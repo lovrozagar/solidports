@@ -117,8 +117,7 @@ describe("Chart dimensions", () => {
 		})
 	})
 
-	/* Cluster C: panorama nesting bug. */
-	describe.skip("chart with brush and panorama", () => {
+	describe("chart with brush and panorama", () => {
 		describe("dimensions in the main chart", () => {
 			const renderTestCase = createSelectorTestCase((props) => (
 				<LineChart

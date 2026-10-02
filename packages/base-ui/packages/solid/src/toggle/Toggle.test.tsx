@@ -3,7 +3,8 @@ import { Toggle } from '@solidports/base-ui/toggle';
 import { screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { createSignal, type ComponentProps } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
 import { ToggleGroup } from '../toggle-group/ToggleGroup';
 
 describe('<Toggle />', () => {
@@ -107,7 +108,7 @@ describe('<Toggle />', () => {
         </ToggleGroup>
       ));
 
-      expect(renderSpy.lastCall.args[0]).to.have.property('tabIndex', 0);
+      expect(renderSpy.lastCall.args[0]).to.have.property('tabindex', 0);
     });
   });
 });

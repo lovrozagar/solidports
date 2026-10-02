@@ -1,4 +1,5 @@
-import { createUniqueId, type JSX } from 'solid-js';
+import { createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -31,13 +32,13 @@ export default function ExampleGroupedCombobox() {
             </Combobox.Empty>
             <Combobox.List class={styles.List}>
               {(group: ProduceGroup) => (
-                <Combobox.Group key={group.value} items={group.items} class={styles.Group}>
+                <Combobox.Group items={group.items} class={styles.Group}>
                   <Combobox.GroupLabel class={styles.GroupLabel}>
                     {group.value}
                   </Combobox.GroupLabel>
                   <Combobox.Collection>
                     {(item: Produce) => (
-                      <Combobox.Item key={item.id} class={styles.Item} value={item}>
+                      <Combobox.Item class={styles.Item} value={item}>
                         <Combobox.ItemIndicator class={styles.ItemIndicator}>
                           <CheckIcon />
                         </Combobox.ItemIndicator>

@@ -1,4 +1,5 @@
-import { createMemo, type JSX } from 'solid-js';
+import { createMemo } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { splitComponentProps } from '../../solid-helpers';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -76,7 +77,7 @@ export function NavigationMenuPopup(componentProps: NavigationMenuPopup.Props) {
         get id() {
           return id();
         },
-        tabIndex: -1,
+        tabindex: -1,
         get style(): JSX.CSSProperties | undefined {
           return calculatedStyles().isOriginSide
             ? {

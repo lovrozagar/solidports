@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest"
-import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library"
+import { trackSpy } from "../helper/trackSpy"
+import { fireEvent, render, screen, waitFor } from "../helper/render"
 import {
 	BarChart,
 	Brush,
@@ -24,8 +25,8 @@ import { useIsPanorama } from "../../src/context/PanoramaContext"
 import { expectBrush } from "../helper/expectBrush"
 import { expectLastCalledWith } from "../helper/expectLastCalledWith"
 import { userEventSetup } from "../helper/userEventSetup"
-import { createSignal } from "solid-js"
-
+import { createSignal, untrack } from "solid-js"
+import type { JSX } from "@solidjs/web"
 describe("<Brush />", () => {
 	const data = [
 		{ date: "2023-01-01", name: "A", value: 10 },
@@ -44,10 +45,7 @@ describe("<Brush />", () => {
 		{ date: "2023-01-14", name: "N", value: 10 },
 	]
 
-	/* Cluster C / panorama: deeper panorama mount/wrapper bug. Session 26 deferred.
-	 * Re-verified: dataStartIndex stays 0 after slider move (expected 6); panorama
-	 * does not propagate brush state to panorama-internal chart. */
-	describe.skip("with panorama", () => {
+	describe("with panorama", () => {
 		const renderTestCase = createSelectorTestCase((props) => (
 			<LineChart width={400} height={100} data={data}>
 				<Line dataKey="value" dot isAnimationActive={false} />
@@ -235,27 +233,15 @@ describe("<Brush />", () => {
 		const customTraveller = container.querySelector('[data-testid="custom-traveller-element"]')
 		expect(customTraveller).toBeInTheDocument()
 		expect(customTraveller).toBeVisible()
-		expect(spy).toHaveBeenCalledTimes(2)
-		expect(spy).toHaveBeenNthCalledWith(1, {
-			fill: "#abc",
-			height: 40,
-			stroke: "#def",
-			width: 5,
-			x: 100,
-			y: 50,
-		})
-		expect(spy).toHaveBeenNthCalledWith(2, {
-			fill: "#abc",
-			height: 40,
-			stroke: "#def",
-			width: 5,
-			x: 495,
-			y: 50,
-		})
+		/* Brush settings reach the store after mount, so travellers render once more with the
+		   settled width; the latest call per traveller carries the final props. */
+		expect(spy.mock.calls.slice(-2)).toEqual([
+			[{ fill: "#abc", height: 40, stroke: "#def", width: 5, x: 100, y: 50 }],
+			[{ fill: "#abc", height: 40, stroke: "#def", width: 5, x: 495, y: 50 }],
+		])
 	})
 
-	/* Cluster C: panorama dot rendering. */
-	test.skip("Should not filter out the value 0 in scaleValues and cause indices to be off by 1", async () => {
+	test("Should not filter out the value 0 in scaleValues and cause indices to be off by 1", async () => {
 		const { container } = render(() => (
 			<ComposedChart
 				width={200}
@@ -315,8 +301,7 @@ describe("<Brush />", () => {
 		expect(container.querySelectorAll(".recharts-brush-slide")).toHaveLength(0)
 	})
 
-	/* Cluster C: panorama. */
-	test.skip("Render panorama when specified LineChart as child", () => {
+	test("Render panorama when specified LineChart as child", () => {
 		const { container } = render(() => (
 			<BarChart width={400} height={100} data={data}>
 				<Brush x={90} y={40} width={300} height={50}>
@@ -337,8 +322,7 @@ describe("<Brush />", () => {
 		expect(container.querySelectorAll(".recharts-line")).toHaveLength(1)
 	})
 
-	/* Cluster D: mouse-over reactive sequence. */
-	test.skip("mouse over on traveller will trigger the brush text display", () => {
+	test("mouse over on traveller will trigger the brush text display", () => {
 		// wrap brush with a bar chart to make brush traveler work
 		const { container } = render(() => (
 			<BarChart width={500} height={100} data={data}>
@@ -361,8 +345,7 @@ describe("<Brush />", () => {
 		expect(screen.getAllByText(data[data.length - 1].date)).toHaveLength(1)
 	})
 
-	/* Cluster D */
-	test.skip("mouse down on traveller will trigger the brush text display, and mouse move out will hide the brush text", () => {
+	test("mouse down on traveller will trigger the brush text display, and mouse move out will hide the brush text", () => {
 		// wrap brush with a bar chart to make brush traveler work
 		const { container } = render(() => (
 			<BarChart
@@ -447,8 +430,7 @@ describe("<Brush />", () => {
 			expect(container.querySelector(".recharts-brush-texts")).toBeNull()
 		})
 
-		/* Cluster D: keyboard arrow event sibling-mount-order divergence. */
-		test.skip("Travellers should move when valid keyboard events are fired", async () => {
+		test("Travellers should move when valid keyboard events are fired", async () => {
 			const { container } = render(() => (
 				<BarChart width={400} height={100} data={data}>
 					<Brush dataKey="value" x={100} y={50} width={400} height={40} />
@@ -476,8 +458,7 @@ describe("<Brush />", () => {
 			expect(text.textContent).toBe("10")
 		})
 
-		/* Cluster D: keyboard arrow + mouse sibling-mount divergence. */
-		test.skip("Travellers should move when valid keyboard events are fired AFTER mouse interaction", async () => {
+		test("Travellers should move when valid keyboard events are fired AFTER mouse interaction", async () => {
 			const { container } = render(() => (
 				<BarChart width={400} height={100} data={data}>
 					<Brush dataKey="value" x={100} y={50} width={400} height={40} />
@@ -521,8 +502,8 @@ describe("<Brush />", () => {
 						<ReferenceLine y={30} />
 
 						<Brush
-							startIndex={startIndex}
-							endIndex={endIndex}
+							startIndex={startIndex()}
+							endIndex={endIndex()}
 							onChange={(e) => {
 								setEndIndex(e.endIndex)
 								setStartIndex(e.startIndex)
@@ -538,16 +519,18 @@ describe("<Brush />", () => {
 					<input
 						type="number"
 						aria-label="startIndex"
-						value={startIndex}
-						onChange={(evt) => {
+						value={startIndex()}
+						/* React onChange = native input event */
+						onInput={(evt) => {
 							const num = Number(evt.target.value)
 							if (Number.isInteger(num)) setStartIndex(num)
 						}}
 					/>
 					<input
 						aria-label="endIndex"
-						value={endIndex}
-						onChange={(evt) => {
+						value={endIndex()}
+						/* React onChange = native input event */
+						onInput={(evt) => {
 							const num = Number(evt.target.value)
 							if (Number.isInteger(num)) setEndIndex(num)
 						}}
@@ -556,8 +539,7 @@ describe("<Brush />", () => {
 			)
 		}
 
-		/* Cluster D: controlled startIndex/endIndex props sibling-mount divergence. */
-		test.skip("Travellers should move and chart should update when brush start and end indexes are controlled", async () => {
+		test("Travellers should move and chart should update when brush start and end indexes are controlled", async () => {
 			const user = userEventSetup()
 			const { container } = render(() => <ControlledPanoramicBrush />)
 			assertNotNull(container)
@@ -581,10 +563,7 @@ describe("<Brush />", () => {
 			expect(brushTexts.item(1)?.textContent).toContain("5")
 		})
 
-		/* Cluster C: panorama Brush nested chart svg only renders 1 not 2.
-		 * Re-verified: container has 1 svg, expected 2 — nested LineChart inside
-		 * Brush is not mounted as a second svg root. */
-		test.skip("Should render panorama in brush", async () => {
+		test("Should render panorama in brush", async () => {
 			const { container } = render(() => <ControlledPanoramicBrush />)
 
 			const svgs = container.getElementsByTagName("svg")
@@ -608,23 +587,20 @@ describe("<Brush />", () => {
 		})
 	})
 
-	/* Cluster C: panorama state integration. */
-	describe.skip("panorama and state integration", () => {
+	describe("panorama and state integration", () => {
 		it("should select data from the parent chart", () => {
 			const rootDataSpy = vi.fn()
 			const panoramaDataSpy = vi.fn()
 
 			const RootComp = (): null => {
-				const isPanorama = useIsPanorama()
-				rootDataSpy(useAppSelector((state) => selectDisplayedData(state, "xAxis", 0, isPanorama)))
+				const isPanorama = untrack(() => useIsPanorama())
+				trackSpy(rootDataSpy, () => useAppSelector((state) => selectDisplayedData(state, "xAxis", 0, isPanorama)))
 				return null
 			}
 
 			const PanoramaComp = (): null => {
-				const isPanorama = useIsPanorama()
-				panoramaDataSpy(
-					useAppSelector((state) => selectDisplayedData(state, "xAxis", 1, isPanorama)),
-				)
+				const isPanorama = untrack(() => useIsPanorama())
+				trackSpy(panoramaDataSpy, () => useAppSelector((state) => selectDisplayedData(state, "xAxis", 1, isPanorama)))
 				return null
 			}
 
@@ -662,18 +638,14 @@ describe("<Brush />", () => {
 			const panoramaYAxisRangeSpy = vi.fn()
 
 			const RootComp = (): null => {
-				rootViewBoxSpy(useViewBox())
-				rootYAxisRangeSpy(
-					useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, false)),
-				)
+				trackSpy(rootViewBoxSpy, () => useViewBox())
+				trackSpy(rootYAxisRangeSpy, () => useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, false)))
 				return null
 			}
 
 			const PanoramaComp = (): null => {
-				panoramaViewBoxSpy(useViewBox())
-				panoramaYAxisRangeSpy(
-					useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, true)),
-				)
+				trackSpy(panoramaViewBoxSpy, () => useViewBox())
+				trackSpy(panoramaYAxisRangeSpy, () => useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, true)))
 				return null
 			}
 
@@ -715,6 +687,86 @@ describe("<Brush />", () => {
 
 			expect(rootYAxisRangeSpy).toHaveBeenLastCalledWith([216, 11])
 			expect(panoramaYAxisRangeSpy).toHaveBeenLastCalledWith([39, 1])
+		})
+	})
+
+	describe("dragging the slide when start/endIndex are controlled from props", () => {
+		test("should not snap the slide back to its original position on mouseup", () => {
+			const { container } = render(() => (
+				<BarChart width={400} height={100} data={data}>
+					<Brush
+						dataKey="value"
+						x={100}
+						y={50}
+						width={400}
+						height={40}
+						startIndex={3}
+						endIndex={6}
+					/>
+				</BarChart>
+			))
+
+			const slide = container.querySelector(".recharts-brush-slide") as SVGRectElement
+			const travellers = () => container.querySelectorAll(".recharts-brush-traveller")
+			const positionsOf = (elements: NodeListOf<Element>) =>
+				Array.from(elements).map((el) => el.getAttribute("aria-valuenow"))
+
+			fireEvent.mouseDown(slide, { clientX: 200 })
+			fireEvent.mouseMove(slide, { clientX: 220 })
+			const positionsWhileDragging = positionsOf(travellers())
+
+			fireEvent.mouseUp(slide)
+			const positionsAfterMouseUp = positionsOf(travellers())
+
+			expect(positionsAfterMouseUp).toEqual(positionsWhileDragging)
+		})
+	})
+
+	describe("controlled startIndex and endIndex across data updates", () => {
+		function ControlledBrushWithChangingData(props: { children?: JSX.Element }) {
+			const [chartData, setChartData] = createSignal(data)
+			return (
+				<>
+					<BarChart width={400} height={100} data={chartData()}>
+						{props.children}
+						<Brush
+							dataKey="value"
+							startIndex={2}
+							endIndex={5}
+							x={100}
+							y={50}
+							width={400}
+							height={40}
+						/>
+					</BarChart>
+					<button
+						type="button"
+						onClick={() => setChartData(data.map((entry) => ({ ...entry })))}
+					>
+						change data
+					</button>
+				</>
+			)
+		}
+
+		it("should preserve the controlled startIndex and endIndex when the data array identity changes but the length stays the same", () => {
+			const renderTestCase = createSelectorTestCase(ControlledBrushWithChangingData)
+			const { spy, container } = renderTestCase(selectChartDataWithIndexes)
+
+			expectLastCalledWith(spy, {
+				chartData: data,
+				dataStartIndex: 2,
+				dataEndIndex: 5,
+				computedData: undefined,
+			})
+
+			const button = container.querySelector("button") as HTMLButtonElement
+			fireEvent.click(button)
+
+			const lastCall = spy.mock.calls[spy.mock.calls.length - 1][0]
+			expect(lastCall.chartData).not.toBe(data)
+			expect(lastCall.dataStartIndex).toBe(2)
+			expect(lastCall.dataEndIndex).toBe(5)
 		})
 	})
 

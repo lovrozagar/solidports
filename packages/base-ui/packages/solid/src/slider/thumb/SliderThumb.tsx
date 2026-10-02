@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- Solid event-handler bridge requires casts at callEventHandler boundaries (currentTarget shape mismatch) */
-import { createEffect, createMemo, createSignal, on, onMount, type JSX } from 'solid-js';
+import { createEffect, createMemo, createSignal, onSettled } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   ARROW_DOWN,
   ARROW_LEFT,
@@ -31,6 +32,7 @@ import { getSliderValue } from '../utils/getSliderValue';
 import { getDecimalPrecision, roundValueToStep } from '../utils/roundValueToStep';
 import { script as prehydrationScript } from './prehydrationScript.min';
 import { SliderThumbDataAttributes } from './SliderThumbDataAttributes';
+import { on } from '../../solid-1-compat';
 
 const PAGE_UP = 'PageUp';
 const PAGE_DOWN = 'PageDown';
@@ -112,7 +114,7 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
   const ariaDescribedByProp = () => local['aria-describedby'];
   const ariaLabelProp = () => local['aria-label'];
   const ariaLabelledByProp = () => local['aria-labelledby'];
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const idProp = () => local.id;
   const indexProp = () => local.index;
   const tabIndexProp = () => local.tabIndex;
@@ -180,7 +182,9 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
   const [isMounted, setIsMounted] = createSignal(false);
   const [positionPercent, setPositionPercent] = createSignal<number | undefined>();
 
-  onMount(() => setIsMounted(true));
+  onSettled(() => {
+    setIsMounted(true);
+  });
 
   const safeLastUsedThumbIndex = () =>
     lastUsedThumbIndex() >= 0 && lastUsedThumbIndex() < sliderValues().length
@@ -211,16 +215,14 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
     }
   };
 
-  createEffect(
-    on(inset, (insetVal) => {
+  createEffect(...on(inset, (insetVal) => {
       if (insetVal) {
         queueMicrotask(getInsetPosition);
       }
     }),
   );
 
-  createEffect(
-    on([inset, thumbValuePercent], ([insetVal]) => {
+  createEffect(...on([inset, thumbValuePercent], ([insetVal]) => {
       if (insetVal) {
         getInsetPosition();
       }
@@ -447,7 +449,7 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
           'writing-mode': cssWritingMode(),
         };
       },
-      get tabIndex() {
+      get tabindex() {
         return tabIndexProp() ?? undefined;
       },
       type: 'range',
@@ -479,7 +481,7 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
                 }
               }
             }}
-            on:keydown={handleKeyDown}
+            onKeyDown={handleKeyDown}
             {...(validation.getInputValidationProps(inputProps) as any)}
           />
           {inset() &&
@@ -492,8 +494,6 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
                 nonce={nonce()}
                 // eslint-disable-next-line solid/no-innerhtml
                 innerHTML={prehydrationScript}
-                // @ts-expect-error - suppressHydrationWarning is not a valid attribute in SolidJS
-                suppressHydrationWarning
               />
             )}
         </>
@@ -525,11 +525,7 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
         get style() {
           return getThumbStyle();
         },
-        // @ts-expect-error - suppressHydrationWarning is not a valid attribute in SolidJS
-        get suppressHydrationWarning() {
-          return renderBeforeHydration() || undefined;
-        },
-        tabIndex: -1,
+        tabindex: -1,
       },
       elementProps,
     ],

@@ -1,4 +1,5 @@
-import { type JSX, onCleanup, onMount, Show } from 'solid-js';
+import { onCleanup, onSettled, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { Side } from '../../utils/useAnchorPositioning';
@@ -36,19 +37,28 @@ export function SelectScrollArrow(componentProps: SelectScrollArrow.Props) {
 
   const { transitionStatus, setMounted } = useTransitionStatus(visible);
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     scrollArrowsMountedCountRef.current += 1;
     if (!store.state.hasScrollArrows) {
       store.set('hasScrollArrows', true);
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       scrollArrowsMountedCountRef.current = Math.max(0, scrollArrowsMountedCountRef.current - 1);
       if (scrollArrowsMountedCountRef.current === 0 && store.state.hasScrollArrows) {
         store.set('hasScrollArrows', false);
       }
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   useOpenChangeComplete({
     onComplete() {
@@ -76,7 +86,7 @@ export function SelectScrollArrow(componentProps: SelectScrollArrow.Props) {
   };
 
   const defaultProps = {
-    'aria-hidden': true,
+    'aria-hidden': 'true',
     get children() {
       return <>{local.direction === 'up' ? '▲' : '▼'}</>;
     },

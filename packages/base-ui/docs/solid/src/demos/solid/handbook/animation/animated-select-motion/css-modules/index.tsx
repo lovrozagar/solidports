@@ -1,4 +1,5 @@
-import { createSignal, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Select } from '@solidports/base-ui/select';
@@ -47,7 +48,7 @@ export default function AnimatedSelectMotionDemo() {
                 <Select.ScrollUpArrow class={styles.ScrollArrow} />
                 <Select.List class={styles.List}>
                   {fonts.map(({ label, value }) => (
-                    <Select.Item key={label} value={value} class={styles.Item}>
+                    <Select.Item value={value} class={styles.Item}>
                       <Select.ItemIndicator class={styles.ItemIndicator}>
                         <CheckIcon />
                       </Select.ItemIndicator>

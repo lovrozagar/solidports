@@ -74,7 +74,14 @@ describe("number calculate", () => {
 		expect(evaluateExpressionFloat("1.111px + 2.222rem - 3.333 / 4.444 * 5.555")).toEqual(NaN)
 		expect(evaluateExpressionFloat("1.111worn * 2.222 + 3.333 - 4.444 / 5.555")).toEqual(NaN)
 		expect(safeEvaluateExpression("1.111px * 2.222px + 3.333px - 4.444 / 5.555")).toEqual("NaN")
-
+	})
+	it("should reject unknown units that share a prefix or suffix with a known unit", () => {
+		expect(safeEvaluateExpression("1pxfoo + 2px")).toEqual("NaN")
+		expect(safeEvaluateExpression("1fooQ + 2Q")).toEqual("NaN")
+	})
+	it("should not interpret $& in intermediate results as a replacement pattern", () => {
+		expect(() => reduceCSSCalc("calc(1px + 2px)")).not.toThrow()
+		expect(reduceCSSCalc("calc(1px + 2px)")).toEqual("3px")
 	})
 	const cssLengthUnits = ["", "ch", "em", "rem", "vh", "vw", "px", "%"]
 	const cssLengthPair = cssLengthUnits.reduce<string[][]>((result, unit1, index1) => {
@@ -102,16 +109,16 @@ describe("number calculate", () => {
 			["calc(10px / (2 + 3))", "2px"],
 		])("should transform %s -> %s", (input, expected) => {
 			expect(reduceCSSCalc(input)).toEqual(expected)
+		})
 
-			cssLengthPair.forEach(([unit1, unit2]) => {
-				;[
-					{ capHeight: `123${unit1}`, lineHeight: `456${unit2}`, wordsByLines: 3 },
-					{ capHeight: `0.123${unit1}`, lineHeight: `0.456${unit2}`, wordsByLines: 3 },
-					{ capHeight: `0.123${unit1}`, lineHeight: `0.456${unit2}`, wordsByLines: 0 },
-					{ capHeight: `123${unit1}`, lineHeight: `0.456${unit2}`, wordsByLines: 0 },
-				].forEach(({ capHeight, lineHeight, wordsByLines }) => {
-					/* upstream nested `it` removed: vitest collection error
-					   in nested describes — inline as plain assertion sweep */
+		cssLengthPair.forEach(([unit1, unit2]) => {
+			;[
+				{ capHeight: `123${unit1}`, lineHeight: `456${unit2}`, wordsByLines: 3 },
+				{ capHeight: `0.123${unit1}`, lineHeight: `0.456${unit2}`, wordsByLines: 3 },
+				{ capHeight: `0.123${unit1}`, lineHeight: `0.456${unit2}`, wordsByLines: 0 },
+				{ capHeight: `123${unit1}`, lineHeight: `0.456${unit2}`, wordsByLines: 0 },
+			].forEach(({ capHeight, lineHeight, wordsByLines }) => {
+				it(`${capHeight} ${lineHeight} ${wordsByLines}`, () => {
 					;[
 						`calc(${capHeight})`,
 						`calc(${(wordsByLines - 1) / 2} * -${lineHeight} + (${capHeight} / 2))`,

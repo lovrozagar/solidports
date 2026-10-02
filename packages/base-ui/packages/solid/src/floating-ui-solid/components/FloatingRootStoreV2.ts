@@ -1,4 +1,4 @@
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { PopupTriggerMap } from '../../utils/popups';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
@@ -6,6 +6,7 @@ import type { FloatingUIOpenChangeDetails } from '../../utils/types';
 import type { ContextData, FloatingEvents, ReferenceType } from '../types';
 import { createEventEmitter } from '../utils/createEventEmitter';
 import { isClickLikeEvent } from '../utils/event';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export interface FloatingRootState {
   open: boolean;

@@ -16,8 +16,8 @@ import { useComboboxRootContext } from '../root/ComboboxRootContext';
  */
 export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
-  const disabledProp = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? true;
+  const disabledProp = () => Boolean(local.disabled);
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   const { store } = useComboboxRootContext();
   const { index } = useComboboxChipContext();
@@ -82,7 +82,7 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
   const element = useRenderElement('button', componentProps, {
     props: [
       {
-        tabIndex: -1,
+        tabindex: -1,
         onClick(event: MouseEvent) {
           if (disabled() || readOnly()) {
             return;

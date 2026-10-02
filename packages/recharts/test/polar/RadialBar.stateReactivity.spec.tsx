@@ -1,12 +1,13 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../helper/render"
 import { RadialBarChart, RadialBar, PolarAngleAxis, PolarRadiusAxis } from "../../src"
 import { useChartState } from "../../src/state/useChartState"
 import { selectRadialBarSectors } from "../../src/state/selectors/radialBarSelectors"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../src/util/solid-1-compat';
 const data = [
 	{ name: "A", value: 30 },
 	{ name: "B", value: 60 },
@@ -47,6 +48,7 @@ describe("Phase 4 — RadialBar reads from new chartState", () => {
 		   Phase 4 GREEN: component reads state.polarAxes.angleAxis["0"].settings inside
 		   createMemo, sector paths change on mutation. */
 		capturedSetState!("polarAxes", "angleAxis", "0", "settings" as never, { domain: [0, 200] } as never)
+		flush()
 
 		const after = container.querySelector(".recharts-radial-bar-sector")?.getAttribute("d")
 		expect(after).not.toBe(before)
@@ -74,6 +76,7 @@ describe("Phase 4 — RadialBar reads from new chartState", () => {
 		/* Phase 4 RED: radiusAxis mutation in new chartState not tracked by RadialBar.
 		   Phase 4 GREEN: mutation triggers re-render, sector paths change. */
 		capturedSetState!("polarAxes", "radiusAxis", "0", "settings" as never, { domain: [0, 500] } as never)
+		flush()
 
 		const after = container.querySelector(".recharts-radial-bar-sector")?.getAttribute("d")
 		expect(after).not.toBe(before)
@@ -105,6 +108,7 @@ describe("Phase 4 — RadialBar reads from new chartState", () => {
 		/* Phase 4 RED: graphicalItems[id].settings.maxBarSize mutation ignored by RadialBar.
 		   Phase 4 GREEN: mutation triggers re-render, sector widths (d attr) change. */
 		capturedSetState!("graphicalItems", itemId, "settings" as never, "maxBarSize" as never, 5 as never)
+		flush()
 
 		const after = container.querySelector(".recharts-radial-bar-sector")?.getAttribute("d")
 		expect(after).not.toBe(before)

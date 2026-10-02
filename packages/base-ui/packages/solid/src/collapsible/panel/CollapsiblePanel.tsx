@@ -1,4 +1,4 @@
-import { createEffect, createMemo, onCleanup, Show } from 'solid-js';
+import { createTrackedEffect, createMemo, onCleanup, Show } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
@@ -27,7 +27,7 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   const keepMounted = () => local.keepMounted ?? false;
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (hiddenUntilFound() && keepMounted() === false) {
         warn(
           'The `keepMounted={false}` prop on a Collapsible will be ignored when using `hiddenUntilFound` since it requires the Panel to remain mounted even when closed.',
@@ -60,18 +60,27 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
     transitionStatus,
   } = useCollapsibleRootContext();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (local.id) {
       setPanelIdState(local.id);
-      onCleanup(() => setPanelIdState(undefined));
+      _c.push(() => setPanelIdState(undefined));
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     setHiddenUntilFound(hiddenUntilFound());
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     setKeepMounted(keepMounted());
   });
 

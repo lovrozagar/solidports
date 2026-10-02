@@ -1,5 +1,6 @@
 import { Combobox } from '@solidports/base-ui/combobox';
-import { createSignal, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { mergeProps } from '../../merge-props';
 
 const objectItems = [

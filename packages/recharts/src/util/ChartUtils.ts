@@ -44,6 +44,16 @@ import {
 } from "./types"
 import { ValueType } from "../component/DefaultTooltipContent"
 import { LegendSettings } from "../state/legendSlice"
+
+function isOutsideLegendPosition(position: unknown): boolean {
+	if (position == null) {
+		return false
+	}
+	if (typeof position === "object") {
+		return true
+	}
+	return position === "top" || position === "left" || position === "right" || position === "bottom"
+}
 import { AxisRange, BaseAxisWithScale } from "../state/selectors/axisSelectors"
 import { StackGroup } from "./stacks/stackTypes"
 import { getSliced } from "./getSliced"
@@ -103,7 +113,27 @@ export const appendOffsetOfLegend = (
 ): OffsetVertical & OffsetHorizontal => {
 	if (legendSettings && legendSize) {
 		const { width: boxWidth, height: boxHeight } = legendSize
-		const { align, verticalAlign, layout } = legendSettings
+		const { align, verticalAlign, layout, position, offset: legendOffset = 0 } = legendSettings
+
+		if (position != null) {
+			/* Position-based legends are absolutely placed. They only move the plot
+			   area if they sit outside the chart. */
+			if (isOutsideLegendPosition(position)) {
+				if (position === "top" && isNumber(offset.top)) {
+					return { ...offset, top: offset.top + (boxHeight || 0) + legendOffset }
+				}
+				if (position === "bottom" && isNumber(offset.bottom)) {
+					return { ...offset, bottom: offset.bottom + (boxHeight || 0) + legendOffset }
+				}
+				if (position === "left" && isNumber(offset.left)) {
+					return { ...offset, left: offset.left + (boxWidth || 0) + legendOffset }
+				}
+				if (position === "right" && isNumber(offset.right)) {
+					return { ...offset, right: offset.right + (boxWidth || 0) + legendOffset }
+				}
+			}
+			return offset
+		}
 
 		if (
 			(layout === "vertical" || (layout === "horizontal" && verticalAlign === "middle")) &&
@@ -625,7 +655,7 @@ export const getDomainOfStackGroups = (
 	startIndex: number,
 	endIndex: number,
 ): NumberDomain | undefined => {
-	if (stackGroups == null) {
+	if (stackGroups == null || Object.keys(stackGroups).length === 0) {
 		return undefined
 	}
 	return makeDomainFinite(
@@ -680,13 +710,29 @@ export const getBandSizeOfAxis = (
 
 	if (axis && ticks && ticks.length >= 2) {
 		const orderedTicks: ReadonlyArray<TickItem> = sortBy(ticks, (o: TickItem) => o.coordinate)
-		let bandSize = Infinity
 
+		// Collect the pixel gaps between adjacent category positions and track the widest one.
+		const gaps: number[] = []
+		let maxGap = 0
 		for (let i = 1, len = orderedTicks.length; i < len; i++) {
-			const cur = orderedTicks[i]
-			const prev = orderedTicks[i - 1]
+			const gap = (orderedTicks[i]?.coordinate || 0) - (orderedTicks[i - 1]?.coordinate || 0)
+			gaps.push(gap)
+			maxGap = Math.max(gap, maxGap)
+		}
 
-			bandSize = Math.min((cur?.coordinate || 0) - (prev?.coordinate || 0), bandSize)
+		/*
+		 * High-precision float values can place two ticks at (almost) the same pixel,
+		 * producing a spurious sub-pixel gap. Such near-coincident positions are the
+		 * same category slot for rendering purposes and must not define the band
+		 * size, otherwise every bar collapses to ~0px wide (issue #4043). Ignore gaps
+		 * that are a negligible fraction of the widest gap.
+		 */
+		const minMeaningfulGap = maxGap * 1e-4
+		let bandSize = Infinity
+		for (const gap of gaps) {
+			if (gap > minMeaningfulGap) {
+				bandSize = Math.min(gap, bandSize)
+			}
 		}
 
 		return bandSize === Infinity ? 0 : bandSize
@@ -721,7 +767,7 @@ export function getTooltipNameProp(
 	nameFromItem: string | number | undefined | unknown,
 	dataKey: DataKey<unknown> | undefined,
 ): string | undefined {
-	if (nameFromItem) {
+	if (nameFromItem != null) {
 		return String(nameFromItem)
 	}
 	if (typeof dataKey === "string") {

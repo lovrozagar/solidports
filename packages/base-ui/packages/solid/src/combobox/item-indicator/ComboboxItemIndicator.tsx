@@ -1,4 +1,5 @@
-import { Show, type JSX } from 'solid-js';
+import { Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
@@ -48,7 +49,7 @@ function Inner(componentProps: ComboboxItemIndicator.Props) {
   const element = useRenderElement('span', componentProps, {
     props: [
       {
-        'aria-hidden': true,
+        'aria-hidden': 'true',
         children: '✔️',
       },
       elementProps,

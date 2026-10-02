@@ -1,6 +1,5 @@
-import type { Component } from "solid-js"
-import { For } from "solid-js"
-
+import type { Component } from 'solid-js';
+import { For } from 'solid-js';
 import { BarActive } from "./examples/BarActive"
 import { BarCustomLabel } from "./examples/BarCustomLabel"
 import { BarDefault } from "./examples/BarDefault"

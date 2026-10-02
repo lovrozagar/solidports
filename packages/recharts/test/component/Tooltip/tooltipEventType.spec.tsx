@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { beforeEach, describe, expect, it } from "vitest"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../../helper/render"
 import { PageData } from "../../_data"
 import { getTooltip, hideTooltip, showTooltip } from "./tooltipTestHelpers"
 import {

@@ -21,7 +21,7 @@ export default function InsideScrollDialog() {
               <ScrollArea.Viewport class={styles.BodyViewport}>
                 <ScrollArea.Content class={styles.BodyContent}>
                   {CONTENT_SECTIONS.map((item) => (
-                    <section class={styles.Section} key={item.title}>
+                    <section class={styles.Section}>
                       <h3 class={styles.SectionTitle}>{item.title}</h3>
                       <p class={styles.SectionBody}>{item.body}</p>
                     </section>

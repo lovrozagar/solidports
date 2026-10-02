@@ -4,8 +4,7 @@ import { Funnel, FunnelChart } from "../../src"
 import { assertNotNull } from "../helper/assertNotNull"
 import { PageData } from "../_data"
 import { MockAnimationManager } from "../animation/MockProgressAnimationManager"
-import { createSignal, Show } from "solid-js"
-
+import { createSignal, Show, flush } from 'solid-js';
 const smallerData = PageData.slice(0, 2)
 
 function getFunnelPaths(container: Element): ReadonlyArray<SVGPathElement> {
@@ -68,8 +67,7 @@ describe("Funnel animation", () => {
 			</FunnelChart>
 		))
 
-		/* Solid Funnel renders trapezoids twice — duplicate HTML ID. */
-		it.skip("should render all trapezoids without animation", () => {
+		it("should render all trapezoids without animation", () => {
 			const { container } = renderTestCase()
 			const expected = [
 				"M 5,5L 495,5L 433.75,150L 66.25,150L 5,5 Z",
@@ -121,8 +119,45 @@ describe("Funnel animation", () => {
 		})
 	})
 
-	/* Cluster B */
-	describe.skip("when changing dataKey prop", () => {
+	describe("shape prop", () => {
+		function CustomShape(props: { animationElapsedTime?: number; isAnimating?: boolean; isEntrance?: boolean }) {
+			return (
+				<path
+					class="custom-funnel-shape"
+					data-t={props.animationElapsedTime}
+					data-is-animating={String(props.isAnimating)}
+					data-is-entrance={String(props.isEntrance)}
+				/>
+			)
+		}
+
+		const renderShapeTestCase = createSelectorTestCase((props) => (
+			<FunnelChart width={500} height={300}>
+				<Funnel data={smallerData} dataKey="uv" isAnimationActive animationEasing="linear" shape={CustomShape} />
+				{props.children}
+			</FunnelChart>
+		))
+
+		it("should pass animationElapsedTime, isAnimating, isEntrance props to custom shape", async () => {
+			const { container, animationManager } = renderShapeTestCase()
+
+			await animationManager.setAnimationProgress(0.5)
+			const shapeDuringAnimation = container.querySelector(".custom-funnel-shape")
+			assertNotNull(shapeDuringAnimation)
+			expect(shapeDuringAnimation.getAttribute("data-t")).toBe("0.5")
+			expect(shapeDuringAnimation.getAttribute("data-is-animating")).toBe("true")
+			expect(shapeDuringAnimation.getAttribute("data-is-entrance")).toBe("true")
+
+			await animationManager.completeAnimation()
+			const shapeAfterAnimation = container.querySelector(".custom-funnel-shape")
+			assertNotNull(shapeAfterAnimation)
+			expect(shapeAfterAnimation.getAttribute("data-t")).toBe("1")
+			expect(shapeAfterAnimation.getAttribute("data-is-animating")).toBe("false")
+			expect(shapeAfterAnimation.getAttribute("data-is-entrance")).toBe("false")
+		})
+	})
+
+	describe("when changing dataKey prop", () => {
 		const MyTestCase = (props: { children: JSX.Element }) => {
 			const [dataKey, setDataKey] = createSignal("uv")
 			const changeDataKey = () => setDataKey((prev) => (prev === "uv" ? "pv" : "uv"))
@@ -132,7 +167,7 @@ describe("Funnel animation", () => {
 						Change dataKey
 					</button>
 					<FunnelChart width={500} height={300}>
-						<Funnel data={smallerData} dataKey={dataKey} isAnimationActive />
+						<Funnel data={smallerData} dataKey={dataKey()} isAnimationActive />
 						{props.children}
 					</FunnelChart>
 				</div>
@@ -146,6 +181,7 @@ describe("Funnel animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should animate the trapezoid paths", async () => {
@@ -206,6 +242,7 @@ describe("Funnel animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should re-run the initial animation from the beginning", async () => {
@@ -237,8 +274,7 @@ describe("Funnel animation", () => {
 		})
 	})
 
-	/* Cluster B */
-	describe.skip("tests that change data array", () => {
+	describe("tests that change data array", () => {
 		const data1 = smallerData
 		const data2 = PageData.slice(3, 6)
 
@@ -251,7 +287,7 @@ describe("Funnel animation", () => {
 						Change data
 					</button>
 					<FunnelChart width={500} height={300}>
-						<Funnel data={data} dataKey="uv" isAnimationActive />
+						<Funnel data={data()} dataKey="uv" isAnimationActive />
 						{props.children}
 					</FunnelChart>
 				</div>
@@ -265,6 +301,7 @@ describe("Funnel animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should animate from 2 to 3 trapezoids", async () => {
@@ -300,8 +337,7 @@ describe("Funnel animation", () => {
 		})
 	})
 
-	/* Cluster B */
-	describe.skip("when the funnel element hides during the animation", () => {
+	describe("when the funnel element hides during the animation", () => {
 		const renderTestCase = createSelectorTestCase((props) => {
 			const [isVisible, setIsVisible] = createSignal(true)
 			const toggleVisibility = () => setIsVisible((prev) => !prev)
@@ -324,6 +360,7 @@ describe("Funnel animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 			expect(getFunnelPaths(container)).toHaveLength(0)
 		})
 
@@ -333,8 +370,10 @@ describe("Funnel animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 			expect(getFunnelPaths(container)).toHaveLength(0)
 			button.click()
+			flush()
 			const paths = await expectAnimatedFunnelPaths(container, animationManager)
 			expect(paths).toEqual([
 				[

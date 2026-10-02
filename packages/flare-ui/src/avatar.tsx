@@ -1,6 +1,7 @@
 import { Avatar as BaseAvatar } from "@solidports/base-ui/avatar";
-import { splitProps } from "solid-js";
+
 import { mergeClass } from "./utils/merge-class.ts";
+import { splitProps } from "./utils/solid-1-compat";
 
 export interface AvatarProps extends BaseAvatar.Root.Props {}
 

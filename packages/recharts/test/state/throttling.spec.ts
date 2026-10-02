@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { flush } from "solid-js"
 import { createRechartsStore } from "../../src/state/store"
 import { createMouseEventHandlers } from "../../src/state/mouseEventsMiddleware"
 import { createKeyboardEventHandlers } from "../../src/state/keyboardEventsMiddleware"
@@ -29,6 +30,7 @@ describe("Throttling Handlers", () => {
 		it("should use RAF by default", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: "raf", throttledEvents: "all" })
+			flush()
 			const handlers = createMouseEventHandlers(store, setStore)
 			const move1 = createMockMousePointer(50, 50)
 
@@ -36,11 +38,13 @@ describe("Throttling Handlers", () => {
 			expect(vi.getTimerCount()).toBe(1)
 
 			vi.advanceTimersByTime(10_000)
+			flush()
 			expect(vi.getTimerCount()).toBe(0)
 		})
 		it("should use setTimeout when throttleDelay is a number", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: 100, throttledEvents: "all" })
+			flush()
 			const handlers = createMouseEventHandlers(store, setStore)
 			const move1 = createMockMousePointer(50, 50)
 
@@ -48,14 +52,17 @@ describe("Throttling Handlers", () => {
 			expect(vi.getTimerCount()).toBe(1)
 
 			vi.advanceTimersByTime(50)
+			flush()
 			expect(vi.getTimerCount()).toBe(1)
 
 			vi.advanceTimersByTime(50)
+			flush()
 			expect(vi.getTimerCount()).toBe(0)
 		})
 		it("should run synchronously when throttledEvents does not include mousemove", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: "raf", throttledEvents: ["click"] })
+			flush()
 			const handlers = createMouseEventHandlers(store, setStore)
 			const move1 = createMockMousePointer(50, 50)
 
@@ -65,6 +72,7 @@ describe("Throttling Handlers", () => {
 		it("should run synchronously when throttledEvents is empty", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: "raf", throttledEvents: [] })
+			flush()
 			const handlers = createMouseEventHandlers(store, setStore)
 			const move1 = createMockMousePointer(50, 50)
 
@@ -74,6 +82,7 @@ describe("Throttling Handlers", () => {
 		it("should throttle mousemove events (not debounce) when throttleDelay is a number", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: 100, throttledEvents: "all" })
+			flush()
 			const handlers = createMouseEventHandlers(store, setStore)
 			const move1 = createMockMousePointer(50, 50)
 			const move2 = createMockMousePointer(60, 60)
@@ -84,6 +93,7 @@ describe("Throttling Handlers", () => {
 
 			/* t=50 */
 			vi.advanceTimersByTime(50)
+			flush()
 			handlers.handleMouseMove(move2)
 			/*
 			 * Should still be 1 timer.
@@ -94,6 +104,7 @@ describe("Throttling Handlers", () => {
 
 			/* t=110 (advance another 60) */
 			vi.advanceTimersByTime(60)
+			flush()
 			/* If throttled, timer should have fired at t=100. */
 			expect(vi.getTimerCount()).toBe(0)
 		})
@@ -102,6 +113,7 @@ describe("Throttling Handlers", () => {
 		it("should throttle keydown events (not debounce) when throttleDelay is a number", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: 100, throttledEvents: "all" })
+			flush()
 			const handlers = createKeyboardEventHandlers(store, setStore)
 
 			/* t=0 */
@@ -110,11 +122,13 @@ describe("Throttling Handlers", () => {
 
 			/* t=50 */
 			vi.advanceTimersByTime(50)
+			flush()
 			handlers.handleKeyDown("ArrowRight")
 			expect(vi.getTimerCount()).toBe(1)
 
 			/* t=110 */
 			vi.advanceTimersByTime(60)
+			flush()
 			expect(vi.getTimerCount()).toBe(0)
 		})
 	})
@@ -122,6 +136,7 @@ describe("Throttling Handlers", () => {
 		it("should execute first event immediately (leading edge) when throttleDelay is a number", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: 100, throttledEvents: "all" })
+			flush()
 			const handlers = createExternalEventHandlers(store, setStore)
 			const mockHandler = vi.fn()
 			const mockEvent = new Event("click")
@@ -132,11 +147,13 @@ describe("Throttling Handlers", () => {
 			expect(vi.getTimerCount()).toBe(1)
 
 			vi.advanceTimersByTime(10_000)
+			flush()
 			expect(vi.getTimerCount()).toBe(0)
 		})
 		it("should throttle click event (leading + trailing) when configured", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: 100, throttledEvents: "all" })
+			flush()
 			const handlers = createExternalEventHandlers(store, setStore)
 			const mockHandler = vi.fn()
 			const mockEvent = new Event("click")
@@ -151,12 +168,14 @@ describe("Throttling Handlers", () => {
 
 			/* t=110: Timer fires (Trailing) */
 			vi.advanceTimersByTime(110)
+			flush()
 			expect(mockHandler).toHaveBeenCalledTimes(2)
 			expect(vi.getTimerCount()).toBe(0)
 		})
 		it("should NOT throttle click event when not in allowlist", () => {
 			const [store, setStore] = createRechartsStore()
 			setStore("eventSettings", { throttleDelay: 100, throttledEvents: ["mousemove"] })
+			flush()
 			const handlers = createExternalEventHandlers(store, setStore)
 			const mockHandler = vi.fn()
 			const mockEvent = new Event("click")

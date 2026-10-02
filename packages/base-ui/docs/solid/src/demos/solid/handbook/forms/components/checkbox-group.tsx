@@ -1,15 +1,17 @@
+import { omit } from 'solid-js';
 
 import clsx from 'clsx';
 import { CheckboxGroup as BaseCheckboxGroup } from '@solidports/base-ui/checkbox-group';
 
-export function CheckboxGroup({ className, ...props }: BaseCheckboxGroup.Props) {
+export function CheckboxGroup(props: BaseCheckboxGroup.Props) {
+  const others = omit(props, 'class');
   return (
     <BaseCheckboxGroup
       class={clsx(
         'flex flex-col items-start gap-1 text-neutral-950 dark:text-white',
-        className,
+        props.class,
       )}
-      {...props}
+      {...others}
     />
   );
 }

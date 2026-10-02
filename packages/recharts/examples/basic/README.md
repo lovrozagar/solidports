@@ -2,14 +2,14 @@
 
 Solid port visual harness. Each route renders a chart type via `@solidports/recharts`.
 
-Designed to run **side-by-side** with `examples/react` (upstream React `recharts@3.8.1`)
+Designed to run **side-by-side** with `examples/react` (upstream React `recharts@3.10.1`)
 on a different port for pixel-level visual diff.
 
 ## Quick start
 
 ```bash
 # Solid port app — :5173 (default vite)
-cd public/solid-ports/recharts/examples/basic
+cd packages/recharts/examples/basic
 bun install
 bun run dev
 

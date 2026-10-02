@@ -1,6 +1,7 @@
-import { createEffect, onMount, splitProps, type JSX } from "solid-js"
+import { createEffect, onSettled } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
-import { A, useLocation } from "@solidjs/router"
+import { useLocation } from "@solidjs/router"
 import { ScrollArea } from "@solidports/base-ui/scroll-area"
 import scrollIntoView from "scroll-into-view-if-needed"
 
@@ -10,6 +11,8 @@ interface ScrollActionLike {
   el: Element
 }
 import { HEADER_HEIGHT_DESKTOP } from "./Header"
+
+import { splitProps } from '../utils/solid-1-compat';
 import "./SideNav.css"
 
 export function Root(props: JSX.HTMLAttributes<HTMLElement>) {
@@ -58,7 +61,7 @@ interface ItemProps extends JSX.LiHTMLAttributes<HTMLLIElement> {
   href: string
   isNew?: boolean
   external?: boolean
-  icon?: JSX.Element
+  icon?: JSX.Element | ((props?: Record<string, never>) => JSX.Element)
 }
 
 const SCROLL_MARGIN = 48
@@ -70,12 +73,16 @@ export function Item(props: ItemProps) {
   const active = () => location.pathname === local.href
   let rem = 16
 
-  onMount(() => {
+  onSettled(() => {
     rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
   })
 
-  createEffect(() => {
-    if (ref && active()) {
+  createEffect(
+    () => active(),
+    (isActive) => {
+      if (!ref || !isActive) {
+        return
+      }
       const scrollMargin = (SCROLL_MARGIN * rem) / 16
       const headerHeight = (HEADER_HEIGHT_DESKTOP * rem) / 16
       const viewport = document.querySelector("[data-side-nav-viewport]")
@@ -96,8 +103,8 @@ export function Item(props: ItemProps) {
           })
         },
       })
-    }
-  })
+    },
+  )
 
   const commonAttrs = () =>
     active()
@@ -115,12 +122,26 @@ export function Item(props: ItemProps) {
     <li ref={ref} {...rest} class={clsx("SideNavItem", local.class)}>
       {local.external ? (
         <a class="SideNavLink" href={local.href} {...commonAttrs()}>
-          {local.icon ? <div class="SideNavLinkIconContainer">{local.icon}{local.children}</div> : local.children}
+          {local.icon ? (
+            <div class="SideNavLinkIconContainer">
+              {typeof local.icon === "function" ? local.icon({}) : local.icon}
+              {local.children}
+            </div>
+          ) : (
+            local.children
+          )}
         </a>
       ) : (
-        <A class="SideNavLink" href={local.href} noScroll={active()} {...commonAttrs()}>
-          {local.icon ? <div class="SideNavLinkIconContainer">{local.icon}{local.children}</div> : local.children}
-        </A>
+        <a class="SideNavLink" href={local.href} noscroll={active()} {...commonAttrs()}>
+          {local.icon ? (
+            <div class="SideNavLinkIconContainer">
+              {typeof local.icon === "function" ? local.icon({}) : local.icon}
+              {local.children}
+            </div>
+          ) : (
+            local.children
+          )}
+        </a>
       )}
     </li>
   )

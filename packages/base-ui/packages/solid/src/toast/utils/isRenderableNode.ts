@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 export function isRenderableNode(node: JSX.Element): boolean {
   if (node == null || typeof node === 'boolean' || node === '') {

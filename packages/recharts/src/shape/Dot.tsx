@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
-import { Show } from "solid-js"
+import { Show } from 'solid-js';
+import { useShapeElementProps } from "../util/ShapeElementProps"
 import { clsx } from "clsx"
 import type { PresentationAttributesWithProps } from "../util/types"
 import { adaptEventHandlers } from "../util/types"
@@ -32,18 +33,24 @@ export type Props = PresentationAttributesWithProps<DotProps, SVGCircleElement> 
  * If you need to position the rectangle based on your chart's data,
  * consider using the {@link ReferenceDot} component instead.
  */
-export function Dot(props: Props) {
-	const layerClass = () => clsx("recharts-dot", props.class)
+export function Dot(ownProps: Props) {
+	/* Props injected for a shape passed as an element (see ShapeElementProps). */
+	const props = useShapeElementProps(ownProps)
+	/* React-style `className` (e.g. from an activeDot object) merges into `class`. */
+	const layerClass = () =>
+		clsx("recharts-dot", props.class, (props as { className?: string }).className)
+	const svgProps = () => {
+		const { className: _className, ...rest } = svgPropertiesNoEvents(props) as Record<string, unknown>
+		return rest
+	}
 
 	return (
 		<Show when={isNumber(props.cx) && isNumber(props.cy) && isNumber(props.r)}>
 			<circle
-				{...svgPropertiesNoEvents(props)}
+				{...svgProps()}
 				{...adaptEventHandlers(props)}
+				/* cx/cy/r come from the spread in prop order, matching upstream's attribute order */
 				class={layerClass()}
-				cx={props.cx}
-				cy={props.cy}
-				r={props.r}
 			/>
 		</Show>
 	)

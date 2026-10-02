@@ -38,7 +38,7 @@ export default function ExampleDrawerVirtualKeyboardAware() {
               <Drawer.Content class={styles.Scroll}>
                 <div class={styles.Form}>
                   {fields.map(([label, placeholder]) => (
-                    <label class={styles.Field} key={label}>
+                    <label class={styles.Field}>
                       <span class={styles.FieldLabel}>{label}</span>
                       <input class={styles.Input} placeholder={placeholder} type="text" />
                     </label>

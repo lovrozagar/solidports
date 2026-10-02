@@ -1,15 +1,14 @@
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { render } from "../../helper/render"
+import { observe } from "../../helper/observe"
 import { describe, it, expect } from "vitest"
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import {
   ChartSelectorsProvider,
   createChartSelectors,
   useChartSelectors,
 } from "../../../src/state/hooks/useChartSelectors"
-import { createStore } from "solid-js/store"
 import { createInitialState } from "../../../src/state/store"
-
+import { createStore } from '../../../src/util/solid-1-compat';
 function withProvider(store: ReturnType<typeof createStore>[0], children: () => JSX.Element): JSX.Element {
   const chartSelectors = createChartSelectors(store)
   return (
@@ -25,7 +24,7 @@ describe("debug-fn-children", () => {
     let got: ReturnType<typeof useChartSelectors> | undefined
 
     const Probe = (): null => {
-      createEffect(() => {
+      observe(() => {
         got = useChartSelectors()
       })
       return null

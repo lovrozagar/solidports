@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { untrack } from "solid-js"
+import { render } from "../../helper/render"
 
 import { LegendSettings } from "../../../src/state/legendSlice"
 import { BarChart, Legend, LegendPayload } from "../../../src"
@@ -30,7 +31,7 @@ describe("selectLegendSettings", () => {
 	it("should return Legend settings", () => {
 		const legendSettingsSpy = vi.fn()
 		const Comp = (): null => {
-			const legend = useAppSelectorWithStableTest(selectLegendSettings)
+			const legend = untrack(() => useAppSelectorWithStableTest(selectLegendSettings))
 			legendSettingsSpy(legend)
 			return null
 		}
@@ -64,7 +65,7 @@ describe("selectLegendSize", () => {
 	it("should return Legend size", () => {
 		const legendSettingsSpy = vi.fn()
 		const Comp = (): null => {
-			const legend = useAppSelectorWithStableTest(selectLegendSize)
+			const legend = untrack(() => useAppSelectorWithStableTest(selectLegendSize))
 			legendSettingsSpy(legend)
 			return null
 		}
@@ -88,7 +89,7 @@ describe("selectLegendPayload", () => {
 	it("should return Legend payload", () => {
 		const legendPayloadSpy = vi.fn()
 		const Comp = (): null => {
-			const legend = useAppSelectorWithStableTest(selectLegendPayload)
+			const legend = untrack(() => useAppSelectorWithStableTest(selectLegendPayload))
 			legendPayloadSpy(legend)
 			return null
 		}

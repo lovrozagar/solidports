@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { batch, createEffect, createMemo, createSignal, onCleanup, Show, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, createSignal, onCleanup, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import {
   safePolygon,
@@ -62,7 +63,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     'nativeButton',
     'disabled',
   ]);
-  const nativeButton = () => local.nativeButton ?? true;
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   const {
     value,
@@ -200,7 +201,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     });
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       stickIfOpenTimeout.clear();
       mutationFrame.cancel();
@@ -212,13 +213,16 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!mounted()) {
       prevSizeRef.current = { width: 0, height: 0 };
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const popup = popupElement();
     if (!popup || typeof ResizeObserver !== 'function') {
       return;
@@ -230,12 +234,21 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
       };
     });
     resizeObserver.observe(popup);
-    onCleanup(() => {
+    _c.push(() => {
       resizeObserver.disconnect();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!open() || !isActiveItem()) {
       return;
     }
@@ -265,13 +278,22 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
       });
     };
     const unsubscribe = addEventListener(win, 'resize', handleResize);
-    onCleanup(() => {
+    _c.push(() => {
       resizeFrame.cancel();
       unsubscribe();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const active = isActiveItem();
     const popup = popupElement();
     const positioner = positionerElement();
@@ -320,12 +342,18 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
       attributes: true,
       attributeFilter: ['hidden'],
     });
-    onCleanup(() => {
+    _c.push(() => {
       mutationObserver.disconnect();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const active = isActiveItem();
     const isOpen = open();
     const popup = popupElement();
@@ -341,7 +369,10 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     handleValueChange(popup, positioner);
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (isActiveItem() && open() && popupElement() && allowFocusRef) {
       allowFocusRef = false;
       focusFrame.request(() => {
@@ -349,10 +380,16 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
       });
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       focusFrame.cancel();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function handleOpenChange(
     nextOpen: boolean,
@@ -433,7 +470,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     store: context,
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       context.context.dataRef.openEvent = undefined;
       hoverInteractionState[1]('pointerType', undefined);
@@ -484,7 +521,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     },
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (isActiveItem()) {
       setFloatingRootContext(context);
       prevTriggerElementRef.current = triggerElement();
@@ -500,43 +537,41 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
   function handleActivation(event: MouseEvent | KeyboardEvent) {
     const currentValue = value();
 
-    batch(() => {
-      const prevTriggerRect = prevTriggerElementRef.current?.getBoundingClientRect();
+    const prevTriggerRect = prevTriggerElementRef.current?.getBoundingClientRect();
 
-      const trigger = triggerElement();
-      if (mounted() && prevTriggerRect && trigger) {
-        const nextTriggerRect = trigger.getBoundingClientRect();
-        const isMovingRight = nextTriggerRect.left > prevTriggerRect.left;
-        const isMovingDown = nextTriggerRect.top > prevTriggerRect.top;
+    const trigger = triggerElement();
+    if (mounted() && prevTriggerRect && trigger) {
+      const nextTriggerRect = trigger.getBoundingClientRect();
+      const isMovingRight = nextTriggerRect.left > prevTriggerRect.left;
+      const isMovingDown = nextTriggerRect.top > prevTriggerRect.top;
 
-        if (orientation() === 'horizontal' && nextTriggerRect.left !== prevTriggerRect.left) {
-          setActivationDirection(isMovingRight ? 'right' : 'left');
-        } else if (orientation() === 'vertical' && nextTriggerRect.top !== prevTriggerRect.top) {
-          setActivationDirection(isMovingDown ? 'down' : 'up');
-        }
+      if (orientation() === 'horizontal' && nextTriggerRect.left !== prevTriggerRect.left) {
+        setActivationDirection(isMovingRight ? 'right' : 'left');
+      } else if (orientation() === 'vertical' && nextTriggerRect.top !== prevTriggerRect.top) {
+        setActivationDirection(isMovingDown ? 'down' : 'up');
       }
+    }
 
-      // Reset the `openEvent` to `undefined` when the active item changes so that a
-      // `click` -> `hover` on new trigger -> `hover` back to old trigger doesn't unexpectedly
-      // cause the popup to remain stuck open when leaving the old trigger.
-      if (event.type !== 'click' && value() != null) {
-        context.context.dataRef.openEvent = undefined;
-      }
+    // Reset the `openEvent` to `undefined` when the active item changes so that a
+    // `click` -> `hover` on new trigger -> `hover` back to old trigger doesn't unexpectedly
+    // cause the popup to remain stuck open when leaving the old trigger.
+    if (event.type !== 'click' && value() != null) {
+      context.context.dataRef.openEvent = undefined;
+    }
 
-      if (pointerType() === 'touch' && event.type !== 'click') {
-        return;
-      }
+    if (pointerType() === 'touch' && event.type !== 'click') {
+      return;
+    }
 
-      if (currentValue != null) {
-        setValue(
-          itemValue(),
-          createChangeEventDetails(
-            event.type === 'mouseenter' ? REASONS.triggerHover : REASONS.triggerPress,
-            event,
-          ),
-        );
-      }
-    });
+    if (currentValue != null) {
+      setValue(
+        itemValue(),
+        createChangeEventDetails(
+          event.type === 'mouseenter' ? REASONS.triggerHover : REASONS.triggerPress,
+          event,
+        ),
+      );
+    }
   }
 
   const state: NavigationMenuTrigger.State = {
@@ -550,7 +585,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
   }
 
   const defaultProps: HTMLProps = {
-    tabIndex: 0,
+    tabindex: 0,
     onMouseEnter: handleActivation,
     onClick: handleActivation,
     onPointerEnter: handleSetPointerType,
@@ -559,7 +594,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
       clearSafePolygonPointerEventsMutation(hoverInteractionState);
     },
     get 'aria-expanded'() {
-      return isActiveItem();
+      return isActiveItem() ? 'true' : 'false';
     },
     get 'aria-controls'() {
       return isActiveItem() ? popupElement()?.id : undefined;
@@ -612,7 +647,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
 
   const { getButtonProps, buttonRef } = useButton({
     get disabled() {
-      return local.disabled;
+      return Boolean(local.disabled);
     },
     focusableWhenDisabled: true,
     native: nativeButton,

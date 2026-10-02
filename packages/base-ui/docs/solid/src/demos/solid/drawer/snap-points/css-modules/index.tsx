@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Drawer } from '@solidports/base-ui/drawer';
@@ -33,9 +33,9 @@ export default function ExampleDrawerSnapPoints() {
                 <Drawer.Description class={styles.Description}>
                   Drag the sheet to snap between a compact peek and a near full-height view.
                 </Drawer.Description>
-                <div class={styles.Cards} aria-hidden>
+                <div class={styles.Cards} aria-hidden="true">
                   {Array.from({ length: 20 }, (_, index) => (
-                    <div class={styles.Card} key={index} />
+                    <div class={styles.Card} />
                   ))}
                 </div>
                 <div class={styles.Actions}>

@@ -12,8 +12,7 @@ export default function MarksSlider() {
           <Slider.Indicator class="bg-neutral-950 select-none dark:bg-white" />
           {MARKS.map((mark) => (
             <div
-              key={mark}
-              aria-hidden
+              aria-hidden="true"
               class="absolute top-1/2 h-2 w-px -translate-x-1/2 -translate-y-1/2 bg-neutral-950 dark:bg-white"
               style={{ left: `${valueToPercent(mark)}%` }}
             />
@@ -24,10 +23,9 @@ export default function MarksSlider() {
           />
         </Slider.Track>
       </Slider.Control>
-      <div class="relative h-4 select-none" aria-hidden>
+      <div class="relative h-4 select-none" aria-hidden="true">
         {MARKS.map((mark) => (
           <span
-            key={mark}
             class="absolute -translate-x-1/2 text-xs whitespace-nowrap text-neutral-600 dark:text-neutral-400"
             style={{ left: `${valueToPercent(mark)}%` }}
           >

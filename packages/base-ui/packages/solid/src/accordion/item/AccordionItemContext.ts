@@ -1,7 +1,9 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
-import type { SetStoreFunction, Store } from 'solid-js/store';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { Store } from 'solid-js';
 import type { CodependentRefs } from '../../solid-helpers';
 import type { AccordionItem } from './AccordionItem';
+import { type SetStoreFunction } from '../../solid-1-compat';
 
 export interface AccordionItemContext {
   open: Accessor<boolean>;
@@ -11,11 +13,11 @@ export interface AccordionItemContext {
   setCodependentRefs: SetStoreFunction<CodependentRefs<['trigger']>>;
 }
 
-export const AccordionItemContext = createContext<AccordionItemContext>();
+export const AccordionItemContext = createContext<AccordionItemContext | null>(null);
 
 export function useAccordionItemContext() {
   const context = useContext(AccordionItemContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: AccordionItemContext is missing. Accordion parts must be placed within <Accordion.Item>.',
     );

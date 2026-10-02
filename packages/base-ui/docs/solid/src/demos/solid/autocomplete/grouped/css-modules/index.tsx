@@ -18,13 +18,13 @@ export default function ExampleGroupAutocomplete() {
             </Autocomplete.Empty>
             <Autocomplete.List class={styles.List}>
               {(group: TagGroup) => (
-                <Autocomplete.Group key={group.value} items={group.items} class={styles.Group}>
+                <Autocomplete.Group items={group.items} class={styles.Group}>
                   <Autocomplete.GroupLabel class={styles.GroupLabel}>
                     {group.value}
                   </Autocomplete.GroupLabel>
                   <Autocomplete.Collection>
                     {(tag: Tag) => (
-                      <Autocomplete.Item key={tag.id} class={styles.Item} value={tag}>
+                      <Autocomplete.Item class={styles.Item} value={tag}>
                         {tag.label}
                       </Autocomplete.Item>
                     )}

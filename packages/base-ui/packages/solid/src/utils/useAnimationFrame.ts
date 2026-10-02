@@ -1,4 +1,4 @@
-import { onCleanup } from 'solid-js';
+import { registerOwnerCleanup } from './useTimeout';
 
 type AnimationFrameId = number;
 
@@ -123,6 +123,6 @@ export class AnimationFrame {
  */
 export function useAnimationFrame() {
   const timeout = AnimationFrame.create();
-  onCleanup(timeout.cancel);
+  registerOwnerCleanup(timeout.cancel);
   return timeout;
 }

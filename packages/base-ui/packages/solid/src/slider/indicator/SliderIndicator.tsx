@@ -1,4 +1,5 @@
-import { createMemo, createSignal, type JSX, onMount } from 'solid-js';
+import { createMemo, createSignal, onSettled } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -88,7 +89,9 @@ export function SliderIndicator(componentProps: SliderIndicator.Props) {
     useSliderRootContext();
 
   const [isMounted, setIsMounted] = createSignal(false);
-  onMount(() => setIsMounted(true));
+  onSettled(() => {
+    setIsMounted(true);
+  });
 
   const vertical = () => orientation() === 'vertical';
   const range = () => values().length > 1;
@@ -118,8 +121,6 @@ export function SliderIndicator(componentProps: SliderIndicator.Props) {
         get style() {
           return style();
         },
-        // @ts-expect-error - suppressHydrationWarning is not a valid attribute for Solid
-        suppressHydrationWarning: renderBeforeHydration() || undefined,
       },
       elementProps,
     ],

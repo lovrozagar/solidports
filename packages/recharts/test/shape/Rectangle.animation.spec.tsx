@@ -5,8 +5,8 @@ import { trim } from "../helper/trim"
 import { mockGetTotalLength } from "../helper/mockGetTotalLength"
 import { assertNotNull } from "../helper/assertNotNull"
 import { MockAnimationManager } from "../animation/MockProgressAnimationManager"
-import { createSignal, type JSX } from "solid-js"
-
+import { createSignal, flush } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 function getFirstRect(container: Element) {
 	const rects = container.querySelectorAll(".recharts-rectangle")
 	expect(rects).toHaveLength(1)
@@ -150,6 +150,7 @@ async function prime(container: HTMLElement) {
 	const button = container.querySelector("button")
 	assertNotNull(button)
 	button.click()
+	flush()
 }
 
 describe("Rectangle animation", () => {
@@ -201,8 +202,7 @@ describe("Rectangle animation", () => {
 		},
 	)
 
-	/* Cluster B: stroke-dasharray + interpolation arithmetic React-vs-Solid divergence. */
-	describe.skip.each([{ isAnimationActive: false, isUpdateAnimationActive: true }])(
+	describe.each([{ isAnimationActive: false, isUpdateAnimationActive: true }])(
 		"isAnimationActive=$isAnimationActive, isUpdateAnimationActive=$isUpdateAnimationActive",
 		(params) => {
 			const renderTestCase = rectangleTestCase(params)
@@ -297,8 +297,7 @@ describe("Rectangle animation", () => {
 		},
 	)
 
-	/* Cluster B */
-	describe.skip.each([{ isAnimationActive: true, isUpdateAnimationActive: true }])(
+	describe.each([{ isAnimationActive: true, isUpdateAnimationActive: true }])(
 		"isAnimationActive=$isAnimationActive, isUpdateAnimationActive=$isUpdateAnimationActive",
 		(params) => {
 			const renderTestCase = rectangleTestCase(params)

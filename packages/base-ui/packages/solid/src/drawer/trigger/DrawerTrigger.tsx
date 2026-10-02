@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { DialogHandle as DrawerHandle } from '../../dialog/store/DialogHandle';
 import { DialogTrigger } from '../../dialog/trigger/DialogTrigger';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';

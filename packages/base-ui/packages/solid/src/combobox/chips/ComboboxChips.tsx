@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from 'solid-js';
+import { createTrackedEffect, createSignal } from 'solid-js';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
@@ -23,7 +23,7 @@ export function ComboboxChips(componentProps: ComboboxChips.Props) {
     undefined,
   );
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (open() && highlightedChipIndex() !== undefined) {
       setHighlightedChipIndex(undefined);
     }
@@ -49,9 +49,9 @@ export function ComboboxChips(componentProps: ComboboxChips.Props) {
   };
 
   return (
-    <ComboboxChipsContext.Provider value={contextValue}>
+    <ComboboxChipsContext value={contextValue}>
       <CompositeList refs={{ elements: chipsRef.current }}>{element()}</CompositeList>
-    </ComboboxChipsContext.Provider>
+    </ComboboxChipsContext>
   );
 }
 

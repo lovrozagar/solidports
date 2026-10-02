@@ -12,16 +12,12 @@ import { defaultProps } from '@solidports/base-ui/solid-helpers';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import {
-  createSignal,
-  Show,
-  mergeProps as solidMergeProps,
-  splitProps,
-  type Component,
-  type JSX,
-} from 'solid-js';
-import { Dynamic } from 'solid-js/web';
+import { createSignal, Show } from 'solid-js';
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
 import { REASONS } from '../../utils/reasons';
+import { mergeProps as solidMergeProps, splitProps } from '../../solid-1-compat';
 
 describe('<Dialog.Root />', () => {
   const { render } = createRenderer();

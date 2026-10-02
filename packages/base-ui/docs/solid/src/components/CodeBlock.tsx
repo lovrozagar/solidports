@@ -1,9 +1,13 @@
-import { createContext, createSignal, createUniqueId, splitProps, useContext, type JSX, type ParentProps } from "solid-js"
+import { createContext, createSignal, createUniqueId, useContext } from 'solid-js';
+import type { ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
 import * as ScrollArea from "./ScrollArea"
 import { CheckIcon } from "../icons/CheckIcon"
 import { CopyIcon } from "../icons/CopyIcon"
 import { GhostButton } from "./GhostButton"
+
+import { splitProps } from '../utils/solid-1-compat';
 import "./CodeBlock/CodeBlock.css"
 
 type Lang = "tsx" | "ts" | "js" | "jsx" | "bash" | "css" | "json" | "html" | "text"
@@ -33,14 +37,14 @@ export function Root(props: ParentProps<JSX.HTMLAttributes<HTMLDivElement>>) {
   const titleId = createUniqueId()
   const codeId = createUniqueId()
   return (
-    <CodeBlockContext.Provider value={{ codeId, titleId }}>
+    <CodeBlockContext value={{ codeId, titleId }}>
       <div
         role="figure"
         aria-labelledby={titleId}
         {...rest}
         class={clsx("CodeBlockRoot", local.class)}
       />
-    </CodeBlockContext.Provider>
+    </CodeBlockContext>
   )
 }
 
@@ -88,7 +92,7 @@ export function Content(props: ParentProps<JSX.HTMLAttributes<HTMLDivElement>>) 
   const ctx = useContext(CodeBlockContext)
   return (
     <ScrollArea.Root
-      tabIndex={-1}
+      tabindex={-1}
       id={ctx.codeId}
       class={clsx("CodeBlockPreContainer", local.class)}
       {...rest}

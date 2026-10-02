@@ -1,5 +1,7 @@
-import { createMemo, JSX, splitProps } from 'solid-js';
+import { createMemo } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { createAttribute } from '../floating-ui-solid/utils/createAttribute';
+import { splitProps } from '../solid-1-compat';
 
 /**
  * @internal

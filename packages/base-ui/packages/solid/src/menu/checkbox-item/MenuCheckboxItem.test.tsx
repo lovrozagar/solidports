@@ -3,7 +3,7 @@ import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { splitProps } from 'solid-js';
+import { splitProps } from '../../solid-1-compat';
 
 describe('<Menu.CheckboxItem />', () => {
   const { render, clock } = createRenderer({

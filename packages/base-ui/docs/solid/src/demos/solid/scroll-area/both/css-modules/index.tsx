@@ -8,7 +8,7 @@ export default function ExampleScrollAreaBoth() {
         <ScrollArea.Content class={styles.Content}>
           <ul class={styles.Grid}>
             {Array.from({ length: 100 }, (_, i) => (
-              <li key={i} class={styles.Item}>
+              <li class={styles.Item}>
                 {i + 1}
               </li>
             ))}

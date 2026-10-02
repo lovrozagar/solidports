@@ -3,13 +3,11 @@ import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
 
 export type NavigationMenuPositionerContext = ReturnType<typeof useAnchorPositioning>;
 
-export const NavigationMenuPositionerContext = createContext<
-  NavigationMenuPositionerContext | undefined
->(undefined);
+export const NavigationMenuPositionerContext = createContext<NavigationMenuPositionerContext | null>(null);
 
 export function useNavigationMenuPositionerContext(
   optional: true,
-): NavigationMenuPositionerContext | undefined;
+): NavigationMenuPositionerContext | null;
 export function useNavigationMenuPositionerContext(
   optional?: false,
 ): NavigationMenuPositionerContext;

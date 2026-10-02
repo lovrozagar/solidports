@@ -2,20 +2,12 @@
 import { createRenderer, flushMicrotasks } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
-import {
-  createSignal,
-  lazy,
-  onCleanup,
-  onMount,
-  Show,
-  splitProps,
-  Suspense,
-  type ComponentProps,
-  type JSX,
-} from 'solid-js';
+import { createSignal, lazy, onCleanup, onSettled, Show, Loading } from 'solid-js';
+import type { ComponentProps, JSX } from '@solidjs/web';
 import { mergeProps as solidMergeProps } from '../merge-props';
 import type { BaseUIComponentProps } from './types';
 import { useRenderElement } from './useRenderElement';
+import { splitProps } from '../solid-1-compat';
 
 describe('useRenderElement', () => {
   const { render } = createRenderer();
@@ -219,12 +211,12 @@ describe('useRenderElement', () => {
       );
 
       render(() => (
-        <Suspense fallback={<div>Loading…</div>}>
+        <Loading fallback={<div>Loading…</div>}>
           <TestComponent
             active
             render={(props) => <LazyComponent {...props} data-testid="lazy" />}
           />
-        </Suspense>
+        </Loading>
       ));
 
       const element = await screen.findByTestId('lazy');
@@ -272,7 +264,7 @@ describe('useRenderElement', () => {
       onChildCleanup: () => void;
     }) {
       function Child() {
-        onMount(() => props.onChildMount());
+        onSettled(() => props.onChildMount());
         onCleanup(() => props.onChildCleanup());
         return <span data-testid="child">child</span>;
       }
@@ -463,7 +455,7 @@ describe('useRenderElement', () => {
     describe('children passed via componentProps', () => {
       function makeChild(onChildMount: () => void, onChildCleanup: () => void) {
         return function Child() {
-          onMount(() => onChildMount());
+          onSettled(() => onChildMount());
           onCleanup(() => onChildCleanup());
           return <span data-testid="child">child</span>;
         };
@@ -614,13 +606,13 @@ describe('useRenderElement', () => {
         };
 
         function PanelBody() {
-          onMount(() => panelBodyMountSpy());
+          onSettled(() => panelBodyMountSpy());
           onCleanup(() => panelBodyCleanupSpy());
           return <span data-testid="panel-body">panel body</span>;
         }
 
         function Trigger() {
-          onMount(() => triggerMountSpy());
+          onSettled(() => triggerMountSpy());
           onCleanup(() => triggerCleanupSpy());
 
           const componentProps: BaseUIComponentProps<
@@ -643,7 +635,7 @@ describe('useRenderElement', () => {
         }
 
         function Panel() {
-          onMount(() => panelMountSpy());
+          onSettled(() => panelMountSpy());
           onCleanup(() => panelCleanupSpy());
 
           const shouldRender = () => mounted();

@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { ComboboxTrigger } from '../../combobox/trigger/ComboboxTrigger';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';

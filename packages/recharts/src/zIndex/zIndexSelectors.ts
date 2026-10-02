@@ -25,11 +25,24 @@ export function selectZIndexPortalElement(
 	return entry.element
 }
 
+/* Upstream memoizes with a result equality check: an equal list keeps its reference. */
+const lastRegisteredZIndexes = new WeakMap<object, ReadonlyArray<number>>()
+
 export function selectAllRegisteredZIndexes(state: ChartState): ReadonlyArray<number> {
 	const zIndexMap = state.zIndex.zIndexMap
 	const allNumbers = Object.keys(zIndexMap)
 		.map((zIndexStr) => parseInt(zIndexStr, 10))
 		.concat(Object.values(DefaultZIndexes))
-	const uniqueNumbers = Array.from(new Set(allNumbers))
-	return uniqueNumbers.sort((a, b) => a - b)
+	const uniqueNumbers = Array.from(new Set(allNumbers)).sort((a, b) => a - b)
+	const key = state.zIndex as object
+	const previous = lastRegisteredZIndexes.get(key)
+	if (
+		previous != null &&
+		previous.length === uniqueNumbers.length &&
+		previous.every((value, index) => value === uniqueNumbers[index])
+	) {
+		return previous
+	}
+	lastRegisteredZIndexes.set(key, uniqueNumbers)
+	return uniqueNumbers
 }

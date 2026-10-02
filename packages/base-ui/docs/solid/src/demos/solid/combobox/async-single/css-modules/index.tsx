@@ -1,4 +1,5 @@
-import { createSignal, createMemo, createUniqueId, type JSX } from 'solid-js';
+import { createSignal, createMemo, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -31,7 +32,7 @@ export default function ExampleAsyncSingleCombobox() {
     if (isPending) {
       return (
         <>
-          <span class={styles.Spinner} aria-hidden />
+          <span class={styles.Spinner} aria-hidden="true" />
           Searching…
         </>
       );
@@ -139,7 +140,7 @@ export default function ExampleAsyncSingleCombobox() {
               </Combobox.Empty>
               <Combobox.List>
                 {(user: DirectoryUser) => (
-                  <Combobox.Item key={user.id} class={styles.Item} value={user}>
+                  <Combobox.Item class={styles.Item} value={user}>
                     <Combobox.ItemIndicator class={styles.ItemIndicator}>
                       <CheckIcon />
                     </Combobox.ItemIndicator>

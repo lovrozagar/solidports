@@ -1,4 +1,5 @@
-import { createEffect, onCleanup, Show, type Accessor } from 'solid-js';
+import { createTrackedEffect, onCleanup, Show } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -83,7 +84,7 @@ export function TabsPanel(componentProps: TabsPanel.Props) {
         get id() {
           return id();
         },
-        get tabIndex() {
+        get tabindex() {
           return open() ? 0 : -1;
         },
         get inert() {
@@ -113,7 +114,10 @@ export function TabsPanel(componentProps: TabsPanel.Props) {
     ref: () => panelRef,
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (hidden() && !keepMounted()) {
       return;
     }
@@ -124,10 +128,16 @@ export function TabsPanel(componentProps: TabsPanel.Props) {
     }
 
     registerMountedTabPanel(local.value, resolvedId);
-    onCleanup(() => {
+    _c.push(() => {
       unregisterMountedTabPanel(local.value, resolvedId);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const shouldRender = () => keepMounted() || mounted();
 

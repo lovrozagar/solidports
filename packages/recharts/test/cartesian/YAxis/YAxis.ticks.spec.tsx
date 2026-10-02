@@ -31,6 +31,7 @@ const defaultExpectedYAxisSettings: RenderableAxisSettings = {
 	minTickGap: 5,
 	mirror: false,
 	name: undefined,
+	niceTicks: "auto",
 	orientation: "left",
 	padding: {
 		bottom: 0,
@@ -175,6 +176,7 @@ describe("YAxis ticks", () => {
 				...defaultExpectedYAxisSettings,
 				allowDecimals: false,
 				domain: ["dataMin", "dataMax"],
+				niceTicks: "auto",
 				tickCount: 3,
 			})
 		})
@@ -230,6 +232,7 @@ describe("YAxis ticks", () => {
 				...defaultExpectedYAxisSettings,
 				allowDecimals: false,
 				domain: [0, 200],
+				niceTicks: "auto",
 				tickCount: 4,
 			})
 		})

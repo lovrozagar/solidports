@@ -1,8 +1,10 @@
 /* eslint-disable typescript/no-explicit-any -- generic store accepts arbitrary state/context/selector shapes; `unknown` would force casts at every internal write */
-import { createEffect, createMemo, createRoot, on, onCleanup, type Accessor } from 'solid-js';
-import { createStore, produce, type SetStoreFunction, type Store } from 'solid-js/store';
+import { createEffect, createMemo, createRoot, onCleanup } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { Store } from 'solid-js';
 import { access, type MaybeAccessor, type MaybeAccessorValue } from '../../solid-helpers';
 import { NOOP } from '../empty';
+import { on, createStore, writeStorePatch, type SetStoreFunction } from '../../solid-1-compat';
 
 /**
  * A Store that supports controlled state keys, non-reactive values and provides utility methods for React.
@@ -28,7 +30,14 @@ export function SolidStore<
     key: keyof State,
     value: Accessor<Value>,
   ) {
-    createEffect(() => setState(key as any, value()));
+    createEffect(
+      () => value(),
+      (next) => {
+        if (!Object.is(state[key], next)) {
+          setState(key as any, next);
+        }
+      },
+    );
   }
 
   function useSyncedValueWithCleanup<Key extends KeysAllowingUndefined<State>>(
@@ -39,22 +48,28 @@ export function SolidStore<
     onCleanup(() => setState(key as any, undefined));
   }
 
+  function readSyncedSnapshot(
+    statePart: Accessor<Partial<State>> | Partial<{ [key: string]: MaybeAccessor<unknown> }>,
+  ) {
+    const part = access(statePart) as Record<string, unknown>;
+    const snapshot: Record<string, unknown> = {};
+    // eslint-disable-next-line guard-for-in
+    for (const key in part) {
+      snapshot[key] = access(part[key]);
+    }
+    return snapshot;
+  }
+
   function useSyncedValues<Keys extends keyof State>(
     statePart: Accessor<Partial<State>> | Partial<{ [Key in Keys]: MaybeAccessor<State[Key]> }>,
   ) {
-    const partialState = createMemo(
-      () => access(statePart) as Partial<{ [Key in Keys]: MaybeAccessor<State[Key]> }>,
-    );
-
     if (process.env.NODE_ENV !== 'production') {
-      // Check that an object with the same shape is passed on every render
-      // eslint-disable-next-line solid/reactivity
-      const keys = Object.keys(partialState()) as Array<keyof State>;
-
-      const nextKeys = createMemo(() => Object.keys(partialState()) as Array<keyof State>);
-      createEffect(() => {
-        const next = nextKeys();
-        if (keys.length !== next.length || keys.some((key, index) => key !== next[index])) {
+      const keys = createMemo(() => Object.keys(access(statePart)));
+      createEffect(keys, (next, prev) => {
+        if (
+          prev !== undefined &&
+          (prev.length !== next.length || prev.some((key, index) => key !== next[index]))
+        ) {
           console.error(
             'SolidStore.useSyncedValues expects the same prop keys on every render. Keys should be stable.',
           );
@@ -62,17 +77,24 @@ export function SolidStore<
       });
     }
 
-    createEffect(() => {
-      const part = partialState();
-      setState(
-        produce((currentState) => {
-          // eslint-disable-next-line guard-for-in
-          for (const key in part) {
-            currentState[key] = access(part[key]) as any;
+    createEffect(
+      () => readSyncedSnapshot(statePart as any),
+      (snapshot) => {
+        let changed = false;
+        for (const key in snapshot) {
+          if (!Object.is(state[key as keyof State], snapshot[key])) {
+            changed = true;
+            break;
           }
-        }),
-      );
-    });
+        }
+        if (!changed) {
+          return;
+        }
+        setState((currentState: State) => {
+          writeStorePatch(currentState, snapshot);
+        });
+      },
+    );
   }
 
   function useControlledProp<Key extends keyof State, Value extends State[Key]>(
@@ -80,29 +102,31 @@ export function SolidStore<
     controlledProp: Value | Accessor<Value | undefined> | undefined,
   ): void {
     const controlled = createMemo(() => access(controlledProp));
-    const isControlled = createMemo(() => controlled() !== undefined);
 
-    createEffect(() => {
-      if (isControlled() && !Object.is(state[key], controlled())) {
-        // Set the internal state to match the controlled value.
-        setState(key as any, controlled());
+    createEffect(controlled, (value) => {
+      if (value !== undefined && !Object.is(state[key], value)) {
+        setState(key as any, value);
       }
     });
 
     if (process.env.NODE_ENV !== 'production') {
-      createEffect(() => {
-        // eslint-disable-next-line
+      const isControlled = createMemo(() => controlled() !== undefined);
+      createEffect(isControlled, (currentlyControlled, previouslyControlled) => {
         const cache = (controlledValues ??= new Map<keyof State, boolean>());
         if (!cache.has(key)) {
-          cache.set(key, isControlled());
+          cache.set(key, currentlyControlled);
         }
 
-        const previouslyControlled = cache.get(key);
-        if (previouslyControlled !== undefined && previouslyControlled !== isControlled()) {
+        const cached = cache.get(key);
+        if (
+          previouslyControlled !== undefined &&
+          cached !== undefined &&
+          cached !== currentlyControlled
+        ) {
           console.error(
             `A component is changing the ${
-              isControlled() ? '' : 'un'
-            }controlled state of ${key.toString()} to be ${isControlled() ? 'un' : ''}controlled. Elements should not switch from uncontrolled to controlled (or vice versa).`,
+              currentlyControlled ? '' : 'un'
+            }controlled state of ${key.toString()} to be ${currentlyControlled ? 'un' : ''}controlled. Elements should not switch from uncontrolled to controlled (or vice versa).`,
           );
         }
       });
@@ -133,7 +157,7 @@ export function SolidStore<
 
   function useContextCallback<Key extends ContextFunctionKeys<Context>>(
     key: Key,
-    fn: ContextFunction<Context, Key> | undefined,
+    fn: NoInfer<ContextFunction<Context, Key>> | undefined,
   ) {
     (context as any)[key] = fn ?? (NOOP as ContextFunction<Context, Key>);
   }
@@ -178,11 +202,10 @@ export function SolidStore<
         return selectors[selector](state);
       });
 
-      createEffect(
-        on(data, (nextValue, prevValue) => {
+      createEffect(...on(data, (nextValue, prevValue) => {
           const prev = renderCount === 0 ? nextValue : prevValue;
           renderCount += 1;
-          return listener(nextValue, prev, state);
+          listener(nextValue, prev, state);
         }),
       );
     });

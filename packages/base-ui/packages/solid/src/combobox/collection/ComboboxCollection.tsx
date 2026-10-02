@@ -1,5 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createMemo, For, Show, type Accessor, type JSX } from 'solid-js';
+import { createMemo, For, Show } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useComboboxDerivedItemsContext } from '../root/ComboboxRootContext';
 import { useGroupCollectionContext } from './GroupCollectionContext';
 

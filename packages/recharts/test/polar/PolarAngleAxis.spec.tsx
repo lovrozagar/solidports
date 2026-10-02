@@ -1,6 +1,11 @@
-import { render } from "@solidjs/testing-library"
-import { createEffect } from "solid-js"
+import { fireEvent, render } from "../helper/render"
+import { userEventSetup } from "../helper/userEventSetup"
+import { untrack } from "solid-js"
+import { observe } from "../helper/observe"
+import { trackSpy } from "../helper/trackSpy"
+
 import { describe, expect, it, test, vi } from "vitest"
+import type { Mock } from "vitest"
 import {
 	PolarAngleAxis,
 	PolarRadiusAxis,
@@ -9,6 +14,7 @@ import {
 	RadialBar,
 	RadialBarChart,
 	BaseTickContentProps,
+	TickItem,
 } from "../../src"
 import { exampleRadarData, PageData, pageDataWithFillColor } from "../_data"
 import { assertNotNull } from "../helper/assertNotNull"
@@ -145,6 +151,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -398,6 +405,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -428,7 +436,7 @@ describe("<PolarAngleAxis />", () => {
 			it("should select angle axis domain", () => {
 				const { spy } = renderTestCase((state) => selectPolarAxisDomain(state, "angleAxis", 0))
 				expectLastCalledWith(spy, [0, 1, 2, 3, 4, 5, 6, 7])
-				expect(spy).toHaveBeenCalledTimes(2)
+				expect(spy).toHaveBeenCalledTimes(1)
 			})
 
 			it("should select angle axis range", () => {
@@ -583,6 +591,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -627,7 +636,7 @@ describe("<PolarAngleAxis />", () => {
 			it("should select angle axis domain", () => {
 				const { spy } = renderTestCase((state) => selectPolarAxisDomain(state, "angleAxis", 0))
 				expectLastCalledWith(spy, [0, 1, 2, 3, 4, 5, 6, 7])
-				expect(spy).toHaveBeenCalledTimes(2)
+				expect(spy).toHaveBeenCalledTimes(1)
 			})
 
 			it("should select angle axis range", () => {
@@ -685,6 +694,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -838,7 +848,7 @@ describe("<PolarAngleAxis />", () => {
 			})
 		})
 
-		test.skip("renders regularly spaced ticks, even if the data is different", () => {
+		test("renders regularly spaced ticks, even if the data is different", () => {
 			const data = [
 				{ angle: 0, value: 5 },
 				{ angle: 45, value: 5 },
@@ -855,10 +865,8 @@ describe("<PolarAngleAxis />", () => {
 			const niceTicksSpy = vi.fn()
 
 			const Comp = (): null => {
-				angleAxisSettingsSpy(useAppSelectorWithStableTest((state) => selectAngleAxis(state, 0)))
-				niceTicksSpy(
-					useAppSelectorWithStableTest((state) => selectPolarNiceTicks(state, "angleAxis", 0)),
-				)
+				trackSpy(angleAxisSettingsSpy, () => useAppSelectorWithStableTest((state) => selectAngleAxis(state, 0)))
+				trackSpy(niceTicksSpy, () => useAppSelectorWithStableTest((state) => selectPolarNiceTicks(state, "angleAxis", 0)))
 				return null
 			}
 			const { container } = render(() => (
@@ -878,6 +886,7 @@ describe("<PolarAngleAxis />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -1462,9 +1471,7 @@ describe("<PolarAngleAxis />", () => {
 		test("linear scale should produce niceTicks=undefined too because that is what the generator does", () => {
 			const niceTicksSpy = vi.fn()
 			const Comp = (): null => {
-				niceTicksSpy(
-					useAppSelectorWithStableTest((state) => selectPolarNiceTicks(state, "angleAxis", 0)),
-				)
+				trackSpy(niceTicksSpy, () => useAppSelectorWithStableTest((state) => selectPolarNiceTicks(state, "angleAxis", 0)))
 				return null
 			}
 
@@ -1580,7 +1587,7 @@ describe("<PolarAngleAxis />", () => {
 		] as const)("uses $expectedScale scale when type=$axisType", ({ axisType, expectedScale }) => {
 			const realScaleTypeSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() =>
+				observe(() =>
 					realScaleTypeSpy(
 						useAppSelectorWithStableTest((state) => selectRealScaleType(state, "angleAxis", 0)),
 					),
@@ -1723,6 +1730,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -1896,6 +1904,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -2006,6 +2015,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -2112,6 +2122,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: true,
 					scale: "auto",
 					tick: true,
@@ -2262,6 +2273,7 @@ describe("<PolarAngleAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -2617,7 +2629,7 @@ describe("<PolarAngleAxis />", () => {
 		] as const)("uses $expectedScale scale when type=$axisType", ({ axisType, expectedScale }) => {
 			const realScaleTypeSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() =>
+				observe(() =>
 					realScaleTypeSpy(
 						useAppSelectorWithStableTest((state) => selectRealScaleType(state, "angleAxis", 0)),
 					),
@@ -2641,7 +2653,7 @@ describe("<PolarAngleAxis />", () => {
 		it("should report its settings to Redux store, and remove it when component is removed", () => {
 			const angleAxisSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() =>
+				observe(() =>
 					angleAxisSpy(useAppSelectorWithStableTest((state) => selectAngleAxis(state, 0))),
 				)
 				return null
@@ -2661,6 +2673,7 @@ describe("<PolarAngleAxis />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -2680,7 +2693,7 @@ describe("<PolarAngleAxis />", () => {
 			/* GOTCHA-007-E sibling-mount-order: expect(angleAxisSpy).toHaveBeenCalledTimes(4) */
 		})
 
-		it.skip("should select angle axis settings", () => {
+		it("should select angle axis settings", () => {
 			const axisSettingsSpy = vi.fn()
 			const angleAxisRangeSpy = vi.fn()
 			const angleAxisDomainSpy = vi.fn()
@@ -2688,9 +2701,9 @@ describe("<PolarAngleAxis />", () => {
 			const angleAxisTicksSpy = vi.fn()
 			const angleAxisNiceTicksSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
+				const isPanorama = untrack(() => useIsPanorama())
 
-				createEffect(() => {
+				observe(() => {
 					axisSettingsSpy(
 						useAppSelectorWithStableTest((state) => selectAngleAxis(state, "angle-id")),
 					)
@@ -2763,6 +2776,7 @@ describe("<PolarAngleAxis />", () => {
 				id: "angle-id",
 				includeHidden: false,
 				name: "angle-name",
+				niceTicks: "auto",
 				reversed: true,
 				scale: "log",
 				tick: false,
@@ -2984,6 +2998,81 @@ describe("<PolarAngleAxis />", () => {
 			expect(formatter).toHaveBeenNthCalledWith(6, "iPhone 6", 5)
 			expect(formatter).toHaveBeenNthCalledWith(7, "iPhone 6s", 6)
 			expect(formatter).toHaveBeenNthCalledWith(8, "iPhone 5se", 7)
+		})
+	})
+	describe("events", () => {
+		it("should fire event handlers when provided", async () => {
+			const userEvent = userEventSetup()
+			type Handler = (tickItem: TickItem, index: number, e: Event) => void
+			const onClick: Mock<Handler> = vi.fn()
+			const onMouseEnter: Mock<Handler> = vi.fn()
+			const onMouseLeave: Mock<Handler> = vi.fn()
+			const onMouseOver: Mock<Handler> = vi.fn()
+			const onMouseOut: Mock<Handler> = vi.fn()
+			const onMouseMove: Mock<Handler> = vi.fn()
+			const onTouchStart: Mock<Handler> = vi.fn()
+			const onTouchMove: Mock<Handler> = vi.fn()
+			const onTouchEnd: Mock<Handler> = vi.fn()
+
+			const { container } = render(() => (
+				<RadarChart width={100} height={100} data={[{ x: 1, y: 1 }]}>
+					<PolarRadiusAxis dataKey="x" />
+					<PolarAngleAxis
+						dataKey="y"
+						onClick={onClick}
+						onMouseEnter={onMouseEnter}
+						onMouseLeave={onMouseLeave}
+						onMouseOver={onMouseOver}
+						onMouseOut={onMouseOut}
+						onMouseMove={onMouseMove}
+						onTouchStart={onTouchStart}
+						onTouchMove={onTouchMove}
+						onTouchEnd={onTouchEnd}
+					/>
+				</RadarChart>
+			))
+
+			const axisLabel = container.querySelector(".recharts-polar-angle-axis-tick")
+			assertNotNull(axisLabel)
+
+			await userEvent.click(axisLabel)
+			expect(onClick).toHaveBeenCalledTimes(1)
+
+			const tickItem: TickItem = {
+				coordinate: 90,
+				index: 0,
+				offset: 360,
+				value: 1,
+			}
+			expectLastCalledWith(onClick, tickItem, 0, expect.any(Object))
+
+			await userEvent.hover(axisLabel)
+			expect(onMouseEnter).toHaveBeenCalledTimes(1)
+			expect(onMouseEnter).toHaveBeenLastCalledWith(tickItem, 0, expect.any(Object))
+			expect(onMouseOver).toHaveBeenCalledTimes(1)
+			expect(onMouseOver).toHaveBeenLastCalledWith(tickItem, 0, expect.any(Object))
+
+			await userEvent.unhover(axisLabel)
+			expect(onMouseLeave).toHaveBeenCalledTimes(1)
+			expect(onMouseLeave).toHaveBeenLastCalledWith(tickItem, 0, expect.any(Object))
+			expect(onMouseOut).toHaveBeenCalledTimes(1)
+			expect(onMouseOut).toHaveBeenLastCalledWith(tickItem, 0, expect.any(Object))
+
+			await userEvent.pointer({ target: axisLabel, keys: "[MouseMove]" })
+			expect(onMouseMove).toHaveBeenCalledTimes(1)
+			expect(onMouseMove).toHaveBeenLastCalledWith(tickItem, 0, expect.any(Object))
+
+			fireEvent.touchStart(axisLabel)
+			expect(onTouchStart).toHaveBeenCalledTimes(1)
+			expect(onTouchStart).toHaveBeenLastCalledWith(tickItem, 0, expect.any(Object))
+
+			fireEvent.touchMove(axisLabel)
+			expect(onTouchMove).toHaveBeenCalledTimes(1)
+			expect(onTouchMove).toHaveBeenLastCalledWith(tickItem, 0, expect.any(Object))
+
+			fireEvent.touchEnd(axisLabel)
+			expect(onTouchEnd).toHaveBeenCalledTimes(1)
+			expect(onTouchEnd).toHaveBeenLastCalledWith(tickItem, 0, expect.any(Object))
 		})
 	})
 })

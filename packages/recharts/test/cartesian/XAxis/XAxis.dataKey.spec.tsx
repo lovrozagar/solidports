@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../../helper/render"
 import { Customized, LineChart, Scatter, ScatterChart, XAxis, YAxis } from "../../../src"
 import { ExpectAxisDomain, expectXAxisTicks } from "../../helper/expectAxisTicks"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"

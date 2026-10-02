@@ -1,6 +1,7 @@
-/* @jsxImportSource solid-js */
-import type { JSX } from "solid-js"
-import { render } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import type { JSX } from '@solidjs/web';
+import { untrack } from "solid-js"
+import { render } from "../helper/render"
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import {
 	useActiveTooltipDataPoints,
@@ -33,7 +34,7 @@ describe("useActiveTooltipDataPoints", () => {
 		it("should return undefined", () => {
 			const spy = vi.fn()
 			const Comp = (): JSX.Element => {
-				const result = useActiveTooltipDataPoints()
+				const result = untrack(() => useActiveTooltipDataPoints())
 				spy(result)
 				return null
 			}
@@ -330,8 +331,7 @@ describe("useActiveTooltipDataPoints", () => {
 	})
 	describe("when activeDot is defined as inline object", () => {
 		const ChartContent = () => {
-			useActiveTooltipDataPoints()
-
+			untrack(() => useActiveTooltipDataPoints())
 			return (
 				<Line
 					activeDot={{

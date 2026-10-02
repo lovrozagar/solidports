@@ -1,6 +1,5 @@
 import { SunburstChart } from "@solidports/recharts"
-import type { Component } from "solid-js"
-
+import type { Component } from 'solid-js';
 import { sunburstHierarchy } from "../data"
 
 export const SunburstChartExample: Component = () => (

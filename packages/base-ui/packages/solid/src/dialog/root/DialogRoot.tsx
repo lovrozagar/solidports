@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { type ReactLikeRef } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { type PayloadChildRenderFunction } from '../../utils/popups';
@@ -102,6 +102,7 @@ export type DialogRootChangeEventReason =
   | typeof REASONS.closePress
   | typeof REASONS.focusOut
   | typeof REASONS.imperativeAction
+  | typeof REASONS.swipe
   | typeof REASONS.none;
 
 export type DialogRootChangeEventDetails =

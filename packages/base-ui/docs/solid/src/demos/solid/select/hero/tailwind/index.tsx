@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 import { Select } from '@solidports/base-ui/select';
 
@@ -35,7 +35,6 @@ export default function ExampleSelect() {
               <Select.List class="relative py-1 scroll-py-6 overflow-y-auto max-h-[var(--available-height)]">
                 {apples.map(({ label, value }) => (
                   <Select.Item
-                    key={label}
                     value={value}
                     class="grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 py-1.5 pr-4 pl-2.5 text-sm outline-hidden select-none data-highlighted:bg-neutral-950 data-highlighted:text-white dark:data-highlighted:bg-white dark:data-highlighted:text-neutral-950"
                   >

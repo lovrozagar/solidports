@@ -9,7 +9,7 @@ import { useRef } from '@solidports/base-ui/solid-helpers';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { createEffect, createSignal } from 'solid-js';
+import { createTrackedEffect, createSignal } from 'solid-js';
 import { describeConformance } from '../../test/describeConformance';
 
 describe('<RadioGroup />', () => {
@@ -216,7 +216,7 @@ describe('<RadioGroup />', () => {
     function App() {
       const inputRef = useRef<HTMLInputElement>(null);
 
-      createEffect(() => {
+      createTrackedEffect(() => {
         observedValue = inputRef.current?.value ?? null;
       });
 
@@ -588,7 +588,7 @@ describe('<RadioGroup />', () => {
     expect(screen.getByTestId('radio-group')).not.to.have.attribute('value');
   });
 
-  it('sets tabIndex=0 to the correct element initially', async () => {
+  it('sets tabindex=0 to the correct element initially', async () => {
     render(() => (
       <RadioGroup defaultValue="b">
         <Radio.Root value="a" data-testid="radio-a" />

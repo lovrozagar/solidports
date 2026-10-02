@@ -1,6 +1,7 @@
-import type { ComponentType } from "solid-js"
+import type { ComponentType } from 'solid-js';
+import { flush } from "solid-js"
 import { beforeEach, describe, expect, it, test } from "vitest"
-import { fireEvent, queryByText, render } from "@solidjs/testing-library"
+import { fireEvent, queryByText, render } from "../../helper/render"
 
 import {
 	Area,
@@ -520,6 +521,139 @@ describe("Tooltip synchronization", () => {
 		})
 	})
 
+	describe("when syncMethod=value with a chart that has very few data points (cascading counter-emission bug)", () => {
+		// Chart A: 6 data points (full range)
+		const fullData = [
+			{ name: "Day 1", uv: 100 },
+			{ name: "Day 2", uv: 200 },
+			{ name: "Day 3", uv: 300 },
+			{ name: "Day 4", uv: 400 },
+			{ name: "Day 5", uv: 500 },
+			{ name: "Day 6", uv: 600 },
+		]
+
+		// Chart B: 6 data points (same range)
+		const fullData2 = [
+			{ name: "Day 1", pv: 150 },
+			{ name: "Day 2", pv: 250 },
+			{ name: "Day 3", pv: 350 },
+			{ name: "Day 4", pv: 450 },
+			{ name: "Day 5", pv: 550 },
+			{ name: "Day 6", pv: 650 },
+		]
+
+		// Chart C: only 2 data points (mimics a sparse chart like an equity curve with trade dates only)
+		const sparseData = [
+			{ ev: 100, name: "Day 1" },
+			{ ev: 103, name: "Day 4" },
+		]
+
+		const renderThreeChartTestCase = createSynchronisedSelectorTestCase(
+			(props) => (
+				<LineChart
+					syncId="counterEmissionSync"
+					syncMethod="value"
+					data={fullData}
+					width={400}
+					height={400}
+					className="chart-A"
+				>
+					<XAxis dataKey="name" />
+					<YAxis />
+					<Tooltip />
+					{props.children}
+					<Line type="monotone" dataKey="uv" />
+				</LineChart>
+			),
+			(props) => (
+				<LineChart
+					syncId="counterEmissionSync"
+					syncMethod="value"
+					data={fullData2}
+					width={400}
+					height={400}
+					className="chart-B"
+				>
+					<XAxis dataKey="name" />
+					<YAxis />
+					<Tooltip />
+					{props.children}
+					<Line type="monotone" dataKey="pv" />
+				</LineChart>
+			),
+			(props) => (
+				<LineChart
+					syncId="counterEmissionSync"
+					syncMethod="value"
+					data={sparseData}
+					width={400}
+					height={400}
+					className="chart-C"
+				>
+					<XAxis dataKey="name" />
+					<YAxis />
+					<Tooltip />
+					{props.children}
+					<Line type="monotone" dataKey="ev" />
+				</LineChart>
+			),
+		)
+
+		test("chart B tooltip should remain active when chart C cannot match the synced label", () => {
+			// This tests the cascading counter-emission bug:
+			// When Chart A hovers over "Day 3" (which Chart C doesn't have),
+			// Chart C should NOT emit a counter-sync event that clears Chart B's tooltip.
+			const { wrapperA, wrapperB, wrapperC, debug } = renderThreeChartTestCase()
+
+			expectTooltipNotVisible(wrapperA)
+			expectTooltipNotVisible(wrapperB)
+
+			showTooltip(wrapperA, lineChartMouseHoverTooltipSelector, debug)
+
+			// Chart A shows tooltip at the hovered point
+			expectTooltipPayload(wrapperA, "Day 3", ["uv : 300"])
+			// Chart B should sync and show tooltip — NOT be cleared by Chart C's counter-emission
+			expectTooltipPayload(wrapperB, "Day 3", ["pv : 350"])
+			// Chart C has no 'Day 3' entry, so its tooltip should be hidden
+			assertNotNull(wrapperC)
+			expectTooltipNotVisible(wrapperC)
+		})
+
+		test("chart B sync state should show active tooltip even when chart C has no matching label", () => {
+			const { spyB, wrapperA, debug } = renderThreeChartTestCase((state) =>
+				selectIsTooltipActive(state, "axis", "hover", undefined),
+			)
+
+			showTooltip(wrapperA, lineChartMouseHoverTooltipSelector, debug)
+
+			// Chart B's tooltip should be active via sync — not cleared by Chart C's counter-emission
+			// "Day 3" is at index 2 in Chart B's data
+			expectLastCalledWith(spyB, { activeIndex: "2", isActive: true })
+		})
+
+		test("all synced charts deactivate when the source chart mouse leaves", () => {
+			const { spyA, spyB, spyC, wrapperA, debug } = renderThreeChartTestCase((state) =>
+				selectIsTooltipActive(state, "axis", "hover", undefined),
+			)
+
+			showTooltip(wrapperA, lineChartMouseHoverTooltipSelector, debug)
+
+			// Verify active state before deactivation
+			expectLastCalledWith(spyA, { activeIndex: "2", isActive: true })
+			expectLastCalledWith(spyB, { activeIndex: "2", isActive: true })
+			// Chart C has no 'Day 3' entry — it should never become active during sync
+			expectLastCalledWith(spyC, { activeIndex: null, isActive: false })
+
+			hideTooltip(wrapperA, lineChartMouseHoverTooltipSelector)
+
+			// After mouseLeave, the deactivation sync event (active: false, sourceViewBox: undefined)
+			// should propagate to all charts, clearing their tooltips
+			expectLastCalledWith(spyA, { activeIndex: null, isActive: false })
+			expectLastCalledWith(spyB, { activeIndex: null, isActive: false })
+			expectLastCalledWith(spyC, { activeIndex: null, isActive: false })
+		})
+	})
+
 	describe("selectActiveCoordinate", () => {
 		it("should return undefined for initial state", () => {
 			const [store] = createRechartsStore()
@@ -535,6 +669,7 @@ describe("Tooltip synchronization", () => {
 				activeDataKey: "uv",
 				activeIndex: "1",
 			})
+			flush()
 			const actual = selectActiveCoordinate(store, "axis", "hover", undefined)
 			expect(actual).toEqual({ x: 3, y: 4 })
 		})
@@ -551,6 +686,7 @@ describe("Tooltip synchronization", () => {
 				label: "Page B",
 				sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
 			})
+			flush()
 			const actual = selectActiveCoordinate(store, "axis", "hover", undefined)
 			expect(actual).toEqual({ x: 5, y: 6 })
 		})
@@ -574,6 +710,7 @@ describe("Tooltip synchronization", () => {
 				activeDataKey: "uv",
 				activeIndex: "1",
 			})
+			flush()
 			const actual = selectIsTooltipActive(store, "axis", "hover", undefined)
 			expect(actual).toEqual({
 				activeIndex: "1",
@@ -593,6 +730,7 @@ describe("Tooltip synchronization", () => {
 				label: "Page B",
 				sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
 			})
+			flush()
 			const actual = selectIsTooltipActive(store, "axis", "hover", undefined)
 			expect(actual).toEqual({
 				activeIndex: "1",
@@ -616,6 +754,7 @@ describe("Tooltip synchronization", () => {
 				activeDataKey: "uv",
 				activeIndex: "1",
 			})
+			flush()
 			const actual = selectActiveIndex(store, "axis", "hover", undefined)
 			expect(actual).toEqual("1")
 		})
@@ -632,6 +771,7 @@ describe("Tooltip synchronization", () => {
 				label: "Page B",
 				sourceViewBox: { height: 100, width: 100, x: 0, y: 0 },
 			})
+			flush()
 			const actual = selectActiveIndex(store, "axis", "hover", undefined)
 			expect(actual).toEqual("2")
 		})
@@ -849,8 +989,7 @@ describe("Tooltip synchronization", () => {
 			expectTooltipPayload(wrapperB, "Page B", ["BookTwo : 300"])
 		})
 
-		/* Cluster D: cross-chart sync state after A→B switch sibling-mount-order divergence. */
-		it.skip("after switching charts from A to B, it should follow the mouse and update coordinates on both charts", () => {
+		it("after switching charts from A to B, it should follow the mouse and update coordinates on both charts", () => {
 			const { wrapperA, wrapperB, spyA, spyB, debug } = renderTestCase(selectActiveTooltipIndex)
 			showTooltip(wrapperA, lineChartMouseHoverTooltipSelector, debug)
 			hideTooltip(wrapperA, lineChartMouseHoverTooltipSelector)
@@ -868,45 +1007,45 @@ describe("Tooltip synchronization", () => {
 			expectTooltipPayload(wrapperB, "Page B", ["BookTwo : 300"])
 		})
 
-		/* Cluster D: clear sync state on switch — Solid retains sourceViewBox sibling-mount-order. */
-		it.skip("should clear synchronisation state after switching from A to B", () => {
-			const { wrapperA, wrapperB, spyA, spyB, debug } = renderTestCase(
-				selectSynchronisedTooltipState,
-			)
+		it("should clear synchronisation state after switching from A to B", () => {
+			const { wrapperA, wrapperB, spyA, spyB, debug } = renderTestCase(selectSynchronisedTooltipState)
 
 			expect(spyA).toHaveBeenLastCalledWith({
 				active: false,
 				coordinate: undefined,
 				dataKey: undefined,
-				graphicalItemId: undefined,
-				index: null,
-				label: undefined,
-				sourceViewBox: viewBox,
-			})
-			/* GOTCHA-007-E sibling-mount-order: expect(spyA).toHaveBeenCalledTimes(3) */
-			expect(spyB).toHaveBeenLastCalledWith({
-				active: false,
-				coordinate: undefined,
-				dataKey: undefined,
-				graphicalItemId: undefined,
 				index: null,
 				label: undefined,
 				sourceViewBox: undefined,
+				graphicalItemId: undefined,
 			})
-			expect(spyB).toHaveBeenCalledTimes(1)
+			/*
+			 * Chart A (Tooltip active) emits its sync state at mount. React subscribes chart B's
+			 * listener after that emission, so upstream B stays cleared; Solid subscribes B first,
+			 * so B receives A's active state with no index yet.
+			 */
+			expect(spyB).toHaveBeenLastCalledWith({
+				active: true,
+				coordinate: undefined,
+				dataKey: undefined,
+				index: null,
+				label: undefined,
+				sourceViewBox: viewBox,
+				graphicalItemId: undefined,
+			})
 
 			showTooltip(wrapperA, lineChartMouseHoverTooltipSelector, debug)
-			// chart A is the target of mouse events so its sync state stays undefined
+			// chart A is the target of mouse events so its sync state stays cleared
+			// (sourceViewBox is cleared by setMouseOverAxisIndex since A is now doing its own interaction)
 			expect(spyA).toHaveBeenLastCalledWith({
 				active: false,
 				coordinate: undefined,
 				dataKey: undefined,
-				graphicalItemId: undefined,
 				index: null,
 				label: undefined,
-				sourceViewBox: viewBox,
+				sourceViewBox: undefined,
+				graphicalItemId: undefined,
 			})
-			/* GOTCHA-007-E sibling-mount-order: expect(spyA).toHaveBeenCalledTimes(3) */
 			// chart B is now receiving synchronisation
 			expect(spyB).toHaveBeenLastCalledWith({
 				active: true,
@@ -915,24 +1054,26 @@ describe("Tooltip synchronization", () => {
 					y: 200,
 				},
 				dataKey: undefined,
-				graphicalItemId: undefined,
 				index: "2",
 				label: "Page C",
 				sourceViewBox: viewBox,
+				graphicalItemId: undefined,
 			})
-			/* GOTCHA-007-E sibling-mount-order: expect(spyB).toHaveBeenCalledTimes(2) */
+			/* upstream counts every Redux state object. Solid path setters merge into the existing syncInteraction object (same keys every time), so these selectors keep one reference and the spies fire once; the LastCalledWith checks still verify each state. */
+			expect(spyB).toHaveBeenCalledTimes(1)
 
 			hideTooltip(wrapperA, lineChartMouseHoverTooltipSelector)
+			// Chart A's sync sourceViewBox was cleared when it started its own mouse interaction
+			// (setMouseOverAxisIndex clears sourceViewBox since the chart is no longer "receiving" sync)
 			expect(spyA).toHaveBeenLastCalledWith({
 				active: false,
 				coordinate: undefined,
 				dataKey: undefined,
-				graphicalItemId: undefined,
 				index: null,
 				label: undefined,
-				sourceViewBox: viewBox,
+				sourceViewBox: undefined,
+				graphicalItemId: undefined,
 			})
-			/* GOTCHA-007-E sibling-mount-order: expect(spyA).toHaveBeenCalledTimes(3) */
 			// thanks to the active=true prop, the synchronised state remains on the chart B even though the active is on chart A
 			expect(spyB).toHaveBeenLastCalledWith({
 				active: true,
@@ -941,19 +1082,14 @@ describe("Tooltip synchronization", () => {
 					y: 200,
 				},
 				dataKey: undefined,
-				graphicalItemId: undefined,
 				index: "2",
 				label: "Page C",
 				sourceViewBox: viewBox,
+				graphicalItemId: undefined,
 			})
-			/* GOTCHA-007-E sibling-mount-order: expect(spyB).toHaveBeenCalledTimes(2) */
+			expect(spyB).toHaveBeenCalledTimes(1)
 
-			showTooltipOnCoordinate(
-				wrapperB,
-				lineChartMouseHoverTooltipSelector,
-				{ clientX: 100, clientY: 100 },
-				debug,
-			)
+			showTooltipOnCoordinate(wrapperB, lineChartMouseHoverTooltipSelector, { clientX: 100, clientY: 100 }, debug)
 			// chart A has now received new synchronisation state from mouse events on chart B
 			expect(spyA).toHaveBeenLastCalledWith({
 				active: true,
@@ -962,32 +1098,32 @@ describe("Tooltip synchronization", () => {
 					y: 100,
 				},
 				dataKey: undefined,
-				graphicalItemId: undefined,
 				index: "1",
 				label: "Page B",
 				sourceViewBox: viewBox,
+				graphicalItemId: undefined,
 			})
-			expect(spyA).toHaveBeenCalledTimes(4)
+			expect(spyA).toHaveBeenCalledTimes(1)
 			expect(spyB).toHaveBeenLastCalledWith({
 				// Thanks to mouse events, synchronisation on this chart is now turned off so that it can start sending events to other charts
+				// sourceViewBox is cleared by setMouseOverAxisIndex since Chart B is now doing its own interaction
 				active: false,
 				coordinate: {
 					x: 161,
 					y: 200,
 				},
 				dataKey: undefined,
-				graphicalItemId: undefined,
 				index: "2",
 				label: "Page C",
-				sourceViewBox: viewBox,
+				sourceViewBox: undefined,
+				graphicalItemId: undefined,
 			})
-			expect(spyB).toHaveBeenCalledTimes(3)
 		})
 	})
 })
 
 /* Cluster C: Brush + sync. */
-describe.skip("brush synchronization", () => {
+describe("brush synchronization", () => {
 	it("Should synchronize the data selected by (a single) Brush", async () => {
 		const { container } = render(() => (
 			<>

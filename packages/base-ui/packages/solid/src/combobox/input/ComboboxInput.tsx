@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createRenderEffect, createSignal, mergeProps as solidMergeProps } from 'solid-js';
+import { createRenderEffect, createSignal } from 'solid-js';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -22,6 +22,7 @@ import {
   useComboboxRootContext,
 } from '../root/ComboboxRootContext';
 import { triggerStateAttributesMapping } from '../utils/stateAttributesMapping';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * A text input to search for items in the list.
@@ -29,7 +30,7 @@ import { triggerStateAttributesMapping } from '../utils/stateAttributesMapping';
  */
 export function ComboboxInput(componentProps: ComboboxInput.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'id']);
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const idProp = () => local.id;
 
   const {
@@ -177,11 +178,11 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
         store.selectors.triggerProps,
         {
           type: 'text',
-          'aria-readonly': readOnly() || undefined,
-          'aria-required': required() || undefined,
+          'aria-readonly': readOnly() ? 'true' : undefined,
+          'aria-required': required() ? 'true' : undefined,
           'aria-labelledby': resolveAriaLabelledBy(labelId(), undefined),
           disabled: disabled(),
-          readOnly: readOnly(),
+          readonly: readOnly(),
           required: selectionMode() === 'none' ? required() : undefined,
           ...(selectionMode() === 'none' && name() && { name: name() }),
           id: id(),
@@ -468,14 +469,18 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
 
   // Avoid redundant DOM value writes so the browser can preserve the current
   // selection while a controlled input is being edited in the middle.
-  createRenderEffect(() => {
-    const input = store.state.inputRef;
-    const nextValue = renderedValue();
-
-    if (input && input.value !== nextValue) {
-      input.value = nextValue;
-    }
-  });
+  createRenderEffect(
+    () => {
+      const input = store.state.inputRef;
+      const nextValue = renderedValue();
+      return { input, nextValue };
+    },
+    ({ input, nextValue }) => {
+      if (input && input.value !== nextValue) {
+        input.value = nextValue;
+      }
+    },
+  );
 
   return <>{element()}</>;
 }

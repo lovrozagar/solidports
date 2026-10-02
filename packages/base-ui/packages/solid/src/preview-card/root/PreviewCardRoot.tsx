@@ -1,4 +1,6 @@
-import { createEffect, createMemo, onMount, untrack, type Accessor, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, onSettled, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { FloatingTree, useDismiss, useInteractions } from '../../floating-ui-solid';
 import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
 import {
@@ -40,7 +42,7 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
   );
 
   // Support initially open state when uncontrolled
-  onMount(() => {
+  onSettled(() => {
     if (openProp() === undefined && store.state.open === false && defaultOpen() === true) {
       store.update({
         activeTriggerId: defaultTriggerIdProp(),
@@ -52,10 +54,12 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
   store.useControlledProp('openProp', openProp);
   store.useControlledProp('triggerIdProp', triggerIdProp);
 
-  store.useContextCallback('onOpenChange', (open, details) =>
+  store.useContextCallback('onOpenChange', (open: boolean, details: PreviewCardRoot.ChangeEventDetails) =>
     props.onOpenChange?.(open, details),
   );
-  store.useContextCallback('onOpenChangeComplete', (open) => props.onOpenChangeComplete?.(open));
+  store.useContextCallback('onOpenChangeComplete', (open: boolean) =>
+    props.onOpenChangeComplete?.(open),
+  );
 
   const open = store.useState('open');
   const activeTriggerId = store.useState('activeTriggerId');
@@ -71,7 +75,7 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
     },
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (open()) {
       if (activeTriggerId() == null) {
         store.set('payload', undefined);
@@ -83,7 +87,7 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
     store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction));
   };
 
-  onMount(() => {
+  onSettled(() => {
     if (props.actionsRef) {
       props.actionsRef.current = { close: handleImperativeClose, unmount: forceUnmount };
     }
@@ -110,9 +114,9 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
   const contextValue = { store } as PreviewCardRootContext;
 
   return (
-    <PreviewCardRootContext.Provider value={contextValue}>
+    <PreviewCardRootContext value={contextValue}>
       <ComponentWithPayload payload={payload} children={props.children} />
-    </PreviewCardRootContext.Provider>
+    </PreviewCardRootContext>
   );
 }
 

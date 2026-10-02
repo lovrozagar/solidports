@@ -1,5 +1,4 @@
-import { createEffect, createSignal, onCleanup } from "solid-js"
-
+import { createSignal, untrack, createEffect } from 'solid-js';
 const EPS = 1
 
 /**
@@ -61,7 +60,7 @@ export function useElementOffset(
 
 	const measure = (target: HTMLElement) => {
 		const rect = target.getBoundingClientRect()
-		const current = lastBoundingBox()
+		const current = untrack(lastBoundingBox)
 		if (
 			Math.abs(rect.height - current.height) > EPS ||
 			Math.abs(rect.left - current.left) > EPS ||
@@ -77,33 +76,34 @@ export function useElementOffset(
 		}
 	}
 
-	/* Re-measure whenever any tracked dep changes — mirrors React's
-	   useCallback([extraDependencies]) which forces a fresh ref callback and
-	   re-attaches the node, triggering a measurement. Without this the bounding
-	   box is read once at mount (often 0×0 for a hidden tooltip) and never
-	   updates when payload/active flips, leaving the tooltip stuck at top-left. */
-	createEffect(() => {
-		extraDeps?.()
-		const target = node()
-		if (target == null) return
-		measure(target)
-	})
+	/* Measure after the node attaches and whenever any tracked dep changes — mirrors
+	   React's ref callback (called at commit, with children in place) and
+	   useCallback([extraDependencies]), which forces a fresh ref callback. A Solid ref
+	   fires before dynamic children are inserted, so the ref itself does not measure.
+	   Without the deps the bounding box is read once at mount (often 0×0 for a hidden
+	   tooltip) and never updates when payload/active flips. */
+	createEffect(
+		() => {
+			extraDeps?.()
+			return node()
+		},
+		(target) => {
+			if (target != null) measure(target)
+		},
+	)
 
 	/* ResizeObserver covers the case where children grow/shrink (formatter,
 	   payload row count) without an explicit dep change. Guarded for SSR /
 	   environments without RO support (e.g. very old jsdom). */
-	createEffect(() => {
-		const target = node()
-		if (target == null) return
-		if (typeof ResizeObserver === "undefined") return
+	createEffect(node, (target) => {
+		if (target == null || typeof ResizeObserver === "undefined") return undefined
 		const ro = new ResizeObserver(() => measure(target))
 		ro.observe(target)
-		onCleanup(() => ro.disconnect())
+		return () => ro.disconnect()
 	})
 
 	const updateBoundingBox: SetElementOffset = (next) => {
 		setNode(next)
-		if (next != null) measure(next)
 	}
 
 	return [lastBoundingBox, updateBoundingBox]

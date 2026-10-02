@@ -11,16 +11,20 @@
 	},
 	"description": "SolidJS 1:1 port of Recharts charting library",
 	"devDependencies": {
-		"@solidjs/testing-library": "0.8.10",
+		"@solidjs/signals": "catalog:",
+		"@solidjs/testing-library": "catalog:",
+		"@solidjs/vite-plugin": "catalog:",
+		"@solidjs/web": "catalog:",
+		"@testing-library/dom": "10.4.1",
 		"@testing-library/jest-dom": "6.9.1",
 		"@types/bun": "latest",
 		"@types/node": "26.1.1",
 		"jsdom": "29.1.1",
-		"solid-js": "1.9.14",
+		"solid-js": "catalog:",
+		"ts-morph": "28.0.0",
 		"tsup": "8.5.1",
 		"tsup-preset-solid": "2.2.0",
 		"typescript": "7.0.2",
-		"vite-plugin-solid": "2.11.12",
 		"vitest": "4.1.10",
 		"vitest-axe": "0.1.0"
 	},
@@ -56,7 +60,8 @@
 	"module": "./dist/index.js",
 	"name": "@solidports/recharts",
 	"peerDependencies": {
-		"solid-js": ">=1.8.0"
+		"@solidjs/web": ">=2.0.0-rc.13",
+		"solid-js": ">=2.0.0-rc.13"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -75,6 +80,7 @@
 		"parity": "bun scripts/parity-audit.ts",
 		"release": "bun run build && changeset publish",
 		"test": "vitest run",
+		"test:perf": "RECHARTS_PERF=1 vitest run test/perf",
 		"test:watch": "vitest",
 		"triage": "bun scripts/triage-tests.ts",
 		"type:check": "tsc --noEmit",

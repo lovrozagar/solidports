@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 
 export type MeterRootContext = {
   formattedValue: Accessor<string>;
@@ -8,11 +9,11 @@ export type MeterRootContext = {
   value: Accessor<number>;
 };
 
-export const MeterRootContext = createContext<MeterRootContext>();
+export const MeterRootContext = createContext<MeterRootContext | null>(null);
 
 export function useMeterRootContext() {
   const context = useContext(MeterRootContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: MeterRootContext is missing. Meter parts must be placed within <Meter.Root>.',
     );

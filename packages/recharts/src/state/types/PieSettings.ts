@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import type { WithoutRemoveFalse } from "../../util/types"
 import { BasePolarGraphicalItemSettings } from "../graphicalItemsSlice"
 import { DataKey, LegendType } from "../../util/types"
 import { TooltipType } from "../../component/DefaultTooltipContent"
@@ -7,7 +8,7 @@ import { SVGPropsNoEvents } from "../../util/svgPropertiesNoEvents"
 import { WithoutId } from "../../util/useUniqueId"
 
 export type PiePresentationProps = SVGPropsNoEvents<
-	WithoutId<JSX.PathSVGAttributes<SVGPathElement>>
+	WithoutId<WithoutRemoveFalse<JSX.PathSVGAttributes<SVGPathElement>>>
 >
 
 export interface PieSettings extends BasePolarGraphicalItemSettings {

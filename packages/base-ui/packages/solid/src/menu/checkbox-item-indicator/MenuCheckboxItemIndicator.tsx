@@ -49,7 +49,7 @@ export function MenuCheckboxItemIndicator(componentProps: MenuCheckboxItemIndica
 
   const element = useRenderElement('span', componentProps, {
     enabled: () => keepMounted() || item.checked(),
-    props: [{ 'aria-hidden': true }, elementProps],
+    props: [{ 'aria-hidden': 'true' }, elementProps],
     ref: (el) => {
       indicatorRef = el;
     },

@@ -8,7 +8,6 @@ export default function ExampleScrollAreaBoth() {
           <ul class="m-0 grid list-none grid-cols-[repeat(10,6.25rem)] grid-rows-[repeat(10,6.25rem)] gap-3 p-0">
             {Array.from({ length: 100 }, (_, i) => (
               <li
-                key={i}
                 class="flex items-center justify-center bg-neutral-200 dark:bg-neutral-800 text-sm font-bold text-neutral-600 dark:text-neutral-400"
               >
                 {i + 1}

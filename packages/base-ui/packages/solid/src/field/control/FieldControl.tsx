@@ -1,4 +1,5 @@
-import { createEffect, mergeProps as solidMergeProps, type JSX } from 'solid-js';
+import { createEffect } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { activeElement } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
@@ -14,6 +15,7 @@ import { FieldRoot } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
 import { useField } from '../useField';
 import { fieldValidityMapping } from '../utils/constants';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * The form control to label and validate.
@@ -38,7 +40,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
   const idProp = () => local.id;
   const nameProp = () => local.name;
   const valueProp = () => local.value;
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const autofocus = () => local.autofocus ?? false;
 
   const {
@@ -67,22 +69,35 @@ export function FieldControl(componentProps: FieldControl.Props) {
 
   const id = useLabelableId({ id: idProp });
 
-  createEffect(() => {
-    const hasExternalValue = valueProp() != null;
-    if (validation.inputRef.current?.value || (hasExternalValue && valueProp() !== '')) {
-      setFilled(true);
-    } else if (hasExternalValue && local.value === '') {
-      setFilled(false);
-    }
-  });
+  createEffect(
+    () => {
+      const hasExternalValue = valueProp() != null;
+      return {
+        filled: Boolean(
+          validation.inputRef.current?.value || (hasExternalValue && valueProp() !== ''),
+        ),
+        empty: hasExternalValue && local.value === '',
+      };
+    },
+    ({ filled, empty }) => {
+      if (filled) {
+        setFilled(true);
+      } else if (empty) {
+        setFilled(false);
+      }
+    },
+  );
 
   let inputRef = null as HTMLElement | null | undefined;
 
-  createEffect(() => {
-    if (autofocus() && inputRef === activeElement(ownerDocument(inputRef ?? null))) {
-      setFocused(true);
-    }
-  });
+  createEffect(
+    () => autofocus() && inputRef === activeElement(ownerDocument(inputRef ?? null)),
+    (shouldFocus) => {
+      if (shouldFocus) {
+        setFocused(true);
+      }
+    },
+  );
 
   const [valueUnwrapped] = useControlled({
     controlled: valueProp,

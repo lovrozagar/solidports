@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import { NOOP } from '../../utils/noop';
 import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';
 

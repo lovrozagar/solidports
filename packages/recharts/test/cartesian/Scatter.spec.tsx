@@ -1,5 +1,6 @@
-import { fireEvent, render } from "@solidjs/testing-library"
-import { createEffect, createSignal } from "solid-js"
+import { fireEvent, render } from "../helper/render"
+import { trackSpy } from "../helper/trackSpy"
+import { createSignal } from 'solid-js'
 import { describe, expect, it, vi } from "vitest"
 import {
 	Scatter,
@@ -12,6 +13,7 @@ import {
 	Tooltip,
 } from "../../src"
 import { assertNotNull } from "../helper/assertNotNull"
+import type { ScatterShapeProps } from "../../src"
 import { useAppSelector } from "../helper/legacyDispatch"
 import { selectUnfilteredCartesianItems } from "../../src/state/selectors/axisSelectors"
 import { expectScatterPoints } from "../helper/expectScatterPoints"
@@ -105,7 +107,7 @@ describe("<Scatter />", () => {
 
 		expectScatterPoints(container, [])
 	})
-	test.skip("Render customized symbols when shape is set to be a JSX.Element", () => {
+	test("Render customized symbols when shape is set to be a ReactElement", () => {
 		const CustomizedShape = (props: { cx: number; cy: number }) => (
 			<circle cx={props.cx} cy={props.cy} r={5} class="customized-shape" />
 		)
@@ -139,7 +141,7 @@ describe("<Scatter />", () => {
 
 		expect(container.querySelectorAll(".customized-shape")).toHaveLength(data.length)
 	})
-	test.skip("Render customized line when line is set to be a JSX.Element", () => {
+	test("Render customized line when line is set to be a ReactElement", () => {
 		const CustomizedLine = () => <path d="M0,0L200,200" class="customized-line" />
 		const { container } = render(() => (
 			<ScatterChart width={500} height={500}>
@@ -159,7 +161,7 @@ describe("<Scatter />", () => {
 
 		expect(container.querySelectorAll(".customized-line")).toHaveLength(1)
 	})
-	test.skip("mouse enter or mouse leave a symbol", () => {
+	test("mouse enter or mouse leave a symbol", () => {
 		const onClick = vi.fn()
 		const onMouseEnter = vi.fn()
 		const onMouseLeave = vi.fn()
@@ -229,7 +231,7 @@ describe("<Scatter />", () => {
 		it("should publish its configuration to redux store, and update it when the props change", () => {
 			const settingsSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => settingsSpy(useAppSelector(selectUnfilteredCartesianItems)))
+				trackSpy(settingsSpy, () => useAppSelector(selectUnfilteredCartesianItems))
 				return null
 			}
 			const [name, setName] = createSignal<string | undefined>(undefined)
@@ -268,7 +270,6 @@ describe("<Scatter />", () => {
 		})
 	})
 	describe("events", () => {
-		/* Cluster D: scatter uses adaptEventsOfChild — different flow than adaptEventHandlers. */
 		it("should fire onClick event when clicking on a scatter point", async () => {
 			const user = userEventSetup()
 			const handleClick = vi.fn()
@@ -649,7 +650,7 @@ describe("<Scatter />", () => {
 			 * https://github.com/recharts/recharts/pull/6537
 			 * https://github.com/recharts/recharts/issues/6075
 			 */
-			it.skip("should only show tooltip data from the hovered Scatter component", () => {
+			it("should only show tooltip data from the hovered Scatter component", () => {
 				const data01 = [
 					{ x: 10, y: 20, z: 30 },
 					{ x: 20, y: 30, z: 40 },
@@ -704,6 +705,59 @@ describe("<Scatter />", () => {
 					]),
 				)
 			})
+		})
+	})
+
+	describe("ScatterPoint per-point rendering optimization", () => {
+		it("should only re-render the active and previously-active points when hovering, not all points", () => {
+			vi.useFakeTimers()
+			try {
+				const shapeSpy = vi.fn((_props: ScatterShapeProps) => <circle r={5} cx={0} cy={0} />)
+				const pointCount = 20
+				const scatterData = Array.from({ length: pointCount }, (_, i) => ({
+					x: i * 50,
+					y: i * 50,
+					z: 100,
+				}))
+
+				const { container } = render(() => (
+					<ScatterChart width={1000} height={1000}>
+						<XAxis type="number" dataKey="x" />
+						<YAxis type="number" dataKey="y" />
+						<Scatter isAnimationActive={false} data={scatterData} shape={shapeSpy} activeShape={{ fill: "red" }} />
+					</ScatterChart>
+				))
+				vi.runOnlyPendingTimers()
+
+				// After initial render, the shape spy was called once per point
+				const initialCallCount = shapeSpy.mock.calls.length
+				expect(initialCallCount).toBe(pointCount)
+
+				shapeSpy.mockClear()
+
+				// Hover over the first scatter point
+				const symbols = container.querySelectorAll(".recharts-scatter-symbol")
+				assertNotNull(symbols[0])
+				fireEvent.mouseEnter(symbols[0])
+				vi.runOnlyPendingTimers()
+
+				// Only the newly active point should re-render its shape, not all points.
+				const afterFirstHover = shapeSpy.mock.calls.length
+				expect(afterFirstHover).toBeLessThanOrEqual(2)
+
+				shapeSpy.mockClear()
+
+				// Now hover over a different point
+				assertNotNull(symbols[5])
+				fireEvent.mouseEnter(symbols[5])
+				vi.runOnlyPendingTimers()
+
+				// Only the previously-active and newly-active points should re-render (at most 2)
+				const afterSecondHover = shapeSpy.mock.calls.length
+				expect(afterSecondHover).toBeLessThanOrEqual(2)
+			} finally {
+				vi.useRealTimers()
+			}
 		})
 	})
 })

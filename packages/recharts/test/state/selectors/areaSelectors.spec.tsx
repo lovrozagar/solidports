@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js"
+import { createSignal, flush } from 'solid-js';
 import { describe, expect, it } from "vitest"
 import { ComputedArea, selectArea } from "../../../src/state/selectors/areaSelectors"
 import {
@@ -139,7 +139,7 @@ describe("selectArea", () => {
 		}
 
 		const renderTestCase = createSelectorTestCase((props) => <TestCase>{props.children}</TestCase>)
-		it.skip("should select one more time", () => {
+		it("should select one more time", () => {
 			const { container, spy } = renderTestCase((state) => selectArea(state, "area-0", false))
 			const expectedResultBefore: ComputedArea = {
 				baseLine: 365,
@@ -221,6 +221,7 @@ describe("selectArea", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			const expectedResultAfterRerender: ComputedArea = {
 				baseLine: 365,

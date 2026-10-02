@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 
 export interface MenuCheckboxItemContext {
   checked: Accessor<boolean>;
@@ -6,11 +7,11 @@ export interface MenuCheckboxItemContext {
   disabled: Accessor<boolean>;
 }
 
-export const MenuCheckboxItemContext = createContext<MenuCheckboxItemContext>();
+export const MenuCheckboxItemContext = createContext<MenuCheckboxItemContext | null>(null);
 
 export function useMenuCheckboxItemContext() {
   const context = useContext(MenuCheckboxItemContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: MenuCheckboxItemContext is missing. MenuCheckboxItem parts must be placed within <Menu.CheckboxItem>.',
     );

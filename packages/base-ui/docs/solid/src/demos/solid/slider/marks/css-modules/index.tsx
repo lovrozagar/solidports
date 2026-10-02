@@ -13,8 +13,7 @@ export default function MarksSlider() {
           <Slider.Indicator class={styles.Indicator} />
           {MARKS.map((mark) => (
             <div
-              key={mark}
-              aria-hidden
+              aria-hidden="true"
               class={styles.Mark}
               style={{ left: `${valueToPercent(mark)}%` }}
             />
@@ -22,10 +21,9 @@ export default function MarksSlider() {
           <Slider.Thumb aria-label="Volume" class={styles.Thumb} />
         </Slider.Track>
       </Slider.Control>
-      <div class={styles.MarkLabels} aria-hidden>
+      <div class={styles.MarkLabels} aria-hidden="true">
         {MARKS.map((mark) => (
           <span
-            key={mark}
             class={styles.MarkLabel}
             style={{ left: `${valueToPercent(mark)}%` }}
           >

@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { ListboxSeparator } from '../../utils/listbox-separator/ListboxSeparator';
 import type { BaseUIComponentProps, Orientation } from '../../utils/types';
 

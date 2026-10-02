@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { adaptiveOrigin } from '../../utils/adaptiveOriginMiddleware';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
@@ -131,9 +131,9 @@ export function PreviewCardPositioner(componentProps: PreviewCardPositioner.Prop
   });
 
   return (
-    <PreviewCardPositionerContext.Provider value={contextValue}>
+    <PreviewCardPositionerContext value={contextValue}>
       {element()}
-    </PreviewCardPositionerContext.Provider>
+    </PreviewCardPositionerContext>
   );
 }
 

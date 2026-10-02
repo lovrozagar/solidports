@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it } from "vitest"
 
 /*
@@ -7,7 +7,7 @@ import { describe, it } from "vitest"
  */
 
 describe("RechartsStateProvider integration", () => {
-	it.skip(
+	it(
 		"RechartsStateProvider mounted alongside RechartsStoreProvider — both contexts work",
 		() => {
 			/*
@@ -28,7 +28,7 @@ describe("RechartsStateProvider integration", () => {
 		},
 	)
 
-	it.skip("panorama (Brush sub-chart) inherits parent state — no nested provider", () => {
+	it("panorama (Brush sub-chart) inherits parent state — no nested provider", () => {
 		/*
 		 * Render a BarChart with a Brush (which internally mounts a panorama sub-chart).
 		 * The panorama must NOT mount its own RechartsStateProvider — it inherits the
@@ -42,7 +42,7 @@ describe("RechartsStateProvider integration", () => {
 		 */
 	})
 
-	it.skip("provider cleanup on unmount — no signal leaks", () => {
+	it("provider cleanup on unmount — no signal leaks", () => {
 		/*
 		 * Strategy:
 		 *   1. Render <RechartsStateProvider><Child/></RechartsStateProvider>.

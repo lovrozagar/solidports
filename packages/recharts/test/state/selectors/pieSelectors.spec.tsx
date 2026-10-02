@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { createSignal } from "solid-js"
+import { createSignal, flush } from 'solid-js';
 import {
 	shouldReturnFromInitialState,
 	shouldReturnUndefinedOutOfContext,
@@ -44,7 +44,7 @@ describe("selectPieSectors", () => {
 
 		const renderTestCase = createSelectorTestCase((props) => <TestCase>{props.children}</TestCase>)
 
-		it.skip("should return new data", () => {
+		it("should return new data", () => {
 			const { container, spy } = renderTestCase(selector)
 			const expectedResultBefore: ReadonlyArray<PieSectorDataItem> = [
 				{
@@ -74,7 +74,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page A",
 							payload: {
@@ -121,7 +123,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page B",
 							payload: {
@@ -168,7 +172,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page C",
 							payload: {
@@ -215,7 +221,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page D",
 							payload: {
@@ -262,7 +270,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page E",
 							payload: {
@@ -309,7 +319,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page F",
 							payload: {
@@ -356,7 +368,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page G",
 							payload: {
@@ -385,6 +399,7 @@ describe("selectPieSectors", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			const expectedResultAfter: ReturnType<typeof selectPieSectors> = [
 				{
@@ -414,7 +429,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "pv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page A",
 							payload: {
@@ -461,7 +478,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "pv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page B",
 							payload: {
@@ -508,7 +527,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "pv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page C",
 							payload: {
@@ -555,7 +576,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "pv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page D",
 							payload: {
@@ -602,7 +625,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "pv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page E",
 							payload: {
@@ -649,7 +674,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "pv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page F",
 							payload: {
@@ -696,7 +723,9 @@ describe("selectPieSectors", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "pv",
+							fill: "#808080",
 							graphicalItemId: "pie-id",
 							name: "Page G",
 							payload: {
@@ -721,6 +750,44 @@ describe("selectPieSectors", () => {
 			// third render is when the Pie has rendered again after the dataKey change
 			expect(spy).toHaveBeenNthCalledWith(3, expectedResultAfter)
 			expect(spy).toHaveBeenCalledTimes(3)
+		})
+	})
+
+	describe("when data contains zero-value items and paddingAngle is set", () => {
+		// https://github.com/recharts/recharts/issues/1698
+		// Zero-value sectors should not consume paddingAngle, which would create a double gap
+		const renderZeroValueTestCase = createSelectorTestCase((props) => (
+			<PieChart width={400} height={400}>
+				<Pie
+					dataKey="value"
+					data={[
+						{ name: "A", value: 400 },
+						{ name: "B", value: 300 },
+						{ name: "C", value: 0 },
+						{ name: "D", value: 200 },
+					]}
+					cx={200}
+					cy={200}
+					outerRadius={80}
+					paddingAngle={5}
+					id="pie-id"
+				/>
+				{props.children}
+			</PieChart>
+		))
+
+		it("should set paddingAngle to 0 for zero-value sectors", () => {
+			const { spy } = renderZeroValueTestCase((state) => selectPieSectors(state, "pie-id", []))
+			const sectors = spy.mock.lastCall?.[0]
+			assertNotNull(sectors)
+			expect(sectors).toHaveLength(4)
+			// Non-zero sectors have paddingAngle = 5
+			expect(sectors[0].paddingAngle).toBe(5)
+			expect(sectors[1].paddingAngle).toBe(5)
+			// Zero-value sector must have paddingAngle = 0, not 5
+			// Otherwise the animation code adds an extra gap around the zero-value sector
+			expect(sectors[2].paddingAngle).toBe(0)
+			expect(sectors[3].paddingAngle).toBe(5)
 		})
 	})
 })
@@ -779,7 +846,9 @@ describe("PieSectorData and PieSectorDataItem type should include data propertie
 				stroke: "#fff",
 				tooltipPayload: [
 					{
+						color: "#8884d8",
 						dataKey: "value",
+						fill: "#8884d8",
 						graphicalItemId: "mypie",
 						name: "Group A",
 						payload: {
@@ -825,7 +894,9 @@ describe("PieSectorData and PieSectorDataItem type should include data propertie
 				stroke: "#fff",
 				tooltipPayload: [
 					{
+						color: "#8884d8",
 						dataKey: "value",
+						fill: "#8884d8",
 						graphicalItemId: "mypie",
 						name: "Group B",
 						payload: {

@@ -37,7 +37,7 @@ export function ComboboxArrow(componentProps: ComboboxArrow.Props) {
     props: [
       {
         style: arrowStyles,
-        'aria-hidden': true,
+        'aria-hidden': 'true',
       },
       elementProps,
     ],

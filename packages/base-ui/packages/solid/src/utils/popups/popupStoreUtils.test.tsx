@@ -1,5 +1,5 @@
 import { render } from '@solidjs/testing-library';
-import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
 import { SolidStore } from '../store/SolidStoreV2';
@@ -41,7 +41,7 @@ function TestTrigger(props: {
     },
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     for (let i = 0; i < repeat(); i += 1) {
       register(props.element);
     }

@@ -1,4 +1,6 @@
-import { createContext, useContext, type Accessor, type JSX } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
 
@@ -11,11 +13,11 @@ export interface ToastPositionerContext {
   arrowStyles: JSX.CSSProperties;
 }
 
-export const ToastPositionerContext = createContext<ToastPositionerContext | undefined>(undefined);
+export const ToastPositionerContext = createContext<ToastPositionerContext | null>(null);
 
 export function useToastPositionerContext() {
   const context = useContext(ToastPositionerContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: ToastPositionerContext is missing. ToastPositioner parts must be placed within <Toast.Positioner>.',
     );

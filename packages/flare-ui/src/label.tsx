@@ -1,6 +1,7 @@
-import type { JSX } from "solid-js";
-import { splitProps } from "solid-js";
+import type { JSX } from "@solidjs/web";
+
 import { cn } from "./utils/cn.ts";
+import { splitProps } from "./utils/solid-1-compat";
 
 export type LabelProps = JSX.LabelHTMLAttributes<HTMLLabelElement>;
 

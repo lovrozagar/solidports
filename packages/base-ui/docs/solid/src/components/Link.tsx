@@ -1,6 +1,8 @@
-import { createMemo, splitProps, type JSX } from "solid-js"
-import { A } from "@solidjs/router"
+import { createMemo } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
+
+import { splitProps } from '../utils/solid-1-compat';
 import "./Link.css"
 
 interface LinkProps extends JSX.AnchorHTMLAttributes<HTMLAnchorElement> {
@@ -61,9 +63,9 @@ export function Link(props: LinkProps) {
           {content()}
         </a>
       ) : (
-        <A {...rest} href={path()} class={clsx("Link", local.class)}>
+        <a {...rest} href={path()} class={clsx("Link", local.class)}>
           {content()}
-        </A>
+        </a>
       )}
     </>
   )

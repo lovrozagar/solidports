@@ -1,4 +1,5 @@
-import { createEffect, createMemo, onCleanup, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, onCleanup } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { getComputedStyle, getParentNode, isHTMLElement } from '@floating-ui/utils/dom';
 import { addEventListener } from '../../utils/addEventListener';
 import { ownerDocument, ownerWindow } from '../../utils/owner';
@@ -163,7 +164,10 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
     keyboardTouchStartRef.current = null;
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!mounted() || !open()) {
       focusedKeyboardTargetRef.current = null;
       restoreKeyboardScrollAdjustment();
@@ -504,13 +508,19 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
       scheduleKeyboardFocusAlignment();
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       cleanupListeners.forEach((cleanup) => cleanup());
       consumePreemptedFocus();
       clearFocusedKeyboardTarget();
       rootElement.style.removeProperty(DrawerViewportCssVars.keyboardInset);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const onTouchStart = (event: TouchEvent) => {
     const touch = event.touches[0];
@@ -628,9 +638,9 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
   }));
 
   return (
-    <DrawerVirtualKeyboardContext.Provider value={contextValue()}>
+    <DrawerVirtualKeyboardContext value={contextValue()}>
       {props.children}
-    </DrawerVirtualKeyboardContext.Provider>
+    </DrawerVirtualKeyboardContext>
   );
 }
 

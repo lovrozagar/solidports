@@ -14,8 +14,8 @@ import { usePopoverRootContext } from '../root/PopoverRootContext';
  */
 export function PopoverClose(props: PopoverClose.Props) {
   const [, local, elementProps] = splitComponentProps(props, ['disabled', 'nativeButton']);
-  const disabled = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? true;
+  const disabled = () => Boolean(local.disabled);
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   const { buttonRef, getButtonProps } = useButton({
     disabled,

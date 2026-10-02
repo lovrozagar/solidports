@@ -1,9 +1,10 @@
-import type { JSX } from "solid-js"
-import { splitProps } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { untrack } from "solid-js"
 import { clsx } from "clsx"
 import { svgPropertiesAndEvents } from "../util/svgPropertiesAndEvents"
 import type { CartesianViewBox } from "../util/types"
 
+import { bindRef, splitProps } from '../util/solid-1-compat';
 interface SurfaceProps {
 	width: number | string
 	height: number | string
@@ -40,16 +41,17 @@ export function Surface(props: Props) {
 
 	const svgView = () => local.viewBox || { height: local.height, width: local.width, x: 0, y: 0 }
 	const layerClass = () => clsx("recharts-surface", local.class)
+	const svgRest = () => svgPropertiesAndEvents(others)
 
 	return (
 		<svg
-			{...svgPropertiesAndEvents(others)}
+			{...svgRest()}
 			class={layerClass()}
 			width={local.width}
 			height={local.height}
 			style={local.style}
 			viewBox={`${svgView().x} ${svgView().y} ${svgView().width} ${svgView().height}`}
-			ref={local.ref}
+			ref={(el) => untrack(() => bindRef(props.ref, el))}
 		>
 			<title>{local.title}</title>
 			<desc>{local.desc}</desc>

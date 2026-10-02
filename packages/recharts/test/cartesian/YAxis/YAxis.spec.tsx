@@ -1,4 +1,5 @@
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../../helper/render"
+import { observe } from "../../helper/observe"
 import { describe, expect, it, test, vi } from "vitest"
 import {
 	Area,
@@ -40,8 +41,7 @@ import { getCalculatedYAxisWidth } from "../../../src/util/YAxisUtils"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
 import { createSelectorTestCase, rechartsTestRender } from "../../helper/createSelectorTestCase"
 import { assertNotNull } from "../../helper/assertNotNull"
-import { createEffect, createSignal, Show } from "solid-js"
-
+import { createSignal, flush, Show, untrack } from 'solid-js'
 describe("<YAxis />", () => {
 	const data = [
 		{ amt: 2400, name: "Page A", pv: 2400, uv: 400 },
@@ -759,8 +759,8 @@ describe("<YAxis />", () => {
 			(includeHidden) => {
 				const domainSpy = vi.fn()
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						domainSpy(domain)
 					})
@@ -810,8 +810,8 @@ describe("<YAxis />", () => {
 			(includeHidden) => {
 				const domainSpy = vi.fn()
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						domainSpy(domain)
 					})
@@ -859,8 +859,8 @@ describe("<YAxis />", () => {
 		it("should include hidden data domain when includeHidden=true", () => {
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 					domainSpy(domain)
 				})
@@ -983,7 +983,7 @@ describe("<YAxis />", () => {
 		it("should publish its configuration to redux store", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() =>
+				observe(() =>
 					spy(useAppSelector((state) => selectRenderableAxisSettings(state, "yAxis", "foo"))),
 				)
 				return null
@@ -1033,6 +1033,7 @@ describe("<YAxis />", () => {
 					bottom: 0,
 					top: 0,
 				},
+				niceTicks: "auto",
 				reversed: true,
 				scale: "log",
 				tick: false,
@@ -1049,7 +1050,7 @@ describe("<YAxis />", () => {
 		it("should remove the configuration from store when DOM element is removed", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 					const foo = useAppSelector((state) =>
 						selectRenderableAxisSettings(state, "yAxis", "foo"),
 					)
@@ -1085,6 +1086,7 @@ describe("<YAxis />", () => {
 					bottom: 0,
 					top: 0,
 				},
+				niceTicks: "auto",
 				reversed: false,
 				scale: "log",
 				tick: true,
@@ -1129,6 +1131,7 @@ describe("<YAxis />", () => {
 						bottom: 0,
 						top: 0,
 					},
+					niceTicks: "auto",
 					reversed: false,
 					scale: "utc",
 					tick: true,
@@ -1158,6 +1161,7 @@ describe("<YAxis />", () => {
 						bottom: 0,
 						top: 0,
 					},
+					niceTicks: "auto",
 					reversed: false,
 					scale: "log",
 					tick: true,
@@ -1196,6 +1200,7 @@ describe("<YAxis />", () => {
 					bottom: 0,
 					top: 0,
 				},
+				niceTicks: "auto",
 				reversed: false,
 				scale: "utc",
 				tick: true,
@@ -1222,9 +1227,9 @@ describe("<YAxis />", () => {
 			})
 		})
 
-		it.skip("should remove old ID configuration when the ID changes", () => {
+		it("should remove old ID configuration when the ID changes", () => {
 			const IDChangingComponent = (props: { children: JSX.Element }) => {
-				const [id, setId] = React.createSignal("1")
+				const [id, setId] = createSignal("1")
 				const onClick = () => setId("2")
 				return (
 					<>
@@ -1232,7 +1237,7 @@ describe("<YAxis />", () => {
 							Change ID
 						</button>
 						<BarChart width={100} height={100}>
-							<YAxis yAxisId={id} scale="log" type="number" />
+							<YAxis yAxisId={id()} scale="log" type="number" />
 							{props.children}
 						</BarChart>
 					</>
@@ -1240,7 +1245,7 @@ describe("<YAxis />", () => {
 			}
 			const renderTestCase = createSelectorTestCase(IDChangingComponent)
 
-			const { spy, container } = renderTestCase((state) => state.cartesianAxis.yAxis)
+			const { spy, container } = renderTestCase((state) => ({ ...state.cartesianAxes.yAxis }))
 
 			expect(spy).toHaveBeenCalledTimes(2)
 
@@ -1271,17 +1276,27 @@ describe("<YAxis />", () => {
 				]
 				const domainSpy = vi.fn()
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						domainSpy(domain)
 					})
 					return null
 				}
+				/* React's rerender: a signal adds the second Bar and drops stackOffset */
+				const [stacked, setStacked] = createSignal(false)
 				const { container } = render(() => (
-					<BarChart width={100} height={100} data={stackedData} stackOffset={stackOffset}>
+					<BarChart
+						width={100}
+						height={100}
+						data={stackedData}
+						stackOffset={stacked() ? undefined : stackOffset}
+					>
 						<YAxis />
 						<Bar dataKey="x" stackId="a" />
+						<Show when={stacked()}>
+							<Bar dataKey="y" stackId="a" />
+						</Show>
 						<Comp />
 					</BarChart>
 				))
@@ -1313,11 +1328,8 @@ describe("<YAxis />", () => {
 					},
 				])
 				expect(domainSpy).toHaveBeenLastCalledWith([0, 100])
-				/* GOTCHA: rerender unsupported in solid-testing-library; second-bar
-				   stackId reactivity defer until graphical-item store API supports
-				   late-mount restacking. */
-				return
-				/* @ts-expect-error unreachable */
+				setStacked(true)
+				flush()
 				expectYAxisTicks(container, [
 					{
 						textContent: "0",
@@ -1360,8 +1372,8 @@ describe("<YAxis />", () => {
 				]
 				const domainSpy = vi.fn()
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						domainSpy(domain)
 					})
@@ -1406,7 +1418,7 @@ describe("<YAxis />", () => {
 			},
 		)
 
-		it.skip("should include domain of hidden items when includeHidden=true", () => {
+		it("should include domain of hidden items when includeHidden=true", () => {
 			const stackedData = [
 				{
 					x: 10,
@@ -1415,18 +1427,19 @@ describe("<YAxis />", () => {
 			]
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 					domainSpy(domain)
 				})
 				return null
 			}
-			const { container, rerender } = render(() => (
+			const [stackId, setStackId] = createSignal<string | undefined>("a")
+			const { container } = render(() => (
 				<BarChart width={100} height={100} data={stackedData}>
 					<YAxis includeHidden />
-					<Bar dataKey="x" stackId="a" />
-					<Bar dataKey="y" stackId="a" hide />
+					<Bar dataKey="x" stackId={stackId()} />
+					<Bar dataKey="y" stackId={stackId()} hide />
 					<Comp />
 				</BarChart>
 			))
@@ -1460,14 +1473,8 @@ describe("<YAxis />", () => {
 			expect(domainSpy).toHaveBeenLastCalledWith([0, 210])
 
 			// the same data, not stacked
-			rerender(() => (
-				<BarChart width={100} height={100} data={stackedData}>
-					<YAxis includeHidden />
-					<Bar dataKey="x" />
-					<Bar dataKey="y" hide />
-					<Comp />
-				</BarChart>
-			))
+			setStackId(undefined)
+			flush()
 
 			expectYAxisTicks(container, [
 				{
@@ -1508,8 +1515,8 @@ describe("<YAxis />", () => {
 			]
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 					domainSpy(domain)
 				})
@@ -1563,8 +1570,8 @@ describe("<YAxis />", () => {
 			]
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 					domainSpy(domain)
 				})
@@ -1617,8 +1624,8 @@ describe("<YAxis />", () => {
 			]
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 					domainSpy(domain)
 				})
@@ -1671,8 +1678,8 @@ describe("<YAxis />", () => {
 			]
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 					domainSpy(domain)
 				})
@@ -1725,8 +1732,8 @@ describe("<YAxis />", () => {
 			]
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 					domainSpy(domain)
 				})
@@ -1782,8 +1789,8 @@ describe("<YAxis />", () => {
 		it("should render usual domain when without reference elements", () => {
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 					domainSpy(domain)
 				})
@@ -1832,8 +1839,8 @@ describe("<YAxis />", () => {
 				domainSpy: (domain: NumberDomain | CategoricalDomain | undefined) => void
 			}) => {
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						props.domainSpy(domain)
 					})
@@ -1930,8 +1937,8 @@ describe("<YAxis />", () => {
 				domainSpy: (domain: NumberDomain | CategoricalDomain | undefined) => void
 			}) => {
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						props.domainSpy(domain)
 					})
@@ -2025,8 +2032,8 @@ describe("<YAxis />", () => {
 			it("should render ticks following the domain of the area", () => {
 				const axisDomainSpy = vi.fn()
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						axisDomainSpy(domain)
 					})
@@ -2096,8 +2103,8 @@ describe("<YAxis />", () => {
 				domainSpy: (domain: NumberDomain | CategoricalDomain | undefined) => void
 			}) => {
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						props.domainSpy(domain)
 					})
@@ -2193,8 +2200,8 @@ describe("<YAxis />", () => {
 				domainSpy: (domain: NumberDomain | CategoricalDomain | undefined) => void
 			}) => {
 				const Comp = (): null => {
-					const isPanorama = useIsPanorama()
-					createEffect(() => {
+					const isPanorama = untrack(() => useIsPanorama())
+					observe(() => {
 						const domain = useAppSelector((state) => selectAxisDomain(state, "yAxis", 0, isPanorama))
 						props.domainSpy(domain)
 					})
@@ -2327,7 +2334,7 @@ describe("<YAxis />", () => {
 		expect(yAxisLine).toHaveAttribute("width", String(yAxisWidth))
 	})
 
-	it.skip("should render y-axis with dynamically calculated width", async () => {
+	it("should render y-axis with dynamically calculated width", async () => {
 		mockGetBoundingClientRect({ height: 30, width: 80 })
 
 		const { container } = render(() => (

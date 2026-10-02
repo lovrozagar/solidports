@@ -1,6 +1,7 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { vi } from "vitest"
-import { fireEvent } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { fireEvent } from "../helper/render"
 import {
 	Area,
 	AreaChart,
@@ -244,6 +245,7 @@ describe("CategoricalChart", () => {
 			fireEvent.contextMenu(surface)
 
 			vi.advanceTimersByTime(0)
+			flush()
 
 			expect(handleClickMock).toHaveBeenCalledWith(expect.any(Object), expect.any(Object))
 			expect(handleDoubleClickMock).toHaveBeenCalledWith(expect.any(Object), expect.any(Object))

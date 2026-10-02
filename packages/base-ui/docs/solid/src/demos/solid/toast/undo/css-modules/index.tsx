@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 
 
 import { Toast } from '@solidports/base-ui/toast';
@@ -46,8 +47,10 @@ function Form() {
 
 function ToastList() {
   const { toasts } = Toast.useToastManager();
-  return toasts().map((toast) => (
-    <Toast.Root key={toast.id} toast={toast} class={styles.Toast}>
+  return (
+    <For each={toasts()}>
+      {(toast) => (
+    <Toast.Root toast={toast} class={styles.Toast}>
       <Toast.Content class={styles.Content}>
         <div class={styles.Text}>
           <div class={styles.Message}>
@@ -58,5 +61,7 @@ function ToastList() {
         </div>
       </Toast.Content>
     </Toast.Root>
-  ));
+  )}
+    </For>
+  );
 }

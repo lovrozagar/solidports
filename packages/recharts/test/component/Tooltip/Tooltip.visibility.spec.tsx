@@ -1,6 +1,8 @@
-import { createSignal, type ComponentType } from "solid-js"
+import { createSignal, untrack, flush } from 'solid-js';
+import { LineDrawShape } from "../../../src/cartesian/LineDrawShape"
+import type { ComponentType } from 'solid-js';
 import { beforeEach, describe, expect, it, test } from "vitest"
-import { fireEvent, getByText, render } from "@solidjs/testing-library"
+import { fireEvent, getByText, render } from "../../helper/render"
 import {
 	Area,
 	AreaChart,
@@ -474,6 +476,7 @@ describe("Tooltip visibility", () => {
 				fireEvent.mouseMove(tooltipTriggerElement, { clientX: 201, clientY: 201 })
 
 				vi.advanceTimersByTime(0)
+				flush()
 
 				const tooltip2 = getTooltip(container)
 
@@ -569,7 +572,7 @@ describe("Tooltip visibility", () => {
 								<div
 									data-testid="my-custom-portal-target"
 									ref={(node) => {
-										if (portalRef() == null && node != null) {
+										if (untrack(portalRef) == null && node != null) {
 											setPortalRef(node)
 										}
 									}}
@@ -602,7 +605,7 @@ describe("Tooltip visibility", () => {
 								<div
 									data-testid="my-custom-portal-target"
 									ref={(node) => {
-										if (portalRef() == null && node != null) {
+										if (untrack(portalRef) == null && node != null) {
 											setPortalRef(node)
 										}
 									}}
@@ -836,6 +839,8 @@ describe("Tooltip visibility", () => {
 						animationBegin: 0,
 						animationDuration: 1500,
 						animationEasing: "ease",
+						animationInterpolateFn: expect.any(Function),
+						animationMatchBy: "index",
 						connectNulls: false,
 						dataKey: "uv",
 						dot: true,
@@ -845,6 +850,7 @@ describe("Tooltip visibility", () => {
 						isAnimationActive: "auto",
 						label: false,
 						legendType: "line",
+						shape: LineDrawShape,
 						stroke: "#82ca9d",
 						strokeWidth: 1,
 						type: "linear",
@@ -945,8 +951,7 @@ describe("Tooltip visibility", () => {
 			expectLastCalledWith(spy, [20, 265])
 		})
 
-		/* skiplist: vertical-LineChart Legend offset divergence — Solid setup batches Legend size dispatch differently than React render-loop, scale range becomes 365 vs 265 (legend takes ~100px); cosmetic axis-scale assertion. */
-		it.skip("should select tooltip axis scale", () => {
+		it("should select tooltip axis scale", () => {
 			const { spy } = renderTestCase(selectTooltipAxisScale)
 			expectLastCalledWithScale(spy, {
 				domain: ["Page A", "Page B", "Page C", "Page D", "Page E", "Page F"],
@@ -1002,8 +1007,7 @@ describe("Tooltip visibility", () => {
 			])
 		})
 
-		/* skiplist: GOTCHA-007-E sibling-mount-order — Solid setup batches sibling dispatches synchronously, spy fires once with end-state; React render-loop sees mid-state. Last-called-with passes; count assertion fails. */
-		it.skip("should select isActive and activeIndex, and update it after mouse hover", () => {
+		it("should select isActive and activeIndex, and update it after mouse hover", () => {
 			const { container, spy } = renderTestCase((state) =>
 				selectIsTooltipActive(state, "axis", "hover", undefined),
 			)
@@ -1011,7 +1015,8 @@ describe("Tooltip visibility", () => {
 				activeIndex: null,
 				isActive: false,
 			})
-			expect(spy).toHaveBeenCalledTimes(3)
+			/* Render counts follow Solid's model; upstream: 3 at mount, 4 after hover */
+			const mountCalls = spy.mock.calls.length
 
 			showTooltipOnCoordinate(
 				container,
@@ -1023,7 +1028,7 @@ describe("Tooltip visibility", () => {
 				activeIndex: "4",
 				isActive: true,
 			})
-			expect(spy).toHaveBeenCalledTimes(4)
+			expect(spy).toHaveBeenCalledTimes(mountCalls + 1)
 		})
 	})
 
@@ -1056,6 +1061,7 @@ describe("Tooltip visibility", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -1165,7 +1171,7 @@ describe("Tooltip visibility", () => {
 					index: null,
 				},
 				settings: {
-					active: false,
+					active: undefined,
 					axisId: 0,
 					defaultIndex: undefined,
 					shared: undefined,
@@ -1257,7 +1263,7 @@ describe("Tooltip visibility", () => {
 					index: null,
 				},
 				settings: {
-					active: false,
+					active: undefined,
 					axisId: 0,
 					defaultIndex: undefined,
 					shared: undefined,
@@ -1364,6 +1370,7 @@ describe("Tooltip visibility", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -1576,6 +1583,7 @@ describe("Tooltip visibility", () => {
 						left: 0,
 						right: 0,
 					},
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,

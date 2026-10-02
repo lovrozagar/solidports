@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { For, mergeProps, Show, type JSX } from "solid-js"
-
+import { createMemo, For, Show, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import { Surface } from "../container/Surface"
 import { Symbols } from "../shape/Symbols"
@@ -14,6 +14,7 @@ import type {
 import { adaptEventsOfChild } from "../util/types"
 import type { RequiresDefaultProps } from "../util/resolveDefaultProps"
 
+import { mergeProps } from '../util/solid-1-compat';
 const SIZE = 32
 export type ContentType = JSX.Element | ((props: Props) => JSX.Element)
 
@@ -96,21 +97,28 @@ interface DefaultLegendContentProps {
 	 * The customized event handler of mouseenter on the items in this group
 	 * @example https://recharts.github.io/examples/LegendEffectOpacity
 	 */
-	onMouseEnter?: (data: LegendPayload, index: number, event: MouseEvent) => void
+	onMouseEnter?: (data: LegendPayload, index: number, event: MouseEvent & { currentTarget: HTMLElement }) => void
 	/**
 	 * The customized event handler of mouseleave on the items in this group
 	 * @example https://recharts.github.io/examples/LegendEffectOpacity
 	 */
-	onMouseLeave?: (data: LegendPayload, index: number, event: MouseEvent) => void
+	onMouseLeave?: (data: LegendPayload, index: number, event: MouseEvent & { currentTarget: HTMLElement }) => void
 	/**
 	 * The customized event handler of click on the items in this group
 	 */
-	onClick?: (data: LegendPayload, index: number, event: MouseEvent) => void
+	onClick?: (data: LegendPayload, index: number, event: MouseEvent & { currentTarget: HTMLElement }) => void
 	/**
 	 * DefaultLegendContent.payload is omitted from Legend props.
 	 * A custom payload can be passed here if desired, or it can be passed from the Legend "content" callback.
 	 */
 	payload?: ReadonlyArray<LegendPayload>
+	/**
+	 * Style of individual items inside the Legend, a `<span>` element.
+	 * These show the data label (name, or dataKey) and value.
+	 *
+	 * @defaultValue {}
+	 */
+	labelStyle?: JSX.CSSProperties
 }
 
 export type Props = DefaultLegendContentProps &
@@ -120,12 +128,32 @@ const defaultLegendContentDefaultProps = {
 	align: "center",
 	iconSize: 14,
 	inactiveColor: "#ccc",
+	labelStyle: {},
 	layout: "horizontal",
 	verticalAlign: "middle",
 } as const satisfies Partial<Props>
 
 type InternalProps = RequiresDefaultProps<Props, typeof defaultLegendContentDefaultProps> & {
 	payload: ReadonlyArray<LegendPayload>
+}
+
+function kebabizeKey(key: string): string {
+	return key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)
+}
+
+function kebabizeStyle(
+	style: JSX.CSSProperties | Record<string, string | number | undefined> | undefined,
+): Record<string, string | number> {
+	if (style == null) {
+		return {}
+	}
+	const out: Record<string, string | number> = {}
+	for (const key of Object.keys(style)) {
+		const v = (style as Record<string, string | number | undefined>)[key]
+		if (v == null) continue
+		out[kebabizeKey(key)] = v
+	}
+	return out
 }
 
 function getStrokeDasharray(input: unknown): string | undefined {
@@ -215,6 +243,7 @@ function Items(props: InternalProps) {
 	const itemStyle = () => ({
 		display: props.layout === "horizontal" ? "inline-block" : "block",
 		"margin-right": "10px",
+		"white-space": "nowrap",
 	})
 	const svgStyle: JSX.CSSProperties = {
 		display: "inline-block",
@@ -222,46 +251,59 @@ function Items(props: InternalProps) {
 		"vertical-align": "middle",
 	}
 
+	/* Slots keyed by index like upstream's `legend-item-${i}` keys: payload entries are rebuilt
+	   whenever an item toggles `inactive`, and identity keys would replace the <li> nodes. */
 	return (
-		<For each={props.payload as LegendPayload[]}>
+		<For keyed={false} each={props.payload as LegendPayload[]}>
 			{(entry, i) => {
-				const finalFormatter = () => entry.formatter || props.formatter
+				const finalFormatter = () => entry().formatter || props.formatter
 				const className = () =>
 					clsx({
 						"recharts-legend-item": true,
-						[`legend-item-${i()}`]: true,
-						inactive: entry.inactive,
+						[`legend-item-${i}`]: true,
+						inactive: entry().inactive,
 					})
 
 				return (
-					<Show when={entry.type !== "none"}>
+					<Show when={entry().type !== "none"}>
 						{(() => {
-							const color = () => (entry.inactive ? props.inactiveColor : entry.color)
 							const finalValue = () => {
 								const fmt = finalFormatter()
-								return fmt ? fmt(entry.value, entry, i()) : entry.value
+								return fmt ? fmt(entry().value, entry(), i) : entry().value
+							}
+							const textStyle = (): JSX.CSSProperties => {
+								const fromUser = kebabizeStyle(props.labelStyle)
+								/* User styles are re-keyed at runtime, so csstype's literal unions cannot be checked statically. */
+								return {
+									...fromUser,
+									color: entry().inactive
+										? props.inactiveColor
+										: (fromUser.color ?? entry().color),
+									"overflow-wrap": fromUser["overflow-wrap"] ?? "break-word",
+									"white-space": fromUser["white-space"] ?? "normal",
+								} as JSX.CSSProperties
 							}
 
 							return (
 								<li
 									class={className()}
 									style={itemStyle()}
-									{...adaptEventsOfChild(props, entry, i())}
+									{...adaptEventsOfChild(props, entry(), i)}
 								>
 									<Surface
 										width={props.iconSize}
 										height={props.iconSize}
 										viewBox={viewBox}
 										style={svgStyle}
-										aria-label={`${finalValue()} legend icon`}
+										aria-label={entry().value == null ? "legend icon" : `${entry().value} legend icon`}
 									>
 										<Icon
-											data={entry}
+											data={entry()}
 											iconType={props.iconType}
 											inactiveColor={props.inactiveColor}
 										/>
 									</Surface>
-									<span class="recharts-legend-item-text" style={{ color: color() }}>
+									<span class="recharts-legend-item-text" style={textStyle()}>
 										{finalValue()}
 									</span>
 								</li>
@@ -285,7 +327,10 @@ export const DefaultLegendContent = (outsideProps: Props): JSX.Element => {
 	   `{...realProps}` spread enumerates own keys (including `payload`), capturing the
 	   initial empty array as a plain value and freezing the early-return / Show predicate
 	   to its setup-time evaluation (GOTCHA-002 + GOTCHA-004). */
-	const props = mergeProps(defaultLegendContentDefaultProps, outsideProps) as InternalProps
+	const props = untrack(
+		() => mergeProps(defaultLegendContentDefaultProps, outsideProps) as InternalProps,
+	)
+	const payload = createMemo(() => props.payload)
 
 	const finalStyle = (): JSX.CSSProperties => ({
 		margin: 0,
@@ -294,9 +339,9 @@ export const DefaultLegendContent = (outsideProps: Props): JSX.Element => {
 	})
 
 	return (
-		<Show when={props.payload != null && props.payload.length > 0}>
+		<Show when={(payload()?.length ?? 0) > 0}>
 			<ul class="recharts-default-legend" style={finalStyle()}>
-				<Items {...props} payload={props.payload ?? []} />
+				<Items {...props} payload={payload() ?? []} />
 			</ul>
 		</Show>
 	)

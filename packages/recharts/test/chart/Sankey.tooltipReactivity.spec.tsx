@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle, sort-keys */
-/* @jsxImportSource solid-js */
-import { describe, expect, it, test, vi } from "vitest"
-import { useContext } from "solid-js"
+/* @jsxImportSource @solidjs/web */
+import { describe, expect, it, vi } from "vitest"
+import { useContext, untrack, snapshot, flush } from 'solid-js';
 import { Sankey } from "../../src"
 import { renderWithSignals } from "../helper/renderWithSignals"
 import { RechartsStoreContext } from "../../src/state/RechartsStoreContext"
@@ -21,15 +21,12 @@ import type { ChartState } from "../../src/state/store"
  * The fix wraps the object in createMemo so it is re-evaluated inside the reactive
  * graph, producing a new reference on prop change and triggering the store update.
  *
- * NOTE: post-mount prop-update coverage is deferred (see test.todo). The Solid store's
- * produce+indexOf path fails because produce wraps items in proxies, making indexOf
- * with the original reference return -1. The tests below verify correct initial-mount
- * population — the actual failure mode fixed by this session (data/sectors captured
- * before the store is fully populated).
+ * The first group verifies initial-mount population (data captured before the store is
+ * fully populated); the second verifies that post-mount prop changes replace the entry.
  */
 
 function StoreCapture(props: { ref: (store: ChartState) => void }): null {
-	const ctx = useContext(RechartsStoreContext)
+	const ctx = untrack(() => useContext(RechartsStoreContext))
 	if (ctx != null) {
 		/* eslint-disable-next-line solid/reactivity -- intentional one-shot mount callback, not a tracked read */
 		props.ref(ctx.store)
@@ -59,6 +56,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads).toHaveLength(1)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.nameKey).toBe("value")
@@ -80,6 +78,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.dataKey).toBe("source")
 	})
@@ -100,6 +99,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.fill).toBe("#abcdef")
 	})
@@ -122,9 +122,12 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
-		/* Store proxy wraps the value — use deep equality, not reference equality */
-		expect(selectTooltipState(store).tooltipItemPayloads[0]?.dataDefinedOnItem).toStrictEqual(minimalData)
+		/* Store proxy wraps the value — compare the unwrapped snapshot */
+		expect(snapshot(selectTooltipState(store).tooltipItemPayloads[0]?.dataDefinedOnItem)).toStrictEqual(
+			minimalData,
+		)
 	})
 
 	/*
@@ -143,6 +146,7 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.name).toBe("My Flow")
 	})
@@ -163,19 +167,62 @@ describe("Sankey tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.stroke).toBe("#123456")
 	})
 })
 
-/*
- * Post-mount prop-update tests blocked by produce+indexOf proxy limitation.
- * See Treemap.tooltipReactivity.spec.tsx for full explanation.
- */
-test.todo(
-	"SetSankeyTooltipEntrySettings post-mount nameKey update — blocked by produce+indexOf proxy limitation in SetTooltipEntrySettings.",
-)
+describe("Sankey tooltip settings — post-mount updates", () => {
+	/*
+	 * A changed prop replaces the existing tooltip entry in place instead of appending a second one.
+	 */
+	it("SetSankeyTooltipEntrySettings replaces the entry when nameKey changes", () => {
+		let store: ChartState | undefined
 
-test.todo(
-	"SetSankeyTooltipEntrySettings post-mount data update — same limitation.",
-)
+		const { update } = renderWithSignals(
+			(p: { nameKey: string }) => (
+				<Sankey width={400} height={200} data={minimalData} nameKey={p.nameKey}>
+					<StoreCapture ref={(s) => { store = s }} />
+				</Sankey>
+			),
+			{ nameKey: "name" },
+		)
+
+		vi.advanceTimersByTime(0)
+		flush()
+		assertNotNull(store)
+		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.nameKey).toBe("name")
+
+		update({ nameKey: "value" })
+		flush()
+		expect(selectTooltipState(store).tooltipItemPayloads).toHaveLength(1)
+		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.nameKey).toBe("value")
+	})
+
+	it("SetSankeyTooltipEntrySettings replaces the entry when data changes", () => {
+		let store: ChartState | undefined
+		const nextData: SankeyData = {
+			links: [{ source: 0, target: 1, value: 50 }],
+			nodes: [{ name: "From" }, { name: "To" }],
+		}
+
+		const { update } = renderWithSignals(
+			(p: { data: SankeyData }) => (
+				<Sankey width={400} height={200} data={p.data}>
+					<StoreCapture ref={(s) => { store = s }} />
+				</Sankey>
+			),
+			{ data: minimalData },
+		)
+
+		vi.advanceTimersByTime(0)
+		flush()
+		assertNotNull(store)
+
+		update({ data: nextData })
+		flush()
+		expect(selectTooltipState(store).tooltipItemPayloads).toHaveLength(1)
+		expect(snapshot(selectTooltipState(store).tooltipItemPayloads[0]?.dataDefinedOnItem)).toStrictEqual(nextData)
+	})
+})

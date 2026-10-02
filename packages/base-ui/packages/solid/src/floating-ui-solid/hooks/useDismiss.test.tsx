@@ -2,7 +2,9 @@ import { flushMicrotasks } from '#test-utils';
 import { isJSDOM } from '#utils/detectBrowser';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { createSignal, Show, splitProps, type Accessor, type JSX } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { vi } from 'vitest';
 import { access } from '../../solid-helpers';
 import { REASONS } from '../../utils/reasons';
@@ -21,6 +23,7 @@ import {
 } from '../index';
 import type { UseDismissProps } from './useDismiss';
 import { normalizeProp } from './useDismiss';
+import { splitProps } from '../../solid-1-compat';
 
 beforeEach(() => {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(

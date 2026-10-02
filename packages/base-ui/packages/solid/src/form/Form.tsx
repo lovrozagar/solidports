@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic FormValues plus SubmitEvent / Solid JSX handler bridge requires `any` casts; tightening would force redundant SolidJSXEvent shape conversions */
-import { createEffect, createMemo, createSignal, on, onMount } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { createTrackedEffect, createEffect, createMemo, createSignal, onSettled } from 'solid-js';
+
 import { callEventHandler, splitComponentProps, type ReactLikeRef } from '../solid-helpers';
 import { EMPTY_OBJECT } from '../utils/constants';
 import {
@@ -11,6 +11,7 @@ import { REASONS } from '../utils/reasons';
 import type { BaseUIComponentProps } from '../utils/types';
 import { useRenderElement } from '../utils/useRenderElement';
 import { FormContext, type Errors } from './FormContext';
+import { on, createStore } from '../solid-1-compat';
 
 /**
  * A native form element with consolidated error handling.
@@ -49,7 +50,7 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
 
   const [errors, setErrors] = createSignal(externalErrors());
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     setErrors(externalErrors());
   });
 
@@ -57,8 +58,7 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
     Object.values(formRef.fields).filter((field) => field.validityData.state.valid === false),
   );
 
-  createEffect(
-    on(invalidFields, (invalid) => {
+  createEffect(...on(invalidFields, (invalid) => {
       if (!submittedRef) {
         return;
       }
@@ -87,7 +87,7 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
     }
   };
 
-  onMount(() => {
+  onSettled(() => {
     if (local.actionsRef) {
       local.actionsRef.current = { validate: handleImperativeValidate };
     }
@@ -96,7 +96,7 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
   const element = useRenderElement('form', componentProps, {
     props: [
       {
-        noValidate: true,
+        novalidate: true,
         onSubmit(event: SubmitEvent) {
           submitAttemptedRef = true;
 
@@ -152,7 +152,7 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
     validationMode,
   };
 
-  return <FormContext.Provider value={contextValue}>{element()}</FormContext.Provider>;
+  return <FormContext value={contextValue}>{element()}</FormContext>;
 }
 
 export type FormSubmitEventReason = typeof REASONS.none;

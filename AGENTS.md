@@ -30,9 +30,10 @@ match Solid. Docs live in `packages/base-ui/docs/solid`. `packages/base-ui/docs/
 
 - Never destructure props at the call site. `props.foo`, not `const { foo } = props`.
 - Derived values from props or store → `createMemo`. Never compute inline in JSX.
-- Side effects → `createEffect`. Cleanup → `onCleanup` inside the same effect.
-- Mount logic → `onMount`. Never import React `useEffect`.
-- Multiple setters in an event handler → `batch(() => { ... })`.
+- Side effects → `createEffect(compute, apply)` or `createTrackedEffect` for a single callback. Cleanup → `onCleanup` inside the same effect.
+- Mount logic → `onSettled`. Never import React `useEffect`.
+- Writes batch on a microtask. Call `flush()` when the next read must see them now.
+- JSX import source is `@solidjs/web`.
 
 ## Before you call it done
 

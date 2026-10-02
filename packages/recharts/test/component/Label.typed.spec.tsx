@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it } from "vitest"
-import { createRoot } from "solid-js"
+import { createRoot } from 'solid-js';
 import { Label, getRelativeCoordinate } from "../../src"
 
 describe("Label types", () => {

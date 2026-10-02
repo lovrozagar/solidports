@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { createEffect, onCleanup, Show, type JSX } from "solid-js"
+import { Show, untrack, createEffect, createMemo, omit } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { BarePortal } from "../util/BarePortal"
 import { useLegendPortal } from "../context/legendPortalContext"
 import {
@@ -10,20 +11,25 @@ import {
 	type VerticalAlignmentType,
 } from "./DefaultLegendContent"
 
-import type { LayoutType, Margin, Size } from "../util/types"
+import type { CartesianLayout, Margin, Size } from "../util/types"
 import { getUniqPayload, type UniqueOption } from "../util/payload/getUniqPayload"
 import { useLegendPayload } from "../context/legendPayloadContext"
 import { type ElementOffset, useElementOffset } from "../util/useElementOffset"
-import { useChartHeight, useChartWidth, useMargin } from "../context/chartLayoutContext"
-import type { LegendSettings } from "../state/legendSlice"
+import { useChartHeight, useChartWidth, useMargin, useViewBox } from "../context/chartLayoutContext"
+import type { LegendPosition, LegendSettings } from "../state/legendSlice"
 import { useOptionalChartState } from "../state/useChartState"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
+import { getCartesianPosition } from "../cartesian/getCartesianPosition"
+import { isOutsidePosition } from "../cartesian/isOutsidePosition"
+import { cartesianPositionToCSSTranslate } from "../cartesian/cartesianPositionToCSSTranslate"
+import { teardownWrite } from "../state/teardownWrite"
 
 function defaultUniqBy(entry: LegendPayload) {
 	return entry.value
 }
 
-type ContentProps = Props & {
+type ContentProps = Omit<Props, "layout"> & {
+	layout: CartesianLayout
 	margin: Margin | undefined
 	chartWidth: number
 	chartHeight: number
@@ -33,20 +39,23 @@ type ContentProps = Props & {
 function LegendContent(props: ContentProps) {
 	const finalPayload = () =>
 		getUniqPayload(props.contextPayload, props.payloadUniqBy, defaultUniqBy)
+	/* upstream strips contextPayload before handing props to content */
+	const otherProps = omit(props, "contextPayload")
 
-	/* eslint-disable solid/reactivity -- content type is structural (stable); user render-fn receives snapshot — reactive updates flow via parent re-render */
-	if (typeof props.content === "function") {
+	/* content type is structural (stable); snapshot once at setup */
+	const content = untrack(() => props.content)
+	if (typeof content === "function") {
 		/* user-supplied render fn — pass full props + resolved payload */
-		const contentFn = props.content as (p: Props) => JSX.Element
-		return contentFn(Object.assign({}, props, { payload: finalPayload() }) as Props)
+		const contentFn = content as (p: Props) => JSX.Element
+		/* Re-invoked when props or payload change, like upstream re-rendering the content. */
+		return <>{contentFn(Object.assign({}, otherProps, { payload: finalPayload() }) as Props)}</>
 	}
 
-	if (props.content != null) {
-		return props.content as JSX.Element
+	if (content != null) {
+		return content as JSX.Element
 	}
-	/* eslint-enable solid/reactivity */
 
-	return <DefaultLegendContent {...props} payload={finalPayload()} />
+	return <DefaultLegendContent {...otherProps} payload={finalPayload()} />
 }
 
 type PositionInput = {
@@ -70,7 +79,9 @@ function kebabizeKey(key: string): string {
 	return key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`)
 }
 
-function kebabizeStyle(style: JSX.CSSProperties | undefined): Record<string, string | number> {
+function kebabizeStyle(
+	style: JSX.CSSProperties | Record<string, string | number | undefined> | undefined,
+): Record<string, string | number> {
 	if (style == null) {
 		return {}
 	}
@@ -128,9 +139,55 @@ function getDefaultPosition(
 	return { ...hPos, ...vPos }
 }
 
+function getLayoutForPosition(position: LegendPosition | undefined): CartesianLayout {
+	if (
+		position === "left" ||
+		position === "right" ||
+		position === "insideLeft" ||
+		position === "insideRight"
+	) {
+		return "vertical"
+	}
+
+	return "horizontal"
+}
+
+function legendAreaFromMargin(
+	chartWidth: number,
+	chartHeight: number,
+	margin: Margin | undefined,
+) {
+	return {
+		height: Math.max(chartHeight - (margin?.top || 0) - (margin?.bottom || 0), 0),
+		width: Math.max(chartWidth - (margin?.left || 0) - (margin?.right || 0), 0),
+		x: margin?.left || 0,
+		y: margin?.top || 0,
+	}
+}
+
+function getOutsidePositionOffset(
+	position: LegendPosition | undefined,
+	offset: number,
+	box: ElementOffset,
+): { top?: number; left?: number } {
+	if (position === "top") {
+		return { top: box.height + offset }
+	}
+	if (position === "bottom") {
+		return { top: -box.height - offset }
+	}
+	if (position === "left") {
+		return { left: box.width + offset }
+	}
+	if (position === "right") {
+		return { left: -box.width - offset }
+	}
+	return {}
+}
+
 export type LegendItemSorter = "value" | "dataKey" | ((item: LegendPayload) => number | string)
 
-export type Props = Omit<DefaultLegendContentProps, "payload" | "ref" | "verticalAlign"> & {
+export type Props = Omit<DefaultLegendContentProps, "payload" | "ref" | "verticalAlign" | "layout"> & {
 	/**
 	 * Renders the content of the legend.
 	 *
@@ -144,6 +201,19 @@ export type Props = Omit<DefaultLegendContentProps, "payload" | "ref" | "vertica
 	 * @example <Legend content={renderLegend} />
 	 */
 	content?: ContentType
+	/**
+	 * The layout of legend items inside the legend container.
+	 *
+	 * When `auto` then the layout is decided based on the `position` prop:
+	 * - in `left`|`right` positions, the layout is vertical
+	 * - otherwise horizontal
+	 * - if position is undefined, also horizontal
+	 *
+	 * `auto` value is new since 3.10
+	 *
+	 * @defaultValue auto
+	 */
+	layout?: CartesianLayout | "auto"
 	/**
 	 * CSS styles to be applied to the wrapper `div` element.
 	 */
@@ -188,31 +258,57 @@ export type Props = Omit<DefaultLegendContentProps, "payload" | "ref" | "vertica
 	 * @defaultValue bottom
 	 */
 	verticalAlign?: VerticalAlignmentType
+	/**
+	 * The position of the legend relative to the chart.
+	 * If this is defined, it overrides `align` and `verticalAlign`.
+	 *
+	 * @since 3.10
+	 */
+	position?: LegendPosition
+	/**
+	 * The offset to the specified `position`. Direction of the offset depends on the position.
+	 *
+	 * @since 3.10
+	 */
+	offset?: number
 }
 
 function LegendSettingsDispatcher(props: LegendSettings): null {
 	const newCtx = useOptionalChartState()
-	createEffect(() => {
-		const s = { align: props.align, itemSorter: props.itemSorter, layout: props.layout, verticalAlign: props.verticalAlign }
-		newCtx?.setState("legend", "settings", s)
-	})
+	createEffect(
+		() => ({
+			align: props.align,
+			itemSorter: props.itemSorter,
+			layout: props.layout,
+			offset: props.offset,
+			position: props.position,
+			verticalAlign: props.verticalAlign,
+		}),
+		(settings) => {
+			newCtx?.setState("legend", "settings", settings)
+		},
+	)
 	return null
 }
 
 function LegendSizeDispatcher(props: Size): null {
 	const newCtx = useOptionalChartState()
-	createEffect(() => {
-		const s = { height: props.height, width: props.width }
-		newCtx?.setState("legend", "size", s)
-		onCleanup(() => {
-			newCtx?.setState("legend", "size", { height: 0, width: 0 })
-		})
-	})
+	createEffect(
+		() => ({ height: props.height, width: props.width }),
+		(size) => {
+			newCtx?.setState("legend", "size", size)
+			return () => {
+				teardownWrite(() => {
+					newCtx?.setState("legend", "size", { height: 0, width: 0 })
+				})
+			}
+		},
+	)
 	return null
 }
 
 function getWidthOrHeight(
-	layout: LayoutType | undefined,
+	layout: CartesianLayout | undefined,
 	height: number | string | undefined,
 	width: number | string | undefined,
 	maxWidth: number,
@@ -236,7 +332,9 @@ export const legendDefaultProps = {
 	iconSize: 14,
 	inactiveColor: "#ccc",
 	itemSorter: "value",
-	layout: "horizontal",
+	labelStyle: {},
+	layout: "auto",
+	offset: 0,
 	verticalAlign: "bottom",
 } as const satisfies Partial<Props>
 
@@ -250,12 +348,34 @@ export function Legend(outsideProps: Props) {
 	   `()` callsites valid; legendPortalFromContext stays Accessor (portal context). */
 	/* legacy useLegendPayload() goes through selectLegendPayload which applies itemSorter */
 	/* — keep this path until Phase 6 hooks port unifies the merge semantics */
-	const contextPayload = () => useLegendPayload()
+	const contextPayload = createMemo(() => useLegendPayload())
 	const legendPortalFromContext = useLegendPortal()
-	const margin = () => useMargin()
+	const margin = createMemo(() => useMargin())
 	const [lastBoundingBox, updateBoundingBox] = useElementOffset(() => [contextPayload()])
-	const chartWidth = () => useChartWidth()
-	const chartHeight = () => useChartHeight()
+	const chartWidth = createMemo(() => useChartWidth())
+	const chartHeight = createMemo(() => useChartHeight())
+	const layout = (): CartesianLayout => {
+		const explicit = outsideProps.layout
+		if (explicit && explicit !== "auto") {
+			return explicit
+		}
+		return getLayoutForPosition(props.position)
+	}
+
+	const plotViewBox = createMemo(() => useViewBox())
+
+	const positionViewBox = () => {
+		if (props.position == null) {
+			return null
+		}
+		if (isOutsidePosition(props.position)) {
+			return legendAreaFromMargin(chartWidth() ?? 0, chartHeight() ?? 0, margin())
+		}
+		return plotViewBox() ?? null
+	}
+
+	const shouldReportDimensions = () =>
+		props.portal == null && (props.position == null || isOutsidePosition(props.position))
 
 	return (
 		<Show
@@ -271,7 +391,7 @@ export function Legend(outsideProps: Props) {
 				const ch = () => chartHeight() ?? 0
 				const maxWidth = () => cw() - (margin()?.left || 0) - (margin()?.right || 0)
 				const widthOrHeight = () =>
-					getWidthOrHeight(props.layout, props.height, props.width, maxWidth())
+					getWidthOrHeight(layout(), props.height, props.width, maxWidth())
 				const legendPortal = () => props.portal ?? legendPortalFromContext()
 
 				/* if the user supplies their own portal, only use their defined wrapper styles */
@@ -296,6 +416,53 @@ export function Legend(outsideProps: Props) {
 					} else {
 						widthPx = "auto"
 					}
+
+					const viewBox = positionViewBox()
+					const positionResult =
+						props.position == null
+							? null
+							: getCartesianPosition({
+									offset: props.offset ?? 0,
+									position: props.position,
+									viewBox: viewBox ?? { height: ch(), width: cw(), x: 0, y: 0 },
+								})
+					const outsidePositionOffset = getOutsidePositionOffset(
+						props.position,
+						props.offset ?? 0,
+						lastBoundingBox(),
+					)
+					const positionMaxWidth =
+						layout() === "vertical" ? (viewBox?.width ?? 0) / 2 : (viewBox?.width ?? 0)
+					const positionMaxHeight =
+						layout() === "horizontal" ? (viewBox?.height ?? 0) / 2 : (viewBox?.height ?? 0)
+
+					const positionStyle: Record<string, string | number> = positionResult
+						? kebabizeStyle({
+								height: "max-content",
+								left: px(positionResult.x + (outsidePositionOffset.left ?? 0)),
+								maxHeight: px(positionMaxHeight),
+								maxWidth: px(positionMaxWidth),
+								overflowY: "auto",
+								top: px(positionResult.y + (outsidePositionOffset.top ?? 0)),
+								transform: cartesianPositionToCSSTranslate(
+									positionResult.horizontalAnchor,
+									positionResult.verticalAnchor,
+								),
+								width: "max-content",
+							})
+						: getDefaultPosition(
+								props.wrapperStyle,
+								{
+									align: props.align,
+									layout: layout(),
+									verticalAlign: props.verticalAlign,
+								},
+								margin(),
+								cw(),
+								ch(),
+								lastBoundingBox(),
+							)
+
 					/* Property order is load-bearing — upstream React asserts the inline
 					   style attribute string verbatim. Solid serializes CSS in insertion
 					   order, so position → width → height → defaults → user must match. */
@@ -303,14 +470,7 @@ export function Legend(outsideProps: Props) {
 						position: "absolute",
 						width: widthPx,
 						height: heightPx,
-						...getDefaultPosition(
-							props.wrapperStyle,
-							props,
-							margin(),
-							cw(),
-							ch(),
-							lastBoundingBox(),
-						),
+						...positionStyle,
 						...kebabizeStyle(props.wrapperStyle),
 					}
 				}
@@ -319,12 +479,14 @@ export function Legend(outsideProps: Props) {
 					<BarePortal mount={legendPortal() ?? undefined}>
 						<div class="recharts-legend-wrapper" style={outerStyle()} ref={updateBoundingBox}>
 							<LegendSettingsDispatcher
-								layout={props.layout}
+								layout={layout()}
 								align={props.align}
 								verticalAlign={props.verticalAlign}
 								itemSorter={props.itemSorter}
+								position={props.position}
+								offset={props.offset}
 							/>
-							<Show when={!props.portal}>
+							<Show when={shouldReportDimensions()}>
 								<LegendSizeDispatcher
 									width={lastBoundingBox().width}
 									height={lastBoundingBox().height}
@@ -332,6 +494,7 @@ export function Legend(outsideProps: Props) {
 							</Show>
 							<LegendContent
 								{...props}
+								layout={layout()}
 								{...widthOrHeight()}
 								margin={margin()}
 								chartWidth={cw()}

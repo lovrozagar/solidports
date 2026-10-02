@@ -1,7 +1,6 @@
-/* @jsxImportSource solid-js */
-import type { JSX } from "solid-js"
-import { createStore } from "solid-js/store"
-import type { SetStoreFunction } from "solid-js/store"
+/* @jsxImportSource @solidjs/web */
+import type { JSX } from '@solidjs/web';
+import { untrack } from 'solid-js';
 import { RechartsStateContext } from "./RechartsStateContext"
 import type { RechartsStateContextValue } from "./RechartsStateContext"
 import type { ChartState } from "./chartState"
@@ -10,6 +9,7 @@ import { useIsPanorama } from "../context/PanoramaContext"
 import { RechartsStoreContext } from "./RechartsStoreContext"
 import { createEventHandlers } from "./events"
 
+import { createStore, type SetStoreFunction } from '../util/solid-1-compat';
 type RechartsStateProviderProps = {
 	/**
 	 * Top-level keys override defaults. Sub-objects must be complete — shallow
@@ -29,17 +29,20 @@ function makeAutoInitsetState(
 ): SetStoreFunction<ChartState> {
 	return ((...args: unknown[]) => {
 		if (args.length >= 4) {
-			const pathSegments = args.slice(0, -1)
-			let node: unknown = state
-			for (let i = 0; i < pathSegments.length - 1; i++) {
-				const seg = pathSegments[i]
-				if (typeof seg !== "string" && typeof seg !== "number") break
-				const next = (node as Record<string | number, unknown>)[seg]
-				if (next === undefined || next === null) {
-					;(setStore as (...a: unknown[]) => void)(...pathSegments.slice(0, i + 1), {})
+			/* The walk only probes for missing nodes; a setter must not subscribe its caller. */
+			untrack(() => {
+				const pathSegments = args.slice(0, -1)
+				let node: unknown = state
+				for (let i = 0; i < pathSegments.length - 1; i++) {
+					const seg = pathSegments[i]
+					if (typeof seg !== "string" && typeof seg !== "number") break
+					const next = (node as Record<string | number, unknown>)[seg]
+					if (next === undefined || next === null) {
+						;(setStore as (...a: unknown[]) => void)(...pathSegments.slice(0, i + 1), {})
+					}
+					node = (node as Record<string | number, unknown>)[seg] ?? {}
 				}
-				node = (node as Record<string | number, unknown>)[seg] ?? {}
-			}
+			})
 		}
 		;(setStore as (...a: unknown[]) => void)(...args)
 	}) as SetStoreFunction<ChartState>
@@ -58,15 +61,16 @@ export function RechartsStateProvider(props: RechartsStateProviderProps): JSX.El
 		return <>{props.children}</>
 	}
 
-	/* preloadedState is read once at mount — intentional read-once like React initialState. */
-	/* eslint-disable-next-line solid/reactivity -- preloadedState seeds the store once; intentionally read-once like React initialState */
-	const [state, setStore] = createStore<ChartState>(createInitialChartState(props.preloadedState))
+	/* preloadedState seeds the store once, like React initialState. */
+	const [state, setStore] = createStore<ChartState>(
+		untrack(() => createInitialChartState(props.preloadedState)),
+	)
 	const setState = makeAutoInitsetState(state, setStore)
 	const value: RechartsStateContextValue = { setState, state }
 	const events = createEventHandlers(state, setState)
 	return (
-		<RechartsStateContext.Provider value={value}>
-			<RechartsStoreContext.Provider
+		<RechartsStateContext value={value}>
+			<RechartsStoreContext
 				value={{
 					events,
 					setStore: setState,
@@ -74,7 +78,7 @@ export function RechartsStateProvider(props: RechartsStateProviderProps): JSX.El
 				}}
 			>
 				{props.children}
-			</RechartsStoreContext.Provider>
-		</RechartsStateContext.Provider>
+			</RechartsStoreContext>
+		</RechartsStateContext>
 	)
 }

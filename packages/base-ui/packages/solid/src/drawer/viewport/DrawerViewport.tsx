@@ -1,5 +1,5 @@
 import { isElement } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import { createTrackedEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { DialogViewport } from '../../dialog/viewport/DialogViewport';
 import { contains } from '../../floating-ui-solid/utils';
@@ -355,7 +355,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
         backdropElement.style.removeProperty(DrawerPopupCssVars.height);
       }
 
-      const dismissEventDetails: Parameters<typeof store.setOpen>[1] = createChangeEventDetails(
+      const dismissEventDetails = createChangeEventDetails(
         REASONS.swipe,
         event,
       );
@@ -711,7 +711,10 @@ export function DrawerViewport(props: DrawerViewport.Props) {
   };
   resetSwipeRef = resetSwipe;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const rootElement = viewportElement() ?? popupElementState();
     if (!rootElement) {
       return;
@@ -825,12 +828,18 @@ export function DrawerViewport(props: DrawerViewport.Props) {
 
     doc.addEventListener('touchmove', handleNativeTouchMove, { capture: true, passive: false });
 
-    onCleanup(() => {
+    _c.push(() => {
       doc.removeEventListener('touchmove', handleNativeTouchMove, { capture: true });
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!snapPointRange() || swipe.swiping) {
       return;
     }
@@ -843,7 +852,10 @@ export function DrawerViewport(props: DrawerViewport.Props) {
     });
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!notifyParentSwipeProgressChange) {
       return;
     }
@@ -852,12 +864,18 @@ export function DrawerViewport(props: DrawerViewport.Props) {
       notifyParentSwipeProgressChange(0);
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       notifyParentSwipeProgressChange(0);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (open()) {
       resetSwipe();
       clearSwipeRelease();
@@ -897,7 +915,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
       {...(mergeProps([
         elementProps,
         {
-          onPointerCancel(event) {
+          onPointerCancel(event: PointerEvent) {
             if (lastPointerTypeRef === event.pointerType) {
               lastPointerTypeRef = '';
             }
@@ -908,7 +926,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
 
             swipePointerProps().onPointerCancel?.(event);
           },
-          onPointerDown(event) {
+          onPointerDown(event: PointerEvent) {
             lastPointerTypeRef = event.pointerType;
             ignoreNextTouchStartFromPenRef = event.pointerType === 'pen';
 
@@ -916,7 +934,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
               return;
             }
 
-            const doc = ownerDocument(event.currentTarget);
+            const doc = ownerDocument((event.currentTarget as Element | null) ?? null);
             const elementAtPoint =
               typeof doc.elementFromPoint === 'function'
                 ? doc.elementFromPoint(event.clientX, event.clientY)
@@ -927,14 +945,14 @@ export function DrawerViewport(props: DrawerViewport.Props) {
 
             swipePointerProps().onPointerDown?.(event);
           },
-          onPointerMove(event) {
+          onPointerMove(event: PointerEvent) {
             if (event.pointerType === 'touch') {
               return;
             }
 
             swipePointerProps().onPointerMove?.(event);
           },
-          onPointerUp(event) {
+          onPointerUp(event: PointerEvent) {
             if (lastPointerTypeRef === event.pointerType) {
               lastPointerTypeRef = '';
             }
@@ -945,17 +963,17 @@ export function DrawerViewport(props: DrawerViewport.Props) {
 
             swipePointerProps().onPointerUp?.(event);
           },
-          onTouchCancel(event) {
+          onTouchCancel(event: TouchEvent) {
             virtualKeyboard?.onTouchCancel();
             resetTouchTrackingState();
             swipeTouchProps().onTouchCancel?.(event);
           },
-          onTouchEnd(event) {
+          onTouchEnd(event: TouchEvent) {
             virtualKeyboard?.onTouchEnd(event);
             resetTouchTrackingState();
             swipeTouchProps().onTouchEnd?.(event);
           },
-          onTouchMove(event) {
+          onTouchMove(event: TouchEvent) {
             virtualKeyboard?.onTouchMove(event);
             if (isReactTouchEventOnRangeInput(event)) {
               return;
@@ -968,7 +986,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
 
             swipeTouchProps().onTouchMove?.(event);
           },
-          onTouchStart(event) {
+          onTouchStart(event: TouchEvent) {
             const startedFromPenPointerDown =
               lastPointerTypeRef === 'pen' && ignoreNextTouchStartFromPenRef;
             if (startedFromPenPointerDown) {
@@ -1022,9 +1040,9 @@ export function DrawerViewport(props: DrawerViewport.Props) {
         },
       ]))}
     >
-      <DrawerViewportContext.Provider value={swipeProviderValue}>
+      <DrawerViewportContext value={swipeProviderValue}>
         {local.children}
-      </DrawerViewportContext.Provider>
+      </DrawerViewportContext>
     </DialogViewport>
   );
 }

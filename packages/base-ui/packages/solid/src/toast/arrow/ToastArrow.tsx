@@ -28,7 +28,7 @@ export function ToastArrow(componentProps: ToastArrow.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    props: [{ style: arrowStyles, 'aria-hidden': true }, elementProps],
+    props: [{ style: arrowStyles, 'aria-hidden': 'true' }, elementProps],
     ref: (el) => {
       arrowRef.current = el;
     },

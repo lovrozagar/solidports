@@ -1,7 +1,8 @@
 /* eslint-disable import/no-cycle */
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "./chartState"
 import { readChartState } from "./chartState"
+import type { TooltipIndex, TooltipInteractionState } from "./tooltipSlice"
+import type { Coordinate } from "../util/types"
 import {
 	selectTooltipAxisDomain,
 	selectTooltipAxisTicks,
@@ -10,11 +11,138 @@ import {
 import { selectCoordinateForDefaultIndex } from "./selectors/selectors"
 import { selectChartDirection, selectTooltipAxisDataKey } from "./selectors/axisSelectors"
 import { combineActiveTooltipIndex } from "./selectors/combiners/combineActiveTooltipIndex"
+import { selectTooltipEventType } from "./selectors/selectTooltipEventType"
 
+import { type SetStoreFunction } from '../util/solid-1-compat';
 export type KeyboardEventHandlers = {
 	handleKeyDown: (key: KeyboardEvent["key"]) => void
 	handleFocus: () => void
 	handleBlur: () => void
+}
+
+/* Mirrors upstream's setKeyboardInteraction reducer: only active/index/coordinate change. */
+function setKeyboardInteraction(
+	setStore: SetStoreFunction<ChartState>,
+	active: boolean,
+	index: TooltipIndex | undefined,
+	coordinate: Coordinate | undefined,
+): void {
+	setStore("tooltip", "keyboardInteraction", "active", active)
+	setStore("tooltip", "keyboardInteraction", "index", index)
+	setStore("tooltip", "keyboardInteraction", "coordinate", coordinate)
+}
+
+function coordinateForIndex(store: ChartState, index: TooltipIndex | undefined): Coordinate | undefined {
+	const tooltipEventType = selectTooltipEventType(store, store.tooltip.settings.shared)
+	return selectCoordinateForDefaultIndex(store, tooltipEventType, "hover", String(index))
+}
+
+/* Builds a minimal TooltipInteractionState for the candidate-index check. */
+function candidateInteraction(i: number): TooltipInteractionState {
+	return {
+		active: false,
+		coordinate: undefined,
+		dataKey: undefined,
+		graphicalItemId: undefined,
+		index: String(i),
+	}
+}
+
+function applyKeyDown(
+	store: ChartState,
+	setStore: SetStoreFunction<ChartState>,
+	key: KeyboardEvent["key"] | null,
+): void {
+	const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
+	if (!accessibilityLayerIsActive) {
+		return
+	}
+	const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
+	if (key !== "ArrowRight" && key !== "ArrowLeft" && key !== "Enter") {
+		return
+	}
+
+	/* TODO this is lacking index for charts that do not support numeric indexes */
+	const displayedData = selectTooltipDisplayedData(store)
+	const axisDataKey = selectTooltipAxisDataKey(store)
+	const domain = selectTooltipAxisDomain(store)
+	const resolvedIndex = combineActiveTooltipIndex(keyboardInteraction, displayedData, axisDataKey, domain)
+	const currentIndex = resolvedIndex == null ? -1 : Number(resolvedIndex)
+	const isOutsideDomain = !Number.isFinite(currentIndex) || currentIndex < 0
+	if (key === "Enter") {
+		if (isOutsideDomain) {
+			return
+		}
+		setKeyboardInteraction(
+			setStore,
+			!keyboardInteraction.active,
+			keyboardInteraction.index,
+			coordinateForIndex(store, keyboardInteraction.index),
+		)
+		return
+	}
+
+	const directionMultiplier = selectChartDirection(store) === "left-to-right" ? 1 : -1
+	const movement = key === "ArrowRight" ? 1 : -1
+	let nextIndex: number
+	if (isOutsideDomain) {
+		/* Snap back to the first/last index that is visible in the current domain. */
+		const isVisible = (i: number) =>
+			combineActiveTooltipIndex(candidateInteraction(i), displayedData, axisDataKey, domain) != null
+		nextIndex = -1
+		if (movement * directionMultiplier > 0) {
+			for (let i = 0; i < displayedData.length; i++) {
+				if (isVisible(i)) {
+					nextIndex = i
+					break
+				}
+			}
+		} else {
+			for (let i = displayedData.length - 1; i >= 0; i--) {
+				if (isVisible(i)) {
+					nextIndex = i
+					break
+				}
+			}
+		}
+		if (nextIndex < 0) {
+			return
+		}
+	} else {
+		nextIndex = currentIndex + movement * directionMultiplier
+		const dataLength = selectTooltipAxisTicks(store)?.length || displayedData.length
+		if (dataLength === 0 || nextIndex >= dataLength || nextIndex < 0) {
+			return
+		}
+	}
+	const index = nextIndex.toString()
+	setKeyboardInteraction(setStore, true, index, coordinateForIndex(store, index))
+}
+
+function applyFocus(store: ChartState, setStore: SetStoreFunction<ChartState>): void {
+	const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
+	if (!accessibilityLayerIsActive) {
+		return
+	}
+	const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
+	if (keyboardInteraction.active) {
+		return
+	}
+	if (keyboardInteraction.index == null) {
+		const nextIndex = "0"
+		setKeyboardInteraction(setStore, true, nextIndex, coordinateForIndex(store, nextIndex))
+	}
+}
+
+function applyBlur(store: ChartState, setStore: SetStoreFunction<ChartState>): void {
+	const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
+	if (!accessibilityLayerIsActive) {
+		return
+	}
+	const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
+	if (keyboardInteraction.active) {
+		setKeyboardInteraction(setStore, false, keyboardInteraction.index, keyboardInteraction.coordinate)
+	}
 }
 
 /**
@@ -47,66 +175,7 @@ export function createKeyboardEventHandlers(
 
 		const callback = () => {
 			try {
-				const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
-				if (!accessibilityLayerIsActive) {
-					return
-				}
-				const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
-				const currentKey = latestKeyboardActionPayload
-				if (currentKey !== "ArrowRight" && currentKey !== "ArrowLeft" && currentKey !== "Enter") {
-					return
-				}
-
-				/* TODO this is lacking index for charts that do not support numeric indexes */
-				const resolvedIndex = combineActiveTooltipIndex(
-					keyboardInteraction,
-					selectTooltipDisplayedData(store),
-					selectTooltipAxisDataKey(store),
-					selectTooltipAxisDomain(store),
-				)
-				const currentIndex = resolvedIndex == null ? -1 : Number(resolvedIndex)
-				if (!Number.isFinite(currentIndex) || currentIndex < 0) {
-					return
-				}
-				const tooltipTicks = selectTooltipAxisTicks(store)
-				if (currentKey === "Enter") {
-					const coordinate = selectCoordinateForDefaultIndex(
-						store,
-						"axis",
-						"hover",
-						String(keyboardInteraction.index),
-					)
-					setStore("tooltip", "keyboardInteraction", {
-						active: !keyboardInteraction.active,
-						coordinate,
-						dataKey: undefined,
-						graphicalItemId: undefined,
-						index: keyboardInteraction.index,
-					})
-					return
-				}
-
-				const direction = selectChartDirection(store)
-				const directionMultiplier = direction === "left-to-right" ? 1 : -1
-				const movement = currentKey === "ArrowRight" ? 1 : -1
-				const nextIndex = currentIndex + movement * directionMultiplier
-				if (tooltipTicks == null || nextIndex >= tooltipTicks.length || nextIndex < 0) {
-					return
-				}
-				const coordinate = selectCoordinateForDefaultIndex(
-					store,
-					"axis",
-					"hover",
-					String(nextIndex),
-				)
-
-				setStore("tooltip", "keyboardInteraction", {
-					active: true,
-					coordinate,
-					dataKey: undefined,
-					graphicalItemId: undefined,
-					index: nextIndex.toString(),
-				})
+				applyKeyDown(store, setStore, latestKeyboardActionPayload)
 			} finally {
 				rafId = null
 				timeoutId = null
@@ -137,159 +206,23 @@ export function createKeyboardEventHandlers(
 		}
 	}
 
-	function handleFocus(): void {
-		const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
-		if (!accessibilityLayerIsActive) {
-			return
-		}
-		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
-		if (keyboardInteraction.active) {
-			return
-		}
-		if (keyboardInteraction.index == null) {
-			const nextIndex = "0"
-			const coordinate = selectCoordinateForDefaultIndex(store, "axis", "hover", String(nextIndex))
-			setStore("tooltip", "keyboardInteraction", {
-				active: true,
-				coordinate,
-				dataKey: undefined,
-				graphicalItemId: undefined,
-				index: nextIndex,
-			})
-		}
+	return {
+		handleBlur: () => applyBlur(store, setStore),
+		handleFocus: () => applyFocus(store, setStore),
+		handleKeyDown,
 	}
-
-	function handleBlur(): void {
-		const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
-		if (!accessibilityLayerIsActive) {
-			return
-		}
-		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
-		if (keyboardInteraction.active) {
-			setStore("tooltip", "keyboardInteraction", {
-				active: false,
-				coordinate: keyboardInteraction.coordinate,
-				dataKey: undefined,
-				graphicalItemId: undefined,
-				index: keyboardInteraction.index,
-			})
-		}
-	}
-
-	return { handleBlur, handleFocus, handleKeyDown }
 }
 
 /**
  * Action thunk wrappers for keyboard events, used with the dispatch pattern.
  * Note: these are simplified versions without throttling. For full throttling, use createKeyboardEventHandlers.
  */
-export const focusAction =
-	() =>
-	(
-		setStore: SetStoreFunction<ChartState>,
-		store: ChartState,
-	) => {
-		const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
-		if (!accessibilityLayerIsActive) {
-			return
-		}
-		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
-		if (keyboardInteraction.active) {
-			return
-		}
-		if (keyboardInteraction.index == null) {
-			const nextIndex = "0"
-			const coordinate = selectCoordinateForDefaultIndex(store, "axis", "hover", String(nextIndex))
-			const payload = {
-				active: true,
-				coordinate,
-				dataKey: undefined,
-				graphicalItemId: undefined,
-				index: nextIndex,
-			}
-			setStore("tooltip", "keyboardInteraction", payload)
-		}
-	}
+export const focusAction = () => (setStore: SetStoreFunction<ChartState>, store: ChartState) =>
+	applyFocus(store, setStore)
 
-export const blurAction =
-	() =>
-	(
-		setStore: SetStoreFunction<ChartState>,
-		store: ChartState,
-	) => {
-		const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
-		if (!accessibilityLayerIsActive) {
-			return
-		}
-		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
-		if (keyboardInteraction.active) {
-			const payload = {
-				active: false,
-				coordinate: keyboardInteraction.coordinate,
-				dataKey: undefined,
-				graphicalItemId: undefined,
-				index: keyboardInteraction.index,
-			}
-			setStore("tooltip", "keyboardInteraction", payload)
-		}
-	}
+export const blurAction = () => (setStore: SetStoreFunction<ChartState>, store: ChartState) =>
+	applyBlur(store, setStore)
 
 export const keyDownAction =
-	(key: string) =>
-	(
-		setStore: SetStoreFunction<ChartState>,
-		store: ChartState,
-	) => {
-		const accessibilityLayerIsActive = store.rootProps.accessibilityLayer !== false
-		if (!accessibilityLayerIsActive) {
-			return
-		}
-		const keyboardInteraction = readChartState(store).tooltip.keyboardInteraction
-		if (key !== "ArrowRight" && key !== "ArrowLeft" && key !== "Enter") {
-			return
-		}
-		const resolvedIndex = combineActiveTooltipIndex(
-			keyboardInteraction,
-			selectTooltipDisplayedData(store),
-			selectTooltipAxisDataKey(store),
-			selectTooltipAxisDomain(store),
-		)
-		const currentIndex = resolvedIndex == null ? -1 : Number(resolvedIndex)
-		if (!Number.isFinite(currentIndex) || currentIndex < 0) {
-			return
-		}
-		const tooltipTicks = selectTooltipAxisTicks(store)
-		if (key === "Enter") {
-			const coordinate = selectCoordinateForDefaultIndex(
-				store,
-				"axis",
-				"hover",
-				String(keyboardInteraction.index),
-			)
-			const payload = {
-				active: !keyboardInteraction.active,
-				coordinate,
-				dataKey: undefined,
-				graphicalItemId: undefined,
-				index: keyboardInteraction.index,
-			}
-			setStore("tooltip", "keyboardInteraction", payload)
-			return
-		}
-		const direction = selectChartDirection(store)
-		const directionMultiplier = direction === "left-to-right" ? 1 : -1
-		const movement = key === "ArrowRight" ? 1 : -1
-		const nextIndex = currentIndex + movement * directionMultiplier
-		if (tooltipTicks == null || nextIndex >= tooltipTicks.length || nextIndex < 0) {
-			return
-		}
-		const coordinate = selectCoordinateForDefaultIndex(store, "axis", "hover", String(nextIndex))
-		const payload = {
-			active: true,
-			coordinate,
-			dataKey: undefined,
-			graphicalItemId: undefined,
-			index: nextIndex.toString(),
-		}
-		setStore("tooltip", "keyboardInteraction", payload)
-	}
+	(key: string) => (setStore: SetStoreFunction<ChartState>, store: ChartState) =>
+		applyKeyDown(store, setStore, key)

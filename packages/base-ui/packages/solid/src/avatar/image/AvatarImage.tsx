@@ -1,4 +1,4 @@
-import { batch, createEffect, Show } from 'solid-js';
+import { createTrackedEffect, Show } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
@@ -25,20 +25,20 @@ const stateAttributesMapping: StateAttributesMapping<AvatarImageState> = {
 export function AvatarImage(componentProps: AvatarImage.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'onLoadingStatusChange',
-    'referrerPolicy',
-    'crossOrigin',
+    'referrerpolicy',
+    'crossorigin',
   ]);
 
   const context = useAvatarRootContext();
   const imageLoadingStatus = useImageLoadingStatus({
     get crossOrigin() {
-      return local.crossOrigin;
+      return local.crossorigin;
     },
     get referrerPolicy() {
-      return local.referrerPolicy;
+      return local.referrerpolicy;
     },
     get src() {
-      return componentProps.src;
+      return typeof componentProps.src === 'string' ? componentProps.src : undefined;
     },
   });
 
@@ -48,13 +48,13 @@ export function AvatarImage(componentProps: AvatarImage.Props) {
   let imageRef = null as HTMLImageElement | null | undefined;
 
   const handleLoadingStatusChange = (status: ImageLoadingStatus) => {
-    batch(() => {
+    {
       local.onLoadingStatusChange?.(status);
       context.setImageLoadingStatus(status);
-    });
+    };
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (imageLoadingStatus() !== 'idle') {
       handleLoadingStatusChange(imageLoadingStatus());
     }

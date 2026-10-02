@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { untrack } from "solid-js"
-import { createStore } from "solid-js/store"
+import { untrack, flush } from 'solid-js';
 import { createInitialChartState } from "../../../src/state/chartState"
 import type { ChartState } from "../../../src/state/chartState"
 import type { PieSettings } from "../../../src/state/types/PieSettings"
 import type { RadarSettings } from "../../../src/state/types/RadarSettings"
 import type { RadialBarSettings } from "../../../src/state/types/RadialBarSettings"
 
+import { createStore } from '../../../src/util/solid-1-compat';
 /* Phase 4 widens ItemState to include PolarItemState = PieState | RadarState | RadialBarState.
    Currently ItemState = CartesianItemState — the polar union does not exist yet.
 
@@ -57,6 +57,7 @@ describe("Phase 4 — ChartState graphicalItems PolarItemState shape", () => {
 		}
 
 		setState("graphicalItems", "pie0", { type: "pie", settings: pieSettings } as never)
+		flush()
 
 		const entry = untrack(
 			() => state.graphicalItems["pie0"] as { type: string; settings: PieSettings } | undefined,
@@ -81,6 +82,7 @@ describe("Phase 4 — ChartState graphicalItems PolarItemState shape", () => {
 		}
 
 		setState("graphicalItems", "radar0", { type: "radar", settings: radarSettings } as never)
+		flush()
 
 		const entry = untrack(
 			() => state.graphicalItems["radar0"] as { type: string; settings: RadarSettings } | undefined,
@@ -107,6 +109,7 @@ describe("Phase 4 — ChartState graphicalItems PolarItemState shape", () => {
 		}
 
 		setState("graphicalItems", "radialBar0", { type: "radialBar", settings: radialBarSettings } as never)
+		flush()
 
 		const entry = untrack(
 			() =>
@@ -162,7 +165,9 @@ describe("Phase 4 — ChartState graphicalItems PolarItemState shape", () => {
 		}
 
 		setState("graphicalItems", "pie0", { type: "pie", settings: pieSettings } as never)
+		flush()
 		setState("graphicalItems", "radar0", { type: "radar", settings: radarSettings } as never)
+		flush()
 
 		const pie = untrack(
 			() => state.graphicalItems["pie0"] as { type: string; settings: PieSettings } | undefined,

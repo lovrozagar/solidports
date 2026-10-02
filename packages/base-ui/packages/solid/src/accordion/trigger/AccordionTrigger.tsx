@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import {
   ARROW_DOWN,
@@ -52,8 +52,8 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props) {
     'id',
     'nativeButton',
   ]);
-  const disabledProp = () => local.disabled ?? false;
-  const native = () => local.nativeButton ?? true;
+  const disabledProp = () => Boolean(local.disabled);
+  const native = () => Boolean(local.nativeButton ?? true);
 
   const { panelId, open, handleTrigger, disabled: contextDisabled } = useCollapsibleRootContext();
 
@@ -77,7 +77,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props) {
       return open() ? panelId() : undefined;
     },
     get 'aria-expanded'() {
-      return open();
+      return open() ? 'true' : 'false';
     },
     get id() {
       return id?.();

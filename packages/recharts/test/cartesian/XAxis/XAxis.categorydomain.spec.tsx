@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
-import { BarChart, Customized, Line, LineChart, XAxis } from "../../../src"
+import { render } from "../../helper/render"
+import { Bar, BarChart, Customized, Line, LineChart, Scatter, useXAxisDomain, XAxis } from "../../../src"
+import { selectTooltipAxisDomain } from "../../../src/state/selectors/tooltipSelectors"
+import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { ExpectAxisDomain, expectXAxisTicks } from "../../helper/expectAxisTicks"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
 
@@ -574,6 +576,60 @@ describe("categorical domain", () => {
 				expect(reduxDomainSpyB).toHaveBeenLastCalledWith([400, 280, 500, 200])
 			},
 		)
+	})
+
+	describe("when some data is defined on chart element and other on graphical element", () => {
+		type BoxPlotDatum = {
+			category: string
+			min: number
+			q1: number
+			median: number
+			q3: number
+			max: number
+		}
+
+		const boxPlotData: ReadonlyArray<BoxPlotDatum> = [
+			{ category: "A", max: 35, median: 24, min: 16, q1: 20, q3: 29 },
+			{ category: "B", max: 27, median: 18, min: 12, q1: 15, q3: 21 },
+			{ category: "C", max: 49, median: 30, min: 22, q1: 26, q3: 34 },
+			{ category: "D", max: 26, median: 17, min: 9, q1: 13, q3: 20 },
+			{ category: "E", max: 32, median: 25, min: 18, q1: 22, q3: 28 },
+		]
+
+		type OutlierDatum = {
+			category: string
+			value: number
+		}
+
+		const outliers: ReadonlyArray<OutlierDatum> = [
+			{ category: "A", value: 10 },
+			{ category: "A", value: 11 },
+			{ category: "A", value: 12 },
+			{ category: "A", value: 5 },
+			{ category: "B", value: 0 },
+			{ category: "A", value: 40 },
+			{ category: "D", value: 8 },
+			{ category: "E", value: 33 },
+		]
+
+		const renderTestCase = createSelectorTestCase((props) => (
+			<BarChart width={300} height={300} data={boxPlotData}>
+				<Bar dataKey="q1" />
+				<Scatter data={outliers} dataKey="value" />
+				<XAxis dataKey="category" type="category" allowDuplicatedCategory={false} />
+				{props.children}
+			</BarChart>
+		))
+
+		it("should combine data from both chart and graphical elements", () => {
+			const { spy } = renderTestCase(() => useXAxisDomain())
+			expectLastCalledWith(spy, ["A", "B", "C", "D", "E"])
+		})
+
+		it("should match that same data in tooltip domain", () => {
+			const { spy } = renderTestCase(selectTooltipAxisDomain)
+			expectLastCalledWith(spy, ["A", "B", "C", "D", "E"])
+		})
 	})
 
 	describe("interval", () => {

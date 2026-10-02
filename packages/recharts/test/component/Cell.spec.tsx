@@ -1,5 +1,5 @@
-/* @jsxImportSource solid-js */
-import { render } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { render } from "../helper/render"
 
 import { Cell } from "../../src"
 

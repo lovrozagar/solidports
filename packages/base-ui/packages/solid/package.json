@@ -12,7 +12,10 @@
   "description": "Base UI is a library of headless ('unstyled') Solid components and low-level hooks. You gain complete control over your app's CSS and accessibility features.",
   "devDependencies": {
     "@solidjs/router": "catalog:",
+    "@solidjs/signals": "catalog:",
     "@solidjs/testing-library": "catalog:",
+    "@solidjs/vite-plugin": "catalog:",
+    "@solidjs/web": "catalog:",
     "@testing-library/user-event": "catalog:",
     "@types/chai": "catalog:",
     "@types/chai-dom": "catalog:",
@@ -24,8 +27,7 @@
     "eslint-plugin-solid": "catalog:",
     "sinon": "catalog:",
     "solid-js": "catalog:",
-    "typescript": "catalog:",
-    "vite-plugin-solid": "catalog:"
+    "typescript": "catalog:"
   },
   "engines": {
     "node": ">=14.0.0"
@@ -133,8 +135,8 @@
   "main": "index.js",
   "name": "@solidports/base-ui",
   "peerDependencies": {
-    "babel-preset-solid": "1.9.6",
-    "solid-js": "1.9.7"
+    "@solidjs/web": ">=2.0.0-rc.13",
+    "solid-js": ">=2.0.0-rc.13"
   },
   "private": false,
   "publishConfig": {

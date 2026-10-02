@@ -336,7 +336,7 @@ describe('<Tabs.Root />', () => {
       expect(tabs[2]).to.have.attribute('aria-selected', 'false');
     });
 
-    it('does not set tabIndex=0 on disabled tabs when they are programmatically selected', async () => {
+    it('does not set tabindex=0 on disabled tabs when they are programmatically selected', async () => {
       const [value, setValue] = createSignal(1);
       render(() => (
         <Tabs.Root value={value()}>
@@ -355,7 +355,7 @@ describe('<Tabs.Root />', () => {
 
       const tabs = screen.getAllByRole('tab');
 
-      // Initially, tab 1 is selected and should be highlighted (tabIndex=0)
+      // Initially, tab 1 is selected and should be highlighted (tabindex=0)
       expect(tabs[1]).to.have.attribute('tabindex', '0');
       expect(tabs[0]).to.have.attribute('tabindex', '-1');
       expect(tabs[2]).to.have.attribute('tabindex', '-1');
@@ -1370,7 +1370,7 @@ describe('<Tabs.Root />', () => {
   });
 
   describe('highlight synchronization on external value change relative to focus', () => {
-    it('when focus is outside the tablist, highlight follows the new active tab (tabIndex=0 moves)', async () => {
+    it('when focus is outside the tablist, highlight follows the new active tab (tabindex=0 moves)', async () => {
       const [value, setValue] = createSignal(0);
       render(() => (
         <Tabs.Root value={value()}>

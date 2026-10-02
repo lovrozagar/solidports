@@ -1,4 +1,5 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { mergeProps } from '@solidports/base-ui/merge-props';
 
 
 import { Button } from '../../components/button';
@@ -64,7 +65,7 @@ function ExampleForm() {
                 <Combobox.List>
                   {(region: string) => {
                     return (
-                      <Combobox.Item key={region} value={region}>
+                      <Combobox.Item value={region}>
                         <Combobox.ItemIndicator>
                           <CheckIcon />
                         </Combobox.ItemIndicator>
@@ -96,7 +97,7 @@ function ExampleForm() {
                 <Autocomplete.List>
                   {(image: Image) => {
                     return (
-                      <Autocomplete.Item key={image.url} value={image}>
+                      <Autocomplete.Item value={image}>
                         <span>{image.name}</span>
                         <span class="font-mono whitespace-nowrap text-xs opacity-80">
                           {image.url}
@@ -130,7 +131,7 @@ function ExampleForm() {
                 <Select.List>
                   {SERVER_TYPES.map(({ label, value }) => {
                     return (
-                      <Select.Item key={value} value={value}>
+                      <Select.Item value={value}>
                         <Select.ItemIndicator>
                           <CheckIcon />
                         </Select.ItemIndicator>
@@ -166,7 +167,7 @@ function ExampleForm() {
       <Field.Root name="scalingThreshold">
         <Fieldset.Root
           render={
-            <Slider.Root
+            (props) => <Slider.Root {...mergeProps(props, { class: "w-full gap-y-2" })}
               defaultValue={[0.2, 0.8]}
               thumbAlignment="edge"
               min={0}
@@ -176,9 +177,7 @@ function ExampleForm() {
                 style: 'percent',
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0,
-              }}
-              class="w-full gap-y-2"
-            />
+              }} />
           }
         >
           <Fieldset.Legend>Scaling threshold</Fieldset.Legend>
@@ -194,7 +193,7 @@ function ExampleForm() {
       </Field.Root>
 
       <Field.Root name="storageType">
-        <Fieldset.Root render={<RadioGroup<'ssd' | 'hdd'> class="gap-4" defaultValue="ssd" />}>
+        <Fieldset.Root render={(props) => <RadioGroup<'ssd' | 'hdd'> {...mergeProps(props, { class: "gap-4" })} defaultValue="ssd" />}>
           <Fieldset.Legend class="-mt-px">Storage type</Fieldset.Legend>
           <Field.Item>
             <Field.Label>
@@ -225,12 +224,12 @@ function ExampleForm() {
       </Field.Root>
 
       <Field.Root name="allowedNetworkProtocols">
-        <Fieldset.Root render={<CheckboxGroup defaultValue={[]} />}>
+        <Fieldset.Root render={(props) => <CheckboxGroup {...props} defaultValue={[]} />}>
           <Fieldset.Legend class="mb-2">Allowed network protocols</Fieldset.Legend>
           <div class="flex gap-4">
             {['http', 'https', 'ssh'].map((val) => {
               return (
-                <Field.Item key={val}>
+                <Field.Item>
                   <Field.Label class="uppercase">
                     <Checkbox.Root value={val}>
                       <Checkbox.Indicator>

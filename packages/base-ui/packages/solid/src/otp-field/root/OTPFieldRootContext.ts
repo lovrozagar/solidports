@@ -1,7 +1,8 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { OTPFieldRoot, OTPFieldRootState } from './OTPFieldRoot';
 import type { OTPFieldInputState } from '../input/OTPFieldInput';
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 export interface OTPFieldRootContext {
   activeIndex: Accessor<number>;
@@ -13,7 +14,7 @@ export interface OTPFieldRootContext {
   getInputId: (index: number) => string | undefined;
   handleInputBlur: (event: FocusEvent & { currentTarget: HTMLInputElement }) => void;
   handleInputFocus: (index: number, event: FocusEvent & { currentTarget: HTMLInputElement }) => void;
-  inputMode: Accessor<JSX.HTMLAttributes<HTMLInputElement>['inputMode']>;
+  inputMode: Accessor<JSX.HTMLAttributes<HTMLInputElement>['inputmode']>;
   inputAriaLabelledBy: Accessor<string | undefined>;
   invalid: Accessor<boolean | undefined>;
   length: Accessor<number>;
@@ -29,12 +30,12 @@ export interface OTPFieldRootContext {
   value: Accessor<string>;
 }
 
-export const OTPFieldRootContext = createContext<OTPFieldRootContext | undefined>(undefined);
+export const OTPFieldRootContext = createContext<OTPFieldRootContext | null>(null);
 
 export function useOTPFieldRootContext() {
   const context = useContext(OTPFieldRootContext);
 
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: OTPFieldRootContext is missing. OTPField parts must be placed within <OTPField.Root>.',
     );

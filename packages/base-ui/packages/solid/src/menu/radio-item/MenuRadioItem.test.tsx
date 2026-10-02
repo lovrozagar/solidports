@@ -3,8 +3,9 @@ import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { splitProps } from 'solid-js';
+
 import { MenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
+import { splitProps } from '../../solid-1-compat';
 
 const testRadioGroupContext = {
   disabled: () => false,
@@ -28,9 +29,9 @@ describe('<Menu.RadioItem />', () => {
       render: (node, props) =>
         render(() => (
           <Menu.Root open>
-            <MenuRadioGroupContext.Provider value={testRadioGroupContext}>
+            <MenuRadioGroupContext value={testRadioGroupContext}>
               {node(props!)}
-            </MenuRadioGroupContext.Provider>
+            </MenuRadioGroupContext>
           </Menu.Root>
         )),
     }),

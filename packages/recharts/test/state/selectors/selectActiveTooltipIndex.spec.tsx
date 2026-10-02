@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"
-import { fireEvent } from "@solidjs/testing-library"
+import { fireEvent } from "../../helper/render"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { RadialBar, RadialBarChart, Tooltip } from "../../../src"
 import { PageData } from "../../_data"
@@ -29,7 +29,7 @@ describe("selectActiveTooltipIndex", () => {
 				expectLastCalledWith(spy, null)
 			})
 			/* skip: sector mouseLeave doesn't deactivate axis-mode tooltip in default-Tooltip path */
-			it.skip("should return index after mouse hover, and undefined again after mouse leave", () => {
+			it("should return index after mouse hover, and undefined again after mouse leave", () => {
 				const { container, spy } = renderTestCase(selectActiveTooltipIndex)
 				const trigger = showTooltip(container, ".recharts-radial-bar-sector")
 				expectLastCalledWith(spy, "3")

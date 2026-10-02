@@ -1,5 +1,5 @@
 import { expectType } from '#test-utils';
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { Button } from '../button';
 import type { HTMLProps } from '../utils/types';
 import { useRender } from './useRender';

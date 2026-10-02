@@ -1,4 +1,4 @@
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -18,12 +18,21 @@ export function PopoverTitle(componentProps: PopoverTitle.Props) {
 
   const id = useBaseUiId(() => elementProps.id);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     store.set('titleElementId', id());
-    onCleanup(() => {
+    _c.push(() => {
       store.set('titleElementId', undefined);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const element = useRenderElement('h2', componentProps, {
     props: [

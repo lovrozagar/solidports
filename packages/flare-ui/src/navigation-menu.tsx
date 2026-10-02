@@ -1,5 +1,5 @@
 import { NavigationMenu as BaseNavMenu } from "@solidports/base-ui/navigation-menu";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { mergeClass } from "./utils/merge-class.ts";
 import { cn } from "./utils/cn.ts";
 import { ChevronDown } from "./icons/chevron-down.tsx";

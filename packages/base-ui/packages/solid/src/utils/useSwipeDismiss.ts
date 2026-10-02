@@ -1,4 +1,5 @@
-import { batch, createEffect, createMemo, createSignal, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { contains, getTarget } from '../floating-ui-solid/utils';
 import { clamp } from './clamp';
 import { ownerDocument, ownerWindow } from './owner';
@@ -236,7 +237,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
   }
 
   const reset = () => {
-    batch(() => {
+    {
       setCurrentSwipeDirection(undefined);
       setSwiping(false);
       setIsRealSwipe(false);
@@ -265,10 +266,10 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
       lastDragSampleRef = null;
       lastDragVelocityRef = { x: 0, y: 0 };
       lastProgressDetailsRef = null;
-    });
+    };
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (typeof swipeThresholdProp() !== 'function') {
       swipeThresholdRef = swipeThresholdDefault();
     }
@@ -354,7 +355,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
         return false;
       }
     }
-    batch(() => {
+    {
       cancelledSwipeRef = false;
       intendedSwipeDirectionRef = undefined;
       maxSwipeDisplacementRef = 0;
@@ -386,7 +387,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
       setLockedDirection(null);
       isFirstPointerMoveRef = true;
       updateSwipeProgress(0);
-    });
+    };
     return true;
   }
 
@@ -402,7 +403,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
   }
 
   function cancelSwipeInteraction(event: PointerEvent) {
-    batch(() => {
+    {
       resetPendingSwipeState();
 
       if (!isSwipingRef) {
@@ -429,7 +430,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
         deltaY: 0,
         direction: undefined,
       });
-    });
+    };
   }
 
   function applyDirectionalDamping(deltaX: number, deltaY: number) {
@@ -903,12 +904,12 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     const hasReleaseDecision = typeof releaseDecision === 'boolean';
 
     if (cancelledSwipeRef && !hasReleaseDecision) {
-      batch(() => {
+      {
         dragOffsetRef = { x: resolvedInitialTransform.x, y: resolvedInitialTransform.y };
         setDragOffset({ x: resolvedInitialTransform.x, y: resolvedInitialTransform.y });
         setCurrentSwipeDirection(undefined);
         updateSwipeProgress(0, progressDetails);
-      });
+      };
 
       options.onCancel?.(event as SwipeDismissNativeEvent);
       return;
@@ -956,7 +957,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
       }
     }
 
-    batch(() => {
+    {
       if (shouldClose && dismissDirection) {
         setCurrentSwipeDirection(dismissDirection);
         setDragDismissed(true);
@@ -967,7 +968,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
         setCurrentSwipeDirection(undefined);
         updateSwipeProgress(0, progressDetails);
       }
-    });
+    };
   };
 
   const getDragStyles = (): JSX.CSSProperties => {

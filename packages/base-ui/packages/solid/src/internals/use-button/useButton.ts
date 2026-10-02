@@ -1,6 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- Solid `JSX.EventHandlerUnion` requires casts to bridge native Event to Solid's currentTarget-augmented event shape; BaseUIEvent extension fields also need any-casts at handler boundaries */
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import { createEffect, on, splitProps, type ComponentProps, type JSX } from 'solid-js';
+import { createTrackedEffect, createEffect } from 'solid-js';
+import type { ComponentProps, JSX } from '@solidjs/web';
 import { useCompositeRootContext } from '../composite/root/CompositeRootContext';
 import { makeEventPreventable } from '../../merge-props';
 import { mergeProps } from '../../merge-props/mergeProps';
@@ -9,16 +10,20 @@ import { error } from '../../utils/error';
 import type { BaseUIEvent } from '../../utils/types';
 import { HTMLProps } from '../../utils/types';
 import { useFocusableWhenDisabled } from '../../utils/useFocusableWhenDisabled';
+import { on, splitProps } from '../../solid-1-compat';
 
 export function useButton(parameters: useButton.Parameters = {}): useButton.ReturnValue {
-  const disabled = () => access(parameters.disabled) ?? false;
+  const disabled = () => Boolean(access(parameters.disabled));
   const tabIndex = () => access(parameters.tabIndex) ?? 0;
-  const isNativeButton = () => access(parameters.native) ?? true;
-  const focusableWhenDisabled = () => access(parameters.focusableWhenDisabled);
+  const isNativeButton = () => Boolean(access(parameters.native) ?? true);
+  const focusableWhenDisabled = () => Boolean(access(parameters.focusableWhenDisabled));
 
   let elementRef: HTMLElement | null | undefined;
 
-  const isCompositeItem = () => useCompositeRootContext(true) !== undefined;
+  // Capture at hook time: Solid 2 applies refs with a null owner (`runWithOwner(null)`),
+  // so calling useContext from buttonRef → updateDisabled would throw NoOwnerError.
+  const compositeRootContext = useCompositeRootContext(true);
+  const isCompositeItem = () => compositeRootContext != null;
 
   const isValidLink = () => {
     return Boolean(elementRef?.tagName === 'A' && (elementRef as HTMLAnchorElement)?.href);
@@ -33,7 +38,7 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
   });
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (!elementRef) {
         return;
       }
@@ -80,8 +85,7 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
   // <Toolbar.Button disabled render={() => <Menu.Trigger />} />
   // the `disabled` prop needs to pass through 2 `useButton`s then finally
   // delete the `disabled` attribute from DOM
-  createEffect(
-    on([disabled, () => focusableWhenDisabledProps().disabled, isCompositeItem], () => {
+  createEffect(...on([disabled, () => focusableWhenDisabledProps().disabled, isCompositeItem], () => {
       updateDisabled();
     }),
   );
@@ -225,18 +229,18 @@ export interface UseButtonParameters {
    * Whether the component should ignore user interaction.
    * @default false
    */
-  disabled?: MaybeAccessor<boolean | undefined>;
+  disabled?: MaybeAccessor<boolean | '' | undefined>;
   /**
    * Whether the button may receive focus even if it is disabled.
    * @default false
    */
-  focusableWhenDisabled?: MaybeAccessor<boolean | undefined>;
-  tabIndex?: MaybeAccessor<NonNullable<JSX.HTMLAttributes<HTMLElement>['tabIndex']> | undefined>;
+  focusableWhenDisabled?: MaybeAccessor<boolean | '' | undefined>;
+  tabIndex?: MaybeAccessor<string | number | undefined>;
   /**
    * Whether the component is being rendered as a native button.
    * @default true
    */
-  native?: MaybeAccessor<boolean | undefined>;
+  native?: MaybeAccessor<boolean | '' | undefined>;
 }
 
 export interface UseButtonReturnValue {

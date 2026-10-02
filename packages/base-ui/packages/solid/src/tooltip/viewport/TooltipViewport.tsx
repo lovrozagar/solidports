@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { BaseUIComponentProps } from '../../utils/types';

@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 import { Select } from '@solidports/base-ui/select';
 import { Field } from '@solidports/base-ui/field';
@@ -38,7 +38,6 @@ export default function ExampleSelectGrouped() {
                       </Select.GroupLabel>
                       {group.items.map((item) => (
                         <Select.Item
-                          key={item.value}
                           value={item.value}
                           class="grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 py-1.5 pr-4 pl-2.5 text-sm outline-hidden select-none group-data-[side=none]:pr-12 data-highlighted:bg-neutral-950 data-highlighted:text-white dark:data-highlighted:bg-white dark:data-highlighted:text-neutral-950"
                         >

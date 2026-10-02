@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -25,7 +25,7 @@ export default function ExamplePopoverCombobox() {
                 </Combobox.Empty>
                 <Combobox.List class={styles.List}>
                   {(country: Country) => (
-                    <Combobox.Item key={country.code} value={country} class={styles.Item}>
+                    <Combobox.Item value={country} class={styles.Item}>
                       <Combobox.ItemIndicator class={styles.ItemIndicator}>
                         <CheckIcon />
                       </Combobox.ItemIndicator>

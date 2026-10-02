@@ -2,7 +2,7 @@
 import { getPercentValue, isNumber, isPercent } from "../util/DataUtils"
 import { CartesianViewBoxRequired, TrapezoidViewBox } from "../util/types"
 import { TextAnchor, TextVerticalAnchor } from "../component/Text"
-import { cartesianViewBoxToTrapezoid } from "../context/chartLayoutContext"
+import { cartesianViewBoxToTrapezoid } from "./cartesianViewBoxToTrapezoid"
 
 export type CartesianLabelPosition =
 	| "top"
@@ -57,6 +57,8 @@ export type CartesianPosition = {
 	width?: number
 	height?: number
 }
+
+export { isOutsidePosition } from "./isOutsidePosition"
 
 /**
  * Calculates the position and alignment for a generic element in a Cartesian coordinate system.

@@ -14,6 +14,68 @@ import { getTooltipEntry, getValueByDataKey } from "../../../util/ChartUtils"
 import { getSliced } from "../../../util/getSliced"
 import { ActiveLabel } from "../../../synchronisation/types"
 
+type TooltipPayloadItemLike = {
+	name: TooltipEntrySettings["name"]
+	unit: TooltipEntrySettings["unit"]
+	dataKey: DataKey<unknown> | undefined
+	payload: unknown
+	color: string | undefined
+	fill: string | undefined
+}
+
+function parseName(value: unknown): TooltipEntrySettings["name"] {
+	if (typeof value === "string" || typeof value === "number") {
+		return value
+	}
+	return undefined
+}
+
+function parseUnit(value: unknown): TooltipEntrySettings["unit"] {
+	if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+		return value
+	}
+	return undefined
+}
+
+function parseDataKey(value: unknown): DataKey<unknown> | undefined {
+	if (typeof value === "string" || typeof value === "number") {
+		return value
+	}
+	if (typeof value === "function") {
+		return (obj: unknown) => value(obj)
+	}
+	return undefined
+}
+
+function parseColor(value: unknown): string | undefined {
+	if (typeof value === "string") {
+		return value
+	}
+	return undefined
+}
+
+function parseTooltipPayloadItem(item: unknown): TooltipPayloadItemLike | undefined {
+	if (item == null || typeof item !== "object") {
+		return undefined
+	}
+
+	const name = "name" in item ? parseName(item.name) : undefined
+	const unit = "unit" in item ? parseUnit(item.unit) : undefined
+	const dataKey = "dataKey" in item ? parseDataKey(item.dataKey) : undefined
+	const payload = "payload" in item ? item.payload : undefined
+	const color = "color" in item ? parseColor(item.color) : undefined
+	const fill = "fill" in item ? parseColor(item.fill) : undefined
+
+	return {
+		color,
+		dataKey,
+		fill,
+		name,
+		payload,
+		unit,
+	}
+}
+
 function selectFinalData(
 	dataDefinedOnItem: unknown,
 	dataDefinedOnChart: ChartData | undefined,
@@ -83,6 +145,14 @@ export const combineTooltipPayload = (
 				tooltipEventType === "axis"
 			) {
 				tooltipPayload = findEntryInArray(sliced, tooltipAxisDataKey, activeLabel)
+				if (tooltipPayload == null) {
+					tooltipPayload = tooltipPayloadSearcher(
+						sliced,
+						activeIndex,
+						computedData,
+						finalNameKey,
+					)
+				}
 			} else {
 				/*
 				 * This is a problem because it assumes that the index is pointing to the displayed data
@@ -94,21 +164,26 @@ export const combineTooltipPayload = (
 			}
 
 			if (Array.isArray(tooltipPayload)) {
-				tooltipPayload.forEach((item: Record<string, unknown>) => {
+				tooltipPayload.forEach((item) => {
+					const parsedItem = parseTooltipPayloadItem(item)
+					const itemName = parsedItem?.name
+					const itemDataKey = parsedItem?.dataKey
+					const itemPayload = parsedItem?.payload
 					const newSettings: TooltipEntrySettings = {
 						...settings,
-						color: undefined,
-						fill: undefined,
-						name: item.name as string,
-						unit: item.unit as string,
+						/* Preserve item-level color/fill from graphical items. */
+						color: parsedItem?.color ?? settings?.color,
+						fill: parsedItem?.fill ?? settings?.fill,
+						name: itemName,
+						unit: parsedItem?.unit,
 					}
 					agg.push(
 						getTooltipEntry({
-							dataKey: item.dataKey as DataKey<unknown>,
-							name: item.name as string,
-							payload: item.payload,
+							dataKey: itemDataKey,
+							name: itemName == null ? undefined : String(itemName),
+							payload: itemPayload,
 							tooltipEntrySettings: newSettings,
-							value: getValueByDataKey(item.payload, item.dataKey as DataKey<unknown>),
+							value: getValueByDataKey(itemPayload, itemDataKey),
 						}),
 					)
 				})

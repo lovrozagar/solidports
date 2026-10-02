@@ -1,5 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { type Accessor, type ComponentProps, createContext, useContext } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
 import type { FloatingRootContext } from '../../floating-ui-solid';
 import { ComboboxStore } from '../store';
 
@@ -10,13 +12,9 @@ export interface ComboboxDerivedItemsContext {
   flatFilteredItems: Accessor<any[]>;
 }
 
-export const ComboboxRootContext = createContext<{ store: ComboboxStore } | undefined>(undefined);
-export const ComboboxFloatingContext = createContext<{ context: FloatingRootContext } | undefined>(
-  undefined,
-);
-export const ComboboxDerivedItemsContext = createContext<ComboboxDerivedItemsContext | undefined>(
-  undefined,
-);
+export const ComboboxRootContext = createContext<{ store: ComboboxStore } | null>(null);
+export const ComboboxFloatingContext = createContext<{ context: FloatingRootContext } | null>(null);
+export const ComboboxDerivedItemsContext = createContext<ComboboxDerivedItemsContext | null>(null);
 // `inputValue` can't be placed in the store.
 // https://github.com/mui/base-ui/issues/2703
 export const ComboboxInputValueContext = createContext<Accessor<ComponentProps<'input'>['value']>>(

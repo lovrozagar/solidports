@@ -1,5 +1,8 @@
-import { render } from "@solidjs/testing-library"
-import { createEffect } from "solid-js"
+import { render } from "../helper/render"
+import { untrack } from "solid-js"
+import { observe } from "../helper/observe"
+import { trackSpy } from "../helper/trackSpy"
+
 import { describe, expect, it, vi } from "vitest"
 import { exampleRadarData, PageData } from "../_data"
 import { PolarRadiusAxis, Radar, RadarChart, RadialBar, RadialBarChart } from "../../src"
@@ -94,6 +97,7 @@ describe("<PolarRadiusAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -213,6 +217,7 @@ describe("<PolarRadiusAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -348,6 +353,7 @@ describe("<PolarRadiusAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -575,10 +581,9 @@ describe("<PolarRadiusAxis />", () => {
 			expect(container.querySelectorAll(".recharts-label")).toHaveLength(1)
 		})
 
-		/* Cluster C: Tick component reads `payload.value` at JSX-eval time before
-		 * tick props inject — Solid evaluates `<Tick />` once with empty props,
-		 * crashes on payload.value access. */
-		test.skip("Renders ticks when tick is set to be a react element", () => {
+		/* Solid evaluates `<Tick />` before the axis sees it, so a user component passed as an
+		 * element cannot receive injected props (upstream clones it); pass the component itself. */
+		test("Renders ticks when tick is set to be a react element", () => {
 			const Tick = (props: any) => {
 				const { payload, x, y } = props
 
@@ -595,7 +600,7 @@ describe("<PolarRadiusAxis />", () => {
 						cx={250}
 						cy={250}
 						label="test"
-						tick={<Tick />}
+						tick={Tick}
 						dataKey="value"
 					/>
 				</RadarChart>
@@ -770,7 +775,7 @@ describe("<PolarRadiusAxis />", () => {
 			it("should select domain", () => {
 				const { spy } = renderTestCase((state) => selectPolarAxisDomain(state, "radiusAxis", 0))
 				expectLastCalledWith(spy, [0, 1, 2, 3, 4, 5])
-				expect(spy).toHaveBeenCalledTimes(2)
+				expect(spy).toHaveBeenCalledTimes(1)
 			})
 
 			it("should select real scale type", () => {
@@ -784,7 +789,7 @@ describe("<PolarRadiusAxis />", () => {
 					selectPolarAxisDomainIncludingNiceTicks(state, "radiusAxis", 0),
 				)
 				expectLastCalledWith(spy, [0, 1, 2, 3, 4, 5])
-				expect(spy).toHaveBeenCalledTimes(2)
+				expect(spy).toHaveBeenCalledTimes(1)
 			})
 
 			it("should select range", () => {
@@ -835,6 +840,7 @@ describe("<PolarRadiusAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -849,7 +855,7 @@ describe("<PolarRadiusAxis />", () => {
 			it("should select domain", () => {
 				const { spy } = renderTestCase((state) => selectPolarAxisDomain(state, "radiusAxis", 0))
 				expectLastCalledWith(spy, [0, 1, 2, 3, 4, 5])
-				expect(spy).toHaveBeenCalledTimes(2)
+				expect(spy).toHaveBeenCalledTimes(1)
 			})
 
 			it("should select real scale type", () => {
@@ -863,7 +869,7 @@ describe("<PolarRadiusAxis />", () => {
 					selectPolarAxisDomainIncludingNiceTicks(state, "radiusAxis", 0),
 				)
 				expectLastCalledWith(spy, [0, 1, 2, 3, 4, 5])
-				expect(spy).toHaveBeenCalledTimes(2)
+				expect(spy).toHaveBeenCalledTimes(1)
 			})
 
 			it("should select range", () => {
@@ -951,6 +957,7 @@ describe("<PolarRadiusAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -1064,6 +1071,7 @@ describe("<PolarRadiusAxis />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -1078,7 +1086,7 @@ describe("<PolarRadiusAxis />", () => {
 			it("should select domain", () => {
 				const { spy } = renderTestCase((state) => selectPolarAxisDomain(state, "radiusAxis", 0))
 				expectLastCalledWith(spy, [0, 1, 2, 3, 4, 5])
-				expect(spy).toHaveBeenCalledTimes(2)
+				expect(spy).toHaveBeenCalledTimes(1)
 			})
 
 			it("should select real scale type", () => {
@@ -1092,7 +1100,7 @@ describe("<PolarRadiusAxis />", () => {
 					selectPolarAxisDomainIncludingNiceTicks(state, "radiusAxis", 0),
 				)
 				expectLastCalledWith(spy, [0, 1, 2, 3, 4, 5])
-				expect(spy).toHaveBeenCalledTimes(2)
+				expect(spy).toHaveBeenCalledTimes(1)
 			})
 
 			it("should select range", () => {
@@ -1201,7 +1209,7 @@ describe("<PolarRadiusAxis />", () => {
 		it("should report its settings to Redux store, and remove it when component is removed", () => {
 			const radiusAxisSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() =>
+				observe(() =>
 					radiusAxisSpy(useAppSelector((state) => selectRadiusAxis(state, 0))),
 				)
 				return null
@@ -1232,6 +1240,7 @@ describe("<PolarRadiusAxis />", () => {
 				id: 0,
 				includeHidden: true,
 				name: "my-name",
+				niceTicks: "auto",
 				reversed: false,
 				scale: "log",
 				tick: true,
@@ -1252,14 +1261,14 @@ describe("<PolarRadiusAxis />", () => {
 			/* GOTCHA-007-E sibling-mount-order: expect(radiusAxisSpy).toHaveBeenCalledTimes(4) */
 		})
 
-		it.skip("should select radius axis settings", () => {
+		it("should select radius axis settings", () => {
 			const radiusAxisSpy = vi.fn()
 			const radiusAxisRangeSpy = vi.fn()
 			const radiusAxisDomainSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
-					radiusAxisSpy(useAppSelector((state) => selectRadiusAxis(state, "radius-id")))
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
+					trackSpy(radiusAxisSpy, () => useAppSelector((state) => selectRadiusAxis(state, "radius-id")))
 					radiusAxisRangeSpy(
 						useAppSelector((state) => selectRadiusAxisRangeWithReversed(state, "radius-id")),
 					)
@@ -1303,6 +1312,7 @@ describe("<PolarRadiusAxis />", () => {
 				id: "radius-id",
 				includeHidden: false,
 				name: "radius-name",
+				niceTicks: "auto",
 				reversed: true,
 				scale: "log",
 				tick: false,
@@ -1325,8 +1335,8 @@ describe("<PolarRadiusAxis />", () => {
 			const radiusAxisDomainSpy = vi.fn()
 			const realScaleTypeSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
 					radiusAxisDomainSpy(
 						useAppSelector((state) => selectAxisDomain(state, "radiusAxis", "radius-id", isPanorama)),
 					)

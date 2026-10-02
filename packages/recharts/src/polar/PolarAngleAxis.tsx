@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import type { JSX } from "solid-js"
-import { createEffect, createMemo, onCleanup, Show, useContext } from "solid-js"
-import { produce } from "solid-js/store"
+import type { JSX } from '@solidjs/web';
+import type { NiceTicksAlgorithm } from "../state/cartesianAxisSlice"
+import { createMemo, Show, useContext, createEffect } from 'solid-js';
 import { clsx } from "clsx"
 import { Layer } from "../container/Layer"
 import { Dot } from "../shape/Dot"
@@ -10,8 +10,10 @@ import { Text, TextAnchor, TextVerticalAnchor } from "../component/Text"
 import {
 	adaptEventsOfChild,
 	AxisDomain,
+	AxisTick,
 	AxisDomainTypeInput,
 	BaseTickContentProps,
+	DataKey,
 	EvaluatedAxisDomainType,
 	PresentationAttributesAdaptChildEvent,
 	RenderableAxisProps,
@@ -42,6 +44,7 @@ import { CustomScaleDefinition } from "../util/scale/CustomScaleDefinition"
 import { usePolarChartLayout } from "../context/chartLayoutContext"
 import { getAxisTypeBasedOnLayout } from "../util/getAxisTypeBasedOnLayout"
 import { getClassNameFromUnknown } from "../util/getClassNameFromUnknown"
+import { teardownWrite } from "../state/teardownWrite"
 
 const eps = 1e-5
 const COS_45 = Math.cos(degreeToRadian(45))
@@ -177,6 +180,13 @@ export interface PolarAngleAxisProps<DataPointType = unknown, DataValueType = un
 	 */
 	tickCount?: number
 	/**
+	 * Controls how Recharts calculates "nice" tick values for this axis.
+	 * See {@link NiceTicksAlgorithm} for a full description of each option.
+	 *
+	 * @defaultValue 'auto'
+	 */
+	niceTicks?: NiceTicksAlgorithm
+	/**
 	 * The formatter function of ticks.
 	 */
 	tickFormatter?: (value: unknown, index: number) => string
@@ -217,43 +227,45 @@ export interface PolarAngleAxisProps<DataPointType = unknown, DataValueType = un
 	/**
 	 * The customized event handler of click on the ticks of this axis
 	 */
-	onClick?: (data: unknown, index: number, e: MouseEvent) => void
+	onClick?: (data: TickItem, index: number, e: MouseEvent & { currentTarget: SVGTextElement }) => void
 	/**
 	 * The customized event handler of mousedown on the ticks of this axis
 	 */
-	onMouseDown?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseDown?: (data: TickItem, index: number, e: MouseEvent & { currentTarget: SVGTextElement }) => void
 	/**
 	 * The customized event handler of mouseup on the ticks of this axis
 	 */
-	onMouseUp?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseUp?: (data: TickItem, index: number, e: MouseEvent & { currentTarget: SVGTextElement }) => void
 	/**
 	 * The customized event handler of mousemove on the ticks of this axis
 	 */
-	onMouseMove?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseMove?: (data: TickItem, index: number, e: MouseEvent & { currentTarget: SVGTextElement }) => void
 	/**
 	 * The customized event handler of mouseover on the ticks of this axis
 	 */
-	onMouseOver?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseOver?: (data: TickItem, index: number, e: MouseEvent & { currentTarget: SVGTextElement }) => void
 	/**
 	 * The customized event handler of mouseout on the ticks of this axis
 	 */
-	onMouseOut?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseOut?: (data: TickItem, index: number, e: MouseEvent & { currentTarget: SVGTextElement }) => void
 	/**
 	 * The customized event handler of mouseenter on the ticks of this axis
 	 */
-	onMouseEnter?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseEnter?: (data: TickItem, index: number, e: MouseEvent & { currentTarget: SVGTextElement }) => void
 	/**
 	 * The customized event handler of mouseleave on the ticks of this axis
 	 */
-	onMouseLeave?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseLeave?: (data: TickItem, index: number, e: MouseEvent & { currentTarget: SVGTextElement }) => void
 }
 
 type AxisSvgProps = Omit<
-	PresentationAttributesAdaptChildEvent<unknown, SVGTextElement>,
+	PresentationAttributesAdaptChildEvent<TickItem, SVGTextElement>,
 	"scale" | "type" | "dangerouslySetInnerHTML"
 >
 
-export type Props = AxisSvgProps & PolarAngleAxisProps
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped axes accept any data */
+export type Props<DataPointType = any, DataValueType = any> = AxisSvgProps &
+	PolarAngleAxisProps<DataPointType, DataValueType>
 
 type PropsWithDefaults = RequiresDefaultProps<Props, typeof defaultPolarAngleAxisProps>
 
@@ -297,6 +309,7 @@ function SetAngleAxisSettings(props: AngleAxisSettingsReporter): JSX.Element {
 			scale: props.scale,
 			tick: props.tick,
 			tickCount: props.tickCount,
+			niceTicks: props.niceTicks,
 			ticks: props.ticks,
 			type: evaluatedType,
 			unit: props.unit,
@@ -311,22 +324,23 @@ function SetAngleAxisSettings(props: AngleAxisSettingsReporter): JSX.Element {
 	   Solid's fine-grained reactivity already handles ordering. */
 	const settingsAreSynchronized = () => synchronizedSettings() != null
 
-	createEffect(() => {
-		const s = settings()
+	createEffect(settings, (s) => {
 		if (s == null) {
 			return
 		}
 		const id = String(s.id)
 		if (stateCtx != null) {
 			stateCtx.setState("polarAxes", "angleAxis", id, { settings: s })
-			onCleanup(() => {
-				stateCtx.setState(
-					"polarAxes",
-					produce((polar) => {
-						delete (polar.angleAxis as Record<string, unknown>)[id]
-					}),
-				)
-			})
+			return () => {
+				teardownWrite(() => {
+					stateCtx.setState(
+						"polarAxes",
+						(polar) => {
+							delete (polar.angleAxis as Record<string, unknown>)[id]
+						},
+					)
+				})
+			}
 		}
 
 	})
@@ -398,8 +412,12 @@ const getTickTextVerticalAnchor = (data: TickItem): TextVerticalAnchor => {
 	return "middle"
 }
 
-/* eslint-disable solid/reactivity -- AxisLine reads are structural checks at component setup; called from within reactive JSX so props are stable for this render */
 function AxisLine(props: InsideProps): JSX.Element {
+	return <>{renderAxisLine(props)}</>
+}
+
+/* Runs inside AxisLine's JSX expression so every prop read is tracked. */
+function renderAxisLine(props: InsideProps): JSX.Element {
 	if (!props.axisLine) {
 		return null
 	}
@@ -427,7 +445,6 @@ function AxisLine(props: InsideProps): JSX.Element {
 
 	return <Polygon class="recharts-polar-angle-axis-line" {...axisLineProps} points={points} />
 }
-/* eslint-enable solid/reactivity */
 
 type TickItemProps = {
 	tick: TickProp<BaseTickContentProps>
@@ -437,6 +454,11 @@ type TickItemProps = {
 
 /* eslint-disable solid/reactivity -- TickItemText reads are structural type checks at component setup; called from within reactive map, not a tracked scope */
 function TickItemText(props: TickItemProps): JSX.Element {
+	return <>{renderTickItemText(props)}</>
+}
+
+/* Runs inside TickItemText's JSX expression so every reactive read is tracked. */
+function renderTickItemText(props: TickItemProps): JSX.Element {
 	if (!props.tick) {
 		return null
 	}
@@ -456,6 +478,11 @@ function TickItemText(props: TickItemProps): JSX.Element {
 
 /* eslint-disable solid/reactivity -- Ticks reads props at component setup; called from within reactive JSX (resolved memo drives re-render), so props are stable per render */
 function Ticks(props: InsideProps): JSX.Element {
+	return <>{renderTicks(props)}</>
+}
+
+/* Runs inside Ticks's JSX expression so every reactive read is tracked. */
+function renderTicks(props: InsideProps): JSX.Element {
 	const { ref: _ref, ...axisProps }: Record<string, unknown> = svgPropertiesNoEvents(props)
 	const customTickProps = svgPropertiesNoEventsFromUnknown(props.tick)
 	const tickLineProps = {
@@ -556,7 +583,10 @@ export function PolarAngleAxisWrapper(defaultsAndInputs: PropsWithDefaults): JSX
  * @provides PolarLabelContext
  * @consumes PolarViewBoxContext
  */
-export function PolarAngleAxis(outsideProps: Props): JSX.Element {
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped axes accept any data */
+export function PolarAngleAxis<DataPointType = any, DataValueType = any>(
+	outsideProps: Props<DataPointType, DataValueType>,
+): JSX.Element {
 	const props = resolveDefaultProps(outsideProps, defaultPolarAngleAxisProps)
 
 	return (
@@ -564,7 +594,8 @@ export function PolarAngleAxis(outsideProps: Props): JSX.Element {
 			id={props.angleAxisId}
 			scale={props.scale}
 			type={props.type}
-			dataKey={props.dataKey}
+			/* settings are untyped; the generic only constrains what callers pass */
+			dataKey={props.dataKey as DataKey<unknown>}
 			unit={undefined}
 			name={props.name}
 			allowDuplicatedCategory={false}
@@ -573,7 +604,9 @@ export function PolarAngleAxis(outsideProps: Props): JSX.Element {
 			includeHidden={false}
 			allowDecimals={props.allowDecimals}
 			tickCount={props.tickCount}
-			ticks={props.ticks?.map((t) => t.value)}
+			niceTicks={props.niceTicks}
+			/* passed through unchanged like upstream, whose TickItem prop and AxisTick setting types disagree */
+			ticks={props.ticks as unknown as ReadonlyArray<AxisTick> | undefined}
 			tick={props.tick as TickProp<unknown>}
 			domain={props.domain}
 		>

@@ -1,8 +1,10 @@
 /* eslint-disable testing-library/render-result-naming-convention */
 import { createRenderer } from '#test-utils';
 import { expect } from 'chai';
-import { createSignal, splitProps, type ComponentProps, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { ComponentProps, JSX } from '@solidjs/web';
 import { useRender } from './useRender';
+import { splitProps } from '../solid-1-compat';
 
 describe('useRender', () => {
   const { render } = createRenderer();

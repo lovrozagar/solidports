@@ -1,5 +1,5 @@
 import { AlertDialog as BaseAlertDialog } from "@solidports/base-ui/alert-dialog";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { mergeClass } from "./utils/merge-class.ts";
 import { cn } from "./utils/cn.ts";
 

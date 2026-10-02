@@ -6,9 +6,7 @@ export interface PopoverPositionerContext extends useAnchorPositioning.ReturnVal
   props: HTMLProps;
 }
 
-export const PopoverPositionerContext = createContext<PopoverPositionerContext | undefined>(
-  undefined,
-);
+export const PopoverPositionerContext = createContext<PopoverPositionerContext | null>(null);
 
 export function usePopoverPositionerContext() {
   const context = useContext(PopoverPositionerContext);

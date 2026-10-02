@@ -1,4 +1,4 @@
-import { render } from "@solidjs/testing-library"
+import { render } from "../helper/render"
 import { axe } from "vitest-axe"
 import {
 	Area,

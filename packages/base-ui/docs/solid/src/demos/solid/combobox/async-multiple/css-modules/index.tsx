@@ -1,4 +1,5 @@
-import { createSignal, createMemo, createUniqueId, type JSX } from 'solid-js';
+import { createSignal, createMemo, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -42,7 +43,7 @@ export default function ExampleAsyncMultipleCombobox() {
     if (isPending) {
       return (
         <>
-          <span class={styles.Spinner} aria-hidden />
+          <span class={styles.Spinner} aria-hidden="true" />
           Searching…
         </>
       );
@@ -147,7 +148,6 @@ export default function ExampleAsyncMultipleCombobox() {
               >
                 {(Array.isArray(value) ? value : []).map((user) => (
                   <Combobox.Chip
-                    key={user.id}
                     class={styles.Chip}
                     aria-label={user.name}
                     aria-description="Press Backspace or Delete to remove"
@@ -189,7 +189,7 @@ export default function ExampleAsyncMultipleCombobox() {
               </Combobox.Empty>
               <Combobox.List>
                 {(user: DirectoryUser) => (
-                  <Combobox.Item key={user.id} class={styles.Item} value={user}>
+                  <Combobox.Item class={styles.Item} value={user}>
                     <Combobox.ItemIndicator class={styles.ItemIndicator}>
                       <CheckIcon />
                     </Combobox.ItemIndicator>

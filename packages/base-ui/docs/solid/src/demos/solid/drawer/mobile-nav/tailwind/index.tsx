@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Drawer } from '@solidports/base-ui/drawer';
@@ -72,7 +72,7 @@ export default function ExampleDrawerMobileNav() {
                     class="relative flex flex-col border-t border-neutral-950 bg-white px-6 pt-4 pb-6 text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 transition-shadow duration-350 ease-[cubic-bezier(0.375,0.015,0.545,0.455)] group-data-ending-style:shadow-[0.25rem_0.25rem_0] group-data-ending-style:shadow-black/0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none min-[42rem]:border"
                   >
                     <div class="grid grid-cols-[1fr_auto_1fr] items-start">
-                      <div aria-hidden class="h-9 w-9" />
+                      <div aria-hidden="true" class="h-9 w-9" />
                       <div class="h-1 w-12 justify-self-center bg-neutral-300 dark:bg-neutral-700" />
                       <Drawer.Close
                         aria-label="Close menu"
@@ -91,7 +91,7 @@ export default function ExampleDrawerMobileNav() {
                       <div class="pb-8">
                         <ul class="grid list-none gap-1 p-0 m-0">
                           {ITEMS.map((item) => (
-                            <li key={item.label} class="flex">
+                            <li class="flex">
                               <a
                                 class="flex h-12 w-full items-center border border-neutral-950 bg-white px-4 text-sm text-neutral-950 no-underline hover:bg-neutral-100 active:bg-neutral-200 dark:border-white dark:bg-neutral-950 dark:text-white dark:hover:bg-neutral-800 dark:active:bg-neutral-700 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white"
                                 href={item.href}
@@ -107,7 +107,7 @@ export default function ExampleDrawerMobileNav() {
                           class="mt-6 grid list-none gap-1 p-0 m-0"
                         >
                           {LONG_LIST.map((item) => (
-                            <li key={item.label} class="flex">
+                            <li class="flex">
                               <a
                                 class="flex h-12 w-full items-center border border-neutral-950 bg-white px-4 text-sm text-neutral-950 no-underline hover:bg-neutral-100 active:bg-neutral-200 dark:border-white dark:bg-neutral-950 dark:text-white dark:hover:bg-neutral-800 dark:active:bg-neutral-700 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white"
                                 href={item.href}

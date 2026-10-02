@@ -1,5 +1,5 @@
 import { isElement } from '@floating-ui/utils/dom';
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import type { Coords } from '../../floating-ui-solid/types';
 import { activeElement, contains } from '../../floating-ui-solid/utils';
@@ -131,7 +131,7 @@ export function SliderControl(componentProps: SliderControl.Props) {
   // This value should be equal to the radius or half the width/height of the thumb.
   let insetThumbOffsetRef = 0;
   let latestValuesRef = values();
-  createEffect(() => {
+  createTrackedEffect(() => {
     latestValuesRef = values();
   });
 
@@ -401,9 +401,12 @@ export function SliderControl(componentProps: SliderControl.Props) {
 
   const focusFrame = useAnimationFrame();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!controlRef) {
-      onCleanup(() => stopListening());
+      _c.push(() => stopListening());
       return;
     }
 
@@ -411,15 +414,21 @@ export function SliderControl(componentProps: SliderControl.Props) {
       passive: true,
     });
 
-    onCleanup(() => {
+    _c.push(() => {
       controlRef?.removeEventListener('touchstart', handleTouchStart);
       focusFrame.cancel();
 
       stopListening();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (disabled()) {
       stopListening();
     }

@@ -1,6 +1,6 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import solidPlugin from 'vite-plugin-solid';
+import solidPlugin from '@solidjs/vite-plugin';
 import { defineProject, mergeConfig } from 'vitest/config';
 // eslint-disable-next-line import/no-relative-packages
 import sharedConfig from '../../vitest.shared.mts';

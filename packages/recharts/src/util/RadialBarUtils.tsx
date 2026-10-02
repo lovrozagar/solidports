@@ -1,7 +1,8 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { RadialBarDataItem, RadialBarProps } from "../polar/RadialBar"
 import { Shape } from "./ActiveShapeUtils"
+import type { ShapeAnimationProps } from "./types"
 
 export function parseCornerRadius(cornerRadius: string | number | undefined): number | undefined {
 	if (typeof cornerRadius === "string") {
@@ -11,7 +12,7 @@ export function parseCornerRadius(cornerRadius: string | number | undefined): nu
 	return cornerRadius
 }
 
-export interface RadialBarSectorProps extends RadialBarDataItem {
+export interface RadialBarSectorProps extends RadialBarDataItem, ShapeAnimationProps {
 	index: number
 	option: RadialBarProps["activeShape"]
 	isActive: boolean

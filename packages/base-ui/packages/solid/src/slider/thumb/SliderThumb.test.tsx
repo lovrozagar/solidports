@@ -6,7 +6,7 @@ import { fireEvent, screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy, stub } from 'sinon';
 import { createSignal } from 'solid-js';
-import { Dynamic } from 'solid-js/web';
+import { Dynamic } from '@solidjs/web';
 import { createTouches, getHorizontalSliderRect } from '../utils/test-utils';
 
 describe('<Slider.Thumb />', () => {
@@ -197,7 +197,7 @@ describe('<Slider.Thumb />', () => {
       const { user } = render(() => (
         <Slider.Root defaultValue={50}>
           <Slider.Control>
-            <Slider.Thumb tabIndex={-1} />
+            <Slider.Thumb tabindex={-1} />
           </Slider.Control>
         </Slider.Root>
       ));

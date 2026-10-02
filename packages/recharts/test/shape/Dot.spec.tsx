@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../helper/render"
 import { Surface, Dot } from "../../src"
 import { assertNotNull } from "../helper/assertNotNull"
 

@@ -13,7 +13,7 @@ import { ToolbarGroupContext } from './ToolbarGroupContext';
  */
 export function ToolbarGroup(componentProps: ToolbarGroup.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled']);
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
 
   const { orientation, disabled: toolbarDisabled } = useToolbarRootContext();
 
@@ -38,7 +38,7 @@ export function ToolbarGroup(componentProps: ToolbarGroup.Props) {
   });
 
   return (
-    <ToolbarGroupContext.Provider value={contextValue}>{element()}</ToolbarGroupContext.Provider>
+    <ToolbarGroupContext value={contextValue}>{element()}</ToolbarGroupContext>
   );
 }
 

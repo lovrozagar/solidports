@@ -18,7 +18,7 @@ import { FieldItemContext } from './FieldItemContext';
 export function FieldItem(componentProps: FieldItem.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled']);
 
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
 
   const { state, disabled: rootDisabled } = useFieldRootContext(false);
 
@@ -42,7 +42,7 @@ export function FieldItem(componentProps: FieldItem.Props) {
 
   return (
     <LabelableProvider initialControlId={initialControlId()}>
-      <FieldItemContext.Provider value={fieldItemContext}>{element()}</FieldItemContext.Provider>
+      <FieldItemContext value={fieldItemContext}>{element()}</FieldItemContext>
     </LabelableProvider>
   );
 }

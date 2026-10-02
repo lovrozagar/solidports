@@ -1,5 +1,5 @@
-/* @jsxImportSource solid-js */
-import type { JSX } from "solid-js"
+/* @jsxImportSource @solidjs/web */
+import type { JSX } from '@solidjs/web';
 import { beforeEach, describe, expect, it, type Mock } from "vitest"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { PageData } from "../../_data"
@@ -32,11 +32,11 @@ describe("Tooltip.content", () => {
 		mockGetBoundingClientRect({ height: 100, width: 100 })
 		spy.mockClear()
 	})
-	/* Cluster C: React passes second event-like arg to content function; Solid only passes props. */
-	it.skip("should be called and receive payload before any user interactions", () => {
+	it("should be called and receive payload before any user interactions", () => {
 		expect(spy).toHaveBeenCalledTimes(0)
 		renderTestCase()
-		expect(spy).toHaveBeenCalledTimes(2)
+		/* Solid renders the content once at mount; upstream renders twice */
+		expect(spy).toHaveBeenCalledTimes(1)
 		expectLastCalledWith(
 			spy,
 			{
@@ -72,13 +72,14 @@ describe("Tooltip.content", () => {
 				useTranslate3d: false,
 				wrapperStyle: {},
 			},
-			expect.any(Object),
+			/* Solid components receive props only; upstream also asserts React's second arg */
 		)
 	})
-	it.skip("should be called and receive payload on hover", () => {
+	it("should be called and receive payload on hover", () => {
 		const { container, debug } = renderTestCase()
 		showTooltip(container, areaChartMouseHoverTooltipSelector, debug)
-		expect(spy).toHaveBeenCalledTimes(3)
+		/* one fewer mount render than upstream (3) */
+		expect(spy).toHaveBeenCalledTimes(2)
 		expectLastCalledWith(
 			spy,
 			{
@@ -178,7 +179,7 @@ describe("Tooltip.content", () => {
 				useTranslate3d: false,
 				wrapperStyle: {},
 			},
-			expect.any(Object),
+			/* Solid components receive props only; upstream also asserts React's second arg */
 		)
 	})
 })

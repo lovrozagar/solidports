@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect, beforeEach } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../../helper/render"
 import { Line, LineChart, Tooltip } from "../../../src"
 import { getTooltip, showTooltipOnCoordinate } from "./tooltipTestHelpers"
 import { lineChartMouseHoverTooltipSelector } from "./tooltipMouseHoverSelectors"

@@ -1,4 +1,5 @@
-import { type Accessor, createContext, useContext } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 
 export type TextDirection = 'ltr' | 'rtl';
 
@@ -9,7 +10,7 @@ export type DirectionContext = {
 /**
  * @internal
  */
-export const DirectionContext = createContext<DirectionContext>();
+export const DirectionContext = createContext<DirectionContext | null>(null);
 
 export function useDirection() {
   const context = useContext(DirectionContext);

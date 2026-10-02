@@ -26,7 +26,7 @@ export function ComboboxEmpty(componentProps: ComboboxEmpty.Props) {
       {
         role: 'status',
         'aria-live': 'polite',
-        'aria-atomic': true,
+        'aria-atomic': 'true',
       },
       elementProps,
     ],

@@ -30,7 +30,7 @@ export function SelectGroup(componentProps: SelectGroup.Props) {
   });
 
   return (
-    <SelectGroupContext.Provider value={contextValue}>{element()}</SelectGroupContext.Provider>
+    <SelectGroupContext value={contextValue}>{element()}</SelectGroupContext>
   );
 }
 

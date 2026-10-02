@@ -1,21 +1,20 @@
-import { createEffect, createSignal, type JSX } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { createSignal, flush } from "solid-js"
+import type { JSX } from "@solidjs/web"
+import { render } from "../helper/render"
+import { observe } from "../helper/observe"
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { JavascriptAnimate } from "../../src/animation/JavascriptAnimate"
-import { MockTimeoutController } from "./mockTimeoutController"
-import { createAnimateManager } from "../../src/animation/AnimationManager"
-import { MockTickingAnimationManager } from "./MockTickingAnimationManager"
+import { CompositeAnimationManager } from "./CompositeAnimationManager"
 
 function getNamedSpy(name: string): () => void {
 	return vi.fn().mockName(name)
 }
 
-/* GOTCHA-014-H: child fn now receives `Accessor<number>`; tests assert primitive
-   per-tick t. Wrap with createEffect to report each value to the spy, mirroring
-   React per-render-with-new-t semantics. */
+/* Children receive `Accessor<number>` (GOTCHA-014-H); report every committed
+   value to the spy, the Solid counterpart of React calling children per render. */
 function trackT(spy: (t: number) => unknown): (t: () => number) => JSX.Element {
 	return (t) => {
-		createEffect(() => {
+		observe(() => {
 			spy(t())
 		})
 		return null
@@ -29,10 +28,10 @@ describe("JavascriptAnimate timing", () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 	})
+
 	describe("with animation steps as objects with a simple numeric values", () => {
 		it("should call onAnimationStart and onAnimationEnd", async () => {
-			const timeoutController = new MockTimeoutController()
-			const animationManager = createAnimateManager(timeoutController)
+			const animationManager = new CompositeAnimationManager()
 
 			render(() => (
 				<JavascriptAnimate
@@ -40,7 +39,7 @@ describe("JavascriptAnimate timing", () => {
 					duration={500}
 					onAnimationStart={handleAnimationStart}
 					onAnimationEnd={handleAnimationEnd}
-					animationManager={animationManager}
+					animationController={animationManager.factory}
 				>
 					{() => <div class="test-wrapper" />}
 				</JavascriptAnimate>
@@ -49,14 +48,19 @@ describe("JavascriptAnimate timing", () => {
 			expect(handleAnimationStart).toHaveBeenCalledTimes(1)
 			expect(handleAnimationEnd).not.toHaveBeenCalled()
 
-			await timeoutController.flushAllTimeouts()
+			await animationManager.setAnimationProgress(0.5)
+
+			expect(handleAnimationStart).toHaveBeenCalledTimes(1)
+			expect(handleAnimationEnd).not.toHaveBeenCalled()
+
+			await animationManager.completeAnimation()
 
 			expect(handleAnimationStart).toHaveBeenCalledTimes(1)
 			expect(handleAnimationEnd).toHaveBeenCalledTimes(1)
 		})
+
 		it("should not start animation if canBegin is false", async () => {
-			const timeoutController = new MockTimeoutController()
-			const animationManager = createAnimateManager(timeoutController)
+			const animationManager = new CompositeAnimationManager()
 
 			render(() => (
 				<JavascriptAnimate
@@ -64,20 +68,21 @@ describe("JavascriptAnimate timing", () => {
 					duration={500}
 					canBegin={false}
 					onAnimationStart={handleAnimationStart}
-					animationManager={animationManager}
+					onAnimationEnd={handleAnimationEnd}
+					animationController={animationManager.factory}
 				>
 					{() => <div class="test-wrapper" />}
 				</JavascriptAnimate>
 			))
 
-			await timeoutController.flushAllTimeouts()
+			expect(animationManager.isAnimating()).toBe(false)
 
 			expect(handleAnimationStart).not.toHaveBeenCalled()
-			expect(handleAnimationStart).not.toHaveBeenCalled()
+			expect(handleAnimationEnd).not.toHaveBeenCalled()
 		})
+
 		it("should not start animation if isActive is false", async () => {
-			const timeoutController = new MockTimeoutController()
-			const animationManager = createAnimateManager(timeoutController)
+			const animationManager = new CompositeAnimationManager()
 
 			render(() => (
 				<JavascriptAnimate
@@ -86,111 +91,41 @@ describe("JavascriptAnimate timing", () => {
 					isActive={false}
 					onAnimationStart={handleAnimationStart}
 					onAnimationEnd={handleAnimationEnd}
-					animationManager={animationManager}
+					animationController={animationManager.factory}
 				>
 					{() => <div class="test-wrapper" />}
 				</JavascriptAnimate>
 			))
 
-			await timeoutController.flushAllTimeouts()
+			expect(animationManager.isAnimating()).toBe(false)
 
 			expect(handleAnimationStart).not.toHaveBeenCalled()
 			expect(handleAnimationEnd).not.toHaveBeenCalled()
 		})
-		/* Cluster B: call-count off-by-one — Solid render-cycle vs React batching divergence. */
-		it.skip("should call children function with current time", async () => {
-			const timeoutController = new MockTimeoutController()
-			const animationManager = createAnimateManager(timeoutController)
+
+		it("should call children function with current time", async () => {
+			const animationManager = new CompositeAnimationManager()
 			const childFunction = vi.fn()
 
 			render(() => (
-				<JavascriptAnimate animationId="1" duration={500} animationManager={animationManager}>
+				<JavascriptAnimate animationId="1" duration={500} animationController={animationManager.factory}>
 					{trackT(childFunction)}
 				</JavascriptAnimate>
 			))
 
-			expect(childFunction).toHaveBeenCalledWith(0)
+			expect(childFunction).toHaveBeenLastCalledWith(0)
 			expect(childFunction).toHaveBeenCalledTimes(1)
 
-			await timeoutController.flushAllTimeouts()
+			await animationManager.completeAnimation()
 
-			expect(childFunction).toHaveBeenCalledTimes(3)
-			expect(childFunction).toHaveBeenCalledWith(1)
+			expect(childFunction).toHaveBeenCalledTimes(2)
+			expect(childFunction).toHaveBeenLastCalledWith(1)
 		})
 	})
+
 	describe("queue when the child is a function", () => {
-		/* Cluster B */
-		it.skip("should add items to the animation queue on start, and call the render function", async () => {
-			const animationManager = new MockTickingAnimationManager()
-			const child = vi.fn()
-
-			render(() => (
-				<JavascriptAnimate
-					animationId="1"
-					duration={500}
-					onAnimationStart={handleAnimationStart}
-					onAnimationEnd={handleAnimationEnd}
-					animationManager={animationManager}
-				>
-					{trackT(child)}
-				</JavascriptAnimate>
-			))
-
-			expect(child).toHaveBeenCalledWith(0)
-			expect(child).toHaveBeenCalledTimes(1)
-			expect(handleAnimationStart).toHaveBeenCalledTimes(0)
-			expect(handleAnimationEnd).toHaveBeenCalledTimes(0)
-
-			animationManager.assertQueue([
-				"[function handleAnimationStart]",
-				0,
-				"[function onAnimationActive]",
-				500,
-				"[function handleAnimationEnd]",
-			])
-
-			await animationManager.poll(3)
-			expect(handleAnimationStart).toHaveBeenCalledTimes(1)
-			expect(handleAnimationEnd).toHaveBeenCalledTimes(0)
-
-			expect(child).toHaveBeenCalledWith(0)
-			expect(child).toHaveBeenCalledTimes(1)
-
-			animationManager.assertQueue([500, "[function handleAnimationEnd]"])
-
-			await animationManager.triggerNextTimeout(16)
-
-			await animationManager.triggerNextTimeout(100)
-			expect(child).toHaveBeenLastCalledWith(expect.closeTo(0.22, 1))
-			expect(child).toHaveBeenCalledTimes(3)
-
-			await animationManager.triggerNextTimeout(200)
-			expect(child).toHaveBeenLastCalledWith(expect.closeTo(0.63, 1))
-			expect(child).toHaveBeenCalledTimes(4)
-
-			await animationManager.triggerNextTimeout(300)
-			expect(child).toHaveBeenLastCalledWith(expect.closeTo(0.86, 1))
-			expect(child).toHaveBeenCalledTimes(5)
-
-			await animationManager.triggerNextTimeout(800)
-			expect(child).toHaveBeenLastCalledWith(1)
-			expect(child).toHaveBeenCalledTimes(6)
-
-			await animationManager.poll()
-
-			expect(child).toHaveBeenCalledWith(1)
-			expect(child).toHaveBeenCalledTimes(6)
-
-			animationManager.assertQueue(["[function handleAnimationEnd]"])
-			expect(handleAnimationEnd).toHaveBeenCalledTimes(0)
-
-			await animationManager.poll()
-
-			expect(handleAnimationStart).toHaveBeenCalledTimes(1)
-			expect(handleAnimationEnd).toHaveBeenCalledTimes(1)
-		})
 		it("should not start animation if canBegin is false, and render with time zero", () => {
-			const animationManager = new MockTickingAnimationManager()
+			const animationManager = new CompositeAnimationManager()
 			const child = vi.fn()
 
 			render(() => (
@@ -199,20 +134,21 @@ describe("JavascriptAnimate timing", () => {
 					duration={500}
 					canBegin={false}
 					onAnimationStart={handleAnimationStart}
-					animationManager={animationManager}
+					animationController={animationManager.factory}
 				>
 					{trackT(child)}
 				</JavascriptAnimate>
 			))
 
-			animationManager.assertQueue(null)
+			expect(animationManager.isAnimating()).toBe(false)
 
 			expect(handleAnimationStart).not.toHaveBeenCalled()
 			expect(child).toHaveBeenCalledWith(0)
 			expect(child).toHaveBeenCalledTimes(1)
 		})
+
 		it("should go straight to final state when isActive is false", () => {
-			const animationManager = new MockTickingAnimationManager()
+			const animationManager = new CompositeAnimationManager()
 			const child = vi.fn()
 
 			render(() => (
@@ -221,43 +157,80 @@ describe("JavascriptAnimate timing", () => {
 					duration={500}
 					isActive={false}
 					onAnimationStart={handleAnimationStart}
-					animationManager={animationManager}
+					animationController={animationManager.factory}
 				>
 					{trackT(child)}
 				</JavascriptAnimate>
 			))
 
-			animationManager.assertQueue(null)
+			expect(animationManager.isAnimating()).toBe(false)
 
 			expect(handleAnimationStart).not.toHaveBeenCalled()
 			expect(child).toHaveBeenCalledWith(1)
 			expect(child).toHaveBeenCalledTimes(1)
 		})
-		it("should not start animation on rerender if canBegin is false", () => {
-			const animationManager = new MockTickingAnimationManager()
+
+		it("should restart animation when isActive changes to true", async () => {
+			const animationManager = new CompositeAnimationManager()
 			const child = vi.fn()
 
+			const [isActive, setIsActive] = createSignal(false)
 			render(() => (
 				<JavascriptAnimate
 					animationId="1"
 					duration={500}
-					canBegin={false}
+					isActive={isActive()}
 					onAnimationStart={handleAnimationStart}
-					animationManager={animationManager}
+					animationController={animationManager.factory}
 				>
 					{trackT(child)}
 				</JavascriptAnimate>
 			))
 
-			animationManager.assertQueue(null)
+			expect(animationManager.isAnimating()).toBe(false)
 
 			expect(handleAnimationStart).not.toHaveBeenCalled()
-			expect(child).toHaveBeenLastCalledWith(0)
+			expect(child).toHaveBeenLastCalledWith(1)
 			expect(child).toHaveBeenCalledTimes(1)
+
+			// Now we change isActive to true
+			setIsActive(true)
+			flush()
+
+			expect(animationManager.isAnimating()).toBe(true)
+			expect(child).toHaveBeenLastCalledWith(1)
+
+			await animationManager.setAnimationProgress(0.1)
+
+			expect(handleAnimationStart).toHaveBeenCalledTimes(1)
+			/*
+			 * Now we're seeing new animation with new time ticking.
+			 * It is the responsibility of the child component to figure out reference to the latest animated state
+			 * and continue from there.
+			 * Solid reports distinct committed values only (1 -> 0 -> 0.1), so counts run one below React's renders.
+			 */
+			expect(child).toHaveBeenLastCalledWith(expect.closeTo(0.1, 1))
+			expect(child).toHaveBeenCalledTimes(3)
+
+			await animationManager.setAnimationProgress(0.2)
+			expect(child).toHaveBeenLastCalledWith(expect.closeTo(0.29, 1))
+			expect(child).toHaveBeenCalledTimes(4)
+
+			await animationManager.setAnimationProgress(0.5)
+			expect(child).toHaveBeenLastCalledWith(expect.closeTo(0.8, 1))
+			expect(child).toHaveBeenCalledTimes(5)
+
+			await animationManager.setAnimationProgress(0.9)
+			expect(child).toHaveBeenLastCalledWith(expect.closeTo(0.99, 1))
+			expect(child).toHaveBeenCalledTimes(6)
+
+			await animationManager.setAnimationProgress(1)
+			expect(child).toHaveBeenLastCalledWith(1)
+			expect(child).toHaveBeenCalledTimes(7)
 		})
-		/* Cluster B */
-		it.skip("should restart animation when isActive changes to true via button click", async () => {
-			const animationManager = new MockTickingAnimationManager()
+
+		it("should restart animation when isActive changes to true via button click", async () => {
+			const animationManager = new CompositeAnimationManager()
 			const child = vi.fn()
 			const MyTestComponent = () => {
 				const [isActive, setIsActive] = createSignal(false)
@@ -268,7 +241,7 @@ describe("JavascriptAnimate timing", () => {
 							duration={500}
 							isActive={isActive()}
 							onAnimationStart={handleAnimationStart}
-							animationManager={animationManager}
+							animationController={animationManager.factory}
 						>
 							{trackT(child)}
 						</JavascriptAnimate>
@@ -281,72 +254,92 @@ describe("JavascriptAnimate timing", () => {
 
 			const { getByText } = render(() => <MyTestComponent />)
 
-			animationManager.assertQueue(null)
-
 			expect(handleAnimationStart).not.toHaveBeenCalled()
 			expect(child).toHaveBeenLastCalledWith(1)
 			expect(child).toHaveBeenCalledTimes(1)
-			expect(animationManager.isRunning()).toBe(false)
+			expect(animationManager.isAnimating()).toBe(false)
 
 			const button = getByText("Start Animation")
 			button.click()
+			flush()
 
-			animationManager.assertQueue([
-				"[function handleAnimationStart]",
-				0,
-				"[function onAnimationActive]",
-				500,
-				"[function onAnimationEnd]",
-			])
-			expect(animationManager.isRunning()).toBe(true)
-			await animationManager.poll()
-			animationManager.assertQueue([
-				0,
-				"[function onAnimationActive]",
-				500,
-				"[function onAnimationEnd]",
-			])
+			expect(animationManager.isAnimating()).toBe(true)
+
+			await animationManager.setAnimationProgress(1)
+
 			expect(handleAnimationStart).toHaveBeenCalledTimes(1)
-
-			await animationManager.poll()
-			animationManager.assertQueue([
-				"[function onAnimationActive]",
-				500,
-				"[function onAnimationEnd]",
-			])
-
-			await animationManager.poll()
-			animationManager.assertQueue([500, "[function onAnimationEnd]"])
-
 			expect(child).toHaveBeenLastCalledWith(1)
+			/* Solid: 1 -> 0 -> 1 committed values; React adds rerenders with unchanged values. */
 			expect(child).toHaveBeenCalledTimes(3)
-
-			await animationManager.triggerNextTimeout(16)
-			expect(child).toHaveBeenLastCalledWith(0)
-			expect(child).toHaveBeenCalledTimes(4)
 		})
+
 		it("should rerender with the final state when isActive is false", () => {
-			const animationManager = new MockTickingAnimationManager()
+			const animationManager = new CompositeAnimationManager()
 			const child = vi.fn()
 
+			const [isActive, setIsActive] = createSignal(false)
 			render(() => (
 				<JavascriptAnimate
 					animationId="1"
 					duration={500}
-					isActive={false}
+					isActive={isActive()}
 					onAnimationStart={handleAnimationStart}
 					onAnimationEnd={handleAnimationEnd}
-					animationManager={animationManager}
+					animationController={animationManager.factory}
 				>
 					{trackT(child)}
 				</JavascriptAnimate>
 			))
 
-			animationManager.assertQueue(null)
+			expect(animationManager.isAnimating()).toBe(false)
 
 			expect(handleAnimationStart).not.toHaveBeenCalled()
 			expect(handleAnimationEnd).not.toHaveBeenCalled()
 			expect(child).toHaveBeenLastCalledWith(1)
+			expect(child).toHaveBeenCalledTimes(1)
+
+			setIsActive(false)
+			flush()
+
+			expect(child).toHaveBeenLastCalledWith(1)
+			/* Same props: Solid does not re-run the child. */
+			expect(child).toHaveBeenCalledTimes(1)
+			expect(animationManager.isAnimating()).toBe(false)
+			expect(handleAnimationStart).not.toHaveBeenCalled()
+			expect(handleAnimationEnd).not.toHaveBeenCalled()
+		})
+
+		it("should not start animation on rerender if canBegin is false", () => {
+			const animationManager = new CompositeAnimationManager()
+			const child = vi.fn()
+
+			const [canBegin, setCanBegin] = createSignal(false)
+			render(() => (
+				<JavascriptAnimate
+					animationId="1"
+					duration={500}
+					canBegin={canBegin()}
+					onAnimationStart={handleAnimationStart}
+					animationController={animationManager.factory}
+				>
+					{trackT(child)}
+				</JavascriptAnimate>
+			))
+
+			expect(animationManager.isAnimating()).toBe(false)
+
+			expect(handleAnimationStart).not.toHaveBeenCalled()
+			expect(child).toHaveBeenLastCalledWith(0)
+			expect(child).toHaveBeenCalledTimes(1)
+
+			setCanBegin(false)
+			flush()
+
+			// rerendering should not start the animation, this appears correct
+			expect(animationManager.isAnimating()).toBe(false)
+
+			// the child keeps the starting state; Solid does not re-run it for unchanged props
+			expect(child).toHaveBeenLastCalledWith(0)
 			expect(child).toHaveBeenCalledTimes(1)
 		})
 	})

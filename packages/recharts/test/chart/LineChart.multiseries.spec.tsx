@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, test, expect } from "vitest"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
 import { Line, LineChart, Tooltip, useActiveTooltipDataPoints } from "../../src"

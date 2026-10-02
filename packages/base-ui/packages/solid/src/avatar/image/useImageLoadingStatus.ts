@@ -1,12 +1,16 @@
-import { createEffect, createSignal, onCleanup, type Accessor, type JSX } from 'solid-js';
+import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { access, type MaybeAccessor } from '../../solid-helpers';
 
 export type ImageLoadingStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
 interface UseImageLoadingStatusOptions {
   src: MaybeAccessor<string | undefined>;
-  referrerPolicy?: MaybeAccessor<JSX.HTMLReferrerPolicy | undefined>;
-  crossOrigin?: MaybeAccessor<JSX.ImgHTMLAttributes<HTMLImageElement>['crossOrigin'] | undefined>;
+  referrerPolicy?: MaybeAccessor<JSX.HTMLReferrerPolicy | false | undefined>;
+  crossOrigin?: MaybeAccessor<
+    JSX.ImgHTMLAttributes<HTMLImageElement>['crossorigin'] | false | undefined
+  >;
 }
 
 export function useImageLoadingStatus(
@@ -17,7 +21,10 @@ export function useImageLoadingStatus(
   const referrerPolicy = () => access(options.referrerPolicy);
   const crossOrigin = () => access(options.crossOrigin);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const currentSrc = src();
     if (!currentSrc) {
       setLoadingStatus('error');
@@ -39,10 +46,10 @@ export function useImageLoadingStatus(
     image.addEventListener('load', updateStatus('loaded'));
     image.addEventListener('error', updateStatus('error'));
     const currentReferrerPolicy = referrerPolicy();
-    if (currentReferrerPolicy) {
+    if (typeof currentReferrerPolicy === 'string' && currentReferrerPolicy) {
       image.referrerPolicy = currentReferrerPolicy;
     }
-    image.crossOrigin = crossOrigin() ?? null;
+    image.crossOrigin = (crossOrigin() as string | null | undefined) ?? null;
     image.src = currentSrc;
 
     /* Fast path for cached/decoded images */
@@ -50,10 +57,16 @@ export function useImageLoadingStatus(
       setLoadingStatus(image.naturalWidth > 0 ? 'loaded' : 'error');
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       isMounted = false;
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   return loadingStatus;
 }

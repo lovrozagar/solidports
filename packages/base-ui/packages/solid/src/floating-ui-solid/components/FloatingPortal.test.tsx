@@ -1,7 +1,7 @@
 import { flushMicrotasks } from '#test-utils';
 import { isJSDOM } from '#utils/detectBrowser';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
-import { createSignal, onMount } from 'solid-js';
+import { createSignal, onSettled } from 'solid-js';
 import { FloatingPortalLite } from '../../utils/FloatingPortalLite';
 import { FloatingPortal, useFloating } from '../index';
 import type { UseFloatingPortalNodeProps } from './FloatingPortal';
@@ -70,7 +70,7 @@ describe.skipIf(!isJSDOM)('FloatingPortal', () => {
       const [container, setContainer] = createSignal<HTMLElement | null>(null);
       const [renderContainer, setRenderContainer] = createSignal(false);
 
-      onMount(() => {
+      onSettled(() => {
         setRenderContainer(true);
       });
 

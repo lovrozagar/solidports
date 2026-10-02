@@ -1,4 +1,5 @@
 import { createSignal, createMemo } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
 
 
 import { useRender } from '@solidports/base-ui/use-render';

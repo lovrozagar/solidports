@@ -1,4 +1,4 @@
-import { onCleanup, onMount } from 'solid-js';
+import { onCleanup, onSettled } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -21,7 +21,10 @@ export function ScrollAreaContent(componentProps: ScrollAreaContent.Props) {
   const { computeThumbPosition } = useScrollAreaViewportContext();
   const { viewportState } = useScrollAreaRootContext();
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (typeof ResizeObserver === 'undefined') {
       return;
     }
@@ -41,10 +44,16 @@ export function ScrollAreaContent(componentProps: ScrollAreaContent.Props) {
       ro.observe(contentWrapperRef);
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       ro.disconnect();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const element = useRenderElement('div', componentProps, {
     props: [

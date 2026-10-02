@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- ref forwarding + Solid relatedTarget Element bridge */
-import { createEffect, createSignal, Match, on, Switch } from 'solid-js';
-import { Portal } from 'solid-js/web';
+import { createTrackedEffect, createEffect, createSignal, Match, Switch } from 'solid-js';
+import { Portal } from '@solidjs/web';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { FloatingNode } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
@@ -17,6 +17,7 @@ import {
   useNavigationMenuRootContext,
   useNavigationMenuTreeContext,
 } from '../root/NavigationMenuRootContext';
+import { on } from '../../solid-1-compat';
 
 const stateAttributesMapping: StateAttributesMapping<NavigationMenuContent.State> = {
   ...popupStateMapping,
@@ -67,8 +68,7 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
 
   // If the popup unmounts before the content's exit animation completes, reset the internal
   // mounted state so the next open can re-enter via `transitionStatus="starting"`.
-  createEffect(
-    on([mounted, popupMounted], ([mountedValue, popupMountedValue]) => {
+  createEffect(...on([mounted, popupMounted], ([mountedValue, popupMountedValue]) => {
       if (mountedValue && !popupMountedValue) {
         setMounted(false);
       }
@@ -134,7 +134,7 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
   const hidden = () => keepMounted() && !open() && !mounted();
   const shouldRenderInline = () => keepMounted() && !portalContainer() && !hasMountedInPortal();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (keepMounted() && portalContainer() && !hasMountedInPortal()) {
       setHasMountedInPortal(true);
     }

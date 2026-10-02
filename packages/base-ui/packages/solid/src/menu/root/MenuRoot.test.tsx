@@ -6,10 +6,11 @@ import { cleanup, fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { createSignal, splitProps } from 'solid-js';
-import type { JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { REASONS } from '../../utils/reasons';
+import { splitProps } from '../../solid-1-compat';
 
 describe('<Menu.Root />', () => {
   beforeEach(() => {

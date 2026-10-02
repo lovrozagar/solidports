@@ -1,4 +1,5 @@
-import { createMemo, For, Show, type JSX } from "solid-js"
+import { createMemo, For, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { Tabs } from "@solidports/base-ui/tabs"
 
 interface DemoFileSelectorFile {

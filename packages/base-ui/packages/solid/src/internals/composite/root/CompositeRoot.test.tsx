@@ -1,7 +1,7 @@
 import { createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
-import { createSignal, Index } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 import { DirectionProvider } from '../../../direction-provider';
 import { useRef } from '../../../solid-helpers';
 import { CompositeItem } from '../item/CompositeItem';
@@ -109,9 +109,9 @@ describe('Composite', () => {
       function App(props: { items: string[] }) {
         return (
           <CompositeRoot>
-            <Index each={props.items}>
+            <For keyed={false} each={props.items}>
               {(item) => <CompositeItem data-testid={item()}>{item()}</CompositeItem>}
-            </Index>
+            </For>
           </CompositeRoot>
         );
       }
@@ -304,9 +304,9 @@ describe('Composite', () => {
         return (
           // 1 to 9 numpad
           <CompositeRoot cols={3} enableHomeAndEndKeys>
-            <Index each={['1', '2', '3', '4', '5', '6', '7', '8', '9']}>
+            <For keyed={false} each={['1', '2', '3', '4', '5', '6', '7', '8', '9']}>
               {(i) => <CompositeItem data-testid={i()}>{i()}</CompositeItem>}
-            </Index>
+            </For>
           </CompositeRoot>
         );
       }
@@ -375,9 +375,9 @@ describe('Composite', () => {
           <div dir="rtl">
             <DirectionProvider direction="rtl">
               <CompositeRoot cols={3} orientation="horizontal" enableHomeAndEndKeys>
-                <Index each={['1', '2', '3', '4', '5', '6', '7', '8', '9']}>
+                <For keyed={false} each={['1', '2', '3', '4', '5', '6', '7', '8', '9']}>
                   {(i) => <CompositeItem data-testid={i()}>{i()}</CompositeItem>}
-                </Index>
+                </For>
               </CompositeRoot>
             </DirectionProvider>
           </div>
@@ -431,9 +431,9 @@ describe('Composite', () => {
           <div dir="rtl">
             <DirectionProvider direction="rtl">
               <CompositeRoot cols={3} orientation="both" enableHomeAndEndKeys>
-                <Index each={['1', '2', '3', '4', '5', '6', '7', '8', '9']}>
+                <For keyed={false} each={['1', '2', '3', '4', '5', '6', '7', '8', '9']}>
                   {(i) => <CompositeItem data-testid={i()}>{i()}</CompositeItem>}
-                </Index>
+                </For>
               </CompositeRoot>
             </DirectionProvider>
           </div>

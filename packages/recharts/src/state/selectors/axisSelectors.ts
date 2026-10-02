@@ -38,6 +38,7 @@ import type { ChartState } from "../store"
 import {
 	selectChartDataWithIndexes,
 	selectChartDataWithIndexesIfNotInPanoramaPosition4,
+	selectChartDataSliceIfNotInPanorama,
 } from "./dataSelectors"
 import {
 	isWellFormedNumberDomain,
@@ -144,6 +145,7 @@ export const implicitXAxis: XAxisSettings = {
 	minTickGap: 5,
 	mirror: false,
 	name: undefined,
+	niceTicks: "auto",
 	orientation: "bottom",
 	padding: { left: 0, right: 0 },
 	reversed: false,
@@ -196,6 +198,7 @@ export const implicitYAxis: YAxisSettings = {
 	minTickGap: 5,
 	mirror: false,
 	name: undefined,
+	niceTicks: "auto",
 	orientation: "left",
 	padding: { bottom: 0, top: 0 },
 	reversed: false,
@@ -504,16 +507,59 @@ export const combineAppliedValues = (
  *
  * This is an expensive selector - it will iterate all data and compute their value using the provided dataKey.
  */
+/**
+ * Computes applied values from graphical items data plus, when needed, chart-level data.
+ *
+ * When at least one graphical item has no own `data` (it relies on chart root data) AND the axis has a `dataKey`,
+ * AND there are other items that do have their own data (meaning `displayedData` only contains graphical items data,
+ * not chart root data), we also include chart root data values so the axis domain covers all categories,
+ * including those only present in the chart root data but not in any graphical item's own data.
+ *
+ * Values from chart root data that don't match the axis dataKey (undefined) are excluded.
+ */
+export const combineAllAppliedValues = (
+	displayedData: ChartData,
+	axisSettings: BaseCartesianAxis,
+	items: ReadonlyArray<GraphicalItemSettings>,
+	chartDataState: ChartDataState,
+	anyItemUsesChartData: boolean,
+	graphicalItemsData: ChartData,
+): AppliedChartData => {
+	const appliedValues = combineAppliedValues(displayedData, axisSettings, items)
+	if (anyItemUsesChartData && axisSettings?.dataKey != null && graphicalItemsData.length > 0) {
+		const { chartData = [], dataStartIndex, dataEndIndex } = chartDataState
+		const chartDataSlice = chartData.slice(dataStartIndex, dataEndIndex + 1)
+		const chartAppliedValues: AppliedChartData = chartDataSlice
+			.map((item) => ({ value: getValueByDataKey(item, axisSettings.dataKey) }))
+			.filter((av) => av.value != null)
+		return [...chartAppliedValues, ...appliedValues]
+	}
+	return appliedValues
+}
+
+export function selectAnyCartesianItemsUsesChartData(
+	state: ChartState,
+	axisType: AllAxisTypes,
+	axisId: AxisId,
+): boolean {
+	return selectCartesianItemsSettings(state, axisType, axisId).some(
+		(item) => !(item as { data?: unknown }).data,
+	)
+}
+
 export function selectAllAppliedValues(
 	state: ChartState,
 	axisType: AllAxisTypes,
 	axisId: AxisId,
 	isPanorama: boolean,
 ): AppliedChartData {
-	return combineAppliedValues(
+	return combineAllAppliedValues(
 		selectDisplayedData(state, axisType, axisId, isPanorama),
 		selectBaseAxis(state, axisType, axisId),
 		selectCartesianItemsSettings(state, axisType, axisId),
+		selectChartDataWithIndexesIfNotInPanoramaPosition4(state, undefined, undefined, isPanorama),
+		selectAnyCartesianItemsUsesChartData(state, axisType, axisId),
+		selectCartesianGraphicalItemsData(state, axisType, axisId),
 	)
 }
 
@@ -610,13 +656,29 @@ export function getErrorDomainByDataKey(
 	appliedValue: unknown,
 	relevantErrorBars: ReadonlyArray<ErrorBarsSettings> | undefined,
 ): ReadonlyArray<number> {
-	if (!relevantErrorBars || typeof appliedValue !== "number" || isNan(appliedValue)) {
+	if (!relevantErrorBars) {
 		return []
 	}
 
 	if (!relevantErrorBars.length) {
 		return []
 	}
+
+	/* Ranged values (e.g. a [low, high] bar) anchor the error bar at their upper end. */
+	let appliedNumericValue: number | undefined
+	if (typeof appliedValue === "number" && !isNan(appliedValue)) {
+		appliedNumericValue = appliedValue
+	} else if (Array.isArray(appliedValue)) {
+		const numericRangeValues = onlyAllowNumbers(appliedValue)
+		if (numericRangeValues.length > 0) {
+			appliedNumericValue = Math.max(...numericRangeValues)
+		}
+	}
+
+	if (appliedNumericValue == null) {
+		return []
+	}
+	const anchor = appliedNumericValue
 
 	return onlyAllowNumbers(
 		relevantErrorBars.flatMap((eb) => {
@@ -633,7 +695,7 @@ export function getErrorDomainByDataKey(
 			if (!isWellBehavedNumber(lowBound) || !isWellBehavedNumber(highBound)) {
 				return undefined
 			}
-			return [appliedValue - lowBound, appliedValue + highBound]
+			return [anchor - lowBound, anchor + highBound]
 		}),
 	)
 }
@@ -742,11 +804,7 @@ export const combineDomainOfStackGroups = (
 	if (axisType === "zAxis") {
 		return undefined
 	}
-	const domainOfStackGroups = getDomainOfStackGroups(stackGroups, dataStartIndex, dataEndIndex)
-	if (domainOfStackGroups != null && domainOfStackGroups[0] === 0 && domainOfStackGroups[1] === 0) {
-		return undefined
-	}
-	return domainOfStackGroups
+	return getDomainOfStackGroups(stackGroups, dataStartIndex, dataEndIndex)
 }
 
 function selectAllowsDataOverflow(
@@ -851,20 +909,30 @@ export const mergeDomains = (
 }
 
 export const combineDomainOfAllAppliedNumericalValuesIncludingErrorValues = (
-	data: ChartData,
+	displayedData: ChartData,
 	axisSettings: BaseCartesianAxis,
 	items: ReadonlyArray<GraphicalItemSettings>,
 	errorBars: ErrorBarsState,
 	axisType: AllAxisTypes,
+	chartDataSlice: ChartData = [],
 ): NumberDomain | undefined => {
 	let lowerEnd: number | undefined
 	let upperEnd: number | undefined
 	if (items.length > 0) {
-		data.forEach((entry) => {
-			items.forEach((item) => {
-				const relevantErrorBars = errorBars[item.id]?.filter((errorBar) =>
-					isErrorBarRelevantForAxisType(axisType, errorBar),
-				)
+		/*
+		 * Iterate item-first so each item can use its own `data` prop when present,
+		 * falling back to the chart-level data slice for items that rely on it.
+		 * This ensures that mixing items with and without own data (e.g. Bar reading
+		 * chart-level data alongside a Scatter with its own outlier data) produces a
+		 * domain that covers all values from all sources.
+		 */
+		items.forEach((item) => {
+			const ownData = (item as { data?: ChartData }).data
+			const itemData: ChartData = ownData != null ? [...ownData] : chartDataSlice
+			const relevantErrorBars = errorBars[item.id]?.filter((errorBar) =>
+				isErrorBarRelevantForAxisType(axisType, errorBar),
+			)
+			itemData.forEach((entry) => {
 				const valueByDataKey = getValueByDataKey(entry, axisSettings.dataKey ?? item.dataKey)
 				const errorDomain = getErrorDomainByDataKey(entry, valueByDataKey, relevantErrorBars)
 				if (errorDomain.length >= 2) {
@@ -885,8 +953,9 @@ export const combineDomainOfAllAppliedNumericalValuesIncludingErrorValues = (
 			})
 		})
 	}
-	if (axisSettings?.dataKey != null) {
-		data.forEach((item) => {
+	if (axisSettings?.dataKey != null && items.length === 0) {
+		// When there are no items, fall back to the displayed data (chart-level or graphical item data).
+		displayedData.forEach((item) => {
 			const dataValueDomain: NumberDomain | undefined = makeDomain(
 				getValueByDataKey(item, axisSettings.dataKey),
 			)
@@ -915,6 +984,7 @@ function selectDomainOfAllAppliedNumericalValuesIncludingErrorValues(
 		selectCartesianItemsSettingsExceptStacked(state, axisType, axisId),
 		selectAllErrorBarSettings(state),
 		axisType,
+		selectChartDataSliceIfNotInPanorama(state, undefined, undefined, isPanorama),
 	)
 }
 
@@ -1126,6 +1196,7 @@ export const combineNumericalDomain = (
 	referenceElementsDomain: NumberDomain | undefined,
 	layout: LayoutType,
 	axisType: AllAxisTypes,
+	numericTicksDomain?: NumberDomain | undefined,
 ): NumberDomain | undefined => {
 	if (domainFromUserPreference != null) {
 		return domainFromUserPreference
@@ -1139,7 +1210,57 @@ export const combineNumericalDomain = (
 		? mergeDomains(domainOfStackGroups, referenceElementsDomain, dataAndErrorBarsDomain)
 		: mergeDomains(referenceElementsDomain, dataAndErrorBarsDomain)
 
-	return parseNumericalUserDomain(domainDefinition, mergedDomains, axisSettings.allowDataOverflow)
+	const parsedDomain = parseNumericalUserDomain(domainDefinition, mergedDomains, axisSettings.allowDataOverflow)
+	if (parsedDomain != null) {
+		return parsedDomain
+	}
+
+	/*
+	 * https://github.com/recharts/recharts/issues/7362
+	 * The user-provided domain could not be resolved without data - it's a function
+	 * bound or one of 'auto'/'dataMin'/'dataMax' - and there is no data domain to
+	 * resolve it from: empty or all-null data, and no domain-extending reference
+	 * elements. If the axis opted into data overflow and supplied an explicit numeric
+	 * `ticks` array, fall back to the ticks' [min, max] extent so the explicit tick
+	 * ladder still renders, mirroring what a literal numeric domain already does.
+	 */
+	if (axisSettings.allowDataOverflow && mergedDomains == null && numericTicksDomain != null) {
+		return numericTicksDomain
+	}
+
+	return parsedDomain
+}
+
+/**
+ * https://github.com/recharts/recharts/issues/7362
+ * Derives the [min, max] extent of an axis's explicit numeric `ticks`. Used by
+ * {@link combineNumericalDomain} as a last-resort domain when a non-literal domain
+ * cannot be resolved without data. Returns undefined for non-number axes, or when
+ * no numeric ticks were supplied.
+ */
+export const combineNumericTicksDomain = (
+	axisSettings: BaseCartesianAxis | undefined,
+): NumberDomain | undefined => {
+	if (axisSettings == null || axisSettings.type !== "number" || !("ticks" in axisSettings)) {
+		return undefined
+	}
+	const ticks = (axisSettings as { ticks?: ReadonlyArray<unknown> }).ticks
+	if (ticks == null) {
+		return undefined
+	}
+	const numericTicks = onlyAllowNumbers(ticks)
+	if (numericTicks.length === 0) {
+		return undefined
+	}
+	return [Math.min(...numericTicks), Math.max(...numericTicks)]
+}
+
+export function selectNumericTicksDomain(
+	state: ChartState,
+	axisType: AllAxisTypes,
+	axisId: AxisId,
+): NumberDomain | undefined {
+	return combineNumericTicksDomain(selectBaseAxis(state, axisType, axisId))
 }
 
 export function selectNumericalDomain(
@@ -1162,6 +1283,7 @@ export function selectNumericalDomain(
 		selectReferenceElementsDomain(state, axisType, axisId),
 		selectChartLayout(state),
 		axisType,
+		selectNumericTicksDomain(state, axisType, axisId),
 	)
 }
 
@@ -1198,7 +1320,7 @@ export const combineAxisDomain = (
 		return computeDomainOfTypeCategory(allAppliedValues, axisSettings, isCategorical)
 	}
 
-	if (stackOffsetType === "expand") {
+	if (stackOffsetType === "expand" && !isCategorical) {
 		return expandDomain
 	}
 	return numericalDomain
@@ -1238,33 +1360,50 @@ export const combineNiceTicks = (
 	axisSettings: RenderableAxisSettings,
 	realScaleType: string | undefined,
 ): ReadonlyArray<number> | undefined => {
-	const domainDefinition: AxisDomain = getDomainDefinition(axisSettings)
+	const niceTicks = axisSettings?.niceTicks
 
-	if (realScaleType !== "auto" && realScaleType !== "linear") {
+	if (niceTicks === "none") {
 		return undefined
 	}
 
-	if (
-		axisSettings != null &&
-		axisSettings.tickCount &&
-		Array.isArray(domainDefinition) &&
-		(domainDefinition[0] === "auto" || domainDefinition[1] === "auto") &&
-		isWellFormedNumberDomain(axisDomain)
-	) {
-		return getNiceTickValues(axisDomain, axisSettings.tickCount, axisSettings.allowDecimals)
-	}
+	const domainDefinition: AxisDomain = getDomainDefinition(axisSettings)
+	const hasDomainAutoKeyword =
+		Array.isArray(domainDefinition) && (domainDefinition[0] === "auto" || domainDefinition[1] === "auto")
 
 	if (
+		(niceTicks === "snap125" || niceTicks === "adaptive") &&
 		axisSettings != null &&
 		axisSettings.tickCount &&
-		axisSettings.type === "number" &&
 		isWellFormedNumberDomain(axisDomain)
 	) {
-		return getTickValuesFixedDomain(
-			axisDomain as NumberDomain,
-			axisSettings.tickCount,
-			axisSettings.allowDecimals,
-		)
+		if (hasDomainAutoKeyword) {
+			return getNiceTickValues(axisDomain, axisSettings.tickCount, axisSettings.allowDecimals, niceTicks)
+		}
+		if (axisSettings.type === "number") {
+			return getTickValuesFixedDomain(
+				axisDomain as NumberDomain,
+				axisSettings.tickCount,
+				axisSettings.allowDecimals,
+				niceTicks,
+			)
+		}
+	}
+
+	if (niceTicks === "auto" && realScaleType === "linear" && axisSettings != null && axisSettings.tickCount) {
+		/* Apply nice ticks when the domain contains an 'auto' keyword (may extend the domain),
+		   or for any fixed number-type axis. Always the space-efficient (adaptive) algorithm. */
+		if (hasDomainAutoKeyword && isWellFormedNumberDomain(axisDomain)) {
+			return getNiceTickValues(axisDomain, axisSettings.tickCount, axisSettings.allowDecimals, "adaptive")
+		}
+
+		if (axisSettings.type === "number" && isWellFormedNumberDomain(axisDomain)) {
+			return getTickValuesFixedDomain(
+				axisDomain as NumberDomain,
+				axisSettings.tickCount,
+				axisSettings.allowDecimals,
+				"adaptive",
+			)
+		}
 	}
 
 	return undefined
@@ -2260,4 +2399,12 @@ export function selectAxisInverseTickSnapScale(
 		}
 		return closestTick?.value
 	}
+}
+
+export function selectRenderedTicksOfAxis(
+	state: ChartState,
+	axisType: "xAxis" | "yAxis",
+	axisId: AxisId,
+): ReadonlyArray<TickItem> | undefined {
+	return readChartState(state).renderedTicks[axisType]?.[String(axisId)]
 }

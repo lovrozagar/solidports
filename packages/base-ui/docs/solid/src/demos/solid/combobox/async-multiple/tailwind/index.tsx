@@ -1,4 +1,5 @@
-import { createSignal, createMemo, createUniqueId, type JSX } from 'solid-js';
+import { createSignal, createMemo, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -42,7 +43,7 @@ export default function ExampleAsyncMultipleCombobox() {
       return (
         <>
           <span
-            aria-hidden
+            aria-hidden="true"
             class="inline-block size-3 animate-[spin_0.75s_linear_infinite] rounded-full border border-current border-r-transparent"
           />
           Searching…
@@ -152,7 +153,6 @@ export default function ExampleAsyncMultipleCombobox() {
               >
                 {(Array.isArray(value) ? value : []).map((user) => (
                   <Combobox.Chip
-                    key={user.id}
                     class="group flex min-h-[calc(1.5rem-2px)] cursor-default items-center gap-1 overflow-hidden bg-neutral-100 py-0 pr-[0.2rem] pl-[0.4rem] text-sm leading-none text-neutral-950 outline-none focus-within:bg-neutral-950 focus-within:text-white [@media(hover:hover)]:data-highlighted:bg-neutral-950 [@media(hover:hover)]:data-highlighted:text-white dark:bg-neutral-800 dark:text-white dark:focus-within:bg-white dark:focus-within:text-neutral-950 dark:[@media(hover:hover)]:data-highlighted:bg-white dark:[@media(hover:hover)]:data-highlighted:text-neutral-950"
                     aria-label={user.name}
                     aria-description="Press Backspace or Delete to remove"
@@ -206,7 +206,6 @@ export default function ExampleAsyncMultipleCombobox() {
               <Combobox.List>
                 {(user: DirectoryUser) => (
                   <Combobox.Item
-                    key={user.id}
                     value={user}
                     class="grid cursor-default grid-cols-[1rem_1fr] items-start gap-2 px-2 py-2 text-sm leading-[1.2rem] outline-none select-none [@media(hover:hover)]:data-highlighted:relative [@media(hover:hover)]:data-highlighted:z-0 [@media(hover:hover)]:data-highlighted:text-neutral-950 [@media(hover:hover)]:data-highlighted:before:absolute [@media(hover:hover)]:data-highlighted:before:inset-0 [@media(hover:hover)]:data-highlighted:before:z-[-1] [@media(hover:hover)]:data-highlighted:before:bg-neutral-100 dark:[@media(hover:hover)]:data-highlighted:text-white dark:[@media(hover:hover)]:data-highlighted:before:bg-neutral-800"
                   >

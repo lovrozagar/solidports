@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { adaptiveOrigin } from '../../utils/adaptiveOriginMiddleware';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
@@ -138,9 +138,9 @@ export function TooltipPositioner(componentProps: TooltipPositioner.Props) {
   });
 
   return (
-    <TooltipPositionerContext.Provider value={contextValue}>
+    <TooltipPositionerContext value={contextValue}>
       {element()}
-    </TooltipPositionerContext.Provider>
+    </TooltipPositionerContext>
   );
 }
 

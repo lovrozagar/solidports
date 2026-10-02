@@ -1,4 +1,5 @@
-import { createSignal, createUniqueId, type JSX } from 'solid-js';
+import { createSignal, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -35,7 +36,7 @@ export default function ExampleAutocompleteCommandPalette() {
               <Autocomplete.InputGroup class="relative z-1 flex cursor-text items-center gap-2 bg-white pl-3 focus-within:outline-2 focus-within:outline-solid focus-within:-outline-offset-1 focus-within:outline-neutral-950 dark:bg-neutral-950 dark:focus-within:outline-white">
                 <MagnifyingGlassIcon
                   class="h-4 w-4 shrink-0 text-neutral-500 dark:text-neutral-400"
-                  aria-hidden
+                  aria-hidden="true"
                 />
                 <Autocomplete.Input
                   class="h-10 w-full border-0 bg-transparent pr-3 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 outline-none placeholder:text-neutral-500 dark:text-white dark:placeholder:text-neutral-400"
@@ -48,7 +49,7 @@ export default function ExampleAutocompleteCommandPalette() {
 
               <ScrollArea.Root class="relative flex max-h-[min(60dvh,24rem)] min-h-0 flex-[0_1_auto] overflow-hidden border-t border-neutral-950 dark:border-t-white">
                 <ScrollArea.Viewport class="min-h-0 flex-1 overscroll-contain [scroll-padding-block:0.25rem] focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white">
-                  <ScrollArea.Content style={{ minWidth: '100%' }}>
+                  <ScrollArea.Content style={{ "min-width": '100%' }}>
                     <Autocomplete.Empty>
                       <div class="flex min-h-32 items-center justify-start py-4 pr-4 pl-2 text-sm leading-4 text-neutral-500 dark:text-neutral-400">
                         No results found.
@@ -58,7 +59,6 @@ export default function ExampleAutocompleteCommandPalette() {
                     <Autocomplete.List class="py-1">
                       {(group: Group) => (
                         <Autocomplete.Group
-                          key={group.value}
                           items={group.items}
                           class="not-last:mb-1"
                         >
@@ -68,7 +68,6 @@ export default function ExampleAutocompleteCommandPalette() {
                           <Autocomplete.Collection>
                             {(item: Item) => (
                               <Autocomplete.Item
-                                key={item.value}
                                 value={item}
                                 onClick={handleItemClick}
                                 class="group grid min-h-8 cursor-default grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-6 text-sm font-normal leading-[1.25] outline-none select-none [scroll-margin-block:0.25rem] data-highlighted:bg-neutral-200 dark:data-highlighted:bg-neutral-700"

@@ -1,4 +1,5 @@
-import { createEffect, createMemo, createSignal, onCleanup, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { COMPOSITE_KEYS } from '../../internals/composite/composite';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { FloatingFocusManager } from '../../floating-ui-solid';
@@ -155,7 +156,10 @@ export function DrawerPopup(componentProps: DrawerPopup.Props) {
     onPopupHeightChange(nextHeight);
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!mounted()) {
       popupHeightRef = 0;
       setPopupHeight(0);
@@ -178,12 +182,21 @@ export function DrawerPopup(componentProps: DrawerPopup.Props) {
     const resizeObserver = new ResizeObserver(measureHeight);
 
     resizeObserver.observe(popupElement);
-    onCleanup(() => {
+    _c.push(() => {
       resizeObserver.disconnect();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const popupRef = store.context.popupRef.current;
 
     const syncNestedSwipeProgress = () => {
@@ -204,27 +217,45 @@ export function DrawerPopup(componentProps: DrawerPopup.Props) {
 
     syncNestedSwipeProgress();
 
-    onCleanup(() => {
+    _c.push(() => {
       const popupElement = popupRef;
       if (popupElement) {
         popupElement.style.setProperty(DrawerBackdropCssVars.swipeProgress, '0');
       }
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!open()) {
       return;
     }
 
     notifyParentFrontmostHeight?.(frontmostHeight());
 
-    onCleanup(() => {
+    _c.push(() => {
       notifyParentFrontmostHeight?.(0);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!notifyParentHasNestedDrawer) {
       return;
     }
@@ -232,10 +263,16 @@ export function DrawerPopup(componentProps: DrawerPopup.Props) {
     const present = open() || transitionStatus() === 'ending';
     notifyParentHasNestedDrawer(present);
 
-    onCleanup(() => {
+    _c.push(() => {
       notifyParentHasNestedDrawer(false);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   useOpenChangeComplete({
     onComplete() {
@@ -347,7 +384,7 @@ export function DrawerPopup(componentProps: DrawerPopup.Props) {
           get role() {
             return role();
           },
-          tabIndex: -1,
+          tabindex: -1,
           get hidden() {
             return !mounted();
           },

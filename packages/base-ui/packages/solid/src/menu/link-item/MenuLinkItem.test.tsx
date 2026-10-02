@@ -1,6 +1,6 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
-import { A, Route, Router, useLocation } from '@solidjs/router';
+import { createRouter, memoryHistory, useLocation } from '@solidjs/router';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 
@@ -26,11 +26,12 @@ describe('<Menu.LinkItem />', () => {
       return <div data-testid="location">{location.pathname}</div>;
     }
 
-    it.skipIf(isJSDOM)('@solidjs/router <A>', async () => {
-      const { user } = render(() => (
-        <Router>
-          <Route
-            component={(props) => (
+    it.skipIf(isJSDOM)('@solidjs/router <a>', async () => {
+      const TestRouter = createRouter({
+        history: memoryHistory('/'),
+        routes: [
+          {
+            component: (props) => (
               <>
                 {props.children}
                 <LocationDisplay />
@@ -39,20 +40,23 @@ describe('<Menu.LinkItem />', () => {
                   <Menu.Portal>
                     <Menu.Positioner>
                       <Menu.Popup>
-                        <Menu.Item render={{ component: A, href: '/' }}>link 1</Menu.Item>
-                        <Menu.Item render={{ component: A, href: '/two' }}>link 2</Menu.Item>
+                        <Menu.LinkItem href="/">link 1</Menu.LinkItem>
+                        <Menu.LinkItem href="/two">link 2</Menu.LinkItem>
                       </Menu.Popup>
                     </Menu.Positioner>
                   </Menu.Portal>
                 </Menu.Root>
               </>
-            )}
-          >
-            <Route path="/" component={One} />
-            <Route path="/two" component={Two} />
-          </Route>
-        </Router>
-      ));
+            ),
+            children: [
+              { path: '/', component: One },
+              { path: '/two', component: Two },
+            ],
+          },
+        ],
+      });
+
+      const { user } = render(() => <TestRouter />);
 
       const link1 = () => screen.getAllByRole('menuitem')[0];
       const link2 = () => screen.getAllByRole('menuitem')[1];

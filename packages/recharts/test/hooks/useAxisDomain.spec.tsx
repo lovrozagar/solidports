@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it } from "vitest"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
 import { Brush, Line, LineChart, XAxis, YAxis } from "../../src"
@@ -411,8 +411,7 @@ describe("axis domain hooks", () => {
 			expectLastCalledWith(spy, [0, 300])
 		})
 	})
-	/* Cluster C: panorama. */
-	describe.skip("with data filtered by a brush, when used inside the brush panorama", () => {
+	describe("with data filtered by a brush, when used inside the brush panorama", () => {
 		const renderTestCase = createSelectorTestCase((props) => (
 			<LineChart width={500} height={300} data={PageData}>
 				<Line dataKey="uv" />

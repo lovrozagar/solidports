@@ -1,7 +1,10 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { MockInstance, vi, beforeEach, describe, it, test, expect, Mock } from "vitest"
-import { splitProps, createEffect } from "solid-js"
-import { screen, render, fireEvent } from "@solidjs/testing-library"
+import { createSignal, flush, Show } from "solid-js"
+import { observe } from "../../helper/observe"
+import { trackSpy } from "../../helper/trackSpy"
+
+import { screen, render, fireEvent } from "../../helper/render"
 import {
 	BarChart,
 	ReferenceLine,
@@ -29,6 +32,7 @@ import { PageData } from "../../_data"
 import { userEventSetup } from "../../helper/userEventSetup"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
 
+import { splitProps } from '../../../src/util/solid-1-compat';
 type ExpectedReferenceLine = {
 	x1: string
 	x2: string
@@ -484,18 +488,20 @@ describe("<ReferenceLine />", () => {
 		expect(topTick.textContent).toEqual("105")
 	})
 	describe("state integration", () => {
-		/* Cluster D: rerender unsupported in solid testing-library. */
-		it.skip("should report its settings to Redux state, and remove it after removing from DOM", () => {
+		it("should report its settings to Redux state, and remove it after removing from DOM", () => {
 			const lineSpy = vi.fn()
 			const Comp = (): null => {
-				lineSpy(useAppSelector((state) => selectReferenceLinesByAxis(state, "yAxis", 0)))
+				trackSpy(lineSpy, () => useAppSelector((state) => selectReferenceLinesByAxis(state, "yAxis", 0)))
 				return null
 			}
-			const { rerender } = render(() => (
+			const [showLine, setShowLine] = createSignal(true)
+			render(() => (
 				<BarChart width={1100} height={250}>
 					<XAxis />
 					<YAxis />
-					<ReferenceLine y={20} ifOverflow="extendDomain" />
+					<Show when={showLine()}>
+						<ReferenceLine y={20} ifOverflow="extendDomain" />
+					</Show>
 					<Customized component={Comp} />
 				</BarChart>
 			))
@@ -511,21 +517,17 @@ describe("<ReferenceLine />", () => {
 			])
 			expect(lineSpy).toHaveBeenCalledTimes(2)
 
-			rerender(() => (
-				<BarChart width={1100} height={250}>
-					<XAxis />
-					<YAxis />
-					<Customized component={Comp} />
-				</BarChart>
-			))
+			setShowLine(false)
+			flush()
 
 			expect(lineSpy).toHaveBeenLastCalledWith([])
-			expect(lineSpy).toHaveBeenCalledTimes(4)
+			/* one selector update per removal; React's rerender adds an unchanged pass */
+			expect(lineSpy).toHaveBeenCalledTimes(3)
 		})
 		it("should report segment prop to Redux state", () => {
 			const lineSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() =>
+				observe(() =>
 					lineSpy(useAppSelector((state) => selectReferenceLinesByAxis(state, "yAxis", 0))),
 				)
 				return null
@@ -560,8 +562,7 @@ describe("<ReferenceLine />", () => {
 			])
 		})
 	})
-	/* Cluster C */
-	describe.skip("panorama", () => {
+	describe("panorama", () => {
 		it("should render two ReferenceLines in a Brush panorama", () => {
 			const brushDimensionsSpy = vi.fn()
 			const brushPaddingSpy = vi.fn()
@@ -570,24 +571,16 @@ describe("<ReferenceLine />", () => {
 			const rootXAxisRangeSpy = vi.fn()
 			const panoramaXAxisRangeSpy = vi.fn()
 			const RootComp = (): null => {
-				brushDimensionsSpy(useAppSelector(selectBrushDimensions))
-				brushPaddingSpy(useAppSelector(selectBrushSettings)?.padding)
-				rootYAxisRangeSpy(
-					useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, false)),
-				)
-				rootXAxisRangeSpy(
-					useAppSelector((state) => selectAxisRangeWithReverse(state, "xAxis", 0, false)),
-				)
+				trackSpy(brushDimensionsSpy, () => useAppSelector(selectBrushDimensions))
+				trackSpy(brushPaddingSpy, () => useAppSelector(selectBrushSettings)?.padding)
+				trackSpy(rootYAxisRangeSpy, () => useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, false)))
+				trackSpy(rootXAxisRangeSpy, () => useAppSelector((state) => selectAxisRangeWithReverse(state, "xAxis", 0, false)))
 				return null
 			}
 
 			const PanoramaComp = (): null => {
-				panoramaYAxisRangeSpy(
-					useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, true)),
-				)
-				panoramaXAxisRangeSpy(
-					useAppSelector((state) => selectAxisRangeWithReverse(state, "xAxis", 0, true)),
-				)
+				trackSpy(panoramaYAxisRangeSpy, () => useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, true)))
+				trackSpy(panoramaXAxisRangeSpy, () => useAppSelector((state) => selectAxisRangeWithReverse(state, "xAxis", 0, true)))
 				return null
 			}
 

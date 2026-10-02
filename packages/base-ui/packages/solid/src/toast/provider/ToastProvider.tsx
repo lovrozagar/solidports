@@ -1,4 +1,5 @@
-import { createEffect, onCleanup, type JSX } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { ToastManager, ToastManagerEvent } from '../createToastManager';
 import { ToastStore } from '../store';
 import { ToastContext } from './ToastProviderContext';
@@ -47,16 +48,25 @@ export function ToastProvider(props: ToastProvider.Props) {
 
   store.useSyncedValues({ limit, timeout });
 
-  createEffect(function subscribeToToastManager() {
+  createTrackedEffect(function subscribeToToastManager() {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!props.toastManager) {
       return;
     }
 
     const unsubscribe = props.toastManager[' subscribe'](onUnsubscribe);
-    onCleanup(unsubscribe);
-  });
+    _c.push(unsubscribe);
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  return <ToastContext.Provider value={store}>{props.children}</ToastContext.Provider>;
+  return <ToastContext value={store}>{props.children}</ToastContext>;
 }
 
 export interface ToastProviderProps {

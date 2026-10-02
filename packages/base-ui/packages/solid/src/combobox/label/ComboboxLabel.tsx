@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, splitProps } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { fieldValidityMapping } from '../../field/utils/constants';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -7,6 +7,7 @@ import { getDefaultLabelId } from '../../utils/resolveAriaLabelledBy';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useComboboxRootContext } from '../root/ComboboxRootContext';
+import { splitProps } from '../../solid-1-compat';
 
 /**
  * An accessible label that is automatically associated with the combobox trigger.
@@ -28,15 +29,24 @@ export function ComboboxLabel(componentProps: ComboboxLabel.Props) {
   const rootId = store.useSelector('id');
   const defaultLabelId = () => getDefaultLabelId(rootId());
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const id = defaultLabelId();
     if (id) {
       setLabelId(id);
     }
-    onCleanup(() => {
+    _c.push(() => {
       setLabelId(undefined);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const element = useRenderElement('div', componentProps, {
     get props() {

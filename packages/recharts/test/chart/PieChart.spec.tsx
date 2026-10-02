@@ -1,8 +1,10 @@
-/* @jsxImportSource solid-js */
-import { fireEvent } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { fireEvent } from "../helper/render"
+import { flush } from "solid-js"
 import { expect, Mock, vi } from "vitest"
 import {
 	Cell,
+	Label,
 	Legend,
 	Pie,
 	PieChart,
@@ -83,6 +85,38 @@ describe("<PieChart />", () => {
 			{ endAngle: 0, startAngle: 270 },
 		])
 	})
+	test("minAngle does not shift segments when all are already above the threshold", () => {
+		// https://github.com/recharts/recharts/issues/6814
+		// data [300, 30, 20, 10], sum = 360 → natural angles = [300°, 30°, 20°, 10°]
+		// All natural angles are above minAngle=9, so no redistribution should happen
+		const { container } = rechartsTestRender(() => (
+			<PieChart width={800} height={400}>
+				<Pie
+					dataKey="value"
+					isAnimationActive={false}
+					data={[
+						{ name: "A", value: 300 },
+						{ name: "B", value: 30 },
+						{ name: "C", value: 20 },
+						{ name: "D", value: 10 },
+					]}
+					cx={200}
+					cy={200}
+					outerRadius={80}
+					fill="#ff7300"
+					minAngle={9}
+				/>
+			</PieChart>
+		))
+
+		expectPieSectorAngles(container, [
+			{ endAngle: 300, startAngle: 0 },
+			{ endAngle: 330, startAngle: 300 },
+			{ endAngle: 350, startAngle: 330 },
+			{ endAngle: 0, startAngle: 350 },
+		])
+	})
+
 	test("Renders 6 sectors circles in simple PieChart", () => {
 		const { container } = rechartsTestRender(() => (
 			<PieChart width={800} height={400}>
@@ -108,8 +142,7 @@ describe("<PieChart />", () => {
 			{ d: "M 263.1063,259.9878 A 80,80,0, 0,0, 285,205 L 205,205 Z" },
 		])
 	})
-	/* Cluster C/D: activeShape vNode/function patterns + tooltip-driven reactivity. */
-	describe.skip("active shape interactions", () => {
+	describe("active shape interactions", () => {
 		function assertActiveShapeInteractions(container: HTMLElement, selectors: string) {
 			const sectorNodes = container.querySelectorAll(".recharts-pie-sector")
 			expect(sectorNodes.length).toBeGreaterThanOrEqual(2)
@@ -211,8 +244,7 @@ describe("<PieChart />", () => {
 			assertActiveShapeInteractions(container, ".recharts-active-shape")
 		})
 	})
-	/* Cluster A-adjacent: Pie + Cell children-context (similar root to ErrorBar). */
-	test.skip("Renders 6 sectors circles when add Cell to specified props of each slice", () => {
+	test("Renders 6 sectors circles when add Cell to specified props of each slice", () => {
 		const { container } = rechartsTestRender(() => (
 			<PieChart width={800} height={400}>
 				<Pie
@@ -274,6 +306,7 @@ describe("<PieChart />", () => {
 			expectLastCalledWith(spy, [
 				{
 					color: "#808080",
+					dataKey: "value",
 					payload: {
 						name: "Group A",
 						value: 0,
@@ -283,6 +316,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#808080",
+					dataKey: "value",
 					payload: {
 						name: "Group B",
 						value: 0,
@@ -292,6 +326,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#808080",
+					dataKey: "value",
 					payload: {
 						name: "Group C",
 						value: 0,
@@ -301,6 +336,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#808080",
+					dataKey: "value",
 					payload: {
 						name: "Group D",
 						value: 0,
@@ -310,6 +346,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#808080",
+					dataKey: "value",
 					payload: {
 						name: "Group E",
 						value: 0,
@@ -319,6 +356,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#808080",
+					dataKey: "value",
 					payload: {
 						name: "Group F",
 						value: 0,
@@ -386,6 +424,7 @@ describe("<PieChart />", () => {
 			expectLastCalledWith(spy, [
 				{
 					color: "#ff7300",
+					dataKey: "value",
 					payload: {
 						name: "Group A",
 						v: 89,
@@ -396,6 +435,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#ff7300",
+					dataKey: "value",
 					payload: {
 						name: "Group B",
 						v: 100,
@@ -406,6 +446,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#ff7300",
+					dataKey: "value",
 					payload: {
 						name: "Group C",
 						v: 200,
@@ -416,6 +457,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#ff7300",
+					dataKey: "value",
 					payload: {
 						name: "Group D",
 						v: 20,
@@ -426,6 +468,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#ff7300",
+					dataKey: "value",
 					payload: {
 						name: "Group E",
 						v: 40,
@@ -436,6 +479,7 @@ describe("<PieChart />", () => {
 				},
 				{
 					color: "#ff7300",
+					dataKey: "value",
 					payload: {
 						name: "Group F",
 						v: 60,
@@ -446,6 +490,74 @@ describe("<PieChart />", () => {
 				},
 			])
 		})
+		describe("issue #7056 - dataKey in Legend payload for PieChart", () => {
+			const renderIssueTestCase = createSelectorTestCase((props: { children: any }) => (
+				<PieChart width={400} height={400}>
+					<Pie
+						id="issue-pie"
+						dataKey="visits"
+						data={[
+							{ browser: "chrome", visits: 2764 },
+							{ browser: "safari", visits: 4048 },
+						]}
+						cx={200}
+						cy={200}
+						outerRadius={80}
+						fill="#ff7300"
+					/>
+					<Legend />
+					{props.children}
+				</PieChart>
+			))
+
+			test("Legend payload should contain dataKey", () => {
+				const { spy } = renderIssueTestCase((state) => selectPieLegend(state, "issue-pie", undefined))
+				expectLastCalledWith(spy, [
+					expect.objectContaining({ dataKey: "visits" }),
+					expect.objectContaining({ dataKey: "visits" }),
+				])
+			})
+
+			test("Legend payload dataKey matches the Pie dataKey prop", () => {
+				const { spy } = renderIssueTestCase((state) => selectPieLegend(state, "issue-pie", undefined))
+				const payload = spy.mock.lastCall?.[0]
+				expect(payload).toBeDefined()
+				payload?.forEach((entry: { dataKey: unknown }) => {
+					expect(entry.dataKey).toBe("visits")
+				})
+			})
+
+			test("Legend payload should contain dataKey even when dataKey is a function", () => {
+				const dataKeyFn = (d: { browser: string; visits: number }) => d.visits
+				const renderFnTestCase = createSelectorTestCase((props: { children: any }) => (
+					<PieChart width={400} height={400}>
+						<Pie
+							id="fn-pie"
+							dataKey={dataKeyFn}
+							data={[
+								{ browser: "chrome", visits: 2764 },
+								{ browser: "safari", visits: 4048 },
+							]}
+							cx={200}
+							cy={200}
+							outerRadius={80}
+							fill="#ff7300"
+						/>
+						<Legend />
+						{props.children}
+					</PieChart>
+				))
+
+				const { spy } = renderFnTestCase((state) => selectPieLegend(state, "fn-pie", undefined))
+				const payload = spy.mock.lastCall?.[0]
+				expect(payload).toBeDefined()
+				payload?.forEach((entry: { dataKey: unknown }) => {
+					expect(entry.dataKey).toBe(dataKeyFn)
+					expect(typeof entry.dataKey).toBe("function")
+				})
+			})
+		})
+
 		test("Renders 6 legend items", () => {
 			const { container } = renderTestCase()
 
@@ -479,8 +591,7 @@ describe("<PieChart />", () => {
 		expect(container.querySelectorAll(".recharts-tooltip-wrapper")).toHaveLength(1)
 		expect(container.querySelectorAll(".recharts-default-tooltip")).toHaveLength(1)
 	})
-	/* Cluster D: mouse events on Pie sectors — handler propagation. */
-	describe.skip("mouse events", () => {
+	describe("mouse events", () => {
 		const getPieChart = (eventProps: {
 			onClick?: Mock
 			onMouseEnter?: Mock
@@ -517,6 +628,7 @@ describe("<PieChart />", () => {
 			await user.hover(sector)
 			await user.click(container.querySelector(".recharts-layer .recharts-active-shape")!)
 			vi.advanceTimersByTime(0)
+			flush()
 
 			expect(onClick).toHaveBeenCalledTimes(1)
 			expect(onClick).toHaveBeenLastCalledWith(
@@ -546,6 +658,7 @@ describe("<PieChart />", () => {
 			expect(onMouseEnter).toHaveBeenCalledTimes(0)
 			await user.hover(sector)
 			vi.advanceTimersByTime(0)
+			flush()
 
 			expect(onMouseEnter).toHaveBeenCalledTimes(1)
 			const firstArg = onMouseEnter.mock.calls[0][0]
@@ -560,178 +673,260 @@ describe("<PieChart />", () => {
 				activeTooltipIndex: "2",
 				isTooltipActive: true,
 			})
-			test("onMouseLeave Sector should invoke onMouseLeave callback", async () => {
-				const user = userEventSetup()
-				const onMouseLeave = vi.fn()
-
-				const { container } = rechartsTestRender(getPieChart({ onMouseLeave }))
-				const sectors = container.querySelectorAll(".recharts-sector")
-				const sector = sectors[2]
-
-				// need to hover first to make the sector active because active shapes have an extra layer that events
-				// don't seem to bubble through in tests
-				await user.hover(sector)
-				expect(onMouseLeave).toHaveBeenCalledTimes(0)
-				await user.hover(container.querySelector(".recharts-layer .recharts-active-shape")!)
-				vi.advanceTimersByTime(0)
-
-				expect(onMouseLeave).toHaveBeenCalledTimes(1)
-				await user.unhover(sector)
-				vi.advanceTimersByTime(0)
-
-				expect(onMouseLeave).toHaveBeenCalledTimes(2)
-				expect(onMouseLeave).toHaveBeenLastCalledWith(
-					{
-						activeCoordinate: { x: 165.08751071020006, y: 207.64446567223055 },
-						activeDataKey: undefined,
-						activeIndex: null,
-						activeLabel: undefined,
-						activeTooltipIndex: null,
-						isTooltipActive: false,
-					},
-					// second argument is the synthetic event from React
-					expect.any(Object),
-				)
-			})
 		})
-		describe("PieChart layout context", () => {
-			const renderTestCase = createSelectorTestCase((props) => (
-				<PieChart width={100} height={50} barSize={20}>
-					{props.children}
-				</PieChart>
-			))
+		test("onMouseLeave Sector should invoke onMouseLeave callback", async () => {
+			const user = userEventSetup()
+			const onMouseLeave = vi.fn()
 
-			it("should provide viewBox", () => {
-				const { spy } = renderTestCase(useViewBox)
+			const { container } = rechartsTestRender(getPieChart({ onMouseLeave }))
+			const sectors = container.querySelectorAll(".recharts-sector")
+			const sector = sectors[2]
 
-				expectLastCalledWith(spy, { height: 40, width: 90, x: 5, y: 5 })
-				expect(spy).toHaveBeenCalledTimes(1)
-			})
-			it("should provide clipPathId", () => {
-				const { spy } = renderTestCase(useClipPathId)
+			// need to hover first to make the sector active because active shapes have an extra layer that events
+			// don't seem to bubble through in tests
+			await user.hover(sector)
+			expect(onMouseLeave).toHaveBeenCalledTimes(0)
+			await user.hover(container.querySelector(".recharts-layer .recharts-active-shape")!)
+			vi.advanceTimersByTime(0)
+			flush()
 
-				expectLastCalledWith(spy, expect.stringMatching(/recharts\d+-clip/))
-				expect(spy).toHaveBeenCalledTimes(1)
-			})
-			it("should provide chart width", () => {
-				const { spy } = renderTestCase(useChartWidth)
+			/* Upstream counts a chart leave here: React derives it from the mouseout of the sector
+			   node the active shape just replaced. The pointer never leaves the chart, and native
+			   events do not report a leave. */
+			expect(onMouseLeave).toHaveBeenCalledTimes(0)
+			await user.unhover(sector)
+			vi.advanceTimersByTime(0)
+			flush()
 
-				expectLastCalledWith(spy, 100)
-				expect(spy).toHaveBeenCalledTimes(1)
-			})
-			it("should provide chart height", () => {
-				const { spy } = renderTestCase(useChartHeight)
-
-				expectLastCalledWith(spy, 50)
-				expect(spy).toHaveBeenCalledTimes(1)
-			})
+			expect(onMouseLeave).toHaveBeenCalledTimes(1)
+			expect(onMouseLeave).toHaveBeenLastCalledWith(
+				{
+					activeCoordinate: { x: 165.08751071020006, y: 207.64446567223055 },
+					activeDataKey: undefined,
+					activeIndex: null,
+					activeLabel: undefined,
+					activeTooltipIndex: null,
+					isTooltipActive: false,
+				},
+				// second argument is the synthetic event from React
+				expect.any(Object),
+			)
 		})
-		test("classNames can be given to label and labelLine.", () => {
+	})
+	describe("PieChart layout context", () => {
+		const renderTestCase = createSelectorTestCase((props) => (
+			<PieChart width={100} height={50} barSize={20}>
+				{props.children}
+			</PieChart>
+		))
+
+		it("should provide viewBox", () => {
+			const { spy } = renderTestCase(useViewBox)
+
+			expectLastCalledWith(spy, { height: 40, width: 90, x: 5, y: 5 })
+			expect(spy).toHaveBeenCalledTimes(1)
+		})
+		it("should provide clipPathId", () => {
+			const { spy } = renderTestCase(useClipPathId)
+
+			expectLastCalledWith(spy, expect.stringMatching(/recharts\d+-clip/))
+			expect(spy).toHaveBeenCalledTimes(1)
+		})
+		it("should provide chart width", () => {
+			const { spy } = renderTestCase(useChartWidth)
+
+			expectLastCalledWith(spy, 100)
+			expect(spy).toHaveBeenCalledTimes(1)
+		})
+		it("should provide chart height", () => {
+			const { spy } = renderTestCase(useChartHeight)
+
+			expectLastCalledWith(spy, 50)
+			expect(spy).toHaveBeenCalledTimes(1)
+		})
+	})
+	test("classNames can be given to label and labelLine.", () => {
+		const { container } = rechartsTestRender(() => (
+			<PieChart width={800} height={400}>
+				<Pie
+					dataKey="value"
+					isAnimationActive={false}
+					data={data}
+					cx={200}
+					cy={200}
+					outerRadius={80}
+					fill="#ff7300"
+					label={{ className: "label-custom-className" }}
+					labelLine={{ className: "label-line-custom-className" }}
+				/>
+				<Tooltip />
+			</PieChart>
+		))
+
+		expect(container.querySelectorAll(".label-custom-className")).toHaveLength(6)
+		expect(container.querySelectorAll(".label-line-custom-className")).toHaveLength(6)
+	})
+	describe("PieChart sector radius rendering", () => {
+		const assertSectorRadius = (element: Element, radius: number) => {
+			// Checks if the "d" attribute has an arc with the specified radius.
+			const dAttribute = element.getAttribute("d")
+			const arcRadius = new RegExp(`A ${radius},${radius}`)
+			expect(dAttribute).toMatch(arcRadius)
+		}
+
+		it("renders sectors with a constant radius", () => {
+			const outerRadius = 80
 			const { container } = rechartsTestRender(() => (
 				<PieChart width={800} height={400}>
 					<Pie
 						dataKey="value"
 						isAnimationActive={false}
-						data={data}
+						data={[
+							{ name: "Group A", value: 400 },
+							{ name: "Group B", value: 300 },
+						]}
 						cx={200}
 						cy={200}
-						outerRadius={80}
+						outerRadius={outerRadius}
 						fill="#ff7300"
-						label={{ className: "label-custom-className" }}
-						labelLine={{ className: "label-line-custom-className" }}
 					/>
-					<Tooltip />
 				</PieChart>
 			))
 
-			expect(container.querySelectorAll(".label-custom-className")).toHaveLength(6)
-			expect(container.querySelectorAll(".label-line-custom-className")).toHaveLength(6)
+			const elementA = container.querySelector('path[name="Group A"]')
+			assertNotNull(elementA)
+			assertSectorRadius(elementA, outerRadius)
+
+			const elementB = container.querySelector('path[name="Group B"]')
+			assertNotNull(elementB)
+			assertSectorRadius(elementB, outerRadius)
 		})
-		describe("PieChart sector radius rendering", () => {
-			const assertSectorRadius = (element: Element, radius: number) => {
-				// Checks if the "d" attribute has an arc with the specified radius.
-				const dAttribute = element.getAttribute("d")
-				const arcRadius = new RegExp(`A ${radius},${radius}`)
-				expect(dAttribute).toMatch(arcRadius)
-			}
-
-			it("renders sectors with a constant radius", () => {
-				const outerRadius = 80
-				const { container } = rechartsTestRender(() => (
-					<PieChart width={800} height={400}>
-						<Pie
-							dataKey="value"
-							isAnimationActive={false}
-							data={[
-								{ name: "Group A", value: 400 },
-								{ name: "Group B", value: 300 },
-							]}
-							cx={200}
-							cy={200}
-							outerRadius={outerRadius}
-							fill="#ff7300"
-						/>
-					</PieChart>
-				))
-
-				const elementA = container.querySelector('path[name="Group A"]')
-				assertNotNull(elementA)
-				assertSectorRadius(elementA, outerRadius)
-
-				const elementB = container.querySelector('path[name="Group B"]')
-				assertNotNull(elementB)
-				assertSectorRadius(elementB, outerRadius)
-			})
-			it("renders sectors with radius based on outerRadius function", () => {
-				const { container } = rechartsTestRender(() => (
-					<PieChart width={800} height={400}>
-						<Pie
-							dataKey="value"
-							isAnimationActive={false}
-							data={[
-								{ name: "Group A", value: 400 },
-								{ name: "Group B", value: 300 },
-							]}
-							cx={200}
-							cy={200}
-							outerRadius={(element: any) => {
-								return element.value / 10
-							}}
-							fill="#ff7300"
-						/>
-					</PieChart>
-				))
-
-				const elementA = container.querySelector('path[name="Group A"]')
-				assertNotNull(elementA)
-				assertSectorRadius(elementA, 40)
-
-				const elementB = container.querySelector('path[name="Group B"]')
-				assertNotNull(elementB)
-				assertSectorRadius(elementB, 30)
-			})
-		})
-		describe("without dataKey", () => {
-			const renderTestCase = createSelectorTestCase((props) => (
-				<PieChart width={100} height={100}>
+		it("renders sectors with radius based on outerRadius function", () => {
+			const { container } = rechartsTestRender(() => (
+				<PieChart width={800} height={400}>
 					<Pie
-						data={[
-							{ name: "A", value: 100 },
-							{ name: "B", value: 200 },
-						]}
-						cx={50}
-						cy={50}
-						outerRadius={40}
+						dataKey="value"
 						isAnimationActive={false}
+						data={[
+							{ name: "Group A", value: 400 },
+							{ name: "Group B", value: 300 },
+						]}
+						cx={200}
+						cy={200}
+						outerRadius={(element: any) => {
+							return element.value / 10
+						}}
+						fill="#ff7300"
 					/>
-					{props.children}
 				</PieChart>
 			))
 
-			it("should default to dataKey = value", () => {
-				const { container } = renderTestCase()
-				expect(selectPieSectors(container)).toHaveLength(2)
-			})
+			const elementA = container.querySelector('path[name="Group A"]')
+			assertNotNull(elementA)
+			assertSectorRadius(elementA, 40)
+
+			const elementB = container.querySelector('path[name="Group B"]')
+			assertNotNull(elementB)
+			assertSectorRadius(elementB, 30)
+		})
+	})
+	describe("without dataKey", () => {
+		const renderTestCase = createSelectorTestCase((props) => (
+			<PieChart width={100} height={100}>
+				<Pie
+					data={[
+						{ name: "A", value: 100 },
+						{ name: "B", value: 200 },
+					]}
+					cx={50}
+					cy={50}
+					outerRadius={40}
+					isAnimationActive={false}
+				/>
+				{props.children}
+			</PieChart>
+		))
+
+		it("should default to dataKey = value", () => {
+			const { container } = renderTestCase()
+			expect(selectPieSectors(container)).toHaveLength(2)
+		})
+	})
+	describe("Label children viewBox - issue #7445", () => {
+		test("should pass correct innerRadius to custom Label content when Pie has innerRadius set", () => {
+			const labelSpy = vi.fn().mockReturnValue(null)
+
+			rechartsTestRender(() => (
+				<PieChart width={400} height={400}>
+					<Pie
+						dataKey="value"
+						isAnimationActive={false}
+						data={[
+							{ name: "Group A", value: 400 },
+							{ name: "Group B", value: 300 },
+						]}
+						cx={200}
+						cy={200}
+						innerRadius={80}
+						outerRadius={120}
+					>
+						<Label content={labelSpy} />
+					</Pie>
+				</PieChart>
+			))
+
+			expect(labelSpy).toHaveBeenCalled()
+			const props = labelSpy.mock.calls[0][0]
+			expect(props.viewBox.innerRadius).toBe(80)
+			expect(props.viewBox.outerRadius).toBe(120)
+		})
+
+		test("should pass correct innerRadius of 0 when Pie has no innerRadius set", () => {
+			const labelSpy = vi.fn().mockReturnValue(null)
+
+			rechartsTestRender(() => (
+				<PieChart width={400} height={400}>
+					<Pie
+						dataKey="value"
+						isAnimationActive={false}
+						data={[
+							{ name: "Group A", value: 400 },
+							{ name: "Group B", value: 300 },
+						]}
+						cx={200}
+						cy={200}
+						outerRadius={120}
+					>
+						<Label content={labelSpy} />
+					</Pie>
+				</PieChart>
+			))
+
+			expect(labelSpy).toHaveBeenCalled()
+			const props = labelSpy.mock.calls[0][0]
+			expect(props.viewBox.innerRadius).toBe(0)
+		})
+
+		test("should render children directly when Pie has no sectors", () => {
+			const labelSpy = vi.fn().mockReturnValue(null)
+
+			rechartsTestRender(() => (
+				<PieChart width={400} height={400}>
+					<Pie
+						dataKey="value"
+						isAnimationActive={false}
+						data={[]}
+						cx={200}
+						cy={200}
+						outerRadius={120}
+					>
+						<Label content={labelSpy} />
+					</Pie>
+				</PieChart>
+			))
+
+			expect(labelSpy).not.toHaveBeenCalled()
 		})
 	})
 })
+

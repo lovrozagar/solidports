@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../../helper/render"
 import { Line, LineChart, XAxis, YAxis } from "../../../src"
 
 describe("YAxis interval={0} with custom ticks - comprehensive tests", () => {

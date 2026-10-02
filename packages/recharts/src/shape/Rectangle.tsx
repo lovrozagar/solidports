@@ -2,8 +2,10 @@
 /**
  * @fileOverview Rectangle
  */
-import type { JSX } from "solid-js"
-import { createEffect, createMemo, createSignal, mergeProps, Show, splitProps, untrack } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { useShapeElementProps } from "../util/ShapeElementProps"
+import type { WithoutRemoveFalse } from "../util/types"
+import { createMemo, createSignal, Show, untrack, createEffect } from 'solid-js';
 import { clsx } from "clsx"
 import type { AnimationDuration } from "../util/types"
 import { JavascriptAnimate } from "../animation/JavascriptAnimate"
@@ -14,6 +16,7 @@ import { getTransitionVal } from "../animation/util"
 import { svgPropertiesAndEvents } from "../util/svgPropertiesAndEvents"
 import { round, roundTemplateLiteral } from "../util/round"
 
+import { mergeProps, splitProps } from '../util/solid-1-compat';
 /**
  * @inline
  */
@@ -119,13 +122,15 @@ interface RectangleProps {
 	 */
 	radius?: RectRadius
 	/**
+	 * If set "auto", animation is disabled during SSR and when the user prefers reduced motion.
 	 * @defaultValue false
 	 */
-	isAnimationActive?: boolean
+	isAnimationActive?: boolean | "auto"
 	/**
+	 * If set "auto", animation is disabled during SSR and when the user prefers reduced motion.
 	 * @defaultValue false
 	 */
-	isUpdateAnimationActive?: boolean
+	isUpdateAnimationActive?: boolean | "auto"
 	/**
 	 * @defaultValue 0
 	 */
@@ -142,38 +147,38 @@ interface RectangleProps {
 	/**
 	 * The customized event handler of click on the rectangle
 	 */
-	onClick?: (e: MouseEvent) => void
+	onClick?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mousedown on the rectangle
 	 */
-	onMouseDown?: (e: MouseEvent) => void
+	onMouseDown?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseup on the rectangle
 	 */
-	onMouseUp?: (e: MouseEvent) => void
+	onMouseUp?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mousemove on the rectangle
 	 */
-	onMouseMove?: (e: MouseEvent) => void
+	onMouseMove?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseover on the rectangle
 	 */
-	onMouseOver?: (e: MouseEvent) => void
+	onMouseOver?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseout on the rectangle
 	 */
-	onMouseOut?: (e: MouseEvent) => void
+	onMouseOut?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseenter on the rectangle
 	 */
-	onMouseEnter?: (e: MouseEvent) => void
+	onMouseEnter?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseleave on the rectangle
 	 */
-	onMouseLeave?: (e: MouseEvent) => void
+	onMouseLeave?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 }
 
-export type Props = Omit<JSX.PathSVGAttributes<SVGPathElement>, "radius"> & RectangleProps
+export type Props = WithoutRemoveFalse<Omit<JSX.PathSVGAttributes<SVGPathElement>, "radius" | keyof RectangleProps>> & RectangleProps
 
 export const defaultRectangleProps = {
 	animationBegin: 0,
@@ -197,8 +202,8 @@ type ResolvedRectangleProps = Props & {
 	animationBegin: number
 	animationDuration: number
 	animationEasing: NonNullable<Props["animationEasing"]>
-	isAnimationActive: boolean
-	isUpdateAnimationActive: boolean
+	isAnimationActive: boolean | "auto"
+	isUpdateAnimationActive: boolean | "auto"
 }
 
 /* Static-path branch (when isUpdateAnimationActive=false). Rendered as its own
@@ -239,14 +244,22 @@ function RectanglePath(rpProps: { props: ResolvedRectangleProps; layerClass: () 
 	let prevW = NaN
 	let prevH = NaN
 	let prevR: number | undefined = undefined
-	createEffect(() => {
+	createEffect(
+		() => ({
+			height: rpProps.props.height,
+			radius: rpProps.props.radius,
+			width: rpProps.props.width,
+			x: rpProps.props.x,
+			y: rpProps.props.y,
+		}),
+		(geometry) => {
 		if (pathNode == null) return
-		const x = round(rpProps.props.x)
-		const y = round(rpProps.props.y)
-		const w = round(rpProps.props.width)
-		const h = round(rpProps.props.height)
-		const r = rpProps.props.radius
-		const d = getRectanglePath(rpProps.props.x, rpProps.props.y, rpProps.props.width, rpProps.props.height, r)
+		const x = round(geometry.x)
+		const y = round(geometry.y)
+		const w = round(geometry.width)
+		const h = round(geometry.height)
+		const r = geometry.radius
+		const d = getRectanglePath(geometry.x, geometry.y, geometry.width, geometry.height, r)
 		if (d !== prevD) {
 			pathNode.setAttribute("d", d)
 			prevD = d
@@ -271,7 +284,8 @@ function RectanglePath(rpProps: { props: ResolvedRectangleProps; layerClass: () 
 			pathNode.setAttribute("radius", String(r))
 			prevR = r
 		}
-	})
+		},
+	)
 	return (
 		<path
 			{...otherPathProps}
@@ -291,7 +305,9 @@ function RectanglePath(rpProps: { props: ResolvedRectangleProps; layerClass: () 
  * If you need to position the rectangle based on your chart's data,
  * consider using the {@link ReferenceArea} component instead.
  */
-export function Rectangle(rectangleProps: Props) {
+export function Rectangle(ownProps: Props) {
+	/* Props injected for a shape passed as an element (see ShapeElementProps). */
+	const rectangleProps = useShapeElementProps(ownProps)
 	/* mergeProps preserves the props proxy so x/y/width/height stay reactive.
 	 * resolveDefaultProps spreads at setup time and freezes them — see
 	 * GOTCHA-005-C. The cast restores the resolved-prop guarantees that
@@ -335,10 +351,10 @@ export function Rectangle(rectangleProps: Props) {
 		props.height !== 0
 
 	/* eslint-disable solid/reactivity -- prev* are intentional initial snapshots for animation; they track previous frame values, not reactive state */
-	let prevWidth = props.width
-	let prevHeight = props.height
-	let prevX = props.x
-	let prevY = props.y
+	let prevWidth = untrack(() => props.width)
+	let prevHeight = untrack(() => props.height)
+	let prevX = untrack(() => props.x)
+	let prevY = untrack(() => props.y)
 	/* eslint-enable solid/reactivity */
 
 	const layerClass = () =>
@@ -380,41 +396,57 @@ export function Rectangle(rectangleProps: Props) {
 								/* GOTCHA-014: thunk children — invoked once, attribute-only updates per tick.
 								   Snapshot prev* once per memo eval but write back only via effect to avoid
 								   stale-eval drift. */
-								const currWidth = createMemo(() => interpolate(prevWidth, props.width, t()))
-								const currHeight = createMemo(() => interpolate(prevHeight, props.height, t()))
-								const currX = createMemo(() => interpolate(prevX, props.x, t()))
-								const currY = createMemo(() => interpolate(prevY, props.y, t()))
-								createEffect(() => {
-									if (pathRef && t() > 0) {
-										prevWidth = currWidth()
-										prevHeight = currHeight()
-										prevX = currX()
-										prevY = currY()
-									}
+								/* Upstream reads prev* refs once per Rectangle render, so the start point
+								   is frozen until geometry props change; per-frame ref writes only seed
+								   the next animation. */
+								const start = createMemo(() => {
+									void props.width
+									void props.height
+									void props.x
+									void props.y
+									return untrack(() => ({ height: prevHeight, width: prevWidth, x: prevX, y: prevY }))
 								})
+								const currWidth = createMemo(() => interpolate(start().width, props.width, t()))
+								const currHeight = createMemo(() => interpolate(start().height, props.height, t()))
+								const currX = createMemo(() => interpolate(start().x, props.x, t()))
+								const currY = createMemo(() => interpolate(start().y, props.y, t()))
+								createEffect(
+									() => (t() > 0 ? { prevHeight: currHeight(), prevWidth: currWidth(), prevX: currX(), prevY: currY() } : null),
+									(step) => {
+										if (step != null && pathRef) {
+											prevWidth = step.prevWidth
+											prevHeight = step.prevHeight
+											prevX = step.prevX
+											prevY = step.prevY
+										}
+									},
+								)
 								const animationStyle = createMemo(() => {
 									if (props.isAnimationActive === false) {
-										return { strokeDasharray: to() }
+										return { "stroke-dasharray": to() }
 									}
 									if (t() > 0) {
-										return { strokeDasharray: to(), transition: transition() }
+										return { "stroke-dasharray": to(), transition: transition() }
 									}
-									return { strokeDasharray: from() }
+									return { "stroke-dasharray": from() }
 								})
 
-								const {
-									radius: _,
-									x: _x,
-									y: _y,
-									width: _w,
-									height: _h,
-									style: _s,
-									...otherPathProps
-								} = svgPropertiesAndEvents(props)
+								const otherPathProps = createMemo(() => {
+									const {
+										radius: _,
+										x: _x,
+										y: _y,
+										width: _w,
+										height: _h,
+										style: _s,
+										...rest
+									} = svgPropertiesAndEvents(props)
+									return rest
+								})
 
 								return (
 									<path
-										{...otherPathProps}
+										{...otherPathProps()}
 										class={layerClass()}
 										d={getRectanglePath(currX(), currY(), currWidth(), currHeight(), props.radius)}
 										ref={capturePathRef}

@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { ToastObject } from '../useToastManager';
 
@@ -18,7 +19,7 @@ export interface ToastRootContext {
   recalculateHeight: (flushSync?: boolean) => void;
 }
 
-export const ToastRootContext = createContext<ToastRootContext | undefined>(undefined);
+export const ToastRootContext = createContext<ToastRootContext | null>(null);
 
 export function useToastRootContext(): ToastRootContext {
   const context = useContext(ToastRootContext);

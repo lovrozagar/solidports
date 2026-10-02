@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { computePieSectors, type PieSectorDataItem } from "../../polar/Pie"
 import type { ChartState } from "../store"
 import { selectChartDataAndAlwaysIgnoreIndexes } from "./dataSelectors"
@@ -45,8 +45,9 @@ export function selectDisplayedData(
 	}
 
 	if ((!displayedData || !displayedData.length) && safeCells != null) {
+		/* registered cells are `{ props }` records, like upstream's Cell elements */
 		displayedData = safeCells.map((cell: Record<string, unknown>) =>
-			Object.assign({}, pieSettings.presentationProps, cell),
+			Object.assign({}, pieSettings.presentationProps, (cell as { props?: Record<string, unknown> }).props ?? cell),
 		)
 	}
 
@@ -82,6 +83,7 @@ export function selectPieLegend(
 		}
 		return {
 			color,
+			dataKey: pieSettings.dataKey,
 			payload: entry as Record<string, unknown>,
 			type: pieSettings.legendType,
 			value: getTooltipNameProp(name, pieSettings.dataKey),

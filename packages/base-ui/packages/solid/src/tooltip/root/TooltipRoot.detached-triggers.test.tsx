@@ -41,7 +41,7 @@ describe('<Tooltip.Root />', () => {
       const popupId = randomStringValue();
       const { user } = render(() => (
         <Tooltip.Root>
-          <input type="text" aria-label="Initial focus" autofocus use:autofocus />
+          <input type="text" aria-label="Initial focus" autofocus ref={autofocus} />
           <Tooltip.Trigger delay={0}>Trigger 1</Tooltip.Trigger>
           <Tooltip.Trigger delay={0}>Trigger 2</Tooltip.Trigger>
           <Tooltip.Trigger delay={0}>Trigger 3</Tooltip.Trigger>
@@ -272,7 +272,7 @@ describe('<Tooltip.Root />', () => {
         <Tooltip.Root handle={testTooltip} defaultOpen defaultTriggerId={triggerId}>
           {(data: NumberPayload) => (
             <>
-              <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+              <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
               <Tooltip.Trigger handle={testTooltip} payload={1}>
                 Trigger 1
               </Tooltip.Trigger>
@@ -305,7 +305,7 @@ describe('<Tooltip.Root />', () => {
       const popupId = randomStringValue();
       const { user } = render(() => (
         <div>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <Tooltip.Trigger handle={testTooltip} delay={0}>
             Trigger 1
           </Tooltip.Trigger>
@@ -700,7 +700,7 @@ describe('<Tooltip.Root />', () => {
       const triggerId = randomStringValue();
       render(() => (
         <>
-          <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+          <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
           <Tooltip.Trigger handle={testTooltip} payload={1}>
             Trigger 1
           </Tooltip.Trigger>
@@ -735,7 +735,7 @@ describe('<Tooltip.Root />', () => {
       function Test() {
         return (
           <>
-            <button type="button" aria-label="Initial focus" autofocus use:autofocus />
+            <button type="button" aria-label="Initial focus" autofocus ref={autofocus} />
             <Tooltip.Trigger handle={testTooltip} payload={1} delay={0}>
               Trigger 1
             </Tooltip.Trigger>

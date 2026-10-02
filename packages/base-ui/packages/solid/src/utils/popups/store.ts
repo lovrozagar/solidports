@@ -1,5 +1,5 @@
-import { type Accessor } from 'solid-js';
-import { createStore, type SetStoreFunction } from 'solid-js/store';
+import type { Accessor } from 'solid-js';
+
 import type { FloatingRootContext } from '../../floating-ui-solid';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../constants';
@@ -7,6 +7,7 @@ import type { SolidStore } from '../store/SolidStoreV2';
 import { HTMLProps } from '../types';
 import { TransitionStatus } from '../useTransitionStatus';
 import { PopupTriggerMap } from './popupTriggerMap';
+import { createStore, type SetStoreFunction } from '../../solid-1-compat';
 
 /**
  * State common to all popup stores.
@@ -73,6 +74,10 @@ export type PopupStoreState<Payload> = {
    * Props to spread onto the popup element.
    */
   popupProps: HTMLProps;
+  /**
+   * Delay before closing on hover-out, in ms. Optional on stores that do not hover-open.
+   */
+  closeDelay?: number;
 };
 
 export function createInitialPopupStoreState<Payload, State extends PopupStoreState<Payload>>(

@@ -1,12 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import {
-  batch,
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  mergeProps as solidMergeProps,
-} from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, createSignal } from 'solid-js';
 import { CompositeList, type CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -36,6 +29,7 @@ import { getSliderValue } from '../utils/getSliderValue';
 import { validateMinimumDistance } from '../utils/validateMinimumDistance';
 import { SliderRootContext } from './SliderRootContext';
 import { sliderStateAttributesMapping } from './stateAttributesMapping';
+import { on, mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 function getSliderChangeEventReason(
   event: KeyboardEvent | InputEvent,
@@ -87,7 +81,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
     'value',
   ]);
   const ariaLabelledByProp = () => local['aria-labelledby'];
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const formProp = () => local.form;
   const idProp = () => local.id;
   const largeStep = () => local.largeStep ?? 10;
@@ -127,7 +121,10 @@ export function SliderRoot<Value extends number | readonly number[]>(
 
   const [rootLabelId, setRootLabelId] = createSignal<string | undefined>(undefined);
 
-  const ariaLabelledby = () => ariaLabelledByProp() ?? rootLabelId() ?? labelId();
+  const ariaLabelledby = () => {
+    const labelledBy = ariaLabelledByProp();
+    return (typeof labelledBy === 'string' ? labelledBy : undefined) ?? rootLabelId() ?? labelId();
+  };
   const disabled = () => fieldDisabled() || disabledProp();
   const name = () => fieldName() ?? nameProp();
 
@@ -171,13 +168,13 @@ export function SliderRoot<Value extends number | readonly number[]>(
   ]);
 
   const setActive = (value: number) => {
-    batch(() => {
+    {
       setActiveState(value);
 
       if (value !== -1) {
         setLastUsedThumbIndex(value);
       }
-    });
+    };
   };
 
   useField({
@@ -189,8 +186,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
     value: valueUnwrapped,
   });
 
-  createEffect(
-    on(
+  createEffect(...on(
       valueUnwrapped,
       (val) => {
         clearErrors(name());
@@ -289,8 +285,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
   };
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(
-      on([min, max, dragging, valueProp], ([minVal, maxVal]) => {
+    createEffect(...on([min, max, dragging, valueProp], ([minVal, maxVal]) => {
         if (minVal >= maxVal) {
           warn('Slider `max` must be greater than `min`.');
         }
@@ -298,7 +293,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
     );
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const activeEl = activeElement(ownerDocument(sliderRef.current ?? null));
     if (disabled() && activeEl && sliderRef.current?.contains(activeEl)) {
       // This is necessary because Firefox and Safari will keep focus
@@ -308,7 +303,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (disabled() && active() !== -1) {
       setActive(-1);
     }
@@ -409,11 +404,11 @@ export function SliderRoot<Value extends number | readonly number[]>(
   });
 
   return (
-    <SliderRootContext.Provider value={contextValue}>
+    <SliderRootContext value={contextValue}>
       <CompositeList refs={{ elements: thumbRefs.current }} onMapChange={setThumbArray}>
         {element()}
       </CompositeList>
-    </SliderRootContext.Provider>
+    </SliderRootContext>
   );
 }
 

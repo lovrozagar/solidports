@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Select } from '@solidports/base-ui/select';
@@ -32,7 +32,7 @@ export default function ObjectValueSelect() {
               </Select.ScrollUpArrow>
               <Select.List class={styles.List}>
                 {shippingMethods.map((method) => (
-                  <Select.Item key={method.id} value={method} class={styles.Item}>
+                  <Select.Item value={method} class={styles.Item}>
                     <Select.ItemIndicator class={styles.ItemIndicator}>
                       <CheckIcon />
                     </Select.ItemIndicator>

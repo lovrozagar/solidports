@@ -1,13 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import {
-  batch,
-  createEffect,
-  createSignal,
-  on,
-  onCleanup,
-  mergeProps as solidMergeProps,
-  type JSX,
-} from 'solid-js';
+import { createTrackedEffect, createEffect, createSignal, onCleanup } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
@@ -42,6 +35,7 @@ import type { ChangeEventCustomProperties, IncrementValueParameters } from '../u
 import { EventWithOptionalKeyState } from '../utils/types';
 import { toValidatedNumber } from '../utils/validate';
 import { InputMode, NumberFieldRootContext } from './NumberFieldRootContext';
+import { on, mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * Groups all parts of the number field and manages its state.
@@ -78,7 +72,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
   const stepProp = () => local.step ?? 1;
   const largeStep = () => local.largeStep ?? 10;
   const required = () => local.required ?? false;
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const readOnly = () => local.readOnly ?? false;
   const nameProp = () => local.name;
   const valueProp = () => local.value;
@@ -136,11 +130,11 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
   const lastChangedValueRef = useRef<number | null>(null);
   const hasPendingCommitRef = useRef(false);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     valueRef.current = value();
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     setFilled(value() !== null);
   });
 
@@ -280,11 +274,11 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
         return shouldFireChange;
       }
 
-      batch(() => {
+      {
         setValueUnwrapped(validatedValue);
         setDirty(validatedValue !== validityData.initialValue);
         hasPendingCommitRef.current = true;
-      });
+      };
     }
 
     // Keep the visible input in sync immediately when programmatic changes occur
@@ -318,8 +312,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
     );
   };
 
-  createEffect(
-    on(
+  createEffect(...on(
       [value, inputValue, () => local.value, () => local.locale, () => local.format],
       function syncFormattedInputValueOnValueChange() {
         if (!allowInputSyncRef.current) {
@@ -338,7 +331,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
     ),
   );
 
-  createEffect(function setDynamicInputModeForIOS() {
+  createTrackedEffect(function setDynamicInputModeForIOS() {
     if (!isIOS) {
       return;
     }
@@ -357,7 +350,10 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
   });
 
   // The `onWheel` prop can't be prevented, so we need to use a global event listener.
-  createEffect(function registerElementWheelListener() {
+  createTrackedEffect(function registerElementWheelListener() {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const element = inputRef.current;
     if (disabled() || readOnly() || !allowWheelScrub() || !element) {
       return;
@@ -388,10 +384,16 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
 
     element.addEventListener('wheel', handleWheel);
 
-    onCleanup(() => {
+    _c.push(() => {
       element.removeEventListener('wheel', handleWheel);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const state: NumberFieldRoot.State = solidMergeProps(fieldState, {
     get disabled() {
@@ -454,7 +456,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
   });
 
   return (
-    <NumberFieldRootContext.Provider value={contextValue}>
+    <NumberFieldRootContext value={contextValue}>
       {element()}
       <input
         {...(validation.getInputValidationProps({
@@ -462,7 +464,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
             inputRef.current?.focus();
           },
           onInput(event) {
-            batch(() => {
+            {
               // Workaround for https://github.com/facebook/react/issues/9023
               if (event.defaultPrevented) {
                 return;
@@ -479,9 +481,9 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
               if (shouldValidateOnChange()) {
                 validation.commit(parsedValue);
               }
-            });
+            };
           },
-        } as JSX.InputHTMLAttributes<HTMLInputElement>) as any)}
+        }) as any)}
         ref={(el) => {
           validation.inputRef.current = el;
           if (local.inputRef) {
@@ -499,11 +501,11 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
         step={stepProp()}
         disabled={disabled()}
         required={required()}
-        aria-hidden
-        tabIndex={-1}
+        aria-hidden="true"
+        tabindex={-1}
         style={name() ? visuallyHiddenInput : visuallyHidden}
       />
-    </NumberFieldRootContext.Provider>
+    </NumberFieldRootContext>
   );
 }
 

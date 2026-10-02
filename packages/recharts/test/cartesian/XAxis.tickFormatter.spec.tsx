@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect, vi } from "vitest"
 import { Line, LineChart, XAxis } from "../../src"
 import { expectXAxisTicks } from "../helper/expectAxisTicks"

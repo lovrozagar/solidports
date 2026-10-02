@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
-import { createEffect } from "solid-js"
+import { untrack, flush } from "solid-js"
+import { observe } from "../../helper/observe"
+import { trackSpy } from "../../helper/trackSpy"
+import { render } from "../../helper/render"
+
 import { generateMockData } from "../../_data/generateMockData"
 import { createRechartsStore, ChartState } from "../../../src/state/store"
 import {
@@ -36,7 +39,7 @@ describe("selectDisplayedData", () => {
 	it("should return empty in an empty chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest(selector)))
+			trackSpy(spy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (
@@ -50,7 +53,7 @@ describe("selectDisplayedData", () => {
 	it("should return the original data if there is no axis with matching ID", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest(selector)))
+			trackSpy(spy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (
@@ -140,13 +143,14 @@ describe("selectDisplayedData", () => {
 		const [store, setStore] = createRechartsStore()
 		const result1 = selectDisplayedData(store, "xAxis", "0", false)
 		createActions(store, setStore).setLegendSize({ height: 20, width: 10 })
+		flush()
 		const result2 = selectDisplayedData(store, "xAxis", "0", false)
 		expect(result1).toEqual(result2)
 	})
 	it("should return the original data if there is no axis with matching ID but graphical items have dataKeys", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest(selector)))
+			trackSpy(spy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (
@@ -224,8 +228,8 @@ describe("selectDisplayedData", () => {
 	it("should return data defined in all graphical items based on the input dataKey, and default axis ID", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			const isPanorama = useIsPanorama()
-			createEffect(() =>
+			const isPanorama = untrack(() => useIsPanorama())
+			observe(() =>
 				spy(
 					useAppSelectorWithStableTest((state) =>
 						selectAllAppliedValues(state, "xAxis", defaultAxisId, isPanorama),
@@ -263,29 +267,29 @@ describe("selectDisplayedData", () => {
 		const axisDomainSpy1 = vi.fn()
 		const axisDomainSpy2 = vi.fn()
 		const Comp = (): null => {
-			const isPanorama = useIsPanorama()
-			createEffect(() =>
+			const isPanorama = untrack(() => useIsPanorama())
+			observe(() =>
 				displayedDataSpy1(
 					useAppSelectorWithStableTest((state) =>
 						selectDisplayedData(state, "xAxis", "my axis id", isPanorama),
 					),
 				),
 			)
-			createEffect(() =>
+			observe(() =>
 				displayedDataSpy2(
 					useAppSelectorWithStableTest((state) =>
 						selectDisplayedData(state, "xAxis", "some other ID", isPanorama),
 					),
 				),
 			)
-			createEffect(() =>
+			observe(() =>
 				axisDomainSpy1(
 					useAppSelectorWithStableTest((state) =>
 						selectAxisDomain(state, "xAxis", "my axis id", isPanorama),
 					),
 				),
 			)
-			createEffect(() =>
+			observe(() =>
 				axisDomainSpy2(
 					useAppSelectorWithStableTest((state) =>
 						selectAxisDomain(state, "xAxis", "some other ID", isPanorama),
@@ -375,7 +379,7 @@ describe("selectDisplayedData", () => {
 	it("should gather data from all graphical items that match the axis ID", () => {
 		const displayedDataSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => displayedDataSpy(useAppSelectorWithStableTest(selector)))
+			trackSpy(displayedDataSpy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (
@@ -393,7 +397,7 @@ describe("selectDisplayedData", () => {
 	it("should return data defined in the chart root", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest(selector)))
+			trackSpy(spy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (
@@ -441,8 +445,8 @@ describe("selectDisplayedData", () => {
 	it("should return data defined in the chart root regardless of the axis ID match", () => {
 		const displayedDataSpy = vi.fn()
 		const Comp = (): null => {
-			const isPanorama = useIsPanorama()
-			createEffect(() =>
+			const isPanorama = untrack(() => useIsPanorama())
+			observe(() =>
 				displayedDataSpy(
 					useAppSelectorWithStableTest((state) =>
 						selectDisplayedData(state, "xAxis", "axis with this ID is not present", isPanorama),
@@ -494,7 +498,7 @@ describe("selectDisplayedData", () => {
 	it("should slice chart root data by dataStartIndex and dataEndIndex", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => spy(useAppSelectorWithStableTest(selector)))
+			trackSpy(spy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (

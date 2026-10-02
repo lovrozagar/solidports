@@ -7,7 +7,7 @@ import { Slider } from '@solidports/base-ui/slider';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy, stub } from 'sinon';
-import { createSignal, onCleanup, onMount } from 'solid-js';
+import { createSignal, onCleanup, onSettled } from 'solid-js';
 import { expect as expectVitest, vi } from 'vitest';
 import {
   ARROW_DOWN,
@@ -903,7 +903,7 @@ describe.skipIf(typeof Touch === 'undefined')('<Slider.Root />', () => {
       const handleNativeEvent = spy();
       const handleEvent = spy();
       function Test() {
-        onMount(() => {
+        onSettled(() => {
           document.addEventListener('touchstart', handleNativeEvent);
           onCleanup(() => {
             document.removeEventListener('touchstart', handleNativeEvent);
@@ -939,7 +939,7 @@ describe.skipIf(typeof Touch === 'undefined')('<Slider.Root />', () => {
       const handleNativeEvent = spy();
       const handleEvent = spy();
       function Test() {
-        onMount(() => {
+        onSettled(() => {
           document.addEventListener('mousedown', handleNativeEvent);
           onCleanup(() => {
             document.removeEventListener('mousedown', handleNativeEvent);

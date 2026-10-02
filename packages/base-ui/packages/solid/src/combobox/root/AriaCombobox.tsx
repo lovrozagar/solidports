@@ -1,16 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any` to mirror upstream React combobox API; tightening to `unknown` breaks consumer ergonomics for unspecified-Value usage */
-import {
-  batch,
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  onMount,
-  untrack,
-  type ComponentProps,
-  type JSX,
-} from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, createSignal, onSettled, untrack } from 'solid-js';
+import type { ComponentProps, JSX } from '@solidjs/web';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useField } from '../../field/useField';
 import {
@@ -64,6 +55,7 @@ import {
 import { createCollatorItemFilter, createSingleSelectionCollatorFilter } from './utils';
 import { INITIAL_LAST_HIGHLIGHT, NO_ACTIVE_VALUE } from './utils/constants';
 import { useCoreFilter } from './utils/useFilter';
+import { on } from '../../solid-1-compat';
 
 /**
  * @internal
@@ -527,7 +519,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
   };
 
   const initialSelectedValueRef = selectedValue();
-  createEffect(() => {
+  createTrackedEffect(() => {
     // Ensure the values and labels are registered for programmatic value changes.
     if (selectedValue() !== initialSelectedValueRef) {
       forceMount();
@@ -560,7 +552,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
       return;
     }
 
-    batch(() => {
+    {
       store.set(options);
 
       const activeIndex = options.activeIndex;
@@ -574,7 +566,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
           }),
         );
       }
-    });
+    };
   };
 
   const setInputValue = (next: string, eventDetails: AriaCombobox.ChangeEventDetails) => {
@@ -842,13 +834,13 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     ref: resolvedPopupRef,
   });
 
-  onMount(() => {
+  onSettled(() => {
     if (props.actionsRef) {
       props.actionsRef.current = { unmount: handleUnmount };
     }
   });
 
-  createEffect(function syncSelectedIndex() {
+  createTrackedEffect(function syncSelectedIndex() {
     if (open() || selectionMode() === 'none') {
       return;
     }
@@ -866,14 +858,14 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (items()) {
       valuesRef.splice(0, valuesRef.length, ...flatFilteredItems());
       listRef.length = flatFilteredItems().length;
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const pendingHighlight = pendingQueryHighlightRef;
     if (pendingHighlight) {
       if (pendingHighlight.hasQuery) {
@@ -940,7 +932,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (selectionMode() === 'none') {
       setFilled(String(inputValue()) !== '');
       return;
@@ -954,14 +946,13 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
 
   // Ensures that the active index is not set to 0 when the list is empty.
   // This avoids needing to press ArrowDown twice under certain conditions.
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (hasItems() && autoHighlightMode() && flatFilteredItems().length === 0) {
       setIndices({ activeIndex: null });
     }
   });
 
-  createEffect(
-    on(
+  createEffect(...on(
       query,
       () => {
         if (!open() || query() === '' || query() === String(initialDefaultInputValue())) {
@@ -973,8 +964,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     ),
   );
 
-  createEffect(
-    on(
+  createEffect(...on(
       selectedValue,
       () => {
         if (selectionMode() === 'none') {
@@ -1002,8 +992,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     ),
   );
 
-  createEffect(
-    on(
+  createEffect(...on(
       inputValue,
       () => {
         if (selectionMode() !== 'none') {
@@ -1023,8 +1012,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
     ),
   );
 
-  createEffect(
-    on(
+  createEffect(...on(
       items,
       () => {
         if (!single() || hasInputValue() || inputInsidePopup() || queryChangedAfterOpen()) {
@@ -1258,10 +1246,10 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
   });
 
   return (
-    <ComboboxRootContext.Provider value={{ store }}>
-      <ComboboxFloatingContext.Provider value={{ context: floatingRootContext }}>
-        <ComboboxDerivedItemsContext.Provider value={itemsContextValue}>
-          <ComboboxInputValueContext.Provider value={inputValue}>
+    <ComboboxRootContext value={{ store }}>
+      <ComboboxFloatingContext value={{ context: floatingRootContext }}>
+        <ComboboxDerivedItemsContext value={itemsContextValue}>
+          <ComboboxInputValueContext value={inputValue}>
             {props.children}
             <input
               {...(validation.getInputValidationProps({
@@ -1341,14 +1329,14 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none'>(
                 validation.inputRef.current = el;
               }}
               style={hiddenInputName() ? visuallyHiddenInput : visuallyHidden}
-              tabIndex={-1}
-              aria-hidden
+              tabindex={-1}
+              aria-hidden="true"
             />
             {hiddenInputs()}
-          </ComboboxInputValueContext.Provider>
-        </ComboboxDerivedItemsContext.Provider>
-      </ComboboxFloatingContext.Provider>
-    </ComboboxRootContext.Provider>
+          </ComboboxInputValueContext>
+        </ComboboxDerivedItemsContext>
+      </ComboboxFloatingContext>
+    </ComboboxRootContext>
   );
 }
 

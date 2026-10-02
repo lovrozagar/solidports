@@ -1,5 +1,5 @@
 import { isOverflowElement } from '@floating-ui/utils/dom';
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { access, type MaybeAccessor } from '../solid-helpers';
 import { isIOS, isWebKit } from './detectBrowser';
 import { NOOP } from './empty';
@@ -286,12 +286,21 @@ export function useScrollLock(params: {
   const enabled = () => access(params.enabled) ?? true;
   const referenceElement = () => access(params.referenceElement) ?? null;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!enabled()) {
       return;
     }
 
     const cleanup = SCROLL_LOCKER.acquire(referenceElement());
-    onCleanup(cleanup);
-  });
+    _c.push(cleanup);
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 }

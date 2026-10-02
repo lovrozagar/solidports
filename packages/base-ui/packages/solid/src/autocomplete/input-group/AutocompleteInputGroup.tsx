@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { ComboboxInputGroup } from '../../combobox/input-group/ComboboxInputGroup';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import type { BaseUIComponentProps } from '../../utils/types';

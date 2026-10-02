@@ -1,5 +1,8 @@
 /* eslint-disable import/no-cycle */
-import { createEffect, onCleanup, Show, type JSX } from "solid-js"
+import { Show, createEffect } from 'solid-js';
+import type { CamelCaseSVGAttrs } from "../util/CamelCaseSVGAttrs"
+import { ShapeOption } from "../util/ShapeElementProps"
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import { Layer } from "../container/Layer"
 import {
@@ -29,8 +32,17 @@ import { ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 import type { RechartsScale } from "../util/scale/RechartsScale"
 import { CartesianScaleHelperImpl } from "../util/scale/CartesianScaleHelper"
+import { isSameStoreEntry } from "../state/storeIdentity"
+import { teardownWrite } from "../state/teardownWrite"
 
-interface ReferenceAreaProps extends Overflowable, ZIndexable {
+type ReferenceCoordinateValue = number | string
+
+interface ReferenceAreaProps<
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	XValueType extends ReferenceCoordinateValue = any,
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	YValueType extends ReferenceCoordinateValue = any,
+> extends Overflowable, ZIndexable {
 	/**
 	 * Starting X-coordinate of the area.
 	 * This value is using your chart's domain, so you will provide a data value instead of a pixel value.
@@ -42,7 +54,7 @@ interface ReferenceAreaProps extends Overflowable, ZIndexable {
 	 * @example <ReferenceArea x1={10} x2={50} />
 	 * @example <ReferenceArea x1="Page C" />
 	 */
-	x1?: number | string
+	x1?: XValueType
 	/**
 	 * Ending X-coordinate of the area.
 	 * This value is using your chart's domain, so you will provide a data value instead of a pixel value.
@@ -54,7 +66,7 @@ interface ReferenceAreaProps extends Overflowable, ZIndexable {
 	 * @example <ReferenceArea x1={10} x2={50} />
 	 * @example <ReferenceArea x2="Page C" />
 	 */
-	x2?: number | string
+	x2?: XValueType
 	/**
 	 * Starting Y-coordinate of the area.
 	 * This value is using your chart's domain, so you will provide a data value instead of a pixel value.
@@ -66,7 +78,7 @@ interface ReferenceAreaProps extends Overflowable, ZIndexable {
 	 * @example <ReferenceArea y1="low" y2="high" />
 	 * @example <ReferenceArea y1={200} />
 	 */
-	y1?: number | string
+	y1?: YValueType
 	/**
 	 * Ending Y-coordinate of the area.
 	 * This value is using your chart's domain, so you will provide a data value instead of a pixel value.
@@ -78,7 +90,7 @@ interface ReferenceAreaProps extends Overflowable, ZIndexable {
 	 * @example <ReferenceArea y1="low" y2="high" />
 	 * @example <ReferenceArea y2={400} />
 	 */
-	y2?: number | string
+	y2?: YValueType
 
 	className?: number | string
 	/**
@@ -128,8 +140,14 @@ interface ReferenceAreaProps extends Overflowable, ZIndexable {
  * Omit width, height, x, y from SVGPropsAndEvents because ReferenceArea receives x1, x2, y1, y2 instead.
  * The position is calculated internally instead.
  */
-export type Props = Omit<SVGPropsAndEvents<RectangleProps>, "width" | "height" | "x" | "y"> &
-	ReferenceAreaProps
+export type Props<
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	XValueType extends ReferenceCoordinateValue = any,
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	YValueType extends ReferenceCoordinateValue = any,
+> = Omit<SVGPropsAndEvents<RectangleProps>, "width" | "height" | "x" | "y"> &
+	CamelCaseSVGAttrs &
+	ReferenceAreaProps<XValueType, YValueType>
 
 const getRect = (
 	hasX1: boolean,
@@ -165,26 +183,20 @@ const getRect = (
 	return rectWithPoints(p1 as { x: number; y: number }, p2 as { x: number; y: number })
 }
 
-const renderRect = (
-	option: ReferenceAreaProps["shape"],
-	rectProps: SVGPropsAndEvents<RectangleProps>,
-) => {
-	if (typeof option === "function") {
-		return (option as (p: Record<string, unknown>) => JSX.Element)(
-			rectProps as Record<string, unknown>,
-		)
-	}
-	return <Rectangle {...rectProps} class="recharts-reference-area-rect" />
-}
-
 function ReportReferenceArea(props: ReferenceAreaSettings): null {
 	const ctx = useChartStore()
-	createEffect(() => {
-		ctx?.setStore("referenceElements", "areas", (prev) => [...prev, props])
-		onCleanup(() => {
-			ctx?.setStore("referenceElements", "areas", (prev) => prev.filter((a) => a !== props))
-		})
-	})
+	/* The props proxy is registered once; selectors read its fields lazily. */
+	createEffect(
+		() => props,
+		(element) => {
+			ctx?.setStore("referenceElements", "areas", (prev) => [...prev, element])
+			return () => {
+				teardownWrite(() => {
+					ctx?.setStore("referenceElements", "areas", (prev) => prev.filter((a) => !isSameStoreEntry(a, element)))
+				})
+			}
+		},
+	)
 	return null
 }
 
@@ -226,11 +238,17 @@ function ReferenceAreaImpl(props: PropsWithDefaults) {
 				return (
 					<ZIndexLayer zIndex={props.zIndex}>
 						<Layer class={clsx("recharts-reference-area", props.className)}>
-							{renderRect(props.shape, {
-								...svgPropertiesAndEvents(props),
-								...rect(),
-								"clip-path": clipPath(),
-							} as SVGPropsAndEvents<RectangleProps>)}
+							<ShapeOption
+								option={props.shape}
+								shapeProps={{
+									...svgPropertiesAndEvents(props),
+									...rect(),
+									"clip-path": clipPath(),
+								}}
+								renderDefault={(rectProps) => (
+									<Rectangle {...rectProps} class="recharts-reference-area-rect" />
+								)}
+							/>
 							<Show when={rect()}>
 								{(r) => (
 									<CartesianLabelContextProvider
@@ -258,12 +276,12 @@ function ReferenceAreaImpl(props: PropsWithDefaults) {
 
 export const referenceAreaDefaultProps = {
 	fill: "#ccc",
-	"fill-opacity": 0.5,
+	fillOpacity: 0.5,
 	ifOverflow: "discard",
 	label: false,
 	radius: 0,
 	stroke: "none",
-	"stroke-width": 1,
+	strokeWidth: 1,
 	xAxisId: 0,
 	yAxisId: 0,
 	zIndex: DefaultZIndexes.area,
@@ -285,7 +303,7 @@ type PropsWithDefaults = RequiresDefaultProps<Props, typeof referenceAreaDefault
  * @provides CartesianLabelContext
  * @consumes CartesianChartContext
  */
-export function ReferenceArea(outsideProps: Props) {
+function ReferenceAreaFn(outsideProps: Props): JSX.Element {
 	const props = resolveDefaultProps(outsideProps, referenceAreaDefaultProps)
 	return (
 		<>
@@ -303,4 +321,11 @@ export function ReferenceArea(outsideProps: Props) {
 	)
 }
 
+/**
+ * Typed entry point: the generics constrain props at the call site, like upstream.
+ */
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped usage accepts any data */
+export const ReferenceArea = ReferenceAreaFn as (<XValueType extends number | string = any, YValueType extends number | string = any>(
+	props: Props<XValueType, YValueType>,
+) => JSX.Element) & { displayName?: string }
 ReferenceArea.displayName = "ReferenceArea"

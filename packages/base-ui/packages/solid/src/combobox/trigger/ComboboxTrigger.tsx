@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, mergeProps as solidMergeProps } from 'solid-js';
+import { createTrackedEffect } from 'solid-js';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useClick, useTypeahead } from '../../floating-ui-solid';
@@ -23,6 +23,7 @@ import {
   useComboboxRootContext,
 } from '../root/ComboboxRootContext';
 import { triggerStateAttributesMapping } from '../utils/stateAttributesMapping';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 const BOUNDARY_OFFSET = 2;
 
@@ -36,8 +37,8 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
     'disabled',
     'id',
   ]);
-  const nativeButton = () => local.nativeButton ?? true;
-  const disabledProp = () => local.disabled ?? false;
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  const disabledProp = () => Boolean(local.disabled);
   const idProp = () => local.id;
 
   const {
@@ -89,7 +90,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
 
   // Update the floating root context to use the trigger element when it differs from the current reference.
   // This ensures useClick and useTypeahead attach handlers to the correct element.
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!inputInsidePopup()) {
       return;
     }
@@ -175,7 +176,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
           get id() {
             return id();
           },
-          get tabIndex() {
+          get tabindex() {
             return inputInsidePopup() ? 0 : -1;
           },
           get role() {
@@ -191,7 +192,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
             return open() ? listboxId() : undefined;
           },
           get 'aria-required'() {
-            return inputInsidePopup() ? required() || undefined : undefined;
+            return inputInsidePopup() && required() ? 'true' : undefined;
           },
           get 'aria-labelledby'() {
             return labelId();

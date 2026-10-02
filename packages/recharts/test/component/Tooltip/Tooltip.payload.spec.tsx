@@ -1,6 +1,8 @@
-import type { ComponentType } from "solid-js"
-import { beforeEach, describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import type { ComponentType } from 'solid-js';
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { flush } from "solid-js"
+import { fireEvent, render } from "../../helper/render"
+import { assertNotNull } from "../../helper/assertNotNull"
 import {
 	Area,
 	AreaChart,
@@ -455,10 +457,7 @@ describe("Tooltip payload", () => {
 			expectedTooltipContent,
 			mouseCoordinate,
 		}) => {
-			/* Cluster D: FunnelChart with name overrides title via tooltipPayloadConfigurations
-			 * sibling-mount snapshot — name override never applies in Solid sync setup. */
-			const itImpl = name === "FunnelChart with name" ? it.skip : it
-			itImpl("should render expected tooltip payload", () => {
+			it("should render expected tooltip payload", () => {
 				const { container, debug } = render(() => (
 					<Wrapper>
 						<Tooltip />
@@ -1412,6 +1411,7 @@ describe("Tooltip payload", () => {
 	 * Scatter no longer renders values with nulls in them so the Tooltip never displays in the first place.
 	 * What should we do here? I would be in favour of removing the `filterNull` prop completely.
 	 */
+	/* eslint-disable-next-line vitest/no-disabled-tests -- skipped upstream too (see the note above) */
 	describe.skip("filterNull prop", () => {
 		const dataWithNulls: Array<{ x: number | null; y: number | null }> = [{ x: null, y: 2 }]
 		test.each([undefined, true])("should filter away nulls when filterNull = %s", (filterNull) => {
@@ -1531,6 +1531,44 @@ describe("Tooltip payload", () => {
 				const expectedTooltipContent = ["uv : 400kg"]
 				expectTooltipPayload(container, expectedTooltipTitle, expectedTooltipContent)
 			})
+
+			it("when false in vertical layout with sparse data, should show correct payload for each bar (issue #7261)", () => {
+				const sparseData = [
+					{ bar1: [0, 10], category: "A" },
+					{ bar2: [5, 20], category: "B" },
+				]
+
+				const { container } = render(() => (
+					<BarChart layout="vertical" {...commonChartProps} data={sparseData}>
+						<XAxis type="number" domain={[0, 30]} />
+						<YAxis type="category" dataKey="category" />
+						<Bar dataKey="bar1" />
+						<Bar dataKey="bar2" />
+						<Tooltip shared={false} filterNull={false} />
+					</BarChart>
+				))
+
+				// There are two Bar groups. bar1 renders one rect (row A), bar2 renders one rect (row B).
+				const barGroups = container.querySelectorAll(".recharts-bar")
+
+				// Hover bar1 (row A) — should show bar1's payload
+				const bar1Group = barGroups[0]
+				const bar1Rect = bar1Group.querySelector(barMouseHoverTooltipSelector)
+				assertNotNull(bar1Rect)
+				fireEvent.mouseOver(bar1Rect, { clientX: 100, clientY: 100 })
+				vi.runOnlyPendingTimers()
+				flush()
+				expectTooltipPayload(container, "", ["bar1 : 0 ~ 10"])
+
+				// Hover bar2 (row B) — should show bar2's payload, not bar1's
+				const bar2Group = barGroups[1]
+				const bar2Rect = bar2Group.querySelector(barMouseHoverTooltipSelector)
+				assertNotNull(bar2Rect)
+				fireEvent.mouseOver(bar2Rect, { clientX: 200, clientY: 200 })
+				vi.runOnlyPendingTimers()
+				flush()
+				expectTooltipPayload(container, "", ["bar2 : 5 ~ 20"])
+			})
 		})
 
 		describe("in RadialBarChart", () => {
@@ -1566,6 +1604,7 @@ describe("Tooltip payload", () => {
 						id: 0,
 						includeHidden: false,
 						name: undefined,
+						niceTicks: "auto",
 						reversed: false,
 						scale: "auto",
 						tick: true,

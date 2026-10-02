@@ -1,5 +1,7 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { batch, createMemo, Show, splitProps, type JSX } from "solid-js"
+import { createMemo, Show, untrack } from 'solid-js';
+import { createHoverDedupe } from "../util/hoverDedupe"
+import type { JSX } from '@solidjs/web';
 import { scaleLinear } from "victory-vendor/d3-scale"
 import { clsx } from "clsx"
 import get from "es-toolkit/compat/get"
@@ -23,6 +25,7 @@ import type {
 } from "../state/tooltipSlice"
 import { SetTooltipEntrySettings } from "../state/SetTooltipEntrySettings"
 import { RechartsStateProvider } from "../state/RechartsStateProvider"
+import { createInitialLayoutState } from "../state/chartState"
 import { ReportEventSettings } from "../state/ReportEventSettings"
 import type { ChartCoordinate, DataKey, EventThrottlingProps, Margin, Percent } from "../util/types"
 import { useChartStore } from "../state/RechartsStoreContext"
@@ -34,6 +37,8 @@ import type { RequiresDefaultProps } from "../util/resolveDefaultProps"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { initialEventSettingsState } from "../state/eventSettingsSlice"
 
+import { splitProps } from '../util/solid-1-compat';
+import { setTooltipInteraction } from "../state/tooltipInteraction"
 export interface SunburstData {
 	[key: string]: unknown
 	name: string
@@ -265,14 +270,16 @@ type InternalSunburstChartProps = WithIdRequired<
 >
 
 function SunburstChartImpl(props: InternalSunburstChartProps): JSX.Element | null {
+	/* GOTCHA-016-C: one entry per pointer move across both event pairs, shared by all items. */
+	const hover = createHoverDedupe()
 	const ctx = useChartStore()
 	const newCtx = useOptionalChartState()
 
 	/* width/height arrive after layout; gate body on Show so it re-evaluates
 	   once dimensions populate. Setup-time snapshot would freeze at undefined.
 	   See GOTCHA-011. */
-	const width = () => useChartWidth()
-	const height = () => useChartHeight()
+	const width = createMemo(() => useChartWidth())
+	const height = createMemo(() => useChartHeight())
 
 	return (
 		<Show when={width() != null && height() != null}>
@@ -304,7 +311,7 @@ function SunburstChartImpl(props: InternalSunburstChartProps): JSX.Element | nul
 			graphicalItemId: props.id,
 			index: node.tooltipIndex,
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "hover", hoverPayload)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "hover", hoverPayload)
 	}
 
 	function handleMouseLeave(node: SunburstNode, e: MouseEvent) {
@@ -323,7 +330,7 @@ function SunburstChartImpl(props: InternalSunburstChartProps): JSX.Element | nul
 			graphicalItemId: props.id,
 			index: node.tooltipIndex,
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "click", clickPayload)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "click", clickPayload)
 	}
 
 	/* recursively add nodes for each data point and its children */
@@ -355,15 +362,12 @@ function SunburstChartImpl(props: InternalSunburstChartProps): JSX.Element | nul
 			)
 			currentAngle += arcLength
 			/* GOTCHA-016-C: bind both enter/leave AND over/out, dedupe per-instance. */
-			let entered = false
 			const fireEnter = (e: MouseEvent) => {
-				if (entered) return
-				entered = true
+				if (!hover.enter(e)) return
 				handleMouseEnter(nodeWithIndex, e)
 			}
 			const fireLeave = (e: MouseEvent) => {
-				if (!entered) return
-				entered = false
+				if (!hover.leave(e)) return
 				handleMouseLeave(nodeWithIndex, e)
 			}
 			sectors.push(
@@ -455,7 +459,14 @@ export function SunburstChart(outsideProps: SunburstChartProps): JSX.Element {
 	const [childrenSplit, restProps] = splitProps(outsideProps, ["children"])
 	const props = resolveDefaultProps(restProps, defaultSunburstChartProps)
 	return (
-		<RechartsStateProvider preloadedState={preloadedState}>
+		<RechartsStateProvider
+			preloadedState={{
+				...preloadedState,
+				layout: untrack(() =>
+					createInitialLayoutState({ height: props.height, margin: defaultSunburstMargin, width: props.width }),
+				),
+			}}
+		>
 			<ReportChartSize width={props.width} height={props.height} />
 			<ReportChartMargin margin={defaultSunburstMargin} />
 			<ReportEventSettings

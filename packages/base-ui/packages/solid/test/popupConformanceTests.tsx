@@ -4,7 +4,8 @@ import { screen, waitFor, type render as testingLibraryRender } from '@solidjs/t
 import userEvent from '@testing-library/user-event';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { createSignal, type Component } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { Component } from 'solid-js';
 
 export function popupConformanceTests(config: PopupTestConfig) {
   const {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { flush } from "solid-js"
 import { createRechartsStore, ChartState } from "../../../src/state/store"
 import {
 	selectXAxisRange,
@@ -43,6 +44,7 @@ describe("selectAxisRangeWithReverse", () => {
 			activeGraphicalItemId: "foo",
 			activeIndex: "7",
 		})
+		flush()
 		const result2 = selectAxisRangeWithReverse(store, "xAxis", "0", false)
 		const xAxisRange2 = selectXAxisRange(store, "0", false)
 		expect(xAxisRange1).toEqual(xAxisRange2)

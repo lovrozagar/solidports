@@ -1,4 +1,4 @@
-import { Show, mergeProps as solidMergeProps, splitProps } from 'solid-js';
+import { Show } from 'solid-js';
 import { fieldValidityMapping } from '../../field/utils/constants';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
@@ -9,6 +9,7 @@ import { type TransitionStatus, useTransitionStatus } from '../../utils/useTrans
 import type { CheckboxRoot } from '../root/CheckboxRoot';
 import { useCheckboxRootContext } from '../root/CheckboxRootContext';
 import { useStateAttributesMapping } from '../utils/useStateAttributesMapping';
+import { mergeProps as solidMergeProps, splitProps } from '../../solid-1-compat';
 
 /**
  * Indicates whether the checkbox is ticked.

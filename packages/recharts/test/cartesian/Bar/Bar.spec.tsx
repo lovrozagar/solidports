@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, test, vi } from "vitest"
-import { createEffect, createSignal, Show } from "solid-js"
-import { fireEvent } from "@solidjs/testing-library"
+import { trackSpy } from "../../helper/trackSpy"
+import { createSignal, Show, flush } from 'solid-js'
+import { fireEvent } from "../../helper/render"
 import { renderWithStrictMode } from "../../helper/renderWithStrictMode"
 import {
 	Bar,
@@ -186,40 +187,40 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 		expectBars(container, [
 			{
-				d: "M 65,14.2 h 71.6667 v 73 h -71.6667 Z",
-				height: "73",
+				d: "M 65,14.2 h 71.6667 v 74 h -71.6667 Z",
+				height: "74",
 				radius: "0",
 				width: "71.6667",
 				x: "65",
 				y: "14.2",
 			},
 			{
-				d: "M 65,106.2 h 143.3333 v 73 h -143.3333 Z",
-				height: "73",
+				d: "M 65,106.2 h 143.3333 v 74 h -143.3333 Z",
+				height: "74",
 				radius: "0",
 				width: "143.3333",
 				x: "65",
 				y: "106.2",
 			},
 			{
-				d: "M 65,198.2 h 215 v 73 h -215 Z",
-				height: "73",
+				d: "M 65,198.2 h 215 v 74 h -215 Z",
+				height: "74",
 				radius: "0",
 				width: "215",
 				x: "65",
 				y: "198.2",
 			},
 			{
-				d: "M 65,290.2 h 286.6667 v 73 h -286.6667 Z",
-				height: "73",
+				d: "M 65,290.2 h 286.6667 v 74 h -286.6667 Z",
+				height: "74",
 				radius: "0",
 				width: "286.6667",
 				x: "65",
 				y: "290.2",
 			},
 			{
-				d: "M 65,382.2 h 358.3333 v 73 h -358.3333 Z",
-				height: "73",
+				d: "M 65,382.2 h 358.3333 v 74 h -358.3333 Z",
+				height: "74",
 				radius: "0",
 				width: "358.3333",
 				x: "65",
@@ -276,43 +277,43 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 			expectBars(container, [
 				{
-					d: "M 14,413.3333 h 79 v 81.6667 h -79 Z",
+					d: "M 15,413.3333 h 79 v 81.6667 h -79 Z",
 					height: "81.6667",
 					radius: "0",
 					width: "79",
-					x: "14",
+					x: "15",
 					y: "413.3333",
 				},
 				{
-					d: "M 112,331.6667 h 79 v 163.3333 h -79 Z",
+					d: "M 113,331.6667 h 79 v 163.3333 h -79 Z",
 					height: "163.3333",
 					radius: "0",
 					width: "79",
-					x: "112",
+					x: "113",
 					y: "331.6667",
 				},
 				{
-					d: "M 210,250 h 79 v 245 h -79 Z",
+					d: "M 211,250 h 79 v 245 h -79 Z",
 					height: "245",
 					radius: "0",
 					width: "79",
-					x: "210",
+					x: "211",
 					y: "250",
 				},
 				{
-					d: "M 308,168.3333 h 79 v 326.6667 h -79 Z",
+					d: "M 309,168.3333 h 79 v 326.6667 h -79 Z",
 					height: "326.6667",
 					radius: "0",
 					width: "79",
-					x: "308",
+					x: "309",
 					y: "168.3333",
 				},
 				{
-					d: "M 406,86.6667 h 79 v 408.3333 h -79 Z",
+					d: "M 407,86.6667 h 79 v 408.3333 h -79 Z",
 					height: "408.3333",
 					radius: "0",
 					width: "79",
-					x: "406",
+					x: "407",
 					y: "86.6667",
 				},
 			])
@@ -328,43 +329,43 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 			expectBars(container, [
 				{
-					d: "M 15,413.3333 h 77 v 81.6667 h -77 Z",
+					d: "M 16,413.3333 h 77 v 81.6667 h -77 Z",
 					height: "81.6667",
 					radius: "0",
 					width: "77",
-					x: "15",
+					x: "16",
 					y: "413.3333",
 				},
 				{
-					d: "M 113,331.6667 h 77 v 163.3333 h -77 Z",
+					d: "M 114,331.6667 h 77 v 163.3333 h -77 Z",
 					height: "163.3333",
 					radius: "0",
 					width: "77",
-					x: "113",
+					x: "114",
 					y: "331.6667",
 				},
 				{
-					d: "M 211,250 h 77 v 245 h -77 Z",
+					d: "M 212,250 h 77 v 245 h -77 Z",
 					height: "245",
 					radius: "0",
 					width: "77",
-					x: "211",
+					x: "212",
 					y: "250",
 				},
 				{
-					d: "M 309,168.3333 h 77 v 326.6667 h -77 Z",
+					d: "M 310,168.3333 h 77 v 326.6667 h -77 Z",
 					height: "326.6667",
 					radius: "0",
 					width: "77",
-					x: "309",
+					x: "310",
 					y: "168.3333",
 				},
 				{
-					d: "M 407,86.6667 h 77 v 408.3333 h -77 Z",
+					d: "M 408,86.6667 h 77 v 408.3333 h -77 Z",
 					height: "408.3333",
 					radius: "0",
 					width: "77",
-					x: "407",
+					x: "408",
 					y: "86.6667",
 				},
 			])
@@ -651,40 +652,40 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 			expectBars(container, [
 				{
-					d: "M 65,14.2 h 71.6667 v 73 h -71.6667 Z",
-					height: "73",
+					d: "M 65,14.2 h 71.6667 v 74 h -71.6667 Z",
+					height: "74",
 					radius: "0",
 					width: "71.6667",
 					x: "65",
 					y: "14.2",
 				},
 				{
-					d: "M 65,106.2 h 143.3333 v 73 h -143.3333 Z",
-					height: "73",
+					d: "M 65,106.2 h 143.3333 v 74 h -143.3333 Z",
+					height: "74",
 					radius: "0",
 					width: "143.3333",
 					x: "65",
 					y: "106.2",
 				},
 				{
-					d: "M 65,198.2 h 215 v 73 h -215 Z",
-					height: "73",
+					d: "M 65,198.2 h 215 v 74 h -215 Z",
+					height: "74",
 					radius: "0",
 					width: "215",
 					x: "65",
 					y: "198.2",
 				},
 				{
-					d: "M 65,290.2 h 286.6667 v 73 h -286.6667 Z",
-					height: "73",
+					d: "M 65,290.2 h 286.6667 v 74 h -286.6667 Z",
+					height: "74",
 					radius: "0",
 					width: "286.6667",
 					x: "65",
 					y: "290.2",
 				},
 				{
-					d: "M 65,382.2 h 358.3333 v 73 h -358.3333 Z",
-					height: "73",
+					d: "M 65,382.2 h 358.3333 v 74 h -358.3333 Z",
+					height: "74",
 					radius: "0",
 					width: "358.3333",
 					x: "65",
@@ -705,44 +706,44 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 			expectBars(container, [
 				{
-					d: "M 65,14.7 h 71.6667 v 72 h -71.6667 Z",
+					d: "M 65,15.2 h 71.6667 v 72 h -71.6667 Z",
 					height: "72",
 					radius: "0",
 					width: "71.6667",
 					x: "65",
-					y: "14.7",
+					y: "15.2",
 				},
 				{
-					d: "M 65,106.7 h 143.3333 v 72 h -143.3333 Z",
+					d: "M 65,107.2 h 143.3333 v 72 h -143.3333 Z",
 					height: "72",
 					radius: "0",
 					width: "143.3333",
 					x: "65",
-					y: "106.7",
+					y: "107.2",
 				},
 				{
-					d: "M 65,198.7 h 215 v 72 h -215 Z",
+					d: "M 65,199.2 h 215 v 72 h -215 Z",
 					height: "72",
 					radius: "0",
 					width: "215",
 					x: "65",
-					y: "198.7",
+					y: "199.2",
 				},
 				{
-					d: "M 65,290.7 h 286.6667 v 72 h -286.6667 Z",
+					d: "M 65,291.2 h 286.6667 v 72 h -286.6667 Z",
 					height: "72",
 					radius: "0",
 					width: "286.6667",
 					x: "65",
-					y: "290.7",
+					y: "291.2",
 				},
 				{
-					d: "M 65,382.7 h 358.3333 v 72 h -358.3333 Z",
+					d: "M 65,383.2 h 358.3333 v 72 h -358.3333 Z",
 					height: "72",
 					radius: "0",
 					width: "358.3333",
 					x: "65",
-					y: "382.7",
+					y: "383.2",
 				},
 			])
 		})
@@ -764,44 +765,44 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 			expectBars(container, [
 				{
-					d: "M 65,11 h 71.6667 v 79 h -71.6667 Z",
+					d: "M 65,12 h 71.6667 v 79 h -71.6667 Z",
 					height: "79",
 					radius: "0",
 					width: "71.6667",
 					x: "65",
-					y: "11",
+					y: "12",
 				},
 				{
-					d: "M 65,103 h 143.3333 v 79 h -143.3333 Z",
+					d: "M 65,104 h 143.3333 v 79 h -143.3333 Z",
 					height: "79",
 					radius: "0",
 					width: "143.3333",
 					x: "65",
-					y: "103",
+					y: "104",
 				},
 				{
-					d: "M 65,195 h 215 v 79 h -215 Z",
+					d: "M 65,196 h 215 v 79 h -215 Z",
 					height: "79",
 					radius: "0",
 					width: "215",
 					x: "65",
-					y: "195",
+					y: "196",
 				},
 				{
-					d: "M 65,287 h 286.6667 v 79 h -286.6667 Z",
+					d: "M 65,288 h 286.6667 v 79 h -286.6667 Z",
 					height: "79",
 					radius: "0",
 					width: "286.6667",
 					x: "65",
-					y: "287",
+					y: "288",
 				},
 				{
-					d: "M 65,379 h 358.3333 v 79 h -358.3333 Z",
+					d: "M 65,380 h 358.3333 v 79 h -358.3333 Z",
 					height: "79",
 					radius: "0",
 					width: "358.3333",
 					x: "65",
-					y: "379",
+					y: "380",
 				},
 			])
 		})
@@ -874,6 +875,7 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 				/* GOTCHA-016-C: Solid 1:1 binding adds onMouseOver/onMouseOut mirrors. */
 				onMouseOver: expect.any(Function),
 				onMouseOut: expect.any(Function),
+				originalDataIndex: expect.any(Number),
 				parentViewBox: {
 					height: expect.any(Number),
 					width: expect.any(Number),
@@ -1096,7 +1098,7 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 		})
 
 		describe("as a custom Element", () => {
-			it.skip(`should render what the function returned, and then inject extra sneaky props in it
+			it(`should render what the function returned, and then inject extra sneaky props in it
                 - but not all of them, and not the same as in the other ways of rendering labels`, () => {
 				const MyLabel = <g class="my-mock-class" />
 				const { container } = renderWithStrictMode(() => (
@@ -1187,18 +1189,18 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 			expectBars(container, [
 				{
-					d: "M 21.3333,5 h 130 v 460 h -130 Z",
+					d: "M 21.3333,5 h 131 v 460 h -131 Z",
 					height: "460",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "21.3333",
 					y: "5",
 				},
 				{
-					d: "M 348,464.954 h 130 v 0.046 h -130 Z",
+					d: "M 348,464.954 h 131 v 0.046 h -131 Z",
 					height: "0.046",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "348",
 					y: "464.954",
 				},
@@ -1216,26 +1218,26 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 			expectBars(container, [
 				{
-					d: "M 79.3333,5 h 114 v 460 h -114 Z",
+					d: "M 79.3333,5 h 115 v 460 h -115 Z",
 					height: "460",
 					radius: "0",
-					width: "114",
+					width: "115",
 					x: "79.3333",
 					y: "5",
 				},
 				{
-					d: "M 222.6667,460 h 114 v 5 h -114 Z",
+					d: "M 222.6667,460 h 115 v 5 h -115 Z",
 					height: "5",
 					radius: "0",
-					width: "114",
+					width: "115",
 					x: "222.6667",
 					y: "460",
 				},
 				{
-					d: "M 366,460 h 114 v 5 h -114 Z",
+					d: "M 366,460 h 115 v 5 h -115 Z",
 					height: "5",
 					radius: "0",
-					width: "114",
+					width: "115",
 					x: "366",
 					y: "460",
 				},
@@ -1253,24 +1255,24 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 
 			expectBars(container, [
 				{
-					d: "M 65,20.3333 h 430 v 122 h -430 Z",
-					height: "122",
+					d: "M 65,20.3333 h 430 v 123 h -430 Z",
+					height: "123",
 					radius: "0",
 					width: "430",
 					x: "65",
 					y: "20.3333",
 				},
 				{
-					d: "M 65,173.6667 h 5 v 122 h -5 Z",
-					height: "122",
+					d: "M 65,173.6667 h 5 v 123 h -5 Z",
+					height: "123",
 					radius: "0",
 					width: "5",
 					x: "65",
 					y: "173.6667",
 				},
 				{
-					d: "M 65,327 h 5 v 122 h -5 Z",
-					height: "122",
+					d: "M 65,327 h 5 v 123 h -5 Z",
+					height: "123",
 					radius: "0",
 					width: "5",
 					x: "65",
@@ -1300,18 +1302,18 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
       */
 			expectBars(container, [
 				{
-					d: "M 79.3333,5 h 114 v 460 h -114 Z",
+					d: "M 79.3333,5 h 115 v 460 h -115 Z",
 					height: "460",
 					radius: "0",
-					width: "114",
+					width: "115",
 					x: "79.3333",
 					y: "5",
 				},
 				{
-					d: "M 366,463 h 114 v 2 h -114 Z",
+					d: "M 366,463 h 115 v 2 h -115 Z",
 					height: "2",
 					radius: "0",
-					width: "114",
+					width: "115",
 					x: "366",
 					y: "463",
 				},
@@ -1323,7 +1325,7 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 		it("should report its props to redux state, and remove them when removed from DOM", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => spy(useAppSelector(selectUnfilteredCartesianItems)))
+				trackSpy(spy, () => useAppSelector(selectUnfilteredCartesianItems))
 				return null
 			}
 
@@ -1355,6 +1357,7 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 					isPanorama: false,
 					maxBarSize: 90,
 					minPointSize: 3,
+					hasCustomShape: false,
 					stackId: "q",
 					type: "bar",
 					xAxisId: 7,
@@ -1365,13 +1368,14 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 			expectLastCalledWith(spy, expected)
 
 			setShowBar(false)
+			flush()
 			expectLastCalledWith(spy, [])
 		})
 
 		it("should report default props to redux state", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => spy(useAppSelector(selectUnfilteredCartesianItems)))
+				trackSpy(spy, () => useAppSelector(selectUnfilteredCartesianItems))
 				return null
 			}
 
@@ -1391,6 +1395,7 @@ describe.each(chartsThatSupportBar)("<Bar /> as a child of $testName", ({ ChartE
 					isPanorama: false,
 					maxBarSize: undefined,
 					minPointSize: 0,
+					hasCustomShape: false,
 					stackId: undefined,
 					type: "bar",
 					xAxisId: 0,
@@ -1537,7 +1542,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 			expectTooltipCoordinate(container, { x: 60, y: 30 })
 		})
 
-		it.skip("should make both bars active when hovering over the chart", () => {
+		it("should make both bars active when hovering over the chart", () => {
 			const { container } = renderTestCase()
 
 			expectActiveBars(container, [])
@@ -1548,7 +1553,8 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 			})
 
 			// Second timer is to show the active bar after it had the first inactive render so that it could start its CSS transition
-			vi.advanceTimersByTime(0)
+			vi.runOnlyPendingTimers()
+			flush()
 
 			expectActiveBars(container, [
 				{
@@ -1648,7 +1654,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 				},
 				keyboardInteraction: noInteraction,
 				settings: {
-					active: false,
+					active: undefined,
 					axisId: 0,
 					defaultIndex: undefined,
 					shared: false,
@@ -1721,7 +1727,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 				},
 				keyboardInteraction: noInteraction,
 				settings: {
-					active: false,
+					active: undefined,
 					axisId: 0,
 					defaultIndex: undefined,
 					shared: false,
@@ -1795,12 +1801,15 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 			expectTooltipCoordinate(container, { x: 60, y: 45.00000000000001 })
 		})
 
-		it.skip("should make the first bar active - but not the second one - when hovering over it", () => {
+		it("should make the first bar active - but not the second one - when hovering over it", () => {
 			const { container } = renderTestCase()
 			const bars = getAllBars(container)
 			expectActiveBars(container, [])
 
 			showTooltipOnCoordinate(bars[0], undefined, { clientX: 10, clientY: 10 })
+			/* upstream helper runs pending timers, which also fires the active-bar rAF */
+			vi.runOnlyPendingTimers()
+			flush()
 			expectActiveBars(container, [
 				{
 					d: "M 14,65 h 72 v 30 h -72 Z",
@@ -1839,6 +1848,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 					},
 					height: 63.333333333333314,
 					label: "test2",
+					originalDataIndex: 1,
 					parentViewBox: {
 						height: 200,
 						width: 200,
@@ -1898,6 +1908,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 					},
 					height: 63.333333333333314,
 					label: "test2",
+					originalDataIndex: 1,
 					parentViewBox: {
 						height: 200,
 						width: 200,
@@ -1939,6 +1950,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 					},
 					height: 63.333333333333314,
 					label: "test2",
+					originalDataIndex: 1,
 					parentViewBox: {
 						height: 200,
 						width: 200,
@@ -1997,6 +2009,7 @@ describe("mouse interactions in stacked bar: https://github.com/recharts/rechart
 					},
 					height: 31.666666666666657,
 					label: "test1",
+					originalDataIndex: 0,
 					parentViewBox: {
 						height: 200,
 						width: 200,
@@ -2090,6 +2103,7 @@ describe("Bar background zIndex", () => {
 		))
 		// because we use custom zIndex, we need to run timers to ensure layers are updated
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const bars = container.querySelectorAll(".recharts-bar-rectangle")
 		const backgroundRects = container.querySelectorAll(".recharts-bar-background-rectangle")
@@ -2120,6 +2134,7 @@ describe("Bar background zIndex", () => {
 			</BarChart>
 		))
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const backgroundRects = container.querySelectorAll(".recharts-bar-background-rectangle")
 		const bars = container.querySelectorAll(".recharts-bar-rectangle")
@@ -2172,4 +2187,102 @@ describe("Bar background zIndex", () => {
 			expect(backgroundRects).toHaveLength(0)
 		},
 	)
+})
+
+describe("activeBar with missing data", () => {
+	beforeEach(() => {
+		mockGetBoundingClientRect({ width: 500, height: 300 })
+	})
+
+	it("should highlight the correct bar when data has null values", () => {
+		// Data with missing values (null) in the middle
+		const dataWithMissingValues = [
+			{ name: "Page A", uv: 2400, pv: 4000 },
+			{ name: "Page B", uv: null, pv: null }, // missing data
+			{ name: "Page C", uv: 9800, pv: 2000 },
+			{ name: "Page D", uv: null, pv: null }, // missing data
+			{ name: "Page E", uv: 4800, pv: 1890 },
+		]
+
+		const renderTestCase = createSelectorTestCase((props) => {
+			return (
+				<BarChart data={dataWithMissingValues} width={500} height={300}>
+					<XAxis dataKey="name" />
+					<YAxis />
+					<Bar activeBar dataKey="uv" isAnimationActive={false} />
+					<Tooltip isAnimationActive={false} />
+					{props.children}
+				</BarChart>
+			)
+		})
+
+		const { container, spy } = renderTestCase(selectActiveTooltipIndex)
+
+		// Before interaction, no bar should be active
+		expectActiveBars(container, [])
+		expectLastCalledWith(spy, null)
+
+		// There should be 3 bars rendered (indices 0, 2, 4 in original data)
+		const allBars = getAllBars(container)
+		expect(allBars).toHaveLength(3)
+
+		// Hover over the area where the last bar should be (Page E at rightmost position)
+		// We need to hover at the rightmost bar position
+		// Let's hover closer to the right edge of the chart
+		showTooltipOnCoordinate(container, barChartMouseHoverTooltipSelector, { clientX: 450, clientY: 150 })
+
+		// The activeIndex should match Page E's original position
+		// It should be the index in the original data where Page E is located
+		expectLastCalledWith(spy, "4")
+
+		// Wait for the active bar to mount
+		vi.runOnlyPendingTimers()
+		flush()
+
+		// The third bar (Page E) should be highlighted, not a different bar
+		const activeBars = container.querySelectorAll(".recharts-active-bar")
+		expect(activeBars).toHaveLength(1)
+
+		// Verify the tooltip shows the correct data
+		expectTooltipPayload(container, "Page E", ["uv : 4800"])
+	})
+
+	it("should highlight the correct bar when hovering over middle bar with surrounding nulls", () => {
+		const dataWithMissingValues = [
+			{ name: "Page A", uv: 2400 },
+			{ name: "Page B", uv: null },
+			{ name: "Page C", uv: 9800 },
+			{ name: "Page D", uv: null },
+			{ name: "Page E", uv: 4800 },
+		]
+
+		const renderTestCase = createSelectorTestCase((props) => {
+			return (
+				<BarChart data={dataWithMissingValues} width={500} height={300}>
+					<XAxis dataKey="name" />
+					<YAxis />
+					<Bar activeBar dataKey="uv" isAnimationActive={false} />
+					<Tooltip isAnimationActive={false} />
+					{props.children}
+				</BarChart>
+			)
+		})
+
+		const { container, spy } = renderTestCase(selectActiveTooltipIndex)
+
+		// Hover over the middle bar (Page C, which is at original index 2)
+		showTooltipOnCoordinate(container, barChartMouseHoverTooltipSelector, { clientX: 250, clientY: 150 })
+
+		// The activeIndex should be "2" (the original data index for Page C)
+		expectLastCalledWith(spy, "2")
+
+		vi.runOnlyPendingTimers()
+		flush()
+
+		// The second rendered bar (Page C) should be highlighted
+		const activeBars = container.querySelectorAll(".recharts-active-bar")
+		expect(activeBars).toHaveLength(1)
+
+		expectTooltipPayload(container, "Page C", ["uv : 9800"])
+	})
 })

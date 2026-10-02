@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { batch, createSignal, onCleanup } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { createSignal, onCleanup, untrack } from 'solid-js';
 import { clsx } from "clsx"
 import { useChartStore } from "../state/RechartsStoreContext"
 import { useOptionalChartState } from "../state/useChartState"
@@ -127,16 +127,18 @@ function ResponsiveDiv(props: WrapperDivProps) {
 	const [sizes, setSizes] = createSignal<{
 		containerWidth: number
 		containerHeight: number
-	}>({
-		containerHeight: getNumberOrZero(props.style?.height),
-		containerWidth: getNumberOrZero(props.style?.width),
-	})
+	}>(
+		untrack(() => ({
+			containerHeight: getNumberOrZero(props.style?.height),
+			containerWidth: getNumberOrZero(props.style?.width),
+		})),
+	)
 	/* eslint-enable solid/reactivity */
 
 	function setContainerSize(newWidth: number, newHeight: number) {
 		const roundedWidth = Math.round(newWidth)
 		const roundedHeight = Math.round(newHeight)
-		const prev = sizes()
+		const prev = untrack(sizes)
 		if (prev.containerWidth === roundedWidth && prev.containerHeight === roundedHeight) {
 			return
 		}
@@ -208,16 +210,18 @@ function ReadSizeOnceDiv(props: WrapperDivProps) {
 	const [sizes, setSizes] = createSignal<{
 		containerWidth: number
 		containerHeight: number
-	}>({
-		containerHeight: getNumberOrZero(props.height),
-		containerWidth: getNumberOrZero(props.width),
-	})
+	}>(
+		untrack(() => ({
+			containerHeight: getNumberOrZero(props.height),
+			containerWidth: getNumberOrZero(props.width),
+		})),
+	)
 	/* eslint-enable solid/reactivity */
 
 	function setContainerSize(newWidth: number, newHeight: number) {
 		const roundedWidth = Math.round(newWidth)
 		const roundedHeight = Math.round(newHeight)
-		const prev = sizes()
+		const prev = untrack(sizes)
 		if (prev.containerWidth === roundedWidth && prev.containerHeight === roundedHeight) {
 			return
 		}
@@ -298,13 +302,15 @@ function StaticDiv(props: WrapperDivProps & { width: number; height: number }) {
 
 /* eslint-disable solid/reactivity -- props.width/height type checks are structural guards at component setup; NonResponsiveDiv branches once at mount */
 function NonResponsiveDiv(props: WrapperDivProps) {
+	const width = untrack(() => props.width)
+	const height = untrack(() => props.height)
 	/* When width or height are percentages or CSS short names, read size from DOM once */
-	if (typeof props.width === "string" || typeof props.height === "string") {
+	if (typeof width === "string" || typeof height === "string") {
 		return <ReadSizeOnceDiv {...props} />
 	}
 	/* When both are numbers, use them directly */
-	if (typeof props.width === "number" && typeof props.height === "number") {
-		return <StaticDiv {...props} width={props.width} height={props.height} />
+	if (typeof width === "number" && typeof height === "number") {
+		return <StaticDiv {...props} width={props.width as number} height={props.height as number} />
 	}
 	/* eslint-enable solid/reactivity */
 	/* When width/height are undefined, render wrapper div without reporting size */
@@ -382,7 +388,8 @@ export function RechartsWrapper(props: RechartsWrapperProps) {
 
 	/* GOTCHA-016-C: dedupe across native mouseenter + mouseover bindings.
 	   Solid binds 1:1; both fire on real entry. Shared flag prevents double-dispatch. */
-	let mouseEntered = false
+	/* null until the first enter/leave: a leave with no prior enter still dispatches, like React. */
+	let pointerInside: boolean | null = null
 
 	function myOnClick(e: MouseEvent) {
 		ctx?.events.handleMouseClick(toHTMLMousePointer(e))
@@ -391,19 +398,19 @@ export function RechartsWrapper(props: RechartsWrapperProps) {
 
 	function myOnMouseEnter(e: MouseEvent) {
 		ctx?.events.handleMouseMove(toHTMLMousePointer(e))
-		if (!mouseEntered) {
-			mouseEntered = true
+		if (pointerInside !== true) {
+			pointerInside = true
 			ctx?.events.handleExternalEvent(e, props.onMouseEnter)
 		}
 	}
 
 	function myOnMouseLeave(e: MouseEvent) {
-		batch(() => {
+		{
 			newCtx?.setState("tooltip", "axisInteraction", "hover", "active", false)
 			newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-		})
-		if (mouseEntered) {
-			mouseEntered = false
+		}
+		if (pointerInside !== false) {
+			pointerInside = false
 			ctx?.events.handleExternalEvent(e, props.onMouseLeave)
 		}
 	}
@@ -416,8 +423,8 @@ export function RechartsWrapper(props: RechartsWrapperProps) {
 		ctx?.events.handleMouseMove(toHTMLMousePointer(e))
 		/* Mirror native mouseenter -> user onMouseEnter handler dispatch.
 		   Dedupe so binding both mouseenter+mouseover doesn't double-fire. */
-		if (!mouseEntered) {
-			mouseEntered = true
+		if (pointerInside !== true) {
+			pointerInside = true
 			ctx?.events.handleExternalEvent(e, props.onMouseEnter)
 		}
 	}
@@ -431,12 +438,12 @@ export function RechartsWrapper(props: RechartsWrapperProps) {
 		if (next != null && wrapper.contains(next)) {
 			return
 		}
-		batch(() => {
+		{
 			newCtx?.setState("tooltip", "axisInteraction", "hover", "active", false)
 			newCtx?.setState("tooltip", "itemInteraction", "hover", "active", false)
-		})
-		if (mouseEntered) {
-			mouseEntered = false
+		}
+		if (pointerInside !== false) {
+			pointerInside = false
 			ctx?.events.handleExternalEvent(e, props.onMouseLeave)
 		}
 	}
@@ -500,11 +507,11 @@ export function RechartsWrapper(props: RechartsWrapperProps) {
 	}
 
 	/* eslint-disable-next-line solid/reactivity -- props.responsive determines wrapper component once at mount; stable structural check */
-	const WrapperDiv = getWrapperDivComponent(props.responsive)
+	const WrapperDiv = getWrapperDivComponent(untrack(() => props.responsive))
 
 	return (
-		<TooltipPortalContext.Provider value={tooltipPortal}>
-			<LegendPortalContext.Provider value={legendPortal}>
+		<TooltipPortalContext value={tooltipPortal}>
+			<LegendPortalContext value={legendPortal}>
 				<WrapperDiv
 					width={width() ?? props.style?.width}
 					height={height() ?? props.style?.height}
@@ -538,7 +545,7 @@ export function RechartsWrapper(props: RechartsWrapperProps) {
 					<EventSynchronizer />
 					{props.children}
 				</WrapperDiv>
-			</LegendPortalContext.Provider>
-		</TooltipPortalContext.Provider>
+			</LegendPortalContext>
+		</TooltipPortalContext>
 	)
 }

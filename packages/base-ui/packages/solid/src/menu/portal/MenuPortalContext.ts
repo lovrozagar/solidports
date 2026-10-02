@@ -1,10 +1,11 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 
-export const MenuPortalContext = createContext<Accessor<boolean | undefined>>();
+export const MenuPortalContext = createContext<Accessor<boolean | undefined> | null>(null);
 
 export function useMenuPortalContext() {
   const value = useContext(MenuPortalContext);
-  if (value === undefined) {
+  if (value == null) {
     throw new Error('Base UI: <Menu.Portal> is missing.');
   }
   return value;

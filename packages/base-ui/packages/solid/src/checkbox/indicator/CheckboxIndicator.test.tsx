@@ -31,9 +31,9 @@ describe('<Checkbox.Indicator />', () => {
     refInstanceof: window.HTMLSpanElement,
     render: (node, props) =>
       render(() => (
-        <CheckboxRootContext.Provider value={testContext}>
+        <CheckboxRootContext value={testContext}>
           {node(props!)}
-        </CheckboxRootContext.Provider>
+        </CheckboxRootContext>
       )),
   }));
 

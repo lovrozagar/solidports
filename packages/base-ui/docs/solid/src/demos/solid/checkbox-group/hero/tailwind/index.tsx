@@ -1,4 +1,5 @@
-import { createUniqueId, type JSX } from 'solid-js';
+import { createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Checkbox } from '@solidports/base-ui/checkbox';

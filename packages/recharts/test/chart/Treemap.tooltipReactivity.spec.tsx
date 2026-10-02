@@ -1,8 +1,8 @@
 /* eslint-disable import/no-cycle, sort-keys */
-/* @jsxImportSource solid-js */
-import { describe, expect, it, test, vi } from "vitest"
-import { fireEvent } from "@solidjs/testing-library"
-import { useContext } from "solid-js"
+/* @jsxImportSource @solidjs/web */
+import { describe, expect, it, vi } from "vitest"
+import { fireEvent } from "../helper/render"
+import { useContext, untrack, flush } from 'solid-js';
 import { Tooltip, Treemap } from "../../src"
 import { exampleTreemapData } from "../_data"
 import { renderWithSignals } from "../helper/renderWithSignals"
@@ -29,20 +29,16 @@ import type { ChartState } from "../../src/state/store"
  * reactive graph — re-evaluated whenever tracked props change — producing a
  * new reference that triggers the store update path.
  *
- * NOTE on post-mount update testing: Solid's store `produce` + `indexOf`
- * cannot locate items by original reference inside the draft proxy (produce
- * wraps array elements in proxies). The SetTooltipEntrySettings replacement
- * path (prevSettings !== null && prevSettings !== current) therefore silently
- * fails to replace the item. Post-mount prop-update tests are deferred; see
- * the test.todo entries below. What CAN be tested is:
+ * Covered here:
  *   1. The store is populated correctly at initial mount (correct values, not
  *      stale snapshots from a frozen object literal).
  *   2. activeCoordinate dispatches correctly on hover (ContentItemWithEvents
  *      fix — coordinate reads nodeProps reactively via createMemo).
+ *   3. Post-mount prop changes replace the tooltip entry in place.
  */
 
 function StoreCapture(props: { ref: (store: ChartState) => void }): null {
-	const ctx = useContext(RechartsStoreContext)
+	const ctx = untrack(() => useContext(RechartsStoreContext))
 	if (ctx != null) {
 		/* eslint-disable-next-line solid/reactivity -- intentional one-shot mount callback, not a tracked read */
 		props.ref(ctx.store)
@@ -75,6 +71,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads).toHaveLength(1)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.nameKey).toBe("rank")
@@ -103,6 +100,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.dataKey).toBe("rank")
 	})
@@ -131,6 +129,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.fill).toBe("#ff0000")
 	})
@@ -160,6 +159,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		/* currentRoot is computed from data; with createMemo it reflects the populated root. */
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.dataDefinedOnItem).not.toBe(undefined)
@@ -190,6 +190,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 
 		/* depth-2 selector requires nested data (children of "A" in exampleTreemapData) */
@@ -197,6 +198,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 		assertNotNull(rect)
 		fireEvent.mouseOver(rect)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const coord = selectActiveTooltipCoordinate(store)
 		assertNotNull(coord)
@@ -228,6 +230,7 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 
 		showTooltip(container, treemapNodeChartMouseHoverTooltipSelector)
@@ -239,32 +242,41 @@ describe("Treemap tooltip settings — initial mount correctness", () => {
 	})
 })
 
-/*
- * Post-mount prop-update regression tests are blocked by a Solid store
- * limitation: `produce` wraps array items in proxy objects, so `indexOf`
- * with the original plain-object reference always returns -1. The
- * SetTooltipEntrySettings replacement path (prevSettings !== current branch)
- * therefore cannot update an existing entry. This is a pre-existing store
- * design constraint, not introduced by this session's changes.
- *
- * Manual repro for the original bug (nameKey not updating):
- *   1. Replace `createMemo(() => ({...}))` with `const x = {...}; return x` in
- *      SetTreemapTooltipEntrySettings.
- *   2. Mount Treemap with nameKey="name".
- *   3. Observe store.tooltip.tooltipItemPayloads[0].settings.nameKey → "name".
- *   4. Update nameKey signal to "rank".
- *   5. Without createMemo: store still shows "name" (same object reference,
- *      SetTooltipEntrySettings identity check skips update).
- *   6. With createMemo: store shows "name" too (indexOf fails), BUT the memo
- *      re-runs ensuring that IF the replacement path ever works (future fix)
- *      the correct value is present. For the INITIAL mount case (the actual
- *      RadialBar bug this pattern fixed), the first push receives the
- *      correctly-computed value.
- */
-test.todo(
-	"SetTreemapTooltipEntrySettings post-mount nameKey update — blocked by produce+indexOf proxy limitation in SetTooltipEntrySettings (items[idx] = current never fires; indexOf returns -1 against draft proxies). Fix SetTooltipEntrySettings to use findIndex + unwrap or a Map<id, config> keyed approach.",
-)
+describe("Treemap tooltip settings — post-mount updates", () => {
+	/*
+	 * A changed prop rebuilds the settings memo, and SetTooltipEntrySettings replaces the
+	 * existing entry in place instead of appending a second one.
+	 */
+	it.each([
+		["nameKey", { nameKey: "name", dataKey: "value" }, { nameKey: "rank", dataKey: "value" }],
+		["dataKey", { nameKey: "name", dataKey: "value" }, { nameKey: "name", dataKey: "rank" }],
+	] as const)("SetTreemapTooltipEntrySettings replaces the entry when %s changes", (key, initial, next) => {
+		let store: ChartState | undefined
 
-test.todo(
-	"SetTreemapTooltipEntrySettings post-mount dataKey update — same produce+indexOf limitation.",
-)
+		const { update } = renderWithSignals(
+			(p: { nameKey: string; dataKey: string }) => (
+				<Treemap
+					width={500}
+					height={250}
+					data={exampleTreemapData}
+					isAnimationActive={false}
+					nameKey={p.nameKey}
+					dataKey={p.dataKey}
+				>
+					<StoreCapture ref={(s) => { store = s }} />
+				</Treemap>
+			),
+			{ ...initial },
+		)
+
+		vi.advanceTimersByTime(0)
+		flush()
+		assertNotNull(store)
+		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.[key]).toBe(initial[key])
+
+		update({ ...next })
+		flush()
+		expect(selectTooltipState(store).tooltipItemPayloads).toHaveLength(1)
+		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.[key]).toBe(next[key])
+	})
+})

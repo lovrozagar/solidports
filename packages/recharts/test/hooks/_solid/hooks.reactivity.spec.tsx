@@ -1,8 +1,7 @@
-/* @jsxImportSource solid-js */
-import { createMemo, createRenderEffect, on } from "solid-js"
+/* @jsxImportSource @solidjs/web */
+import { flush as flushSolid } from 'solid-js';
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
-import type { SetStoreFunction } from "solid-js/store"
+import { render } from "../../helper/render"
 import type { ChartState } from "../../../src/state/chartState"
 import { useChartState } from "../../../src/state/useChartState"
 import {
@@ -20,23 +19,25 @@ import {
 } from "../../../src/hooks"
 import { LineChart, XAxis, YAxis, Line } from "../../../src"
 
+import { type SetStoreFunction } from '../../../src/util/solid-1-compat';
+import { observe } from "../../helper/observe"
 const data = [
 	{ x: 0, y: 10 },
 	{ x: 1, y: 20 },
 	{ x: 2, y: 30 },
 ]
 
-/* Wraps a hook call in a reactive memo so spy fires on every re-run. */
+/* Re-runs on every dependency change (not only value changes): these tests check subscriptions. */
 function makeProbe<T>(hook: () => T, spy: (v: T) => void): () => null {
 	return (): null => {
-		const value = createMemo<T>(() => hook())
-		createRenderEffect(on(value, (v) => spy(v)))
+		observe(() => spy(hook()))
 		return null
 	}
 }
 
 function flush(): void {
 	vi.advanceTimersByTime(0)
+	flushSolid()
 }
 
 /* Chart with a numeric xAxis + explicit yAxis domain so both axes exist in legacy store. */

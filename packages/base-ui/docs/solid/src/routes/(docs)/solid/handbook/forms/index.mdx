@@ -5,7 +5,7 @@
 <Subtitle>A guide to building forms with Base UI components.</Subtitle>
 <Meta name="description" content="A guide to building forms with Base UI components." />
 
-Base UI form control components extend the native [constraint validation API](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#the-constraint-validation-api) so you can build forms for collecting user input or providing control over an interface. They also integrate seamlessly with third-party libraries like [React Hook Form](#react-hook-form) and [TanStack Form](#tanstack-form).
+Base UI form control components extend the native [constraint validation API](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#the-constraint-validation-api) so you can build forms for collecting user input or providing control over an interface. They also integrate seamlessly with third-party libraries like [TanStack Form](#tanstack-form).
 
 <Demo path="handbook/forms/hero" />
 
@@ -380,149 +380,6 @@ Use `<Field.Error>` without `children` to automatically display the field's nati
 <Field.Error match="valueMissing">You must create a username</Field.Error>
 ```
 
-## React Hook Form
-
-[React Hook Form](https://react-hook-form.com) is a popular library that you can integrate with Base UI to externally manage form and field state for your existing components.
-
-<Demo path="handbook/forms/react-hook-form" />
-
-### Initialize the form
-
-Initialize the form with the `useForm` hook, assigning the initial value of each field by their name in the `defaultValues` parameter:
-
-```tsx title="Initialize a form instance"
-import { useForm } from 'react-hook-form';
-
-const { control, handleSubmit } = useForm<FormValues>({
-  defaultValues: {
-    username: '',
-    email: '',
-  },
-});
-```
-
-### Integrate components
-
-Use the `<Controller>` component to integrate with any `<Field>` component, forwarding the `name`, `field`, and `fieldState` render props to the appropriate part:
-
-```tsx title="Integrating the controller component with Base UI field"
-import { useForm, Controller } from "react-hook-form";
-import { Field } from '@solidports/base-ui/field';
-
-const { control, handleSubmit} = useForm({
-  defaultValues: {
-    username: '',
-  }
-})
-
-<Controller
-  {/* @highlight-start */}
-  name="username"
-  control={control}
-  render={({
-    // @highlight-text "ref" "value" "onBlur" "onChange"
-    field: { name, ref, value, onBlur, onChange },
-    // @highlight-text "invalid" "isTouched" "isDirty" "error"
-    fieldState: { invalid, isTouched, isDirty, error },
-  }) => (
-    {/* @highlight-text "invalid" "isTouched" "isDirty" */}
-    <Field.Root name={name} invalid={invalid} touched={isTouched} dirty={isDirty}>
-    {/* @highlight-end */}
-      <Field.Label>Username</Field.Label>
-      <Field.Description>
-        May appear where you contribute or are mentioned. You can remove it at any time.
-      </Field.Description>
-      {/* @highlight-start */}
-      <Field.Control
-        placeholder="e.g. alice132"
-        value={value} {/* @highlight-text "value" */}
-        onBlur={onBlur} {/* @highlight-text "onBlur" */}
-        onValueChange={onChange} {/* @highlight-text "onChange" */}
-        ref={ref} {/* @highlight-text "ref" */}
-      />
-      {/* @highlight-end */}
-      <Field.Error match={!!error}> {/* @highlight-text "error" */}
-        {error?.message} {/* @highlight-text "error" */}
-      </Field.Error>
-    </Field.Root>
-  )}
-/>
-```
-
-For React Hook Form to focus invalid fields when performing validation, you must ensure that any wrapping components forward the `ref` to the underlying Base UI component. You can typically accomplish this using the `inputRef` prop, or directly as the `ref` for components that render an input element like `<NumberField.Input>`.
-
-### Field validation
-
-Specify `rules` on the `<Controller>` in the same format as [`register`](https://react-hook-form.com/docs/useform/register) options, and use the `match` prop to delegate control of the error rendering:
-
-```tsx title="Defining validation rules and displaying errors"
-import { Controller } from "react-hook-form";
-import { Field } from '@solidports/base-ui/field';
-
-<Controller
-  {/* @highlight-start */}
-  name="username"
-  control={control}
-  rules={{
-    required: 'This is a required field',
-    minLength: { value: 2, message: 'Too short' },
-    validate: (value) => {
-      if (/* custom logic */) {
-        return 'Invalid'
-      }
-      return null;
-    },
-    {/* @highlight-end */}
-  }}
-  render={({
-    field: { name, ref, value, onBlur, onChange },
-    fieldState: { invalid, isTouched, isDirty, error },
-  }) => (
-    <Field.Root name={name} invalid={invalid} touched={isTouched} dirty={isDirty}>
-      <Field.Label>Username</Field.Label>
-      <Field.Description>
-        May appear where you contribute or are mentioned. You can remove it at any time.
-      </Field.Description>
-      <Field.Control
-        placeholder="e.g. alice132"
-        value={value}
-        onBlur={onBlur}
-        onValueChange={onChange}
-        ref={ref}
-      />
-      {/* @highlight-start */}
-      <Field.Error match={!!error}>
-        {error?.message}
-      </Field.Error>
-      {/* @highlight-end */}
-    </Field.Root>
-  )}
-/>
-```
-
-### Submitting data
-
-Wrap your submit handler function with `handleSubmit` to receive the form values as a JavaScript object for further handling:
-
-```tsx title="Form submission handler"
-import { useForm } from 'react-hook-form';
-import { Form } from '@solidports/base-ui/form';
-
-interface FormValues {
-  username: string;
-  email: string;
-}
-
-const { handleSubmit } = useForm<FormValues>();
-
-async function submitForm(data: FormValues) {
-  // transform the object and/or submit it to a server
-  await fetch(/* ... */);
-}
-
-<Form onSubmit={handleSubmit(submitForm)} />;
-```
-
 ## TanStack Form
 
 [TanStack Form](https://tanstack.com/form/v1/docs/overview) is a form library with a function-based API for orchestrating validations that can also be integrated with Base UI.
@@ -531,10 +388,10 @@ async function submitForm(data: FormValues) {
 
 ### Initialize the form
 
-Create a form instance with the `useForm` hook, assigning the initial value of each field by their name in the `defaultValues` parameter:
+Create a form instance with the `createForm` function, assigning the initial value of each field by their name in the `defaultValues` parameter:
 
 ```tsx title="Initialize a form instance"
-import { useForm } from '@tanstack/react-form';
+import { createForm } from '@tanstack/solid-form';
 
 interface FormValues {
   username: string;
@@ -547,11 +404,11 @@ const defaultValues: FormValues = {
 };
 
 {/* @highlight-start */}
-/* useForm returns a form instance */
-const form = useForm<FormValues>({
+/* createForm returns a form instance */
+const form = createForm<FormValues>(() => ({
 {/* @highlight-end */}
   defaultValues,
-});
+}));
 ```
 
 ### Integrate components
@@ -559,10 +416,10 @@ const form = useForm<FormValues>({
 Use the `<form.Field>` component from the form instance to integrate with Base UI components using the `children` prop, forwarding the various `field` render props to the appropriate part:
 
 ```tsx title="Integrating TanStack Form with Base UI components"
-import { useForm } from '@tanstack/react-form';
+import { createForm } from '@tanstack/solid-form';
 import { Field } from '@solidports/base-ui/field';
 
-const form = useForm(/* defaultValues, other parameters */)
+const form = createForm(() => ({ /* defaultValues, other parameters */ }))
 
 <form>
   {/* @highlight-start */}
@@ -572,26 +429,26 @@ const form = useForm(/* defaultValues, other parameters */)
     // @highlight-end
       <Field.Root
         {/* @highlight-start */}
-        name={field.name} {/* @highlight-text "field.name" */}
-        invalid={!field.state.meta.isValid} {/* @highlight-text "isValid" */}
-        dirty={field.state.meta.isDirty} {/* @highlight-text "isDirty" */}
-        touched={field.state.meta.isTouched} {/* @highlight-text "isTouched" */}
+        name={field().name} {/* @highlight-text "field().name" */}
+        invalid={!field().state.meta.isValid} {/* @highlight-text "isValid" */}
+        dirty={field().state.meta.isDirty} {/* @highlight-text "isDirty" */}
+        touched={field().state.meta.isTouched} {/* @highlight-text "isTouched" */}
         {/* @highlight-end */}
       >
         <Field.Label>Username</Field.Label>
         <Field.Control
           {/* @highlight-start */}
-          value={field.state.value} {/* @highlight-text "value" */}
-          onValueChange={field.handleChange} {/* @highlight-text "handleChange" */}
-          onBlur={field.handleBlur} {/* @highlight-text "handleBlur" */}
+          value={field().state.value} {/* @highlight-text "value" */}
+          onValueChange={field().handleChange} {/* @highlight-text "handleChange" */}
+          onBlur={field().handleBlur} {/* @highlight-text "handleBlur" */}
           {/* @highlight-end */}
           placeholder="e.g. bob276"
         />
 
         {/* @highlight-start */}
-        <Field.Error match={!field.state.meta.isValid}> {/* @highlight-text "isValid" */}
+        <Field.Error match={!field().state.meta.isValid}> {/* @highlight-text "isValid" */}
         {/* @highlight-end */}
-          {field.state.meta.errors.join(',')}
+          {field().state.meta.errors.join(',')}
         </Field.Error>
       </Field.Root>
     )}
@@ -605,15 +462,15 @@ The Base UI `<Form>` component is not needed when using TanStack Form.
 
 To configure a native `<form>`-like validation strategy:
 
-1. Use the additional `revalidateLogic` hook and pass it to `useForm`.
+1. Use the additional `revalidateLogic` hook and pass it to `createForm`.
 2. Pass a validation function to the `validators.onDynamic` prop on `<form.Field>` that returns an error object with keys corresponding to the field `name`s.
 
 This validates all fields when the first submission is attempted, and revalidates any invalid fields when their values change again.
 
 ```tsx title="Form-level validators"
-import { useForm, revalidateLogic } from '@tanstack/react-form'; // @highlight-text "revalidateLogic"
+import { createForm, revalidateLogic } from '@tanstack/solid-form'; // @highlight-text "revalidateLogic"
 
-const form = useForm({
+const form = createForm(() => ({
   defaultValues: {
     username: '',
     email: '',
@@ -645,7 +502,7 @@ const form = useForm({
       return { form: errors, fields: errors };
     },
   },
-});
+}));
 ```
 
 ### Field validation
@@ -654,9 +511,9 @@ You can pass additional validator functions to individual `<form.Field>` compone
 
 ```tsx title="Field-level validators"
 import { Field } from '@solidports/base-ui/field';
-import { useForm } from '@tanstack/react-form';
+import { createForm } from '@tanstack/solid-form';
 
-const form = useForm();
+const form = createForm();
 
 <form.Field
   name="username"
@@ -672,7 +529,7 @@ const form = useForm();
   }}
   {/* @highlight-end */}
   children={(field) => (
-    <Field.Root name={field.name} /* forward the field props */ />
+    <Field.Root name={field().name} /* forward the field props */ />
   )}
 >
 ```
@@ -681,20 +538,20 @@ const form = useForm();
 
 To submit the form:
 
-1. Pass a submit handler function to the `onSubmit` parameter of `useForm`.
+1. Pass a submit handler function to the `onSubmit` parameter of `createForm`.
 2. Call `form.handleSubmit()` from an event handler such as form `onSubmit` or `onClick` on a button.
 
 ```tsx title="Form submission handler"
-import { useForm } from '@tanstack/react-form';
+import { createForm } from '@tanstack/solid-form';
 
-const form = useForm({
+const form = createForm(() => ({
   // @highlight-start
   onSubmit: async ({ value: formValues }) => {
     /* prettier-ignore */
     await fetch(/* POST the `formValues` to an external API */);
   },
   {/* @highlight-end */}
-});
+}));
 
 <form
   onSubmit={(event) => {
@@ -716,7 +573,6 @@ export const metadata = {
     'Base UI Forms',
     'React Accessible Forms',
     'Field Validation Handbook',
-    'React Hook Form Integration',
     'TanStack Form Guide',
     'Constraint Validation API',
     'Handbook Forms',

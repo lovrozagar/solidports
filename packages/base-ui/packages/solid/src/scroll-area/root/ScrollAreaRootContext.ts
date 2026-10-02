@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { Coords, HiddenState, OverflowEdges, ScrollAreaRoot, Size } from './ScrollAreaRoot';
 
@@ -41,11 +42,11 @@ export interface ScrollAreaRootContext {
   }>;
 }
 
-export const ScrollAreaRootContext = createContext<ScrollAreaRootContext>();
+export const ScrollAreaRootContext = createContext<ScrollAreaRootContext | null>(null);
 
 export function useScrollAreaRootContext() {
   const context = useContext(ScrollAreaRootContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: ScrollAreaRootContext is missing. ScrollArea parts must be placed within <ScrollArea.Root>.',
     );

@@ -22,8 +22,8 @@ export function MenuItem(componentProps: MenuItem.Props) {
     'closeOnClick',
   ]);
   const idProp = () => local.id;
-  const nativeButton = () => local.nativeButton ?? false;
-  const disabled = () => local.disabled ?? false;
+  const nativeButton = () => Boolean(local.nativeButton);
+  const disabled = () => Boolean(local.disabled);
   const closeOnClick = () => local.closeOnClick ?? true;
 
   const listItem = useCompositeListItem({

@@ -1,7 +1,8 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { observe } from "../../helper/observe"
+
+import { render } from "../../helper/render"
 import { timeFormat } from "d3-time-format"
 import { scaleTime } from "victory-vendor/d3-scale"
 import { useAppSelector } from "../../helper/legacyDispatch"
@@ -48,7 +49,7 @@ describe("time scale", () => {
 		const axisDomainSpy = vi.fn()
 		const scaleTypeSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() =>
+			observe(() =>
 				scaleTypeSpy(useAppSelector((state) => selectRealScaleType(state, "xAxis", 0))),
 			)
 			return null
@@ -91,7 +92,7 @@ describe("time scale", () => {
 			</LineChart>
 		))
 
-		expect(scaleTypeSpy).toHaveBeenLastCalledWith("scaleTime")
+		expect(scaleTypeSpy).toHaveBeenLastCalledWith("time")
 		expectXAxisTicks(container, [
 			{
 				textContent: "Thu, Jul 04, 2019, 00:00:00 Coordinated Universal Time",
@@ -140,7 +141,7 @@ describe("time scale", () => {
 		const axisDomainSpy = vi.fn()
 		const scaleTypeSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() =>
+			observe(() =>
 				scaleTypeSpy(useAppSelector((state) => selectRealScaleType(state, "xAxis", 0))),
 			)
 			return null

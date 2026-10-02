@@ -113,7 +113,7 @@ export function useMenuItemCommonProps(params: UseMenuItemCommonPropsParameters)
       }
     },
     role: 'menuitem',
-    get tabIndex() {
+    get tabindex() {
       return params.highlighted ? 0 : -1;
     },
   };

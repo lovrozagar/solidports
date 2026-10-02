@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js"
+import { createSignal, onCleanup, onSettled, createEffect } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type {
 	AllowInDimension,
 	AnimationDuration,
@@ -10,6 +11,23 @@ import type {
 } from "../util/types"
 import { getTooltipTranslate } from "../util/tooltip/translate"
 import type { ElementOffset, SetElementOffset } from "../util/useElementOffset"
+import { usePrefersReducedMotion } from "../util/usePrefersReducedMotion"
+
+function resolveTransitionProperty(args: {
+	prefersReducedMotion: boolean
+	isAnimationActive: boolean | "auto"
+	active: boolean
+	animationDuration: number
+	animationEasing: AnimationTiming
+}): string | undefined {
+	if (args.prefersReducedMotion && args.isAnimationActive === "auto") {
+		return undefined
+	}
+	if (args.isAnimationActive && args.active) {
+		return `transform ${args.animationDuration}ms ${args.animationEasing}`
+	}
+	return undefined
+}
 
 export type TooltipBoundingBoxProps = {
 	active: boolean
@@ -32,6 +50,7 @@ export type TooltipBoundingBoxProps = {
 }
 
 export function TooltipBoundingBox(props: TooltipBoundingBoxProps) {
+	const prefersReducedMotion = usePrefersReducedMotion()
 	const [dismissed, setDismissed] = createSignal(false)
 	const [dismissedAtCoordinate, setDismissedAtCoordinate] = createSignal<Coordinate>({ x: 0, y: 0 })
 
@@ -45,7 +64,7 @@ export function TooltipBoundingBox(props: TooltipBoundingBoxProps) {
 		}
 	}
 
-	onMount(() => {
+	onSettled(() => {
 		document.addEventListener("keydown", handleKeyDown)
 	})
 
@@ -54,18 +73,17 @@ export function TooltipBoundingBox(props: TooltipBoundingBoxProps) {
 	})
 
 	/* Re-show tooltip when coordinate changes after dismiss */
-	createEffect(() => {
-		if (!dismissed()) {
-			return
-		}
-
-		if (
-			props.coordinate?.x !== dismissedAtCoordinate().x ||
-			props.coordinate?.y !== dismissedAtCoordinate().y
-		) {
-			setDismissed(false)
-		}
-	})
+	createEffect(
+		() =>
+			dismissed() &&
+			(props.coordinate?.x !== dismissedAtCoordinate().x ||
+				props.coordinate?.y !== dismissedAtCoordinate().y),
+		(moved) => {
+			if (moved) {
+				setDismissed(false)
+			}
+		},
+	)
 
 	const offsetLeft = () => (typeof props.offset === "number" ? props.offset : props.offset.x)
 	const offsetTop = () => (typeof props.offset === "number" ? props.offset : props.offset.y)
@@ -93,10 +111,13 @@ export function TooltipBoundingBox(props: TooltipBoundingBoxProps) {
 		props.hasPortalFromProps
 			? {}
 			: {
-					transition:
-						props.isAnimationActive && props.active
-							? `transform ${props.animationDuration}ms ${props.animationEasing}`
-							: undefined,
+					transition: resolveTransitionProperty({
+						prefersReducedMotion,
+						isAnimationActive: props.isAnimationActive,
+						active: props.active,
+						animationDuration: props.animationDuration,
+						animationEasing: props.animationEasing,
+					}),
 					...tooltipTranslate().cssProperties,
 					"pointer-events": "none",
 					visibility: isVisible() ? "visible" : "hidden",
@@ -114,7 +135,7 @@ export function TooltipBoundingBox(props: TooltipBoundingBoxProps) {
 	return (
 		/* This element allow listening to the `Escape` key. See https://github.com/recharts/recharts/pull/2925 */
 		<div
-			tabIndex={-1}
+			tabindex={-1}
 			class={tooltipTranslate().cssClasses}
 			style={outerStyle()}
 			ref={props.innerRef}

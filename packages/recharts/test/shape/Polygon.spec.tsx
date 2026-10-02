@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest"
-import { render, fireEvent } from "@solidjs/testing-library"
+import { render, fireEvent } from "../helper/render"
 import { Surface, Polygon } from "../../src"
 import type { Coordinate } from "../../src/util/types"
 import { assertNotNull } from "../helper/assertNotNull"

@@ -1,12 +1,13 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../helper/render"
 import { AreaChart, Area, XAxis, YAxis } from "../../src"
 import { useChartState } from "../../src/state/useChartState"
 import { selectArea } from "../../src/state/selectors/areaSelectors"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../src/util/solid-1-compat';
 const data = [
 	{ x: 10, value: 100 },
 	{ x: 20, value: 200 },
@@ -50,6 +51,7 @@ describe("Phase 3 — Area reads from new chartState", () => {
 		   Phase 3 GREEN: component reads state.cartesianAxes.yAxis["0"].settings directly
 		   inside createMemo → synchronous re-render on mutation. */
 		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "domain" as never, [0, 5000] as never)
+		flush()
 
 		const after = container.querySelector(".recharts-area-curve")?.getAttribute("d")
 		expect(after).not.toBe(before)
@@ -84,6 +86,7 @@ describe("Phase 3 — Area reads from new chartState", () => {
 		   Phase 3 GREEN: reads state.graphicalItems[id]?.settings.dataKey → re-render.
 		   "x" (values 10/20/30) produces a different curve than "value" (100/200/300). */
 		capturedSetState!("graphicalItems", itemId, "settings" as never, "dataKey" as never, "x" as never)
+		flush()
 
 		const after = container.querySelector(".recharts-area-curve")?.getAttribute("d")
 		expect(after).not.toBe(before)

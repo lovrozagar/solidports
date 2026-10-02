@@ -1,4 +1,4 @@
-import { createEffect } from 'solid-js';
+import { createTrackedEffect } from 'solid-js';
 import {
   safePolygon,
   useDelayGroup,
@@ -34,13 +34,13 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
     'closeDelay',
     'id',
   ]);
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const idProp = () => local.id;
 
   const rootContext = useTooltipRootContext(true);
   const store = (local.handle?.store ?? rootContext?.store) as TooltipStore<unknown>;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!store) {
       throw new Error(
         'Base UI: <Tooltip.Trigger> must be either used within a <Tooltip.Root> component or provided with a handle.',

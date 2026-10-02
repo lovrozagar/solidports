@@ -1,10 +1,9 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { batch } from "solid-js"
-import { produce } from "solid-js/store"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "./chartState"
 import type { CartesianItemState, PolarItemState } from "./chartState"
 import { readChartState } from "./chartState"
+import { snapshot } from "solid-js"
+import { markRawData } from "./rawData"
 import { isDefaultZIndex } from "./zIndexSlice"
 import type {
 	AxisId,
@@ -38,6 +37,9 @@ import type {
 	TooltipSyncState,
 } from "./tooltipSlice"
 
+import { type SetStoreFunction } from '../util/solid-1-compat';
+import { isSameStoreEntry } from "./storeIdentity"
+import { setTooltipInteraction } from "./tooltipInteraction"
 /**
  * Native Solid actions factory. Every mutator writes ChartState only.
  *
@@ -50,6 +52,41 @@ export function createActions(
 ) {
 	const setState = setStore
 	const chart = readChartState(store)
+
+	/* Upstream replaces the item in place: a changed id keeps the old item's position. */
+	/* Item-level data is served by reference like chart data (see markRawData). */
+	const cartesianItemState = (settings: CartesianGraphicalItemSettings): CartesianItemState => {
+		markRawData((settings as { data?: unknown }).data)
+		return { settings, type: settings.type } as CartesianItemState
+	}
+	const polarItemState = (settings: PolarGraphicalItemSettings): PolarItemState => {
+		markRawData((settings as { data?: unknown }).data)
+		return { settings, type: settings.type } as PolarItemState
+	}
+
+	const replaceGraphicalItem = (
+		prevId: string,
+		nextId: string,
+		itemState: CartesianItemState | PolarItemState,
+	): void => {
+		if (prevId === nextId || !(prevId in store.graphicalItems)) {
+			setState("graphicalItems", nextId, itemState as never)
+			return
+		}
+		setState((draft) => {
+			const entries = Object.entries(snapshot(draft.graphicalItems))
+			for (const [key] of entries) {
+				delete draft.graphicalItems[key]
+			}
+			for (const [key, value] of entries) {
+				if (key === prevId) {
+					draft.graphicalItems[nextId] = itemState
+				} else if (key !== nextId) {
+					draft.graphicalItems[key] = value
+				}
+			}
+		})
+	}
 
 	return {
 		/* --- brush --- */
@@ -64,7 +101,7 @@ export function createActions(
 		},
 		removeXAxis(settings: XAxisSettings): void {
 			const id = String(settings.id)
-			setState("cartesianAxes", "xAxis", produce((axes) => { delete axes[id] }))
+			setState("cartesianAxes", "xAxis", (axes) => { delete axes[id] })
 		},
 		replaceXAxis(payload: { prev: XAxisSettings; next: XAxisSettings }): void {
 			setState("cartesianAxes", "xAxis", String(payload.next.id), { settings: payload.next })
@@ -74,7 +111,7 @@ export function createActions(
 		},
 		removeYAxis(settings: YAxisSettings): void {
 			const id = String(settings.id)
-			setState("cartesianAxes", "yAxis", produce((axes) => { delete axes[id] }))
+			setState("cartesianAxes", "yAxis", (axes) => { delete axes[id] })
 		},
 		replaceYAxis(payload: { prev: YAxisSettings; next: YAxisSettings }): void {
 			setState("cartesianAxes", "yAxis", String(payload.next.id), { settings: payload.next })
@@ -102,7 +139,7 @@ export function createActions(
 		},
 		removeZAxis(settings: ZAxisSettings): void {
 			const id = String(settings.id)
-			setState("cartesianAxes", "zAxis", produce((axes) => { delete axes[id] }))
+			setState("cartesianAxes", "zAxis", (axes) => { delete axes[id] })
 		},
 		replaceZAxis(payload: { prev: ZAxisSettings; next: ZAxisSettings }): void {
 			setState("cartesianAxes", "zAxis", String(payload.next.id), { settings: payload.next })
@@ -110,7 +147,7 @@ export function createActions(
 
 		/* --- chartData --- */
 		setChartData(data: ChartData | undefined): void {
-			setState("chartData", "chartData", data)
+			setState("chartData", "chartData", markRawData(data))
 			if (data == null) {
 				setState("chartData", "dataStartIndex", 0)
 				setState("chartData", "dataEndIndex", 0)
@@ -123,7 +160,7 @@ export function createActions(
 			}
 		},
 		setComputedData(data: unknown): void {
-			setState("chartData", "computedData", data)
+			setState("chartData", "computedData", markRawData(data))
 		},
 		setDataStartEndIndexes(payload: BrushStartEndIndexActionPayload): void {
 			if (payload.startIndex !== undefined) {
@@ -138,20 +175,20 @@ export function createActions(
 		addErrorBar(payload: { errorBar: ErrorBarsSettings; itemId: GraphicalItemId }): void {
 			setState(
 				"errorBars",
-				produce((errorBars) => {
+				(errorBars) => {
 					const list = errorBars[payload.itemId] ?? []
 					errorBars[payload.itemId] = [...list, payload.errorBar]
-				}),
+				},
 			)
 		},
 		removeErrorBar(payload: { errorBar: ErrorBarsSettings; itemId: GraphicalItemId }): void {
 			setState(
 				"errorBars",
-				produce((errorBars) => {
+				(errorBars) => {
 					const list = errorBars[payload.itemId]
 					if (list == null) return
-					errorBars[payload.itemId] = list.filter((e) => e !== payload.errorBar)
-				}),
+					errorBars[payload.itemId] = list.filter((e) => !isSameStoreEntry(e, payload.errorBar))
+				},
 			)
 		},
 		replaceErrorBar(payload: {
@@ -161,13 +198,13 @@ export function createActions(
 		}): void {
 			setState(
 				"errorBars",
-				produce((errorBars) => {
+				(errorBars) => {
 					const list = errorBars[payload.itemId]
 					if (list == null) return
 					errorBars[payload.itemId] = list.map((e) =>
 						e === payload.prev ? payload.next : e,
 					)
-				}),
+				},
 			)
 		},
 
@@ -184,8 +221,7 @@ export function createActions(
 		/* --- graphicalItems --- */
 		addCartesianGraphicalItem(item: CartesianGraphicalItemSettings): void {
 			if (item.id != null) {
-				const itemState = { settings: item, type: item.type } as CartesianItemState
-				setState("graphicalItems", String(item.id), itemState as never)
+				setState("graphicalItems", String(item.id), cartesianItemState(item) as never)
 			}
 		},
 		removeCartesianGraphicalItem(item: CartesianGraphicalItemSettings): void {
@@ -195,14 +231,12 @@ export function createActions(
 		},
 		replaceCartesianGraphicalItem(payload: ReplacePayload<CartesianGraphicalItemSettings>): void {
 			if (payload.next.id != null) {
-				const itemState = { settings: payload.next, type: payload.next.type } as CartesianItemState
-				setState("graphicalItems", String(payload.next.id), itemState as never)
+				replaceGraphicalItem(String(payload.prev.id), String(payload.next.id), cartesianItemState(payload.next))
 			}
 		},
 		addPolarGraphicalItem(item: PolarGraphicalItemSettings): void {
 			if (item.id != null) {
-				const itemState = { settings: item, type: item.type } as PolarItemState
-				setState("graphicalItems", String(item.id), itemState as never)
+				setState("graphicalItems", String(item.id), polarItemState(item) as never)
 			}
 		},
 		removePolarGraphicalItem(item: PolarGraphicalItemSettings): void {
@@ -212,8 +246,7 @@ export function createActions(
 		},
 		replacePolarGraphicalItem(payload: ReplacePayload<PolarGraphicalItemSettings>): void {
 			if (payload.next.id != null) {
-				const itemState = { settings: payload.next, type: payload.next.type } as PolarItemState
-				setState("graphicalItems", String(payload.next.id), itemState as never)
+				replaceGraphicalItem(String(payload.prev.id), String(payload.next.id), polarItemState(payload.next))
 			}
 		},
 
@@ -241,7 +274,7 @@ export function createActions(
 		},
 		removeLegendPayload(payload: ReadonlyArray<LegendPayload>): void {
 			setState("legend", "payload", (prev: ReadonlyArray<ReadonlyArray<LegendPayload>>) => {
-				const index = prev.indexOf(payload)
+				const index = prev.findIndex((e) => isSameStoreEntry(e, payload))
 				if (index === -1) return prev
 				return [...prev.slice(0, index), ...prev.slice(index + 1)]
 			})
@@ -251,7 +284,7 @@ export function createActions(
 			next: ReadonlyArray<LegendPayload>,
 		): void {
 			setState("legend", "payload", (arr: ReadonlyArray<ReadonlyArray<LegendPayload>>) => {
-				const index = arr.indexOf(prev)
+				const index = arr.findIndex((e) => isSameStoreEntry(e, prev))
 				if (index === -1) return arr
 				const copy = [...arr]
 				copy[index] = next
@@ -265,14 +298,14 @@ export function createActions(
 		},
 		removeAngleAxis(settings: AngleAxisSettings): void {
 			const id = String(settings.id)
-			setState("polarAxes", "angleAxis", produce((axes) => { delete axes[id] }))
+			setState("polarAxes", "angleAxis", (axes) => { delete axes[id] })
 		},
 		addRadiusAxis(settings: RadiusAxisSettings): void {
 			setState("polarAxes", "radiusAxis", String(settings.id), { settings })
 		},
 		removeRadiusAxis(settings: RadiusAxisSettings): void {
 			const id = String(settings.id)
-			setState("polarAxes", "radiusAxis", produce((axes) => { delete axes[id] }))
+			setState("polarAxes", "radiusAxis", (axes) => { delete axes[id] })
 		},
 
 		/* --- referenceElements --- */
@@ -280,27 +313,27 @@ export function createActions(
 			setState("referenceElements", "lines", (prev) => [...prev, settings])
 		},
 		removeLine(settings: ReferenceLineSettings): void {
-			setState("referenceElements", "lines", (prev) => prev.filter((l) => l !== settings))
+			setState("referenceElements", "lines", (prev) => prev.filter((l) => !isSameStoreEntry(l, settings)))
 		},
 		addDot(settings: ReferenceDotSettings): void {
 			setState("referenceElements", "dots", (prev) => [...prev, settings])
 		},
 		removeDot(settings: ReferenceDotSettings): void {
-			setState("referenceElements", "dots", (prev) => prev.filter((d) => d !== settings))
+			setState("referenceElements", "dots", (prev) => prev.filter((d) => !isSameStoreEntry(d, settings)))
 		},
 		addArea(settings: ReferenceAreaSettings): void {
 			setState("referenceElements", "areas", (prev) => [...prev, settings])
 		},
 		removeArea(settings: ReferenceAreaSettings): void {
-			setState("referenceElements", "areas", (prev) => prev.filter((a) => a !== settings))
+			setState("referenceElements", "areas", (prev) => prev.filter((a) => !isSameStoreEntry(a, settings)))
 		},
 
 		/* --- tooltip --- */
 		mouseLeaveChart(): void {
-			batch(() => {
+			{
 				setState("tooltip", "axisInteraction", "hover", "active", false)
 				setState("tooltip", "itemInteraction", "hover", "active", false)
-			})
+			}
 		},
 		mouseLeaveItem(): void {
 			setState("tooltip", "itemInteraction", "hover", "active", false)
@@ -313,7 +346,7 @@ export function createActions(
 				graphicalItemId: payload.activeGraphicalItemId,
 				index: payload.activeIndex,
 			}
-			setState("tooltip", "itemInteraction", "hover", itemPayload)
+			setTooltipInteraction(setState, "itemInteraction", "hover", itemPayload)
 		},
 		setActiveClickItemIndex(payload: GraphicalItemTooltipActionPayload): void {
 			const itemPayload = {
@@ -323,7 +356,7 @@ export function createActions(
 				graphicalItemId: payload.activeGraphicalItemId,
 				index: payload.activeIndex,
 			}
-			setState("tooltip", "itemInteraction", "click", itemPayload)
+			setTooltipInteraction(setState, "itemInteraction", "click", itemPayload)
 		},
 		setTooltipSettingsState(settings: TooltipSettingsState): void {
 			setState("tooltip", "settings", settings)
@@ -336,26 +369,22 @@ export function createActions(
 				graphicalItemId: undefined,
 				index: payload.activeIndex,
 			}
-			setState("tooltip", "axisInteraction", "hover", axisPayload)
+			setTooltipInteraction(setState, "axisInteraction", "hover", axisPayload)
 		},
 		setMouseClickAxisIndex(payload: AxisTooltipActionPayload): void {
-			batch(() => {
-				setState("tooltip", "syncInteraction", "active", false)
-				setState("tooltip", "syncInteraction", "sourceViewBox", undefined)
-				setState("tooltip", "keyboardInteraction", "active", false)
-				setState("tooltip", "axisInteraction", "click", {
-					active: true,
-					coordinate: payload.activeCoordinate,
-					dataKey: payload.activeDataKey,
-					graphicalItemId: undefined,
-					index: payload.activeIndex,
-				})
+			setTooltipInteraction(setState, "axisInteraction", "click", {
+				active: true,
+				coordinate: payload.activeCoordinate,
+				dataKey: payload.activeDataKey,
+				graphicalItemId: undefined,
+				index: payload.activeIndex,
 			})
 		},
 		setSyncInteraction(payload: TooltipSyncState): void {
 			setState("tooltip", "syncInteraction", payload)
 		},
 		addTooltipEntrySettings(payload: TooltipPayloadConfiguration): void {
+			markRawData(payload.dataDefinedOnItem)
 			setState("tooltip", "tooltipItemPayloads", (prev: ReadonlyArray<TooltipPayloadConfiguration>) => [...prev, payload])
 		},
 

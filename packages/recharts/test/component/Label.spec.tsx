@@ -1,4 +1,4 @@
-import { screen } from "@solidjs/testing-library"
+import { screen } from "../helper/render"
 import { describe, expect, it, vi } from "vitest"
 import {
 	DefaultZIndexes,
@@ -9,12 +9,12 @@ import {
 	PieChart,
 	ReferenceLine,
 	Surface,
+	YAxis,
 } from "../../src"
 import { PolarViewBoxRequired } from "../../src/util/types"
 import { rechartsTestRender } from "../helper/createSelectorTestCase"
 import { assertNotNull } from "../helper/assertNotNull"
-import { createSignal } from "solid-js"
-
+import { createSignal, onSettled } from 'solid-js';
 const data = [
 	{ amt: 2400, name: "Page A", pv: 2400, uv: 400 },
 	{ amt: 2400, name: "Page B", pv: 4567, uv: 300 },
@@ -320,6 +320,8 @@ describe("<Label />", () => {
 								x: 50,
 								y: 50,
 							},
+							x: 150,
+							y: 150,
 							zIndex: DefaultZIndexes.label,
 						},
 						{},
@@ -331,7 +333,9 @@ describe("<Label />", () => {
 				const MyComp = () => {
 					const [state, setState] = createSignal(0)
 					/* match upstream React intent: state flips to 1 on mount. */
-					setState(1)
+					onSettled(() => {
+						setState(1)
+					})
 					return <>label from component {state()}</>
 				}
 
@@ -367,12 +371,11 @@ describe("<Label />", () => {
 				})
 			})
 
-			/* React vNode pattern: tests assume `<>x</>` is a React element object.
-			   Solid's `<>x</>` evaluates to a string at JSX site — there's no vNode
-			   intermediate. Tests asserting "[object Object]" textContent or specific
-			   element-vs-string render branches don't translate. Skiplist Cluster C. */
-			describe.skip("React element", () => {
-				const element = <>label from element</>
+			/* Solid's `<>text</>` is a plain string, so a real element stands in for upstream's
+			   React element. As children/value it is stringified like upstream's element object
+			   (gibberish such as "[object SVGTSpanElement]" instead of "[object Object]"). */
+			describe("React element", () => {
+				const element = <tspan>label from element</tspan>
 
 				it("should render label when given children prop", () => {
 					// @ts-expect-error typescript is correct here, Label does not allow React element as value, and it renders gibberish
@@ -383,7 +386,7 @@ describe("<Label />", () => {
 					expect(label).toBeInTheDocument()
 
 					// this is not great - even though the type says it allows this, in practice it's pointless
-					expect(label.textContent).toEqual("[object Object]")
+					expect(label.textContent).toMatch(/^\[object \w+\]$/)
 				})
 
 				it("should render label when given value prop", () => {
@@ -394,7 +397,7 @@ describe("<Label />", () => {
 					assertNotNull(label)
 					expect(label).toBeInTheDocument()
 
-					expect(label.textContent).toEqual("[object Object]")
+					expect(label.textContent).toMatch(/^\[object \w+\]$/)
 				})
 
 				it("should render label when given content prop", () => {
@@ -429,10 +432,7 @@ describe("<Label />", () => {
 					expect(label.textContent).toEqual("label,from,array")
 				})
 
-				/* React rejects arrays as `content` (renders nothing). Solid arrays
-				   serialize as joined text via JSX since there's no vNode validation.
-				   Skiplist Cluster C — fundamental vNode-vs-Node divergence. */
-				it.skip("should render label when given content prop", () => {
+				it("should render label when given content prop", () => {
 					// @ts-expect-error typescript says that array of strings is not allowed as content, and indeed it does not render anything
 					const { container } = renderLabelWithContent(array)
 
@@ -488,6 +488,8 @@ describe("<Label />", () => {
 							x: 50,
 							y: 50,
 						},
+						x: 150,
+						y: 150,
 						zIndex: DefaultZIndexes.label,
 					},
 					{},
@@ -528,6 +530,8 @@ describe("<Label />", () => {
 							x: 50,
 							y: 50,
 						},
+						x: 150,
+						y: 150,
 						zIndex: DefaultZIndexes.label,
 					},
 					{},
@@ -571,6 +575,8 @@ describe("<Label />", () => {
 							x: 50,
 							y: 50,
 						},
+						x: 150,
+						y: 150,
 						zIndex: DefaultZIndexes.label,
 					},
 					{},
@@ -616,8 +622,8 @@ describe("<Label />", () => {
 		expect(screen.getByText(/400/i)).toBeInTheDocument()
 	})
 
-	it("Renders label by label props with animation enabled", () => {
-		const { container } = rechartsTestRender(() => (
+	it("Renders label by label props with animation completed", async () => {
+		const { container, animationManager } = rechartsTestRender(() => (
 			<LineChart
 				width={400}
 				height={400}
@@ -628,8 +634,33 @@ describe("<Label />", () => {
 			</LineChart>
 		))
 
+		await animationManager.completeAnimation()
+
 		expect(container.querySelectorAll(".recharts-line .recharts-line-curve").length).toEqual(1)
 		expect(screen.getByText(/400/i)).toBeInTheDocument()
+	})
+
+	describe("custom label on an axis", () => {
+		it("should provide computed x and y coordinates to a custom label element", () => {
+			const received: Array<LabelProps> = []
+			const CustomLabel = (props: LabelProps) => {
+				received.push(props)
+				return null
+			}
+			/* Solid evaluates `<CustomLabel />` before the axis sees it, so a user component passed as
+			   an element cannot receive injected props (upstream clones it); pass the component itself. */
+			rechartsTestRender(() => (
+				<LineChart width={400} height={400} data={data}>
+					<YAxis label={CustomLabel} />
+					<Line dataKey="uv" />
+				</LineChart>
+			))
+
+			expect(received.length).toBeGreaterThan(0)
+			const lastProps = received[received.length - 1]
+			expect(typeof lastProps.x).toBe("number")
+			expect(typeof lastProps.y).toBe("number")
+		})
 	})
 
 	describe("in PieChart", () => {
@@ -657,13 +688,15 @@ describe("<Label />", () => {
 							x: 5,
 							y: 5,
 						},
+						x: 100,
+						y: 50,
 						zIndex: DefaultZIndexes.label,
 					},
 					{},
 				)
 			})
 
-			it.skip("should pass the correct props to the content function when position=insideEnd", () => {
+			it("should pass the correct props to the content function when position=insideEnd", () => {
 				const contentFn = vi.fn()
 				rechartsTestRender(() => (
 					<PieChart height={100} width={200}>
@@ -720,6 +753,8 @@ describe("<Label />", () => {
 							x: 5,
 							y: 5,
 						},
+						x: 200,
+						y: 200,
 						zIndex: DefaultZIndexes.label,
 					},
 					{},

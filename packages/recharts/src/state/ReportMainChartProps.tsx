@@ -1,8 +1,9 @@
-import { createRenderEffect, onCleanup } from "solid-js"
+import { createEffect, onCleanup } from 'solid-js';
 import type { LayoutType, Margin } from "../util/types"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { initialLayoutState } from "./layoutSlice"
 import { useOptionalChartState } from "./useChartState"
+import { teardownWrite } from "./teardownWrite"
 
 /**
  * "Main" props are props that are only accepted on the main chart,
@@ -27,28 +28,33 @@ export function ReportMainChartProps(props: MainChartProps): null {
 	 */
 	const isPanorama = useIsPanorama()
 
-	/* createRenderEffect runs synchronously during setup so layout state
-	   populates BEFORE downstream sibling components (Customized, user JSX)
-	   begin their setup. Mirrors React's render-then-layout-effect timing
-	   for the test contract `useOffsetInternal()` returning populated value
-	   on first read. */
-	createRenderEffect(() => {
-		if (!isPanorama) {
-			ctx.setState("layout", "layoutType", props.layout)
-			ctx.setState("layout", "margin", {
-				bottom: props.margin.bottom ?? initialLayoutState.margin.bottom,
-				left: props.margin.left ?? initialLayoutState.margin.left,
-				right: props.margin.right ?? initialLayoutState.margin.right,
-				top: props.margin.top ?? initialLayoutState.margin.top,
-			})
-		}
-	})
+	/* The chart root seeds layout at store creation; this keeps it in sync after mount. */
+	createEffect(
+		() => ({
+			layoutType: props.layout,
+			/* upstream setMargin: missing sides become 0 */
+			margin: {
+				bottom: props.margin.bottom ?? 0,
+				left: props.margin.left ?? 0,
+				right: props.margin.right ?? 0,
+				top: props.margin.top ?? 0,
+			},
+		}),
+		(next) => {
+			if (!isPanorama) {
+				ctx.setState("layout", "layoutType", next.layoutType)
+				ctx.setState("layout", "margin", next.margin)
+			}
+		},
+	)
 
 	onCleanup(() => {
-		if (!isPanorama) {
-			ctx.setState("layout", "layoutType", initialLayoutState.layoutType)
-			ctx.setState("layout", "margin", { ...initialLayoutState.margin })
-		}
+		teardownWrite(() => {
+			if (!isPanorama) {
+				ctx.setState("layout", "layoutType", initialLayoutState.layoutType)
+				ctx.setState("layout", "margin", { ...initialLayoutState.margin })
+			}
+		})
 	})
 
 	return null

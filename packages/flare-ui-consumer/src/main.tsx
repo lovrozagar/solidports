@@ -1,4 +1,4 @@
-import { render } from "solid-js/web";
+import { render } from "@solidjs/web";
 import { App } from "./app.tsx";
 import "./app.css";
 

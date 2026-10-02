@@ -83,13 +83,12 @@ export function useNumberFieldButton(params: UseNumberFieldButtonParameters) {
     tickDelay: CHANGE_VALUE_TICK_DELAY,
   });
 
-  const props: HTMLProps = {
-    // @ts-expect-error - disabled is not a valid attribute for HTMLProps
+  const props: HTMLProps & { disabled?: boolean } = {
     get disabled() {
       return disabled();
     },
     get 'aria-readonly'() {
-      return readOnly() || undefined;
+      return readOnly() ? 'true' : undefined;
     },
     get 'aria-label'() {
       return isIncrement() ? 'Increase' : 'Decrease';
@@ -98,7 +97,7 @@ export function useNumberFieldButton(params: UseNumberFieldButtonParameters) {
       return id();
     },
     /* Keyboard users use the input directly; `tabIndex: -1` keeps buttons out of tab order. */
-    tabIndex: -1,
+    tabindex: -1,
     style: {
       '--webkit-user-select': 'none',
       'user-select': 'none',

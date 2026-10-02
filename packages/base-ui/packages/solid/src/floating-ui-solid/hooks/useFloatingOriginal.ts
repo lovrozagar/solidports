@@ -3,13 +3,10 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  on,
-  onCleanup,
-  onMount,
-  type Accessor,
-  type JSX,
+  onSettled,
 } from 'solid-js';
-import { createStore, reconcile } from 'solid-js/store';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { access, defaultProps } from '../../solid-helpers';
 import type {
   ComputePositionConfig,
@@ -18,6 +15,7 @@ import type {
   ReferenceType,
   UseFloatingOptions,
 } from '../types';
+import { on, createStore } from '../../solid-1-compat';
 
 export type UsePositionData = ComputePositionReturn & { isPositioned: boolean };
 
@@ -148,43 +146,50 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
 
     computePosition(r, f, config).then((computedData) => {
       if (isMountedRef) {
-        setData(
-          reconcile({
-            ...computedData,
-            // The floating element's position may be recomputed while it's closed
-            // but still mounted (such as when transitioning out). To ensure
-            // `isPositioned` will be `false` initially on the next open, avoid
-            // setting it to `true` when `open === false` (must be specified).
-            isPositioned: options.open !== false,
-          }),
-        );
+        setData({
+          ...computedData,
+          // The floating element's position may be recomputed while it's closed
+          // but still mounted (such as when transitioning out). To ensure
+          // `isPositioned` will be `false` initially on the next open, avoid
+          // setting it to `true` when `open === false` (must be specified).
+          isPositioned: options.open !== false,
+        });
       }
     });
   }
 
-  createEffect(() => {
-    if (options.open === false && data.isPositioned) {
-      setData('isPositioned', false);
-    }
-  });
+  createEffect(
+    () => options.open === false && data.isPositioned,
+    (shouldReset) => {
+      if (shouldReset) {
+        setData('isPositioned', false);
+      }
+    },
+  );
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     isMountedRef = true;
 
-    onCleanup(() => {
+    _c.push(() => {
       isMountedRef = false;
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(
-    on([referenceEl, floatingEl, () => props.whileElementsMounted, () => options.open], () => {
+  createEffect(...on([referenceEl, floatingEl, () => props.whileElementsMounted, () => options.open], () => {
       const r = referenceEl();
       const f = floatingEl();
       if (r && f) {
         if (props.whileElementsMounted) {
-          const cleanup = props.whileElementsMounted(r, f, update);
-          onCleanup(cleanup);
-          return;
+          return props.whileElementsMounted(r, f, update);
         }
 
         update();

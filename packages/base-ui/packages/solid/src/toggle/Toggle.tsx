@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { batch, createEffect, Show } from 'solid-js';
+import { createTrackedEffect, Show } from 'solid-js';
 import { CompositeItem } from '../internals/composite/item/CompositeItem';
 import { splitComponentProps } from '../solid-helpers';
 import { useToggleGroupContext } from '../toggle-group/ToggleGroupContext';
@@ -34,10 +34,10 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
     'children',
   ]);
   const defaultPressedProp = () => local.defaultPressed ?? false;
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const pressedProp = () => local.pressed;
   const valueProp = () => local.value;
-  const nativeButton = () => local.nativeButton ?? true;
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   // `|| undefined` handles cases, where value is falsy (i.e. "")
   const value = useBaseUiId(() => valueProp() || undefined);
@@ -50,7 +50,7 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
   const disabled = () => (disabledProp() || groupContext?.disabled()) ?? false;
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (groupContext && valueProp() === undefined && groupContext.isValueInitialized()) {
         error(
           'A `<Toggle>` component rendered in a `<ToggleGroup>` has no explicit `value` prop.',
@@ -69,13 +69,13 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
   });
 
   const onPressedChange = (nextPressed: boolean, eventDetails: Toggle.ChangeEventDetails) => {
-    batch(() => {
+    {
       const val = value();
       if (val) {
         groupContext?.setGroupValue?.(val, nextPressed, eventDetails);
       }
       local.onPressedChange?.(nextPressed, eventDetails);
-    });
+    };
   };
 
   const { getButtonProps, buttonRef } = useButton({
@@ -95,10 +95,10 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
   const props = [
     {
       get 'aria-pressed'() {
-        return pressed();
+        return pressed() ? 'true' : 'false';
       },
       onClick(event: MouseEvent) {
-        batch(() => {
+        {
           const nextPressed = !pressed();
           const details = createChangeEventDetails(REASONS.none, event);
 
@@ -109,7 +109,7 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
           }
 
           setPressedState(nextPressed);
-        });
+        };
       },
     },
     elementProps,

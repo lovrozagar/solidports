@@ -1,9 +1,5 @@
-import {
-  createSignal,
-  onCleanup,
-  onMount,
-  type JSX,
-} from "solid-js"
+import { createSignal, onCleanup, onSettled } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { Dialog } from "@solidports/base-ui/dialog"
 import clsx from "clsx"
 import { isMac } from "../../utils/detect-browser"
@@ -33,7 +29,10 @@ export function SearchBar(props: SearchBarProps) {
     setOpen(nextOpen)
   }
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!props.enableKeyboardShortcut) return
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -44,8 +43,14 @@ export function SearchBar(props: SearchBarProps) {
       }
     }
     window.addEventListener("keydown", onKeyDown, { capture: true })
-    onCleanup(() => window.removeEventListener("keydown", onKeyDown, { capture: true }))
-  })
+    _c.push(() => window.removeEventListener("keydown", onKeyDown, { capture: true }))
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+})
 
   const showCmd = () => props.enableKeyboardShortcut && isMac
 

@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic value erased at context */
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import type { FloatingRootContext } from '../../floating-ui-solid';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
@@ -44,13 +45,13 @@ export interface NavigationMenuRootContext {
   setViewportInert: Setter<boolean>;
 }
 
-export const NavigationMenuRootContext = createContext<NavigationMenuRootContext>();
+export const NavigationMenuRootContext = createContext<NavigationMenuRootContext | null>(null);
 
 function useNavigationMenuRootContext(optional?: false): NavigationMenuRootContext;
-function useNavigationMenuRootContext(optional: true): NavigationMenuRootContext | undefined;
+function useNavigationMenuRootContext(optional: true): NavigationMenuRootContext | null;
 function useNavigationMenuRootContext(optional?: boolean) {
   const context = useContext(NavigationMenuRootContext);
-  if (context === undefined && !optional) {
+  if (context == null && !optional) {
     throw new Error(
       'Base UI: NavigationMenuRootContext is missing. Navigation Menu parts must be placed within <NavigationMenu.Root>.',
     );
@@ -58,7 +59,7 @@ function useNavigationMenuRootContext(optional?: boolean) {
   return context;
 }
 
-export const NavigationMenuTreeContext = createContext<Accessor<string | undefined> | undefined>();
+export const NavigationMenuTreeContext = createContext<Accessor<string | undefined> | null>(null);
 
 function useNavigationMenuTreeContext() {
   return useContext(NavigationMenuTreeContext);

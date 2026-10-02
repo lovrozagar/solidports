@@ -1,5 +1,13 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createMemo, onCleanup, onMount, Show, untrack, type JSX } from 'solid-js';
+import {
+  createTrackedEffect,
+  createMemo,
+  onCleanup,
+  onSettled,
+  Show,
+  untrack,
+} from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { useContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
 import { FloatingNode } from '../../floating-ui-solid';
@@ -187,15 +195,24 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
     }
   }
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     store.context.floatingTreeRoot.events.on('menuopenchange', onMenuOpenChange);
     // Close unrelated child submenus when hovering a different item in the parent menu.
     store.context.floatingTreeRoot.events.on('itemhover', onItemHover);
-    onCleanup(() => {
+    _c.push(() => {
       store.context.floatingTreeRoot.events.off('menuopenchange', onMenuOpenChange);
       store.context.floatingTreeRoot.events.off('itemhover', onItemHover);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function onParentClose(details: MenuOpenEventDetails) {
     if (details.open || details.nodeId !== store.select('floatingParentNodeId')) {
@@ -206,20 +223,29 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
     store.setOpen(false, createChangeEventDetails(reason));
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (store.select('floatingParentNodeId') == null) {
       return;
     }
 
     store.context.floatingTreeRoot.events.on('menuopenchange', onParentClose);
-    onCleanup(() => {
+    _c.push(() => {
       store.context.floatingTreeRoot.events.off('menuopenchange', onParentClose);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const closeTimeout = useTimeout();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       closeTimeout.clear();
     }
@@ -250,7 +276,10 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
     }
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const eventDetails: MenuOpenEventDetails = {
       open: open(),
       nodeId: floatingNodeId(),
@@ -271,10 +300,16 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
         store.context.floatingTreeRoot.events.emit('menuopenchange', eventDetails);
       }
     });
-    onCleanup(() => {
+    _c.push(() => {
       cancelled = true;
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const menubarModal = () => parent().type === 'menubar' && (parent() as any).context?.modal?.();
   const popupModal = () => modal() && lastOpenChangeReason() !== REASONS.triggerHover;
@@ -338,7 +373,7 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
     stateAttributesMapping: popupStateMapping,
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (parent().type !== 'menubar') {
       return;
     }
@@ -372,7 +407,7 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
   });
 
   return (
-    <MenuPositionerContext.Provider value={positioner}>
+    <MenuPositionerContext value={positioner}>
       <Show when={shouldRenderBackdrop()}>
         <InternalBackdrop
           managed
@@ -396,7 +431,7 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
           {element()}
         </CompositeList>
       </FloatingNode>
-    </MenuPositionerContext.Provider>
+    </MenuPositionerContext>
   );
 }
 

@@ -46,13 +46,13 @@ function expectStatuses(
 }
 
 describe("matchByIndex", () => {
-	it("should be the string \"index\"", () => {
+	it(`should be the string "index"`, () => {
 		expect(matchByIndex).toBe("index")
 	})
 })
 
 describe("matchAppend", () => {
-	it("should be the string \"append\"", () => {
+	it(`should be the string "append"`, () => {
 		expect(matchAppend).toBe("append")
 	})
 })

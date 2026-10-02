@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { DirectionContext, type TextDirection } from './DirectionContext';
 
 /**
@@ -9,7 +9,7 @@ import { DirectionContext, type TextDirection } from './DirectionContext';
 export function DirectionProvider(props: DirectionProvider.Props) {
   const direction = () => props.direction ?? 'ltr';
   return (
-    <DirectionContext.Provider value={{ direction }}>{props.children}</DirectionContext.Provider>
+    <DirectionContext value={{ direction }}>{props.children}</DirectionContext>
   );
 }
 

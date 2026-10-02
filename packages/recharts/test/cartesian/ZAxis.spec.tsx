@@ -1,6 +1,9 @@
-import { createEffect, createSignal, JSX } from "solid-js"
+import { createSignal, untrack } from 'solid-js'
+import { observe } from "../helper/observe"
+import { trackSpy } from "../helper/trackSpy"
+import type { JSX } from '@solidjs/web';
 import { describe, it, expect, vi } from "vitest"
-import { fireEvent } from "@solidjs/testing-library"
+import { fireEvent } from "../helper/render"
 import {
 	BarChart,
 	CartesianGrid,
@@ -186,9 +189,9 @@ describe("<ZAxis />", () => {
 			const axisDomainSpy = vi.fn()
 			const axisScaleSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() => {
-					axisSettingsSpy(useAppSelector((state) => selectZAxisSettings(state, "zaxis id")))
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() => {
+					trackSpy(axisSettingsSpy, () => useAppSelector((state) => selectZAxisSettings(state, "zaxis id")))
 					axisDomainSpy(
 						useAppSelector((state) => selectAxisDomain(state, "zAxis", "zaxis id", isPanorama)),
 					)
@@ -244,7 +247,7 @@ describe("<ZAxis />", () => {
 			})
 			/* GOTCHA-007-E sibling-mount-order: expect(axisScaleSpy).toHaveBeenCalledTimes(2) */
 		})
-		it.skip("should remove old ID configuration when the ID changes", () => {
+		it("should remove old ID configuration when the ID changes", () => {
 			const IDChangingComponent = (props: { children: JSX.Element }) => {
 				const [id, setId] = createSignal("1")
 				const onClick = () => setId("2")
@@ -254,7 +257,7 @@ describe("<ZAxis />", () => {
 							Change ID
 						</button>
 						<BarChart width={100} height={100}>
-							<ZAxis zAxisId={id} scale="log" type="number" />
+							<ZAxis zAxisId={id()} scale="log" type="number" />
 							{props.children}
 						</BarChart>
 					</>
@@ -262,7 +265,7 @@ describe("<ZAxis />", () => {
 			}
 			const renderTestCase = createSelectorTestCase(IDChangingComponent)
 
-			const { spy, container } = renderTestCase((state) => state.cartesianAxis.zAxis)
+			const { spy, container } = renderTestCase((state) => ({ ...state.cartesianAxes.zAxis }))
 
 			expect(spy).toHaveBeenCalledTimes(2)
 

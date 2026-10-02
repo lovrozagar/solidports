@@ -1,22 +1,15 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	For,
-	Index,
-	mergeProps,
-	Show,
-	splitProps,
-	untrack,
-	type JSX,
-} from "solid-js"
+import type { Formatter } from "../component/DefaultTooltipContent"
+import { createEffect, createMemo, createSignal, For, Show, untrack, createRenderEffect } from 'solid-js';
+import { createHoverDedupe } from "../util/hoverDedupe"
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import type { StackSeries } from "../util/stacks/stackTypes"
 import type { Props as RectangleProps, RectRadius } from "../shape/Rectangle"
 import { Layer } from "../container/Layer"
 import type { ErrorBarDataItem, ErrorBarDataPointFormatter } from "./ErrorBar"
 import {
+	LabelListContextBridge,
 	CartesianLabelListContextProvider,
 	type CartesianLabelListEntry,
 	type ImplicitLabelListType,
@@ -43,11 +36,18 @@ import type {
 	DataKey,
 	LegendType,
 	PresentationAttributesAdaptChildEvent,
+	ShapeAnimationProps,
 	TickItem,
 	TooltipType,
 	TrapezoidViewBox,
 } from "../util/types"
-import { BarRectangle, type MinPointSize, minPointSizeCallback } from "../util/BarUtils"
+import {
+	BarRectangle,
+	type BarRectangleProps,
+	defaultBarShape,
+	type MinPointSize,
+	minPointSizeCallback,
+} from "../util/BarUtils"
 import { getRectanglePath } from "../shape/Rectangle"
 import { round } from "../util/round"
 import type { LegendPayload } from "../component/DefaultLegendContent"
@@ -66,17 +66,21 @@ import type { BaseAxisWithScale } from "../state/selectors/axisSelectors"
 import { useChartStore } from "../state/RechartsStoreContext"
 import { useOptionalChartState } from "../state/useChartState"
 import { useIsPanorama } from "../context/PanoramaContext"
-import { selectActiveTooltipIndex } from "../state/selectors/tooltipSelectors"
+import { selectActiveTooltipDataKey, selectActiveTooltipIndex } from "../state/selectors/tooltipSelectors"
 import { SetLegendPayload } from "../state/SetLegendPayload"
-import { useAnimationId } from "../util/useAnimationId"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import type { BarSettings } from "../state/types/BarSettings"
 import { SetCartesianGraphicalItem } from "../state/SetGraphicalItem"
 import { svgPropertiesNoEvents, svgPropertiesNoEventsFromUnknown } from "../util/svgPropertiesNoEvents"
+import { svgPropertiesAndEvents } from "../util/svgPropertiesAndEvents"
 import { isEventKey } from "../util/excludeEventProps"
 import { createCellsRegistry, useCellsRegistry } from "../context/CellsContext"
-import { JavascriptAnimate } from "../animation/JavascriptAnimate"
+import { AnimatedItems, useAnimationCallbacks } from "../animation/AnimatedItems"
+import type { AnimationInterpolateFn } from "../animation/AnimatedItems"
+import { matchAppend } from "../animation/matchBy"
+import type { AnimationMatchByProp } from "../animation/matchBy"
+import type { CartesianLayout } from "../util/types"
 import type { EasingInput } from "../animation/easing"
 import type { ZIndexable } from "../zIndex/ZIndexLayer"
 import { ZIndexLayer } from "../zIndex/ZIndexLayer"
@@ -87,6 +91,7 @@ import { BarStackClipLayer, useBarStackClipPathUrl, useStackId } from "./BarStac
 import type { GraphicalItemId } from "../state/graphicalItemsSlice"
 import type { ChartData } from "../state/chartDataSlice"
 
+import { mergeProps, splitProps } from '../util/solid-1-compat';
 type BarRectangleType = {
 	x: number | null
 	y: number | null
@@ -109,13 +114,15 @@ export interface BarRectangleItem extends RectangleProps {
 	 * Chart range coordinate of the baseValue of the first bar in a stack.
 	 */
 	stackedBarStart: number
+	originalDataIndex: number
 }
 
-export type BarShapeProps = BarRectangleItem & {
-	isActive: boolean
-	index: number
-	option?: ActiveShape<BarShapeProps, SVGPathElement> | undefined
-}
+export type BarShapeProps = BarRectangleItem &
+	ShapeAnimationProps & {
+		isActive: boolean
+		index: number
+		option?: ActiveShape<BarShapeProps, SVGPathElement> | undefined
+	}
 
 export interface BarProps<DataPointType = unknown, DataValueType = unknown>
 	extends DataConsumer<DataPointType, DataValueType>, ZIndexable {
@@ -128,6 +135,11 @@ export interface BarProps<DataPointType = unknown, DataValueType = unknown>
 	unit?: string | number
 	name?: string | number
 	tooltipType?: TooltipType
+	/**
+	 * Formats the value displayed in the tooltip for this Bar.
+	 * When set, takes precedence over the `formatter` prop on the Tooltip component.
+	 */
+	formatter?: Formatter
 	legendType?: LegendType
 	minPointSize?: MinPointSize
 	maxBarSize?: number
@@ -142,6 +154,27 @@ export interface BarProps<DataPointType = unknown, DataValueType = unknown>
 	animationBegin?: number
 	animationDuration?: AnimationDuration
 	animationEasing?: EasingInput
+	/**
+	 * Custom animation function for interpolating data items.
+	 * When provided, this replaces the default animation interpolation.
+	 *
+	 * @since 3.9
+	 * @see {@link https://recharts.github.io/en-US/guide/animations/ Animations guide}
+	 */
+	animationInterpolateFn?: AnimationInterpolateFn<BarRectangleItem, CartesianLayout>
+	/**
+	 * Strategy for matching previous items to next items during animation.
+	 * Determines how Recharts pairs old data points with new data points
+	 * to create smooth transitions.
+	 *
+	 * - `matchAppend` (default): match sequentially by index and treat newly appended items as new
+	 * - `matchByIndex`: match by array position with proportional stretching
+	 * - `matchByDataKey('someKey')`: match by a data key from the payload
+	 * - Custom function `(item, index) => key`: match by the returned key
+	 *
+	 * @defaultValue append
+	 */
+	animationMatchBy?: AnimationMatchByProp<BarRectangleItem>
 	id?: string
 	label?: ImplicitLabelListType
 	zIndex?: number
@@ -161,6 +194,8 @@ type InternalBarProps = {
 	animationBegin: number
 	animationDuration: AnimationDuration
 	animationEasing: EasingInput
+	animationInterpolateFn: AnimationInterpolateFn<BarRectangleItem, CartesianLayout>
+	animationMatchBy: AnimationMatchByProp<BarRectangleItem>
 	needClip?: boolean
 	className?: string
 	index?: string | number
@@ -170,6 +205,7 @@ type InternalBarProps = {
 	name?: string | number
 	dataKey?: DataKey<unknown>
 	tooltipType?: TooltipType
+	formatter?: Formatter
 	maxBarSize?: number
 	shape?: ActiveShape<BarShapeProps, SVGPathElement>
 	background?: ActiveShape<BarShapeProps, SVGPathElement>
@@ -186,7 +222,8 @@ type BarSvgProps = Omit<
 	"radius" | "name" | "ref"
 >
 
-export type Props = BarSvgProps & BarProps
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped items accept any data */
+export type Props<DataPointType = any, DataValueType = any> = BarSvgProps & BarProps<DataPointType, DataValueType>
 
 type InternalProps = BarSvgProps & InternalBarProps
 
@@ -208,7 +245,7 @@ const computeLegendPayloadFromBarData = (barProps: Props): ReadonlyArray<LegendP
 function SetBarTooltipEntrySettings(
 	props: Pick<
 		InternalProps,
-		"dataKey" | "stroke" | "strokeWidth" | "fill" | "name" | "hide" | "unit" | "tooltipType" | "id"
+		"dataKey" | "stroke" | "strokeWidth" | "fill" | "name" | "hide" | "unit" | "tooltipType" | "formatter" | "id"
 	>,
 ) {
 	/* GOTCHA-005: createMemo so reactive props flow into the settings object. */
@@ -219,6 +256,7 @@ function SetBarTooltipEntrySettings(
 			color: props.fill,
 			dataKey: props.dataKey,
 			fill: props.fill,
+			formatter: props.formatter,
 			graphicalItemId: props.id,
 			hide: props.hide,
 			name: getTooltipNameProp(props.name, props.dataKey),
@@ -238,16 +276,18 @@ function BarBackground(props: {
 	dataKey: DataKey<unknown> | undefined
 	allOtherBarProps: InternalProps
 }) {
+	/* GOTCHA-016-C: one entry per pointer move across both event pairs, shared by all bars. */
+	const hover = createHoverDedupe()
 	const ctx = useChartStore()
 	/* perf: cache selector result; without memo every consumer read triggers full chain. */
 	const activeIndex = createMemo(() => (ctx ? selectActiveTooltipIndex(ctx.store) : undefined))
-	/* eslint-disable solid/reactivity -- dataKey/id are stable identifiers captured once at setup; dispatch hooks take static config */
+	/* eslint-disable solid/reactivity -- id is a stable identifier; handler and dataKey sources are accessors read at event time */
 	const onMouseEnterFromContext = useMouseEnterItemDispatch(
 		() =>
 			props.allOtherBarProps.onMouseEnter as
 				| ((d: BarRectangleItem, i: number, e: MouseEvent) => void)
 				| undefined,
-		props.dataKey,
+		() => props.dataKey,
 		props.allOtherBarProps.id,
 	)
 	const onMouseLeaveFromContext = useMouseLeaveItemDispatch(
@@ -261,7 +301,7 @@ function BarBackground(props: {
 			props.allOtherBarProps.onClick as
 				| ((d: BarRectangleItem, i: number, e: MouseEvent) => void)
 				| undefined,
-		props.dataKey,
+		() => props.dataKey,
 		props.allOtherBarProps.id,
 	)
 	/* eslint-enable solid/reactivity */
@@ -300,23 +340,20 @@ function BarBackground(props: {
 									const click = onClickFromContext(entry, i()) as unknown as (e: MouseEvent) => void
 									const userOver = adapted.onMouseOver
 									const userOut = adapted.onMouseOut
-									let entered = false
 									const fireEnter = (e: MouseEvent) => {
-										if (entered) return
-										entered = true
+										if (!hover.enter(e)) return
 										userOver?.(e)
 										enter(e)
 									}
 									const fireLeave = (e: MouseEvent) => {
-										if (!entered) return
-										entered = false
+										if (!hover.leave(e)) return
 										userOut?.(e)
 										leave(e)
 									}
 									return (
 										<BarRectangle
 											option={props.background}
-											isActive={String(i()) === activeIndex()}
+											isActive={String(entry.originalDataIndex ?? i()) === activeIndex()}
 											{...rectProps}
 											fill={bgFill}
 											x={bg?.x ?? rectProps.x}
@@ -399,10 +436,9 @@ function FastBarPath(props: {
 	pathClass: () => string
 	radius: RectRadius | undefined
 }) {
-	/* eslint-disable solid/reactivity -- props.index and props.radius are stable numeric props captured once at setup */
-	const clipPathUrl = useBarStackClipPathUrl(props.index)
+	const clipPathUrl = createMemo(() => useBarStackClipPathUrl(props.index))
+	/* eslint-disable-next-line solid/reactivity -- radius is a stable numeric prop captured once at setup */
 	const radius = props.radius ?? 0
-	/* eslint-enable solid/reactivity */
 	const isValid = () => {
 		const e = props.entry()
 		return (
@@ -419,23 +455,30 @@ function FastBarPath(props: {
 	   redundant DOM writes — Solid effects re-run on any dep change, but most
 	   per-frame ticks only change one or two attrs, not all of them. */
 	let prevX = NaN, prevY = NaN, prevW = NaN, prevH = NaN, prevD = "", prevFill = ""
-	createEffect(() => {
-		const el = pathEl()
-		if (!el) return
-		const e = props.entry()
-		const x = round(e.x)
-		const y = round(e.y)
-		const w = round(e.width)
-		const h = round(e.height)
-		if (x !== prevX) { el.setAttribute("x", String(x)); prevX = x }
-		if (y !== prevY) { el.setAttribute("y", String(y)); prevY = y }
-		if (w !== prevW) { el.setAttribute("width", String(w)); prevW = w }
-		if (h !== prevH) { el.setAttribute("height", String(h)); prevH = h }
-		const d = getRectanglePath(e.x, e.y, e.width, e.height, radius)
-		if (d !== prevD) { el.setAttribute("d", d); prevD = d }
-		const f = e.fill
-		if (f != null && f !== prevFill) { el.setAttribute("fill", f); prevFill = f }
-	})
+	createRenderEffect(
+		() => {
+			const el = pathEl()
+			if (!el) return null
+			const e = props.entry()
+			return { el, fill: e.fill, height: e.height, width: e.width, x: e.x, y: e.y }
+		},
+		(e) => {
+			if (e == null) return
+			const el = e.el
+			const x = round(e.x)
+			const y = round(e.y)
+			const w = round(e.width)
+			const h = round(e.height)
+			if (x !== prevX) { el.setAttribute("x", String(x)); prevX = x }
+			if (y !== prevY) { el.setAttribute("y", String(y)); prevY = y }
+			if (w !== prevW) { el.setAttribute("width", String(w)); prevW = w }
+			if (h !== prevH) { el.setAttribute("height", String(h)); prevH = h }
+			const d = getRectanglePath(e.x, e.y, e.width, e.height, radius)
+			if (d !== prevD) { el.setAttribute("d", d); prevD = d }
+			const f = e.fill
+			if (f != null && f !== prevFill) { el.setAttribute("fill", f); prevFill = f }
+		},
+	)
 	const setPathRef = (el: SVGPathElement) => {
 		el.setAttribute("radius", String(radius))
 		setPathEl(el)
@@ -443,7 +486,7 @@ function FastBarPath(props: {
 	return (
 		<g
 			class="recharts-layer recharts-bar-stack-layer recharts-bar-rectangle"
-			clip-path={clipPathUrl}
+			clip-path={clipPathUrl()}
 			{...props.stackEvents}
 		>
 			<g class="recharts-layer recharts-inactive-bar">
@@ -460,10 +503,107 @@ function FastBarPath(props: {
 	)
 }
 
+function BarRectangleWithActiveState(props: {
+	rectProps: BarRectangleProps
+	shape: ActiveShape<BarShapeProps, SVGPathElement> | undefined
+	activeBar: ActiveShape<BarShapeProps, SVGPathElement>
+	originalDataIndex: number
+	dataKey: DataKey<unknown> | undefined
+}) {
+	const ctx = useChartStore()
+	const activeIndex = createMemo(() => (ctx ? selectActiveTooltipIndex(ctx.store) : undefined))
+	const activeDataKey = createMemo(() => (ctx ? selectActiveTooltipDataKey(ctx.store) : undefined))
+	/*
+	 * Bars support stacking, so there can be multiple bars at the same x value.
+	 * With Tooltip shared=false only the hovered Bar is active; with a shared Tooltip
+	 * (activeDataKey undefined) every bar at the active index is.
+	 * originalDataIndex is compared because the rendered array is filtered (null and
+	 * zero-dimension bars), while activeIndex indexes the displayed data slice.
+	 */
+	const isActive = createMemo(
+		() =>
+			Boolean(props.activeBar) &&
+			String(props.originalDataIndex) === activeIndex() &&
+			(activeDataKey() == null || props.dataKey === activeDataKey()),
+	)
+	const isAnotherBarActive = createMemo(
+		() =>
+			activeIndex() != null &&
+			(String(props.originalDataIndex) !== activeIndex() ||
+				(activeDataKey() != null && props.dataKey !== activeDataKey())),
+	)
+
+	const [stayInLayer, setStayInLayer] = createSignal(false)
+	const [hasMountedActive, setHasMountedActive] = createSignal(false)
+
+	createEffect(
+		() => ({ active: isActive(), anotherActive: isAnotherBarActive() }),
+		({ active, anotherActive }) => {
+			let rafId: number | undefined
+			if (active) {
+				// 1. Enter the layer immediately
+				setStayInLayer(true)
+				// 2. Wait for the inactive state to paint in the new layer, then switch to active
+				// so the CSS transition runs.
+				rafId = requestAnimationFrame(() => {
+					setHasMountedActive(true)
+				})
+			} else {
+				setHasMountedActive(false)
+				if (anotherActive) {
+					setStayInLayer(false)
+				}
+			}
+			return () => {
+				if (rafId != null) {
+					cancelAnimationFrame(rafId)
+				}
+			}
+		},
+	)
+
+	// 4. Leave the layer only when the exit transition finishes
+	const handleTransitionEnd = () => {
+		if (!untrack(isActive)) {
+			setStayInLayer(false)
+		}
+	}
+
+	const option = (): ActiveShape<BarShapeProps, SVGPathElement> | undefined => {
+		if (!isActive()) {
+			return props.shape
+		}
+		return props.activeBar === true ? props.shape : props.activeBar
+	}
+
+	const content = () => (
+		<BarRectangle
+			{...props.rectProps}
+			isActive={isActive() && hasMountedActive()}
+			option={option()}
+			onTransitionEnd={handleTransitionEnd}
+		/>
+	)
+
+	// Render in the active layer while active, or while the exit transition runs
+	return (
+		<Show when={isActive() || stayInLayer()} fallback={content()}>
+			<ZIndexLayer zIndex={DefaultZIndexes.activeBar}>
+				<BarStackClipLayer index={props.originalDataIndex}>{content()}</BarStackClipLayer>
+			</ZIndexLayer>
+		</Show>
+	)
+}
+
 function BarRectangles(props: {
 	data: ReadonlyArray<BarRectangleItem> | undefined
 	allProps: InternalProps
+	animationElapsedTime?: number
+	isAnimating?: boolean
+	isEntrance?: boolean
 }) {
+	/* GOTCHA-016-C: one entry per pointer move across both event pairs, shared by all bars. */
+	const hover = createHoverDedupe()
 	/* eslint-disable solid/reactivity -- dataKey/id destructure and dispatch hook reads are stable identifiers captured once at setup */
 	const { id: _id, name: _name, ...baseProps } = svgPropertiesNoEvents(props.allProps) ?? {}
 	/* mirror upstream `<BarStackClipLayer ... onMouseEnter onMouseLeave onClick>`:
@@ -473,7 +613,7 @@ function BarRectangles(props: {
 			props.allProps.onMouseEnter as
 				| ((d: BarRectangleItem, i: number, e: MouseEvent) => void)
 				| undefined,
-		props.allProps.dataKey,
+		() => props.allProps.dataKey,
 		props.allProps.id,
 	)
 	const onMouseLeaveFromContext = useMouseLeaveItemDispatch(
@@ -487,7 +627,7 @@ function BarRectangles(props: {
 			props.allProps.onClick as
 				| ((d: BarRectangleItem, i: number, e: MouseEvent) => void)
 				| undefined,
-		props.allProps.dataKey,
+		() => props.allProps.dataKey,
 		props.allProps.id,
 	)
 	/* eslint-enable solid/reactivity */
@@ -519,7 +659,7 @@ function BarRectangles(props: {
 	   reactive d-binding — bypasses 7-component-deep chain. Custom shape /
 	   activeBar / function-option falls through to BarStackClipLayer + Shape
 	   chain for parity with React's clone-and-extend semantics. */
-	const useFastPath = props.allProps.shape == null
+	const useFastPath = props.allProps.shape == null && !props.allProps.activeBar
 	const radius = props.allProps.radius
 	/* split static path attrs once: spread on every <path/> covers fill/stroke/
 	   strokeWidth/className/data-* etc. without re-walking the proxy per bar. */
@@ -543,10 +683,10 @@ function BarRectangles(props: {
 	const pathClass = () => clsx("recharts-rectangle", baseClassName)
 	/* eslint-enable solid/reactivity */
 
-	/* perf: <Index> over <For> — entries are NEW objects every animation frame
+	/* perf: <For keyed={false}> over <For> — entries are NEW objects every animation frame
 	   (stepData spreads `{...entry, height: …}`) so referential `<For>` would
 	   tear down + remount the entire BarStackClipLayer/BarRectangle subtree per
-	   tick. <Index> keeps slots stable and lets attribute bindings update in
+	   tick. <For keyed={false}> keeps slots stable and lets attribute bindings update in
 	   place; ~10x cheaper per frame on 50-bar charts.
 
 	   perf: don't spread the whole entry — only x/y/width/height/fill change
@@ -554,34 +694,32 @@ function BarRectangles(props: {
 	   every attribute (~30 svg keys each) every tick. Pass field-level
 	   accessors via mergeProps so the component sees individual reactive
 	   getters and only the live attrs touch the DOM. */
-	/* eslint-disable solid/reactivity -- index is a plain number from <Index> (not a signal accessor); reads inside the Index callback ARE tracked */
+	/* eslint-disable solid/reactivity -- index is a plain number from <For keyed={false}> (not a signal accessor); reads inside the Index callback ARE tracked */
 	return (
 		<Show when={props.data}>
-			<Index each={props.data}>
+			<For keyed={false} each={props.data}>
 				{(entry, index) => {
+					const originalIndex = untrack(() => entry().originalDataIndex ?? index)
 					const userOver = eventHandlers.onMouseOver
 					const userOut = eventHandlers.onMouseOut
 					const adapted: Record<string, (e: Event) => void> = {}
 					for (const key in eventHandlers) {
 						const handler = eventHandlers[key]
-						if (handler) adapted[key] = (e: Event) => handler(entry(), index, e)
+						if (handler) adapted[key] = (e: Event) => handler(entry(), originalIndex, e)
 					}
 					/* GOTCHA-016-C: dedupe user.hover paths so MouseEnter+MouseOver fires once. */
-					let entered = false
 					const fireEnter = (e: MouseEvent & { currentTarget: SVGElement }) => {
-						if (entered) return
-						entered = true
-						userOver?.(entry(), index, e)
-						onMouseEnterFromContext(entry(), index)(e)
+						if (!hover.enter(e)) return
+						userOver?.(entry(), originalIndex, e)
+						onMouseEnterFromContext(entry(), originalIndex)(e)
 					}
 					const fireLeave = (e: MouseEvent & { currentTarget: SVGElement }) => {
-						if (!entered) return
-						entered = false
-						userOut?.(entry(), index, e)
-						onMouseLeaveFromContext(entry(), index)(e)
+						if (!hover.leave(e)) return
+						userOut?.(entry(), originalIndex, e)
+						onMouseLeaveFromContext(entry(), originalIndex)(e)
 					}
 					const handleClick = (e: MouseEvent & { currentTarget: SVGElement }) => {
-						onClickFromContext(entry(), index)(e)
+						onClickFromContext(entry(), originalIndex)(e)
 					}
 					const stackEvents: Record<string, (e: Event) => void> = {
 						...adapted,
@@ -597,9 +735,10 @@ function BarRectangles(props: {
 						   parity with React's spread of {...entry} to Rectangle. Geometry
 						   attrs (x/y/width/height) overridden by reactive geomAttrs(). */
 						const initialEntry = untrack(() => entry())
-						const entryStatic: Record<string, unknown> = {
-							...(initialEntry as unknown as Record<string, unknown>),
-						}
+						/* Upstream Rectangle forwards only SVG attributes from the data row. */
+						const entryStatic: Record<string, unknown> = untrack(() =>
+							svgPropertiesAndEvents(initialEntry as unknown as Record<PropertyKey, unknown>),
+						)
 						delete entryStatic.x
 						delete entryStatic.y
 						delete entryStatic.width
@@ -615,7 +754,7 @@ function BarRectangles(props: {
 						return (
 							<FastBarPath
 								entry={entry}
-								index={index}
+								index={originalIndex}
 								staticAttrs={staticPathAttrs}
 								entryStaticAttrs={entryStatic}
 								stackEvents={stackEvents}
@@ -644,12 +783,21 @@ function BarRectangles(props: {
 						},
 						isActive: false,
 						option: props.allProps.shape,
-						index,
+						index: originalIndex,
 						dataKey: props.allProps.dataKey,
+						get animationElapsedTime() {
+							return props.animationElapsedTime
+						},
+						get isAnimating() {
+							return props.isAnimating
+						},
+						get isEntrance() {
+							return props.isEntrance
+						},
 					})
 					return (
 						<BarStackClipLayer
-							index={index}
+							index={originalIndex}
 							class="recharts-bar-rectangle"
 							{...adapted}
 							onMouseEnter={fireEnter}
@@ -658,11 +806,19 @@ function BarRectangles(props: {
 							onMouseOut={fireLeave}
 							onClick={handleClick}
 						>
-							<BarRectangle {...rectProps} />
+							<Show when={props.allProps.activeBar} fallback={<BarRectangle {...rectProps} />}>
+								<BarRectangleWithActiveState
+									rectProps={rectProps}
+									shape={props.allProps.shape}
+									activeBar={props.allProps.activeBar}
+									originalDataIndex={originalIndex}
+									dataKey={props.allProps.dataKey}
+								/>
+							</Show>
 						</BarStackClipLayer>
 					)
 				}}
-			</Index>
+			</For>
 		</Show>
 	)
 	/* eslint-enable solid/reactivity */
@@ -672,112 +828,40 @@ function RectanglesWithAnimation(props: {
 	allProps: InternalProps
 	previousRectanglesRef: { current: ReadonlyArray<BarRectangleItem> | null }
 }) {
-	const animationId = useAnimationId(() => props.allProps, "recharts-bar-")
-
-	/* perf: snapshot rectangles at animationId flip — without this, every
-	   per-frame `t()` tick reads `props.allProps.data` through the BarImpl
-	   `mergeProps` getter, which calls `selectBarRectangles` again, rebuilding
-	   axis scales + decimal math + a fresh array of rects. Selectors aren't
-	   memoized; cost compounds across frames. Cache once per animation. */
-	const dataSnapshot = createMemo(() => {
-		animationId()
-		return untrack(() => props.allProps.data)
-	})
-	const layoutSnapshot = createMemo(() => {
-		animationId()
-		return untrack(() => props.allProps.layout)
-	})
-
-	/* GOTCHA-014-G: snapshot prev rectangles at animationId flip; mirrors Radar. */
-	const animationContext = createMemo(() => {
-		animationId()
-		return { prevRectangles: props.previousRectanglesRef.current }
-	})
-
-	/* default true — Solid's manager.start fires onAnimationStart on next frame
-	   so initial render would paint labels before isAnimating flips. React batches
-	   start+commit such that labels render with isAnimating already true. */
-	/* eslint-disable-next-line solid/reactivity -- isAnimationActive seeds the signal once at setup; intentional snapshot */
-	const [isAnimating, setIsAnimating] = createSignal(props.allProps.isAnimationActive !== false)
-	const showLabels = () => !isAnimating()
-
-	const handleAnimationEnd = () => {
-		if (typeof props.allProps.onAnimationEnd === "function") {
-			props.allProps.onAnimationEnd()
-		}
-		setIsAnimating(false)
-	}
-
-	const handleAnimationStart = () => {
-		if (typeof props.allProps.onAnimationStart === "function") {
-			props.allProps.onAnimationStart()
-		}
-		setIsAnimating(true)
-	}
+	const { isAnimating, handleAnimationStart, handleAnimationEnd } = useAnimationCallbacks(
+		() => props.allProps.onAnimationStart,
+		() => props.allProps.onAnimationEnd,
+	)
 
 	return (
-		<BarLabelListProvider showLabels={showLabels()} rects={props.allProps.data}>
-			<JavascriptAnimate
-				animationId={animationId()}
-				begin={props.allProps.animationBegin}
-				duration={props.allProps.animationDuration}
-				isActive={props.allProps.isAnimationActive}
-				easing={props.allProps.animationEasing}
-				onAnimationEnd={handleAnimationEnd}
+		<BarLabelListProvider showLabels={!isAnimating()} rects={props.allProps.data}>
+			<AnimatedItems
+				animationInput={props.allProps.data}
+				animationIdPrefix="recharts-bar-"
+				items={props.allProps.data}
+				previousItemsRef={props.previousRectanglesRef}
+				isAnimationActive={props.allProps.isAnimationActive}
+				animationBegin={props.allProps.animationBegin}
+				animationDuration={props.allProps.animationDuration}
+				animationEasing={props.allProps.animationEasing}
 				onAnimationStart={handleAnimationStart}
+				onAnimationEnd={handleAnimationEnd}
+				animationInterpolateFn={props.allProps.animationInterpolateFn}
+				animationMatchBy={props.allProps.animationMatchBy}
+				layout={props.allProps.layout}
 			>
-				{(t: () => number) => {
-					/* GOTCHA-014: thunk children — write prev via effect to avoid stale-memo drift.
-					   When t=1 (animation off or complete), read props.allProps.data directly
-					   so state mutations (domain change, maxBarSize) flow through reactively.
-					   During animation (t<1), use the snapshot to avoid re-running the selector
-					   chain per frame. */
-					const stepData = createMemo(() => {
-						const tValue = t()
-						if (tValue === 1) return props.allProps.data
-						const ctx = animationContext()
-						const prevData = ctx.prevRectangles
-						const data = dataSnapshot()
-						const layout = layoutSnapshot()
-						return data?.map(
-									(entry: BarRectangleItem, index: number): BarRectangleItem => {
-										const prev = prevData && prevData[index]
-										if (prev) {
-											return Object.assign({}, entry, {
-												height: interpolate(prev.height, entry.height, tValue),
-												width: interpolate(prev.width, entry.width, tValue),
-												x: interpolate(prev.x, entry.x, tValue),
-												y: interpolate(prev.y, entry.y, tValue),
-											})
-										}
-										if (layout === "horizontal") {
-											const height = interpolate(0, entry.height, tValue)
-											const y = interpolate(entry.stackedBarStart, entry.y, tValue)
-											return Object.assign({}, entry, { height, y })
-										}
-										const w = interpolate(0, entry.width, tValue)
-										const x = interpolate(entry.stackedBarStart, entry.x, tValue)
-										return Object.assign({}, entry, { width: w, x })
-									},
-								)
-					})
-					createEffect(() => {
-						if (t() > 0) {
-							props.previousRectanglesRef.current = stepData() ?? null
-						}
-					})
-					return (
-						<Show when={stepData() != null}>
-							<Layer>
-								<BarRectangles
-									allProps={props.allProps}
-									data={stepData() as ReadonlyArray<BarRectangleItem>}
-								/>
-							</Layer>
-						</Show>
-					)
-				}}
-			</JavascriptAnimate>
+				{(stepData, animationElapsedTime, isEntrance) => (
+					<Layer>
+						<BarRectangles
+							allProps={props.allProps}
+							data={stepData()}
+							animationElapsedTime={animationElapsedTime()}
+							isAnimating={isAnimating() || animationElapsedTime() < 1}
+							isEntrance={isEntrance()}
+						/>
+					</Layer>
+				)}
+			</AnimatedItems>
 			<LabelListFromLabelProp label={props.allProps.label} />
 			{props.allProps.children}
 		</BarLabelListProvider>
@@ -794,6 +878,61 @@ function RenderRectangles(props: { allProps: InternalProps }) {
 			previousRectanglesRef={previousRectanglesRef}
 		/>
 	)
+}
+
+const defaultBarAnimateItems: AnimationInterpolateFn<BarRectangleItem, CartesianLayout> = (
+	items,
+	animationElapsedTime,
+	layout,
+) => {
+	if (items == null) return []
+	if (animationElapsedTime === 1) {
+		return items.flatMap((item) => (item.status === "removed" ? [] : [item.next]))
+	}
+	return items.flatMap((item) => {
+		if (item.status === "removed") {
+			// animate removed items to 0 height/width respective of layout
+			if (layout === "horizontal") {
+				return [
+					{
+						...item.prev,
+						height: interpolate(item.prev.height, 0, animationElapsedTime),
+						y: interpolate(item.prev.y, item.prev.y + item.prev.height, animationElapsedTime),
+					},
+				]
+			}
+			return [{ ...item.prev, width: interpolate(item.prev.width, 0, animationElapsedTime) }]
+		}
+		if (item.status === "matched") {
+			return [
+				{
+					...item.next,
+					height: interpolate(item.prev.height, item.next.height, animationElapsedTime),
+					width: interpolate(item.prev.width, item.next.width, animationElapsedTime),
+					x: interpolate(item.prev.x, item.next.x, animationElapsedTime),
+					y: interpolate(item.prev.y, item.next.y, animationElapsedTime),
+				},
+			]
+		}
+		// added
+		const { next } = item
+		if (layout === "horizontal") {
+			return [
+				{
+					...next,
+					height: interpolate(0, next.height, animationElapsedTime),
+					y: interpolate(next.stackedBarStart, next.y, animationElapsedTime),
+				},
+			]
+		}
+		return [
+			{
+				...next,
+				width: interpolate(0, next.width, animationElapsedTime),
+				x: interpolate(next.stackedBarStart, next.x, animationElapsedTime),
+			},
+		]
+	})
 }
 
 const defaultMinPointSize: number = 0
@@ -853,6 +992,8 @@ export const defaultBarProps = {
 	animationBegin: 0,
 	animationDuration: 400,
 	animationEasing: "ease",
+	animationInterpolateFn: defaultBarAnimateItems,
+	animationMatchBy: matchAppend,
 	background: false,
 	hide: false,
 	isAnimationActive: "auto",
@@ -865,8 +1006,8 @@ export const defaultBarProps = {
 } as const satisfies Partial<Props>
 
 function BarImpl(props: InternalBarProps & { children?: JSX.Element }) {
-	const needClipResult = () => useNeedsClip(props.xAxisId, props.yAxisId)
-	const layout = () => useChartLayout()
+	const needClipResult = createMemo(() => useNeedsClip(props.xAxisId, props.yAxisId))
+	const layout = createMemo(() => useChartLayout())
 
 	const isPanorama = useIsPanorama()
 	const ctx = useChartStore()
@@ -955,34 +1096,36 @@ function BarChildrenScope(props: {
 	const cellsRegistry = createCellsRegistry()
 	return (
 		<cellsRegistry.Provider value={cellsRegistry}>
-			{(() => {
-				/* GOTCHA-017: memoize children INSIDE Provider so that the For/Cell
-				   createComponent calls fired by `childrenProps.children` access run
-				   with Provider as a parent owner. Memo capture happens at memo-create
-				   time — moving creation here is what makes context lookup find the
-				   registry. Repeated reads return the same Node (no re-mint loop). */
-				/* eslint-disable-next-line solid/reactivity -- props.childrenProps.children is read inside createMemo; this IS a tracked scope */
-				const memoizedChildren = createMemo(() => props.childrenProps.children)
-				/* eslint-disable-next-line solid/reactivity -- mergeProps result captured in variable per linter requirement; props.mergedBarProps is already a reactive proxy */
-				const barImplProps = mergeProps(props.mergedBarProps, {
-					id: props.id,
-					get children() {
-						return memoizedChildren()
-					},
-				}) as unknown as InternalBarProps
-				return (
-					<ZIndexLayer zIndex={props.mergedBarProps.zIndex}>
-						<BarImpl {...barImplProps} />
-					</ZIndexLayer>
-				)
-			})()}
+			<LabelListContextBridge>
+				{(() => {
+					/* GOTCHA-017: memoize children INSIDE Provider so that the For/Cell
+					   createComponent calls fired by `childrenProps.children` access run
+					   with Provider as a parent owner. Memo capture happens at memo-create
+					   time — moving creation here is what makes context lookup find the
+					   registry. Repeated reads return the same Node (no re-mint loop). */
+					/* eslint-disable-next-line solid/reactivity -- props.childrenProps.children is read inside createMemo; this IS a tracked scope */
+					const memoizedChildren = createMemo(() => props.childrenProps.children)
+					/* eslint-disable-next-line solid/reactivity -- mergeProps result captured in variable per linter requirement; props.mergedBarProps is already a reactive proxy */
+					const barImplProps = mergeProps(props.mergedBarProps, {
+						id: props.id,
+						get children() {
+							return memoizedChildren()
+						},
+					}) as unknown as InternalBarProps
+					return (
+						<ZIndexLayer zIndex={props.mergedBarProps.zIndex}>
+							<BarImpl {...barImplProps} />
+						</ZIndexLayer>
+					)
+				})()}
+			</LabelListContextBridge>
 		</cellsRegistry.Provider>
 	)
 }
 
 export function computeBarRectangles({
 	layout,
-	barSettings: { dataKey, minPointSize: minPointSizeProp },
+	barSettings: { dataKey, minPointSize: minPointSizeProp, hasCustomShape = false },
 	pos,
 	bandSize,
 	xAxis,
@@ -1105,7 +1248,13 @@ export function computeBarRectangles({
 				}
 			}
 
-			if (x == null || y == null || width == null || height == null) {
+			if (
+				x == null ||
+				y == null ||
+				width == null ||
+				height == null ||
+				(!hasCustomShape && (width === 0 || height === 0))
+			) {
 				return null
 			}
 
@@ -1113,6 +1262,7 @@ export function computeBarRectangles({
 				...(entry as Record<string, unknown>),
 				background,
 				height: height as number,
+				originalDataIndex: index,
 				parentViewBox,
 				payload: entry,
 				stackedBarStart: stackedBarStart as number,
@@ -1141,7 +1291,7 @@ export function computeBarRectangles({
  */
 type BarPropsWithDefaults = Props & Required<Pick<BarProps, keyof typeof defaultBarProps>>
 
-export function Bar(outsideProps: Props) {
+function BarFn(outsideProps: Props) {
 	/* GOTCHA-013: split children BEFORE resolveDefaultProps. resolveDefaultProps does
 	   `{...realProps}` which enumerates own keys of the Solid props proxy — reading the
 	   `children` getter eagerly invokes createComponent on user JSX (ErrorBar, etc.) at
@@ -1151,9 +1301,13 @@ export function Bar(outsideProps: Props) {
 	const [childrenProps, restProps] = splitProps(outsideProps, ["children"])
 	const rawProps = resolveDefaultProps(restProps, defaultBarProps)
 	const props = rawProps as BarPropsWithDefaults
-	const stackId = useStackId(props.stackId)
+	const stackId = createMemo(() => useStackId(props.stackId))
 	const isPanorama = useIsPanorama()
 	const ctx = useChartStore()
+	/* A memo keeps the shape check out of SetCartesianGraphicalItem's props spread. */
+	const hasCustomShape = createMemo(
+		() => props.shape != null && props.shape !== defaultBarShape,
+	)
 	return (
 		<RegisterGraphicalItemId id={props.id} type="bar">
 			{(id) => {
@@ -1194,6 +1348,7 @@ export function Bar(outsideProps: Props) {
 							hide={props.hide}
 							unit={props.unit}
 							tooltipType={props.tooltipType}
+							formatter={props.formatter}
 							id={id}
 						/>
 						<SetCartesianGraphicalItem
@@ -1204,12 +1359,13 @@ export function Bar(outsideProps: Props) {
 							yAxisId={props.yAxisId}
 							zAxisId={0}
 							dataKey={props.dataKey}
-							stackId={stackId}
+							stackId={stackId()}
 							hide={props.hide}
 							barSize={props.barSize}
 							minPointSize={props.minPointSize}
 							maxBarSize={props.maxBarSize}
 							isPanorama={isPanorama}
+							hasCustomShape={hasCustomShape()}
 						/>
 						<SetErrorBarContext
 							xAxisId={props.xAxisId}
@@ -1231,4 +1387,10 @@ export function Bar(outsideProps: Props) {
 	)
 }
 
+export const Bar = BarFn as {
+	<DataPointType = any, DataValueType = any>(props: Props<DataPointType, DataValueType>): JSX.Element
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream fallback overload for mismatched data/dataKey */
+	(props: Props<any, any>): JSX.Element
+	displayName?: string
+}
 Bar.displayName = "Bar"

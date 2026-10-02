@@ -1,24 +1,26 @@
 import { describe, expect, it, vi } from "vitest"
+import { observe } from "../../helper/observe"
 
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../../helper/render"
 import { BarChart, Customized, XAxis } from "../../../src"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
 import { useAppSelector } from "../../helper/legacyDispatch"
 import {
 	implicitXAxis,
 	selectRenderableAxisSettings,
+	selectRenderedTicksOfAxis,
 	selectXAxisSettings,
 } from "../../../src/state/selectors/axisSelectors"
+import type { TickItem } from "../../../src/util/types"
 import { XAxisSettings } from "../../../src/state/cartesianAxisSlice"
 import { createSelectorTestCase, rechartsTestRender } from "../../helper/createSelectorTestCase"
 import { assertNotNull } from "../../helper/assertNotNull"
-import { createEffect, createSignal } from "solid-js"
-
+import { createSignal } from 'solid-js'
 describe("state integration", () => {
 	it("should publish its configuration to redux store", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const settings = useAppSelector((state) =>
 					selectRenderableAxisSettings(state, "xAxis", "foo"),
 				)
@@ -71,6 +73,7 @@ describe("state integration", () => {
 				left: 0,
 				right: 0,
 			},
+			niceTicks: "auto",
 			reversed: false,
 			scale: "log",
 			tick: false,
@@ -86,7 +89,7 @@ describe("state integration", () => {
 	it("should remove the configuration from store when DOM element is removed", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const foo = useAppSelector((state) =>
 					selectRenderableAxisSettings(state, "xAxis", "foo"),
 				)
@@ -123,6 +126,7 @@ describe("state integration", () => {
 				left: 0,
 				right: 0,
 			},
+			niceTicks: "auto",
 			reversed: false,
 			scale: "log",
 			tick: true,
@@ -167,6 +171,7 @@ describe("state integration", () => {
 					left: 0,
 					right: 0,
 				},
+				niceTicks: "auto",
 				reversed: false,
 				scale: "utc",
 				tick: true,
@@ -196,6 +201,7 @@ describe("state integration", () => {
 					left: 0,
 					right: 0,
 				},
+				niceTicks: "auto",
 				reversed: false,
 				scale: "log",
 				tick: true,
@@ -234,6 +240,7 @@ describe("state integration", () => {
 				left: 0,
 				right: 0,
 			},
+			niceTicks: "auto",
 			reversed: false,
 			scale: "utc",
 			tick: true,
@@ -259,7 +266,7 @@ describe("state integration", () => {
 		})
 	})
 
-	it.skip("should remove old ID configuration when the ID changes", () => {
+	it("should remove old ID configuration when the ID changes", () => {
 		const IDChangingComponent = (props: { children: JSX.Element }) => {
 			const [id, setId] = createSignal("1")
 			const onClick = () => setId("2")
@@ -277,7 +284,7 @@ describe("state integration", () => {
 		}
 		const renderTestCase = createSelectorTestCase(IDChangingComponent)
 
-		const { spy, container } = renderTestCase((state) => state.cartesianAxis.xAxis)
+		const { spy, container } = renderTestCase((state) => state.cartesianAxes.xAxis)
 
 		// only id "1" exists
 		const lastCallArgs1 = spy.mock.lastCall?.[0]
@@ -325,6 +332,7 @@ describe("state integration", () => {
 				left: 0,
 				right: 0,
 			},
+			niceTicks: "auto",
 			reversed: false,
 			scale: "log",
 			tick: true,
@@ -350,5 +358,44 @@ describe("state integration", () => {
 	it("should not render anything when attempting to render outside of Chart", () => {
 		const { container } = render(() => <XAxis dataKey="x" name="stature" unit="cm" />)
 		expect(container.querySelectorAll(".recharts-cartesian-axis-line")).toHaveLength(0)
+	})
+
+	it("should publish rendered ticks to the store", () => {
+		const renderTestCase = createSelectorTestCase((props) => (
+			<BarChart width={100} height={100} data={[{ x: "x-1" }, { x: "x-2" }, { x: "x-3" }]}>
+				<XAxis xAxisId="foo" dataKey="x" />
+				{props.children}
+			</BarChart>
+		))
+
+		const { spy } = renderTestCase((state) => selectRenderedTicksOfAxis(state, "xAxis", "foo"))
+		const expectedTicks: ReadonlyArray<TickItem> = [
+			{ coordinate: 20, index: 0, offset: 15, value: "x-1" },
+			{ coordinate: 50, index: 1, offset: 15, value: "x-2" },
+			{ coordinate: 80, index: 2, offset: 15, value: "x-3" },
+		]
+		expectLastCalledWith(spy, expectedTicks)
+	})
+
+	it("should keep rendered ticks referentially stable when re-rendering with unchanged tick values", () => {
+		// https://github.com/recharts/recharts/issues/7563
+		const renderTestCase = createSelectorTestCase((props) => (
+			<BarChart width={100} height={100} data={[{ x: "x-1" }, { x: "x-2" }, { x: "x-3" }]}>
+				<XAxis xAxisId="foo" dataKey="x" />
+				{props.children}
+			</BarChart>
+		))
+
+		const { spy, rerenderSameComponent } = renderTestCase((state) =>
+			selectRenderedTicksOfAxis(state, "xAxis", "foo"),
+		)
+
+		const ticksBefore = spy.mock.calls[spy.mock.calls.length - 1]?.[0]
+		assertNotNull(ticksBefore)
+
+		rerenderSameComponent()
+
+		const ticksAfter = spy.mock.calls[spy.mock.calls.length - 1]?.[0]
+		expect(ticksAfter).toBe(ticksBefore)
 	})
 })

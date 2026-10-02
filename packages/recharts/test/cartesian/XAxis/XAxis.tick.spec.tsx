@@ -1,5 +1,5 @@
 import { describe, expect, it, Mock, vi } from "vitest"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../../helper/render"
 import {
 	Bar,
 	BarChart,
@@ -130,9 +130,8 @@ describe("XAxis tick", () => {
 	})
 
 	describe("custom tick components", () => {
-		/* JSX `<Comp />` tick prop = React vNode pattern — Solid evaluates once,
-		   no cloneElement-style re-injection. Skiplist Cluster C. */
-		it.skip("should pass object padding to custom tick component", () => {
+		/* Solid evaluates `<CustomTick />` before the axis sees it, so a user component passed as an element cannot receive injected props (upstream clones it); pass the component itself. */
+		it("should pass object padding to custom tick component", () => {
 			const expectedPadding = { left: 20, right: 30 }
 			expect.assertions(6)
 
@@ -143,13 +142,13 @@ describe("XAxis tick", () => {
 
 			render(() => (
 				<LineChart width={400} height={400} data={lineData}>
-					<XAxis padding={expectedPadding} tick={<CustomXAxisTick />} />
+					<XAxis padding={expectedPadding} tick={CustomXAxisTick} />
 					<Line type="monotone" dataKey="uv" stroke="#ff7300" />
 				</LineChart>
 			))
 		})
 
-		it.skip("should pass string padding to custom tick component", () => {
+		it("should pass string padding to custom tick component", () => {
 			const expectedPadding = "gap"
 			expect.assertions(6)
 
@@ -160,7 +159,7 @@ describe("XAxis tick", () => {
 
 			render(() => (
 				<LineChart width={400} height={400} data={lineData}>
-					<XAxis padding={expectedPadding} tick={<CustomXAxisTick />} />
+					<XAxis padding={expectedPadding} tick={CustomXAxisTick} />
 					<Line type="monotone" dataKey="uv" stroke="#ff7300" />
 				</LineChart>
 			))
@@ -183,7 +182,7 @@ describe("XAxis tick", () => {
 			))
 		})
 
-		it.skip("should pass default padding when no padding is specified", () => {
+		it("should pass default padding when no padding is specified", () => {
 			expect.assertions(6)
 
 			const CustomXAxisTick = (props: any) => {
@@ -193,7 +192,7 @@ describe("XAxis tick", () => {
 
 			render(() => (
 				<LineChart width={400} height={400} data={lineData}>
-					<XAxis tick={<CustomXAxisTick />} />
+					<XAxis tick={CustomXAxisTick} />
 					<Line type="monotone" dataKey="uv" stroke="#ff7300" />
 				</LineChart>
 			))

@@ -1,8 +1,10 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
-import type { SetStoreFunction, Store } from 'solid-js/store';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { Store } from 'solid-js';
 import type { FieldValidityData } from '../field/root/FieldRoot';
 import { NOOP } from '../utils/noop';
 import type { Form } from './Form';
+import { type SetStoreFunction } from '../solid-1-compat';
 
 export type Errors = Record<string, string | string[]>;
 

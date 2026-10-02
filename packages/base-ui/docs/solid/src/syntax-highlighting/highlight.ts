@@ -26,7 +26,7 @@ function span(kind: string, text: string): string {
   return `<span class="pl-${kind}">${text}</span>`
 }
 
-/** Small client-safe highlighter for API type pills. Demo blocks use highlight.server.ts. */
+/** Small client-safe highlighter for API type pills. Demo blocks are highlighted at transform time by viteDemoHighlight.mjs. */
 export function highlightInline(code: string, _lang = "tsx"): string {
   let html = ""
   let i = 0

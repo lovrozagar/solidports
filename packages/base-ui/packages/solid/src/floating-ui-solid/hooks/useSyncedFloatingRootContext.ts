@@ -59,25 +59,30 @@ export function useSyncedFloatingRootContext<State extends PopupStoreState<any>>
     },
   });
 
-  createEffect(() => {
-    const ref = referenceElement();
-    const valuesToSync: Partial<FloatingRootState> = {
-      floatingElement: floatingElement(),
-      floatingId: floatingId(),
-      open: open(),
-      referenceElement: ref,
-    };
+  createEffect(
+    () => {
+      const ref = referenceElement();
+      const valuesToSync: Partial<FloatingRootState> = {
+        floatingElement: floatingElement(),
+        floatingId: floatingId(),
+        open: open(),
+        referenceElement: ref,
+      };
 
-    if (isElement(ref)) {
-      valuesToSync.domReferenceElement = ref;
-    }
+      if (isElement(ref)) {
+        valuesToSync.domReferenceElement = ref;
+      }
 
-    if (store.state.positionReference === store.state.referenceElement) {
-      valuesToSync.positionReference = ref;
-    }
+      if (store.state.positionReference === store.state.referenceElement) {
+        valuesToSync.positionReference = ref;
+      }
 
-    store.update(valuesToSync);
-  });
+      return valuesToSync;
+    },
+    (valuesToSync) => {
+      store.update(valuesToSync);
+    },
+  );
 
   return store;
 }

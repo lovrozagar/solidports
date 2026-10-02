@@ -1,14 +1,14 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import {
-  createEffect,
+  createTrackedEffect,
   createMemo,
   onCleanup,
-  onMount,
+  onSettled,
   Show,
   untrack,
-  type Accessor,
-  type JSX,
 } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   ContextMenuRootContext,
   useContextMenuRootContext,
@@ -81,7 +81,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   } else if (contextMenuContext && !parentMenuRootContext) {
     // Ensure this is not a Menu nested inside ContextMenu.Trigger.
     // ContextMenu parentContext is always undefined as ContextMenu.Root is instantiated with
-    // <MenuRootContext.Provider value={undefined}>
+    // <MenuRootContext value={undefined}>
     parentFromContext = { context: contextMenuContext, type: 'context-menu' };
   }
 
@@ -114,7 +114,9 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
 
   store.useControlledProp('openProp', openProp);
   store.useControlledProp('triggerIdProp', triggerIdProp);
-  store.useContextCallback('onOpenChangeComplete', (open) => props.onOpenChangeComplete?.(open));
+  store.useContextCallback('onOpenChangeComplete', (open: boolean) =>
+    props.onOpenChangeComplete?.(open),
+  );
 
   const floatingNodeIdFromContext = useFloatingNodeId(store.context.floatingTreeRoot);
   const floatingParentNodeIdFromContext = useFloatingParentNodeId();
@@ -151,7 +153,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   const nested = () => floatingParentNodeId() != null;
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (store.context.parent.type !== undefined && props.modal !== undefined) {
         console.warn(
           'Base UI: The `modal` prop is not supported on nested menus. It will be ignored.',
@@ -187,7 +189,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   let allowOutsidePressDismissalRef = store.context.parent.type !== 'context-menu';
   const allowOutsidePressDismissalTimeout = useTimeout();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       openEventRef = null;
     }
@@ -210,7 +212,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     });
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open() && !hoverEnabled()) {
       store.set('hoverEnabled', true);
     }
@@ -368,7 +370,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   if (store.context.parent.type === 'context-menu') {
     store.context.parent.context.actionsRef.current = { setOpen };
 
-    createEffect(() => {
+    createTrackedEffect(() => {
       (store.context.parent as any).context.positionerRef.current = positionerElement();
     });
   }
@@ -389,7 +391,10 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     eventDetails: MenuRoot.ChangeEventDetails;
   }) => setOpen(nextOpen, eventDetails);
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     // Support initially open state when uncontrolled
     if (openProp() === undefined && store.state.open === false && defaultOpen() === true) {
       store.update({
@@ -402,9 +407,15 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
       props.actionsRef.current = { close: handleImperativeClose, unmount: forceUnmount };
     }
 
-    floatingEvents.on('setOpen', handleSetOpenEvent);
-    onCleanup(() => floatingEvents?.off('setOpen', handleSetOpenEvent));
-  });
+    floatingEvents?.on('setOpen', handleSetOpenEvent);
+    _c.push(() => floatingEvents?.off('setOpen', handleSetOpenEvent));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const dismiss = useDismiss({
     context: floatingRootContext,
@@ -584,9 +595,9 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
 
   const content = createMemo(() => {
     return (
-      <MenuRootContext.Provider value={context as MenuRootContext}>
+      <MenuRootContext value={context as MenuRootContext}>
         <ComponentWithPayload payload={payload} children={props.children} />
-      </MenuRootContext.Provider>
+      </MenuRootContext>
     );
   });
 

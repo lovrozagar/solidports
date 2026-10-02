@@ -1,4 +1,4 @@
-import { createSignal, Index, Show } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import {
   FloatingFocusManager,
   useClick,
@@ -86,13 +86,13 @@ export function Main(componentProps: Props) {
               }}
               {...getFloatingProps()}
             >
-              <Index each={Array(49)}>
+              <For keyed={false} each={Array(49)}>
                 {(_, index) => (
                   <button
                     type="button"
                     role="option"
                     aria-selected={activeIndex() === index}
-                    tabIndex={activeIndex() === index ? 0 : -1}
+                    tabindex={activeIndex() === index ? 0 : -1}
                     disabled={disabledIndices.includes(index)}
                     ref={(node) => {
                       listRef[index] = node;
@@ -103,7 +103,7 @@ export function Main(componentProps: Props) {
                     Item {index}
                   </button>
                 )}
-              </Index>
+              </For>
             </div>
           </FloatingFocusManager>
         </Show>

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 /**
- * API parity audit — compares upstream `recharts/src/index.ts@v3.8.1` against the
+ * API parity audit — compares upstream `recharts/src/index.ts` at the pinned tag
+ * (`.upstream/pinned.json`) against the
  * Solid port's `src/index.ts`. Emits a machine-readable diff (.parity/report.json)
  * plus a human-readable summary (.kb/parity/report.md).
  *
@@ -18,15 +19,15 @@
  * via SOLID_INTENTIONAL_ADDITIONS allowlist).
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { Project, SyntaxKind } from "ts-morph"
 
 const PKG_ROOT = join(import.meta.dir, "..")
-const UPSTREAM_INDEX = join(
-	PKG_ROOT,
-	".upstream/cache/recharts-v3.8.1/src/index.ts",
-)
+const PINNED_TAG: string = JSON.parse(
+	readFileSync(join(PKG_ROOT, ".upstream/pinned.json"), "utf8"),
+).tag
+const UPSTREAM_INDEX = join(PKG_ROOT, `.upstream/cache/recharts-${PINNED_TAG}/src/index.ts`)
 const SOLID_INDEX = join(PKG_ROOT, "src/index.ts")
 const PARITY_DIR = join(PKG_ROOT, ".parity")
 const REPORT_JSON = join(PARITY_DIR, "report.json")
@@ -55,25 +56,7 @@ const SOLID_INTENTIONAL_ADDITIONS: Record<string, string> = {
    .upstream/map.json::unported_upstream and surfaced here so the audit
    distinguishes 'deferred' from 'accidentally missing'. Each entry tracked in
    .kb/parity/todo.md with a Phase target. */
-const UPSTREAM_DEFERRED: Record<string, string> = {
-	createHorizontalChart:
-		"Typed-chart factory utility; deferred — see .upstream/map.json::unported_upstream.",
-	createVerticalChart:
-		"Typed-chart factory utility; deferred — see .upstream/map.json::unported_upstream.",
-	createCentricChart:
-		"Typed-polar factory utility; deferred — see .upstream/map.json::unported_upstream.",
-	createRadialChart:
-		"Typed-polar factory utility; deferred — see .upstream/map.json::unported_upstream.",
-	TypedHorizontalChartContext:
-		"Companion type for createHorizontalChart; deferred.",
-	TypedVerticalChartContext:
-		"Companion type for createVerticalChart; deferred.",
-	NoFunnel: "Companion type for cartesian factories; deferred.",
-	TypedCentricChartContext: "Companion type for createCentricChart; deferred.",
-	TypedRadialChartContext: "Companion type for createRadialChart; deferred.",
-	NoRadial: "Companion type for polar factories; deferred.",
-	NoCentric: "Companion type for polar factories; deferred.",
-}
+const UPSTREAM_DEFERRED: Record<string, string> = {}
 
 function collectExports(filePath: string): ReadonlyArray<ExportEntry> {
 	const project = new Project({

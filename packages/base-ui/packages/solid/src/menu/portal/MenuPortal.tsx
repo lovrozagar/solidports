@@ -1,7 +1,8 @@
-import { Show, splitProps } from 'solid-js';
+import { Show } from 'solid-js';
 import { FloatingPortal } from '../../floating-ui-solid';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { MenuPortalContext } from './MenuPortalContext';
+import { splitProps } from '../../solid-1-compat';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -21,9 +22,9 @@ export function MenuPortal(props: MenuPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <MenuPortalContext.Provider value={keepMounted}>
+      <MenuPortalContext value={keepMounted}>
         <FloatingPortal {...portalProps} />
-      </MenuPortalContext.Provider>
+      </MenuPortalContext>
     </Show>
   );
 }

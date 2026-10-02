@@ -51,11 +51,14 @@
 				"typescript/no-explicit-any": "off",
 				"typescript/no-non-null-assertion": "off",
 				"typescript/require-await": "off",
+				"unicorn/no-new-array": "off",
 				"vitest/expect-expect": "off",
 				"vitest/no-conditional-expect": "off",
 				"vitest/no-standalone-expect": "off",
 				"vitest/require-mock-type-parameters": "off",
+				"vitest/require-to-throw-message": "off",
 				"vitest/valid-expect": "off",
+				"vitest/valid-title": "off",
 				"vitest/warn-todo": "off"
 			}
 		}

@@ -26,7 +26,7 @@ export function SelectIcon(componentProps: SelectIcon.Props) {
     get children() {
       return <>{componentProps.children ?? '▼'}</>;
     },
-    props: [{ 'aria-hidden': true }, elementProps],
+    props: [{ 'aria-hidden': 'true' }, elementProps],
     state,
     stateAttributesMapping: triggerOpenStateMapping,
   });

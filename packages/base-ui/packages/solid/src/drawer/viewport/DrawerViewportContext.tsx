@@ -1,4 +1,6 @@
-import { type Accessor, createContext, type JSX, useContext } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 interface DrawerViewportContextValue {
   swiping: Accessor<boolean>;
@@ -14,7 +16,7 @@ export function useDrawerViewportContext(optional: true): DrawerViewportContextV
 export function useDrawerViewportContext(optional?: boolean) {
   const context = useContext(DrawerViewportContext);
 
-  if (optional === false && context === null) {
+  if (!optional && context == null) {
     throw new Error(
       'Base UI: DrawerViewportContext is missing. Drawer parts must be placed within <Drawer.Viewport>.',
     );

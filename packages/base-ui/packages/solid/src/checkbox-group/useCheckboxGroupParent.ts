@@ -1,4 +1,5 @@
-import { batch, createSignal, type Accessor } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { BaseUIEventReasons } from '../utils/reasons';
 import { useBaseUiId } from '../utils/useBaseUiId';
@@ -38,7 +39,7 @@ export function useCheckboxGroupParent(
         .join(' ');
     },
     onCheckedChange(_, eventDetails) {
-      batch(() => {
+      {
         const uncontrolledState = uncontrolledStateRef;
 
         // None except the disabled ones that are checked, which can't be changed.
@@ -76,7 +77,7 @@ export function useCheckboxGroupParent(
           params.onValueChange?.(uncontrolledState, eventDetails);
           setStatus('mixed');
         }
-      });
+      };
     },
   });
 
@@ -87,7 +88,7 @@ export function useCheckboxGroupParent(
       return value().includes(childValue);
     },
     onCheckedChange(nextChecked, eventDetails) {
-      batch(() => {
+      {
         const newValue = value().slice();
         if (nextChecked) {
           newValue.push(childValue);
@@ -97,7 +98,7 @@ export function useCheckboxGroupParent(
         uncontrolledStateRef = newValue;
         params.onValueChange?.(newValue, eventDetails);
         setStatus('mixed');
-      });
+      };
     },
   });
 

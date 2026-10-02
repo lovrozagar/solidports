@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, test, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { observe } from "../helper/observe"
+import { trackSpy } from "../helper/trackSpy"
+
+import { fireEvent, render } from "../helper/render"
 import { expectLastCalledWith } from "../helper/expectLastCalledWith"
 
 import {
@@ -75,14 +78,17 @@ function assertActiveBarInteractions(container: HTMLElement) {
 
 	fireEvent.mouseOver(chart, { clientX: 100, clientY: 100 })
 	// First timer is to clear the mouse event handler
-	vi.advanceTimersByTime(0)
+	vi.runOnlyPendingTimers()
+	flush()
 	// Second timer is to show the active bar after it had the first inactive render so that it could start its CSS transition
-	vi.advanceTimersByTime(0)
+	vi.runOnlyPendingTimers()
+	flush()
 
 	expect(container.querySelectorAll(".recharts-active-bar")).toHaveLength(1)
 
 	fireEvent.mouseOut(chart)
-	vi.advanceTimersByTime(0)
+	vi.runOnlyPendingTimers()
+	flush()
 
 	expect(container.querySelectorAll(".recharts-active-bar")).toHaveLength(0)
 }
@@ -168,12 +174,12 @@ describe("<BarChart />", () => {
 			fireEvent.mouseOver(chart, { clientX: 100, clientY: 100 })
 
 			vi.advanceTimersByTime(100)
+			flush()
 			const bar = container.querySelectorAll(".recharts-active-bar")
 			expect(bar).toHaveLength(0)
 		})
 
-		/* Cluster C: function-as-prop variant. */
-		test.skip("Renders customized active bar when activeBar is a function", () => {
+		test("Renders customized active bar when activeBar is a function", () => {
 			const { container } = render(() => (
 				<div style={{ height: 200, width: 700 }}>
 					<BarChart width={700} height={200} data={data}>
@@ -194,8 +200,7 @@ describe("<BarChart />", () => {
 			assertActiveBarInteractions(container)
 		})
 
-		/* Cluster C */
-		test.skip("Renders customized active bar when activeBar is a JSX.Element", () => {
+		test("Renders customized active bar when activeBar is a ReactElement", () => {
 			const { container } = render(() => (
 				<div style={{ height: 200, width: 700 }}>
 					<BarChart width={700} height={200} data={data}>
@@ -209,8 +214,7 @@ describe("<BarChart />", () => {
 			assertActiveBarInteractions(container)
 		})
 
-		/* Cluster C: tooltip-driven activeBar reactivity sequence. */
-		test.skip("Renders customized active bar when activeBar is a truthy boolean", () => {
+		test("Renders customized active bar when activeBar is a truthy boolean", () => {
 			const { container } = render(() => (
 				<div style={{ height: 200, width: 700 }}>
 					<BarChart width={700} height={200} data={data}>
@@ -239,12 +243,12 @@ describe("<BarChart />", () => {
 			fireEvent.mouseOver(chart, { clientX: 100, clientY: 100 })
 
 			vi.advanceTimersByTime(100)
+			flush()
 			const bar = container.querySelectorAll(".recharts-active-bar")
 			expect(bar).toHaveLength(0)
 		})
 
-		/* Cluster C */
-		test.skip("Renders customized active bar when activeBar is an object", () => {
+		test("Renders customized active bar when activeBar is an object", () => {
 			const { container } = render(() => (
 				<div style={{ height: 200, width: 700 }}>
 					<BarChart width={700} height={200} data={data}>
@@ -273,8 +277,7 @@ describe("<BarChart />", () => {
 	})
 
 	describe("shape", () => {
-		/* Cluster C */
-		test.skip("Render customized shape when shape is a react element", () => {
+		test("Render customized shape when shape is a react element", () => {
 			const Shape = (props: any) => {
 				const { x, y } = props
 
@@ -315,9 +318,9 @@ describe("<BarChart />", () => {
 			const barSpy = vi.fn()
 			const sizeListSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
-					barSpy(useAppSelector((state) => selectAllVisibleBars(state, "my-bar-id", false)))
-					sizeListSpy(useAppSelector((state) => selectBarSizeList(state, "my-bar-id", false)))
+				observe(() => {
+					trackSpy(barSpy, () => useAppSelector((state) => selectAllVisibleBars(state, "my-bar-id", false)))
+					trackSpy(sizeListSpy, () => useAppSelector((state) => selectBarSizeList(state, "my-bar-id", false)))
 				})
 				return null
 			}
@@ -337,6 +340,7 @@ describe("<BarChart />", () => {
 				isPanorama: false,
 				maxBarSize: undefined,
 				minPointSize: 0,
+				hasCustomShape: false,
 				stackId: undefined,
 				type: "bar",
 				xAxisId: 0,
@@ -669,66 +673,66 @@ describe("<BarChart />", () => {
 
 			expectBars(container, [
 				{
-					d: "M -60.3333,350.6 h 130 v 14.4 h -130 Z",
+					d: "M -60.3333,350.6 h 131 v 14.4 h -131 Z",
 					height: "14.4",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "-60.3333",
 					y: "350.6",
 				},
 				{
-					d: "M 103,354.2 h 130 v 10.8 h -130 Z",
+					d: "M 103,354.2 h 131 v 10.8 h -131 Z",
 					height: "10.8",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "103",
 					y: "354.2",
 				},
 				{
-					d: "M 266.3333,354.2 h 130 v 10.8 h -130 Z",
+					d: "M 266.3333,354.2 h 131 v 10.8 h -131 Z",
 					height: "10.8",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "266.3333",
 					y: "354.2",
 				},
 				{
-					d: "M 429.6667,357.8 h 130 v 7.2 h -130 Z",
+					d: "M 429.6667,357.8 h 131 v 7.2 h -131 Z",
 					height: "7.2",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "429.6667",
 					y: "357.8",
 				},
 				{
-					d: "M -60.3333,264.2 h 130 v 86.4 h -130 Z",
+					d: "M -60.3333,264.2 h 131 v 86.4 h -131 Z",
 					height: "86.4",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "-60.3333",
 					y: "264.2",
 				},
 				{
-					d: "M 103,189.788 h 130 v 164.412 h -130 Z",
+					d: "M 103,189.788 h 131 v 164.412 h -131 Z",
 					height: "164.412",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "103",
 					y: "189.788",
 				},
 				{
-					d: "M 266.3333,303.872 h 130 v 50.328 h -130 Z",
+					d: "M 266.3333,303.872 h 131 v 50.328 h -131 Z",
 					height: "50.328",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "266.3333",
 					y: "303.872",
 				},
 				{
-					d: "M 429.6667,5 h 130 v 352.8 h -130 Z",
+					d: "M 429.6667,5 h 131 v 352.8 h -131 Z",
 					height: "352.8",
 					radius: "0",
-					width: "130",
+					width: "131",
 					x: "429.6667",
 					y: "5",
 				},
@@ -851,7 +855,7 @@ describe("<BarChart />", () => {
 						dataKeys: ["uv", "pv"],
 						position: {
 							offset: 5.999999999999997,
-							size: 47,
+							size: 48,
 						},
 						stackId: "test",
 					},
@@ -862,7 +866,7 @@ describe("<BarChart />", () => {
 				const { spy } = renderTestCase((state) => selectBarPosition(state, "my-bar-id", false))
 				expectLastCalledWith(spy, {
 					offset: 5.999999999999997,
-					size: 47,
+					size: 48,
 				})
 			})
 
@@ -873,12 +877,13 @@ describe("<BarChart />", () => {
 				expectLastCalledWith(spy, [
 					{
 						background: {
-							height: 47,
+							height: 48,
 							width: 490,
 							x: 5,
 							y: -18.99999999999999,
 						},
-						height: 47,
+						height: 48,
+						originalDataIndex: 0,
 						parentViewBox: {
 							height: 400,
 							width: 500,
@@ -895,7 +900,7 @@ describe("<BarChart />", () => {
 						stackedBarStart: 5,
 						tooltipPosition: {
 							x: 14.8,
-							y: 4.500000000000011,
+							y: 5.000000000000011,
 						},
 						uv: 400,
 						value: [0, 400],
@@ -906,12 +911,13 @@ describe("<BarChart />", () => {
 					},
 					{
 						background: {
-							height: 47,
+							height: 48,
 							width: 490,
 							x: 5,
 							y: 341,
 						},
-						height: 47,
+						height: 48,
+						originalDataIndex: 1,
 						parentViewBox: {
 							height: 400,
 							width: 500,
@@ -928,7 +934,7 @@ describe("<BarChart />", () => {
 						stackedBarStart: 5,
 						tooltipPosition: {
 							x: 12.35,
-							y: 364.5,
+							y: 365,
 						},
 						uv: 300,
 						value: [0, 300],
@@ -944,32 +950,32 @@ describe("<BarChart />", () => {
 				const { container } = renderTestCase()
 				expectBars(container, [
 					{
-						d: "M 5,-19 h 19.6 v 47 h -19.6 Z",
-						height: "47",
+						d: "M 5,-19 h 19.6 v 48 h -19.6 Z",
+						height: "48",
 						radius: "0",
 						width: "19.6",
 						x: "5",
 						y: "-19",
 					},
 					{
-						d: "M 5,341 h 14.7 v 47 h -14.7 Z",
-						height: "47",
+						d: "M 5,341 h 14.7 v 48 h -14.7 Z",
+						height: "48",
 						radius: "0",
 						width: "14.7",
 						x: "5",
 						y: "341",
 					},
 					{
-						d: "M 24.6,-19 h 117.6 v 47 h -117.6 Z",
-						height: "47",
+						d: "M 24.6,-19 h 117.6 v 48 h -117.6 Z",
+						height: "48",
 						radius: "0",
 						width: "117.6",
 						x: "24.6",
 						y: "-19",
 					},
 					{
-						d: "M 19.7,341 h 223.783 v 47 h -223.783 Z",
-						height: "47",
+						d: "M 19.7,341 h 223.783 v 48 h -223.783 Z",
+						height: "48",
 						radius: "0",
 						width: "223.783",
 						x: "19.7",
@@ -1029,6 +1035,7 @@ describe("<BarChart />", () => {
 						width: 6,
 						x: 65.75,
 						y: 33.8,
+						originalDataIndex: 0,
 						parentViewBox: {
 							height: expect.any(Number),
 							width: expect.any(Number),
@@ -1062,6 +1069,7 @@ describe("<BarChart />", () => {
 						width: 6,
 						x: 73.25,
 						y: 25.531999999999996,
+						originalDataIndex: 1,
 						parentViewBox: {
 							height: expect.any(Number),
 							width: expect.any(Number),
@@ -1095,6 +1103,7 @@ describe("<BarChart />", () => {
 						width: 6,
 						x: 80.75,
 						y: 38.208,
+						originalDataIndex: 2,
 						parentViewBox: {
 							height: expect.any(Number),
 							width: expect.any(Number),
@@ -1128,6 +1137,7 @@ describe("<BarChart />", () => {
 						width: 6,
 						x: 88.25,
 						y: 5,
+						originalDataIndex: 3,
 						parentViewBox: {
 							height: expect.any(Number),
 							width: expect.any(Number),
@@ -1303,7 +1313,7 @@ describe("<BarChart />", () => {
 				   effects have flushed). Pre-hoist the deferred read worked because the Show
 				   gate inside BarImpl pushed evaluation past effect flush; now SetErrorBarContext
 				   is hoisted, so explicit createEffect is required to track post-mount. */
-				createEffect(() => {
+				observe(() => {
 					const seriesOneResult = useAppSelector((state) =>
 						selectBarRectangles(state, "bar-uv", false, []),
 					)
@@ -1414,6 +1424,62 @@ describe("<BarChart />", () => {
 			expect(container.querySelectorAll(".recharts-rectangle")).toHaveLength(4)
 		})
 
+		test("Stacked bars with all 0 values: Bar component and YAxis ticks still render", () => {
+			const allZeroData = [
+				{ name: "Page A", uv: 0, pv: 0 },
+				{ name: "Page B", uv: 0, pv: 0 },
+				{ name: "Page C", uv: 0, pv: 0 },
+			]
+			const { container } = render(() => (
+				<BarChart width={400} height={300} data={allZeroData}>
+					<YAxis />
+					<Bar dataKey="uv" stackId="test" fill="#ff7300" isAnimationActive={false} />
+					<Bar dataKey="pv" stackId="test" fill="#387908" isAnimationActive={false} />
+				</BarChart>
+			))
+
+			expect(container.querySelectorAll(".recharts-bar-rectangle")).toHaveLength(0)
+			expect(container.querySelectorAll(".recharts-bar")).toHaveLength(2)
+			expect(
+				container.querySelectorAll(".recharts-yAxis .recharts-cartesian-axis-tick"),
+			).not.toHaveLength(0)
+		})
+
+		test("Renders stacked bars with custom shape when all values are 0", () => {
+			const allZeroData = [
+				{ name: "Page A", uv: 0, pv: 0 },
+				{ name: "Page B", uv: 0, pv: 0 },
+			]
+			const customShape = vi.fn(() => <rect data-testid="custom-shape" />)
+			const { container } = render(() => (
+				<BarChart width={400} height={300} data={allZeroData}>
+					<YAxis />
+					<Bar dataKey="uv" stackId="test" shape={customShape} isAnimationActive={false} />
+				</BarChart>
+			))
+
+			expect(customShape).toHaveBeenCalled()
+			expect(container.querySelectorAll("[data-testid=\"custom-shape\"]")).toHaveLength(2)
+		})
+
+		test("Vertical stacked bars with all 0 values still render custom shapes", () => {
+			const allZeroData = [
+				{ name: "Page A", uv: 0, pv: 0 },
+				{ name: "Page B", uv: 0, pv: 0 },
+			]
+			const customShape = vi.fn(() => <rect data-testid="custom-shape" />)
+			const { container } = render(() => (
+				<BarChart width={400} height={300} data={allZeroData} layout="vertical">
+					<XAxis type="number" />
+					<YAxis dataKey="name" type="category" />
+					<Bar dataKey="uv" stackId="test" shape={customShape} isAnimationActive={false} />
+				</BarChart>
+			))
+
+			expect(customShape).toHaveBeenCalled()
+			expect(container.querySelectorAll("[data-testid=\"custom-shape\"]")).toHaveLength(2)
+		})
+
 		test("renders nothing if barSize is not specified in a numerical XAxis", () => {
 			const { container } = render(() => (
 				<BarChart width={100} height={50} data={onePointData}>
@@ -1505,16 +1571,15 @@ describe("<BarChart />", () => {
 			])
 		})
 
-		/* Cluster D */
-		test.skip("renders a smaller bar if maxBarSize is set, even in a numerical XAxis", () => {
+		test("renders a smaller bar if maxBarSize is set, even in a numerical XAxis", () => {
 			const barSizeListSpy = vi.fn()
 			const barPositionsSpy = vi.fn()
 			const totalAxisSizeSpy = vi.fn()
 
 			const Comp = (): null => {
-				barSizeListSpy(useAppSelector((state) => selectBarSizeList(state, "my-bar-id", false)))
-				barPositionsSpy(useAppSelector((state) => selectAllBarPositions(state, "my-bar-id", false)))
-				totalAxisSizeSpy(useAppSelector((state) => selectBarCartesianAxisSize(state, "my-bar-id")))
+				trackSpy(barSizeListSpy, () => useAppSelector((state) => selectBarSizeList(state, "my-bar-id", false)))
+				trackSpy(barPositionsSpy, () => useAppSelector((state) => selectAllBarPositions(state, "my-bar-id", false)))
+				trackSpy(totalAxisSizeSpy, () => useAppSelector((state) => selectBarCartesianAxisSize(state, "my-bar-id")))
 				return null
 			}
 
@@ -1663,6 +1728,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: "one",
@@ -1678,6 +1744,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: "two",
@@ -1703,6 +1770,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: "one",
@@ -1727,6 +1795,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: "two",
@@ -1741,67 +1810,67 @@ describe("<BarChart />", () => {
 					const { container } = renderTestCase()
 					expectBars(container, [
 						{
-							d: "M 78,350.6 h 50 v 14.4 h -50 Z",
+							d: "M 79,350.6 h 50 v 14.4 h -50 Z",
 							height: "14.4",
 							radius: "0",
 							width: "50",
-							x: "78",
+							x: "79",
 							y: "350.6",
 						},
 						{
-							d: "M 275.5,354.2 h 50 v 10.8 h -50 Z",
+							d: "M 276.5,354.2 h 50 v 10.8 h -50 Z",
 							height: "10.8",
 							radius: "0",
 							width: "50",
-							x: "275.5",
+							x: "276.5",
 							y: "354.2",
 						},
 						{
-							d: "M 473,354.2 h 50 v 10.8 h -50 Z",
+							d: "M 474,354.2 h 50 v 10.8 h -50 Z",
 							height: "10.8",
 							radius: "0",
 							width: "50",
-							x: "473",
+							x: "474",
 							y: "354.2",
 						},
 						{
-							d: "M 670.5,357.8 h 50 v 7.2 h -50 Z",
+							d: "M 671.5,357.8 h 50 v 7.2 h -50 Z",
 							height: "7.2",
 							radius: "0",
 							width: "50",
-							x: "670.5",
+							x: "671.5",
 							y: "357.8",
 						},
 						{
-							d: "M 88,278.6 h 30 v 86.4 h -30 Z",
+							d: "M 89,278.6 h 30 v 86.4 h -30 Z",
 							height: "86.4",
 							radius: "0",
 							width: "30",
-							x: "88",
+							x: "89",
 							y: "278.6",
 						},
 						{
-							d: "M 285.5,200.588 h 30 v 164.412 h -30 Z",
+							d: "M 286.5,200.588 h 30 v 164.412 h -30 Z",
 							height: "164.412",
 							radius: "0",
 							width: "30",
-							x: "285.5",
+							x: "286.5",
 							y: "200.588",
 						},
 						{
-							d: "M 483,314.672 h 30 v 50.328 h -30 Z",
+							d: "M 484,314.672 h 30 v 50.328 h -30 Z",
 							height: "50.328",
 							radius: "0",
 							width: "30",
-							x: "483",
+							x: "484",
 							y: "314.672",
 						},
 						{
-							d: "M 680.5,12.2 h 30 v 352.8 h -30 Z",
+							d: "M 681.5,12.2 h 30 v 352.8 h -30 Z",
 							height: "352.8",
 							radius: "0",
 							width: "30",
-							x: "680.5",
+							x: "681.5",
 							y: "12.2",
 						},
 					])
@@ -1832,6 +1901,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 0,
@@ -1847,6 +1917,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 0,
@@ -1872,6 +1943,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 0,
@@ -1883,6 +1955,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							barSize: undefined,
 							data: undefined,
 							dataKey: "uv",
@@ -1908,6 +1981,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							barSize: undefined,
 							data: undefined,
 							dataKey: "pv",
@@ -1928,6 +2002,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 0,
@@ -2137,6 +2212,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 2,
@@ -2152,6 +2228,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 1,
@@ -2177,6 +2254,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 2,
@@ -2188,6 +2266,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							barSize: 30,
 							data: undefined,
 							dataKey: "pv",
@@ -2213,6 +2292,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							barSize: 40,
 							data: undefined,
 							dataKey: "uv",
@@ -2233,6 +2313,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 1,
@@ -2248,68 +2329,68 @@ describe("<BarChart />", () => {
 
 					expectBars(container, [
 						{
-							d: "M 65,37 h 230 v 25.875 h -230 Z",
+							d: "M 65,38 h 230 v 25.875 h -230 Z",
 							height: "25.875",
 							radius: "0",
 							width: "230",
 							x: "65",
-							y: "37",
+							y: "38",
 						},
 						{
-							d: "M 65,94.5 h 172.5 v 25.875 h -172.5 Z",
+							d: "M 65,95.5 h 172.5 v 25.875 h -172.5 Z",
 							height: "25.875",
 							radius: "0",
 							width: "172.5",
 							x: "65",
-							y: "94.5",
+							y: "95.5",
 						},
 						{
-							d: "M 65,152 h 172.5 v 25.875 h -172.5 Z",
+							d: "M 65,153 h 172.5 v 25.875 h -172.5 Z",
 							height: "25.875",
 							radius: "0",
 							width: "172.5",
 							x: "65",
-							y: "152",
+							y: "153",
 						},
 						{
-							d: "M 65,209.5 h 115 v 25.875 h -115 Z",
+							d: "M 65,210.5 h 115 v 25.875 h -115 Z",
 							height: "25.875",
 							radius: "0",
 							width: "115",
 							x: "65",
-							y: "209.5",
+							y: "210.5",
 						},
 						{
-							d: "M 65,62.875 h 55.2 v 25.875 h -55.2 Z",
+							d: "M 65,63.875 h 55.2 v 25.875 h -55.2 Z",
 							height: "25.875",
 							radius: "0",
 							width: "55.2",
 							x: "65",
-							y: "62.875",
+							y: "63.875",
 						},
 						{
-							d: "M 65,120.375 h 105.041 v 25.875 h -105.041 Z",
+							d: "M 65,121.375 h 105.041 v 25.875 h -105.041 Z",
 							height: "25.875",
 							radius: "0",
 							width: "105.041",
 							x: "65",
-							y: "120.375",
+							y: "121.375",
 						},
 						{
-							d: "M 65,177.875 h 32.154 v 25.875 h -32.154 Z",
+							d: "M 65,178.875 h 32.154 v 25.875 h -32.154 Z",
 							height: "25.875",
 							radius: "0",
 							width: "32.154",
 							x: "65",
-							y: "177.875",
+							y: "178.875",
 						},
 						{
-							d: "M 65,235.375 h 225.4 v 25.875 h -225.4 Z",
+							d: "M 65,236.375 h 225.4 v 25.875 h -225.4 Z",
 							height: "25.875",
 							radius: "0",
 							width: "225.4",
 							x: "65",
-							y: "235.375",
+							y: "236.375",
 						},
 					])
 				})
@@ -2353,6 +2434,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 0,
@@ -2368,6 +2450,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 0,
@@ -2391,6 +2474,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 0,
@@ -2413,6 +2497,7 @@ describe("<BarChart />", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: undefined,
 							type: "bar",
 							xAxisId: 0,
@@ -2453,7 +2538,7 @@ describe("<BarChart />", () => {
 						{
 							dataKeys: ["uv"],
 							position: {
-								offset: 17,
+								offset: 18,
 								size: 30,
 							},
 							stackId: undefined,
@@ -2470,7 +2555,7 @@ describe("<BarChart />", () => {
 						{
 							dataKeys: ["pv"],
 							position: {
-								offset: 22,
+								offset: 23,
 								size: 20,
 							},
 							stackId: undefined,
@@ -2484,80 +2569,79 @@ describe("<BarChart />", () => {
 
 					expectBars(container, [
 						{
-							d: "M 65,22 h 9.2 v 30 h -9.2 Z",
+							d: "M 65,23 h 9.2 v 30 h -9.2 Z",
 							height: "30",
 							radius: "0",
 							width: "9.2",
 							x: "65",
-							y: "22",
+							y: "23",
 						},
 						{
-							d: "M 65,87 h 6.9 v 30 h -6.9 Z",
+							d: "M 65,88 h 6.9 v 30 h -6.9 Z",
 							height: "30",
 							radius: "0",
 							width: "6.9",
 							x: "65",
-							y: "87",
+							y: "88",
 						},
 						{
-							d: "M 65,152 h 6.9 v 30 h -6.9 Z",
+							d: "M 65,153 h 6.9 v 30 h -6.9 Z",
 							height: "30",
 							radius: "0",
 							width: "6.9",
 							x: "65",
-							y: "152",
+							y: "153",
 						},
 						{
-							d: "M 65,217 h 4.6 v 30 h -4.6 Z",
+							d: "M 65,218 h 4.6 v 30 h -4.6 Z",
 							height: "30",
 							radius: "0",
 							width: "4.6",
 							x: "65",
-							y: "217",
+							y: "218",
 						},
 						{
-							d: "M 65,27 h 55.2 v 20 h -55.2 Z",
+							d: "M 65,28 h 55.2 v 20 h -55.2 Z",
 							height: "20",
 							radius: "0",
 							width: "55.2",
 							x: "65",
-							y: "27",
+							y: "28",
 						},
 						{
-							d: "M 65,92 h 105.041 v 20 h -105.041 Z",
+							d: "M 65,93 h 105.041 v 20 h -105.041 Z",
 							height: "20",
 							radius: "0",
 							width: "105.041",
 							x: "65",
-							y: "92",
+							y: "93",
 						},
 						{
-							d: "M 65,157 h 32.154 v 20 h -32.154 Z",
+							d: "M 65,158 h 32.154 v 20 h -32.154 Z",
 							height: "20",
 							radius: "0",
 							width: "32.154",
 							x: "65",
-							y: "157",
+							y: "158",
 						},
 						{
-							d: "M 65,222 h 225.4 v 20 h -225.4 Z",
+							d: "M 65,223 h 225.4 v 20 h -225.4 Z",
 							height: "20",
 							radius: "0",
 							width: "225.4",
 							x: "65",
-							y: "222",
+							y: "223",
 						},
 					])
 				})
 			})
 		})
 
-		/* Cluster C: panorama. */
-		test.skip("renders bars in Brush panorama", () => {
+		test("renders bars in Brush panorama", () => {
 			const barPositionsSpy = vi.fn()
 
 			const Comp = (): null => {
-				barPositionsSpy(useAppSelector((state) => selectAllBarPositions(state, "my-bar-id", false)))
+				trackSpy(barPositionsSpy, () => useAppSelector((state) => selectAllBarPositions(state, "my-bar-id", false)))
 				return null
 			}
 
@@ -2584,7 +2668,8 @@ describe("<BarChart />", () => {
 					stackId: undefined,
 				},
 			])
-			expect(barPositionsSpy).toHaveBeenCalledTimes(3)
+			/* React renders three times; Solid reports each distinct value once. */
+			expect(barPositionsSpy).toHaveBeenCalledTimes(2)
 
 			expectBars(container, [
 				{
@@ -2703,16 +2788,13 @@ describe("<BarChart />", () => {
 		})
 	})
 
-	/* Cluster C: ErrorBar dependency in boxplot. */
-	test.skip("should render whiskers in boxplot simulation", () => {
+	test("should render whiskers in boxplot simulation", () => {
 		const barPositionsSpy = vi.fn()
 		const barRectanglesSpy = vi.fn()
 
 		const Comp = (): null => {
-			barPositionsSpy(useAppSelector((state) => selectAllBarPositions(state, "my-bar-id", false)))
-			barRectanglesSpy(
-				useAppSelector((state) => selectBarRectangles(state, "my-bar-id", false, undefined)),
-			)
+			trackSpy(barPositionsSpy, () => useAppSelector((state) => selectAllBarPositions(state, "my-bar-id", false)))
+			trackSpy(barRectanglesSpy, () => useAppSelector((state) => selectBarRectangles(state, "my-bar-id", false, undefined)))
 			return null
 		}
 
@@ -2766,12 +2848,7 @@ describe("<BarChart />", () => {
 				bottomWhisker: 100,
 				height: 40,
 				min: 100,
-				parentViewBox: {
-					height: expect.any(Number),
-					width: expect.any(Number),
-					x: expect.any(Number),
-					y: expect.any(Number),
-				},
+				originalDataIndex: 0,
 				payload: {
 					average: 150,
 					bottomBox: 50,
@@ -2793,6 +2870,12 @@ describe("<BarChart />", () => {
 				width: 88,
 				x: 76,
 				y: 35,
+				parentViewBox: {
+					height: expect.any(Number),
+					width: expect.any(Number),
+					x: expect.any(Number),
+					y: expect.any(Number),
+				},
 			},
 			{
 				average: 550,
@@ -2806,12 +2889,7 @@ describe("<BarChart />", () => {
 				bottomWhisker: 200,
 				height: 20,
 				min: 200,
-				parentViewBox: {
-					height: expect.any(Number),
-					width: expect.any(Number),
-					x: expect.any(Number),
-					y: expect.any(Number),
-				},
+				originalDataIndex: 1,
 				payload: {
 					average: 550,
 					bottomBox: 200,
@@ -2833,6 +2911,12 @@ describe("<BarChart />", () => {
 				width: 88,
 				x: 186,
 				y: 5,
+				parentViewBox: {
+					height: expect.any(Number),
+					width: expect.any(Number),
+					x: expect.any(Number),
+					y: expect.any(Number),
+				},
 			},
 			{
 				average: 400,
@@ -2846,12 +2930,7 @@ describe("<BarChart />", () => {
 				bottomWhisker: 200,
 				height: 40,
 				min: 0,
-				parentViewBox: {
-					height: expect.any(Number),
-					width: expect.any(Number),
-					x: expect.any(Number),
-					y: expect.any(Number),
-				},
+				originalDataIndex: 2,
 				payload: {
 					average: 400,
 					bottomBox: 200,
@@ -2873,6 +2952,12 @@ describe("<BarChart />", () => {
 				width: 88,
 				x: 296,
 				y: 5,
+				parentViewBox: {
+					height: expect.any(Number),
+					width: expect.any(Number),
+					x: expect.any(Number),
+					y: expect.any(Number),
+				},
 			},
 		])
 
@@ -3082,67 +3167,67 @@ describe("<BarChart />", () => {
 
 				expectBars(container, [
 					{
-						d: "M 17.25,254.6 h 44 v 10.4 h -44 Z",
+						d: "M 17.25,254.6 h 45 v 10.4 h -45 Z",
 						height: "10.4",
 						radius: "0",
-						width: "44",
+						width: "45",
 						x: "17.25",
 						y: "254.6",
 					},
 					{
-						d: "M 139.75,257.2 h 44 v 7.8 h -44 Z",
+						d: "M 139.75,257.2 h 45 v 7.8 h -45 Z",
 						height: "7.8",
 						radius: "0",
-						width: "44",
+						width: "45",
 						x: "139.75",
 						y: "257.2",
 					},
 					{
-						d: "M 262.25,257.2 h 44 v 7.8 h -44 Z",
+						d: "M 262.25,257.2 h 45 v 7.8 h -45 Z",
 						height: "7.8",
 						radius: "0",
-						width: "44",
+						width: "45",
 						x: "262.25",
 						y: "257.2",
 					},
 					{
-						d: "M 384.75,259.8 h 44 v 5.2 h -44 Z",
+						d: "M 384.75,259.8 h 45 v 5.2 h -45 Z",
 						height: "5.2",
 						radius: "0",
-						width: "44",
+						width: "45",
 						x: "384.75",
 						y: "259.8",
 					},
 					{
-						d: "M 70.25,202.6 h 44 v 62.4 h -44 Z",
+						d: "M 71.25,202.6 h 45 v 62.4 h -45 Z",
 						height: "62.4",
 						radius: "0",
-						width: "44",
-						x: "70.25",
+						width: "45",
+						x: "71.25",
 						y: "202.6",
 					},
 					{
-						d: "M 192.75,146.258 h 44 v 118.742 h -44 Z",
+						d: "M 193.75,146.258 h 45 v 118.742 h -45 Z",
 						height: "118.742",
 						radius: "0",
-						width: "44",
-						x: "192.75",
+						width: "45",
+						x: "193.75",
 						y: "146.258",
 					},
 					{
-						d: "M 315.25,228.652 h 44 v 36.348 h -44 Z",
+						d: "M 316.25,228.652 h 45 v 36.348 h -45 Z",
 						height: "36.348",
 						radius: "0",
-						width: "44",
-						x: "315.25",
+						width: "45",
+						x: "316.25",
 						y: "228.652",
 					},
 					{
-						d: "M 437.75,10.2 h 44 v 254.8 h -44 Z",
+						d: "M 438.75,10.2 h 45 v 254.8 h -45 Z",
 						height: "254.8",
 						radius: "0",
-						width: "44",
-						x: "437.75",
+						width: "45",
+						x: "438.75",
 						y: "10.2",
 					},
 				])
@@ -3238,67 +3323,67 @@ describe("<BarChart />", () => {
 
 				expectBars(container, [
 					{
-						d: "M 17.25,254.6 h 39 v 10.4 h -39 Z",
+						d: "M 17.25,254.6 h 40 v 10.4 h -40 Z",
 						height: "10.4",
 						radius: "0",
-						width: "39",
+						width: "40",
 						x: "17.25",
 						y: "254.6",
 					},
 					{
-						d: "M 139.75,257.2 h 39 v 7.8 h -39 Z",
+						d: "M 139.75,257.2 h 40 v 7.8 h -40 Z",
 						height: "7.8",
 						radius: "0",
-						width: "39",
+						width: "40",
 						x: "139.75",
 						y: "257.2",
 					},
 					{
-						d: "M 262.25,257.2 h 39 v 7.8 h -39 Z",
+						d: "M 262.25,257.2 h 40 v 7.8 h -40 Z",
 						height: "7.8",
 						radius: "0",
-						width: "39",
+						width: "40",
 						x: "262.25",
 						y: "257.2",
 					},
 					{
-						d: "M 384.75,259.8 h 39 v 5.2 h -39 Z",
+						d: "M 384.75,259.8 h 40 v 5.2 h -40 Z",
 						height: "5.2",
 						radius: "0",
-						width: "39",
+						width: "40",
 						x: "384.75",
 						y: "259.8",
 					},
 					{
-						d: "M 74.625,202.6 h 39 v 62.4 h -39 Z",
+						d: "M 75.625,202.6 h 40 v 62.4 h -40 Z",
 						height: "62.4",
 						radius: "0",
-						width: "39",
-						x: "74.625",
+						width: "40",
+						x: "75.625",
 						y: "202.6",
 					},
 					{
-						d: "M 197.125,146.258 h 39 v 118.742 h -39 Z",
+						d: "M 198.125,146.258 h 40 v 118.742 h -40 Z",
 						height: "118.742",
 						radius: "0",
-						width: "39",
-						x: "197.125",
+						width: "40",
+						x: "198.125",
 						y: "146.258",
 					},
 					{
-						d: "M 319.625,228.652 h 39 v 36.348 h -39 Z",
+						d: "M 320.625,228.652 h 40 v 36.348 h -40 Z",
 						height: "36.348",
 						radius: "0",
-						width: "39",
-						x: "319.625",
+						width: "40",
+						x: "320.625",
 						y: "228.652",
 					},
 					{
-						d: "M 442.125,10.2 h 39 v 254.8 h -39 Z",
+						d: "M 443.125,10.2 h 40 v 254.8 h -40 Z",
 						height: "254.8",
 						radius: "0",
-						width: "39",
-						x: "442.125",
+						width: "40",
+						x: "443.125",
 						y: "10.2",
 					},
 				])
@@ -3396,67 +3481,67 @@ describe("<BarChart />", () => {
 
 				expectBars(container, [
 					{
-						d: "M 35.625,254.6 h 28 v 10.4 h -28 Z",
+						d: "M 35.625,254.6 h 29 v 10.4 h -29 Z",
 						height: "10.4",
 						radius: "0",
-						width: "28",
+						width: "29",
 						x: "35.625",
 						y: "254.6",
 					},
 					{
-						d: "M 158.125,257.2 h 28 v 7.8 h -28 Z",
+						d: "M 158.125,257.2 h 29 v 7.8 h -29 Z",
 						height: "7.8",
 						radius: "0",
-						width: "28",
+						width: "29",
 						x: "158.125",
 						y: "257.2",
 					},
 					{
-						d: "M 280.625,257.2 h 28 v 7.8 h -28 Z",
+						d: "M 280.625,257.2 h 29 v 7.8 h -29 Z",
 						height: "7.8",
 						radius: "0",
-						width: "28",
+						width: "29",
 						x: "280.625",
 						y: "257.2",
 					},
 					{
-						d: "M 403.125,259.8 h 28 v 5.2 h -28 Z",
+						d: "M 403.125,259.8 h 29 v 5.2 h -29 Z",
 						height: "5.2",
 						radius: "0",
-						width: "28",
+						width: "29",
 						x: "403.125",
 						y: "259.8",
 					},
 					{
-						d: "M 67.625,202.6 h 28 v 62.4 h -28 Z",
+						d: "M 68.625,202.6 h 29 v 62.4 h -29 Z",
 						height: "62.4",
 						radius: "0",
-						width: "28",
-						x: "67.625",
+						width: "29",
+						x: "68.625",
 						y: "202.6",
 					},
 					{
-						d: "M 190.125,146.258 h 28 v 118.742 h -28 Z",
+						d: "M 191.125,146.258 h 29 v 118.742 h -29 Z",
 						height: "118.742",
 						radius: "0",
-						width: "28",
-						x: "190.125",
+						width: "29",
+						x: "191.125",
 						y: "146.258",
 					},
 					{
-						d: "M 312.625,228.652 h 28 v 36.348 h -28 Z",
+						d: "M 313.625,228.652 h 29 v 36.348 h -29 Z",
 						height: "36.348",
 						radius: "0",
-						width: "28",
-						x: "312.625",
+						width: "29",
+						x: "313.625",
 						y: "228.652",
 					},
 					{
-						d: "M 435.125,10.2 h 28 v 254.8 h -28 Z",
+						d: "M 436.125,10.2 h 29 v 254.8 h -29 Z",
 						height: "254.8",
 						radius: "0",
-						width: "28",
-						x: "435.125",
+						width: "29",
+						x: "436.125",
 						y: "10.2",
 					},
 				])
@@ -3473,67 +3558,67 @@ describe("<BarChart />", () => {
 
 				expectBars(container, [
 					{
-						d: "M 8.675,254.6 h 55 v 10.4 h -55 Z",
+						d: "M 8.675,254.6 h 56 v 10.4 h -56 Z",
 						height: "10.4",
 						radius: "0",
-						width: "55",
+						width: "56",
 						x: "8.675",
 						y: "254.6",
 					},
 					{
-						d: "M 131.175,257.2 h 55 v 7.8 h -55 Z",
+						d: "M 131.175,257.2 h 56 v 7.8 h -56 Z",
 						height: "7.8",
 						radius: "0",
-						width: "55",
+						width: "56",
 						x: "131.175",
 						y: "257.2",
 					},
 					{
-						d: "M 253.675,257.2 h 55 v 7.8 h -55 Z",
+						d: "M 253.675,257.2 h 56 v 7.8 h -56 Z",
 						height: "7.8",
 						radius: "0",
-						width: "55",
+						width: "56",
 						x: "253.675",
 						y: "257.2",
 					},
 					{
-						d: "M 376.175,259.8 h 55 v 5.2 h -55 Z",
+						d: "M 376.175,259.8 h 56 v 5.2 h -56 Z",
 						height: "5.2",
 						radius: "0",
-						width: "55",
+						width: "56",
 						x: "376.175",
 						y: "259.8",
 					},
 					{
-						d: "M 67.675,202.6 h 55 v 62.4 h -55 Z",
+						d: "M 68.675,202.6 h 56 v 62.4 h -56 Z",
 						height: "62.4",
 						radius: "0",
-						width: "55",
-						x: "67.675",
+						width: "56",
+						x: "68.675",
 						y: "202.6",
 					},
 					{
-						d: "M 190.175,146.258 h 55 v 118.742 h -55 Z",
+						d: "M 191.175,146.258 h 56 v 118.742 h -56 Z",
 						height: "118.742",
 						radius: "0",
-						width: "55",
-						x: "190.175",
+						width: "56",
+						x: "191.175",
 						y: "146.258",
 					},
 					{
-						d: "M 312.675,228.652 h 55 v 36.348 h -55 Z",
+						d: "M 313.675,228.652 h 56 v 36.348 h -56 Z",
 						height: "36.348",
 						radius: "0",
-						width: "55",
-						x: "312.675",
+						width: "56",
+						x: "313.675",
 						y: "228.652",
 					},
 					{
-						d: "M 435.175,10.2 h 55 v 254.8 h -55 Z",
+						d: "M 436.175,10.2 h 56 v 254.8 h -56 Z",
 						height: "254.8",
 						radius: "0",
-						width: "55",
-						x: "435.175",
+						width: "56",
+						x: "436.175",
 						y: "10.2",
 					},
 				])
@@ -3764,7 +3849,7 @@ describe("<BarChart />", () => {
 		it("should provide viewBox", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useViewBox())
+				trackSpy(spy, () => useViewBox())
 				return null
 			}
 			render(() => (
@@ -3780,7 +3865,7 @@ describe("<BarChart />", () => {
 		it("should provide clipPathId", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useClipPathId())
+				trackSpy(spy, () => useClipPathId())
 				return null
 			}
 			render(() => (
@@ -3796,7 +3881,7 @@ describe("<BarChart />", () => {
 		it("should provide width", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartWidth())
+				trackSpy(spy, () => useChartWidth())
 				return null
 			}
 			render(() => (
@@ -3812,7 +3897,7 @@ describe("<BarChart />", () => {
 		it("should provide height", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartHeight())
+				trackSpy(spy, () => useChartHeight())
 				return null
 			}
 			render(() => (
@@ -3851,6 +3936,7 @@ describe("<BarChart />", () => {
 
 			fireEvent.mouseOver(barCharts[0], { clientX: 20, clientY: 20 })
 			vi.advanceTimersByTime(0)
+			flush()
 
 			const tooltips1 = container.querySelectorAll(".recharts-tooltip-wrapper")
 			expect(tooltips1[0]).toBeVisible()
@@ -3858,6 +3944,7 @@ describe("<BarChart />", () => {
 
 			fireEvent.mouseOver(barCharts[1], { clientX: 20, clientY: 20 })
 			vi.advanceTimersByTime(0)
+			flush()
 
 			const tooltips2 = container.querySelectorAll(".recharts-tooltip-wrapper")
 			expect(tooltips2[0]).toBeVisible()
@@ -3867,6 +3954,7 @@ describe("<BarChart />", () => {
 
 			fireEvent.mouseOut(barCharts[0])
 			vi.advanceTimersByTime(0)
+			flush()
 
 			const tooltips3 = container.querySelectorAll(".recharts-tooltip-wrapper")
 			expect(tooltips3[0]).not.toBeVisible()
@@ -3874,6 +3962,7 @@ describe("<BarChart />", () => {
 
 			fireEvent.mouseOut(barCharts[1])
 			vi.advanceTimersByTime(0)
+			flush()
 
 			const tooltips4 = container.querySelectorAll(".recharts-tooltip-wrapper")
 			expect(tooltips4[0]).not.toBeVisible()
@@ -3904,6 +3993,7 @@ describe("<BarChart />", () => {
 
 			fireEvent.mouseOver(barCharts[0], { clientX: 20, clientY: 20 })
 			vi.advanceTimersByTime(0)
+			flush()
 
 			const tooltips1 = container.querySelectorAll(".recharts-tooltip-wrapper")
 			// Tooltips are synchronized, but each chart still shows their own data
@@ -3914,6 +4004,7 @@ describe("<BarChart />", () => {
 
 			fireEvent.mouseOver(barCharts[1], { clientX: 20, clientY: 20 })
 			vi.advanceTimersByTime(0)
+			flush()
 
 			const tooltips2 = container.querySelectorAll(".recharts-tooltip-wrapper")
 			expect(tooltips2[0]).toBeVisible()

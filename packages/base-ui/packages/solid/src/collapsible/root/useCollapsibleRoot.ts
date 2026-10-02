@@ -1,12 +1,6 @@
-import {
-  batch,
-  createEffect,
-  createSignal,
-  on,
-  type Accessor,
-  type JSX,
-  type Setter,
-} from 'solid-js';
+import { createEffect, createSignal } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { access, useRef, type MaybeAccessor, type ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
@@ -15,6 +9,7 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useControlled } from '../../utils/useControlled';
 import { TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
 import type { CollapsibleRoot } from './CollapsibleRoot';
+import { on } from '../../solid-1-compat';
 
 export type AnimationType = 'css-transition' | 'css-animation' | 'none' | null;
 
@@ -63,7 +58,7 @@ export function useCollapsibleRoot(
     const nextOpen = !open();
     const eventDetails = createChangeEventDetails(REASONS.triggerPress, event);
 
-    batch(() => {
+    {
       parameters.onOpenChange(nextOpen, eventDetails);
 
       if (eventDetails.isCanceled) {
@@ -97,11 +92,10 @@ export function useCollapsibleRoot(
       if (animationTypeRef.current === 'none' && mounted() && !nextOpen) {
         setMounted(false);
       }
-    });
+    };
   }
 
-  createEffect(
-    on([open, keepMounted, openParam, isControlled], () => {
+  createEffect(...on([open, keepMounted, openParam, isControlled], () => {
       /**
        * Unmount immediately when closing in controlled mode and keepMounted={false}
        * and no CSS animations or transitions are applied

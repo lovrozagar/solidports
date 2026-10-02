@@ -1,5 +1,7 @@
-import { createSignal, createUniqueId, Show, type Component, type JSX } from 'solid-js';
-import { Dynamic } from 'solid-js/web';
+import { createSignal, createUniqueId, Show } from 'solid-js';
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
 import {
   autoUpdate,
   flip,

@@ -1,4 +1,4 @@
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import { useSyncedFloatingRootContext } from '../../floating-ui-solid';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
 import type { ReactLikeRef } from '../../solid-helpers';
@@ -12,6 +12,7 @@ import {
 import { REASONS } from '../../utils/reasons';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { type TooltipRoot } from '../root/TooltipRoot';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   disabled: boolean;

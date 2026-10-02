@@ -5,7 +5,7 @@ interface ClosePartContextValue {
   unregister: () => void;
 }
 
-export const ClosePartContext = createContext<ClosePartContextValue | undefined>(undefined);
+export const ClosePartContext = createContext<ClosePartContextValue | null>(null);
 
 export function useClosePartCount() {
   const [closePartCount, setClosePartCount] = createSignal(0);

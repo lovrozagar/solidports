@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at group level */
-import { batch, createEffect, createSignal, on, mergeProps as solidMergeProps } from 'solid-js';
+import { createTrackedEffect, createEffect, createSignal } from 'solid-js';
 import { SHIFT } from '../internals/composite/composite';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
 import type { FieldRoot } from '../field/root/FieldRoot';
@@ -17,6 +17,8 @@ import type { BaseUIComponentProps, HTMLProps } from '../utils/types';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { useControlled } from '../utils/useControlled';
 import { RadioGroupContext } from './RadioGroupContext';
+import { on, mergeProps as solidMergeProps } from '../solid-1-compat';
+import { withCaptureListeners } from '../utils/withCaptureListeners';
 
 const MODIFIER_KEYS = [SHIFT];
 
@@ -145,11 +147,10 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     value: checkedValue,
   });
 
-  createEffect(
-    on(
+  createEffect(...on(
       checkedValue,
       () => {
-        batch(() => {
+        {
           clearErrors(name());
 
           setDirty(checkedValue() !== validityData.initialValue);
@@ -160,13 +161,13 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
           } else {
             validation.commit(checkedValue(), true);
           }
-        });
+        };
       },
       { defer: true },
     ),
   );
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const fallbackInput = firstEnabledInputRef;
     if (checkedValue() == null && fallbackInput && !fallbackInput.disabled) {
       setInputRef(fallbackInput);
@@ -209,27 +210,26 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
 
   const defaultProps: Omit<HTMLProps, 'children'> = {
     get 'aria-disabled'() {
-      return disabled() || undefined;
+      return disabled() ? 'true' : undefined;
     },
     get 'aria-labelledby'() {
       return ariaLabelledby();
     },
     get 'aria-readonly'() {
-      return local.readOnly || undefined;
+      return local.readOnly ? 'true' : undefined;
     },
     get 'aria-required'() {
-      return local.required || undefined;
+      return local.required ? 'true' : undefined;
     },
-    'on:keydown': {
-      capture: true,
-      handleEvent(event) {
+    ref: withCaptureListeners({
+      keydown: (event) => {
         if (event.key.startsWith('Arrow')) {
           setFieldTouched(true);
           setTouched(true);
           setFocused(true);
         }
       },
-    },
+    }),
     onBlur(event) {
       if (!contains(event.currentTarget, event.relatedTarget as Element)) {
         setFieldTouched(true);
@@ -247,7 +247,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
   };
 
   return (
-    <RadioGroupContext.Provider value={contextValue}>
+    <RadioGroupContext value={contextValue}>
       <CompositeRoot
         render={renderProps.render}
         class={renderProps.class}
@@ -269,7 +269,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
       >
         {local.children}
       </CompositeRoot>
-    </RadioGroupContext.Provider>
+    </RadioGroupContext>
   );
 }
 

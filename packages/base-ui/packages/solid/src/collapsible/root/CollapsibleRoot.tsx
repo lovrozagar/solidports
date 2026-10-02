@@ -1,4 +1,4 @@
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
@@ -8,6 +8,7 @@ import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { CollapsibleRootContext } from './CollapsibleRootContext';
 import { collapsibleStateAttributesMapping } from './stateAttributesMapping';
 import { useCollapsibleRoot } from './useCollapsibleRoot';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * Groups all parts of the collapsible.
@@ -23,7 +24,7 @@ export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
     'open',
   ]);
   const defaultOpen = () => local.defaultOpen ?? false;
-  const disabled = () => local.disabled ?? false;
+  const disabled = () => Boolean(local.disabled);
 
   const collapsible = useCollapsibleRoot({
     defaultOpen,
@@ -56,9 +57,9 @@ export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
   });
 
   return (
-    <CollapsibleRootContext.Provider value={contextValue}>
+    <CollapsibleRootContext value={contextValue}>
       {element()}
-    </CollapsibleRootContext.Provider>
+    </CollapsibleRootContext>
   );
 }
 

@@ -1,7 +1,8 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
-import type { JSX } from "solid-js"
+import { flush } from "solid-js"
+import { render } from "../../helper/render"
+import type { JSX } from '@solidjs/web';
 import { useChartState } from "../../../src/state/useChartState"
 import { PieChart, RadarChart, PolarAngleAxis, PolarRadiusAxis, Pie, Radar } from "../../../src"
 
@@ -61,6 +62,7 @@ describe("Phase 4 — polarAxes dual-write reactivity", () => {
 		/* Fails RED: PolarAngleAxis never writes initial entry, reader returns "__missing__"
 		   and manual setState reaches the reader but in an unexpected shape. */
 		capturedSetState!("polarAxes", "angleAxis", "0", "settings" as never, { dataKey: "topic" } as never)
+		flush()
 		expect(getByTestId("angle-reader-0").textContent).toBe("topic")
 	})
 
@@ -103,6 +105,7 @@ describe("Phase 4 — polarAxes dual-write reactivity", () => {
 
 		/* Both axes visible in the same state — shared provider, not isolated. */
 		capturedSetState!("polarAxes", "angleAxis", "a", "settings" as never, { dataKey: "mutated" } as never)
+		flush()
 		expect(getByTestId("angle-reader-a").textContent).toBe("mutated")
 		/* b still has its original value in same store */
 		expect(getByTestId("angle-reader-b").textContent).toBe("value")

@@ -1,10 +1,11 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 
 export interface ComboboxChipContext {
   index: Accessor<number>;
 }
 
-export const ComboboxChipContext = createContext<ComboboxChipContext | undefined>(undefined);
+export const ComboboxChipContext = createContext<ComboboxChipContext | null>(null);
 
 export function useComboboxChipContext() {
   const context = useContext(ComboboxChipContext);

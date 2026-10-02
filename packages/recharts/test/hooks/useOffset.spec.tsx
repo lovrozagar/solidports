@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { untrack } from "solid-js"
+import { trackSpy } from "../helper/trackSpy"
+import { render } from "../helper/render"
 import {
 	Brush,
 	ComposedChart,
@@ -24,7 +25,7 @@ describe("useOffset", () => {
 	it("should return undefined when used outside of chart", () => {
 		expect.assertions(1)
 		const Comp = (): null => {
-			const offset = useOffset()
+			const offset = untrack(() => useOffset())
 			expect(offset).toBe(undefined)
 			return null
 		}
@@ -34,7 +35,7 @@ describe("useOffset", () => {
 	it("should return default offset in an empty chart", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			const offset = useOffset()
+			const offset = untrack(() => useOffset())
 			offsetSpy(offset)
 			return null
 		}
@@ -56,7 +57,7 @@ describe("useOffset", () => {
 	it("should add chart margin", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			const offset = useOffset()
+			const offset = untrack(() => useOffset())
 			offsetSpy(offset)
 			return null
 		}
@@ -78,7 +79,7 @@ describe("useOffset", () => {
 	it("should include default Brush height (40) in bottom property", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		render(() => (
@@ -99,7 +100,7 @@ describe("useOffset", () => {
 	it("should include explicit brush height in bottom property", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		render(() => (
@@ -120,7 +121,7 @@ describe("useOffset", () => {
 	it("should include default width of YAxis", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		render(() => (
@@ -142,7 +143,7 @@ describe("useOffset", () => {
 	it("should include explicit width of YAxis", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		render(() => (
@@ -164,7 +165,7 @@ describe("useOffset", () => {
 	it("should exclude hidden YAxis dimensions", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		render(() => (
@@ -187,7 +188,7 @@ describe("useOffset", () => {
 	it("should include default height of XAxis", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		render(() => (
@@ -208,7 +209,7 @@ describe("useOffset", () => {
 	it("should include explicit height of XAxis", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		render(() => (
@@ -229,7 +230,7 @@ describe("useOffset", () => {
 	it("should exclude hidden XAxis height", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		render(() => (
@@ -255,7 +256,7 @@ describe("useOffset", () => {
 	it("should include computed width and height on Legend - see appendOffsetOfLegend for detailed behaviour", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffset()))
+			trackSpy(offsetSpy, () => useOffset())
 			return null
 		}
 		mockGetBoundingClientRect({ height: 29, width: 43 })
@@ -281,9 +282,9 @@ describe("useOffset", () => {
 		 * https://github.com/recharts/recharts/issues/6236
 		 */
 		const Child = () => {
-			usePlotArea()
-			useOffset()
-			useActiveTooltipDataPoints()
+			untrack(() => usePlotArea())
+			untrack(() => useOffset())
+			untrack(() => useActiveTooltipDataPoints())
 			spy()
 			return <XAxis />
 		}

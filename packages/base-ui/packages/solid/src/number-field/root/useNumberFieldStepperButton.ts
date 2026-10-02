@@ -1,4 +1,4 @@
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { isTouchLikePointerType, usePressAndHold } from '../../internals/usePressAndHold';
@@ -15,6 +15,7 @@ import type { NumberFieldRoot } from './NumberFieldRoot';
 import { REASONS } from '../../utils/reasons';
 import { useNumberFieldRootContext } from './NumberFieldRootContext';
 import { stateAttributesMapping } from '../utils/stateAttributesMapping';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 const SELECT_NONE_STYLE = {
   '-webkit-user-select': 'none',
@@ -115,7 +116,7 @@ export function useNumberFieldStepperButton(
     get 'aria-controls'() {
       return id();
     },
-    tabIndex: -1,
+    tabindex: -1,
     style: SELECT_NONE_STYLE,
     ...pointerHandlers,
     onClick(event: MouseEvent) {

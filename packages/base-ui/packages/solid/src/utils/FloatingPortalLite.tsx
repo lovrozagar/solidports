@@ -1,7 +1,9 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { Show, splitProps, type JSX } from 'solid-js';
-import { Portal } from 'solid-js/web';
+import { Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Portal } from '@solidjs/web';
 import { useFloatingPortalNode, type FloatingPortal } from '../floating-ui-solid';
+import { splitProps } from '../solid-1-compat';
 
 /**
  * `FloatingPortal` includes tabbable logic handling for focus management.
@@ -15,7 +17,7 @@ export function FloatingPortalLite(componentProps: FloatingPortalLite.Props<any>
     ['children'],
   );
 
-  const { portalNode, portalSubtree } = useFloatingPortalNode({
+  const { portalNode, containerElement, uniqueId, registerHost } = useFloatingPortalNode({
     componentProps: local,
     get container() {
       return local.container;
@@ -39,7 +41,15 @@ export function FloatingPortalLite(componentProps: FloatingPortalLite.Props<any>
 
   return (
     <>
-      {portalSubtree()}
+      <Portal mount={containerElement() as HTMLElement | undefined}>
+        <div
+          id={uniqueId()}
+          class={local.class}
+          style={local.style}
+          {...{ ['data-base-ui-portal']: '' }}
+          ref={registerHost}
+        />
+      </Portal>
       <Show when={portalNode()} keyed>
         {(node) => <Portal mount={node}>{componentProps.children}</Portal>}
       </Show>

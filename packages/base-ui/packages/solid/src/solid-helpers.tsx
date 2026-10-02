@@ -1,15 +1,8 @@
-import {
-  children,
-  createMemo,
-  onMount,
-  Show,
-  mergeProps as solidMergeProps,
-  splitProps,
-  type Accessor,
-  type JSX,
-  type SplitProps,
-} from 'solid-js';
+import { children, createMemo, onSettled, Show } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { PayloadChildRenderFunction } from './utils/popups';
+import { mergeProps as solidMergeProps, splitProps, type SplitProps } from './solid-1-compat';
 
 export function callEventHandler<T, E extends Event>(
   eventHandler: JSX.EventHandlerUnion<T, E> | undefined,
@@ -38,15 +31,13 @@ export type MaybeAccessorValue<T extends MaybeAccessor<any>> = T extends () => a
   ? ReturnType<T>
   : T;
 
-export function autofocus(element: HTMLElement, autofocusProp: Accessor<boolean>) {
-  if (autofocusProp?.() === false) {
+export function autofocus(element: HTMLElement | null | undefined) {
+  if (!element || !element.hasAttribute('autofocus')) {
     return;
   }
 
-  onMount(() => {
-    if (element.hasAttribute('autofocus')) {
-      queueMicrotask(() => element.focus());
-    }
+  onSettled(() => {
+    queueMicrotask(() => element.focus());
   });
 }
 
@@ -112,7 +103,7 @@ export type PropsMergeWithDefault<P, D extends Partial<P>> = Simplify<{
 }>;
 
 export function defaultProps<
-  P,
+  P extends object,
   D extends Partial<P>,
   C extends { [K in Extract<keyof D, keyof P> as keyof D]?: D[K] },
 >(props: P, defaults: D extends C ? D : C) {

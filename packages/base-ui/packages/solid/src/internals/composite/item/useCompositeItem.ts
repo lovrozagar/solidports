@@ -31,7 +31,7 @@ export function useCompositeItem<Metadata>(params: UseCompositeItemParameters<Me
         itemRef()?.focus();
       }
     },
-    get tabIndex() {
+    get tabindex() {
       return isHighlighted() ? 0 : -1;
     },
   };

@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import { FloatingTreeStore } from '../../floating-ui-solid/components/FloatingTreeStore';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
 import { type ReactLikeRef } from '../../solid-helpers';
@@ -16,6 +16,7 @@ import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { type InteractionType } from '../../utils/useEnhancedClickHandler';
 import { Timeout, useTimeout } from '../../utils/useTimeout';
 import type { PopoverRoot } from '../root/PopoverRoot';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   disabled: boolean;

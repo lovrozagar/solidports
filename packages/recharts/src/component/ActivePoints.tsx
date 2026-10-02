@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
-import { createMemo, Show, type JSX } from "solid-js"
+import { createMemo, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { ActiveDotProps, ActiveDotType, DataKey } from "../util/types"
 import { adaptEventHandlers } from "../util/types"
 import { Dot } from "../shape/Dot"
@@ -12,6 +13,7 @@ import { svgPropertiesNoEventsFromUnknown } from "../util/svgPropertiesNoEvents"
 import type { ZIndexable } from "../zIndex/ZIndexLayer"
 import { ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
+import { cloneJsxNodeWithProps, isJsxNode } from "../util/ReactUtils"
 
 export interface PointType {
 	readonly x: number | null
@@ -31,6 +33,22 @@ function ActivePoint(props: {
 	 */
 	mainColor: string | undefined
 	clipPath?: string
+}): JSX.Element {
+	return <>{renderActivePoint(props)}</>
+}
+
+/* Runs inside ActivePoint's JSX expression so every reactive read is tracked. */
+function renderActivePoint(props: {
+	point: PointType
+	activeDot: ActiveDotType
+	childIndex: number
+	dataKey: DataKey<unknown> | undefined
+	/**
+	 * Different graphical elements have different opinion on what is their main color.
+	 * Sometimes stroke, sometimes fill, sometimes combination.
+	 */
+	mainColor: string | undefined
+	clipPath?: string
 }) {
 	/* eslint-disable solid/reactivity -- activeDot/point checks are structural guards; dotProps is a reactive accessor that re-reads props on each call */
 	if (props.activeDot === false || props.point.x == null || props.point.y == null) {
@@ -39,17 +57,19 @@ function ActivePoint(props: {
 
 	const dotProps = createMemo(
 		(): ActiveDotProps =>
+			/* eslint-disable sort-keys -- upstream key order becomes the DOM attribute order */
 			({
+				index: props.childIndex,
+				dataKey: props.dataKey,
 				cx: props.point.x,
 				cy: props.point.y,
-				dataKey: props.dataKey,
-				fill: props.mainColor ?? "none",
-				index: props.childIndex,
-				payload: props.point.payload,
 				r: 4,
-				stroke: "#fff",
+				fill: props.mainColor ?? "none",
 				strokeWidth: 2,
+				stroke: "#fff",
+				payload: props.point.payload,
 				value: props.point.value,
+				/* eslint-enable sort-keys */
 				...svgPropertiesNoEventsFromUnknown(props.activeDot),
 				...(typeof props.activeDot === "object" && props.activeDot !== null
 					? adaptEventHandlers(props.activeDot as Record<string, unknown>)
@@ -61,6 +81,12 @@ function ActivePoint(props: {
 	const renderDot = (): JSX.Element => {
 		if (typeof props.activeDot === "function") {
 			return (props.activeDot as (p: ActiveDotProps) => JSX.Element)(dotProps())
+		}
+		if (isJsxNode(props.activeDot)) {
+			return cloneJsxNodeWithProps(
+				props.activeDot,
+				dotProps() as unknown as Record<string, unknown>,
+			) as unknown as JSX.Element
 		}
 		return <Dot {...dotProps()} />
 	}
@@ -91,7 +117,7 @@ export function ActivePoints(props: ActivePointsProps) {
 	const activeTooltipIndex = createMemo(() =>
 		ctx ? selectActiveTooltipIndex(ctx.store) : undefined,
 	)
-	const activeDataPoints = () => useActiveTooltipDataPoints()
+	const activeDataPoints = createMemo(() => useActiveTooltipDataPoints())
 
 	const activePoint = (): PointType | undefined => {
 		const dataPoints = activeDataPoints()

@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { createMemo, Show } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { createMemo, Show } from 'solid-js';
 import { useChartHeight, useChartWidth } from "../context/chartLayoutContext"
 import { useAccessibilityLayer } from "../context/accessibilityContext"
 import { useIsPanorama } from "../context/PanoramaContext"
@@ -9,6 +9,7 @@ import { useChartStore } from "../state/RechartsStoreContext"
 import { selectBrushDimensions } from "../state/selectors/brushSelectors"
 import { isPositiveNumber } from "../util/isWellBehavedNumber"
 import { AllZIndexPortals } from "../zIndex/ZIndexPortal"
+import { bindRef } from "../util/solid-1-compat"
 
 type RootSurfaceProps = {
 	children: JSX.Element
@@ -34,10 +35,9 @@ const FULL_WIDTH_AND_HEIGHT = {
 }
 
 function MainChartSurface(props: RootSurfaceProps) {
-	/* All hooks bare T (GOTCHA-011). Arrow-thunk pattern preserves callsite shape. */
-	const width = () => useChartWidth()
-	const height = () => useChartHeight()
-	const hasAccessibilityLayer = () => useAccessibilityLayer()
+	const width = createMemo(() => useChartWidth())
+	const height = createMemo(() => useChartHeight())
+	const hasAccessibilityLayer = createMemo(() => useAccessibilityLayer())
 
 	const tabIndex = (): number | undefined => {
 		if (props.otherAttributes != null) {
@@ -68,11 +68,11 @@ function MainChartSurface(props: RootSurfaceProps) {
 				title={props.title}
 				desc={props.desc}
 				role={role()}
-				tabIndex={tabIndex()}
+				tabindex={tabIndex()}
 				width={width() ?? 0}
 				height={height() ?? 0}
 				style={FULL_WIDTH_AND_HEIGHT}
-				ref={props.ref}
+				ref={(el) => bindRef(props.ref, el)}
 			>
 				{props.children}
 			</Surface>
@@ -108,7 +108,7 @@ export function RootSurface(props: RootSurfaceProps) {
 			}
 		>
 			<MainChartSurface
-				ref={props.ref}
+				ref={(el) => bindRef(props.ref, el)}
 				title={props.title}
 				desc={props.desc}
 				otherAttributes={props.otherAttributes}

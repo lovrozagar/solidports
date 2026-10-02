@@ -1,4 +1,5 @@
-import { createSignal, onMount, type ComponentProps } from 'solid-js';
+import { createSignal, onSettled } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
 import { isSafari } from './detectBrowser';
 import { visuallyHidden } from './visuallyHidden';
 
@@ -8,7 +9,7 @@ import { visuallyHidden } from './visuallyHidden';
 export function FocusGuard(props: ComponentProps<'span'>) {
   const [role, setRole] = createSignal<'button' | undefined>();
 
-  onMount(() => {
+  onSettled(() => {
     if (isSafari) {
       // Unlike other screen readers such as NVDA and JAWS, the virtual cursor
       // on VoiceOver does trigger the onFocus event, so we can use the focus
@@ -22,9 +23,9 @@ export function FocusGuard(props: ComponentProps<'span'>) {
       {...props}
       ref={props.ref}
       role={role()}
-      aria-hidden={role() ? undefined : true}
+      aria-hidden={role() ? undefined : 'true'}
       style={visuallyHidden}
-      tabIndex={0}
+      tabindex={0}
       data-base-ui-focus-guard=""
     />
   );

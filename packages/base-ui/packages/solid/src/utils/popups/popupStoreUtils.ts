@@ -1,5 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- popup utils accept arbitrary State extends PopupStoreState; carrying generic Payload through every helper would balloon signatures */
-import { createEffect, onCleanup, untrack, type Accessor, type JSX } from 'solid-js';
+import { createTrackedEffect, onCleanup, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useFloatingParentNodeId } from '../../floating-ui-solid/components/FloatingTree';
 import { FOCUSABLE_ATTRIBUTE } from '../../floating-ui-solid/utils/constants';
 import { EMPTY_OBJECT } from '../empty';
@@ -20,7 +22,7 @@ import {
 } from './store';
 
 export const FOCUSABLE_POPUP_PROPS = {
-  tabIndex: -1,
+  tabindex: -1,
   [FOCUSABLE_ATTRIBUTE]: '',
 } satisfies HTMLProps<HTMLElement> & Record<typeof FOCUSABLE_ATTRIBUTE, string>;
 
@@ -70,12 +72,21 @@ export function PopupHandleAttachment<Store>(props: {
   handle: PopupRootStoreHandle<Store>;
   store: Store;
 }) {
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const handle = props.handle;
     const store = props.store;
     const cleanup = handle.attachStore(store);
-    onCleanup(cleanup);
-  });
+    _c.push(cleanup);
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   return null;
 }
@@ -212,7 +223,7 @@ export function usePopupRootSync<
   store: SolidStore<State, PopupStoreContext<any>, typeof popupStoreSelectors>,
   open: Accessor<boolean>,
 ) {
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open() && store.state.openMethod !== null) {
       store.set('openMethod' as any, null);
     }
@@ -280,7 +291,7 @@ export function useTriggerDataForwarding<State extends PopupStoreState<any>>(pro
   triggerId: string | undefined;
   triggerElement: Element | null | undefined;
   store: SolidStore<State, PopupStoreContext<any>, typeof popupStoreSelectors>;
-  stateUpdates: Omit<Partial<State>, 'activeTriggerId' | 'activeTriggerElement'>;
+  stateUpdates: Record<string, unknown>;
 }) {
   const store = untrack(() => props.store);
   const isMountedByThisTrigger = store.useState('isMountedByTrigger', () => props.triggerId);
@@ -324,7 +335,7 @@ export function useTriggerDataForwarding<State extends PopupStoreState<any>>(pro
     }
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (isMountedByThisTrigger()) {
       store.update({
         activeTriggerElement: props.triggerElement,
@@ -356,7 +367,7 @@ export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(pro
   const store = untrack(() => props.store);
   const open = store.useState('open');
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (open() && !store.select('activeTriggerId') && store.context.triggerElements.size === 1) {
       const iteratorResult = store.context.triggerElements.entries().next();
       if (!iteratorResult.done) {

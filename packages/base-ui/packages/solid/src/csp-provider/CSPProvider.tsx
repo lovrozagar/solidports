@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { CSPContext, type CSPContextValue } from './CSPContext';
 
 /**
@@ -13,7 +13,7 @@ export function CSPProvider(props: CSPProvider.Props) {
     nonce: () => props.nonce,
   };
 
-  return <CSPContext.Provider value={contextValue}>{props.children}</CSPContext.Provider>;
+  return <CSPContext value={contextValue}>{props.children}</CSPContext>;
 }
 
 export interface CSPProviderState {}

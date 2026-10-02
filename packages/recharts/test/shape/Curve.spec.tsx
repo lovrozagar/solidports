@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { render, fireEvent } from "@solidjs/testing-library"
+import { render, fireEvent } from "../helper/render"
 import { curveLinear } from "victory-vendor/d3-shape"
 import { Surface, Curve } from "../../src"
 import { getPath, CurveType } from "../../src/shape/Curve"

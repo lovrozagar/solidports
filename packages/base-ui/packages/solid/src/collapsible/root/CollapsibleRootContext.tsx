@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import type { CollapsibleRoot } from './CollapsibleRoot';
 import type { useCollapsibleRoot } from './useCollapsibleRoot';
@@ -9,11 +10,11 @@ export interface CollapsibleRootContext extends useCollapsibleRoot.ReturnValue {
   transitionStatus: Accessor<TransitionStatus>;
 }
 
-export const CollapsibleRootContext = createContext<CollapsibleRootContext>();
+export const CollapsibleRootContext = createContext<CollapsibleRootContext | null>(null);
 
 export function useCollapsibleRootContext() {
   const context = useContext(CollapsibleRootContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: CollapsibleRootContext is missing. Collapsible parts must be placed within <Collapsible.Root>.',
     );

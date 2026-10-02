@@ -1,7 +1,10 @@
-import { Show, splitProps, type JSX } from "solid-js"
+import { Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
 import { MarkdownLink } from "./MarkdownLink"
 import { ViewSourceLink } from "./ViewSourceLink"
+
+import { splitProps } from '../../utils/solid-1-compat';
 import "./Subtitle.css"
 
 export function Subtitle(

@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { IncrementValueParameters } from '../utils/types';
 import { EventWithOptionalKeyState } from '../utils/types';
@@ -42,11 +43,11 @@ export interface NumberFieldRootContext {
   focusInput: () => void;
 }
 
-export const NumberFieldRootContext = createContext<NumberFieldRootContext>();
+export const NumberFieldRootContext = createContext<NumberFieldRootContext | null>(null);
 
 export function useNumberFieldRootContext() {
   const context = useContext(NumberFieldRootContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: NumberFieldRootContext is missing. NumberField parts must be placed within <NumberField.Root>.',
     );

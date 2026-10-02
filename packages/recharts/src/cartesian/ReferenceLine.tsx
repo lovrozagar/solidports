@@ -2,7 +2,10 @@
 /**
  * @fileOverview Reference Line
  */
-import { createEffect, createMemo, onCleanup, Show, type JSX } from "solid-js"
+import { createMemo, Show, createEffect } from 'solid-js';
+import { camelizeSvgPropsForHandler } from "../util/svgPropertiesNoEvents"
+import type { CamelCaseSVGAttrs } from "../util/CamelCaseSVGAttrs"
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import { Layer } from "../container/Layer"
 import {
@@ -35,6 +38,8 @@ import { isWellBehavedNumber } from "../util/isWellBehavedNumber"
 import type { BandPosition, RechartsScale } from "../util/scale/RechartsScale"
 import type { CartesianScaleHelper } from "../util/scale/CartesianScaleHelper"
 import { CartesianScaleHelperImpl } from "../util/scale/CartesianScaleHelper"
+import { isSameStoreEntry } from "../state/storeIdentity"
+import { teardownWrite } from "../state/teardownWrite"
 
 /**
  * Single point that defines one end of a segment.
@@ -48,18 +53,25 @@ import { CartesianScaleHelperImpl } from "../util/scale/CartesianScaleHelper"
  *
  * @inline
  */
-export type ReferenceLineSegment = readonly [
+export type ReferenceLineSegment<XValueType = number | string, YValueType = number | string> = readonly [
 	{
-		x?: number | string
-		y?: number | string
+		x?: XValueType
+		y?: YValueType
 	},
 	{
-		x?: number | string
-		y?: number | string
+		x?: XValueType
+		y?: YValueType
 	},
 ]
 
-interface ReferenceLineProps extends Overflowable, ZIndexable {
+type ReferenceCoordinateValue = number | string
+
+interface ReferenceLineProps<
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	XValueType extends ReferenceCoordinateValue = any,
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	YValueType extends ReferenceCoordinateValue = any,
+> extends Overflowable, ZIndexable {
 	/**
 	 * If defined, renders a horizontal line on this position.
 	 *
@@ -68,7 +80,7 @@ interface ReferenceLineProps extends Overflowable, ZIndexable {
 	 *
 	 * @example <ReferenceLine y="Page D" />
 	 */
-	y?: number | string
+	y?: YValueType
 
 	/**
 	 * If defined, renders a vertical line on this position.
@@ -78,12 +90,12 @@ interface ReferenceLineProps extends Overflowable, ZIndexable {
 	 *
 	 * @example <ReferenceLine x="Monday" />
 	 */
-	x?: number | string
+	x?: XValueType
 
 	/**
 	 * Tuple of coordinates. If defined, renders a diagonal line segment.
 	 */
-	segment?: ReferenceLineSegment
+	segment?: ReferenceLineSegment<XValueType, YValueType>
 
 	/**
 	 * The position of the reference line when the axis has bandwidth
@@ -146,15 +158,23 @@ interface ReferenceLineProps extends Overflowable, ZIndexable {
  *    - so there's a conflict, and the component will throw if it gets string
  * 2. Internally the component calls `svgPropertiesNoEvents` which filters the viewBox away anyway
  */
-export type Props = Omit<JSX.LineSVGAttributes<SVGLineElement>, "viewBox"> & ReferenceLineProps
+export type Props<
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	XValueType extends ReferenceCoordinateValue = any,
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+	YValueType extends ReferenceCoordinateValue = any,
+> = Omit<JSX.LineSVGAttributes<SVGLineElement>, "viewBox"> &
+	CamelCaseSVGAttrs &
+	ReferenceLineProps<XValueType, YValueType>
 
 const renderLine = (
 	option: ReferenceLineProps["shape"],
 	lineProps: JSX.LineSVGAttributes<SVGLineElement>,
 ) => {
 	if (typeof option === "function") {
+		/* upstream hands the shape function its React (camelCase) props */
 		return (option as (p: Record<string, unknown>) => JSX.Element)(
-			lineProps as Record<string, unknown>,
+			camelizeSvgPropsForHandler(lineProps as Record<string, unknown>),
 		)
 	}
 
@@ -286,12 +306,18 @@ export const getEndPoints = (
 
 function ReportReferenceLine(props: ReferenceLineSettings): null {
 	const ctx = useChartStore()
-	createEffect(() => {
-		ctx?.setStore("referenceElements", "lines", (prev) => [...prev, props])
-		onCleanup(() => {
-			ctx?.setStore("referenceElements", "lines", (prev) => prev.filter((l) => l !== props))
-		})
-	})
+	/* The props proxy is registered once; selectors read its fields lazily. */
+	createEffect(
+		() => props,
+		(element) => {
+			ctx?.setStore("referenceElements", "lines", (prev) => [...prev, element])
+			return () => {
+				teardownWrite(() => {
+					ctx?.setStore("referenceElements", "lines", (prev) => prev.filter((l) => !isSameStoreEntry(l, element)))
+				})
+			}
+		},
+	)
 	return null
 }
 
@@ -309,7 +335,7 @@ function ReferenceLineImpl(props: PropsWithDefaults) {
 		ctx ? selectAxisScale(ctx.store, "yAxis", props.yAxisId, isPanorama) : undefined,
 	)
 
-	const viewBox = () => useViewBox()
+	const viewBox = createMemo(() => useViewBox())
 
 	const endPoints = () => {
 		const xScale = xAxisScale()
@@ -394,12 +420,12 @@ function ReferenceLineImpl(props: PropsWithDefaults) {
 
 export const referenceLineDefaultProps = {
 	fill: "none",
-	"fill-opacity": 1,
+	fillOpacity: 1,
 	ifOverflow: "discard",
 	label: false,
 	position: "middle",
 	stroke: "#ccc",
-	"stroke-width": 1,
+	strokeWidth: 1,
 	xAxisId: 0,
 	yAxisId: 0,
 	zIndex: DefaultZIndexes.line,
@@ -421,7 +447,7 @@ type PropsWithDefaults = RequiresDefaultProps<Props, typeof referenceLineDefault
  * @provides CartesianLabelContext
  * @consumes CartesianChartContext
  */
-export function ReferenceLine(outsideProps: Props) {
+function ReferenceLineFn(outsideProps: Props): JSX.Element {
 	const props: PropsWithDefaults = resolveDefaultProps(outsideProps, referenceLineDefaultProps)
 	return (
 		<>
@@ -438,4 +464,11 @@ export function ReferenceLine(outsideProps: Props) {
 	)
 }
 
+/**
+ * Typed entry point: the generics constrain props at the call site, like upstream.
+ */
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped usage accepts any data */
+export const ReferenceLine = ReferenceLineFn as (<XValueType extends number | string = any, YValueType extends number | string = any>(
+	props: Props<XValueType, YValueType>,
+) => JSX.Element) & { displayName?: string }
 ReferenceLine.displayName = "ReferenceLine"

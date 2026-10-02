@@ -2,7 +2,7 @@ import { flushMicrotasks } from '#test-utils';
 import { isJSDOM } from '#utils/detectBrowser';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { createSignal, For, Index, Show, splitProps } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { describe, it, vi } from 'vitest';
 import { Main as ComplexGrid } from '../../../test/floating-ui-tests/ComplexGrid';
 import { Main as EmojiPicker } from '../../../test/floating-ui-tests/EmojiPicker';
@@ -12,6 +12,7 @@ import { Main as NestedMenu } from '../../../test/floating-ui-tests/Menu';
 import { HorizontalMenu } from '../../../test/floating-ui-tests/MenuOrientation';
 import { useClick, useDismiss, useFloating, useInteractions, useListNavigation } from '../index';
 import type { UseListNavigationProps } from '../types';
+import { splitProps } from '../../solid-1-compat';
 
 function App(
   inProps: Omit<Partial<UseListNavigationProps>, 'listRef'> & { disableFirstItem?: boolean } = {},
@@ -53,7 +54,7 @@ function App(
       <Show when={open()}>
         <div role="menu" {...getFloatingProps({ ref: refs.setFloating })}>
           <ul>
-            <Index each={['one', 'two', 'three']}>
+            <For keyed={false} each={['one', 'two', 'three']}>
               {(string, index) => {
                 const disabledIndecies = () => {
                   if (typeof props.disabledIndices === 'function') {
@@ -67,7 +68,7 @@ function App(
                   <li
                     data-testid={`item-${index}`}
                     aria-selected={activeIndex() === index}
-                    tabIndex={-1}
+                    tabindex={-1}
                     aria-disabled={(local.disableFirstItem && index === 0) || disabledIndecies()}
                     {...getItemProps<HTMLLIElement>({
                       ref(node) {
@@ -79,7 +80,7 @@ function App(
                   </li>
                 );
               }}
-            </Index>
+            </For>
           </ul>
         </div>
       </Show>
@@ -1146,13 +1147,13 @@ describe('useListNavigation', () => {
           <Show when={open()}>
             <div role="menu" {...getFloatingProps({ ref: refs.setFloating })}>
               <ul>
-                <Index each={['one', 'two', 'three']}>
+                <For keyed={false} each={['one', 'two', 'three']}>
                   {(string, index) => (
                     // eslint-disable-next-line jsx-a11y/role-supports-aria-props
                     <li
                       data-testid={`item-${index}`}
                       aria-selected={activeIndex() === index}
-                      tabIndex={-1}
+                      tabindex={-1}
                       {...getItemProps({
                         ref(node) {
                           listRef[index] = node as HTMLLIElement;
@@ -1162,7 +1163,7 @@ describe('useListNavigation', () => {
                       {string()}
                     </li>
                   )}
-                </Index>
+                </For>
               </ul>
             </div>
           </Show>

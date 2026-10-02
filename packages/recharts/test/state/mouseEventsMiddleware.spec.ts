@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { flush } from "solid-js"
 import { createRechartsStore } from "../../src/state/store"
 import { createMouseEventHandlers } from "../../src/state/mouseEventsMiddleware"
 import type { HTMLMousePointer } from "../../src/util/types"
@@ -66,7 +67,7 @@ describe("mouseMoveHandlers", () => {
 	afterEach(() => {
 		vi.useRealTimers()
 	})
-	it.skip("should debounce rapid mousemove events using requestAnimationFrame", () => {
+	it("should debounce rapid mousemove events using requestAnimationFrame", () => {
 		const move1 = createMockMousePointer(50, 50)
 		const move2 = createMockMousePointer(100, 100)
 		const move3 = createMockMousePointer(150, 150)
@@ -82,7 +83,9 @@ describe("mouseMoveHandlers", () => {
 		/* Should cancel previous RAF and schedule new one - still 1 timer */
 		expect(vi.getTimerCount()).toBe(1)
 
-		vi.advanceTimersByTime(0)
+		/* Process the RAF */
+		vi.runOnlyPendingTimers()
+		flush()
 		expect(vi.getTimerCount()).toBe(0)
 	})
 })

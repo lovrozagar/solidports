@@ -11,12 +11,12 @@ describe("consoleWarningToError", () => {
 		restoreConsole()
 		setupConsoleWarningToError()
 	})
-	it("should throw on console.warn if not in IGNORE list", () => {
+	it("should throw on console.warn if it is not included in IGNORE list", () => {
 		expect(() => {
 			console.warn("This is a normal warning")
 		}).toThrow("Console warning treated as test failure:" + " This is a normal warning")
 	})
-	it("should suppress warnings matching IGNORE_WARNINGS", () => {
+	it("should suppress warnings that match IGNORE_WARNINGS substring", () => {
 		IGNORE_WARNINGS.push("ignore this")
 
 		expect(() => {

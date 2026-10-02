@@ -1,6 +1,5 @@
-import { render } from "@solidjs/testing-library"
-import type { JSX } from "solid-js"
-
+import { render } from "./render"
+import type { JSX } from '@solidjs/web';
 /**
  * Solid does not have StrictMode. This is a thin wrapper around
  * render kept for API compatibility with tests that import it.

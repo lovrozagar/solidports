@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value erased at value renderer */
-import { Match, Switch, type JSX } from 'solid-js';
+import { Match, Switch } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { resolveMultipleLabels, resolveSelectedLabel } from '../../utils/resolveValueLabel';

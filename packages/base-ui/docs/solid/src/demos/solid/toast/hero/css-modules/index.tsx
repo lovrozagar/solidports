@@ -41,16 +41,16 @@ function ToastList() {
   return (
     <For each={toasts()}>
       {(toast) => (
-        <Toast.Root toast={toast} class={styles.Toast}>
-          <Toast.Content class={styles.Content}>
-            <div class={styles.Text}>
-              <Toast.Title class={styles.Title} />
-              <Toast.Description class={styles.Description} />
-            </div>
-            <Toast.Close class={styles.Close}>Dismiss</Toast.Close>
-          </Toast.Content>
-        </Toast.Root>
-      )}
+    <Toast.Root toast={toast} class={styles.Toast}>
+      <Toast.Content class={styles.Content}>
+        <div class={styles.Text}>
+          <Toast.Title class={styles.Title} />
+          <Toast.Description class={styles.Description} />
+        </div>
+        <Toast.Close class={styles.Close}>Dismiss</Toast.Close>
+      </Toast.Content>
+    </Toast.Root>
+  )}
     </For>
   );
 }

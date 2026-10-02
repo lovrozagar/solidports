@@ -1,7 +1,5 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { createContext, onCleanup, useContext } from "solid-js"
-import { createStore, produce } from "solid-js/store"
-
+import { createContext, createSignal, onCleanup, useContext } from 'solid-js';
 /* React parity: upstream walks `props.children` via `findAllByType(Cell)` to
  * discover per-data-point overrides (fill, stroke, ...). Solid JSX is opaque —
  * descendants resolve to DOM nodes, not vnodes — so introspection is impossible.
@@ -16,7 +14,7 @@ export type CellPropsRecord = Record<string, unknown>
  * unchanged. */
 export type RegisteredCell = { props: CellPropsRecord }
 
-type CellsRegistry = {
+export type CellsRegistry = {
 	register: (props: () => CellPropsRecord) => void
 	cells: () => ReadonlyArray<RegisteredCell>
 }
@@ -29,39 +27,28 @@ const CellsContext = createContext<CellsRegistry | null>(null)
 type Entry = { id: number; getProps: () => CellPropsRecord }
 
 export function createCellsRegistry(): CellsRegistry & {
-	Provider: typeof CellsContext.Provider
+	Provider: typeof CellsContext
 } {
-	const [state, setState] = createStore<{ entries: Entry[]; counter: number }>({
-		entries: [],
-		counter: 0,
-	})
+	/* Cells register from their component body, so this registry opts into owned writes. */
+	const [entries, setEntries] = createSignal<ReadonlyArray<Entry>>([], { ownedWrite: true })
+	let nextId = 0
 
 	const register = (getProps: () => CellPropsRecord): void => {
-		const id = state.counter
-		setState(
-			produce((s) => {
-				s.entries.push({ id, getProps })
-				s.counter += 1
-			}),
-		)
+		const id = nextId++
+		setEntries((prev) => [...prev, { id, getProps }])
 		onCleanup(() => {
-			setState(
-				produce((s) => {
-					const idx = s.entries.findIndex((e) => e.id === id)
-					if (idx !== -1) s.entries.splice(idx, 1)
-				}),
-			)
+			setEntries((prev) => prev.filter((e) => e.id !== id))
 		})
 	}
 
 	const cells = (): ReadonlyArray<RegisteredCell> =>
-		state.entries.map((e) => ({ props: e.getProps() }))
+		entries().map((e) => ({ props: e.getProps() }))
 
-	return { register, cells, Provider: CellsContext.Provider }
+	return { register, cells, Provider: CellsContext }
 }
 
 export function useCellsRegistry(): CellsRegistry | null {
 	return useContext(CellsContext)
 }
 
-export const CellsContextProvider = CellsContext.Provider
+export const CellsContextProvider = CellsContext

@@ -140,12 +140,12 @@ export function NavigationMenuList(componentProps: NavigationMenuList.Props) {
     <Show
       when={!nested()}
       fallback={
-        <NavigationMenuDismissContext.Provider value={dismissProps.props}>
+        <NavigationMenuDismissContext value={dismissProps.props}>
           {element()}
-        </NavigationMenuDismissContext.Provider>
+        </NavigationMenuDismissContext>
       }
     >
-      <NavigationMenuDismissContext.Provider value={dismissProps.props}>
+      <NavigationMenuDismissContext value={dismissProps.props}>
         <CompositeRoot
           render={renderProps.render}
           class={renderProps.class}
@@ -167,7 +167,7 @@ export function NavigationMenuList(componentProps: NavigationMenuList.Props) {
         >
           {local.children}
         </CompositeRoot>
-      </NavigationMenuDismissContext.Provider>
+      </NavigationMenuDismissContext>
     </Show>
   );
 }

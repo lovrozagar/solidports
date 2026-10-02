@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import { createRenderEffect } from "solid-js"
+import { createEffect } from 'solid-js';
 import type {
 	CartesianLayout,
 	CartesianViewBoxRequired,
@@ -8,7 +8,6 @@ import type {
 	Margin,
 	Percent,
 	PolarLayout,
-	TrapezoidViewBox,
 } from "../util/types"
 import { useChartStore } from "../state/RechartsStoreContext"
 import type { ChartState } from "../state/store"
@@ -20,25 +19,7 @@ import { useResponsiveContainerContext } from "../component/ResponsiveContainer"
 import { isPositiveNumber } from "../util/isWellBehavedNumber"
 import { useChartOffsetInternal as useChartOffsetInternalShared } from "../state/hooks/useChartSelectors"
 
-export function cartesianViewBoxToTrapezoid(box: undefined): undefined
-export function cartesianViewBoxToTrapezoid(
-	box: CartesianViewBoxRequired | TrapezoidViewBox,
-): TrapezoidViewBox
-export function cartesianViewBoxToTrapezoid(
-	box: CartesianViewBoxRequired | TrapezoidViewBox | undefined,
-): TrapezoidViewBox | undefined {
-	if (box == null) {
-		return undefined
-	}
-	return {
-		height: box.height,
-		lowerWidth: "lowerWidth" in box ? box.lowerWidth : box.width,
-		upperWidth: "upperWidth" in box ? box.upperWidth : box.width,
-		width: box.width,
-		x: box.x,
-		y: box.y,
-	}
-}
+export { cartesianViewBoxToTrapezoid } from "../cartesian/cartesianViewBoxToTrapezoid"
 
 /**
  * Returns the chart viewBox. Reactive when called inside a tracked scope
@@ -163,55 +144,58 @@ export const ReportChartSize = (props: {
 
 	const responsiveContainerCalculations = useResponsiveContainerContext()
 
-	/* createRenderEffect dispatches during setup so size/margin land before
-	   downstream sibling components run their own setup. Tests asserting
-	   `useOffsetInternal()` returns the populated offset on first synchronous
-	   read depend on this ordering (React's render-time layout effects). */
-	createRenderEffect(() => {
-		let width = props.width
-		let height = props.height
+	/* The chart root seeds size at store creation; this keeps it in sync after mount. */
+	createEffect(
+		() => {
+			let width = props.width
+			let height = props.height
 
-		if (responsiveContainerCalculations) {
-			/*
-			 * In case we receive width and height from ResponsiveContainer,
-			 * we will always prefer those.
-			 * Only in case ResponsiveContainer does not provide width or height,
-			 * we will fall back to the explicitly provided width and height.
-			 *
-			 * This to me feels backwards - we should allow override by the more specific props on individual charts, right?
-			 * But this is 3.x behaviour, so let's keep it for backwards compatibility.
-			 *
-			 * We can change this in 4.x if we want to.
-			 */
-			width =
-				responsiveContainerCalculations.width > 0
-					? responsiveContainerCalculations.width
-					: props.width
-			height =
-				responsiveContainerCalculations.height > 0
-					? responsiveContainerCalculations.height
-					: props.height
-		}
-
-		if (isPanorama === false && isPositiveNumber(width) && isPositiveNumber(height)) {
-			ctx?.setStore("layout", "width", width)
-			ctx?.setStore("layout", "height", height)
-		}
-	})
+			if (responsiveContainerCalculations) {
+				/*
+				 * In case we receive width and height from ResponsiveContainer,
+				 * we will always prefer those.
+				 * Only in case ResponsiveContainer does not provide width or height,
+				 * we will fall back to the explicitly provided width and height.
+				 *
+				 * This to me feels backwards - we should allow override by the more specific props on individual charts, right?
+				 * But this is 3.x behaviour, so let's keep it for backwards compatibility.
+				 *
+				 * We can change this in 4.x if we want to.
+				 */
+				width =
+					responsiveContainerCalculations.width > 0
+						? responsiveContainerCalculations.width
+						: props.width
+				height =
+					responsiveContainerCalculations.height > 0
+						? responsiveContainerCalculations.height
+						: props.height
+			}
+			return { height, width }
+		},
+		({ height, width }) => {
+			if (isPanorama === false && isPositiveNumber(width) && isPositiveNumber(height)) {
+				ctx?.setStore("layout", "width", width)
+				ctx?.setStore("layout", "height", height)
+			}
+		},
+	)
 
 	return null
 }
 
 export const ReportChartMargin = (props: { margin: Partial<Margin> }): null => {
 	const ctx = useChartStore()
-	createRenderEffect(() => {
-		const m = props.margin
-		ctx?.setStore("layout", "margin", {
-			bottom: m.bottom ?? 0,
-			left: m.left ?? 0,
-			right: m.right ?? 0,
-			top: m.top ?? 0,
-		})
-	})
+	createEffect(
+		() => ({
+			bottom: props.margin.bottom ?? 0,
+			left: props.margin.left ?? 0,
+			right: props.margin.right ?? 0,
+			top: props.margin.top ?? 0,
+		}),
+		(margin) => {
+			ctx?.setStore("layout", "margin", margin)
+		},
+	)
 	return null
 }

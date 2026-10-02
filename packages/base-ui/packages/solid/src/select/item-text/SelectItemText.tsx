@@ -1,9 +1,10 @@
-import { createEffect, on } from 'solid-js';
+import { createEffect } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useSelectItemContext } from '../item/SelectItemContext';
 import { useSelectRootContext } from '../root/SelectRootContext';
+import { on } from '../../solid-1-compat';
 
 /**
  * A text label of the select item.
@@ -18,8 +19,7 @@ export function SelectItemText(componentProps: SelectItemText.Props) {
   const { indexRef, textRef, selectedByFocus, hasRegistered } = useSelectItemContext();
   const { selectedItemTextRef } = useSelectRootContext();
 
-  createEffect(
-    on([selectedByFocus, hasRegistered], () => {
+  createEffect(...on([selectedByFocus, hasRegistered], () => {
       const hasNoSelectedItemText =
         selectedItemTextRef.current === null || !selectedItemTextRef.current?.isConnected;
       if (selectedByFocus() || (hasNoSelectedItemText && indexRef.current === 0)) {

@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect, vi } from "vitest"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { Line, LineChart, YAxis } from "../../../src"

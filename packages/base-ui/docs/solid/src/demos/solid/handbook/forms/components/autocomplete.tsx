@@ -1,4 +1,4 @@
-const React = { forwardRef: (render) => (props) => render(props, props.ref), useActionState: (_action, initial) => [initial, () => {}, false] };
+import { omit } from 'solid-js';
 
 import clsx from 'clsx';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -7,68 +7,69 @@ export function Root(props: Autocomplete.Root.Props<any>) {
   return <Autocomplete.Root {...props} />;
 }
 
-export const Input = React.forwardRef<HTMLInputElement, Autocomplete.Input.Props>(function Input(
-  { className, ...props }: Autocomplete.Input.Props,
-  forwardedRef: React.ForwardedRef<HTMLInputElement>,
-) {
+export function Input(props: Autocomplete.Input.Props) {
+  const others = omit(props, 'class');
   return (
     <Autocomplete.Input
-      ref={forwardedRef}
       class={clsx(
         'h-8 w-[16rem] border border-neutral-950 bg-white px-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 placeholder:text-neutral-500 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white md:w-[20rem] dark:border-white dark:bg-neutral-950 dark:text-white dark:placeholder:text-neutral-400',
-        className,
+        props.class,
       )}
-      {...props}
+      {...others}
     />
   );
-});
+}
 
 export function Portal(props: Autocomplete.Portal.Props) {
   return <Autocomplete.Portal {...props} />;
 }
 
-export function Positioner({ className, ...props }: Autocomplete.Positioner.Props) {
+export function Positioner(props: Autocomplete.Positioner.Props) {
+  const others = omit(props, 'class');
   return (
     <Autocomplete.Positioner
-      class={clsx('outline-none data-empty:hidden', className)}
+      class={clsx('outline-none data-empty:hidden', props.class)}
       sideOffset={4}
-      {...props}
+      {...others}
     />
   );
 }
 
-export function Popup({ className, ...props }: Autocomplete.Popup.Props) {
+export function Popup(props: Autocomplete.Popup.Props) {
+  const others = omit(props, 'class');
   return (
     <Autocomplete.Popup
       class={clsx(
         'w-(--anchor-width) max-w-(--available-width) border border-neutral-950 bg-white text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none',
-        className,
+        props.class,
       )}
-      {...props}
+      {...others}
     />
   );
 }
 
-export function List({ className, ...props }: Autocomplete.List.Props) {
+export function List(props: Autocomplete.List.Props) {
+  const others = omit(props, 'class');
   return (
     <Autocomplete.List
       class={clsx(
         'max-h-[min(22.5rem,var(--available-height))] overflow-y-auto overscroll-contain py-1 scroll-py-1 outline-0 data-empty:p-0',
-        className,
+        props.class,
       )}
-      {...props}
+      {...others}
     />
   );
 }
 
-export function Item({ className, ...props }: Autocomplete.Item.Props) {
+export function Item(props: Autocomplete.Item.Props) {
+  const others = omit(props, 'class');
   return (
     <Autocomplete.Item
       class={clsx(
         'flex cursor-default flex-col gap-0.25 py-2 pr-8 pl-2 text-sm leading-4 outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white',
-        className,
+        props.class,
       )}
-      {...props}
+      {...others}
     />
   );
 }

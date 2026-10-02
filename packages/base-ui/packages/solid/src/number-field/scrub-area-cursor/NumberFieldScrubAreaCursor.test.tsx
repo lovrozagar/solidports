@@ -27,9 +27,9 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
       render(() => (
         <NumberField.Root>
           <NumberField.ScrubArea>
-            <NumberFieldScrubAreaContext.Provider value={defaultScrubAreaContext}>
+            <NumberFieldScrubAreaContext value={defaultScrubAreaContext}>
               {node(props!)}
-            </NumberFieldScrubAreaContext.Provider>
+            </NumberFieldScrubAreaContext>
           </NumberField.ScrubArea>
         </NumberField.Root>
       )),

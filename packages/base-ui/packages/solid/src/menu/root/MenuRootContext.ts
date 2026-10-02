@@ -9,13 +9,13 @@ export interface MenuRootContext<Payload = unknown> {
   parent: MenuParent;
 }
 
-export const MenuRootContext = createContext<MenuRootContext>();
+export const MenuRootContext = createContext<MenuRootContext | null>(null);
 
 export function useMenuRootContext(optional?: false): MenuRootContext;
-export function useMenuRootContext(optional: true): MenuRootContext | undefined;
+export function useMenuRootContext(optional: true): MenuRootContext | null;
 export function useMenuRootContext(optional?: boolean) {
   const context = useContext(MenuRootContext);
-  if (context === undefined && !optional) {
+  if (context == null && !optional) {
     throw new Error(
       'Base UI: MenuRootContext is missing. Menu parts must be placed within <Menu.Root>.',
     );

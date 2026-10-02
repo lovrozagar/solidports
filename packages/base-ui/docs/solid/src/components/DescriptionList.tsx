@@ -1,4 +1,6 @@
-import { splitProps, type JSX, type ParentProps } from "solid-js"
+import type { ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { splitProps } from '../utils/solid-1-compat';
 import clsx from "clsx"
 
 export function Root(props: JSX.HTMLAttributes<HTMLDListElement>) {

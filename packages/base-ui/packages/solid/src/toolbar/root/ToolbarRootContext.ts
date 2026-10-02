@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import type { Orientation } from '../../utils/types';
 import type { ToolbarRoot } from './ToolbarRoot';
@@ -11,13 +12,13 @@ export interface ToolbarRootContext {
   >;
 }
 
-export const ToolbarRootContext = createContext<ToolbarRootContext | undefined>(undefined);
+export const ToolbarRootContext = createContext<ToolbarRootContext | null>(null);
 
 export function useToolbarRootContext(optional?: false): ToolbarRootContext;
-export function useToolbarRootContext(optional: true): ToolbarRootContext | undefined;
+export function useToolbarRootContext(optional: true): ToolbarRootContext | null;
 export function useToolbarRootContext(optional?: boolean) {
   const context = useContext(ToolbarRootContext);
-  if (context === undefined && !optional) {
+  if (context == null && !optional) {
     throw new Error(
       'Base UI: ToolbarRootContext is missing. Toolbar parts must be placed within <Toolbar.Root>.',
     );

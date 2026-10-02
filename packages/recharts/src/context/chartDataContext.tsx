@@ -1,47 +1,58 @@
-import { createEffect, onCleanup } from "solid-js"
+import { createEffect } from 'solid-js';
 import type { ChartData } from "../state/chartDataSlice"
 import { useChartStore } from "../state/RechartsStoreContext"
 import type { ChartState } from "../state/store"
 import type { BrushStartEndIndex } from "./brushUpdateContext"
 import { useIsPanorama } from "./PanoramaContext"
+import { teardownWrite } from "../state/teardownWrite"
+import { markRawData } from "../state/rawData"
 
 export const ChartDataContextProvider = (props: { chartData: ChartData | undefined }): null => {
 	const ctx = useChartStore()
 	const isPanorama = useIsPanorama()
-	createEffect(() => {
-		if (isPanorama) {
-			/* Panorama mode reuses data from the main chart, so we must not overwrite it here. */
-			return
-		}
-		const data = props.chartData
-		ctx?.setStore("chartData", "chartData", data)
-		if (data == null) {
-			ctx?.setStore("chartData", "dataStartIndex", 0)
-			ctx?.setStore("chartData", "dataEndIndex", 0)
-		} else if (data.length > 0) {
-			ctx?.setStore("chartData", "dataEndIndex", (prev: number) =>
-				prev !== data.length - 1 ? data.length - 1 : prev,
-			)
-		}
-		onCleanup(() => {
-			ctx?.setStore("chartData", "chartData", undefined)
-			ctx?.setStore("chartData", "dataStartIndex", 0)
-			ctx?.setStore("chartData", "dataEndIndex", 0)
-		})
-	})
+	createEffect(
+		() => props.chartData,
+		(data) => {
+			if (isPanorama || ctx == null) {
+				/* Panorama mode reuses data from the main chart, so we must not overwrite it here. */
+				return undefined
+			}
+			ctx.setStore((draft: ChartState) => {
+				draft.chartData.chartData = markRawData(data)
+				if (data == null) {
+					draft.chartData.dataStartIndex = 0
+					draft.chartData.dataEndIndex = 0
+				} else if (data.length > 0) {
+					draft.chartData.dataEndIndex = data.length - 1
+				}
+			})
+			return () => {
+				teardownWrite(() => {
+					ctx.setStore("chartData", "chartData", undefined)
+					ctx.setStore("chartData", "dataStartIndex", 0)
+					ctx.setStore("chartData", "dataEndIndex", 0)
+				})
+			}
+		},
+	)
 	return null
 }
 
 export const SetComputedData = (props: { computedData: unknown }): null => {
 	const ctx = useChartStore()
-	createEffect(() => {
-		ctx?.setStore("chartData", "computedData", props.computedData)
-		onCleanup(() => {
-			ctx?.setStore("chartData", "chartData", undefined)
-			ctx?.setStore("chartData", "dataStartIndex", 0)
-			ctx?.setStore("chartData", "dataEndIndex", 0)
-		})
-	})
+	createEffect(
+		() => props.computedData,
+		(computedData) => {
+			ctx?.setStore("chartData", "computedData", markRawData(computedData))
+			return () => {
+				teardownWrite(() => {
+					ctx?.setStore("chartData", "chartData", undefined)
+					ctx?.setStore("chartData", "dataStartIndex", 0)
+					ctx?.setStore("chartData", "dataEndIndex", 0)
+				})
+			}
+		},
+	)
 	return null
 }
 

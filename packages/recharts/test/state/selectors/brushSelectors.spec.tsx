@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { observe } from "../../helper/observe"
+
+import { render } from "../../helper/render"
 import { useAppSelector } from "../../helper/legacyDispatch"
 import { BarChart, Brush, Customized } from "../../../src"
 import { selectBrushHeight } from "../../../src/state/selectors/selectChartOffsetInternal"
@@ -16,7 +17,7 @@ describe("selectBrushHeight", () => {
 	it("should return brush height if set", () => {
 		const heightSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const height = useAppSelector(selectBrushHeight)
 				heightSpy(height)
 			})

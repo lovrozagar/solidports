@@ -1,6 +1,4 @@
 /* eslint-disable import/no-cycle */
-import { batch } from "solid-js"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "./chartState"
 import type { RelativePointer, HTMLMousePointer } from "../util/types"
 import { selectActivePropsFromChartPointer } from "./selectors/selectActivePropsFromChartPointer"
@@ -8,6 +6,8 @@ import { selectTooltipEventType } from "./selectors/selectTooltipEventType"
 import { getRelativeCoordinate } from "../util/getRelativeCoordinate"
 import { readChartState } from "./chartState"
 
+import { type SetStoreFunction } from '../util/solid-1-compat';
+import { setTooltipInteraction } from "./tooltipInteraction"
 export type MouseEventHandlers = {
 	handleMouseClick: (mousePointer: HTMLMousePointer) => void
 	handleMouseMove: (mousePointer: HTMLMousePointer) => void
@@ -39,7 +39,7 @@ export function createMouseEventHandlers(
 			getRelativeCoordinate(mousePointer),
 		)
 		if (activeProps?.activeIndex != null) {
-			setStore("tooltip", "axisInteraction", "click", {
+			setTooltipInteraction(setStore, "axisInteraction", "click", {
 				active: true,
 				coordinate: activeProps.activeCoordinate,
 				dataKey: undefined,
@@ -91,7 +91,7 @@ export function createMouseEventHandlers(
 			if (tooltipEventType === "axis") {
 				const activeProps = selectActivePropsFromChartPointer(store, latestChartPointer)
 				if (activeProps?.activeIndex != null) {
-					setStore("tooltip", "axisInteraction", "hover", {
+					setTooltipInteraction(setStore, "axisInteraction", "hover", {
 						active: true,
 						coordinate: activeProps.activeCoordinate,
 						dataKey: undefined,
@@ -149,7 +149,7 @@ export const mouseClickAction =
 				graphicalItemId: undefined,
 				index: activeProps.activeIndex,
 			}
-			setStore("tooltip", "axisInteraction", "click", payload)
+			setTooltipInteraction(setStore, "axisInteraction", "click", payload)
 		}
 	}
 
@@ -174,12 +174,12 @@ export const mouseMoveAction =
 					graphicalItemId: undefined,
 					index: activeProps.activeIndex,
 				}
-				setStore("tooltip", "axisInteraction", "hover", payload)
+				setTooltipInteraction(setStore, "axisInteraction", "hover", payload)
 			} else {
-				batch(() => {
+				{
 					setStore("tooltip", "axisInteraction", "hover", "active", false)
 					setStore("tooltip", "itemInteraction", "hover", "active", false)
-				})
+				}
 			}
 		}
 	}

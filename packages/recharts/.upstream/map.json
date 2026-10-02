@@ -24,7 +24,7 @@
     },
     "src/state/externalEventsMiddleware.ts": {
       "mode": "merge",
-      "notes": "Same as mouseEventsMiddleware — consolidated into `events.ts`. raf scheduler retained on standalone module pending test migration.",
+      "notes": "Same as mouseEventsMiddleware \u2014 consolidated into `events.ts`. raf scheduler retained on standalone module pending test migration.",
       "target": [
         "src/state/events.ts"
       ]
@@ -36,7 +36,7 @@
     },
     "src/state/keyboardEventsMiddleware.ts": {
       "mode": "merge",
-      "notes": "Same as mouseEventsMiddleware — consolidated into `events.ts`.",
+      "notes": "Same as mouseEventsMiddleware \u2014 consolidated into `events.ts`.",
       "target": [
         "src/state/events.ts"
       ]
@@ -50,7 +50,7 @@
     },
     "src/state/reduxDevtoolsJsonStringifyReplacer.ts": {
       "mode": "drop",
-      "notes": "Deleted Phase 4 batch 6 — Redux DevTools shim no longer applicable.",
+      "notes": "Deleted Phase 4 batch 6 \u2014 Redux DevTools shim no longer applicable.",
       "target": []
     },
     "src/state/store.ts": {
@@ -62,7 +62,7 @@
     },
     "src/state/touchEventsMiddleware.ts": {
       "mode": "merge",
-      "notes": "Same as mouseEventsMiddleware — consolidated into `events.ts`.",
+      "notes": "Same as mouseEventsMiddleware \u2014 consolidated into `events.ts`.",
       "target": [
         "src/state/events.ts"
       ]
@@ -76,7 +76,7 @@
     },
     "src/util/YAxisUtils.tsx": {
       "mode": "rename",
-      "notes": "Extension mismatch — same logical file",
+      "notes": "Extension mismatch \u2014 same logical file",
       "target": [
         "src/util/YAxisUtils.ts"
       ]
@@ -90,59 +90,111 @@
     },
     "src/util/getRadiusAndStrokeWidthFromDot.tsx": {
       "mode": "rename",
-      "notes": "Extension mismatch — same logical file",
+      "notes": "Extension mismatch \u2014 same logical file",
       "target": [
         "src/util/getRadiusAndStrokeWidthFromDot.ts"
       ]
     },
     "src/util/resolveDefaultProps.tsx": {
       "mode": "rename",
-      "notes": "Extension mismatch — same logical file",
+      "notes": "Extension mismatch \u2014 same logical file",
       "target": [
         "src/util/resolveDefaultProps.ts"
       ]
     },
     "src/util/useAnimationId.tsx": {
       "mode": "rename",
-      "notes": "Extension mismatch — same logical file",
+      "notes": "Extension mismatch \u2014 same logical file",
       "target": [
         "src/util/useAnimationId.ts"
       ]
     },
     "src/zIndex/DefaultZIndexes.tsx": {
       "mode": "rename",
-      "notes": "Extension mismatch — same logical file",
+      "notes": "Extension mismatch \u2014 same logical file",
       "target": [
         "src/zIndex/DefaultZIndexes.ts"
       ]
     },
     "src/zIndex/getZIndexFromUnknown.tsx": {
       "mode": "rename",
-      "notes": "Extension mismatch — same logical file",
+      "notes": "Extension mismatch \u2014 same logical file",
       "target": [
         "src/zIndex/getZIndexFromUnknown.ts"
+      ]
+    },
+    "src/state/renderedTicksSlice.ts": {
+      "mode": "merged",
+      "notes": "Single Solid store: rendered ticks live in ChartState (src/state/chartState.ts) with actions in src/state/actions.ts; selectRenderedTicksOfAxis reads them.",
+      "target": [
+        "src/state/chartState.ts",
+        "src/state/actions.ts"
       ]
     }
   },
   "solid_additions": {
     "src/util/CamelCaseSVGAttrs.ts": {
       "notes": "Solid-specific: maps camelCase SVG attribute names for JSX compatibility; no upstream equivalent"
+    },
+    "src/state/chartState.ts": {
+      "notes": "Single Solid createStore<ChartState> replacing the Redux store and slices"
+    },
+    "src/state/actions.ts": {
+      "notes": "Store mutations replacing Redux slice reducers"
+    },
+    "src/state/RechartsStateContext.tsx": {
+      "notes": "Solid context carrying the chart store"
+    },
+    "src/state/RechartsStateProvider.tsx": {
+      "notes": "Creates the chart store; panorama charts reuse the parent store"
+    },
+    "src/state/useChartState.ts": {
+      "notes": "Accessor hooks for the chart store"
+    },
+    "src/state/events.ts": {
+      "notes": "Chart event handlers replacing the Redux event middlewares' dispatch layer"
+    },
+    "src/state/hooks/useChartSelectors.tsx": {
+      "notes": "Shared memoized selector hooks"
+    },
+    "src/state/storeIdentity.ts": {
+      "notes": "Store-entry identity through proxies (snapshot comparison)"
+    },
+    "src/state/teardownWrite.ts": {
+      "notes": "Owner-less store writes from cleanups (Solid 2 owned-write rule)"
+    },
+    "src/state/tooltipInteraction.ts": {
+      "notes": "Shared tooltip interaction write mirroring upstream reducers"
+    },
+    "src/state/types/AnimationSettings.ts": {
+      "notes": "Animation matchBy/interpolate types shared by items"
+    },
+    "src/context/CellsContext.tsx": {
+      "notes": "Cell registry replacing findAllByType(Cell) child introspection"
+    },
+    "src/context/GraphicalItemChildrenScope.tsx": {
+      "notes": "Owner scope for item children (ErrorBar context)"
+    },
+    "src/util/ShapeElementProps.tsx": {
+      "notes": "Injects shape props into a shape passed as an element (replaces cloneElement)"
+    },
+    "src/util/hoverDedupe.ts": {
+      "notes": "Dedupes mouseenter/mouseover pairs per item list (React synthetic enter/leave)"
+    },
+    "src/util/solid-1-compat.ts": {
+      "notes": "mergeProps/splitProps/path-setter helpers over Solid 2 primitives"
+    },
+    "src/util/solidJsxCamelAugment.d.ts": {
+      "notes": "JSX typing for camelCase SVG attributes"
+    },
+    "src/util/BarePortal.tsx": {
+      "notes": "Portal without wrapper element for SVG z-index layers"
+    },
+    "src/cartesian/isOutsidePosition.ts": {
+      "notes": "Helper split out of getCartesianPosition"
     }
   },
-  "unported_upstream": {
-    "src/state/renderedTicksSlice.ts": {
-      "notes": "Upstream-only slice; not yet ported — may be needed for tick rendering Phase 3+"
-    },
-    "src/util/createCartesianCharts.tsx": {
-      "notes": "Upstream utility; not yet ported"
-    },
-    "src/util/createPolarCharts.tsx": {
-      "notes": "Upstream utility; not yet ported"
-    },
-    "src/util/usePrefersReducedMotion.ts": {
-      "notes": "Upstream hook; not yet ported — needed for animation Phase 3+"
-    }
-  },
-  "upstream_sha_pinned": "5b10788d082424d026480d63d18ca5c8a5a5628f",
+  "unported_upstream": {},
+  "upstream_sha_pinned": "ffb918798051ef040bb7f9922d3850c9c189f39f",
   "version": 1
 }

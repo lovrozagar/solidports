@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import { createTrackedEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { clamp } from '../../utils/clamp';
 import { ownerDocument } from '../../utils/owner';
@@ -91,7 +91,10 @@ export function useDrawerSnapPoints() {
     }
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     measureViewportHeight();
 
     const viewport = viewportElement();
@@ -101,10 +104,16 @@ export function useDrawerSnapPoints() {
 
     const resizeObserver = new ResizeObserver(measureViewportHeight);
     resizeObserver.observe(viewport);
-    onCleanup(() => {
+    _c.push(() => {
       resizeObserver.disconnect();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const resolvedSnapPoints = createMemo<ResolvedDrawerSnapPoint[]>(() => {
     const viewportH = viewportHeight();

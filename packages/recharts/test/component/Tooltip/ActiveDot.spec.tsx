@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../../helper/render"
 import {
 	Area,
 	AreaChart,
@@ -37,7 +37,7 @@ describe("ActiveDot", () => {
 
 	describe("as a child of AreaChart", () => {
 		/* Cluster C: attribute insertion order React preserves vs Solid alphabetizes */
-		it.skip("should render default activeDot and give it props", () => {
+		it("should render default activeDot and give it props", () => {
 			const { container, debug } = render(() => (
 				<AreaChart {...commonChartProps}>
 					<Area dataKey="uv" />
@@ -79,7 +79,7 @@ describe("ActiveDot", () => {
 		/* Cluster C: vNode + attr order. Re-verified: custom <g> activeDot vNode
 		 * never mounts after tooltip trigger (assertNotNull throws on the dot
 		 * lookup); cloneElement-with-injected-props pattern absent in Solid port. */
-		it.skip("should clone custom Dot element and inject extra sneaky props", () => {
+		it("should clone custom Dot element and inject extra sneaky props", () => {
 			const { container, debug } = render(() => (
 				<AreaChart {...commonChartProps}>
 					<Area dataKey="uv" activeDot={<g data-testid="my-custom-dot" />} />
@@ -169,7 +169,7 @@ describe("ActiveDot", () => {
 
 	describe("as a child of LineChart", () => {
 		/* Cluster C: attribute insertion order React preserves vs Solid alphabetizes */
-		it.skip("should render default activeDot and give it props", () => {
+		it("should render default activeDot and give it props", () => {
 			const { container, debug } = render(() => (
 				<LineChart {...commonChartProps}>
 					<Line dataKey="uv" />
@@ -210,7 +210,7 @@ describe("ActiveDot", () => {
 
 		/* Cluster C: vNode + attr order. Re-verified: same null custom-dot lookup
 		 * after tooltip trigger as the AreaChart variant. */
-		it.skip("should clone custom Dot element and inject extra sneaky props", () => {
+		it("should clone custom Dot element and inject extra sneaky props", () => {
 			const { container, debug } = render(() => (
 				<LineChart {...commonChartProps}>
 					<Line dataKey="uv" activeDot={<g data-testid="my-custom-dot" />} />
@@ -334,7 +334,7 @@ describe("ActiveDot", () => {
 
 	describe("as a child of ComposedChart with Line", () => {
 		/* Cluster C: attribute insertion order React preserves vs Solid alphabetizes */
-		it.skip("should render default activeDot and give it props", () => {
+		it("should render default activeDot and give it props", () => {
 			const { container, debug } = render(() => (
 				<ComposedChart {...commonChartProps}>
 					<Line dataKey="uv" />
@@ -374,7 +374,7 @@ describe("ActiveDot", () => {
 		})
 
 		/* Cluster C: vNode + attr order */
-		it.skip("should clone custom Dot element and inject extra sneaky props", () => {
+		it("should clone custom Dot element and inject extra sneaky props", () => {
 			const { container, debug } = render(() => (
 				<ComposedChart {...commonChartProps}>
 					<Line dataKey="uv" activeDot={<g data-testid="my-custom-dot" />} />
@@ -464,7 +464,7 @@ describe("ActiveDot", () => {
 
 	describe("as a child of RadarChart", () => {
 		/* Cluster C: attribute insertion order React preserves vs Solid alphabetizes */
-		it.skip("should render default activeDot and give it props", () => {
+		it("should render default activeDot and give it props", () => {
 			const { container, debug } = render(() => (
 				<RadarChart height={600} width={600} data={PageData}>
 					<Radar dataKey="uv" stroke="blue" fill="red" />
@@ -505,7 +505,7 @@ describe("ActiveDot", () => {
 		})
 
 		/* Cluster C: vNode + attr order */
-		it.skip("should clone custom Dot element and inject extra sneaky props", () => {
+		it("should clone custom Dot element and inject extra sneaky props", () => {
 			const { container, debug } = render(() => (
 				<RadarChart height={600} width={600} data={PageData}>
 					<Radar

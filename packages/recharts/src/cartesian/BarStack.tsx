@@ -1,6 +1,6 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { createContext, createMemo, For, Show, useContext } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { createContext, createMemo, For, Show, useContext, type Accessor } from 'solid-js';
 import { getNormalizedStackId, NormalizedStackId, StackId } from "../util/ChartUtils"
 import { useUniqueId } from "../util/useUniqueId"
 import { useChartStore } from "../state/RechartsStoreContext"
@@ -45,7 +45,7 @@ export type BarStackSettings = {
 	radius: RectRadius
 }
 
-const BarStackContext = createContext<BarStackSettings | undefined>(undefined)
+const BarStackContext = createContext<Accessor<BarStackSettings> | null>(null)
 
 /**
  * Hook to resolve the stack ID for a Bar component.
@@ -57,7 +57,7 @@ const BarStackContext = createContext<BarStackSettings | undefined>(undefined)
 export const useStackId = (childStackId: StackId | undefined): NormalizedStackId | undefined => {
 	const stackSettings = useContext(BarStackContext)
 	if (stackSettings != null) {
-		return stackSettings.stackId
+		return stackSettings().stackId
 	}
 	if (childStackId == null) {
 		return undefined
@@ -78,12 +78,11 @@ export const useBarStackClipPathUrl = (index: number): string | undefined => {
 	if (barStackContext == null) {
 		return undefined
 	}
-	const { stackId } = barStackContext
-	return `url(#${getClipPathId(stackId, index)})`
+	return `url(#${getClipPathId(barStackContext().stackId, index)})`
 }
 
 export function BarStackClipLayer(props: LayerProps & { index: number }) {
-	const clipPathUrl = () => useBarStackClipPathUrl(props.index)
+	const clipPathUrl = createMemo(() => useBarStackClipPathUrl(props.index))
 	return <Layer class="recharts-bar-stack-layer" clip-path={clipPathUrl()} {...props} />
 }
 
@@ -101,26 +100,23 @@ function BarStackClipPath(props: { stackId: NormalizedStackId; radius: RectRadiu
 		<Show when={positions() && positions()?.length}>
 			<defs>
 				<For each={positions()}>
-					{(pos, index) => {
-						if (pos == null) {
-							return null
-						}
-						/* eslint-disable-next-line solid/reactivity -- index() is the <For> index accessor; callback IS a tracked scope */
-					const clipPathId = getClipPathId(props.stackId, index())
-						return (
-							<clipPath id={clipPathId}>
-								<Rectangle
-									isAnimationActive={false}
-									isUpdateAnimationActive={false}
-									x={pos.x}
-									y={pos.y}
-									width={pos.width}
-									height={pos.height}
-									radius={props.radius}
-								/>
-							</clipPath>
-						)
-					}}
+					{(pos, index) => (
+						<Show when={pos}>
+							{(rect) => (
+								<clipPath id={getClipPathId(props.stackId, index())}>
+									<Rectangle
+										isAnimationActive={false}
+										isUpdateAnimationActive={false}
+										x={rect().x}
+										y={rect().y}
+										width={rect().width}
+										height={rect().height}
+										radius={props.radius}
+									/>
+								</clipPath>
+							)}
+						</Show>
+					)}
 				</For>
 			</defs>
 		</Show>
@@ -148,10 +144,9 @@ export function BarStack(props: BarStackProps) {
 	)
 
 	return (
-		/* eslint-disable-next-line solid/reactivity -- context() reads stable memos (stackId + radius); Provider value is set once intentionally */
-		<BarStackContext.Provider value={context()}>
+		<BarStackContext value={context}>
 			<BarStackClipPath stackId={resolvedStackId} radius={resolvedRadius()} />
 			{props.children}
-		</BarStackContext.Provider>
+		</BarStackContext>
 	)
 }

@@ -1,15 +1,7 @@
 /* eslint-disable import/no-cycle */
 import { clsx } from "clsx"
-import {
-	createContext,
-	createEffect,
-	createMemo,
-	createSignal,
-	onCleanup,
-	Show,
-	useContext,
-	type JSX,
-} from "solid-js"
+import { createContext, createMemo, createSignal, Show, useContext, createEffect, omit } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import throttle from "es-toolkit/compat/throttle"
 import { isNumber, noop } from "../util/DataUtils"
 import { warn } from "../util/LogUtils"
@@ -22,7 +14,8 @@ import {
 import type { Percent, Size } from "../util/types"
 import { isPositiveNumber } from "../util/isWellBehavedNumber"
 
-export interface Props {
+export interface Props
+	extends Omit<JSX.HTMLAttributes<HTMLDivElement>, "id" | "class" | "style" | "onResize" | "ref" | "children"> {
 	/**
 	 * width / height. If specified, the height will be calculated by width / aspect.
 	 */
@@ -115,9 +108,9 @@ function ResponsiveContainerContextProvider(props: {
 	}
 	return (
 		<Show when={isAcceptableSize(size())} fallback={null}>
-			<ResponsiveContainerContext.Provider value={reactiveSize}>
+			<ResponsiveContainerContext value={reactiveSize}>
 				{props.children}
-			</ResponsiveContainerContext.Provider>
+			</ResponsiveContainerContext>
 		</Show>
 	)
 }
@@ -126,6 +119,24 @@ export const useResponsiveContainerContext = () => useContext(ResponsiveContaine
 
 function SizeDetectorContainer(props: Props) {
 	let containerRef: HTMLDivElement | undefined
+	/* remaining HTML attributes go to the root div, like upstream's `...others` */
+	const others = omit(
+		props,
+		"aspect",
+		"initialDimension",
+		"width",
+		"height",
+		"minWidth",
+		"minHeight",
+		"maxHeight",
+		"children",
+		"debounce",
+		"id",
+		"className",
+		"onResize",
+		"style",
+		"ref",
+	)
 
 	const aspect = () => props.aspect
 	const initialDimension = () =>
@@ -156,7 +167,7 @@ function SizeDetectorContainer(props: Props) {
 		})
 	}
 
-	createEffect(() => {
+	createEffect(debounce, (debounceMs) => {
 		if (containerRef == null || typeof ResizeObserver === "undefined") {
 			return noop
 		}
@@ -169,9 +180,8 @@ function SizeDetectorContainer(props: Props) {
 			setContainerSize(containerWidth, containerHeight)
 			props.onResize?.(containerWidth, containerHeight)
 		}
-		if (debounce() > 0) {
-			/* eslint-disable-next-line solid/reactivity -- callback is a local let, not a reactive signal; reassignment inside createEffect is safe */
-			callback = throttle(callback, debounce(), {
+		if (debounceMs > 0) {
+			callback = throttle(callback, debounceMs, {
 				leading: false,
 				trailing: true,
 			})
@@ -183,9 +193,9 @@ function SizeDetectorContainer(props: Props) {
 
 		observer.observe(containerRef)
 
-		onCleanup(() => {
+		return () => {
 			observer.disconnect()
-		})
+		}
 	})
 
 	const containerWidth = () => sizes().containerWidth
@@ -209,24 +219,34 @@ function SizeDetectorContainer(props: Props) {
 	/* Skip warn until initial -1 placeholder has been replaced by a real measurement.
 	   React useState defers component-body-warn until after first useEffect runs;
 	   Solid runs the body sync so we'd otherwise emit on every chart's first paint. */
-	createEffect(() => {
-		if (containerWidth() === -1 && containerHeight() === -1) return
-		warn(
-			(calculatedWidth() != null && (calculatedWidth() ?? 0) > 0) ||
-				(calculatedHeight() != null && (calculatedHeight() ?? 0) > 0),
-			`The width(%s) and height(%s) of chart should be greater than 0,
+	createEffect(
+		() =>
+			containerWidth() === -1 && containerHeight() === -1
+				? null
+				: [
+						(calculatedWidth() != null && (calculatedWidth() ?? 0) > 0) ||
+							(calculatedHeight() != null && (calculatedHeight() ?? 0) > 0),
+						calculatedWidth(),
+						calculatedHeight(),
+						width(),
+						height(),
+						minWidth(),
+						minHeight(),
+						aspect(),
+					] as const,
+		(args) => {
+			if (args == null) return
+			const [ok, ...values] = args
+			warn(
+				ok,
+				`The width(%s) and height(%s) of chart should be greater than 0,
        please check the style of container, or the props width(%s) and height(%s),
        or add a minWidth(%s) or minHeight(%s) or use aspect(%s) to control the
        height and width.`,
-			calculatedWidth(),
-			calculatedHeight(),
-			width(),
-			height(),
-			minWidth(),
-			minHeight(),
-			aspect(),
-		)
-	})
+				...values,
+			)
+		},
+	)
 
 	return (
 		<div
@@ -250,6 +270,7 @@ function SizeDetectorContainer(props: Props) {
 					props.ref(el)
 				}
 			}}
+			{...others}
 		>
 			<div style={getInnerDivStyle({ height: height(), width: width() })}>
 				<ResponsiveContainerContextProvider width={calculatedWidth()} height={calculatedHeight()}>

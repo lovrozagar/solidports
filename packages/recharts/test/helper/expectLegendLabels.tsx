@@ -12,6 +12,7 @@ export function expectLegendLabels(
 		fill: string | null | undefined
 		stroke?: string
 		textContent: string
+		textColor?: string
 	}>,
 ) {
 	assertNotNull(container)
@@ -22,6 +23,7 @@ export function expectLegendLabels(
 	}
 
 	const expectsStroke = expectedLabels.some((label) => label.stroke != null)
+	const expectsColor = expectedLabels.some((label) => label.textColor !== undefined)
 
 	const actualLabels = assertHasLegend(container).map((legend) => ({
 		fill: legend.querySelector(".recharts-legend-icon")?.getAttribute("fill"),
@@ -29,6 +31,9 @@ export function expectLegendLabels(
 			? legend.querySelector(".recharts-legend-icon")?.getAttribute("stroke")
 			: undefined,
 		textContent: legend.textContent,
+		textColor: expectsColor
+			? (legend.querySelector(".recharts-legend-item-text") as HTMLElement | null)?.style.color
+			: undefined,
 	}))
 
 	expect(actualLabels).toEqual(expectedLabels)

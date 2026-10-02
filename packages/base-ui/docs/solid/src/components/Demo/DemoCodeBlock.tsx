@@ -1,8 +1,9 @@
-import { createMemo, createResource, Show, type JSX, type ParentProps } from "solid-js"
+import { Show } from 'solid-js';
+import type { ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { Collapsible } from "@solidports/base-ui/collapsible"
 import { ScrollArea as BaseScrollArea } from "@solidports/base-ui/scroll-area"
 import * as ScrollArea from "../ScrollArea"
-import { highlightCode } from "../../syntax-highlighting/highlight.server"
 import type { DemoFile } from "./useDemo"
 import "./CodeHighlighting.css"
 
@@ -20,23 +21,15 @@ interface DemoCodeBlockProps {
    `<pre>`/`<code>` template participates in the parent component's hydration walk —
    creating it inside a memo broke hydration markers. */
 function HighlightedCode(props: { file: DemoFile | undefined }) {
-  const [html] = createResource(
-    () => {
-      const file = props.file
-      if (!file?.text) return undefined
-      return { text: file.text, lang: file.lang ?? "tsx" }
-    },
-    (file) => highlightCode(file.text, file.lang),
-  )
   const lang = () => props.file?.lang ?? "text"
   return (
     <pre class="shiki" data-language={lang()} style={{ "white-space": "pre", margin: "0" }}>
       <code>
         <Show
-          when={html()}
+          when={props.file?.html}
           fallback={<span class="frame" data-frame-type="focus">{props.file?.text}</span>}
         >
-          {(value) => <span class="frame" data-frame-type="focus" innerHTML={value()} />}
+          {(html) => <span class="frame" data-frame-type="focus" innerHTML={html()} />}
         </Show>
       </code>
     </pre>
@@ -51,7 +44,7 @@ function Root(props: ParentProps<{ closed?: boolean }>) {
       ref={(el: HTMLDivElement) => (rootEl = el)}
       class="DemoCodeBlockRoot"
       data-closed={props.closed ? "" : undefined}
-      tabIndex={-1}
+      tabindex={-1}
       onKeyDown={(event: KeyboardEvent) => {
         if (
           (event.ctrlKey || event.metaKey) &&

@@ -3,9 +3,11 @@ import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { createSignal, splitProps, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { REASONS } from '../../utils/reasons';
 import { OPEN_DELAY } from '../utils/constants';
+import { splitProps } from '../../solid-1-compat';
 
 describe('<Tooltip.Root />', () => {
   beforeEach(async () => {

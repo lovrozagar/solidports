@@ -1,5 +1,6 @@
-import { mergeProps, type JSX } from "solid-js"
-
+import type { JSX } from '@solidjs/web';
+import { untrack } from 'solid-js';
+import { mergeProps } from './solid-1-compat';
 /**
  * Solid-aware analogue of upstream React's defaultProps + spread pattern.
  *
@@ -34,21 +35,38 @@ export function resolveDefaultProps<T, D extends Partial<T>>(
 	realProps: T,
 	defaultProps: D & DisallowExtraKeys<T, D>,
 ): RequiresDefaultProps<T, D> {
-	const realKeys: ReadonlyArray<string> = isNonNullObject(realProps)
-		? Object.keys(realProps as object)
-		: []
+	/* Key enumeration is structural (which props were passed). Solid 2 treats
+	   Object.keys / `in` on a props or store proxy as a reactive read, and this
+	   helper runs in the component body. Snapshot once; value getters stay live. */
+	const realKeys: ReadonlyArray<string> = untrack(() =>
+		isNonNullObject(realProps) ? Object.keys(realProps as object) : [],
+	)
 	const defaultKeys = Object.keys(defaultProps as object).filter((k) => !realKeys.includes(k))
 	const orderedKeys = [...realKeys, ...defaultKeys]
 
-	/* `children` is captured eagerly so a child like `<Label/>` (which lives behind
-	   a Solid getter that mints a fresh component on each read) stays stable across
-	   downstream `{...props}` spreads. All other keys remain getter-backed so live
-	   chart layout (axis offsets, viewBox) flows through to the JSX consumer. */
-	const realPropsHasChildren =
-		realProps != null && typeof realProps === "object" && "children" in (realProps as object)
-	const childrenSnapshot: JSX.Element | undefined = realPropsHasChildren
-		? (realProps as unknown as { children: JSX.Element }).children
-		: undefined
+	/* Element children (`<Label/>` lives behind a Solid getter that mints a fresh component
+	   on each read) are read once, lazily, so they stay stable across downstream
+	   `{...props}` spreads and are instantiated where the children are placed, under that
+	   position's context providers. Primitive children (text from an expression such as
+	   `{format(props.index)}`) carry no component and stay live: every read re-runs the
+	   getter so the text tracks its inputs. */
+	const realPropsHasChildren = untrack(
+		() =>
+			realProps != null && typeof realProps === "object" && "children" in (realProps as object),
+	)
+	let childrenMode: "unknown" | "primitive" | "element" = "unknown"
+	let childrenSnapshot: JSX.Element | undefined
+	const readChildren = (): JSX.Element | undefined => {
+		if (childrenMode === "element") {
+			return childrenSnapshot
+		}
+		const value = (realProps as unknown as { children: JSX.Element }).children
+		if (childrenMode === "unknown") {
+			childrenMode = isPrimitiveChild(value) ? "primitive" : "element"
+			childrenSnapshot = value
+		}
+		return value
+	}
 
 	const target: Record<string, unknown> = {}
 	const overrides: Record<string, unknown> = {}
@@ -62,7 +80,7 @@ export function resolveDefaultProps<T, D extends Partial<T>>(
 					return overrides[key]
 				}
 				if (key === "children" && realPropsHasChildren) {
-					return childrenSnapshot
+					return readChildren()
 				}
 				if (isNonNullObject(realProps)) {
 					const v = (realProps as Record<string, unknown>)[key]
@@ -82,6 +100,10 @@ export function resolveDefaultProps<T, D extends Partial<T>>(
 		})
 	}
 	return target as RequiresDefaultProps<T, D>
+}
+
+function isPrimitiveChild(value: unknown): boolean {
+	return value == null || typeof value === "string" || typeof value === "number" || typeof value === "boolean"
 }
 
 function isNonNullObject(value: unknown): value is Record<string, unknown> {

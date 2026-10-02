@@ -1,4 +1,6 @@
-import { createEffect, createSignal, on, type Accessor } from 'solid-js';
+import { createEffect, createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import { on } from '../solid-1-compat';
 
 /**
  * Returns a previous value of its argument.
@@ -11,8 +13,7 @@ export function usePreviousValue<T>(value: Accessor<T>): Accessor<T | null> {
     previous: null,
   });
 
-  createEffect(
-    on(value, (currentValue) => {
+  createEffect(...on(value, (currentValue) => {
       setState((prev) => {
         return { current: currentValue, previous: prev.current };
       });

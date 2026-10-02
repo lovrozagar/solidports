@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import type { Component, JSX } from "solid-js"
+import type { Component } from 'solid-js';
 import type { ActiveDotType, DotType } from "./types"
 
 export const SCALE_TYPES = [
@@ -36,18 +36,6 @@ export const getDisplayName = (Comp: Component | string) => {
 	return Comp.name || "Component"
 }
 
-/**
- * In Solid there is no React.Children API. This is a no-op placeholder
- * that returns an empty array. Components should use explicit props patterns
- * instead of child introspection.
- */
-export function findAllByType(
-	_children: JSX.Element | undefined,
-	_type: Component,
-): ReadonlyArray<Record<string, unknown>> {
-	return []
-}
-
 export const isClipDot = (dot: ActiveDotType | DotType): boolean => {
 	if (dot && typeof dot === "object" && "clipDot" in dot) {
 		return Boolean(dot.clipDot)
@@ -67,7 +55,7 @@ export function isJsxNode(value: unknown): value is Node {
 }
 
 const SVG_CAMEL_TO_KEBAB: Record<string, string> = {
-	tabIndex: "tabindex",
+	tabindex: "tabindex",
 	readOnly: "readonly",
 	contentEditable: "contenteditable",
 	spellCheck: "spellcheck",
@@ -89,8 +77,8 @@ function attrNameFor(key: string): string {
 }
 
 /* Apply iteration props onto a fresh clone of a user-supplied JSX Node.
- * Skips function values, undefined, and the "key"/"children"/"className"/"class"
- * meta-props. Booleans serialize as "true"/"false" to match recharts upstream
+ * Skips function values, undefined, `style`, and the "key"/"children"/"className"/"class"
+ * meta-props; other objects are stringified like React does. Booleans serialize as "true"/"false" to match recharts upstream
  * `cloneElement` behaviour where downstream `getAttribute` reads the string. */
 export function cloneJsxNodeWithProps(node: Node, props: Record<string, unknown>): Node {
 	const cloned = node.cloneNode(true)
@@ -99,8 +87,8 @@ export function cloneJsxNodeWithProps(node: Node, props: Record<string, unknown>
 	for (const key in props) {
 		if (key === "key" || key === "children" || key === "className" || key === "class") continue
 		const value = props[key]
-		if (value == null || typeof value === "function") continue
-		if (typeof value === "object") continue
+		if (value == null || typeof value === "function" || key === "style") continue
+		/* React stringifies object values on DOM attributes (payload -> "[object Object]", arrays -> "0,300") */
 		cloned.setAttribute(attrNameFor(key), String(value))
 	}
 	return cloned

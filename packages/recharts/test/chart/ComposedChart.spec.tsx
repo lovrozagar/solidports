@@ -1,5 +1,7 @@
-/* @jsxImportSource solid-js */
-import { fireEvent, render } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { fireEvent, render } from "../helper/render"
+import { flush } from "solid-js"
+import { trackSpy } from "../helper/trackSpy"
 import { it, vi } from "vitest"
 import {
 	Area,
@@ -101,6 +103,7 @@ describe("<ComposedChart />", () => {
 		fireEvent.mouseEnter(chart, { clientX: 200, clientY: 100 })
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(container.querySelectorAll(".recharts-tooltip-cursor")).toHaveLength(1)
 		expect(container.querySelectorAll(".recharts-active-dot")).toHaveLength(2)
@@ -109,7 +112,7 @@ describe("<ComposedChart />", () => {
 		it("should provide viewBox", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useViewBox())
+				trackSpy(spy, () => useViewBox())
 				return null
 			}
 			render(() => (
@@ -124,7 +127,7 @@ describe("<ComposedChart />", () => {
 		it("should provide clipPathId", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useClipPathId())
+				trackSpy(spy, () => useClipPathId())
 				return null
 			}
 			render(() => (
@@ -139,7 +142,7 @@ describe("<ComposedChart />", () => {
 		it("should provide width", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartWidth())
+				trackSpy(spy, () => useChartWidth())
 				return null
 			}
 			render(() => (
@@ -154,7 +157,7 @@ describe("<ComposedChart />", () => {
 		it("should provide height", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartHeight())
+				trackSpy(spy, () => useChartHeight())
 				return null
 			}
 			render(() => (

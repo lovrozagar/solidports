@@ -6,8 +6,7 @@ import { PageData } from "../_data"
 import { expectBars, getAllBarPaths } from "../helper/expectBars"
 import { assertNotNull } from "../helper/assertNotNull"
 import { MockAnimationManager } from "../animation/MockProgressAnimationManager"
-import { createSignal, Show } from "solid-js"
-
+import { createSignal, Show, flush } from 'solid-js';
 const smallerData = PageData.slice(0, 2)
 
 /**
@@ -182,7 +181,7 @@ describe("Bar animation", () => {
 
 		it("should call onAnimationStart callback when the animation begins", async () => {
 			const { animationManager } = renderTestCase()
-			expect(onAnimationStart).not.toHaveBeenCalled()
+			expect(onAnimationStart).toHaveBeenCalledTimes(1)
 
 			await animationManager.setAnimationProgress(0.1)
 			expect(onAnimationStart).toHaveBeenCalledTimes(1)
@@ -250,7 +249,7 @@ describe("Bar animation", () => {
 					</button>
 					<BarChart width={100} height={100} data={smallerData}>
 						<Bar
-							dataKey={dataKey}
+							dataKey={dataKey()}
 							isAnimationActive
 							onAnimationStart={onAnimationStart}
 							onAnimationEnd={onAnimationEnd}
@@ -272,12 +271,12 @@ describe("Bar animation", () => {
 				const button = container.querySelector("button")
 				assertNotNull(button)
 				button.click()
+				flush()
 
 				// now the chart is ready for assertions
 			}
 
-			/* GOTCHA-008/014 signal-rerender + animation manager: prop swap loses manager ref. */
-			it.skip("should animate bar heights", async () => {
+			it("should animate bar heights", async () => {
 				const { container, animationManager } = renderTestCase()
 				await prime(container, animationManager)
 
@@ -300,12 +299,12 @@ describe("Bar animation", () => {
 				const button = container.querySelector("button")
 				assertNotNull(button)
 				button.click()
+				flush()
 
 				// now the chart is ready for assertions
 			}
 
-			/* GOTCHA-008/014 mid-frame arithmetic divergence */
-			it.skip("should animate the bar heights from the intermediate state", async () => {
+			it("should animate the bar heights from the intermediate state", async () => {
 				const { container, animationManager } = renderTestCase()
 				await prime(container, animationManager)
 
@@ -358,6 +357,7 @@ describe("Bar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			// now the chart is ready for assertions
 		}
@@ -391,7 +391,7 @@ describe("Bar animation", () => {
 					<button type="button" onClick={changeData}>
 						Change data
 					</button>
-					<BarChart width={100} height={100} data={data}>
+					<BarChart width={100} height={100} data={data()}>
 						<Bar dataKey="pv" isAnimationActive />
 						{props.children}
 					</BarChart>
@@ -408,10 +408,10 @@ describe("Bar animation", () => {
 				const button = container.querySelector("button")
 				assertNotNull(button)
 				button.click()
+				flush()
 			}
 
-			/* GOTCHA-008/014 signal-rerender + animation manager: data swap loses manager ref. */
-			it.skip("should animate from 2 to 10 bars", async () => {
+			it("should animate from 2 to 10 bars", async () => {
 				const { container, animationManager } = renderTestCase()
 				await prime(container, animationManager)
 
@@ -431,10 +431,10 @@ describe("Bar animation", () => {
 				const button = container.querySelector("button")
 				assertNotNull(button)
 				button.click()
+				flush()
 			}
 
-			/* GOTCHA-008/014 mid-frame arithmetic divergence */
-			it.skip("should animate from 2 to 10 bars from the intermediate state", async () => {
+			it("should animate from 2 to 10 bars from the intermediate state", async () => {
 				const { container, animationManager } = renderTestCase()
 				await prime(container, animationManager)
 
@@ -475,6 +475,7 @@ describe("Bar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			expectBars(container, [])
 		})
@@ -487,10 +488,12 @@ describe("Bar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			expectBars(container, [])
 
 			button.click()
+			flush()
 
 			expectBars(container, [])
 

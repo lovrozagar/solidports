@@ -1,6 +1,7 @@
-import { type JSX } from 'solid-js';
-import { createStore, produce } from 'solid-js/store';
+import type { JSX } from '@solidjs/web';
+
 import { DrawerProviderContext, type DrawerVisualState } from './DrawerProviderContext';
+import { createStore } from '../../solid-1-compat';
 
 /**
  * Provides a shared context for coordinating global Drawer UI,
@@ -26,9 +27,9 @@ export function DrawerProvider(props: DrawerProvider.Props) {
 
   const removeDrawer = (drawerId: string) => {
     setOpenById(
-      produce((prev) => {
+      (prev: { drawers: Record<string, boolean>; active: boolean }) => {
         delete prev.drawers[drawerId];
-      }),
+      },
     );
   };
 
@@ -41,9 +42,9 @@ export function DrawerProvider(props: DrawerProvider.Props) {
   };
 
   return (
-    <DrawerProviderContext.Provider value={contextValue}>
+    <DrawerProviderContext value={contextValue}>
       {props.children}
-    </DrawerProviderContext.Provider>
+    </DrawerProviderContext>
   );
 }
 
@@ -66,7 +67,7 @@ function createVisualStateStore() {
 
   function set(nextState: Partial<DrawerVisualState>) {
     setState(
-      produce((currentState) => {
+      (currentState: DrawerVisualState) => {
         if (nextState.swipeProgress !== undefined) {
           currentState.swipeProgress = Number.isFinite(nextState.swipeProgress)
             ? nextState.swipeProgress
@@ -78,7 +79,7 @@ function createVisualStateStore() {
             ? nextState.frontmostHeight
             : 0;
         }
-      }),
+      },
     );
   }
 

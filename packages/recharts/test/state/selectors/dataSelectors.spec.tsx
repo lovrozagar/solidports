@@ -1,4 +1,5 @@
-import { render } from "@solidjs/testing-library"
+import { render } from "../../helper/render"
+import { untrack } from "solid-js"
 import { describe, expect, it, vi } from "vitest"
 import { selectChartDataWithIndexes } from "../../../src/state/selectors/dataSelectors"
 import { Area, BarChart, Brush, ComposedChart, Customized, Line, Scatter } from "../../../src"
@@ -24,7 +25,7 @@ describe("selectChartDataWithIndexes", () => {
 	it("should return undefined in an empty chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			const tooltipData = useAppSelectorWithStableTest(selectChartDataWithIndexes)
+			const tooltipData = untrack(() => useAppSelectorWithStableTest(selectChartDataWithIndexes))
 			spy(tooltipData)
 			return null
 		}
@@ -46,7 +47,7 @@ describe("selectChartDataWithIndexes", () => {
 	it("should return none of the data defined on graphical items", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			const tooltipData = useAppSelectorWithStableTest(selectChartDataWithIndexes)
+			const tooltipData = untrack(() => useAppSelectorWithStableTest(selectChartDataWithIndexes))
 			spy(tooltipData)
 			return null
 		}
@@ -73,7 +74,7 @@ describe("selectChartDataWithIndexes", () => {
 	it("should return all data defined on the root chart element, and set default endIndex based on the data length", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			const tooltipData = useAppSelectorWithStableTest(selectChartDataWithIndexes)
+			const tooltipData = untrack(() => useAppSelectorWithStableTest(selectChartDataWithIndexes))
 			spy(tooltipData)
 			return null
 		}
@@ -95,7 +96,7 @@ describe("selectChartDataWithIndexes", () => {
 	it("should return indexes from Brush element", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			const tooltipData = useAppSelectorWithStableTest(selectChartDataWithIndexes)
+			const tooltipData = untrack(() => useAppSelectorWithStableTest(selectChartDataWithIndexes))
 			spy(tooltipData)
 			return null
 		}

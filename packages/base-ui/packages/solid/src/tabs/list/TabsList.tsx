@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { splitComponentProps } from '../../solid-helpers';
 import { EMPTY_ARRAY } from '../../utils/constants';
@@ -45,7 +45,10 @@ export function TabsList(componentProps: TabsList.Props) {
     });
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const listEl = tabsListElement();
 
     if (typeof ResizeObserver === 'undefined') {
@@ -69,11 +72,17 @@ export function TabsList(componentProps: TabsList.Props) {
       observer.observe(element);
     });
 
-    onCleanup(() => {
+    _c.push(() => {
       observer.disconnect();
       resizeObserver = null;
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function registerIndicatorUpdateListener(listener: () => void): () => void {
     indicatorUpdateListeners.add(listener);
@@ -124,7 +133,7 @@ export function TabsList(componentProps: TabsList.Props) {
   };
 
   return (
-    <TabsListContext.Provider value={tabsListContextValue}>
+    <TabsListContext value={tabsListContextValue}>
       <CompositeRoot
         render={renderProps.render}
         class={renderProps.class}
@@ -160,7 +169,7 @@ export function TabsList(componentProps: TabsList.Props) {
       >
         {local.children}
       </CompositeRoot>
-    </TabsListContext.Provider>
+    </TabsListContext>
   );
 }
 

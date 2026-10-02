@@ -5,8 +5,10 @@ import { flushMicrotasks } from '#test-utils';
 import { isJSDOM } from '#utils/detectBrowser';
 import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { batch, createMemo, createSignal, onMount, Show, type Component, type JSX } from 'solid-js';
-import { delegateEvents, Dynamic, render as solidRender } from 'solid-js/web';
+import { createMemo, createSignal, onSettled, Show } from 'solid-js';
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { delegateEvents, Dynamic, render as solidRender } from '@solidjs/web';
 import { test } from 'vitest';
 import { Main as Navigation } from '../../../test/floating-ui-tests/Navigation';
 import { autofocus, defaultProps } from '../../solid-helpers';
@@ -108,7 +110,7 @@ function App(
           </div>
         </FloatingFocusManager>
       </Show>
-      <div tabIndex={0} data-testid="last">
+      <div tabindex={0} data-testid="last">
         outside
       </div>
     </>
@@ -184,7 +186,7 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
     test('respects autoFocus with directive (only for Solid)', async () => {
       render(() => (
         <App>
-          <input autofocus use:autofocus data-testid="input" />
+          <input autofocus ref={autofocus} data-testid="input" />
         </App>
       ));
       fireEvent.click(screen.getByTestId('reference'));
@@ -639,7 +641,7 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
     }
 
     function IframeApp() {
-      onMount(() => {
+      onSettled(() => {
         function createIframe() {
           const container = document.querySelector('#innerRoot');
           const iframe = document.createElement('iframe');
@@ -835,7 +837,7 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
           <>
             <button data-testid="reference" ref={refs.setReference} />
             <FloatingFocusManager context={context} modal>
-              <div ref={refs.setFloating} data-testid="floating" tabIndex={-1} />
+              <div ref={refs.setFloating} data-testid="floating" tabindex={-1} />
             </FloatingFocusManager>
           </>
         );
@@ -1224,18 +1226,18 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
 
         return (
           <>
-            <span tabIndex={0} data-testid="first" />
+            <span tabindex={0} data-testid="first" />
             <button data-testid="reference" ref={refs.setReference} onClick={() => setOpen(true)} />
             <FloatingPortal>
               <Show when={open()}>
                 <FloatingFocusManager context={context} modal={false}>
                   <div data-testid="floating" ref={refs.setFloating}>
-                    <span tabIndex={0} data-testid="inside" />
+                    <span tabindex={0} data-testid="inside" />
                   </div>
                 </FloatingFocusManager>
               </Show>
             </FloatingPortal>
-            <span tabIndex={0} data-testid="last" />
+            <span tabindex={0} data-testid="last" />
           </>
         );
       }
@@ -1265,18 +1267,18 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
 
         return (
           <>
-            <span tabIndex={0} data-testid="first" />
+            <span tabindex={0} data-testid="first" />
             <button data-testid="reference" ref={refs.setReference} onClick={() => setOpen(true)} />
             <FloatingPortal>
               <Show when={open()}>
                 <FloatingFocusManager context={context} modal={false}>
                   <div data-testid="floating" ref={refs.setFloating}>
-                    <span tabIndex={0} data-testid="inside" />
+                    <span tabindex={0} data-testid="inside" />
                   </div>
                 </FloatingFocusManager>
               </Show>
             </FloatingPortal>
-            <span tabIndex={0} data-testid="last" />
+            <span tabindex={0} data-testid="last" />
           </>
         );
       }
@@ -1571,10 +1573,10 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
                 <button
                   data-testid="parent-floating-reference"
                   onClick={() => {
-                    batch(() => {
+                    {
                       setIsDrawerOpen(true);
                       setIsOpen(false);
-                    });
+                    };
                   }}
                 />
               </div>
@@ -1666,7 +1668,7 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
           <Show when={isOpen()}>
             <FloatingFocusManager context={context} initialFocus={false}>
               <div ref={refs.setFloating} {...getFloatingProps()} data-testid="floating">
-                <button tabIndex={-1}>one</button>
+                <button tabindex={-1}>one</button>
               </div>
             </FloatingFocusManager>
           </Show>
@@ -1709,7 +1711,7 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
           <Show when={isOpen()}>
             <FloatingFocusManager context={context} initialFocus={false} modal>
               <div ref={refs.setFloating} {...getFloatingProps()} data-testid="floating">
-                <button tabIndex={-1}>one</button>
+                <button tabindex={-1}>one</button>
               </div>
             </FloatingFocusManager>
           </Show>
@@ -1823,7 +1825,7 @@ describe.skipIf(!isJSDOM)('FloatingFocusManager', () => {
     expect(screen.getByText('outside')).toHaveAttribute('aria-hidden', 'true');
   });
 
-  test('floating element with no focusable elements and no listbox role gets tabIndex=0 when initialFocus is -1', async () => {
+  test('floating element with no focusable elements and no listbox role gets tabindex=0 when initialFocus is -1', async () => {
     function App() {
       const [isOpen, setIsOpen] = createSignal(false);
 

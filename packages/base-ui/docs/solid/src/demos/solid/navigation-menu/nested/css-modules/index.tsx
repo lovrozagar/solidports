@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
 import styles from './index.module.css';
@@ -17,7 +17,7 @@ export default function ExampleNavigationMenu() {
           <NavigationMenu.Content class={styles.Content}>
             <ul class={styles.GridLinkList}>
               {overviewLinks.map((item) => (
-                <li key={item.href}>
+                <li>
                   <Link class={styles.LinkCard} href={item.href}>
                     <h3 class={styles.LinkTitle}>{item.title}</h3>
                     <p class={styles.LinkDescription}>{item.description}</p>
@@ -38,7 +38,7 @@ export default function ExampleNavigationMenu() {
                       <NavigationMenu.Content class={styles.Content}>
                         <ul class={styles.FlexLinkList}>
                           {handbookLinks.map((item) => (
-                            <li key={item.href}>
+                            <li>
                               <Link class={styles.LinkCard} href={item.href}>
                                 <h3 class={styles.LinkTitle}>{item.title}</h3>
                                 <p class={styles.LinkDescription}>{item.description}</p>
@@ -93,7 +93,7 @@ function Link(props: NavigationMenu.Link.Props) {
         // Use the `render` prop to render your framework's Link component
         // for client-side routing.
         // e.g. `<NextLink href={props.href} />` instead of `<a />`.
-        <a />
+        (props) => <a {...props} />
       }
       {...props}
     />

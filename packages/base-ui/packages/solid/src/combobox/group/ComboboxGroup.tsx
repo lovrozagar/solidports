@@ -38,16 +38,16 @@ export function ComboboxGroup(componentProps: ComboboxGroup.Props) {
       keyed
       when={local.items}
       fallback={
-        <ComboboxGroupContext.Provider value={contextValue}>
+        <ComboboxGroupContext value={contextValue}>
           {element()}
-        </ComboboxGroupContext.Provider>
+        </ComboboxGroupContext>
       }
     >
       {(items) => (
         <GroupCollectionProvider items={items}>
-          <ComboboxGroupContext.Provider value={contextValue}>
+          <ComboboxGroupContext value={contextValue}>
             {element()}
-          </ComboboxGroupContext.Provider>
+          </ComboboxGroupContext>
         </GroupCollectionProvider>
       )}
     </Show>

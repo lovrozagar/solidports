@@ -34,11 +34,11 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     'disabled',
   ]);
   const idProp = () => local.id;
-  const nativeButton = () => local.nativeButton ?? false;
+  const nativeButton = () => Boolean(local.nativeButton);
   const openOnHover = () => local.openOnHover ?? true;
   const delay = () => local.delay ?? 100;
   const closeDelay = () => local.closeDelay ?? 0;
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
 
   const listItem = useCompositeListItem();
   const menuPositionerContext = useMenuPositionerContext();
@@ -199,7 +199,7 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
         rootTriggerProps(),
         itemProps(),
         {
-          get tabIndex() {
+          get tabindex() {
             return open() || highlighted() ? 0 : -1;
           },
           onBlur() {

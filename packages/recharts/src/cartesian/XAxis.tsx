@@ -2,11 +2,11 @@
 /**
  * @fileOverview X Axis
  */
-import type { JSX } from "solid-js"
-import { createEffect, createMemo, onCleanup, Show } from "solid-js"
-import { produce } from "solid-js/store"
+import type { TickItem } from "../util/types"
+import type { JSX } from '@solidjs/web';
+import { createMemo, createSignal, onCleanup, Show, useContext, createEffect, untrack } from "solid-js"
 import { clsx } from "clsx"
-import { CartesianAxis, defaultCartesianAxisProps } from "./CartesianAxis"
+import { CartesianAxis, CartesianAxisRef, defaultCartesianAxisProps } from "./CartesianAxis"
 import {
 	AxisInterval,
 	AxisTick,
@@ -20,7 +20,6 @@ import {
 	XAxisTickContentProps,
 } from "../util/types"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useContext } from "solid-js"
 import { RechartsStateContext } from "../state/RechartsStateContext"
 import type {
 	XAxisHeight,
@@ -41,6 +40,9 @@ import { RequiresDefaultProps, resolveDefaultProps } from "../util/resolveDefaul
 import { CustomScaleDefinition } from "../util/scale/CustomScaleDefinition"
 import { useCartesianChartLayout } from "../context/chartLayoutContext"
 import { getAxisTypeBasedOnLayout } from "../util/getAxisTypeBasedOnLayout"
+import { isLabelContentAFunction } from "../component/Label"
+import { isJsxNode } from "../util/ReactUtils"
+import { teardownWrite } from "../state/teardownWrite"
 
 interface XAxisProps<DataPointType = unknown, DataValueType = unknown> extends Omit<
 	RenderableAxisProps<DataPointType, DataValueType>,
@@ -172,11 +174,12 @@ interface XAxisProps<DataPointType = unknown, DataValueType = unknown> extends O
 	tickMargin?: number
 }
 
-export type Props = Omit<
-	PresentationAttributesAdaptChildEvent<unknown, SVGElement>,
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped axes accept any data */
+export type Props<DataPointType = any, DataValueType = any> = Omit<
+	PresentationAttributesAdaptChildEvent<TickItem, SVGTextElement>,
 	"scale" | "ref"
 > &
-	XAxisProps
+	XAxisProps<DataPointType, DataValueType>
 
 function SetXAxisSettings(
 	props: Omit<XAxisSettings, "type"> & { type: AxisDomainTypeInput },
@@ -202,29 +205,39 @@ function SetXAxisSettings(
 		}
 	})
 
-	createEffect(() => {
-		const s = settings()
+	createEffect(settings, (s) => {
 		if (s == null) {
 			return
+		}
+		/* upstream replaceXAxis: a changed id drops the previous entry */
+		if (prevSettings != null && String(prevSettings.id) !== String(s.id)) {
+			const prevId = String(prevSettings.id)
+			stateCtx?.setState("cartesianAxes", "xAxis", (axes) => {
+				delete axes[prevId]
+			})
 		}
 		stateCtx?.setState("cartesianAxes", "xAxis", String(s.id), { settings: s })
 		prevSettings = s
 	})
 
 	onCleanup(() => {
-		if (prevSettings) {
-			const strId = String(prevSettings.id)
-			/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
-			stateCtx?.setState("cartesianAxes", "xAxis", produce((axes) => { delete axes[strId] }))
-			prevSettings = null
-		}
+		teardownWrite(() => {
+			if (prevSettings) {
+				const strId = String(prevSettings.id)
+				/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
+				stateCtx?.setState("cartesianAxes", "xAxis", (axes) => { delete axes[strId] })
+				prevSettings = null
+			}
+		})
 	})
 
 	return null
 }
 
 function XAxisImpl(props: PropsWithDefaults) {
+	const [cartesianAxisRef, setCartesianAxisRef] = createSignal<CartesianAxisRef | null>(null)
 	const ctx = useChartStore()
+	const stateCtx = useContext(RechartsStateContext)
 	const viewBox = useAxisViewBox
 	const isPanorama = useIsPanorama()
 	const axisType = "xAxis"
@@ -247,6 +260,66 @@ function XAxisImpl(props: PropsWithDefaults) {
 		ctx ? selectXAxisSettingsNoDefaults(ctx.store, props.xAxisId) : undefined,
 	)
 
+	createEffect(
+		() => {
+			/* Subscribe before the early-return: settings and the axis ref often
+			   become ready in the same flush. Returning before reading the ref
+			   misses that update. */
+			const axisComponent = cartesianAxisRef()
+			cartesianTickItems()
+			const currentSize = axisSize()
+			const synced = synchronizedSettings()
+			/* No dynamic height calculation is done when height !== 'auto'
+			 * or when a function/JSX node is used for label */
+			if (
+				props.height !== "auto" ||
+				!currentSize ||
+				isLabelContentAFunction(props.label) ||
+				isJsxNode(props.label) ||
+				synced == null ||
+				axisComponent == null
+			) {
+				return null
+			}
+			return { axisComponent, currentSize }
+		},
+		(input) => {
+			if (input == null) {
+				return
+			}
+			const { axisComponent, currentSize } = input
+			untrack(() => {
+				const updatedXAxisHeight = axisComponent.getCalculatedHeight()
+				if (updatedXAxisHeight <= 0) {
+					return
+				}
+
+				/* if the height has changed, update the height (with oscillation guard from upstream updateXAxisHeight) */
+				if (currentSize && Math.round(currentSize.height) !== Math.round(updatedXAxisHeight)) {
+					const axisEntry = stateCtx?.state.cartesianAxes.xAxis[String(props.xAxisId)]
+					const axis = axisEntry?.settings
+					if (axis != null) {
+						const history = axis.heightHistory ?? []
+						const skip =
+							history.length === 3 &&
+							history[0] === history[2] &&
+							updatedXAxisHeight === history[1] &&
+							updatedXAxisHeight !== axis.height &&
+							Math.abs(updatedXAxisHeight - (history[0] ?? 0)) <= 1
+						if (!skip) {
+							const newHistory = [...history, updatedXAxisHeight].slice(-3)
+							stateCtx?.setState("cartesianAxes", "xAxis", String(props.xAxisId), "settings", {
+								...axis,
+								height: updatedXAxisHeight,
+								heightHistory: newHistory,
+							})
+						}
+					}
+				}
+			})
+		},
+	)
+
 	/* resolved() drops when any dep is nullish; Show rerenders subtree when
 	   the memo flips from falsy → truthy, matching React's render-when-ready. */
 	const resolved = createMemo(() => {
@@ -266,6 +339,7 @@ function XAxisImpl(props: PropsWithDefaults) {
 				<CartesianAxis
 					{...props}
 					{...v().restSynchronizedSettings}
+					axisRef={setCartesianAxisRef}
 					x={v().pos.x}
 					y={v().pos.y}
 					width={v().size.width}
@@ -274,6 +348,7 @@ function XAxisImpl(props: PropsWithDefaults) {
 					viewBox={viewBox()}
 					ticks={cartesianTickItems()}
 					axisType={axisType}
+					axisId={props.xAxisId}
 				/>
 			)}
 		</Show>
@@ -299,6 +374,7 @@ export const xAxisDefaultProps = {
 	scale: implicitXAxis.scale,
 	tick: implicitXAxis.tick,
 	tickCount: implicitXAxis.tickCount,
+	niceTicks: implicitXAxis.niceTicks,
 	tickLine: defaultCartesianAxisProps.tickLine,
 	tickSize: defaultCartesianAxisProps.tickSize,
 	type: implicitXAxis.type,
@@ -311,7 +387,10 @@ type PropsWithDefaults = RequiresDefaultProps<Props, typeof xAxisDefaultProps>
  * @consumes CartesianViewBoxContext
  * @provides CartesianLabelContext
  */
-export function XAxis(outsideProps: Props) {
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped axes accept any data */
+export function XAxis<DataPointType = any, DataValueType = any>(
+	outsideProps: Props<DataPointType, DataValueType>,
+) {
 	const props: PropsWithDefaults = resolveDefaultProps(outsideProps, xAxisDefaultProps)
 	return (
 		<>
@@ -340,6 +419,7 @@ export function XAxis(outsideProps: Props) {
 						: props.tick
 				}
 				tickCount={props.tickCount}
+				niceTicks={props.niceTicks}
 				tickFormatter={props.tickFormatter}
 				ticks={props.ticks}
 				type={props.type}

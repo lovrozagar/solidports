@@ -1,13 +1,11 @@
 import {
   createEffect,
   createMemo,
-  createRenderEffect,
   createSignal,
-  onCleanup,
-  onMount,
+  onSettled,
   Show,
-  type JSX,
 } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useCSPContext } from '../../csp-provider/CSPContext';
 import { splitComponentProps } from '../../solid-helpers';
 import { getCssDimensions } from '../../utils/getCssDimensions';
@@ -48,14 +46,10 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
   const [positioningTick, forcePositioningUpdate] = createSignal(undefined, { equals: false });
   const activeTabValue = value;
 
-  onMount(() => {
+  onSettled(() => {
     setIsMounted(true);
     forcePositioningUpdate();
-  });
-
-  createEffect(() => {
-    const cleanup = registerIndicatorUpdateListener(forcePositioningUpdate);
-    onCleanup(cleanup);
+    return registerIndicatorUpdateListener(forcePositioningUpdate);
   });
 
   const meta = createMemo(() => {
@@ -123,10 +117,14 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
     };
   });
 
-  createRenderEffect(() => {
-    value();
-    forcePositioningUpdate();
-  });
+  createEffect(
+    () => {
+      value();
+    },
+    () => {
+      forcePositioningUpdate();
+    },
+  );
 
   const activeTabPosition = createMemo(() =>
     meta().isTabSelected
@@ -184,10 +182,6 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
         },
       },
       elementProps,
-      {
-        // @ts-expect-error - suppressHydrationWarning is not a valid attribute for Solid
-        suppressHydrationWarning: true,
-      },
     ],
     state,
     stateAttributesMapping,
@@ -201,8 +195,6 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
           nonce={nonce()}
           // eslint-disable-next-line solid/no-innerhtml
           innerHTML={prehydrationScript}
-          // @ts-expect-error - suppressHydrationWarnings is not a valid attribute for Solid
-          suppressHydrationWarnings
         />
       )}
     </Show>

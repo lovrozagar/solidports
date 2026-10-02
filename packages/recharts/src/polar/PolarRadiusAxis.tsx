@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import type { JSX } from "solid-js"
-import { createEffect, createMemo, onCleanup, Show, useContext } from "solid-js"
-import { produce } from "solid-js/store"
+import type { AxisTick } from "../util/types"
+import type { JSX } from '@solidjs/web';
+import { createMemo, Show, useContext, createEffect } from 'solid-js';
 import maxBy from "es-toolkit/compat/maxBy"
 import minBy from "es-toolkit/compat/minBy"
 import { clsx } from "clsx"
@@ -41,6 +41,7 @@ import { CustomScaleDefinition } from "../util/scale/CustomScaleDefinition"
 import { usePolarChartLayout } from "../context/chartLayoutContext"
 import { getAxisTypeBasedOnLayout } from "../util/getAxisTypeBasedOnLayout"
 import { getClassNameFromUnknown } from "../util/getClassNameFromUnknown"
+import { teardownWrite } from "../state/teardownWrite"
 
 type TickOrientation = "left" | "right" | "middle"
 
@@ -137,35 +138,75 @@ export interface PolarRadiusAxisProps<DataPointType = unknown, DataValueType = u
 	/**
 	 * The customized event handler of click on the ticks of this axis
 	 */
-	onClick?: (data: unknown, index: number, e: MouseEvent) => void
+	onClick?: (
+		/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+		data: any,
+		index: number,
+		e: MouseEvent & { currentTarget: SVGTextElement },
+	) => void
 	/**
 	 * The customized event handler of mousedown on the ticks of this axis
 	 */
-	onMouseDown?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseDown?: (
+		/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+		data: any,
+		index: number,
+		e: MouseEvent & { currentTarget: SVGTextElement },
+	) => void
 	/**
 	 * The customized event handler of mouseup on the ticks of this axis
 	 */
-	onMouseUp?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseUp?: (
+		/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+		data: any,
+		index: number,
+		e: MouseEvent & { currentTarget: SVGTextElement },
+	) => void
 	/**
 	 * The customized event handler of mousemove on the ticks of this axis
 	 */
-	onMouseMove?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseMove?: (
+		/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+		data: any,
+		index: number,
+		e: MouseEvent & { currentTarget: SVGTextElement },
+	) => void
 	/**
 	 * The customized event handler of mouseover on the ticks of this axis
 	 */
-	onMouseOver?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseOver?: (
+		/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+		data: any,
+		index: number,
+		e: MouseEvent & { currentTarget: SVGTextElement },
+	) => void
 	/**
 	 * The customized event handler of mouseout on the ticks of this axis
 	 */
-	onMouseOut?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseOut?: (
+		/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+		data: any,
+		index: number,
+		e: MouseEvent & { currentTarget: SVGTextElement },
+	) => void
 	/**
 	 * The customized event handler of mouseenter on the ticks of this axis
 	 */
-	onMouseEnter?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseEnter?: (
+		/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+		data: any,
+		index: number,
+		e: MouseEvent & { currentTarget: SVGTextElement },
+	) => void
 	/**
 	 * The customized event handler of mouseleave on the ticks of this axis
 	 */
-	onMouseLeave?: (data: unknown, index: number, e: MouseEvent) => void
+	onMouseLeave?: (
+		/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract */
+		data: any,
+		index: number,
+		e: MouseEvent & { currentTarget: SVGTextElement },
+	) => void
 	/**
 	 * Allow the ticks of axis to be decimals or not.
 	 *
@@ -207,11 +248,14 @@ export interface PolarRadiusAxisProps<DataPointType = unknown, DataValueType = u
 }
 
 type AxisSvgProps = Omit<
-	PresentationAttributesAdaptChildEvent<unknown, SVGTextElement>,
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: tick handlers receive untyped data */
+	PresentationAttributesAdaptChildEvent<any, SVGTextElement>,
 	"scale" | "type"
 >
 
-export type Props = AxisSvgProps & PolarRadiusAxisProps
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped axes accept any data */
+export type Props<DataPointType = any, DataValueType = any> = AxisSvgProps &
+	PolarRadiusAxisProps<DataPointType, DataValueType>
 
 type PropsWithDefaults = RequiresDefaultProps<Props, typeof defaultPolarRadiusAxisProps>
 
@@ -249,27 +293,29 @@ function SetRadiusAxisSettings(
 			scale: props.scale,
 			tick: props.tick,
 			tickCount: props.tickCount,
+			niceTicks: props.niceTicks,
 			ticks: props.ticks,
 			type: evaluatedType,
 			unit: props.unit,
 		}
 	})
-	createEffect(() => {
-		const s = settings()
+	createEffect(settings, (s) => {
 		if (s == null) {
 			return
 		}
 		const id = String(s.id)
 		if (stateCtx != null) {
 			stateCtx.setState("polarAxes", "radiusAxis", id, { settings: s })
-			onCleanup(() => {
-				stateCtx.setState(
-					"polarAxes",
-					produce((polar) => {
-						delete (polar.radiusAxis as Record<string, unknown>)[id]
-					}),
-				)
-			})
+			return () => {
+				teardownWrite(() => {
+					stateCtx.setState(
+						"polarAxes",
+						(polar) => {
+							delete (polar.radiusAxis as Record<string, unknown>)[id]
+						},
+					)
+				})
+			}
 		}
 
 	})
@@ -469,7 +515,10 @@ export function PolarRadiusAxisWrapper(defaultsAndInputs: PropsWithDefaults): JS
  * @provides PolarLabelContext
  * @consumes PolarViewBoxContext
  */
-export function PolarRadiusAxis(outsideProps: Props): JSX.Element {
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped axes accept any data */
+export function PolarRadiusAxis<DataPointType = any, DataValueType = any>(
+	outsideProps: Props<DataPointType, DataValueType>,
+): JSX.Element {
 	const props: PropsWithDefaults = resolveDefaultProps(outsideProps, defaultPolarRadiusAxisProps)
 	return (
 		<>
@@ -486,8 +535,10 @@ export function PolarRadiusAxis(outsideProps: Props): JSX.Element {
 				reversed={props.reversed}
 				includeHidden={props.includeHidden}
 				allowDecimals={props.allowDecimals}
-				ticks={props.ticks?.map((t) => t.value)}
+				/* passed through unchanged like upstream, whose TickItem prop and AxisTick setting types disagree */
+				ticks={props.ticks as unknown as ReadonlyArray<AxisTick> | undefined}
 				tickCount={props.tickCount}
+				niceTicks={props.niceTicks}
 				tick={props.tick as TickProp<unknown>}
 			/>
 			<PolarRadiusAxisWrapper {...props} />

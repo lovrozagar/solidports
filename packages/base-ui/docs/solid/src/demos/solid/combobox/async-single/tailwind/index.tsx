@@ -1,4 +1,5 @@
-import { createSignal, createMemo, createUniqueId, type JSX } from 'solid-js';
+import { createSignal, createMemo, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -31,7 +32,7 @@ export default function ExampleAsyncSingleCombobox() {
       return (
         <>
           <span
-            aria-hidden
+            aria-hidden="true"
             class="inline-block size-3 animate-spin rounded-full border border-current border-r-transparent"
           />
           Searching…
@@ -162,7 +163,6 @@ export default function ExampleAsyncSingleCombobox() {
               <Combobox.List>
                 {(user: DirectoryUser) => (
                   <Combobox.Item
-                    key={user.id}
                     value={user}
                     class="grid cursor-default grid-cols-[1rem_1fr] items-start gap-2 px-2 py-2 text-sm leading-[1.2rem] outline-none select-none [@media(hover:hover)]:data-highlighted:relative [@media(hover:hover)]:data-highlighted:z-0 [@media(hover:hover)]:data-highlighted:text-neutral-950 [@media(hover:hover)]:data-highlighted:before:absolute [@media(hover:hover)]:data-highlighted:before:inset-0 [@media(hover:hover)]:data-highlighted:before:z-[-1] [@media(hover:hover)]:data-highlighted:before:bg-neutral-100 dark:[@media(hover:hover)]:data-highlighted:text-white dark:[@media(hover:hover)]:data-highlighted:before:bg-neutral-800"
                   >

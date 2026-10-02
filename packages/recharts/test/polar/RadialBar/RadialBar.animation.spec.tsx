@@ -5,8 +5,7 @@ import { RadialBar, RadialBarChart } from "../../../src"
 import { getRadialBarPaths } from "../../helper/expectRadialBars"
 import { assertNotNull } from "../../helper/assertNotNull"
 import { MockAnimationManager } from "../../animation/MockProgressAnimationManager"
-import { createSignal, Show } from "solid-js"
-
+import { createSignal, Show, flush } from 'solid-js';
 const smallerData = pageDataWithFillColor.slice(0, 2)
 
 function getRadialBarPathStrings(container: Element): ReadonlyArray<string> {
@@ -116,8 +115,45 @@ describe("RadialBar animation", () => {
 		})
 	})
 
-	/* Cluster B */
-	describe.skip("when changing dataKey prop", () => {
+	describe("shape prop", () => {
+		function CustomShape(props: { animationElapsedTime?: number; isAnimating?: boolean; isEntrance?: boolean }) {
+			return (
+				<path
+					class="custom-radial-bar-shape"
+					data-t={props.animationElapsedTime}
+					data-is-animating={String(props.isAnimating)}
+					data-is-entrance={String(props.isEntrance)}
+				/>
+			)
+		}
+
+		const renderShapeTestCase = createSelectorTestCase((props) => (
+			<RadialBarChart width={400} height={400} data={smallerData}>
+				<RadialBar dataKey="uv" isAnimationActive animationEasing="linear" shape={CustomShape} />
+				{props.children}
+			</RadialBarChart>
+		))
+
+		it("should pass animationElapsedTime, isAnimating, isEntrance props to custom shape", async () => {
+			const { container, animationManager } = renderShapeTestCase()
+
+			await animationManager.setAnimationProgress(0.5)
+			const shapeDuringAnimation = container.querySelector(".custom-radial-bar-shape")
+			assertNotNull(shapeDuringAnimation)
+			expect(shapeDuringAnimation.getAttribute("data-t")).toBe("0.5")
+			expect(shapeDuringAnimation.getAttribute("data-is-animating")).toBe("true")
+			expect(shapeDuringAnimation.getAttribute("data-is-entrance")).toBe("true")
+
+			await animationManager.completeAnimation()
+			const shapeAfterAnimation = container.querySelector(".custom-radial-bar-shape")
+			assertNotNull(shapeAfterAnimation)
+			expect(shapeAfterAnimation.getAttribute("data-t")).toBe("1")
+			expect(shapeAfterAnimation.getAttribute("data-is-animating")).toBe("false")
+			expect(shapeAfterAnimation.getAttribute("data-is-entrance")).toBe("false")
+		})
+	})
+
+	describe("when changing dataKey prop", () => {
 		const MyTestCase = (props: { children: JSX.Element }) => {
 			const [dataKey, setDataKey] = createSignal("uv")
 			const changeDataKey = () => setDataKey((prev) => (prev === "uv" ? "pv" : "uv"))
@@ -127,7 +163,7 @@ describe("RadialBar animation", () => {
 						Change dataKey
 					</button>
 					<RadialBarChart width={400} height={400} data={smallerData}>
-						<RadialBar dataKey={dataKey} isAnimationActive />
+						<RadialBar dataKey={dataKey()} isAnimationActive />
 						{props.children}
 					</RadialBarChart>
 				</div>
@@ -141,6 +177,7 @@ describe("RadialBar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should animate the bar paths", async () => {
@@ -201,6 +238,7 @@ describe("RadialBar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should re-run the initial animation from the beginning", async () => {
@@ -232,8 +270,7 @@ describe("RadialBar animation", () => {
 		})
 	})
 
-	/* Cluster B */
-	describe.skip("tests that change data array", () => {
+	describe("tests that change data array", () => {
 		const data1 = smallerData
 		const data2 = pageDataWithFillColor.slice(3, 6)
 
@@ -245,7 +282,7 @@ describe("RadialBar animation", () => {
 					<button type="button" onClick={changeData}>
 						Change data
 					</button>
-					<RadialBarChart width={400} height={400} data={data}>
+					<RadialBarChart width={400} height={400} data={data()}>
 						<RadialBar dataKey="uv" isAnimationActive />
 						{props.children}
 					</RadialBarChart>
@@ -260,6 +297,7 @@ describe("RadialBar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should animate from 2 to 3 bars", async () => {
@@ -267,36 +305,35 @@ describe("RadialBar animation", () => {
 			await prime(container, animationManager)
 			expect(await expectAnimatedRadialBarPaths(container, animationManager)).toEqual([
 				[
-					"M 246.2,200 A 46.2,46.2,0, 1,0, 245.7405,206.4995 L 205.1483,200.7315 A 5.2,5.2,0, 1,1, 205.2,200 Z",
-					"M 298.2,200 A 98.2,98.2,0, 1,0, 286.0331,247.345 L 250.113,227.5777 A 57.2,57.2,0, 1,1, 257.2,200 Z",
-					"M 350.2,200 A 150.2,150.2,0, 0,0, 292.7254,81.8389 L 267.4142,114.0933 A 109.2,109.2,0, 0,1, 309.2,200 Z",
+					"M 247.2,200 A 47.2,47.2,0, 1,0, 246.7306,206.6402 L 205.1483,200.7315 A 5.2,5.2,0, 1,1, 205.2,200 Z",
+					"M 299.2,200 A 99.2,99.2,0, 1,0, 286.9092,247.8271 L 250.113,227.5777 A 57.2,57.2,0, 1,1, 257.2,200 Z",
+					"M 351.2,200 A 151.2,151.2,0, 0,0, 293.3427,81.0522 L 267.4142,114.0933 A 109.2,109.2,0, 0,1, 309.2,200 Z",
 				],
 				[
-					"M 246.2,200 A 46.2,46.2,0, 1,0, 245.0175,210.3857 L 205.0669,201.169 A 5.2,5.2,0, 1,1, 205.2,200 Z",
-					"M 298.2,200 A 98.2,98.2,0, 1,0, 295.6262,222.3353 L 255.7008,213.01 A 57.2,57.2,0, 1,1, 257.2,200 Z",
-					"M 350.2,200 A 150.2,150.2,0, 0,0, 217.4385,50.8158 L 212.6784,91.5385 A 109.2,109.2,0, 0,1, 309.2,200 Z",
+					"M 247.2,200 A 47.2,47.2,0, 1,0, 245.9919,210.6105 L 205.0669,201.169 A 5.2,5.2,0, 1,1, 205.2,200 Z",
+					"M 299.2,200 A 99.2,99.2,0, 1,0, 296.6,222.5627 L 255.7008,213.01 A 57.2,57.2,0, 1,1, 257.2,200 Z",
+					"M 351.2,200 A 151.2,151.2,0, 0,0, 217.5546,49.8225 L 212.6784,91.5385 A 109.2,109.2,0, 0,1, 309.2,200 Z",
 				],
 				[
-					"M 246.2,200 A 46.2,46.2,0, 1,0, 244.5049,212.3999 L 205.0092,201.3957 A 5.2,5.2,0, 1,1, 205.2,200 Z",
-					"M 298.2,200 A 98.2,98.2,0, 1,0, 297.8403,208.3973 L 256.9905,204.8913 A 57.2,57.2,0, 1,1, 257.2,200 Z",
-					"M 350.2,200 A 150.2,150.2,0, 0,0, 174.2586,52.0222 L 181.2852,92.4156 A 109.2,109.2,0, 0,1, 309.2,200 Z",
+					"M 247.2,200 A 47.2,47.2,0, 1,0, 245.4682,212.6683 L 205.0092,201.3957 A 5.2,5.2,0, 1,1, 205.2,200 Z",
+					"M 299.2,200 A 99.2,99.2,0, 1,0, 298.8366,208.4828 L 256.9905,204.8913 A 57.2,57.2,0, 1,1, 257.2,200 Z",
+					"M 351.2,200 A 151.2,151.2,0, 0,0, 174.0873,51.037 L 181.2852,92.4156 A 109.2,109.2,0, 0,1, 309.2,200 Z",
 				],
 				[
-					"M 246.2,200 A 46.2,46.2,0, 1,0, 244.2351,213.3303 L 204.9788,201.5004 A 5.2,5.2,0, 1,1, 205.2,200 Z",
-					"M 298.2,200 A 98.2,98.2,0, 1,0, 298.1831,201.8237 L 257.1901,201.0623 A 57.2,57.2,0, 1,1, 257.2,200 Z",
-					"M 350.2,200 A 150.2,150.2,0, 0,0, 154.6455,56.8113 L 167.0259,95.8974 A 109.2,109.2,0, 0,1, 309.2,200 Z",
+					"M 247.2,200 A 47.2,47.2,0, 1,0, 245.1925,213.6189 L 204.9788,201.5004 A 5.2,5.2,0, 1,1, 205.2,200 Z",
+					"M 299.2,200 A 99.2,99.2,0, 1,0, 299.1829,201.8422 L 257.1901,201.0623 A 57.2,57.2,0, 1,1, 257.2,200 Z",
+					"M 351.2,200 A 151.2,151.2,0, 0,0, 154.3436,55.858 L 167.0259,95.8974 A 109.2,109.2,0, 0,1, 309.2,200 Z",
 				],
 				[
-					"M 246.2,200 A 46.2,46.2,0, 1,0, 244.1569,213.5871 L 204.97,201.5293 A 5.2,5.2,0, 1,1, 205.2,200 Z",
-					"M 298.2,200 A 98.2,98.2,0, 1,0, 298.2,200.0017 L 257.2,200.001 A 57.2,57.2,0, 1,1, 257.2,200 Z",
-					"M 350.2,200 A 150.2,150.2,0, 0,0, 149.3428,58.6002 L 163.1707,97.198 A 109.2,109.2,0, 0,1, 309.2,200 Z",
+					"M 247.2,200 A 47.2,47.2,0, 1,0, 245.1127,213.8812 L 204.97,201.5293 A 5.2,5.2,0, 1,1, 205.2,200 Z",
+					"M 299.2,200 A 99.2,99.2,0, 1,0, 299.2,200.0017 L 257.2,200.001 A 57.2,57.2,0, 1,1, 257.2,200 Z",
+					"M 351.2,200 A 151.2,151.2,0, 0,0, 149.0056,57.6588 L 163.1707,97.198 A 109.2,109.2,0, 0,1, 309.2,200 Z",
 				],
 			])
 		})
 	})
 
-	/* Cluster B */
-	describe.skip("when the radial bar element hides during the animation", () => {
+	describe("when the radial bar element hides during the animation", () => {
 		const renderTestCase = createSelectorTestCase((props) => {
 			const [isVisible, setIsVisible] = createSignal(true)
 			const toggleVisibility = () => setIsVisible((prev) => !prev)
@@ -319,6 +356,7 @@ describe("RadialBar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 			expect(getRadialBarPaths(container)).toHaveLength(0)
 		})
 
@@ -328,8 +366,10 @@ describe("RadialBar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 			expect(getRadialBarPaths(container)).toHaveLength(0)
 			button.click()
+			flush()
 			const paths = await expectAnimatedRadialBarPaths(container, animationManager)
 			expect(paths).toEqual([
 				[

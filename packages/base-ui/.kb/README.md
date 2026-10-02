@@ -53,7 +53,7 @@ bun run docs:dev         # Solid site, http://localhost:3001
 bun run docs:react:dev   # React snapshot, http://localhost:3005
 ```
 
-Do not hand-edit generated Solid MDX or `docs/solid/src/demos/solid/**`.
+Do not hand-edit generated Solid MDX or `docs/solid/src/demos/solid/**`. Hand ports go in `docs/solid/overrides/demos/**`; see `scripts/docs/README.md`.
 
 ## Commands
 

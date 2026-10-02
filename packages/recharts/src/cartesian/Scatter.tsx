@@ -1,16 +1,16 @@
 /* eslint-disable import/no-cycle */
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	For,
-	Show,
-	splitProps,
-	type JSX,
-} from "solid-js"
+import type { Formatter } from "../component/DefaultTooltipContent"
+import { createMemo, For, Show, untrack } from 'solid-js';
+import { structurallyEqual } from "../util/structurallyEqual"
+import { ShapeOption } from "../util/ShapeElementProps"
+import { CellsContextProvider, createCellsRegistry } from "../context/CellsContext"
+import type { CellsRegistry } from "../context/CellsContext"
+import { createHoverDedupe } from "../util/hoverDedupe"
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import { Layer } from "../container/Layer"
 import {
+	LabelListContextBridge,
 	CartesianLabelListContextProvider,
 	type CartesianLabelListEntry,
 	type ImplicitLabelListType,
@@ -21,6 +21,7 @@ import type { ErrorBarDataItem, ErrorBarDataPointFormatter, ErrorBarDirection } 
 import { getLinearRegression, interpolate, isNullish } from "../util/DataUtils"
 import { getCateCoordinateOfLine, getTooltipNameProp, getValueByDataKey } from "../util/ChartUtils"
 import { adaptEventsOfChild } from "../util/types"
+import type { CartesianLayout, ShapeAnimationProps } from "../util/types"
 import type {
 	ActiveShape,
 	AnimationDuration,
@@ -66,7 +67,6 @@ import { useIsPanorama } from "../context/PanoramaContext"
 import { selectActiveTooltipIndex } from "../state/selectors/tooltipSelectors"
 import { SetLegendPayload } from "../state/SetLegendPayload"
 import { DATA_ITEM_GRAPHICAL_ITEM_ID_ATTRIBUTE_NAME } from "../util/Constants"
-import { useAnimationId } from "../util/useAnimationId"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import type { ScatterSettings } from "../state/types/ScatterSettings"
@@ -75,7 +75,11 @@ import {
 	svgPropertiesNoEvents,
 	svgPropertiesNoEventsFromUnknown,
 } from "../util/svgPropertiesNoEvents"
-import { JavascriptAnimate } from "../animation/JavascriptAnimate"
+import { useCartesianChartLayout } from "../context/chartLayoutContext"
+import { AnimatedItems, useAnimationCallbacks } from "../animation/AnimatedItems"
+import type { AnimationInterpolateFn } from "../animation/AnimatedItems"
+import { matchAppend } from "../animation/matchBy"
+import type { AnimationMatchByProp } from "../animation/matchBy"
 import { useViewBox } from "../context/chartLayoutContext"
 import type { WithIdRequired, WithoutId } from "../util/useUniqueId"
 import type { GraphicalItemId } from "../state/graphicalItemsSlice"
@@ -84,6 +88,7 @@ import { ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 import type { ChartData } from "../state/chartDataSlice"
 
+import { splitProps } from '../util/solid-1-compat';
 export interface ScatterPointNode {
 	x?: number | string
 	y?: number | string
@@ -133,6 +138,7 @@ interface ScatterInternalProps extends ZIndexable {
 	lineJointType: CurveType
 	legendType: LegendType
 	tooltipType?: TooltipType
+	formatter?: Formatter
 	className?: string
 	name?: string
 	activeShape?: ScatterCustomizedShape
@@ -144,6 +150,8 @@ interface ScatterInternalProps extends ZIndexable {
 	animationBegin: number
 	animationDuration: AnimationDuration
 	animationEasing: AnimationTiming
+	animationInterpolateFn: AnimationInterpolateFn<ScatterPointItem, CartesianLayout>
+	animationMatchBy: AnimationMatchByProp<ScatterPointItem>
 	needClip: boolean
 	id: GraphicalItemId
 	children?: JSX.Element
@@ -160,6 +168,11 @@ interface ScatterProps<DataPointType = unknown, DataValueType = unknown>
 	lineJointType?: CurveType
 	legendType?: LegendType
 	tooltipType?: TooltipType
+	/**
+	 * Formats the value displayed in the tooltip for this Scatter.
+	 * When set, takes precedence over the `formatter` prop on the Tooltip component.
+	 */
+	formatter?: Formatter
 	className?: string
 	name?: string
 	activeShape?: ScatterCustomizedShape
@@ -170,6 +183,25 @@ interface ScatterProps<DataPointType = unknown, DataValueType = unknown>
 	animationBegin?: number
 	animationDuration?: AnimationDuration
 	animationEasing?: AnimationTiming
+	/**
+	 * Custom animation function for interpolating data items.
+	 * When provided, this replaces the default animation interpolation.
+	 *
+	 * @since 3.9
+	 * @see {@link https://recharts.github.io/en-US/guide/animations/ Animations guide}
+	 */
+	animationInterpolateFn?: AnimationInterpolateFn<ScatterPointItem, CartesianLayout>
+	/**
+	 * Strategy for matching previous items to next items during animation.
+	 *
+	 * - `matchAppend` (default): match sequentially by index and treat newly appended items as new
+	 * - `matchByIndex`: match by array position with proportional stretching
+	 * - `matchByDataKey('someKey')`: match by a data key from the payload
+	 * - Custom function `(item, index) => key`: match by the returned key
+	 *
+	 * @defaultValue append
+	 */
+	animationMatchBy?: AnimationMatchByProp<ScatterPointItem>
 	zIndex?: number
 	children?: JSX.Element
 }
@@ -181,7 +213,8 @@ type BaseScatterSvgProps = Omit<
 
 type InternalProps = BaseScatterSvgProps & ScatterInternalProps
 
-export type Props = BaseScatterSvgProps & ScatterProps
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped items accept any data */
+export type Props<DataPointType = any, DataValueType = any> = BaseScatterSvgProps & ScatterProps<DataPointType, DataValueType>
 
 /* eslint-disable solid/reactivity -- plain utility fn; Props parameter is not a Solid reactive proxy at this call site */
 const computeLegendPayloadFromScatterProps = (
@@ -209,6 +242,7 @@ function SetScatterTooltipEntrySettings(props: {
 	name?: string
 	hide?: boolean
 	tooltipType?: TooltipType
+	formatter?: Formatter
 	id: GraphicalItemId
 }) {
 	/* GOTCHA-005: createMemo so reactive props flow into the settings object. */
@@ -219,6 +253,7 @@ function SetScatterTooltipEntrySettings(props: {
 			color: props.fill,
 			dataKey: props.dataKey,
 			fill: props.fill,
+			formatter: props.formatter,
 			graphicalItemId: props.id,
 			hide: props.hide,
 			name: getTooltipNameProp(props.name, props.dataKey),
@@ -271,24 +306,15 @@ function ScatterLine(props: {
 					}
 				}
 
+				/* element: cloned with lineProps; function: called with them; otherwise a Curve */
 				return (
-					<Show
-						when={typeof props.allProps.line === "function"}
-						fallback={
-							<Layer class="recharts-scatter-line">
-								<Curve
-									{...(lineProps() as Record<string, unknown>)}
-									type={props.allProps.lineJointType}
-								/>
-							</Layer>
-						}
-					>
-						<Layer class="recharts-scatter-line">
-							{(props.allProps.line as (p: Record<string, unknown>) => JSX.Element)(
-								lineProps() as Record<string, unknown>,
-							)}
-						</Layer>
-					</Show>
+					<Layer class="recharts-scatter-line">
+						<ShapeOption
+							option={typeof props.allProps.line === "boolean" ? undefined : props.allProps.line}
+							shapeProps={lineProps() as Record<string, unknown>}
+							renderDefault={(shapeProps) => <Curve {...shapeProps} type={props.allProps.lineJointType} />}
+						/>
+					</Layer>
 				)
 			})()}
 		</Show>
@@ -300,7 +326,7 @@ function ScatterLabelListProvider(props: {
 	points: ReadonlyArray<ScatterPointItem>
 	children: JSX.Element
 }) {
-	const chartViewBox = () => useViewBox()
+	const chartViewBox = createMemo(() => useViewBox())
 	const labelListEntries = createMemo((): ReadonlyArray<CartesianLabelListEntry> => {
 		return props.points?.map((point): CartesianLabelListEntry => {
 			const viewBox: TrapezoidViewBox = {
@@ -331,21 +357,26 @@ function ScatterLabelListProvider(props: {
 	/* eslint-enable solid/reactivity */
 }
 
-function ScatterSymbols(props: {
-	points: ReadonlyArray<ScatterPointItem>
-	showLabels: boolean
-	allOtherScatterProps: InternalProps
-}) {
+function ScatterSymbols(
+	props: ShapeAnimationProps & {
+		points: ReadonlyArray<ScatterPointItem>
+		showLabels: boolean
+		allOtherScatterProps: InternalProps
+	},
+) {
+	/* GOTCHA-016-C: one entry per pointer move across both event pairs, shared by all items. */
+	const hover = createHoverDedupe()
 	const ctx = useChartStore()
 	/* perf: cache selector result; without memo every consumer read triggers full chain. */
 	const activeIndex = createMemo(() => (ctx ? selectActiveTooltipIndex(ctx.store) : undefined))
 	/* eslint-disable solid/reactivity -- allOtherScatterProps destructure and dataKey/id reads are stable identifiers captured once at setup; dispatch hooks take static config */
-	const { id, ...allOtherPropsWithoutId } = props.allOtherScatterProps
+	const [idProps, allOtherPropsWithoutId] = splitProps(props.allOtherScatterProps, ["id"])
+	const id = idProps.id
 
 	const baseProps = () => svgPropertiesNoEvents(allOtherPropsWithoutId)
 	const onMouseEnterFromContext = useMouseEnterItemDispatch(
 		() => props.allOtherScatterProps.onMouseEnter as never,
-		props.allOtherScatterProps.dataKey,
+		() => props.allOtherScatterProps.dataKey,
 		String(id),
 	)
 	const onMouseLeaveFromContext = useMouseLeaveItemDispatch(
@@ -353,7 +384,7 @@ function ScatterSymbols(props: {
 	)
 	const onClickFromContext = useMouseClickItemDispatch(
 		() => props.allOtherScatterProps.onClick as never,
-		props.allOtherScatterProps.dataKey,
+		() => props.allOtherScatterProps.dataKey,
 		String(id),
 	)
 	/* eslint-enable solid/reactivity */
@@ -370,38 +401,45 @@ function ScatterSymbols(props: {
 					const hasActiveShape = () =>
 						props.allOtherScatterProps.activeShape != null &&
 						props.allOtherScatterProps.activeShape !== false
-					const isActive = () => hasActiveShape() && activeIndex() === String(i())
-					const option = () =>
+					/* Memos so a hover only re-renders the points whose active state flips. */
+					const isActive = createMemo(() => hasActiveShape() && activeIndex() === String(i()))
+					const option = createMemo(() =>
 						hasActiveShape() && isActive()
 							? props.allOtherScatterProps.activeShape
-							: props.allOtherScatterProps.shape
+							: props.allOtherScatterProps.shape,
+					)
 					const symbolProps = (): ScatterShapeProps => ({
 						...baseProps(),
 						...entry,
+						animationElapsedTime: props.animationElapsedTime,
 						index: i(),
+						isAnimating: props.isAnimating,
+						isEntrance: props.isEntrance,
 						[DATA_ITEM_GRAPHICAL_ITEM_ID_ATTRIBUTE_NAME]: String(id),
 					})
-					const adapted = (adaptEventsOfChild(
-						props.allOtherScatterProps as unknown as Record<string, unknown>,
-						entry,
-						i(),
-					) ?? {}) as Record<string, ((e: Event) => void) | undefined>
+					/* Event handlers bind once per item, like a keyed list. */
+					const handlerIndex = untrack(i)
+					const adapted = untrack(
+						() =>
+							(adaptEventsOfChild(
+								props.allOtherScatterProps as unknown as Record<string, unknown>,
+								entry,
+								handlerIndex,
+							) ?? {}) as Record<string, ((e: Event) => void) | undefined>,
+					)
 
 					/* GOTCHA-016-C: bind both pairs, dedupe per-instance. Compose adapted user handlers. */
-					const enter = onMouseEnterFromContext(entry, i())
-					const leave = onMouseLeaveFromContext(entry, i())
+					const enter = onMouseEnterFromContext(entry, handlerIndex)
+					const leave = onMouseLeaveFromContext(entry, handlerIndex)
 					const userOver = adapted.onMouseOver
 					const userOut = adapted.onMouseOut
-					let entered = false
 					const fireEnter = (e: MouseEvent & { currentTarget: SVGElement }) => {
-						if (entered) return
-						entered = true
+						if (!hover.enter(e)) return
 						userOver?.(e)
 						enter(e)
 					}
 					const fireLeave = (e: MouseEvent & { currentTarget: SVGElement }) => {
-						if (!entered) return
-						entered = false
+						if (!hover.leave(e)) return
 						userOut?.(e)
 						leave(e)
 					}
@@ -414,7 +452,7 @@ function ScatterSymbols(props: {
 								onMouseOver={fireEnter}
 								onMouseLeave={fireLeave}
 								onMouseOut={fireLeave}
-								onClick={onClickFromContext(entry, i())}
+								onClick={onClickFromContext(entry, handlerIndex)}
 							>
 								<ScatterSymbol option={option()} isActive={isActive()} {...symbolProps()} />
 							</Layer>
@@ -427,84 +465,74 @@ function ScatterSymbols(props: {
 	/* eslint-enable solid/reactivity */
 }
 
+const defaultScatterAnimateItems: AnimationInterpolateFn<ScatterPointItem, CartesianLayout> = (
+	items,
+	animationElapsedTime,
+) => {
+	if (items == null) return []
+	if (animationElapsedTime === 1) {
+		return items.flatMap((item) => (item.status === "removed" ? [] : [item.next]))
+	}
+	return items.flatMap((item) => {
+		if (item.status === "removed") return []
+		if (item.status === "matched") {
+			return [
+				{
+					...item.next,
+					cx: item.next.cx == null ? undefined : interpolate(item.prev.cx, item.next.cx, animationElapsedTime),
+					cy: item.next.cy == null ? undefined : interpolate(item.prev.cy, item.next.cy, animationElapsedTime),
+					size: interpolate(item.prev.size, item.next.size, animationElapsedTime),
+				},
+			]
+		}
+		// added
+		return [{ ...item.next, size: interpolate(0, item.next.size, animationElapsedTime) }]
+	})
+}
+
 function SymbolsWithAnimation(props: {
 	allProps: InternalProps
 	previousPointsRef: { current: ReadonlyArray<ScatterPointItem> | null }
 }) {
-	const animationId = useAnimationId(() => props.allProps, "recharts-scatter-")
-
-	/* GOTCHA-014-G: keyed snapshot of prev at animationId flip. */
-	const animationContext = createMemo(() => {
-		animationId()
-		return { prevPoints: props.previousPointsRef.current }
-	})
-
-	const [isAnimating, setIsAnimating] = createSignal(false)
-
-	const handleAnimationEnd = () => {
-		setIsAnimating(false)
-	}
-
-	const handleAnimationStart = () => {
-		setIsAnimating(true)
-	}
-
-	const showLabels = () => !isAnimating()
+	const { isAnimating, handleAnimationStart, handleAnimationEnd } = useAnimationCallbacks()
+	const layout = createMemo(() => useCartesianChartLayout())
 
 	return (
-		<ScatterLabelListProvider showLabels={showLabels()} points={props.allProps.points}>
-			<JavascriptAnimate
-				animationId={animationId()}
-				begin={props.allProps.animationBegin}
-				duration={props.allProps.animationDuration}
-				isActive={props.allProps.isAnimationActive}
-				easing={props.allProps.animationEasing}
-				onAnimationEnd={handleAnimationEnd}
-				onAnimationStart={handleAnimationStart}
-			>
-				{(t: () => number) => {
-					/* GOTCHA-014: thunk children — prev via effect. */
-					const stepData = createMemo<ReadonlyArray<ScatterPointItem>>(() => {
-						const ctx = animationContext()
-						const prevPoints = ctx.prevPoints
-						const tValue = t()
-						return tValue === 1
-							? props.allProps.points
-							: props.allProps.points?.map(
-									(entry: ScatterPointItem, index: number): ScatterPointItem => {
-										const prev = prevPoints && prevPoints[index]
-										if (prev) {
-											return {
-												...entry,
-												cx:
-													entry.cx == null ? undefined : interpolate(prev.cx, entry.cx, tValue),
-												cy:
-													entry.cy == null ? undefined : interpolate(prev.cy, entry.cy, tValue),
-												size: interpolate(prev.size, entry.size, tValue),
-											}
-										}
-										return { ...entry, size: interpolate(0, entry.size, tValue) }
-									},
-								)
-					})
-					createEffect(() => {
-						if (t() > 0) {
-							props.previousPointsRef.current = stepData()
-						}
-					})
-					return (
-						<Layer>
-							<ScatterSymbols
-								points={stepData()}
-								allOtherScatterProps={props.allProps}
-								showLabels={showLabels()}
-							/>
-						</Layer>
-					)
-				}}
-			</JavascriptAnimate>
-			<LabelListFromLabelProp label={props.allProps.label} />
-		</ScatterLabelListProvider>
+		<Show when={layout()}>
+			{(cartesianLayout) => (
+				<ScatterLabelListProvider showLabels={!isAnimating()} points={props.allProps.points}>
+					<AnimatedItems
+						animationInput={props.allProps.points}
+						animationIdPrefix="recharts-scatter-"
+						items={props.allProps.points}
+						previousItemsRef={props.previousPointsRef}
+						isAnimationActive={props.allProps.isAnimationActive}
+						animationBegin={props.allProps.animationBegin}
+						animationDuration={props.allProps.animationDuration}
+						animationEasing={props.allProps.animationEasing}
+						onAnimationStart={handleAnimationStart}
+						onAnimationEnd={handleAnimationEnd}
+						animationInterpolateFn={props.allProps.animationInterpolateFn}
+						animationMatchBy={props.allProps.animationMatchBy}
+						layout={cartesianLayout()}
+					>
+						{(stepData, animationElapsedTime, isEntrance) => (
+							<Layer>
+								<ScatterSymbols
+									points={stepData()}
+									allOtherScatterProps={props.allProps}
+									showLabels={!isAnimating()}
+									animationElapsedTime={animationElapsedTime()}
+									isAnimating={isAnimating() || animationElapsedTime() < 1}
+									isEntrance={isEntrance()}
+								/>
+							</Layer>
+						)}
+					</AnimatedItems>
+					<LabelListFromLabelProp label={props.allProps.label} />
+				</ScatterLabelListProvider>
+			)}
+		</Show>
 	)
 }
 
@@ -675,6 +703,8 @@ export const defaultScatterProps = {
 	animationBegin: 0,
 	animationDuration: 400,
 	animationEasing: "linear",
+	animationInterpolateFn: defaultScatterAnimateItems,
+	animationMatchBy: matchAppend,
 	hide: false,
 	isAnimationActive: "auto",
 	label: false,
@@ -690,17 +720,18 @@ export const defaultScatterProps = {
 	zIndex: DefaultZIndexes.scatter,
 } as const satisfies Partial<Props>
 
-function ScatterImpl(props: WithIdRequired<Props>) {
+function ScatterImpl(props: WithIdRequired<Props> & { cellsRegistry: CellsRegistry }) {
 	/* GOTCHA-017: split children, route via JSX child slot only. ErrorBar must
 	   evaluate inside SetErrorBarContext (deeper, in ScatterWithId), wrapped by
 	   GraphicalItemChildrenScope. */
 	const [childrenProps, restProps] = splitProps(props, ["children"])
 	const resolved = resolveDefaultProps(restProps, defaultScatterProps)
 
-	const needClipResult = () => useNeedsClip(resolved.xAxisId, resolved.yAxisId)
-	/* findAllByType is a no-op stub in Solid (no vnode introspection); cells
-	   override is unsupported via children. Pass undefined to selector. */
-	const cells = (): ReadonlyArray<Record<string, unknown>> | undefined => undefined
+	const needClipResult = createMemo(() => useNeedsClip(resolved.xAxisId, resolved.yAxisId))
+	const cells = createMemo((): ReadonlyArray<Record<string, unknown>> | undefined => {
+		const list = props.cellsRegistry.cells()
+		return list.length === 0 ? undefined : (list as unknown as ReadonlyArray<Record<string, unknown>>)
+	})
 	const isPanorama = useIsPanorama()
 	const ctx = useChartStore()
 	const stateCtx = useOptionalChartState()
@@ -731,7 +762,9 @@ function ScatterImpl(props: WithIdRequired<Props>) {
 					itemSettings != null ? { scatterSettings: itemSettings } : undefined,
 				)
 			: undefined
-	})
+		/* selectors rebuild equal points after unrelated store writes; keep the previous
+		   array so the keyed point list does not remount every symbol */
+	}, { equals: structurallyEqual })
 
 	return (
 		<Show when={needClipResult() != null && points() != null}>
@@ -745,6 +778,7 @@ function ScatterImpl(props: WithIdRequired<Props>) {
 					name={props.name}
 					hide={props.hide}
 					tooltipType={props.tooltipType}
+					formatter={props.formatter}
 					id={props.id}
 				/>
 				<ScatterWithId
@@ -777,7 +811,7 @@ function ScatterImpl(props: WithIdRequired<Props>) {
  * @provides CellReader
  * @consumes CartesianChartContext
  */
-export function Scatter(outsideProps: Props) {
+function ScatterFn(outsideProps: Props): JSX.Element {
 	/* GOTCHA-013: split children before resolveDefaultProps so user JSX (ErrorBar) is
 	   not eagerly invoked at Scatter setup, before RegisterGraphicalItemId installs
 	   its Provider. */
@@ -825,19 +859,29 @@ export function Scatter(outsideProps: Props) {
 							dataPointFormatter={errorBarDataPointFormatter}
 							errorBarOffset={0}
 						>
-							{(() => {
-								/* GOTCHA-017 (session 34): memoize children INSIDE SetErrorBarContext.
-								   createMemo establishes its owner at the call site — by placing it
-								   here, the ErrorBar JSX evaluates with the live SetErrorBarContext
-								   in scope. Without the memo, repeated reads of props.children re-mint
-								   ErrorBar and loop the addErrorBar dispatch. */
-								const memoizedChildren = createMemo(() => childrenProps.children)
-								return (
-									<ScatterImpl {...props} id={id}>
-										{memoizedChildren()}
-									</ScatterImpl>
-								)
-							})()}
+							<LabelListContextBridge>
+								{(() => {
+									/* <Cell/> children register here; upstream reads them with findAllByType. */
+									const cellsRegistry = createCellsRegistry()
+									return (
+										<CellsContextProvider value={cellsRegistry}>
+										{(() => {
+											/* GOTCHA-017 (session 34): memoize children INSIDE SetErrorBarContext.
+											   createMemo establishes its owner at the call site — by placing it
+											   here, the ErrorBar JSX evaluates with the live SetErrorBarContext
+											   in scope. Without the memo, repeated reads of props.children re-mint
+											   ErrorBar and loop the addErrorBar dispatch. */
+											const memoizedChildren = createMemo(() => childrenProps.children)
+											return (
+												<ScatterImpl {...props} id={id} cellsRegistry={cellsRegistry}>
+													{memoizedChildren()}
+												</ScatterImpl>
+											)
+										})()}
+										</CellsContextProvider>
+									)
+								})()}
+							</LabelListContextBridge>
 						</SetErrorBarContext>
 					</>
 				)
@@ -846,4 +890,14 @@ export function Scatter(outsideProps: Props) {
 	)
 }
 
+/**
+ * Typed entry point: the generics constrain props at the call site, like upstream.
+ */
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped usage accepts any data */
+export const Scatter = ScatterFn as {
+	<DataPointType = any, DataValueType = any>(props: Props<DataPointType, DataValueType>): JSX.Element
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream fallback overload for mismatched data/dataKey */
+	(props: Props<any, any>): JSX.Element
+	displayName?: string
+}
 Scatter.displayName = "Scatter"

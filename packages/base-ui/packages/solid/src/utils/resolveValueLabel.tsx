@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- combobox/select item types are generic at consumer; Value/Item params default to any to match upstream API */
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { serializeValue } from './serializeValue';
 
 type ItemRecord = Record<string, JSX.Element>;

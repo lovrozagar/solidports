@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { TabsRoot } from '../root/TabsRoot';
 
 export interface TabsListContext {
@@ -12,11 +13,11 @@ export interface TabsListContext {
   tabsListElement: Accessor<HTMLElement | null | undefined>;
 }
 
-export const TabsListContext = createContext<TabsListContext | undefined>(undefined);
+export const TabsListContext = createContext<TabsListContext | null>(null);
 
 export function useTabsListContext() {
   const context = useContext(TabsListContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: TabsListContext is missing. TabsList parts must be placed within <Tabs.List>.',
     );

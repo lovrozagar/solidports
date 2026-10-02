@@ -1,6 +1,9 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import type { JSX } from "solid-js"
-import { createEffect, createMemo, createSignal, mergeProps, Show, splitProps, useContext } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { svgPropertiesAndEvents } from "../util/svgPropertiesAndEvents"
+import type { WithoutRemoveFalse } from "../util/types"
+import type { CamelCaseSVGAttrs } from "../util/CamelCaseSVGAttrs"
+import { createMemo, Show, useContext, createEffect } from 'solid-js';
 import last from "es-toolkit/compat/last"
 
 import { clsx } from "clsx"
@@ -10,6 +13,7 @@ import { getTooltipNameProp, getValueByDataKey } from "../util/ChartUtils"
 import { Polygon } from "../shape/Polygon"
 import { Layer } from "../container/Layer"
 import {
+	LabelListContextBridge,
 	CartesianLabelListContextProvider,
 	CartesianLabelListEntry,
 	ImplicitLabelListType,
@@ -41,13 +45,20 @@ import { useAnimationId } from "../util/useAnimationId"
 import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import { SetPolarGraphicalItem } from "../state/SetGraphicalItem"
 import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
-import { JavascriptAnimate } from "../animation/JavascriptAnimate"
+import { AnimatedItems, useAnimationCallbacks } from "../animation/AnimatedItems"
+import type { AnimationInterpolateFn } from "../animation/AnimatedItems"
+import { matchAnimationItems, matchByIndex } from "../animation/matchBy"
+import type { AnimationMatchByProp } from "../animation/matchBy"
+import { useAnimationStartSnapshot } from "../animation/useAnimationStartSnapshot"
+import { usePolarChartLayout } from "../context/chartLayoutContext"
+import type { PolarLayout } from "../util/types"
 import type { RequiresDefaultProps } from "../util/resolveDefaultProps"
 import { WithIdRequired } from "../util/useUniqueId"
 import { ZIndexable, ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 import { RechartsScale } from "../util/scale/RechartsScale"
 
+import { mergeProps, splitProps } from '../util/solid-1-compat';
 export interface RadarPoint {
 	x: number
 	y: number
@@ -85,6 +96,25 @@ interface RadarProps<DataPointType = unknown, DataValueType = unknown>
 	 * @defaultValue ease
 	 */
 	animationEasing?: AnimationTiming
+	/**
+	 * Custom animation function for interpolating data items.
+	 * When provided, this replaces the default animation interpolation.
+	 *
+	 * @since 3.9
+	 * @see {@link https://recharts.github.io/en-US/guide/animations/ Animations guide}
+	 */
+	animationInterpolateFn?: AnimationInterpolateFn<RadarPoint, PolarLayout>
+	/**
+	 * Strategy for matching previous items to next items during animation.
+	 *
+	 * - `matchByIndex` (default): match by array position with proportional stretching
+	 * - `matchAppend`: match sequentially by index and treat newly appended items as new
+	 * - `matchByDataKey('someKey')`: match by a data key from the payload
+	 * - Custom function `(item, index) => key`: match by the returned key
+	 *
+	 * @defaultValue index
+	 */
+	animationMatchBy?: AnimationMatchByProp<RadarPoint>
 	baseLinePoints?: RadarPoint[]
 	className?: string
 	connectNulls?: boolean
@@ -106,7 +136,7 @@ interface RadarProps<DataPointType = unknown, DataValueType = unknown>
 	hide?: boolean
 	/**
 	 * If set false, animation of polygon will be disabled.
-	 * If set "auto", the animation will be disabled in SSR and enabled in browser.
+	 * If set "auto", animation is disabled during SSR and when the user prefers reduced motion.
 	 * @defaultValue auto
 	 */
 	isAnimationActive?: boolean | "auto"
@@ -135,8 +165,8 @@ interface RadarProps<DataPointType = unknown, DataValueType = unknown>
 	 * The customized event handler of animation start
 	 */
 	onAnimationStart?: () => void
-	onMouseEnter?: (props: InternalRadarProps, e: MouseEvent) => void
-	onMouseLeave?: (props: InternalRadarProps, e: MouseEvent) => void
+	onMouseEnter?: (props: InternalRadarProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
+	onMouseLeave?: (props: InternalRadarProps, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * @defaultValue 0
 	 */
@@ -166,11 +196,12 @@ export type AngleAxisForRadar = {
 	cy: number
 }
 
-export type Props = Omit<
-	JSX.GSVGAttributes<SVGGraphicsElement>,
-	"onMouseEnter" | "onMouseLeave" | "points" | "ref"
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped items accept any data */
+export type Props<DataPointType = any, DataValueType = any> = WithoutRemoveFalse<
+	Omit<JSX.GSVGAttributes<SVGGraphicsElement>, "onMouseEnter" | "onMouseLeave" | "points" | "ref">
 > &
-	RadarProps
+	CamelCaseSVGAttrs &
+	RadarProps<DataPointType, DataValueType>
 
 export type RadarComposedData = {
 	points: RadarPoint[]
@@ -239,10 +270,8 @@ function RadarDotsWrapper(props: {
 	points: ReadonlyArray<RadarPoint>
 	radarProps: PropsWithDefaults
 }): JSX.Element {
-	/* eslint-disable-next-line solid/reactivity -- stable destructure at component setup; propsWithoutId is not re-read reactively */
-	const { id: _id, ...propsWithoutId } = props.radarProps
-
-	const baseProps = svgPropertiesNoEvents(propsWithoutId)
+	const [, propsWithoutId] = splitProps(props.radarProps, ["id", "children"])
+	const baseProps = createMemo(() => svgPropertiesNoEvents(propsWithoutId))
 
 	return (
 		<Dots
@@ -251,7 +280,7 @@ function RadarDotsWrapper(props: {
 			className="recharts-radar-dots"
 			dotClassName="recharts-radar-dot"
 			dataKey={props.radarProps.dataKey}
-			baseProps={baseProps}
+			baseProps={baseProps()}
 		/>
 	)
 }
@@ -359,13 +388,22 @@ function StaticPolygon(props: {
 	baseLinePoints: ReadonlyArray<RadarPoint>
 	radarProps: InternalRadarProps
 }): JSX.Element {
+	return <>{renderStaticPolygon(props)}</>
+}
+
+/* Runs inside StaticPolygon's JSX expression so every reactive read is tracked. */
+function renderStaticPolygon(props: {
+	points: ReadonlyArray<RadarPoint>
+	baseLinePoints: ReadonlyArray<RadarPoint>
+	radarProps: InternalRadarProps
+}): JSX.Element {
 	if (props.points == null) {
 		return null
 	}
 
 	/* GOTCHA-016-C: dedupe across enter/over and leave/out events so user.hover doesn't double-fire. */
 	let entered = false
-	const handleMouseEnter = (e: MouseEvent) => {
+	const handleMouseEnter = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 		if (entered) return
 		entered = true
 		if (props.radarProps.onMouseEnter) {
@@ -373,7 +411,7 @@ function StaticPolygon(props: {
 		}
 	}
 
-	const handleMouseLeave = (e: MouseEvent) => {
+	const handleMouseLeave = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
 		if (!entered) return
 		entered = false
 		if (props.radarProps.onMouseLeave) {
@@ -387,12 +425,18 @@ function StaticPolygon(props: {
 	} else {
 		radar = (
 			<Polygon
-				{...svgPropertiesNoEvents(props.radarProps)}
-				/* GOTCHA-016-C: mirror enter/leave on over/out for fireEvent.mouseOver/Out parity. */
+				{...(svgPropertiesAndEvents(props.radarProps) as Record<string, unknown>)}
+				/* GOTCHA-016-C: mirror enter/leave on over/out; the user's own over/out still fire. */
 				onMouseEnter={handleMouseEnter}
-				onMouseOver={handleMouseEnter}
+				onMouseOver={(e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
+					;(props.radarProps.onMouseOver as ((e: MouseEvent) => void) | undefined)?.(e)
+					handleMouseEnter(e)
+				}}
 				onMouseLeave={handleMouseLeave}
-				onMouseOut={handleMouseLeave}
+				onMouseOut={(e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
+					;(props.radarProps.onMouseOut as ((e: MouseEvent) => void) | undefined)?.(e)
+					handleMouseLeave(e)
+				}}
 				points={props.points}
 				baseLinePoints={props.radarProps.isRange ? props.baseLinePoints : undefined}
 				connectNulls={props.radarProps.connectNulls}
@@ -417,129 +461,107 @@ function StaticPolygon(props: {
 }
 /* eslint-enable solid/reactivity */
 
-const interpolatePolarPoint =
-	(prevPoints: ReadonlyArray<RadarPoint> | undefined, prevPointsDiffFactor: number, t: number) =>
-	(entry: RadarPoint, index: number) => {
-		const prev = prevPoints && prevPoints[Math.floor(index * prevPointsDiffFactor)]
-
-		if (prev) {
-			return {
-				...entry,
-				x: interpolate(prev.x, entry.x, t),
-				y: interpolate(prev.y, entry.y, t),
-			}
-		}
-
-		return {
-			...entry,
-			x: interpolate(entry.cx, entry.x, t),
-			y: interpolate(entry.cy, entry.y, t),
-		}
+const defaultRadarAnimateItems: AnimationInterpolateFn<RadarPoint, PolarLayout> = (items, animationElapsedTime) => {
+	if (items == null) return []
+	if (animationElapsedTime === 1) {
+		return items.flatMap((item) => (item.status === "removed" ? [] : [item.next]))
 	}
+	return items.flatMap((item) => {
+		if (item.status === "removed") return []
+		if (item.status === "matched") {
+			return [
+				{
+					...item.next,
+					x: interpolate(item.prev.x, item.next.x, animationElapsedTime),
+					y: interpolate(item.prev.y, item.next.y, animationElapsedTime),
+				},
+			]
+		}
+		// added: animate from center
+		return [
+			{
+				...item.next,
+				x: interpolate(item.next.cx, item.next.x, animationElapsedTime),
+				y: interpolate(item.next.cy, item.next.y, animationElapsedTime),
+			},
+		]
+	})
+}
 
 function PolygonWithAnimation(props: {
 	radarProps: InternalRadarProps
 	previousPointsRef: { current: ReadonlyArray<RadarPoint> | undefined }
 	previousBaseLinePointsRef: { current: ReadonlyArray<RadarPoint> | undefined }
 }): JSX.Element {
-	/* GOTCHA-014: upstream React passes `props` so any parent re-render with a fresh
-	   props object triggers re-animation. Solid props proxies stay stable across data
-	   updates, so we must track the actual animation-driving data instead. `points`
-	   reference flips whenever the store-derived selection changes. */
-	const animationId = useAnimationId(() => props.radarProps.points, "recharts-radar-")
+	/* Upstream keys the baseline snapshot on the same input as the points
+	   animation; a content-compared id over `points` flips exactly when the
+	   AnimatedItems animation restarts. */
+	const baseLineAnimationId = useAnimationId(() => props.radarProps.points, "recharts-radar-baseline-")
+	const baseLineAnimationState = useAnimationStartSnapshot(
+		baseLineAnimationId,
+		/* eslint-disable-next-line solid/reactivity -- the ref box is a stable mutable container */
+		props.previousBaseLinePointsRef,
+	)
+	const baseLineAnimationItems = createMemo(() =>
+		matchAnimationItems(
+			baseLineAnimationState.frozenStartValue() ?? null,
+			props.radarProps.baseLinePoints,
+			props.radarProps.animationMatchBy,
+		),
+	)
 
-	/* Snapshot prev/diff factors at the moment animationId flips. Upstream React
-	   re-runs setup on every parent render, freshly reading `previousPointsRef.current`
-	   (which the previous animation's last frame wrote). Solid setup runs once, so we
-	   key the snapshot on animationId — the memo re-evaluates exactly when a new
-	   animation starts, mirroring React's per-render ref read. */
-	const animationContext = createMemo(() => {
-		animationId()
-		const prevPoints = props.previousPointsRef.current
-		const prevBaseLinePoints = props.previousBaseLinePointsRef.current
-		return {
-			prevPoints,
-			prevBaseLinePoints,
-			prevPointsDiffFactor: prevPoints
-				? prevPoints.length / props.radarProps.points.length
-				: 1,
-			prevBaseLinePointsDiffFactor: prevBaseLinePoints
-				? prevBaseLinePoints.length / props.radarProps.baseLinePoints.length
-				: 1,
-		}
-	})
-	const [isAnimating, setIsAnimating] = createSignal(false)
-	const showLabels = () => !isAnimating()
-
-	const handleAnimationEnd = () => {
-		if (typeof props.radarProps.onAnimationEnd === "function") {
-			props.radarProps.onAnimationEnd()
-		}
-		setIsAnimating(false)
-	}
-
-	const handleAnimationStart = () => {
-		if (typeof props.radarProps.onAnimationStart === "function") {
-			props.radarProps.onAnimationStart()
-		}
-		setIsAnimating(true)
-	}
+	const { isAnimating, handleAnimationStart, handleAnimationEnd } = useAnimationCallbacks(
+		() => props.radarProps.onAnimationStart,
+		() => props.radarProps.onAnimationEnd,
+	)
+	const layout = createMemo(() => usePolarChartLayout())
 
 	return (
-		<RadarLabelListProvider showLabels={showLabels()} points={props.radarProps.points}>
-			<JavascriptAnimate
-				animationId={animationId()}
-				begin={props.radarProps.animationBegin}
-				duration={props.radarProps.animationDuration}
-				isActive={props.radarProps.isAnimationActive}
-				easing={props.radarProps.animationEasing}
-				onAnimationEnd={handleAnimationEnd}
-				onAnimationStart={handleAnimationStart}
-			>
-				{(t: () => number) => {
-					/* GOTCHA-014: children fn is invoked ONCE; reactive derivations live in
-					   memos so the underlying StaticPolygon stays mounted with attribute-only
-					   updates per tick. Tests holding captured `path` refs see live attrs. */
-					const stepData = createMemo(() => {
-						const ctx = animationContext()
-						const tValue = t()
-						return tValue === 1
-							? props.radarProps.points
-							: props.radarProps.points.map(
-									interpolatePolarPoint(ctx.prevPoints, ctx.prevPointsDiffFactor, tValue),
-								)
-					})
-					const stepBaseLinePoints = createMemo(() => {
-						const ctx = animationContext()
-						const tValue = t()
-						return tValue === 1
-							? props.radarProps.baseLinePoints
-							: props.radarProps.baseLinePoints?.map(
-									interpolatePolarPoint(
-										ctx.prevBaseLinePoints,
-										ctx.prevBaseLinePointsDiffFactor,
-										tValue,
-									),
-								)
-					})
-					createEffect(() => {
-						if (t() > 0) {
-							props.previousPointsRef.current = stepData()
-							props.previousBaseLinePointsRef.current = stepBaseLinePoints()
-						}
-					})
-					return (
-						<StaticPolygon
-							points={stepData()}
-							baseLinePoints={stepBaseLinePoints()}
-							radarProps={props.radarProps}
-						/>
-					)
-				}}
-			</JavascriptAnimate>
-			<LabelListFromLabelProp label={props.radarProps.label} />
-			{props.radarProps.children}
-		</RadarLabelListProvider>
+		<Show when={layout()}>
+			{(polarLayout) => (
+				<RadarLabelListProvider showLabels={!isAnimating()} points={props.radarProps.points}>
+					<AnimatedItems
+						animationInput={props.radarProps.points}
+						animationIdPrefix="recharts-radar-"
+						items={props.radarProps.points}
+						previousItemsRef={props.previousPointsRef}
+						isAnimationActive={props.radarProps.isAnimationActive}
+						animationBegin={props.radarProps.animationBegin}
+						animationDuration={props.radarProps.animationDuration}
+						animationEasing={props.radarProps.animationEasing}
+						onAnimationStart={handleAnimationStart}
+						onAnimationEnd={handleAnimationEnd}
+						animationInterpolateFn={props.radarProps.animationInterpolateFn}
+						animationMatchBy={props.radarProps.animationMatchBy}
+						layout={polarLayout()}
+					>
+						{(stepData, animationElapsedTime) => {
+							const stepBaseLinePoints = createMemo(() => {
+								const t = animationElapsedTime()
+								return t === 1
+									? props.radarProps.baseLinePoints
+									: props.radarProps.animationInterpolateFn(baseLineAnimationItems(), t, polarLayout())
+							})
+							createEffect(
+								() => ({ step: stepBaseLinePoints(), t: animationElapsedTime() }),
+								({ step, t }) => {
+									baseLineAnimationState.syncStepValue(step, t)
+								},
+							)
+							return (
+								<StaticPolygon
+									points={stepData()}
+									baseLinePoints={stepBaseLinePoints()}
+									radarProps={props.radarProps}
+								/>
+							)
+						}}
+					</AnimatedItems>
+					<LabelListFromLabelProp label={props.radarProps.label} />
+					{props.radarProps.children}
+				</RadarLabelListProvider>
+			)}
+		</Show>
 	)
 }
 
@@ -563,6 +585,8 @@ export const defaultRadarProps = {
 	animationBegin: 0,
 	animationDuration: 1500,
 	animationEasing: "ease",
+	animationInterpolateFn: defaultRadarAnimateItems,
+	animationMatchBy: matchByIndex,
 	dot: false,
 	hide: false,
 	isAnimationActive: "auto",
@@ -576,27 +600,23 @@ type PropsWithDefaults = RequiresDefaultProps<Props, typeof defaultRadarProps>
 
 export type InternalRadarProps = WithIdRequired<PropsWithDefaults> & RadarComposedData
 
-/* eslint-disable solid/reactivity -- props.hide early-return check and clsx call are stable at mount; className is read once */
 function RadarWithState(props: InternalRadarProps): JSX.Element {
-	if (props.hide) {
-		return null
-	}
-
-	const layerClass = clsx("recharts-radar", props.className)
-	/* eslint-enable solid/reactivity */
+	const layerClass = () => clsx("recharts-radar", props.className)
 
 	return (
-		<ZIndexLayer zIndex={props.zIndex}>
-			<Layer class={layerClass}>
-				<RenderPolygon {...props} />
-			</Layer>
-			<ActivePoints
-				points={props.points}
-				mainColor={getLegendItemColor(props.stroke, props.fill)}
-				itemDataKey={props.dataKey}
-				activeDot={props.activeDot}
-			/>
-		</ZIndexLayer>
+		<Show when={!props.hide}>
+			<ZIndexLayer zIndex={props.zIndex}>
+				<Layer class={layerClass()}>
+					<RenderPolygon {...props} />
+				</Layer>
+				<ActivePoints
+					points={props.points}
+					mainColor={getLegendItemColor(props.stroke, props.fill)}
+					itemDataKey={props.dataKey}
+					activeDot={props.activeDot}
+				/>
+			</ZIndexLayer>
+		</Show>
 	)
 }
 
@@ -656,7 +676,7 @@ function RadarImpl(props: WithIdRequired<PropsWithDefaults>): JSX.Element {
  * @consumes PolarChartContext
  * @provides LabelListContext
  */
-export function Radar(outsideProps: Props): JSX.Element {
+function RadarFn(outsideProps: Props): JSX.Element {
 	/* GOTCHA-013: split children before mergeProps so RegisterGraphicalItemId scope
 	   captures children. mergeProps over resolveDefaultProps (GOTCHA-005-C / 008-D):
 	   resolveDefaultProps `{ ...realProps }` spread snapshots the props proxy, freezing
@@ -666,37 +686,49 @@ export function Radar(outsideProps: Props): JSX.Element {
 	const props = mergeProps(defaultRadarProps, restProps) as PropsWithDefaults
 	return (
 		<RegisterGraphicalItemId id={props.id} type="radar">
-			{(id: string) => {
-				/* Memoize children inside Provider scope (GOTCHA-013). */
-				const memoizedChildren = createMemo(() => childrenProps.children)
-				return (
-					<>
-						<SetPolarGraphicalItem
-							type="radar"
-							id={id}
-							data={undefined}
-							dataKey={props.dataKey}
-							hide={props.hide}
-							angleAxisId={props.angleAxisId}
-							radiusAxisId={props.radiusAxisId}
-						/>
-						<SetPolarLegendPayload legendPayload={computeLegendPayloadFromRadarSectors(props)} />
-						<SetRadarTooltipEntrySettings
-							dataKey={props.dataKey}
-							stroke={props.stroke}
-							strokeWidth={props.strokeWidth}
-							fill={props.fill}
-							name={props.name}
-							hide={props.hide}
-							tooltipType={props.tooltipType}
-							id={id}
-						/>
-						<RadarImpl {...props} id={id}>
-							{memoizedChildren()}
-						</RadarImpl>
-					</>
-				)
-			}}
+			{(id: string) => (
+				<LabelListContextBridge>
+					{(() => {
+						/* Memoize children inside Provider scope (GOTCHA-013). */
+						const memoizedChildren = createMemo(() => childrenProps.children)
+						return (
+							<>
+								<SetPolarGraphicalItem
+									type="radar"
+									id={id}
+									data={undefined}
+									dataKey={props.dataKey}
+									hide={props.hide}
+									angleAxisId={props.angleAxisId}
+									radiusAxisId={props.radiusAxisId}
+								/>
+								<SetPolarLegendPayload legendPayload={computeLegendPayloadFromRadarSectors(props)} />
+								<SetRadarTooltipEntrySettings
+									dataKey={props.dataKey}
+									stroke={props.stroke}
+									strokeWidth={props.strokeWidth}
+									fill={props.fill}
+									name={props.name}
+									hide={props.hide}
+									tooltipType={props.tooltipType}
+									id={id}
+								/>
+								<RadarImpl {...props} id={id}>
+									{memoizedChildren()}
+								</RadarImpl>
+							</>
+						)
+					})()}
+				</LabelListContextBridge>
+			)}
 		</RegisterGraphicalItemId>
 	)
 }
+
+/**
+ * Typed entry point: the generics constrain props at the call site, like upstream.
+ */
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped usage accepts any data */
+export const Radar = RadarFn as (<DataPointType = any, DataValueType = any>(
+	props: Props<DataPointType, DataValueType>,
+) => JSX.Element) & { displayName?: string }

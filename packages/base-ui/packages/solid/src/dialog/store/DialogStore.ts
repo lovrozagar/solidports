@@ -1,4 +1,4 @@
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
 import type { ReactLikeRef } from '../../solid-helpers';
 import {
@@ -11,6 +11,7 @@ import {
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { type InteractionType } from '../../utils/useEnhancedClickHandler';
 import { type DialogRoot } from '../root/DialogRoot';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   modal: boolean | 'trap-focus';

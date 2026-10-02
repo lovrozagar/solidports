@@ -3,7 +3,7 @@ import { randomStringValue } from '@mui/internal-test-utils';
 import { screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import type { Component } from 'solid-js';
-import { Dynamic } from 'solid-js/web';
+import { Dynamic } from '@solidjs/web';
 import type {
   BaseUiConformanceTestsOptions,
   ConformantComponentProps,

@@ -15,9 +15,9 @@ export function Button(componentProps: Button.Props) {
     'focusableWhenDisabled',
     'nativeButton',
   ]);
-  const disabled = () => local.disabled ?? false;
+  const disabled = () => Boolean(local.disabled);
   const focusableWhenDisabled = () => local.focusableWhenDisabled ?? false;
-  const nativeButton = () => local.nativeButton ?? true;
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   const { getButtonProps, buttonRef } = useButton({
     disabled,

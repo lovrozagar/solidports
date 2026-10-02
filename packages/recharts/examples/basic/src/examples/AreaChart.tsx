@@ -7,8 +7,7 @@ import {
 	XAxis,
 	YAxis,
 } from "@solidports/recharts"
-import type { Component } from "solid-js"
-
+import type { Component } from 'solid-js';
 import { pageData } from "../data"
 
 export const AreaChartExample: Component = () => (

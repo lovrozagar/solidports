@@ -25,7 +25,7 @@ export function NavigationMenuIcon(componentProps: NavigationMenuIcon.Props) {
   };
 
   const element = useRenderElement('span', componentProps, {
-    props: [{ 'aria-hidden': true, children: '▼' }, elementProps],
+    props: [{ 'aria-hidden': 'true', children: '▼' }, elementProps],
     state,
     stateAttributesMapping: triggerOpenStateMapping,
   });

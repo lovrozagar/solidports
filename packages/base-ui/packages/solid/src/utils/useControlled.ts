@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createMemo, createSignal, type Accessor } from 'solid-js';
+import { createTrackedEffect, createMemo, createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { access } from '../solid-helpers';
 
 // TODO: uncomment once we enable eslint-plugin-react-compiler // eslint-disable-next-line react-compiler/react-compiler -- process.env never changes, dependency arrays are intentionally ignored
@@ -30,12 +31,12 @@ export function useControlled<T = unknown>(props: UseControlledProps<T>) {
   // eslint-disable-next-line solid/reactivity
   const isControlled = controlledProp() !== undefined;
   // eslint-disable-next-line solid/reactivity
-  const [valueState, setValue] = createSignal(defaultProp());
+  const [valueState, setValue] = createSignal(defaultProp() as Exclude<T, Function>);
   const value = createMemo(() => (isControlled ? controlledProp() : valueState()));
   const state = createMemo(() => props.state ?? 'value');
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (isControlled !== (controlledProp() !== undefined)) {
         console.error(
           [
@@ -55,7 +56,7 @@ export function useControlled<T = unknown>(props: UseControlledProps<T>) {
     // eslint-disable-next-line solid/reactivity
     const defaultValue = defaultProp();
 
-    createEffect(() => {
+    createTrackedEffect(() => {
       // Object.is() is not equivalent to the === operator.
       // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/is for more details.
       if (!isControlled && !Object.is(defaultValue, defaultProp())) {

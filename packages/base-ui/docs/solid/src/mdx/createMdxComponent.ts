@@ -1,11 +1,11 @@
 import { evaluate, type EvaluateOptions } from "@mdx-js/mdx"
-/* solid-js/jsx-runtime is shimmed by app.config.ts alias — vite-plugin-solid babel
-   rewrites the JSX calls before evaluation so these fns are never executed. Here
-   we pass a resolved jsx runtime shape {jsx,jsxs,jsxDEV,Fragment} into mdx/evaluate. */
-import * as jsxRuntime from "solid-js/h/jsx-runtime"
+/* MDX evaluate needs a {jsx,jsxs,jsxDEV,Fragment} runtime. The docs Vite config
+   aliases @solidjs/web/jsx-runtime to the local shim that routes native tags
+   through Dynamic. */
+import * as jsxRuntime from "../shims/solid-jsx-runtime"
 
 /** MDX runtime compile — parity with upstream `docs/src/mdx/createMdxComponent.ts`.
-    Upstream uses React jsx-runtime; we use solid-js/h/jsx-runtime for SSR-friendly eval.
+    Upstream uses React jsx-runtime; we use the Solid 2 jsx shim for SSR-friendly eval.
     Only called by rehype-driven heading/subtitle extraction paths, not render-time. */
 export async function createMdxComponent(
   markdown = "",

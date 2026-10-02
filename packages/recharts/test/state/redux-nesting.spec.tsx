@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { createSignal, useContext, createContext } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { createSignal, useContext, createContext, flush, untrack } from 'solid-js';
+import { render } from "../helper/render"
 import { Line, LineChart } from "../../src"
 import { selectChartHeight } from "../../src/state/selectors/containerSelectors"
 import { useAppSelector } from "../helper/legacyDispatch"
@@ -32,7 +32,7 @@ function createExampleStore() {
 const exampleStore = createExampleStore()
 
 const Counter = () => {
-	const ctx = useContext(ExampleContext)
+	const ctx = untrack(() => useContext(ExampleContext))
 	const count = () => ctx?.state().counter.value ?? 0
 	return <div>Current count is: {count()}</div>
 }
@@ -40,7 +40,7 @@ const Counter = () => {
 /* hoisted from beforeEach. */
 const AppNeighbour = (props: { spy?: (arg: number) => unknown }) => {
 	const Comp = (): null => {
-		const chartHeight = useAppSelector(selectChartHeight)
+		const chartHeight = untrack(() => useAppSelector(selectChartHeight))
 		if (chartHeight == null) {
 			throw new Error("Expected chart height")
 		}
@@ -48,20 +48,21 @@ const AppNeighbour = (props: { spy?: (arg: number) => unknown }) => {
 		return null
 	}
 	return (
-		<ExampleContext.Provider value={exampleStore}>
+		<ExampleContext value={exampleStore}>
 			<LineChart width={200} height={100}>
 				<Line dataKey="value" />
 				<Comp />
 			</LineChart>
 			{/* Custom app with custom state, next to Recharts chart */}
 			<Counter />
-		</ExampleContext.Provider>
+		</ExampleContext>
 	)
 }
 
 describe("when a Recharts chart is used in another app as a neighbour", () => {
 	beforeEach(() => {
 		exampleStore.reset()
+		flush()
 	})
 	it("should allow selecting data from recharts store", () => {
 		const spy = vi.fn()
@@ -75,6 +76,7 @@ describe("when a Recharts chart is used in another app as a neighbour", () => {
 		expect(container).toHaveTextContent("Current count is: 0")
 
 		exampleStore.increment()
+		flush()
 
 		expect(exampleStore.state()).toEqual({ counter: { value: 1 } })
 		expect(container).toHaveTextContent("Current count is: 1")
@@ -83,7 +85,7 @@ describe("when a Recharts chart is used in another app as a neighbour", () => {
 
 const AppParent = (props: { spy?: (arg: number) => unknown }) => {
 	const Comp = (): null => {
-		const chartHeight = useAppSelector(selectChartHeight)
+		const chartHeight = untrack(() => useAppSelector(selectChartHeight))
 		if (chartHeight == null) {
 			throw new Error("Expected chart height")
 		}
@@ -91,7 +93,7 @@ const AppParent = (props: { spy?: (arg: number) => unknown }) => {
 		return null
 	}
 	return (
-		<ExampleContext.Provider value={exampleStore}>
+		<ExampleContext value={exampleStore}>
 			<LineChart width={200} height={100}>
 				<Line dataKey="value" />
 				<Comp />
@@ -101,13 +103,14 @@ const AppParent = (props: { spy?: (arg: number) => unknown }) => {
 				 */}
 				<Counter />
 			</LineChart>
-		</ExampleContext.Provider>
+		</ExampleContext>
 	)
 }
 
 describe("when a Recharts chart is used in another app as a parent", () => {
 	beforeEach(() => {
 		exampleStore.reset()
+		flush()
 	})
 	it("should allow selecting data from recharts store", () => {
 		const spy = vi.fn()
@@ -121,6 +124,7 @@ describe("when a Recharts chart is used in another app as a parent", () => {
 		expect(container).toHaveTextContent("Current count is: 0")
 
 		exampleStore.increment()
+		flush()
 
 		expect(exampleStore.state()).toEqual({ counter: { value: 1 } })
 		expect(container).toHaveTextContent("Current count is: 1")

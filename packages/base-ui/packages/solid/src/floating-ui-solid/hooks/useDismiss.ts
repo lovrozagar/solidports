@@ -9,9 +9,10 @@ import {
   isShadowRoot,
   isWebKit,
 } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, on, onCleanup } from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, onCleanup } from 'solid-js';
 import { access, defaultProps } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
+import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { mergeCleanups } from '../../utils/mergeCleanups';
 import { ownerDocument } from '../../utils/owner';
@@ -29,6 +30,7 @@ import {
   isRootElement,
 } from '../utils';
 import { createAttribute } from '../utils/createAttribute';
+import { on } from '../../solid-1-compat';
 
 function alwaysFalse() {
   return false;
@@ -194,6 +196,7 @@ export function useDismiss(parameters: {
 
   const cancelDismissOnEndTimeout = useTimeout();
   const clearinsidePortalTimeout = useTimeout();
+  const compositionTimeout = useTimeout();
 
   const clearinsidePortal = () => {
     clearinsidePortalTimeout.clear();
@@ -341,7 +344,7 @@ export function useDismiss(parameters: {
     if (
       target &&
       (triggers.hasElement(target as Element) ||
-        triggers.hasMatchingElement((trigger) => contains(trigger, target as Element)))
+        triggers.hasMatchingElement((trigger: Element) => contains(trigger, target as Element)))
     ) {
       return;
     }
@@ -632,7 +635,10 @@ export function useDismiss(parameters: {
     addTargetEventListenerOnce(event, handleTouchEnd);
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!open() || !props.enabled) {
       dataRef().pressStartedInside = false;
       return;
@@ -640,8 +646,6 @@ export function useDismiss(parameters: {
 
     dataRef().__escapeKeyBubbles = bubbles().escapeKey;
     dataRef().__outsidePressBubbles = bubbles().outsidePress;
-
-    const compositionTimeout = useTimeout();
 
     function onScroll(event: Event) {
       store().setOpen(false, createChangeEventDetails(REASONS.none, event));
@@ -714,10 +718,10 @@ export function useDismiss(parameters: {
       .filter((ancestor) => ancestor !== doc.defaultView?.visualViewport)
       .forEach((ancestor) => {
         ancestor.addEventListener('scroll', onScroll, { passive: true });
-        onCleanup(() => ancestor.removeEventListener('scroll', onScroll));
+        _c.push(() => ancestor.removeEventListener('scroll', onScroll));
       });
 
-    onCleanup(() => {
+    _c.push(() => {
       unsubscribe();
       compositionTimeout.clear();
       pressStartedInsideRef = false;
@@ -725,9 +729,15 @@ export function useDismiss(parameters: {
       suppressNextOutsideClickRef = false;
       dataRef().pressStartedInside = false;
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(on(outsidePress, clearinsidePortal));
+  createEffect(...on(outsidePress, clearinsidePortal));
 
   const reference = createMemo<ElementProps['reference']>(() => ({
     onKeyDown: closeOnEscapeKeyDown,
@@ -776,37 +786,20 @@ export function useDismiss(parameters: {
      * See https://github.com/mui/base-ui/pull/3379 */
     onPointerDown: markInsidePressStartPrevented,
     onMouseDown: markInsidePressStartPrevented,
-
-    'on:click': {
-      capture: true,
-      handleEvent: markinsidePortal,
-    },
-    'on:mousedown': {
-      capture: true,
-      handleEvent: (event) => {
+    ref: withCaptureListeners({
+      click: markinsidePortal,
+      mousedown: (event) => {
         markinsidePortal();
         markPressStartedinsidePortal(event);
       },
-    },
-    'on:pointerdown': {
-      capture: true,
-      handleEvent: (event) => {
+      pointerdown: (event) => {
         markinsidePortal();
-        markPressStartedinsidePortal(event as PointerEvent);
+        markPressStartedinsidePortal(event);
       },
-    },
-    'on:mouseup': {
-      capture: true,
-      handleEvent: markinsidePortal,
-    },
-    'on:touchend': {
-      capture: true,
-      handleEvent: markinsidePortal,
-    },
-    'on:touchmove': {
-      capture: true,
-      handleEvent: markinsidePortal,
-    },
+      mouseup: markinsidePortal,
+      touchend: markinsidePortal,
+      touchmove: markinsidePortal,
+    }),
   };
 
   return {

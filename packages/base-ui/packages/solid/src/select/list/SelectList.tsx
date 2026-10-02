@@ -25,7 +25,7 @@ export function SelectList(componentProps: SelectList.Props) {
 
   const defaultProps: HTMLProps = {
     get 'aria-multiselectable'() {
-      return multiple() || undefined;
+      return multiple() ? 'true' : undefined;
     },
     get class() {
       return hasScrollArrows() && openMethod() !== 'touch'

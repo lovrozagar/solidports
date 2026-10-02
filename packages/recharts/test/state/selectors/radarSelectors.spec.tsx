@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { trackSpy } from "../../helper/trackSpy"
+import { render } from "../../helper/render"
 import { ChartState } from "../../../src/state/store"
 import {
 	selectAngleAxisForBandSize,
@@ -15,8 +16,7 @@ import {
 import { PolarAngleAxis, PolarRadiusAxis, Radar, RadarChart } from "../../../src"
 import { exampleRadarData } from "../../_data"
 import { assertNotNull } from "../../helper/assertNotNull"
-import { createEffect, createSignal } from "solid-js"
-
+import { createSignal, flush } from 'solid-js'
 describe("selectRadarPoints", () => {
 	const selector = (state: ChartState) =>
 		selectRadarPoints(state, 0, 0, false, "radar-value")
@@ -27,7 +27,7 @@ describe("selectRadarPoints", () => {
 	it("should return radar points in a chart", () => {
 		const radarPointsSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => radarPointsSpy(useAppSelectorWithStableTest(selector)))
+			trackSpy(radarPointsSpy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (
@@ -168,10 +168,10 @@ describe("selectRadarPoints", () => {
 		// expect(radarPointsSpy).toHaveBeenCalledTimes(2)
 	})
 
-	it.skip("should return new data after interaction", () => {
+	it("should return new data after interaction", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			spy(
+			trackSpy(spy, () =>
 				useAppSelectorWithStableTest((state) =>
 					selectRadarPoints(state, 0, 0, false, "radar-value"),
 				),
@@ -182,7 +182,7 @@ describe("selectRadarPoints", () => {
 			const [dataKey, setDataKey] = createSignal("value")
 			return (
 				<>
-					{dataKey === "value" ? (
+					{dataKey() === "value" ? (
 						<button type="button" onClick={() => setDataKey("half")}>
 							Change DataKey to half
 						</button>
@@ -192,7 +192,7 @@ describe("selectRadarPoints", () => {
 						</button>
 					)}
 					<RadarChart data={exampleRadarData} width={400} height={400}>
-						<Radar dataKey={dataKey} id="radar-value" />
+						<Radar dataKey={dataKey()} id="radar-value" />
 						<Comp />
 					</RadarChart>
 				</>
@@ -333,6 +333,7 @@ describe("selectRadarPoints", () => {
 		const button = container.querySelector("button")
 		assertNotNull(button)
 		button.click()
+		flush()
 
 		const expectedResultAfter: ReturnType<typeof selectRadarPoints> = {
 			baseLinePoints: [],
@@ -461,10 +462,10 @@ describe("selectRadarPoints", () => {
 			],
 		}
 
-		// render four is stabilized, the points are now updated
-		expect(spy).toHaveBeenNthCalledWith(4, expectedResultAfter)
+		// the points are now updated (React shows an intermediate render first; Solid goes straight there)
+		expect(spy).toHaveBeenNthCalledWith(3, expectedResultAfter)
 
-		expect(spy).toHaveBeenCalledTimes(4)
+		expect(spy).toHaveBeenCalledTimes(3)
 	})
 })
 
@@ -477,7 +478,7 @@ describe("selectRadiusAxisForBandSize", () => {
 	it("should return axis object in radar chart", () => {
 		const radialAxisSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => radialAxisSpy(useAppSelectorWithStableTest(selector)))
+			trackSpy(radialAxisSpy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (
@@ -502,6 +503,7 @@ describe("selectRadiusAxisForBandSize", () => {
 				domain: [0, 1000],
 				range: [0, 196],
 			}),
+			niceTicks: "auto",
 			tick: true,
 			tickCount: 5,
 			ticks: undefined,
@@ -520,7 +522,7 @@ describe("selectAngleAxisForBandSize", () => {
 	it("should return axis object in radar chart", () => {
 		const angleAxisSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => angleAxisSpy(useAppSelectorWithStableTest(selector)))
+			trackSpy(angleAxisSpy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (
@@ -545,6 +547,7 @@ describe("selectAngleAxisForBandSize", () => {
 				domain: [420, 460, 999, 500, 864, 650, 765, 365],
 				range: [-270, 90],
 			}),
+			niceTicks: "auto",
 			tick: true,
 			tickCount: undefined,
 			ticks: undefined,
@@ -563,7 +566,7 @@ describe("selectAngleAxisWithScaleAndViewport", () => {
 	it("should return angle axis object", () => {
 		const angleAxisSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => angleAxisSpy(useAppSelectorWithStableTest(selector)))
+			trackSpy(angleAxisSpy, () => useAppSelectorWithStableTest(selector))
 			return null
 		}
 		render(() => (

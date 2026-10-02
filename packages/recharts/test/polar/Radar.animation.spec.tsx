@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
 import { PageData } from "../_data"
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart } from "../../src"
+import type { AnimationInterpolateFn, PolarLayout, RadarPoint } from "../../src"
+import { AnimationControllerProvider } from "../../src/animation/useAnimationController"
+import { CompositeAnimationManager } from "../animation/CompositeAnimationManager"
+import { render } from "../helper/render"
 import { assertNotNull } from "../helper/assertNotNull"
 import {
 	ExpectedRadarDot,
@@ -11,13 +15,18 @@ import {
 	getRadarPolygons,
 } from "../helper/expectRadarPolygons"
 import { MockAnimationManager } from "../animation/MockProgressAnimationManager"
-import { createSignal, Show } from "solid-js"
-
+import { createSignal, Show, flush } from 'solid-js';
 const RADAR_RADIUS = 40
 const CX = 50
 const CY = 50
 
 const smallerData = PageData.slice(0, 3)
+
+function getRangeRadarStrokePaths(container: Element): ReadonlyArray<string> {
+	return Array.from(container.querySelectorAll<SVGPathElement>(".recharts-radar-polygon .recharts-polygon path"))
+		.filter((path) => path.getAttribute("fill") === "none")
+		.map((path) => path.getAttribute("d") ?? "")
+}
 
 function getDotRadius(dot: SVGCircleElement): number {
 	const cx = parseFloat(dot.getAttribute("cx") || "0")
@@ -332,6 +341,7 @@ describe("Radar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should animate the radar radii", async () => {
@@ -420,6 +430,7 @@ describe("Radar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should re-run the initial radii animation from the beginning", async () => {
@@ -497,7 +508,7 @@ describe("Radar animation", () => {
 						outerRadius={RADAR_RADIUS}
 						width={100}
 						height={100}
-						data={data}
+						data={data()}
 					>
 						<PolarGrid />
 						<PolarAngleAxis dataKey="name" />
@@ -516,6 +527,7 @@ describe("Radar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 		}
 
 		it("should animate radii from 3 to 2 points", async () => {
@@ -595,8 +607,10 @@ describe("Radar animation", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 			expect(getRadarPolygons(container)).toHaveLength(0)
 			button.click()
+			flush()
 		}
 
 		it("should animate polygons from the start again", async () => {
@@ -653,6 +667,95 @@ describe("Radar animation", () => {
 				[15.688600000000001, 29.85420380214485, 9.138634853193333],
 				[16, 30.446666666666665, 9.32],
 			])
+		})
+	})
+
+	describe("range baseline with custom animationInterpolateFn", () => {
+		const rangeDataA = [
+			{ name: "A", range: [20, 100] },
+			{ name: "B", range: [30, 120] },
+			{ name: "C", range: [25, 90] },
+		]
+		const rangeDataB = [
+			{ name: "A", range: [45, 130] },
+			{ name: "B", range: [15, 70] },
+			{ name: "C", range: [35, 110] },
+		]
+
+		const collapseToCenter: AnimationInterpolateFn<RadarPoint, PolarLayout> = (items, animationElapsedTime) => {
+			if (items == null) {
+				return []
+			}
+			if (animationElapsedTime === 1) {
+				return items.flatMap((item) => (item.status === "removed" ? [] : [item.next]))
+			}
+			return items.flatMap((item) =>
+				item.status === "removed"
+					? []
+					: [{ ...item.next, x: item.next.cx ?? item.next.x, y: item.next.cy ?? item.next.y }],
+			)
+		}
+
+		function RangeRadarTestCase() {
+			const [data, setData] = createSignal(rangeDataA)
+			return (
+				<div>
+					<button type="button" onClick={() => setData((prev) => (prev === rangeDataA ? rangeDataB : rangeDataA))}>
+						Change data
+					</button>
+					<RadarChart cx={CX} cy={CY} outerRadius={RADAR_RADIUS} width={100} height={100} data={data()}>
+						<PolarGrid />
+						<PolarAngleAxis dataKey="name" />
+						<PolarRadiusAxis />
+						<Radar
+							dataKey="range"
+							stroke="#8884d8"
+							fill="#8884d8"
+							fillOpacity={0.2}
+							isAnimationActive
+							animationEasing="linear"
+							animationInterpolateFn={collapseToCenter}
+						/>
+					</RadarChart>
+				</div>
+			)
+		}
+
+		function renderTestCase() {
+			const animationManager = new CompositeAnimationManager()
+			const { container } = render(() => (
+				<AnimationControllerProvider value={animationManager.factory}>
+					<RangeRadarTestCase />
+				</AnimationControllerProvider>
+			))
+
+			vi.runOnlyPendingTimers()
+			flush()
+
+			return { animationManager, container }
+		}
+
+		async function prime(container: HTMLElement, animationManager: MockAnimationManager) {
+			await animationManager.completeAnimation()
+			const button = container.querySelector("button")
+			assertNotNull(button)
+			button.click()
+			flush()
+		}
+
+		it("should animate the range baseline with the same custom update interpolation as the outer polygon", async () => {
+			const { container, animationManager } = renderTestCase()
+			await prime(container, animationManager)
+
+			await animationManager.setAnimationProgress(0.1)
+			const polygonsDuringAnimation = getRangeRadarStrokePaths(container)
+			expect(polygonsDuringAnimation).toHaveLength(2)
+			expect(polygonsDuringAnimation[0]).toBe(polygonsDuringAnimation[1])
+
+			await animationManager.completeAnimation()
+			const polygonsAfterAnimation = getRangeRadarStrokePaths(container)
+			expect(polygonsAfterAnimation).toHaveLength(2)
+			expect(polygonsAfterAnimation[0]).not.toBe(polygonsAfterAnimation[1])
 		})
 	})
 })

@@ -16,7 +16,6 @@ import {
   rmSync,
   statSync,
   writeFileSync,
-  copyFileSync,
   symlinkSync,
   lstatSync,
 } from 'node:fs';
@@ -30,6 +29,23 @@ const SOLID = join(FORK, 'docs/solid');
 const REACT_PAGES = join(REACT, 'src/app/(docs)/react');
 const SOLID_ROUTES = join(SOLID, 'src/routes/(docs)/solid');
 const SOLID_DEMOS = join(SOLID, 'src/demos/solid');
+/** Hand-ported demos the transforms cannot express, copied over the generated ones. */
+const SOLID_DEMO_OVERRIDES = join(SOLID, 'overrides/demos');
+
+/**
+ * Left out of the Solid docs until a Solid 2 library exists: React Hook Form has no Solid port, and
+ * `@tanstack/solid-virtual` targets Solid 1. Remove an entry to bring its demo and section back.
+ */
+const EXCLUDED = [
+  {
+    demo: 'handbook/forms/react-hook-form',
+    page: 'handbook/forms',
+    heading: 'React Hook Form',
+    mentions: ['[React Hook Form](#react-hook-form) and ', "    'React Hook Form Integration',\n"],
+  },
+  { demo: 'combobox/virtualized', page: 'components/combobox', heading: 'Virtualized', level: 3, mentions: [] },
+  { demo: 'autocomplete/virtualized', page: 'components/autocomplete', heading: 'Virtualized', level: 3, mentions: [] },
+];
 
 const GENERATED_BANNER =
   '{/* Generated from docs/react by `bun run docs:generate`. Do not edit by hand. */}';
@@ -48,9 +64,32 @@ function ensureDir(p) {
   mkdirSync(p, { recursive: true });
 }
 
+/**
+ * Every output path this run produced. Output folders are pruned against it instead of being
+ * deleted up front: removing a folder under a running Vite dev server drops its file watcher.
+ */
+const written = new Set();
+
+/** Writes only when the content changed, so regenerating does not trigger a reload storm. */
 function write(p, body) {
+  written.add(p);
+  if (existsSync(p) && readFileSync(p).equals(Buffer.from(body))) return;
   ensureDir(dirname(p));
   writeFileSync(p, body);
+}
+
+/** Deletes files under `dir` this run did not write, then any folders left empty. */
+function pruneStale(dir) {
+  if (!existsSync(dir)) return;
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) {
+      pruneStale(path);
+      if (readdirSync(path).length === 0) rmSync(path, { recursive: true });
+    } else if (!written.has(path)) {
+      rmSync(path);
+    }
+  }
 }
 
 const CUSTOM_MEDIA = [
@@ -73,22 +112,20 @@ function expandCustomMedia(css) {
 }
 
 function writeCss(dest, css) {
-  ensureDir(dirname(dest));
-  writeFileSync(dest, expandCustomMedia(css));
+  write(dest, expandCustomMedia(css));
 }
 
-function copyTree(from, to) {
+/** Copies `from` into `to`. Top-level names in `skip` are left for the caller to write. */
+function copyTree(from, to, skip = []) {
   if (!existsSync(from)) return;
   ensureDir(to);
   for (const name of readdirSync(from)) {
+    if (skip.includes(name)) continue;
     const src = join(from, name);
     const dest = join(to, name);
     if (statSync(src).isDirectory()) copyTree(src, dest);
     else if (name.endsWith('.css')) writeCss(dest, readFileSync(src, 'utf8'));
-    else {
-      ensureDir(dirname(dest));
-      copyFileSync(src, dest);
-    }
+    else write(dest, readFileSync(src));
   }
 }
 
@@ -149,15 +186,26 @@ function splitArgs(inner) {
   return args.filter(Boolean);
 }
 
-function effectFn(fn) {
-  const marker = 'return () =>';
-  const at = fn.indexOf(marker);
-  if (at === -1) return fn;
-  const brace = fn.indexOf('{', at + marker.length);
-  const block = readBalanced(fn, brace, '{', '}');
-  if (!block) return fn;
-  const after = fn.slice(block.end).replace(/^\s*;/, '');
-  return `${fn.slice(0, at)}onCleanup(() => {${block.inner}});${after}`;
+/**
+ * `useEffect(fn, deps)` → Solid 2. A mount-only effect (`[]`) becomes `onSettled(fn)`, which runs
+ * after the first render and may return a cleanup; a body that only returns a cleanup becomes
+ * `onCleanup`. Other deps map to the two-phase `createEffect(() => deps, fn)`.
+ */
+function effectCall(args) {
+  const fn = args[0] ?? '() => {}';
+  const deps = args[1];
+  if (deps !== undefined && deps.replace(/\s/g, '') !== '[]') {
+    console.warn(`docs:generate: useEffect deps ${deps} need review; emitted createEffect(compute, apply).`);
+    return `createEffect(() => ${deps}, ${fn})`;
+  }
+  const body = /^\(\)\s*=>\s*\{([\s\S]*)\}$/.exec(fn.trim());
+  const cleanupOnly = body && /^\s*return\s*\(\)\s*=>\s*(\{[\s\S]*\})\s*;?\s*$/.exec(body[1]);
+  if (cleanupOnly) {
+    /* The cleanup sat one function deeper in React; drop that indent level. */
+    const block = cleanupOnly[1].replace(/\n {2}/g, '\n');
+    return `onCleanup(() => ${block})`;
+  }
+  return `onSettled(${fn})`;
 }
 
 /** Rewrite React hook calls into Solid. Returns the new source and signal names. */
@@ -195,7 +243,7 @@ function rewriteHooks(text) {
     } else if (hook === 'useMemo') {
       replacement = `createMemo(${args[0] ?? '() => undefined'})`;
     } else if (hook === 'useEffect' || hook === 'useLayoutEffect') {
-      replacement = `createEffect(${effectFn(args[0] ?? '() => {}')})`;
+      replacement = effectCall(args);
     } else if (hook === 'useId') {
       replacement = 'createUniqueId()';
     } else if (hook === 'useImperativeHandle') {
@@ -214,6 +262,233 @@ function rewriteHooks(text) {
   }
   out += text.slice(last);
   return { text: out, signalNames, refNames };
+}
+
+/** React `key` is a reconciliation hint. Solid has no equivalent and renders it as a DOM attribute. */
+function stripReactKeys(text) {
+  const re = /(\n[ \t]*|[ \t]+)key=\{/g;
+  let out = '';
+  let last = 0;
+  let match;
+  while ((match = re.exec(text))) {
+    const block = readBalanced(text, match.index + match[0].length - 1, '{', '}');
+    if (!block) continue;
+    out += text.slice(last, match.index);
+    last = block.end;
+    re.lastIndex = block.end;
+  }
+  return out + text.slice(last);
+}
+
+/** Solid writes `style={{ ... }}` keys verbatim, and camelCase is not a CSS property. */
+function kebabStyleKeys(text) {
+  const re = /style=\{\{/g;
+  let match;
+  while ((match = re.exec(text))) {
+    const object = readBalanced(text, match.index + match[0].length - 1, '{', '}');
+    if (!object) continue;
+    const inner = object.inner.replace(
+      /(^\s*|,\s*)([a-z]+(?:[A-Z][a-z0-9]*)+)(\s*:)/g,
+      (_m, lead, key, colon) => `${lead}"${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}"${colon}`,
+    );
+    text = `${text.slice(0, match.index + match[0].length)}${inner}${text.slice(object.end - 1)}`;
+    re.lastIndex = match.index + match[0].length + inner.length;
+  }
+  return text;
+}
+
+/** Skips whitespace and JS comments from `i`. */
+function skipTrivia(text, i) {
+  for (;;) {
+    while (i < text.length && /\s/.test(text[i])) i += 1;
+    if (text.startsWith('//', i)) i = text.indexOf('\n', i) + 1 || text.length;
+    else if (text.startsWith('/*', i)) i = text.indexOf('*/', i) + 2;
+    else return i;
+  }
+}
+
+/** Index just past the `/>` that closes a self-closing JSX tag, or -1 if the tag has children. */
+function selfClosingEnd(text, i) {
+  let depth = 0;
+  let quote = null;
+  for (; i < text.length; i += 1) {
+    const c = text[i];
+    if (quote) {
+      if (c === quote) quote = null;
+    } else if (c === '"' || c === "'" || c === '`') quote = c;
+    else if (c === '{') depth += 1;
+    else if (c === '}') depth -= 1;
+    else if (depth === 0 && c === '/' && text[i + 1] === '>') return i + 2;
+    else if (depth === 0 && c === '>') return -1;
+  }
+  return -1;
+}
+
+/**
+ * `render={<X a={b} />}` → `render={(props) => <X {...props} a={b} />}`. React clones the element
+ * with `mergeProps(props, element.props)`. Solid evaluates JSX to a DOM node immediately and cannot
+ * clone it, so the element becomes a render function. A `class` on the element joins the part's
+ * class through Base UI `mergeProps`, as `className` does in React.
+ */
+function rewriteRenderElements(text) {
+  const re = /render=\{/g;
+  let match;
+  let usesMergeProps = false;
+  while ((match = re.exec(text))) {
+    const open = match.index + match[0].length;
+    const tagAt = skipTrivia(text, open);
+    if (text[tagAt] !== '<') continue;
+    const name = /^<([A-Za-z][\w.]*)/.exec(text.slice(tagAt));
+    if (!name) continue;
+    const afterName = skipGeneric(text, tagAt + name[0].length);
+    const end = selfClosingEnd(text, afterName);
+    if (end === -1) continue;
+    const close = skipTrivia(text, end);
+    if (text[close] !== '}') continue;
+
+    let attrs = text.slice(afterName, end - 2).trimEnd();
+    let spread = '{...props}';
+    const classAttr = /(\s+)class=("[^"]*"|'[^']*'|\{)/.exec(attrs);
+    if (classAttr) {
+      let value = classAttr[2];
+      let attrEnd = classAttr.index + classAttr[0].length;
+      if (value === '{') {
+        const expr = readBalanced(attrs, attrEnd - 1, '{', '}');
+        value = `{ get class() { return ${expr.inner.trim()}; } }`;
+        attrEnd = expr.end;
+      } else {
+        value = `{ class: ${value} }`;
+      }
+      attrs = attrs.slice(0, classAttr.index) + attrs.slice(attrEnd);
+      spread = `{...mergeProps(props, ${value})}`;
+      usesMergeProps = true;
+    }
+    const element = `${text.slice(tagAt, afterName)} ${spread}${attrs} />`;
+    const replacement = `${text.slice(open, tagAt)}(props) => ${element}${text.slice(end, close)}`;
+    text = text.slice(0, open) + replacement + text.slice(close);
+    re.lastIndex = open + replacement.length;
+  }
+  if (usesMergeProps && !text.includes("from '@solidports/base-ui/merge-props'")) {
+    text = `import { mergeProps } from '@solidports/base-ui/merge-props';\n${text}`;
+  }
+  return text;
+}
+
+/** React renders a bare `aria-*` as "true". Solid renders `""`, which ARIA reads as unset. */
+function stringifyBareAria(text) {
+  return text.replace(/(\s)(aria-[a-z]+)(?=\s*\/?>|\s+[A-Za-z{]|[ \t]*\n)/g, '$1$2="true"');
+}
+
+/**
+ * `({ className, ...props }) => <X class={clsx(.., className)} {...props} />` destructures Solid
+ * props, which reads `children` eagerly outside the parent's context. Rewrite to `omit`.
+ * `React.forwardRef` wrappers become plain components: Solid passes `ref` as a prop.
+ */
+function rewriteDestructuredProps(text) {
+  const headers = [
+    {
+      re: /export const (\w+) = React\.forwardRef<[^,>]+,\s*([\w.<>]+)>\(\s*function \w+\(\s*\{ className, \.\.\.props \}: [\w.<>]+,\s*forwardedRef: React\.ForwardedRef<\w+>,?\s*\) \{/,
+      head: (m) => `export function ${m[1]}(props: ${m[2]}) {`,
+      children: false,
+      forwardRef: true,
+    },
+    {
+      re: /(export )?function (\w+)(<[^>(]*>)?\(\{ className,( children,)? \.\.\.props \}: ([^)]+)\) \{/,
+      head: (m) => `${m[1] ?? ''}function ${m[2]}${m[3] ?? ''}(props: ${m[5]}) {`,
+      children: (m) => Boolean(m[4]),
+      forwardRef: false,
+    },
+  ];
+  for (const { re, head, children, forwardRef } of headers) {
+    let match;
+    while ((match = re.exec(text))) {
+      const braceAt = match.index + match[0].length - 1;
+      const body = readBalanced(text, braceAt, '{', '}');
+      if (!body) break;
+      const withChildren = typeof children === 'function' ? children(match) : children;
+      const keys = withChildren ? "'class', 'children'" : "'class'";
+      let inner = body.inner
+        .replace(/\bclassName\b/g, 'props.class')
+        .replace(/\{\.\.\.props\}/g, '{...others}')
+        .replace(/\n[ \t]*ref=\{forwardedRef\}/g, '');
+      if (withChildren) inner = inner.replace(/(?<![\w.])children(?![\w:])/g, 'props.children');
+      if (forwardRef) inner = dedent(inner, 2);
+      let rest = text.slice(body.end);
+      if (forwardRef) rest = rest.replace(/^\s*,?\s*\)\s*;?/, '');
+      text = `${text.slice(0, match.index)}${head(match)}\n  const others = omit(props, ${keys});${inner}}${rest}`;
+    }
+  }
+  return text;
+}
+
+/** Re-indent a block body so its shallowest line sits at `indent` spaces. */
+function dedent(block, indent) {
+  const depths = block
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => line.match(/^ */)[0].length);
+  const shift = Math.min(...depths) - indent;
+  if (shift <= 0) return block;
+  return block
+    .split('\n')
+    .map((line) => (line.startsWith(' '.repeat(shift)) ? line.slice(shift) : line))
+    .join('\n');
+}
+
+const TANSTACK_FORM_TYPES = new Set(['DeepKeys', 'DeepValue', 'ValidationError']);
+
+/** `@tanstack/react-form` → `@tanstack/solid-form`: `createForm(() => opts)`, field render props are accessors. */
+function rewriteTanstackForm(text) {
+  if (!text.includes("from '@tanstack/react-form'")) return text;
+  text = text.replace(/import \{([^}]*)\} from '@tanstack\/react-form';/g, (_m, names) => {
+    const list = names
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .map((name) => {
+        if (name === 'useForm') return 'createForm';
+        return TANSTACK_FORM_TYPES.has(name) ? `type ${name}` : name;
+      });
+    return `import { ${list.join(', ')} } from '@tanstack/solid-form';`;
+  });
+  const call = /\buseForm(<[^>(]*>)?\(/g;
+  let match;
+  while ((match = call.exec(text))) {
+    const args = readBalanced(text, match.index + match[0].length - 1, '(', ')');
+    if (!args) break;
+    const generic = match[1] ?? '';
+    const inner = args.inner.trim();
+    let options = '';
+    if (inner.startsWith('{')) options = `() => (${args.inner})`;
+    else if (inner) options = `() => ({ ${inner} })`;
+    const replacement = `createForm${generic}(${options})`;
+    text = `${text.slice(0, match.index)}${replacement}${text.slice(args.end)}`;
+    call.lastIndex = match.index + replacement.length;
+  }
+  return text.replace(/\buseForm\b/g, 'createForm').replace(/\bfield\.(?=[a-zA-Z])/g, 'field().');
+}
+
+/** Rewrite the MDX "TanStack Form" section (prose and snippets) to the Solid adapter API. */
+function rewriteTanstackSection(text) {
+  const start = text.indexOf('\n## TanStack Form');
+  if (start === -1) return text;
+  const next = text.slice(start + 1).search(/\n## |\nexport const metadata/);
+  const end = next === -1 ? text.length : start + 1 + next;
+  const section = rewriteTanstackForm(text.slice(start, end)).replace(
+    /`createForm` hook/g,
+    '`createForm` function',
+  );
+  return text.slice(0, start) + section + text.slice(end);
+}
+
+/** Merge named imports into the module's `solid-js` import, or add one. */
+function addSolidImport(text, name) {
+  if (new RegExp(`import \\{[^}]*\\b${name}\\b[^}]*\\} from 'solid-js'`).test(text)) return text;
+  const existing = /import \{([^}]*)\} from 'solid-js';/;
+  if (existing.test(text)) {
+    return text.replace(existing, (_m, names) => `import { ${names.trim()}, ${name} } from 'solid-js';`);
+  }
+  return `import { ${name} } from 'solid-js';\n${text}`;
 }
 
 function transformDemoTsx(src) {
@@ -237,7 +512,15 @@ function transformDemoTsx(src) {
   text = text.replace(/<\/React\.Fragment>/g, '</>');
   text = text.replace(/React\.ComponentProps<'svg'>/g, 'JSX.SvgSVGAttributes<SVGSVGElement>');
   text = text.replace(/React\.ComponentProps<"svg">/g, 'JSX.SvgSVGAttributes<SVGSVGElement>');
+  text = text.replace(/React\.ComponentProps(?:WithoutRef)?<('[a-z]+')>/g, 'ComponentProps<$1>');
   text = text.replace(/React\.CSSProperties/g, 'JSX.CSSProperties');
+  /* Solid handlers receive native DOM events with a typed `currentTarget`. */
+  text = text.replace(
+    /React\.(Mouse|Keyboard|Pointer|Focus)Event<(\w+)>/g,
+    '$1Event & { currentTarget: $2 }',
+  );
+  text = text.replace(/React\.FormEvent<(\w+)>/g, 'Event & { currentTarget: $1 }');
+  text = text.replace(/React\.ComponentType\b/g, 'Component');
   text = text.replace(/React\.ReactNode/g, 'JSX.Element');
   text = text.replace(/React\.ReactElement/g, 'JSX.Element');
 
@@ -282,10 +565,7 @@ function transformDemoTsx(src) {
     text = lines.join('\n');
   }
   text = text.replace(/\btoasts\./g, 'toasts().');
-  /* Solid's style inliner writes object keys verbatim. CamelCase is not a CSS property. */
-  text = text.replace(/\bmarginLeft:/g, '"margin-left":');
-  text = text.replace(/\bborderTop:/g, '"border-top":');
-  text = text.replace(/\bminWidth:/g, '"min-width":');
+  text = kebabStyleKeys(text);
   text = text.replace(
     /return toasts\(\)\.map\(\(([^)]+)\) => \(([\s\S]*?)\)\);/g,
     'return (\n    <For each={toasts()}>\n      {($1) => ($2)}\n    </For>\n  );',
@@ -294,7 +574,6 @@ function transformDemoTsx(src) {
     /return toasts\(\)\.map\(\(([^)]+)\) => (<[^;]+)\);/g,
     'return (\n    <For each={toasts()}>\n      {($1) => $2}\n    </For>\n  );',
   );
-  text = text.replace(/render=\{<([A-Za-z0-9.]+) \/>\}/g, 'render={(props) => <$1 {...props} />}');
   text = text.replace(/\{value\.map\(/g, '{(Array.isArray(value) ? value : []).map(');
   text = text.replace(/<Select\.Label\b/g, '<label');
   text = text.replace(/<\/Select\.Label>/g, '</label>');
@@ -303,6 +582,11 @@ function transformDemoTsx(src) {
   text = text.replace(/<motion\.div\b([^>]*)>/g, '<div$1>');
   text = text.replace(/<\/motion\.div>/g, '</div>');
   text = text.replace(/<\/?AnimatePresence>/g, '');
+  text = stripReactKeys(text);
+  text = rewriteRenderElements(text);
+  text = stringifyBareAria(text);
+  text = rewriteDestructuredProps(text);
+  text = rewriteTanstackForm(text);
   if (/\bReact\./.test(text)) {
     text = `const React = { forwardRef: (render) => (props) => render(props, props.ref), useActionState: (_action, initial) => [initial, () => {}, false] };\n${text}`;
   }
@@ -313,15 +597,24 @@ function transformDemoTsx(src) {
   if (text.includes('createMemo(')) needed.push('createMemo');
   if (text.includes('createUniqueId(')) needed.push('createUniqueId');
   if (/\bonCleanup\(/.test(text)) needed.push('onCleanup');
-  if (text.includes('<For')) needed.push('For');
+  if (/\bonSettled\(/.test(text)) needed.push('onSettled');
+  if (/<For[\s>]/.test(text)) needed.push('For');
   const typeJsx = /JSX\.(SvgSVGAttributes|CSSProperties|Element)/.test(text);
-  if (needed.length > 0 || typeJsx) {
-    const names = [...new Set(needed)];
-    if (typeJsx) names.push('type JSX');
-    if (!text.includes("from 'solid-js'") && !text.includes('from "solid-js"')) {
-      text = `import { ${names.join(', ')} } from 'solid-js';\n${text}`;
-    }
+  const header = [];
+  if (needed.length > 0 && !text.includes("from 'solid-js'") && !text.includes('from "solid-js"')) {
+    header.push(`import { ${[...new Set(needed)].join(', ')} } from 'solid-js';`);
   }
+  /* Solid 2 moved the JSX namespace (and ComponentProps) to @solidjs/web. */
+  const webTypes = [];
+  if (/\bComponentProps</.test(text)) webTypes.push('ComponentProps');
+  if (typeJsx) webTypes.push('JSX');
+  if (webTypes.length > 0 && !/import type \{[^}]*\} from '@solidjs\/web'/.test(text)) {
+    header.push(`import type { ${webTypes.join(', ')} } from '@solidjs/web';`);
+  }
+  if (header.length > 0) text = `${header.join('\n')}\n${text}`;
+
+  if (/\bomit\(/.test(text)) text = addSolidImport(text, 'omit');
+  if (/<Component>/.test(text)) text = addSolidImport(text, 'type Component');
 
   text = text.replace(/\bReact\.useId\(/g, 'createUniqueId(');
   if (text.includes('createUniqueId(') && !text.includes('createUniqueId')) {
@@ -337,8 +630,22 @@ function transformDemoTsx(src) {
   return text;
 }
 
+/** Drops a heading's section (up to the next heading of the same or a higher level) and its mentions. */
+function removeMdxSection(text, { heading, level = 2, mentions }) {
+  const start = text.indexOf(`\n${'#'.repeat(level)} ${heading}\n`);
+  if (start !== -1) {
+    const next = text.slice(start + 1).search(new RegExp(`\\n#{1,${level}} |\\nexport const metadata`));
+    text = text.slice(0, start) + (next === -1 ? '' : text.slice(start + 1 + next));
+  }
+  for (const mention of mentions) text = text.replaceAll(mention, '');
+  return text;
+}
+
 function transformMdx(src, pageRelDir) {
   let text = src;
+  for (const entry of EXCLUDED) {
+    if (entry.page === pageRelDir) text = removeMdxSection(text, entry);
+  }
   text = text.replaceAll('@base-ui/react/', '@solidports/base-ui/');
   text = text.replaceAll("'@base-ui/react'", "'@solidports/base-ui'");
   text = text.replaceAll('"@base-ui/react"', '"@solidports/base-ui"');
@@ -346,6 +653,7 @@ function transformMdx(src, pageRelDir) {
   text = text.replaceAll('unstyled React ', 'unstyled Solid ');
   text = text.replaceAll('Headless React Components', 'Headless Solid Components');
   text = text.replaceAll('React Accordion', 'Solid Accordion');
+  text = rewriteTanstackSection(text);
 
 
   const prefix = demoPrefixFromPageDir(pageRelDir);
@@ -490,11 +798,10 @@ function copyChromeCss() {
   const fromCss = join(REACT, 'src/css');
   const toCss = join(SOLID, 'src/css');
   if (existsSync(fromCss)) {
-    if (existsSync(toCss)) rmSync(toCss, { recursive: true });
-    copyTree(fromCss, toCss);
+    copyTree(fromCss, toCss, ['index.css', 'syntax.css']);
     const index = join(toCss, 'index.css');
-    if (existsSync(index)) {
-      let css = readFileSync(index, 'utf8');
+    if (existsSync(join(fromCss, 'index.css'))) {
+      let css = readFileSync(join(fromCss, 'index.css'), 'utf8');
       css = css.replaceAll(
         "'../app/(docs)/**/demos/**/*.{ts,tsx}'",
         "'../demos/solid/**/*.{ts,tsx}'",
@@ -511,8 +818,25 @@ function copyChromeCss() {
 @source '../routes/**/*.{ts,tsx,mdx}';`,
         );
       }
+      if (!css.includes("@import '../syntax-highlighting/index.css';")) {
+        css = css.replace(
+          "@import './syntax.css';",
+          "@import './syntax.css';\n@import '../syntax-highlighting/index.css';",
+        );
+      }
       writeCss(index, css);
     }
+    const syntax = join(toCss, 'syntax.css');
+    if (existsSync(join(fromCss, 'syntax.css'))) {
+      /* Inline code highlighted by shiki carries `--syntax-tag` on HTML tags instead of `.di-ht`. */
+      const css = readFileSync(join(fromCss, 'syntax.css'), 'utf8').replace(
+        /( *\/\* stylelint-disable-next-line [^*]*\*\/\n)?  \.MdCode\[data-inline\]:not\(:has\(> \.di-ht\)\) \{/,
+        (_m, lint = '') =>
+          `  /* HTML tags stay colored text. Shiki marks them with --syntax-tag; React uses .di-ht. */\n${lint}  .MdCode[data-inline]:not(:has(> .di-ht)):not(:has([style*='--syntax-tag'])) {`,
+      );
+      writeCss(syntax, css);
+    }
+    pruneStale(toCss);
   }
 
   const reactComponents = join(REACT, 'src/components');
@@ -546,7 +870,6 @@ function copyChromeCss() {
 }
 
 function generateDemos() {
-  if (existsSync(SOLID_DEMOS)) rmSync(SOLID_DEMOS, { recursive: true });
   const files = walk(REACT_PAGES);
   let n = 0;
   for (const file of files) {
@@ -557,7 +880,10 @@ function generateDemos() {
     const rest = m[2]; // hero/css-modules/index.tsx
     if (rest.endsWith('index.ts') && !rest.endsWith('index.tsx')) continue;
     const prefix = demoPrefixFromPageDir(pageDir);
-    const dest = join(SOLID_DEMOS, prefix, rest);
+    const demoRel = join(prefix, rest);
+    if (EXCLUDED.some((entry) => demoRel.startsWith(`${entry.demo}/`))) continue;
+    if (existsSync(join(SOLID_DEMO_OVERRIDES, demoRel))) continue;
+    const dest = join(SOLID_DEMOS, demoRel);
     let body = readFileSync(file, 'utf8');
     if (file.endsWith('.tsx') || file.endsWith('.ts') || file.endsWith('.jsx') || file.endsWith('.js')) {
       body = transformDemoTsx(body);
@@ -565,11 +891,12 @@ function generateDemos() {
     write(dest, body);
     n += 1;
   }
+  copyTree(SOLID_DEMO_OVERRIDES, SOLID_DEMOS);
+  pruneStale(SOLID_DEMOS);
   return n;
 }
 
 function generatePages() {
-  if (existsSync(SOLID_ROUTES)) rmSync(SOLID_ROUTES, { recursive: true });
   const files = walk(REACT_PAGES).filter((f) => f.endsWith('page.mdx'));
   for (const file of files) {
     const rel = relative(REACT_PAGES, file);
@@ -580,6 +907,7 @@ function generatePages() {
     write(dest, body);
   }
   write(join(SOLID, 'src/sitemap.ts'), generateSitemap());
+  pruneStale(SOLID_ROUTES);
   return files.length;
 }
 
@@ -597,10 +925,10 @@ function transformSolidTsx(src) {
     /props: React\.ComponentProps<'svg'>/g,
     'props: JSX.SvgSVGAttributes<SVGSVGElement>',
   );
-  if (text.includes('JSX.SvgSVGAttributes') && !text.includes("from 'solid-js'")) {
-    text = `import type { JSX } from 'solid-js';\n${text}`;
+  if (text.includes('JSX.SvgSVGAttributes') && !/\bJSX\b[^;]*from '@solidjs\/web'/.test(text)) {
+    text = `import type { JSX } from '@solidjs/web';\n${text}`;
   }
-  return text;
+  return kebabStyleKeys(text);
 }
 
 const HOME_LAYOUT = `import type { ParentProps } from 'solid-js'
@@ -678,7 +1006,6 @@ export function HomeLayout(props: ParentProps) {
 function generateWebsite() {
   const site = join(REACT, 'src/app/(website)');
   const dest = join(SOLID, 'src/website');
-  if (existsSync(dest)) rmSync(dest, { recursive: true });
   copyTree(join(site, 'css'), join(dest, 'css'));
   for (const folder of ['logos', 'icons']) {
     const from = join(site, folder);
@@ -718,6 +1045,7 @@ export default function Home() {
 }
 `,
   );
+  pruneStale(dest);
 }
 
 function patchSolidCssImport() {
@@ -726,18 +1054,17 @@ function patchSolidCssImport() {
     let t = readFileSync(appTsx, 'utf8');
     t = t.replace('import "./app.css"', 'import "./css/index.css"');
     t = t.replace("import './app.css'", "import './css/index.css'");
-    writeFileSync(appTsx, t);
+    write(appTsx, t);
   }
   // Tailwind v4 resolves nested @import paths as src/src/css/*; duplicate the folder.
   // Imports written for src/css (`../components`) must climb one more level from the copy.
   const twCss = join(SOLID, 'src', 'src', 'css');
-  rmSync(twCss, { recursive: true, force: true });
-  copyTree(join(SOLID, 'src', 'css'), twCss);
-  const twIndex = join(twCss, 'index.css');
-  if (existsSync(twIndex)) {
-    const css = readFileSync(twIndex, 'utf8').replaceAll("'../", "'../../");
-    writeFileSync(twIndex, css);
+  copyTree(join(SOLID, 'src', 'css'), twCss, ['index.css']);
+  const srcIndex = join(SOLID, 'src', 'css', 'index.css');
+  if (existsSync(srcIndex)) {
+    write(join(twCss, 'index.css'), readFileSync(srcIndex, 'utf8').replaceAll("'../", "'../../"));
   }
+  pruneStale(twCss);
 }
 
 if (!existsSync(REACT_PAGES)) {

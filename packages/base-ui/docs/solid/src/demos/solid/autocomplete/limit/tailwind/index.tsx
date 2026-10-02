@@ -42,7 +42,6 @@ export default function ExampleAutocompleteLimit() {
             <Autocomplete.List>
               {(tag: Tag) => (
                 <Autocomplete.Item
-                  key={tag.id}
                   class="flex cursor-default py-2 pr-2 pl-2 text-sm leading-4 outline-hidden select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-0 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                   value={tag}
                 >

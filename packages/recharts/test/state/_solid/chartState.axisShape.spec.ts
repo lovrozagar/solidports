@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest"
+import { observe } from "../../helper/observe"
 import { expectTypeOf } from "vitest"
-import { createEffect, createRoot } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createRoot, flush } from 'solid-js'
 import { createInitialChartState } from "../../../src/state/chartState"
 import type { XAxisState, YAxisState, ZAxisState } from "../../../src/state/chartState"
 import type { XAxisSettings, YAxisSettings, ZAxisSettings } from "../../../src/state/cartesianAxisSlice"
 
+import { createStore } from '../../../src/util/solid-1-compat';
 /* XAxisSettings fixture — dataKey is the field we probe. */
 const xSettings: XAxisSettings = {
 	allowDataOverflow: false,
@@ -82,10 +83,11 @@ describe("Phase 2 — widened XAxisState / YAxisState / ZAxisState shapes", () =
 		   Fails RED: XAxisState is Record<string, unknown> in Phase 1, so
 		   the type-level assertion below rejects — XAxisState does NOT extend
 		   { settings: XAxisSettings } until Phase 2 widens the type. */
+		const [state, setState] = createStore(createInitialChartState())
+		setState("cartesianAxes", "xAxis", "0", { settings: xSettings } as XAxisState)
+		flush()
 		createRoot((dispose) => {
-			const [state, setState] = createStore(createInitialChartState())
-			setState("cartesianAxes", "xAxis", "0", { settings: xSettings } as XAxisState)
-			createEffect(() => {
+			observe(() => {
 				const dataKey = (state.cartesianAxes.xAxis["0"] as { settings: XAxisSettings } | undefined)?.settings?.dataKey
 				expect(dataKey).toBe("x")
 			})
@@ -99,10 +101,11 @@ describe("Phase 2 — widened XAxisState / YAxisState / ZAxisState shapes", () =
 	})
 
 	it("widened YAxisState has settings field of YAxisSettings shape", () => {
+		const [state, setState] = createStore(createInitialChartState())
+		setState("cartesianAxes", "yAxis", "0", { settings: ySettings } as YAxisState)
+		flush()
 		createRoot((dispose) => {
-			const [state, setState] = createStore(createInitialChartState())
-			setState("cartesianAxes", "yAxis", "0", { settings: ySettings } as YAxisState)
-			createEffect(() => {
+			observe(() => {
 				const dataKey = (state.cartesianAxes.yAxis["0"] as { settings: YAxisSettings } | undefined)?.settings?.dataKey
 				expect(dataKey).toBe("value")
 			})
@@ -113,10 +116,11 @@ describe("Phase 2 — widened XAxisState / YAxisState / ZAxisState shapes", () =
 	})
 
 	it("widened ZAxisState has settings field of ZAxisSettings shape", () => {
+		const [state, setState] = createStore(createInitialChartState())
+		setState("cartesianAxes", "zAxis", "0", { settings: zSettings } as ZAxisState)
+		flush()
 		createRoot((dispose) => {
-			const [state, setState] = createStore(createInitialChartState())
-			setState("cartesianAxes", "zAxis", "0", { settings: zSettings } as ZAxisState)
-			createEffect(() => {
+			observe(() => {
 				const dataKey = (state.cartesianAxes.zAxis["0"] as { settings: ZAxisSettings } | undefined)?.settings?.dataKey
 				expect(dataKey).toBe("z")
 			})

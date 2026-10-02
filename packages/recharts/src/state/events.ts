@@ -1,5 +1,4 @@
 /* eslint-disable import/no-cycle */
-import type { SetStoreFunction } from "solid-js/store"
 import type { CategoricalChartFunc } from "../chart/types"
 import type { HTMLMousePointer } from "../util/types"
 import type { ChartState } from "./chartState"
@@ -15,6 +14,7 @@ import {
 import { touchEventAction } from "./touchEventsMiddleware"
 import { externalEventAction } from "./externalEventsMiddleware"
 
+import { type SetStoreFunction } from '../util/solid-1-compat';
 export type ChartEventHandlers = {
 	handleMouseClick: (mousePointer: HTMLMousePointer) => void
 	handleMouseMove: (mousePointer: HTMLMousePointer) => void

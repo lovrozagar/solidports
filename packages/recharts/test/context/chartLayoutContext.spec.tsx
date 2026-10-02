@@ -1,8 +1,15 @@
-import { createEffect, type ComponentType } from "solid-js"
+import { trackSpy } from "../helper/trackSpy"
+import { untrack } from "solid-js"
+import type { ComponentType } from 'solid-js';
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
-import { useOffsetInternal } from "../../src/context/chartLayoutContext"
-import { Brush, ComposedChart, Customized, Legend, XAxis, YAxis } from "../../src"
+import { render } from "../helper/render"
+import {
+	useCartesianChartLayout,
+	useChartLayout,
+	useOffsetInternal,
+	usePolarChartLayout,
+} from "../../src/context/chartLayoutContext"
+import { Brush, ComposedChart, Customized, Legend, PieChart, XAxis, YAxis } from "../../src"
 import { mockGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
 import { emptyOffset } from "../helper/offsetHelpers"
 import { useClipPathId } from "../../src/container/ClipPathProvider"
@@ -11,7 +18,7 @@ describe("ClipPathIdContext", () => {
 	it("should generate unique clipPathId", () => {
 		expect.assertions(1)
 		const MockConsumer: ComponentType = () => {
-			const clipPathId = useClipPathId()
+			const clipPathId = untrack(() => useClipPathId())
 			expect(clipPathId).toMatch(/^recharts\d+-clip$/)
 			return null
 		}
@@ -25,8 +32,9 @@ describe("ClipPathIdContext", () => {
 	it("should return undefined when using the hook outside of chart", () => {
 		expect.assertions(1)
 		const MockComponent: ComponentType = () => {
-			const clipPathId = useClipPathId()
-			expect(clipPathId).toBe(undefined)
+			const clipPathId = untrack(() => useClipPathId())
+			/* Optional contexts default to null in this port. */
+			expect(clipPathId).toBeNull()
 			return null
 		}
 		render(() => <MockComponent />)
@@ -37,7 +45,7 @@ describe("useOffsetInternal", () => {
 	it("should return offset with all zeroes when used outside of chart", () => {
 		expect.assertions(1)
 		const Comp = (): null => {
-			const offset = useOffsetInternal()
+			const offset = untrack(() => useOffsetInternal())
 			expect(offset).toEqual(emptyOffset)
 			return null
 		}
@@ -47,7 +55,7 @@ describe("useOffsetInternal", () => {
 	it("should return default offset in an empty chart", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			const offset = useOffsetInternal()
+			const offset = untrack(() => useOffsetInternal())
 			offsetSpy(offset)
 			return null
 		}
@@ -72,7 +80,7 @@ describe("useOffsetInternal", () => {
 	it("should add chart margin", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			const offset = useOffsetInternal()
+			const offset = untrack(() => useOffsetInternal())
 			offsetSpy(offset)
 			return null
 		}
@@ -97,7 +105,7 @@ describe("useOffsetInternal", () => {
 	it("should include default Brush height (40) in bottom property", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		render(() => (
@@ -121,7 +129,7 @@ describe("useOffsetInternal", () => {
 	it("should include explicit brush height in bottom property", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		render(() => (
@@ -145,7 +153,7 @@ describe("useOffsetInternal", () => {
 	it("should include default width of YAxis", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		render(() => (
@@ -170,7 +178,7 @@ describe("useOffsetInternal", () => {
 	it("should include explicit width of YAxis", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		render(() => (
@@ -195,7 +203,7 @@ describe("useOffsetInternal", () => {
 	it("should exclude hidden YAxis dimensions", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		render(() => (
@@ -221,7 +229,7 @@ describe("useOffsetInternal", () => {
 	it("should include default height of XAxis", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		render(() => (
@@ -245,7 +253,7 @@ describe("useOffsetInternal", () => {
 	it("should include explicit height of XAxis", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		render(() => (
@@ -269,7 +277,7 @@ describe("useOffsetInternal", () => {
 	it("should exclude hidden XAxis height", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		render(() => (
@@ -298,7 +306,7 @@ describe("useOffsetInternal", () => {
 	it("should include computed width and height on Legend - see appendOffsetOfLegend for detailed behaviour", () => {
 		const offsetSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => offsetSpy(useOffsetInternal()))
+			trackSpy(offsetSpy, () => useOffsetInternal())
 			return null
 		}
 		mockGetBoundingClientRect({ height: 29, width: 43 })
@@ -317,5 +325,48 @@ describe("useOffsetInternal", () => {
 			top: 10,
 			width: 40,
 		})
+	})
+})
+
+describe("layout hooks", () => {
+	it("should return undefined for all layout hooks outside of chart", () => {
+		expect.assertions(3)
+		const Comp = (): null => {
+			expect(untrack(() => useChartLayout())).toBe(undefined)
+			expect(untrack(() => useCartesianChartLayout())).toBe(undefined)
+			expect(untrack(() => usePolarChartLayout())).toBe(undefined)
+			return null
+		}
+		render(() => <Comp />)
+	})
+
+	it("should return cartesian layout and no polar layout in cartesian chart", () => {
+		expect.assertions(3)
+		const Comp = (): null => {
+			expect(untrack(() => useChartLayout())).toBe("horizontal")
+			expect(untrack(() => useCartesianChartLayout())).toBe("horizontal")
+			expect(untrack(() => usePolarChartLayout())).toBe(undefined)
+			return null
+		}
+		render(() => (
+			<ComposedChart width={100} height={200}>
+				<Comp />
+			</ComposedChart>
+		))
+	})
+
+	it("should return polar layout and no cartesian layout in polar chart", () => {
+		expect.assertions(3)
+		const Comp = (): null => {
+			expect(untrack(() => useChartLayout())).toBe("centric")
+			expect(untrack(() => useCartesianChartLayout())).toBe(undefined)
+			expect(untrack(() => usePolarChartLayout())).toBe("centric")
+			return null
+		}
+		render(() => (
+			<PieChart width={100} height={200}>
+				<Comp />
+			</PieChart>
+		))
 	})
 })

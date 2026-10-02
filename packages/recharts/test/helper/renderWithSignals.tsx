@@ -1,7 +1,7 @@
-/* @jsxImportSource solid-js */
-import { render } from "@solidjs/testing-library"
-import { createSignal, type JSX } from "solid-js"
-
+/* @jsxImportSource @solidjs/web */
+import { render } from "./render"
+import { createSignal, flush } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 /**
  * Result of {@link renderWithSignals}. Extends the testing-library `render`
  * return with signal-backed prop update hooks.
@@ -66,9 +66,11 @@ export function renderWithSignals<P extends Record<string, unknown>>(
 		...result,
 		rerender(nextProps: P): void {
 			setProps(() => nextProps)
+			flush()
 		},
 		update(patch: Partial<P>): void {
 			setProps((prev) => ({ ...prev, ...patch }))
+			flush()
 		},
 	}
 }

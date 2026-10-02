@@ -1,4 +1,5 @@
-import { createSignal, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -19,7 +20,7 @@ export default function ExampleAsyncAutocomplete() {
     if (isPending) {
       return (
         <>
-          <span class={styles.Spinner} aria-hidden />
+          <span class={styles.Spinner} aria-hidden="true" />
           Searching…
         </>
       );
@@ -90,7 +91,7 @@ export default function ExampleAsyncAutocomplete() {
               </Autocomplete.Status>
               <Autocomplete.List>
                 {(movie: Movie) => (
-                  <Autocomplete.Item key={movie.id} class={styles.Item} value={movie}>
+                  <Autocomplete.Item class={styles.Item} value={movie}>
                     <span class={styles.MovieItem}>
                       <span class={styles.MovieName}>{movie.title}</span>
                       <span class={styles.MovieYear}>{movie.year}</span>

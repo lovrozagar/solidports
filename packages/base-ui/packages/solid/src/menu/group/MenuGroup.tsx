@@ -1,4 +1,5 @@
-import { createSignal, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -29,7 +30,7 @@ export function MenuGroup(componentProps: MenuGroup.Props) {
     ],
   });
 
-  return <MenuGroupContext.Provider value={context}>{element()}</MenuGroupContext.Provider>;
+  return <MenuGroupContext value={context}>{element()}</MenuGroupContext>;
 }
 
 export interface MenuGroupProps extends BaseUIComponentProps<'div', MenuGroup.State> {

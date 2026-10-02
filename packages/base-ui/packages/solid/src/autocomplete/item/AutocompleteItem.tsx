@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { ComboboxItem } from '../../combobox/item/ComboboxItem';
 import type { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/types';
 

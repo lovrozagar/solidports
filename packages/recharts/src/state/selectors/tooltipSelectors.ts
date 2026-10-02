@@ -1,9 +1,10 @@
 /* eslint-disable import/no-cycle */
 import type { ChartState } from "../store"
+import { selectChartDataSliceWithIndexes } from "./dataSelectors"
 import { readChartState } from "../chartState"
 import {
 	type AxisRange,
-	combineAppliedValues,
+	combineAllAppliedValues,
 	combineAreasDomain,
 	combineAxisDomain,
 	combineAxisDomainWithNiceTicks,
@@ -170,11 +171,18 @@ function selectTooltipStackedData(state: ChartState): DisplayedStackedData {
 	)
 }
 
+function selectAnyTooltipItemUsesChartData(state: ChartState): boolean {
+	return selectAllGraphicalItemsSettings(state).some((item) => !(item as { data?: unknown }).data)
+}
+
 function selectAllTooltipAppliedValues(state: ChartState): AppliedChartData {
-	return combineAppliedValues(
+	return combineAllAppliedValues(
 		selectTooltipDisplayedData(state),
 		selectTooltipAxis(state),
 		selectAllGraphicalItemsSettings(state),
+		selectChartDataWithIndexes(state),
+		selectAnyTooltipItemUsesChartData(state),
+		selectTooltipGraphicalItemsData(state),
 	)
 }
 
@@ -234,6 +242,7 @@ function selectTooltipDomainOfAllAppliedNumericalValuesIncludingErrorValues(
 		selectTooltipItemsSettingsExceptStacked(state),
 		selectAllErrorBarSettings(state),
 		selectTooltipAxisType(state),
+		selectChartDataSliceWithIndexes(state),
 	)
 }
 

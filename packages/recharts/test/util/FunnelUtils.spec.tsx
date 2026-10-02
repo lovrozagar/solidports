@@ -1,4 +1,4 @@
-import { render } from "@solidjs/testing-library"
+import { render } from "../helper/render"
 import { FunnelTrapezoid, FunnelTrapezoidProps } from "../../src/util/FunnelUtils"
 import { Coordinate, TrapezoidViewBox } from "../../src/util/types"
 

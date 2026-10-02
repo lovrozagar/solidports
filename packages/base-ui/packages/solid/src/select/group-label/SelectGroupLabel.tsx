@@ -1,4 +1,4 @@
-import { createEffect } from 'solid-js';
+import { createTrackedEffect } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -19,7 +19,7 @@ export function SelectGroupLabel(componentProps: SelectGroupLabel.Props) {
 
   const id = useBaseUiId(idProp);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     setLabelId(id());
   });
 

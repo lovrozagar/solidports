@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 
 import { Toast } from '@solidports/base-ui/toast';
 import styles from './index.module.css';
@@ -35,7 +36,11 @@ function PulseToastButton() {
 
 function ToastList() {
   const { toasts } = Toast.useToastManager();
-  return toasts().map((toast) => <PulseToastItem key={toast.id} toast={toast} />);
+  return (
+    <For each={toasts()}>
+      {(toast) => <PulseToastItem toast={toast} />}
+    </For>
+  );
 }
 
 function PulseToastItem({ toast }: { toast: Toast.Root.ToastObject }) {

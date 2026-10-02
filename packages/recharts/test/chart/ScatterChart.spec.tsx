@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { trackSpy } from "../helper/trackSpy"
+import { fireEvent, render } from "../helper/render"
 import {
 	Bar,
 	Brush,
@@ -69,8 +70,7 @@ describe("ScatterChart of three dimension data", () => {
 		{ x: 210, y: 220, z: 230 },
 	]
 
-	/* Cluster D: axis range computation off-by-one with 2 Scatters — sibling-mount-order. */
-	test.skip("Render 2 Scatter", () => {
+	test("Render 2 Scatter", () => {
 		const { container } = render(() => (
 			<ScatterChart width={400} height={400} margin={{ bottom: 20, right: 20, top: 20 }}>
 				<XAxis dataKey="x" name="stature" unit="cm" />
@@ -206,7 +206,8 @@ describe("ScatterChart of three dimension data", () => {
 			</ScatterChart>
 		))
 
-		const clipPath = container.querySelector("clipPath rect")
+		/* jsdom 29 cannot match descendants of a camelCase SVG ancestor (`clipPath rect`). */
+		const clipPath = container.querySelector("clipPath")?.querySelector("rect") ?? null
 		assertNotNull(clipPath)
 		expect(clipPath.getAttributeNames().sort()).toEqual(["height", "width", "x", "y"])
 		expect(clipPath).toHaveAttribute("width", "280")
@@ -231,8 +232,7 @@ describe("ScatterChart of three dimension data", () => {
 		expect(container.querySelectorAll(".recharts-symbol")).toHaveLength(0)
 	})
 
-	/* Cluster C: handler context — symbol-level mouseEnter not propagating. */
-	test.skip("mouse enter on scatter symbol should call onMouseEnter from props", () => {
+	test("mouse enter on scatter symbol should call onMouseEnter from props", () => {
 		const onMouseEnter = vi.fn()
 		const { container } = render(() => (
 			<ScatterChart width={400} height={400} margin={{ bottom: 20, left: 20, right: 20, top: 20 }}>
@@ -672,8 +672,7 @@ describe("ScatterChart of two dimension data", () => {
 		])
 	})
 
-	/* Cluster C: Brush panorama not rendering full points (session 26 deferred). */
-	test.skip("renders scatter points in Brush panorama", () => {
+	test("renders scatter points in Brush panorama", () => {
 		const { container } = render(() => (
 			<ScatterChart width={400} height={400} data={data}>
 				<Scatter dataKey="y" />
@@ -1125,7 +1124,7 @@ describe("ScatterChart of two dimension data", () => {
 			assertActiveShapeInteractions(container)
 		})
 
-		test("Renders customized active shape when activeShape set to be a JSX.Element", () => {
+		test("Renders customized active shape when activeShape set to be a ReactElement", () => {
 			const { container } = render(() => (
 				<ScatterChart
 					width={400}
@@ -1192,7 +1191,7 @@ describe("ScatterChart of two dimension data", () => {
 		it("should provide viewBox", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useViewBox())
+				trackSpy(spy, () => useViewBox())
 				return null
 			}
 			render(() => (
@@ -1208,7 +1207,7 @@ describe("ScatterChart of two dimension data", () => {
 		it("should provide clipPathId", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useClipPathId())
+				trackSpy(spy, () => useClipPathId())
 				return null
 			}
 			render(() => (
@@ -1224,7 +1223,7 @@ describe("ScatterChart of two dimension data", () => {
 		it("should provide width", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartWidth())
+				trackSpy(spy, () => useChartWidth())
 				return null
 			}
 			render(() => (
@@ -1240,7 +1239,7 @@ describe("ScatterChart of two dimension data", () => {
 		it("should provide height", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartHeight())
+				trackSpy(spy, () => useChartHeight())
 				return null
 			}
 			render(() => (
@@ -1559,7 +1558,6 @@ describe("Tooltip integration", () => {
 			})
 		})
 
-		/* Cluster D */
 		it("should select tooltip state", () => {
 			const { spy } = renderTestCase(selectTooltipState)
 			const expected: TooltipState = {
@@ -1829,7 +1827,6 @@ describe("Tooltip integration", () => {
 			expectLastCalledWith(spy, expected)
 		})
 
-		/* Cluster D */
 		it("should select tooltip payload configurations", () => {
 			const { spy } = renderTestCase((state) =>
 				selectTooltipPayloadConfigurations(state, "axis", "hover", "0"),
@@ -2052,7 +2049,6 @@ describe("Tooltip integration", () => {
 			})
 		})
 
-		/* Cluster D */
 		it("should select tooltip data", () => {
 			const { spy } = renderTestCase((state) =>
 				selectTooltipPayloadConfigurations(state, "item", "hover", "0"),
@@ -2338,7 +2334,6 @@ describe("ScatterChart with allowDuplicateCategory=false", () => {
 		expectLastCalledWith(spy, { activeIndex: "0", isActive: true })
 	})
 
-	/* Cluster D */
 	it("should select tooltipPayloadConfigurations", () => {
 		const { spy } = renderTestCase((state) =>
 			selectTooltipPayloadConfigurations(state, "axis", "hover", undefined),

@@ -1,8 +1,8 @@
 /* eslint-disable import/no-cycle */
-import { createStore } from "solid-js/store"
 import type { ChartState } from "./chartState"
 import { createInitialChartState } from "./chartState"
 
+import { createStore } from '../util/solid-1-compat';
 export type { ChartState }
 export { createInitialChartState }
 

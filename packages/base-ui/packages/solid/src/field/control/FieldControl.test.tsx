@@ -52,7 +52,7 @@ describe('<Field.Control />', () => {
       return (
         <Field.Root data-testid="root">
           <Field.Label data-testid="label">Name</Field.Label>
-          <Field.Control autofocus use:autofocus />
+          <Field.Control autofocus ref={autofocus} />
         </Field.Root>
       );
     }

@@ -14,7 +14,7 @@ import { useToastRootContext } from '../root/ToastRootContext';
  */
 export function ToastClose(componentProps: ToastClose.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
-  const nativeButton = () => local.nativeButton ?? true;
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   const store = useToastProviderContext();
   const { toast } = useToastRootContext();
@@ -37,7 +37,7 @@ export function ToastClose(componentProps: ToastClose.Props) {
     props: [
       {
         get 'aria-hidden'() {
-          return !expanded() && !hasFocus();
+          return !expanded() && !hasFocus() ? 'true' : undefined;
         },
         onClick() {
           store.closeToast(toast().id);

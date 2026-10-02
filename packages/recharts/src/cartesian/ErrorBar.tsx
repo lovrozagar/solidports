@@ -2,7 +2,10 @@
 /**
  * @fileOverview Render a group of error bar
  */
-import { For, Show, splitProps, type JSX } from "solid-js"
+import { createMemo, For, Show } from 'solid-js';
+import type { CamelCaseSVGAttrs } from "../util/CamelCaseSVGAttrs"
+import type { WithoutRemoveFalse } from "../util/types"
+import type { JSX } from '@solidjs/web';
 import { Layer } from "../container/Layer"
 import type { AnimationTiming, DataKey, RectangleCoordinate } from "../util/types"
 import type { BarRectangleItem } from "./Bar"
@@ -13,11 +16,12 @@ import { useXAxis, useYAxis } from "../hooks"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
 import { useChartLayout } from "../context/chartLayoutContext"
-import { CSSTransitionAnimate } from "../animation/CSSTransitionAnimate"
+import { CSSTransitionAnimate, extractCssEasing } from "../animation/CSSTransitionAnimate"
 import type { ZIndexable } from "../zIndex/ZIndexLayer"
 import { ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 
+import { splitProps } from '../util/solid-1-compat';
 export interface ErrorBarDataItem {
 	x: number | undefined
 	y: number | undefined
@@ -73,9 +77,10 @@ interface ErrorBarProps<DataPointType = unknown, DataValueType = unknown> extend
 	 */
 	direction?: ErrorBarDirection
 	/**
+	 * If set "auto", animation is disabled during SSR and when the user prefers reduced motion.
 	 * @defaultValue true
 	 */
-	isAnimationActive?: boolean
+	isAnimationActive?: boolean | "auto"
 	/**
 	 * @defaultValue 0
 	 */
@@ -104,12 +109,18 @@ interface ErrorBarProps<DataPointType = unknown, DataValueType = unknown> extend
 	zIndex?: number
 }
 
-export type Props = JSX.LineSVGAttributes<SVGLineElement> & ErrorBarProps
+/* React's SVGProps carries the SVG `offset` attribute; Solid's line attributes do not. */
+type OffsetAttr = { offset?: number | string }
+
+export type Props = WithoutRemoveFalse<JSX.LineSVGAttributes<SVGLineElement>> &
+	CamelCaseSVGAttrs &
+	OffsetAttr &
+	ErrorBarProps
 
 /**
  * Props after defaults, and required props have been applied.
  */
-type ErrorBarInternalProps = JSX.LineSVGAttributes<SVGLineElement> & {
+type ErrorBarInternalProps = WithoutRemoveFalse<JSX.LineSVGAttributes<SVGLineElement>> & OffsetAttr & {
 	dataKey: DataKey<unknown>
 	/** the width of the error bar ends */
 	width: number
@@ -118,7 +129,7 @@ type ErrorBarInternalProps = JSX.LineSVGAttributes<SVGLineElement> & {
 	 * Only accepts a value of "x" or "y" and makes the error bars lie in that direction.
 	 */
 	direction: ErrorBarDirection
-	isAnimationActive: boolean
+	isAnimationActive: boolean | "auto"
 	animationBegin: number
 	animationDuration: number
 	animationEasing: AnimationTiming
@@ -146,8 +157,8 @@ function ErrorBarImpl(props: ErrorBarInternalProps) {
 	   reactive Provider value so data/formatter/offset stay live as parent
 	   computes rectangles/points. */
 	const ctx = useErrorBarContext()
-	const xAxis = () => useXAxis(ctx().xAxisId)
-	const yAxis = () => useYAxis(ctx().yAxisId)
+	const xAxis = createMemo(() => useXAxis(ctx().xAxisId))
+	const yAxis = createMemo(() => useYAxis(ctx().yAxisId))
 
 	return (
 		<Show when={xAxis()?.scale != null && yAxis()?.scale != null && ctx().data != null}>
@@ -244,7 +255,7 @@ function ErrorBarImpl(props: ErrorBarInternalProps) {
 														to={`${scaleDirection()}(1)`}
 														attributeName="transform"
 														begin={props.animationBegin}
-														easing={props.animationEasing}
+														easing={extractCssEasing(props.animationEasing)}
 														isActive={props.isAnimationActive}
 														duration={props.animationDuration}
 													>
@@ -282,16 +293,20 @@ function useErrorBarDirection(
 	return "x"
 }
 
+/* Upstream key order: defaults spread into the layer, so the order sets DOM attribute order. */
+/* eslint-disable sort-keys */
 export const errorBarDefaultProps = {
+	stroke: "black",
+	strokeWidth: 1.5,
+	width: 5,
+	offset: 0,
+	isAnimationActive: true,
 	animationBegin: 0,
 	animationDuration: 400,
 	animationEasing: "ease-in-out",
-	isAnimationActive: true,
-	stroke: "black",
-	"stroke-width": 1.5,
-	width: 5,
 	zIndex: DefaultZIndexes.line,
 } as const satisfies Partial<Props>
+/* eslint-enable sort-keys */
 
 /**
  * ErrorBar renders whiskers to represent error margins on a chart.
@@ -316,8 +331,7 @@ export const errorBarDefaultProps = {
  * @consumes ErrorBarContext
  */
 export function ErrorBar(outsideProps: Props) {
-	/* eslint-disable-next-line solid/reactivity -- direction is stable at mount; useErrorBarDirection is a one-time setup call */
-	const realDirection: ErrorBarDirection = useErrorBarDirection(outsideProps.direction)
+	const realDirection = createMemo(() => useErrorBarDirection(outsideProps.direction))
 	/* GOTCHA-013: split children before resolveDefaultProps. resolveDefaultProps
 	   does `{...realProps}` which enumerates own keys of the Solid props proxy —
 	   children are not part of ErrorBar's public API, but extra spread keys are
@@ -328,11 +342,11 @@ export function ErrorBar(outsideProps: Props) {
 
 	return (
 		<>
-			<ReportErrorBarSettings dataKey={props.dataKey} direction={realDirection} />
+			<ReportErrorBarSettings dataKey={props.dataKey} direction={realDirection()} />
 			<ZIndexLayer zIndex={props.zIndex}>
 				<ErrorBarImpl
 					{...props}
-					direction={realDirection}
+					direction={realDirection()}
 					width={props.width}
 					isAnimationActive={props.isAnimationActive}
 					animationBegin={props.animationBegin}

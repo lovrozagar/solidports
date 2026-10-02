@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { UseFieldValidationReturnValue } from '../field/root/useFieldValidation';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { BaseUIEventReasons } from '../utils/reasons';
@@ -26,7 +27,7 @@ export interface RadioGroupContext<Value> {
   registerInputRef: (element: HTMLInputElement | null | undefined) => void;
 }
 
-export const RadioGroupContext = createContext<RadioGroupContext<any> | undefined>(undefined);
+export const RadioGroupContext = createContext<RadioGroupContext<any> | null>(null);
 
 export function useRadioGroupContext() {
   return useContext(RadioGroupContext);

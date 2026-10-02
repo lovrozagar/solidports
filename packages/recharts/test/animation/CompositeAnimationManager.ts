@@ -1,30 +1,21 @@
-import { createSignal, createEffect, onCleanup } from "solid-js"
-import type { Accessor } from "solid-js"
-import type { MockAnimationManager } from "./MockProgressAnimationManager"
-import { MockProgressAnimationManager } from "./MockProgressAnimationManager"
-import type { AnimationManager } from "../../src/animation/AnimationManager"
-import type { AnimationManagerFactory } from "../../src/animation/useAnimationManager"
+import { MockAnimationManager, MockProgressAnimationManager } from "./MockProgressAnimationManager"
+import {
+	AnimationController,
+	AnimationHandle,
+	CancelableTimeout,
+	OnAnimationStateUpdate,
+	TimeoutController,
+} from "../../src"
 
-/**
- * CompositeAnimationManager allows managing multiple animations.
- * Exposes the same interface as MockProgressAnimationManager but
- * manages multiple animations at once.
+/*
+ * CompositeAnimationManager allows for the management of multiple animations.
+ * Exposes the same interface as MockProgressAnimationManager but allows for multiple animations to be managed at once.
  */
 export class CompositeAnimationManager implements MockAnimationManager {
-	public animationManagers: Map<string, MockAnimationManager> = new Map()
-
-	private subscribers: Set<() => void> = new Set()
-
-	public subscribe = (callback: () => void): (() => void) => {
-		this.subscribers.add(callback)
-		return () => {
-			this.subscribers.delete(callback)
-		}
-	}
-
-	private notifySubscribers = () => {
-		this.subscribers.forEach((callback) => callback())
-	}
+	/**
+	 * All animation managers under this composite manager.
+	 */
+	private animationManagers: Map<string, MockAnimationManager> = new Map()
 
 	async setAnimationProgress(percent: number): Promise<void> {
 		const animatingManagers = this.getAnimatingManagers()
@@ -33,6 +24,14 @@ export class CompositeAnimationManager implements MockAnimationManager {
 		}
 
 		for (const [, manager] of animatingManagers) {
+			/*
+			 * Here it's important that we process the managers one by one, with await in-between.
+			 * If we don't do this, the animation progress will be set in parallel,
+			 * and react-testing-library will log:
+			 * Warning: You seem to have overlapping act() calls, this is not supported. Be sure to await previous act() calls before making a new one.
+			 * And skip the render and test will fail.
+			 */
+			// eslint-disable-next-line no-await-in-loop
 			await manager.setAnimationProgress(percent)
 		}
 	}
@@ -44,26 +43,35 @@ export class CompositeAnimationManager implements MockAnimationManager {
 		}
 
 		for (const [, manager] of animatingManagers) {
+			// eslint-disable-next-line no-await-in-loop
 			await manager.completeAnimation()
 		}
 	}
 
 	isAnimating(): boolean {
+		// Check if any of the animation managers are animating
 		return this.getAnimatingManagers().size > 0
 	}
 
-	public factory: AnimationManagerFactory = (animationId: string): AnimationManager => {
+	public factory: AnimationController = (
+		timeoutController: TimeoutController,
+		animationHandle: AnimationHandle,
+		listener: OnAnimationStateUpdate,
+	): CancelableTimeout => {
+		const animationId = animationHandle.getAnimationId()
 		const onStop = () => {
 			this.animationManagers.delete(animationId)
-			this.notifySubscribers()
 		}
 		const manager = new MockProgressAnimationManager(animationId, onStop)
+		manager.start(animationHandle, listener)
 		this.animationManagers.set(animationId, manager)
-		this.notifySubscribers()
-		return manager
+		return () => {
+			onStop()
+			manager.stop()
+		}
 	}
 
-	public getAnimatingManagers(): Map<string, MockAnimationManager> {
+	private getAnimatingManagers(): Map<string, MockAnimationManager> {
 		const animatingManagers = new Map<string, MockAnimationManager>()
 
 		for (const [id, manager] of this.animationManagers) {
@@ -73,23 +81,4 @@ export class CompositeAnimationManager implements MockAnimationManager {
 		}
 		return animatingManagers
 	}
-}
-
-/**
- * Solid reactive hook that returns all animation managers
- * from a CompositeAnimationManager.
- */
-export function useAllAnimationManagers(
-	compositeAnimationManager: CompositeAnimationManager,
-): Accessor<Map<string, MockAnimationManager>> {
-	const [managers, setManagers] = createSignal(compositeAnimationManager.animationManagers)
-
-	createEffect(() => {
-		const unsub = compositeAnimationManager.subscribe(() => {
-			setManagers(new Map(compositeAnimationManager.animationManagers))
-		})
-		onCleanup(unsub)
-	})
-
-	return managers
 }

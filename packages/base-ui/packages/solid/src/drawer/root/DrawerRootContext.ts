@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { SwipeDirection } from '../../utils/useSwipeDismiss';
 import type { DrawerRootSnapPointChangeEventDetails } from './DrawerRoot';
 
@@ -89,14 +90,14 @@ export interface DrawerRootContext {
   notifyParentHasNestedDrawer?: ((present: boolean) => void) | undefined;
 }
 
-export const DrawerRootContext = createContext<DrawerRootContext | undefined>(undefined);
+export const DrawerRootContext = createContext<DrawerRootContext | null>(null);
 
 export function useDrawerRootContext(optional?: false): DrawerRootContext;
-export function useDrawerRootContext(optional: true): DrawerRootContext | undefined;
+export function useDrawerRootContext(optional: true): DrawerRootContext | null;
 export function useDrawerRootContext(optional?: boolean) {
   const drawerRootContext = useContext(DrawerRootContext);
 
-  if (optional === false && drawerRootContext === undefined) {
+  if (!optional && drawerRootContext == null) {
     throw new Error(
       'Base UI: DrawerRootContext is missing. Drawer parts must be placed within <Drawer.Root>.',
     );

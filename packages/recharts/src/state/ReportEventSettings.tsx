@@ -1,7 +1,8 @@
-import { createEffect, onCleanup } from "solid-js"
+import { createEffect, onCleanup } from 'solid-js';
 import { useOptionalChartState } from "./useChartState"
 import { initialEventSettingsState } from "./eventSettingsSlice"
 import type { EventThrottlingProps } from "../util/types"
+import { teardownWrite } from "./teardownWrite"
 
 export function ReportEventSettings(props: EventThrottlingProps): null {
 	const ctx = useOptionalChartState()
@@ -9,15 +10,20 @@ export function ReportEventSettings(props: EventThrottlingProps): null {
 		return null
 	}
 
-	createEffect(() => {
-		ctx.setState("eventSettings", {
+	createEffect(
+		() => ({
 			throttleDelay: props.throttleDelay ?? initialEventSettingsState.throttleDelay,
 			throttledEvents: props.throttledEvents ?? initialEventSettingsState.throttledEvents,
-		})
-	})
+		}),
+		(settings) => {
+			ctx.setState("eventSettings", settings)
+		},
+	)
 
 	onCleanup(() => {
-		ctx.setState("eventSettings", { ...initialEventSettingsState })
+		teardownWrite(() => {
+			ctx.setState("eventSettings", { ...initialEventSettingsState })
+		})
 	})
 
 	return null

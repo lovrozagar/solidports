@@ -1,12 +1,13 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../helper/render"
 import { RadarChart, Radar, PolarAngleAxis, PolarRadiusAxis } from "../../src"
 import { useChartState } from "../../src/state/useChartState"
 import { selectRadarPoints } from "../../src/state/selectors/radarSelectors"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../src/util/solid-1-compat';
 const data = [
 	{ subject: "Math", value: 120 },
 	{ subject: "English", value: 98 },
@@ -51,6 +52,7 @@ describe("Phase 4 — Radar reads from new chartState", () => {
 		   Phase 4 GREEN: component reads state.polarAxes.angleAxis["0"].settings inside
 		   createMemo, polygon points change on mutation. */
 		capturedSetState!("polarAxes", "angleAxis", "0", "settings" as never, { dataKey: "subject", domain: [0, 200] } as never)
+		flush()
 
 		const after = container.querySelector(".recharts-radar-polygon")?.getAttribute("points")
 		expect(after).not.toBe(before)
@@ -79,6 +81,7 @@ describe("Phase 4 — Radar reads from new chartState", () => {
 		/* Phase 4 RED: radiusAxis mutation in new chartState not tracked by Radar.
 		   Phase 4 GREEN: mutation triggers re-render, polygon points change. */
 		capturedSetState!("polarAxes", "radiusAxis", "0", "settings" as never, { domain: [0, 9999] } as never)
+		flush()
 
 		const after = container.querySelector(".recharts-radar-polygon")?.getAttribute("points")
 		expect(after).not.toBe(before)
@@ -117,6 +120,7 @@ describe("Phase 4 — Radar reads from new chartState", () => {
 		/* Phase 4 RED: graphicalItems[id].settings.dataKey mutation ignored by Radar.
 		   Phase 4 GREEN: new dataKey re-derives polygon points. */
 		capturedSetState!("graphicalItems", itemId, "settings" as never, "dataKey" as never, "score" as never)
+		flush()
 
 		const after = container.querySelector(".recharts-radar-polygon")?.getAttribute("points")
 		expect(after).not.toBe(before)

@@ -1,5 +1,6 @@
-/* @jsxImportSource solid-js */
-import { render } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { render } from "../helper/render"
+import { flush } from "solid-js"
 import { mockGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
 import { ComposedChart, Line, ResponsiveContainer, useChartHeight, useChartWidth } from "../../src"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
@@ -24,7 +25,11 @@ describe("responsive prop", () => {
 		vi.stubGlobal(
 			"ResizeObserver",
 			vi.fn(function ResizeObserverCtor(cb: (entries: ResizeObserverEntry[]) => void) {
-				resizeObserverCallback = cb
+				resizeObserverCallback = (entries) => {
+					cb(entries)
+					/* The observer callback writes signals; flush like a browser frame would. */
+					flush()
+				}
 				return resizeObserverMock
 			}),
 		)
@@ -46,11 +51,7 @@ describe("responsive prop", () => {
 				const { container } = renderTestCase()
 				const wrapperElement = container.querySelector(".recharts-wrapper")
 				expect(wrapperElement).toBeInTheDocument()
-				expect(wrapperElement).toHaveStyle({
-					height: undefined,
-					position: "relative",
-					width: undefined,
-				})
+				expect(wrapperElement).toHaveStyle({ position: "relative" })
 			})
 			it("should not interact with ResizeObserver", () => {
 				renderTestCase()
@@ -246,11 +247,7 @@ describe("responsive prop", () => {
 				const { container } = renderTestCase()
 				const wrapperElement = container.querySelector(".recharts-wrapper")
 				expect(wrapperElement).toBeInTheDocument()
-				expect(wrapperElement).toHaveStyle({
-					height: undefined,
-					position: "relative",
-					width: undefined,
-				})
+				expect(wrapperElement).toHaveStyle({ position: "relative" })
 			})
 			it("should subscribe to ResizeObserver", () => {
 				renderTestCase()

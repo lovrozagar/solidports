@@ -4,7 +4,8 @@ import { Menubar } from '@solidports/base-ui/menubar';
 import { cleanup, fireEvent, render as solidRender, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { createRoot, For, type JSX } from 'solid-js';
+import { createRoot, For } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { afterEach, vi } from 'vitest';
 
 describe('<Menubar />', () => {

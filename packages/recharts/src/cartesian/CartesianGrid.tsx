@@ -1,7 +1,8 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { createMemo, For, Show, splitProps } from "solid-js"
-
+import type { JSX } from '@solidjs/web';
+import type { CamelCaseSVGAttrs } from "../util/CamelCaseSVGAttrs"
+import type { WithoutRemoveFalse } from "../util/types"
+import { createMemo, For, Show } from 'solid-js';
 import { warn } from "../util/LogUtils"
 import { isNumber } from "../util/DataUtils"
 import { ChartOffsetInternal } from "../util/types"
@@ -24,6 +25,8 @@ import { isPositiveNumber } from "../util/isWellBehavedNumber"
 import { ZIndexable, ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 
+import { splitProps } from '../util/solid-1-compat';
+import { useRechartsTheme } from "../theme/RechartsThemeContext"
 /**
  * The <CartesianGrid horizontal
  */
@@ -188,7 +191,7 @@ interface CartesianGridProps extends ZIndexable {
 	 * @example <CartesianGrid strokeDasharray="5 5 1 5" />
 	 * @see {@link https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/stroke-dasharray stroke-dasharray on MDN}
 	 */
-	strokeDasharray?: string | number[]
+	strokeDasharray?: string | number | ReadonlyArray<number>
 	/**
 	 * The id of XAxis which is corresponding to the data. Required when there are multiple XAxes.
 	 * @defaultValue 0
@@ -205,7 +208,8 @@ interface CartesianGridProps extends ZIndexable {
 	zIndex?: number
 }
 
-type AcceptedSvgProps = Omit<JSX.LineSVGAttributes<SVGLineElement>, "offset">
+type AcceptedSvgProps = WithoutRemoveFalse<Omit<JSX.LineSVGAttributes<SVGLineElement>, "offset" | "stroke-dasharray">> &
+	Omit<CamelCaseSVGAttrs, "strokeDasharray">
 
 export type Props = AcceptedSvgProps & CartesianGridProps
 
@@ -278,7 +282,12 @@ function cloneIfNode(value: unknown): unknown {
 }
 
 /* eslint-disable solid/reactivity -- itemProps reads are structural type checks at component setup; LineItem is called once per grid line, not in a reactive context */
-function LineItem(itemProps: { option: GridLineType; lineItemProps: LineItemProps }) {
+function LineItem(itemProps: { option: GridLineType; lineItemProps: LineItemProps }): JSX.Element {
+	return <>{renderLineItem(itemProps)}</>
+}
+
+/* Runs inside LineItem's JSX expression so every reactive read is tracked. */
+function renderLineItem(itemProps: { option: GridLineType; lineItemProps: LineItemProps }) {
 	if (typeof itemProps.option === "function") {
 		const fn = itemProps.option
 		const fnProps: GridLineTypeFunctionProps = {
@@ -384,33 +393,36 @@ function HorizontalStripes(props: CartesianGridInternalProps) {
 	}
 
 	/* eslint-disable solid/reactivity -- i() is the <For> index accessor; reads inside the For callback ARE tracked */
+	/* Runs inside a JSX expression so prop and store reads are tracked. */
+	const renderHorizontalStripe = (entry: number, i: number): JSX.Element => {
+		const pts = sortedPoints()
+		if (pts == null) return null
+		const nextPoint = pts[i + 1]
+		const lastStripe = nextPoint == null
+		const lineHeight = lastStripe ? props.y + props.height - entry : nextPoint - entry
+		if (lineHeight <= 0) {
+			return null
+		}
+		const colorIndex = i % (props.horizontalFill?.length ?? 1)
+		return (
+			<rect
+				y={entry}
+				x={props.x}
+				height={lineHeight}
+				width={props.width}
+				stroke="none"
+				fill={props.horizontalFill?.[colorIndex]}
+				fill-opacity={props.fillOpacity}
+				class="recharts-cartesian-grid-bg"
+			/>
+		)
+	}
+
 	return (
 		<Show when={sortedPoints()}>
 			<g class="recharts-cartesian-gridstripes-horizontal">
 				<For each={sortedPoints()}>
-					{(entry, i) => {
-						const pts = sortedPoints()
-						if (pts == null) return null
-						const nextPoint = pts[i() + 1]
-						const lastStripe = nextPoint == null
-						const lineHeight = lastStripe ? props.y + props.height - entry : nextPoint - entry
-						if (lineHeight <= 0) {
-							return null
-						}
-						const colorIndex = i() % (props.horizontalFill?.length ?? 1)
-						return (
-							<rect
-								y={entry}
-								x={props.x}
-								height={lineHeight}
-								width={props.width}
-								stroke="none"
-								fill={props.horizontalFill?.[colorIndex]}
-								fill-opacity={props.fillOpacity}
-								class="recharts-cartesian-grid-bg"
-							/>
-						)
-					}}
+					{(entry, i) => <>{renderHorizontalStripe(entry, i())}</>}
 				</For>
 			</g>
 		</Show>
@@ -435,33 +447,36 @@ function VerticalStripes(props: CartesianGridInternalProps) {
 	}
 
 	/* eslint-disable solid/reactivity -- i() is the <For> index accessor; reads inside the For callback ARE tracked */
+	/* Runs inside a JSX expression so prop and store reads are tracked. */
+	const renderVerticalStripe = (entry: number, i: number): JSX.Element => {
+		const pts = sortedPoints()
+		if (pts == null) return null
+		const nextPoint = pts[i + 1]
+		const lastStripe = nextPoint == null
+		const lineWidth = lastStripe ? props.x + props.width - entry : nextPoint - entry
+		if (lineWidth <= 0) {
+			return null
+		}
+		const colorIndex = i % (props.verticalFill?.length ?? 1)
+		return (
+			<rect
+				x={entry}
+				y={props.y}
+				width={lineWidth}
+				height={props.height}
+				stroke="none"
+				fill={props.verticalFill?.[colorIndex]}
+				fill-opacity={props.fillOpacity}
+				class="recharts-cartesian-grid-bg"
+			/>
+		)
+	}
+
 	return (
 		<Show when={sortedPoints()}>
 			<g class="recharts-cartesian-gridstripes-vertical">
 				<For each={sortedPoints()}>
-					{(entry, i) => {
-						const pts = sortedPoints()
-						if (pts == null) return null
-						const nextPoint = pts[i() + 1]
-						const lastStripe = nextPoint == null
-						const lineWidth = lastStripe ? props.x + props.width - entry : nextPoint - entry
-						if (lineWidth <= 0) {
-							return null
-						}
-						const colorIndex = i() % (props.verticalFill?.length ?? 1)
-						return (
-							<rect
-								x={entry}
-								y={props.y}
-								width={lineWidth}
-								height={props.height}
-								stroke="none"
-								fill={props.verticalFill?.[colorIndex]}
-								fill-opacity={props.fillOpacity}
-								class="recharts-cartesian-grid-bg"
-							/>
-						)
-					}}
+					{(entry, i) => <>{renderVerticalStripe(entry, i())}</>}
 				</For>
 			</g>
 		</Show>
@@ -502,12 +517,9 @@ const defaultHorizontalCoordinatesGenerator: HorizontalCoordinatesGenerator = (
 	)
 
 export const defaultCartesianGridProps = {
-	fill: "none",
 	horizontal: true,
 	horizontalFill: [],
 	horizontalPoints: [],
-
-	stroke: "#ccc",
 	syncWithTicks: false,
 	vertical: true,
 	verticalFill: [],
@@ -525,11 +537,19 @@ export const defaultCartesianGridProps = {
 export function CartesianGrid(outsideProps: Props) {
 	/* All hooks now bare T (GOTCHA-011). Arrow-thunk pattern keeps existing
 	   `()` callsites valid and re-runs the selector under each reactive scope. */
-	const chartWidth = () => useChartWidth()
-	const chartHeight = () => useChartHeight()
-	const offset = () => useOffsetInternal()
+	const chartWidth = createMemo(() => useChartWidth())
+	const chartHeight = createMemo(() => useChartHeight())
+	const offset = createMemo(() => useOffsetInternal())
+	const theme = useRechartsTheme()
 	const propsIncludingDefaults = createMemo((): CartesianGridInternalProps => ({
 		...resolveDefaultProps(outsideProps, defaultCartesianGridProps),
+		/* Grid colors fall back to the active theme (legacyTheme matches the 3.x defaults). */
+		fill: outsideProps.fill ?? theme.grid.fill,
+		fillOpacity: outsideProps.fillOpacity ?? theme.grid.fillOpacity,
+		stroke: outsideProps.stroke ?? theme.grid.stroke,
+		strokeDasharray: outsideProps.strokeDasharray ?? theme.grid.strokeDasharray,
+		strokeOpacity: outsideProps.strokeOpacity ?? theme.grid.strokeOpacity,
+		strokeWidth: outsideProps.strokeWidth ?? theme.grid.strokeWidth,
 		height: isNumber(outsideProps.height) ? outsideProps.height : offset().height,
 		width: isNumber(outsideProps.width) ? outsideProps.width : offset().width,
 		x: isNumber(outsideProps.x) ? outsideProps.x : offset().left,
@@ -645,7 +665,7 @@ export function CartesianGrid(outsideProps: Props) {
 				<g class="recharts-cartesian-grid">
 					<Background
 						fill={propsIncludingDefaults().fill}
-						fill-opacity={propsIncludingDefaults()["fill-opacity"]}
+						fillOpacity={propsIncludingDefaults().fillOpacity}
 						x={propsIncludingDefaults().x}
 						y={propsIncludingDefaults().y}
 						width={propsIncludingDefaults().width}

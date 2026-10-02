@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Drawer } from '@solidports/base-ui/drawer';
@@ -65,7 +65,7 @@ export default function ExampleDrawerMobileNav() {
                 <Drawer.Popup class={styles.Popup}>
                   <nav aria-label="Navigation" class={styles.Panel}>
                     <div class={styles.Header}>
-                      <div aria-hidden class={styles.HeaderSpacer} />
+                      <div aria-hidden="true" class={styles.HeaderSpacer} />
                       <div class={styles.Handle} />
                       <Drawer.Close aria-label="Close menu" class={styles.CloseButton}>
                         <XIcon />
@@ -81,7 +81,7 @@ export default function ExampleDrawerMobileNav() {
                       <div class={styles.ScrollArea}>
                         <ul class={styles.List}>
                           {ITEMS.map((item) => (
-                            <li key={item.label} class={styles.Item}>
+                            <li class={styles.Item}>
                               <a class={styles.Link} href={item.href}>
                                 {item.label}
                               </a>
@@ -91,7 +91,7 @@ export default function ExampleDrawerMobileNav() {
 
                         <ul class={styles.LongList} aria-label="Component links">
                           {LONG_LIST.map((item) => (
-                            <li key={item.label} class={styles.Item}>
+                            <li class={styles.Item}>
                               <a class={styles.Link} href={item.href}>
                                 {item.label}
                               </a>

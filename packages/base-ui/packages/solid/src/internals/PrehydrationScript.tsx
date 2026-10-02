@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show } from 'solid-js';
+import { createSignal, onSettled, Show } from 'solid-js';
 import { useCSPContext } from './csp-context/CSPContext';
 
 /**
@@ -9,7 +9,7 @@ export function PrehydrationScript(props: PrehydrationScript.Props) {
   const { nonce } = useCSPContext();
   const [hydrating, setHydrating] = createSignal(true);
 
-  onMount(() => {
+  onSettled(() => {
     setHydrating(false);
   });
 

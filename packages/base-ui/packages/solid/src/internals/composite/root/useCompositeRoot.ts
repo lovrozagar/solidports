@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createSignal, type Accessor } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { TextDirection } from '../../../direction-provider/DirectionContext';
 import { access, type MaybeAccessor } from '../../../solid-helpers';
 import { isElementDisabled } from '../../../utils/isElementDisabled';
@@ -327,7 +328,6 @@ export function useCompositeRoot<Metadata>(
     rootRef,
     setRootRef: (el: any) => {
       setRootRef(el);
-      params.rootRef = el;
     },
   };
 }

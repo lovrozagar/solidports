@@ -1,4 +1,5 @@
-import { createUniqueId, type JSX } from 'solid-js';
+import { createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -22,7 +23,6 @@ export default function ExampleMultipleCombobox() {
               >
                 {(Array.isArray(value) ? value : []).map((language) => (
                   <Combobox.Chip
-                    key={language.id}
                     class={styles.Chip}
                     aria-label={language.value}
                     aria-description="Press Backspace or Delete to remove"
@@ -60,7 +60,7 @@ export default function ExampleMultipleCombobox() {
             </Combobox.Empty>
             <Combobox.List>
               {(language: ProgrammingLanguage) => (
-                <Combobox.Item key={language.id} class={styles.Item} value={language}>
+                <Combobox.Item class={styles.Item} value={language}>
                   <Combobox.ItemIndicator class={styles.ItemIndicator}>
                     <CheckIcon />
                   </Combobox.ItemIndicator>

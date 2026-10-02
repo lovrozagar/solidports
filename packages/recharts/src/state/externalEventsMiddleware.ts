@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { SetStoreFunction } from "solid-js/store"
+import { flush } from "solid-js"
 import type { ChartState } from "./chartState"
 import type { CategoricalChartFunc } from "../chart/types"
 import type { MouseHandlerDataParam } from "../synchronisation/types"
@@ -12,6 +12,7 @@ import {
 } from "./selectors/tooltipSelectors"
 import { createEventProxy } from "../util/createEventProxy"
 
+import { type SetStoreFunction } from '../util/solid-1-compat';
 type ExternalEventActionPayload<E = Event> = {
 	event: E
 	handler: CategoricalChartFunc<E> | undefined
@@ -99,6 +100,8 @@ export function createExternalEventHandlers(
 				}
 
 				const { handler: latestHandler, event: latestEvent } = latestAction
+				/* Commit the triggering event's state writes before reading them (Solid 2 batches writes). */
+				flush()
 				const nextState: MouseHandlerDataParam = {
 					activeCoordinate: selectActiveTooltipCoordinate(store),
 					activeDataKey: selectActiveTooltipDataKey(store),
@@ -214,6 +217,8 @@ export const externalEventAction =
 					return
 				}
 				const { handler: latestHandler, reactEvent: latestEvent } = latestAction
+				/* Commit the triggering event's state writes before reading them (Solid 2 batches writes). */
+				flush()
 				const nextState: MouseHandlerDataParam = {
 					activeCoordinate: selectActiveTooltipCoordinate(store),
 					activeDataKey: selectActiveTooltipDataKey(store),

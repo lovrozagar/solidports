@@ -1,4 +1,5 @@
-import { createMemo, createSignal, type JSX } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { formatNumberValue } from '../../utils/formatNumber';
 import { BaseUIComponentProps, HTMLProps } from '../../utils/types';
@@ -32,7 +33,7 @@ export function ProgressRoot(componentProps: ProgressRoot.Props) {
   ]);
   const max = () => local.max ?? 100;
   const min = () => local.min ?? 0;
-  const getAriaValueText: typeof local.getAriaValueText = (...args) =>
+  const getAriaValueText = (...args: Parameters<typeof getDefaultAriaValueText>) =>
     (local.getAriaValueText ?? getDefaultAriaValueText)(...args);
 
   const [labelId, setLabelId] = createSignal<string | undefined>();
@@ -98,7 +99,7 @@ export function ProgressRoot(componentProps: ProgressRoot.Props) {
   });
 
   return (
-    <ProgressRootContext.Provider value={contextValue}>{element()}</ProgressRootContext.Provider>
+    <ProgressRootContext value={contextValue}>{element()}</ProgressRootContext>
   );
 }
 

@@ -1,4 +1,5 @@
-import { splitProps, type JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { splitProps } from '../../utils/solid-1-compat';
 import clsx from "clsx"
 import "./Kbd.css"
 

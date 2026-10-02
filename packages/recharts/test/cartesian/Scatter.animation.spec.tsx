@@ -1,8 +1,10 @@
-import { createSignal, JSX, Show } from "solid-js"
+import { createSignal, Show, flush } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
-import { ScatterChart, Scatter, Legend, YAxis } from "../../src"
+import { ScatterChart, Scatter, Legend, XAxis, YAxis, ZAxis } from "../../src"
+import type { AnimationInterpolateFn, CartesianLayout, ScatterPointItem } from "../../src"
 import { PageData } from "../_data"
 import { mockSequenceOfGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
 import {
@@ -208,6 +210,19 @@ const expectedUvPoints: ReadonlyArray<ExpectedPoint> = [
 	},
 ]
 
+function getScatterPointFrame(container: Element): ReadonlyArray<string> {
+	return getAllScatterPoints(container)
+		.map((point) =>
+			JSON.stringify({
+				height: point.getAttribute("height"),
+				opacity: point.getAttribute("opacity"),
+				transform: point.getAttribute("transform"),
+				width: point.getAttribute("width"),
+			}),
+		)
+		.sort()
+}
+
 describe("Scatter Animation", () => {
 	beforeEach(() => {
 		mockSequenceOfGetBoundingClientRect([
@@ -272,8 +287,7 @@ describe("Scatter Animation", () => {
 			])
 		})
 	})
-	/* Cluster B */
-	describe.skip("when changing dataKey prop", () => {
+	describe("when changing dataKey prop", () => {
 		const MyTestCase = (props: { children: JSX.Element }) => {
 			const [dataKey, setDataKey] = createSignal("uv")
 			const changeDataKey = () => setDataKey((prev) => (prev === "uv" ? "pv" : "uv"))
@@ -283,7 +297,7 @@ describe("Scatter Animation", () => {
 						Change dataKey
 					</button>
 					<ScatterChart width={100} height={100}>
-						<Scatter data={PageData} dataKey={dataKey} animationEasing="linear" />
+						<Scatter data={PageData} dataKey={dataKey()} animationEasing="linear" />
 						{props.children}
 					</ScatterChart>
 				</div>
@@ -297,6 +311,7 @@ describe("Scatter Animation", () => {
 			assertNotNull(button)
 			expect(button).toBeInTheDocument()
 			button.click()
+			flush()
 		}
 
 		it("should start the animation", () => {
@@ -344,6 +359,7 @@ describe("Scatter Animation", () => {
 			assertNotNull(button)
 			expect(button).toBeInTheDocument()
 			button.click()
+			flush()
 		}
 
 		it("should start the animation", async () => {
@@ -375,8 +391,86 @@ describe("Scatter Animation", () => {
 			])
 		})
 	})
-	/* Cluster B */
-	describe.skip("when the scatter element hides during the animation", () => {
+	describe("with a custom interpolation that renders both previous and next points", () => {
+		type AnimatedScatterPoint = ScatterPointItem & { opacity?: number }
+
+		const dataA = [
+			{ x: 10, y: 10, z: 200 },
+			{ x: 20, y: 30, z: 200 },
+			{ x: 30, y: 20, z: 200 },
+		]
+		const dataB = [
+			{ x: 10, y: 70, z: 200 },
+			{ x: 20, y: 50, z: 200 },
+			{ x: 30, y: 80, z: 200 },
+		]
+
+		const crossfade: AnimationInterpolateFn<ScatterPointItem, CartesianLayout> = (items, animationElapsedTime) => {
+			if (items == null) {
+				return []
+			}
+			if (animationElapsedTime === 1) {
+				return items.flatMap((item) => (item.status === "removed" ? [] : [item.next]))
+			}
+
+			const result: AnimatedScatterPoint[] = []
+			for (const item of items) {
+				if (item.status === "matched") {
+					result.push({ ...item.prev, opacity: 1 - animationElapsedTime })
+					result.push({ ...item.next, opacity: animationElapsedTime })
+				} else if (item.status === "added") {
+					result.push({ ...item.next, opacity: animationElapsedTime })
+				} else {
+					result.push({ ...item.prev, opacity: 1 - animationElapsedTime })
+				}
+			}
+			return result as ScatterPointItem[]
+		}
+
+		const MyTestCase = (props: { children: JSX.Element }) => {
+			const [data, setData] = createSignal(dataA)
+			return (
+				<div>
+					<button type="button" onClick={() => setData((prev) => (prev === dataA ? dataB : dataA))}>
+						Swap dataset
+					</button>
+					<ScatterChart width={100} height={100}>
+						<XAxis type="number" dataKey="x" />
+						<YAxis type="number" dataKey="y" />
+						<ZAxis type="number" dataKey="z" range={[100, 100]} />
+						<Scatter data={data()} animationEasing="linear" animationInterpolateFn={crossfade} />
+						{props.children}
+					</ScatterChart>
+				</div>
+			)
+		}
+
+		const renderTestCase = createSelectorTestCase(MyTestCase)
+
+		async function prime(container: HTMLElement, animationManager: MockAnimationManager) {
+			await animationManager.completeAnimation()
+			const button = container.querySelector("button")
+			assertNotNull(button)
+			button.click()
+			flush()
+			await animationManager.setAnimationProgress(0.4)
+			return button
+		}
+
+		it.fails("should preserve the in-flight visual state when an update is interrupted", async () => {
+			const { container, animationManager } = renderTestCase()
+			const button = await prime(container, animationManager)
+
+			const frameBeforeInterruption = getScatterPointFrame(container)
+
+			button.click()
+			flush()
+
+			expect(getScatterPointFrame(container)).toEqual(frameBeforeInterruption)
+		})
+	})
+
+	describe("when the scatter element hides during the animation", () => {
 		const renderTestCase = createSelectorTestCase((props) => {
 			const [isVisible, setIsVisible] = createSignal(true)
 			const toggleVisibility = () => setIsVisible((prev) => !prev)
@@ -391,6 +485,7 @@ describe("Scatter Animation", () => {
 					</ScatterChart>
 				</div>
 			)
+		})
 
 			async function prime(container: HTMLElement, animationManager: MockAnimationManager) {
 				// The test has animationActive={true} so the Scatter is playing the entrance animation.
@@ -401,12 +496,14 @@ describe("Scatter Animation", () => {
 				assertNotNull(button)
 				expect(button).toBeInTheDocument()
 				button.click()
+				flush()
 
 				expect(animationManager.isAnimating()).toBe(false)
 				expectScatterPoints(container, [])
 
 				// Click again to show the scatter element and then assert what happens
 				button.click()
+				flush()
 			}
 
 			it("should start a new entrance animations when the scatter element appears again", async () => {
@@ -437,7 +534,6 @@ describe("Scatter Animation", () => {
 					"M4.514,0A4.514,4.514,0,1,1,-4.514,0A4.514,4.514,0,1,1,4.514,0",
 				])
 			})
-		})
 		describe("with <Legend /> sibling", () => {
 			const renderTestCase = createSelectorTestCase((props) => (
 				<ScatterChart width={100} height={100}>
@@ -499,6 +595,44 @@ describe("Scatter Animation", () => {
 					"M4.514,0A4.514,4.514,0,1,1,-4.514,0A4.514,4.514,0,1,1,4.514,0",
 				])
 			})
+		})
+	})
+
+	describe("shape prop", () => {
+		function CustomShape(props: { animationElapsedTime?: number; isAnimating?: boolean; isEntrance?: boolean }) {
+			return (
+				<path
+					class="custom-scatter-shape"
+					data-t={props.animationElapsedTime}
+					data-is-animating={String(props.isAnimating)}
+					data-is-entrance={String(props.isEntrance)}
+				/>
+			)
+		}
+
+		const renderShapeTestCase = createSelectorTestCase((props) => (
+			<ScatterChart width={100} height={100}>
+				<Scatter data={PageData} dataKey="uv" animationEasing="linear" shape={CustomShape} />
+				{props.children}
+			</ScatterChart>
+		))
+
+		it("should pass animationElapsedTime, isAnimating, isEntrance props to custom shape", async () => {
+			const { container, animationManager } = renderShapeTestCase()
+
+			await animationManager.setAnimationProgress(0.5)
+			const shapeDuringAnimation = container.querySelector(".custom-scatter-shape")
+			assertNotNull(shapeDuringAnimation)
+			expect(shapeDuringAnimation.getAttribute("data-t")).toBe("0.5")
+			expect(shapeDuringAnimation.getAttribute("data-is-animating")).toBe("true")
+			expect(shapeDuringAnimation.getAttribute("data-is-entrance")).toBe("true")
+
+			await animationManager.completeAnimation()
+			const shapeAfterAnimation = container.querySelector(".custom-scatter-shape")
+			assertNotNull(shapeAfterAnimation)
+			expect(shapeAfterAnimation.getAttribute("data-t")).toBe("1")
+			expect(shapeAfterAnimation.getAttribute("data-is-animating")).toBe("false")
+			expect(shapeAfterAnimation.getAttribute("data-is-entrance")).toBe("false")
 		})
 	})
 })

@@ -1,10 +1,12 @@
-import { For, Show, splitProps, type JSX } from "solid-js"
+import { For, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
 import type { CssVariableDef } from "./types"
 import * as Table from "../Table"
 import * as Accordion from "../Accordion"
 import { TableCode } from "../TableCode"
 
+import { splitProps } from '../../utils/solid-1-compat';
 interface CssVariablesReferenceTableProps extends JSX.HTMLAttributes<HTMLDivElement> {
   data: Record<string, CssVariableDef>
   name?: string
@@ -46,7 +48,7 @@ export function CssVariablesReferenceTable(props: CssVariablesReferenceTableProp
             <Table.ColumnHeader class="xs:w-2/3 md:w-[calc(11.5/16.5*100%)]">
               <span class="sr-only xs:not-sr-only xs:contents">Description</span>
             </Table.ColumnHeader>
-            <Table.ColumnHeader class="w-10 max-xs:hidden" aria-hidden>
+            <Table.ColumnHeader class="w-10 max-xs:hidden" aria-hidden="true">
               <span class="invisible">{"-"}</span>
             </Table.ColumnHeader>
           </Table.Row>

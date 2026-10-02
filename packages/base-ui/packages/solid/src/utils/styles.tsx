@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { onCleanup, onMount } from 'solid-js';
+import { onCleanup, onSettled } from 'solid-js';
 import type { CSPContextValue } from '../csp-provider/CSPContext';
 
 export const STYLE_TAG_ID = 'disable-scrollbar';
@@ -24,7 +24,10 @@ export const styleDisableScrollbar = {
 };
 
 export const useStyleDisableScrollbar = (csp: CSPContextValue) => {
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (csp.disableStyleElements()) {
       return;
     }
@@ -32,11 +35,17 @@ export const useStyleDisableScrollbar = (csp: CSPContextValue) => {
     if (!document.head.getElementsByTagName('style').namedItem(STYLE_TAG_ID)) {
       const el = styleDisableScrollbar.getElement(csp.nonce());
       document.head.appendChild(el);
-      onCleanup(() => {
+      _c.push(() => {
         if (document.head.getElementsByTagName('style').namedItem(STYLE_TAG_ID)) {
           document.head.removeChild(el);
         }
       });
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 };

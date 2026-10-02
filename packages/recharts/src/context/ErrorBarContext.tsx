@@ -1,13 +1,6 @@
-import {
-	createContext,
-	createRenderEffect,
-	on,
-	onCleanup,
-	useContext,
-	type Accessor,
-	type JSX,
-} from "solid-js"
-import { produce } from "solid-js/store"
+import { createContext, createEffect, onCleanup, untrack, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { ErrorBarsState } from "../state/errorBarSlice"
 import type { AxisId } from "../state/cartesianAxisSlice"
 import type {
@@ -22,6 +15,8 @@ import type { BarRectangleItem } from "../cartesian/Bar"
 import type { LinePointItem } from "../cartesian/Line"
 import type { ScatterPointItem } from "../cartesian/Scatter"
 import type { DataKey } from "../util/types"
+import { isSameStoreEntry } from "../state/storeIdentity"
+import { teardownWrite } from "../state/teardownWrite"
 
 type ErrorBarItemType = BarRectangleItem | LinePointItem | ScatterPointItem
 
@@ -90,7 +85,7 @@ export function SetErrorBarContext<T extends ErrorBarItemType>(props: SetErrorBa
 		xAxisId: props.xAxisId,
 		yAxisId: props.yAxisId,
 	})
-	return <ErrorBarContext.Provider value={value}>{props.children}</ErrorBarContext.Provider>
+	return <ErrorBarContext value={value}>{props.children}</ErrorBarContext>
 }
 
 export const useErrorBarContext = (): Accessor<ErrorBarContextType> => useContext(ErrorBarContext)
@@ -100,58 +95,51 @@ export function ReportErrorBarSettings(props: ErrorBarsSettings): null {
 	const graphicalItemId = useGraphicalItemId()
 	let prevProps: ErrorBarsSettings | null = null
 
-	/* `on(...)` runs the callback untracked — setStore reads inside the dispatch
-	   never re-subscribe this scope (would otherwise loop on state.errorBars[id]).
-	   createRenderEffect runs synchronously during parent render so the slice is
-	   populated before any selector that reads it. */
-	createRenderEffect(
-		on(
-			/* eslint-disable-next-line solid/reactivity -- accessors passed to Solid's `on()` ARE tracked; linter can't trace through `on()` helper */
-			[() => props.dataKey, () => props.direction] as const,
-			([dataKey, direction]) => {
-				if (graphicalItemId == null) {
-					return
-				}
-				const next: ErrorBarsSettings = { dataKey, direction }
-				if (prevProps === null) {
-					ctx?.setStore(
-						"errorBars",
-						produce((errorBars: ErrorBarsState) => {
-							const list = errorBars[graphicalItemId] ?? []
-							errorBars[graphicalItemId] = [...list, next]
-						}),
-					)
-				} else {
-					const prev = prevProps
-					ctx?.setStore(
-						"errorBars",
-						produce((errorBars: ErrorBarsState) => {
-							const list = errorBars[graphicalItemId]
-							if (list == null) return
-							errorBars[graphicalItemId] = list.map((e) => (e === prev ? next : e))
-						}),
-					)
-				}
-				prevProps = next
-			},
-		),
+	/* Track only dataKey/direction; setStore reads stay untracked so this
+	   scope does not re-subscribe to state.errorBars[id] (would loop). */
+	createEffect(
+		() => ({ dataKey: props.dataKey, direction: props.direction }),
+		({ dataKey, direction }) => {
+		untrack(() => {
+			if (graphicalItemId == null) {
+				return
+			}
+			const next: ErrorBarsSettings = { dataKey, direction }
+			if (prevProps === null) {
+				ctx?.setStore("errorBars", (errorBars: ErrorBarsState) => {
+					const list = errorBars[graphicalItemId] ?? []
+					errorBars[graphicalItemId] = [...list, next]
+				})
+			} else {
+				const prev = prevProps
+				ctx?.setStore("errorBars", (errorBars: ErrorBarsState) => {
+					const list = errorBars[graphicalItemId]
+					if (list == null) return
+					errorBars[graphicalItemId] = list.map((e) => (isSameStoreEntry(e, prev) ? next : e))
+				})
+			}
+			prevProps = next
+		})
+		},
 	)
 
 	onCleanup(() => {
-		if (prevProps != null && graphicalItemId != null) {
-			const toRemove = prevProps
-			ctx?.setStore(
-				"errorBars",
-				produce((errorBars: ErrorBarsState) => {
-					const list = errorBars[graphicalItemId]
-					if (list == null) return
-					errorBars[graphicalItemId] = list.filter(
-						(e: ErrorBarsSettings) => e !== toRemove,
-					)
-				}),
-			)
-			prevProps = null
-		}
+		teardownWrite(() => {
+			if (prevProps != null && graphicalItemId != null) {
+				const toRemove = prevProps
+				ctx?.setStore(
+					"errorBars",
+					(errorBars: ErrorBarsState) => {
+						const list = errorBars[graphicalItemId]
+						if (list == null) return
+						errorBars[graphicalItemId] = list.filter(
+							(e: ErrorBarsSettings) => !isSameStoreEntry(e, toRemove),
+						)
+					},
+				)
+				prevProps = null
+			}
+		})
 	})
 
 	return null

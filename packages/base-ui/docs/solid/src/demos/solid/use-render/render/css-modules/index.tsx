@@ -1,3 +1,4 @@
+import type { ComponentProps } from '@solidjs/web';
 
 import { useRender } from '@solidports/base-ui/use-render';
 import { mergeProps } from '@solidports/base-ui/merge-props';

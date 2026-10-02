@@ -1,6 +1,6 @@
 import { Cell, Legend, Pie, PieChart, Tooltip } from "@solidports/recharts"
-import { type Component, For } from "solid-js"
-
+import { For } from 'solid-js';
+import type { Component } from 'solid-js';
 import { pageData, pieColors } from "../data"
 
 export const PieChartExample: Component = () => (

@@ -31,8 +31,8 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     'onCheckedChange',
   ]);
   const idProp = () => local.id;
-  const nativeButton = () => local.nativeButton ?? false;
-  const disabled = () => local.disabled ?? false;
+  const nativeButton = () => Boolean(local.nativeButton);
+  const disabled = () => Boolean(local.disabled);
   const closeOnClick = () => local.closeOnClick ?? false;
   const checkedProp = () => local.checked;
   const defaultChecked = () => local.defaultChecked;
@@ -103,7 +103,7 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
         {
           role: 'menuitemcheckbox' as const,
           get 'aria-checked'() {
-            return checked();
+            return checked() ? 'true' : 'false';
           },
           onClick: handleClick,
         },
@@ -120,9 +120,9 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
   });
 
   return (
-    <MenuCheckboxItemContext.Provider value={contextValue}>
+    <MenuCheckboxItemContext value={contextValue}>
       {element()}
-    </MenuCheckboxItemContext.Provider>
+    </MenuCheckboxItemContext>
   );
 }
 

@@ -1,7 +1,8 @@
-import { Show, splitProps } from 'solid-js';
+import { Show } from 'solid-js';
 import { FloatingPortalLite } from '../../utils/FloatingPortalLite';
 import { useTooltipRootContext } from '../root/TooltipRootContext';
 import { TooltipPortalContext } from './TooltipPortalContext';
+import { splitProps } from '../../solid-1-compat';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -21,9 +22,9 @@ export function TooltipPortal(props: TooltipPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <TooltipPortalContext.Provider value={keepMounted}>
+      <TooltipPortalContext value={keepMounted}>
         <FloatingPortalLite {...portalProps} ref={props.ref} />
-      </TooltipPortalContext.Provider>
+      </TooltipPortalContext>
     </Show>
   );
 }

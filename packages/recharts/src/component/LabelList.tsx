@@ -1,5 +1,7 @@
 /* eslint-disable import/no-cycle */
-import { createContext, useContext, For, Show, type JSX } from "solid-js"
+import { createContext, createMemo, createSignal, onCleanup, useContext, For, Show, type Accessor } from 'solid-js';
+import { teardownWrite } from "../state/teardownWrite"
+import type { JSX } from '@solidjs/web';
 import {
 	type LabelContentType,
 	isLabelContentAFunction,
@@ -172,24 +174,91 @@ const defaultAccessor = (entry: LabelListEntry): RenderableText => {
 	return undefined
 }
 
-const CartesianLabelListContext = createContext<ReadonlyArray<CartesianLabelListEntry> | undefined>(
-	undefined,
-)
+const CartesianLabelListContext = createContext<
+	Accessor<ReadonlyArray<CartesianLabelListEntry> | undefined> | null
+>(null)
 
-export const CartesianLabelListContextProvider = CartesianLabelListContext.Provider
+const PolarLabelListContext = createContext<
+	Accessor<ReadonlyArray<PolarLabelListEntry> | undefined> | null
+>(null)
 
-const PolarLabelListContext = createContext<ReadonlyArray<PolarLabelListEntry> | undefined>(
-	undefined,
-)
+type LabelListSource<T> = Accessor<ReadonlyArray<T> | undefined>
 
-export const PolarLabelListContextProvider = PolarLabelListContext.Provider
-
-function useCartesianLabelListContext(): ReadonlyArray<CartesianLabelListEntry> | undefined {
-	return useContext(CartesianLabelListContext)
+type LabelListBridge = {
+	setCartesian: (source: LabelListSource<CartesianLabelListEntry> | undefined) => void
+	setPolar: (source: LabelListSource<PolarLabelListEntry> | undefined) => void
 }
 
-function usePolarLabelListContext(): ReadonlyArray<PolarLabelListEntry> | undefined {
-	return useContext(PolarLabelListContext)
+const LabelListBridgeContext = createContext<LabelListBridge | null>(null)
+
+/**
+ * Graphical items memoize their user children (`<LabelList/>`, `<Cell/>`, `<ErrorBar/>`)
+ * above the point where they know their label entries, and a memo resolves context
+ * through the scope that created it. React has no such gap: children render where they
+ * are placed. The bridge sits where the children memo is created and provides the
+ * label-list contexts there; the item's label-list provider publishes its entries into it.
+ */
+export function LabelListContextBridge(props: { children: JSX.Element }) {
+	const [cartesian, setCartesian] = createSignal<LabelListSource<CartesianLabelListEntry> | undefined>(
+		undefined,
+		{ ownedWrite: true },
+	)
+	const [polar, setPolar] = createSignal<LabelListSource<PolarLabelListEntry> | undefined>(undefined, {
+		ownedWrite: true,
+	})
+	const bridge: LabelListBridge = {
+		setCartesian: (source) => setCartesian(() => source),
+		setPolar: (source) => setPolar(() => source),
+	}
+	const cartesianValue = createMemo(() => cartesian()?.())
+	const polarValue = createMemo(() => polar()?.())
+	return (
+		<LabelListBridgeContext value={bridge}>
+			<CartesianLabelListContext value={cartesianValue}>
+				<PolarLabelListContext value={polarValue}>{props.children}</PolarLabelListContext>
+			</CartesianLabelListContext>
+		</LabelListBridgeContext>
+	)
+}
+
+export function CartesianLabelListContextProvider(props: {
+	value: ReadonlyArray<CartesianLabelListEntry> | undefined
+	children: JSX.Element
+}) {
+	const value = createMemo(() => props.value)
+	const bridge = useContext(LabelListBridgeContext)
+	if (bridge != null) {
+		/* eslint-disable-next-line solid/reactivity -- publishes the accessor itself; the bridge reads it reactively */
+		bridge.setCartesian(value)
+		onCleanup(() => teardownWrite(() => bridge.setCartesian(undefined)))
+	}
+	return <CartesianLabelListContext value={value}>{props.children}</CartesianLabelListContext>
+}
+
+export function PolarLabelListContextProvider(props: {
+	value: ReadonlyArray<PolarLabelListEntry> | undefined
+	children: JSX.Element
+}) {
+	const value = createMemo(() => props.value)
+	const bridge = useContext(LabelListBridgeContext)
+	if (bridge != null) {
+		/* eslint-disable-next-line solid/reactivity -- publishes the accessor itself; the bridge reads it reactively */
+		bridge.setPolar(value)
+		onCleanup(() => teardownWrite(() => bridge.setPolar(undefined)))
+	}
+	return <PolarLabelListContext value={value}>{props.children}</PolarLabelListContext>
+}
+
+function useCartesianLabelListContext(): Accessor<
+	ReadonlyArray<CartesianLabelListEntry> | undefined
+> {
+	const ctx = useContext(CartesianLabelListContext)
+	return createMemo(() => (ctx != null ? ctx() : undefined))
+}
+
+function usePolarLabelListContext(): Accessor<ReadonlyArray<PolarLabelListEntry> | undefined> {
+	const ctx = useContext(PolarLabelListContext)
+	return createMemo(() => (ctx != null ? ctx() : undefined))
 }
 
 /**
@@ -200,58 +269,67 @@ export function LabelList(allProps: Props) {
 	const valueAccessor = allProps.valueAccessor ?? defaultAccessor
 	const cartesianData = useCartesianLabelListContext()
 	const polarData = usePolarLabelListContext()
-	const data = cartesianData || polarData
+	const data = createMemo(
+		() =>
+			(cartesianData() || polarData()) as
+				| ReadonlyArray<CartesianLabelListEntry | PolarLabelListEntry>
+				| undefined,
+	)
+
+	/* Runs inside a JSX expression so prop and entry reads are tracked. */
+	const renderEntry = (
+		entry: CartesianLabelListEntry | PolarLabelListEntry,
+		index: number,
+	): JSX.Element => {
+		const value = isNullish(allProps.dataKey)
+			? valueAccessor(entry, index)
+			: (getValueByDataKey(entry.payload, allProps.dataKey) as string | number)
+
+		const idProps = isNullish(allProps.id) ? {} : { id: `${allProps.id}-${index}` }
+
+		const {
+			id: _id,
+			dataKey: _dk,
+			clockWise: _cw,
+			textBreakAll: _tba,
+			zIndex: _zi,
+			valueAccessor: _va,
+			...others
+		} = allProps
+
+		return (
+			<Label
+				{...svgPropertiesAndEvents(entry as unknown as Record<PropertyKey, unknown>)}
+				{...others}
+				{...idProps}
+				/*
+				 * Prefer to use the explicit fill from LabelList props.
+				 * Only in an absence of that, fall back to the fill of the entry.
+				 * The entry fill can be quite difficult to see especially in Bar, Pie, RadialBar in inside positions.
+				 * On the other hand it's quite convenient in Scatter, Line, or when the position is outside the Bar, Pie filled shapes.
+				 */
+				fill={allProps.fill ?? entry.fill}
+				parentViewBox={entry.parentViewBox}
+				value={value}
+				textBreakAll={allProps.textBreakAll}
+				viewBox={entry.viewBox}
+				index={index}
+				/*
+				 * Here we don't want to use the default Label zIndex,
+				 * we want it to inherit the zIndex of the LabelList itself
+				 * which means just rendering as a regular child, without portaling anywhere.
+				 */
+				zIndex={0}
+			/>
+		)
+	}
 
 	return (
-		<Show when={data && data.length}>
+		<Show when={!!data()?.length}>
 			<ZIndexLayer zIndex={allProps.zIndex ?? DefaultZIndexes.label}>
 				<Layer class="recharts-label-list">
-					<For each={data as ReadonlyArray<CartesianLabelListEntry | PolarLabelListEntry>}>
-						{(entry, index) => {
-							/* eslint-disable solid/reactivity -- index() is the <For> index accessor; allProps reads in <For> callback ARE tracked */
-							const value = isNullish(allProps.dataKey)
-								? valueAccessor(entry, index())
-								: (getValueByDataKey(entry.payload, allProps.dataKey) as string | number)
-
-							const idProps = isNullish(allProps.id) ? {} : { id: `${allProps.id}-${index()}` }
-
-							const {
-								id: _id,
-								dataKey: _dk,
-								clockWise: _cw,
-								textBreakAll: _tba,
-								zIndex: _zi,
-								valueAccessor: _va,
-								...others
-							} = allProps
-							/* eslint-enable solid/reactivity */
-
-							return (
-								<Label
-									{...svgPropertiesAndEvents(entry as unknown as Record<PropertyKey, unknown>)}
-									{...others}
-									{...idProps}
-									/*
-									 * Prefer to use the explicit fill from LabelList props.
-									 * Only in an absence of that, fall back to the fill of the entry.
-									 * The entry fill can be quite difficult to see especially in Bar, Pie, RadialBar in inside positions.
-									 * On the other hand it's quite convenient in Scatter, Line, or when the position is outside the Bar, Pie filled shapes.
-									 */
-									fill={allProps.fill ?? entry.fill}
-									parentViewBox={entry.parentViewBox}
-									value={value}
-									textBreakAll={allProps.textBreakAll}
-									viewBox={entry.viewBox}
-									index={index()}
-									/*
-									 * Here we don't want to use the default Label zIndex,
-									 * we want it to inherit the zIndex of the LabelList itself
-									 * which means just rendering as a regular child, without portaling anywhere.
-									 */
-									zIndex={0}
-								/>
-							)
-						}}
+					<For each={data()}>
+						{(entry, index) => <>{renderEntry(entry, index())}</>}
 					</For>
 				</Layer>
 			</ZIndexLayer>
@@ -277,11 +355,11 @@ export function LabelListFromLabelProp(props: {
 		return <LabelList content={props.label} />
 	}
 
-	/* `label={<CustomLabel />}` — Solid evaluated to a Node. Clone once per
-	 * label-list entry; positions are intrinsic to the user JSX, no extra props
-	 * applied (matches simple test cases that only assert count). */
-	if (isJsxNode(props.label)) {
-		return <NodeLabelList node={props.label} />
+	/* `label={<CustomLabel />}`: like upstream, an element becomes LabelList content;
+	 * each entry's Label clones it with that entry's props. */
+	const label = props.label
+	if (isJsxNode(label)) {
+		return <LabelList content={label as unknown as LabelContentType} />
 	}
 
 	if (typeof props.label === "object") {
@@ -295,17 +373,3 @@ export function LabelListFromLabelProp(props: {
 	/* eslint-enable solid/reactivity */
 }
 
-function NodeLabelList(props: { node: Node }): JSX.Element {
-	const cartesianData = useCartesianLabelListContext()
-	const polarData = usePolarLabelListContext()
-	const data = (cartesianData || polarData) as ReadonlyArray<unknown> | undefined
-	return (
-		<Show when={data && data.length}>
-			<ZIndexLayer zIndex={DefaultZIndexes.label}>
-				<Layer class="recharts-label-list">
-					<For each={data}>{() => props.node.cloneNode(true) as unknown as JSX.Element}</For>
-				</Layer>
-			</ZIndexLayer>
-		</Show>
-	)
-}

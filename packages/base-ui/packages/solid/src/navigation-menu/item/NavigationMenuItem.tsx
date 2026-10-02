@@ -27,9 +27,9 @@ export function NavigationMenuItem(componentProps: NavigationMenuItem.Props) {
   const element = useRenderElement('li', componentProps, { props: elementProps });
 
   return (
-    <NavigationMenuItemContext.Provider value={contextValue}>
+    <NavigationMenuItemContext value={contextValue}>
       {element()}
-    </NavigationMenuItemContext.Provider>
+    </NavigationMenuItemContext>
   );
 }
 

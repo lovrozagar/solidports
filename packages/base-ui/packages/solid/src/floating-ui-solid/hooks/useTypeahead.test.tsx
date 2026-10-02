@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { createSignal, Index, Show, type JSX } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { defaultProps } from '../../solid-helpers';
 import { vi } from 'vitest';
 import { Main } from '../../../test/floating-ui-tests/Menu';
@@ -185,17 +186,17 @@ describe('useTypeahead', () => {
         </div>
         <Show when={open()}>
           <div {...getFloatingProps()}>
-            <Index each={props.list}>
+            <For keyed={false} each={props.list}>
               {(value, i) => (
                 <div
                   role="option"
-                  tabIndex={i === activeIndex() ? 0 : -1}
+                  tabindex={i === activeIndex() ? 0 : -1}
                   aria-selected={i === activeIndex()}
                 >
                   {value()}
                 </div>
               )}
-            </Index>
+            </For>
           </div>
         </Show>
       </>

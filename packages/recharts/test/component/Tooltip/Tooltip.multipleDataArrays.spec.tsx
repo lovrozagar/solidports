@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect, beforeEach } from "vitest"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import {
@@ -57,8 +57,7 @@ describe("Tooltip in chart with multiple data arrays", () => {
 			</ComposedChart>
 		))
 
-		/* Cluster D: ActivePoints reference equality fails — Solid recreates row objects through reactive proxy. */
-		it.skip("should select activeTooltipDataPoints", () => {
+		it("should select activeTooltipDataPoints", () => {
 			const { container, spy } = renderTestCase(useActiveTooltipDataPoints)
 
 			expectLastCalledWith(spy, undefined)

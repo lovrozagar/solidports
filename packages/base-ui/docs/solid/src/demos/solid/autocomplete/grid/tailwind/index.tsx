@@ -84,16 +84,15 @@ export default function ExampleEmojiPicker() {
                     class="max-h-[min(calc(20.5rem-var(--input-container-height)-2px),calc(var(--available-height)-var(--input-container-height)-2px))] overflow-auto scroll-pt-1 scroll-pb-[0.35rem] overscroll-contain py-2 empty:p-0"
                   >
                     {(group: EmojiGroup) => (
-                      <Autocomplete.Group key={group.value} items={group.items} class="block">
+                      <Autocomplete.Group items={group.items} class="block">
                         <Autocomplete.GroupLabel class="p-2 text-sm leading-4 text-neutral-500 select-none dark:text-neutral-400">
                           {group.label}
                         </Autocomplete.GroupLabel>
                         <div class="px-2 pb-1 pt-0" role="presentation">
                           {chunkArray(group.items, COLUMNS).map((row, rowIdx) => (
-                            <Autocomplete.Row key={rowIdx} class="grid grid-cols-5">
+                            <Autocomplete.Row class="grid grid-cols-5">
                               {row.map((rowItem) => (
                                 <Autocomplete.Item
-                                  key={rowItem.emoji}
                                   value={rowItem}
                                   class="group flex h-10 min-w-[var(--anchor-width)] cursor-default flex-col items-center justify-center bg-transparent px-0.5 py-2 text-neutral-950 outline-0 select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-100 dark:text-white dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-neutral-800"
                                   onClick={() => {

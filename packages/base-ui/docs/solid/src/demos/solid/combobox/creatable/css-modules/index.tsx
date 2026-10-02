@@ -1,5 +1,5 @@
-import { createSignal, createUniqueId, type JSX } from 'solid-js';
-const React = { forwardRef: (render) => (props) => render(props, props.ref), useActionState: (_action, initial) => [initial, () => {}, false] };
+import { createSignal, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -19,7 +19,7 @@ export default function ExampleCreatableCombobox() {
   const pendingQueryRef = { current: '' };
   const highlightedItemRef = { current: undefined };
 
-  function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+  function handleInputKeyDown(event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (event.key !== 'Enter' || highlightedItemRef.current) {
       return;
     }
@@ -84,7 +84,7 @@ export default function ExampleCreatableCombobox() {
     setQuery('');
   }
 
-  function handleCreateSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleCreateSubmit(event: Event & { currentTarget: HTMLFormElement }) {
     event.preventDefault();
     handleCreate();
   }
@@ -137,7 +137,6 @@ export default function ExampleCreatableCombobox() {
                 >
                   {(Array.isArray(value) ? value : []).map((label) => (
                     <Combobox.Chip
-                      key={label.id}
                       class={styles.Chip}
                       aria-label={label.value}
                       aria-description="Press Backspace or Delete to remove"
@@ -178,14 +177,14 @@ export default function ExampleCreatableCombobox() {
               <Combobox.List>
                 {(item: LabelItem) =>
                   item.creatable ? (
-                    <Combobox.Item key={item.id} class={styles.Item} value={item}>
+                    <Combobox.Item class={styles.Item} value={item}>
                       <span class={styles.ItemIndicator}>
                         <PlusIcon />
                       </span>
                       <span class={styles.ItemText}>Create "{item.creatable}"</span>
                     </Combobox.Item>
                   ) : (
-                    <Combobox.Item key={item.id} class={styles.Item} value={item}>
+                    <Combobox.Item class={styles.Item} value={item}>
                       <Combobox.ItemIndicator class={styles.ItemIndicator}>
                         <CheckIcon />
                       </Combobox.ItemIndicator>

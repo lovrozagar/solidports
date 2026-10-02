@@ -12,7 +12,7 @@ packages/react/     @base-ui/react snapshot — read, replace on version bump
 packages/utils/     @base-ui/utils snapshot — same
 packages/solid/     @solidports/base-ui — only living library
 docs/react/         mui/base-ui `docs/` at the same tag — snapshot
-docs/solid/         SolidStart docs — only living docs
+docs/solid/         Solid docs app (`@solidjs/vite-plugin` start mode) — only living docs
 .kb/                maintainer/agent notes for the Solid port
 ```
 
@@ -39,7 +39,7 @@ From the monorepo root:
 ```bash
 bun run docs:sync             # clone mui/base-ui@v1.8.0 docs → docs/react
 bun run docs:generate         # generate docs/solid pages + demos from docs/react
-bun run docs:dev              # Solid docs (Vinxi, port 3001)
+bun run docs:dev              # Solid docs (Vite start mode, port 3001)
 bun run docs:react:dev        # React docs snapshot (Next, port 3005)
 ```
 
@@ -60,8 +60,8 @@ From the monorepo root: `bun run fmt`, `bun run lint`, `bun run typecheck`,
 ## Solid
 
 Follow the monorepo root `AGENTS.md` reactivity rules (no prop destructure,
-`createMemo` for derived values, `createEffect` + `onCleanup`, `onMount`,
-`batch` for multiple setters). Porting notes: `.kb/README.md`.
+`createMemo` for derived values, `createEffect(compute, apply)` or
+`createTrackedEffect` + `onCleanup`, `onSettled`). Porting notes: `.kb/README.md`.
 
 ## Tests
 

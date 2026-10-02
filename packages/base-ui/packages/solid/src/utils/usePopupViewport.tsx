@@ -1,15 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic store across all popup variants */
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  onCleanup,
-  Show,
-  type Accessor,
-  type JSX,
-  type ParentProps,
-} from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, createSignal, Show } from 'solid-js';
+import type { Accessor, ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider';
 import { Dimensions } from '../floating-ui-solid/types';
 import type { SolidStore } from './store/SolidStoreV2';
@@ -18,6 +10,7 @@ import { useAnimationFrame } from './useAnimationFrame';
 import { useAnimationsFinished } from './useAnimationsFinished';
 import { usePopupAutoResize } from './usePopupAutoResize';
 import { usePreviousValue } from './usePreviousValue';
+import { on } from '../solid-1-compat';
 
 export type PopupViewportCssVars = {
   /**
@@ -113,10 +106,19 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
 
   const [showStartingStyleAttribute, setShowStartingStyleAttribute] = createSignal(false);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     parameters.store.set('hasViewport', true);
-    onCleanup(() => parameters.store.set('hasViewport', false));
-  });
+    _c.push(() => parameters.store.set('hasViewport', false));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const handleMeasureLayout = () => {
     currentContainerRef?.style.setProperty('animation', 'none');
@@ -138,7 +140,7 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
 
   let lastHandledTriggerRef = null as Element | null | undefined;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     /* When a trigger changes, set the captured children HTML to state,
        so we can render both new and old content. */
     const current = activeTrigger();
@@ -175,8 +177,7 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
 
   // Capture a clone of the current content DOM subtree when not transitioning.
   // We can't store previous React nodes as they may be stateful; instead we capture DOM clones for visual continuity.
-  createEffect(
-    on(currentContentKey, () => {
+  createEffect(...on(currentContentKey, () => {
       let cancelled = false;
 
       queueMicrotask(() => {
@@ -203,17 +204,16 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
         capturedNodeRef = wrapper;
       });
 
-      onCleanup(() => {
+      return () => {
         cancelled = true;
-      });
+      };
     }),
   );
 
   const isTransitioning = () => previousContentNode() != null;
 
   // When previousContentNode is present, imperatively populate the previous container with the cloned children.
-  createEffect(
-    on(previousContentNode, (contentNode) => {
+  createEffect(...on(previousContentNode, (contentNode) => {
       if (!contentNode) {
         return;
       }
@@ -233,9 +233,9 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
         container.replaceChildren(...Array.from(contentNode.childNodes));
       });
 
-      onCleanup(() => {
+      return () => {
         cancelled = true;
-      });
+      };
     }),
   );
 
@@ -288,7 +288,7 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
                   [parameters.cssVars.popupWidth]: `${previousContentDimensions()?.width}px`,
                   [parameters.cssVars.popupHeight]: `${previousContentDimensions()?.height}px`,
                   position: 'absolute',
-                } as JSX.CSSProperties
+                }
               }
               data-ending-style={showStartingStyleAttribute() ? undefined : ''}
             />
@@ -383,7 +383,7 @@ function usePopupContentKey(parameters: {
   let previousPayloadRef = parameters.payload();
   let pendingPayloadUpdateRef = false;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const activeTriggerId = parameters.activeTriggerId();
     const payload = parameters.payload();
 

@@ -1,13 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import {
-  batch,
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  mergeProps as solidMergeProps,
-} from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { createEffect, createMemo, createSignal } from 'solid-js';
+
 import type { CollapsibleRoot } from '../../collapsible/root/CollapsibleRoot';
 import { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
@@ -22,6 +15,7 @@ import type { AccordionRoot } from '../root/AccordionRoot';
 import { useAccordionRootContext } from '../root/AccordionRootContext';
 import { AccordionItemContext } from './AccordionItemContext';
 import { accordionStateAttributesMapping } from './stateAttributesMapping';
+import { on, mergeProps as solidMergeProps, createStore } from '../../solid-1-compat';
 
 /**
  * Groups an accordion header with the corresponding panel.
@@ -48,7 +42,7 @@ export function AccordionItem(componentProps: AccordionItem.Props) {
   const fallbackValue = useBaseUiId();
   const value = () => local.value ?? fallbackValue();
 
-  const disabled = () => (local.disabled ?? false) || contextDisabled();
+  const disabled = () => (Boolean(local.disabled)) || contextDisabled();
 
   const isOpen = createMemo(() => {
     const values = openValues();
@@ -66,7 +60,7 @@ export function AccordionItem(componentProps: AccordionItem.Props) {
   });
 
   const onOpenChange = (nextOpen: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => {
-    batch(() => {
+    {
       local.onOpenChange?.(nextOpen, eventDetails);
 
       if (eventDetails.isCanceled) {
@@ -74,7 +68,7 @@ export function AccordionItem(componentProps: AccordionItem.Props) {
       }
 
       handleValueChange(value(), nextOpen);
-    });
+    };
   };
 
   const collapsible = useCollapsibleRoot({
@@ -119,8 +113,7 @@ export function AccordionItem(componentProps: AccordionItem.Props) {
   const [triggerId, setTriggerId] = createSignal<string | undefined>(initialTriggerId());
   const [codependentRefs, setCodependentRefs] = createStore<CodependentRefs<['trigger']>>({});
 
-  createEffect(
-    on(
+  createEffect(...on(
       () => codependentRefs.trigger,
       (trigger) => {
         if (trigger) {
@@ -146,11 +139,11 @@ export function AccordionItem(componentProps: AccordionItem.Props) {
   });
 
   return (
-    <CollapsibleRootContext.Provider value={collapsibleContext}>
-      <AccordionItemContext.Provider value={accordionItemContext}>
+    <CollapsibleRootContext value={collapsibleContext}>
+      <AccordionItemContext value={accordionItemContext}>
         {element()}
-      </AccordionItemContext.Provider>
-    </CollapsibleRootContext.Provider>
+      </AccordionItemContext>
+    </CollapsibleRootContext>
   );
 }
 

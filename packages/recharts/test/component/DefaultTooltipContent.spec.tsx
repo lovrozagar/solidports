@@ -1,5 +1,5 @@
-/* @jsxImportSource solid-js */
-import { render } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { render } from "../helper/render"
 import { DefaultTooltipContent, type DefaultTooltipContentProps } from "../../src"
 
 describe("DefaultTooltipContent", () => {
@@ -25,6 +25,39 @@ describe("DefaultTooltipContent", () => {
 		],
 		separator: " : ",
 	}
+
+	it("renders without crashing when payload contains null or undefined entries", () => {
+		const mockPropsWithSparsePayload: DefaultTooltipContentProps = {
+			...mockProps,
+			payload: [
+				{
+					color: "#3182bd",
+					dataKey: "uv",
+					fill: "#3182bd",
+					fillOpacity: 0.6,
+					graphicalItemId: "recharts-area-0",
+					name: "A",
+					stroke: "#3182bd",
+					value: 10,
+				},
+				undefined,
+				null,
+				{
+					color: "#3182bd",
+					dataKey: "uv",
+					fill: "#3182bd",
+					fillOpacity: 0.6,
+					graphicalItemId: "recharts-area-1",
+					name: "B",
+					stroke: "#3182bd",
+					value: 20,
+				},
+			] as unknown as DefaultTooltipContentProps["payload"],
+		}
+		const { container } = render(() => <DefaultTooltipContent {...mockPropsWithSparsePayload} />)
+		const tooltipItems = container.querySelectorAll("li.recharts-tooltip-item")
+		expect(tooltipItems.length).toBe(2)
+	})
 
 	it("renders without crashing, finds div with default class attr", () => {
 		const { container } = render(() => <DefaultTooltipContent {...mockProps} />)

@@ -1,12 +1,13 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../helper/render"
 import { LineChart, Line, XAxis, YAxis } from "../../src"
 import { useChartState } from "../../src/state/useChartState"
 import { selectLinePoints } from "../../src/state/selectors/lineSelectors"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../src/util/solid-1-compat';
 /* Numeric data so a number-type XAxis with domain produces a real path. */
 const data = [
 	{ x: 10, value: 100 },
@@ -51,6 +52,7 @@ describe("Phase 3 — Line reads from new chartState", () => {
 		   Phase 3 GREEN: component reads state.cartesianAxes.xAxis["0"].settings directly
 		   inside createMemo → mutation triggers synchronous re-render. */
 		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "domain" as never, [0, 300] as never)
+		flush()
 
 		const after = container.querySelector(".recharts-line-curve")?.getAttribute("d")
 		expect(after).not.toBe(before)
@@ -87,6 +89,7 @@ describe("Phase 3 — Line reads from new chartState", () => {
 		   Phase 3 GREEN: component reads state.graphicalItems[id]?.settings.dataKey → re-render.
 		   "x" (values 10/20/30) produces a different curve than "value" (100/200/300). */
 		capturedSetState!("graphicalItems", itemId, "settings" as never, "dataKey" as never, "x" as never)
+		flush()
 
 		const after = container.querySelector(".recharts-line-curve")?.getAttribute("d")
 		expect(after).not.toBe(before)

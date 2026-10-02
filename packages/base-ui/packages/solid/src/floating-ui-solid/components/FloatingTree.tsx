@@ -1,11 +1,6 @@
-import {
-  createContext,
-  createRenderEffect,
-  onCleanup,
-  useContext,
-  type Accessor,
-  type JSX,
-} from 'solid-js';
+import { createContext, createRenderEffect, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { access } from '../../solid-helpers';
 import { useId } from '../../utils/useId';
 import type { FloatingContext, FloatingTreeType } from '../types';
@@ -44,19 +39,25 @@ export function useFloatingNodeId(externalTree?: FloatingTreeStore): Accessor<st
   const tree = useFloatingTree(externalTree);
   const parentContext = useContext(FloatingNodeContext);
 
-  createRenderEffect(() => {
-    const nodeId = id();
-    if (!nodeId) {
-      return;
-    }
+  createRenderEffect(
+    () => {
+      const nodeId = id();
+      const parentId = access(parentContext?.id) || null;
+      return { nodeId, parentId, tree };
+    },
+    ({ nodeId, parentId, tree: currentTree }) => {
+      if (!nodeId) {
+        return;
+      }
 
-    const node = { id: nodeId, parentId: access(parentContext?.id) || null };
-    tree?.addNode(node);
+      const node = { id: nodeId, parentId };
+      currentTree?.addNode(node);
 
-    onCleanup(() => {
-      tree?.removeNode(node);
-    });
-  });
+      return () => {
+        currentTree?.removeNode(node);
+      };
+    },
+  );
 
   return id;
 }
@@ -76,9 +77,9 @@ export function FloatingNode(props: FloatingNodeProps): JSX.Element {
   const contextValue = { id: () => props.id, parentId: () => parentId };
 
   return (
-    <FloatingNodeContext.Provider value={contextValue}>
+    <FloatingNodeContext value={contextValue}>
       {props.children}
-    </FloatingNodeContext.Provider>
+    </FloatingNodeContext>
   );
 }
 
@@ -101,5 +102,5 @@ export interface FloatingTreeProps {
 export function FloatingTree(props: FloatingTreeProps): JSX.Element {
   // eslint-disable-next-line solid/reactivity
   const tree = props.externalTree ?? new FloatingTreeStore();
-  return <FloatingTreeContext.Provider value={tree}>{props.children}</FloatingTreeContext.Provider>;
+  return <FloatingTreeContext value={tree}>{props.children}</FloatingTreeContext>;
 }

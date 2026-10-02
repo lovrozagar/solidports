@@ -1,13 +1,8 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import {
-	createEffect,
-	createMemo,
-	createSignal,
-	For,
-	Show,
-	splitProps,
-	type JSX,
-} from "solid-js"
+import type { Formatter } from "../component/DefaultTooltipContent"
+import { createMemo, For, Show, untrack } from 'solid-js';
+import { createHoverDedupe } from "../util/hoverDedupe"
+import type { JSX } from '@solidjs/web';
 import omit from "es-toolkit/compat/omit"
 import { clsx } from "clsx"
 import { selectActiveIndex } from "../state/selectors/selectors"
@@ -16,6 +11,7 @@ import { readChartState } from "../state/chartState"
 import { Layer } from "../container/Layer"
 import type { Props as TrapezoidProps } from "../shape/Trapezoid"
 import {
+	LabelListContextBridge,
 	CartesianLabelListContextProvider,
 	type CartesianLabelListEntry,
 	type ImplicitLabelListType,
@@ -51,18 +47,23 @@ import {
 	type ResolvedFunnelSettings,
 	selectFunnelTrapezoids,
 } from "../state/selectors/funnelSelectors"
-import { findAllByType } from "../util/ReactUtils"
-import { Cell } from "../component/Cell"
+import { CellsContextProvider, createCellsRegistry } from "../context/CellsContext"
+import type { CellsRegistry } from "../context/CellsContext"
 import type { RequiresDefaultProps } from "../util/resolveDefaultProps"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { usePlotArea } from "../hooks"
 import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
-import { JavascriptAnimate } from "../animation/JavascriptAnimate"
-import { useAnimationId } from "../util/useAnimationId"
+import { AnimatedItems, useAnimationCallbacks } from "../animation/AnimatedItems"
+import type { AnimationInterpolateFn } from "../animation/AnimatedItems"
+import { matchAppend } from "../animation/matchBy"
+import type { AnimationMatchByProp } from "../animation/matchBy"
+import { useCartesianChartLayout } from "../context/chartLayoutContext"
+import type { CartesianLayout, ShapeAnimationProps } from "../util/types"
 import type { GraphicalItemId } from "../state/graphicalItemsSlice"
 import { RegisterGraphicalItemId } from "../context/RegisterGraphicalItemId"
 import type { WithIdRequired } from "../util/useUniqueId"
 
+import { splitProps } from '../util/solid-1-compat';
 export type FunnelTrapezoidItem = TrapezoidProps &
 	TrapezoidViewBox & {
 		value?: number | string
@@ -108,6 +109,25 @@ interface FunnelProps<DataPointType = unknown, DataValueType = unknown>
 	 * @defaultValue ease
 	 */
 	animationEasing?: AnimationTiming
+	/**
+	 * Custom animation function for interpolating data items.
+	 * When provided, this replaces the default animation interpolation.
+	 *
+	 * @since 3.9
+	 * @see {@link https://recharts.github.io/en-US/guide/animations/ Animations guide}
+	 */
+	animationInterpolateFn?: AnimationInterpolateFn<FunnelTrapezoidItem, CartesianLayout>
+	/**
+	 * Strategy for matching previous items to next items during animation.
+	 *
+	 * - `matchAppend` (default): match sequentially by index and treat newly appended items as new
+	 * - `matchByIndex`: match by array position with proportional stretching
+	 * - `matchByDataKey('someKey')`: match by a data key from the payload
+	 * - Custom function `(item, index) => key`: match by the returned key
+	 *
+	 * @defaultValue append
+	 */
+	animationMatchBy?: AnimationMatchByProp<FunnelTrapezoidItem>
 	className?: string
 	/**
 	 * Hides the whole graphical element when true.
@@ -129,7 +149,7 @@ interface FunnelProps<DataPointType = unknown, DataValueType = unknown>
 	id?: string
 	/**
 	 * If set false, animation of funnel will be disabled.
-	 * If set "auto", the animation will be disabled in SSR and enabled in browser.
+	 * If set "auto", animation is disabled during SSR and when the user prefers reduced motion.
 	 * @defaultValue auto
 	 */
 	isAnimationActive?: boolean | "auto"
@@ -174,37 +194,42 @@ interface FunnelProps<DataPointType = unknown, DataValueType = unknown>
 	shape?: ActiveShape<FunnelTrapezoidItem, SVGPathElement>
 	tooltipType?: TooltipType
 	/**
+	 * Formats the value displayed in the tooltip for this Funnel.
+	 * When set, takes precedence over the `formatter` prop on the Tooltip component.
+	 */
+	formatter?: Formatter
+	/**
 	 * The customized event handler of click on the area in this group
 	 */
-	onClick?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent) => void
+	onClick?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mousedown on the area in this group
 	 */
-	onMouseDown?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent) => void
+	onMouseDown?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mouseup on the area in this group
 	 */
-	onMouseUp?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent) => void
+	onMouseUp?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mousemove on the area in this group
 	 */
-	onMouseMove?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent) => void
+	onMouseMove?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mouseover on the area in this group
 	 */
-	onMouseOver?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent) => void
+	onMouseOver?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mouseout on the area in this group
 	 */
-	onMouseOut?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent) => void
+	onMouseOut?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mouseenter on the area in this group
 	 */
-	onMouseEnter?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent) => void
+	onMouseEnter?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 	/**
 	 * The customized event handler of mouseleave on the area in this group
 	 */
-	onMouseLeave?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent) => void
+	onMouseLeave?: (data: FunnelTrapezoidItem, index: number, e: MouseEvent & { currentTarget: SVGGraphicsElement }) => void
 }
 
 type FunnelSvgProps = Omit<
@@ -214,11 +239,12 @@ type FunnelSvgProps = Omit<
 
 type InternalProps = FunnelSvgProps & InternalFunnelProps
 
-export type Props = FunnelSvgProps & FunnelProps
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped items accept any data */
+export type Props<DataPointType = any, DataValueType = any> = FunnelSvgProps & FunnelProps<DataPointType, DataValueType>
 
 type RealFunnelData = unknown
 
-type FunnelTrapezoidsProps = {
+type FunnelTrapezoidsProps = ShapeAnimationProps & {
 	trapezoids: ReadonlyArray<FunnelTrapezoidItem>
 	allOtherFunnelProps: InternalProps
 }
@@ -232,6 +258,7 @@ function SetFunnelTooltipEntrySettings(props: {
 	name: string | number | undefined
 	hide: boolean | undefined
 	tooltipType: InternalProps["tooltipType"]
+	formatter: Formatter | undefined
 	data: InternalProps["data"]
 	id: InternalProps["id"]
 	trapezoids: ReadonlyArray<FunnelTrapezoidItem>
@@ -244,6 +271,7 @@ function SetFunnelTooltipEntrySettings(props: {
 			color: props.fill,
 			dataKey: props.dataKey,
 			fill: props.fill,
+			formatter: props.formatter,
 			graphicalItemId: props.id,
 			hide: props.hide,
 			name: props.name,
@@ -290,6 +318,8 @@ function FunnelLabelListProvider(props: {
 }
 
 function FunnelTrapezoids(funnelTrapProps: FunnelTrapezoidsProps) {
+	/* GOTCHA-016-C: one entry per pointer move across both event pairs, shared by all items. */
+	const hover = createHoverDedupe()
 	const ctx = useChartStore()
 	const activeItemIndex = createMemo(() =>
 		ctx
@@ -302,10 +332,10 @@ function FunnelTrapezoids(funnelTrapProps: FunnelTrapezoidsProps) {
 			: undefined,
 	)
 
-	/* eslint-disable solid/reactivity -- dataKey/id are stable identifiers; passed once to dispatch hooks */
+	/* eslint-disable solid/reactivity -- id is a stable identifier; handler and dataKey sources are accessors read at event time */
 	const onMouseEnterFromContext = useMouseEnterItemDispatch(
 		() => funnelTrapProps.allOtherFunnelProps.onMouseEnter,
-		funnelTrapProps.allOtherFunnelProps.dataKey,
+		() => funnelTrapProps.allOtherFunnelProps.dataKey,
 		funnelTrapProps.allOtherFunnelProps.id,
 	)
 	const onMouseLeaveFromContext = useMouseLeaveItemDispatch(
@@ -313,7 +343,7 @@ function FunnelTrapezoids(funnelTrapProps: FunnelTrapezoidsProps) {
 	)
 	const onClickFromContext = useMouseClickItemDispatch(
 		() => funnelTrapProps.allOtherFunnelProps.onClick,
-		funnelTrapProps.allOtherFunnelProps.dataKey,
+		() => funnelTrapProps.allOtherFunnelProps.dataKey,
 		funnelTrapProps.allOtherFunnelProps.id,
 	)
 	/* eslint-enable solid/reactivity */
@@ -331,31 +361,36 @@ function FunnelTrapezoids(funnelTrapProps: FunnelTrapezoidsProps) {
 
 				const trapezoidProps = (): Omit<FunnelTrapezoidProps, "id"> => ({
 					...entry,
+					animationElapsedTime: funnelTrapProps.animationElapsedTime,
 					isActive: isActiveIndex(),
-					option: trapezoidOptions(),
+					isAnimating: funnelTrapProps.isAnimating,
+					isEntrance: funnelTrapProps.isEntrance,
+					/* read lazily where Shape renders it (an element option mints a shape per read) */
+					get option() {
+						return trapezoidOptions()
+					},
 					stroke: entry.stroke,
 				})
 
+				/* Event handlers bind once per item, like a keyed list. */
+				const handlerIndex = untrack(i)
 				/* GOTCHA-016-C: bind both pairs, dedupe per-instance. Compose adapted user handlers. */
-				/* eslint-disable-next-line solid/reactivity -- i() is the <For> index accessor; callback IS a tracked scope */
-				const adapted = (adaptEventsOfChild(funnelTrapProps.allOtherFunnelProps, entry, i()) ??
-					{}) as Record<string, ((e: Event) => void) | undefined>
-				/* eslint-disable solid/reactivity -- i() is the <For> index accessor used inside tracked scope */
-				const enter = onMouseEnterFromContext(entry, i())
-				const leave = onMouseLeaveFromContext(entry, i())
-				/* eslint-enable solid/reactivity */
+				const adapted = untrack(
+					() =>
+						(adaptEventsOfChild(funnelTrapProps.allOtherFunnelProps, entry, handlerIndex) ??
+							{}) as Record<string, ((e: Event) => void) | undefined>,
+				)
+				const enter = onMouseEnterFromContext(entry, handlerIndex)
+				const leave = onMouseLeaveFromContext(entry, handlerIndex)
 				const userOver = adapted.onMouseOver
 				const userOut = adapted.onMouseOut
-				let entered = false
-				const fireEnter = (e: MouseEvent & { currentTarget: SVGElement }) => {
-					if (entered) return
-					entered = true
+				const fireEnter = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
+					if (!hover.enter(e)) return
 					userOver?.(e)
 					enter(e)
 				}
-				const fireLeave = (e: MouseEvent & { currentTarget: SVGElement }) => {
-					if (!entered) return
-					entered = false
+				const fireLeave = (e: MouseEvent & { currentTarget: SVGGraphicsElement }) => {
+					if (!hover.leave(e)) return
 					userOut?.(e)
 					leave(e)
 				}
@@ -367,7 +402,7 @@ function FunnelTrapezoids(funnelTrapProps: FunnelTrapezoidsProps) {
 						onMouseOver={fireEnter}
 						onMouseLeave={fireLeave}
 						onMouseOut={fireLeave}
-						onClick={onClickFromContext(entry, i())}
+						onClick={onClickFromContext(entry, handlerIndex)}
 					>
 						<FunnelTrapezoid {...trapezoidProps()} />
 					</Layer>
@@ -377,95 +412,89 @@ function FunnelTrapezoids(funnelTrapProps: FunnelTrapezoidsProps) {
 	)
 }
 
+const defaultFunnelAnimateItems: AnimationInterpolateFn<FunnelTrapezoidItem, CartesianLayout> = (
+	items,
+	animationElapsedTime,
+) => {
+	if (items == null) return []
+	if (animationElapsedTime === 1) {
+		return items.flatMap((item) => (item.status === "removed" ? [] : [item.next]))
+	}
+	return items.flatMap((item) => {
+		if (item.status === "removed") return []
+		if (item.status === "matched") {
+			return [
+				{
+					...item.next,
+					height: interpolate(item.prev.height, item.next.height, animationElapsedTime),
+					lowerWidth: interpolate(item.prev.lowerWidth, item.next.lowerWidth, animationElapsedTime),
+					upperWidth: interpolate(item.prev.upperWidth, item.next.upperWidth, animationElapsedTime),
+					x: interpolate(item.prev.x, item.next.x, animationElapsedTime),
+					y: interpolate(item.prev.y, item.next.y, animationElapsedTime),
+				},
+			]
+		}
+		// added
+		const { next } = item
+		return [
+			{
+				...next,
+				height: interpolate(0, next.height, animationElapsedTime),
+				lowerWidth: interpolate(0, next.lowerWidth, animationElapsedTime),
+				upperWidth: interpolate(0, next.upperWidth, animationElapsedTime),
+				x: interpolate(next.x + next.upperWidth / 2, next.x, animationElapsedTime),
+				y: interpolate(next.y + next.height / 2, next.y, animationElapsedTime),
+			},
+		]
+	})
+}
+
 function TrapezoidsWithAnimation(animProps: {
 	props: InternalProps
 	previousTrapezoidsRef: { current: ReadonlyArray<FunnelTrapezoidItem> | undefined }
 }) {
-	const [isAnimating, setIsAnimating] = createSignal(false)
-	const showLabels = () => !isAnimating()
-
-	const animationId = useAnimationId(() => animProps.props.trapezoids, "recharts-funnel-")
-
-	/* GOTCHA-014-G: keyed snapshot at animationId flip. */
-	const animationContext = createMemo(() => {
-		animationId()
-		return { prevTrapezoids: animProps.previousTrapezoidsRef.current }
-	})
-
-	const handleAnimationEnd = () => {
-		if (typeof animProps.props.onAnimationEnd === "function") {
-			animProps.props.onAnimationEnd()
-		}
-		setIsAnimating(false)
-	}
-
-	const handleAnimationStart = () => {
-		if (typeof animProps.props.onAnimationStart === "function") {
-			animProps.props.onAnimationStart()
-		}
-		setIsAnimating(true)
-	}
+	const layout = createMemo(() => useCartesianChartLayout())
+	const { isAnimating, handleAnimationStart, handleAnimationEnd } = useAnimationCallbacks(
+		() => animProps.props.onAnimationStart,
+		() => animProps.props.onAnimationEnd,
+	)
 
 	return (
-		<FunnelLabelListProvider showLabels={showLabels()} trapezoids={animProps.props.trapezoids}>
-			<JavascriptAnimate
-				animationId={animationId()}
-				begin={animProps.props.animationBegin}
-				duration={animProps.props.animationDuration}
-				isActive={animProps.props.isAnimationActive}
-				easing={animProps.props.animationEasing}
-				onAnimationStart={handleAnimationStart}
-				onAnimationEnd={handleAnimationEnd}
-			>
-				{(t: () => number) => {
-					/* GOTCHA-014: thunk children — prev via effect. */
-					const stepData = createMemo<ReadonlyArray<FunnelTrapezoidItem> | undefined>(() => {
-						const ctx = animationContext()
-						const prevTrapezoids = ctx.prevTrapezoids
-						const trapezoids = animProps.props.trapezoids
-						const tValue = t()
-						return tValue === 1
-							? trapezoids
-							: trapezoids.map(
-									(entry: FunnelTrapezoidItem, index: number): FunnelTrapezoidItem => {
-										const prev = prevTrapezoids && prevTrapezoids[index]
-										if (prev) {
-											return Object.assign({}, entry, {
-												height: interpolate(prev.height, entry.height, tValue),
-												lowerWidth: interpolate(prev.lowerWidth, entry.lowerWidth, tValue),
-												upperWidth: interpolate(prev.upperWidth, entry.upperWidth, tValue),
-												x: interpolate(prev.x, entry.x, tValue),
-												y: interpolate(prev.y, entry.y, tValue),
-											})
-										}
-										return Object.assign({}, entry, {
-											height: interpolate(0, entry.height, tValue),
-											lowerWidth: interpolate(0, entry.lowerWidth, tValue),
-											upperWidth: interpolate(0, entry.upperWidth, tValue),
-											x: interpolate(entry.x + entry.upperWidth / 2, entry.x, tValue),
-											y: interpolate(entry.y + entry.height / 2, entry.y, tValue),
-										})
-									},
-								)
-					})
-					createEffect(() => {
-						if (t() > 0) {
-							animProps.previousTrapezoidsRef.current = stepData()
-						}
-					})
-					return (
-						<Layer>
-							<FunnelTrapezoids
-								trapezoids={stepData() as ReadonlyArray<FunnelTrapezoidItem>}
-								allOtherFunnelProps={animProps.props}
-							/>
-						</Layer>
-					)
-				}}
-			</JavascriptAnimate>
-			<LabelListFromLabelProp label={animProps.props.label} />
-			{animProps.props.children}
-		</FunnelLabelListProvider>
+		<Show when={layout()}>
+			{(cartesianLayout) => (
+				<FunnelLabelListProvider showLabels={!isAnimating()} trapezoids={animProps.props.trapezoids}>
+					<AnimatedItems
+						animationInput={animProps.props.trapezoids}
+						animationIdPrefix="recharts-funnel-"
+						items={animProps.props.trapezoids}
+						previousItemsRef={animProps.previousTrapezoidsRef}
+						isAnimationActive={animProps.props.isAnimationActive}
+						animationBegin={animProps.props.animationBegin}
+						animationDuration={animProps.props.animationDuration}
+						animationEasing={animProps.props.animationEasing}
+						onAnimationStart={handleAnimationStart}
+						onAnimationEnd={handleAnimationEnd}
+						animationInterpolateFn={animProps.props.animationInterpolateFn}
+						animationMatchBy={animProps.props.animationMatchBy}
+						layout={cartesianLayout()}
+					>
+						{(stepData, animationElapsedTime, isEntrance) => (
+							<Layer>
+								<FunnelTrapezoids
+									trapezoids={stepData()}
+									allOtherFunnelProps={animProps.props}
+									animationElapsedTime={animationElapsedTime()}
+									isAnimating={isAnimating() || animationElapsedTime() < 1}
+									isEntrance={isEntrance()}
+								/>
+							</Layer>
+						)}
+					</AnimatedItems>
+					<LabelListFromLabelProp label={animProps.props.label} />
+					{animProps.props.children}
+				</FunnelLabelListProvider>
+			)}
+		</Show>
 	)
 }
 
@@ -494,6 +523,8 @@ export const defaultFunnelProps = {
 	animationBegin: 400,
 	animationDuration: 1500,
 	animationEasing: "ease",
+	animationInterpolateFn: defaultFunnelAnimateItems,
+	animationMatchBy: matchAppend,
 	fill: "#808080",
 	hide: false,
 	isAnimationActive: "auto",
@@ -504,13 +535,22 @@ export const defaultFunnelProps = {
 	stroke: "#fff",
 } as const satisfies Partial<Props>
 
-function FunnelImpl(props: WithIdRequired<RequiresDefaultProps<Props, typeof defaultFunnelProps>>) {
-	const plotArea = () => usePlotArea()
+function FunnelImpl(
+	props: WithIdRequired<RequiresDefaultProps<Props, typeof defaultFunnelProps>> & { cellsRegistry: CellsRegistry },
+) {
+	const plotArea = createMemo(() => usePlotArea())
 	const ctx = useChartStore()
 
-	const presentationProps = svgPropertiesNoEvents(props)
-	/* Solid does not support React.Children scanning, passing undefined for cells */
-	const cells = createMemo(() => findAllByType(props.children, Cell))
+	/* The graphical item id identifies the Funnel, not each trapezoid; keep it out
+	   of the per-entry presentation props so trapezoids carry no duplicate `id`. */
+	const presentationProps = (() => {
+		const { id: _id, ...rest } = svgPropertiesNoEvents(props) as Record<string, unknown>
+		return rest
+	})()
+	const cells = createMemo(() => {
+		const list = props.cellsRegistry.cells()
+		return list.map((cell) => cell.props)
+	})
 
 	const funnelSettings = createMemo(
 		(): ResolvedFunnelSettings => ({
@@ -549,9 +589,10 @@ function FunnelImpl(props: WithIdRequired<RequiresDefaultProps<Props, typeof def
 							stroke={props.stroke}
 							strokeWidth={props["stroke-width"]}
 							fill={props.fill}
-							name={undefined}
+							name={props.name}
 							hide={props.hide}
 							tooltipType={props.tooltipType}
+							formatter={props.formatter}
 							data={props.data}
 							trapezoids={tz()}
 							id={props.id}
@@ -642,10 +683,11 @@ export function computeFunnelTrapezoids({
 			}
 
 			/* val and nextVal may be arrays for ranged values; numeric coercion handles the math */
-			const x = ((maxValue - (val as number)) * realWidth) / (2 * maxValue) + offsetX
+			/* maxValue 0 (all values zero) would divide by zero: collapse to zero width (#7184) */
+			const x = maxValue === 0 ? offsetX : ((maxValue - (val as number)) * realWidth) / (2 * maxValue) + offsetX
 			const y = rowHeight * i + offsetY
-			const upperWidth = ((val as number) / maxValue) * realWidth
-			const lowerWidth = ((nextVal as number) / maxValue) * realWidth
+			const upperWidth = maxValue === 0 ? 0 : ((val as number) / maxValue) * realWidth
+			const lowerWidth = maxValue === 0 ? 0 : ((nextVal as number) / maxValue) * realWidth
 
 			const tooltipPayload: TooltipPayload = [
 				{ dataKey, graphicalItemId, name, payload: entry, type: tooltipType, value: val },
@@ -713,27 +755,49 @@ export function computeFunnelTrapezoids({
  * @provides LabelListContext
  * @provides CellReader
  */
-export function Funnel(outsideProps: Props) {
+function FunnelFn(outsideProps: Props): JSX.Element {
 	/* GOTCHA-013: split children before resolveDefaultProps. The destructure spread
 	   reads the `children` getter on the props proxy, eagerly evaluating user JSX
 	   (Cell, etc.) before RegisterGraphicalItemId installs its Provider.
 	   Memoize once — the `get children()` getter on user JSX re-creates components on
 	   every read. */
 	const [childrenProps, restProps] = splitProps(outsideProps, ["children"])
-	const { id: externalId, ...props } = resolveDefaultProps(restProps, defaultFunnelProps)
+	const [idProps, props] = splitProps(resolveDefaultProps(restProps, defaultFunnelProps), ["id"])
 	return (
-		<RegisterGraphicalItemId id={externalId} type="funnel">
-			{(id) => {
-				/* Memoize children inside Provider scope (GOTCHA-013). */
-				const memoizedChildren = createMemo(() => childrenProps.children)
-				return (
-					<FunnelImpl {...props} id={id}>
-						{memoizedChildren()}
-					</FunnelImpl>
-				)
-			}}
+		<RegisterGraphicalItemId id={idProps.id} type="funnel">
+			{(id) => (
+				<LabelListContextBridge>
+					{(() => {
+						/* <Cell/> children register here; upstream reads them with findAllByType. */
+						const cellsRegistry = createCellsRegistry()
+						return (
+							<CellsContextProvider value={cellsRegistry}>
+								{(() => {
+									/* Memoize children inside Provider scope (GOTCHA-013). */
+									const memoizedChildren = createMemo(() => childrenProps.children)
+									return (
+										<FunnelImpl {...props} id={id} cellsRegistry={cellsRegistry}>
+											{memoizedChildren()}
+										</FunnelImpl>
+									)
+								})()}
+							</CellsContextProvider>
+						)
+					})()}
+				</LabelListContextBridge>
+			)}
 		</RegisterGraphicalItemId>
 	)
 }
 
+/**
+ * Typed entry point: the generics constrain props at the call site, like upstream.
+ */
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped usage accepts any data */
+export const Funnel = FunnelFn as {
+	<DataPointType = any, DataValueType = any>(props: Props<DataPointType, DataValueType>): JSX.Element
+	/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream fallback overload for mismatched data/dataKey */
+	(props: Props<any, any>): JSX.Element
+	displayName?: string
+}
 Funnel.displayName = "Funnel"

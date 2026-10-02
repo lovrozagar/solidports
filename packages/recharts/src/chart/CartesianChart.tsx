@@ -1,10 +1,12 @@
 /* eslint-disable import/no-cycle */
-import { createMemo, splitProps } from "solid-js"
+import { createMemo, untrack } from 'solid-js';
 import type { ChartOptions } from "../state/optionsSlice"
 import { RechartsStateProvider } from "../state/RechartsStateProvider"
+import { createInitialChartDataState, createInitialLayoutState } from "../state/chartState"
 import { ChartDataContextProvider } from "../context/chartDataContext"
 import { ReportMainChartProps } from "../state/ReportMainChartProps"
 import { ReportChartProps } from "../state/ReportChartProps"
+import { createInitialRootProps } from "./createInitialRootProps"
 import { ReportEventSettings } from "../state/ReportEventSettings"
 import type { CartesianChartProps, Margin, TooltipEventType } from "../util/types"
 import type { TooltipPayloadSearcher } from "../state/tooltipSlice"
@@ -12,6 +14,7 @@ import { CategoricalChart } from "./CategoricalChart"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { initialEventSettingsState } from "../state/eventSettingsSlice"
 
+import { splitProps } from '../util/solid-1-compat';
 const defaultMargin: Margin = { bottom: 5, left: 5, right: 5, top: 5 }
 
 export const defaultCartesianChartProps = {
@@ -103,8 +106,25 @@ export function CartesianChart(props: CartesianChartOptions) {
 		validateTooltipEventTypes: props.validateTooltipEventTypes,
 	})
 
+	const initialChartData = () =>
+		untrack(() => createInitialChartDataState(props.categoricalChartProps.data))
+	const initialLayout = () =>
+		untrack(() =>
+			createInitialLayoutState({
+				height: props.categoricalChartProps.height,
+				layoutType: props.categoricalChartProps.layout ?? defaultCartesianChartProps.layout,
+				margin: props.categoricalChartProps.margin ?? defaultCartesianChartProps.margin,
+				width: props.categoricalChartProps.width,
+			}),
+		)
+
 	return (
-		<RechartsStateProvider preloadedState={{ options: options() }}>
+		<RechartsStateProvider preloadedState={{
+				chartData: initialChartData(),
+				layout: initialLayout(),
+				options: options(),
+				rootProps: untrack(() => createInitialRootProps(props.categoricalChartProps)),
+			}}>
 			<CartesianChartInner categoricalChartProps={props.categoricalChartProps} ref={props.ref} />
 		</RechartsStateProvider>
 	)

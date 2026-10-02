@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, onCleanup, Show, mergeProps as solidMergeProps, type JSX } from 'solid-js';
+import { createTrackedEffect, onCleanup, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
 import { adaptiveOrigin } from '../../utils/adaptiveOriginMiddleware';
@@ -15,6 +16,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { usePopoverPortalContext } from '../portal/PopoverPortalContext';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
 import { PopoverPositionerContext } from './PopoverPositionerContext';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * Positions the popover against the trigger.
@@ -116,7 +118,10 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
 
   // When the current trigger element changes, enable transitions on the
   // positioner temporarily
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const currentTriggerElement = store.context.floatingRootContext.select('domReferenceElement');
     const prevTriggerElement = prevTriggerElementRef;
 
@@ -135,11 +140,17 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
         store.set('instantType', 'trigger-change' as any);
       }, ac.signal);
 
-      onCleanup(() => {
+      _c.push(() => {
         ac.abort();
       });
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const state: PopoverPositioner.State = {
     get align() {
@@ -173,7 +184,7 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
   });
 
   return (
-    <PopoverPositionerContext.Provider value={positioner}>
+    <PopoverPositionerContext value={positioner}>
       <Show when={mounted() && modal() === true && openReason() !== REASONS.triggerHover}>
         <InternalBackdrop
           managed
@@ -186,7 +197,7 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
       </Show>
 
       <FloatingNode id={nodeId()}>{element()}</FloatingNode>
-    </PopoverPositionerContext.Provider>
+    </PopoverPositionerContext>
   );
 }
 

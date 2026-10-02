@@ -1,15 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- ref forwarding + input prop spread bridge */
-import {
-  batch,
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  onCleanup,
-  Show,
-  mergeProps as solidMergeProps,
-  splitProps,
-} from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, createSignal, onCleanup, Show } from 'solid-js';
 import { useCheckboxGroupContext } from '../../checkbox-group/CheckboxGroupContext';
 import { useFieldItemContext } from '../../field/item/FieldItemContext';
 import type { FieldRoot } from '../../field/root/FieldRoot';
@@ -38,6 +28,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import { useStateAttributesMapping } from '../utils/useStateAttributesMapping';
 import { CheckboxRootContext } from './CheckboxRootContext';
+import { on, mergeProps as solidMergeProps, splitProps } from '../../solid-1-compat';
 
 export const PARENT_CHECKBOX = 'data-parent';
 
@@ -70,7 +61,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const checkedProp = () => local.checked;
   const defaultChecked = () => local.defaultChecked ?? false;
   const ariaLabelledByProp = () => local['aria-labelledby'];
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const formProp = () => local.form;
   const idProp = () => local.id;
   const indeterminate = () => local.indeterminate ?? false;
@@ -79,7 +70,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const readOnly = () => local.readOnly ?? false;
   const required = () => local.required ?? false;
   const valueProp = () => local.value;
-  const nativeButton = () => local.nativeButton ?? false;
+  const nativeButton = () => Boolean(local.nativeButton);
 
   const { clearErrors } = useFormContext();
   const {
@@ -187,8 +178,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   });
 
   // can't use useLabelableId because of optional groupContext and/or parent
-  createEffect(
-    on([inputId, parent], () => {
+  createEffect(...on([inputId, parent], () => {
       if (registerControlId === NOOP) {
         return;
       }
@@ -222,7 +212,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
 
   const ariaLabelledBy = useAriaLabelledBy(ariaLabelledByProp, labelId, () => inputRef, !nativeButton(), () => inputId() ?? undefined);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (inputRef) {
       inputRef.indeterminate = groupProps().local.indeterminate;
       if (checked()) {
@@ -231,8 +221,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     }
   });
 
-  createEffect(
-    on(
+  createEffect(...on(
       checked,
       () => {
         if (groupContext && !parent()) {
@@ -283,9 +272,9 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
         get style() {
           return name() ? visuallyHiddenInput : visuallyHidden;
         },
-        tabIndex: -1,
+        tabindex: -1,
         type: 'checkbox',
-        'aria-hidden': true,
+        'aria-hidden': 'true',
         onChange(event) {
           const groupContextValue = groupContext?.value();
           // Workaround for https://github.com/facebook/react/issues/9023
@@ -293,31 +282,29 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
             return;
           }
 
-          batch(() => {
-            const nextChecked = event.target.checked;
-            // Use the stored click event if available, as the native `change` event
-            // doesn't carry keyboard modifier properties (shiftKey, ctrlKey, etc.)
-            const details = createChangeEventDetails(REASONS.none, lastClickEvent ?? event);
-            lastClickEvent = undefined;
+          const nextChecked = event.target.checked;
+          // Use the stored click event if available, as the native `change` event
+          // doesn't carry keyboard modifier properties (shiftKey, ctrlKey, etc.)
+          const details = createChangeEventDetails(REASONS.none, lastClickEvent ?? event);
+          lastClickEvent = undefined;
 
-            groupProps().local.onCheckedChange?.(nextChecked, details);
-            local.onCheckedChange?.(nextChecked, details);
+          groupProps().local.onCheckedChange?.(nextChecked, details);
+          local.onCheckedChange?.(nextChecked, details);
 
-            if (details.isCanceled) {
-              return;
-            }
+          if (details.isCanceled) {
+            return;
+          }
 
-            setCheckedState(nextChecked);
+          setCheckedState(nextChecked);
 
-            const v = value();
-            if (v && groupContextValue && setGroupValue && !parent()) {
-              const nextGroupValue = nextChecked
-                ? [...groupContextValue, v]
-                : groupContextValue.filter((item) => item !== v);
+          const v = value();
+          if (v && groupContextValue && setGroupValue && !parent()) {
+            const nextGroupValue = nextChecked
+              ? [...groupContextValue, v]
+              : groupContextValue.filter((item) => item !== v);
 
-              setGroupValue(nextGroupValue, details);
-            }
-          });
+            setGroupValue(nextGroupValue, details);
+          }
         },
         onFocus() {
           controlRef()?.focus();
@@ -342,7 +329,10 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     isGroupedWithParent() ? groupProps().local.indeterminate || indeterminate() : indeterminate(),
   );
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const val = value();
     const ctx = parentContext();
     if (!ctx || !val) {
@@ -352,10 +342,16 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     const disabledStates = ctx.disabledStatesRef;
     disabledStates.set(val, disabled());
 
-    onCleanup(() => {
+    _c.push(() => {
       disabledStates.delete(val);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const state: CheckboxRoot.State = solidMergeProps(fieldState, {
     get checked() {
@@ -386,7 +382,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
           },
           role: 'checkbox',
           get 'aria-checked'() {
-            return groupProps().local.indeterminate ? 'mixed' : checked();
+            return groupProps().local.indeterminate ? 'mixed' : String(checked());
           },
           get 'aria-readonly'() {
             return readOnly() || undefined;
@@ -408,14 +404,14 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
               return;
             }
 
-            batch(() => {
+            {
               setTouched(true);
               setFocused(false);
 
               if (validationMode() === 'onBlur') {
                 validation().commit(groupContext ? groupValue() : inputRef?.checked);
               }
-            });
+            };
           },
           onClick(event: MouseEvent) {
             if (readOnly() || disabled()) {
@@ -454,7 +450,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const contextValue = { state };
 
   return (
-    <CheckboxRootContext.Provider value={contextValue}>
+    <CheckboxRootContext value={contextValue}>
       {element()}
       <Show
         when={
@@ -464,7 +460,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
         <input type="hidden" form={formProp()} name={name()} value={local.uncheckedValue} />
       </Show>
       <input {...(inputProps() as any)} />
-    </CheckboxRootContext.Provider>
+    </CheckboxRootContext>
   );
 }
 

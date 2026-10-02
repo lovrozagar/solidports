@@ -1,4 +1,5 @@
-import { createEffect, createMemo, JSX, on, onCleanup } from 'solid-js';
+import { createEffect, createMemo } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { Dimensions } from '../floating-ui-solid/types';
 import { access, type MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
@@ -7,6 +8,7 @@ import { getCssDimensions } from './getCssDimensions';
 import { Side } from './useAnchorPositioning';
 import { useAnimationFrame } from './useAnimationFrame';
 import { useAnimationsFinished } from './useAnimationsFinished';
+import { on } from '../solid-1-compat';
 
 const DEFAULT_ENABLED = () => true;
 
@@ -53,8 +55,7 @@ export function usePopupAutoResize(parameters: UsePopupAutoResizeParameters) {
       : EMPTY_OBJECT;
   });
 
-  createEffect(
-    on([mounted, enabled, content, popupElement, positionerElement, anchoringStyles], () => {
+  createEffect(...on([mounted, enabled, content, popupElement, positionerElement, anchoringStyles], () => {
       // Reset the state when the popup is closed.
       if (!mounted() || !enabled() || typeof ResizeObserver !== 'function') {
         restoreAnchoringStylesRef = NOOP;
@@ -125,13 +126,11 @@ export function usePopupAutoResize(parameters: UsePopupAutoResizeParameters) {
 
         isInitialRenderRef = false;
 
-        onCleanup(() => {
+        return () => {
           observer.disconnect();
           restoreAnchoringStylesRef();
           restoreAnchoringStylesRef = NOOP;
-        });
-
-        return;
+        };
       }
 
       // Subsequent renders while open (when `content` changes).
@@ -150,14 +149,12 @@ export function usePopupAutoResize(parameters: UsePopupAutoResizeParameters) {
         restoreMeasurementOverridesIncludingScale();
         parameters.onMeasureLayoutComplete?.(null, newDimensions);
 
-        onCleanup(() => {
+        return () => {
           observer.disconnect();
           animationFrame.cancel();
           restoreAnchoringStylesRef();
           restoreAnchoringStylesRef = NOOP;
-        });
-
-        return;
+        };
       }
 
       setPopupCssSize(popupEl, previousDimensions);
@@ -177,13 +174,13 @@ export function usePopupAutoResize(parameters: UsePopupAutoResizeParameters) {
         }, abortController.signal);
       });
 
-      onCleanup(() => {
+      return () => {
         observer.disconnect();
         abortController.abort();
         animationFrame.cancel();
         restoreAnchoringStylesRef();
         restoreAnchoringStylesRef = NOOP;
-      });
+      };
     }),
   );
 }

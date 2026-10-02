@@ -19,9 +19,9 @@ export function ToolbarButton(componentProps: ToolbarButton.Props) {
     'nativeButton',
     'children',
   ]);
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const focusableWhenDisabled = () => local.focusableWhenDisabled ?? true;
-  const nativeButton = () => local.nativeButton ?? true;
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   const itemMetadata = { focusableWhenDisabled };
 

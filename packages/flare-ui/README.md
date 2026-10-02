@@ -12,7 +12,7 @@ Ships raw TSX — no build step, no dist/. Consumer Tailwind scans source direct
 bun add @solidports/flare-ui
 ```
 
-Peer deps: `solid-js ^1.9`, `tailwindcss ^4`, `@solidports/base-ui`.
+Peer deps: `solid-js` 2.x, `@solidjs/web` 2.x, `tailwindcss` ^4, `@solidports/base-ui`.
 
 ---
 
@@ -24,7 +24,7 @@ Every consumer needs two things.
 
 ```ts
 import tailwindcss from "@tailwindcss/vite";
-import solid from "vite-plugin-solid";
+import solid from "@solidjs/vite-plugin";
 import { defineConfig } from "vite";
 
 export default defineConfig({

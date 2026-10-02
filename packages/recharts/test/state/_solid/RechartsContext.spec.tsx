@@ -1,7 +1,8 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render, fireEvent } from "@solidjs/testing-library"
-import type { JSX } from "solid-js"
+import { flush } from "solid-js"
+import { render, fireEvent } from "../../helper/render"
+import type { JSX } from '@solidjs/web';
 import { useChartState } from "../../../src/state/useChartState"
 import { RechartsStateProvider } from "../../../src/state/RechartsStateProvider"
 
@@ -74,6 +75,8 @@ describe("RechartsStateProvider / useChartState unit tests", () => {
 		expect(container.querySelector("#b")?.textContent).toBe("0")
 
 		setA!("chartSize", "width", 999)
+
+		flush()
 
 		expect(container.querySelector("#a")?.textContent).toBe("999")
 		expect(container.querySelector("#b")?.textContent).toBe("0")

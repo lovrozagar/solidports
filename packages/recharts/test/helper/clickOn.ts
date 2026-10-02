@@ -1,4 +1,4 @@
-import { fireEvent } from "@solidjs/testing-library"
+import { fireEvent } from "./render"
 import { assertNotNull } from "./assertNotNull"
 
 export function clickOn(selector: string): (container: HTMLElement) => void {

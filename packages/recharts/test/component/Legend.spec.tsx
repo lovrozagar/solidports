@@ -1,6 +1,9 @@
-import type { CSSProperties } from "solid-js"
-import { createSignal } from "solid-js"
-import { fireEvent } from "@solidjs/testing-library"
+import type { CSSProperties } from 'solid-js';
+import { AreaRevealShape } from "../../src/cartesian/AreaRevealShape"
+import { LineDrawShape } from "../../src/cartesian/LineDrawShape"
+import { trackSpy } from "../helper/trackSpy"
+import { createSignal, untrack } from 'solid-js';
+import { fireEvent } from "../helper/render"
 import { describe, expect, it, test, vi } from "vitest"
 import {
 	Area,
@@ -23,9 +26,11 @@ import {
 	Scatter,
 	ScatterChart,
 	Surface,
+	XAxis,
+	YAxis,
 } from "../../src"
 import { testChartLayoutContext } from "../util/context"
-import { mockGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
+import { mockGetBoundingClientRect, mockSequenceOfGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
 import { assertNotNull } from "../helper/assertNotNull"
 import { expectBars } from "../helper/expectBars"
 import { useAppSelector } from "../helper/legacyDispatch"
@@ -358,7 +363,7 @@ describe("<Legend />", () => {
 						<div
 							data-testid="my-custom-portal-target"
 							ref={(node) => {
-								if (portalRef() == null && node != null) {
+								if (untrack(portalRef) == null && node != null) {
 									setPortalRef(node)
 								}
 							}}
@@ -452,8 +457,7 @@ describe("<Legend />", () => {
 			expect(getByText("custom return value")).toBeVisible()
 		})
 
-		/* Cluster C: extra `contextPayload` field in Solid Legend params — port shape divergence. */
-		it.skip("should pass parameters to the function", () => {
+		it("should pass parameters to the function", () => {
 			mockGetBoundingClientRect({ height: 20, width: 70 })
 			const spy = vi.fn()
 			const customContent = (params: unknown): null => {
@@ -487,6 +491,7 @@ describe("<Legend />", () => {
 				iconSize: 14,
 				inactiveColor: "#ccc",
 				itemSorter: "value",
+				labelStyle: {},
 				layout: "horizontal",
 				margin: {
 					bottom: 5,
@@ -494,6 +499,7 @@ describe("<Legend />", () => {
 					right: 30,
 					top: 5,
 				},
+				offset: 0,
 				payload: [
 					{
 						color: "#8884d8",
@@ -507,6 +513,8 @@ describe("<Legend />", () => {
 							animationBegin: 0,
 							animationDuration: 1500,
 							animationEasing: "ease",
+							animationInterpolateFn: expect.any(Function),
+							animationMatchBy: "index",
 							connectNulls: false,
 							dataKey: "pv",
 							dot: true,
@@ -515,6 +523,7 @@ describe("<Legend />", () => {
 							isAnimationActive: "auto",
 							label: false,
 							legendType: "line",
+							shape: LineDrawShape,
 							stroke: "#8884d8",
 							strokeDasharray: "5 5",
 							strokeWidth: 1,
@@ -536,6 +545,8 @@ describe("<Legend />", () => {
 							animationBegin: 0,
 							animationDuration: 1500,
 							animationEasing: "ease",
+							animationInterpolateFn: expect.any(Function),
+							animationMatchBy: "index",
 							connectNulls: false,
 							dataKey: "uv",
 							dot: true,
@@ -544,6 +555,7 @@ describe("<Legend />", () => {
 							isAnimationActive: "auto",
 							label: false,
 							legendType: "line",
+							shape: LineDrawShape,
 							stroke: "#82ca9d",
 							strokeWidth: 1,
 							type: "monotone",
@@ -557,6 +569,170 @@ describe("<Legend />", () => {
 				],
 				verticalAlign: "bottom",
 				width: 550,
+			})
+		})
+	})
+
+	describe("position prop", () => {
+		it('should set absolute position based on position="top"', () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart width={500} height={500} data={numericalData}>
+					<Legend position="top" />
+					<Line dataKey="value" />
+				</LineChart>
+			))
+
+			const legendWrapper = container.getElementsByClassName("recharts-legend-wrapper")[0]
+			expect(legendWrapper).toHaveStyle({
+				position: "absolute",
+				top: "5px",
+				left: "250px",
+				transform: "translate(-50%, -100%)",
+			})
+		})
+
+		it("should set absolute position offset by margin", () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart
+					width={500}
+					height={500}
+					data={numericalData}
+					margin={{ top: 3, right: 0, bottom: 11, left: 30 }}
+				>
+					<Legend position="top" />
+					<Line dataKey="value" />
+				</LineChart>
+			))
+
+			const legendWrapper = container.getElementsByClassName("recharts-legend-wrapper")[0]
+			expect(legendWrapper).toHaveStyle({
+				position: "absolute",
+				top: "3px",
+				left: "265px",
+				transform: "translate(-50%, -100%)",
+			})
+		})
+
+		it('should set absolute position based on position="insideBottomRight"', () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart width={500} height={500} data={numericalData}>
+					<Legend position="insideBottomRight" />
+					<Line dataKey="value" />
+				</LineChart>
+			))
+
+			const legendWrapper = container.getElementsByClassName("recharts-legend-wrapper")[0]
+			expect(legendWrapper).toHaveStyle({
+				position: "absolute",
+				top: "495px",
+				left: "495px",
+				transform: "translate(-100%, -100%)",
+			})
+		})
+
+		it("should keep insideBottomRight within the plot area after margins and axes", () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart
+					width={500}
+					height={500}
+					data={numericalData}
+					margin={{ top: 3, right: 7, bottom: 11, left: 30 }}
+				>
+					<XAxis />
+					<YAxis />
+					<Legend position="insideBottomRight" />
+					<Line dataKey="value" />
+				</LineChart>
+			))
+
+			const legendWrapper = container.getElementsByClassName("recharts-legend-wrapper")[0]
+			expect(legendWrapper).toHaveStyle({
+				top: "459px",
+				left: "493px",
+				transform: "translate(-100%, -100%)",
+			})
+		})
+
+		it("should apply offset", () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart width={500} height={500} data={numericalData}>
+					<Legend position="left" offset={10} />
+					<Line dataKey="value" />
+				</LineChart>
+			))
+
+			const legendWrapper = container.getElementsByClassName("recharts-legend-wrapper")[0]
+			expect(legendWrapper).toHaveStyle({
+				position: "absolute",
+				top: "250px",
+				left: "5px",
+				transform: "translate(-100%, -50%)",
+			})
+		})
+
+		it("should position outside legends beyond the axes", () => {
+			mockGetBoundingClientRect({ width: 100, height: 20 })
+			const { container } = rechartsTestRender(() => (
+				<LineChart
+					width={500}
+					height={500}
+					data={numericalData}
+					margin={{ top: 3, right: 0, bottom: 11, left: 30 }}
+				>
+					<XAxis />
+					<YAxis />
+					<Legend position="bottom" />
+					<Line dataKey="value" />
+				</LineChart>
+			))
+
+			const legendWrapper = container.getElementsByClassName("recharts-legend-wrapper")[0]
+			expect(legendWrapper).toHaveStyle({
+				top: "469px",
+				left: "265px",
+				transform: "translate(-50%, 0)",
+			})
+		})
+
+		it("should default left and top positions to vertical and horizontal layouts", () => {
+			const { container } = rechartsTestRender(() => (
+				<>
+					<LineChart width={500} height={500} data={numericalData}>
+						<Legend position="left" />
+						<Line dataKey="value" />
+						<Line dataKey="title" />
+					</LineChart>
+					<LineChart width={500} height={500} data={numericalData}>
+						<Legend position="insideTop" />
+						<Line dataKey="value" />
+						<Line dataKey="title" />
+					</LineChart>
+				</>
+			))
+
+			const items = container.getElementsByClassName("recharts-legend-item")
+			expect(items[0]).toHaveStyle({ display: "block", whiteSpace: "nowrap" })
+			expect(items[2]).toHaveStyle({ display: "inline-block", whiteSpace: "nowrap" })
+			expect(items[0].querySelector(".recharts-legend-item-text")).toHaveStyle({
+				whiteSpace: "normal",
+				overflowWrap: "break-word",
+			})
+		})
+
+		it("should allow coordinate object position", () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart width={500} height={500} data={numericalData}>
+					<Legend position={{ x: 100, y: 100 }} />
+					<Line dataKey="value" />
+				</LineChart>
+			))
+
+			const legendWrapper = container.getElementsByClassName("recharts-legend-wrapper")[0]
+			expect(legendWrapper).toHaveStyle({
+				position: "absolute",
+				top: "105px",
+				left: "105px",
+				transform: "translate(-100%, -100%)",
 			})
 		})
 	})
@@ -673,6 +849,32 @@ describe("<Legend />", () => {
 			expect(surface.getAttribute("aria-label")).toBe("My Line Data legend icon")
 		})
 
+		test("aria-label uses the raw entry value even when formatter returns a React element", () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart width={500} height={500} data={numericalData}>
+					<Legend formatter={(value) => <strong>{value}</strong>} />
+					<Line dataKey="value" name="UV" />
+				</LineChart>
+			))
+
+			const legendItem = container.getElementsByClassName("legend-item-0")[0]
+			const surface = legendItem.getElementsByClassName("recharts-surface")[0]
+			expect(surface.getAttribute("aria-label")).toBe("UV legend icon")
+		})
+
+		test("aria-label drops the value when the legend entry has no name or string dataKey", () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart width={500} height={500} data={numericalData}>
+					<Legend />
+					<Line dataKey={(row) => row.value} />
+				</LineChart>
+			))
+
+			const legendItem = container.getElementsByClassName("legend-item-0")[0]
+			const surface = legendItem.getElementsByClassName("recharts-surface")[0]
+			expect(surface.getAttribute("aria-label")).toBe("legend icon")
+		})
+
 		it("should render one line legend item for each Line, with default class and style attributes", () => {
 			const { container, getByText } = rechartsTestRender(() => (
 				<LineChart width={500} height={500} data={numericalData}>
@@ -691,12 +893,12 @@ describe("<Legend />", () => {
 			expect.soft(legendItems[0].getAttribute("class")).toBe("recharts-legend-item legend-item-0")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 			expect.soft(legendItems[1].getAttributeNames()).toEqual(["class", "style"])
 			expect.soft(legendItems[1].getAttribute("class")).toBe("recharts-legend-item legend-item-1")
 			expect
 				.soft(legendItems[1].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Line should default to line
 			const find = expectedLegendTypeSymbolsWithColor("#3182bd").find(
@@ -737,7 +939,7 @@ describe("<Legend />", () => {
 				.toBe("recharts-legend-item legend-item-0 inactive")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Line should default to line
 			const findResult = expectedLegendTypeSymbolsWithColor("yellow").find(
@@ -765,7 +967,7 @@ describe("<Legend />", () => {
 				.toBe("recharts-legend-item legend-item-0 inactive")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Line should default to rect
 			const findResult = expectedLegendTypeSymbolsWithColor("#ccc").find(
@@ -856,8 +1058,7 @@ describe("<Legend />", () => {
 			expectLegendLabels(container, [{ fill: "none", textContent: "percent" }])
 		})
 
-		/* Cluster C */
-		it.skip("should pass parameters to the Component", () => {
+		it("should pass parameters to the Component", () => {
 			mockGetBoundingClientRect({ height: 30, width: 80 })
 			const spy = vi.fn()
 			const CustomContent = (props: unknown): null => {
@@ -891,6 +1092,7 @@ describe("<Legend />", () => {
 				iconSize: 14,
 				inactiveColor: "#ccc",
 				itemSorter: "value",
+				labelStyle: {},
 				layout: "horizontal",
 				margin: {
 					bottom: 5,
@@ -898,6 +1100,7 @@ describe("<Legend />", () => {
 					right: 30,
 					top: 5,
 				},
+				offset: 0,
 				payload: [
 					{
 						color: "#8884d8",
@@ -911,6 +1114,8 @@ describe("<Legend />", () => {
 							animationBegin: 0,
 							animationDuration: 1500,
 							animationEasing: "ease",
+							animationInterpolateFn: expect.any(Function),
+							animationMatchBy: "index",
 							connectNulls: false,
 							dataKey: "pv",
 							dot: true,
@@ -919,6 +1124,7 @@ describe("<Legend />", () => {
 							isAnimationActive: "auto",
 							label: false,
 							legendType: "line",
+							shape: LineDrawShape,
 							stroke: "#8884d8",
 							strokeDasharray: "5 5",
 							strokeWidth: 1,
@@ -940,6 +1146,8 @@ describe("<Legend />", () => {
 							animationBegin: 0,
 							animationDuration: 1500,
 							animationEasing: "ease",
+							animationInterpolateFn: expect.any(Function),
+							animationMatchBy: "index",
 							connectNulls: false,
 							dataKey: "uv",
 							dot: true,
@@ -948,6 +1156,7 @@ describe("<Legend />", () => {
 							isAnimationActive: "auto",
 							label: false,
 							legendType: "line",
+							shape: LineDrawShape,
 							stroke: "#82ca9d",
 							strokeWidth: 1,
 							type: "monotone",
@@ -985,9 +1194,63 @@ describe("<Legend />", () => {
 			))
 
 			expectLegendLabels(container, [
-				{ fill: "none", textContent: "pv" },
-				{ fill: "none", textContent: "uv" },
+				{ fill: "none", textContent: "pv", textColor: "rgb(136, 132, 216)" },
+				{ fill: "none", textContent: "uv", textColor: "rgb(130, 202, 157)" },
 			])
+		})
+
+		it("should render legend labels with same text color", () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart
+					width={600}
+					height={300}
+					data={categoricalData}
+					margin={{ bottom: 5, left: 20, right: 30, top: 5 }}
+				>
+					<Legend iconType="plainline" labelStyle={{ color: "#666" }} />
+					<Line
+						type="monotone"
+						dataKey="pv"
+						stroke="#8884d8"
+						activeDot={{ r: 8 }}
+						strokeDasharray="5 5"
+					/>
+					<Line type="monotone" dataKey="uv" stroke="#82ca9d" />
+				</LineChart>
+			))
+
+			expectLegendLabels(container, [
+				{ fill: "none", textContent: "pv", textColor: "rgb(102, 102, 102)" },
+				{ fill: "none", textContent: "uv", textColor: "rgb(102, 102, 102)" },
+			])
+		})
+
+		it("should not forward ID and className to the DOM", () => {
+			// This is arguably a bug - so this test is just documenting the current behavior
+			const { container } = rechartsTestRender(() => (
+				<LineChart width={600} height={300} data={categoricalData}>
+					{/* @ts-expect-error TypeScript is correct here since these props don't do anything */}
+					<Legend id="foo" className="bar" />
+					<Line dataKey="uv" />
+				</LineChart>
+			))
+
+			expect(container.querySelector("#foo")).toBeNull()
+			expect(container.querySelector(".bar")).toBeNull()
+		})
+
+		test("label style should not change color of hidden Line", () => {
+			const { container } = rechartsTestRender(() => (
+				<LineChart width={500} height={500} data={numericalData}>
+					<Legend inactiveColor="yellow" labelStyle={{ color: "#666" }} />
+					<Line dataKey="percent" stroke="red" hide />
+				</LineChart>
+			))
+			const findResult = expectedLegendTypeSymbolsWithColor("yellow").find((tc) => tc.legendType === "line")
+			assertNotNull(findResult)
+			const { selector, expectedAttributes } = findResult
+			assertExpectedAttributes(container, selector, expectedAttributes)
+			expectLegendLabels(container, [{ fill: "none", textContent: "percent", textColor: "yellow" }])
 		})
 
 		describe("legendType symbols", () => {
@@ -1065,12 +1328,12 @@ describe("<Legend />", () => {
 			expect.soft(legendItems[0].getAttribute("class")).toBe("recharts-legend-item legend-item-0")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 			expect.soft(legendItems[1].getAttributeNames()).toEqual(["class", "style"])
 			expect.soft(legendItems[1].getAttribute("class")).toBe("recharts-legend-item legend-item-1")
 			expect
 				.soft(legendItems[1].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Bar should default to rect
 			const findResult = expectedLegendTypeSymbolsWithoutColor.find(
@@ -1093,14 +1356,11 @@ describe("<Legend />", () => {
 			expectLegendLabels(container, [{ fill: undefined, textContent: "value" }])
 		})
 
-		/* Cluster D: axis range off-by-10 vs Legend sibling-mount-order. */
-		it.skip("should push away Bars to make space", () => {
+		it("should push away Bars to make space", () => {
 			mockGetBoundingClientRect({ height: 10, width: 0 })
 			const yAxisRangeSpy = vi.fn()
 			const Comp = (): null => {
-				yAxisRangeSpy(
-					useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, false)),
-				)
+				trackSpy(yAxisRangeSpy, () => useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, false)))
 				return null
 			}
 
@@ -1114,7 +1374,8 @@ describe("<Legend />", () => {
 			expect(container.querySelectorAll(".recharts-default-legend")).toHaveLength(1)
 
 			expect(yAxisRangeSpy).toHaveBeenLastCalledWith([485, 5])
-			expect(yAxisRangeSpy).toHaveBeenCalledTimes(3)
+			/* Solid: no initial pre-legend render pass; upstream calls 3 times */
+			expect(yAxisRangeSpy).toHaveBeenCalledTimes(2)
 
 			expectBars(container, [
 				{
@@ -1177,7 +1438,7 @@ describe("<Legend />", () => {
 			expect(container.querySelectorAll(".recharts-default-legend")).toHaveLength(0)
 
 			expect(yAxisRangeSpy).toHaveBeenLastCalledWith([495, 5])
-			expect(yAxisRangeSpy).toHaveBeenCalledTimes(4)
+			expect(yAxisRangeSpy).toHaveBeenCalledTimes(3)
 
 			expectBars(container, [
 				{
@@ -1258,7 +1519,7 @@ describe("<Legend />", () => {
 				.toBe("recharts-legend-item legend-item-0 inactive")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Bar should default to rect
 			const findResult = expectedLegendTypeSymbolsWithColor("yellow").find(
@@ -1286,7 +1547,7 @@ describe("<Legend />", () => {
 				.toBe("recharts-legend-item legend-item-0 inactive")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Bar should default to rect
 			const findResult = expectedLegendTypeSymbolsWithColor("#ccc").find(
@@ -1893,6 +2154,37 @@ describe("<Legend />", () => {
 					width: 490,
 				})
 			})
+
+			it("should update bottom offset when legend height increases after resize (regression #7200)", () => {
+				// Simulate legend wrapping: first render has small height, then height increases
+				mockSequenceOfGetBoundingClientRect([
+					{ height: 20, width: 200 },
+					{ height: 60, width: 200 },
+				])
+				const spy = vi.fn()
+				testChartLayoutContext(
+					(props) => (
+						<BarChart width={500} height={500} data={categoricalData}>
+							{props.children}
+							<Legend layout="horizontal" />
+							<Bar dataKey="value" />
+						</BarChart>
+					),
+					({ offset }) => {
+						spy(offset)
+					},
+				)()
+				// The final offset should reflect the larger legend height (60px)
+				expectLastCalledWith(spy, {
+					bottom: 5 + 60,
+					brushBottom: 5,
+					height: 490 - 60,
+					left: 5,
+					right: 5,
+					top: 5,
+					width: 490,
+				})
+			})
 		})
 
 		describe("legendType symbols", () => {
@@ -1961,12 +2253,12 @@ describe("<Legend />", () => {
 				expect.soft(legendItems[0].getAttribute("class")).toBe("recharts-legend-item legend-item-0")
 				expect
 					.soft(legendItems[0].getAttribute("style"))
-					.toBe("display: inline-block; margin-right: 10px;")
+					.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 				expect.soft(legendItems[1].getAttributeNames()).toEqual(["class", "style"])
 				expect.soft(legendItems[1].getAttribute("class")).toBe("recharts-legend-item legend-item-1")
 				expect
 					.soft(legendItems[1].getAttribute("style"))
-					.toBe("display: inline-block; margin-right: 10px;")
+					.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 			})
 
 			it("should render Line symbols and colors in absence of explicit legendType", () => {
@@ -2007,7 +2299,7 @@ describe("<Legend />", () => {
 				.toBe("recharts-legend-item legend-item-0 inactive")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Area should default to line
 			const findResult = expectedLegendTypeSymbolsWithColor("yellow").find(
@@ -2035,7 +2327,7 @@ describe("<Legend />", () => {
 				.toBe("recharts-legend-item legend-item-0 inactive")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Area should default to line
 			const findResult = expectedLegendTypeSymbolsWithColor("#ccc").find(
@@ -2080,7 +2372,7 @@ describe("<Legend />", () => {
 			})
 
 			/* Cluster D */
-			it.skip("should select legend payload", () => {
+			it("should select legend payload", () => {
 				const { spy } = renderTestCase(selectLegendPayload)
 				expectLastCalledWith(spy, [
 					{
@@ -2092,6 +2384,8 @@ describe("<Legend />", () => {
 							animationBegin: 0,
 							animationDuration: 1500,
 							animationEasing: "ease",
+							animationInterpolateFn: expect.any(Function),
+							animationMatchBy: "index",
 							connectNulls: false,
 							dataKey: "percent",
 							dot: false,
@@ -2101,6 +2395,7 @@ describe("<Legend />", () => {
 							isAnimationActive: "auto",
 							label: false,
 							legendType: "line",
+							shape: AreaRevealShape,
 							name: "%",
 							stroke: "#3182bd",
 							strokeWidth: 1,
@@ -2746,12 +3041,12 @@ describe("<Legend />", () => {
 			expect.soft(legendItems[0].getAttribute("class")).toBe("recharts-legend-item legend-item-0")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 			expect.soft(legendItems[1].getAttributeNames()).toEqual(["class", "style"])
 			expect.soft(legendItems[1].getAttribute("class")).toBe("recharts-legend-item legend-item-1")
 			expect
 				.soft(legendItems[1].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Radar should default to rect
 			const findResult = expectedLegendTypeSymbolsWithoutColor.find(
@@ -2789,7 +3084,7 @@ describe("<Legend />", () => {
 				.toBe("recharts-legend-item legend-item-0 inactive")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Radar should default to rect
 			const findResult = expectedLegendTypeSymbolsWithColor("yellow").find(
@@ -2817,7 +3112,7 @@ describe("<Legend />", () => {
 				.toBe("recharts-legend-item legend-item-0 inactive")
 			expect
 				.soft(legendItems[0].getAttribute("style"))
-				.toBe("display: inline-block; margin-right: 10px;")
+				.toBe("display: inline-block; margin-right: 10px; white-space: nowrap;")
 
 			// in absence of explicit `legendType`, Radar should default to rect
 			const findResult = expectedLegendTypeSymbolsWithColor("#ccc").find(
@@ -3314,7 +3609,7 @@ describe("<Legend />", () => {
 						<div
 							data-testid="my-custom-portal-target"
 							ref={(node) => {
-								if (portalRef() == null && node != null) {
+								if (untrack(portalRef) == null && node != null) {
 									setPortalRef(node)
 								}
 							}}
@@ -3349,7 +3644,7 @@ describe("<Legend />", () => {
 			mockGetBoundingClientRect({ height: 11, width: 3 })
 			const legendSpy = vi.fn()
 			const Comp = (): null => {
-				legendSpy(useAppSelector(selectLegendSize))
+				trackSpy(legendSpy, () => useAppSelector(selectLegendSize))
 				return null
 			}
 

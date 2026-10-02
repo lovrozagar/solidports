@@ -1,6 +1,5 @@
 import { Bar, BarChart, CartesianGrid, Rectangle, XAxis } from "@solidports/recharts"
-import type { Component } from "solid-js"
-
+import type { Component } from 'solid-js';
 import {
 	type ChartConfig,
 	ChartContainer,

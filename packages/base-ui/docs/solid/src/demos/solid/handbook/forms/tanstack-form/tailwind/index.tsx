@@ -1,18 +1,8 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { mergeProps } from '@solidports/base-ui/merge-props';
 
 
-const revalidateLogic = () => ({})
-const useForm = (options: { defaultValues?: object }) => ({
-  handleSubmit: () => {},
-  Field: (props: { children?: (field: object) => unknown; name?: string }) =>
-    props.children?.({
-      state: { value: options.defaultValues ?? {}, meta: { errors: [] } },
-      handleChange: () => {},
-      handleBlur: () => {},
-    }),
-  Subscribe: (props: { children?: (state: object) => unknown }) =>
-    props.children?.({ canSubmit: true, isSubmitting: false }),
-})
+import { createForm, revalidateLogic, type DeepKeys, type ValidationError } from '@tanstack/solid-form';
 import { Button } from '../../components/button';
 import { CheckboxGroup } from '../../components/checkbox-group';
 import { RadioGroup } from '../../components/radio-group';
@@ -55,7 +45,7 @@ const defaultValues: FormValues = {
 function TanstackForm() {
   const toastManager = useToastManager();
 
-  const form = useForm({
+  const form = createForm(() => ({
     defaultValues,
     onSubmit: ({ value: formValues }) => {
       toastManager.add({
@@ -87,7 +77,7 @@ function TanstackForm() {
         return isEmpty(errors) ? undefined : { form: errors, fields: errors };
       },
     },
-  });
+  }));
 
   /* eslint-disable react/no-children-prop */
   return (
@@ -105,21 +95,21 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <Field.Label>Server name</Field.Label>
               <Field.Control
-                value={field.state.value}
-                onValueChange={field.handleChange}
-                onBlur={field.handleBlur}
+                value={field().state.value}
+                onValueChange={field().handleChange}
+                onBlur={field().handleBlur}
                 placeholder="e.g. api-server-01"
               />
               <Field.Description>Must be 3 or more characters long</Field.Description>
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );
@@ -131,20 +121,20 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <Combobox.Root
                 items={REGIONS}
-                value={field.state.value}
-                onValueChange={field.handleChange}
+                value={field().state.value}
+                onValueChange={field().handleChange}
               >
                 <div class="relative text-sm leading-5 font-bold text-neutral-950 dark:text-white">
                   <Field.Label class="mb-1 block">Region</Field.Label>
                   <Combobox.InputGroup>
-                    <Combobox.Input placeholder="e.g. eu-central-1" onBlur={field.handleBlur} />
+                    <Combobox.Input placeholder="e.g. eu-central-1" onBlur={field().handleBlur} />
                     <div class="absolute right-0 bottom-0 inline-flex h-full items-center justify-center text-neutral-500 dark:text-neutral-400">
                       <Combobox.Clear />
                       <Combobox.Trigger>
@@ -160,7 +150,7 @@ function TanstackForm() {
                       <Combobox.List>
                         {(region: string) => {
                           return (
-                            <Combobox.Item key={region} value={region}>
+                            <Combobox.Item value={region}>
                               <Combobox.ItemIndicator>
                                 <CheckIcon />
                               </Combobox.ItemIndicator>
@@ -174,8 +164,8 @@ function TanstackForm() {
                 </Combobox.Portal>
               </Combobox.Root>
 
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );
@@ -187,22 +177,22 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <Autocomplete.Root
                 items={IMAGES}
                 mode="both"
-                value={field.state.value}
-                onValueChange={field.handleChange}
+                value={field().state.value}
+                onValueChange={field().handleChange}
                 itemToStringValue={(itemValue: Image) => itemValue.url}
               >
                 <Field.Label>Container image</Field.Label>
                 <Autocomplete.Input
                   placeholder="e.g. docker.io/library/node:latest"
-                  onBlur={field.handleBlur}
+                  onBlur={field().handleBlur}
                 />
                 <Field.Description>Enter a registry URL with optional tags</Field.Description>
                 <Autocomplete.Portal>
@@ -211,7 +201,7 @@ function TanstackForm() {
                       <Autocomplete.List>
                         {(image: Image) => {
                           return (
-                            <Autocomplete.Item key={image.url} value={image}>
+                            <Autocomplete.Item value={image}>
                               <span>{image.name}</span>
                               <span class="font-mono whitespace-nowrap text-xs opacity-80">
                                 {image.url}
@@ -224,8 +214,8 @@ function TanstackForm() {
                   </Autocomplete.Positioner>
                 </Autocomplete.Portal>
               </Autocomplete.Root>
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );
@@ -237,19 +227,19 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <Select.Root
                 items={SERVER_TYPES}
-                value={field.state.value}
-                onValueChange={field.handleChange}
+                value={field().state.value}
+                onValueChange={field().handleChange}
               >
                 <div class="w-fit space-y-1">
                   <label>Server type</label>
-                  <Select.Trigger class="w-48" onBlur={field.handleBlur}>
+                  <Select.Trigger class="w-48" onBlur={field().handleBlur}>
                     <Select.Value />
                     <Select.Icon>
                       <CaretUpDownIcon />
@@ -263,7 +253,7 @@ function TanstackForm() {
                       <Select.List>
                         {SERVER_TYPES.map(({ label, value }) => {
                           return (
-                            <Select.Item key={value} value={value}>
+                            <Select.Item value={value}>
                               <Select.ItemIndicator>
                                 <CheckIcon />
                               </Select.ItemIndicator>
@@ -277,8 +267,8 @@ function TanstackForm() {
                   </Select.Positioner>
                 </Select.Portal>
               </Select.Root>
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );
@@ -290,14 +280,14 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <NumberField.Root
-                value={field.state.value}
-                onValueChange={field.handleChange}
+                value={field().state.value}
+                onValueChange={field().handleChange}
                 min={1}
                 max={64}
               >
@@ -306,14 +296,14 @@ function TanstackForm() {
                   <NumberField.Decrement>
                     <MinusIcon />
                   </NumberField.Decrement>
-                  <NumberField.Input onBlur={field.handleBlur} />
+                  <NumberField.Input onBlur={field().handleBlur} />
                   <NumberField.Increment>
                     <PlusIcon />
                   </NumberField.Increment>
                 </NumberField.Group>
               </NumberField.Root>
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );
@@ -325,17 +315,17 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <Fieldset.Root
                 render={
-                  <Slider.Root
-                    value={field.state.value}
-                    onValueChange={field.handleChange}
-                    onValueCommitted={field.handleChange}
+                  (props) => <Slider.Root {...mergeProps(props, { class: "w-full gap-y-2" })}
+                    value={field().state.value}
+                    onValueChange={field().handleChange}
+                    onValueCommitted={field().handleChange}
                     thumbAlignment="edge"
                     min={0}
                     max={1}
@@ -344,9 +334,7 @@ function TanstackForm() {
                       style: 'percent',
                       minimumFractionDigits: 0,
                       maximumFractionDigits: 0,
-                    }}
-                    class="w-full gap-y-2"
-                  />
+                    }} />
                 }
               >
                 <Fieldset.Legend>Scaling threshold</Fieldset.Legend>
@@ -357,18 +345,18 @@ function TanstackForm() {
                     <Slider.Thumb
                       index={0}
                       aria-label="Minimum threshold"
-                      onBlur={field.handleBlur}
+                      onBlur={field().handleBlur}
                     />
                     <Slider.Thumb
                       index={1}
                       aria-label="Maximum threshold"
-                      onBlur={field.handleBlur}
+                      onBlur={field().handleBlur}
                     />
                   </Slider.Track>
                 </Slider.Control>
               </Fieldset.Root>
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );
@@ -380,23 +368,21 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <Fieldset.Root
                 render={
-                  <RadioGroup
-                    value={field.state.value}
-                    onValueChange={field.handleChange}
-                    class="gap-4"
-                  />
+                  (props) => <RadioGroup {...mergeProps(props, { class: "gap-4" })}
+                    value={field().state.value}
+                    onValueChange={field().handleChange} />
                 }
               >
                 <Fieldset.Legend class="-mt-px">Storage type</Fieldset.Legend>
                 {['ssd', 'hdd'].map((radioValue) => (
-                  <Field.Item key={radioValue}>
+                  <Field.Item>
                     <Field.Label class="uppercase">
                       <Radio.Root value={radioValue}>
                         <Radio.Indicator />
@@ -406,8 +392,8 @@ function TanstackForm() {
                   </Field.Item>
                 ))}
               </Fieldset.Root>
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );
@@ -419,23 +405,23 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <Field.Label class="gap-2">
                 Restart on failure
                 <Switch.Root
-                  checked={field.state.value}
-                  onCheckedChange={field.handleChange}
-                  onBlur={field.handleBlur}
+                  checked={field().state.value}
+                  onCheckedChange={field().handleChange}
+                  onBlur={field().handleBlur}
                 >
                   <Switch.Thumb />
                 </Switch.Root>
               </Field.Label>
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );
@@ -447,23 +433,23 @@ function TanstackForm() {
         children={(field) => {
           return (
             <Field.Root
-              name={field.name}
-              invalid={!field.state.meta.isValid}
-              dirty={field.state.meta.isDirty}
-              touched={field.state.meta.isTouched}
+              name={field().name}
+              invalid={!field().state.meta.isValid}
+              dirty={field().state.meta.isDirty}
+              touched={field().state.meta.isTouched}
             >
               <Fieldset.Root
                 render={
-                  <CheckboxGroup value={field.state.value} onValueChange={field.handleChange} />
+                  (props) => <CheckboxGroup {...props} value={field().state.value} onValueChange={field().handleChange} />
                 }
               >
                 <Fieldset.Legend class="mb-2">Allowed network protocols</Fieldset.Legend>
                 <div class="flex gap-4">
                   {['http', 'https', 'ssh'].map((checkboxValue) => {
                     return (
-                      <Field.Item key={checkboxValue}>
+                      <Field.Item>
                         <Field.Label class="uppercase">
-                          <Checkbox.Root value={checkboxValue} onBlur={field.handleBlur}>
+                          <Checkbox.Root value={checkboxValue} onBlur={field().handleBlur}>
                             <Checkbox.Indicator>
                               <CheckIcon />
                             </Checkbox.Indicator>
@@ -475,8 +461,8 @@ function TanstackForm() {
                   })}
                 </div>
               </Fieldset.Root>
-              <Field.Error match={!field.state.meta.isValid}>
-                {field.state.meta.errors.join(',')}
+              <Field.Error match={!field().state.meta.isValid}>
+                {field().state.meta.errors.join(',')}
               </Field.Error>
             </Field.Root>
           );

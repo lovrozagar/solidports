@@ -1,4 +1,4 @@
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -32,7 +32,10 @@ export function DrawerIndent(componentProps: DrawerIndent.Props) {
 
   let indentRef = null as HTMLDivElement | null | undefined;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const element = indentRef;
     if (!element || !visualStateStore) {
       return;
@@ -60,11 +63,17 @@ export function DrawerIndent(componentProps: DrawerIndent.Props) {
 
     syncVisualState();
 
-    onCleanup(() => {
+    _c.push(() => {
       element.style.setProperty(DrawerBackdropCssVars.swipeProgress, '0');
       element.style.removeProperty(DrawerPopupCssVars.height);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const state: DrawerIndent.State = {
     get active() {

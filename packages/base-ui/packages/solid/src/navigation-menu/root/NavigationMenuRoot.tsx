@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic value type erased at root level; mirrors React port */
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import { batch, createEffect, createMemo, createSignal, on, Show, splitProps } from 'solid-js';
+import { createEffect, createMemo, createSignal, Show } from 'solid-js';
 import {
   FloatingNode,
   FloatingTree,
@@ -27,6 +27,7 @@ import {
   NavigationMenuTreeContext,
   useNavigationMenuRootContext,
 } from './NavigationMenuRootContext';
+import { on, splitProps } from '../../solid-1-compat';
 
 const blockedReturnFocusReasons = new Set<string>([
   REASONS.triggerHover,
@@ -119,14 +120,13 @@ export function NavigationMenuRoot(componentProps: NavigationMenuRoot.Props) {
 
   const { transitionStatus, setMounted, mounted } = useTransitionStatus(() => open());
 
-  createEffect(
-    on(value, () => {
+  createEffect(...on(value, () => {
       setViewportInert(false);
     }),
   );
 
   const setValue = (nextValue: any, eventDetails: NavigationMenuRoot.ChangeEventDetails) => {
-    batch(() => {
+    {
       if (!nextValue) {
         closeReasonRef.current = eventDetails.reason;
         setActivationDirection(null);
@@ -152,7 +152,7 @@ export function NavigationMenuRoot(componentProps: NavigationMenuRoot.Props) {
       if (nested() && !nextValue && eventDetails.reason === REASONS.linkPress && parentRootContext) {
         parentRootContext.setValue(null, eventDetails);
       }
-    });
+    };
   };
 
   const handleUnmount = () => {
@@ -173,12 +173,12 @@ export function NavigationMenuRoot(componentProps: NavigationMenuRoot.Props) {
       prevTriggerElementRef.current.focus({ preventScroll: true });
       prevTriggerElementRef.current = undefined;
     }
-    batch(() => {
+    {
       setMounted(false);
       local.onOpenChangeComplete?.(false);
       setActivationDirection(null);
       setFloatingRootContext(undefined);
-    });
+    };
     currentContentRef.current = null;
     closeReasonRef.current = undefined;
   };
@@ -240,9 +240,9 @@ export function NavigationMenuRoot(componentProps: NavigationMenuRoot.Props) {
   };
 
   const element = () => (
-    <NavigationMenuRootContext.Provider value={contextValue}>
+    <NavigationMenuRootContext value={contextValue}>
       <TreeContext {...componentProps} />
-    </NavigationMenuRootContext.Provider>
+    </NavigationMenuRootContext>
   );
 
   return (
@@ -288,9 +288,9 @@ function TreeContext(componentProps: NavigationMenuRoot.Props) {
   });
 
   return (
-    <NavigationMenuTreeContext.Provider value={nodeId}>
+    <NavigationMenuTreeContext value={nodeId}>
       <FloatingNode id={nodeId?.()}>{element()}</FloatingNode>
-    </NavigationMenuTreeContext.Provider>
+    </NavigationMenuTreeContext>
   );
 }
 

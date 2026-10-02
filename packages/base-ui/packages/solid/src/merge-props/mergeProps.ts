@@ -10,15 +10,11 @@
 /* eslint-disable guard-for-in */
 /* eslint-disable typescript/no-explicit-any -- generic prop merger handles arbitrary element types and event handler shapes; `unknown` would force casts at every cache slot and break variance with consumer prop types */
 
-import {
-  $PROXY,
-  mergeProps as solidMergeProps,
-  type ComponentProps,
-  type JSX,
-  type Ref,
-  type ValidComponent,
-} from 'solid-js';
+import { $PROXY } from 'solid-js';
+import type { Ref } from 'solid-js';
+import type { ComponentProps, JSX, ValidComponent } from '@solidjs/web';
 import type { BaseUIEvent, WithBaseUIEvent } from '../utils/types';
+import { mergeProps as solidMergeProps } from '../solid-1-compat';
 
 type EventHandler = (...args: any[]) => unknown;
 
@@ -195,7 +191,7 @@ export function mergeProps<
   let cacheStyles = [] as JSX.HTMLAttributes<any>[];
   let cacheRefs = [] as Array<Ref<any>>;
   let cacheClasses = [] as JSX.HTMLAttributes<any>[];
-  let cacheClassList = [] as JSX.HTMLAttributes<any>[];
+  let cacheClassList = [] as Array<{ classList?: Record<string, boolean | undefined> }>;
   const lastDescriptor = {} as Record<string, PropertyDescriptor | undefined>;
 
   /*
@@ -227,7 +223,7 @@ export function mergeProps<
           return reverseChain(mergedRefs);
         },
         get style() {
-          return reduce(mergedStyles, 'style', combineStyle);
+          return reduce(mergedStyles, 'style', combineStyle as any);
         },
       };
 
@@ -331,7 +327,7 @@ export function mergeProps<
       return reverseChain(cacheRefs);
     },
     get style() {
-      return reduce(cacheStyles, 'style', combineStyle);
+      return reduce(cacheStyles, 'style', combineStyle as any);
     },
   };
 

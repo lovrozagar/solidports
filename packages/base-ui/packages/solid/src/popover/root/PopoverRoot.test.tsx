@@ -6,9 +6,11 @@ import { defaultProps } from '@solidports/base-ui/solid-helpers';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
-import { createSignal, Show, splitProps, type JSX } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { OPEN_DELAY } from '../utils/constants';
+import { splitProps } from '../../solid-1-compat';
 
 describe('<Popover.Root />', () => {
   beforeEach(() => {

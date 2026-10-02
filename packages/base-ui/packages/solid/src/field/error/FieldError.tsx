@@ -1,14 +1,12 @@
 import {
-  createEffect,
+  createTrackedEffect,
   createMemo,
   createSignal,
   For,
   onCleanup,
   Show,
-  mergeProps as solidMergeProps,
-  splitProps,
-  type JSX,
 } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -21,6 +19,7 @@ import { useTransitionStatus, type TransitionStatus } from '../../utils/useTrans
 import { FieldRoot } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
 import { fieldValidityMapping } from '../utils/constants';
+import { mergeProps as solidMergeProps, splitProps } from '../../solid-1-compat';
 
 const stateAttributesMapping: StateAttributesMapping<FieldError.State> = {
   ...fieldValidityMapping,
@@ -53,7 +52,7 @@ export function FieldError(componentProps: FieldError.Props) {
     let isRendered = false;
     if (formError() || local.match === true) {
       isRendered = true;
-    } else if (local.match) {
+    } else if (typeof local.match === 'string') {
       isRendered = Boolean(validityData.state[local.match]);
     } else {
       isRendered = validityData.state.valid === false;
@@ -63,7 +62,10 @@ export function FieldError(componentProps: FieldError.Props) {
 
   const { mounted, transitionStatus, setMounted } = useTransitionStatus(() => rendered());
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const idValue = id();
     if (!rendered() || !idValue) {
       return;
@@ -71,10 +73,16 @@ export function FieldError(componentProps: FieldError.Props) {
 
     setMessageIds((v) => v.concat(idValue));
 
-    onCleanup(() => {
+    _c.push(() => {
       setMessageIds((v) => v.filter((item) => item !== idValue));
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   let errorRef = null as HTMLDivElement | null | undefined;
   const [lastRenderedMessage, setLastRenderedMessage] = createSignal<JSX.Element>(null);
@@ -106,7 +114,7 @@ export function FieldError(componentProps: FieldError.Props) {
     return validityData.error;
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (rendered() && errorKey() !== lastRenderedMessageKey()) {
       setLastRenderedMessageKey(errorKey());
       setLastRenderedMessage(errorMessage());

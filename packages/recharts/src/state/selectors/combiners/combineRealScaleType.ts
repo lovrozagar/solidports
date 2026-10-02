@@ -1,18 +1,22 @@
 /* eslint-disable import/no-cycle */
 import * as d3Scales from "victory-vendor/d3-scale"
-import { D3ScaleType } from "../../../util/types"
+import type { RechartsScaleType } from "../../../util/types"
 import { BaseCartesianAxis } from "../../cartesianAxisSlice"
 import { upperFirst } from "../../../util/DataUtils"
 
-function isSupportedScaleName(name: string): name is D3ScaleType {
-	return name in d3Scales
+function getD3ScaleName(name: string): string {
+	return `scale${upperFirst(name)}`
+}
+
+function isSupportedScaleName(name: string): name is RechartsScaleType {
+	return getD3ScaleName(name) in d3Scales
 }
 
 export const combineRealScaleType = (
 	axisConfig: BaseCartesianAxis | undefined,
 	hasBar: boolean,
 	chartType: string,
-): D3ScaleType | undefined => {
+): RechartsScaleType | undefined => {
 	if (axisConfig == null) {
 		return undefined
 	}
@@ -34,9 +38,7 @@ export const combineRealScaleType = (
 		return "linear"
 	}
 	if (typeof scale === "string") {
-		const name = `scale${upperFirst(scale)}`
-
-		return isSupportedScaleName(name) ? name : "point"
+		return isSupportedScaleName(scale) ? scale : "point"
 	}
 	return undefined
 }

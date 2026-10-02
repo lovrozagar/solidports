@@ -1,10 +1,11 @@
-import { createEffect, createMemo, createSignal, mergeProps as solidMergeProps } from 'solid-js';
+import { createTrackedEffect, createMemo, createSignal } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import { useId } from '../../utils/useId';
 import { useFloatingParentNodeId } from '../components/FloatingTree';
 import type { ElementProps, FloatingContext, FloatingRootContext } from '../types';
 import { getFloatingFocusElement } from '../utils';
 import type { ExtendedUserProps } from './useInteractions';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 type AriaRole = 'tooltip' | 'dialog' | 'alertdialog' | 'menu' | 'listbox' | 'grid' | 'tree';
 type ComponentRole = 'select' | 'label' | 'combobox';
@@ -50,7 +51,7 @@ export function useRole(parameters: {
 
   // Track the actual floating element id (including user-provided custom id) after mount.
   const [resolvedFloatingId, setResolvedFloatingId] = createSignal<string | undefined>(undefined);
-  createEffect(() => {
+  createTrackedEffect(() => {
     const element = getFloatingFocusElement(floatingElement());
     setResolvedFloatingId(element?.id);
   });
@@ -177,7 +178,7 @@ export function useRole(parameters: {
       case 'combobox': {
         return {
           ...commonProps,
-          'aria-selected': params.selected,
+          'aria-selected': params.selected ? 'true' : undefined,
         };
       }
 

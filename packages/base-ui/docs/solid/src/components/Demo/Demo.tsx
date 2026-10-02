@@ -1,4 +1,5 @@
-import { createMemo, createSignal, onMount, For, type JSX } from "solid-js"
+import { createMemo, createSignal, onSettled, For } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useLocation } from "@solidjs/router"
 import { Collapsible } from "@solidports/base-ui/collapsible"
 import { ScrollArea } from "@solidports/base-ui/scroll-area"
@@ -66,7 +67,7 @@ export function Demo(props: DemoProps) {
   )
 
   const [fallbackToCodeSandbox, setFallbackToCodeSandbox] = createSignal(false)
-  onMount(() => {
+  onSettled(() => {
     if (isSafari || isEdge) setFallbackToCodeSandbox(true)
   })
 

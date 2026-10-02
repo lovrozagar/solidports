@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { untrack } from "solid-js"
-import { createStore } from "solid-js/store"
+import { untrack, flush } from 'solid-js';
 import { createInitialChartState } from "../../../src/state/chartState"
 import type { ChartState } from "../../../src/state/chartState"
 import type { BarSettings } from "../../../src/state/types/BarSettings"
@@ -8,6 +7,7 @@ import type { LineSettings } from "../../../src/state/types/LineSettings"
 import type { AreaSettings } from "../../../src/state/types/AreaSettings"
 import type { ScatterSettings } from "../../../src/state/types/ScatterSettings"
 
+import { createStore } from '../../../src/util/solid-1-compat';
 /* Phase 3 adds a typed ItemState discriminated union to graphicalItems.
    Currently ItemState = Record<string, unknown> — the widened union does not exist yet.
 
@@ -46,6 +46,7 @@ describe("Phase 3 — ChartState graphicalItems ItemState shape", () => {
 		}
 
 		setState("graphicalItems", "bar0", { type: "bar", settings: barSettings } as never)
+		flush()
 
 		/* untrack: shape assertion, not a reactive subscription — reads are immediate/one-shot. */
 		const entry = untrack(
@@ -72,6 +73,7 @@ describe("Phase 3 — ChartState graphicalItems ItemState shape", () => {
 		}
 
 		setState("graphicalItems", "line0", { type: "line", settings: lineSettings } as never)
+		flush()
 
 		const entry = untrack(
 			() => state.graphicalItems["line0"] as { type: string; settings: LineSettings } | undefined,
@@ -116,7 +118,9 @@ describe("Phase 3 — ChartState graphicalItems ItemState shape", () => {
 		}
 
 		setState("graphicalItems", "area0", { type: "area", settings: areaSettings } as never)
+		flush()
 		setState("graphicalItems", "scatter0", { type: "scatter", settings: scatterSettings } as never)
+		flush()
 
 		const area = untrack(
 			() => state.graphicalItems["area0"] as { type: string; settings: AreaSettings } | undefined,

@@ -1,6 +1,7 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../../helper/render"
 import { LineChart, Line, XAxis, YAxis, Tooltip } from "../../../src"
 import { useChartState } from "../../../src/state/useChartState"
 import { eventCenter, TOOLTIP_SYNC_EVENT } from "../../../src/util/Events"
@@ -51,6 +52,7 @@ function emitSync(payload: Partial<TooltipSyncState> = {}) {
 		...payload,
 	}
 	eventCenter.emit(TOOLTIP_SYNC_EVENT, SYNC_ID, syncState, foreignEmitter)
+	flush()
 }
 
 describe("useChartSynchronisation writes ChartState.tooltip.syncInteraction", () => {

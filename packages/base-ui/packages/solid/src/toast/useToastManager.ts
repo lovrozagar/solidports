@@ -1,5 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic toast Data erased at manager interface */
-import { useContext, type Accessor, type JSX } from 'solid-js';
+import { useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { MaybeAccessor } from '../solid-helpers';
 import type { ToastPositionerProps } from './positioner/ToastPositioner';
 import { ToastContext } from './provider/ToastProviderContext';

@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -26,7 +26,7 @@ export default function ExampleFuzzyMatchingAutocomplete() {
 
             <Autocomplete.List class={styles.List}>
               {(item: FuzzyItem) => (
-                <Autocomplete.Item key={item.title} value={item} class={styles.Item}>
+                <Autocomplete.Item value={item} class={styles.Item}>
                   <Autocomplete.Value>
                     {(value) => (
                       <span class={styles.ItemContent}>
@@ -63,7 +63,7 @@ function highlightText(text: string, query: string): JSX.Element {
 
   return text
     .split(regex)
-    .map((part, idx) => (regex.test(part) ? <mark key={idx}>{part}</mark> : part));
+    .map((part, idx) => (regex.test(part) ? <mark>{part}</mark> : part));
 }
 
 function fuzzyFilter(item: FuzzyItem, query: string): boolean {

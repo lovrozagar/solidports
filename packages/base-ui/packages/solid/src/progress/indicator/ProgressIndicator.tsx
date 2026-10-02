@@ -1,4 +1,5 @@
-import { createMemo, type JSX } from 'solid-js';
+import { createMemo } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';

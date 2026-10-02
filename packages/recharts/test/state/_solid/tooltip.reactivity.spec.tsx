@@ -1,11 +1,12 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../../helper/render"
 import { LineChart, Line, XAxis, YAxis, Tooltip } from "../../../src"
 import { useChartState } from "../../../src/state/useChartState"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../../src/util/solid-1-compat';
 const data = [
 	{ name: "A", value: 100 },
 	{ name: "B", value: 200 },
@@ -68,6 +69,7 @@ describe("Phase 5 — Tooltip dual-writes to new chartState", () => {
 			graphicalItemId: undefined,
 			index: "0",
 		} as never)
+		flush()
 
 		const before = container.querySelector(".recharts-tooltip-wrapper")?.textContent ?? ""
 
@@ -85,6 +87,8 @@ describe("Phase 5 — Tooltip dual-writes to new chartState", () => {
 				},
 			},
 		] as never)
+
+		flush()
 
 		/* Phase 5 RED: tooltip content unchanged — new state mutation not observed. */
 		const after = container.querySelector(".recharts-tooltip-wrapper")?.textContent ?? ""
@@ -151,9 +155,11 @@ describe("Phase 5 — Tooltip dual-writes to new chartState", () => {
 			</LineChart>
 		))
 
-		expect(capturedState?.tooltip.settings.active).toBe(false)
+		/* Like upstream, an omitted `active` prop is stored as undefined. */
+		expect(capturedState?.tooltip.settings.active).toBe(undefined)
 
 		capturedSetState!("tooltip", "settings", "active" as never, true as never)
+		flush()
 
 		/* Phase 5 RED: state still reflects old value because Tooltip never wrote new state. */
 		expect(capturedState?.tooltip.settings.active).toBe(true)
@@ -180,8 +186,8 @@ describe("Phase 5 — Tooltip dual-writes to new chartState", () => {
 			</LineChart>
 		))
 
-		/* Phase 5 RED: defaultIndex is still undefined in new state. */
-		expect(capturedState?.tooltip.settings.defaultIndex).toBe(1)
+		/* Like upstream, a numeric defaultIndex is stored as a TooltipIndex string. */
+		expect(capturedState?.tooltip.settings.defaultIndex).toBe("1")
 	})
 
 	it("Tooltip with axisId populates state.tooltip.settings.axisId on mount", () => {

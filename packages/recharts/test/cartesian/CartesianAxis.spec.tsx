@@ -1,4 +1,4 @@
-import { render, screen } from "@solidjs/testing-library"
+import { render, screen } from "../helper/render"
 import { describe, expect, it, vi } from "vitest"
 import { scaleLinear } from "victory-vendor/d3-scale"
 import { CartesianAxis, CustomScaleDefinition, Surface } from "../../src"
@@ -83,8 +83,7 @@ describe("<CartesianAxis />", () => {
 
 		expect(container.querySelectorAll(".recharts-cartesian-axis-tick")).toHaveLength(5)
 	})
-	/* Cluster C / GOTCHA-001: jsdom getComputedStyle SVG quirk in vitest 4. */
-	it.skip("gets font states from its ComputedStyle", () => {
+	it("gets font states from its ComputedStyle", () => {
 		const myStyle = { fontSize: "14px", letterSpacing: "0.5em" } as CSSStyleDeclaration
 
 		vi.spyOn(window, "getComputedStyle").mockReturnValue(myStyle)
@@ -224,7 +223,7 @@ describe("<CartesianAxis />", () => {
 		expect(container.querySelectorAll(".recharts-cartesian-axis-tick")).toHaveLength(5)
 		expect(screen.getAllByTestId("customized-label")).toHaveLength(1)
 	})
-	it("Render customized ticks when tick is set to be a JSX.Element", () => {
+	it("Render customized ticks when tick is set to be a ReactElement", () => {
 		render(() => (
 			<Surface width={500} height={500}>
 				<CartesianAxis
@@ -341,6 +340,51 @@ describe("<CartesianAxis />", () => {
 
 		tickElements.forEach((element) => {
 			expect(element).toHaveClass("recharts-cartesian-axis-tick-value")
+		})
+	})
+
+	it("Respects user-provided textAnchor prop on horizontal axis", () => {
+		const { container } = render(() => (
+			<Surface width={500} height={500}>
+				<CartesianAxis
+					orientation="bottom"
+					y={100}
+					width={400}
+					height={50}
+					viewBox={{ height: 500, width: 500, x: 0, y: 0 }}
+					ticks={ticks}
+					textAnchor="start"
+					scale={exampleScale}
+				/>
+			</Surface>
+		))
+
+		const tickTexts = container.querySelectorAll(".recharts-cartesian-axis-tick-value")
+		expect(tickTexts).toHaveLength(5)
+		tickTexts.forEach((text) => {
+			expect(text).toHaveAttribute("text-anchor", "start")
+		})
+	})
+
+	it("Uses default textAnchor when not provided", () => {
+		const { container } = render(() => (
+			<Surface width={500} height={500}>
+				<CartesianAxis
+					orientation="bottom"
+					y={100}
+					width={400}
+					height={50}
+					viewBox={{ height: 500, width: 500, x: 0, y: 0 }}
+					ticks={ticks}
+					scale={exampleScale}
+				/>
+			</Surface>
+		))
+
+		const tickTexts = container.querySelectorAll(".recharts-cartesian-axis-tick-value")
+		expect(tickTexts).toHaveLength(5)
+		tickTexts.forEach((text) => {
+			expect(text).toHaveAttribute("text-anchor", "middle")
 		})
 	})
 })

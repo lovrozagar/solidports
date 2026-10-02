@@ -4,7 +4,7 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsxImportSource": "@solidjs/web",
     "noImplicitAny": false,
     "module": "esnext",
     "moduleResolution": "bundler",

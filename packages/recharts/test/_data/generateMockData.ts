@@ -1,6 +1,6 @@
 /* 1:1 port of @recharts/devtools generateMockData. LCG identical so test fixtures
  * line up byte-for-byte with upstream snapshots. */
-function* random(seed: number): Generator<number> {
+export function* random(seed: number): Generator<number> {
 	const m = 2 ** 16 + 1
 	const a = 75
 	const c = 74

@@ -1,6 +1,14 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value type erased at root level */
-import { createEffect, createMemo, For, on, onMount, Show, type JSX } from 'solid-js';
-import { unwrap } from 'solid-js/store';
+import {
+  createTrackedEffect,
+  createEffect,
+  createMemo,
+  For,
+  onSettled,
+  Show,
+  snapshot,
+} from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useField } from '../../field/useField';
 import {
@@ -32,6 +40,7 @@ import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import { selectors, type State as StoreState } from '../store';
 import { SelectFloatingContext, SelectRootContext } from './SelectRootContext';
+import { on } from '../../solid-1-compat';
 
 /**
  * Groups all parts of the select.
@@ -176,6 +185,11 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     return stringifyAsValue(val, props.itemToStringValue);
   });
 
+  const multipleHiddenValues = createMemo(() => {
+    const val = value();
+    return multiple() && Array.isArray(val) ? (val as Value[]) : EMPTY_ARRAY;
+  });
+
   const fieldStringValue = createMemo(() => {
     const val = value();
     if (multiple() && Array.isArray(val)) {
@@ -186,9 +200,9 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
   // ––– AI-GENERATED FIX AND EXPLANATION –––
   // React validation receives the raw selected value directly from state.
-  // In Solid, values can cross signal/store boundaries as proxies, so we unwrap them before
+  // In Solid, values can cross signal/store boundaries as proxies, so we snapshot them before
   // validation and autofill bookkeeping to keep equality checks and field serialization stable.
-  const fieldRawValue = createMemo(() => unwrap(value()));
+  const fieldRawValue = createMemo(() => snapshot(value()));
 
   useField({
     commit: validation.commit,
@@ -200,14 +214,14 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   });
 
   const initialValueRef = useRef(value());
-  createEffect(() => {
+  createTrackedEffect(() => {
     // Ensure the values and labels are registered for programmatic value changes.
     if (value() !== initialValueRef.current) {
       store.set('forceMount', true);
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     // ––– AI-GENERATED FIX AND EXPLANATION –––
     // React naturally clears this bookkeeping as the popup rerenders around a null single value.
     // In Solid, the previous selected index can survive longer because setup does not rerun,
@@ -217,12 +231,12 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const val = value();
     setFilled(multiple() ? Array.isArray(val) && val.length > 0 : val != null);
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (open()) {
       return;
     }
@@ -247,8 +261,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     store.set('selectedIndex', index === -1 ? null : index);
   });
 
-  createEffect(
-    on(
+  createEffect(...on(
       value,
       () => {
         clearErrors(name());
@@ -331,7 +344,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     ref: () => popupRef.current,
   });
 
-  onMount(() => {
+  onSettled(() => {
     if (props.actionsRef) {
       props.actionsRef.current = { unmount: handleUnmount };
     }
@@ -384,17 +397,18 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     },
   });
 
-  createEffect(() => {
-    const ref = triggerElement();
-
-    if (
-      ref !== undefined &&
-      floatingContext.state.floatingElement == null &&
-      floatingContext.state.positionReference === floatingContext.state.referenceElement
-    ) {
-      floatingContext.update({ positionReference: ref });
-    }
-  });
+  createEffect(
+    () => triggerElement(),
+    (ref) => {
+      if (
+        ref !== undefined &&
+        floatingContext.state.floatingElement == null &&
+        floatingContext.state.positionReference === floatingContext.state.referenceElement
+      ) {
+        floatingContext.update({ positionReference: ref });
+      }
+    },
+  );
 
   const click = useClick({
     get context() {
@@ -498,15 +512,15 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     ),
   );
 
-  onMount(() => {
+  onSettled(() => {
     store.update({
       popupProps: getFloatingProps(),
       triggerProps: mergedTriggerProps(),
     });
   });
 
-  createEffect(() => {
-    store.update({
+  createEffect(
+    () => ({
       id: generatedId(),
       isItemEqualToValue,
       itemToStringLabel: props.itemToStringLabel,
@@ -522,8 +536,11 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       transitionStatus: transitionStatus(),
       triggerProps: mergedTriggerProps(),
       value: value(),
-    });
-  });
+    }),
+    (snapshot) => {
+      store.update(snapshot);
+    },
+  );
 
   const contextValue: SelectRootContext = {
     store,
@@ -574,8 +591,8 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   };
 
   return (
-    <SelectRootContext.Provider value={contextValue}>
-      <SelectFloatingContext.Provider value={floatingContext}>
+    <SelectRootContext value={contextValue}>
+      <SelectFloatingContext value={floatingContext}>
         {props.children}
         <input
           {...(validation.getInputValidationProps({
@@ -584,7 +601,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
               store.state.triggerElement?.focus({
                 // Supported in Chrome from 144 (January 2026)
                 focusVisible: true,
-              });
+              } as FocusOptions);
             },
             // Handle browser autofill.
             onInput(event) {
@@ -624,7 +641,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
               store.set('forceMount', true);
               queueMicrotask(handleChange);
             },
-          } as JSX.InputHTMLAttributes<HTMLInputElement>) as any)}
+          }) as any)}
           name={multiple() ? undefined : name()}
           autoComplete={props.autoComplete}
           value={serializedValue()}
@@ -638,13 +655,13 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
             validation.inputRef.current = el;
           }}
           style={name() ? visuallyHiddenInput : visuallyHidden}
-          tabIndex={-1}
+          tabindex={-1}
           aria-hidden="true"
         />
 
         {/* hidden inputs */}
-        <Show when={multiple() && Array.isArray(value()) && (value() as Value[]).length > 0}>
-          <For each={value() as Value[]}>
+        <Show when={multipleHiddenValues().length > 0}>
+          <For each={multipleHiddenValues()}>
             {(v) => (
               <input
                 type="hidden"
@@ -654,8 +671,8 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
             )}
           </For>
         </Show>
-      </SelectFloatingContext.Provider>
-    </SelectRootContext.Provider>
+      </SelectFloatingContext>
+    </SelectRootContext>
   );
 }
 

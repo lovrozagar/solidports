@@ -1,4 +1,6 @@
-import { createSignal, ErrorBoundary, onMount, Show, Suspense, type JSX, type ParentProps } from "solid-js"
+import { createSignal, Errored, onSettled, Show, Loading } from 'solid-js';
+import type { ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { DemoErrorFallback } from "./DemoErrorFallback"
 
 function kebabCase(value?: string) {
@@ -18,10 +20,16 @@ export interface DemoPlaygroundProps extends ParentProps {
    explodes under SSR. Upstream React uses 'use client'; Solid has no equivalent, so gate render until after hydration. */
 export function DemoPlayground(props: DemoPlaygroundProps) {
   const [mounted, setMounted] = createSignal(false)
-  onMount(() => setMounted(true))
+  onSettled(() => {
+    setMounted(true)
+  })
 
   return (
-    <ErrorBoundary fallback={(err, reset) => <DemoErrorFallback error={err} reset={reset} />}>
+    <Errored
+      fallback={(err, reset) => (
+        <DemoErrorFallback error={typeof err === "function" ? err() : err} reset={reset} />
+      )}
+    >
       <div class="DemoPlayground">
         <div
           aria-label="Component demo"
@@ -29,11 +37,11 @@ export function DemoPlayground(props: DemoPlaygroundProps) {
           class="DemoPlaygroundInner"
         >
           <Show when={mounted()}>
-            <Suspense fallback={null}>{props.component}</Suspense>
+            <Loading fallback={null}>{props.component}</Loading>
           </Show>
         </div>
         {props.children}
       </div>
-    </ErrorBoundary>
+    </Errored>
   )
 }

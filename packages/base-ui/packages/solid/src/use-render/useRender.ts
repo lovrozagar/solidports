@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic render hook accepts arbitrary State and ValidComponent; same plumbing pattern as useRenderElement */
-import type { JSX, ComponentProps as SolidComponentProps, ValidComponent } from 'solid-js';
-import type { DynamicProps } from 'solid-js/web';
+import type { JSX, ComponentProps as SolidComponentProps, ValidComponent } from '@solidjs/web';
+import type { DynamicProps } from '@solidjs/web';
 import { type MaybeAccessor, access } from '../solid-helpers';
 import { StateAttributesMapping } from '../utils/getStateAttributesProps';
 import type { ComponentRenderFn, HTMLProps, UseRenderElementRef } from '../utils/types';

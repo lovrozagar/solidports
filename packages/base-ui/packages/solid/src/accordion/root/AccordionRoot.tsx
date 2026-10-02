@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { batch, createEffect, createMemo } from 'solid-js';
+import { createTrackedEffect, createMemo } from 'solid-js';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { splitComponentProps } from '../../solid-helpers';
@@ -36,7 +36,7 @@ export function AccordionRoot(componentProps: AccordionRoot.Props) {
     'value',
     'defaultValue',
   ]);
-  const disabled = () => local.disabled ?? false;
+  const disabled = () => Boolean(local.disabled);
   const loopFocus = () => local.loopFocus ?? true;
   const multiple = () => local.multiple ?? false;
   const orientation = () => local.orientation ?? 'vertical';
@@ -44,7 +44,7 @@ export function AccordionRoot(componentProps: AccordionRoot.Props) {
   const direction = useDirection();
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (local.hiddenUntilFound && local.keepMounted === false) {
         warn(
           'The `keepMounted={false}` prop on a Accordion.Root will be ignored when using `hiddenUntilFound` since it requires Panels to remain mounted when closed.',
@@ -74,7 +74,7 @@ export function AccordionRoot(componentProps: AccordionRoot.Props) {
 
   const handleValueChange = (newValue: number | string, nextOpen: boolean) => {
     const details = createChangeEventDetails(REASONS.none);
-    batch(() => {
+    {
       if (!multiple()) {
         const nextValue = value()?.[0] === newValue ? [] : [newValue];
         local.onValueChange?.(nextValue, details);
@@ -91,14 +91,14 @@ export function AccordionRoot(componentProps: AccordionRoot.Props) {
         }
         setValue(nextOpenValues);
       } else {
-        const nextOpenValues = value()?.filter((v) => v !== newValue);
+        const nextOpenValues = value()?.filter((v: AccordionValue[number]) => v !== newValue);
         local.onValueChange?.(nextOpenValues, details);
         if (details.isCanceled) {
           return;
         }
         setValue(nextOpenValues);
       }
-    });
+    };
   };
 
   const state: AccordionRoot.State = {
@@ -141,9 +141,9 @@ export function AccordionRoot(componentProps: AccordionRoot.Props) {
   });
 
   return (
-    <AccordionRootContext.Provider value={contextValue}>
+    <AccordionRootContext value={contextValue}>
       <CompositeList refs={{ elements: accordionItemElements }}>{element()}</CompositeList>
-    </AccordionRootContext.Provider>
+    </AccordionRootContext>
   );
 }
 

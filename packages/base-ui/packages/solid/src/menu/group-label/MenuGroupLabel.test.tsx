@@ -15,7 +15,7 @@ describe('<Menu.GroupLabel />', () => {
     refInstanceof: window.HTMLDivElement,
     render: (node, props) =>
       render(() => (
-        <MenuGroupContext.Provider value={testContext}>{node(props!)}</MenuGroupContext.Provider>
+        <MenuGroupContext value={testContext}>{node(props!)}</MenuGroupContext>
       )),
   }));
 

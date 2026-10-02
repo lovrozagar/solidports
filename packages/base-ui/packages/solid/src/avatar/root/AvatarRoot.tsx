@@ -33,7 +33,7 @@ export function AvatarRoot(componentProps: AvatarRoot.Props) {
     stateAttributesMapping: avatarStateAttributesMapping,
   });
 
-  return <AvatarRootContext.Provider value={contextValue}>{element()}</AvatarRootContext.Provider>;
+  return <AvatarRootContext value={contextValue}>{element()}</AvatarRootContext>;
 }
 
 export type ImageLoadingStatus = 'idle' | 'loading' | 'loaded' | 'error';

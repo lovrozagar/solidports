@@ -1,7 +1,7 @@
-/* @jsxImportSource solid-js */
-import { fireEvent, render, screen } from "@solidjs/testing-library"
-import { createEffect, createSignal, Show } from "solid-js"
-
+/* @jsxImportSource @solidjs/web */
+import { fireEvent, render, screen } from "../helper/render"
+import { observe } from "../helper/observe"
+import { createSignal, Show, flush } from 'solid-js'
 import { expect, it, vi } from "vitest"
 import {
 	DefaultZIndexes,
@@ -62,6 +62,7 @@ describe("<Radar />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -297,8 +298,7 @@ describe("<Radar />", () => {
 				},
 			]
 
-			/* Cluster C/D */
-			it.skip("should fire onClick event when clicking on the radar polygon", async () => {
+			it("should fire onClick event when clicking on the radar polygon", async () => {
 				const user = userEventSetup()
 				const handleClick = vi.fn()
 				const { container } = render(() => (
@@ -341,6 +341,8 @@ describe("<Radar />", () => {
 					animationBegin: 0,
 					animationDuration: 1500,
 					animationEasing: "ease",
+					animationMatchBy: "index",
+					animationInterpolateFn: expect.any(Function),
 					baseLinePoints: [],
 					dataKey: "value",
 					dot: false,
@@ -362,8 +364,7 @@ describe("<Radar />", () => {
 				expect(handleMouseLeave).toHaveBeenCalledTimes(1)
 				expectLastCalledWith(handleMouseLeave, expectedRadarProps, expect.any(Object))
 			})
-			/* Cluster C */
-			it.skip("should fire onMouseOver and onMouseMove events", async () => {
+			it("should fire onMouseOver and onMouseMove events", async () => {
 				const user = userEventSetup()
 				const handleMouseOver = vi.fn()
 				const handleMouseMove = vi.fn()
@@ -395,8 +396,7 @@ describe("<Radar />", () => {
 				await user.unhover(polygon)
 				expect(handleMouseOut).toHaveBeenCalledTimes(1)
 			})
-			/* Cluster C */
-			it.skip("should fire onTouchMove and onTouchEnd events when touching the radar polygon", async () => {
+			it("should fire onTouchMove and onTouchEnd events when touching the radar polygon", async () => {
 				const handleTouchMove = vi.fn()
 				const handleTouchEnd = vi.fn()
 
@@ -426,7 +426,7 @@ describe("<Radar />", () => {
 			it("should report its settings to Redux state, and remove it when removed from DOM", () => {
 				const polarItemsSpy = vi.fn()
 				const Comp = (): null => {
-					createEffect(() =>
+					observe(() =>
 						polarItemsSpy(useAppSelector((state) => selectPolarItemsSettings(state, "angleAxis", 0))),
 					)
 					return null
@@ -453,6 +453,7 @@ describe("<Radar />", () => {
 				expect(polarItemsSpy).toHaveBeenLastCalledWith([expectedPolarItemsSettings])
 
 				setShowRadar(false)
+				flush()
 				expect(polarItemsSpy).toHaveBeenLastCalledWith([])
 			})
 		})

@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic prop merger handles arbitrary handler shapes */
-import { createMemo, type JSX } from 'solid-js';
+import { createMemo } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { mergeProps } from '../../merge-props';
 import type { ElementProps } from '../types';
 import { ACTIVE_KEY, FOCUSABLE_ATTRIBUTE, SELECTED_KEY } from '../utils/constants';
@@ -64,7 +65,7 @@ export function useInteractions(propsList: Array<ElementProps> = []): UseInterac
   return {
     getFloatingProps(userProps) {
       return mergeProps(
-        [{ tabIndex: -1, [FOCUSABLE_ATTRIBUTE as any]: '' }, ...lists().floating, userProps],
+        [{ tabindex: -1, [FOCUSABLE_ATTRIBUTE as any]: '' }, ...lists().floating, userProps],
         { callAllHandlers: true },
       );
     },

@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { MenuRoot } from '../root/MenuRoot';
 
 export interface MenuRadioGroupContext {
@@ -8,11 +9,11 @@ export interface MenuRadioGroupContext {
   disabled: Accessor<boolean>;
 }
 
-export const MenuRadioGroupContext = createContext<MenuRadioGroupContext>();
+export const MenuRadioGroupContext = createContext<MenuRadioGroupContext | null>(null);
 
 export function useMenuRadioGroupContext() {
   const context = useContext(MenuRadioGroupContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: MenuRadioGroupContext is missing. MenuRadioGroup parts must be placed within <Menu.RadioGroup>.',
     );

@@ -1,4 +1,4 @@
-import { onCleanup, onMount } from 'solid-js';
+import { onCleanup, onSettled } from 'solid-js';
 import { contains, getTarget, stopEvent } from '../../floating-ui-solid/utils';
 import { useMenuRootContext } from '../../menu/root/MenuRootContext';
 import { findRootOwnerId } from '../../menu/utils/findRootOwnerId';
@@ -159,13 +159,22 @@ export function ContextMenuTrigger(componentProps: ContextMenuTrigger.Props) {
     }
   }
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const doc = ownerDocument(triggerRef ?? null);
     doc.addEventListener('contextmenu', handleDocumentContextMenu);
-    onCleanup(() => {
+    _c.push(() => {
       doc.removeEventListener('contextmenu', handleDocumentContextMenu);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const state: ContextMenuTrigger.State = {
     get open() {

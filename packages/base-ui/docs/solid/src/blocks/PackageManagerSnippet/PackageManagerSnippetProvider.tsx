@@ -1,5 +1,5 @@
-import { createContext, createSignal, useContext, type Accessor, type ParentProps } from "solid-js"
-
+import { createContext, createSignal, useContext } from 'solid-js';
+import type { Accessor, ParentProps } from 'solid-js';
 /* V1 minimal provider. Full snippet rendering lives in V2. */
 
 export type PackageManager = "npm" | "pnpm" | "yarn" | "bun"
@@ -9,7 +9,7 @@ export interface PackageManagerSnippetContextValue {
   setValue: (v: PackageManager) => void
 }
 
-const Context = createContext<PackageManagerSnippetContextValue | undefined>(undefined)
+const Context = createContext<PackageManagerSnippetContextValue | null>(null)
 
 export function usePackageManagerSnippet() {
   return useContext(Context)
@@ -22,6 +22,6 @@ interface ProviderProps extends ParentProps {
 export function PackageManagerSnippetProvider(props: ProviderProps) {
   const [value, setValue] = createSignal<PackageManager>(props.defaultValue ?? "npm")
   return (
-    <Context.Provider value={{ value, setValue }}>{props.children}</Context.Provider>
+    <Context value={{ value, setValue }}>{props.children}</Context>
   )
 }

@@ -1,7 +1,7 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect, test, vi, beforeEach } from "vitest"
-import { render } from "@solidjs/testing-library"
-import { createContext, useContext, createSignal, For } from "solid-js"
+import { render } from "../helper/render"
+import { createContext, useContext, createSignal, For, untrack, flush } from 'solid-js';
 import {
 	Area,
 	AreaChart,
@@ -17,6 +17,7 @@ import { createSelectorTestCase } from "../helper/createSelectorTestCase"
 import { expectLastCalledWith } from "../helper/expectLastCalledWith"
 import { assertNotNull } from "../helper/assertNotNull"
 import { DefaultZIndexes } from "../../src/zIndex/DefaultZIndexes"
+import { LineDrawShape } from "../../src/cartesian/LineDrawShape"
 
 describe("Legend.itemSorter", () => {
 	describe("with default content", () => {
@@ -49,8 +50,7 @@ describe("Legend.itemSorter", () => {
 			])
 		})
 	})
-	/* Cluster D: Legend custom-content payload — sibling-mount-order session 7 residual. */
-	describe.skip("when Legend content is a function", () => {
+	describe("when Legend content is a function", () => {
 		it("should pass legend items sorted by label value by default", () => {
 			// this should sort by label value, but it does not
 			const customContent = vi.fn()
@@ -72,6 +72,7 @@ describe("Legend.itemSorter", () => {
 					iconSize: 14,
 					inactiveColor: "#ccc",
 					itemSorter: "value",
+					labelStyle: {},
 					layout: "horizontal",
 					margin: {
 						bottom: 5,
@@ -79,6 +80,7 @@ describe("Legend.itemSorter", () => {
 						right: 5,
 						top: 5,
 					},
+					offset: 0,
 					payload: [
 						{
 							color: "#3182bd",
@@ -90,6 +92,8 @@ describe("Legend.itemSorter", () => {
 								animationBegin: 0,
 								animationDuration: 1500,
 								animationEasing: "ease",
+								animationInterpolateFn: expect.any(Function),
+								animationMatchBy: "index",
 								connectNulls: false,
 								dataKey: "value",
 								dot: true,
@@ -98,6 +102,7 @@ describe("Legend.itemSorter", () => {
 								isAnimationActive: "auto",
 								label: false,
 								legendType: "line",
+								shape: LineDrawShape,
 								name: "A",
 								stroke: "#3182bd",
 								strokeWidth: 1,
@@ -119,6 +124,8 @@ describe("Legend.itemSorter", () => {
 								animationBegin: 0,
 								animationDuration: 1500,
 								animationEasing: "ease",
+								animationInterpolateFn: expect.any(Function),
+								animationMatchBy: "index",
 								connectNulls: false,
 								dataKey: "percent",
 								dot: true,
@@ -127,6 +134,7 @@ describe("Legend.itemSorter", () => {
 								isAnimationActive: "auto",
 								label: false,
 								legendType: "line",
+								shape: LineDrawShape,
 								name: "B",
 								stroke: "#3182bd",
 								strokeWidth: 1,
@@ -142,7 +150,7 @@ describe("Legend.itemSorter", () => {
 					verticalAlign: "bottom",
 					width: 490,
 				},
-				{},
+				/* Solid components receive props only; upstream also asserts React's second `{}` arg */
 			)
 		})
 		it("should pass legend items sorted by dataKey when itemSorter is set", () => {
@@ -165,6 +173,7 @@ describe("Legend.itemSorter", () => {
 					iconSize: 14,
 					inactiveColor: "#ccc",
 					itemSorter: "dataKey",
+					labelStyle: {},
 					layout: "horizontal",
 					margin: {
 						bottom: 5,
@@ -172,6 +181,7 @@ describe("Legend.itemSorter", () => {
 						right: 5,
 						top: 5,
 					},
+					offset: 0,
 					payload: [
 						{
 							color: "#3182bd",
@@ -183,6 +193,8 @@ describe("Legend.itemSorter", () => {
 								animationBegin: 0,
 								animationDuration: 1500,
 								animationEasing: "ease",
+								animationInterpolateFn: expect.any(Function),
+								animationMatchBy: "index",
 								connectNulls: false,
 								dataKey: "percent",
 								dot: true,
@@ -191,6 +203,7 @@ describe("Legend.itemSorter", () => {
 								isAnimationActive: "auto",
 								label: false,
 								legendType: "line",
+								shape: LineDrawShape,
 								name: "B",
 								stroke: "#3182bd",
 								strokeWidth: 1,
@@ -212,6 +225,8 @@ describe("Legend.itemSorter", () => {
 								animationBegin: 0,
 								animationDuration: 1500,
 								animationEasing: "ease",
+								animationInterpolateFn: expect.any(Function),
+								animationMatchBy: "index",
 								connectNulls: false,
 								dataKey: "value",
 								dot: true,
@@ -220,6 +235,7 @@ describe("Legend.itemSorter", () => {
 								isAnimationActive: "auto",
 								label: false,
 								legendType: "line",
+								shape: LineDrawShape,
 								name: "A",
 								stroke: "#3182bd",
 								strokeWidth: 1,
@@ -235,12 +251,11 @@ describe("Legend.itemSorter", () => {
 					verticalAlign: "bottom",
 					width: 490,
 				},
-				{},
+				/* Solid components receive props only; upstream also asserts React's second `{}` arg */
 			)
 		})
 	})
-	/* Cluster D */
-	describe.skip("when Legend content hides and shows items on click", () => {
+	describe("when Legend content hides and shows items on click", () => {
 		function MyLegendHidingComponent(props: { children: JSX.Element }) {
 			const [hiddenItems, setHiddenItems] = createSignal<ReadonlyArray<string>>([])
 
@@ -290,12 +305,14 @@ describe("Legend.itemSorter", () => {
 				const { container, getByText } = renderTestCase()
 
 				getByText("A").click()
+				flush()
 				expectLegendLabels(container, [
 					{ fill: "none", stroke: "red", textContent: "B" },
 					{ fill: "none", stroke: "#ccc", textContent: "A" },
 				])
 
 				getByText("B").click()
+				flush()
 				expectLegendLabels(container, [
 					{ fill: "none", stroke: "#ccc", textContent: "B" },
 					{ fill: "none", stroke: "#ccc", textContent: "A" },
@@ -305,19 +322,23 @@ describe("Legend.itemSorter", () => {
 				const { container, getByText } = renderTestCase()
 
 				getByText("A").click()
+				flush()
 				getByText("B").click()
+				flush()
 				expectLegendLabels(container, [
 					{ fill: "none", stroke: "#ccc", textContent: "B" },
 					{ fill: "none", stroke: "#ccc", textContent: "A" },
 				])
 
 				getByText("B").click()
+				flush()
 				expectLegendLabels(container, [
 					{ fill: "none", stroke: "red", textContent: "B" },
 					{ fill: "none", stroke: "#ccc", textContent: "A" },
 				])
 
 				getByText("A").click()
+				flush()
 				expectLegendLabels(container, [
 					{ fill: "none", stroke: "red", textContent: "B" },
 					{ fill: "none", stroke: "blue", textContent: "A" },
@@ -325,8 +346,7 @@ describe("Legend.itemSorter", () => {
 			})
 		})
 	})
-	/* Cluster D */
-	describe.skip("when Legend content hides and shows items on click and also it has a custom content", () => {
+	describe("when Legend content hides and shows items on click and also it has a custom content", () => {
 		const spy = vi.fn()
 
 		const LegendClickContext = createContext<(entry: LegendPayload) => void>(() => {})
@@ -347,7 +367,7 @@ describe("Legend.itemSorter", () => {
 		}
 
 		const MyCustomLegendContent = (props: DefaultLegendContentProps) => {
-			const handleClick = useContext(LegendClickContext)
+			const handleClick = untrack(() => useContext(LegendClickContext))
 			spy(props)
 			assertNotNull(props.payload)
 			return (
@@ -377,7 +397,7 @@ describe("Legend.itemSorter", () => {
 				const { hiddenItems, handleClick } = useItemHiding()
 
 				return (
-					<LegendClickContext.Provider value={handleClick}>
+					<LegendClickContext value={handleClick}>
 						<LineChart width={500} height={500} data={numericalData}>
 							<Legend itemSorter="dataKey" content={MyCustomLegendContent} />
 							<Line
@@ -394,7 +414,7 @@ describe("Legend.itemSorter", () => {
 							/>
 							{props.children}
 						</LineChart>
-					</LegendClickContext.Provider>
+					</LegendClickContext>
 				)
 			}
 
@@ -430,6 +450,7 @@ describe("Legend.itemSorter", () => {
 					const { getByText } = renderTestCase()
 
 					getByText("A").click()
+					flush()
 					expectLastCalledWith(
 						spy,
 						expect.objectContaining({
@@ -451,6 +472,7 @@ describe("Legend.itemSorter", () => {
 					)
 
 					getByText("B").click()
+					flush()
 					expectLastCalledWith(
 						spy,
 						expect.objectContaining({
@@ -478,7 +500,7 @@ describe("Legend.itemSorter", () => {
 				const { hiddenItems, handleClick } = useItemHiding()
 
 				return (
-					<LegendClickContext.Provider value={handleClick}>
+					<LegendClickContext value={handleClick}>
 						<AreaChart width={500} height={500} data={numericalData}>
 							<Legend itemSorter="dataKey" content={MyCustomLegendContent} />
 							<Area
@@ -497,7 +519,7 @@ describe("Legend.itemSorter", () => {
 							/>
 							{props.children}
 						</AreaChart>
-					</LegendClickContext.Provider>
+					</LegendClickContext>
 				)
 			}
 
@@ -533,6 +555,7 @@ describe("Legend.itemSorter", () => {
 					const { getByText } = renderTestCase()
 
 					getByText("A").click()
+					flush()
 					expectLastCalledWith(
 						spy,
 						expect.objectContaining({
@@ -554,6 +577,7 @@ describe("Legend.itemSorter", () => {
 					)
 
 					getByText("B").click()
+					flush()
 					expectLastCalledWith(
 						spy,
 						expect.objectContaining({
@@ -578,7 +602,9 @@ describe("Legend.itemSorter", () => {
 					const { getByText } = renderTestCase()
 
 					getByText("A").click()
+					flush()
 					getByText("B").click()
+					flush()
 					expectLastCalledWith(
 						spy,
 						expect.objectContaining({
@@ -600,6 +626,7 @@ describe("Legend.itemSorter", () => {
 					)
 
 					getByText("B").click()
+					flush()
 					expectLastCalledWith(
 						spy,
 						expect.objectContaining({
@@ -621,6 +648,7 @@ describe("Legend.itemSorter", () => {
 					)
 
 					getByText("A").click()
+					flush()
 					expectLastCalledWith(
 						spy,
 						expect.objectContaining({

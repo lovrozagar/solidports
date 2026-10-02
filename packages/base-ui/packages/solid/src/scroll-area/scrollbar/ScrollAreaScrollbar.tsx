@@ -1,4 +1,5 @@
-import { createEffect, onCleanup, Show, type JSX } from 'solid-js';
+import { createTrackedEffect, onCleanup, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
@@ -79,7 +80,10 @@ export function ScrollAreaScrollbar(componentProps: ScrollAreaScrollbar.Props) {
   const direction = useDirection();
   const hideTrackUntilMeasured = () => !hasMeasuredScrollbar() && !keepMounted();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const viewportEl = viewportRef.current;
     const scrollbarEl =
       orientation() === 'vertical' ? scrollbarYRef.current : scrollbarXRef.current;
@@ -126,10 +130,16 @@ export function ScrollAreaScrollbar(componentProps: ScrollAreaScrollbar.Props) {
 
     scrollbarEl.addEventListener('wheel', handleWheel, { passive: false });
 
-    onCleanup(() => {
+    _c.push(() => {
       scrollbarEl.removeEventListener('wheel', handleWheel);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const props: HTMLProps = {
     get ['data-id' as string]() {
@@ -252,9 +262,9 @@ export function ScrollAreaScrollbar(componentProps: ScrollAreaScrollbar.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <ScrollAreaScrollbarContext.Provider value={contextValue}>
+      <ScrollAreaScrollbarContext value={contextValue}>
         {element()}
-      </ScrollAreaScrollbarContext.Provider>
+      </ScrollAreaScrollbarContext>
     </Show>
   );
 }

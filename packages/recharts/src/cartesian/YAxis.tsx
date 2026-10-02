@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { createEffect, createMemo, onCleanup, Show } from "solid-js"
-import { produce } from "solid-js/store"
+import type { TickItem } from "../util/types"
+import type { JSX } from '@solidjs/web';
+import { createMemo, createSignal, onCleanup, Show, useContext, createEffect, untrack } from "solid-js"
 import { clsx } from "clsx"
 import {
 	AxisDomainTypeInput,
@@ -24,7 +24,6 @@ import type {
 	YAxisWidth,
 } from "../state/cartesianAxisSlice"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useContext } from "solid-js"
 import { RechartsStateContext } from "../state/RechartsStateContext"
 import {
 	implicitYAxis,
@@ -40,6 +39,7 @@ import { RequiresDefaultProps, resolveDefaultProps } from "../util/resolveDefaul
 import { CustomScaleDefinition } from "../util/scale/CustomScaleDefinition"
 import { useCartesianChartLayout } from "../context/chartLayoutContext"
 import { getAxisTypeBasedOnLayout } from "../util/getAxisTypeBasedOnLayout"
+import { teardownWrite } from "../state/teardownWrite"
 
 interface YAxisProps<DataPointType = unknown, DataValueType = unknown> extends Omit<
 	RenderableAxisProps<DataPointType, DataValueType>,
@@ -184,11 +184,12 @@ interface YAxisProps<DataPointType = unknown, DataValueType = unknown> extends O
 	tickMargin?: number
 }
 
-export type Props = Omit<
-	PresentationAttributesAdaptChildEvent<unknown, SVGElement>,
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped axes accept any data */
+export type Props<DataPointType = any, DataValueType = any> = Omit<
+	PresentationAttributesAdaptChildEvent<TickItem, SVGTextElement>,
 	"scale" | "ref"
 > &
-	YAxisProps
+	YAxisProps<DataPointType, DataValueType>
 
 function SetYAxisSettings(
 	props: Omit<YAxisSettings, "type"> & { type: AxisDomainTypeInput },
@@ -214,29 +215,37 @@ function SetYAxisSettings(
 		}
 	})
 
-	createEffect(() => {
-		const s = settings()
+	createEffect(settings, (s) => {
 		if (s == null) {
 			return
+		}
+		/* upstream replaceYAxis: a changed id drops the previous entry */
+		if (prevSettings != null && String(prevSettings.id) !== String(s.id)) {
+			const prevId = String(prevSettings.id)
+			stateCtx?.setState("cartesianAxes", "yAxis", (axes) => {
+				delete axes[prevId]
+			})
 		}
 		stateCtx?.setState("cartesianAxes", "yAxis", String(s.id), { settings: s })
 		prevSettings = s
 	})
 
 	onCleanup(() => {
-		if (prevSettings) {
-			const strId = String(prevSettings.id)
-			/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
-			stateCtx?.setState("cartesianAxes", "yAxis", produce((axes) => { delete axes[strId] }))
-			prevSettings = null
-		}
+		teardownWrite(() => {
+			if (prevSettings) {
+				const strId = String(prevSettings.id)
+				/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
+				stateCtx?.setState("cartesianAxes", "yAxis", (axes) => { delete axes[strId] })
+				prevSettings = null
+			}
+		})
 	})
 
 	return null
 }
 
 function YAxisImpl(props: PropsWithDefaults) {
-	let cartesianAxisRef: CartesianAxisRef | undefined
+	const [cartesianAxisRef, setCartesianAxisRef] = createSignal<CartesianAxisRef | null>(null)
 	let labelRef: SVGTextElement | null = null
 
 	const ctx2 = useChartStore()
@@ -263,48 +272,61 @@ function YAxisImpl(props: PropsWithDefaults) {
 		ctx2 ? selectYAxisSettingsNoDefaults(ctx2.store, props.yAxisId) : undefined,
 	)
 
-	createEffect(() => {
-		/* No dynamic width calculation is done when width !== 'auto'
-		 * or when a function/react element is used for label */
-		if (
-			props.width !== "auto" ||
-			!axisSize() ||
-			isLabelContentAFunction(props.label) ||
-			synchronizedSettings() == null
-		) {
-			return
-		}
-
-		if (!cartesianAxisRef) {
-			return
-		}
-
-		const updatedYAxisWidth = cartesianAxisRef.getCalculatedWidth()
-		const currentSize = axisSize()
-
-		/* if the width has changed, update the width (with oscillation guard from legacy actions.updateYAxisWidth) */
-		if (currentSize && Math.round(currentSize.width) !== Math.round(updatedYAxisWidth)) {
-			const axisEntry = stateCtx2?.state.cartesianAxes.yAxis[String(props.yAxisId)]
-			const axis = axisEntry?.settings
-			if (axis != null) {
-				const history = axis.widthHistory ?? []
-				const skip =
-					history.length === 3 &&
-					history[0] === history[2] &&
-					updatedYAxisWidth === history[1] &&
-					updatedYAxisWidth !== axis.width &&
-					Math.abs(updatedYAxisWidth - (history[0] ?? 0)) <= 1
-				if (!skip) {
-					const newHistory = [...history, updatedYAxisWidth].slice(-3)
-					stateCtx2?.setState("cartesianAxes", "yAxis", String(props.yAxisId), "settings", {
-						...axis,
-						width: updatedYAxisWidth,
-						widthHistory: newHistory,
-					})
-				}
+	createEffect(
+		() => {
+			/* Subscribe before the early-return: settings and the axis ref often
+			   become ready in the same flush. Returning before reading the ref
+			   misses that update. */
+			const axisComponent = cartesianAxisRef()
+			cartesianTickItems()
+			const currentSize = axisSize()
+			const synced = synchronizedSettings()
+			/* No dynamic width calculation is done when width !== 'auto'
+			 * or when a function/react element is used for label */
+			if (
+				props.width !== "auto" ||
+				!currentSize ||
+				isLabelContentAFunction(props.label) ||
+				synced == null ||
+				axisComponent == null
+			) {
+				return null
 			}
-		}
-	})
+			return { axisComponent, currentSize }
+		},
+		(input) => {
+			if (input == null) {
+				return
+			}
+			const { axisComponent, currentSize } = input
+			untrack(() => {
+				const updatedYAxisWidth = axisComponent.getCalculatedWidth()
+
+				/* if the width has changed, update the width (with oscillation guard from legacy actions.updateYAxisWidth) */
+				if (currentSize && Math.round(currentSize.width) !== Math.round(updatedYAxisWidth)) {
+					const axisEntry = stateCtx2?.state.cartesianAxes.yAxis[String(props.yAxisId)]
+					const axis = axisEntry?.settings
+					if (axis != null) {
+						const history = axis.widthHistory ?? []
+						const skip =
+							history.length === 3 &&
+							history[0] === history[2] &&
+							updatedYAxisWidth === history[1] &&
+							updatedYAxisWidth !== axis.width &&
+							Math.abs(updatedYAxisWidth - (history[0] ?? 0)) <= 1
+						if (!skip) {
+							const newHistory = [...history, updatedYAxisWidth].slice(-3)
+							stateCtx2?.setState("cartesianAxes", "yAxis", String(props.yAxisId), "settings", {
+								...axis,
+								width: updatedYAxisWidth,
+								widthHistory: newHistory,
+							})
+						}
+					}
+				}
+			})
+		},
+	)
 
 	/* resolved() drops when any dep is nullish; Show rerenders subtree when
 	   the memo flips from falsy → truthy, matching upstream React semantics. */
@@ -325,6 +347,7 @@ function YAxisImpl(props: PropsWithDefaults) {
 				<CartesianAxis
 					{...props}
 					{...v().restSynchronizedSettings}
+					axisRef={setCartesianAxisRef}
 					labelRef={labelRef}
 					x={v().pos.x}
 					y={v().pos.y}
@@ -335,6 +358,7 @@ function YAxisImpl(props: PropsWithDefaults) {
 					viewBox={viewBox()}
 					ticks={cartesianTickItems()}
 					axisType={axisType}
+					axisId={props.yAxisId}
 				/>
 			)}
 		</Show>
@@ -359,6 +383,7 @@ export const yAxisDefaultProps = {
 	scale: implicitYAxis.scale,
 	tick: implicitYAxis.tick,
 	tickCount: implicitYAxis.tickCount,
+	niceTicks: implicitYAxis.niceTicks,
 	tickLine: defaultCartesianAxisProps.tickLine,
 	tickSize: defaultCartesianAxisProps.tickSize,
 	type: implicitYAxis.type,
@@ -372,7 +397,10 @@ type PropsWithDefaults = RequiresDefaultProps<Props, typeof yAxisDefaultProps>
  * @consumes CartesianViewBoxContext
  * @provides CartesianLabelContext
  */
-export function YAxis(outsideProps: Props) {
+/* eslint-disable-next-line typescript-eslint/no-explicit-any -- upstream contract: untyped axes accept any data */
+export function YAxis<DataPointType = any, DataValueType = any>(
+	outsideProps: Props<DataPointType, DataValueType>,
+) {
 	const props: PropsWithDefaults = resolveDefaultProps(outsideProps, yAxisDefaultProps)
 	return (
 		<>
@@ -387,6 +415,7 @@ export function YAxis(outsideProps: Props) {
 				allowDuplicatedCategory={props.allowDuplicatedCategory}
 				allowDecimals={props.allowDecimals}
 				tickCount={props.tickCount}
+				niceTicks={props.niceTicks}
 				padding={props.padding}
 				includeHidden={props.includeHidden}
 				reversed={props.reversed}

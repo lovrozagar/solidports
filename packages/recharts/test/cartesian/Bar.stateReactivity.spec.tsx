@@ -1,12 +1,13 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../helper/render"
 import { BarChart, Bar, XAxis, YAxis } from "../../src"
 import { useChartState } from "../../src/state/useChartState"
 import { selectBarRectangles } from "../../src/state/selectors/barSelectors"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../src/util/solid-1-compat';
 const data = [
 	{ name: "A", value: 100 },
 	{ name: "B", value: 200 },
@@ -51,6 +52,7 @@ describe("Phase 3 — Bar reads from new chartState", () => {
 		   Phase 3 GREEN: component reads state.cartesianAxes.yAxis["0"].settings directly
 		   inside createMemo → mutation triggers synchronous re-render, bar paths change. */
 		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "domain" as never, [0, 9000] as never)
+		flush()
 
 		const after = container.querySelector(".recharts-bar .recharts-bar-rectangle path.recharts-rectangle")?.getAttribute("d")
 		expect(after).not.toBe(before)
@@ -87,6 +89,7 @@ describe("Phase 3 — Bar reads from new chartState", () => {
 		   Phase 3 GREEN: component reads state.graphicalItems[id]?.settings.maxBarSize
 		   inside createMemo → re-derives rectangles synchronously, path width changes. */
 		capturedSetState!("graphicalItems", itemId, "settings" as never, "maxBarSize" as never, 5 as never)
+		flush()
 
 		const after = container.querySelector(".recharts-bar .recharts-bar-rectangle path.recharts-rectangle")?.getAttribute("d")
 		expect(after).not.toBe(before)

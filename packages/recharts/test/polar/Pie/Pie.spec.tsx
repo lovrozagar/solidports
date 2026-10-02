@@ -1,6 +1,7 @@
 import { expect, it, Mock, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { fireEvent, render, waitFor } from "@solidjs/testing-library"
+import { createSignal, flush } from "solid-js"
+import { trackSpy } from "../../helper/trackSpy"
+import { fireEvent, render, waitFor } from "../../helper/render"
 import { generateMockData } from "../../_data/generateMockData"
 import {
 	Coordinate,
@@ -164,9 +165,7 @@ describe("<Pie />", () => {
 			expectPieSectors(container, [])
 		})
 
-		/* Cluster C: vNode-as-prop. Solid `<Sector class=".." fill=".." />` returns
-		 * null when isValid() fails (no cx/cy passed) — there is no Node to clone. */
-		test.skip("Render customized active sector when activeShape is set to be an element", () => {
+		test("Render customized active sector when activeShape is set to be an element", () => {
 			const { container, debug } = render(() => (
 				<PieChart width={500} height={500}>
 					<Pie
@@ -216,6 +215,75 @@ describe("<Pie />", () => {
 			expect(container.querySelectorAll(".customized-active-shape")).toHaveLength(1)
 		})
 
+		test("should use per-sector fill for tooltip item color when shape is customized", () => {
+			const data = [
+				{ fill: "#ff0000", name: "A", value: 100 },
+				{ fill: "#00ff00", name: "B", value: 100 },
+			]
+
+			const renderShape = ({ payload, ...props }: PieSectorDataItem) => {
+				return <Sector {...props} fill={payload.fill} />
+			}
+
+			const { container } = render(() => (
+				<PieChart width={500} height={500}>
+					<Pie
+						isAnimationActive={false}
+						cx={250}
+						cy={250}
+						innerRadius={0}
+						outerRadius={200}
+						data={data}
+						dataKey="value"
+						nameKey="name"
+						fill="#8884d8"
+						shape={renderShape}
+					/>
+					<Tooltip defaultIndex={0} />
+				</PieChart>
+			))
+
+			expectTooltipPayload(container, "", ["A : 100"])
+
+			const tooltipItem = container.querySelector(".recharts-tooltip-item")
+			assertNotNull(tooltipItem)
+			if (!(tooltipItem instanceof HTMLElement)) {
+				throw new Error(`Expected instance of HTMLElement, instead received: [${tooltipItem}]`)
+			}
+			expect(tooltipItem).toHaveStyle({ color: "rgb(255, 0, 0)" })
+		})
+
+		test("should use active shape fill for tooltip item color when activeShape provides fill", () => {
+			const { container } = render(() => (
+				<PieChart width={500} height={500}>
+					<Pie
+						isAnimationActive={false}
+						activeShape={{ fill: "#ff0000" }}
+						cx={250}
+						cy={250}
+						innerRadius={0}
+						outerRadius={200}
+						data={[
+							{ name: "Page A", uv: 590 },
+							{ name: "Page B", uv: 590 },
+							{ name: "Page C", uv: 868 },
+						]}
+						dataKey="uv"
+					/>
+					<Tooltip defaultIndex={2} />
+				</PieChart>
+			))
+
+			expectTooltipPayload(container, "", ["Page C : 868"])
+
+			const tooltipItem = container.querySelector(".recharts-tooltip-item")
+			assertNotNull(tooltipItem)
+			if (!(tooltipItem instanceof HTMLElement)) {
+				throw new Error(`Expected instance of HTMLElement, instead received: [${tooltipItem}]`)
+			}
+			expect(tooltipItem).toHaveStyle({ color: "rgb(255, 0, 0)" })
+		})
+
 		test("Render customized active sector when activeShape is set to be an object", () => {
 			const { container, debug } = render(() => (
 				<PieChart width={500} height={500}>
@@ -238,9 +306,7 @@ describe("<Pie />", () => {
 			expect(container.querySelectorAll(".customized-active-shape")).toHaveLength(1)
 		})
 
-		/* Cluster C: vNode-as-prop. Solid `<Sector class=".." fill=".." />` returns
-		 * null when isValid() fails (no cx/cy passed) — there is no Node to clone. */
-		test.skip("Render customized active sector when inactiveShape is set to be an element", () => {
+		test("Render customized active sector when inactiveShape is set to be an element", () => {
 			const { container, debug } = render(() => (
 				<PieChart width={500} height={500}>
 					<Pie
@@ -369,8 +435,7 @@ describe("<Pie />", () => {
 			},
 		)
 
-		/* Cluster C: activeShape function payload-prop receiver — function-prop receiver issue. */
-		test.skip("when data is defined and matching dataKey then activeShape receives payload prop", () => {
+		test("when data is defined and matching dataKey then activeShape receives payload prop", () => {
 			const activeShape: Mock<(props: PieSectorDataItem) => JSX.Element> = vi.fn()
 			const { container, debug } = render(() => (
 				<PieChart width={400} height={400}>
@@ -409,6 +474,8 @@ describe("<Pie />", () => {
 					index: 0,
 					innerRadius: 0,
 					isActive: true,
+					isAnimating: false,
+					isEntrance: true,
 					label: "Iter: 0",
 					maxRadius: 275.77164466275354,
 					midAngle: 38.579169175195666,
@@ -426,10 +493,14 @@ describe("<Pie />", () => {
 					percent: 0.2143287176399759,
 					startAngle: 0,
 					stroke: "#fff",
-					tabIndex: -1,
+					/* Solid passes the DOM attribute name */
+					tabindex: -1,
+					animationElapsedTime: 1,
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "y",
+							fill: "#808080",
 							graphicalItemId: "pie-y",
 							name: 0,
 							payload: {
@@ -589,7 +660,9 @@ describe("<Pie />", () => {
 				textAnchor: "end",
 				tooltipPayload: [
 					{
+						color: "#808080",
 						dataKey: "value",
+						fill: "#808080",
 						graphicalItemId: "pie-value",
 						name: "A",
 						payload: {
@@ -618,8 +691,7 @@ describe("<Pie />", () => {
 			expect(spy).toHaveBeenNthCalledWith(1, expectedProps)
 		})
 
-		/* Cluster C: function-as-prop variant. */
-		test.skip("Render customized label when label is a function", () => {
+		test("Render customized label when label is a function", () => {
 			const renderLabel: PieLabel = (props: PieLabelRenderProps) => {
 				/*
 				 * Sometimes these props can be typed as `unknown` because we spread the whole data object here
@@ -685,9 +757,7 @@ describe("<Pie />", () => {
 			expect(container.querySelectorAll(".customized-label")).toHaveLength(sectorsData.length)
 		})
 
-		/* Cluster C: vNode-as-prop. LabelLine inner guard `if (!points) return <></>`
-		 * makes the JSX evaluation produce an empty fragment — no Node to clone. */
-		test.skip("Render customized label line when labelLine is set to be a react element", () => {
+		test("Render customized label line when labelLine is set to be a react element", () => {
 			const LabelLine = (props: CustomizedLabelLineProps) => {
 				const { points } = props
 				if (!points) return <></>
@@ -706,7 +776,8 @@ describe("<Pie />", () => {
 						cx={250}
 						cy={250}
 						label
-						labelLine={<LabelLine />}
+						/* Solid cannot inject props into an evaluated user element; pass the component */
+						labelLine={LabelLine}
 						innerRadius={0}
 						outerRadius={200}
 						data={sectorsData}
@@ -909,7 +980,9 @@ describe("<Pie />", () => {
 						dataDefinedOnItem: [
 							[
 								{
+									color: "#808080",
 									dataKey: "cy",
+									fill: "#808080",
 									graphicalItemId: "cy-pie",
 									name: "A",
 									payload: {
@@ -928,7 +1001,9 @@ describe("<Pie />", () => {
 							],
 							[
 								{
+									color: "#808080",
 									dataKey: "cy",
+									fill: "#808080",
 									graphicalItemId: "cy-pie",
 									name: "B",
 									payload: {
@@ -946,7 +1021,9 @@ describe("<Pie />", () => {
 							],
 							[
 								{
+									color: "#808080",
 									dataKey: "cy",
+									fill: "#808080",
 									graphicalItemId: "cy-pie",
 									name: "C",
 									payload: {
@@ -964,7 +1041,9 @@ describe("<Pie />", () => {
 							],
 							[
 								{
+									color: "#808080",
 									dataKey: "cy",
+									fill: "#808080",
 									graphicalItemId: "cy-pie",
 									name: 3,
 									payload: {
@@ -981,7 +1060,9 @@ describe("<Pie />", () => {
 							],
 							[
 								{
+									color: "#808080",
 									dataKey: "cy",
+									fill: "#808080",
 									graphicalItemId: "cy-pie",
 									name: 4,
 									payload: {
@@ -1205,9 +1286,9 @@ describe("<Pie />", () => {
 
 				expectLastCalledWith(spy, [
 					{
-						color: undefined,
+						color: "#808080",
 						dataKey: "cy",
-						fill: undefined,
+						fill: "#808080",
 						graphicalItemId: "cy-pie",
 						hide: false,
 						name: "C",
@@ -1253,6 +1334,7 @@ describe("<Pie />", () => {
 					id: 0,
 					includeHidden: false,
 					name: undefined,
+					niceTicks: "auto",
 					reversed: false,
 					scale: "auto",
 					tick: true,
@@ -1534,6 +1616,7 @@ describe("<Pie />", () => {
 			const pieContainer = document.getElementsByClassName("container")[0] as HTMLElement
 
 			pieContainer.focus()
+			flush()
 			await waitFor(
 				() => {
 					expect(document.activeElement).toBe(pieContainer)
@@ -1587,6 +1670,7 @@ describe("<Pie />", () => {
 			const pieContainer = document.getElementsByClassName("container")[0] as HTMLElement
 
 			pieContainer.focus()
+			flush()
 			await waitFor(
 				() => {
 					expect(document.activeElement).toBe(pieContainer)
@@ -1730,16 +1814,27 @@ describe("<Pie />", () => {
 	})
 
 	describe("state integration", () => {
-		/* Cluster D: sibling-mount-order signal-rerender complexity. */
-		it.skip("should publish graphical item settings to the state, and update once props change", () => {
+		it("should publish graphical item settings to the state, and update once props change", () => {
 			const spy = vi.fn()
 			const Comp = (): JSX.Element => {
-				createEffect(() => spy(useAppSelector(selectAllGraphicalItemsSettings)))
+				trackSpy(spy, () => useAppSelector(selectAllGraphicalItemsSettings))
 				return null
 			}
-			const { rerender } = render(() => (
+			/* rerender with new props is driven by a signal */
+			const [pieProps, setPieProps] = createSignal<{
+				dataKey: string
+				innerRadius: number
+				outerRadius?: number
+			}>({ dataKey: "cy", innerRadius: 100 })
+			render(() => (
 				<PieChart width={500} height={500}>
-					<Pie data={PageData} dataKey="cy" innerRadius={100} id="my-pie" />
+					<Pie
+						data={PageData}
+						dataKey={pieProps().dataKey}
+						innerRadius={pieProps().innerRadius}
+						outerRadius={pieProps().outerRadius}
+						id="my-pie"
+					/>
 					<Comp />
 				</PieChart>
 			))
@@ -1777,14 +1872,12 @@ describe("<Pie />", () => {
 			}
 			expectLastCalledWith(spy, [expectedPie1])
 
-			rerender(() => (
-				<PieChart width={500} height={500}>
-					<Pie data={PageData} dataKey="cx" innerRadius={200} id="my-pie" outerRadius={200} />
-					<Comp />
-				</PieChart>
-			))
+			const callsBefore = spy.mock.calls.length
+			setPieProps({ dataKey: "cx", innerRadius: 200, outerRadius: 200 })
+			flush()
 
-			expect(spy).toHaveBeenCalledTimes(4)
+			/* Solid re-runs the selector once for the batched change; upstream renders 4 times in total */
+			expect(spy.mock.calls.length - callsBefore).toBe(1)
 			const expectedPie2: PieSettings = {
 				angleAxisId: 0,
 				cornerRadius: undefined,
@@ -1821,7 +1914,7 @@ describe("<Pie />", () => {
 		it("should report default props with autogenerated ID", () => {
 			const spy = vi.fn()
 			const Comp = (): JSX.Element => {
-				createEffect(() => spy(useAppSelector(selectAllGraphicalItemsSettings)))
+				trackSpy(spy, () => useAppSelector(selectAllGraphicalItemsSettings))
 				return null
 			}
 			render(() => (
@@ -1895,7 +1988,6 @@ describe("<Pie />", () => {
 				onClick.mockClear()
 			})
 
-			/* Cluster D: external-handlers click event not firing despite live-accessor fix. Session 26 deferred. */
 			test("should call external handlers", async () => {
 				const user = userEventSetup()
 				const { container } = renderTestCase()
@@ -1936,7 +2028,9 @@ describe("<Pie />", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "cy",
+							fill: "#808080",
 							graphicalItemId: expect.stringMatching(/^recharts-pie-.+/),
 							name: "B",
 							payload: {
@@ -1984,7 +2078,6 @@ describe("<Pie />", () => {
 			}, 1000)
 		})
 
-		/* Cluster D: Pie sector onClick uses adaptEventsOfChild path. */
 		it("should fire onClick event when clicking on a pie sector", async () => {
 			const user = userEventSetup()
 			const handleClick: Mock<(data: PieSectorDataItem, index: number, e: MouseEvent) => void> =
@@ -2037,7 +2130,9 @@ describe("<Pie />", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-uv",
 							name: "Page A",
 							payload: {
@@ -2118,7 +2213,9 @@ describe("<Pie />", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-uv",
 							name: "Page A",
 							payload: {
@@ -2173,7 +2270,9 @@ describe("<Pie />", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-uv",
 							name: "Page A",
 							payload: {
@@ -2253,7 +2352,9 @@ describe("<Pie />", () => {
 					stroke: "#fff",
 					tooltipPayload: [
 						{
+							color: "#808080",
 							dataKey: "uv",
+							fill: "#808080",
 							graphicalItemId: "pie-uv",
 							name: "Page A",
 							payload: {

@@ -1,4 +1,4 @@
-import { type Accessor, mergeProps as solidMergeProps } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { FloatingTreeStore } from '../../floating-ui-solid/components/FloatingTreeStore';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
 import type { ReactLikeRef } from '../../solid-helpers';
@@ -13,6 +13,7 @@ import {
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { HTMLProps } from '../../utils/types';
 import type { MenuParent, MenuRoot } from '../root/MenuRoot';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   disabled: boolean;

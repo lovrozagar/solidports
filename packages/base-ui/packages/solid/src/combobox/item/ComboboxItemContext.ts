@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 
 export interface ComboboxItemContext {
@@ -6,7 +7,7 @@ export interface ComboboxItemContext {
   textRef: ReactLikeRef<HTMLElement | null | undefined>;
 }
 
-export const ComboboxItemContext = createContext<ComboboxItemContext | undefined>(undefined);
+export const ComboboxItemContext = createContext<ComboboxItemContext | null>(null);
 
 export function useComboboxItemContext() {
   const context = useContext(ComboboxItemContext);

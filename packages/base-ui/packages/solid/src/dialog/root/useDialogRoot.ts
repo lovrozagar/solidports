@@ -1,5 +1,11 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import {
+  createTrackedEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onSettled,
+} from 'solid-js';
 import {
   useDismiss,
   useInteractions,
@@ -43,7 +49,7 @@ export function useDialogRoot(params: useDialogRoot.Parameters): useDialogRoot.R
 
   params.store.context.floatingRootContext = floatingRootContext;
 
-  onMount(() => {
+  onSettled(() => {
     if (params.actionsRef) {
       params.actionsRef.current = { close: handleImperativeClose, unmount: forceUnmount };
     }
@@ -117,7 +123,7 @@ export function useDialogRoot(params: useDialogRoot.Parameters): useDialogRoot.R
   const { getReferenceProps, getFloatingProps, getTriggerProps } = useInteractions([role, dismiss]);
 
   /* Listen for nested open/close events on this store to maintain the counts. */
-  params.store.useContextCallback('onNestedDialogOpen', (dialogCount, drawerCount) => {
+  params.store.useContextCallback('onNestedDialogOpen', (dialogCount: number, drawerCount: number) => {
     setOwnNestedOpenDialogs(dialogCount);
     setOwnNestedOpenDrawers(drawerCount);
   });
@@ -128,7 +134,10 @@ export function useDialogRoot(params: useDialogRoot.Parameters): useDialogRoot.R
   });
 
   /* Notify parent of our open/close state using parent callbacks, if any. */
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (params.parentContext?.onNestedDialogOpen && open()) {
       params.parentContext.onNestedDialogOpen(
         ownNestedOpenDialogs() + 1,
@@ -138,12 +147,18 @@ export function useDialogRoot(params: useDialogRoot.Parameters): useDialogRoot.R
     if (params.parentContext?.onNestedDialogClose && !open()) {
       params.parentContext.onNestedDialogClose();
     }
-    onCleanup(() => {
+    _c.push(() => {
       if (params.parentContext?.onNestedDialogClose && open()) {
         params.parentContext.onNestedDialogClose();
       }
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const activeTriggerProps = createMemo(() => getReferenceProps(triggerProps));
   const inactiveTriggerProps = createMemo(() => getTriggerProps(triggerProps));

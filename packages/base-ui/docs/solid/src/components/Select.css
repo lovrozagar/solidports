@@ -81,8 +81,7 @@
     }
   }
 
-  .SelectItemIndicator,
-  .SelectItem > svg {
+  .SelectItemIndicator {
     grid-column: 2;
     margin-top: -1px;
     width: 100%;

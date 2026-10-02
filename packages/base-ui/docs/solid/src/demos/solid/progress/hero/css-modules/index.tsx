@@ -1,4 +1,4 @@
-import { createSignal, createEffect } from 'solid-js';
+import { createSignal, onSettled } from 'solid-js';
 
 
 import { Progress } from '@solidports/base-ui/progress';
@@ -8,7 +8,7 @@ export default function ExampleProgress() {
   const [value, setValue] = createSignal(20);
 
   // Simulate changes
-  createEffect(() => {
+  onSettled(() => {
     const interval = setInterval(() => {
       setValue((current) => Math.min(100, Math.round(current + Math.random() * 25)));
     }, 1000);

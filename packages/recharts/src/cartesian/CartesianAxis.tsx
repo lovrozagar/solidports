@@ -2,13 +2,17 @@
 /**
  * @fileOverview Cartesian Axis
  */
-import type { JSX } from "solid-js"
-import { createSignal, For, Show } from "solid-js"
-
+import type { JSX } from '@solidjs/web';
+import { createEffect, createSignal, For, onCleanup, onSettled, Show, untrack, useContext } from 'solid-js';
+import isEqual from "es-toolkit/compat/isEqual"
+import { RechartsStateContext } from "../state/RechartsStateContext"
+import { teardownWrite } from "../state/teardownWrite"
+import type { AxisId } from "../state/cartesianAxisSlice"
+import type { TickItem as RenderedTickItem } from "../util/types"
 import get from "es-toolkit/compat/get"
 import { clsx } from "clsx"
 import { Layer } from "../container/Layer"
-import { Text, Props as TextProps, TextAnchor, TextVerticalAnchor } from "../component/Text"
+import { Text, Props as TextProps, TextAnchor, TextVerticalAnchor, isValidTextAnchor } from "../component/Text"
 import {
 	CartesianLabelContextProvider,
 	ImplicitLabelType,
@@ -44,6 +48,9 @@ import { ZIndexable, ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
 import { getClassNameFromUnknown } from "../util/getClassNameFromUnknown"
 import { cloneJsxNodeWithProps, isJsxNode } from "../util/ReactUtils"
+import { bindRef, splitProps } from "../util/solid-1-compat"
+import { getCalculatedXAxisHeight } from "../util/XAxisUtils"
+import { getCalculatedYAxisWidth } from "../util/YAxisUtils"
 
 /** The orientation of the axis in correspondence to the chart */
 export type Orientation = XAxisOrientation | YAxisOrientation
@@ -55,6 +62,8 @@ export type TickFormatter = (value: unknown, index: number) => string
 export interface CartesianAxisProps extends ZIndexable {
 	class?: string
 	axisType?: "xAxis" | "yAxis"
+	/** Identifies the axis whose rendered ticks are published to the store. */
+	axisId?: AxisId
 	x?: number
 	y?: number
 	width?: number
@@ -93,12 +102,18 @@ export interface CartesianAxisProps extends ZIndexable {
 	 */
 	scale?: unknown
 	labelRef?: SVGTextElement | null
+	/**
+	 * Imperative size API for XAxis `height="auto"` / YAxis `width="auto"`.
+	 * Separate from `ref`, which is the tick-labels `<g>` element.
+	 */
+	axisRef?: (api: CartesianAxisRef | null) => void
 
 	ref?: SVGElement | ((el: SVGElement) => void)
 }
 
 export interface CartesianAxisRef {
 	getCalculatedWidth(): number
+	getCalculatedHeight(): number
 }
 
 export const defaultCartesianAxisProps = {
@@ -129,7 +144,7 @@ export const defaultCartesianAxisProps = {
  * that are completely different data shape and different purpose.
  */
 export type Props = Omit<
-	PresentationAttributesAdaptChildEvent<unknown, SVGElement>,
+	PresentationAttributesAdaptChildEvent<unknown, SVGTextElement>,
 	"viewBox" | "scale" | "ref"
 > &
 	CartesianAxisProps
@@ -146,11 +161,6 @@ function AxisLine(axisLineProps: {
 	axisLine: boolean | JSX.LineSVGAttributes<SVGLineElement>
 	otherSvgProps: JSX.LineSVGAttributes<SVGLineElement> | null
 }) {
-	/* eslint-disable-next-line solid/reactivity -- axisLine presence is structural (stable at mount) */
-	if (!axisLineProps.axisLine) {
-		return null
-	}
-
 	/* GOTCHA: do NOT spread coordinate values into a plain object here. AxisLine's
 	   function body executes once at mount; reads of `axisLineProps.x/y/width/height`
 	   inside that body freeze at the initial pass. JSX expression slots with `{}`
@@ -190,14 +200,16 @@ function AxisLine(axisLineProps: {
 	})
 
 	return (
-		<line
-			{...styleProps()}
-			x1={x1()}
-			x2={x2()}
-			y1={y1()}
-			y2={y2()}
-			class={clsx("recharts-cartesian-axis-line", get(axisLineProps.axisLine, "className"))}
-		/>
+		<Show when={axisLineProps.axisLine}>
+			<line
+				{...styleProps()}
+				x1={x1()}
+				x2={x2()}
+				y1={y1()}
+				y2={y2()}
+				class={clsx("recharts-cartesian-axis-line", get(axisLineProps.axisLine, "className"))}
+			/>
+		</Show>
 	)
 }
 
@@ -308,26 +320,33 @@ function getTickVerticalAnchor(orientation: Orientation, mirror: boolean): TextV
 }
 
 function TickItem(props: { option: Props["tick"]; tickProps: TextProps; value: string }) {
-	/* eslint-disable solid/reactivity -- option type is structural (stable at mount); tickProps reads are in JSX spreads below */
-	if (typeof props.option === "function") {
-		/* tickProps may carry the axis class via Solid `class` alias — accept both. */
-		const baseClassName =
-			props.tickProps.className ?? (props.tickProps as { class?: string }).class
-		const combinedClassName = clsx(baseClassName, "recharts-cartesian-axis-tick-value")
-		return <>{props.option({ ...props.tickProps, className: combinedClassName })}</>
+	/* tick type is structural (function vs node vs boolean); snapshot once */
+	const option = untrack(() => props.option)
+	if (typeof option === "function") {
+		const content = () => {
+			/* tickProps may carry the axis class via Solid `class` alias — accept both. */
+			const baseClassName =
+				props.tickProps.className ?? (props.tickProps as { class?: string }).class
+			const combinedClassName = clsx(baseClassName, "recharts-cartesian-axis-tick-value")
+			return option({ ...props.tickProps, className: combinedClassName })
+		}
+		return <>{content()}</>
 	}
 
-	if (isJsxNode(props.option)) {
-		return <>{cloneJsxNodeWithProps(props.option, props.tickProps as unknown as Record<string, unknown>) as unknown as JSX.Element}</>
+	if (isJsxNode(option)) {
+		const content = () =>
+			cloneJsxNodeWithProps(
+				option,
+				props.tickProps as unknown as Record<string, unknown>,
+			) as unknown as JSX.Element
+		return <>{content()}</>
 	}
 
-	if (typeof props.option !== "boolean") {
-		const className = clsx(
-			"recharts-cartesian-axis-tick-value",
-			getClassNameFromUnknown(props.option),
-		)
+	if (typeof option !== "boolean") {
+		const className = () =>
+			clsx("recharts-cartesian-axis-tick-value", getClassNameFromUnknown(option))
 		return (
-			<Text {...props.tickProps} className={className}>
+			<Text {...props.tickProps} className={className()}>
 				{props.value}
 			</Text>
 		)
@@ -338,12 +357,12 @@ function TickItem(props: { option: Props["tick"]; tickProps: TextProps; value: s
 			{props.value}
 		</Text>
 	)
-	/* eslint-enable solid/reactivity */
 }
 
 type TicksProps = {
 	axisType: "xAxis" | "yAxis" | undefined
-	events: Omit<PresentationAttributesAdaptChildEvent<unknown, SVGElement>, "scale" | "viewBox">
+	axisId: AxisId | undefined
+	events: Omit<PresentationAttributesAdaptChildEvent<unknown, SVGTextElement>, "scale" | "viewBox" | "ref">
 	fontSize: string
 	getTicksConfig: Omit<Props, "ticks" | "ref">
 	height: number
@@ -374,10 +393,67 @@ function Ticks(props: TicksProps) {
 			props.fontSize,
 			props.letterSpacing,
 		)
-	const textAnchor = (): TextAnchor => getTickTextAnchor(props.orientation, props.mirror)
+	/*
+	 * Publish the actually rendered ticks so hooks and the inverse tick-snap scale can read them.
+	 * Skip the write when the tick values are unchanged so re-renders keep a stable reference
+	 * (https://github.com/recharts/recharts/issues/7563).
+	 */
+	const stateCtx = useContext(RechartsStateContext)
+	let lastPublished: { axisId: AxisId; axisType: "xAxis" | "yAxis"; ticks: ReadonlyArray<RenderedTickItem> } | null = null
+	createEffect(
+		() => {
+			const axisId = props.axisId
+			const axisType = props.axisType
+			if (axisId == null || axisType == null) {
+				return null
+			}
+			// Filter out irrelevant internal properties before exposing externally
+			const tickItems: ReadonlyArray<RenderedTickItem> = finalTicks().map((tick) => ({
+				coordinate: tick.coordinate,
+				index: tick.index,
+				offset: tick.offset,
+				value: tick.value,
+			}))
+			return { axisId, axisType, ticks: tickItems }
+		},
+		(next) => {
+			if (next == null || stateCtx == null) {
+				return undefined
+			}
+			const last = lastPublished
+			if (
+				last == null ||
+				last.axisId !== next.axisId ||
+				last.axisType !== next.axisType ||
+				!isEqual(last.ticks, next.ticks)
+			) {
+				lastPublished = next
+				stateCtx.setState("renderedTicks", next.axisType, String(next.axisId), next.ticks)
+			}
+			return undefined
+		},
+	)
+	onCleanup(() => {
+		const last = lastPublished
+		if (last == null || stateCtx == null) {
+			return
+		}
+		lastPublished = null
+		teardownWrite(() => {
+			stateCtx.setState("renderedTicks", last.axisType, (axes) => {
+				delete (axes as Record<string, unknown>)[String(last.axisId)]
+			})
+		})
+	})
+
+	const axisProps = () => svgPropertiesNoEvents(props.getTicksConfig)
+	/* User-provided textAnchor wins; svgPropertiesNoEvents emits it as kebab `text-anchor`. */
+	const textAnchor = (): TextAnchor => {
+		const userAnchor = (axisProps() as Record<string, string | undefined>)["text-anchor"]
+		return isValidTextAnchor(userAnchor) ? userAnchor : getTickTextAnchor(props.orientation, props.mirror)
+	}
 	const verticalAnchor = (): TextVerticalAnchor =>
 		getTickVerticalAnchor(props.orientation, props.mirror)
-	const axisProps = () => svgPropertiesNoEvents(props.getTicksConfig)
 	const customTickProps = () => svgPropertiesNoEventsFromUnknown(props.tick)
 
 	const tickLineProps = (): JSX.LineSVGAttributes<SVGLineElement> => {
@@ -416,7 +492,7 @@ function Ticks(props: TicksProps) {
 				<ZIndexLayer zIndex={DefaultZIndexes.label}>
 					<g
 						class={`recharts-cartesian-axis-tick-labels recharts-${props.axisType}-tick-labels`}
-						ref={props.ref}
+						ref={(el) => bindRef(props.ref, el)}
 					>
 						<For each={tickLineCoords()}>
 							{({ entry, tick: tickCoord }, i) => {
@@ -495,27 +571,71 @@ function Ticks(props: TicksProps) {
 }
 
 function CartesianAxisComponent(props: InternalProps) {
+	/* Tick config and events never need `children`; keeping it out avoids instantiating
+	   child labels outside the axis label context. */
+	const [, propsWithoutChildren] = splitProps(props, ["children"])
 	const [fontSize, setFontSize] = createSignal("")
 	const [letterSpacing, setLetterSpacing] = createSignal("")
 	let _tickRefs: HTMLCollectionOf<Element> | null = null
 
+	const api: CartesianAxisRef = {
+		getCalculatedHeight(): number {
+			return getCalculatedXAxisHeight({
+				label: untrack(() => props.labelRef),
+				labelGapWithTick: 5,
+				tickMargin: untrack(() => props.tickMargin),
+				ticks: _tickRefs,
+				tickSize: untrack(() => props.tickSize),
+			})
+		},
+		getCalculatedWidth(): number {
+			return getCalculatedYAxisWidth({
+				label: untrack(() => props.labelRef),
+				labelGapWithTick: 5,
+				tickMargin: untrack(() => props.tickMargin),
+				ticks: _tickRefs,
+				tickSize: untrack(() => props.tickSize),
+			})
+		},
+	}
+
+	const publishAxisRef = (value: CartesianAxisRef | null) => {
+		untrack(() => {
+			props.axisRef?.(value)
+		})
+	}
+
+	onCleanup(() => {
+		publishAxisRef(null)
+	})
+
 	const layerRef = (el: SVGGElement) => {
 		if (el) {
-			const tickNodes = el.getElementsByClassName("recharts-cartesian-axis-tick-value")
-			_tickRefs = tickNodes
-			const tick: Element | undefined = tickNodes[0]
-
-			if (tick) {
-				const computedStyle = window.getComputedStyle(tick)
-				const calculatedFontSize = computedStyle.fontSize
-				const calculatedLetterSpacing = computedStyle.letterSpacing
-				if (calculatedFontSize !== fontSize() || calculatedLetterSpacing !== letterSpacing()) {
-					setFontSize(calculatedFontSize)
-					setLetterSpacing(calculatedLetterSpacing)
-				}
-			}
+			/* Live collection: it fills in once the ticks are inserted. */
+			_tickRefs = el.getElementsByClassName("recharts-cartesian-axis-tick-value")
+			publishAxisRef(api)
+		} else {
+			_tickRefs = null
+			publishAxisRef(null)
 		}
 	}
+
+	/* Ticks are not in the DOM when the ref runs, so read their computed font after mount. */
+	onSettled(() => {
+		const tick: Element | undefined = _tickRefs?.[0]
+		if (tick) {
+			const computedStyle = window.getComputedStyle(tick)
+			const calculatedFontSize = computedStyle.fontSize
+			const calculatedLetterSpacing = computedStyle.letterSpacing
+			if (
+				calculatedFontSize !== untrack(fontSize) ||
+				calculatedLetterSpacing !== untrack(letterSpacing)
+			) {
+				setFontSize(calculatedFontSize)
+				setLetterSpacing(calculatedLetterSpacing)
+			}
+		}
+	})
 
 	return (
 		<Show
@@ -542,9 +662,10 @@ function CartesianAxisComponent(props: InternalProps) {
 					<Ticks
 						ref={layerRef}
 						axisType={props.axisType}
-						events={props}
+						axisId={props.axisId}
+						events={propsWithoutChildren}
 						fontSize={fontSize()}
-						getTicksConfig={props}
+						getTicksConfig={propsWithoutChildren}
 						height={props.height}
 						letterSpacing={letterSpacing()}
 						mirror={props.mirror}

@@ -19,9 +19,9 @@ export function SelectPortal(props: SelectPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <SelectPortalContext.Provider value>
+      <SelectPortalContext value>
         <FloatingPortal {...props} ref={props.ref} />
-      </SelectPortalContext.Provider>
+      </SelectPortalContext>
     </Show>
   );
 }

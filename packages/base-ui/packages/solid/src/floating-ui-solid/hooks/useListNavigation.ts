@@ -1,13 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import {
-  createEffect,
-  createMemo,
-  createRenderEffect,
-  mergeProps as solidMergeProps,
-  untrack,
-  type JSX,
-} from 'solid-js';
+import { createTrackedEffect, createMemo, createRenderEffect, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { access, defaultProps, useRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
@@ -36,6 +30,7 @@ import {
 } from '../utils';
 import { ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, ARROW_UP } from '../utils/constants';
 import { enqueueFocus } from '../utils/enqueueFocus';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export const ESCAPE = 'Escape';
 
@@ -266,7 +261,7 @@ export function useListNavigation(parameters: {
   const hasMountedList = () => props.listRef.some((item) => item != null);
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (props.allowEscape) {
         if (!props.loopFocus) {
           console.warn('`useListNavigation` looping must be enabled to allow escaping.');
@@ -292,9 +287,12 @@ export function useListNavigation(parameters: {
   const parentId = useFloatingParentNodeId();
   const tree = useFloatingTree(props.externalTree);
 
-  createRenderEffect(() => {
-    dataRef().orientation = props.orientation;
-  });
+  createRenderEffect(
+    () => [dataRef(), props.orientation] as const,
+    ([data, orientation]) => {
+      data.orientation = orientation;
+    },
+  );
 
   /**
    * TODO: this needs to be memoized as it causes an infinite loop
@@ -366,107 +364,132 @@ export function useListNavigation(parameters: {
 
   // Sync `selectedIndex` to be the `activeIndex` upon opening the floating
   // element. Also, reset `activeIndex` upon closing the floating element.
-  createRenderEffect(() => {
-    if (!props.enabled) {
-      return;
-    }
-
-    if (open() && isMounted()) {
-      if (untrack(() => activeIndex()) != null) {
+  createRenderEffect(
+    () => {
+      if (!props.enabled) {
+        return { enabled: false as const };
+      }
+      return {
+        enabled: true as const,
+        isOpen: open(),
+        mounted: isMounted(),
+        currentActive: untrack(() => activeIndex()),
+        selected: props.selectedIndex,
+      };
+    },
+    (info) => {
+      if (!info.enabled) {
         return;
       }
 
-      const selected = props.selectedIndex;
-      indexRef.current = selected ?? -1;
-      if (focusItemOnOpenRef.current && selected != null) {
-        // Regardless of the pointer modality, we want to ensure the selected
-        // item comes into view when the floating element is opened.
-        forceScrollIntoViewRef.current = true;
-        onNavigate();
+      if (info.isOpen && info.mounted) {
+        if (info.currentActive != null) {
+          return;
+        }
+
+        const selected = info.selected;
+        indexRef.current = selected ?? -1;
+        if (focusItemOnOpenRef.current && selected != null) {
+          // Regardless of the pointer modality, we want to ensure the selected
+          // item comes into view when the floating element is opened.
+          forceScrollIntoViewRef.current = true;
+          onNavigate();
+        }
+      } else if (previousMountedRef.current) {
+        indexRef.current = -1;
+        previousOnNavigateRef.current();
       }
-    } else if (previousMountedRef.current) {
-      indexRef.current = -1;
-      previousOnNavigateRef.current();
-    }
-  });
+    },
+  );
 
   // Sync `activeIndex` to be the focused item while the floating element is
   // open.
-  createRenderEffect(() => {
-    if (!props.enabled) {
-      return;
-    }
-
-    if (!open()) {
-      forceSyncFocusRef.current = false;
-      return;
-    }
-
-    if (!isMounted()) {
-      return;
-    }
-
-    const idx = activeIndex();
-    if (idx == null) {
-      forceSyncFocusRef.current = false;
-
-      if (selectedIndexRef.current != null) {
+  createRenderEffect(
+    () => ({
+      enabled: props.enabled,
+      isOpen: open(),
+      mounted: isMounted(),
+      idx: activeIndex(),
+      orientation: props.orientation,
+      rtl: props.rtl,
+      nested: props.nested,
+    }),
+    (info) => {
+      if (!info.enabled) {
         return;
       }
 
-      // Reset while the floating element was open (e.g. the list changed).
-      if (previousMountedRef.current) {
-        indexRef.current = -1;
-        focusItem();
+      if (!info.isOpen) {
+        forceSyncFocusRef.current = false;
+        return;
       }
 
-      // Initial sync.
-      if (
-        (!previousOpenRef.current || !previousMountedRef.current) &&
-        focusItemOnOpenRef.current &&
-        (keyRef.current != null || (focusItemOnOpenRef.current === true && keyRef.current == null))
-      ) {
-        let runs = 0;
-        const maxRuns = 10;
-        const orientationResolved = props.orientation;
-        const rtlResolved = props.rtl;
-        const nestedResolved = props.nested;
-        const waitForListPopulated = () => {
-          if (props.listRef[0] == null) {
-            // Avoid letting the browser paint if possible on the first try,
-            // otherwise use rAF.
-            if (runs < maxRuns) {
-              const scheduler = runs ? requestAnimationFrame : queueMicrotask;
-              scheduler(waitForListPopulated);
+      if (!info.mounted) {
+        return;
+      }
+
+      const idx = info.idx;
+      if (idx == null) {
+        forceSyncFocusRef.current = false;
+
+        if (selectedIndexRef.current != null) {
+          return;
+        }
+
+        // Reset while the floating element was open (e.g. the list changed).
+        if (previousMountedRef.current) {
+          indexRef.current = -1;
+          focusItem();
+        }
+
+        // Initial sync.
+        if (
+          (!previousOpenRef.current || !previousMountedRef.current) &&
+          focusItemOnOpenRef.current &&
+          (keyRef.current != null || (focusItemOnOpenRef.current === true && keyRef.current == null))
+        ) {
+          let runs = 0;
+          const maxRuns = 10;
+          const orientationResolved = info.orientation;
+          const rtlResolved = info.rtl;
+          const nestedResolved = info.nested;
+          const waitForListPopulated = () => {
+            if (props.listRef[0] == null) {
+              // Avoid letting the browser paint if possible on the first try,
+              // otherwise use rAF.
+              if (runs < maxRuns) {
+                const scheduler = runs ? requestAnimationFrame : queueMicrotask;
+                scheduler(waitForListPopulated);
+              }
+              runs += 1;
+            } else {
+              // Keep initial keyboard-open focus in the same task.
+              forceSyncFocusRef.current = true;
+              // initially focus the first non-disabled item
+              indexRef.current =
+                keyRef.current == null ||
+                isMainOrientationToEndKey(keyRef.current, orientationResolved, rtlResolved) ||
+                nestedResolved
+                  ? getMinListIndex(props.listRef)
+                  : getMaxListIndex(props.listRef);
+              keyRef.current = null;
+              onNavigate();
             }
-            runs += 1;
-          } else {
-            // Keep initial keyboard-open focus in the same task.
-            forceSyncFocusRef.current = true;
-            // initially focus the first non-disabled item
-            indexRef.current =
-              keyRef.current == null ||
-              isMainOrientationToEndKey(keyRef.current, orientationResolved, rtlResolved) ||
-              nestedResolved
-                ? getMinListIndex(props.listRef)
-                : getMaxListIndex(props.listRef);
-            keyRef.current = null;
-            onNavigate();
-          }
-        };
+          };
 
-        waitForListPopulated();
+          waitForListPopulated();
+        }
+      } else if (!isIndexOutOfListBounds(props.listRef, idx)) {
+        indexRef.current = idx;
+        focusItem();
+        forceScrollIntoViewRef.current = false;
       }
-    } else if (!isIndexOutOfListBounds(props.listRef, idx)) {
-      indexRef.current = idx;
-      focusItem();
-      forceScrollIntoViewRef.current = false;
-    }
-  });
+    },
+  );
 
   // Ensure the parent floating element has focus when a nested child closes
   // to allow arrow key navigation to work after the pointer leaves the child.
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (
       !props.enabled ||
       open() ||
@@ -491,7 +514,7 @@ export function useListNavigation(parameters: {
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     floatingFocusElementRef.current = floatingFocusElement();
     previousOnNavigateRef.current = onNavigate;
     previousOpenRef.current = open();
@@ -501,7 +524,7 @@ export function useListNavigation(parameters: {
     resetOnPointerLeaveRef.current = props.resetOnPointerLeave;
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       keyRef.current = null;
       focusItemOnOpenRef.current = props.focusItemOnOpen;

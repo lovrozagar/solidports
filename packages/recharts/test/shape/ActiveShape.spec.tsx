@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
-import { render, fireEvent } from "@solidjs/testing-library"
-import type { JSX } from "solid-js"
+import { render, fireEvent } from "../helper/render"
+import type { JSX } from '@solidjs/web';
 import { Funnel, FunnelChart, Trapezoid, Tooltip } from "../../src"
 import type { TrapezoidProps } from "../../src"
 
@@ -176,7 +176,7 @@ const funnelActiveShapes: ActiveShapeTestParams[] = [
 	},
 ]
 
-describe.skip("Active Shape", () => {
+describe("Active Shape", () => {
 	test.each(funnelShapes)("$name", ({ element, activeClass, expectedLength }) => {
 		const { container } = render(element)
 		const customShapes = container.querySelectorAll(activeClass)

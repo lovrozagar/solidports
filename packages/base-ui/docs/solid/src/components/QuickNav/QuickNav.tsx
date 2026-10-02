@@ -1,10 +1,7 @@
-import {
-  onMount,
-  onCleanup,
-  splitProps,
-  type JSX,
-  type ParentProps,
-} from "solid-js"
+import { onSettled, onCleanup } from 'solid-js';
+import type { ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { splitProps } from '../../utils/solid-1-compat';
 import clsx from "clsx"
 import "./QuickNav.css"
 
@@ -17,11 +14,20 @@ export function Root(props: JSX.HTMLAttributes<HTMLElement> & ParentProps) {
   const [local, rest] = splitProps(props, ["class", "children"])
   let ref: HTMLElement | undefined
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!ref) return
     const cleanup = attachStickyBehavior(ref)
-    onCleanup(cleanup)
-  })
+    _c.push(cleanup)
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+})
 
   return (
     <nav

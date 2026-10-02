@@ -1,12 +1,13 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../../helper/render"
 import { BarChart, Bar, XAxis, YAxis, Legend, RadarChart, Radar, PolarAngleAxis } from "../../../src"
 import { useChartState } from "../../../src/state/useChartState"
 import { mockGetBoundingClientRect } from "../../helper/mockGetBoundingClientRect"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../../src/util/solid-1-compat';
 const data = [
 	{ name: "A", value: 100 },
 	{ name: "B", value: 200 },
@@ -96,6 +97,8 @@ describe("Phase 5 — Legend dual-writes to new chartState", () => {
 			[{ value: "injected-0", type: "line", id: "injected-0", color: "#ff0000" }],
 			[{ value: "injected-1", type: "line", id: "injected-1", color: "#0000ff" }],
 		] as never)
+
+		flush()
 
 		expect(container.textContent).toContain("injected-0")
 		expect(container.textContent).toContain("injected-1")

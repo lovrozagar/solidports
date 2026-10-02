@@ -1,4 +1,5 @@
-import { render, screen } from "@solidjs/testing-library"
+import { render, screen } from "../helper/render"
+import { flush } from "solid-js"
 import { vi } from "vitest"
 import { Surface, Text } from "../../src"
 import { mockGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
@@ -90,11 +91,10 @@ describe("<Text />", () => {
 		},
 	)
 
-	test.skip("renders object object when children are React elements", () => {
+	test("renders object object when children are React elements", () => {
 		const { container } = render(() => (
 			<Surface width={300} height={300}>
-				{/* @ts-expect-error typescript is correct here, Text doesn"t accept JSX.Element, the test is to demonstrate that */}
-				"
+				{/* @ts-expect-error typescript is correct here, Text doesn't accept JSX.Element, the test is to demonstrate that */}
 				<Text width={300} style={{ "font-family": "Courier" }}>
 					<tspan x="0" dy="1.2em">
 						Hello
@@ -109,7 +109,8 @@ describe("<Text />", () => {
 		const text = container.querySelector("text")
 		assertNotNull(text)
 		expect(text).toBeInTheDocument()
-		expect(text.textContent).toBe("[object Object],[object Object]")
+		/* elements are stringified, like upstream's "[object Object],[object Object]" */
+		expect(text.textContent).toBe("[object SVGElement],[object SVGElement]")
 	})
 
 	test("Wraps long text if not enough width", () => {
@@ -175,6 +176,8 @@ describe("<Text />", () => {
 		setTimeout(() => {
 			expect(text.textContent).toContain("0")
 		}, 1000)
+
+		flush()
 	})
 
 	test("Render 0 successfully when width is not specified", () => {
@@ -192,6 +195,8 @@ describe("<Text />", () => {
 		setTimeout(() => {
 			expect(text.textContent).toContain("0")
 		}, 1000)
+
+		flush()
 	})
 
 	test("Renders nothing when x or y is a percentage", () => {

@@ -1,4 +1,3 @@
-import { A } from "@solidjs/router"
 import { Logo } from "./Logo"
 import { SkipNav } from "./SkipNav"
 import { Search } from "./Search"
@@ -16,9 +15,9 @@ export function Header() {
     <header class="Header">
       <div class="HeaderInner">
         <SkipNav>Skip to contents</SkipNav>
-        <A href="/" class="HeaderLogoLink" aria-label="Go to the homepage">
+        <a href="/" class="HeaderLogoLink" aria-label="Go to the homepage">
           <Logo aria-label="Base UI" />
-        </A>
+        </a>
         <div class="HeaderSearch">
           <Search
             containedScroll

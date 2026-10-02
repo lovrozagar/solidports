@@ -5,6 +5,7 @@ import type { LegendState } from "./legendSlice"
 import type { BrushSettings } from "./brushSlice"
 import type { GraphicalItemId } from "./graphicalItemsSlice"
 import type { ChartDataState } from "./chartDataSlice"
+import { markRawData } from "./rawData"
 import type { ErrorBarsState } from "./errorBarSlice"
 import type { EventSettingsState } from "./eventSettingsSlice"
 import type { ChartLayoutState } from "./layoutSlice"
@@ -159,6 +160,15 @@ function makeChartDataState(): ChartDataState {
 	}
 }
 
+/** Chart data seed for a chart root; ChartDataContextProvider keeps it in sync after mount. */
+export function createInitialChartDataState(data: ChartDataState["chartData"]): ChartDataState {
+	return {
+		...makeChartDataState(),
+		chartData: markRawData(data),
+		dataEndIndex: data != null && data.length > 0 ? data.length - 1 : 0,
+	}
+}
+
 function makeEventSettingsState(): EventSettingsState {
 	return {
 		throttleDelay: "raf",
@@ -173,6 +183,37 @@ function makeLayoutState(): ChartLayoutState {
 		margin: { bottom: 5, left: 5, right: 5, top: 5 },
 		scale: 1,
 		width: 0,
+	}
+}
+
+/**
+ * Layout seed for a chart root. Report components keep the store in sync after
+ * mount; seeding lets the first render use the declared size, margin, and layout.
+ */
+export function createInitialLayoutState(seed: {
+	width?: unknown
+	height?: unknown
+	margin?: Partial<ChartLayoutState["margin"]>
+	layoutType?: ChartLayoutState["layoutType"]
+}): ChartLayoutState {
+	const layout = makeLayoutState()
+	const isPositive = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0
+	return {
+		...layout,
+		height: isPositive(seed.height) ? seed.height : layout.height,
+		layoutType: seed.layoutType ?? layout.layoutType,
+		/* Same resolution as ReportChartMargin (upstream setMargin): a provided margin
+		   fills missing sides with 0, not with the default margin. */
+		margin:
+			seed.margin == null
+				? layout.margin
+				: {
+						bottom: seed.margin.bottom ?? 0,
+						left: seed.margin.left ?? 0,
+						right: seed.margin.right ?? 0,
+						top: seed.margin.top ?? 0,
+					},
+		width: isPositive(seed.width) ? seed.width : layout.width,
 	}
 }
 
@@ -220,7 +261,7 @@ export function readChartState(store: ChartState): ChartState {
 
 /** Returns a fresh ChartState per call. Always use this to seed createStore — never share an instance. */
 export function createInitialChartState(overrides?: Partial<ChartState>): ChartState {
-	const layout = makeLayoutState()
+	const layout = overrides?.layout ?? makeLayoutState()
 	return {
 		animation: { animationDuration: 1500, animationEasing: "ease", isAnimationActive: "auto" },
 		brush: makeBrushState(),

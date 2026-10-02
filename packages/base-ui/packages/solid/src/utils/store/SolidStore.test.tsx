@@ -3,8 +3,9 @@ import { screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
-import { createStore } from 'solid-js/store';
+
 import { SolidStore as SolidStoreV2 } from './SolidStoreV2';
+import { createStore } from '../../solid-1-compat';
 
 type TestState = { value: number; label: string };
 

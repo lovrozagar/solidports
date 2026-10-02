@@ -1,6 +1,5 @@
 import { Tooltip, Treemap } from "@solidports/recharts"
-import type { Component } from "solid-js"
-
+import type { Component } from 'solid-js';
 import { treemapData } from "../data"
 
 export const TreemapChartExample: Component = () => (

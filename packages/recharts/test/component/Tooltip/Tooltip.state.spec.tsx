@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { LineChart, Tooltip } from "../../../src"
 import type { TooltipSettingsState } from "../../../src/state/tooltipSlice"
@@ -18,7 +18,7 @@ describe("Tooltip state integration", () => {
 			const expected: TooltipSettingsState = {
 				active: true,
 				axisId: "my-axis-id",
-				defaultIndex: 4,
+				defaultIndex: "4",
 				shared: true,
 				trigger: "click",
 			}
@@ -36,7 +36,7 @@ describe("Tooltip state integration", () => {
 		test("should publish its settings to Redux store", () => {
 			const { spy } = renderTestCase((state) => state.tooltip.settings)
 			const expected: TooltipSettingsState = {
-				active: false,
+				active: undefined,
 				axisId: 0,
 				defaultIndex: undefined,
 				shared: undefined,

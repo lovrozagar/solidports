@@ -1,4 +1,5 @@
-import { createMemo, type JSX } from 'solid-js';
+import { createMemo } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { FloatingDelayGroup } from '../../floating-ui-solid';
 import { TooltipProviderContext } from './TooltipProviderContext';
 
@@ -19,11 +20,11 @@ export function TooltipProvider(props: TooltipProvider.Props) {
   const delayValue = createMemo(() => ({ close: props.closeDelay, open: props.delay }));
 
   return (
-    <TooltipProviderContext.Provider value={contextValue}>
+    <TooltipProviderContext value={contextValue}>
       <FloatingDelayGroup delay={delayValue()} timeoutMs={timeout()}>
         {props.children}
       </FloatingDelayGroup>
-    </TooltipProviderContext.Provider>
+    </TooltipProviderContext>
   );
 }
 

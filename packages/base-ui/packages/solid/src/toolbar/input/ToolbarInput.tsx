@@ -1,4 +1,4 @@
-import { type ComponentProps } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
 import { ARROW_LEFT, ARROW_RIGHT, stopEvent } from '../../internals/composite/composite';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { splitComponentProps } from '../../solid-helpers';
@@ -23,7 +23,7 @@ export function ToolbarInput(componentProps: ToolbarInput.Props) {
     'children',
   ]);
   const focusableWhenDisabled = () => local.focusableWhenDisabled ?? true;
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
 
   const itemMetadata = { focusableWhenDisabled };
 

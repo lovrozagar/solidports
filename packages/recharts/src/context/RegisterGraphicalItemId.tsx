@@ -1,4 +1,5 @@
-import { createContext, useContext, type JSX } from "solid-js"
+import { createContext, useContext } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useUniqueId } from "../util/useUniqueId"
 import type { GraphicalItemId } from "../state/graphicalItemsSlice"
 
@@ -12,18 +13,18 @@ export type IdSetter = {
 	type: string
 }
 
-const GraphicalItemIdContext = createContext<GraphicalItemId | undefined>(undefined)
+const GraphicalItemIdContext = createContext<GraphicalItemId | null>(null)
 
 export const RegisterGraphicalItemId = (props: IdSetter) => {
 	/* eslint-disable-next-line solid/reactivity -- IDs are stable; useUniqueId calls useId() which must run at setup, not in a memo */
 	const resolvedId = useUniqueId(`recharts-${props.type}`, props.id)
 	return (
-		<GraphicalItemIdContext.Provider value={resolvedId}>
+		<GraphicalItemIdContext value={resolvedId}>
 			{props.children(resolvedId)}
-		</GraphicalItemIdContext.Provider>
+		</GraphicalItemIdContext>
 	)
 }
 
-export function useGraphicalItemId(): GraphicalItemId | undefined {
+export function useGraphicalItemId(): GraphicalItemId | null {
 	return useContext(GraphicalItemIdContext)
 }

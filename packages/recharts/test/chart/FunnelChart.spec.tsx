@@ -1,5 +1,7 @@
-/* @jsxImportSource solid-js */
-import { fireEvent } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { fireEvent } from "../helper/render"
+import { flush } from "solid-js"
+import { trackSpy } from "../helper/trackSpy"
 import { expect, it, vi } from "vitest"
 import { Funnel, FunnelChart } from "../../src"
 import { useChartHeight, useChartWidth, useViewBox } from "../../src/context/chartLayoutContext"
@@ -32,7 +34,7 @@ const data02 = [
 ]
 
 describe("<FunnelChart />", () => {
-	test.skip("Renders 1 funnel in simple FunnelChart", () => {
+	test("Renders 1 funnel in simple FunnelChart", () => {
 		const { container } = rechartsTestRender(() => (
 			<FunnelChart width={500} height={300}>
 				<Funnel dataKey="value" data={data} isAnimationActive={false} />
@@ -44,120 +46,124 @@ describe("<FunnelChart />", () => {
 		data.forEach(({ name }) => {
 			expect(container.querySelectorAll(`[name="${name}"]`)).toHaveLength(1)
 		})
-		test("Renders 1 funnel in FunnelChart with animation", async () => {
-			const { container, animationManager } = rechartsTestRender(() => (
-				<FunnelChart width={500} height={300}>
-					<Funnel dataKey="value" data={data} isAnimationActive animationDuration={1} />
-				</FunnelChart>
-			))
+	})
 
-			await animationManager.completeAnimation()
+	test("Renders 1 funnel in FunnelChart with animation", async () => {
+		const { container, animationManager } = rechartsTestRender(() => (
+			<FunnelChart width={500} height={300}>
+				<Funnel dataKey="value" data={data} isAnimationActive animationDuration={1} />
+			</FunnelChart>
+		))
 
-			expect(container.querySelectorAll(".recharts-funnel-trapezoid")).toHaveLength(5)
-			// all trapezoids are visible
-			expect(container.querySelectorAll(".recharts-trapezoid")).toHaveLength(5)
-		})
-		test("Renders 2 funnel in nest FunnelChart", () => {
+		await animationManager.completeAnimation()
+
+		expect(container.querySelectorAll(".recharts-funnel-trapezoid")).toHaveLength(5)
+		// all trapezoids are visible
+		expect(container.querySelectorAll(".recharts-trapezoid")).toHaveLength(5)
+	})
+	test("Renders 2 funnel in nest FunnelChart", () => {
+		const { container } = rechartsTestRender(() => (
+			<FunnelChart margin={{ bottom: 0, left: 20, right: 50, top: 20 }} width={500} height={300}>
+				<Funnel dataKey="value" data={data01} isAnimationActive={false} />
+				<Funnel dataKey="value" data={data02} isAnimationActive={false} width="80%" />
+			</FunnelChart>
+		))
+
+		expect(container.querySelectorAll(".recharts-trapezoids")).toHaveLength(2)
+		expect(container.querySelectorAll(".recharts-funnel-trapezoid")).toHaveLength(10)
+	})
+
+	;([
+		{ event: "click", prop: "onClick" },
+		{ event: "mouseEnter", prop: "onMouseEnter" },
+		{ event: "mouseMove", prop: "onMouseMove" },
+		{ event: "mouseLeave", prop: "onMouseLeave" },
+	] as const)
+	.forEach(({ prop, event }) => {
+		test(`should fire ${event} event`, () => {
+			const onEventMock = vi.fn()
+
 			const { container } = rechartsTestRender(() => (
-				<FunnelChart margin={{ bottom: 0, left: 20, right: 50, top: 20 }} width={500} height={300}>
+				<FunnelChart
+					margin={{ bottom: 0, left: 20, right: 50, top: 20 }}
+					width={500}
+					height={300}
+					{...{ [prop]: onEventMock }}
+				>
 					<Funnel dataKey="value" data={data01} isAnimationActive={false} />
 					<Funnel dataKey="value" data={data02} isAnimationActive={false} width="80%" />
 				</FunnelChart>
 			))
 
-			expect(container.querySelectorAll(".recharts-trapezoids")).toHaveLength(2)
-			expect(container.querySelectorAll(".recharts-funnel-trapezoid"))
-				.toHaveLength(10)([
-					{ event: "click", prop: "onClick" },
-					{ event: "mouseEnter", prop: "onMouseEnter" },
-					{ event: "mouseMove", prop: "onMouseMove" },
-					{ event: "mouseLeave", prop: "onMouseLeave" },
-				] as const)
-				.forEach(({ prop, event }) => {
-					test(`should fire ${event} event`, () => {
-						const onEventMock = vi.fn()
+			fireEvent[event](container.querySelectorAll(".recharts-funnel-trapezoid")[2])
 
-						const { container } = rechartsTestRender(() => (
-							<FunnelChart
-								margin={{ bottom: 0, left: 20, right: 50, top: 20 }}
-								width={500}
-								height={300}
-								{...{ [prop]: onEventMock }}
-							>
-								<Funnel dataKey="value" data={data01} isAnimationActive={false} />
-								<Funnel dataKey="value" data={data02} isAnimationActive={false} width="80%" />
-							</FunnelChart>
-						))
+			vi.runOnlyPendingTimers()
+			flush()
 
-						fireEvent[event](container.querySelectorAll(".recharts-funnel-trapezoid")[2])
+			expect(onEventMock).toHaveBeenCalled()
+		})
 
-						vi.advanceTimersByTime(0)
+	})
+	describe("FunnelChart layout context", () => {
+		it("should provide viewBox", () => {
+			const spy = vi.fn()
+			const Comp = (): null => {
+				trackSpy(spy, () => useViewBox())
+				return null
+			}
+			rechartsTestRender(() => (
+				<FunnelChart width={100} height={50} barSize={20}>
+					<Comp />
+				</FunnelChart>
+			))
 
-						expect(onEventMock).toHaveBeenCalled()
-					})
-				})
-			describe("FunnelChart layout context", () => {
-				it("should provide viewBox", () => {
-					const spy = vi.fn()
-					const Comp = (): null => {
-						spy(useViewBox())
-						return null
-					}
-					rechartsTestRender(() => (
-						<FunnelChart width={100} height={50} barSize={20}>
-							<Comp />
-						</FunnelChart>
-					))
+			expect(spy).toHaveBeenCalledWith({ height: 40, width: 90, x: 5, y: 5 })
+			expect(spy).toHaveBeenCalledTimes(1)
+		})
+		it("should provide clipPathId", () => {
+			const spy = vi.fn()
+			const Comp = (): null => {
+				trackSpy(spy, () => useClipPathId())
+				return null
+			}
+			rechartsTestRender(() => (
+				<FunnelChart width={100} height={50} barSize={20}>
+					<Comp />
+				</FunnelChart>
+			))
 
-					expect(spy).toHaveBeenCalledWith({ height: 40, width: 90, x: 5, y: 5 })
-					expect(spy).toHaveBeenCalledTimes(1)
-				})
-				it("should provide clipPathId", () => {
-					const spy = vi.fn()
-					const Comp = (): null => {
-						spy(useClipPathId())
-						return null
-					}
-					rechartsTestRender(() => (
-						<FunnelChart width={100} height={50} barSize={20}>
-							<Comp />
-						</FunnelChart>
-					))
+			expect(spy).toHaveBeenCalledWith(expect.stringMatching(/recharts\d+-clip/))
+			expect(spy).toHaveBeenCalledTimes(1)
+		})
+		it("should provide width", () => {
+			const spy = vi.fn()
+			const Comp = (): null => {
+				trackSpy(spy, () => useChartWidth())
+				return null
+			}
+			rechartsTestRender(() => (
+				<FunnelChart width={100} height={50} barSize={20}>
+					<Comp />
+				</FunnelChart>
+			))
 
-					expect(spy).toHaveBeenCalledWith(expect.stringMatching(/recharts\d+-clip/))
-					expect(spy).toHaveBeenCalledTimes(1)
-				})
-				it("should provide width", () => {
-					const spy = vi.fn()
-					const Comp = (): null => {
-						spy(useChartWidth())
-						return null
-					}
-					rechartsTestRender(() => (
-						<FunnelChart width={100} height={50} barSize={20}>
-							<Comp />
-						</FunnelChart>
-					))
+			expect(spy).toHaveBeenCalledWith(100)
+			expect(spy).toHaveBeenCalledTimes(1)
+		})
+		it("should provide height", () => {
+			const spy = vi.fn()
+			const Comp = (): null => {
+				trackSpy(spy, () => useChartHeight())
+				return null
+			}
+			rechartsTestRender(() => (
+				<FunnelChart width={100} height={50} barSize={20}>
+					<Comp />
+				</FunnelChart>
+			))
 
-					expect(spy).toHaveBeenCalledWith(100)
-					expect(spy).toHaveBeenCalledTimes(1)
-				})
-				it("should provide height", () => {
-					const spy = vi.fn()
-					const Comp = (): null => {
-						spy(useChartHeight())
-						return null
-					}
-					rechartsTestRender(() => (
-						<FunnelChart width={100} height={50} barSize={20}>
-							<Comp />
-						</FunnelChart>
-					))
-
-					expect(spy).toHaveBeenCalledWith(50)
-					expect(spy).toHaveBeenCalledTimes(1)
-				})
-			})
+			expect(spy).toHaveBeenCalledWith(50)
+			expect(spy).toHaveBeenCalledTimes(1)
 		})
 	})
 })

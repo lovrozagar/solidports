@@ -12,18 +12,9 @@ import {
 	Tooltip,
 	type TooltipPayloadEntry,
 } from "@solidports/recharts"
-import {
-	createContext,
-	createMemo,
-	createUniqueId,
-	For,
-	type JSX,
-	mergeProps,
-	Show,
-	splitProps,
-	useContext,
-} from "solid-js"
-
+import { createContext, createMemo, createUniqueId, For, Show, useContext } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { mergeProps, splitProps } from '../../../../src/util/solid-1-compat';
 import { cn } from "./utils"
 
 const THEMES = { dark: ".dark", light: "" } as const
@@ -62,7 +53,7 @@ export function ChartContainer(props: ChartContainerProps): JSX.Element {
 	const ctx: ChartContextValue = { get config() { return props.config } }
 
 	return (
-		<ChartContext.Provider value={ctx}>
+		<ChartContext value={ctx}>
 			<div
 				data-chart={chartId()}
 				class={cn(
@@ -83,7 +74,7 @@ export function ChartContainer(props: ChartContainerProps): JSX.Element {
 				<ChartStyle id={chartId()} config={props.config} />
 				<ResponsiveContainer>{props.children}</ResponsiveContainer>
 			</div>
-		</ChartContext.Provider>
+		</ChartContext>
 	)
 }
 

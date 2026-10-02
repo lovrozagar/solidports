@@ -1,4 +1,4 @@
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../helper/render"
 import { describe, expect, test, vi } from "vitest"
 import {
 	Area,
@@ -7,6 +7,8 @@ import {
 	Funnel,
 	FunnelChart,
 	Legend,
+	Line,
+	LineChart,
 	Pie,
 	PieChart,
 	Tooltip,
@@ -22,8 +24,7 @@ import {
 import { PageData } from "../_data"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
 import { clickOn } from "../helper/clickOn"
-import { createSignal } from "solid-js"
-
+import { createSignal, flush, Show } from 'solid-js';
 function assertChartA11yAttributes(svg: Element) {
 	expect(svg).not.toBeNull()
 	expect(svg).not.toBeUndefined()
@@ -67,6 +68,7 @@ function assertNoKeyboardInteractions(container: HTMLElement) {
 	assertNotNull(svg)
 	expectTooltipNotVisible(container)
 	svg.focus()
+	flush()
 	expectTooltipNotVisible(container)
 	arrowRight(svg)
 	expectTooltipNotVisible(container)
@@ -115,6 +117,7 @@ describe.each([true, undefined])(
 
 				// Once the chart receives focus, the tooltip should display
 				getMainSurface(container).focus()
+				flush()
 
 				expectTooltipPayload(container, "Page A", ["uv : 400"])
 			})
@@ -141,6 +144,7 @@ describe.each([true, undefined])(
 				const svg = container.querySelector("svg")
 				assertNotNull(svg)
 				svg.focus()
+				flush()
 				expect(tooltip).toHaveTextContent("uv : 400")
 
 				// Use keyboard to move around
@@ -175,6 +179,7 @@ describe.each([true, undefined])(
 
 				// Once the chart receives focus, the tooltip should display
 				svg.focus()
+				flush()
 				expect(tooltip).toHaveTextContent("Page A")
 
 				const cursor = container.querySelector(".recharts-tooltip-cursor")
@@ -252,6 +257,7 @@ describe.each([true, undefined])(
 
 				// Focus the chart - tooltip should appear
 				svg.focus()
+				flush()
 				expect(tooltip).toHaveTextContent("Page A")
 
 				// Navigate to another data point
@@ -260,6 +266,7 @@ describe.each([true, undefined])(
 
 				// Blur the chart - tooltip should disappear
 				svg.blur()
+				flush()
 				expect(tooltip.textContent).toBe("")
 			})
 
@@ -290,6 +297,7 @@ describe.each([true, undefined])(
 
 				// Once the chart receives focus, the tooltip should display
 				svg.focus()
+				flush()
 				expect(tooltip).toHaveTextContent("Page A")
 
 				// Ignore right arrow when you're already at the right
@@ -382,6 +390,7 @@ describe.each([true, undefined])(
 
 					// Once the chart receives focus, the tooltip should display
 					svg.focus()
+					flush()
 					expectTooltipPayload(container, "Page A", ["uv : 400"])
 
 					arrowRight(svg)
@@ -428,6 +437,99 @@ describe.each([true, undefined])(
 					// The chart only goes from A - E, so we shouldn't be able to go right any further.
 					arrowRight(svg)
 					expectTooltipPayload(container, "Page E", ["uv : 278"])
+				})
+			})
+
+			describe("arrow keys snap back into visible domain after zoom (numeric XAxis)", () => {
+				const numericData = [
+					{ name: 1, uv: 10 },
+					{ name: 2, uv: 20 },
+					{ name: 3, uv: 30 },
+					{ name: 4, uv: 40 },
+					{ name: 5, uv: 50 },
+					{ name: 6, uv: 60 },
+					{ name: 7, uv: 70 },
+					{ name: 8, uv: 80 },
+				]
+				/* rerender with a new domain is driven by a signal */
+				const renderZoomableChart = () => {
+					const [domain, setDomain] = createSignal<[number, number] | undefined>(undefined)
+					const result = render(() => (
+						<LineChart width={500} height={300} data={numericData} accessibilityLayer={accessibilityLayer}>
+							<Line dataKey="uv" />
+							<Tooltip />
+							<XAxis dataKey="name" type="number" domain={domain() ?? [1, 8]} allowDataOverflow />
+							<YAxis />
+						</LineChart>
+					))
+					const zoom = (next: [number, number]) => {
+						setDomain(next)
+						flush()
+					}
+					return { ...result, zoom }
+				}
+				test("ArrowLeft snaps from an outside-domain index to the last visible tick", () => {
+					const { container, zoom } = renderZoomableChart()
+					const svg = getMainSurface(container)
+
+					svg.focus()
+					flush()
+
+					for (let i = 0; i < 6; i++) {
+						arrowRight(svg)
+					}
+					expect(getTooltip(container)).toHaveTextContent("70") // uv of name=7
+
+					zoom([3, 6])
+
+					arrowLeft(svg)
+					const tooltipText = getTooltip(container).textContent ?? ""
+					expect(["30", "40", "50", "60"].some((v) => tooltipText.includes(v))).toBe(true)
+				})
+
+				test("ArrowRight snaps from an outside-domain index to the first visible tick", () => {
+					const { container, zoom } = renderZoomableChart()
+					const svg = getMainSurface(container)
+
+					svg.focus()
+					flush()
+
+					for (let i = 0; i < 6; i++) {
+						arrowRight(svg)
+					}
+					expect(getTooltip(container)).toHaveTextContent("70")
+
+					zoom([3, 6])
+
+					arrowRight(svg)
+					const tooltipText = getTooltip(container).textContent ?? ""
+					expect(["30", "40", "50", "60"].some((v) => tooltipText.includes(v))).toBe(true)
+				})
+
+				test("After snapping into domain, subsequent arrow presses navigate normally", () => {
+					const { container, zoom } = renderZoomableChart()
+					const svg = getMainSurface(container)
+
+					svg.focus()
+					flush()
+
+					for (let i = 0; i < 6; i++) {
+						arrowRight(svg)
+					}
+
+					zoom([3, 6])
+
+					arrowLeft(svg)
+					const afterSnapText = getTooltip(container).textContent ?? ""
+					expect(["30", "40", "50", "60"].some((v) => afterSnapText.includes(v))).toBe(true)
+
+					arrowLeft(svg)
+					const textAfter = getTooltip(container).textContent ?? ""
+					expect(["30", "40", "50", "60"].some((v) => textAfter.includes(v))).toBe(true)
+					arrowRight(svg)
+					expect(
+						["30", "40", "50", "60"].some((v) => (getTooltip(container).textContent ?? "").includes(v)),
+					).toBe(true)
 				})
 			})
 
@@ -481,6 +583,7 @@ describe.each([true, undefined])(
 
 				// Once the chart receives focus, the tooltip should display
 				svg.focus()
+				flush()
 				expect(tooltip).toHaveTextContent("Page A")
 
 				// Ignore left arrow when you're already at the left
@@ -493,7 +596,7 @@ describe.each([true, undefined])(
 
 				return (
 					<div>
-						<button type="button" onClick={() => setToggle(!toggle)}>
+						<button type="button" onClick={() => setToggle(!toggle())}>
 							Toggle
 						</button>
 
@@ -513,7 +616,9 @@ describe.each([true, undefined])(
 							<CartesianGrid strokeDasharray="3 3" />
 							<XAxis dataKey="name" />
 							<YAxis />
-							{toggle && <Tooltip />}
+							<Show when={toggle()}>
+								<Tooltip />
+							</Show>
 							<Area type="monotone" dataKey="uv" stackId="1" stroke="#8884d8" fill="#8884d8" />
 							<Area type="monotone" dataKey="pv" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
 							<Area type="monotone" dataKey="amt" stackId="1" stroke="#ffc658" fill="#ffc658" />
@@ -522,8 +627,7 @@ describe.each([true, undefined])(
 				)
 			}
 
-			/* Cluster D */
-			test.skip("When a tooltip is removed, the AccessibilityLayer does not throw", () => {
+			test("When a tooltip is removed, the AccessibilityLayer does not throw", () => {
 				const { container } = render(() => <BugExample />)
 
 				const svg = getMainSurface(container)
@@ -533,6 +637,7 @@ describe.each([true, undefined])(
 				expect(tooltip.textContent).toBe("")
 
 				svg.focus()
+				flush()
 				expect(tooltip).toHaveTextContent("Page A")
 
 				// Make sure we move around, to get the AccessibilityManager's active index above 0
@@ -541,11 +646,13 @@ describe.each([true, undefined])(
 
 				// Remove tooltip component
 				fireEvent.click(container.querySelector("button") as HTMLButtonElement)
+				flush()
 
 				expect(container.querySelector(".recharts-tooltip-wrapper")).toBeNull()
 
 				expect(() => {
 					svg.focus()
+					flush()
 					fireEvent.keyDown(svg, {
 						key: "ArrowRight",
 					})
@@ -577,8 +684,7 @@ describe.each([true, undefined])(
 				)
 			}
 
-			/* Cluster D */
-			test.skip("AccessibilityLayer respects dynamic changes to the XAxis orientation", () => {
+			test("AccessibilityLayer respects dynamic changes to the XAxis orientation", () => {
 				const { container } = render(() => <DirectionSwitcher />)
 
 				const svg = getMainSurface(container)
@@ -588,6 +694,7 @@ describe.each([true, undefined])(
 				expect(tooltip.textContent).toBe("")
 
 				svg.focus()
+				flush()
 				expect(tooltip).toHaveTextContent("Page A")
 
 				arrowRight(svg)
@@ -614,22 +721,98 @@ describe.each([true, undefined])(
 				assertChartA11yAttributes(svg)
 			})
 
-			test("does not show tooltip using keyboard", async () => {
-				const mockMouseMovements = vi.fn()
-
+			test("When chart receives focus, show the tooltip for the first sector", () => {
 				const { container } = render(() => (
-					<PieChart
-						width={100}
-						height={50}
-						accessibilityLayer={accessibilityLayer}
-						onMouseMove={mockMouseMovements}
-					>
-						<Pie dataKey="uv" data={PageData} />
+					<PieChart width={500} height={500} accessibilityLayer={accessibilityLayer}>
+						<Pie isAnimationActive={false} data={PageData} dataKey="uv" />
 						<Tooltip />
 					</PieChart>
 				))
 
-				assertNoKeyboardInteractions(container)
+				expectTooltipNotVisible(container)
+
+				const svg = getMainSurface(container)
+				svg.focus()
+				flush()
+
+				expectTooltipPayload(container, "", ["Page A : 400"])
+			})
+
+			test("Arrow keys navigate between sectors", () => {
+				const { container } = render(() => (
+					<PieChart width={500} height={500} accessibilityLayer={accessibilityLayer}>
+						<Pie isAnimationActive={false} data={PageData} dataKey="uv" />
+						<Tooltip />
+					</PieChart>
+				))
+
+				const svg = getMainSurface(container)
+				svg.focus()
+				flush()
+				expectTooltipPayload(container, "", ["Page A : 400"])
+
+				arrowRight(svg)
+				expectTooltipPayload(container, "", ["Page B : 300"])
+
+				arrowRight(svg)
+				expectTooltipPayload(container, "", ["Page C : 300"])
+
+				arrowLeft(svg)
+				expectTooltipPayload(container, "", ["Page B : 300"])
+
+				arrowLeft(svg)
+				expectTooltipPayload(container, "", ["Page A : 400"])
+			})
+
+			test("Arrow keys stop at boundaries", () => {
+				const { container } = render(() => (
+					<PieChart width={500} height={500} accessibilityLayer={accessibilityLayer}>
+						<Pie isAnimationActive={false} data={PageData} dataKey="uv" />
+						<Tooltip />
+					</PieChart>
+				))
+
+				const svg = getMainSurface(container)
+				svg.focus()
+				flush()
+				expectTooltipPayload(container, "", ["Page A : 400"])
+
+				// Cannot go left past the first item
+				arrowLeft(svg)
+				expectTooltipPayload(container, "", ["Page A : 400"])
+
+				// Navigate to the last item
+				for (let i = 0; i < PageData.length - 1; i++) {
+					arrowRight(svg)
+				}
+				expectTooltipPayload(container, "", ["Page F : 189"])
+
+				// Cannot go right past the last item
+				arrowRight(svg)
+				expectTooltipPayload(container, "", ["Page F : 189"])
+			})
+
+			test("Tooltip closes when PieChart loses focus", () => {
+				const { container } = render(() => (
+					<PieChart width={500} height={500} accessibilityLayer={accessibilityLayer}>
+						<Pie isAnimationActive={false} data={PageData} dataKey="uv" />
+						<Tooltip />
+					</PieChart>
+				))
+
+				const svg = getMainSurface(container)
+				expectTooltipNotVisible(container)
+
+				svg.focus()
+				flush()
+				expectTooltipPayload(container, "", ["Page A : 400"])
+
+				arrowRight(svg)
+				expectTooltipPayload(container, "", ["Page B : 300"])
+
+				svg.blur()
+				flush()
+				expect(getTooltip(container).textContent).toBe("")
 			})
 		})
 
@@ -650,7 +833,7 @@ describe.each([true, undefined])(
 				assertChartA11yAttributes(svg)
 			})
 
-			test("tooltip does not show when chart receives focus", () => {
+			test("When chart receives focus, show the tooltip for the first segment", () => {
 				const { container } = render(() => (
 					<FunnelChart
 						width={100}
@@ -668,10 +851,11 @@ describe.each([true, undefined])(
 				expect(tooltip).toHaveTextContent("")
 
 				getMainSurface(container).focus()
-				expect(tooltip).toHaveTextContent("")
+				flush()
+				expectTooltipPayload(container, "", ["Page A : 400"])
 			})
 
-			test("Chart does not update when it receives left/right arrow keystrokes", () => {
+			test("Chart updates when it receives left/right arrow keystrokes", () => {
 				const mockMouseMovements = vi.fn()
 
 				const { container } = render(() => (
@@ -697,44 +881,47 @@ describe.each([true, undefined])(
 
 				// Once the chart receives focus, the tooltip should display
 				svg.focus()
-				expect(tooltip).toHaveTextContent("")
+				flush()
+				expectTooltipPayload(container, "", ["Page A : 400"])
 				expect(mockMouseMovements.mock.instances).toHaveLength(0)
 
 				// Ignore left arrow when you're already at the left
 				arrowLeft(svg)
-				expect(tooltip).toHaveTextContent("")
+				expectTooltipPayload(container, "", ["Page A : 400"])
 				expect(mockMouseMovements.mock.instances).toHaveLength(0)
 
 				// Respect right arrow when there's something to the right
 				arrowRight(svg)
-				expect(tooltip).toHaveTextContent("")
+				expectTooltipPayload(container, "", ["Page B : 300"])
 				expect(mockMouseMovements.mock.instances).toHaveLength(0)
 
 				// Page C
 				arrowRight(svg)
+				expectTooltipPayload(container, "", ["Page C : 300"])
 
 				// Page D
 				arrowRight(svg)
+				expectTooltipPayload(container, "", ["Page D : 200"])
 
+				// Page E
 				arrowRight(svg)
-				expect(tooltip).toHaveTextContent("")
-				expect(mockMouseMovements.mock.instances).toHaveLength(0)
+				expectTooltipPayload(container, "", ["Page E : 278"])
 
 				// Ignore right arrow when you're already at the right
 				arrowRight(svg)
-				expect(tooltip).toHaveTextContent("")
+				expectTooltipPayload(container, "", ["Page F : 189"])
 				expect(mockMouseMovements.mock.instances).toHaveLength(0)
 
 				// Respect left arrow when there's something to the left
 				arrowLeft(svg)
-				expect(tooltip).toHaveTextContent("")
+				expectTooltipPayload(container, "", ["Page E : 278"])
 				expect(mockMouseMovements.mock.instances).toHaveLength(0)
 
 				// Chart ignores non-arrow keys
 				fireEvent.keyDown(svg, {
 					key: "a",
 				})
-				expect(tooltip).toHaveTextContent("")
+				expectTooltipPayload(container, "", ["Page E : 278"])
 				expect(mockMouseMovements.mock.instances).toHaveLength(0)
 			})
 		})
@@ -858,6 +1045,7 @@ describe("AreaChart horizontal", () => {
 		assertNotNull(svg)
 
 		svg.focus()
+		flush()
 		expectTooltipPayload(container, "Page A", ["uv : 400"])
 	})
 
@@ -869,6 +1057,7 @@ describe("AreaChart horizontal", () => {
 		assertNotNull(svg)
 
 		svg.focus()
+		flush()
 		expectTooltipPayload(container, "Page A", ["uv : 400"])
 
 		arrowRight(svg)
@@ -883,6 +1072,7 @@ describe("AreaChart horizontal", () => {
 		assertNotNull(svg)
 
 		svg.focus()
+		flush()
 		expectTooltipPayload(container, "Page A", ["uv : 400"])
 
 		arrowLeft(svg)
@@ -897,6 +1087,7 @@ describe("AreaChart horizontal", () => {
 		assertNotNull(svg)
 
 		svg.focus()
+		flush()
 		expectTooltipPayload(container, "Page A", ["uv : 400"])
 
 		arrowRight(svg)
@@ -938,14 +1129,14 @@ describe("AreaChart vertical", () => {
 
 		// Once the chart receives focus, the tooltip should display
 		getMainSurface(container).focus()
+		flush()
 
 		expectTooltipPayload(container, "Page A", ["uv : 400"])
 	})
 })
 
 describe("Multiple charts navigation", () => {
-	/* Cluster D */
-	test.skip("Tooltip closes when tabbing away from one chart to another", () => {
+	test("Tooltip closes when tabbing away from one chart to another", () => {
 		const { container } = render(() => (
 			<div>
 				<AreaChart width={100} height={50} data={PageData}>
@@ -971,27 +1162,32 @@ describe("Multiple charts navigation", () => {
 		expect(svgs).toHaveLength(2)
 		const [svg1, svg2] = svgs
 
+		const focusChart = (svg: Element) => {
+			;(svg as HTMLElement).focus()
+			flush()
+		}
+		const blurChart = (svg: Element) => {
+			;(svg as HTMLElement).blur()
+			flush()
+		}
+
 		// Initially, both tooltips should be hidden
 		expect(tooltip1?.textContent).toBe("")
-		expect(tooltip2?.textContent)
-			.toBe("")(
-				// Focus first chart
-				svg1 as HTMLElement,
-			)
-			.focus()
+		expect(tooltip2?.textContent).toBe("")
+
+		// Focus first chart
+		focusChart(svg1)
 		expect(tooltip1).toHaveTextContent("Page A")
 		expect(tooltip2?.textContent).toBe("")
 
 		// Navigate in first chart
-		arrowRight(svg1 as Element)
+		arrowRight(svg1)
 		expect(tooltip1).toHaveTextContent("Page B")
-		expect(tooltip2?.textContent)
-			.toBe("")(
-				// Blur first chart and focus second chart (simulating Tab key)
-				svg1 as HTMLElement,
-			)
-			.blur()(svg2 as HTMLElement)
-			.focus()
+		expect(tooltip2?.textContent).toBe("")
+
+		// Blur first chart and focus second chart (simulating Tab key)
+		blurChart(svg1)
+		focusChart(svg2)
 
 		// First tooltip should be hidden, second tooltip should show
 		expect(tooltip1?.textContent).toBe("")

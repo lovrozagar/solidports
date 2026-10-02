@@ -1,5 +1,8 @@
 /* eslint-disable import/no-cycle */
-import { createContext, createMemo, useContext, type JSX } from "solid-js"
+import { createContext, createMemo, untrack, useContext, type Accessor } from 'solid-js';
+import type { WithoutRemoveFalse } from "../util/types"
+import type { CamelCaseSVGAttrs } from "../util/CamelCaseSVGAttrs"
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import {
 	isValidTextAnchor,
@@ -17,12 +20,13 @@ import type {
 	TrapezoidViewBox,
 	ViewBox,
 } from "../util/types"
-import { cartesianViewBoxToTrapezoid, useViewBox } from "../context/chartLayoutContext"
+import { cartesianViewBoxToTrapezoid } from "../cartesian/cartesianViewBoxToTrapezoid"
 import { useChartStore } from "../state/RechartsStoreContext"
 import { selectPolarViewBox } from "../state/selectors/polarAxisSelectors"
+import { selectChartViewBox } from "../state/selectors/selectChartOffsetInternal"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { svgPropertiesAndEvents } from "../util/svgPropertiesAndEvents"
-import { isJsxNode } from "../util/ReactUtils"
+import { cloneJsxNodeWithProps, isJsxNode } from "../util/ReactUtils"
 import type { ZIndexable } from "../zIndex/ZIndexLayer"
 import { ZIndexLayer } from "../zIndex/ZIndexLayer"
 import { DefaultZIndexes } from "../zIndex/DefaultZIndexes"
@@ -130,11 +134,13 @@ interface LabelProps extends ZIndexable {
 	id?: string
 }
 
-export type Props = LabelProps & {
-	textAnchor?: string
-	fill?: string
-	[key: string]: unknown
-}
+export type Props = WithoutRemoveFalse<
+	Omit<JSX.TextSVGAttributes<SVGTextElement>, "viewBox" | "children" | "ref" | "style">
+> &
+	CamelCaseSVGAttrs &
+	LabelProps & {
+		style?: JSX.CSSProperties
+	}
 
 type PropsWithDefaults = Props & {
 	offset: number
@@ -149,7 +155,25 @@ export type ImplicitLabelType =
 	/* dataKey is only applicable when label is used implicitly from graphical element props */
 	| (Props & { dataKey?: DataKey<unknown> })
 
-const CartesianLabelContext = createContext<TrapezoidViewBox | null>(null)
+type LabelContextValue<T> = Accessor<T> | T
+
+/**
+ * Solid 2 `createContext` stores `props.value` as a one-shot snapshot. Passing a
+ * memo accessor keeps the value live; the compiler may also unwrap that accessor
+ * before the snapshot, so consumers must accept either an accessor or the box.
+ */
+function readMaybeAccessor<T>(value: LabelContextValue<T> | null | undefined): T | undefined {
+	if (value == null) {
+		return undefined
+	}
+	let current: unknown = value
+	for (let i = 0; i < 2 && typeof current === "function"; i++) {
+		current = (current as Accessor<unknown>)()
+	}
+	return current as T
+}
+
+const CartesianLabelContext = createContext<LabelContextValue<TrapezoidViewBox> | null>(null)
 
 export function CartesianLabelContextProvider(props: TrapezoidViewBox & { children: JSX.Element }) {
 	const viewBox = createMemo(
@@ -162,26 +186,30 @@ export function CartesianLabelContextProvider(props: TrapezoidViewBox & { childr
 			y: props.y,
 		}),
 	)
-	/* eslint-disable solid/reactivity -- viewBox() in JSX Provider value; reactive via Solid's JSX transform */
-	return (
-		<CartesianLabelContext.Provider value={viewBox()}>
-			{props.children}
-		</CartesianLabelContext.Provider>
-	)
-	/* eslint-enable solid/reactivity */
+	return <CartesianLabelContext value={viewBox}>{props.children}</CartesianLabelContext>
 }
 
 const useCartesianLabelContext = (): TrapezoidViewBox | undefined => {
 	const labelChildContext = useContext(CartesianLabelContext)
-	const cc = useViewBox()
-	return labelChildContext || (cc ? cartesianViewBoxToTrapezoid(cc) : undefined)
+	const ctx = useChartStore()
+	if (labelChildContext != null) {
+		return untrack(() => readMaybeAccessor(labelChildContext))
+	}
+	const rootViewBox = ctx ? selectChartViewBox(ctx.store) : undefined
+	return rootViewBox ? cartesianViewBoxToTrapezoid(rootViewBox) : undefined
 }
 
-const PolarLabelContext = createContext<PolarViewBoxRequired | null>(null)
+const PolarLabelContext = createContext<LabelContextValue<PolarViewBoxRequired | undefined> | null>(null)
 
-export function PolarLabelContextProvider(props: PolarViewBoxRequired & { children: JSX.Element }) {
+/**
+ * `pending` keeps the context present but empty: polar labels inside wait (render nothing)
+ * instead of falling back to the chart viewBox, e.g. a Pie whose sectors are not known yet.
+ */
+export function PolarLabelContextProvider(
+	props: PolarViewBoxRequired & { children: JSX.Element; pending?: boolean },
+) {
 	const viewBox = createMemo(
-		(): PolarViewBoxRequired => ({
+		(): PolarViewBoxRequired | undefined => props.pending ? undefined : ({
 			clockWise: props.clockWise,
 			cx: props.cx,
 			cy: props.cy,
@@ -191,16 +219,16 @@ export function PolarLabelContextProvider(props: PolarViewBoxRequired & { childr
 			startAngle: props.startAngle,
 		}),
 	)
-	/* eslint-disable solid/reactivity -- viewBox() in JSX Provider value; reactive via Solid's JSX transform */
-	return <PolarLabelContext.Provider value={viewBox()}>{props.children}</PolarLabelContext.Provider>
-	/* eslint-enable solid/reactivity */
+	return <PolarLabelContext value={viewBox}>{props.children}</PolarLabelContext>
 }
 
 export const usePolarLabelContext = (): PolarViewBoxRequired | undefined => {
 	const labelChildContext = useContext(PolarLabelContext)
 	const ctx = useChartStore()
-	const chartContext = ctx ? selectPolarViewBox(ctx.store) : undefined
-	return labelChildContext || chartContext
+	if (labelChildContext != null) {
+		return untrack(() => readMaybeAccessor(labelChildContext))
+	}
+	return ctx ? selectPolarViewBox(ctx.store) : undefined
 }
 
 /* eslint-disable solid/reactivity -- plain utility fn; Props parameter is not a Solid reactive proxy at this call site */
@@ -389,16 +417,45 @@ export function Label(outerProps: Props): JSX.Element | null {
 		outerProps,
 		defaultLabelProps,
 	) as PropsWithDefaults
-	const polarViewBox = usePolarLabelContext()
-	const cartesianViewBox = useCartesianLabelContext()
+	const polarContext = useContext(PolarLabelContext)
+	const cartesianContext = useContext(CartesianLabelContext)
+	const ctx = useChartStore()
+	const polarViewBox = createMemo(() => {
+		if (polarContext != null) {
+			return readMaybeAccessor(polarContext)
+		}
+		return ctx ? selectPolarViewBox(ctx.store) : undefined
+	})
+	const cartesianViewBox = createMemo(() => {
+		if (cartesianContext != null) {
+			return readMaybeAccessor(cartesianContext)
+		}
+		const rootViewBox = ctx ? selectChartViewBox(ctx.store) : undefined
+		return rootViewBox ? cartesianViewBoxToTrapezoid(rootViewBox) : undefined
+	})
 
+	const output = createMemo(() => {
 	/*
 	 * I am not proud about this solution, but it's a quick fix for https://github.com/recharts/recharts/issues/6030#issuecomment-3155352460.
 	 * What we should really do is split Label into two components: CartesianLabel and PolarLabel and then handle their respective viewBoxes separately.
 	 * Also other components should set its own viewBox in a context so that we can fix https://github.com/recharts/recharts/issues/6156
 	 */
-	const resolvedViewBox =
-		props.position === "center" ? cartesianViewBox : (polarViewBox ?? cartesianViewBox)
+	const polar = polarViewBox()
+	const cartesian = cartesianViewBox()
+	/*
+	 * When PolarLabelContext is present, wait for the polar box. Falling back to
+	 * the chart cartesian trapezoid makes custom `content` see `innerRadius: undefined`.
+	 */
+	const resolveViewBox = () => {
+		if (props.position === "center") {
+			return cartesian
+		}
+		if (polarContext != null) {
+			return polar
+		}
+		return polar ?? cartesian
+	}
+	const resolvedViewBox = resolveViewBox()
 
 	let viewBox: PolarViewBoxRequired | TrapezoidViewBox | undefined
 	if (props.viewBox == null) {
@@ -411,123 +468,30 @@ export function Label(outerProps: Props): JSX.Element | null {
 
 	const cartesianBox = polarViewBoxToTrapezoid(viewBox)
 
-	/* `content` prop is typed as ReactElement | function. Primitives passed through
-	   (string/number/boolean) are not renderable elements — match upstream behavior
-	   of rejecting them when no value/children provided. Solid has no isValidElement,
-	   so check for function or non-primitive object (Node / JSX result). */
-	const isElementLikeContent =
-		props.content != null &&
-		(typeof props.content === "function" || typeof props.content === "object")
+	/* Solid has no isValidElement: an element is a Node (or a component's render accessor). */
+	const content = props.content
+	const isElementContent = isJsxNode(content)
 	if (
 		!viewBox ||
 		(isNullish(props.value) &&
 			isNullish(props.children) &&
-			typeof props.content !== "function" &&
-			!isElementLikeContent)
+			!isElementContent &&
+			typeof content !== "function")
 	) {
 		return null
 	}
 
-	const propsWithViewBox = {
-		...props,
-		viewBox,
-	}
+	// TODO: Generic Polar Hook
+	const isRadialPolarLabel =
+		isPolar(viewBox) &&
+		(props.position === "insideStart" || props.position === "insideEnd" || props.position === "end")
 
-	if (typeof props.content === "function") {
-		const { content: _, ...propsForContent } = propsWithViewBox
-		/* React's createElement(content, props) calls function components with
-		   (props, legacyContext={}). Tests are 1:1 ports so they assert the
-		   two-arg shape. Solid has no legacy context so pass an empty object. */
-		const label = (props.content as (p: Record<string, unknown>, legacyCtx: Record<string, never>) => RenderableText | JSX.Element)(propsForContent, {})
-
-		/* If the function returned a JSX Element (object), return it directly */
-		if (label != null && typeof label === "object") {
-			return label as JSX.Element
-		}
-
-		/* Otherwise it returned renderable text, fall through to text rendering */
-		const attrs = svgPropertiesAndEvents({ ...props })
-		let positionAttrs: LabelPositionAttributes
-
-		if (isPolar(viewBox)) {
-			if (
-				props.position === "insideStart" ||
-				props.position === "insideEnd" ||
-				props.position === "end"
-			) {
-				return renderRadialLabel(props, props.position, label as RenderableText, attrs, viewBox)
-			}
-			positionAttrs = getAttrsOfPolarLabel(viewBox, props.offset, props.position)
-		} else {
-			if (!cartesianBox) {
-				return null
-			}
-			const cartesianResult = getCartesianPosition({
-				clamp: true,
-				offset: props.offset,
-				parentViewBox: isPolar(props.parentViewBox) ? undefined : props.parentViewBox,
-				position: props.position,
-				viewBox: cartesianBox,
-			})
-
-			positionAttrs = {
-				textAnchor: cartesianResult.horizontalAnchor,
-				verticalAnchor: cartesianResult.verticalAnchor,
-				x: cartesianResult.x,
-				y: cartesianResult.y,
-				...(cartesianResult.width !== undefined ? { width: cartesianResult.width } : {}),
-				...(cartesianResult.height !== undefined ? { height: cartesianResult.height } : {}),
-			}
-		}
-
-		return (
-			<ZIndexLayer zIndex={props.zIndex}>
-				<Text
-					ref={props.labelRef}
-					className={clsx("recharts-label", props.className ?? "")}
-					{...attrs}
-					{...positionAttrs}
-					textAnchor={
-						isValidTextAnchor(props.textAnchor) ? props.textAnchor : positionAttrs.textAnchor
-					}
-					breakAll={props.textBreakAll}
-				>
-					{label as RenderableText}
-				</Text>
-			</ZIndexLayer>
-		)
-	}
-
-	/* content is a JSX element -- render it with merged props.
-	   Primitives (string/number/boolean) are NOT valid elements per upstream contract;
-	   they're filtered earlier alongside null. */
-	if (
-		props.content != null &&
-		typeof props.content !== "string" &&
-		typeof props.content !== "number" &&
-		typeof props.content !== "boolean"
-	) {
-		return props.content as JSX.Element
-	}
-
-	const label = getLabel(props)
-
-	const attrs = svgPropertiesAndEvents({ ...props })
-	let positionAttrs: LabelPositionAttributes
-
+	let positionAttrs: LabelPositionAttributes | undefined
 	if (isPolar(viewBox)) {
-		if (
-			props.position === "insideStart" ||
-			props.position === "insideEnd" ||
-			props.position === "end"
-		) {
-			return renderRadialLabel(props, props.position, label, attrs, viewBox)
+		if (!isRadialPolarLabel) {
+			positionAttrs = getAttrsOfPolarLabel(viewBox, props.offset, props.position)
 		}
-		positionAttrs = getAttrsOfPolarLabel(viewBox, props.offset, props.position)
-	} else {
-		if (!cartesianBox) {
-			return null
-		}
+	} else if (cartesianBox) {
 		const cartesianResult = getCartesianPosition({
 			clamp: true,
 			offset: props.offset,
@@ -544,6 +508,52 @@ export function Label(outerProps: Props): JSX.Element | null {
 			...(cartesianResult.width !== undefined ? { width: cartesianResult.width } : {}),
 			...(cartesianResult.height !== undefined ? { height: cartesianResult.height } : {}),
 		}
+	}
+
+	/*
+	 * Custom content receives the computed x and y too, so that custom labels
+	 * can be positioned the same way the built-in Text label is. Explicitly
+	 * passed props win over the computed values. Only x and y are forwarded (not
+	 * the anchors): a custom label that spreads its props into a nested Label
+	 * would otherwise have that Label's own computed anchors overridden.
+	 * https://github.com/recharts/recharts/issues/5067
+	 */
+	const propsWithViewBox: Record<string, unknown> = {
+		...(positionAttrs?.x !== undefined ? { x: positionAttrs.x } : {}),
+		...(positionAttrs?.y !== undefined ? { y: positionAttrs.y } : {}),
+		...props,
+		viewBox,
+	}
+
+	if (isElementContent) {
+		/* upstream: cloneElement(content, props) */
+		const { labelRef: _ref, children: _children, content: _content, ...propsWithoutLabelRef } = propsWithViewBox
+		return cloneJsxNodeWithProps(content as Node, propsWithoutLabelRef) as unknown as JSX.Element
+	}
+
+	let label: RenderableText
+	if (typeof content === "function") {
+		const { content: _, ...propsForContent } = propsWithViewBox
+		/* React's createElement(content, props) calls function components with
+		   (props, legacyContext={}). Tests are 1:1 ports so they assert the
+		   two-arg shape. Solid has no legacy context so pass an empty object. */
+		const rendered = (content as (p: Record<string, unknown>, legacyCtx: Record<string, never>) => RenderableText | JSX.Element)(propsForContent, {})
+		if (rendered != null && typeof rendered === "object") {
+			return rendered as JSX.Element
+		}
+		label = rendered as RenderableText
+	} else {
+		label = getLabel(props)
+	}
+
+	const attrs = svgPropertiesAndEvents({ ...props })
+
+	if (isRadialPolarLabel && isPolar(viewBox)) {
+		return renderRadialLabel(props, props.position as PolarLabelPosition, label, attrs, viewBox)
+	}
+
+	if (positionAttrs == null) {
+		return null
 	}
 
 	return (
@@ -566,6 +576,9 @@ export function Label(outerProps: Props): JSX.Element | null {
 			</Text>
 		</ZIndexLayer>
 	)
+	})
+
+	return output as unknown as JSX.Element
 }
 
 Label.displayName = "Label"
@@ -611,17 +624,13 @@ export function CartesianLabelFromLabelProp(props: {
 	label: ImplicitLabelType | undefined
 	labelRef?: SVGTextElement | ((el: SVGTextElement) => void)
 }): JSX.Element | null {
-	const viewBox = useCartesianLabelContext()
-
-	/* eslint-disable-next-line solid/reactivity -- label/labelRef are structural props; parseLabel evaluates once at mount */
-	return parseLabel(props.label, viewBox, props.labelRef) || null
+	return (
+		untrack(() => parseLabel(props.label, useCartesianLabelContext(), props.labelRef)) || null
+	)
 }
 
 export function PolarLabelFromLabelProp(props: {
 	label: ImplicitLabelType | undefined
 }): JSX.Element | null {
-	const viewBox = usePolarLabelContext()
-
-	/* eslint-disable-next-line solid/reactivity -- label is a structural prop; parseLabel evaluates once at mount */
-	return parseLabel(props.label, viewBox) || null
+	return untrack(() => parseLabel(props.label, usePolarLabelContext())) || null
 }

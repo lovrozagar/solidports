@@ -61,7 +61,7 @@ export function NavigationMenuLink(componentProps: NavigationMenuLink.Props) {
         setValue(null, createChangeEventDetails(REASONS.linkPress, event));
       }
     },
-    tabIndex: undefined,
+    tabindex: undefined,
   };
 
   return (

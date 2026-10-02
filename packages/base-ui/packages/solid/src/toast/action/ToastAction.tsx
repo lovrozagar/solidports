@@ -12,7 +12,7 @@ import { useToastRootContext } from '../root/ToastRootContext';
  */
 export function ToastAction(componentProps: ToastAction.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
-  const nativeButton = () => local.nativeButton ?? true;
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   const { toast } = useToastRootContext();
 

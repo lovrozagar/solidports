@@ -1,7 +1,9 @@
-/* @jsxImportSource solid-js */
-import { createSignal, type Component, type JSX } from "solid-js"
+/* @jsxImportSource @solidjs/web */
+import { createSignal, flush } from "solid-js";
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../../helper/render"
 import { BarChart, Customized, Line, LineChart, XAxis } from "../../../src"
 import { ExpectAxisDomain, expectXAxisTicks } from "../../helper/expectAxisTicks"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
@@ -290,7 +292,7 @@ describe("numerical domain", () => {
 			])
 			expectLastCalledWith(spy, [-500, 500])
 		})
-		it.skip("should shrink down, but respect the data domain, if the provided domain is smaller than the data", () => {
+		it("should shrink down, but respect the data domain, if the provided domain is smaller than the data", () => {
 			const spy = vi.fn()
 			const [domain, setDomain] = createSignal<[number, number]>([-100, 100])
 			const { container } = render(() => (
@@ -309,6 +311,7 @@ describe("numerical domain", () => {
 			expectLastCalledWith(spy, [-100, 170])
 
 			setDomain([130, 175])
+			flush()
 			expectXAxisTicks(container, [
 				{ textContent: "90", x: "5", y: "273" },
 				{ textContent: "115", x: "90.29411764705883", y: "273" },
@@ -318,12 +321,8 @@ describe("numerical domain", () => {
 			])
 			expectLastCalledWith(spy, [90, 175])
 
-			rerender(() => (
-				<Component>
-					<XAxis dataKey="x" type="number" domain={[130, 150]} />
-					<ExpectAxisDomain assert={spy} axisType="xAxis" />
-				</Component>
-			))
+			setDomain([130, 150])
+			flush()
 			expectXAxisTicks(container, [
 				{ textContent: "90", x: "5", y: "273" },
 				{ textContent: "110", x: "77.5", y: "273" },
@@ -614,18 +613,52 @@ describe("numerical domain", () => {
 			])
 			expectLastCalledWith(spy, [90, 170])
 		})
-		it.skip("should allow a function that returns a domain, and pass inside a computed domain and allowDataOverflow prop", () => {
+		it("should allow a function that returns a domain, and pass inside a computed domain and allowDataOverflow prop", () => {
 			const reduxDomainSpy = vi.fn()
 			const domainPropSpy = vi.fn()
 			domainPropSpy.mockReturnValue([-500, 500])
-			const { container, rerender } = render(() => (
+			const [overflow, setOverflow] = createSignal(true)
+			const { container } = render(() => (
 				<Component>
-					<XAxis dataKey="x" type="number" domain={domainPropSpy} allowDataOverflow />
+					<XAxis dataKey="x" type="number" domain={domainPropSpy} allowDataOverflow={overflow()} />
 					<Customized
 						component={() => <ExpectAxisDomain assert={reduxDomainSpy} axisType="xAxis" />}
 					/>
 				</Component>
 			))
+			expectXAxisTicks(container, [
+				{
+					textContent: "-500",
+					x: "5",
+					y: "273",
+				},
+				{
+					textContent: "-250",
+					x: "77.5",
+					y: "273",
+				},
+				{
+					textContent: "0",
+					x: "150",
+					y: "273",
+				},
+				{
+					textContent: "250",
+					x: "222.5",
+					y: "273",
+				},
+				{
+					textContent: "500",
+					x: "295",
+					y: "273",
+				},
+			])
+			/* one call per distinct input (upstream: one per reselect selector that evaluates it) */
+			expect(domainPropSpy).toHaveBeenCalledTimes(1)
+			expect(domainPropSpy).toHaveBeenCalledWith([90, 170], true)
+
+			setOverflow(false)
+			flush()
 			expectXAxisTicks(container, [
 				{
 					textContent: "-500",
@@ -654,48 +687,10 @@ describe("numerical domain", () => {
 				},
 			])
 			expect(domainPropSpy).toHaveBeenCalledTimes(2)
-			expect(domainPropSpy).toHaveBeenCalledWith([90, 170], true)
-
-			rerender(() => (
-				<Component>
-					<XAxis dataKey="x" type="number" domain={domainPropSpy} allowDataOverflow={false} />
-					<Customized
-						component={() => <ExpectAxisDomain assert={reduxDomainSpy} axisType="xAxis" />}
-					/>
-				</Component>
-			))
-			expectXAxisTicks(container, [
-				{
-					textContent: "-500",
-					x: "5",
-					y: "273",
-				},
-				{
-					textContent: "-250",
-					x: "77.5",
-					y: "273",
-				},
-				{
-					textContent: "0",
-					x: "150",
-					y: "273",
-				},
-				{
-					textContent: "250",
-					x: "222.5",
-					y: "273",
-				},
-				{
-					textContent: "500",
-					x: "295",
-					y: "273",
-				},
-			])
-			expect(domainPropSpy).toHaveBeenCalledTimes(4)
 			expect(domainPropSpy).toHaveBeenLastCalledWith([90, 170], false)
 			expect(reduxDomainSpy).toHaveBeenLastCalledWith([-500, 500])
 		})
-		it.skip(`should allow array of functions,
+		it(`should allow array of functions,
               and give them first and last elements of the data domain
               - but this time, no allowDataOverflow parameter!`, () => {
 			const reduxDomainSpy = vi.fn()
@@ -736,8 +731,8 @@ describe("numerical domain", () => {
 					y: "273",
 				},
 			])
-			expect(spyMin).toHaveBeenCalledTimes(2)
-			expect(spyMax).toHaveBeenCalledTimes(2)
+			expect(spyMin).toHaveBeenCalledTimes(1)
+			expect(spyMax).toHaveBeenCalledTimes(1)
 			expect(spyMin).toHaveBeenLastCalledWith(90)
 			expect(spyMax).toHaveBeenLastCalledWith(170)
 			expect(reduxDomainSpy).toHaveBeenLastCalledWith([-500, 500])
@@ -1344,6 +1339,35 @@ describe("interval", () => {
 				y: "273",
 			},
 		])
+	})
+
+	describe("XAxis ticks should be evenly spaced with type=number and clustered data", () => {
+		const clusteredData = [
+			{ x: 1, y: 10 },
+			{ x: 2, y: 20 },
+			{ x: 3, y: 30 },
+			{ x: 100, y: 40 },
+		]
+
+		it("should render evenly spaced ticks even when data is highly clustered", () => {
+			const spy = vi.fn()
+			const { container } = render(() => (
+				<BarChart width={300} height={300} data={clusteredData}>
+					<XAxis dataKey="x" type="number" />
+					<Customized component={() => <ExpectAxisDomain assert={spy} axisType="xAxis" />} />
+				</BarChart>
+			))
+
+			// Ticks should be evenly spaced at nice values, not at data positions (1, 2, 3, 100)
+			expectXAxisTicks(container, [
+				{ textContent: "0", x: "5", y: "273" },
+				{ textContent: "25", x: "77.5", y: "273" },
+				{ textContent: "50", x: "150", y: "273" },
+				{ textContent: "75", x: "222.5", y: "273" },
+				{ textContent: "100", x: "295", y: "273" },
+			])
+			expectLastCalledWith(spy, [0, 100])
+		})
 	})
 	it("should attempt to show the ticks end with interval = preserveEnd", () => {
 		const { container } = render(() => (

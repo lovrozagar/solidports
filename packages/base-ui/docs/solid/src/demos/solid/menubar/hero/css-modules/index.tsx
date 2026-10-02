@@ -1,5 +1,4 @@
-import { type JSX } from 'solid-js';
-const React = { forwardRef: (render) => (props) => render(props, props.ref), useActionState: (_action, initial) => [initial, () => {}, false] };
+import type { JSX } from '@solidjs/web';
 
 
 import { Menubar } from '@solidports/base-ui/menubar';
@@ -132,7 +131,7 @@ export default function ExampleMenubar() {
   );
 }
 
-function handleClick(event: React.MouseEvent<HTMLElement>) {
+function handleClick(event: MouseEvent & { currentTarget: HTMLElement }) {
   // eslint-disable-next-line no-console
   console.log(`${event.currentTarget.textContent} clicked`);
 }

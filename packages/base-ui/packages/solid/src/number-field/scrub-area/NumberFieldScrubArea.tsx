@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import { createGenericEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isFirefox, isWebKit } from '../../utils/detectBrowser';
@@ -59,7 +59,7 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
   const [isPointerLockDenied, setIsPointerLockDenied] = createSignal(false);
   const [isScrubbing, setIsScrubbing] = createSignal(false);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!isScrubbing() || !scrubAreaCursorRef.current) {
       return;
     }
@@ -128,7 +128,10 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
     updateCursorTransform(initialCoords.x, initialCoords.y);
   };
 
-  createEffect(function registerGlobalScrubbingEventListeners() {
+  createTrackedEffect(function registerGlobalScrubbingEventListeners() {
+    const _c: Array<() => void> = [];
+    (() => {
+
     // Only listen while actively scrubbing; avoids unrelated pointerup events committing.
     if (!inputRef.current || disabled() || readOnly() || !isScrubbing()) {
       return;
@@ -207,15 +210,24 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
     win.addEventListener('pointerup', handleScrubPointerUp, true);
     win.addEventListener('pointermove', handleScrubPointerMove, true);
 
-    onCleanup(() => {
+    _c.push(() => {
       exitPointerLockTimeout.clear();
       win.removeEventListener('pointerup', handleScrubPointerUp, true);
       win.removeEventListener('pointermove', handleScrubPointerMove, true);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   // Prevent scrolling using touch input when scrubbing.
-  createEffect(function registerScrubberTouchPreventListener() {
+  createTrackedEffect(function registerScrubberTouchPreventListener() {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const element = scrubAreaRef.current;
     if (!element || disabled() || readOnly()) {
       return;
@@ -229,10 +241,16 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
 
     element.addEventListener('touchstart', handleTouchStart);
 
-    onCleanup(() => {
+    _c.push(() => {
       element.removeEventListener('touchstart', handleTouchStart);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const defaultProps: HTMLProps = {
     async onPointerDown(event) {
@@ -300,9 +318,9 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
   };
 
   return (
-    <NumberFieldScrubAreaContext.Provider value={contextValue}>
+    <NumberFieldScrubAreaContext value={contextValue}>
       {element()}
-    </NumberFieldScrubAreaContext.Provider>
+    </NumberFieldScrubAreaContext>
   );
 }
 

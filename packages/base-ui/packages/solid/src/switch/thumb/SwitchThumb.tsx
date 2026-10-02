@@ -1,4 +1,4 @@
-import { mergeProps as solidMergeProps } from 'solid-js';
+
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
@@ -6,6 +6,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import type { SwitchRoot } from '../root/SwitchRoot';
 import { useSwitchRootContext } from '../root/SwitchRootContext';
 import { stateAttributesMapping } from '../stateAttributesMapping';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * The movable part of the switch that indicates whether the switch is on or off.

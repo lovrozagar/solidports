@@ -1,4 +1,4 @@
-import { createEffect } from 'solid-js';
+import { createTrackedEffect } from 'solid-js';
 import { safePolygon, useFocus, useHoverReferenceInteraction } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
 import { useTriggerDataForwarding } from '../../utils/popups';
@@ -60,7 +60,7 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
     },
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (isMountedByThisTrigger()) {
       store.context.closeDelayRef.current = closeDelayWithDefault();
     }

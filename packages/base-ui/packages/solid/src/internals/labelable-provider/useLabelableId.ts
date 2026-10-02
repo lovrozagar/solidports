@@ -1,5 +1,5 @@
 import { isElement } from '@floating-ui/utils/dom';
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { access, type MaybeAccessor } from '../../solid-helpers';
 import { NOOP } from '../../utils/noop';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -29,24 +29,26 @@ export function useLabelableId(params: useLabelableId.Parameters = {}) {
     registerControlId(controlSourceRef, undefined);
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (registerControlId === NOOP) {
       return;
     }
 
     let nextId: string | null | undefined;
+    const rawId = id();
+    const explicitId = typeof rawId === 'string' ? rawId : undefined;
 
     if (implicit()) {
       const elem = controlRef();
 
       if (isElement(elem) && elem.closest('label') != null) {
-        nextId = id() ?? null;
+        nextId = explicitId ?? null;
       } else {
         nextId = controlIdForEffect() ?? defaultId();
       }
-    } else if (id() != null) {
+    } else if (explicitId != null) {
       hadExplicitIdRef = true;
-      nextId = id();
+      nextId = explicitId;
     } else if (hadExplicitIdRef) {
       nextId = defaultId();
     } else {
@@ -73,7 +75,7 @@ export function useLabelableId(params: useLabelableId.Parameters = {}) {
 }
 
 export interface UseLabelableIdParameters {
-  id?: MaybeAccessor<string | undefined>;
+  id?: MaybeAccessor<string | false | undefined>;
   /**
    * Whether implicit labelling is supported.
    * @default false

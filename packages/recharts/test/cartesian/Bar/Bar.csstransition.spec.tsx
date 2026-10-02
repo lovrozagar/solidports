@@ -1,11 +1,12 @@
-import { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { flush } from "solid-js"
 import { beforeEach, describe, expect, it, Mock, vi } from "vitest"
-import { fireEvent } from "@solidjs/testing-library"
+import { fireEvent } from "../../helper/render"
 import { generateMockData } from "../../_data/generateMockData"
 import { Bar, BarChart, BarShapeProps, DefaultZIndexes, Tooltip, XAxis } from "../../../src"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { expectActiveBars, expectBars, ExpectedBar } from "../../helper/expectBars"
-import { hideTooltip, showTooltip } from "../../component/Tooltip/tooltipTestHelpers"
+import { hideTooltip, showTooltip, showTooltipOnCoordinate } from "../../component/Tooltip/tooltipTestHelpers"
 import { barChartMouseHoverTooltipSelector } from "../../component/Tooltip/tooltipMouseHoverSelectors"
 import { mockGetBoundingClientRect } from "../../helper/mockGetBoundingClientRect"
 import { expectNthCalledWith } from "../../helper/expectLastCalledWith"
@@ -44,8 +45,7 @@ describe("Bar CSS transitions", () => {
 			</BarChart>
 		))
 
-		/* Cluster B + sibling-mount-order: mouse-event firing on Bar requires React render-cycle. */
-		it.skip("should ignore mouse events and only render inactive shapes - this is performance optimization", () => {
+		it("should ignore mouse events and only render inactive shapes - this is performance optimization", () => {
 			const { container } = renderTestCase()
 
 			expectBars(container, expectedBars)
@@ -58,8 +58,7 @@ describe("Bar CSS transitions", () => {
 		})
 	})
 	describe("width activeBar=true", () => {
-		/* Cluster B */
-		it.skip("should render active shapes on mouse over to give it a chance to start its CSS transition", () => {
+		it("should render active shapes on mouse over to give it a chance to start its CSS transition", () => {
 			const renderTestCase = createSelectorTestCase((props) => (
 				<BarChart width={400} height={400} data={generateMockData(2, 10)}>
 					<Bar dataKey="y" isAnimationActive={false} activeBar />
@@ -113,7 +112,8 @@ describe("Bar CSS transitions", () => {
 			).toHaveLength(1)
 			expect(container.querySelectorAll(`.recharts-bar-rectangle`)).toHaveLength(2)
 
-			vi.advanceTimersByTime(0)
+			vi.runOnlyPendingTimers()
+			flush()
 
 			expect(
 				container.querySelectorAll(
@@ -158,7 +158,8 @@ describe("Bar CSS transitions", () => {
 			).toHaveLength(1)
 			expect(container.querySelectorAll(`.recharts-bar-rectangle`)).toHaveLength(2)
 
-			vi.advanceTimersByTime(0)
+			vi.runOnlyPendingTimers()
+			flush()
 
 			/*
 			 * Now comes a twist: rendering alone does nothing. Recharts is now waiting for the CSS transition to finish.
@@ -210,8 +211,7 @@ describe("Bar CSS transitions", () => {
 			).toHaveLength(0)
 			expect(container.querySelectorAll(`.recharts-bar-rectangle`)).toHaveLength(2)
 		})
-		/* Cluster B */
-		it.skip("should call the shape renderer with isActive=true for active bars", () => {
+		it("should call the shape renderer with isActive=true for active bars", () => {
 			const shapeSpy: Mock<(props: BarShapeProps) => JSX.Element> = vi.fn()
 			const renderTestCase = createSelectorTestCase((props) => (
 				<BarChart width={400} height={400} data={generateMockData(2, 10)}>
@@ -224,7 +224,7 @@ describe("Bar CSS transitions", () => {
 
 			const { container } = renderTestCase()
 
-			/* GOTCHA-007-E sibling-mount-order: expect(shapeSpy).toHaveBeenCalledTimes(2) */
+			expect(shapeSpy).toHaveBeenCalledTimes(2)
 			expectNthCalledWith(
 				shapeSpy,
 				1,
@@ -247,10 +247,10 @@ describe("Bar CSS transitions", () => {
 			showTooltip(container, barChartMouseHoverTooltipSelector)
 
 			/*
-			 * There are some extra re-renders that we could avoid with more memoization, but that's not critical.
-			 * Focus that all of those are isActive: false, even though the first bar is now in the active position.
+			 * Solid re-runs only the activating bar's shape: once, in the active layer, still isActive: false
+			 * (React re-renders both bars here, hence upstream's larger counts).
 			 */
-			expect(shapeSpy).toHaveBeenCalledTimes(5)
+			expect(shapeSpy).toHaveBeenCalledTimes(3)
 			expectNthCalledWith(
 				shapeSpy,
 				3,
@@ -261,16 +261,39 @@ describe("Bar CSS transitions", () => {
 				0,
 			)
 
+			hideTooltip(container, barChartMouseHoverTooltipSelector)
+
+			/*
+			 * Now the first bar is becoming inactive again, still in the active layer while its CSS transition runs.
+			 */
+			expect(shapeSpy).toHaveBeenCalledTimes(4)
 			expectNthCalledWith(
 				shapeSpy,
 				4,
 				expect.objectContaining({
-					index: 1,
+					index: 0,
 					isActive: false,
 				}),
-				1,
+				0,
 			)
 
+			/*
+			 * Next render is not going to do anything; it's waiting for the CSS transition to end.
+			 */
+			vi.runOnlyPendingTimers()
+			flush()
+			expect(shapeSpy).toHaveBeenCalledTimes(4)
+
+			// Now, we simulate the end of the CSS transition.
+			const lastTransitionEndProp = shapeSpy.mock.lastCall?.[0].onTransitionEnd
+			assertNotNull(lastTransitionEndProp)
+			lastTransitionEndProp()
+			flush()
+
+			/*
+			 * After the transition ends, the inactive bar moves back to the bar layer, which mounts its shape once more.
+			 */
+			expect(shapeSpy).toHaveBeenCalledTimes(5)
 			expectNthCalledWith(
 				shapeSpy,
 				5,
@@ -280,50 +303,40 @@ describe("Bar CSS transitions", () => {
 				}),
 				0,
 			)
+		})
+		it("should remove the old active layer bar when another bar becomes active", () => {
+			const renderTestCase = createSelectorTestCase((props) => (
+				<BarChart width={400} height={400} data={generateMockData(2, 10)}>
+					<Bar dataKey="y" isAnimationActive={false} activeBar />
+					<XAxis dataKey="x" />
+					{props.children}
+					<Tooltip />
+				</BarChart>
+			))
 
-			hideTooltip(container, barChartMouseHoverTooltipSelector)
+			const { container } = renderTestCase()
 
-			/*
-			 * Now, finally, the first bar is becoming inactive again.
-			 * Still, all calls are isActive: false. The CSS animation can now begin.
-			 */
-			expect(shapeSpy).toHaveBeenCalledTimes(7)
-			expectNthCalledWith(
-				shapeSpy,
-				6,
-				expect.objectContaining({
-					index: 0,
-					isActive: false,
-				}),
-				0,
-			)
-			expectNthCalledWith(
-				shapeSpy,
-				7,
-				expect.objectContaining({
-					index: 1,
-					isActive: false,
-				}),
-				1,
-			)
+			showTooltip(container, barChartMouseHoverTooltipSelector)
+			vi.runOnlyPendingTimers()
+			flush()
 
-			/*
-			 * Next render is not going to do anything; it's waiting for the CSS transition to end.
-			 */
-			vi.advanceTimersByTime(0)
-			expect(shapeSpy).toHaveBeenCalledTimes(7)
+			expect(
+				container.querySelectorAll(`.recharts-zIndex-layer_${DefaultZIndexes.activeBar} .recharts-active-bar`),
+			).toHaveLength(1)
+			expect(
+				container.querySelectorAll(`.recharts-zIndex-layer_${DefaultZIndexes.activeBar} .recharts-inactive-bar`),
+			).toHaveLength(0)
 
-			// Now, we simulate the end of the CSS transition.
-			const lastTransitionEndProp = shapeSpy.mock.lastCall?.[0].onTransitionEnd
-			assertNotNull(lastTransitionEndProp)
-			lastTransitionEndProp()
+			showTooltipOnCoordinate(container, barChartMouseHoverTooltipSelector, { clientX: 300, clientY: 150 })
+			vi.runOnlyPendingTimers()
+			flush()
 
-			/*
-			 * Finally, after the transition ends, the inactive bar is fully rendered back
-			 * in the bar layer.
-			 * React appears to optimize away the final render, so no extra calls are made.
-			 */
-			expect(shapeSpy).toHaveBeenCalledTimes(7)
+			expect(
+				container.querySelectorAll(`.recharts-zIndex-layer_${DefaultZIndexes.activeBar} .recharts-active-bar`),
+			).toHaveLength(1)
+			expect(
+				container.querySelectorAll(`.recharts-zIndex-layer_${DefaultZIndexes.activeBar} .recharts-inactive-bar`),
+			).toHaveLength(0)
 		})
 	})
 })

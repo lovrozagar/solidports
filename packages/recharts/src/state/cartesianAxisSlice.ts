@@ -22,10 +22,15 @@ export type YAxisPadding = { top?: number; bottom?: number } | "gap" | "no-gap"
 export type XAxisOrientation = "top" | "bottom"
 export type YAxisOrientation = "left" | "right"
 
-/* Upstream parity export — niceTicks algorithm selector. The port currently uses
-   the legacy "auto"/"none" path everywhere; "adaptive" and "snap125" are
-   placeholders pending a full nice-ticks port. Kept exported so consumer types
-   migrating from upstream `recharts` resolve identically. */
+/**
+ * Controls how Recharts calculates "nice" tick values for an axis.
+ * - `'auto'` (default): nice ticks for linear numeric axes, extending an `'auto'` domain.
+ * - `'adaptive'`: always use the space-efficient algorithm.
+ * - `'snap125'`: snap steps to 1, 2, 2.5, 5 at each order of magnitude.
+ * - `'none'`: no nice ticks.
+ *
+ * @inline
+ */
 export type NiceTicksAlgorithm = "none" | "auto" | "adaptive" | "snap125"
 
 /**
@@ -77,6 +82,13 @@ export type TicksSettings = {
 	 */
 	ticks: ReadonlyArray<AxisTick> | undefined
 	tick: TickProp<unknown>
+	/**
+	 * Controls how Recharts calculates "nice" tick values for this axis.
+	 * See {@link NiceTicksAlgorithm} for a full description of each option.
+	 *
+	 * @defaultValue 'auto'
+	 */
+	niceTicks: NiceTicksAlgorithm
 }
 
 /**

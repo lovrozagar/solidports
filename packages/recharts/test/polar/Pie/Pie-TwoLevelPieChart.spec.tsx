@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../../helper/render"
 import { Pie, PieChart, PieSectorDataItem, Sector } from "../../../src"
 
 const data1 = [
@@ -20,7 +20,7 @@ const data2 = [
 ]
 
 describe("TwoLevelPieChart with activeShape", () => {
-	it.skip("should only show active shape for the hovered pie component", () => {
+	it("should only show active shape for the hovered pie component", () => {
 		const renderActiveShape = (props: PieSectorDataItem) => (
 			<Sector {...props} fill="#ff7300" class="customized-active-shape" />
 		)
@@ -70,7 +70,7 @@ describe("TwoLevelPieChart with activeShape", () => {
 		fireEvent.mouseOut(innerPieSector)
 		expect(container.querySelectorAll(".customized-active-shape")).toHaveLength(0)
 	})
-	it.skip("should correctly identify sectors from different pies when they have different dataKeys", () => {
+	it("should correctly identify sectors from different pies when they have different dataKeys", () => {
 		const data1WithDifferentKey = [
 			{ name: "Group A", uv: 400 },
 			{ name: "Group B", uv: 300 },

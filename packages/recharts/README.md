@@ -2,24 +2,24 @@
 
 SolidJS 1:1 port of [recharts](https://recharts.org) — drop-in migration, same API.
 
-**Parity: tests 28%** (1224 / 4338 passing — Phase 3 target: 95%)
+**Upstream: recharts v3.10.1.** Tests: 6202 passing, 0 failing; the only skips (17) are the ones upstream's own suite skips. Public API parity: 251 / 251 exports.
 
 ## Install
 
 ```bash
-bun add @solidports/recharts solid-js
+bun add @solidports/recharts solid-js @solidjs/web
 ```
 
 ```bash
-npm install @solidports/recharts solid-js
+npm install @solidports/recharts solid-js @solidjs/web
 ```
 
 ```bash
-pnpm add @solidports/recharts solid-js
+pnpm add @solidports/recharts solid-js @solidjs/web
 ```
 
 ```bash
-yarn add @solidports/recharts solid-js
+yarn add @solidports/recharts solid-js @solidjs/web
 ```
 
 ## Usage
@@ -45,7 +45,7 @@ export function MyChart() {
 
 ## API
 
-Public API is 1:1 with recharts v3.8.1 — see https://recharts.org/en-US/api.
+Public API is 1:1 with recharts v3.10.1 — see https://recharts.org/en-US/api.
 
 ## Examples
 
@@ -57,38 +57,31 @@ bun install
 bun run dev
 ```
 
+## Architecture
+
+Each chart owns one Solid store, `createStore<ChartState>` (`src/state/chartState.ts`). Upstream's Redux slices became plain state branches, its reducers became `createActions` mutations, and its reselect selectors became plain functions that consumers memoize with `createMemo`. Fine-grained store reads replace `useSelector`. Chart data is stored by reference, not proxied row by row, so replace the `data` array to update a chart, as with upstream. See `.kb/solid/store-semantics.md`.
+
 ## Divergences from upstream
 
-- **ESM-only.** Solid ecosystem is ESM-first; no CJS output.
-- **`className` preserved.** All components accept `className` (not `class`) for drop-in parity. At native SVG/HTML boundaries, `className` maps to `class` internally.
-- **`on:event` directives.** Native DOM event passthrough uses Solid's `on:` prefix where needed for cross-boundary events.
-- **No `React.cloneElement`.** Render-prop pattern used instead: `<Tooltip content={(ctx) => <Custom payload={ctx.payload} />} />`.
-- **Animation.** Custom Solid animation manager (port of react-smooth internals) — same visual output, no react-smooth dependency.
+- **ESM-only.** The Solid ecosystem is ESM-first; there is no CJS output.
+- **`className` preserved.** Components accept `className` for drop-in parity; it maps to `class` at the DOM boundary.
+- **Elements as props.** `shape={<Rectangle fill="red" />}`, `activeShape` and the Reference* `shape` props accept built-in recharts shape elements (Rectangle, Sector, Trapezoid, Symbols, Dot, Curve, Cross, Polygon), which receive the injected props the way `cloneElement` does upstream. A custom component should be passed as the component or a function (`shape={MyShape}` or `shape={(props) => <MyShape {...props} />}`): Solid evaluates `<MyShape />` eagerly, before recharts can add props.
+- **Events.** Handlers receive native DOM events, not React synthetic events.
+- **No re-render counts.** Solid components run once, so selector and render-call counts are lower than React's. Tests that counted React renders were adjusted with a comment.
+- **Animation.** The upstream 3.9 animation controller (`AnimationController`, `AnimatedItems`) is ported directly; there is no react-smooth dependency.
 
-## Porting status
-
-```
-Charts      ported (build passes, tests WIP)
-Cartesian   ported (build passes, tests WIP)
-Polar       ported (build passes, tests WIP)
-Components  ported (build passes, tests WIP)
-Shapes      ported (build passes, tests WIP)
-Hooks       ported (build passes, tests WIP)
-```
-
-Full test green target: Phase 3. See [metaspec](.workerc/specs/) for roadmap.
+Type-level equivalents (children, refs, events, CSS/SVG attributes) are listed in `.kb/parity/divergences.md`.
 
 ## API parity
 
 ```
-Upstream exports        216
-Solid exports           206
-Common (shared)         205
+Upstream exports        251
+Solid exports           252
 Missing exports         0
 Kind drift              0
 Unexplained extras      0
+Deferred                0
 Solid-only allowlisted  1   (_SolidJSXCamelAugmentMarker — see .kb/parity/divergences.md)
-Deferred unported       11  (typed-chart factories — see .kb/parity/todo.md)
 ```
 
 Run the audit yourself:
@@ -102,7 +95,7 @@ Reports land in `.parity/report.json` and `.kb/parity/report.md`. Documented Rea
 ## Attribution
 
 Ported from [recharts](https://github.com/recharts/recharts) (MIT).
-Upstream pinned at v3.8.1. See [NOTICE](./NOTICE) for details.
+Upstream pinned at v3.10.1. See [NOTICE](./NOTICE) for details.
 
 ## License
 

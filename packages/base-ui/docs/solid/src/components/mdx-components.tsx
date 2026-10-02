@@ -1,4 +1,5 @@
-import { splitProps, type JSX, type ParentProps } from "solid-js"
+import type { ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import "../css/mdx-components.css"
 import * as CodeBlock from "./CodeBlock"
 import * as Table from "./Table"
@@ -18,6 +19,7 @@ import { Callout } from "./Callout"
 import { PropTable } from "./PropTable"
 import clsx from "clsx"
 
+import { splitProps } from '../utils/solid-1-compat';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface MDXComponents {
   [key: string]: ((props: any) => JSX.Element) | MDXComponents
@@ -116,10 +118,10 @@ function Figcaption(props: JSX.HTMLAttributes<HTMLElement>) {
   return <figcaption {...props} />
 }
 
-/* Shiki emits tabIndex={0} on <pre> — modern scroll containers handle focus natively,
+/* Shiki emits tabindex={0} on <pre> — modern scroll containers handle focus natively,
    so we strip it to avoid double focus stops. */
 function Pre(props: JSX.HTMLAttributes<HTMLPreElement> & { tabIndex?: number }) {
-  const [, rest] = splitProps(props, ["tabIndex"])
+  const [, rest] = splitProps(props, ["tabindex"])
   return <CodeBlock.Pre {...rest} />
 }
 

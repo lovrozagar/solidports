@@ -1,9 +1,10 @@
 import { OTPField as BaseOTPField } from "@solidports/base-ui/otp-field";
-import { For, splitProps } from "solid-js";
-import type { JSX } from "solid-js";
+import { For } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { mergeClass } from "./utils/merge-class.ts";
 import { cn } from "./utils/cn.ts";
 import { Minus } from "./icons/minus.tsx";
+import { splitProps } from "./utils/solid-1-compat";
 
 export const OTPField = BaseOTPField.Root;
 

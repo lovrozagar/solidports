@@ -1,6 +1,7 @@
-import { For } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { For } from 'solid-js';
+import { render } from "../helper/render"
 import { Cell, Funnel, FunnelChart, FunnelProps, FunnelTrapezoidItem, LabelList } from "../../src"
+import { computeFunnelTrapezoids } from "../../src/cartesian/Funnel"
 import { showTooltip } from "../component/Tooltip/tooltipTestHelpers"
 import { funnelChartMouseHoverTooltipSelector } from "../component/Tooltip/tooltipMouseHoverSelectors"
 import { renderWithSignals } from "../helper/renderWithSignals"
@@ -107,7 +108,7 @@ describe("<Funnel />", () => {
 
 		expect(container.getElementsByClassName("recharts-funnel-trapezoid")).toHaveLength(data.length)
 	})
-	it.skip("Renders funnel custom label in simple FunnelChart", () => {
+	it("Renders funnel custom label in simple FunnelChart", () => {
 		const { container } = render(() => (
 			<FunnelChart width={500} height={300}>
 				<Funnel dataKey="value" data={data} isAnimationActive={false}>
@@ -125,7 +126,7 @@ describe("<Funnel />", () => {
 		expect(container.getElementsByClassName("recharts-funnel-trapezoid")).toHaveLength(data.length)
 		expect(container.querySelectorAll(".custom-label")).toHaveLength(data.length)
 	})
-	it.skip("should assert the differences between a normal and reversed Funnel", () => {
+	it("should assert the differences between a normal and reversed Funnel", () => {
 		const { container, update } = renderWithSignals(
 			(p: { reversed: boolean }) => (
 				<FunnelChart width={500} height={300}>
@@ -146,5 +147,39 @@ describe("<Funnel />", () => {
 		const firstTrapezoidReversed = container.getElementsByClassName("recharts-trapezoid")[0]
 		expect(firstTrapezoidReversed.getAttribute("x")).toEqual("54")
 		expect(firstTrapezoidReversed.getAttribute("y")).toEqual("237")
+	})
+
+	it("should not produce NaN when all data values are 0", () => {
+		const zeroData = [
+			{ name: "A", value: 0 },
+			{ name: "B", value: 0 },
+			{ name: "C", value: 0 },
+		]
+		const offset = { bottom: 10, brushBottom: 0, height: 300, left: 10, right: 10, top: 20, width: 400 }
+
+		const trapezoids = computeFunnelTrapezoids({
+			customWidth: undefined,
+			dataKey: "value",
+			displayedData: zeroData,
+			graphicalItemId: "test-funnel",
+			lastShapeType: "triangle",
+			nameKey: "name",
+			offset,
+			reversed: false,
+			tooltipType: undefined,
+		})
+
+		expect(trapezoids).toHaveLength(zeroData.length)
+
+		trapezoids.forEach((trapezoid) => {
+			expect(trapezoid.x).toBe(offset.left)
+			expect(trapezoid.upperWidth).toBe(0)
+			expect(trapezoid.lowerWidth).toBe(0)
+			expect(Number.isFinite(trapezoid.x)).toBe(true)
+			expect(Number.isFinite(trapezoid.y)).toBe(true)
+			expect(Number.isFinite(trapezoid.upperWidth)).toBe(true)
+			expect(Number.isFinite(trapezoid.lowerWidth)).toBe(true)
+			expect(Number.isFinite(trapezoid.height)).toBe(true)
+		})
 	})
 })

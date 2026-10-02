@@ -1,5 +1,6 @@
 import { createContext, createUniqueId, useContext } from "solid-js";
-import type { JSX, ParentProps } from "solid-js";
+import type { ParentProps } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { cn } from "./utils/cn.ts";
 
 interface FieldContextValue {
@@ -25,7 +26,7 @@ export interface FieldRootProps extends ParentProps {
 export function FieldRoot(props: FieldRootProps) {
 	const id = createUniqueId();
 	return (
-		<FieldContext.Provider
+		<FieldContext
 			value={{
 				descriptionId: `${id}-description`,
 				errorId: `${id}-error`,
@@ -38,7 +39,7 @@ export function FieldRoot(props: FieldRootProps) {
 			<div data-invalid={props.invalid ? "" : undefined} class={cn("space-y-2", props.class)}>
 				{props.children}
 			</div>
-		</FieldContext.Provider>
+		</FieldContext>
 	);
 }
 

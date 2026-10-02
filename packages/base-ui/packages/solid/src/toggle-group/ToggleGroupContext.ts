@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { BaseUIEventReasons } from '../utils/reasons';
 import type { Orientation } from '../utils/types';
@@ -20,11 +21,11 @@ export interface ToggleGroupContext<Value> {
   isValueInitialized: Accessor<boolean>;
 }
 
-export const ToggleGroupContext = createContext<ToggleGroupContext<any> | undefined>(undefined);
+export const ToggleGroupContext = createContext<ToggleGroupContext<any> | null>(null);
 
 export function useToggleGroupContext(optional = true) {
   const context = useContext(ToggleGroupContext);
-  if (context === undefined && !optional) {
+  if (context == null && !optional) {
     throw new Error(
       'Base UI: ToggleGroupContext is missing. ToggleGroup parts must be placed within <ToggleGroup>.',
     );

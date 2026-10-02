@@ -1,4 +1,4 @@
-import { fireEvent } from "@solidjs/testing-library"
+import { fireEvent } from "../helper/render"
 import { describe, expect, it } from "vitest"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
 import { BarChart, Bar, Brush } from "../../src"
@@ -42,6 +42,7 @@ describe("Brush in a stacked chart", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: "a",
 							type: "bar",
 							xAxisId: 0,
@@ -57,6 +58,7 @@ describe("Brush in a stacked chart", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: "a",
 							type: "bar",
 							xAxisId: 0,
@@ -135,6 +137,7 @@ describe("Brush in a stacked chart", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: "a",
 							type: "bar",
 							xAxisId: 0,
@@ -150,6 +153,7 @@ describe("Brush in a stacked chart", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: "a",
 							type: "bar",
 							xAxisId: 0,
@@ -209,6 +213,7 @@ describe("Brush in a stacked chart", () => {
 								isPanorama: false,
 								maxBarSize: undefined,
 								minPointSize: 0,
+								hasCustomShape: false,
 								stackId: "a",
 								type: "bar",
 								xAxisId: 0,
@@ -224,6 +229,7 @@ describe("Brush in a stacked chart", () => {
 								isPanorama: false,
 								maxBarSize: undefined,
 								minPointSize: 0,
+								hasCustomShape: false,
 								stackId: "a",
 								type: "bar",
 								xAxisId: 0,

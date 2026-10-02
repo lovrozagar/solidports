@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { reconcile } from 'solid-js/store';
+import { reconcile } from 'solid-js';
 import type { Form } from '../../form';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -232,7 +232,7 @@ export function useFieldValidation(
   const getValidationProps = (externalProps = {}) =>
     mergeProps<any>(
       getDescriptionProps,
-      state().valid === false ? { 'aria-invalid': true } : EMPTY_OBJECT,
+      state().valid === false ? { 'aria-invalid': 'true' as const } : EMPTY_OBJECT,
       externalProps,
     );
 

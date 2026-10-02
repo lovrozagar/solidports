@@ -1,5 +1,4 @@
-import { createContext } from "solid-js"
-
+import { createContext } from 'solid-js';
 export type BrushStartEndIndex = {
 	endIndex: number
 	startIndex: number

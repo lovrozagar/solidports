@@ -1,5 +1,5 @@
-import { defineConfig } from "vitest/config"
-import solidPlugin from "vite-plugin-solid"
+import { configDefaults, defineConfig } from "vitest/config"
+import solidPlugin from "@solidjs/vite-plugin"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import fs from "node:fs"
@@ -61,6 +61,8 @@ export default defineConfig({
 		environment: "jsdom",
 		globals: true,
 		include: ["test/**/*.spec.ts?(x)", "test/**/*.test.ts?(x)", "test/**/*.spec-d.ts"],
+		/* perf benches run via `bun run test:perf` (RECHARTS_PERF=1), never in the default suite */
+		exclude: process.env.RECHARTS_PERF ? configDefaults.exclude : [...configDefaults.exclude, "test/perf/**"],
 		restoreMocks: true,
 		setupFiles: [
 			"test/vitest.setup.ts",

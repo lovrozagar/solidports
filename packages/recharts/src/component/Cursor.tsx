@@ -1,6 +1,8 @@
 /* eslint-disable import/no-cycle, sort-keys */
-import { type Component, createMemo, type JSX, Show } from "solid-js"
-import { Dynamic } from "solid-js/web"
+import { createMemo, Show } from 'solid-js';
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
 import { clsx } from "clsx"
 import type {
 	ChartOffsetInternal,
@@ -157,9 +159,9 @@ export function Cursor(props: CursorProps) {
 	const ctx = useChartStore()
 	/* All public/internal hooks bare T (GOTCHA-011). Arrow-thunk pattern
 	   preserves callsite shape and re-runs the selector on each reactive read. */
-	const tooltipAxisBandSize = () => useTooltipAxisBandSize()
-	const offset = () => useOffsetInternal()
-	const layout = () => useChartLayout()
+	const tooltipAxisBandSize = createMemo(() => useTooltipAxisBandSize())
+	const offset = createMemo(() => useOffsetInternal())
+	const layout = createMemo(() => useChartLayout())
 	const chartName = createMemo(() => (ctx ? useChartName(ctx.store) : undefined))
 
 	return (

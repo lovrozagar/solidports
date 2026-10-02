@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle, sort-keys */
-/* @jsxImportSource solid-js */
-import { describe, expect, it, test, vi } from "vitest"
-import { useContext } from "solid-js"
+/* @jsxImportSource @solidjs/web */
+import { describe, expect, it, vi } from "vitest"
+import { useContext, untrack, flush } from 'solid-js';
 import { Radar, RadarChart } from "../../src"
 import { exampleRadarData } from "../_data"
 import { renderWithSignals } from "../helper/renderWithSignals"
@@ -25,13 +25,12 @@ import type { ChartState } from "../../src/state/store"
  *
  * Both fixed by wrapping in createMemo so objects/arrays are rebuilt on prop change.
  *
- * NOTE: post-mount prop-update coverage deferred — Solid store produce+indexOf
- * limitation (proxy wrapping breaks reference equality). See test.todo entries.
- * The tests below verify correct initial-mount population.
+ * The first group verifies initial-mount population; the second verifies that a post-mount
+ * dataKey change reaches both the tooltip entry and the rendered labels.
  */
 
 function StoreCapture(props: { ref: (store: ChartState) => void }): null {
-	const ctx = useContext(RechartsStoreContext)
+	const ctx = untrack(() => useContext(RechartsStoreContext))
 	if (ctx != null) {
 		/* eslint-disable-next-line solid/reactivity -- intentional one-shot mount callback, not a tracked read */
 		props.ref(ctx.store)
@@ -57,6 +56,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads).toHaveLength(1)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.dataKey).toBe("cost")
@@ -79,6 +79,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.name).toBe("Series Alpha")
 	})
@@ -100,6 +101,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.fill).toBe("#abcdef")
 	})
@@ -121,6 +123,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.hide).toBe(true)
 	})
@@ -144,6 +147,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.stroke).toBe("#112233")
 	})
@@ -168,6 +172,7 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 		assertNotNull(store)
 		expect(selectTooltipState(store).tooltipItemPayloads).toHaveLength(1)
 		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.dataKey).toBe("cost")
@@ -175,27 +180,48 @@ describe("Radar tooltip settings — initial mount correctness", () => {
 	})
 })
 
-/*
- * Post-mount prop-update tests blocked by produce+indexOf proxy limitation.
- *
- * Manual repro for the original bug (dataKey not updating after mount):
- *   1. Replace `createMemo(() => ({...}))` with a plain object in
- *      SetRadarTooltipEntrySettings.
- *   2. Mount RadarChart with dataKey="value".
- *   3. Verify store has dataKey="value".
- *   4. Update dataKey signal to "cost".
- *   5. Without createMemo: store still shows "value" (same frozen object reference
- *      → SetTooltipEntrySettings identity check sees prevSettings === current → skip).
- *   6. With createMemo: memo re-runs producing new object reference → effect triggers
- *      → BUT produce+indexOf returns -1 → replacement silently skipped.
- *      The ACTUAL value of the fix is for cases where props arrive asynchronously
- *      (e.g. store-derived sectors in RadialBar that are STABLE_EMPTY_ARRAY at
- *      component creation but populated by the time the createEffect first runs).
- */
-test.todo(
-	"SetRadarTooltipEntrySettings post-mount dataKey update — blocked by produce+indexOf proxy limitation in SetTooltipEntrySettings.",
-)
+describe("Radar — post-mount dataKey updates", () => {
+	it("SetRadarTooltipEntrySettings replaces the entry when dataKey changes", () => {
+		let store: ChartState | undefined
 
-test.todo(
-	"RadarLabelListProvider post-mount dataKey update visible in label DOM — requires axis band-size > 0 in jsdom (all axes report 0 in jsdom environment).",
-)
+		const { update } = renderWithSignals(
+			(p: { dataKey: string }) => (
+				<RadarChart width={400} height={400} data={exampleRadarData}>
+					<Radar dataKey={p.dataKey} isAnimationActive={false} />
+					<StoreCapture ref={(s) => { store = s }} />
+				</RadarChart>
+			),
+			{ dataKey: "value" },
+		)
+
+		vi.advanceTimersByTime(0)
+		flush()
+		assertNotNull(store)
+		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.dataKey).toBe("value")
+
+		update({ dataKey: "half" })
+		flush()
+		expect(selectTooltipState(store).tooltipItemPayloads).toHaveLength(1)
+		expect(selectTooltipState(store).tooltipItemPayloads[0]?.settings?.dataKey).toBe("half")
+	})
+
+	it("RadarLabelListProvider shows the new values in the label DOM when dataKey changes", () => {
+		const { container, update } = renderWithSignals(
+			(p: { dataKey: string }) => (
+				<RadarChart width={400} height={400} data={exampleRadarData}>
+					<Radar dataKey={p.dataKey} isAnimationActive={false} label />
+				</RadarChart>
+			),
+			{ dataKey: "value" },
+		)
+
+		const labelTexts = () =>
+			Array.from(container.querySelectorAll(".recharts-label")).map((el) => el.textContent)
+
+		expect(labelTexts()).toEqual(exampleRadarData.map((d) => String(d.value)))
+
+		update({ dataKey: "half" })
+		flush()
+		expect(labelTexts()).toEqual(exampleRadarData.map((d) => String(d.half)))
+	})
+})

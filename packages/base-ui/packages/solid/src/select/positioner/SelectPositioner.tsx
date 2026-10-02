@@ -1,10 +1,5 @@
-import {
-  createEffect,
-  createSignal,
-  Show,
-  mergeProps as solidMergeProps,
-  type JSX,
-} from 'solid-js';
+import { createTrackedEffect, createSignal, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { CompositeList, type CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
@@ -21,6 +16,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { clearStyles } from '../popup/utils';
 import { useSelectFloatingContext, useSelectRootContext } from '../root/SelectRootContext';
 import { SelectPositionerContext } from './SelectPositionerContext';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 const FIXED: JSX.CSSProperties = { position: 'fixed' };
 
@@ -89,13 +85,13 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
   const alignItemWithTriggerActive = () =>
     mounted() && controlledAlignItemWithTrigger() && openMethod() !== 'touch';
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!mounted() && controlledAlignItemWithTrigger() !== alignItemWithTrigger()) {
       setControlledAlignItemWithTrigger(alignItemWithTrigger());
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!mounted()) {
       if (store.select('scrollUpArrowVisible')) {
         store.setState('scrollUpArrowVisible', false);
@@ -106,7 +102,7 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     alignItemWithTriggerActiveRef.current = alignItemWithTriggerActive();
   });
 
@@ -277,12 +273,12 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
       refs={{ elements: listRef.current, labels: labelsRef.current }}
       onMapChange={onMapChange}
     >
-      <SelectPositionerContext.Provider value={contextValue}>
+      <SelectPositionerContext value={contextValue}>
         <Show when={mounted() && modal()}>
           <InternalBackdrop managed inert={!open()} cutout={triggerElement()} />
         </Show>
         {element()}
-      </SelectPositionerContext.Provider>
+      </SelectPositionerContext>
     </CompositeList>
   );
 }

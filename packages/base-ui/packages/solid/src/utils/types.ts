@@ -1,19 +1,20 @@
 /* eslint-disable typescript/no-explicit-any -- generic types module: Props/HTMLProps/RenderFn carry tag-generic any to bridge JSX HTMLAttributes variance */
-import type { ComponentProps, JSX, ValidComponent } from 'solid-js';
-import type { DynamicProps } from 'solid-js/web';
+import type { ComponentProps, JSX, ValidComponent } from '@solidjs/web';
+import type { DynamicProps } from '@solidjs/web';
 import type { ReactLikeRef } from '../solid-helpers';
 
 export type UseRenderElementRef<T> =
   | ((el: T | null) => void)
   | ReactLikeRef<T | null | undefined>;
 
-type InferRefElement<R> = R extends (el: infer E) => void
-  ? E
-  : R extends { current: infer E }
+/**
+ * Element type of an intrinsic tag. Solid 2 `JSX.Ref<T>` is a union
+ * (`T | callback | undefined | Ref[]`); do not distribute over it.
+ */
+export type IntrinsicRefElement<T> = T extends keyof JSX.IntrinsicElements
+  ? JSX.IntrinsicElements[T] extends JSX.HTMLAttributes<infer E>
     ? E
-    : R;
-type IntrinsicRefElement<T> = T extends keyof JSX.IntrinsicElements
-  ? InferRefElement<ComponentProps<T>['ref']>
+    : Element
   : Element;
 
 export type HTMLProps<T = any> = JSX.HTMLAttributes<T>;
@@ -36,11 +37,9 @@ type WithPreventBaseUIHandler<T, K extends keyof T> = T[K] extends
   | JSX.EventHandlerUnion<infer TT, infer E>
   | undefined
   ? JSX.EventHandlerUnion<TT, BaseUIEvent<E>>
-  : T[K] extends JSX.EventHandlerWithOptionsUnion<infer TT, infer E> | undefined
-    ? JSX.EventHandlerWithOptionsUnion<TT, BaseUIEvent<E>>
-    : T[K] extends JSX.EventHandler<infer TT, infer E> | undefined
-      ? JSX.EventHandler<TT, BaseUIEvent<E>>
-      : T[K];
+  : T[K] extends JSX.EventHandler<infer TT, infer E> | undefined
+    ? JSX.EventHandler<TT, BaseUIEvent<E>>
+    : T[K];
 
 /**
  * Adds a `preventBaseUIHandler` method to all event handlers.

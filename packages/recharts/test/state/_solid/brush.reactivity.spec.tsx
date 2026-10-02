@@ -1,11 +1,12 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../../helper/render"
 import { BarChart, Brush, XAxis, YAxis, Bar } from "../../../src"
 import { useChartState } from "../../../src/state/useChartState"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../../src/util/solid-1-compat';
 const data = [
 	{ name: "A", value: 100 },
 	{ name: "B", value: 200 },
@@ -64,6 +65,7 @@ describe("Phase 5 — Brush dual-writes to new chartState", () => {
 
 		const before = brushEl?.getAttribute("height") ?? brushEl?.getBoundingClientRect().height
 		capturedSetState!("brush", "height" as never, 60 as never)
+		flush()
 
 		/* Phase 5 RED: Brush still renders at height 20 — new state mutation unobserved. */
 		const after = container.querySelector(".recharts-brush")?.getAttribute("height")
@@ -97,6 +99,7 @@ describe("Phase 5 — Brush dual-writes to new chartState", () => {
 		/* Phase 5 RED: "startIndex" is not a key on current BrushSettings — write lands as
 		   unknown field, reading it back yields undefined instead of 1. */
 		capturedSetState!("brush", "startIndex" as never, 1 as never)
+		flush()
 		expect((capturedState?.brush as Record<string, unknown>)["startIndex"]).toBe(1)
 	})
 

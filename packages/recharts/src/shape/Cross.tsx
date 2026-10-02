@@ -2,8 +2,10 @@
 /**
  * @fileOverview Cross
  */
-import type { JSX } from "solid-js"
-import { Show } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { useShapeElementProps } from "../util/ShapeElementProps"
+import type { WithoutRemoveFalse } from "../util/types"
+import { Show } from 'solid-js';
 import { clsx } from "clsx"
 import { isNumber } from "../util/DataUtils"
 import { svgPropertiesAndEvents } from "../util/svgPropertiesAndEvents"
@@ -36,7 +38,7 @@ interface CrossProps {
 	class?: string
 }
 
-export type Props = JSX.PathSVGAttributes<SVGPathElement> & CrossProps
+export type Props = WithoutRemoveFalse<JSX.PathSVGAttributes<SVGPathElement>> & CrossProps
 
 const getPath = (
 	x: number,
@@ -49,7 +51,9 @@ const getPath = (
 	return `M${x},${top}v${height}M${left},${y}h${width}`
 }
 
-export function Cross(props: Props) {
+export function Cross(ownProps: Props) {
+	/* Props injected for a shape passed as an element (see ShapeElementProps). */
+	const props = useShapeElementProps(ownProps)
 	const x = () => props.x ?? 0
 	const y = () => props.y ?? 0
 	const top = () => props.top ?? 0

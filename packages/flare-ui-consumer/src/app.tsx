@@ -1,4 +1,5 @@
-import { For, createEffect, createSignal, type JSX } from "solid-js";
+import { createTrackedEffect, For, createSignal } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { DirectionProvider } from "@solidports/base-ui/direction-provider";
 import { Button } from "@solidports/flare-ui/button";
 import { Switch } from "@solidports/flare-ui/switch";
@@ -100,10 +101,10 @@ export function App() {
 	const [dark, setDark] = createSignal(false);
 	const [rtl, setRtl] = createSignal(false);
 
-	createEffect(() => {
+	createTrackedEffect(() => {
 		document.documentElement.classList.toggle("dark", dark());
 	});
-	createEffect(() => {
+	createTrackedEffect(() => {
 		document.documentElement.dir = rtl() ? "rtl" : "ltr";
 	});
 

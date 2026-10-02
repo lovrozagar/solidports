@@ -1,4 +1,4 @@
-import { batch, createEffect, createMemo, createSignal } from 'solid-js';
+import { createEffect, createMemo, createSignal } from 'solid-js';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { useDirection } from '../../direction-provider/DirectionContext';
@@ -57,7 +57,7 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
     createSignal<TabsTab.ActivationDirection>('none');
 
   const onValueChange = (newValue: TabsTab.Value, eventDetails: TabsRoot.ChangeEventDetails) => {
-    batch(() => {
+    {
       local.onValueChange?.(newValue, eventDetails);
 
       if (eventDetails.isCanceled) {
@@ -66,7 +66,7 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
 
       setValue(newValue);
       setTabActivationDirection(eventDetails.activationDirection);
-    });
+    };
   };
 
   const registerMountedTabPanel = (panelValue: TabsTab.Value | number, panelId: string) => {
@@ -161,34 +161,42 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
   // - The current selection is disabled (and wasn't explicitly set via defaultValue)
   // - The current selection is missing (tab was removed from DOM)
   // Falls back to null if all tabs are disabled.
-  createEffect(() => {
-    if (isControlled() || tabArray().length === 0) {
-      return;
-    }
+  createEffect(
+    () => {
+      if (isControlled() || tabArray().length === 0) {
+        return { skip: true as const };
+      }
 
-    const selectionIsDisabled = selectedTabMetadata()?.disabled();
-    const selectionIsMissing = selectedTabMetadata() == null && value() !== null;
+      const selectionIsDisabled = selectedTabMetadata()?.disabled();
+      const selectionIsMissing = selectedTabMetadata() == null && value() !== null;
 
-    const shouldHonorExplicitDefaultSelection =
-      hasExplicitDefaultValueProp() && selectionIsDisabled && value() === defaultValueProp();
+      const shouldHonorExplicitDefaultSelection =
+        hasExplicitDefaultValueProp() && selectionIsDisabled && value() === defaultValueProp();
 
-    if (shouldHonorExplicitDefaultSelection) {
-      return;
-    }
+      if (shouldHonorExplicitDefaultSelection) {
+        return { skip: true as const };
+      }
 
-    if (!selectionIsDisabled && !selectionIsMissing) {
-      return;
-    }
+      if (!selectionIsDisabled && !selectionIsMissing) {
+        return { skip: true as const };
+      }
 
-    const fallbackValue = firstEnabledTabValue() ?? null;
+      const fallbackValue = firstEnabledTabValue() ?? null;
 
-    if (value() === fallbackValue) {
-      return;
-    }
+      if (value() === fallbackValue) {
+        return { skip: true as const };
+      }
 
-    setValue(fallbackValue);
-    setTabActivationDirection('none');
-  });
+      return { skip: false as const, fallbackValue };
+    },
+    (next) => {
+      if (next.skip) {
+        return;
+      }
+      setValue(next.fallbackValue);
+      setTabActivationDirection('none');
+    },
+  );
 
   const state: TabsRoot.State = {
     get orientation() {
@@ -206,11 +214,11 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
   });
 
   return (
-    <TabsRootContext.Provider value={tabsContextValue}>
+    <TabsRootContext value={tabsContextValue}>
       <CompositeList<TabsPanel.Metadata> refs={{ elements: tabPanelRefs }}>
         {element()}
       </CompositeList>
-    </TabsRootContext.Provider>
+    </TabsRootContext>
   );
 }
 

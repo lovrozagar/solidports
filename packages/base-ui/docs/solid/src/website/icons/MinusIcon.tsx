@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 export function MinusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   return (

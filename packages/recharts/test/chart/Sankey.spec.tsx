@@ -1,6 +1,8 @@
 import { describe, expect, it, Mock, vi } from "vitest"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { trackSpy } from "../helper/trackSpy"
+import { fireEvent, render } from "../helper/render"
 import { Sankey, SankeyLinkProps, SankeyNodeProps, Tooltip, XAxis, YAxis } from "../../src"
+import { computeData } from "../../src/chart/Sankey"
 import { exampleSankeyData } from "../_data"
 import { useChartHeight, useChartWidth, useViewBox } from "../../src/context/chartLayoutContext"
 import { useAppSelector } from "../helper/legacyDispatch"
@@ -17,6 +19,47 @@ import { renderWithSignals } from "../helper/renderWithSignals"
 import { mockTouchingElement } from "../helper/mockTouchingElement"
 import { TooltipInteractionState } from "../../src/state/tooltipSlice"
 
+const readSvgNumber = (element: Element, attribute: string): number => Number(element.getAttribute(attribute))
+
+const getCubicPoint = (start: number, control1: number, control2: number, end: number, t: number): number => {
+	const inverseT = 1 - t
+	return inverseT ** 3 * start + 3 * inverseT ** 2 * t * control1 + 3 * inverseT * t ** 2 * control2 + t ** 3 * end
+}
+
+const getLinkYAtX = (path: Element, x: number): number => {
+	const coordinates = path
+		.getAttribute("d")
+		?.match(/-?\d+(?:\.\d+)?/g)
+		?.map(Number)
+
+	if (coordinates == null) {
+		throw new Error("Expected Sankey link path to have coordinates")
+	}
+
+	if (coordinates.length < 8) {
+		throw new Error(`Expected Sankey link path to have at least 8 coordinates, got ${coordinates.length}`)
+	}
+
+	const [sourceX, sourceY, sourceControlX, sourceControlY, targetControlX, targetControlY, targetX, targetY] =
+		coordinates
+	let minT = 0
+	let maxT = 1
+
+	for (let i = 0; i < 30; i++) {
+		const middleT = (minT + maxT) / 2
+		const middleX = getCubicPoint(sourceX, sourceControlX, targetControlX, targetX, middleT)
+
+		if (middleX < x) {
+			minT = middleT
+		} else {
+			maxT = middleT
+		}
+	}
+
+	const t = (minT + maxT) / 2
+	return getCubicPoint(sourceY, sourceControlY, targetControlY, targetY, t)
+}
+
 describe("<Sankey />", () => {
 	it("renders 48 nodes in simple SankeyChart", () => {
 		const { container } = render(() => (
@@ -32,6 +75,61 @@ describe("<Sankey />", () => {
 		))
 
 		expect(container.querySelectorAll(".recharts-sankey-link")).toHaveLength(68)
+	})
+
+	describe("accessibility", () => {
+		it("should add tabindex and role to the svg element by default", () => {
+			const { container } = render(() => (
+				<Sankey width={1000} height={500} data={exampleSankeyData} />
+			))
+
+			const svg = container.querySelector("svg")
+			assertNotNull(svg)
+			expect(svg).toHaveAttribute("role", "application")
+			expect(svg).toHaveAttribute("tabindex", "0")
+		})
+
+		it("should not add tabindex and role to the svg element when accessibilityLayer=false", () => {
+			const { container } = render(() => (
+				<Sankey
+					width={1000}
+					height={500}
+					data={exampleSankeyData}
+					accessibilityLayer={false}
+				/>
+			))
+
+			const svg = container.querySelector("svg")
+			assertNotNull(svg)
+			expect(svg).not.toHaveAttribute("role")
+			expect(svg).not.toHaveAttribute("tabindex")
+		})
+
+		it("should prefer explicit role and tabIndex over the accessibilityLayer defaults", () => {
+			const { container } = render(() => (
+				<Sankey width={1000} height={500} data={exampleSankeyData} role="img" tabIndex={-1} />
+			))
+
+			const svg = container.querySelector("svg")
+			assertNotNull(svg)
+			expect(svg).toHaveAttribute("role", "img")
+			expect(svg).toHaveAttribute("tabindex", "-1")
+		})
+
+		it("should set title and description correctly", () => {
+			const { container } = render(() => (
+				<Sankey
+					width={1000}
+					height={500}
+					data={exampleSankeyData}
+					title="Sankey title"
+					desc="Sankey description"
+				/>
+			))
+
+			expect(container.querySelector("title")).toHaveTextContent("Sankey title")
+			expect(container.querySelector("desc")).toHaveTextContent("Sankey description")
+		})
 	})
 
 	it("re-renders links and nodes when data changes", () => {
@@ -64,8 +162,8 @@ describe("<Sankey />", () => {
 			const clipPathSpy = vi.fn()
 			const viewBoxSpy = vi.fn()
 			const Comp = (): null => {
-				clipPathSpy(useClipPathId())
-				viewBoxSpy(useViewBox())
+				trackSpy(clipPathSpy, () => useClipPathId())
+				trackSpy(viewBoxSpy, () => useViewBox())
 				return null
 			}
 			render(() => (
@@ -73,7 +171,7 @@ describe("<Sankey />", () => {
 					<Comp />
 				</Sankey>
 			))
-			expect(clipPathSpy).toHaveBeenLastCalledWith(undefined)
+			expect(clipPathSpy).toHaveBeenLastCalledWith(null)
 			expect(viewBoxSpy).toHaveBeenLastCalledWith({ height: 490, width: 990, x: 5, y: 5 })
 			expect(viewBoxSpy).toHaveBeenCalledTimes(1)
 		})
@@ -82,8 +180,8 @@ describe("<Sankey />", () => {
 			const widthSpy = vi.fn()
 			const heightSpy = vi.fn()
 			const Comp = (): null => {
-				widthSpy(useChartWidth())
-				heightSpy(useChartHeight())
+				trackSpy(widthSpy, () => useChartWidth())
+				trackSpy(heightSpy, () => useChartHeight())
 				return null
 			}
 			render(() => (
@@ -262,7 +360,7 @@ describe("<Sankey />", () => {
 				) => void
 			> = vi.fn()
 			const Comp = (): null => {
-				tooltipStateSpy(useAppSelector((state) => state.tooltip.itemInteraction))
+				trackSpy(tooltipStateSpy, () => useAppSelector((state) => state.tooltip.itemInteraction))
 				return null
 			}
 			const { container } = render(() => (
@@ -379,7 +477,7 @@ describe("<Sankey />", () => {
 				) => void
 			> = vi.fn()
 			const Comp = (): null => {
-				tooltipStateSpy(useAppSelector((state) => state.tooltip.itemInteraction))
+				trackSpy(tooltipStateSpy, () => useAppSelector((state) => state.tooltip.itemInteraction))
 				return null
 			}
 			const { container } = render(() => (
@@ -803,6 +901,179 @@ describe("<Sankey />", () => {
 
 			fireEvent.touchEnd(node, { changedTouches: [{ clientX: 200, clientY: 200 }] })
 			expect(onTouchEnd).toHaveBeenCalledTimes(0)
+		})
+	})
+
+	it("should not produce NaN node positions or link widths when all link values are 0", () => {
+		const zeroData = {
+			nodes: [{ name: "A" }, { name: "B" }, { name: "C" }],
+			links: [
+				{ source: 0, target: 1, value: 0 },
+				{ source: 1, target: 2, value: 0 },
+			],
+		}
+
+		const { container } = render(() => <Sankey width={500} height={300} data={zeroData} />)
+
+		// Rectangle component drops 0-height rectangles, so no nodes render
+		const nodes = container.querySelectorAll(".recharts-sankey-node")
+		expect(nodes.length).toBe(0)
+
+		const links = container.querySelectorAll(".recharts-sankey-link")
+		expect(links.length).toBeGreaterThan(0)
+
+		links.forEach(link => {
+			const path = link.querySelector("path") || link; // Sometimes the element itself is the path
+			const d = path.getAttribute("d")
+			const strokeWidth = path.getAttribute("stroke-width")
+
+			expect(d).not.toContain("NaN")
+			expect(Number.isFinite(Number(strokeWidth))).toBe(true)
+		})
+	})
+
+	it("should not squash positive nodes to 0 height if one depth level has all 0 values", () => {
+		const mixedData = {
+			nodes: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }],
+			links: [
+				{ source: 0, target: 1, value: 100 },
+				{ source: 0, target: 2, value: 0 },
+				{ source: 2, target: 3, value: 0 },
+			],
+		}
+
+		const { container } = render(() => <Sankey width={500} height={300} data={mixedData} />)
+
+		const nodes = container.querySelectorAll(".recharts-sankey-node")
+		// A and B should render because they have >0 values.
+		// C and D have 0 values, so they get 0 height and do not render.
+		expect(nodes.length).toBe(2)
+	})
+
+	it("should keep intermediate nodes out of links that skip over their depth", () => {
+		const overlappingData = {
+			nodes: [
+				{ name: "Consumption bought" },
+				{ name: "Total consumption" },
+				{ name: "Total production" },
+				{ name: "Consumed production" },
+				{ name: "Passive surplus" },
+				{ name: "Unused production" },
+			],
+			links: [
+				{ source: 0, target: 1, value: 797.44 },
+				{ source: 2, target: 3, value: 39.73 },
+				{ source: 3, target: 1, value: 39.73 },
+				{ source: 2, target: 4, value: 1.95 },
+				{ source: 4, target: 5, value: 1.95 },
+			],
+		}
+
+		const { container } = render(() => <Sankey width={760} height={420} data={overlappingData} />)
+
+		const nodes = Array.from(container.querySelectorAll(".recharts-sankey-node"))
+		const link = container.querySelector(".recharts-sankey-link")
+
+		assertNotNull(link)
+
+		for (const node of [nodes[3], nodes[4]]) {
+			assertNotNull(node)
+
+			const nodeX = readSvgNumber(node, "x")
+			const nodeY = readSvgNumber(node, "y")
+			const nodeWidth = readSvgNumber(node, "width")
+			const nodeHeight = readSvgNumber(node, "height")
+			const linkY = getLinkYAtX(link, nodeX + nodeWidth / 2)
+			const linkWidth = readSvgNumber(link, "stroke-width")
+			const isAboveLink = nodeY + nodeHeight <= linkY - linkWidth / 2
+			const isBelowLink = nodeY >= linkY + linkWidth / 2
+
+			expect(
+				isAboveLink || isBelowLink,
+				JSON.stringify({ nodeY, nodeHeight, linkY, linkWidth, nodeBottom: nodeY + nodeHeight }),
+			).toBe(true)
+		}
+	})
+
+	describe("layout of large, heavily branching graphs", () => {
+		const computeOptions = {
+			width: 1000,
+			height: 500,
+			iterations: 32,
+			nodeWidth: 10,
+			nodePadding: 10,
+			sort: true,
+			verticalAlign: "justify",
+			align: "justify",
+		} as const
+
+		type ChainLink = { source: number; target: number; value: number }
+		type BranchingChain = { nodes: Array<{ name: string }>; links: ChainLink[]; segments: number }
+
+		/**
+		* Builds a chain where every node branches into two nodes that immediately merge back into the
+		* next node. The graph stays small (a few nodes per segment), but the number of distinct paths
+		* from the first node to the last grows as `2 ** segments`.
+		*
+		* The default of 28 segments makes the path count large enough to exercise the layout on a
+		* densely branching graph. The chosen `segments` is returned so callers can assert on it
+		* without repeating the number.
+		*/
+		const makeBranchingChainData = (segments = 28): BranchingChain => {
+			const nodes: Array<{ name: string }> = [{ name: "entry-0" }]
+			const links: ChainLink[] = []
+			let entry = 0
+
+			for (let i = 0; i < segments; i++) {
+				const top = nodes.push({ name: `top-${i}` }) - 1
+				const bottom = nodes.push({ name: `bottom-${i}` }) - 1
+				const next = nodes.push({ name: `entry-${i + 1}` }) - 1
+
+				links.push({ source: entry, target: top, value: 1 })
+				links.push({ source: entry, target: bottom, value: 1 })
+				links.push({ source: top, target: next, value: 1 })
+				links.push({ source: bottom, target: next, value: 1 })
+
+				entry = next
+			}
+
+			return { nodes, links, segments }
+		}
+
+		it("assigns depth as the longest path from a source, even when nodes skip layers", () => {
+			// 0 -> 1 -> 2, plus a shortcut 0 -> 2.
+			// Node 2 must take the longer path (depth 2), not the shortcut.
+			const data = {
+				nodes: [{ name: "a" }, { name: "b" }, { name: "c" }],
+				links: [
+					{ source: 0, target: 1, value: 1 },
+					{ source: 1, target: 2, value: 1 },
+					{ source: 0, target: 2, value: 1 },
+				],
+			}
+
+			const { nodes } = computeData({ data, ...computeOptions })
+
+			expect(nodes.map(node => node.depth)).toEqual([0, 1, 2])
+		})
+
+		it("computes the layout in linear time for a heavily branching graph", () => {
+			const { segments, ...data } = makeBranchingChainData()
+
+			const { nodes } = computeData({ data, ...computeOptions })
+
+			expect(nodes).toHaveLength(data.nodes.length)
+			// Each segment contributes two layers of depth (entry -> top/bottom -> next entry).
+			expect(Math.max(...nodes.map(node => node.depth))).toBe(segments * 2)
+		})
+
+		it("renders a heavily branching graph without freezing the main thread", () => {
+			const { nodes, links } = makeBranchingChainData()
+
+			const { container } = render(() => <Sankey width={1000} height={500} data={{ nodes, links }} />)
+
+			expect(container.querySelectorAll(".recharts-sankey-node")).toHaveLength(nodes.length)
+			expect(container.querySelectorAll(".recharts-sankey-link")).toHaveLength(links.length)
 		})
 	})
 })

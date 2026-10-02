@@ -1,5 +1,5 @@
-import { createMemo, createSignal, onMount } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { createMemo, createSignal, onSettled } from 'solid-js';
+
 import { useFieldsetRootContext } from '../../fieldset/root/FieldsetRootContext';
 import type { Form } from '../../form';
 import { useFormContext } from '../../form/FormContext';
@@ -10,6 +10,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { DEFAULT_VALIDITY_STATE, fieldValidityMapping } from '../utils/constants';
 import { FieldRootContext } from './FieldRootContext';
 import { useFieldValidation } from './useFieldValidation';
+import { createStore } from '../../solid-1-compat';
 
 /**
  * @internal
@@ -30,7 +31,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
   ]);
   const validationDebounceTime = () => local.validationDebounceTime ?? 0;
   const validationMode = () => local.validationMode ?? formValidationMode();
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const dirtyProp = () => local.dirty;
   const touchedProp = () => local.touched;
 
@@ -127,7 +128,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
     validation.commit(validityData.value);
   };
 
-  onMount(() => {
+  onSettled(() => {
     if (local.actionsRef) {
       local.actionsRef.current = { validate: handleImperativeValidate };
     }
@@ -162,7 +163,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return <FieldRootContext.Provider value={contextValue}>{element()}</FieldRootContext.Provider>;
+  return <FieldRootContext value={contextValue}>{element()}</FieldRootContext>;
 }
 
 /**

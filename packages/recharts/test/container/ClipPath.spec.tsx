@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../helper/render"
 import {
 	Area,
 	AreaChart,
@@ -17,7 +17,10 @@ import { pageData } from "../_data"
 
 function selectAllClipPaths(container: Element | null) {
 	assertNotNull(container)
-	return container.querySelectorAll("clipPath rect")
+	/* jsdom 29 cannot match descendants of a camelCase SVG ancestor (`clipPath rect`). */
+	return Array.from(container.querySelectorAll("clipPath")).flatMap((clipPath) =>
+		Array.from(clipPath.querySelectorAll("rect")),
+	)
 }
 
 function expectClipPathDimensions(

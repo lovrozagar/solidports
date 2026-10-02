@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { useAnchorPositioning, type Side } from '../../utils/useAnchorPositioning';
 
@@ -13,9 +14,7 @@ export interface SelectPositionerContext extends Omit<
   scrollDownArrowRef: ReactLikeRef<HTMLDivElement | null | undefined>;
 }
 
-export const SelectPositionerContext = createContext<SelectPositionerContext | undefined>(
-  undefined,
-);
+export const SelectPositionerContext = createContext<SelectPositionerContext | null>(null);
 
 export function useSelectPositionerContext() {
   const context = useContext(SelectPositionerContext);

@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, Show, mergeProps as solidMergeProps } from 'solid-js';
+import { createTrackedEffect, onCleanup, Show } from 'solid-js';
 import { useCollapsiblePanel } from '../../collapsible/panel/useCollapsiblePanel';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { splitComponentProps } from '../../solid-helpers';
@@ -13,6 +13,7 @@ import { accordionStateAttributesMapping } from '../item/stateAttributesMapping'
 import type { AccordionRoot } from '../root/AccordionRoot';
 import { useAccordionRootContext } from '../root/AccordionRootContext';
 import { AccordionPanelCssVars } from './AccordionPanelCssVars';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * A collapsible panel with the accordion item contents.
@@ -57,7 +58,7 @@ export function AccordionPanel(componentProps: AccordionPanel.Props) {
   } = useCollapsibleRootContext();
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (keepMounted() === false && hiddenUntilFound()) {
         warn(
           'The `keepMounted={false}` prop on a Accordion.Panel will be ignored when using `contextHiddenUntilFound` on the Panel or the Root since it requires the panel to remain mounted when closed.',
@@ -66,20 +67,29 @@ export function AccordionPanel(componentProps: AccordionPanel.Props) {
     });
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     setHiddenUntilFound(hiddenUntilFound());
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     setKeepMounted(keepMounted());
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (local.id) {
       setPanelIdState(local.id);
-      onCleanup(() => setPanelIdState(undefined));
+      _c.push(() => setPanelIdState(undefined));
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   useOpenChangeComplete({
     onComplete() {

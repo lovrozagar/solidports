@@ -1,6 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- combobox value type is generic at the component boundary but erased here; carrying `Value` through store context would require parameterizing every selector */
-import { createMemo, createSelector, mergeProps as solidMergeProps, type Accessor } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { createMemo } from 'solid-js';
+import type { Accessor } from 'solid-js';
+
 import { compareItemEquality } from '../utils/itemEquality';
 import { hasNullItemLabel } from '../utils/resolveValueLabel';
 import type { HTMLProps } from '../utils/types';
@@ -8,6 +9,7 @@ import type { Side } from '../utils/useAnchorPositioning';
 import type { InteractionType } from '../utils/useEnhancedClickHandler';
 import type { TransitionStatus } from '../utils/useTransitionStatus';
 import type { AriaCombobox } from './root/AriaCombobox';
+import { createSelector, mergeProps as solidMergeProps, createStore } from '../solid-1-compat';
 
 // only fields that are mutated via store setter
 export interface State {

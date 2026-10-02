@@ -1,17 +1,17 @@
 # @solidports/recharts — API parity report
 
-Generated: 2026-04-26T13:13:18.518Z
+Generated: 2026-10-02T07:02:09.886Z
 
 Status: **PASS**
 
 ## Summary
 
-- Upstream exports: 216
-- Solid exports: 206
-- Common: 205
+- Upstream exports: 251
+- Solid exports: 252
+- Common: 251
 - Missing exports: 0
 - Unexplained drift: 0
-- Deferred (documented unported): 11
+- Deferred (documented unported): 0
 - Extras (Solid-only, allowlisted): 1
 - Extras (Solid-only, unexplained): 0
 
@@ -37,17 +37,7 @@ _(none)_
 
 Upstream exports that the port has explicitly chosen not to implement yet. Tracked in `.kb/parity/todo.md` with a target phase.
 
-- `createHorizontalChart` (value) — Typed-chart factory utility; deferred — see .upstream/map.json::unported_upstream.
-- `createVerticalChart` (value) — Typed-chart factory utility; deferred — see .upstream/map.json::unported_upstream.
-- `createCentricChart` (value) — Typed-polar factory utility; deferred — see .upstream/map.json::unported_upstream.
-- `createRadialChart` (value) — Typed-polar factory utility; deferred — see .upstream/map.json::unported_upstream.
-- `TypedHorizontalChartContext` (type) — Companion type for createHorizontalChart; deferred.
-- `TypedVerticalChartContext` (type) — Companion type for createVerticalChart; deferred.
-- `NoFunnel` (type) — Companion type for cartesian factories; deferred.
-- `TypedCentricChartContext` (type) — Companion type for createCentricChart; deferred.
-- `TypedRadialChartContext` (type) — Companion type for createRadialChart; deferred.
-- `NoRadial` (type) — Companion type for polar factories; deferred.
-- `NoCentric` (type) — Companion type for polar factories; deferred.
+_(none)_
 
 ## See also
 

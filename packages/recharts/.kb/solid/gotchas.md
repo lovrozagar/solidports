@@ -104,7 +104,7 @@ createRoot(() => {
 
 **Decision:** Do NOT add reselect-style memoization to selectors. The React version relies on it for Redux shallow-equal bailout; the Solid port doesn't need it (fine-grained reactivity handles dependency tracking natively).
 
-**Consequence:** tests that assert referential stability of selector output (`expect(a).toBe(b)` with `a` and `b` from two consecutive calls in the same tick) will fail. These are redux-idiom test-helper checks — they are not testing real reactive drift. Document the failures in `.kb/test-skiplist.md` with reason `selector-stability` rather than trying to memoize.
+**Consequence:** tests that assert referential stability of selector output (`expect(a).toBe(b)` with `a` and `b` from two consecutive calls in the same tick) will fail. These are redux-idiom test-helper checks — they are not testing real reactive drift. Adapt those assertions to value equality with a comment rather than memoizing (e.g. axisSelectors "keep passing the same instance").
 
 **Any selector memoization must**:
 - Be invalidated by Solid's reactive system (subscribe to the store through `createEffect`), OR
@@ -2053,3 +2053,57 @@ Tests assert `pathRef: expect.objectContaining({ current: expect.any(Object) })`
 **Tests recovered:** Pie onClick (1), Pie external handlers (1), Scatter onClick (1), Bar onClick (1), Line onClick + onMouseOver/Out + onTouch (3). 7 tests off skiplist, 0 regressions.
 
 ---
+
+## GOTCHA-019: Solid 2.0.0-rc.13 stale reads during the first flush
+
+Three behaviors of `solid-js@2.0.0-rc.13` shape how this port writes and reads chart state.
+
+### 1. `createTrackedEffect` misses writes committed in the same flush
+
+A tracked effect runs its callback under `staleValues(...)`. If its first run reads a value whose write is staged in the same flush, it sees the old value and never re-runs once the write commits. `createEffect(compute, apply)` and `createRenderEffect` do re-run.
+
+**Rule:** store writers use `createEffect(compute, apply)`: reads in compute, writes in apply, cleanup returned from apply. Test probes use `trackSpy(spy, read)` or `observe(fn)` from `test/helper/`, never `createTrackedEffect`.
+
+### 2. A store node first read during a pending write can stay stale forever
+
+When a component mounts mid-flush (for example under a ZIndex portal whose target registers in the same flush) and makes the first tracked read of a store key that already has a staged write, the node can keep the pre-write value permanently. Untracked reads of the same key return the committed value. Repro: `BarChart` with `data` and no explicit axes rendered 0 bars; `untrack(() => store.chartData.chartData)` returned the data while the tracked read stayed `undefined`.
+
+**Rule:** chart roots seed everything known from props at store creation (`createInitialLayoutState`, `createInitialChartDataState` via `preloadedState`). Report components keep the store in sync after mount. That keeps first-flush writes rare and matches upstream, where the first render already sees declared size, margin, and data.
+
+### 3. Writes are invisible until `flush()`
+
+Store and signal writes batch on a microtask, and even direct reads return the old value until then. `test/vitest.setup.ts` flushes after every testing-library event (`eventWrapper`), and `test/helper/render.tsx` flushes after mount. Tests that write to the store directly call `flush()` before asserting.
+
+## GOTCHA-020: memoized item children resolve context at the memo's creation scope
+
+Graphical items memoize user children (`<LabelList/>`, `<Cell/>`, `<ErrorBar/>`) once, high in the item (GOTCHA-013/017), so a single createComponent per child. A memo resolves `useContext` through the owner that created it, not where its nodes are inserted, so a context provided deeper (the item's label-list provider) is invisible to those children. React has no such gap.
+
+Rule: provide the context at the memo's creation scope and let the deep provider publish into it. `LabelListContextBridge` (src/component/LabelList.tsx) wraps the children-memo IIFE in every item; `CartesianLabelListContextProvider` / `PolarLabelListContextProvider` publish their entries accessor into the nearest bridge (owned-write signal, cleared via teardownWrite). The bridge must be an ancestor of both the memo and the deep provider.
+
+## GOTCHA-021: animation frames must carry their animation id
+
+React remounts JavascriptAnimate via `key={animationId}`, so a new animation starts at `from` in the same render. Solid keeps the component and its last frame (`t=1`). JavascriptAnimate stores `{ animationId, t }` and reports `from` whenever the stored frame belongs to another id, so a data change never renders one stale `t=1` frame that the start snapshot would then commit as the new animation's start.
+
+## GOTCHA-022: shapes passed as elements (`activeShape={<Sector fill="red" />}`)
+
+Upstream renders an element option with `cloneElement(option, { ...props, ...option.props })`. Solid evaluates `<Sector fill="red" />` eagerly with no geometry, so it renders nothing and there is nothing to clone. `src/util/ShapeElementProps.tsx`: the caller arms a one-shot token with the props it would inject and reads the option lazily inside `ShapeElementPropsProvider`; built-in shapes (Sector, Rectangle, Trapezoid, Symbols, Dot, Curve, Cross, Polygon) call `useShapeElementProps(ownProps)` and merge the token props under their own. `Shape` and `ShapeOption` (Reference*) do this; non-element branches disarm the slot so nested shapes (AreaRevealShape's curves) are untouched. Custom components that don't consume keep the DOM clone fallback.
+
+Rules: read an element prop exactly once at the render site (each read mints a new shape); never memoize it upstream of that site (Pie `sectorOptions` is a plain function, reading `activeShape` only when active). Function shapes receive upstream's camelCase props (`camelizeSvgPropsForHandler`). Default-props objects use camelCase (`strokeWidth`, `fillOpacity`): kebab defaults collide with the user's camelCase key during canonicalization and win.
+
+## GOTCHA-023: hover dedupe is per item list
+
+Items bind both mouseenter/mouseover and mouseleave/mouseout (React derives enter/leave from over/out). Dedupe with one `createHoverDedupe()` per item list (src/util/hoverDedupe.ts): entering another item ends the previous entry, so re-hovering an item after hovering a sibling dispatches again; a mouseout into the item's own descendant is not a leave. Per-instance `entered` flags got stuck when the pointer moved between siblings without a mouseout.
+
+## GOTCHA-024: element children vs text children in resolveDefaultProps
+
+`resolveDefaultProps` reads element children once (a getter re-mints `<Label/>` on each read) but keeps primitive children live, so expression text such as `{format(props.endIndex)}` (Brush labels via `Text`) tracks its inputs.
+
+## GOTCHA-025: chart data is raw, not proxied
+
+A deep store wraps every row of `chartData` and tracks each field a selector reads, so one derivation over N rows subscribes to N × fields signals (dev warns `HUGE_FAN_IN`; `cartesianTickItems` tracked 5000+ sources on a 672-row chart). Upstream treats chart data as immutable and replaces it by reference.
+
+Rule: every write of `chartData` / `computedData` goes through `markRawData` (src/state/rawData.ts). It ingests the value into a throwaway shallow store, which applies Solid's sticky raw mark; the chart store then serves the array by reference and tracks only the slot. In-place row mutation is not observed, matching upstream. Proxies from a user store and raw objects already backing a deep store stay deep-tracked.
+
+## GOTCHA-026: lists whose entries are rebuilt use index slots
+
+Legend payload entries are new objects whenever an item toggles `inactive`. An identity-keyed `<For>` replaces every `<li>`, so a node captured before a click is detached afterwards. Upstream keys legend items by index (`legend-item-${i}`); `DefaultLegendContent` uses `<For keyed={false}>` to match.

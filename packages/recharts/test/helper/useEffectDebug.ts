@@ -1,6 +1,5 @@
-import { createEffect, createSignal } from "solid-js"
-import type { Accessor } from "solid-js"
-
+import { createTrackedEffect, createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
 type FirstDependencies = Record<string, unknown>
 type ChangedDependencies = Record<string, { after: unknown; before: unknown }>
 
@@ -20,7 +19,7 @@ export function useEffectDebug(
 ): void {
 	const [getPrev, setPrev] = createSignal<ReadonlyArray<unknown> | null>(null)
 
-	createEffect(() => {
+	createTrackedEffect(() => {
 		const currentValues = dependencies.map((dep) => dep())
 		const previousValues = getPrev()
 

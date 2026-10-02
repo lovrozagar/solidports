@@ -3,15 +3,14 @@ import {
   createMemo,
   createSignal,
   lazy,
-  onMount,
+  onSettled,
   Show,
-  Suspense,
+  Loading,
   useContext,
-  type Accessor,
-  type Component,
-  type JSX,
-} from "solid-js"
-import { Dynamic } from "solid-js/web"
+} from 'solid-js';
+import type { Accessor, Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
 import { DemoVariantSelectorContext } from "./DemoVariantSelectorProvider"
 
 function fileNameToLanguage(fileName: string): string {
@@ -33,8 +32,16 @@ export interface DemoFile {
   name: string
   slug?: string
   text: string
+  /** Highlighted at transform time by `viteDemoHighlight`. */
+  html?: string
   lang: string
   lines: number
+}
+
+/** Shape of a `?highlighted` demo source import. */
+interface HighlightedSource {
+  text: string
+  html: string
 }
 
 export interface DemoApi {
@@ -75,17 +82,17 @@ interface UseDemoOptions {
 const componentModules = import.meta.glob<{ default: Component }>(
   "../../demos/solid/**/index.tsx",
 )
-const sourceModules = import.meta.glob<string>(
+const sourceModules = import.meta.glob<HighlightedSource>(
   "../../demos/solid/**/index.tsx",
-  { import: "default", query: "?raw" },
+  { import: "default", query: "?highlighted" },
 )
-const sharedModuleSources = import.meta.glob<string>(
+const sharedModuleSources = import.meta.glob<HighlightedSource>(
   "../../demos/solid/**/_index.module.css",
-  { import: "default", query: "?raw" },
+  { import: "default", query: "?highlighted" },
 )
-const variantCssSources = import.meta.glob<string>(
+const variantCssSources = import.meta.glob<HighlightedSource>(
   "../../demos/solid/**/*.module.css",
-  { import: "default", query: "?raw" },
+  { import: "default", query: "?highlighted" },
 )
 
 function componentDirFromPath(path: string): string {
@@ -96,15 +103,16 @@ function sharedModuleKey(path: string): string {
   return `../../demos/solid/${componentDirFromPath(path)}/_index.module.css`
 }
 
-const cssSourceCache = new Map<string, Promise<string>>()
-function cachedCssSource(key: string, glob: Record<string, () => Promise<string>>): Promise<string> | null {
+const cssSourceCache = new Map<string, Promise<HighlightedSource>>()
+function cachedCssSource(
+  key: string,
+  glob: Record<string, () => Promise<HighlightedSource>>,
+): Promise<HighlightedSource> | null {
   const hit = cssSourceCache.get(key)
   if (hit) return hit
   const loader = glob[key]
   if (!loader) return null
-  const promise = loadWithRetry(() => loader()).then((txt) =>
-    typeof txt === "string" ? txt : String(txt),
-  )
+  const promise = loadWithRetry(() => loader())
   cssSourceCache.set(key, promise)
   return promise
 }
@@ -174,15 +182,13 @@ function cachedLazy(key: string) {
   return Lazy
 }
 
-const sourceCache = new Map<string, Promise<string>>()
-function cachedSource(key: string): Promise<string> | null {
+const sourceCache = new Map<string, Promise<HighlightedSource>>()
+function cachedSource(key: string): Promise<HighlightedSource> | null {
   const hit = sourceCache.get(key)
   if (hit) return hit
   const loader = sourceModules[key]
   if (!loader) return null
-  const promise = loadWithRetry(() => loader()).then((txt) =>
-    typeof txt === "string" ? txt : String(txt),
-  )
+  const promise = loadWithRetry(() => loader())
   sourceCache.set(key, promise)
   return promise
 }
@@ -236,48 +242,51 @@ export function useDemo(props: UseDemoProps, options: UseDemoOptions = {}): Demo
 
   const LazyComponent = createMemo(() => cachedLazy(key()))
 
-  const [sourceText, setSourceText] = createSignal<string>("")
-  /* Keyed by display name ("index.module.css", "theme.css") → raw CSS text. */
-  const [cssTexts, setCssTexts] = createSignal<Record<string, string>>({})
+  const [source, setSource] = createSignal<HighlightedSource | undefined>(undefined)
+  /* Keyed by display name ("index.module.css", "theme.css") → highlighted CSS source. */
+  const [cssSources, setCssSources] = createSignal<Record<string, HighlightedSource>>({})
 
-  createEffect(() => {
-    const k = key()
+  createEffect(key, (k) => {
     const promise = cachedSource(k)
     if (!promise) {
-      setSourceText("")
+      setSource(undefined)
       return
     }
-    promise.then((txt) => setSourceText(txt)).catch(() => setSourceText(""))
+    promise.then(setSource).catch(() => setSource(undefined))
   })
 
   /* Load the CSS module the demo actually imports. Shared `_index.module.css` is
      shown as `index.module.css`, matching the React docs file tab. */
-  createEffect(() => {
-    const variant = resolvedSelectedVariant()
-    if (variant !== "CssModules") {
-      setCssTexts({})
-      return
-    }
-    const localKey = `../../demos/solid/${props.path}/${variantSubdir(variant)}/index.module.css`
-    const localPromise = cachedCssSource(localKey, variantCssSources)
-    const sharedPromise = cachedCssSource(sharedModuleKey(props.path), sharedModuleSources)
-    const promise = localPromise ?? sharedPromise
-    if (!promise) {
-      setCssTexts({})
-      return
-    }
-    promise
-      .then((txt) => setCssTexts({ "index.module.css": txt }))
-      .catch(() => setCssTexts({}))
-  })
+  createEffect(
+    () => resolvedSelectedVariant(),
+    (variant) => {
+      if (variant !== "CssModules") {
+        setCssSources({})
+        return
+      }
+      const localKey = `../../demos/solid/${props.path}/${variantSubdir(variant)}/index.module.css`
+      const localPromise = cachedCssSource(localKey, variantCssSources)
+      const sharedPromise = cachedCssSource(sharedModuleKey(props.path), sharedModuleSources)
+      const promise = localPromise ?? sharedPromise
+      if (!promise) {
+        setCssSources({})
+        return
+      }
+      promise
+        .then((css) => setCssSources({ "index.module.css": css }))
+        .catch(() => setCssSources({}))
+    },
+  )
 
   const [selectedFileName, setSelectedFileName] = createSignal<string | undefined>(undefined)
 
   /* Reset selected file tab when variant changes. */
-  createEffect(() => {
-    resolvedSelectedVariant()
-    setSelectedFileName(undefined)
-  })
+  createEffect(
+    () => resolvedSelectedVariant(),
+    () => {
+      setSelectedFileName(undefined)
+    },
+  )
 
   const fileName = () => {
     const segs = props.path.split("/")
@@ -286,12 +295,13 @@ export function useDemo(props: UseDemoProps, options: UseDemoOptions = {}): Demo
 
   const lang = createMemo(() => fileNameToLanguage(fileName()))
 
-  function makeCssFile(name: string, text: string): DemoFile {
+  function makeCssFile(name: string, css: HighlightedSource): DemoFile {
     return {
+      html: css.html,
       lang: "css",
-      lines: countLines(text),
+      lines: countLines(css.text),
       name,
-      text,
+      text: css.text,
     }
   }
 
@@ -300,33 +310,33 @@ export function useDemo(props: UseDemoProps, options: UseDemoOptions = {}): Demo
      trips a hydration mismatch and crashes the next Dynamic render with
      `template2 is not a function`. Consumers (DemoCodeBlock) own the JSX. */
   const files = createMemo<DemoFile[]>(() => {
-    const displayText = sourceText().replace(
-      /from ['"](?:\.\.\/)+_index\.module\.css['"]/g,
-      "from './index.module.css'",
-    )
+    const tsx = source()
     const tsxFile: DemoFile = {
+      html: tsx?.html,
       lang: lang(),
-      lines: countLines(displayText),
+      lines: countLines(tsx?.text ?? ""),
       name: "index.tsx",
       slug: props.slug,
-      text: displayText,
+      text: tsx?.text ?? "",
     }
     if (resolvedSelectedVariant() !== "CssModules") return [tsxFile]
-    const moduleText = cssTexts()["index.module.css"]
-    if (!moduleText) return [tsxFile]
-    return [tsxFile, makeCssFile("index.module.css", moduleText)]
+    const moduleCss = cssSources()["index.module.css"]
+    if (!moduleCss) return [tsxFile]
+    return [tsxFile, makeCssFile("index.module.css", moduleCss)]
   })
 
   /* SSR-gated demo render. Primitives (Toast Portal, Floating UI portal node) touch `document` in component bodies — crashes Solid SSR.
      Upstream React uses 'use client'; Solid has no equivalent, so defer demo evaluation until after hydration completes.
      mounted=false at SSR + first client render keeps hydration markers aligned; flips post-hydrate so portals run safely. */
   const [mounted, setMounted] = createSignal(false)
-  onMount(() => setMounted(true))
+  onSettled(() => {
+    setMounted(true)
+  })
   const component = (
     <Show when={mounted() && LazyComponent()}>
-      <Suspense fallback={null}>
+      <Loading fallback={null}>
         <Dynamic component={LazyComponent() as Component} />
-      </Suspense>
+      </Loading>
     </Show>
   )
 

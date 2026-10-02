@@ -1,6 +1,7 @@
 import type { Coordinate, DataKey } from "../util/types"
 import { useOptionalChartState } from "../state/useChartState"
 import type { TooltipPayload } from "../state/tooltipSlice"
+import { setTooltipInteraction } from "../state/tooltipInteraction"
 
 /**
  * Some graphical items choose to provide more information to the tooltip
@@ -35,7 +36,7 @@ export const useMouseEnterItemDispatch = <
 	E extends SVGElement = SVGElement,
 >(
 	onMouseEnterFromProps: EventHandlerSource<T, E>,
-	dataKey: DataKey<unknown> | undefined,
+	dataKey: () => DataKey<unknown> | undefined,
 	graphicalItemId: string,
 ) => {
 	const newCtx = useOptionalChartState()
@@ -44,11 +45,11 @@ export const useMouseEnterItemDispatch = <
 		const hoverPayload = {
 			active: true,
 			coordinate: data.tooltipPosition,
-			dataKey,
+			dataKey: dataKey(),
 			graphicalItemId,
 			index: String(index),
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "hover", hoverPayload)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "hover", hoverPayload)
 	}
 }
 
@@ -70,7 +71,7 @@ export const useMouseClickItemDispatch = <
 	E extends SVGElement = SVGElement,
 >(
 	onMouseClickFromProps: EventHandlerSource<T, E>,
-	dataKey: DataKey<unknown> | undefined,
+	dataKey: () => DataKey<unknown> | undefined,
 	graphicalItemId: string,
 ) => {
 	const newCtx = useOptionalChartState()
@@ -79,10 +80,10 @@ export const useMouseClickItemDispatch = <
 		const clickPayload = {
 			active: true,
 			coordinate: data.tooltipPosition,
-			dataKey,
+			dataKey: dataKey(),
 			graphicalItemId,
 			index: String(index),
 		}
-		newCtx?.setState("tooltip", "itemInteraction", "click", clickPayload)
+		if (newCtx != null) setTooltipInteraction(newCtx.setState, "itemInteraction", "click", clickPayload)
 	}
 }

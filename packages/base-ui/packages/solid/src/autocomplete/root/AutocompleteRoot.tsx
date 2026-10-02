@@ -1,18 +1,12 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  on,
-  splitProps,
-  type ComponentProps,
-  type JSX,
-} from 'solid-js';
+import { createEffect, createMemo, createSignal } from 'solid-js';
+import type { ComponentProps, JSX } from '@solidjs/web';
 import { AriaCombobox } from '../../combobox/root/AriaCombobox';
 import { useCoreFilter } from '../../combobox/root/utils/useFilter';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { REASONS } from '../../utils/reasons';
 import { stringifyAsLabel } from '../../utils/resolveValueLabel';
+import { on, splitProps } from '../../solid-1-compat';
 
 /**
  * Groups all parts of the autocomplete.
@@ -44,8 +38,7 @@ export function AutocompleteRoot<ItemValue>(props: AutocompleteRoot.Props<ItemVa
   const [internalValue, setInternalValue] = createSignal(local.defaultValue ?? '');
   const [inlineInputValue, setInlineInputValue] = createSignal('');
 
-  createEffect(
-    on([isControlled, () => local.value], ([controlled]) => {
+  createEffect(...on([isControlled, () => local.value], ([controlled]) => {
       if (controlled) {
         setInlineInputValue('');
       }
@@ -96,7 +89,11 @@ export function AutocompleteRoot<ItemValue>(props: AutocompleteRoot.Props<ItemVa
       return null;
     }
     const resolvedQueryValue = resolvedQuery();
-    return (item, _query, toString) => {
+    return (
+      item: ItemValue,
+      _query: string,
+      toString?: (itemValue: ItemValue) => string,
+    ) => {
       return baseFilterFn(item, resolvedQueryValue, toString);
     };
   });

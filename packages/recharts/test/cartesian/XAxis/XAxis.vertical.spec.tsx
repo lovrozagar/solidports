@@ -1,5 +1,7 @@
-/* @jsxImportSource solid-js */
-import { render } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { render } from "../../helper/render"
+import { untrack } from "solid-js"
+import { trackSpy } from "../../helper/trackSpy"
 import { describe, expect, it, vi } from "vitest"
 import {
 	BarChart,
@@ -169,18 +171,16 @@ describe("<XAxis />", () => {
 		])
 		expect(axisDomainSpy).toHaveBeenLastCalledWith([0, 600])
 	})
-	it.skip("should render with in LineChart VerticalWithSpecifiedDomain", () => {
+	it("should render with in LineChart VerticalWithSpecifiedDomain", () => {
 		const axisDomainSpy = vi.fn()
 		const axisSettingsSpy = vi.fn()
 		const displayedDataSpy = vi.fn()
 		const itemDataSpy = vi.fn()
 		const Comp = (): null => {
-			const isPanorama = useIsPanorama()
-			axisSettingsSpy(useAppSelector((state) => selectRenderableAxisSettings(state, "xAxis", 0)))
-			displayedDataSpy(
-				useAppSelector((state) => selectDisplayedData(state, "xAxis", 0, isPanorama)),
-			)
-			itemDataSpy(useAppSelector((state) => selectCartesianGraphicalItemsData(state, "xAxis", 0)))
+			const isPanorama = untrack(() => useIsPanorama())
+			trackSpy(axisSettingsSpy, () => useAppSelector((state) => selectRenderableAxisSettings(state, "xAxis", 0)))
+			trackSpy(displayedDataSpy, () => useAppSelector((state) => selectDisplayedData(state, "xAxis", 0, isPanorama)))
+			trackSpy(itemDataSpy, () => useAppSelector((state) => selectCartesianGraphicalItemsData(state, "xAxis", 0)))
 			return null
 		}
 		const { container } = render(() => (
@@ -230,6 +230,7 @@ describe("<XAxis />", () => {
 			interval: "preserveEnd",
 			minTickGap: 5,
 			mirror: false,
+			niceTicks: "auto",
 			name: undefined,
 			orientation: "bottom",
 			padding: {
@@ -247,9 +248,10 @@ describe("<XAxis />", () => {
 		}
 		expect(axisSettingsSpy).toHaveBeenLastCalledWith(expectedSettings)
 		expect(itemDataSpy).toHaveBeenLastCalledWith([])
-		expect(itemDataSpy).toHaveBeenCalledTimes(3)
+		/* Solid: one selector update per store change (React re-renders with unchanged values) */
+		expect(itemDataSpy).toHaveBeenCalledTimes(1)
 		expect(displayedDataSpy).toHaveBeenLastCalledWith(pageData)
-		expect(axisDomainSpy).toHaveBeenCalledTimes(3)
+		expect(axisDomainSpy).toHaveBeenCalledTimes(2)
 		expect(axisDomainSpy).toHaveBeenLastCalledWith([0, 2520])
 	})
 })

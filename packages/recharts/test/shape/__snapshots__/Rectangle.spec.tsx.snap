@@ -98,7 +98,6 @@ exports[`Shouldn't render any path when x, y, width or height is not a number 1`
   >
     <title />
     <desc />
-    
   </svg>
 </div>
 `;
@@ -113,7 +112,6 @@ exports[`Shouldn't render anything when height === 0 || width === 0 1`] = `
   >
     <title />
     <desc />
-    
   </svg>
 </div>
 `;

@@ -1,11 +1,5 @@
-import {
-  createEffect,
-  createMemo,
-  onCleanup,
-  mergeProps as solidMergeProps,
-  type JSX,
-} from 'solid-js';
-import { unwrap } from 'solid-js/store';
+import { createTrackedEffect, createMemo, onCleanup, snapshot } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { fieldValidityMapping } from '../../field/utils/constants';
@@ -25,6 +19,7 @@ import { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { useSelectRootContext } from '../root/SelectRootContext';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 const BOUNDARY_OFFSET = 2;
 const SELECTED_DELAY = 400;
@@ -49,8 +44,8 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
     'nativeButton',
   ]);
   const idProp = () => local.id;
-  const disabledProp = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? true;
+  const disabledProp = () => Boolean(local.disabled);
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
 
   const {
     setTouched,
@@ -79,7 +74,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
 
   const open = store.useState('open');
   const value = store.useState('value');
-  const fieldRawValue = () => unwrap(value());
+  const fieldRawValue = () => snapshot(value());
   const triggerProps = store.useState('triggerProps');
   const positionerElement = store.useState('positionerElement');
   const listElement = store.useState('listElement');
@@ -109,7 +104,10 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
   const selectedDelayTimeout = useTimeout();
   const unselectedDelayTimeout = useTimeout();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (open()) {
       const hasSelectedItemInList = hasSelectedValue() || hasNullItemLabel();
       const shouldDelayUnselectedMouseUpLonger = !hasSelectedItemInList;
@@ -134,7 +132,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
         });
       }
 
-      onCleanup(() => {
+      _c.push(() => {
         selectedDelayTimeout.clear();
         unselectedDelayTimeout.clear();
       });
@@ -148,7 +146,13 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
     };
 
     timeoutMouseDown.clear();
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const ariaControlsId = createMemo(() => {
     return listElement()?.id ?? getFloatingFocusElement(positionerElement())?.id;
@@ -191,10 +195,10 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
             return resolveAriaLabelledBy(labelId(), store.state.labelId);
           },
           get 'aria-readonly'() {
-            return readOnly() || undefined;
+            return readOnly() ? 'true' : undefined;
           },
           get 'aria-required'() {
-            return required() || undefined;
+            return required() ? 'true' : undefined;
           },
           get id() {
             return id();
@@ -284,7 +288,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
             keyboardActiveRef.current = false;
           },
           role: 'combobox' as const,
-          get tabIndex() {
+          get tabindex() {
             return disabled() ? -1 : 0;
           },
         },

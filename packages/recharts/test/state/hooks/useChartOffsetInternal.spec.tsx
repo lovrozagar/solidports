@@ -7,11 +7,11 @@
  * After Step 1 lands, all tests here must go GREEN and stay GREEN through Steps 2-6.
  * They are the structural guard against the four prior failed memoization attempts.
  */
-import { createEffect, createRoot } from "solid-js"
-import { createStore } from "solid-js/store"
-import { render } from "@solidjs/testing-library"
+import { createRoot, flush, untrack } from 'solid-js'
+import { observe } from "../../helper/observe"
+import { render } from "../../helper/render"
 import { describe, expect, it } from "vitest"
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { createInitialState } from "../../../src/state/store"
 import { RechartsStoreContext } from "../../../src/state/RechartsStoreContext"
 import { createActions } from "../../../src/state/actions"
@@ -24,6 +24,7 @@ import {
 	useAllYAxes,
 } from "../../../src/state/hooks/useChartSelectors"
 
+import { createStore } from '../../../src/util/solid-1-compat';
 /* ── test harness ─────────────────────────────────────────────────── */
 
 type StoreCtx = ReturnType<typeof buildStoreCtx>
@@ -39,11 +40,11 @@ function withProvider(ctx: StoreCtx, children: () => JSX.Element): JSX.Element {
 	const { actions, events, setStore, store } = ctx
 	const chartSelectors = createChartSelectors(store)
 	return (
-		<RechartsStoreContext.Provider value={{ actions, events, setStore, store }}>
+		<RechartsStoreContext value={{ actions, events, setStore, store }}>
 			<ChartSelectorsProvider value={chartSelectors}>
 				{children()}
 			</ChartSelectorsProvider>
-		</RechartsStoreContext.Provider>
+		</RechartsStoreContext>
 	)
 }
 
@@ -56,7 +57,7 @@ describe("useChartOffsetInternal", () => {
 		const emitted: ReturnType<typeof useChartOffsetInternal>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				emitted.push(useChartOffsetInternal())
 			})
 			return null
@@ -75,7 +76,7 @@ describe("useChartOffsetInternal", () => {
 		const emitted: ReturnType<typeof useChartOffsetInternal>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				emitted.push(useChartOffsetInternal())
 			})
 			return null
@@ -84,6 +85,7 @@ describe("useChartOffsetInternal", () => {
 		render(() => withProvider(ctx, () => <Probe />))
 
 		ctx.actions.setChartSize({ height: 600, width: 800 })
+		flush()
 
 		expect(emitted.length).toBeGreaterThanOrEqual(2)
 		const last = emitted.at(-1)
@@ -96,10 +98,11 @@ describe("useChartOffsetInternal", () => {
 		const ctx = buildStoreCtx()
 		/* give it a size so margin changes are visible in offset */
 		ctx.actions.setChartSize({ height: 600, width: 800 })
+		flush()
 		const emitted: ReturnType<typeof useChartOffsetInternal>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				emitted.push(useChartOffsetInternal())
 			})
 			return null
@@ -108,6 +111,7 @@ describe("useChartOffsetInternal", () => {
 		render(() => withProvider(ctx, () => <Probe />))
 
 		ctx.actions.setMargin({ bottom: 0, left: 30, right: 0, top: 20 })
+		flush()
 
 		expect(emitted.length).toBeGreaterThanOrEqual(2)
 		const last = emitted.at(-1)
@@ -119,11 +123,13 @@ describe("useChartOffsetInternal", () => {
 		expect.assertions(2)
 		const ctx = buildStoreCtx()
 		ctx.actions.setChartSize({ height: 600, width: 800 })
+		flush()
 		ctx.actions.setMargin({ bottom: 0, left: 0, right: 0, top: 0 })
+		flush()
 		const emitted: ReturnType<typeof useChartOffsetInternal>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				emitted.push(useChartOffsetInternal())
 			})
 			return null
@@ -158,6 +164,8 @@ describe("useChartOffsetInternal", () => {
 			width: 60,
 		})
 
+		flush()
+
 		expect(emitted.length).toBeGreaterThanOrEqual(2)
 		const last = emitted.at(-1)
 		/* left-oriented Y axis with width=60, margin.left=0 → offset.left=60 */
@@ -168,19 +176,20 @@ describe("useChartOffsetInternal", () => {
 		expect.assertions(1)
 		const ctx = buildStoreCtx()
 		ctx.actions.setChartSize({ height: 600, width: 800 })
+		flush()
 
 		let ref1: ReturnType<typeof useChartOffsetInternal> | undefined
 		let ref2: ReturnType<typeof useChartOffsetInternal> | undefined
 
 		const Probe1 = (): null => {
 			/* read INSIDE a createEffect so the memo dep is registered */
-			createEffect(() => {
+			observe(() => {
 				ref1 = useChartOffsetInternal()
 			})
 			return null
 		}
 		const Probe2 = (): null => {
-			createEffect(() => {
+			observe(() => {
 				ref2 = useChartOffsetInternal()
 			})
 			return null
@@ -202,7 +211,7 @@ describe("useAllXAxes", () => {
 		const emitted: ReturnType<typeof useAllXAxes>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				emitted.push(useAllXAxes())
 			})
 			return null
@@ -219,7 +228,7 @@ describe("useAllXAxes", () => {
 		const emitted: ReturnType<typeof useAllXAxes>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				emitted.push(useAllXAxes())
 			})
 			return null
@@ -254,6 +263,8 @@ describe("useAllXAxes", () => {
 			unit: undefined,
 		})
 
+		flush()
+
 		expect(emitted.length).toBeGreaterThanOrEqual(2)
 		const last = emitted.at(-1)
 		expect(last).toHaveLength(1)
@@ -265,7 +276,7 @@ describe("useAllXAxes", () => {
 		let fireCount = 0
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				useAllXAxes()
 				fireCount++
 			})
@@ -303,6 +314,8 @@ describe("useAllXAxes", () => {
 			width: 60,
 		})
 
+		flush()
+
 		/* useAllXAxes memo must NOT re-fire when yAxis changes */
 		expect(fireCount).toBe(countAfterMount)
 	})
@@ -313,7 +326,7 @@ describe("useAllXAxes", () => {
 		const refs: ReturnType<typeof useAllXAxes>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				refs.push(useAllXAxes())
 			})
 			return null
@@ -323,6 +336,7 @@ describe("useAllXAxes", () => {
 
 		/* trigger an unrelated store write */
 		ctx.actions.setChartSize({ height: 600, width: 800 })
+		flush()
 
 		/* createMemo with equals check — same deps → same ref */
 		expect(refs[0]).toBe(refs.at(-1))
@@ -335,13 +349,13 @@ describe("useAllXAxes", () => {
 		let ref2: ReturnType<typeof useAllXAxes> | undefined
 
 		const Probe1 = (): null => {
-			createEffect(() => {
+			observe(() => {
 				ref1 = useAllXAxes()
 			})
 			return null
 		}
 		const Probe2 = (): null => {
-			createEffect(() => {
+			observe(() => {
 				ref2 = useAllXAxes()
 			})
 			return null
@@ -362,7 +376,7 @@ describe("useAllYAxes", () => {
 		const emitted: ReturnType<typeof useAllYAxes>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				emitted.push(useAllYAxes())
 			})
 			return null
@@ -379,7 +393,7 @@ describe("useAllYAxes", () => {
 		const emitted: ReturnType<typeof useAllYAxes>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				emitted.push(useAllYAxes())
 			})
 			return null
@@ -414,6 +428,8 @@ describe("useAllYAxes", () => {
 			width: 60,
 		})
 
+		flush()
+
 		expect(emitted.length).toBeGreaterThanOrEqual(2)
 		expect(emitted.at(-1)).toHaveLength(1)
 	})
@@ -424,7 +440,7 @@ describe("useAllYAxes", () => {
 		let fireCount = 0
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				useAllYAxes()
 				fireCount++
 			})
@@ -462,6 +478,8 @@ describe("useAllYAxes", () => {
 			unit: undefined,
 		})
 
+		flush()
+
 		/* useAllYAxes memo must NOT re-fire when xAxis changes */
 		expect(fireCount).toBe(countAfterMount)
 	})
@@ -472,7 +490,7 @@ describe("useAllYAxes", () => {
 		const refs: ReturnType<typeof useAllYAxes>[] = []
 
 		const Probe = (): null => {
-			createEffect(() => {
+			observe(() => {
 				refs.push(useAllYAxes())
 			})
 			return null
@@ -481,6 +499,7 @@ describe("useAllYAxes", () => {
 		render(() => withProvider(ctx, () => <Probe />))
 
 		ctx.actions.setChartSize({ height: 600, width: 800 })
+		flush()
 
 		expect(refs[0]).toBe(refs.at(-1))
 	})
@@ -492,13 +511,13 @@ describe("useAllYAxes", () => {
 		let ref2: ReturnType<typeof useAllYAxes> | undefined
 
 		const Probe1 = (): null => {
-			createEffect(() => {
+			observe(() => {
 				ref1 = useAllYAxes()
 			})
 			return null
 		}
 		const Probe2 = (): null => {
-			createEffect(() => {
+			observe(() => {
 				ref2 = useAllYAxes()
 			})
 			return null

@@ -2,15 +2,14 @@
 import {
   createEffect,
   createMemo,
-  createSignal,
   createUniqueId,
-  on,
   onCleanup,
-  type JSX,
 } from 'solid-js';
-import { createStore, produce } from 'solid-js/store';
+import type { JSX } from '@solidjs/web';
+
 import { access, type MaybeAccessor } from '../../../solid-helpers';
 import { CompositeListContext } from './CompositeListContext';
+import { on, createStore } from '../../../solid-1-compat';
 
 type NodeId = string;
 export type CompositeMetadata<CustomMetadata> = {
@@ -24,7 +23,13 @@ export type CompositeMetadata<CustomMetadata> = {
 export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
   const listeners: Function[] = [];
   const nodeIds = new Map<Element, NodeId>();
-  const [nextIndex, setNextIndex] = createSignal(0);
+  /* Sequential first-paint index guess. A signal write during child setup is
+     REACTIVE_WRITE_IN_OWNED_SCOPE in Solid 2; this counter is render-local. */
+  let nextIndexValue = 0;
+  const nextIndex = () => nextIndexValue;
+  const setNextIndex = (value: number) => {
+    nextIndexValue = value;
+  };
   const [nodes, setNodes] = createStore<Record<NodeId, { element: Element; metadata: Metadata }>>(
     {},
   );
@@ -51,12 +56,12 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
     const uid = nodeIds?.get(node) ?? createUniqueId();
     nodeIds.set(node, uid);
     setNodes(
-      produce((prevNodes) => {
+      (prevNodes: Record<NodeId, { element: Element; metadata: Metadata }>) => {
         prevNodes[uid] = {
           element: node,
           metadata: { ...prevNodes[uid]?.metadata, ...(access(metadata) as any) },
         };
-      }),
+      },
     );
   }
 
@@ -64,11 +69,13 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
     const uid = nodeIds.get(node);
     if (uid) {
       nodeIds.delete(node);
-      setNodes(
-        produce((prevNodes) => {
+      /* Disposal runs in an owned scope; defer the store write so Solid 2
+         does not throw REACTIVE_WRITE_IN_OWNED_SCOPE. */
+      queueMicrotask(() => {
+        setNodes((prevNodes: Record<NodeId, { element: Element; metadata: Metadata }>) => {
           delete prevNodes[uid];
-        }),
-      );
+        });
+      });
     }
   }
 
@@ -87,33 +94,28 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
     }
   }
 
-  createEffect(() => {
-    if (typeof MutationObserver !== 'function' || sortedMap().size === 0) {
-      return;
-    }
-
-    const mutationObserver = new MutationObserver((entries) => {
-      const diff = new Set<Node>();
-      const updateDiff = (node: Node) => (diff.has(node) ? diff.delete(node) : diff.add(node));
-      entries.forEach((entry) => {
-        entry.removedNodes.forEach(updateDiff);
-        entry.addedNodes.forEach(updateDiff);
-      });
-    });
-
-    sortedMap().forEach((_, node) => {
-      if (node.parentElement) {
-        mutationObserver.observe(node.parentElement, { childList: true });
-      }
-    });
-
-    onCleanup(() => {
-      mutationObserver.disconnect();
-    });
-  });
-
   createEffect(
-    on(nodesAsArray, (newArray) => {
+    () => sortedMap(),
+    (map) => {
+      if (typeof MutationObserver !== 'function' || map.size === 0) {
+        return;
+      }
+
+      const mutationObserver = new MutationObserver(() => {});
+
+      map.forEach((_, node) => {
+        if (node.parentElement) {
+          mutationObserver.observe(node.parentElement, { childList: true });
+        }
+      });
+
+      return () => {
+        mutationObserver.disconnect();
+      };
+    },
+  );
+
+  createEffect(...on(nodesAsArray, (newArray) => {
       if (props.refs.elements.length !== newArray.length) {
         props.refs.elements.length = newArray.length;
       }
@@ -124,7 +126,7 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
     }),
   );
 
-  createEffect(on(sortedMap, (sorted) => listeners.forEach((l) => l(sorted))));
+  createEffect(...on(sortedMap, (sorted) => listeners.forEach((l) => l(sorted))));
 
   onCleanup(() => {
     props.refs.elements = [];
@@ -134,7 +136,7 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
   });
 
   return (
-    <CompositeListContext.Provider
+    <CompositeListContext
       value={{
         register,
         unregister,
@@ -147,7 +149,7 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
       }}
     >
       {props.children}
-    </CompositeListContext.Provider>
+    </CompositeListContext>
   );
 }
 

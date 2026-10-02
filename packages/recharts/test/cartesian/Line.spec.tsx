@@ -1,5 +1,6 @@
-import { fireEvent, render } from "@solidjs/testing-library"
-import { createEffect } from "solid-js"
+import { fireEvent, render } from "../helper/render"
+import { observe } from "../helper/observe"
+
 import { describe, it, expect, vi, test, beforeEach } from "vitest"
 import { Line, ErrorBar, LineChart, Customized, XAxis, LineProps, Tooltip } from "../../src"
 import { useAppSelector } from "../helper/legacyDispatch"
@@ -148,7 +149,7 @@ describe("<Line />", () => {
 	it("should report its ErrorBars to state", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() =>
+			observe(() =>
 				spy(useAppSelector((state) => selectErrorBarsSettings(state, "yAxis", 0))),
 			)
 			return null
@@ -174,7 +175,7 @@ describe("<Line />", () => {
 	it("should report its ErrorBars to state in vertical chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() =>
+			observe(() =>
 				spy(useAppSelector((state) => selectErrorBarsSettings(state, "xAxis", 0))),
 			)
 			return null
@@ -288,7 +289,6 @@ describe("<Line />", () => {
 				y: 86.66666666666666,
 			},
 		]
-		/* Cluster C: pathRef is a Solid callback ref function, upstream test expects ref-object {current}. */
 		it("should fire onClick event when clicking on the line", async () => {
 			const user = userEventSetup()
 			const handleClick = vi.fn()
@@ -326,7 +326,6 @@ describe("<Line />", () => {
 				expect.any(Object),
 			)
 		})
-		/* Cluster C: pathRef shape divergence (callback vs ref-object). */
 		it("should fire onMouseOver and onMouseOut events when hovering over the line", async () => {
 			const user = userEventSetup()
 			const handleMouseOver = vi.fn()
@@ -399,7 +398,6 @@ describe("<Line />", () => {
 				expect.any(Object),
 			)
 		})
-		/* Cluster C: pathRef shape divergence. */
 		it("should fire onTouchMove and onTouchEnd events when touching the line", async () => {
 			const handleTouchMove = vi.fn()
 			const handleTouchEnd = vi.fn()
@@ -453,8 +451,7 @@ describe("<Line />", () => {
 			</LineChart>
 		))
 
-		/* Cluster D: tooltip payload missing strokeWidth — sibling-mount-order in selector. */
-		it.skip("should select tooltip payload", () => {
+		it("should select tooltip payload", () => {
 			const { spy } = renderTestCase((state) => selectTooltipPayload(state, "axis", "hover", "0"))
 			expectLastCalledWith(spy, [
 				{

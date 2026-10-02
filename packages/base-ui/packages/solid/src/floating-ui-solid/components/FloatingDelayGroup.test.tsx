@@ -2,7 +2,9 @@
 import { flushMicrotasks } from '#test-utils';
 import { isJSDOM } from '#utils/detectBrowser';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
-import { type Component, createEffect, createSignal, type JSX, Show } from 'solid-js';
+import { createTrackedEffect, createSignal, Show } from 'solid-js';
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { vi } from 'vitest';
 import {
   FloatingDelayGroup,
@@ -41,7 +43,7 @@ function Tooltip(props: Props) {
   let renderCount = 0;
   let renderCountRef: HTMLSpanElement | undefined;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     renderCount += 1;
     if (renderCountRef) {
       renderCountRef.textContent = String(renderCount);

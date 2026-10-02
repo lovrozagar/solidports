@@ -1,7 +1,8 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
+import { createSignal, flush, Show } from "solid-js"
 import { describe, expect, it, Mock, test, vi } from "vitest"
-import { splitProps } from "solid-js"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { trackSpy } from "../helper/trackSpy"
+import { fireEvent, render } from "../helper/render"
 import {
 	Bar,
 	BarChart,
@@ -19,6 +20,7 @@ import { userEventSetup } from "../helper/userEventSetup"
 import { assertNotNull } from "../helper/assertNotNull"
 import { expectLastCalledWith } from "../helper/expectLastCalledWith"
 
+import { splitProps } from '../../src/util/solid-1-compat';
 /* hoisted outside `<ReferenceArea />` describe so sibling `state integration` describe can reference. */
 const data = [
 	{ name: "201102", pv: 0, uv: -6.11 },
@@ -326,8 +328,7 @@ describe("<ReferenceArea />", () => {
 			expect(getByText("Custom Text")).toBeVisible()
 		})
 	})
-	/* Cluster C */
-	describe.skip("shape", () => {
+	describe("shape", () => {
 		it("should render rectangle when shape is not defined", () => {
 			const { container } = render(() => (
 				<BarChart width={200} height={200} data={data}>
@@ -498,39 +499,39 @@ describe("<ReferenceArea />", () => {
 				x2: "201110",
 				y: 5,
 			})
-			it("should pass clip-path when ifOverflow=hidden", () => {
+		})
+		it("should pass clip-path when ifOverflow=hidden", () => {
+			const { container } = render(() => (
+				<BarChart width={200} height={200} data={data}>
+					<XAxis dataKey="name" />
+					<YAxis />
+					<Bar dataKey="uv" />
+					<ReferenceArea x1="201106" x2="201110" ifOverflow="hidden" />
+				</BarChart>
+			))
+			const allAreas = container.querySelectorAll(".recharts-reference-area-rect")
+			expect(allAreas).toHaveLength(1)
+			const area = allAreas[0]
+			expect(area).toHaveAttribute("clip-path")
+			expect(area.getAttribute("clip-path")).toMatch(/url\(#recharts(\d+)-clip\)/)
+		})
+		test.each(["discard", "extendDomain", "visible"] satisfies ReadonlyArray<IfOverflow>)(
+			"should pass no clip-path when ifOverflow=%s",
+			(ifOverflow) => {
 				const { container } = render(() => (
 					<BarChart width={200} height={200} data={data}>
 						<XAxis dataKey="name" />
 						<YAxis />
 						<Bar dataKey="uv" />
-						<ReferenceArea x1="201106" x2="201110" ifOverflow="hidden" />
+						<ReferenceArea x1="201106" x2="201110" ifOverflow={ifOverflow} />
 					</BarChart>
 				))
 				const allAreas = container.querySelectorAll(".recharts-reference-area-rect")
 				expect(allAreas).toHaveLength(1)
 				const area = allAreas[0]
-				expect(area).toHaveAttribute("clip-path")
-				expect(area.getAttribute("clip-path")).toMatch(/url\(#recharts(\d+)-clip\)/)
-			})
-			test.each(["discard", "extendDomain", "visible"] satisfies ReadonlyArray<IfOverflow>)(
-				"should pass no clip-path when ifOverflow=%s",
-				(ifOverflow) => {
-					const { container } = render(() => (
-						<BarChart width={200} height={200} data={data}>
-							<XAxis dataKey="name" />
-							<YAxis />
-							<Bar dataKey="uv" />
-							<ReferenceArea x1="201106" x2="201110" ifOverflow={ifOverflow} />
-						</BarChart>
-					))
-					const allAreas = container.querySelectorAll(".recharts-reference-area-rect")
-					expect(allAreas).toHaveLength(1)
-					const area = allAreas[0]
-					expect(area).not.toHaveAttribute("clip-path")
-				},
-			)
-		})
+				expect(area).not.toHaveAttribute("clip-path")
+			},
+		)
 		it("should discard rect shape if it does not fit on the domain and ifOverflow=discard", () => {
 			const { container } = render(() => (
 				<BarChart width={200} height={200} data={data}>
@@ -638,20 +639,22 @@ describe("events", () => {
 		expect(onTouchEnd).toHaveBeenLastCalledWith(expect.objectContaining({ type: "touchend" }))
 	})
 })
-/* Cluster D */
-describe.skip("state integration", () => {
+describe("state integration", () => {
 	it("should report its settings to Redux state, and remove it after removing from DOM", () => {
 		const areaSpy = vi.fn()
 		const Comp = (): null => {
-			areaSpy(useAppSelector((state) => selectReferenceAreasByAxis(state, "yAxis", 0)))
+			trackSpy(areaSpy, () => useAppSelector((state) => selectReferenceAreasByAxis(state, "yAxis", 0)))
 			return null
 		}
-		const { rerender } = render(() => (
+		const [showArea, setShowArea] = createSignal(true)
+		render(() => (
 			<BarChart width={200} height={200} data={data}>
 				<XAxis dataKey="name" />
 				<YAxis />
 				<Bar dataKey="uv" />
-				<ReferenceArea y1={1} y2={2} x1="category 3" x2="category 4" ifOverflow="extendDomain" />
+				<Show when={showArea()}>
+					<ReferenceArea y1={1} y2={2} x1="category 3" x2="category 4" ifOverflow="extendDomain" />
+				</Show>
 				<Customized component={Comp} />
 			</BarChart>
 		))
@@ -669,16 +672,11 @@ describe.skip("state integration", () => {
 		])
 		expect(areaSpy).toHaveBeenCalledTimes(2)
 
-		rerender(() => (
-			<BarChart width={200} height={200} data={data}>
-				<XAxis dataKey="name" />
-				<YAxis />
-				<Bar dataKey="uv" />
-				<Customized component={Comp} />
-			</BarChart>
-		))
+		setShowArea(false)
+		flush()
 
 		expect(areaSpy).toHaveBeenLastCalledWith([])
-		expect(areaSpy).toHaveBeenCalledTimes(4)
+		/* one selector update per removal; React's rerender adds an unchanged pass */
+		expect(areaSpy).toHaveBeenCalledTimes(3)
 	})
 })

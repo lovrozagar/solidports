@@ -1,5 +1,7 @@
-import { fireEvent, render } from "@solidjs/testing-library"
-import { createEffect } from "solid-js"
+import { fireEvent, render } from "../../helper/render"
+import { flush } from "solid-js"
+import { observe } from "../../helper/observe"
+
 import { describe, expect, it, Mock, test, vi } from "vitest"
 import {
 	DefaultZIndexes,
@@ -99,6 +101,7 @@ describe("<RadialBar />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -128,6 +131,7 @@ describe("<RadialBar />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -193,7 +197,7 @@ describe("<RadialBar />", () => {
 			expectLastCalledWith(spy, 32.666666666666664)
 		})
 
-		it.skip("should pick childMaxBarSize", () => {
+		it("should pick childMaxBarSize", () => {
 			const { spy } = renderTestCase((state) =>
 				pickMaxBarSize(state, 0, 0, radialBarSettings, undefined),
 			)
@@ -498,6 +502,7 @@ describe("<RadialBar />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -527,6 +532,7 @@ describe("<RadialBar />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -891,6 +897,7 @@ describe("<RadialBar />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -925,6 +932,7 @@ describe("<RadialBar />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -1302,7 +1310,7 @@ describe("<RadialBar />", () => {
 		it("should report its settings to Redux state, and remove it when removed from DOM", () => {
 			const polarItemsSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() =>
+				observe(() =>
 					polarItemsSpy(useAppSelector((state) => selectPolarItemsSettings(state, "angleAxis", 0))),
 				)
 				return null
@@ -1386,6 +1394,7 @@ describe("RadialBar background zIndex", () => {
 			</RadialBarChart>
 		))
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const backgroundSectors = container.querySelectorAll(".recharts-radial-bar-background-sector")
 		expect(backgroundSectors).toHaveLength(dataWithBackground.length)
@@ -1421,6 +1430,7 @@ describe("RadialBar background zIndex", () => {
 			</RadialBarChart>
 		))
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const backgroundSectors = container.querySelectorAll(".recharts-radial-bar-background-sector")
 		expect(backgroundSectors).toHaveLength(dataWithBackground.length)
@@ -1440,6 +1450,7 @@ describe("RadialBar background zIndex", () => {
 			</RadialBarChart>
 		))
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const backgroundSectors = container.querySelectorAll(".recharts-radial-bar-background-sector")
 		expect(backgroundSectors).toHaveLength(dataWithBackground.length)

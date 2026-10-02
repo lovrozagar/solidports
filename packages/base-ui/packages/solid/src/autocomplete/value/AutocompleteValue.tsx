@@ -1,4 +1,6 @@
-import { Match, Switch, type Accessor, type ComponentProps, type JSX } from 'solid-js';
+import { Match, Switch } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { ComponentProps, JSX } from '@solidjs/web';
 import { useComboboxInputValueContext } from '../../combobox/root/ComboboxRootContext';
 
 /**
@@ -15,7 +17,7 @@ export function AutocompleteValue(props: AutocompleteValue.Props) {
       <Match keyed when={typeof props.children === 'function' && props.children}>
         {(renderer) => renderer(inputValue)}
       </Match>
-      <Match when={props.children != null}>{props.children as JSX.Element}</Match>
+      <Match when={props.children != null}>{props.children}</Match>
     </Switch>
   );
 }

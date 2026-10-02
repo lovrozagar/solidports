@@ -51,8 +51,8 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     'id',
   ]);
 
-  const disabled = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? true;
+  const disabled = () => Boolean(local.disabled);
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
   const openOnHover = () => local.openOnHover ?? false;
   const delay = () => local.delay ?? OPEN_DELAY;
   const closeDelay = () => local.closeDelay ?? 0;

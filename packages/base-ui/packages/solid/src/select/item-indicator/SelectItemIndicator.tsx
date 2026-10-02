@@ -1,4 +1,5 @@
-import { type JSX, Show } from 'solid-js';
+import { Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
@@ -48,7 +49,7 @@ export function SelectItemIndicator(componentProps: SelectItemIndicator.Props) {
     get children() {
       return <>{componentProps.children ?? '✔️'}</>;
     },
-    props: [{ 'aria-hidden': true }, elementProps],
+    props: [{ 'aria-hidden': 'true' }, elementProps],
     ref: (el) => {
       indicatorRef = el;
     },

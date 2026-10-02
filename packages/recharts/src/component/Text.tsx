@@ -1,6 +1,9 @@
 /* eslint-disable import/no-cycle */
-import { createMemo, For, Show, type JSX } from "solid-js"
-
+import { createMemo, For, Show } from 'solid-js';
+import { splitProps } from "../util/solid-1-compat"
+import type { WithoutRemoveFalse } from "../util/types"
+import type { CamelCaseSVGAttrs } from "../util/CamelCaseSVGAttrs"
+import type { JSX } from '@solidjs/web';
 import { clsx } from "clsx"
 import { isNullish, isNumber, isNumOrStr } from "../util/DataUtils"
 import { Global } from "../util/Global"
@@ -189,17 +192,21 @@ interface TextProps {
 	width?: number | string
 }
 
-export type Props = TextProps & {
-	x?: number | string
-	y?: number | string
-	dx?: number
-	dy?: number
-	className?: string
-	fill?: string
-	transform?: string
-	ref?: SVGTextElement | ((el: SVGTextElement) => void)
-	[key: string]: unknown
-}
+export type Props = WithoutRemoveFalse<
+	Omit<
+		JSX.TextSVGAttributes<SVGTextElement>,
+		"textAnchor" | "text-anchor" | "children" | "ref" | "style" | "x" | "y" | "dx" | "dy" | "width"
+	>
+> &
+	CamelCaseSVGAttrs &
+	TextProps & {
+		x?: number | string
+		y?: number | string
+		dx?: number | string
+		dy?: number | string
+		className?: string
+		ref?: SVGTextElement | ((el: SVGTextElement) => void)
+	}
 
 type CalculateWordsByLinesProps = Pick<Props, "maxLines" | "children" | "style" | "breakAll">
 
@@ -469,36 +476,33 @@ export function Text(outsideProps: Props) {
 								if (resolved.angle) {
 									transforms.push(`rotate(${resolved.angle}, ${x()}, ${y()})`)
 								}
-								return transforms.length ? transforms.join(" ") : undefined
+								return transforms.length ? transforms.join(" ") : (resolved.transform as string | undefined)
 							})
 
-							const filteredProps = () => {
-								/* `width` MUST stay on textProps — upstream forwards it as the SVG attr,
-								   tests assert `toHaveAttribute("width", "78")`. dx/dy/angle/className/
-								   breakAll/maxLines/scaleToFit/style/children/x/y/lineHeight/verticalAnchor/
-								   textAnchor/capHeight/fill/ref are handled separately. */
-								const {
-									dx: _dx,
-									dy: _dy,
-									angle: _angle,
-									className: _cn,
-									breakAll: _ba,
-									maxLines: _ml,
-									scaleToFit: _s,
-									children: _children,
-									style: _style,
-									x: _x,
-									y: _y,
-									lineHeight: _lh,
-									verticalAnchor: _va,
-									textAnchor: _ta,
-									capHeight: _ch,
-									fill: _f,
-									ref: _ref,
-									...rest
-								} = resolved
-								return svgPropertiesAndEvents(rest as Record<PropertyKey, unknown>)
-							}
+							/* `width` MUST stay on textProps — upstream forwards it as the SVG attr,
+							   tests assert `toHaveAttribute("width", "78")`. The excluded keys are
+							   handled separately; splitProps excludes them without reading them (a
+							   rest-destructure would re-run the `children` getter). */
+							const [, rest] = splitProps(resolved as Record<string, unknown>, [
+								"dx",
+								"dy",
+								"angle",
+								"className",
+								"breakAll",
+								"maxLines",
+								"scaleToFit",
+								"children",
+								"style",
+								"x",
+								"y",
+								"lineHeight",
+								"verticalAnchor",
+								"textAnchor",
+								"capHeight",
+								"fill",
+								"ref",
+							])
+							const filteredProps = () => svgPropertiesAndEvents(rest)
 
 							return (
 								<text

@@ -1,12 +1,12 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { createEffect, createMemo, onCleanup, Show } from "solid-js"
-import { Portal } from "solid-js/web"
-import { noop } from "../util/DataUtils"
+import type { JSX } from '@solidjs/web';
+import { createEffect, createMemo, Show, untrack } from 'solid-js';
+import { Portal } from '@solidjs/web';
 import { useChartStore } from "../state/RechartsStoreContext"
 import { selectZIndexPortalElement } from "./zIndexSelectors"
 import { useIsInChartContext } from "../context/chartLayoutContext"
 import { useIsPanorama } from "../context/PanoramaContext"
+import { teardownWrite } from "../state/teardownWrite"
 
 /**
  * @since 3.4
@@ -60,7 +60,7 @@ export function ZIndexLayer(props: ZIndexLayerProps) {
 	 * If we are outside of chart, then we can't rely on the zIndex portal state,
 	 * so we just render normally.
 	 */
-	const isInChartContext = () => useIsInChartContext()
+	const isInChartContext = createMemo(() => useIsInChartContext())
 	/*
 	 * If zIndex is undefined then we render normally without portals.
 	 * Also, if zIndex is 0, we render normally without portals,
@@ -73,35 +73,33 @@ export function ZIndexLayer(props: ZIndexLayerProps) {
 
 	const ctx = useChartStore()
 
-	createEffect(() => {
-		if (shouldRenderInPortal() === false) {
-			return noop
-		}
-		/*
-		 * Because zIndexes are dynamic (meaning, we're not working with a predefined set of layers,
-		 * but we allow users to define any zIndex at any time), we need to register
-		 * the requested zIndex in the global store. This way, the ZIndexPortals component
-		 * can render the corresponding portals and only the requested ones.
-		 */
-		const z = props.zIndex ?? 0
-		if (ctx && ctx.store.zIndex.zIndexMap[z] == null) {
-			ctx.setStore("zIndex", "zIndexMap", z, {
-				consumers: 0,
-				element: undefined,
-				panoramaElement: undefined,
-			})
-		}
-		ctx?.setStore("zIndex", "zIndexMap", z, "consumers", (c: number) => c + 1)
-		onCleanup(() => {
-			ctx?.setStore(
-				"zIndex",
-				"zIndexMap",
-				z,
-				"consumers",
-				(c: number) => Math.max(0, c - 1),
-			)
-		})
-	})
+	/*
+	 * Because zIndexes are dynamic (meaning, we're not working with a predefined set of layers,
+	 * but we allow users to define any zIndex at any time), we need to register
+	 * the requested zIndex in the global store. This way, the ZIndexPortals component
+	 * can render the corresponding portals and only the requested ones.
+	 */
+	createEffect(
+		() => (shouldRenderInPortal() ? (props.zIndex ?? 0) : null),
+		(z) => {
+			if (z == null || ctx == null) {
+				return undefined
+			}
+			if (untrack(() => ctx.store.zIndex.zIndexMap[z]) == null) {
+				ctx.setStore("zIndex", "zIndexMap", z, {
+					consumers: 0,
+					element: undefined,
+					panoramaElement: undefined,
+				})
+			}
+			ctx.setStore("zIndex", "zIndexMap", z, "consumers", (c: number) => c + 1)
+			return () => {
+				teardownWrite(() => {
+					ctx.setStore("zIndex", "zIndexMap", z, "consumers", (c: number) => Math.max(0, c - 1))
+				})
+			}
+		},
+	)
 
 	const portalElement = createMemo(() =>
 		ctx ? selectZIndexPortalElement(ctx.store, props.zIndex, isPanorama) : undefined,
@@ -110,10 +108,10 @@ export function ZIndexLayer(props: ZIndexLayerProps) {
 	return (
 		<Show when={shouldRenderInPortal()} fallback={props.children}>
 			<Show when={portalElement()}>
-				{/* mount is an SVG <g>; Solid Portal wraps content in a `<div>` by default,
-				   which is invalid SVG. Force isSVG to wrap in a `<g>` instead. */}
+				{/* mount is an SVG <g>; Solid 2's Portal inserts children between text
+				   markers without a wrapper element, so SVG content stays valid. */}
 				{(mount) => (
-					<Portal mount={mount()} isSVG>
+					<Portal mount={mount()}>
 						{props.children}
 					</Portal>
 				)}

@@ -1,10 +1,11 @@
 import { createRenderer, isJSDOM } from '#test-utils';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import type { JSX } from 'solid-js';
-import { createSignal, splitProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { createSignal } from 'solid-js';
 import { expect } from 'vitest';
 import { CompositeRoot } from '../composite/root/CompositeRoot';
 import { useButton } from './useButton';
+import { splitProps } from '../../solid-1-compat';
 
 vi.mock('solid-js/web', { spy: true });
 
@@ -179,7 +180,7 @@ describe('useButton', () => {
     it('returns tabIndex in getButtonProps if it is explicitly provided', async () => {
       const customTabIndex = 3;
       function TestButton() {
-        const { getButtonProps } = useButton({ tabIndex: customTabIndex });
+        const { getButtonProps } = useButton({ tabindex: customTabIndex });
         return <button {...getButtonProps()} />;
       }
 

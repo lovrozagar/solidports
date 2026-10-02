@@ -1,5 +1,4 @@
-import { For, Show } from "solid-js"
-import { A } from "@solidjs/router"
+import { For, Show } from 'solid-js';
 import { releases } from "../../data/releases"
 import "./ReleaseTimeline.css"
 
@@ -23,12 +22,12 @@ export function ReleaseTimeline() {
                   {dateFormatter.format(new Date(release.date))}
                 </time>
                 <h3 class="TimelineVersion">
-                  <A
+                  <a
                     class="TimelineVersionLink"
                     href={`/solid/overview/releases/${release.versionSlug}`}
                   >
                     {release.version}
-                  </A>
+                  </a>
                   <Show when={release.latest}>
                     <span class="TimelineBadge">Latest</span>
                   </Show>

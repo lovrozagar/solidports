@@ -1,7 +1,7 @@
 # Workflow: adding a docs demo (Solid)
 
 Public pages and demos in `docs/solid` are **generated** from `docs/react`.
-Do not hand-edit generated MDX or `src/demos/solid/**`.
+Do not hand-edit generated MDX or `src/demos/solid/**`. Put hand-ported demos in `overrides/demos/**` instead.
 
 ```bash
 bun run docs:sync        # refresh docs/react from mui/base-ui@DOCS_TAG

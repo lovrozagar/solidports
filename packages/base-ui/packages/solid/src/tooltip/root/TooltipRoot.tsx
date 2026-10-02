@@ -1,4 +1,6 @@
-import { createEffect, createMemo, onMount, untrack, type Accessor, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, onSettled, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useClientPoint, useDismiss, useInteractions } from '../../floating-ui-solid';
 import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
 import {
@@ -49,7 +51,7 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   );
 
   // Support initially open state when uncontrolled
-  onMount(() => {
+  onSettled(() => {
     if (openProp() === undefined && store.state.open === false && defaultOpen() === true) {
       store.update({
         activeTriggerId: defaultTriggerIdProp(),
@@ -61,10 +63,12 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   store.useControlledProp('openProp', openProp);
   store.useControlledProp('triggerIdProp', triggerIdProp);
 
-  store.useContextCallback('onOpenChange', (open, details) =>
+  store.useContextCallback('onOpenChange', (open: boolean, details: TooltipRoot.ChangeEventDetails) =>
     props.onOpenChange?.(open, details),
   );
-  store.useContextCallback('onOpenChangeComplete', (open) => props.onOpenChangeComplete?.(open));
+  store.useContextCallback('onOpenChangeComplete', (open: boolean) =>
+    props.onOpenChangeComplete?.(open),
+  );
 
   const openState = store.useState('open');
   const open = () => !disabled() && openState();
@@ -81,7 +85,7 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
     },
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (openState() && disabled()) {
       store.setOpen(false, createChangeEventDetails(REASONS.disabled));
     }
@@ -106,7 +110,7 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   // Otherwise, allow the animation to play. In particular, do not disable animations
   // during the 'ending' phase unless it's due to a sibling opening.
   let previousInstantTypeRef = null as string | undefined | null;
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (
       (transitionStatus() === 'ending' && lastOpenChangeReason() === REASONS.none) ||
       (transitionStatus() !== 'ending' && isInstantPhase())
@@ -124,7 +128,7 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (open()) {
       if (activeTriggerId() == null) {
         store.set('payload', undefined);
@@ -136,7 +140,7 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
     store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction));
   };
 
-  onMount(() => {
+  onSettled(() => {
     if (props.actionsRef) {
       props.actionsRef.current = { close: handleImperativeClose, unmount: forceUnmount };
     }
@@ -187,9 +191,9 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   });
 
   return (
-    <TooltipRootContext.Provider value={{ store } as TooltipRootContext}>
+    <TooltipRootContext value={{ store } as TooltipRootContext}>
       <ComponentWithPayload payload={payload} children={props.children} />
-    </TooltipRootContext.Provider>
+    </TooltipRootContext>
   );
 }
 

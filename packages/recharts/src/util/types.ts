@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import type { NiceTicksAlgorithm } from "../state/cartesianAxisSlice"
 import type { Props as DotProps } from "../shape/Dot"
 import { AxisRange } from "../state/selectors/axisSelectors"
 import { ExternalMouseEvents } from "../chart/types"
@@ -87,14 +88,23 @@ export type DataKey<DataPointType, DataValueType = any> = TypedDataKey<DataPoint
  * is intersected so users may pass either form at the public chart-component surface.
  * Runtime rekeys camel → kebab via `SVG_CAMEL_TO_KEBAB`.
  */
-export type PresentationAttributesWithProps<P, T extends Element> = JSX.AriaAttributes &
+/*
+ * Solid's attribute types admit `false` (its `RemoveAttribute`) on string-valued SVG
+ * attributes; React's `SVGProps` (the upstream contract) do not. Strip it there and keep
+ * it on genuinely boolean attributes.
+ */
+export type WithoutRemoveFalse<A> = {
+	[K in keyof A]: K extends "children" ? A[K] : string extends NonNullable<A[K]> ? Exclude<A[K], false> : A[K]
+}
+
+export type PresentationAttributesWithProps<P, T extends Element> = WithoutRemoveFalse<JSX.AriaAttributes> &
 	DOMAttributesWithProps<P, T> &
-	Omit<JSX.SvgSVGAttributes<T>, keyof DOMAttributesWithProps<P, T>> &
+	WithoutRemoveFalse<Omit<JSX.SvgSVGAttributes<T>, keyof DOMAttributesWithProps<P, T>>> &
 	CamelCaseSVGAttrs
 
-export type PresentationAttributesAdaptChildEvent<P, T extends Element> = JSX.AriaAttributes &
+export type PresentationAttributesAdaptChildEvent<P, T extends Element> = WithoutRemoveFalse<JSX.AriaAttributes> &
 	DOMAttributesAdaptChildEvent<P, T> &
-	Omit<JSX.SvgSVGAttributes<T>, keyof DOMAttributesAdaptChildEvent<P, T>> &
+	WithoutRemoveFalse<Omit<JSX.SvgSVGAttributes<T>, keyof DOMAttributesAdaptChildEvent<P, T>>> &
 	CamelCaseSVGAttrs
 
 /**
@@ -203,6 +213,9 @@ export type D3ScaleType =
 	| "sequential"
 	| "threshold"
 
+/** Upstream name for the scale shortcut strings. */
+export type RechartsScaleType = D3ScaleType
+
 /**
  * String shortcuts for scale types.
  * In case none of these does what you want you can also provide your own scale function
@@ -226,15 +239,16 @@ type DragEventHandler<P> = EventHandler<P, DragEvent>
 type FocusEventHandler<P> = EventHandler<P, FocusEvent>
 type InputEventHandler<P> = EventHandler<P, InputEvent>
 type KeyboardEventHandler<P> = EventHandler<P, KeyboardEvent>
-export type RechartsMouseEventHandler<P> = EventHandler<P, MouseEvent>
-type TouchEventHandler<P> = EventHandler<P, TouchEvent>
-type PointerEventHandler<P> = EventHandler<P, PointerEvent>
+/* currentTarget carries the element type, like React's `MouseEvent<T>`, so handlers can pass the event to getRelativeCoordinate. */
+export type RechartsMouseEventHandler<P, T = Element> = EventHandler<P, MouseEvent & { currentTarget: T }>
+type TouchEventHandler<P, T = Element> = EventHandler<P, TouchEvent & { currentTarget: T }>
+type PointerEventHandler<P, T = Element> = EventHandler<P, PointerEvent & { currentTarget: T }>
 type UIEventHandler<P> = EventHandler<P, UIEvent>
 type WheelEventHandler<P> = EventHandler<P, WheelEvent>
 type AnimationEventHandler<P> = EventHandler<P, AnimationEvent>
 type TransitionEventHandler<P> = EventHandler<P, TransitionEvent>
 
-export interface DOMAttributesWithProps<P, _T extends Element> {
+export interface DOMAttributesWithProps<P, T extends Element> {
 	children?: JSX.Element
 	innerHTML?: string
 
@@ -294,10 +308,10 @@ export interface DOMAttributesWithProps<P, _T extends Element> {
 	onWaiting?: GenericEventHandler<P>
 
 	/* Mouse Events */
-	onAuxClick?: RechartsMouseEventHandler<P>
-	onClick?: RechartsMouseEventHandler<P>
-	onContextMenu?: RechartsMouseEventHandler<P>
-	onDoubleClick?: RechartsMouseEventHandler<P>
+	onAuxClick?: RechartsMouseEventHandler<P, T>
+	onClick?: RechartsMouseEventHandler<P, T>
+	onContextMenu?: RechartsMouseEventHandler<P, T>
+	onDoubleClick?: RechartsMouseEventHandler<P, T>
 	onDrag?: DragEventHandler<P>
 	onDragEnd?: DragEventHandler<P>
 	onDragEnter?: DragEventHandler<P>
@@ -309,52 +323,52 @@ export interface DOMAttributesWithProps<P, _T extends Element> {
 	/**
 	 * The customized event handler of mousedown in this chart.
 	 */
-	onMouseDown?: RechartsMouseEventHandler<P>
+	onMouseDown?: RechartsMouseEventHandler<P, T>
 	/**
 	 * The customized event handler of mouseenter in this chart.
 	 */
-	onMouseEnter?: RechartsMouseEventHandler<P>
+	onMouseEnter?: RechartsMouseEventHandler<P, T>
 	/**
 	 * The customized event handler of mouseleave in this chart.
 	 */
-	onMouseLeave?: RechartsMouseEventHandler<P>
+	onMouseLeave?: RechartsMouseEventHandler<P, T>
 	/**
 	 * The customized event handler of mousemove in this chart.
 	 */
-	onMouseMove?: RechartsMouseEventHandler<P>
+	onMouseMove?: RechartsMouseEventHandler<P, T>
 	/**
 	 * The customized event handler of mouseout in this chart.
 	 */
-	onMouseOut?: RechartsMouseEventHandler<P>
+	onMouseOut?: RechartsMouseEventHandler<P, T>
 	/**
 	 * The customized event handler of mouseover in this chart.
 	 */
-	onMouseOver?: RechartsMouseEventHandler<P>
+	onMouseOver?: RechartsMouseEventHandler<P, T>
 	/**
 	 * The customized event handler of mouseup in this chart.
 	 */
-	onMouseUp?: RechartsMouseEventHandler<P>
+	onMouseUp?: RechartsMouseEventHandler<P, T>
 
 	/* Selection Events */
 	onSelect?: GenericEventHandler<P>
 
 	/* Touch Events */
-	onTouchCancel?: TouchEventHandler<P>
-	onTouchEnd?: TouchEventHandler<P>
-	onTouchMove?: TouchEventHandler<P>
-	onTouchStart?: TouchEventHandler<P>
+	onTouchCancel?: TouchEventHandler<P, T>
+	onTouchEnd?: TouchEventHandler<P, T>
+	onTouchMove?: TouchEventHandler<P, T>
+	onTouchStart?: TouchEventHandler<P, T>
 
 	/* Pointer Events */
-	onPointerDown?: PointerEventHandler<P>
-	onPointerMove?: PointerEventHandler<P>
-	onPointerUp?: PointerEventHandler<P>
-	onPointerCancel?: PointerEventHandler<P>
-	onPointerEnter?: PointerEventHandler<P>
-	onPointerLeave?: PointerEventHandler<P>
-	onPointerOver?: PointerEventHandler<P>
-	onPointerOut?: PointerEventHandler<P>
-	onGotPointerCapture?: PointerEventHandler<P>
-	onLostPointerCapture?: PointerEventHandler<P>
+	onPointerDown?: PointerEventHandler<P, T>
+	onPointerMove?: PointerEventHandler<P, T>
+	onPointerUp?: PointerEventHandler<P, T>
+	onPointerCancel?: PointerEventHandler<P, T>
+	onPointerEnter?: PointerEventHandler<P, T>
+	onPointerLeave?: PointerEventHandler<P, T>
+	onPointerOver?: PointerEventHandler<P, T>
+	onPointerOut?: PointerEventHandler<P, T>
+	onGotPointerCapture?: PointerEventHandler<P, T>
+	onLostPointerCapture?: PointerEventHandler<P, T>
 
 	/* UI Events */
 	onScroll?: UIEventHandler<P>
@@ -382,15 +396,15 @@ type AdaptChildDragEventHandler<P> = AdaptChildEventHandler<P, DragEvent>
 type AdaptChildFocusEventHandler<P> = AdaptChildEventHandler<P, FocusEvent>
 type AdaptChildInputEventHandler<P> = AdaptChildEventHandler<P, InputEvent>
 type AdaptChildKeyboardEventHandler<P> = AdaptChildEventHandler<P, KeyboardEvent>
-type AdaptChildMouseEventHandler<P> = AdaptChildEventHandler<P, MouseEvent>
-type AdaptChildTouchEventHandler<P> = AdaptChildEventHandler<P, TouchEvent>
-type AdaptChildPointerEventHandler<P> = AdaptChildEventHandler<P, PointerEvent>
+type AdaptChildMouseEventHandler<P, T = Element> = AdaptChildEventHandler<P, MouseEvent & { currentTarget: T }>
+type AdaptChildTouchEventHandler<P, T = Element> = AdaptChildEventHandler<P, TouchEvent & { currentTarget: T }>
+type AdaptChildPointerEventHandler<P, T = Element> = AdaptChildEventHandler<P, PointerEvent & { currentTarget: T }>
 type AdaptChildUIEventHandler<P> = AdaptChildEventHandler<P, UIEvent>
 type AdaptChildWheelEventHandler<P> = AdaptChildEventHandler<P, WheelEvent>
 type AdaptChildAnimationEventHandler<P> = AdaptChildEventHandler<P, AnimationEvent>
 type AdaptChildTransitionEventHandler<P> = AdaptChildEventHandler<P, TransitionEvent>
 
-export type DOMAttributesAdaptChildEvent<P, _T extends Element> = {
+export type DOMAttributesAdaptChildEvent<P, T extends Element> = {
 	children?: JSX.Element
 	innerHTML?: string
 
@@ -450,10 +464,10 @@ export type DOMAttributesAdaptChildEvent<P, _T extends Element> = {
 	onWaiting?: AdaptChildGenericEventHandler<P>
 
 	/* Mouse Events */
-	onAuxClick?: AdaptChildMouseEventHandler<P>
-	onClick?: AdaptChildMouseEventHandler<P>
-	onContextMenu?: AdaptChildMouseEventHandler<P>
-	onDoubleClick?: AdaptChildMouseEventHandler<P>
+	onAuxClick?: AdaptChildMouseEventHandler<P, T>
+	onClick?: AdaptChildMouseEventHandler<P, T>
+	onContextMenu?: AdaptChildMouseEventHandler<P, T>
+	onDoubleClick?: AdaptChildMouseEventHandler<P, T>
 	onDrag?: AdaptChildDragEventHandler<P>
 	onDragEnd?: AdaptChildDragEventHandler<P>
 	onDragEnter?: AdaptChildDragEventHandler<P>
@@ -462,34 +476,34 @@ export type DOMAttributesAdaptChildEvent<P, _T extends Element> = {
 	onDragOver?: AdaptChildDragEventHandler<P>
 	onDragStart?: AdaptChildDragEventHandler<P>
 	onDrop?: AdaptChildDragEventHandler<P>
-	onMouseDown?: AdaptChildMouseEventHandler<P>
-	onMouseEnter?: AdaptChildMouseEventHandler<P>
-	onMouseLeave?: AdaptChildMouseEventHandler<P>
-	onMouseMove?: AdaptChildMouseEventHandler<P>
-	onMouseOut?: AdaptChildMouseEventHandler<P>
-	onMouseOver?: AdaptChildMouseEventHandler<P>
-	onMouseUp?: AdaptChildMouseEventHandler<P>
+	onMouseDown?: AdaptChildMouseEventHandler<P, T>
+	onMouseEnter?: AdaptChildMouseEventHandler<P, T>
+	onMouseLeave?: AdaptChildMouseEventHandler<P, T>
+	onMouseMove?: AdaptChildMouseEventHandler<P, T>
+	onMouseOut?: AdaptChildMouseEventHandler<P, T>
+	onMouseOver?: AdaptChildMouseEventHandler<P, T>
+	onMouseUp?: AdaptChildMouseEventHandler<P, T>
 
 	/* Selection Events */
 	onSelect?: AdaptChildGenericEventHandler<P>
 
 	/* Touch Events */
-	onTouchCancel?: AdaptChildTouchEventHandler<P>
-	onTouchEnd?: AdaptChildTouchEventHandler<P>
-	onTouchMove?: AdaptChildTouchEventHandler<P>
-	onTouchStart?: AdaptChildTouchEventHandler<P>
+	onTouchCancel?: AdaptChildTouchEventHandler<P, T>
+	onTouchEnd?: AdaptChildTouchEventHandler<P, T>
+	onTouchMove?: AdaptChildTouchEventHandler<P, T>
+	onTouchStart?: AdaptChildTouchEventHandler<P, T>
 
 	/* Pointer Events */
-	onPointerDown?: AdaptChildPointerEventHandler<P>
-	onPointerMove?: AdaptChildPointerEventHandler<P>
-	onPointerUp?: AdaptChildPointerEventHandler<P>
-	onPointerCancel?: AdaptChildPointerEventHandler<P>
-	onPointerEnter?: AdaptChildPointerEventHandler<P>
-	onPointerLeave?: AdaptChildPointerEventHandler<P>
-	onPointerOver?: AdaptChildPointerEventHandler<P>
-	onPointerOut?: AdaptChildPointerEventHandler<P>
-	onGotPointerCapture?: AdaptChildPointerEventHandler<P>
-	onLostPointerCapture?: AdaptChildPointerEventHandler<P>
+	onPointerDown?: AdaptChildPointerEventHandler<P, T>
+	onPointerMove?: AdaptChildPointerEventHandler<P, T>
+	onPointerUp?: AdaptChildPointerEventHandler<P, T>
+	onPointerCancel?: AdaptChildPointerEventHandler<P, T>
+	onPointerEnter?: AdaptChildPointerEventHandler<P, T>
+	onPointerLeave?: AdaptChildPointerEventHandler<P, T>
+	onPointerOver?: AdaptChildPointerEventHandler<P, T>
+	onPointerOut?: AdaptChildPointerEventHandler<P, T>
+	onGotPointerCapture?: AdaptChildPointerEventHandler<P, T>
+	onLostPointerCapture?: AdaptChildPointerEventHandler<P, T>
 
 	/* UI Events */
 	onScroll?: AdaptChildUIEventHandler<P>
@@ -768,6 +782,15 @@ export interface RenderableAxisProps<DataPointType, DataValueType> extends BaseA
 	 * @defaultValue 5
 	 */
 	tickCount?: number
+	/**
+	 * Controls how Recharts calculates "nice" tick values for this axis.
+	 * Options: `'none'`, `'auto'`, `'adaptive'`, `'snap125'`.
+	 * See {@link NiceTicksAlgorithm} for a full description of each option.
+	 *
+	 * @defaultValue 'auto'
+	 * @since 3.8
+	 */
+	niceTicks?: NiceTicksAlgorithm
 	/**
 	 * Determines how the axis line is drawn. Options:
 	 * - `true`: the axis line is drawn with default props;
@@ -1167,6 +1190,16 @@ export type ActiveShape<PropsType = Record<string, unknown>, ElementType extends
 	| JSX.SvgSVGAttributes<ElementType>
 	| boolean
 
+/**
+ * Animation progress props passed to custom `shape` renderers.
+ * `animationElapsedTime` is 0 at the start and 1 at the end (easing already applied).
+ */
+export interface ShapeAnimationProps {
+	animationElapsedTime?: number
+	isAnimating?: boolean
+	isEntrance?: boolean
+}
+
 export type RangeObj = PolarViewBoxRequired & {
 	angle: number
 	radius: number
@@ -1313,6 +1346,11 @@ interface BaseChartProps<DataPointType> extends DataProvider<DataPointType>, Ext
 	 */
 	margin?: Partial<Margin>
 	style?: JSX.CSSProperties
+	/**
+	 * The CSS cursor style applied to the chart container.
+	 * Useful for setting the mouse cursor when hovering over the chart (e.g. `"pointer"`, `"crosshair"`).
+	 */
+	cursor?: JSX.CSSProperties["cursor"]
 	/**
 	 * Charts with the same syncId will synchronize Tooltip and Brush events.
 	 *

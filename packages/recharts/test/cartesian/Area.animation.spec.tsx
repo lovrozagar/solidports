@@ -1,8 +1,9 @@
-import { createSignal, JSX, Show } from "solid-js"
+import { createSignal, Show, flush } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
-import { Area, AreaChart, Legend, YAxis } from "../../src"
+import { Area, AreaChart, Legend, XAxis, YAxis } from "../../src"
 import type { CartesianLayout } from "../../src/util/types"
 import type { AnimationInterpolateFn } from "../../src/state/types/AnimationSettings"
 import { PageData } from "../_data"
@@ -31,6 +32,44 @@ function getAreaCurveDs(container: Element): ReadonlyArray<string> {
 	return Array.from(container.querySelectorAll(".recharts-area-curve")).map(
 		(curve) => curve.getAttribute("d") ?? "",
 	)
+}
+
+function extractPathCoordinates(path: string): ReadonlyArray<number> {
+	return Array.from(path.matchAll(/-?\d+(?:\.\d+)?/g), (match) => Number(match[0]))
+}
+
+function expectPathToInterpolateLinearly(
+	actualPath: string,
+	startPath: string,
+	endPath: string,
+	animationElapsedTime: number,
+): void {
+	const actual = extractPathCoordinates(actualPath)
+	const start = extractPathCoordinates(startPath)
+	const end = extractPathCoordinates(endPath)
+
+	expect(actual).toHaveLength(start.length)
+	expect(start).toHaveLength(end.length)
+
+	actual.forEach((value, index) => {
+		const startValue = start[index] ?? 0
+		const expectedValue = startValue + ((end[index] ?? 0) - startValue) * animationElapsedTime
+		const difference = Math.abs(value - expectedValue)
+		if (difference > 0.0005) {
+			throw new Error(
+				JSON.stringify({
+					actualPath,
+					endPath,
+					endValue: end[index],
+					expectedValue,
+					index,
+					startPath,
+					startValue: start[index],
+					value,
+				}),
+			)
+		}
+	})
 }
 
 const expectedUvLabels: ReadonlyArray<ExpectedLabel> = [
@@ -220,7 +259,8 @@ async function expectLabelsHideDuringAnimation(
 }
 
 function getClipPathRect(container: Element) {
-	const clipPathRect = container.querySelector(".recharts-area clipPath rect")
+	/* jsdom 29 cannot match descendants of a camelCase SVG ancestor (`clipPath rect`). */
+	const clipPathRect = container.querySelector(".recharts-area clipPath")?.querySelector("rect") ?? null
 	assertNotNull(clipPathRect)
 	return clipPathRect
 }
@@ -340,18 +380,16 @@ describe("Area animation", () => {
 				"90",
 			])
 		})
-		/* Cluster B: label visibility tracks animation t() — Solid render-loop divergence. */
-		it.skip("should hide labels during the animation", async () => {
+		it("should hide labels during the animation", async () => {
 			const { container, animationManager } = renderTestCase()
 
-			expectLabels(container, expectedUvLabels)
+			expectLabels(container, [])
 			await expectLabelsHideDuringAnimation(container, animationManager)
 			// after animation is done, labels should render
 			expectLabels(container, expectedUvLabels)
 		})
 	})
-	/* Cluster B: animation manager not active on signal-driven dataKey re-render — infra divergence. */
-	describe.skip("when changing dataKey prop", () => {
+	describe("when changing dataKey prop", () => {
 		const MyTestCase = (props: { children: JSX.Element }) => {
 			const [dataKey, setDataKey] = createSignal("uv")
 			const changeDataKey = () => {
@@ -363,7 +401,7 @@ describe("Area animation", () => {
 						Change dataKey
 					</button>
 					<AreaChart data={PageData} width={100} height={100}>
-						<Area dataKey={dataKey} animationEasing="linear" dot label />
+						<Area dataKey={dataKey()} animationEasing="linear" dot label />
 						{props.children}
 					</AreaChart>
 				</div>
@@ -379,6 +417,7 @@ describe("Area animation", () => {
 				assertNotNull(button)
 				expect(button).toBeInTheDocument()
 				button.click()
+				flush()
 			}
 
 			it.fails("should continue growing the clipPath rect where it left off", async () => {
@@ -427,6 +466,7 @@ describe("Area animation", () => {
 				assertNotNull(button)
 				expect(button).toBeInTheDocument()
 				button.click()
+				flush()
 			}
 
 			it("should not modify the clip path when changing dataKey", async () => {
@@ -480,6 +520,7 @@ describe("Area animation", () => {
 			assertNotNull(button)
 			expect(button).toBeInTheDocument()
 			button.click()
+			flush()
 		}
 
 		it("should not change the area path", async () => {
@@ -517,6 +558,7 @@ describe("Area animation", () => {
 					</AreaChart>
 				</div>
 			)
+		})
 
 			async function prime(container: HTMLElement, animationManager: MockAnimationManager) {
 				await animationManager.setAnimationProgress(0.3)
@@ -524,10 +566,12 @@ describe("Area animation", () => {
 				assertNotNull(button)
 				expect(button).toBeInTheDocument()
 				button.click()
+				flush()
 
 				expectAreaCurve(container, [])
 
 				button.click()
+				flush()
 			}
 
 			it.fails("should not start any animations when the area element appears again", async () => {
@@ -542,7 +586,6 @@ describe("Area animation", () => {
 
 				expect(animationManager.isAnimating()).toBe(false)
 			})
-		})
 		describe("with <Legend /> sibling", () => {
 			const renderTestCase = createSelectorTestCase((props) => (
 				<AreaChart data={PageData} width={100} height={100}>
@@ -694,6 +737,255 @@ describe("Area animation", () => {
 			const curvesAfterAnimation = getAreaCurveDs(container)
 			expect(curvesAfterAnimation).toHaveLength(2)
 			expect(curvesAfterAnimation[0]).not.toBe(curvesAfterAnimation[1])
+		})
+	})
+
+	describe("interrupting a range data swap animation", () => {
+		const rangeDataA = [
+			{ name: "Page A", range: [120, 400] },
+			{ name: "Page B", range: [160, 300] },
+			{ name: "Page C", range: [80, 240] },
+		]
+
+		const rangeDataB = [
+			{ name: "Page A", range: [60, 220] },
+			{ name: "Page B", range: [220, 420] },
+			{ name: "Page C", range: [140, 360] },
+		]
+
+		const MyTestCase = (props: { children: JSX.Element }) => {
+			const [data, setData] = createSignal(rangeDataA)
+
+			return (
+				<div>
+					<button type="button" onClick={() => setData((prev) => (prev === rangeDataA ? rangeDataB : rangeDataA))}>
+						Swap dataset
+					</button>
+					<AreaChart data={data()} width={100} height={100}>
+						<Area
+							type="linear"
+							dataKey="range"
+							stroke="#8884d8"
+							fill="#8884d8"
+							fillOpacity={0.2}
+							animationEasing="linear"
+						/>
+						{props.children}
+					</AreaChart>
+				</div>
+			)
+		}
+
+		const renderTestCase = createSelectorTestCase(MyTestCase)
+
+		async function prime(container: HTMLElement, animationManager: MockAnimationManager) {
+			await animationManager.completeAnimation()
+			const button = container.querySelector("button")
+			assertNotNull(button)
+			button.click()
+			flush()
+			await animationManager.setAnimationProgress(0.4)
+			return button
+		}
+
+		it("should preserve the in-flight range paths when an update is interrupted", async () => {
+			const { container, animationManager } = renderTestCase()
+			const button = await prime(container, animationManager)
+
+			const frameBeforeInterruption = getAreaCurveDs(container)
+
+			button.click()
+			flush()
+
+			expect(getAreaCurveDs(container)).toEqual(frameBeforeInterruption)
+		})
+
+		it("should continue the interrupted range swap from the current geometry on the next tick", async () => {
+			const { container, animationManager } = renderTestCase()
+
+			await animationManager.completeAnimation()
+			const finalRangeDataA = getAreaCurveDs(container)
+
+			const button = container.querySelector("button")
+			assertNotNull(button)
+			button.click()
+			flush()
+			await animationManager.setAnimationProgress(0.4)
+
+			const frameBeforeInterruption = getAreaCurveDs(container)
+
+			button.click()
+			flush()
+
+			await animationManager.setAnimationProgress(0.1)
+			const frameAfterRestart = getAreaCurveDs(container)
+
+			expect(frameAfterRestart).toHaveLength(frameBeforeInterruption.length)
+			expect(finalRangeDataA).toHaveLength(frameBeforeInterruption.length)
+
+			frameAfterRestart.forEach((path, index) => {
+				expectPathToInterpolateLinearly(path, frameBeforeInterruption[index] ?? "", finalRangeDataA[index] ?? "", 0.1)
+			})
+		})
+	})
+
+	describe("interrupting the website range area example with default animation", () => {
+		const dataA = [
+			{ name: "Jan", range: [800, 2600] as [number, number] },
+			{ name: "Feb", range: [1100, 3300] as [number, number] },
+			{ name: "Mar", range: [900, 2800] as [number, number] },
+			{ name: "Apr", range: [1400, 3900] as [number, number] },
+			{ name: "May", range: [1200, 3500] as [number, number] },
+			{ name: "Jun", range: [1600, 5000] as [number, number] },
+		]
+
+		const dataB = [
+			{ name: "Jan", range: [400, 1800] as [number, number] },
+			{ name: "Feb", range: [1500, 4200] as [number, number] },
+			{ name: "Mar", range: [700, 2100] as [number, number] },
+			{ name: "Apr", range: [1800, 4700] as [number, number] },
+			{ name: "May", range: [1000, 2400] as [number, number] },
+			{ name: "Jun", range: [2200, 5000] as [number, number] },
+		]
+
+		const MyTestCase = (props: { children: JSX.Element }) => {
+			const [data, setData] = createSignal(dataA)
+
+			return (
+				<div>
+					<button type="button" onClick={() => setData((prev) => (prev === dataA ? dataB : dataA))}>
+						Swap dataset
+					</button>
+					<AreaChart data={data()} width={100} height={100}>
+						<XAxis dataKey="name" />
+						<YAxis domain={[0, 5200]} />
+						<Area
+							type="linear"
+							dataKey="range"
+							stroke="#8884d8"
+							fill="#8884d8"
+							fillOpacity={0.2}
+							animationEasing="linear"
+						/>
+						<Area
+							type="linear"
+							dataKey={(entry: { range: [number, number] }) => entry.range[1] * 2}
+							baseValue="dataMax"
+							stroke="#84d888"
+							fill="#84d888"
+							fillOpacity={0.2}
+							animationEasing="linear"
+						/>
+						{props.children}
+					</AreaChart>
+				</div>
+			)
+		}
+
+		const renderTestCase = createSelectorTestCase(MyTestCase)
+
+		it("should continue the example update from the in-flight geometry on interruption", async () => {
+			const { container, animationManager } = renderTestCase()
+
+			await animationManager.completeAnimation()
+			const finalDataA = getAreaCurveDs(container)
+
+			const button = container.querySelector("button")
+			assertNotNull(button)
+			button.click()
+			flush()
+			await animationManager.setAnimationProgress(0.4)
+
+			const frameBeforeInterruption = getAreaCurveDs(container)
+
+			button.click()
+			flush()
+
+			await animationManager.setAnimationProgress(0.1)
+			const frameAfterRestart = getAreaCurveDs(container)
+
+			expect(frameAfterRestart).toHaveLength(frameBeforeInterruption.length)
+			expect(finalDataA).toHaveLength(frameBeforeInterruption.length)
+
+			frameAfterRestart.forEach((path, index) => {
+				expectPathToInterpolateLinearly(path, frameBeforeInterruption[index] ?? "", finalDataA[index] ?? "", 0.1)
+			})
+		})
+	})
+
+	describe("interrupting the scalar-baseline area from the website example", () => {
+		const dataA = [
+			{ name: "Jan", range: [800, 2600] as [number, number] },
+			{ name: "Feb", range: [1100, 3300] as [number, number] },
+			{ name: "Mar", range: [900, 2800] as [number, number] },
+			{ name: "Apr", range: [1400, 3900] as [number, number] },
+			{ name: "May", range: [1200, 3500] as [number, number] },
+			{ name: "Jun", range: [1600, 5000] as [number, number] },
+		]
+
+		const dataB = [
+			{ name: "Jan", range: [400, 1800] as [number, number] },
+			{ name: "Feb", range: [1500, 4200] as [number, number] },
+			{ name: "Mar", range: [700, 2100] as [number, number] },
+			{ name: "Apr", range: [1800, 4700] as [number, number] },
+			{ name: "May", range: [1000, 2400] as [number, number] },
+			{ name: "Jun", range: [2200, 5000] as [number, number] },
+		]
+
+		const MyTestCase = (props: { children: JSX.Element }) => {
+			const [data, setData] = createSignal(dataA)
+
+			return (
+				<div>
+					<button type="button" onClick={() => setData((prev) => (prev === dataA ? dataB : dataA))}>
+						Swap dataset
+					</button>
+					<AreaChart data={data()} width={100} height={100}>
+						<XAxis dataKey="name" />
+						<YAxis domain={[0, 5200]} />
+						<Area
+							type="linear"
+							dataKey={(entry: { range: [number, number] }) => entry.range[1] * 2}
+							baseValue="dataMax"
+							stroke="#84d888"
+							fill="#84d888"
+							fillOpacity={0.2}
+							animationEasing="linear"
+						/>
+						{props.children}
+					</AreaChart>
+				</div>
+			)
+		}
+
+		const renderTestCase = createSelectorTestCase(MyTestCase)
+
+		it("should continue the scalar-baseline area from the in-flight geometry on interruption", async () => {
+			const { container, animationManager } = renderTestCase()
+
+			await animationManager.completeAnimation()
+			const finalDataA = getAreaCurveDs(container)
+
+			const button = container.querySelector("button")
+			assertNotNull(button)
+			button.click()
+			flush()
+			await animationManager.setAnimationProgress(0.4)
+
+			const frameBeforeInterruption = getAreaCurveDs(container)
+
+			button.click()
+			flush()
+
+			await animationManager.setAnimationProgress(0.1)
+			const frameAfterRestart = getAreaCurveDs(container)
+
+			expect(frameAfterRestart).toHaveLength(frameBeforeInterruption.length)
+			expect(finalDataA).toHaveLength(frameBeforeInterruption.length)
+
+			frameAfterRestart.forEach((path, index) => {
+				expectPathToInterpolateLinearly(path, frameBeforeInterruption[index] ?? "", finalDataA[index] ?? "", 0.1)
+			})
 		})
 	})
 })

@@ -159,7 +159,7 @@ export default function Homepage() {
           <ul
             class="List"
             aria-label="team members"
-            style={{ "border-top": "1px solid var(--gray-t2)" }}
+            style={{ "border-top": '1px solid var(--gray-t2)' }}
           >
             <li class="ListItem bui-d-g bui-gtc-2 bui-g-8 bp3:bui-g-9">
               <span class="Text sz-2">Colm Tuite</span>

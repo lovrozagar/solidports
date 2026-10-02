@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 
 export interface MenuRadioItemContext {
   checked: Accessor<boolean>;
@@ -6,11 +7,11 @@ export interface MenuRadioItemContext {
   disabled: Accessor<boolean>;
 }
 
-export const MenuRadioItemContext = createContext<MenuRadioItemContext>();
+export const MenuRadioItemContext = createContext<MenuRadioItemContext | null>(null);
 
 export function useMenuRadioItemContext() {
   const context = useContext(MenuRadioItemContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: MenuRadioItemContext is missing. MenuRadioItem parts must be placed within <Menu.RadioItem>.',
     );

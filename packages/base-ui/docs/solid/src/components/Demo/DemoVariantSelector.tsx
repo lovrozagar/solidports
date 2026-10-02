@@ -1,4 +1,7 @@
-import { splitProps, Show, type Accessor, type JSX } from "solid-js"
+import { Show } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { splitProps } from '../../utils/solid-1-compat';
 import * as Select from "../Select"
 
 const translations: Record<string, string> = {

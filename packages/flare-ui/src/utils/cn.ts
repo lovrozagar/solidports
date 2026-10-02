@@ -1,5 +1,5 @@
-/** Accepted input shapes for `cn()`. Superset of JSX `ClassValue` — adds object maps. */
-export type CnValue = string | false | null | undefined | Record<string, boolean> | CnValue[];
+/** Accepted input shapes for `cn()`. Matches Solid 2 JSX `ClassValue` plus object maps. */
+export type CnValue = string | number | boolean | null | undefined | Record<string, boolean | undefined> | CnValue[];
 
 /** Merge class names, filter falsy, deduplicate per-token. Matches clsx semantics. */
 export function cn(...inputs: CnValue[]): string {
@@ -11,6 +11,11 @@ export function cn(...inputs: CnValue[]): string {
 
 function collectClasses(input: CnValue, seen: Set<string>, out: string[]): void {
 	if (!input) return;
+	if (typeof input === "number") {
+		collectClasses(String(input), seen, out);
+		return;
+	}
+	if (typeof input === "boolean") return;
 	if (typeof input === "string") {
 		for (const token of input.trim().split(/\s+/)) {
 			if (token && !seen.has(token)) {

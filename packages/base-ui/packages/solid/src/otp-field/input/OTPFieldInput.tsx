@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, type JSX } from 'solid-js';
+import { createTrackedEffect } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
 import { stopEvent } from '../../floating-ui-solid/utils';
 import {
@@ -75,7 +76,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
   const ariaLabel = () => (index() === 0 ? undefined : slotAriaLabel());
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (index() !== 0 || slotAriaLabel() == null || inputRef?.labels?.length) {
         return;
       }
@@ -96,7 +97,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     get type() {
       return mask() ? 'password' : 'text';
     },
-    get inputMode() {
+    get inputmode() {
       return inputMode();
     },
     get autocomplete() {
@@ -108,10 +109,10 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       return index() === length() - 1 ? 'done' : 'next';
     },
     /* First slot accepts a full code so browser paste/autofill can target it directly. */
-    get maxLength() {
+    get maxlength() {
       return index() === 0 ? length() : 1;
     },
-    get tabIndex() {
+    get tabindex() {
       return activeIndex() === index() ? 0 : -1;
     },
     get disabled() {
@@ -123,7 +124,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     get pattern() {
       return pattern();
     },
-    get readOnly() {
+    get readonly() {
       return readOnly();
     },
     get required() {
@@ -133,7 +134,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       return ariaLabel() == null ? inheritedLabel() : undefined;
     },
     get 'aria-invalid'() {
-      return invalid() || undefined;
+      return invalid() ? 'true' : undefined;
     },
     get 'aria-label'() {
       return ariaLabel();

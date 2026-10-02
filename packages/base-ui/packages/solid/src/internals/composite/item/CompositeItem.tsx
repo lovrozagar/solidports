@@ -1,11 +1,12 @@
 /* eslint-disable typescript/no-explicit-any -- generic State/Metadata propagated via composite root, mirrors React port */
-import { mergeProps as solidMergeProps, type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps, type MaybeAccessor } from '../../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../../utils/constants';
 import { StateAttributesMapping } from '../../../utils/getStateAttributesProps';
 import type { BaseUIComponentProps, UseRenderElementRef } from '../../../utils/types';
 import { useRenderElement } from '../../../utils/useRenderElement';
 import { useCompositeItem } from './useCompositeItem';
+import { mergeProps as solidMergeProps } from '../../../solid-1-compat';
 
 /**
  * @internal

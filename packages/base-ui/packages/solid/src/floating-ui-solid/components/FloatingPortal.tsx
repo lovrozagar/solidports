@@ -1,18 +1,15 @@
 /* eslint-disable typescript/no-explicit-any -- generic render-element bridge, mirrors useRenderElement plumbing */
 import {
+  createTrackedEffect,
   createContext,
-  createEffect,
   createMemo,
   createSignal,
-  onCleanup,
   Show,
-  splitProps,
   useContext,
-  type Accessor,
-  type JSX,
-  type Ref,
 } from 'solid-js';
-import { Portal } from 'solid-js/web';
+import type { Accessor, Ref } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Portal } from '@solidjs/web';
 import { defaultProps } from '../../solid-helpers';
 import { ownerVisuallyHidden } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -30,6 +27,7 @@ import {
   isOutsideEvent,
 } from '../utils';
 import { createAttribute } from '../utils/createAttribute';
+import { splitProps } from '../../solid-1-compat';
 
 type FocusManagerState = null | {
   modal: boolean;
@@ -53,7 +51,7 @@ const PortalContext = createContext<{
   setBeforeOutsideRef: (el: HTMLSpanElement | null | undefined) => void;
   afterOutsideRef: Accessor<HTMLSpanElement | null | undefined>;
   setAfterOutsideRef: (el: HTMLSpanElement | null | undefined) => void;
-}>();
+} | null>(null);
 
 export const usePortalContext = () => useContext(PortalContext);
 
@@ -68,7 +66,9 @@ export interface UseFloatingPortalNodeProps {
 
 export interface UseFloatingPortalNodeResult {
   portalNode: Accessor<HTMLElement | null>;
-  portalSubtree: Accessor<JSX.Element | null>;
+  containerElement: Accessor<HTMLElement | ShadowRoot | null | undefined>;
+  uniqueId: Accessor<string>;
+  registerHost: (el: HTMLDivElement | null | undefined) => void;
 }
 
 /**
@@ -87,40 +87,21 @@ export function useFloatingPortalNode(
     () => props.container ?? portalContext?.portalNode() ?? document.body,
   );
 
-  const portalElement = useRenderElement('div', props.componentProps, {
-    get props() {
-      return [
-        {
-          id: uniqueId(),
-          [attr]: '',
-        },
-        props.elementProps as any,
-      ];
-    },
-    ref: (el: HTMLDivElement | null | undefined) => {
-      setPortalNode(el ?? null);
-      if (typeof props.ref === 'function') {
-        (props.ref as (el: HTMLDivElement | null | undefined) => void)(el);
-      } else if (
-        props.ref !== null &&
-        props.ref !== undefined &&
-        typeof props.ref === 'object' &&
-        'current' in props.ref
-      ) {
-        (props.ref as { current: unknown }).current = el;
-      }
-    },
-  });
-
-  const portalSubtree = createMemo(() => {
-    const container = containerElement();
-    if (!container) {
-      return null;
+  function registerHost(el: HTMLDivElement | null | undefined) {
+    setPortalNode(el ?? null);
+    if (typeof props.ref === 'function') {
+      (props.ref as (el: HTMLDivElement | null | undefined) => void)(el);
+    } else if (
+      props.ref !== null &&
+      props.ref !== undefined &&
+      typeof props.ref === 'object' &&
+      'current' in props.ref
+    ) {
+      (props.ref as { current: unknown }).current = el;
     }
-    return <Portal mount={container}>{portalElement()}</Portal>;
-  });
+  }
 
-  return { portalNode, portalSubtree };
+  return { portalNode, containerElement, uniqueId, registerHost };
 }
 
 /**
@@ -141,7 +122,7 @@ export function FloatingPortal(
     ['children'],
   );
 
-  const { portalNode, portalSubtree } = useFloatingPortalNode({
+  const { portalNode, containerElement, uniqueId, registerHost } = useFloatingPortalNode({
     componentProps: local,
     get container() {
       return local.container;
@@ -195,7 +176,10 @@ export function FloatingPortal(
     return !!fms && !fms.modal && fms.open && !!portalNode();
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const node = portalNode();
     if (!node || focusManagerState()?.modal) {
       return;
@@ -205,13 +189,19 @@ export function FloatingPortal(
     // trap elements onFocus prop is called.
     node.addEventListener('focusin', onFocus, true);
     node.addEventListener('focusout', onFocus, true);
-    onCleanup(() => {
+    _c.push(() => {
       node.removeEventListener('focusin', onFocus, true);
       node.removeEventListener('focusout', onFocus, true);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const node = portalNode();
     if (!node) {
       return;
@@ -240,8 +230,15 @@ export function FloatingPortal(
 
   return (
     <>
-      {portalSubtree()}
-      <PortalContext.Provider value={portalContextValue}>
+      <Portal mount={containerElement() as HTMLElement | undefined}>
+        <div
+          id={uniqueId()}
+          class={local.class}
+          {...{ [attr]: '' }}
+          ref={registerHost}
+        />
+      </Portal>
+      <PortalContext value={portalContextValue}>
         <Show when={shouldRenderGuards() && portalNode()}>
           <FocusGuard
             data-type="outside"
@@ -298,7 +295,7 @@ export function FloatingPortal(
             }}
           />
         </Show>
-      </PortalContext.Provider>
+      </PortalContext>
     </>
   );
 }

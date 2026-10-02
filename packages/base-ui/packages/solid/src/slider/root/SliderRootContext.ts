@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import type { UseFieldValidationReturnValue } from '../../field/root/useFieldValidation';
 import type { ReactLikeRef } from '../../solid-helpers';
@@ -96,11 +97,11 @@ export interface SliderRootContext {
   values: Accessor<readonly number[]>;
 }
 
-export const SliderRootContext = createContext<SliderRootContext | undefined>(undefined);
+export const SliderRootContext = createContext<SliderRootContext | null>(null);
 
 export function useSliderRootContext() {
   const context = useContext(SliderRootContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: SliderRootContext is missing. Slider parts must be placed within <Slider.Root>.',
     );

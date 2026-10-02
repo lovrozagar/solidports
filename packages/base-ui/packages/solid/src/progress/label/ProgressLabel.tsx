@@ -1,4 +1,4 @@
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -21,10 +21,19 @@ export function ProgressLabel(componentProps: ProgressLabel.Props) {
 
   const { setLabelId, state } = useProgressRootContext();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     setLabelId(id());
-    onCleanup(() => setLabelId(undefined));
-  });
+    _c.push(() => setLabelId(undefined));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const element = useRenderElement('span', componentProps, {
     props: [

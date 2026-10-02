@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createMemo, onCleanup, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, onCleanup } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   IndexGuessBehavior,
   useCompositeListItem,
@@ -9,6 +10,7 @@ import { useButton } from '../../internals/use-button';
 import { compareItemEquality, findItemIndex } from '../../utils/itemEquality';
 import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import {
   useComboboxDerivedItemsContext,
   useComboboxRootContext,
@@ -30,8 +32,8 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
 
   const itemValue = () => local.value ?? null;
   const indexProp = () => local.index;
-  const disabled = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? false;
+  const disabled = () => Boolean(local.disabled);
+  const nativeButton = () => Boolean(local.nativeButton);
 
   let didPointerDownRef = false;
   const textRef = useRef<HTMLElement | null | undefined>(null);
@@ -69,7 +71,10 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
   const id = () => (rootId() != null && hasRegistered() ? `${rootId()}-${index()}` : undefined);
   const selected = () => matchesSelectedValue() && selectable();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const shouldRun = hasRegistered() && (virtualized() || indexProp() != null);
     if (!shouldRun) {
       return;
@@ -77,12 +82,21 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
 
     store.context.listRef[index()] = itemRef;
 
-    onCleanup(() => {
+    _c.push(() => {
       delete store.context.listRef[index()];
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!hasRegistered() || hasItems()) {
       return;
     }
@@ -96,12 +110,18 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
       store.context.allValuesRef.push(itemValue());
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       delete store.context.valuesRef[index()];
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       didPointerDownRef = false;
       return;
@@ -169,19 +189,18 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
       return isRow ? 'gridcell' : 'option';
     },
     get 'aria-selected'() {
-      return selectable() ? selected() : undefined;
+      return selectable() ? (selected() ? 'true' : 'false') : undefined;
     },
     // Focusable items steal focus from the input upon mouseup.
     // Warn if the user renders a natively focusable element like `<button>`,
     // as it should be a `<div>` instead.
-    tabIndex: undefined,
-    'on:pointerdown': {
-      capture: true,
-      handleEvent(event) {
+    tabindex: undefined,
+    ref: withCaptureListeners({
+      pointerdown: (event) => {
         didPointerDownRef = true;
         event.preventDefault();
       },
-    },
+    }),
     onClick(event) {
       if (disabled() || readOnly()) {
         return;
@@ -225,7 +244,7 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
   };
 
   return (
-    <ComboboxItemContext.Provider value={contextValue}>{element()}</ComboboxItemContext.Provider>
+    <ComboboxItemContext value={contextValue}>{element()}</ComboboxItemContext>
   );
 }
 

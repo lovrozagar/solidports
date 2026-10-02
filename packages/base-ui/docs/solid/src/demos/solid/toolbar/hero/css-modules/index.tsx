@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { ToggleGroup } from '@solidports/base-ui/toggle-group';

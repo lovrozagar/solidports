@@ -1,4 +1,4 @@
-import { createEffect, createMemo } from 'solid-js';
+import { createTrackedEffect, createMemo } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import { useTimeout } from '../../utils/useTimeout';
 import type { ElementProps, FloatingContext, FloatingRootContext } from '../types';
@@ -75,7 +75,7 @@ export function useTypeahead(parameters: {
   let prevIndexRef: number | null = props.selectedIndex ?? props.activeIndex ?? -1;
   let matchIndexRef: number | null = null;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open() && props.selectedIndex !== null) {
       return;
     }
@@ -88,7 +88,7 @@ export function useTypeahead(parameters: {
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     // Sync arrow key navigation but not typeahead navigation.
     if (open() && stringRef === '') {
       prevIndexRef = props.selectedIndex ?? props.activeIndex ?? -1;

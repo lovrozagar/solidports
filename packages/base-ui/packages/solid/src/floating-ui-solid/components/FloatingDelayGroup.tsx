@@ -1,14 +1,13 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import {
-  batch,
+  createTrackedEffect,
   createContext,
-  createEffect,
   createSignal,
   onCleanup,
   useContext,
-  type Accessor,
-  type JSX,
 } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { defaultProps, useRef, type ReactLikeRef } from '../../solid-helpers';
 import {
   BaseUIChangeEventDetails,
@@ -87,7 +86,7 @@ export function FloatingDelayGroup(componentProps: FloatingDelayGroupProps): JSX
   const [timeoutMs, setTimeoutMs] = createSignal(props.timeoutMs);
 
   return (
-    <FloatingDelayGroupContext.Provider
+    <FloatingDelayGroupContext
       value={{
         currentContextRef,
         currentIdRef,
@@ -100,7 +99,7 @@ export function FloatingDelayGroup(componentProps: FloatingDelayGroupProps): JSX
       }}
     >
       {props.children}
-    </FloatingDelayGroupContext.Provider>
+    </FloatingDelayGroupContext>
   );
 }
 
@@ -154,16 +153,19 @@ export function useDelayGroup(parameters: {
   const [isInstantPhase, setIsInstantPhase] = createSignal(false);
 
   function unset() {
-    batch(() => {
+    {
       setIsInstantPhase(false);
       currentContextRef?.current?.setIsInstantPhase(false);
       currentIdRef.current = null;
       currentContextRef.current = null;
       delayRef.current = initialDelayRef?.current;
-    });
+    };
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!hasProvider) {
       return;
     }
@@ -185,15 +187,21 @@ export function useDelayGroup(parameters: {
           unset();
         };
         timeout.start(timeoutMs(), fn);
-        onCleanup(() => timeout.clear());
+        _c.push(() => timeout.clear());
         return;
       }
 
       unset();
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!hasProvider) {
       return;
     }

@@ -1,4 +1,4 @@
-import { batch, createMemo, Show } from 'solid-js';
+import { createMemo, Show } from 'solid-js';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
 import { splitComponentProps } from '../solid-helpers';
 import { useToolbarRootContext } from '../toolbar/root/ToolbarRootContext';
@@ -36,7 +36,7 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
     'children',
   ]);
   const defaultValueProp = () => local.defaultValue;
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const loopFocus = () => local.loopFocus ?? true;
   const orientation = () => local.orientation ?? 'horizontal';
   const multiple = () => local.multiple ?? false;
@@ -72,17 +72,17 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
   ) => {
     let newGroupValue: Value[] | undefined;
     if (multiple()) {
-      newGroupValue = groupValue()?.slice();
+      newGroupValue = (groupValue() ?? []).slice();
       if (nextPressed) {
         newGroupValue.push(newValue);
       } else {
-        newGroupValue.splice(groupValue().indexOf(newValue), 1);
+        newGroupValue.splice(newGroupValue.indexOf(newValue), 1);
       }
     } else {
       newGroupValue = nextPressed ? [newValue] : [];
     }
     if (Array.isArray(newGroupValue)) {
-      batch(() => {
+      {
         local.onValueChange?.(newGroupValue, eventDetails);
 
         if (eventDetails.isCanceled) {
@@ -90,7 +90,7 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
         }
 
         setValueState(newGroupValue);
-      });
+      };
     }
   };
 
@@ -126,7 +126,7 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
   });
 
   return (
-    <ToggleGroupContext.Provider value={contextValue}>
+    <ToggleGroupContext value={contextValue}>
       <Show when={!toolbarContext} fallback={element()}>
         <CompositeRoot
           render={renderProps.render}
@@ -142,7 +142,7 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
           {local.children}
         </CompositeRoot>
       </Show>
-    </ToggleGroupContext.Provider>
+    </ToggleGroupContext>
   );
 }
 

@@ -504,7 +504,9 @@ export function svgPropertiesNoEvents<T extends object>(obj: T | boolean): SVGPr
  * Function to filter SVG properties from various input types.
  * The input types can be:
  * - A record of string keys to any values, in which case it returns a record of only SVG properties
- * - A JSX Element, in which case it returns null (Solid elements are opaque, unlike React)
+ * - A rendered element (a DOM Element: Solid evaluates JSX eagerly), in which case its attributes
+ *   stand in for upstream's `element.props`
+ * - A JSX value that is not an Element, in which case it returns null
  * - Anything else, in which case it returns null
  *
  * If you wish to have a type-safe version, use svgPropertiesNoEvents directly with a typed object.
@@ -519,9 +521,38 @@ export function svgPropertiesNoEventsFromUnknown(
 		return null
 	}
 
-	if (typeof input === "object" && !Array.isArray(input)) {
+	if (typeof Element !== "undefined" && input instanceof Element) {
+		return svgPropertiesNoEvents(elementAttributesAsProps(input))
+	}
+
+	if (typeof input === "object" && !Array.isArray(input) && !(typeof Node !== "undefined" && input instanceof Node)) {
 		return svgPropertiesNoEvents(input as Record<PropertyKey, unknown>)
 	}
 
 	return null
+}
+
+const NUMERIC_ATTRIBUTE = /^-?\d+(\.\d+)?$/
+
+/* Reads a rendered element back into a props record: numeric attribute values become numbers,
+   `class` becomes `className`, and the inline style becomes a style object. */
+function elementAttributesAsProps(element: Element): Record<string, unknown> {
+	const props: Record<string, unknown> = {}
+	for (const attribute of Array.from(element.attributes)) {
+		const { name, value } = attribute
+		if (name === "class") {
+			props.className = value
+		} else if (name === "style") {
+			const style: Record<string, string> = {}
+			const declarations = (element as HTMLElement | SVGElement).style
+			for (let i = 0; i < declarations.length; i++) {
+				const property = declarations.item(i)
+				style[property] = declarations.getPropertyValue(property)
+			}
+			props.style = style
+		} else {
+			props[name] = NUMERIC_ATTRIBUTE.test(value) ? Number(value) : value
+		}
+	}
+	return props
 }

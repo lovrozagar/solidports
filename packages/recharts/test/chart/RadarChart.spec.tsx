@@ -1,5 +1,6 @@
-import { fireEvent, render } from "@solidjs/testing-library"
-import { createSignal } from "solid-js"
+import { fireEvent, render } from "../helper/render"
+import { trackSpy } from "../helper/trackSpy"
+import { createSignal, flush } from 'solid-js';
 import { describe, expect, it, test, vi } from "vitest"
 import { exampleRadarData } from "../_data"
 import {
@@ -54,6 +55,7 @@ describe("<RadarChart />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -85,6 +87,7 @@ describe("<RadarChart />", () => {
 				id: 0,
 				includeHidden: false,
 				name: undefined,
+				niceTicks: "auto",
 				reversed: false,
 				scale: "auto",
 				tick: true,
@@ -160,13 +163,9 @@ describe("<RadarChart />", () => {
 		const angleAxisRealScaleTypeSpy = vi.fn()
 		const radiusAxisRealScaleTypeSpy = vi.fn()
 		const Comp = (): null => {
-			angleAxisSettingsSpy(useAppSelectorWithStableTest((state) => selectAngleAxis(state, 0)))
-			angleAxisRealScaleTypeSpy(
-				useAppSelectorWithStableTest((state) => selectRealScaleType(state, "angleAxis", 0)),
-			)
-			radiusAxisRealScaleTypeSpy(
-				useAppSelectorWithStableTest((state) => selectRealScaleType(state, "radiusAxis", 0)),
-			)
+			trackSpy(angleAxisSettingsSpy, () => useAppSelectorWithStableTest((state) => selectAngleAxis(state, 0)))
+			trackSpy(angleAxisRealScaleTypeSpy, () => useAppSelectorWithStableTest((state) => selectRealScaleType(state, "angleAxis", 0)))
+			trackSpy(radiusAxisRealScaleTypeSpy, () => useAppSelectorWithStableTest((state) => selectRealScaleType(state, "radiusAxis", 0)))
 			return null
 		}
 		const { container } = render(() => (
@@ -192,6 +191,7 @@ describe("<RadarChart />", () => {
 			id: 0,
 			includeHidden: false,
 			name: undefined,
+			niceTicks: "auto",
 			reversed: false,
 			scale: "auto",
 			tick: true,
@@ -218,13 +218,9 @@ describe("<RadarChart />", () => {
 		const angleAxisRealScaleTypeSpy = vi.fn()
 		const radiusAxisRealScaleTypeSpy = vi.fn()
 		const Comp = (): null => {
-			angleAxisSettingsSpy(useAppSelectorWithStableTest((state) => selectAngleAxis(state, 0)))
-			angleAxisRealScaleTypeSpy(
-				useAppSelectorWithStableTest((state) => selectRealScaleType(state, "angleAxis", 0)),
-			)
-			radiusAxisRealScaleTypeSpy(
-				useAppSelectorWithStableTest((state) => selectRealScaleType(state, "radiusAxis", 0)),
-			)
+			trackSpy(angleAxisSettingsSpy, () => useAppSelectorWithStableTest((state) => selectAngleAxis(state, 0)))
+			trackSpy(angleAxisRealScaleTypeSpy, () => useAppSelectorWithStableTest((state) => selectRealScaleType(state, "angleAxis", 0)))
+			trackSpy(radiusAxisRealScaleTypeSpy, () => useAppSelectorWithStableTest((state) => selectRealScaleType(state, "radiusAxis", 0)))
 			return null
 		}
 		const { container } = render(() => (
@@ -252,6 +248,7 @@ describe("<RadarChart />", () => {
 			id: 0,
 			includeHidden: false,
 			name: undefined,
+			niceTicks: "auto",
 			reversed: false,
 			scale: "auto",
 			tick: true,
@@ -295,6 +292,7 @@ describe("<RadarChart />", () => {
 		expectRadarPolygons(container, expectedPolygons)
 
 		setInnerRadius(20)
+		flush()
 		expectRadarPolygons(container, expectedPolygons)
 	})
 
@@ -320,6 +318,7 @@ describe("<RadarChart />", () => {
 		expectRadarPolygons(container, expectedPolygons)
 
 		setOuterRadius(20)
+		flush()
 		expectRadarPolygons(container, expectedPolygons)
 	})
 
@@ -346,6 +345,7 @@ describe("<RadarChart />", () => {
 		expectRadarPolygons(container, expectedPolygons)
 
 		setClockWise(false)
+		flush()
 		expectRadarPolygons(container, expectedPolygons)
 	})
 
@@ -373,7 +373,9 @@ describe("<RadarChart />", () => {
 		])
 
 		setStartAngle(90)
+		flush()
 		setEndAngle(270)
+		flush()
 		expectRadarPolygons(container, [
 			{
 				d: "M300,250L300,250L300,250L300,250L300,250L300,250L300,250L300,250L300,250Z",
@@ -495,8 +497,11 @@ describe("<RadarChart />", () => {
 		])
 
 		setCx(200)
+		flush()
 		setCy(230)
+		flush()
 		setOuterRadius(100)
+		flush()
 
 		expectRadarPolygons(container, [
 			{
@@ -596,7 +601,7 @@ describe("<RadarChart />", () => {
 		).toHaveLength(5)
 	})
 
-	test.skip("click on Sector should invoke onClick callback", () => {
+	test("click on Sector should invoke onClick callback", () => {
 		const onClick = vi.fn()
 		const { container } = render(() => (
 			<RadarChart
@@ -620,7 +625,7 @@ describe("<RadarChart />", () => {
 		it("should provide viewBox", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useViewBox())
+				trackSpy(spy, () => useViewBox())
 				return null
 			}
 
@@ -637,7 +642,7 @@ describe("<RadarChart />", () => {
 		it("should provide clipPathId", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useViewBox())
+				trackSpy(spy, () => useViewBox())
 				return null
 			}
 
@@ -654,7 +659,7 @@ describe("<RadarChart />", () => {
 		it("should provide chart width", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartWidth())
+				trackSpy(spy, () => useChartWidth())
 				return null
 			}
 
@@ -671,7 +676,7 @@ describe("<RadarChart />", () => {
 		it("should provide chart height", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartHeight())
+				trackSpy(spy, () => useChartHeight())
 				return null
 			}
 

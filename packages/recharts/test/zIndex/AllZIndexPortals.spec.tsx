@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../helper/render"
 import { AllZIndexPortals } from "../../src/zIndex/ZIndexPortal"
 import { createRechartsStore } from "../../src/state/store"
 import { RechartsStoreContext } from "../../src/state/RechartsStoreContext"
@@ -17,9 +18,9 @@ describe("AllZIndexPortals", () => {
 
 		const { container } = render(() => (
 			<svg>
-				<RechartsStoreContext.Provider value={{ actions, events, setStore, store }}>
+				<RechartsStoreContext value={{ actions, events, setStore, store }}>
 					<AllZIndexPortals isPanorama={false}>child</AllZIndexPortals>
-				</RechartsStoreContext.Provider>
+				</RechartsStoreContext>
 			</svg>
 		))
 
@@ -34,7 +35,9 @@ describe("AllZIndexPortals", () => {
 		expect(container.querySelectorAll('g[tabindex="-1"]')).toHaveLength(allZIndexes.length)
 
 		actions.registerZIndexPortal({ zIndex: newZIndexDefinitelyNotOneOfTheDefaults })
+		flush()
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const zIndexPortals = container.querySelectorAll('g[tabindex="-1"]')
 		expect(zIndexPortals).toHaveLength(allZIndexes.length + 1)
@@ -46,11 +49,11 @@ describe("AllZIndexPortals", () => {
 
 		const { container } = render(() => (
 			<svg>
-				<RechartsStoreContext.Provider value={{ actions, events, setStore, store }}>
+				<RechartsStoreContext value={{ actions, events, setStore, store }}>
 					<AllZIndexPortals isPanorama={false}>
 						<div data-testid="child">child</div>
 					</AllZIndexPortals>
-				</RechartsStoreContext.Provider>
+				</RechartsStoreContext>
 			</svg>
 		))
 

@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
@@ -28,7 +28,7 @@ export default function ExampleNavigationMenu() {
               <div class={styles.SubmenuLayout}>
                 <NavigationMenu.List class={styles.SubmenuList}>
                   {audienceMenus.map((menu) => (
-                    <NavigationMenu.Item key={menu.value} value={menu.value}>
+                    <NavigationMenu.Item value={menu.value}>
                       <NavigationMenu.Trigger class={styles.SubmenuTrigger}>
                         <span class={styles.SubmenuLabel}>{menu.label}</span>
                         <span class={styles.SubmenuHint}>{menu.hint}</span>
@@ -40,7 +40,7 @@ export default function ExampleNavigationMenu() {
                         </div>
                         <ul class={styles.LinkList}>
                           {menu.links.map((link) => (
-                            <li key={link.href}>
+                            <li>
                               <Link class={styles.LinkCard} href={link.href}>
                                 <h5 class={styles.LinkTitle}>{link.title}</h5>
                                 <p class={styles.LinkDescription}>{link.description}</p>
@@ -74,7 +74,7 @@ export default function ExampleNavigationMenu() {
               </div>
               <ul class={styles.LinkList}>
                 {guideLinks.map((link) => (
-                  <li key={link.href}>
+                  <li>
                     <Link class={styles.LinkCard} href={link.href}>
                       <h5 class={styles.LinkTitle}>{link.title}</h5>
                       <p class={styles.LinkDescription}>{link.description}</p>
@@ -123,7 +123,7 @@ function Link(props: NavigationMenu.Link.Props) {
         // Use the `render` prop to render your framework's Link component
         // for client-side routing.
         // e.g. `<NextLink href={props.href} />` instead of `<a />`.
-        <a />
+        (props) => <a {...props} />
       }
       {...props}
     />

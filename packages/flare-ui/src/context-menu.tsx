@@ -1,6 +1,6 @@
 import { ContextMenu as BaseContextMenu } from "@solidports/base-ui/context-menu";
 import { Menu as BaseMenu } from "@solidports/base-ui/menu";
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { mergeClass } from "./utils/merge-class.ts";
 import { cn } from "./utils/cn.ts";
 import { Check } from "./icons/check.tsx";

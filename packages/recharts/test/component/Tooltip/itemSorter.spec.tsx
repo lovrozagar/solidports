@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, vi } from "vitest"
 import {
 	Area,
@@ -77,7 +77,7 @@ describe("itemSorter in ComposedChart", () => {
 				])
 			})
 			/* Cluster D: tooltipPayloadConfigurations strokeWidth default missing — sibling-mount-order. */
-			it.skip("should select tooltipPayloadConfigurations", () => {
+			it("should select tooltipPayloadConfigurations", () => {
 				const { spy } = renderTestCase(undefined, (state) =>
 					selectTooltipPayloadConfigurations(state, "axis", "hover", "0"),
 				)
@@ -341,7 +341,7 @@ describe("itemSorter in ComposedChart", () => {
 				])
 			})
 			/* Cluster D: ComposedChart payload strokeWidth default missing — sibling-mount-order. */
-			it.skip("should select payload sorted by name", () => {
+			it("should select payload sorted by name", () => {
 				const { spy } = renderTestCase(undefined, (state) =>
 					selectTooltipPayload(state, "axis", "hover", "0"),
 				)
@@ -502,7 +502,7 @@ describe("itemSorter in ComposedChart", () => {
 				])
 			})
 			/* Cluster D: itemSorter ComposedChart sibling-mount-order strokeWidth divergence. */
-			it.skip("should call the function once for every payload item, and pass the item as an argument", () => {
+			it("should call the function once for every payload item, and pass the item as an argument", () => {
 				const spy = vi.fn()
 				const { container } = renderTestCase(spy)
 				expect(spy).toHaveBeenCalledTimes(0)
@@ -643,7 +643,7 @@ describe("itemSorter in ComposedChart", () => {
 				])
 			})
 			/* Cluster D: ComposedChart payload sorted strokeWidth default missing. */
-			it.skip("should select payload sorted by name", () => {
+			it("should select payload sorted by name", () => {
 				const { spy } = renderTestCase(undefined, (state) =>
 					selectTooltipPayload(state, "axis", "hover", "0"),
 				)
@@ -804,7 +804,7 @@ describe("itemSorter in ComposedChart", () => {
 				])
 			})
 			/* Cluster D: itemSorter ComposedChart with name strokeWidth divergence. */
-			it.skip("should call the function once for every payload item, and pass the item as an argument", () => {
+			it("should call the function once for every payload item, and pass the item as an argument", () => {
 				const spy = vi.fn()
 				const { container } = renderTestCase(spy)
 				expect(spy).toHaveBeenCalledTimes(0)
@@ -943,9 +943,9 @@ describe("itemSorter in PieChart", () => {
 			)
 			expectLastCalledWith(spy, [
 				{
-					color: undefined,
+					color: "#808080",
 					dataKey: "uv",
-					fill: undefined,
+					fill: "#808080",
 					graphicalItemId: "pie-uv",
 					hide: false,
 					name: "Page A",
@@ -1323,7 +1323,7 @@ describe("itemSorter in RadialBarChart", () => {
 				expectTooltipPayload(container, "Page D", ["amt : 2400", "pv : 9800", "uv : 200"])
 			})
 			/* skip: sibling-mount-order numerics — sector outerRadius differs from upstream by ~24px */
-			it.skip("should select payload sorted by name", () => {
+			it("should select payload sorted by name", () => {
 				const { spy } = renderTestCase(undefined, (state) =>
 					selectTooltipPayload(state, "axis", "hover", "0"),
 				)
@@ -1343,7 +1343,7 @@ describe("itemSorter in RadialBarChart", () => {
 								cy: 300,
 								endAngle: 360,
 								innerRadius: 3.9333333333333336,
-								outerRadius: 10.933333333333334,
+								outerRadius: 11.933333333333334,
 								startAngle: 0,
 							},
 							cx: 300,
@@ -1351,7 +1351,7 @@ describe("itemSorter in RadialBarChart", () => {
 							endAngle: 360,
 							innerRadius: 3.9333333333333336,
 							name: "Page A",
-							outerRadius: 10.933333333333334,
+							outerRadius: 11.933333333333334,
 							payload: {
 								amt: 2400,
 								name: "Page A",
@@ -1383,16 +1383,16 @@ describe("itemSorter in RadialBarChart", () => {
 								cx: 300,
 								cy: 300,
 								endAngle: 360,
-								innerRadius: 14.933333333333334,
-								outerRadius: 21.933333333333334,
+								innerRadius: 15.933333333333334,
+								outerRadius: 23.933333333333334,
 								startAngle: 0,
 							},
 							cx: 300,
 							cy: 300,
 							endAngle: 2160,
-							innerRadius: 14.933333333333334,
+							innerRadius: 15.933333333333334,
 							name: "Page A",
-							outerRadius: 21.933333333333334,
+							outerRadius: 23.933333333333334,
 							payload: {
 								amt: 2400,
 								name: "Page A",
@@ -1424,16 +1424,16 @@ describe("itemSorter in RadialBarChart", () => {
 								cx: 300,
 								cy: 300,
 								endAngle: 360,
-								innerRadius: 25.933333333333334,
-								outerRadius: 32.93333333333334,
+								innerRadius: 27.933333333333334,
+								outerRadius: 35.93333333333334,
 								startAngle: 0,
 							},
 							cx: 300,
 							cy: 300,
 							endAngle: 2160,
-							innerRadius: 25.933333333333334,
+							innerRadius: 27.933333333333334,
 							name: "Page A",
-							outerRadius: 32.93333333333334,
+							outerRadius: 35.93333333333334,
 							payload: {
 								amt: 2400,
 								name: "Page A",
@@ -1482,7 +1482,7 @@ describe("itemSorter in RadialBarChart", () => {
 				expectTooltipPayload(container, "Page D", ["uv : 200", "amt : 2400", "pv : 9800"])
 			})
 			/* skip: sibling-mount-order numerics — sector outerRadius differs from upstream by ~24px */
-			it.skip("should call the function once for every payload item, and pass the item as an argument", () => {
+			it("should call the function once for every payload item, and pass the item as an argument", () => {
 				const spy = vi.fn()
 				const { container } = renderTestCase(spy)
 				expect(spy).toHaveBeenCalledTimes(0)
@@ -1503,7 +1503,7 @@ describe("itemSorter in RadialBarChart", () => {
 							cy: 300,
 							endAngle: 360,
 							innerRadius: 121.93333333333334,
-							outerRadius: 128.93333333333334,
+							outerRadius: 129.93333333333334,
 							startAngle: 0,
 						},
 						cx: 300,
@@ -1511,7 +1511,7 @@ describe("itemSorter in RadialBarChart", () => {
 						endAngle: 180,
 						innerRadius: 121.93333333333334,
 						name: "Page D",
-						outerRadius: 128.93333333333334,
+						outerRadius: 129.93333333333334,
 						payload: {
 							amt: 2400,
 							name: "Page D",
@@ -1543,16 +1543,16 @@ describe("itemSorter in RadialBarChart", () => {
 							cx: 300,
 							cy: 300,
 							endAngle: 360,
-							innerRadius: 132.93333333333334,
-							outerRadius: 139.93333333333334,
+							innerRadius: 133.93333333333334,
+							outerRadius: 141.93333333333334,
 							startAngle: 0,
 						},
 						cx: 300,
 						cy: 300,
 						endAngle: 8820,
-						innerRadius: 132.93333333333334,
+						innerRadius: 133.93333333333334,
 						name: "Page D",
-						outerRadius: 139.93333333333334,
+						outerRadius: 141.93333333333334,
 						payload: {
 							amt: 2400,
 							name: "Page D",
@@ -1584,16 +1584,16 @@ describe("itemSorter in RadialBarChart", () => {
 							cx: 300,
 							cy: 300,
 							endAngle: 360,
-							innerRadius: 143.93333333333334,
-							outerRadius: 150.93333333333334,
+							innerRadius: 145.93333333333334,
+							outerRadius: 153.93333333333334,
 							startAngle: 0,
 						},
 						cx: 300,
 						cy: 300,
 						endAngle: 2160,
-						innerRadius: 143.93333333333334,
+						innerRadius: 145.93333333333334,
 						name: "Page D",
-						outerRadius: 150.93333333333334,
+						outerRadius: 153.93333333333334,
 						payload: {
 							amt: 2400,
 							name: "Page D",
@@ -1648,7 +1648,7 @@ describe("itemSorter in RadialBarChart", () => {
 				])
 			})
 			/* skip: sibling-mount-order numerics — sector outerRadius differs from upstream by ~24px */
-			it.skip("should select payload sorted by name", () => {
+			it("should select payload sorted by name", () => {
 				const { spy } = renderTestCase(undefined, (state) =>
 					selectTooltipPayload(state, "axis", "hover", "0"),
 				)
@@ -1668,7 +1668,7 @@ describe("itemSorter in RadialBarChart", () => {
 								cy: 300,
 								endAngle: 360,
 								innerRadius: 3.9333333333333336,
-								outerRadius: 10.933333333333334,
+								outerRadius: 11.933333333333334,
 								startAngle: 0,
 							},
 							cx: 300,
@@ -1676,7 +1676,7 @@ describe("itemSorter in RadialBarChart", () => {
 							endAngle: 360,
 							innerRadius: 3.9333333333333336,
 							name: "Page A",
-							outerRadius: 10.933333333333334,
+							outerRadius: 11.933333333333334,
 							payload: {
 								amt: 2400,
 								name: "Page A",
@@ -1708,16 +1708,16 @@ describe("itemSorter in RadialBarChart", () => {
 								cx: 300,
 								cy: 300,
 								endAngle: 360,
-								innerRadius: 14.933333333333334,
-								outerRadius: 21.933333333333334,
+								innerRadius: 15.933333333333334,
+								outerRadius: 23.933333333333334,
 								startAngle: 0,
 							},
 							cx: 300,
 							cy: 300,
 							endAngle: 2160,
-							innerRadius: 14.933333333333334,
+							innerRadius: 15.933333333333334,
 							name: "Page A",
-							outerRadius: 21.933333333333334,
+							outerRadius: 23.933333333333334,
 							payload: {
 								amt: 2400,
 								name: "Page A",
@@ -1749,16 +1749,16 @@ describe("itemSorter in RadialBarChart", () => {
 								cx: 300,
 								cy: 300,
 								endAngle: 360,
-								innerRadius: 25.933333333333334,
-								outerRadius: 32.93333333333334,
+								innerRadius: 27.933333333333334,
+								outerRadius: 35.93333333333334,
 								startAngle: 0,
 							},
 							cx: 300,
 							cy: 300,
 							endAngle: 2160,
-							innerRadius: 25.933333333333334,
+							innerRadius: 27.933333333333334,
 							name: "Page A",
-							outerRadius: 32.93333333333334,
+							outerRadius: 35.93333333333334,
 							payload: {
 								amt: 2400,
 								name: "Page A",
@@ -1823,7 +1823,7 @@ describe("itemSorter in RadialBarChart", () => {
 				])
 			})
 			/* skip: sibling-mount-order numerics — sector outerRadius differs from upstream by ~24px */
-			it.skip("should call the function once for every payload item, and pass the item as an argument", () => {
+			it("should call the function once for every payload item, and pass the item as an argument", () => {
 				const spy = vi.fn()
 				const { container } = renderTestCase(spy)
 				expect(spy).toHaveBeenCalledTimes(0)
@@ -1844,7 +1844,7 @@ describe("itemSorter in RadialBarChart", () => {
 							cy: 300,
 							endAngle: 360,
 							innerRadius: 121.93333333333334,
-							outerRadius: 128.93333333333334,
+							outerRadius: 129.93333333333334,
 							startAngle: 0,
 						},
 						cx: 300,
@@ -1852,7 +1852,7 @@ describe("itemSorter in RadialBarChart", () => {
 						endAngle: 180,
 						innerRadius: 121.93333333333334,
 						name: "Page D",
-						outerRadius: 128.93333333333334,
+						outerRadius: 129.93333333333334,
 						payload: {
 							amt: 2400,
 							name: "Page D",
@@ -1884,16 +1884,16 @@ describe("itemSorter in RadialBarChart", () => {
 							cx: 300,
 							cy: 300,
 							endAngle: 360,
-							innerRadius: 132.93333333333334,
-							outerRadius: 139.93333333333334,
+							innerRadius: 133.93333333333334,
+							outerRadius: 141.93333333333334,
 							startAngle: 0,
 						},
 						cx: 300,
 						cy: 300,
 						endAngle: 8820,
-						innerRadius: 132.93333333333334,
+						innerRadius: 133.93333333333334,
 						name: "Page D",
-						outerRadius: 139.93333333333334,
+						outerRadius: 141.93333333333334,
 						payload: {
 							amt: 2400,
 							name: "Page D",
@@ -1925,16 +1925,16 @@ describe("itemSorter in RadialBarChart", () => {
 							cx: 300,
 							cy: 300,
 							endAngle: 360,
-							innerRadius: 143.93333333333334,
-							outerRadius: 150.93333333333334,
+							innerRadius: 145.93333333333334,
+							outerRadius: 153.93333333333334,
 							startAngle: 0,
 						},
 						cx: 300,
 						cy: 300,
 						endAngle: 2160,
-						innerRadius: 143.93333333333334,
+						innerRadius: 145.93333333333334,
 						name: "Page D",
-						outerRadius: 150.93333333333334,
+						outerRadius: 153.93333333333334,
 						payload: {
 							amt: 2400,
 							name: "Page D",

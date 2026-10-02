@@ -1,7 +1,8 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { screen } from '@solidjs/testing-library';
-import { lazy, Suspense, type Component } from 'solid-js';
+import { lazy, Loading } from 'solid-js';
+import type { Component } from 'solid-js';
 import { expect } from 'vitest';
 
 describe('<Dialog.Portal />', () => {
@@ -37,7 +38,7 @@ describe('<Dialog.Portal />', () => {
       const { LazyComponent, resolve } = createLazyComponent();
 
       render(() => (
-        <Suspense fallback="Loading...">
+        <Loading fallback="Loading...">
           <Dialog.Root open>
             <Dialog.Portal>
               <Dialog.Popup>
@@ -45,7 +46,7 @@ describe('<Dialog.Portal />', () => {
               </Dialog.Popup>
             </Dialog.Portal>
           </Dialog.Root>
-        </Suspense>
+        </Loading>
       ));
 
       expect(await screen.findByText('Loading...')).not.to.equal(null);

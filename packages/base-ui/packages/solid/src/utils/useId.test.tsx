@@ -2,7 +2,7 @@ import { createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
 import { createSignal } from 'solid-js';
-import { NoHydration } from 'solid-js/web';
+import { NoHydration } from '@solidjs/web';
 import { access } from '../solid-helpers';
 import { useId } from './useId';
 

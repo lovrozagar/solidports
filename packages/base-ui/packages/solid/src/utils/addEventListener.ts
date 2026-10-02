@@ -47,13 +47,13 @@ export function addEventListener<
 export function addEventListener(
   target: EventTargetWithListeners,
   type: string,
-  listener: EventListenerOrEventListenerObject,
+  listener: EventListenerOrEventListenerObject | ((event: any) => void),
   options?: boolean | AddEventListenerOptions,
 ): () => void;
 export function addEventListener(
   target: EventTargetWithListeners,
   type: string,
-  listener: EventListenerOrEventListenerObject,
+  listener: EventListenerOrEventListenerObject | ((event: any) => void),
   options?: boolean | AddEventListenerOptions,
 ) {
   target.addEventListener(type, listener, options);

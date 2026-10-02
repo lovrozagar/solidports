@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../../helper/render"
 import { LineChart, Line, XAxis, YAxis, Tooltip } from "../../../src"
 import { useChartState } from "../../../src/state/useChartState"
 import type { ChartState } from "../../../src/state/chartState"

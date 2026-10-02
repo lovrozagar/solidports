@@ -1,5 +1,5 @@
 import { getWindow, isElement, isHTMLElement } from '@floating-ui/utils/dom';
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isMac, isSafari } from '../../utils/detectBrowser';
@@ -72,7 +72,10 @@ export function useFocus(parameters: {
     }
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const domReference = store().select('domReferenceElement');
     if (!props.enabled) {
       return;
@@ -88,14 +91,20 @@ export function useFocus(parameters: {
       keyboardModalityRef = false;
     }
 
-    onCleanup(
+    _c.push(
       mergeCleanups(
         addEventListener(win, 'blur', onBlur),
         isMacSafari && addEventListener(win, 'keydown', onKeyDown, true),
         isMacSafari && addEventListener(win, 'pointerdown', onPointerDown, true),
       ),
     );
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function onOpenChangeLocal(details: FloatingUIOpenChangeDetails) {
     if (details.reason === REASONS.triggerPress || details.reason === REASONS.escapeKey) {
@@ -107,16 +116,25 @@ export function useFocus(parameters: {
     }
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!props.enabled) {
       return;
     }
 
     events().on('openchange', onOpenChangeLocal);
-    onCleanup(() => {
+    _c.push(() => {
       events().off('openchange', onOpenChangeLocal);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const reference: ElementProps['reference'] = {
     onBlur: (event) => {

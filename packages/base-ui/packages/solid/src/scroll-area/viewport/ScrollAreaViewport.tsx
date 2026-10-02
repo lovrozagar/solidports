@@ -1,4 +1,5 @@
-import { batch, createEffect, on, onCleanup, onMount, type ComponentProps } from 'solid-js';
+import { createEffect, onCleanup, onSettled } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { splitComponentProps } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
@@ -15,6 +16,7 @@ import { getOffset } from '../utils/getOffset';
 import { normalizeScrollOffset } from '../utils/scrollEdges';
 import { ScrollAreaViewportContext } from './ScrollAreaViewportContext';
 import { ScrollAreaViewportCssVars } from './ScrollAreaViewportCssVars';
+import { on } from '../../solid-1-compat';
 
 // Module-level flag to ensure we only register the CSS properties once,
 // regardless of how many Scroll Area components are mounted.
@@ -102,7 +104,6 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
   const waitForAnimationsTimeout = useTimeout();
 
   function computeThumbPosition() {
-    batch(() => {
       const viewportEl = viewportRef.current;
       const scrollbarXEl = scrollbarXRef.current;
       const scrollbarYEl = scrollbarYRef.current;
@@ -275,10 +276,9 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
         }
         return nextOverflowEdges;
       });
-    });
   }
 
-  onMount(() => {
+  onSettled(() => {
     if (!viewportRef.current) {
       return;
     }
@@ -287,14 +287,13 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
     computeThumbPosition();
   });
 
-  createEffect(
-    on([hiddenState, direction], () => {
+  createEffect(...on([hiddenState, direction], () => {
       // Wait for scrollbar-related refs to be set
       queueMicrotask(computeThumbPosition);
     }),
   );
 
-  onMount(() => {
+  onSettled(() => {
     // `onMouseEnter` doesn't fire upon load, so we need to check if the viewport is already
     // being hovered.
     if (viewportRef.current?.matches(':hover')) {
@@ -302,7 +301,10 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
     }
   });
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const viewport = viewportRef.current;
     if (typeof ResizeObserver === 'undefined' || !viewport) {
       return;
@@ -347,11 +349,17 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
         .catch(() => {});
     });
 
-    onCleanup(() => {
+    _c.push(() => {
       ro.disconnect();
       waitForAnimationsTimeout.clear();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function handleUserInteraction() {
     programmaticScrollRef = false;
@@ -368,7 +376,7 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
     },
     // https://accessibilityinsights.io/info-examples/web/scrollable-region-focusable/
     // Keep non-scrollable viewports out of tab order.
-    get tabIndex() {
+    get tabindex() {
       return hiddenState().x && hiddenState().y ? -1 : 0;
     },
     class: styleDisableScrollbar.class,
@@ -443,9 +451,9 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
   });
 
   return (
-    <ScrollAreaViewportContext.Provider value={contextValue}>
+    <ScrollAreaViewportContext value={contextValue}>
       {element()}
-    </ScrollAreaViewportContext.Provider>
+    </ScrollAreaViewportContext>
   );
 }
 

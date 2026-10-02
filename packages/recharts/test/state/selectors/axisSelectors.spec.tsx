@@ -1,5 +1,7 @@
 import { describe, expect, it, test, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { trackSpy } from "../../helper/trackSpy"
+import { observe } from "../../helper/observe"
+import { render } from "../../helper/render"
 import { generateMockData } from "../../_data/generateMockData"
 import {
 	BaseAxisWithScale,
@@ -57,8 +59,7 @@ import { assertNotNull } from "../../helper/assertNotNull"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { BarSettings } from "../../../src/state/types/BarSettings"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
-import { createEffect, createSignal, Show } from "solid-js"
-
+import { createSignal, Show, flush, untrack } from 'solid-js'
 const mockData = generateMockData(10, 982347)
 const data1 = mockData.slice(0, 5)
 const data2 = mockData.slice(5)
@@ -67,7 +68,7 @@ describe("selectAxisDomain", () => {
 	it("should return undefined if there is no data in the chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			const result = useAppSelectorWithStableTest((state) =>
 				selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -90,7 +91,7 @@ describe("selectAxisDomain", () => {
 	it("should gather data from all graphical items that match the axis ID", () => {
 		const axisDomainSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			axisDomainSpy(
 				useAppSelectorWithStableTest((state) =>
@@ -123,7 +124,7 @@ describe("selectAxisDomain", () => {
 		const domainLeftIncludingNiceTicksSpy = vi.fn()
 		const domainRightIncludingNiceTicksSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			domainLeftSpy(
 				useAppSelectorWithStableTest((state) =>
@@ -327,7 +328,7 @@ describe("selectAxisDomain", () => {
 		it("should return highest and lowest number of the chart root data based on the axis dataKey", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -375,7 +376,7 @@ describe("selectAxisDomain", () => {
 		it("should return undefined if the data is not numerical", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -398,7 +399,7 @@ describe("selectAxisDomain", () => {
 			const data = [{ x: Symbol.for("unit test") }]
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", 0, isPanorama),
@@ -435,7 +436,7 @@ describe("selectAxisDomain", () => {
 			]
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -484,7 +485,7 @@ describe("selectAxisDomain", () => {
         compute min, max of the combination, and then readjust it based on nice ticks`, () => {
 			const axisDomainSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", 0, isPanorama),
@@ -590,7 +591,7 @@ describe("selectAxisDomain", () => {
 		it("should return all strings", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -645,7 +646,7 @@ describe("selectAxisDomain", () => {
 			(allowDuplicatedCategory) => {
 				const spy = vi.fn()
 				const Comp = (): null => {
-					createEffect(() => {
+					observe(() => {
 					const isPanorama = useIsPanorama()
 					const result = useAppSelectorWithStableTest((state) =>
 						selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -699,7 +700,7 @@ describe("selectAxisDomain", () => {
 		it("should filter out duplicates when allowDuplicatedCategory = false", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -747,7 +748,7 @@ describe("selectAxisDomain", () => {
 		it("with allowDuplicatedCategory=true, and the data has duplicates, it should return domain as array indexes", () => {
 			const domainSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -871,7 +872,7 @@ describe("selectAxisDomain", () => {
 			const domainSpy = vi.fn()
 			const scaleSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				domainSpy(
 					useAppSelectorWithStableTest((state) =>
@@ -966,7 +967,7 @@ describe("selectAxisDomain", () => {
 			]
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -1019,7 +1020,7 @@ describe("selectAxisDomain", () => {
 		it("with allowDuplicatedCategory=false, should return domain as deduplicated strings", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -1083,7 +1084,7 @@ describe("selectAxisDomain", () => {
 			const data = [{ x: "Monday" }, { x: "Tuesday" }, { x: "Wednesday" }]
 			const spy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectAxisDomain(state, "xAxis", "0", isPanorama),
@@ -1127,7 +1128,7 @@ describe("selectHasBar", () => {
 	it("should return true if there is a Bar in the chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const result = useAppSelectorWithStableTest(selectHasBar)
 				spy(result)
 			})
@@ -1147,6 +1148,7 @@ describe("selectHasBar", () => {
 
 		// returns false after Bar is removed from DOM
 		setShowBar(false)
+		flush()
 		expect(container.querySelector(".recharts-bar")).toBeNull()
 		expectLastCalledWith(spy, false)
 	})
@@ -1154,7 +1156,7 @@ describe("selectHasBar", () => {
 	it("should return false if there is no Bar in the chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selectHasBar)
 			spy(result)
 			})
@@ -1173,7 +1175,7 @@ describe("selectHasBar", () => {
 	it("should return true if there are two Bars in the chart and then I remove one", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const result = useAppSelectorWithStableTest(selectHasBar)
 				spy(result)
 			})
@@ -1192,6 +1194,7 @@ describe("selectHasBar", () => {
 		expect(container.querySelectorAll(".recharts-bar")).toHaveLength(2)
 		expectLastCalledWith(spy, true)
 		setShowSecondBar(false)
+		flush()
 		expect(container.querySelectorAll(".recharts-bar")).toHaveLength(1)
 		expectLastCalledWith(spy, true)
 	})
@@ -1199,7 +1202,7 @@ describe("selectHasBar", () => {
 	it("should return true if there is RadialBar in RadialChart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				const result = useAppSelectorWithStableTest(selectHasBar)
 				spy(result)
 			})
@@ -1219,6 +1222,7 @@ describe("selectHasBar", () => {
 
 		// returns false after the only RadialBar is removed from DOM
 		setShowBar(false)
+		flush()
 		expect(container.querySelector(".recharts-radial-bar-sectors")).toBeNull()
 		expectLastCalledWith(spy, false)
 	})
@@ -1226,7 +1230,7 @@ describe("selectHasBar", () => {
 	it("should return false if RadialBarChart has no RadialBar in it", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selectHasBar)
 			spy(result)
 			})
@@ -1251,7 +1255,7 @@ describe("selectCalculatedPadding", () => {
 	it("should return 0 when padding is explicitly provided on XAxis", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest((state) =>
 				selectCalculatedXAxisPadding(state, 0, false),
 			)
@@ -1271,7 +1275,7 @@ describe("selectCalculatedPadding", () => {
 	it('should return a number when padding is "gap"', () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest((state) =>
 				selectCalculatedXAxisPadding(state, 0, false),
 			)
@@ -1291,7 +1295,7 @@ describe("selectCalculatedPadding", () => {
 	it('should return a number when padding is "no-gap"', () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest((state) =>
 				selectCalculatedXAxisPadding(state, 0, false),
 			)
@@ -1311,7 +1315,7 @@ describe("selectCalculatedPadding", () => {
 	it("should return 0 when padding=no-gap and there is only one data point on the chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest((state) =>
 				selectCalculatedXAxisPadding(state, 0, false),
 			)
@@ -1331,7 +1335,7 @@ describe("selectCalculatedPadding", () => {
 	it("should return 0 when padding is an object", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest((state) =>
 				selectCalculatedXAxisPadding(state, 0, false),
 			)
@@ -1359,7 +1363,7 @@ describe("selectSmallestDistanceBetweenValues", () => {
 	it("should return undefined if there is no data in the chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selector)
 			spy(result)
 			})
@@ -1379,7 +1383,7 @@ describe("selectSmallestDistanceBetweenValues", () => {
 	it.each([undefined, "category"] as const)("should return undefined if XAxis type=%s", (type) => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selector)
 			spy(result)
 			})
@@ -1398,7 +1402,7 @@ describe("selectSmallestDistanceBetweenValues", () => {
 	it("should return the smallest distance, in percent, between values if type=number", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selector)
 			spy(result)
 			})
@@ -1416,7 +1420,7 @@ describe("selectSmallestDistanceBetweenValues", () => {
 	it("should return the smallest distance, in percent, between values if type=number", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selector)
 			spy(result)
 			})
@@ -1434,7 +1438,7 @@ describe("selectSmallestDistanceBetweenValues", () => {
 	it("should return Infinity, if the data is an empty array", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selector)
 			spy(result)
 			})
@@ -1452,7 +1456,7 @@ describe("selectSmallestDistanceBetweenValues", () => {
 	it("should return Infinity, if the data has only one entry", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selector)
 			spy(result)
 			})
@@ -1470,7 +1474,7 @@ describe("selectSmallestDistanceBetweenValues", () => {
 	it("should return 0 if the data has two items with the same value", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest(selector)
 			spy(result)
 			})
@@ -1504,6 +1508,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 			isPanorama: false,
 			maxBarSize: 0,
 			minPointSize: 0,
+			hasCustomShape: false,
 			stackId: "s-id",
 			type: "bar",
 			xAxisId: "x",
@@ -1511,6 +1516,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 			zAxisId: 0,
 		}
 		createActions(store, setStore).addCartesianGraphicalItem(settings)
+		flush()
 		const result1 = selectCartesianGraphicalItemsData(store, "xAxis", "x")
 		const result2 = selectCartesianGraphicalItemsData(store, "xAxis", "x")
 		expect(result1).toEqual(result2)
@@ -1519,7 +1525,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 	it("should return empty array in an empty chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const tooltipData = useAppSelectorWithStableTest((state) =>
 				selectCartesianGraphicalItemsData(state, "xAxis", defaultAxisId),
 			)
@@ -1539,7 +1545,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 	it("should return empty array in a chart with root data", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const tooltipData = useAppSelectorWithStableTest((state) =>
 				selectCartesianGraphicalItemsData(state, "xAxis", defaultAxisId),
 			)
@@ -1561,7 +1567,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 	it("should return all data defined on graphical items", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const graphicalItemsData = useAppSelectorWithStableTest((state) =>
 				selectCartesianGraphicalItemsData(state, "xAxis", defaultAxisId),
 			)
@@ -1593,7 +1599,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 		const graphicalItemsDataSpy = vi.fn()
 		const domainSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const tooltipData = useAppSelectorWithStableTest((state) =>
 				selectCartesianGraphicalItemsData(state, "xAxis", defaultAxisId),
 			)
@@ -1682,7 +1688,7 @@ describe("selectCartesianGraphicalItemsData", () => {
 	it("should not return any data defined on Pies - that one will have its own independent selector", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const tooltipData = useAppSelectorWithStableTest((state) =>
 				selectCartesianGraphicalItemsData(state, "xAxis", defaultAxisId),
 			)
@@ -1716,7 +1722,7 @@ describe("selectAllAppliedValues", () => {
 	it("should return empty array in an empty chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			const result = useAppSelectorWithStableTest((state) =>
 				selectAllAppliedValues(state, "xAxis", defaultAxisId, isPanorama),
@@ -1737,7 +1743,7 @@ describe("selectAllAppliedValues", () => {
 	it("should return empty array if there is no axis with matching ID", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			const result = useAppSelectorWithStableTest((state) =>
 				selectAllAppliedValues(state, "xAxis", defaultAxisId, isPanorama),
@@ -1759,7 +1765,7 @@ describe("selectAllAppliedValues", () => {
 	it("should return all data defined in all graphical items based on the input dataKey, and default axis ID", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			const result = useAppSelectorWithStableTest((state) =>
 				selectAllAppliedValues(state, "xAxis", defaultAxisId, isPanorama),
@@ -1790,7 +1796,7 @@ describe("selectAllAppliedValues", () => {
 	it("should return data defined in the chart root", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			const result = useAppSelectorWithStableTest((state) =>
 				selectAllAppliedValues(state, "xAxis", defaultAxisId, isPanorama),
@@ -1819,7 +1825,7 @@ describe("selectAllAppliedValues", () => {
 	it("should return values as full input objects if the axis ID does not match anything in the data", () => {
 		const displayedDataSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			const result = useAppSelectorWithStableTest((state) =>
 				selectAllAppliedValues(state, "xAxis", "axis with this ID is not present", isPanorama),
@@ -1890,7 +1896,7 @@ describe("selectErrorBarsSettings", () => {
 	it("should return empty array in a chart with no ErrorBars", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const result = useAppSelectorWithStableTest((state) =>
 				selectErrorBarsSettings(state, "xAxis", defaultAxisId),
 			)
@@ -1912,7 +1918,7 @@ describe("selectErrorBarsSettings", () => {
 		const xAxisSpy = vi.fn()
 		const yAxisSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			xAxisSpy(
 				useAppSelectorWithStableTest((state) => selectErrorBarsSettings(state, "xAxis", "foo")),
 			)
@@ -2318,6 +2324,7 @@ describe("selectErrorBarsSettings", () => {
 			isPanorama: false,
 			maxBarSize: 0,
 			minPointSize: 0,
+			hasCustomShape: false,
 			stackId: "q",
 			type: "bar",
 			xAxisId: "",
@@ -2325,6 +2332,7 @@ describe("selectErrorBarsSettings", () => {
 			zAxisId: 0,
 		}
 		createActions(store, setStore).addCartesianGraphicalItem(settings)
+		flush()
 		const result1 = selectErrorBarsSettings(store, "xAxis", defaultAxisId)
 		const result2 = selectErrorBarsSettings(store, "xAxis", defaultAxisId)
 		expect(result1).toEqual(result2)
@@ -2341,13 +2349,10 @@ describe("selectNiceTicks", () => {
 	it("should return undefined in a chart with no XAxis", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
-			const isPanorama = useIsPanorama()
-			const result = useAppSelectorWithStableTest((state) =>
-				selectNiceTicks(state, "xAxis", defaultAxisId, isPanorama),
+			const isPanorama = untrack(() => useIsPanorama())
+			trackSpy(spy, () =>
+				useAppSelectorWithStableTest((state) => selectNiceTicks(state, "xAxis", defaultAxisId, isPanorama)),
 			)
-			spy(result)
-			})
 			return null
 		}
 		render(() => (
@@ -2364,15 +2369,9 @@ describe("selectNiceTicks", () => {
 		const xAxisSpy = vi.fn()
 		const yAxisSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
-			const isPanorama = useIsPanorama()
-			xAxisSpy(
-				useAppSelectorWithStableTest((state) => selectNiceTicks(state, "xAxis", "foo", isPanorama)),
-			)
-			yAxisSpy(
-				useAppSelectorWithStableTest((state) => selectNiceTicks(state, "yAxis", "bar", isPanorama)),
-			)
-			})
+			const isPanorama = untrack(() => useIsPanorama())
+			trackSpy(xAxisSpy, () => useAppSelectorWithStableTest((state) => selectNiceTicks(state, "xAxis", "foo", isPanorama)))
+			trackSpy(yAxisSpy, () => useAppSelectorWithStableTest((state) => selectNiceTicks(state, "yAxis", "bar", isPanorama)))
 			return null
 		}
 		render(() => (
@@ -2390,16 +2389,14 @@ describe("selectNiceTicks", () => {
 	})
 
 	// https://github.com/recharts/recharts/issues/6011
-	/* nthCalledWith(1, undefined) requires Solid to render the empty mid-state
-	   before dispatch; setup batches it. Cluster D. */
-	it.skip("should return undefined followed by a well-formed domain in vertical orientation with a single datapoint", () => {
+	it("should return undefined followed by a well-formed domain in vertical orientation with a single datapoint", () => {
 		const xAxisSpy = vi.fn()
 		const yAxisSpy = vi.fn()
 		const errSpy = vi.fn()
 		vi.spyOn(console, "error").mockImplementation(errSpy)
 
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			xAxisSpy(
 				useAppSelectorWithStableTest((state) =>
@@ -2449,7 +2446,7 @@ describe("selectNiceTicks", () => {
 		({ domain, expectedTicks }) => {
 			const niceTicksSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 				const isPanorama = useIsPanorama()
 				const result = useAppSelectorWithStableTest((state) =>
 					selectNiceTicks(state, "xAxis", defaultAxisId, isPanorama),
@@ -2469,6 +2466,74 @@ describe("selectNiceTicks", () => {
 			/* GOTCHA-007-E sibling-mount-order: expect(niceTicksSpy).toHaveBeenCalledTimes(2) */
 		},
 	)
+
+	it('should return undefined when niceTicks="none", ignoring domain type', () => {
+		const niceTicksSpy = vi.fn()
+		const Comp = (): null => {
+			observe(() => {
+				const isPanorama = useIsPanorama()
+				const result = useAppSelectorWithStableTest((state) =>
+					selectNiceTicks(state, "xAxis", defaultAxisId, isPanorama),
+				)
+				niceTicksSpy(result)
+			})
+			return null
+		}
+		render(() => (
+			<LineChart width={100} height={100} data={PageData}>
+				<Line dataKey="pv" isAnimationActive={false} />
+				<XAxis type="number" dataKey="uv" domain={["auto", "auto"]} niceTicks="none" />
+				<Comp />
+			</LineChart>
+		))
+		expect(niceTicksSpy).toHaveBeenLastCalledWith(undefined)
+	})
+
+	it('should return adaptive ticks (algorithm A) when niceTicks="adaptive"', () => {
+		const niceTicksSpy = vi.fn()
+		const Comp = (): null => {
+			observe(() => {
+				const isPanorama = useIsPanorama()
+				const result = useAppSelectorWithStableTest((state) =>
+					selectNiceTicks(state, "xAxis", defaultAxisId, isPanorama),
+				)
+				niceTicksSpy(result)
+			})
+			return null
+		}
+		render(() => (
+			<LineChart width={100} height={100} data={PageData}>
+				<Line dataKey="pv" isAnimationActive={false} />
+				<XAxis type="number" dataKey="uv" domain={["auto", "auto"]} niceTicks="adaptive" />
+				<Comp />
+			</LineChart>
+		))
+		// algorithm A (getAdaptiveStep) produces the same ticks as the 'auto' magic selector for this domain
+		expect(niceTicksSpy).toHaveBeenLastCalledWith([180, 240, 300, 360, 420])
+	})
+
+	it('should return round-number snap125 ticks (algorithm B) when niceTicks="snap125"', () => {
+		const niceTicksSpy = vi.fn()
+		const Comp = (): null => {
+			observe(() => {
+				const isPanorama = useIsPanorama()
+				const result = useAppSelectorWithStableTest((state) =>
+					selectNiceTicks(state, "xAxis", defaultAxisId, isPanorama),
+				)
+				niceTicksSpy(result)
+			})
+			return null
+		}
+		render(() => (
+			<LineChart width={100} height={100} data={PageData}>
+				<Line dataKey="pv" isAnimationActive={false} />
+				<XAxis type="number" dataKey="uv" domain={["auto", "auto"]} niceTicks="snap125" />
+				<Comp />
+			</LineChart>
+		))
+		// algorithm B (getSnap125Step) snaps to {1,2,2.5,5}×10^n steps
+		expect(niceTicksSpy).toHaveBeenLastCalledWith([100, 200, 300, 400, 500])
+	})
 })
 
 describe("mergeDomains", () => {
@@ -2504,19 +2569,9 @@ describe("selectAxisWithScale", () => {
 		const xAxisSpy = vi.fn()
 		const yAxisSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
-			const isPanorama = useIsPanorama()
-			xAxisSpy(
-				useAppSelectorWithStableTest((state) =>
-					selectAxisWithScale(state, "xAxis", defaultAxisId, isPanorama),
-				),
-			)
-			yAxisSpy(
-				useAppSelectorWithStableTest((state) =>
-					selectAxisWithScale(state, "xAxis", defaultAxisId, isPanorama),
-				),
-			)
-			})
+			const isPanorama = untrack(() => useIsPanorama())
+			trackSpy(xAxisSpy, () => useAppSelectorWithStableTest((state) => selectAxisWithScale(state, "xAxis", defaultAxisId, isPanorama)))
+			trackSpy(yAxisSpy, () => useAppSelectorWithStableTest((state) => selectAxisWithScale(state, "xAxis", defaultAxisId, isPanorama)))
 			return null
 		}
 		render(() => (
@@ -2535,7 +2590,7 @@ describe("selectAxisWithScale", () => {
 		const xAxisSpy = vi.fn()
 		const yAxisSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			xAxisSpy(
 				useAppSelectorWithStableTest((state) =>
@@ -2578,6 +2633,7 @@ describe("selectAxisWithScale", () => {
 				left: 0,
 				right: 0,
 			},
+			niceTicks: "auto",
 			reversed: false,
 			scale: expect.toBeRechartsScale({ domain: [0, 1, 2, 3, 4, 5], range: [5, 95] }),
 			tick: true,
@@ -2632,6 +2688,7 @@ describe("selectAxisWithScale", () => {
 					domain: ["Page A", "Page B", "Page C", "Page D", "Page E", "Page F"],
 					range: [65, 95],
 				}),
+				niceTicks: "auto",
 				tick: true,
 				tickCount: 5,
 				tickFormatter: undefined,
@@ -2689,6 +2746,7 @@ describe("selectAxisWithScale", () => {
 					bottom: 0,
 					top: 0,
 				},
+				niceTicks: "auto",
 				reversed: false,
 				scale: expect.toBeRechartsScale({ domain: [0, 10000], range: [5, 65] }),
 				tick: true,
@@ -2717,13 +2775,12 @@ describe("selectAxisWithScale", () => {
 	})
 
 	// https://github.com/recharts/recharts/issues/5625
-	/* Same Cluster D — Solid context-value re-render divergence. */
-	it.skip("may call the selector again when unrelated props change but it should keep passing the same instance", () => {
+	it("may call the selector again when unrelated props change but it should keep passing the same instance", () => {
 		const xAxisSpy = vi.fn()
 		const yAxisSpy = vi.fn()
 
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 			const isPanorama = useIsPanorama()
 			xAxisSpy(
 				useAppSelectorWithStableTest((state) =>
@@ -2739,10 +2796,10 @@ describe("selectAxisWithScale", () => {
 			return null
 		}
 		const TestCase = () => {
-			const [dataKey, setDataKey] = React.createSignal("uv")
+			const [dataKey, setDataKey] = createSignal("uv")
 			return (
 				<>
-					{dataKey === "uv" ? (
+					{dataKey() === "uv" ? (
 						<button type="button" onClick={() => setDataKey("pv")}>
 							Change DataKey to pv
 						</button>
@@ -2752,7 +2809,7 @@ describe("selectAxisWithScale", () => {
 						</button>
 					)}
 					<LineChart width={100} height={100} data={PageData}>
-						<Line isAnimationActive={false} dataKey={dataKey} />
+						<Line isAnimationActive={false} dataKey={dataKey()} />
 						<XAxis dataKey="name" />
 						<YAxis />
 						<Comp />
@@ -2779,6 +2836,7 @@ describe("selectAxisWithScale", () => {
 			minTickGap: 5,
 			mirror: false,
 			name: undefined,
+			niceTicks: "auto",
 			orientation: "bottom",
 			padding: {
 				left: 0,
@@ -2815,6 +2873,7 @@ describe("selectAxisWithScale", () => {
 			minTickGap: 5,
 			mirror: false,
 			name: undefined,
+			niceTicks: "auto",
 			orientation: "left",
 			padding: {
 				bottom: 0,
@@ -2834,28 +2893,16 @@ describe("selectAxisWithScale", () => {
 		const button = container.querySelector("button")
 		assertNotNull(button)
 		button.click()
-
-		expect(xAxisSpy).toHaveBeenCalledTimes(4)
-		expect(xAxisSpy).toHaveBeenNthCalledWith(3, expectedXAxis)
-		expect(xAxisSpy).toHaveBeenNthCalledWith(4, expectedXAxis)
-		expect(xAxisSpy.mock.calls[1][0]).toEqual(xAxisSpy.mock.calls[2][0])
+		flush()
 
 		/*
-		 * This is not very intuitive but correct. The scale is different instance
-		 * because at this point, the chart is re-rendering which means the Line gets removed and then added back with new props.
-		 *
-		 * Call with index 2 is the render after Line has been removed.
-		 * That means the selectors run again because the chart might have changed.
-		 *
-		 * Call with index 3 is the render from when the Line is present in the store again.
-		 * It doesn't have data prop - but it could! - so the selectors do one extra run to verify that.
-		 *
-		 * The end result is that the scale is different instance but the same values.
-		 * The `expect.toBeRechartsScale` verifies that domain equals and range equals - which they do - but instances don't.
-		 *
+		 * React removes the Line and adds it back with the new props, so the selectors run twice.
+		 * Solid replaces the item settings in place, so the selectors run once. The axis keeps the
+		 * same values; the scale is a new instance with equal domain and range
+		 * (asserted through `expect.toBeRechartsScale`).
 		 */
-		expect(xAxisSpy.mock.calls[2][0]).not.toEqual(xAxisSpy.mock.calls[3][0])
-		expect(xAxisSpy.mock.calls[2][0].scale).not.toEqual(xAxisSpy.mock.calls[3][0].scale)
+		expect(xAxisSpy).toHaveBeenCalledTimes(3)
+		expect(xAxisSpy).toHaveBeenNthCalledWith(3, expectedXAxis)
 	})
 })
 

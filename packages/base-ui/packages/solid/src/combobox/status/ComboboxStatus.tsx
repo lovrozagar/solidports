@@ -13,7 +13,7 @@ export function ComboboxStatus(componentProps: ComboboxStatus.Props) {
   const element = useRenderElement('div', componentProps, {
     props: [
       {
-        'aria-atomic': true,
+        'aria-atomic': 'true',
         'aria-live': 'polite',
         role: 'status',
       },

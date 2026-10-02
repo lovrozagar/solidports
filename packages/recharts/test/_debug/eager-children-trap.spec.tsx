@@ -1,21 +1,22 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect } from "vitest"
-import { createContext, useContext, type JSX } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { createContext, useContext, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { render } from "../helper/render"
 
 const Ctx = createContext<string | undefined>(undefined)
 
 const log: string[] = []
 
 function Inner() {
-	const v = useContext(Ctx)
+	const v = untrack(() => useContext(Ctx))
 	log.push(`Inner setup ctx=${String(v)}`)
 	return <span>v={String(v)}</span>
 }
 
 function RegisterId(props: { id: string; children: (id: string) => JSX.Element }) {
 	log.push(`RegisterId setup id=${props.id}`)
-	return <Ctx.Provider value={props.id}>{props.children(props.id)}</Ctx.Provider>
+	return <Ctx value={props.id}>{props.children(props.id)}</Ctx>
 }
 
 function Bar(props: { id: string; children?: JSX.Element }) {

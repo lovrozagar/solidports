@@ -6,8 +6,9 @@ import {
   type Queries,
 } from '@solidjs/testing-library';
 import type { userEvent } from '@testing-library/user-event';
-import { type Component, type JSX, type Ref, type ValidComponent } from 'solid-js';
-import type { DynamicProps } from 'solid-js/web';
+import type { Component, Ref } from 'solid-js';
+import type { JSX, ValidComponent } from '@solidjs/web';
+import type { DynamicProps } from '@solidjs/web';
 import type { ComponentRenderFn } from '../src/utils/types';
 import { testClassName } from './conformanceTests/className';
 import { testPropForwarding } from './conformanceTests/propForwarding';

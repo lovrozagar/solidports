@@ -1,6 +1,7 @@
-import { createEffect, on, onCleanup } from 'solid-js';
+import { createEffect } from 'solid-js';
 import { access, type MaybeAccessor } from '../solid-helpers';
 import { useAnimationsFinished } from './useAnimationsFinished';
+import { on } from '../solid-1-compat';
 
 /**
  * Calls the provided function when the CSS open/close animation or transition completes.
@@ -10,8 +11,7 @@ export function useOpenChangeComplete(parameters: useOpenChangeComplete.Paramete
   const enabled = () => access(parameters.enabled) ?? true;
   const runOnceAnimationsFinish = useAnimationsFinished(() => access(parameters.ref), open, false);
 
-  createEffect(
-    on([open, enabled], () => {
+  createEffect(...on([open, enabled], () => {
       if (!enabled()) {
         return;
       }
@@ -20,7 +20,7 @@ export function useOpenChangeComplete(parameters: useOpenChangeComplete.Paramete
 
       runOnceAnimationsFinish(parameters.onComplete, abortController.signal);
 
-      onCleanup(() => abortController.abort());
+      return () => abortController.abort();
     }),
   );
 }

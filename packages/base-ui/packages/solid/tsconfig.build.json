@@ -13,7 +13,7 @@
     "outDir": "build/esm",
     "lib": ["ES2022", "DOM"],
     "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsxImportSource": "@solidjs/web",
     "types": ["@types/node"]
   },
   "include": ["src/**/*.ts*"],

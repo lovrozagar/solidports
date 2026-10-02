@@ -1,37 +1,32 @@
 export const ACCURACY = 1e-4
 
-const cubicBezierFactor = (c1: number, c2: number) => [
-	0,
-	3 * c1,
-	3 * c2 - 6 * c1,
-	3 * c1 - 3 * c2 + 1,
-]
+const cubicBezierFactor = (c1: number, c2: number) => [0, 3 * c1, 3 * c2 - 6 * c1, 3 * c1 - 3 * c2 + 1]
 
-const evaluatePolynomial = (params: ReadonlyArray<number>, t: number) =>
-	params.map((param, i) => param * t ** i).reduce((pre, curr) => pre + curr)
+const evaluatePolynomial = (params: ReadonlyArray<number>, animationElapsedTime: number) =>
+	params.map((param, i) => param * animationElapsedTime ** i).reduce((pre, curr) => pre + curr)
 
-const cubicBezier = (c1: number, c2: number) => (t: number) => {
+const cubicBezier = (c1: number, c2: number) => (animationElapsedTime: number) => {
 	const params = cubicBezierFactor(c1, c2)
 
-	return evaluatePolynomial(params, t)
+	return evaluatePolynomial(params, animationElapsedTime)
 }
 
-const derivativeCubicBezier = (c1: number, c2: number) => (t: number) => {
+const derivativeCubicBezier = (c1: number, c2: number) => (animationElapsedTime: number) => {
 	const params = cubicBezierFactor(c1, c2)
 	const newParams = [...params.map((param, i) => param * i).slice(1), 0]
 
-	return evaluatePolynomial(newParams, t)
+	return evaluatePolynomial(newParams, animationElapsedTime)
 }
 
 type CubicBezierTemplate = `cubic-bezier(${number},${number},${number},${number})`
 
-type NamedBezier = "linear" | "ease" | "ease-in" | "ease-out" | "ease-in-out" | CubicBezierTemplate
+export type NamedBezier = "linear" | "ease" | "ease-in" | "ease-out" | "ease-in-out" | CubicBezierTemplate
 
 type BezierInput = [NamedBezier] | [number, number, number, number]
 
 export type BezierEasingFunction = {
 	isStepper: false
-	(t: number): number
+	(animationElapsedTime: number): number
 }
 
 const parseCubicBezier = (easing: string): [number, number, number, number] | null => {
@@ -73,17 +68,12 @@ const getBezierCoordinates = (...args: BezierInput): [number, number, number, nu
 		return args
 	}
 
-	/* Fallback for invalid inputs. The previous implementation was buggy and would lead to NaN.
-	 * Returning linear easing is a safe default. */
+	// Fallback for invalid inputs. The previous implementation was buggy and would lead to NaN.
+	// Returning linear easing is a safe default.
 	return [0.0, 0.0, 1.0, 1.0]
 }
 
-const createBezierEasing = (
-	x1: number,
-	y1: number,
-	x2: number,
-	y2: number,
-): BezierEasingFunction => {
+const createBezierEasing = (x1: number, y1: number, x2: number, y2: number): BezierEasingFunction => {
 	const curveX = cubicBezier(x1, x2)
 	const curveY = cubicBezier(y1, y2)
 	const derCurveX = derivativeCubicBezier(x1, x2)
@@ -98,15 +88,15 @@ const createBezierEasing = (
 		return value
 	}
 
-	const bezier = (_t: number) => {
-		const t = _t > 1 ? 1 : _t
-		let x = t
+	const bezier = (_animationElapsedTime: number) => {
+		const animationElapsedTime = _animationElapsedTime > 1 ? 1 : _animationElapsedTime
+		let x = animationElapsedTime
 
 		for (let i = 0; i < 8; ++i) {
-			const evalT = curveX(x) - t
+			const evalT = curveX(x) - animationElapsedTime
 			const derVal = derCurveX(x)
 
-			if (Math.abs(evalT - t) < ACCURACY || derVal < ACCURACY) {
+			if (Math.abs(evalT - animationElapsedTime) < ACCURACY || derVal < ACCURACY) {
 				return curveY(x)
 			}
 
@@ -121,52 +111,91 @@ const createBezierEasing = (
 	return bezier
 }
 
-/** calculate cubic-bezier using Newton's method */
+// calculate cubic-bezier using Newton's method
 export const configBezier = (...args: BezierInput): BezierEasingFunction => {
 	return createBezierEasing(...getBezierCoordinates(...args))
 }
 
 type SpringInput = {
+	/**
+	 * The stiffness coefficient of the spring.
+	 * Higher values create a more forceful, faster pull towards the target.
+	 */
 	stiff?: number
+	/**
+	 * The damping coefficient (friction/resistance).
+	 * Higher values reduce bounciness and stop oscillation sooner. Lower values create more bounce.
+	 */
 	damping?: number
+	/**
+	 * The physics simulation time step in milliseconds.
+	 * Determines the granularity of the baked frames. 16.67ms roughly equals a 60fps frame delta.
+	 */
 	dt?: number
 }
 
-export type SpringEasingFunction = {
-	isStepper: true
-	dt: number
-	(currX: number, destX: number, currV: number): [number, number]
-}
+/**
+ * Creates a performance-optimized, progress-based spring easing function.
+ * It pre-calculates ("bakes") spring physics frames upfront based on a fixed duration,
+ * then returns a pure, lightweight function mapping progress (0 to 1) to the animated position.
+ * This approach is ideal for low-power devices because it removes heavy physics math from the frame loop.
+ */
+export const createSpringEasing = (config: SpringInput = {}): EasingFunction => {
+	const { stiff = 100, damping = 8, dt = 16.67 } = config
+	const destX = 1
 
-export const configSpring = (config: SpringInput = {}): SpringEasingFunction => {
-	const { stiff = 100, damping = 8, dt = 17 } = config
-	const stepper = (
-		currX: number,
-		destX: number,
-		currV: number,
-	): ReturnType<SpringEasingFunction> => {
+	const positions: number[] = [0]
+	let currX = 0
+	let currV = 0
+
+	// Safety valve to prevent accidental infinite loops if physics config is extreme
+	const maxIterations = 10000
+	let iterations = 0
+
+	// 1. Run the simulation until the spring completely stops moving
+	while (iterations < maxIterations) {
 		const FSpring = -(currX - destX) * stiff
 		const FDamping = currV * damping
-		const newV = currV + ((FSpring - FDamping) * dt) / 1000
-		const newX = (currV * dt) / 1000 + currX
 
-		if (Math.abs(newX - destX) < ACCURACY && Math.abs(newV) < ACCURACY) {
-			return [destX, 0]
+		currV += ((FSpring - FDamping) * dt) / 1000
+		currX += (currV * dt) / 1000
+
+		positions.push(currX)
+
+		// Stop only when position is essentially at 1.0 AND bounce velocity has died down
+		if (Math.abs(currX - destX) < ACCURACY && Math.abs(currV) < ACCURACY) {
+			break
 		}
-		return [newX, newV]
+		iterations++
 	}
 
-	stepper.isStepper = true as const
-	stepper.dt = dt
+	// Force the absolute final element to be exactly 1.0 for a perfect finish
+	positions[positions.length - 1] = destX
+	const maxIndex = positions.length - 1
 
-	return stepper
+	// 2. The ultra-smooth runtime function mapping your 0..1 progress
+	return (t: number): number => {
+		if (t <= 0) return 0
+		if (t >= 1) return destX
+
+		// Scale t (0..1) proportionally across our entire pre-calculated array
+		const exactFrame = t * maxIndex
+		const index = Math.floor(exactFrame)
+		const fraction = exactFrame - index
+
+		// Blend between the two closest frames
+		return (positions[index] ?? 0) + ((positions[index + 1] ?? 0) - (positions[index] ?? 0)) * fraction
+	}
 }
 
-export type EasingFunction = BezierEasingFunction | SpringEasingFunction
+export type EasingFunction = (t: number) => number
 
+/**
+ * @inline
+ */
 export type EasingInput = NamedBezier | "spring" | EasingFunction
 
-export const configEasing = (easing: EasingInput): EasingFunction | null => {
+export const createEasingFunction = (easing: EasingInput): EasingFunction | null => {
 	if (typeof easing === "string") {
 		switch (easing) {
 			case "ease":
@@ -176,7 +205,7 @@ export const configEasing = (easing: EasingInput): EasingFunction | null => {
 			case "linear":
 				return configBezier(easing)
 			case "spring":
-				return configSpring()
+				return createSpringEasing()
 			default:
 				if (easing.split("(")[0] === "cubic-bezier") {
 					return configBezier(easing)

@@ -58,7 +58,7 @@ function ToastList() {
         </Toast.Close>
       </Toast.Content>
     </Toast.Root>
-      )}
+  )}
     </For>
   );
 }

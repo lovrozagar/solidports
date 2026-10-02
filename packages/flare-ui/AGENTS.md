@@ -8,9 +8,9 @@ Any feature/fix request applies only to this package (`packages/flare-ui/`) unle
 
 - Never destructure props at the call site. `props.foo`, not `const { foo } = props`.
 - Derived values computed from props or store → `createMemo`. Never compute inline in JSX.
-- Side effects → `createEffect`. Cleanup → `onCleanup` inside the same effect.
-- Mount logic → `onMount`. Never use `useEffect` (React import).
-- Multiple setters in an event handler → wrap in `batch(() => { ... })`.
+- Side effects → `createEffect(compute, apply)` or `createTrackedEffect` for a single callback. Cleanup → `onCleanup` inside the same effect.
+- Mount logic → `onSettled`. Never use `useEffect` (React import).
+- Writes batch on a microtask. Call `flush()` when the next read must see them now.
 - `splitProps` for rest-spread on visual primitives.
 
 ## Commands

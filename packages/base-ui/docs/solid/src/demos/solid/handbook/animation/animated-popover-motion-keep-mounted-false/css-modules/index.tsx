@@ -17,7 +17,7 @@ export default function AnimatedPopoverMotionKeepMountedFalseDemo() {
               <Popover.Popup
                 class={styles.Popup}
                 render={
-                  <div />
+                  (props) => <div {...props} />
                 }
               >
                 Popup

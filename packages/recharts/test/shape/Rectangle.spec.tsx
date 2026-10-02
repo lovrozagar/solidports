@@ -1,5 +1,5 @@
 import { describe, expect, it, test } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../helper/render"
 import { Surface, Rectangle } from "../../src"
 import type { RectRadius } from "../../src/shape/Rectangle"
 

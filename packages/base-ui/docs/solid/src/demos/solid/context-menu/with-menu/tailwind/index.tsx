@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { ContextMenu } from '@solidports/base-ui/context-menu';
@@ -63,7 +63,7 @@ function SharedMenuItems({ type = 'menu' }: { type?: 'menu' | 'context-menu' }) 
   return (
     <>
       {actions.map((action) => (
-        <Item key={action} class={itemClass}>
+        <Item class={itemClass}>
           {action}
         </Item>
       ))}

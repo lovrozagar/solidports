@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { DISABLED_TRANSITIONS_STYLE, EMPTY_OBJECT } from './constants';
 import type { TransitionStatus } from './useTransitionStatus';
 

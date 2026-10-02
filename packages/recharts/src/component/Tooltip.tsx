@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
-import { createEffect, createMemo, mergeProps, Show, type JSX } from "solid-js"
+import { createMemo, Show, createEffect } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { BarePortal } from "../util/BarePortal"
 import {
 	DefaultTooltipContent,
@@ -32,6 +33,7 @@ import { useTooltipPortal } from "../context/tooltipPortalContext"
 import type { TooltipTrigger } from "../chart/types"
 import { useChartStore } from "../state/RechartsStoreContext"
 import { useOptionalChartState } from "../state/useChartState"
+import type { ChartState } from "../state/chartState"
 import type {
 	TooltipIndex,
 	TooltipPayload,
@@ -42,6 +44,7 @@ import type { AxisId } from "../state/cartesianAxisSlice"
 import { useTooltipChartSynchronisation } from "../synchronisation/useChartSynchronisation"
 import { selectTooltipEventType } from "../state/selectors/selectTooltipEventType"
 
+import { mergeProps } from '../util/solid-1-compat';
 export type ContentType<TValue extends ValueType = ValueType, TName extends NameType = NameType> =
 	| JSX.Element
 	| ((props: TooltipContentProps<TValue, TName>) => JSX.Element)
@@ -173,7 +176,7 @@ export type TooltipProps<
 	includeHidden?: boolean | undefined
 	/**
 	 * If set false, animation of tooltip will be disabled.
-	 * If set "auto", the animation will be disabled in SSR and enabled in browser.
+	 * If set "auto", animation is disabled during SSR and when the user prefers reduced motion.
 	 * @defaultValue auto
 	 */
 	isAnimationActive?: boolean | "auto"
@@ -308,21 +311,24 @@ export function Tooltip(outsideProps: TooltipProps<ValueType, NameType>) {
 	const defaultIndexAsString = (): string | null | undefined =>
 		typeof props.defaultIndex === "number" ? String(props.defaultIndex) : props.defaultIndex
 
-	createEffect(() => {
-		/* Write only defined active so ChartState initial `active:false` is preserved
-		   when Tooltip mounts without an explicit `active` prop. */
-		const newSettingsUpdate: Partial<TooltipSettingsState> = {
+	createEffect(
+		(): TooltipSettingsState => ({
+			active: props.active,
 			axisId: props.axisId,
-			defaultIndex: props.defaultIndex as TooltipIndex | undefined,
+			defaultIndex: defaultIndexAsString(),
 			shared: props.shared,
 			trigger: props.trigger,
-		}
-		if (props.active !== undefined) newSettingsUpdate.active = props.active
-		newCtx?.setState("tooltip", "settings", newSettingsUpdate as TooltipSettingsState)
-	})
+		}),
+		(settings) => {
+			/* Replace the settings object wholesale, like upstream setTooltipSettingsState. */
+			newCtx?.setState((draft: ChartState) => {
+				draft.tooltip.settings = settings
+			})
+		},
+	)
 
-	const viewBox = () => useViewBox()
-	const accessibilityLayer = () => useAccessibilityLayer()
+	const viewBox = createMemo(() => useViewBox())
+	const accessibilityLayer = createMemo(() => useAccessibilityLayer())
 	const tooltipEventType = createMemo(() =>
 		ctx ? selectTooltipEventType(ctx.store, props.shared) : undefined,
 	)

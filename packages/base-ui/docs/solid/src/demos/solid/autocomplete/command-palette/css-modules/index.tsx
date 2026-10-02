@@ -1,4 +1,5 @@
-import { createSignal, createUniqueId, type JSX } from 'solid-js';
+import { createSignal, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Dialog } from '@solidports/base-ui/dialog';
@@ -29,7 +30,7 @@ export default function ExampleAutocompleteCommandPalette() {
               keepHighlight
             >
               <Autocomplete.InputGroup class={styles.InputGroup}>
-                <MagnifyingGlassIcon class={styles.InputIcon} aria-hidden />
+                <MagnifyingGlassIcon class={styles.InputIcon} aria-hidden="true" />
                 <Autocomplete.Input
                   class={styles.Input}
                   aria-label="Search commands"
@@ -49,7 +50,6 @@ export default function ExampleAutocompleteCommandPalette() {
                     <Autocomplete.List class={styles.List}>
                       {(group: Group) => (
                         <Autocomplete.Group
-                          key={group.value}
                           items={group.items}
                           class={styles.Group}
                         >
@@ -59,7 +59,6 @@ export default function ExampleAutocompleteCommandPalette() {
                           <Autocomplete.Collection>
                             {(item: Item) => (
                               <Autocomplete.Item
-                                key={item.value}
                                 value={item}
                                 class={styles.Item}
                                 onClick={handleItemClick}

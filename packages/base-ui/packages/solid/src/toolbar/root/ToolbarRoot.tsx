@@ -1,4 +1,5 @@
-import { createMemo, createSignal, type Accessor } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { splitComponentProps } from '../../solid-helpers';
@@ -18,7 +19,7 @@ export function ToolbarRoot(componentProps: ToolbarRoot.Props) {
     'orientation',
     'children',
   ]);
-  const disabled = () => local.disabled ?? false;
+  const disabled = () => Boolean(local.disabled);
   const loopFocus = () => local.loopFocus ?? true;
   const orientation = () => local.orientation ?? 'horizontal';
 
@@ -61,7 +62,7 @@ export function ToolbarRoot(componentProps: ToolbarRoot.Props) {
   };
 
   return (
-    <ToolbarRootContext.Provider value={toolbarRootContext}>
+    <ToolbarRootContext value={toolbarRootContext}>
       <CompositeRoot
         render={renderProps.render}
         class={renderProps.class}
@@ -75,7 +76,7 @@ export function ToolbarRoot(componentProps: ToolbarRoot.Props) {
       >
         {local.children}
       </CompositeRoot>
-    </ToolbarRootContext.Provider>
+    </ToolbarRootContext>
   );
 }
 

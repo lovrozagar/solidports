@@ -1,7 +1,6 @@
 import { Bar, BarChart, Cell, CartesianGrid, XAxis } from "@solidports/recharts"
-import type { Component } from "solid-js"
-import { For } from "solid-js"
-
+import type { Component } from 'solid-js';
+import { For } from 'solid-js';
 import {
 	type ChartConfig,
 	ChartContainer,

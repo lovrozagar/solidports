@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at radio-group context boundary */
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
@@ -20,7 +20,7 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
     'onValueChange',
     'disabled',
   ]);
-  const disabled = () => local.disabled ?? false;
+  const disabled = () => Boolean(local.disabled);
 
   const [value, setValueUnwrapped] = useControlled({
     controlled: () => local.value,
@@ -55,7 +55,7 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
       {
         role: 'group',
         get 'aria-disabled'() {
-          return disabled() || undefined;
+          return disabled() ? 'true' : undefined;
         },
       },
       elementProps,
@@ -64,7 +64,7 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
   });
 
   return (
-    <MenuRadioGroupContext.Provider value={context}>{element()}</MenuRadioGroupContext.Provider>
+    <MenuRadioGroupContext value={context}>{element()}</MenuRadioGroupContext>
   );
 }
 

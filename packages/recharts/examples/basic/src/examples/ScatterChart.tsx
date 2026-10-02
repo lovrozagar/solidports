@@ -8,8 +8,7 @@ import {
 	YAxis,
 	ZAxis,
 } from "@solidports/recharts"
-import type { Component } from "solid-js"
-
+import type { Component } from 'solid-js';
 import { coordinateData, coordinateWithValueData } from "../data"
 
 export const ScatterChartExample: Component = () => (

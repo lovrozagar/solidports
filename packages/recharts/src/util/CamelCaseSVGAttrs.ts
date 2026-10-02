@@ -4,6 +4,8 @@
  * so ported React code can continue to use props.strokeWidth, props.fillOpacity, etc.
  */
 export type CamelCaseSVGAttrs = {
+	alignmentBaseline?: string
+	capHeight?: number | string
 	className?: string
 	clipPath?: string
 	clipRule?: "nonzero" | "evenodd" | "inherit"

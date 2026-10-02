@@ -1,5 +1,6 @@
-import { createMemo, type JSX } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { createMemo } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { access, splitComponentProps } from '../../solid-helpers';
 import { formatNumber } from '../../utils/formatNumber';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -21,8 +22,10 @@ export function SliderValue(componentProps: SliderValue.Props) {
   const outputFor = createMemo(() => {
     let htmlFor = '';
     for (const thumb of thumbArray()) {
-      if (thumb.metadata?.inputId) {
-        htmlFor += `${thumb.metadata?.inputId} `;
+      // Thumb metadata holds the input id as an accessor.
+      const inputId = access(thumb.metadata?.inputId);
+      if (inputId) {
+        htmlFor += `${inputId} `;
       }
     }
     return htmlFor.trim() === '' ? undefined : htmlFor.trim();

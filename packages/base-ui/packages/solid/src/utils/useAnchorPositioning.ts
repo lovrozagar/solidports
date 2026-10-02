@@ -1,13 +1,7 @@
 import { getAlignment, getSide, getSideAxis, type Rect } from '@floating-ui/utils';
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  onCleanup,
-  untrack,
-  type Accessor,
-  type JSX,
-} from 'solid-js';
+import { createTrackedEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider/DirectionContext';
 import {
   autoUpdate,
@@ -142,7 +136,7 @@ export function useAnchorPositioning(
 
   const [mountSide, setMountSide] = createSignal<PhysicalSide | null>(null);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!mounted() && mountSide() !== null) {
       setMountSide(null);
     }
@@ -480,7 +474,7 @@ export function useAnchorPositioning(
 
   let registeredPositionReferenceRef: Element | VirtualElement | null = null;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!mounted()) {
       return;
     }
@@ -519,7 +513,7 @@ export function useAnchorPositioning(
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!mounted()) {
       return;
     }
@@ -553,14 +547,23 @@ export function useAnchorPositioning(
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const domReference = elements.domReference();
     const floating = elements.floating();
     if (keepMounted() && mounted() && domReference && floating) {
       const cleanup = autoUpdate(domReference, floating, update, autoUpdateOptions());
-      onCleanup(cleanup);
+      _c.push(cleanup);
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const renderedSide = () => getSide(renderedPlacement());
   const logicalRenderedSide = () => getLogicalSide(sideParam(), renderedSide(), isRtl());
@@ -572,7 +575,7 @@ export function useAnchorPositioning(
    * and flips back lazily, not eagerly. Ideal for filtered lists that change
    * the size of the popup dynamically to avoid unwanted flipping when typing.
    */
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (lazyFlip() && mounted() && isPositioned()) {
       setMountSide(renderedSide());
     }

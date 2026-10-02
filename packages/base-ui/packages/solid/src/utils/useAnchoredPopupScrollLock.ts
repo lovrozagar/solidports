@@ -1,4 +1,4 @@
-import { createEffect, createSignal } from 'solid-js';
+import { createTrackedEffect, createSignal } from 'solid-js';
 import { type MaybeAccessor, access } from '../solid-helpers';
 import { ownerDocument } from './owner';
 import { useScrollLock } from './useScrollLock';
@@ -16,7 +16,7 @@ export function useAnchoredPopupScrollLock(params: {
 }) {
   const [touchOpenShouldLockScroll, setTouchOpenShouldLockScroll] = createSignal(false);
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const enabled = access(params.enabled);
     const touchOpen = access(params.touchOpen);
     const positionerEl = access(params.positionerElement) ?? null;

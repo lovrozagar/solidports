@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { getTarget } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { splitComponentProps } from '../../solid-helpers';
@@ -65,12 +65,12 @@ export function FieldLabel(componentProps: FieldLabel.Props) {
         // Available from Chrome 144+ (January 2026).
         // Safari and Firefox already support it.
         focusVisible: true,
-      });
+      } as FocusOptions);
     }
   };
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       if (!labelRef) {
         return;
       }
@@ -96,15 +96,24 @@ export function FieldLabel(componentProps: FieldLabel.Props) {
     });
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (id()) {
       setLabelId(id());
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       setLabelId(undefined);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const element = useRenderElement('label', componentProps, {
     get props() {

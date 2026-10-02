@@ -16,9 +16,9 @@ export function MenuSubmenuRoot(props: MenuSubmenuRoot.Props) {
   const contextValue = { parentMenu };
 
   return (
-    <MenuSubmenuRootContext.Provider value={contextValue}>
+    <MenuSubmenuRootContext value={contextValue}>
       <MenuRoot {...props} />
-    </MenuSubmenuRootContext.Provider>
+    </MenuSubmenuRootContext>
   );
 }
 

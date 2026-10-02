@@ -1,13 +1,14 @@
 import { randomStringValue } from '@mui/internal-test-utils';
 import { screen } from '@solidjs/testing-library';
 import { expect } from 'chai';
-import { splitProps, type Component, type ParentComponent } from 'solid-js';
-import { Dynamic } from 'solid-js/web';
+import type { Component, ParentComponent } from 'solid-js';
+import { Dynamic } from '@solidjs/web';
 import type {
   BaseUiConformanceTestsOptions,
   ConformantComponentProps,
 } from '../describeConformance';
 import { throwMissingPropError } from './utils';
+import { splitProps } from '../../src/solid-1-compat';
 
 export function testRenderProp(
   element: Component<ConformantComponentProps>,

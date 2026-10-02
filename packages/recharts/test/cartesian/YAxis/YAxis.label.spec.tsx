@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../../helper/render"
 import { YAxis, Label, AreaChart, Area } from "../../../src"
 import { PageData } from "../../_data"
 import { assertNotNull } from "../../helper/assertNotNull"
@@ -142,7 +142,7 @@ describe("<YAxis /> Label", () => {
 				},
 			])
 		})
-		it.skip("renders nonsense if <Label /> itself has element children", () => {
+		it("renders nonsense if <Label /> itself has element children", () => {
 			const { container } = render(() => (
 				<AreaChart width={500} height={500} data={PageData}>
 					<Area dataKey="uv" />
@@ -156,7 +156,8 @@ describe("<YAxis /> Label", () => {
 			))
 			expectYAxisLabel(container, [
 				{
-					textContent: "[object Object]",
+					/* Solid JSX yields a DOM node, so the stringified child differs from React's "[object Object]". */
+					textContent: "[object HTMLSpanElement]",
 					transform: "rotate(-80, 35, 250)",
 					x: "35",
 					y: "250",
@@ -187,7 +188,7 @@ describe("<YAxis /> Label", () => {
 	describe("mix of label prop and <Label /> as a child", () => {
 		/* Order divergence: 1:1 port renders external string-label first then
 		   `<Label />` child, vs upstream's reverse. Skiplist Cluster D. */
-		it.skip("should render both labels!", () => {
+		it("should render both labels!", () => {
 			const { container } = render(() => (
 				<AreaChart width={500} height={500} data={PageData}>
 					<Area dataKey="uv" />

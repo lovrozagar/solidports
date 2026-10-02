@@ -1,10 +1,10 @@
-import { splitProps } from "solid-js"
 import { Select } from "@solidports/base-ui/select"
 import clsx from "clsx"
 import { CaretSortIcon } from "../icons/CaretSortIcon"
 import "./Select.css"
 import { CheckIcon } from "../icons/CheckIcon"
 
+import { splitProps } from '../utils/solid-1-compat';
 export const Root = Select.Root
 
 type TriggerProps = Omit<Select.Trigger.Props, "children"> & {

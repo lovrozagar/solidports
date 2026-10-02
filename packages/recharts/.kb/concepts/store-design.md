@@ -1,5 +1,11 @@
 # Recharts Solid: Store Design
 
+> **Status (v3.10.1 port):** implemented as one `createStore<ChartState>` per chart. Current file
+> layout, access rules and Solid 2 constraints are in `../solid/store-semantics.md`; the rest of this
+> document is the original design rationale and its snippets use Solid 1 APIs (`onMount`,
+> `solid-js/store`, `Provider`). Names differ in places: `ChartStore` → `ChartState`,
+> `cartesianAxis` → `cartesianAxes`, `polarAxis` → `polarAxes`, `ChartProvider` → `RechartsStateProvider`.
+
 > **Status: implemented** — Phase 4 (sessions 1–7 + batches 1–7) landed the
 > `createActions(store, setStore)` factory, `createEventHandlers` consolidation,
 > and the `RechartsStoreContext` rename. Source of truth:

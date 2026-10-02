@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect, vi, Mock, beforeEach } from "vitest"
 import { eventCenter, TOOLTIP_SYNC_EVENT } from "../../src/util/Events"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"

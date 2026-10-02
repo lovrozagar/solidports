@@ -1,7 +1,7 @@
-/* @jsxImportSource solid-js */
-import type { JSX } from "solid-js"
+/* @jsxImportSource @solidjs/web */
+import type { JSX } from '@solidjs/web';
 import { describe, expect, it, Mock, vi } from "vitest"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../../helper/render"
 import {
 	Bar,
 	BarChart,
@@ -130,10 +130,8 @@ describe("YAxis tick", () => {
 		expectLastCalledWith(spy, undefined)
 	})
 	describe("custom tick components", () => {
-		/* Tests pass `tick={<CustomYAxisTick />}` — a React vNode pattern that
-		   relies on cloneElement-style prop injection. Solid evaluates JSX once
-		   at the call site, not as a vNode tree. Skiplist Cluster C. */
-		it.skip("should pass object padding to custom tick component", () => {
+		/* Solid evaluates `<CustomTick />` before the axis sees it, so a user component passed as an element cannot receive injected props (upstream clones it); pass the component itself. */
+		it("should pass object padding to custom tick component", () => {
 			const expectedPadding = { bottom: 30, top: 20 }
 			expect.assertions(5)
 
@@ -144,12 +142,12 @@ describe("YAxis tick", () => {
 
 			render(() => (
 				<LineChart width={400} height={400} data={lineData}>
-					<YAxis padding={expectedPadding} tick={<CustomYAxisTick />} />
+					<YAxis padding={expectedPadding} tick={CustomYAxisTick} />
 					<Line type="monotone" dataKey="uv" stroke="#ff7300" />
 				</LineChart>
 			))
 		})
-		it.skip("should pass string padding to custom tick component", () => {
+		it("should pass string padding to custom tick component", () => {
 			const expectedPadding = "gap"
 			expect.assertions(5)
 
@@ -160,7 +158,7 @@ describe("YAxis tick", () => {
 
 			render(() => (
 				<LineChart width={400} height={400} data={lineData}>
-					<YAxis padding={expectedPadding} tick={<CustomYAxisTick />} />
+					<YAxis padding={expectedPadding} tick={CustomYAxisTick} />
 					<Line type="monotone" dataKey="uv" stroke="#ff7300" />
 				</LineChart>
 			))
@@ -181,7 +179,7 @@ describe("YAxis tick", () => {
 				</LineChart>
 			))
 		})
-		it.skip("should pass default padding when no padding is specified", () => {
+		it("should pass default padding when no padding is specified", () => {
 			expect.assertions(5)
 
 			const CustomYAxisTick = (props: any) => {
@@ -191,7 +189,7 @@ describe("YAxis tick", () => {
 
 			render(() => (
 				<LineChart width={400} height={400} data={lineData}>
-					<YAxis tick={<CustomYAxisTick />} />
+					<YAxis tick={CustomYAxisTick} />
 					<Line type="monotone" dataKey="uv" stroke="#ff7300" />
 				</LineChart>
 			))

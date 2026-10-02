@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { type VirtualElement } from '@floating-ui/dom';
 import { isElement } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, createSignal, mergeProps as solidMergeProps } from 'solid-js';
+import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
 import { access } from '../../solid-helpers';
 import { FloatingRootStore } from '../components/FloatingRootStoreV2';
 import { useFloatingTree } from '../components/FloatingTree';
@@ -14,6 +14,7 @@ import type {
 } from '../types';
 import { useFloatingOriginal as usePosition } from './useFloatingOriginal';
 import { useFloatingRootContext } from './useFloatingRootContext';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * Provides data to position a floating element and context to add interactions.
@@ -74,16 +75,16 @@ export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn
     HTMLElement | null | undefined
   >(null);
 
-  createEffect(() => {
-    rootContext().useSyncedValue('referenceElement', () => localDomReference() ?? null);
-    const localDomReferenceElement = isElement(localDomReference())
-      ? (localDomReference() as Element)
-      : null;
-    rootContext().useSyncedValue('domReferenceElement', () =>
-      localDomReference() === undefined ? rootContextElements.domReference() : localDomReferenceElement,
-    );
-    rootContext().useSyncedValue('floatingElement', localFloatingElement);
+  const store = untrack(() => rootContext());
+  store.useSyncedValue('referenceElement', () => localDomReference() ?? null);
+  store.useSyncedValue('domReferenceElement', () => {
+    const local = localDomReference();
+    if (local === undefined) {
+      return rootContextElements.domReference();
+    }
+    return isElement(local) ? (local as Element) : null;
   });
+  store.useSyncedValue('floatingElement', localFloatingElement);
 
   const setReference = (node: ReferenceType | null | undefined) => {
     if (isElement(node) || node == null) {
@@ -155,19 +156,24 @@ export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn
     },
   };
 
-  createEffect(() => {
-    rootContext().context.dataRef.floatingContext = context;
+  createEffect(
+    () => ({
+      store: rootContext(),
+      nodeId: access(options.nodeId),
+    }),
+    ({ store, nodeId }) => {
+      store.context.dataRef.floatingContext = context;
 
-    if (!tree) {
-      return;
-    }
+      if (!tree) {
+        return;
+      }
 
-    const nodeId = access(options.nodeId);
-    const nodeIdx = tree.nodesRef.findIndex((n) => n.id === nodeId);
-    if (nodeIdx !== -1) {
-      tree.nodesRef[nodeIdx].context = context as any;
-    }
-  });
+      const nodeIdx = tree.nodesRef.findIndex((n) => n.id === nodeId);
+      if (nodeIdx !== -1) {
+        tree.nodesRef[nodeIdx].context = context as any;
+      }
+    },
+  );
 
   return {
     context,

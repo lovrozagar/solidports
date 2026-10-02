@@ -1,4 +1,5 @@
-import { createMemo, createSignal, For, onMount, Show, splitProps, type JSX } from "solid-js"
+import { createMemo, createSignal, For, onSettled, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
 import { Link } from "../Link"
 import * as CodeBlock from "../CodeBlock"
@@ -10,6 +11,7 @@ import { TableCode } from "../TableCode"
 import * as ReferenceTableTooltip from "./ReferenceTableTooltip"
 import { sortPropEntries } from "./propOrder"
 
+import { splitProps } from '../../utils/solid-1-compat';
 /* Tooltip.Portal crashes hydration with `template2 is not a function` — the portal
    moves subtree to body, so SSR markers don't line up with client. Gate the tooltip
    render to post-mount; SSR + initial hydrate emit plain <TableCode> (matches across
@@ -22,7 +24,9 @@ function TypeCell(props: {
   showTooltip: boolean
 }) {
   const [mounted, setMounted] = createSignal(false)
-  onMount(() => setMounted(true))
+  onSettled(() => {
+    setMounted(true)
+  })
   return (
     <Show when={mounted() && props.showTooltip} fallback={<TableCode>{props.shortPropTypeName}</TableCode>}>
       <ReferenceTableTooltip.Root disableHoverablePopup>
@@ -147,7 +151,7 @@ export function ReferenceAccordion(props: Props) {
       class={clsx("ReferenceAccordionRoot", local.class)}
       style={rowsStyle()}
     >
-      <span id={captionId()} style={visuallyHidden} aria-hidden>
+      <span id={captionId()} style={visuallyHidden} aria-hidden="true">
         {caption()}
       </span>
       <Accordion.HeaderRow class="ReferenceHeaderRow">

@@ -1,12 +1,12 @@
-/* @jsxImportSource solid-js */
-import { render } from "@solidjs/testing-library"
+/* @jsxImportSource @solidjs/web */
+import { render } from "../helper/render"
 
 import { Bar, BarChart, LabelList, Scatter, ScatterChart, XAxis, YAxis, ZAxis } from "../../src"
 import { expectScatterPoints } from "../helper/expectScatterPoints"
 import { expectLabels } from "../helper/expectLabel"
 
 describe("<LabelList />", () => {
-	it.skip("Render labels in ScatterChart", () => {
+	it("Render labels in ScatterChart", () => {
 		const data = [
 			{ x: 100, y: 200, z: 200 },
 			{ x: 120, y: 100, z: 260 },
@@ -129,7 +129,7 @@ describe("<LabelList />", () => {
 			},
 		])
 	})
-	it.skip("Render labels in BarChart with an offset", () => {
+	it("Render labels in BarChart with an offset", () => {
 		const data = [
 			{ x: 100, y: "200" },
 			{ x: 120, y: "100" },

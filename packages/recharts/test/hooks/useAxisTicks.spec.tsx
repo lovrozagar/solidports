@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
 import {

@@ -1,15 +1,16 @@
 {
 	"dependencies": {
+		"@solidjs/web": "catalog:",
 		"@solidports/recharts": "workspace:*",
 		"clsx": "catalog:",
 		"solid-js": "catalog:"
 	},
 	"devDependencies": {
+		"@solidjs/vite-plugin": "catalog:",
 		"@tailwindcss/vite": "catalog:",
 		"tailwindcss": "catalog:",
 		"typescript": "catalog:",
-		"vite": "catalog:",
-		"vite-plugin-solid": "catalog:"
+		"vite": "catalog:"
 	},
 	"name": "@solidports/recharts-examples-shadcn",
 	"private": true,

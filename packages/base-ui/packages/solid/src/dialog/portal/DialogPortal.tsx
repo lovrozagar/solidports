@@ -1,8 +1,9 @@
-import { Show, splitProps } from 'solid-js';
+import { Show } from 'solid-js';
 import { FloatingPortal } from '../../floating-ui-solid';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import { useDialogRootContext } from '../root/DialogRootContext';
 import { DialogPortalContext } from './DialogPortalContext';
+import { splitProps } from '../../solid-1-compat';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -24,7 +25,7 @@ export function DialogPortal(props: DialogPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <DialogPortalContext.Provider value={keepMounted}>
+      <DialogPortalContext value={keepMounted}>
         <FloatingPortal {...portalProps} ref={props.ref}>
           <Show when={mounted() && modal() === true}>
             <InternalBackdrop
@@ -37,7 +38,7 @@ export function DialogPortal(props: DialogPortal.Props) {
           </Show>
           {props.children}
         </FloatingPortal>
-      </DialogPortalContext.Provider>
+      </DialogPortalContext>
     </Show>
   );
 }

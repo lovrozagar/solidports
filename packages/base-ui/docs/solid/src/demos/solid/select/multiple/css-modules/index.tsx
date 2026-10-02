@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Select } from '@solidports/base-ui/select';
@@ -50,7 +50,7 @@ export default function MultiSelectExample() {
           >
             <Select.Popup class={styles.Popup}>
               {values.map((value) => (
-                <Select.Item key={value} value={value} class={styles.Item}>
+                <Select.Item value={value} class={styles.Item}>
                   <Select.ItemIndicator class={styles.ItemIndicator}>
                     <CheckIcon />
                   </Select.ItemIndicator>

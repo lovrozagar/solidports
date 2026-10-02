@@ -1,7 +1,9 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { observe } from "../../helper/observe"
+import { trackSpy } from "../../helper/trackSpy"
+
+import { render } from "../../helper/render"
 import { Customized, Line, LineChart, Tooltip, XAxis } from "../../../src"
 import { ExpectAxisDomain, expectXAxisTicks } from "../../helper/expectAxisTicks"
 import { useAppSelector } from "../../helper/legacyDispatch"
@@ -40,17 +42,17 @@ describe("XAxis hide", () => {
 		const axisCPositionSpy = vi.fn()
 		const axisDPositionSpy = vi.fn()
 		const Comp = (): null => {
-			createEffect(() => {
+			observe(() => {
 				topOffsetStepsSpy(
 					useAppSelector((state) => selectAllXAxesOffsetSteps(state, "top", false)),
 				)
 				bottomOffsetStepsSpy(
 					useAppSelector((state) => selectAllXAxesOffsetSteps(state, "bottom", false)),
 				)
-				axisAPositionSpy(useAppSelector((state) => selectXAxisPosition(state, "a")))
-				axisBPositionSpy(useAppSelector((state) => selectXAxisPosition(state, "b")))
-				axisCPositionSpy(useAppSelector((state) => selectXAxisPosition(state, "c")))
-				axisDPositionSpy(useAppSelector((state) => selectXAxisPosition(state, "d")))
+				trackSpy(axisAPositionSpy, () => useAppSelector((state) => selectXAxisPosition(state, "a")))
+				trackSpy(axisBPositionSpy, () => useAppSelector((state) => selectXAxisPosition(state, "b")))
+				trackSpy(axisCPositionSpy, () => useAppSelector((state) => selectXAxisPosition(state, "c")))
+				trackSpy(axisDPositionSpy, () => useAppSelector((state) => selectXAxisPosition(state, "d")))
 			})
 			return null
 		}

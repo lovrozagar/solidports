@@ -28,8 +28,8 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
     'nativeButton',
     'keepMounted',
   ]);
-  const disabledProp = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? true;
+  const disabledProp = () => Boolean(local.disabled);
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
   const keepMounted = () => local.keepMounted ?? false;
 
   const { disabled: fieldDisabled } = useFieldRootContext();
@@ -88,7 +88,7 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
   const element = useRenderElement('button', componentProps, {
     props: [
       {
-        tabIndex: -1,
+        tabindex: -1,
         children: 'x',
         // Avoid stealing focus from the input.
         onMouseDown(event: MouseEvent) {

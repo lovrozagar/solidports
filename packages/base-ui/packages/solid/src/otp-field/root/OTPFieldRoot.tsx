@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { batch, createEffect, createRenderEffect, createSignal, on, type JSX } from 'solid-js';
+import { createTrackedEffect, createEffect, createRenderEffect, createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
 import { ownerDocument } from '../../utils/owner';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
@@ -30,6 +31,7 @@ import {
   type OTPValidationType,
 } from '../utils/otp';
 import type { FieldRootState } from '../../field/root/FieldRoot';
+import { on } from '../../solid-1-compat';
 
 /**
  * Groups all OTP field parts and manages their state.
@@ -70,7 +72,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   const inputModeProp = () => local.inputMode;
   const validationType = () => local.validationType ?? ('numeric' as OTPValidationType);
   const normalizeValue = () => local.normalizeValue;
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const readOnly = () => local.readOnly ?? false;
   const required = () => local.required ?? false;
   const nameProp = () => local.name;
@@ -120,8 +122,13 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   const inputAriaLabelledBy = () => (ariaLabelledByProp() == null ? ariaLabelledBy() : undefined);
 
   const fieldDescriptionProps = getDescriptionProps({});
-  const ariaDescribedBy = () =>
-    mergeAriaIds(fieldDescriptionProps['aria-describedby'] as string | undefined, ariaDescribedByProp());
+  const ariaDescribedBy = () => {
+    const describedBy = ariaDescribedByProp();
+    return mergeAriaIds(
+      fieldDescriptionProps['aria-describedby'] as string | undefined,
+      typeof describedBy === 'string' ? describedBy : undefined,
+    );
+  };
 
   const validationConfig = () => getOTPValidationConfig(validationType());
   const pattern = () => validationConfig()?.slotPattern;
@@ -145,14 +152,13 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     return Math.min(v.length, l - 1);
   };
 
-  createEffect(
-    on(filled, (f) => {
+  createEffect(...on(filled, (f) => {
       setFilled(f);
     }),
   );
 
   if (process.env.NODE_ENV !== 'production') {
-    createEffect(() => {
+    createTrackedEffect(() => {
       const count = inputCount();
       const len = length();
       if (!Number.isInteger(len) || len <= 0 || count === 0 || count === len) {
@@ -166,7 +172,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       );
     });
 
-    createEffect(() => {
+    createTrackedEffect(() => {
       const len = length();
       if (Number.isInteger(len) && len > 0) {
         return;
@@ -199,10 +205,11 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     target?.select();
   }
 
-  /* In Solid, signal updates are synchronous and inputElements is already populated at
-     mount, so focus can be applied immediately rather than deferred via a ref+effect. */
-  function queueFocusInput(index: number, _nextValue: string) {
-    focusInput(index);
+  /* Solid 2 batches signal writes until the next flush, so move focus only once the value
+     that queued it has committed (same as React's pending focus ref). */
+  const pendingFocusRef = useRef<{ index: number; value: string } | null>(null);
+  function queueFocusInput(index: number, nextValue: string) {
+    pendingFocusRef.current = { index, value: nextValue };
   }
 
   function requestSubmit() {
@@ -226,33 +233,47 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
      pattern (useLayoutEffect + ref). createRenderEffect runs synchronously on updates,
      matching React's useLayoutEffect commit-phase timing. */
   const prevValueRef = useRef<string | undefined>(undefined);
-  createRenderEffect(() => {
-    const currentValue = value();
-    const previousValue = prevValueRef.current;
-    prevValueRef.current = currentValue;
+  createRenderEffect(
+    () => ({
+      currentValue: value(),
+      name: name(),
+      shouldValidate: shouldValidateOnChange(),
+      initialValue: validityData.initialValue,
+    }),
+    ({ currentValue, name: fieldName, shouldValidate, initialValue }) => {
+      const previousValue = prevValueRef.current;
+      prevValueRef.current = currentValue;
 
-    if (previousValue === undefined || previousValue === currentValue) {
-      return;
-    }
-
-    clearErrors(name());
-    setDirty(currentValue !== validityData.initialValue);
-
-    if (shouldValidateOnChange()) {
-      validation.commit(currentValue);
-    } else {
-      validation.commit(currentValue, true);
-    }
-
-    const pendingCompleteValue = pendingCompleteValueRef.current;
-    if (pendingCompleteValue != null) {
-      pendingCompleteValueRef.current = null;
-      if (pendingCompleteValue.value === currentValue) {
-        completeValue(currentValue, pendingCompleteValue.eventDetails);
+      if (previousValue === undefined || previousValue === currentValue) {
+        return;
       }
-    }
 
-  });
+      clearErrors(fieldName);
+      setDirty(currentValue !== initialValue);
+
+      if (shouldValidate) {
+        validation.commit(currentValue);
+      } else {
+        validation.commit(currentValue, true);
+      }
+
+      const pendingFocus = pendingFocusRef.current;
+      if (pendingFocus != null) {
+        pendingFocusRef.current = null;
+        if (pendingFocus.value === currentValue) {
+          focusInput(pendingFocus.index);
+        }
+      }
+
+      const pendingCompleteValue = pendingCompleteValueRef.current;
+      if (pendingCompleteValue != null) {
+        pendingCompleteValueRef.current = null;
+        if (pendingCompleteValue.value === currentValue) {
+          completeValue(currentValue, pendingCompleteValue.eventDetails);
+        }
+      }
+    },
+  );
 
   function completeValue(completedValue: string, eventDetails: OTPFieldRoot.CompleteEventDetails) {
     local.onValueComplete?.(completedValue, eventDetails);
@@ -319,11 +340,11 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       return;
     }
 
-    batch(() => {
+    {
       setFocusedIndex(index);
       setFocusedState(true);
       setFocused(true);
-    });
+    };
     event.currentTarget.select();
   }
 
@@ -332,11 +353,11 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       return;
     }
 
-    batch(() => {
+    {
       setTouched(true);
       setFocusedState(false);
       setFocused(false);
-    });
+    };
 
     if (validationMode() === 'onBlur') {
       validation.commit(value());
@@ -479,11 +500,11 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
         setInputCount(newMap.length);
       }}
     >
-      <OTPFieldRootContext.Provider value={contextValue}>
+      <OTPFieldRootContext value={contextValue}>
         {element()}
         {hasValidLength() && (
           <input
-            {...(hiddenInputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)}
+            {...hiddenInputProps()}
             ref={validation.inputRef.current as HTMLInputElement | undefined}
             type="text"
             id={id() && name() == null ? `${id()}-hidden-input` : undefined}
@@ -491,19 +512,19 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
             name={name()}
             value={value()}
             autocomplete={autoComplete()}
-            inputMode={inputMode()}
-            minLength={length()}
-            maxLength={length()}
+            inputmode={inputMode()}
+            minlength={length()}
+            maxlength={length()}
             pattern={hiddenInputPattern()}
             disabled={disabled()}
-            readOnly={readOnly()}
+            readonly={readOnly()}
             required={required()}
-            aria-hidden
-            tabIndex={-1}
+            aria-hidden="true"
+            tabindex={-1}
             style={name() ? visuallyHiddenInput : visuallyHidden}
           />
         )}
-      </OTPFieldRootContext.Provider>
+      </OTPFieldRootContext>
     </CompositeList>
   );
 }
@@ -536,7 +557,7 @@ export interface OTPFieldRootProps
   autoSubmit?: boolean | undefined;
   /** @default false */
   mask?: boolean | undefined;
-  inputMode?: JSX.HTMLAttributes<HTMLInputElement>['inputMode'] | undefined;
+  inputMode?: JSX.HTMLAttributes<HTMLInputElement>['inputmode'] | undefined;
   /** @default 'numeric' */
   validationType?: OTPFieldRoot.ValidationType | undefined;
   /**

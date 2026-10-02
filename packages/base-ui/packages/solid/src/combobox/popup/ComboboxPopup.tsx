@@ -1,4 +1,4 @@
-import { createEffect, createMemo, on } from 'solid-js';
+import { createEffect, createMemo } from 'solid-js';
 import { FloatingFocusManager } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps } from '../../solid-helpers';
@@ -21,6 +21,7 @@ import {
   useComboboxFloatingContext,
   useComboboxRootContext,
 } from '../root/ComboboxRootContext';
+import { on } from '../../solid-1-compat';
 
 const stateAttributesMapping: StateAttributesMapping<ComboboxPopup.State> = {
   ...popupStateMapping,
@@ -109,7 +110,7 @@ export function ComboboxPopup(componentProps: ComboboxPopup.Props) {
           get role() {
             return inputInsidePopup() ? 'dialog' : 'presentation';
           },
-          tabIndex: -1,
+          tabindex: -1,
           // React's `onFocus` bubbles, so focusing the listbox re-enters this handler and
           // hands focus back to the input. In Solid, we need `focusin` to observe that
           // descendant focus transition.
@@ -169,8 +170,7 @@ export function ComboboxPopup(componentProps: ComboboxPopup.Props) {
     return inputInsidePopup() ? undefined : false;
   });
 
-  createEffect(
-    on([open, inputInsidePopup, openMethod, () => local.initialFocus], () => {
+  createEffect(...on([open, inputInsidePopup, openMethod, () => local.initialFocus], () => {
       if (
         !open() ||
         !inputInsidePopup() ||

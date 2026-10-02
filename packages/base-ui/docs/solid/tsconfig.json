@@ -4,7 +4,7 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "jsxImportSource": "solid-js",
+    "jsxImportSource": "@solidjs/web",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,
@@ -21,11 +21,11 @@
     "strict": true,
     "target": "ESNext",
     "types": [
-      "vinxi/types/client"
+      "vite/client"
     ]
   },
   "include": [
     "src",
-    "app.config.ts"
+    "vite.config.ts"
   ]
 }

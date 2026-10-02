@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it } from "vitest"
-import { createRoot } from "solid-js"
+import { createRoot } from 'solid-js';
 import { Legend, getRelativeCoordinate } from "../../src"
 
 describe("Legend types", () => {

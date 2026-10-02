@@ -1,12 +1,12 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import {
-  createEffect,
+  createTrackedEffect,
   createMemo,
   createSignal,
   createUniqueId,
   onCleanup,
-  type JSX,
 } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { RenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
 import type { DialogHandle } from '../../dialog/store/DialogHandle';
@@ -185,7 +185,7 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
   };
 
   return (
-    <DrawerRootContext.Provider value={contextValue}>
+    <DrawerRootContext value={contextValue}>
       <RenderDialogRoot
         mode="drawer"
         open={openProp()}
@@ -206,7 +206,7 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
           </>
         )}
       </RenderDialogRoot>
-    </DrawerRootContext.Provider>
+    </DrawerRootContext>
   );
 }
 
@@ -356,21 +356,33 @@ function DrawerProviderReporter() {
 
   const isTopmost = () => nestedOpenDialogCount() === 0;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!providerContext) {
       return;
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       providerContext.removeDrawer(drawerId);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     providerContext?.setDrawerOpen(drawerId, open());
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     // CloseWatcher enables the Android back gesture (Chromium-only).
     // Keep this Android-only for now to avoid interfering with Escape/nesting semantics on desktop due to `useDismiss`.
     if (!open() || !isTopmost() || !isAndroid) {
@@ -396,11 +408,17 @@ function DrawerProviderReporter() {
 
     closeWatcher.addEventListener('close', handleCloseWatcher);
 
-    onCleanup(() => {
+    _c.push(() => {
       closeWatcher.removeEventListener('close', handleCloseWatcher);
       closeWatcher.destroy();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   return null;
 }

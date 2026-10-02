@@ -9,9 +9,7 @@ export interface DrawerVirtualKeyboardContext {
   onTouchCancel: () => void;
 }
 
-export const DrawerVirtualKeyboardContext = createContext<
-  DrawerVirtualKeyboardContext | undefined
->(undefined);
+export const DrawerVirtualKeyboardContext = createContext<DrawerVirtualKeyboardContext | null>(null);
 
 export function useDrawerVirtualKeyboardContext() {
   return useContext(DrawerVirtualKeyboardContext);

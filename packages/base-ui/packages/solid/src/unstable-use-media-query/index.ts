@@ -1,5 +1,6 @@
-import { createSignal, onCleanup, onMount, type Accessor } from 'solid-js';
-import { isServer } from 'solid-js/web';
+import { createSignal, onCleanup, onSettled } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import { isServer } from '@solidjs/web';
 import { access, type MaybeAccessor } from '../solid-helpers';
 
 export function useMediaQuery(
@@ -20,7 +21,10 @@ export function useMediaQuery(
   const noSsr = () => access(options.noSsr) ?? false;
   const [match, setMatch] = createSignal(defaultMatches());
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const matchMediaValue = matchMedia();
     if (matchMediaValue === null) {
       setMatch(defaultMatches());
@@ -33,10 +37,16 @@ export function useMediaQuery(
 
     const mediaQueryList = matchMediaValue(safeQuery());
     mediaQueryList.addEventListener('change', notify);
-    onCleanup(() => {
+    _c.push(() => {
       mediaQueryList.removeEventListener('change', notify);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   if (isServer) {
     const matchMediaValue = matchMedia();

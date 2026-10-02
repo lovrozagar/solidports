@@ -1,8 +1,9 @@
 /* eslint-disable import/no-cycle */
-import { createEffect, onCleanup } from "solid-js"
+import { createEffect, onCleanup } from 'solid-js';
 import type { UpdatableChartOptions } from "./rootPropsSlice"
 import { initialRootPropsState } from "./rootPropsSlice"
 import { useOptionalChartState } from "./useChartState"
+import { teardownWrite } from "./teardownWrite"
 
 export function ReportChartProps(props: UpdatableChartOptions): null {
 	const ctx = useOptionalChartState()
@@ -10,8 +11,8 @@ export function ReportChartProps(props: UpdatableChartOptions): null {
 		return null
 	}
 
-	createEffect(() => {
-		ctx.setState("rootProps", {
+	createEffect(
+		() => ({
 			accessibilityLayer: props.accessibilityLayer,
 			barCategoryGap: props.barCategoryGap,
 			barGap: props.barGap,
@@ -23,11 +24,16 @@ export function ReportChartProps(props: UpdatableChartOptions): null {
 			stackOffset: props.stackOffset,
 			syncId: props.syncId,
 			syncMethod: props.syncMethod,
-		})
-	})
+		}),
+		(rootProps) => {
+			ctx.setState("rootProps", rootProps)
+		},
+	)
 
 	onCleanup(() => {
-		ctx.setState("rootProps", { ...initialRootPropsState })
+		teardownWrite(() => {
+			ctx.setState("rootProps", { ...initialRootPropsState })
+		})
 	})
 
 	return null

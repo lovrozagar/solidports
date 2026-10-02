@@ -1,18 +1,20 @@
-import { createContext, createSignal, onMount, splitProps, useContext, type JSX, type ParentProps } from "solid-js"
+import { createContext, createSignal, onSettled, useContext } from 'solid-js';
+import type { ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
-import { A } from "@solidjs/router"
 import { Dialog } from "@solidports/base-ui/dialog"
 import { HEADER_HEIGHT } from "./Header"
 
+import { splitProps } from '../utils/solid-1-compat';
 const MobileNavStateCallback = createContext<(open: boolean) => void>(() => undefined)
 
 export function Root(props: Dialog.Root.Props) {
   const [open, setOpen] = createSignal(false)
 
   return (
-    <MobileNavStateCallback.Provider value={setOpen}>
+    <MobileNavStateCallback value={setOpen}>
       <Dialog.Root open={open()} onOpenChange={setOpen} {...props} />
-    </MobileNavStateCallback.Provider>
+    </MobileNavStateCallback>
   )
 }
 
@@ -38,7 +40,7 @@ function PopupImpl(props: ParentProps) {
   const setOpen = useContext(MobileNavStateCallback)
   let rem = 16
 
-  onMount(() => {
+  onSettled(() => {
     rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
   })
 
@@ -90,7 +92,7 @@ function PopupImpl(props: ParentProps) {
           {/* Area behind the panel closes on tap but also scrolls the viewport. */}
           <Dialog.Close
             class="MobileNavBackdropTapArea"
-            tabIndex={-1}
+            tabindex={-1}
             nativeButton={false}
             render={(divProps) => <div {...divProps} />}
           />
@@ -176,17 +178,17 @@ export function Item(props: ItemProps) {
           {local.children}
         </a>
       ) : (
-        <A
+        <a
           aria-current={local.active ? "page" : undefined}
           class="MobileNavLink"
           href={local.href}
-          noScroll
+          noscroll
           onClick={() => {
             handleItemClick(local.href, setOpen)
           }}
         >
           {local.children}
-        </A>
+        </a>
       )}
     </li>
   )

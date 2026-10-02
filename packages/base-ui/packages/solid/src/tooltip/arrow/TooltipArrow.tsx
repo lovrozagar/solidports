@@ -45,7 +45,7 @@ export function TooltipArrow(componentProps: TooltipArrow.Props) {
         get style() {
           return arrowStyles();
         },
-        'aria-hidden': true,
+        'aria-hidden': 'true',
       },
       elementProps,
     ],

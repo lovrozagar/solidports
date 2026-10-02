@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 import { Select } from '@solidports/base-ui/select';
 import { Field } from '@solidports/base-ui/field';
@@ -31,7 +31,7 @@ export default function ExampleSelectGrouped() {
                         {group.value}
                       </Select.GroupLabel>
                       {group.items.map((item) => (
-                        <Select.Item key={item.value} value={item.value} class={styles.Item}>
+                        <Select.Item value={item.value} class={styles.Item}>
                           <Select.ItemIndicator class={styles.ItemIndicator}>
                             <CheckIcon />
                           </Select.ItemIndicator>

@@ -1,5 +1,6 @@
 import { getNodeName, isHTMLElement } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, createSignal, on, onCleanup, Show, type JSX } from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, createSignal, onCleanup, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { defaultProps, useRef, type ReactLikeRef } from '../../solid-helpers';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -40,6 +41,7 @@ import { markOthers } from '../utils/markOthers';
 import { usePortalContext } from './FloatingPortal';
 import { useFloatingTree } from './FloatingTree';
 import type { FloatingTreeStore } from './FloatingTreeStore';
+import { on } from '../../solid-1-compat';
 
 function getEventType(event: Event, lastInteractionType?: InteractionType): InteractionType {
   const win = ownerWindow(event.target);
@@ -377,7 +379,7 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
         (element) => element === relatedTarget || contains(element, relatedTarget),
       ) ||
       (relatedTarget != null && triggers.hasElement(relatedTarget)) ||
-      triggers.hasMatchingElement((trigger) => contains(trigger, relatedTarget)) ||
+      triggers.hasMatchingElement((trigger: Element) => contains(trigger, relatedTarget)) ||
       isRelatedFocusGuard ||
       (tree &&
         (getNodeChildren(tree.nodesRef, nodeId).find(
@@ -532,20 +534,32 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
     blurTimeout.start(0, fn);
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (props.disabled || !props.modal) {
       return;
     }
 
     const doc = ownerDocument(floatingFocusElement());
     doc.addEventListener('keydown', onKeyDown);
-    onCleanup(() => {
+    _c.push(() => {
       doc.removeEventListener('keydown', onKeyDown);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   // Track the last interaction type at the document level to disambiguate focus events
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (props.disabled || !open()) {
       return;
     }
@@ -580,15 +594,24 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
     doc.addEventListener('pointerup', clearPointerDownOutside, true);
     doc.addEventListener('pointercancel', clearPointerDownOutside, true);
     doc.addEventListener('keydown', _onKeyDown, true);
-    onCleanup(() => {
+    _c.push(() => {
       doc.removeEventListener('pointerdown', onPointerDown, true);
       doc.removeEventListener('pointerup', clearPointerDownOutside, true);
       doc.removeEventListener('pointercancel', clearPointerDownOutside, true);
       doc.removeEventListener('keydown', _onKeyDown, true);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (props.disabled || !props.closeOnFocusOut) {
       return;
     }
@@ -605,7 +628,7 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
     if (domReferenceElement) {
       domReferenceElement.addEventListener('focusout', handleFocusOutside);
       domReferenceElement.addEventListener('pointerdown', handlePointerDown);
-      onCleanup(() => {
+      _c.push(() => {
         domReferenceElement.removeEventListener('focusout', handleFocusOutside);
         domReferenceElement.removeEventListener('pointerdown', handlePointerDown);
       });
@@ -614,28 +637,33 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
     if (floatingEl) {
       floatingEl.addEventListener('focusin', handleFocusIn);
       floatingEl.addEventListener('focusout', handleFocusOutside);
-      onCleanup(() => {
+      _c.push(() => {
         floatingEl.removeEventListener('focusin', handleFocusIn);
         floatingEl.removeEventListener('focusout', handleFocusOutside);
       });
 
       if (portalContext) {
         floatingEl.addEventListener('focusout', markinsidePortal, true);
-        onCleanup(() => floatingEl.removeEventListener('focusout', markinsidePortal, true));
+        _c.push(() => floatingEl.removeEventListener('focusout', markinsidePortal, true));
       }
     }
 
     if (floatingFocusEl && floatingFocusEl !== floatingEl) {
       floatingFocusEl.addEventListener('pointerdown', handlePointerDown);
-      onCleanup(() => {
+      _c.push(() => {
         floatingFocusEl.removeEventListener('pointerdown', handlePointerDown);
       });
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   // Focus the initial element when the floating element opens.
-  createEffect(
-    on(
+  createEffect(...on(
       [
         () => props.disabled,
         open,
@@ -705,7 +733,10 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
   );
 
   // Hide everything outside the floating tree from assistive tech while open.
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (props.disabled || !floating() || !open()) {
       return;
     }
@@ -750,13 +781,22 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
     );
     const markerCleanup = markOthers(markerInsideElements);
 
-    onCleanup(() => {
+    _c.push(() => {
       markerCleanup();
       ariaHiddenCleanup();
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const floatingEl = floatingFocusElement();
     if (props.disabled || !floatingEl) {
       return;
@@ -797,7 +837,7 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
       return resolvedReturnFocusValue || fallback || null;
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       events().off('openchange', onOpenChangeLocal);
 
       const activeEl = activeElement(doc);
@@ -845,12 +885,18 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
         preventReturnFocusRef = false;
       });
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   // Safari may randomly scroll to the bottom of the page if an input inside a popup has focus
   // when the popup unmounts from the DOM.
   // By blurring it before the popup unmounts, we can prevent this behavior.
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!isWebKit || open() || !floating()) {
       return;
     }
@@ -867,7 +913,10 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
 
   // Synchronize the `context` & `modal` value to the FloatingPortal context.
   // It will decide whether or not it needs to render its own guards.
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (props.disabled || !portalContext) {
       return;
     }
@@ -880,19 +929,34 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
       open: open(),
     });
 
-    onCleanup(() => portalContext.setFocusManagerState(null));
-  });
+    _c.push(() => portalContext.setFocusManagerState(null));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   // Keep the floating element tabIndex in sync and clear stale focus records.
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const floatingEl = floatingFocusElement();
     if (props.disabled || !floatingEl) {
       return;
     }
 
     handleTabIndex(floatingEl, orderRef);
-    onCleanup(() => queueMicrotask(clearDisconnectedPreviouslyFocusedElements));
-  });
+    _c.push(() => queueMicrotask(clearDisconnectedPreviouslyFocusedElements));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const shouldRenderGuards = createMemo(
     () =>

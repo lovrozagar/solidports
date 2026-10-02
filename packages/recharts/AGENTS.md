@@ -8,11 +8,11 @@ Any feature/fix request applies only to this package (`packages/recharts/`) unle
 
 - Never destructure props at the call site. `props.foo`, not `const { foo } = props`.
 - Derived values computed from props or store → `createMemo`. Never compute inline in JSX.
-- Side effects → `createEffect`. Cleanup → `onCleanup` inside the same effect.
-- Mount logic → `onMount`. Never use `useEffect` (React import).
-- Multiple setters in an event handler → wrap in `batch(() => { ... })`.
+- Side effects → `createEffect(compute, apply)` or `createTrackedEffect` for a single callback. Cleanup → `onCleanup` inside the same effect.
+- Mount logic → `onSettled`. Never use `useEffect` (React import).
+- Writes batch on a microtask. Call `flush()` when the next read must see them now.
 - Store reads are fine-grained by default — no need for `useSelector` shims.
-- `createStore` / `produce` / `reconcile` from `solid-js/store` replace Redux toolkit entirely.
+- `createStore` lives in `solid-js`. Path-style setters go through `src/util/solid-1-compat`. Draft-first setters are the native Solid 2 shape.
 
 ## Commands
 

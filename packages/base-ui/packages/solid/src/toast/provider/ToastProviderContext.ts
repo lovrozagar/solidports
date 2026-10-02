@@ -3,7 +3,7 @@ import type { ToastStore } from '../store';
 
 export type ToastContext = ToastStore;
 
-export const ToastContext = createContext<ToastContext | undefined>(undefined);
+export const ToastContext = createContext<ToastContext | null>(null);
 
 export function useToastProviderContext() {
   const context = useContext(ToastContext);

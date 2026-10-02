@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js"
+import { createSignal, flush } from 'solid-js';
 import { describe, expect, it } from "vitest"
 import {
 	shouldReturnFromInitialState,
@@ -123,6 +123,7 @@ describe("selectLinePoints", () => {
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			const expectedResultAfterRerender: ReadonlyArray<LinePointItem> = [
 				{

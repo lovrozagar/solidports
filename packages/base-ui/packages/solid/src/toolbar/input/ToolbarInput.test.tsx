@@ -30,11 +30,11 @@ describe('<Toolbar.Input />', () => {
     refInstanceof: window.HTMLInputElement,
     render: (node, props) => {
       return render(() => (
-        <ToolbarRootContext.Provider value={testToolbarContext}>
-          <CompositeRootContext.Provider value={testCompositeContext}>
+        <ToolbarRootContext value={testToolbarContext}>
+          <CompositeRootContext value={testCompositeContext}>
             {node(props!)}
-          </CompositeRootContext.Provider>
-        </ToolbarRootContext.Provider>
+          </CompositeRootContext>
+        </ToolbarRootContext>
       ));
     },
     testRenderPropWith: 'input',

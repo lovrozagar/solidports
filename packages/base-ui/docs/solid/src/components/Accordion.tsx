@@ -1,12 +1,8 @@
-import {
-  createContext,
-  createSignal,
-  splitProps,
-  useContext,
-  type JSX,
-  type ParentProps,
-} from "solid-js"
-import { Dynamic } from "solid-js/web"
+import { createContext, createSignal, useContext } from 'solid-js';
+import type { ParentProps } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { splitProps } from '../utils/solid-1-compat';
+import { Dynamic } from '@solidjs/web';
 import clsx from "clsx"
 
 const ARROW_UP = "ArrowUp"
@@ -20,19 +16,19 @@ interface AccordionContextValue {
   getRoot: () => HTMLElement | undefined
 }
 
-const AccordionContext = createContext<AccordionContextValue>()
+const AccordionContext = createContext<AccordionContextValue | null>(null)
 
 export function Root(props: JSX.HTMLAttributes<HTMLElement>) {
   const [local, rest] = splitProps(props, ["class"])
   let rootRef: HTMLElement | undefined
   return (
-    <AccordionContext.Provider value={{ getRoot: () => rootRef }}>
+    <AccordionContext value={{ getRoot: () => rootRef }}>
       <section
         ref={(el) => (rootRef = el)}
         class={clsx("AccordionRoot", local.class)}
         {...rest}
       />
-    </AccordionContext.Provider>
+    </AccordionContext>
   )
 }
 
@@ -182,7 +178,7 @@ export function Scrollable(props: ScrollableProps) {
 
 export function HeaderRow(props: JSX.HTMLAttributes<HTMLDivElement>) {
   const [local, rest] = splitProps(props, ["class"])
-  return <div aria-hidden class={clsx("AccordionHeaderRow", local.class)} {...rest} />
+  return <div aria-hidden="true" class={clsx("AccordionHeaderRow", local.class)} {...rest} />
 }
 
 export function HeaderCell(props: JSX.HTMLAttributes<HTMLDivElement>) {

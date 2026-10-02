@@ -1,6 +1,7 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { trackSpy } from "../../helper/trackSpy"
+import { render } from "../../helper/render"
 import { useAppSelector } from "../../helper/legacyDispatch"
 import {
 	selectAxisRangeWithReverse,
@@ -24,7 +25,7 @@ const data = [
 ]
 
 describe("XAxis padding", () => {
-	it.skip("Render Bars with gap", () => {
+	it("Render Bars with gap", () => {
 		const axisDomainSpy = vi.fn()
 		const yAxisRangeSpy = vi.fn()
 		const barTicksSpy = vi.fn()
@@ -32,10 +33,10 @@ describe("XAxis padding", () => {
 		const offsetSpy = vi.fn()
 
 		const Comp = (): null => {
-			yAxisRangeSpy(useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, false)))
-			barTicksSpy(useAppSelector((state) => selectTicksOfGraphicalItem(state, "xAxis", 0, false)))
-			barBandSizeSpy(useAppSelector((state) => selectBarBandSize(state, "my-bar-id", false)))
-			offsetSpy(useAppSelector(selectChartOffsetInternal))
+			trackSpy(yAxisRangeSpy, () => useAppSelector((state) => selectAxisRangeWithReverse(state, "yAxis", 0, false)))
+			trackSpy(barTicksSpy, () => useAppSelector((state) => selectTicksOfGraphicalItem(state, "xAxis", 0, false)))
+			trackSpy(barBandSizeSpy, () => useAppSelector((state) => selectBarBandSize(state, "my-bar-id", false)))
+			trackSpy(offsetSpy, () => useAppSelector(selectChartOffsetInternal))
 			return null
 		}
 
@@ -214,58 +215,58 @@ describe("XAxis padding", () => {
 
 		expectBars(container, [
 			{
-				d: "M 251.1875,206.5 h 868 v 58.5 h -868 Z",
+				d: "M 251.1875,206.5 h 869 v 58.5 h -869 Z",
 				height: "58.5",
 				radius: "0",
-				width: "868",
+				width: "869",
 				x: "251.1875",
 				y: "206.5",
 			},
 			{
-				d: "M 1337.2813,135 h 868 v 130 h -868 Z",
+				d: "M 1337.2813,135 h 869 v 130 h -869 Z",
 				height: "130",
 				radius: "0",
-				width: "868",
+				width: "869",
 				x: "1337.2813",
 				y: "135",
 			},
 			{
-				d: "M 3509.4688,200 h 868 v 65 h -868 Z",
+				d: "M 3509.4688,200 h 869 v 65 h -869 Z",
 				height: "65",
 				radius: "0",
-				width: "868",
+				width: "869",
 				x: "3509.4688",
 				y: "200",
 			},
 			{
-				d: "M 8939.9375,70 h 868 v 195 h -868 Z",
+				d: "M 8939.9375,70 h 869 v 195 h -869 Z",
 				height: "195",
 				radius: "0",
-				width: "868",
+				width: "869",
 				x: "8939.9375",
 				y: "70",
 			},
 			{
-				d: "M 5681.6563,102.5 h 868 v 162.5 h -868 Z",
+				d: "M 5681.6563,102.5 h 869 v 162.5 h -869 Z",
 				height: "162.5",
 				radius: "0",
-				width: "868",
+				width: "869",
 				x: "5681.6563",
 				y: "102.5",
 			},
 			{
-				d: "M 6767.75,5 h 868 v 260 h -868 Z",
+				d: "M 6767.75,5 h 869 v 260 h -869 Z",
 				height: "260",
 				radius: "0",
-				width: "868",
+				width: "869",
 				x: "6767.75",
 				y: "5",
 			},
 			{
-				d: "M 2423.375,83 h 868 v 182 h -868 Z",
+				d: "M 2423.375,83 h 869 v 182 h -869 Z",
 				height: "182",
 				radius: "0",
-				width: "868",
+				width: "869",
 				x: "2423.375",
 				y: "83",
 			},
@@ -314,58 +315,58 @@ describe("XAxis padding", () => {
 
 		expectBars(container, [
 			{
-				d: "M 65.9919,206.5 h 20 v 58.5 h -20 Z",
+				d: "M 65.9919,206.5 h 21 v 58.5 h -21 Z",
 				height: "58.5",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "65.9919",
 				y: "206.5",
 			},
 			{
-				d: "M 91.9028,135 h 20 v 130 h -20 Z",
+				d: "M 91.9028,135 h 21 v 130 h -21 Z",
 				height: "130",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "91.9028",
 				y: "135",
 			},
 			{
-				d: "M 143.7247,200 h 20 v 65 h -20 Z",
+				d: "M 143.7247,200 h 21 v 65 h -21 Z",
 				height: "65",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "143.7247",
 				y: "200",
 			},
 			{
-				d: "M 273.2794,70 h 20 v 195 h -20 Z",
+				d: "M 273.2794,70 h 21 v 195 h -21 Z",
 				height: "195",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "273.2794",
 				y: "70",
 			},
 			{
-				d: "M 195.5466,102.5 h 20 v 162.5 h -20 Z",
+				d: "M 195.5466,102.5 h 21 v 162.5 h -21 Z",
 				height: "162.5",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "195.5466",
 				y: "102.5",
 			},
 			{
-				d: "M 221.4575,5 h 20 v 260 h -20 Z",
+				d: "M 221.4575,5 h 21 v 260 h -21 Z",
 				height: "260",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "221.4575",
 				y: "5",
 			},
 			{
-				d: "M 117.8138,83 h 20 v 182 h -20 Z",
+				d: "M 117.8138,83 h 21 v 182 h -21 Z",
 				height: "182",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "117.8138",
 				y: "83",
 			},
@@ -619,58 +620,58 @@ describe("XAxis padding", () => {
 
 		expectBars(container, [
 			{
-				d: "M 54.65,206.5 h 20 v 58.5 h -20 Z",
+				d: "M 54.65,206.5 h 21 v 58.5 h -21 Z",
 				height: "58.5",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "54.65",
 				y: "206.5",
 			},
 			{
-				d: "M 80.525,135 h 20 v 130 h -20 Z",
+				d: "M 80.525,135 h 21 v 130 h -21 Z",
 				height: "130",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "80.525",
 				y: "135",
 			},
 			{
-				d: "M 132.275,200 h 20 v 65 h -20 Z",
+				d: "M 132.275,200 h 21 v 65 h -21 Z",
 				height: "65",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "132.275",
 				y: "200",
 			},
 			{
-				d: "M 261.65,70 h 20 v 195 h -20 Z",
+				d: "M 261.65,70 h 21 v 195 h -21 Z",
 				height: "195",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "261.65",
 				y: "70",
 			},
 			{
-				d: "M 184.025,102.5 h 20 v 162.5 h -20 Z",
+				d: "M 184.025,102.5 h 21 v 162.5 h -21 Z",
 				height: "162.5",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "184.025",
 				y: "102.5",
 			},
 			{
-				d: "M 209.9,5 h 20 v 260 h -20 Z",
+				d: "M 209.9,5 h 21 v 260 h -21 Z",
 				height: "260",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "209.9",
 				y: "5",
 			},
 			{
-				d: "M 106.4,83 h 20 v 182 h -20 Z",
+				d: "M 106.4,83 h 21 v 182 h -21 Z",
 				height: "182",
 				radius: "0",
-				width: "20",
+				width: "21",
 				x: "106.4",
 				y: "83",
 			},

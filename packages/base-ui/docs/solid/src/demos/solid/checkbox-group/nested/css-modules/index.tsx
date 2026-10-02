@@ -1,4 +1,5 @@
-import { createSignal, createUniqueId, type JSX } from 'solid-js';
+import { createSignal, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Checkbox } from '@solidports/base-ui/checkbox';
@@ -27,9 +28,9 @@ export default function PermissionsForm() {
       }}
       allValues={mainPermissions}
       class={styles.CheckboxGroup}
-      style={{ "margin-left": "1rem" }}
+      style={{ "margin-left": '1rem' }}
     >
-      <label class={styles.Item} id={id} style={{ "margin-left": "-1rem" }}>
+      <label class={styles.Item} id={id} style={{ "margin-left": '-1rem' }}>
         <Checkbox.Root
           class={styles.Checkbox}
           parent
@@ -79,9 +80,9 @@ export default function PermissionsForm() {
           setManagementValue(value);
         }}
         allValues={userManagementPermissions}
-        style={{ "margin-left": "1rem" }}
+        style={{ "margin-left": '1rem' }}
       >
-        <label class={styles.Item} id="manage-users-caption" style={{ "margin-left": "-1rem" }}>
+        <label class={styles.Item} id="manage-users-caption" style={{ "margin-left": '-1rem' }}>
           <Checkbox.Root class={styles.Checkbox} parent>
             <Checkbox.Indicator
               class={styles.Indicator}

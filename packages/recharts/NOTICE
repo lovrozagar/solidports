@@ -4,10 +4,10 @@ This package is a SolidJS port of recharts (https://github.com/recharts/recharts
 
 Upstream project:  recharts
 Upstream license:  MIT
-Upstream source:   https://github.com/recharts/recharts/tree/v3.8.1
+Upstream source:   https://github.com/recharts/recharts/tree/v3.10.1
 Upstream authors:  recharts contributors (https://github.com/recharts/recharts/graphs/contributors)
 
-Pinned upstream tag: v3.8.1 (released 2026-03-25)
+Pinned upstream tag: v3.10.1 (ffb918798051ef040bb7f9922d3850c9c189f39f)
 Port started:        2026-04-24
 
 Applied upstream SHAs

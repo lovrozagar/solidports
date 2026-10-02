@@ -13,8 +13,7 @@
  * Augmenting `ContainerElementSVGAttributes` covers `<g>` (and any container).
  */
 
-import type { JSX as SolidJSX } from "solid-js"
-
+import type { JSX as SolidJSX } from '@solidjs/web';
 declare module "solid-js" {
 	namespace JSX {
 		interface StylableSVGAttributes {

@@ -1,4 +1,4 @@
-import { createEffect, createMemo, For, onCleanup, Show } from 'solid-js';
+import { createTrackedEffect, createMemo, For, onCleanup, Show } from 'solid-js';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps } from '../../solid-helpers';
 import { FocusGuard } from '../../utils/FocusGuard';
@@ -8,6 +8,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { visuallyHidden } from '../../utils/visuallyHidden';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
+import type { ToastObject } from '../useToastManager';
 import { isFocusVisible } from '../utils/focusVisible';
 import { ToastViewportCssVars } from './ToastViewportCssVars';
 
@@ -35,11 +36,14 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
   const frontmostHeight = () => toasts()[0]?.height ?? 0;
 
   const hasTransitioningToasts = createMemo(() =>
-    toasts().some((toast) => toast.transitionStatus === 'ending'),
+    toasts().some((toast: ToastObject<any>) => toast.transitionStatus === 'ending'),
   );
 
   // Listen globally for F6 so we can force-focus the viewport.
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const viewport = store.state.viewport ?? null;
     if (!viewport) {
       return;
@@ -63,12 +67,21 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
 
     win.addEventListener('keydown', handleGlobalKeyDown);
 
-    onCleanup(() => {
+    _c.push(() => {
       win.removeEventListener('keydown', handleGlobalKeyDown);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const viewport = store.state.viewport ?? null;
     if (!viewport || isEmpty()) {
       return;
@@ -107,13 +120,22 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     win.addEventListener('blur', handleWindowBlur, true);
     win.addEventListener('focus', handleWindowFocus, true);
 
-    onCleanup(() => {
+    _c.push(() => {
       win.removeEventListener('blur', handleWindowBlur, true);
       win.removeEventListener('focus', handleWindowFocus, true);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const viewport = store.state.viewport ?? null;
     if (!viewport || isEmpty()) {
       return;
@@ -123,10 +145,16 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
 
     doc.addEventListener('pointerdown', store.handleDocumentPointerDown, true);
 
-    onCleanup(() => {
+    _c.push(() => {
       doc.removeEventListener('pointerdown', store.handleDocumentPointerDown, true);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function handleFocusGuard(event: FocusEvent) {
     const viewport = store.state.viewport ?? null;
@@ -162,7 +190,7 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     markedReadyForMouseLeaveRef = false;
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!store.state.isWindowFocused || hasTransitioningToasts() || !markedReadyForMouseLeaveRef) {
       return;
     }
@@ -225,7 +253,7 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
   }
 
   const defaultProps: HTMLProps = {
-    'aria-atomic': false,
+    'aria-atomic': 'false',
     'aria-label': 'Notifications',
     'aria-live': 'polite',
     'aria-relevant': 'additions text',
@@ -240,7 +268,7 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     onPointerDown: handlePointerDown,
     onPointerUp: handlePointerEnd,
     role: 'region',
-    tabIndex: -1,
+    tabindex: -1,
   };
 
   const state: ToastViewport.State = {
@@ -283,7 +311,7 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
   });
 
   const highPriorityToasts = createMemo(() => {
-    return toasts().filter((toast) => toast.priority === 'high');
+    return toasts().filter((toast: ToastObject<any>) => toast.priority === 'high');
   });
 
   return (

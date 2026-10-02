@@ -1,4 +1,4 @@
-import { createEffect, onCleanup } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
@@ -22,7 +22,10 @@ export function FieldDescription(componentProps: FieldDescription.Props) {
   const fieldRootContext = useFieldRootContext(false);
   const { setMessageIds } = useLabelableContext();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const idValue = id();
     if (!idValue) {
       return;
@@ -30,10 +33,16 @@ export function FieldDescription(componentProps: FieldDescription.Props) {
 
     setMessageIds((v) => v.concat(idValue));
 
-    onCleanup(() => {
+    _c.push(() => {
       setMessageIds((v) => v.filter((item) => item !== idValue));
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const element = useRenderElement('p', componentProps, {
     props: [

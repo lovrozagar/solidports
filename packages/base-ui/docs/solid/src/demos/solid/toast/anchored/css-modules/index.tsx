@@ -1,4 +1,5 @@
-import { createSignal, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Toast } from '@solidports/base-ui/toast';
@@ -69,7 +70,7 @@ function CopyButton() {
         class={styles.CopyButton}
         onClick={handleCopy}
         aria-label="Copy to clipboard"
-        render={<Button disabled={copied()} focusableWhenDisabled />}
+        render={(props) => <Button {...props} disabled={copied()} focusableWhenDisabled />}
       >
         {copied() ? <CheckIcon /> : <ClipboardIcon />}
       </Tooltip.Trigger>
@@ -91,7 +92,7 @@ function AnchoredToasts() {
     <Toast.Portal>
       <Toast.Viewport class={styles.AnchoredViewport}>
         {toasts().map((toast) => (
-          <Toast.Positioner key={toast.id} toast={toast} class={styles.AnchoredPositioner}>
+          <Toast.Positioner toast={toast} class={styles.AnchoredPositioner}>
             <Toast.Root toast={toast} class={styles.AnchoredToast}>
               <Toast.Arrow class={styles.Arrow} />
               <Toast.Content>
@@ -111,7 +112,7 @@ function StackedToasts() {
     <Toast.Portal>
       <Toast.Viewport class={styles.StackedViewport}>
         {toasts().map((toast) => (
-          <Toast.Root key={toast.id} toast={toast} class={styles.StackedToast}>
+          <Toast.Root toast={toast} class={styles.StackedToast}>
             <Toast.Content class={styles.Content}>
               <div class={styles.Text}>
                 <Toast.Title class={styles.Title} />

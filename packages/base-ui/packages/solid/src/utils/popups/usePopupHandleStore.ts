@@ -1,4 +1,5 @@
-import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { NOOP } from '../empty';
 import type { PopupHandleStoreProvider } from './popupHandle';
 
@@ -9,21 +10,30 @@ export function usePopupHandleStore<HandleStore>(
   handle: PopupHandleStoreProvider<HandleStore> | undefined,
 ): Accessor<HandleStore | undefined> {
   const [store, setStore] = createSignal<HandleStore | undefined>(
-    handle === undefined ? undefined : handle.store,
+    (handle === undefined ? undefined : handle.store) as any,
   );
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (handle === undefined) {
-      setStore(undefined);
+      setStore(undefined as any);
       return;
     }
 
-    setStore(() => handle.store);
+    setStore(handle.store as any);
     const unsubscribe = handle.subscribeStore(() => {
-      setStore(() => handle.store);
+      setStore(handle.store as any);
     });
-    onCleanup(unsubscribe ?? NOOP);
-  });
+    _c.push(unsubscribe ?? NOOP);
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   return store;
 }

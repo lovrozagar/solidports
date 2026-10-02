@@ -2,7 +2,8 @@
 /**
  * @fileOverview Curve
  */
-import { Show } from "solid-js"
+import { Show, createMemo } from 'solid-js';
+import { useShapeElementProps } from "../util/ShapeElementProps"
 import {
 	area as shapeArea,
 	type Area as D3AreaCurve,
@@ -26,6 +27,7 @@ import {
 
 import { clsx } from "clsx"
 import type {
+	RechartsMouseEventHandler,
 	Coordinate,
 	LayoutType,
 	NullableCoordinate,
@@ -161,7 +163,7 @@ interface CurveProps {
 	strokeDasharray?: string | number
 }
 
-export type CurveMouseEventHandler = (props: Props, event: MouseEvent) => void
+export type CurveMouseEventHandler = RechartsMouseEventHandler<Props, SVGPathElement>
 
 type CurveMouseEvents = {
 	/**
@@ -304,8 +306,10 @@ export const getPath = ({
 	return nullableLineFunction(formatPoints)
 }
 
-export function Curve(props: Props) {
-	const layout = () => useChartLayout()
+export function Curve(ownProps: Props) {
+	/* Props injected for a shape passed as an element (see ShapeElementProps). */
+	const props = useShapeElementProps(ownProps)
+	const layout = createMemo(() => useChartLayout())
 
 	const hasData = () => (props.points && props.points.length > 0) || props.path
 

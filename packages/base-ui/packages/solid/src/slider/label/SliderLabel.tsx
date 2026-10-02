@@ -1,5 +1,5 @@
-import { createEffect, onCleanup } from 'solid-js';
-import { splitProps } from 'solid-js';
+import { createTrackedEffect, onCleanup } from 'solid-js';
+
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { ownerDocument } from '../../utils/owner';
 import type { BaseUIComponentProps } from '../../utils/types';
@@ -8,6 +8,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import type { SliderRoot } from '../root/SliderRoot';
 import { useSliderRootContext } from '../root/SliderRootContext';
 import { sliderStateAttributesMapping } from '../root/stateAttributesMapping';
+import { splitProps } from '../../solid-1-compat';
 
 function focusElementWithVisible(element: HTMLElement) {
   element.focus({ preventScroll: true });
@@ -26,10 +27,19 @@ export function SliderLabel(componentProps: SliderLabel.Props) {
 
   const { state, setRootLabelId, controlRef } = useSliderRootContext();
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     setRootLabelId(id());
-    onCleanup(() => setRootLabelId(undefined));
-  });
+    _c.push(() => setRootLabelId(undefined));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function handleClick(event: MouseEvent) {
     const fallbackInputs = controlRef.current?.querySelectorAll('input[type="range"]');

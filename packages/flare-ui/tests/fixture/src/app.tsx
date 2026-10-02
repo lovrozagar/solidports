@@ -1,5 +1,6 @@
-import { createEffect } from "solid-js";
-import { Route, Router, useSearchParams, type RouteSectionProps } from "@solidjs/router";
+import { createTrackedEffect } from "solid-js";
+import type { ParentProps } from "solid-js";
+import { createRouter, useSearchParams } from "@solidjs/router";
 import { DirectionProvider } from "@solidports/base-ui/direction-provider";
 import ButtonRoute from "./routes/button.tsx";
 import BadgeRoute from "./routes/badge.tsx";
@@ -44,9 +45,9 @@ import ToastRoute from "./routes/toast.tsx";
 import FormRoute from "./routes/form.tsx";
 import FieldRoute from "./routes/field.tsx";
 
-function ThemeWrapper(props: RouteSectionProps) {
+function ThemeWrapper(props: ParentProps) {
 	const [params] = useSearchParams();
-	createEffect(() => {
+	createTrackedEffect(() => {
 		if (params.theme === "dark") {
 			document.documentElement.classList.add("dark");
 		} else {
@@ -63,51 +64,58 @@ function ThemeWrapper(props: RouteSectionProps) {
 	);
 }
 
+const Router = createRouter({
+	routes: [
+		{
+			component: ThemeWrapper,
+			children: [
+				{ path: "/button", component: ButtonRoute },
+				{ path: "/badge", component: BadgeRoute },
+				{ path: "/label", component: LabelRoute },
+				{ path: "/separator", component: SeparatorRoute },
+				{ path: "/skeleton", component: SkeletonRoute },
+				{ path: "/spinner", component: SpinnerRoute },
+				{ path: "/avatar", component: AvatarRoute },
+				{ path: "/alert", component: AlertRoute },
+				{ path: "/card", component: CardRoute },
+				{ path: "/input", component: InputRoute },
+				{ path: "/textarea", component: TextareaRoute },
+				{ path: "/checkbox", component: CheckboxRoute },
+				{ path: "/radio-group", component: RadioGroupRoute },
+				{ path: "/switch", component: SwitchRoute },
+				{ path: "/toggle", component: ToggleRoute },
+				{ path: "/toggle-group", component: ToggleGroupRoute },
+				{ path: "/meter", component: MeterRoute },
+				{ path: "/dialog", component: DialogRoute },
+				{ path: "/alert-dialog", component: AlertDialogRoute },
+				{ path: "/sheet", component: SheetRoute },
+				{ path: "/drawer", component: DrawerRoute },
+				{ path: "/popover", component: PopoverRoute },
+				{ path: "/tooltip", component: TooltipRoute },
+				{ path: "/hover-card", component: HoverCardRoute },
+				{ path: "/dropdown-menu", component: DropdownMenuRoute },
+				{ path: "/context-menu", component: ContextMenuRoute },
+				{ path: "/menubar", component: MenubarRoute },
+				{ path: "/navigation-menu", component: NavigationMenuRoute },
+				{ path: "/accordion", component: AccordionRoute },
+				{ path: "/collapsible", component: CollapsibleRoute },
+				{ path: "/tabs", component: TabsRoute },
+				{ path: "/scroll-area", component: ScrollAreaRoute },
+				{ path: "/progress", component: ProgressRoute },
+				{ path: "/slider", component: SliderRoute },
+				{ path: "/combobox", component: ComboboxRoute },
+				{ path: "/select", component: SelectRoute },
+				{ path: "/autocomplete", component: AutocompleteRoute },
+				{ path: "/number-field", component: NumberFieldRoute },
+				{ path: "/otp-field", component: OTPFieldRoute },
+				{ path: "/toast", component: ToastRoute },
+				{ path: "/form", component: FormRoute },
+				{ path: "/field", component: FieldRoute },
+			],
+		},
+	],
+});
+
 export function App() {
-	return (
-		<Router root={ThemeWrapper}>
-			<Route path="/button" component={ButtonRoute} />
-			<Route path="/badge" component={BadgeRoute} />
-			<Route path="/label" component={LabelRoute} />
-			<Route path="/separator" component={SeparatorRoute} />
-			<Route path="/skeleton" component={SkeletonRoute} />
-			<Route path="/spinner" component={SpinnerRoute} />
-			<Route path="/avatar" component={AvatarRoute} />
-			<Route path="/alert" component={AlertRoute} />
-			<Route path="/card" component={CardRoute} />
-			<Route path="/input" component={InputRoute} />
-			<Route path="/textarea" component={TextareaRoute} />
-			<Route path="/checkbox" component={CheckboxRoute} />
-			<Route path="/radio-group" component={RadioGroupRoute} />
-			<Route path="/switch" component={SwitchRoute} />
-			<Route path="/toggle" component={ToggleRoute} />
-			<Route path="/toggle-group" component={ToggleGroupRoute} />
-			<Route path="/meter" component={MeterRoute} />
-			<Route path="/dialog" component={DialogRoute} />
-			<Route path="/alert-dialog" component={AlertDialogRoute} />
-			<Route path="/sheet" component={SheetRoute} />
-			<Route path="/drawer" component={DrawerRoute} />
-			<Route path="/popover" component={PopoverRoute} />
-			<Route path="/tooltip" component={TooltipRoute} />
-			<Route path="/hover-card" component={HoverCardRoute} />
-			<Route path="/dropdown-menu" component={DropdownMenuRoute} />
-			<Route path="/context-menu" component={ContextMenuRoute} />
-			<Route path="/menubar" component={MenubarRoute} />
-			<Route path="/navigation-menu" component={NavigationMenuRoute} />
-			<Route path="/accordion" component={AccordionRoute} />
-			<Route path="/collapsible" component={CollapsibleRoute} />
-			<Route path="/tabs" component={TabsRoute} />
-			<Route path="/scroll-area" component={ScrollAreaRoute} />
-			<Route path="/progress" component={ProgressRoute} />
-			<Route path="/slider" component={SliderRoute} />
-			<Route path="/combobox" component={ComboboxRoute} />
-			<Route path="/select" component={SelectRoute} />
-			<Route path="/autocomplete" component={AutocompleteRoute} />
-			<Route path="/number-field" component={NumberFieldRoute} />
-			<Route path="/otp-field" component={OTPFieldRoute} />
-			<Route path="/toast" component={ToastRoute} />
-			<Route path="/form" component={FormRoute} />
-			<Route path="/field" component={FieldRoute} />
-		</Router>
-	);
+	return <Router />;
 }

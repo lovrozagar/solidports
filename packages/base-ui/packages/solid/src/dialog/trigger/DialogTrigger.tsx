@@ -1,4 +1,4 @@
-import { createEffect, createMemo } from 'solid-js';
+import { createTrackedEffect, createMemo } from 'solid-js';
 import { useClick, useInteractions } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
@@ -28,14 +28,14 @@ export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Paylo
     'payload',
     'handle',
   ]);
-  const disabled = () => local.disabled ?? false;
-  const native = () => local.nativeButton ?? true;
+  const disabled = () => Boolean(local.disabled);
+  const native = () => Boolean(local.nativeButton ?? true);
   const idProp = () => local.id;
 
   const dialogRootContext = useDialogRootContext(true);
   const store = () => (local.handle?.store ?? dialogRootContext?.store) as DialogStore<unknown>;
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!store()) {
       throw new Error(
         'Base UI: <Dialog.Trigger> must be used within <Dialog.Root> or provided with a handle.',

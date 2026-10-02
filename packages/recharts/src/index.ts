@@ -98,7 +98,7 @@ export type { Props as CartesianAxisProps } from "./cartesian/CartesianAxis"
 export { CartesianGrid } from "./cartesian/CartesianGrid"
 export type { Props as CartesianGridProps } from "./cartesian/CartesianGrid"
 export { Line } from "./cartesian/Line"
-export type { Props as LineProps } from "./cartesian/Line"
+export type { Props as LineProps, LinePointItem } from "./cartesian/Line"
 export { Area } from "./cartesian/Area"
 export type { Props as AreaProps } from "./cartesian/Area"
 export { Bar } from "./cartesian/Bar"
@@ -179,6 +179,19 @@ export { DefaultZIndexes } from "./zIndex/DefaultZIndexes"
 /** export getNiceTickValues so this can be used as a replacement for what is in recharts-scale */
 export { getNiceTickValues } from "./util/scale/getNiceTickValues"
 
+export { interpolate } from "./util/DataUtils"
+export { AreaRevealShape } from "./cartesian/AreaRevealShape"
+export type { AreaRevealShapeProps } from "./cartesian/AreaRevealShape"
+export { LineDrawShape } from "./cartesian/LineDrawShape"
+export type { LineDrawShapeProps } from "./cartesian/LineDrawShape"
+
+export type {
+	AnimationItem,
+	AnimationMatchBy,
+	AnimationMatchByProp,
+} from "./animation/matchBy"
+export { matchByIndex, matchByDataKey, matchAppend } from "./animation/matchBy"
+
 export {
 	useActiveTooltipLabel,
 	useOffset,
@@ -203,7 +216,14 @@ export {
 
 export type { CartesianDataPoint, ScaleFunction, InverseScaleFunction } from "./hooks"
 
-export { useChartHeight, useChartWidth, useMargin } from "./context/chartLayoutContext"
+export {
+	useChartHeight,
+	useChartWidth,
+	useMargin,
+	useChartLayout,
+	useCartesianChartLayout,
+	usePolarChartLayout,
+} from "./context/chartLayoutContext"
 
 export type { ChartOffset, PlotArea } from "./types"
 
@@ -224,3 +244,37 @@ export type {
 	HTMLMousePointer,
 	HTMLTouchPointer,
 } from "./util/types"
+
+export { createHorizontalChart, createVerticalChart } from "./util/createCartesianCharts"
+
+export { createCentricChart, createRadialChart } from "./util/createPolarCharts"
+
+export type {
+	TypedHorizontalChartContext,
+	TypedVerticalChartContext,
+	NoFunnel,
+} from "./util/createCartesianCharts"
+
+export type {
+	TypedCentricChartContext,
+	TypedRadialChartContext,
+	NoRadial,
+	NoCentric,
+} from "./util/createPolarCharts"
+
+export type { AreaPointItem } from "./state/selectors/areaSelectors"
+export type { CartesianLayout, PolarLayout, LayoutType } from "./util/types"
+export type { EasingInput } from "./animation/easing"
+export type { AnimationInterpolateFn } from "./state/types/AnimationSettings"
+export type { AnimationHandle } from "./animation/AnimationHandle"
+export { JavascriptAnimation, CSSTransitionAnimation } from "./animation/AnimationHandle"
+export type { AnimationController, OnAnimationStateUpdate } from "./animation/AnimationController"
+export type { TimeoutController, CancelableTimeout } from "./animation/timeoutController"
+export { AnimationControllerProvider } from "./animation/useAnimationController"
+export type { CartesianPosition } from "./cartesian/getCartesianPosition"
+
+export type { RechartsTheme } from "./theme/RechartsTheme"
+export { RechartsThemeProvider } from "./theme/RechartsThemeContext"
+export { darkTheme } from "./theme/darkTheme"
+export { lightTheme } from "./theme/lightTheme"
+export { legacyTheme } from "./theme/legacyTheme"

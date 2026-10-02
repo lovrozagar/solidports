@@ -6,6 +6,7 @@
  * They prove the pure-function contract is unchanged — only call sites change.
  */
 import { describe, expect, it } from "vitest"
+import { flush } from "solid-js"
 import { createRechartsStore } from "../../../src/state/store"
 import type { ChartState } from "../../../src/state/store"
 import {
@@ -27,7 +28,9 @@ function makeState(): ChartState {
 	const actions = createActions(store, setStore)
 
 	actions.setChartSize({ height: 600, width: 800 })
+	flush()
 	actions.setMargin({ bottom: 10, left: 20, right: 20, top: 10 })
+	flush()
 
 	actions.addYAxis({
 		allowDataOverflow: false,
@@ -56,6 +59,8 @@ function makeState(): ChartState {
 		width: 60,
 	})
 
+	flush()
+
 	actions.addXAxis({
 		allowDataOverflow: false,
 		allowDecimals: true,
@@ -82,6 +87,8 @@ function makeState(): ChartState {
 		type: "number",
 		unit: undefined,
 	})
+
+	flush()
 
 	return store
 }
@@ -242,6 +249,7 @@ describe("selectAllXAxes — behaviour invariance", () => {
 			type: "number",
 			unit: undefined,
 		})
+		flush()
 		actions.addXAxis({
 			allowDataOverflow: false,
 			allowDecimals: true,
@@ -268,6 +276,7 @@ describe("selectAllXAxes — behaviour invariance", () => {
 			type: "number",
 			unit: undefined,
 		})
+		flush()
 		expect(selectAllXAxes(store)).toHaveLength(2)
 	})
 
@@ -329,6 +338,7 @@ describe("selectAllYAxes — behaviour invariance", () => {
 			unit: undefined,
 			width: 60,
 		})
+		flush()
 		actions.addYAxis({
 			allowDataOverflow: false,
 			allowDecimals: true,
@@ -355,6 +365,7 @@ describe("selectAllYAxes — behaviour invariance", () => {
 			unit: undefined,
 			width: 40,
 		})
+		flush()
 		expect(selectAllYAxes(store)).toHaveLength(2)
 	})
 
@@ -418,7 +429,9 @@ describe("selectXAxisSettingsNoDefaults — behaviour invariance", () => {
 			unit: undefined,
 		}
 		actions.addXAxis(xAxis0)
+		flush()
 		actions.addXAxis({ ...xAxis0, height: 20, id: 1, orientation: "top" })
+		flush()
 
 		expect(selectXAxisSettingsNoDefaults(store, 0)?.orientation).toBe("bottom")
 		expect(selectXAxisSettingsNoDefaults(store, 1)?.orientation).toBe("top")
@@ -454,9 +467,11 @@ describe("selectXAxisSettingsNoDefaults — behaviour invariance", () => {
 			unit: undefined,
 		}
 		actions.addXAxis(base)
+		flush()
 		const before = selectXAxisSettingsNoDefaults(store, 0)
 
 		actions.addXAxis({ ...base, id: 1, orientation: "top" })
+		flush()
 		const after = selectXAxisSettingsNoDefaults(store, 0)
 
 		expect(after).toEqual(before)
@@ -516,7 +531,9 @@ describe("selectYAxisSettingsNoDefaults — behaviour invariance", () => {
 			width: 60,
 		}
 		actions.addYAxis(base)
+		flush()
 		actions.addYAxis({ ...base, id: 1, orientation: "right", width: 40 })
+		flush()
 
 		expect(selectYAxisSettingsNoDefaults(store, 0)?.orientation).toBe("left")
 		expect(selectYAxisSettingsNoDefaults(store, 1)?.orientation).toBe("right")
@@ -552,9 +569,11 @@ describe("selectYAxisSettingsNoDefaults — behaviour invariance", () => {
 			width: 60,
 		}
 		actions.addYAxis(base)
+		flush()
 		const before = selectYAxisSettingsNoDefaults(store, 0)
 
 		actions.addYAxis({ ...base, id: 1, orientation: "right" })
+		flush()
 		const after = selectYAxisSettingsNoDefaults(store, 0)
 
 		expect(after).toEqual(before)

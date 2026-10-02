@@ -3,7 +3,7 @@ import { isNan } from "./DataUtils"
 
 const MULTIPLY_OR_DIVIDE_REGEX = /(-?\d+(?:\.\d+)?[a-zA-Z%]*)([*/])(-?\d+(?:\.\d+)?[a-zA-Z%]*)/
 const ADD_OR_SUBTRACT_REGEX = /(-?\d+(?:\.\d+)?[a-zA-Z%]*)([+-])(-?\d+(?:\.\d+)?[a-zA-Z%]*)/
-const CSS_LENGTH_UNIT_REGEX = /^px|cm|vh|vw|em|rem|%|mm|in|pt|pc|ex|ch|vmin|vmax|Q$/
+const CSS_LENGTH_UNIT_REGEX = /^(px|cm|vh|vw|em|rem|%|mm|in|pt|pc|ex|ch|vmin|vmax|Q)$/
 const NUM_SPLIT_REGEX = /(-?\d+(?:\.\d+)?)([a-zA-Z%]+)?/
 
 type SupportedUnits = "cm" | "mm" | "pt" | "pc" | "in" | "Q" | "px"
@@ -128,7 +128,7 @@ function calculateArithmetic(expr: string | undefined): string {
 		if (result.isNaN()) {
 			return STR_NAN
 		}
-		newExpr = newExpr.replace(MULTIPLY_OR_DIVIDE_REGEX, result.toString())
+		newExpr = newExpr.replace(MULTIPLY_OR_DIVIDE_REGEX, () => result.toString())
 	}
 
 	while (newExpr.includes("+") || /.-\d+(?:\.\d+)?/.test(newExpr)) {
@@ -139,7 +139,7 @@ function calculateArithmetic(expr: string | undefined): string {
 		if (result.isNaN()) {
 			return STR_NAN
 		}
-		newExpr = newExpr.replace(ADD_OR_SUBTRACT_REGEX, result.toString())
+		newExpr = newExpr.replace(ADD_OR_SUBTRACT_REGEX, () => result.toString())
 	}
 
 	return newExpr
@@ -152,7 +152,9 @@ function calculateParentheses(expr: string): string {
 	let match: ReturnType<typeof RegExp.prototype.exec> | null
 	while ((match = PARENTHESES_REGEX.exec(newExpr)) != null) {
 		const [, parentheticalExpression] = match
-		newExpr = newExpr.replace(PARENTHESES_REGEX, calculateArithmetic(parentheticalExpression))
+		newExpr = newExpr.replace(PARENTHESES_REGEX, () =>
+			calculateArithmetic(parentheticalExpression),
+		)
 	}
 
 	return newExpr

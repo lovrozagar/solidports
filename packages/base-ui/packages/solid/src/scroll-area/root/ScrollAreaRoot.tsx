@@ -1,4 +1,5 @@
-import { batch, createMemo, createSignal, type JSX } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useCSPContext } from '../../csp-provider/CSPContext';
 import { contains } from '../../floating-ui-solid/utils';
 import { splitComponentProps, useRef } from '../../solid-helpers';
@@ -184,14 +185,14 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
   }
 
   function handlePointerEnterOrMove(event: PointerEvent) {
-    batch(() => {
+    {
       handleTouchModalityChange(event);
 
       if (event.pointerType !== 'touch') {
         const isTargetRootChild = contains(rootRef.current, event.target as Element);
         setHovering(isTargetRootChild);
       }
-    });
+    };
   }
 
   const state: ScrollAreaRoot.State = {
@@ -281,9 +282,9 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
   useStyleDisableScrollbar(csp);
 
   return (
-    <ScrollAreaRootContext.Provider value={contextValue}>
+    <ScrollAreaRootContext value={contextValue}>
       {element()}
-    </ScrollAreaRootContext.Provider>
+    </ScrollAreaRootContext>
   );
 }
 

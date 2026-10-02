@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -23,7 +23,7 @@ export function ProgressValue(componentProps: ProgressValue.Props) {
     get children() {
       return componentProps.children?.(formattedValueArg(), value()) ?? formattedValueDisplay();
     },
-    props: [{ 'aria-hidden': true }, elementProps],
+    props: [{ 'aria-hidden': 'true' }, elementProps],
     state,
     stateAttributesMapping: progressStateAttributesMapping,
   });

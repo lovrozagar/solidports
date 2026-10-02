@@ -29,8 +29,8 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     'value',
   ]);
   const idProp = () => local.id;
-  const nativeButton = () => local.nativeButton ?? false;
-  const disabledProp = () => local.disabled ?? false;
+  const nativeButton = () => Boolean(local.nativeButton);
+  const disabledProp = () => Boolean(local.disabled);
   const closeOnClick = () => local.closeOnClick ?? false;
 
   const listItem = useCompositeListItem({ label: () => local.label });
@@ -94,7 +94,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
         {
           role: 'menuitemradio' as const,
           get 'aria-checked'() {
-            return checked();
+            return checked() ? 'true' : 'false';
           },
           onClick: handleClick,
         },
@@ -111,7 +111,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
   });
 
   return (
-    <MenuRadioItemContext.Provider value={contextValue}>{element()}</MenuRadioItemContext.Provider>
+    <MenuRadioItemContext value={contextValue}>{element()}</MenuRadioItemContext>
   );
 }
 

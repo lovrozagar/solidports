@@ -1,6 +1,8 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { Show } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { useShapeElementProps } from "../util/ShapeElementProps"
+import type { WithoutRemoveFalse } from "../util/types"
+import { Show } from 'solid-js';
 import { clsx } from "clsx"
 import type { GeometrySector, GeometrySectorWithCornerRadius } from "../util/types"
 import { polarToCartesian, RADIAN } from "../util/PolarUtils"
@@ -249,42 +251,42 @@ interface SectorProps {
 	/**
 	 * The customized event handler of click on the sector
 	 */
-	onClick?: (e: MouseEvent) => void
+	onClick?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mousedown on the sector
 	 */
-	onMouseDown?: (e: MouseEvent) => void
+	onMouseDown?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseup on the sector
 	 */
-	onMouseUp?: (e: MouseEvent) => void
+	onMouseUp?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mousemove on the sector
 	 */
-	onMouseMove?: (e: MouseEvent) => void
+	onMouseMove?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseover on the sector
 	 */
-	onMouseOver?: (e: MouseEvent) => void
+	onMouseOver?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseout on the sector
 	 */
-	onMouseOut?: (e: MouseEvent) => void
+	onMouseOut?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseenter on the sector
 	 */
-	onMouseEnter?: (e: MouseEvent) => void
+	onMouseEnter?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 	/**
 	 * The customized event handler of mouseleave on the sector
 	 */
-	onMouseLeave?: (e: MouseEvent) => void
+	onMouseLeave?: (e: MouseEvent & { currentTarget: SVGPathElement }) => void
 }
 
 /**
  * SVG cx, cy are `string | number | undefined`, but internally we use `number` so let's
  * override the types here.
  */
-export type Props = Omit<JSX.PathSVGAttributes<SVGPathElement>, "cx" | "cy"> & Partial<SectorProps>
+export type Props = WithoutRemoveFalse<Omit<JSX.PathSVGAttributes<SVGPathElement>, "cx" | "cy" | keyof SectorProps>> & Partial<SectorProps>
 
 export const defaultSectorProps = {
 	cornerIsExternal: false,
@@ -298,7 +300,9 @@ export const defaultSectorProps = {
 	startAngle: 0,
 } as const satisfies Partial<Props>
 
-export function Sector(sectorProps: Props) {
+export function Sector(ownProps: Props) {
+	/* Props injected for a shape passed as an element (see ShapeElementProps). */
+	const sectorProps = useShapeElementProps(ownProps)
 	const props = resolveDefaultProps(sectorProps, defaultSectorProps)
 
 	const isValid = () =>

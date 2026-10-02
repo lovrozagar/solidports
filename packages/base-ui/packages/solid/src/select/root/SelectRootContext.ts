@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value erased at context */
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { UseFieldValidationReturnValue } from '../../field/root/useFieldValidation';
 import { type FloatingEvents, type FloatingRootContext } from '../../floating-ui-solid';
 import type { ReactLikeRef } from '../../solid-helpers';

@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -31,7 +31,6 @@ export default function ExampleFuzzyMatchingAutocomplete() {
             <Autocomplete.List class="flex max-h-[min(var(--available-height),28rem)] flex-col overflow-y-auto overscroll-contain py-1 scroll-pt-1 scroll-pb-1 empty:p-0">
               {(item: FuzzyItem) => (
                 <Autocomplete.Item
-                  key={item.title}
                   value={item}
                   class="flex cursor-default py-3 pr-2 pl-2 text-sm leading-6 outline-hidden select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:before:absolute data-highlighted:before:inset-x-0 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-100 dark:data-highlighted:before:bg-neutral-800"
                 >
@@ -71,7 +70,7 @@ function highlightText(text: string, query: string): JSX.Element {
 
   return text.split(regex).map((part, idx) =>
     regex.test(part) ? (
-      <mark key={idx} class="bg-transparent font-bold text-blue-800 dark:text-blue-500">
+      <mark class="bg-transparent font-bold text-blue-800 dark:text-blue-500">
         {part}
       </mark>
     ) : (

@@ -1,13 +1,13 @@
 /* eslint-disable typescript/no-explicit-any -- ref forwarding + ownerDocument event bridge */
 import {
-  createEffect,
+  createTrackedEffect,
   createMemo,
-  createRenderEffect,
+  createEffect,
   createSignal,
   Show,
-  type Accessor,
-  type JSX,
 } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { FocusableElement } from 'tabbable';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { useCompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
@@ -73,8 +73,8 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     'handle',
     'payload',
   ]);
-  const disabledProp = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? true;
+  const disabledProp = () => Boolean(local.disabled);
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
   const idProp = () => local.id;
   const openOnHoverProp = () => local.openOnHover;
   const delay = () => local.delay ?? 100;
@@ -145,7 +145,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     native: nativeButton,
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!isOpenedByThisTrigger() && parent.type === undefined) {
       store.context.allowMouseUpTriggerRef.current = false;
     }
@@ -192,7 +192,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     floatingTreeRoot.events.emit('close', { domEvent: mouseEvent, reason: REASONS.cancelOpen });
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (isOpenedByThisTrigger() && store.select('lastOpenChangeReason') === REASONS.triggerHover) {
       const doc = ownerDocument(triggerRef ?? null);
       doc.addEventListener('mouseup', handleDocumentMouseUp, { once: true });
@@ -545,21 +545,24 @@ function useStickIfOpen(
 ) {
   const stickIfOpenTimeout = useTimeout();
   const [stickIfOpen, setStickIfOpen] = createSignal(false);
-  createRenderEffect(() => {
-    hoverResetTick();
-
-    if (open() && openReason() === 'trigger-hover') {
-      // Only allow "patient" clicks to close the menu if it's open.
-      // If they clicked within 500ms of the menu opening, keep it open.
-      setStickIfOpen(true);
-      stickIfOpenTimeout.start(PATIENT_CLICK_THRESHOLD, () => {
-        setStickIfOpen(false);
-      });
-    } else if (!open()) {
-      stickIfOpenTimeout.clear();
-      setStickIfOpen(false);
-    }
-  });
+  createEffect(
+    () => [hoverResetTick(), open(), openReason()] as const,
+    ([, isOpen, reason]) => {
+      if (isOpen && reason === 'trigger-hover') {
+        // Only allow "patient" clicks to close the menu if it's open.
+        // If they clicked within 500ms of the menu opening, keep it open.
+        setStickIfOpen(true);
+        stickIfOpenTimeout.start(PATIENT_CLICK_THRESHOLD, () => {
+          setStickIfOpen(false);
+        });
+      } else if (!isOpen) {
+        stickIfOpenTimeout.clear();
+        if (stickIfOpen()) {
+          setStickIfOpen(false);
+        }
+      }
+    },
+  );
 
   return stickIfOpen;
 }
@@ -578,7 +581,7 @@ function useMenuParent(): MenuParent {
 
   // Ensure this is not a Menu nested inside ContextMenu.Trigger.
   // ContextMenu parentContext is always undefined as ContextMenu.Root is instantiated with
-  // <MenuRootContext.Provider value={undefined}>
+  // <MenuRootContext value={undefined}>
   if (contextMenuContext && !parentContext) {
     return {
       context: contextMenuContext,

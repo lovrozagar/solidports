@@ -1,4 +1,4 @@
-import type { JSX } from "solid-js";
+import type { JSX } from "@solidjs/web";
 import { Button, type ButtonProps } from "@solidports/flare-ui/button";
 
 type TriggerProps = JSX.HTMLAttributes<HTMLButtonElement>;

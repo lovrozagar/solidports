@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { useIsPanorama } from "../context/PanoramaContext"
 import { useOptionalChartState } from "./useChartState"
 import { RechartsStateProvider } from "./RechartsStateProvider"

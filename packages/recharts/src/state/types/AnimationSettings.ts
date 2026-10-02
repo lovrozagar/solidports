@@ -1,6 +1,6 @@
 /**
  * Tagged union for an item during animation.
- * Implementations of match/interpolate live in src/animation (phase 7).
+ * Match helpers live in `src/animation/matchBy.ts`.
  */
 export type AnimationItem<T> =
 	| { readonly status: "matched"; readonly prev: T; readonly next: T }

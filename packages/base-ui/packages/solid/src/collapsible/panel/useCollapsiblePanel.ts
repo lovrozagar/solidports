@@ -1,11 +1,5 @@
-import {
-  createEffect,
-  createMemo,
-  on,
-  onCleanup,
-  onMount,
-  type JSX,
-} from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, onCleanup, onSettled } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { AccordionRootDataAttributes } from '../../accordion/root/AccordionRootDataAttributes';
 import { access, type MaybeAccessor, type ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -16,6 +10,7 @@ import { warn } from '../../utils/warn';
 import type { CollapsibleRoot } from '../root/CollapsibleRoot';
 import type { AnimationType, Dimensions } from '../root/useCollapsibleRoot';
 import { CollapsiblePanelDataAttributes } from './CollapsiblePanelDataAttributes';
+import { on } from '../../solid-1-compat';
 
 export function useCollapsiblePanel(
   parameters: useCollapsiblePanel.Parameters,
@@ -49,27 +44,18 @@ export function useCollapsiblePanel(
   });
 
   /**
-   * When `keepMounted` is `true` this runs once as soon as it exists in the DOM
-   * regardless of initial open state.
-   *
-   * When `keepMounted` is `false` this runs on every mount, typically every
-   * time it opens. If the panel is in the middle of a close transition that is
-   * interrupted and re-opens, this won't run as the panel was not unmounted.
+   * Reads the panel's computed styles once to pick the animation strategy. Solid 2 applies
+   * refs before the element is attached, so the open effect also calls this once the panel is
+   * in the document instead of waiting for the deferred ref callback.
    */
-  function handlePanelRef(element: HTMLElement | null | undefined) {
-    if (!element) {
-      return;
-    }
-    /* Solid native-element refs can fire while the element is parented but before its parent is attached to the document — getComputedStyle returns empty strings until then.
-       Defer to a microtask so the connection completes before measuring. */
-    if (!element.isConnected) {
-      queueMicrotask(() => handlePanelRef(element));
-      return;
-    }
+  function detectAnimationType(element: HTMLElement) {
     if (
-      parameters.animationTypeRef.current == null ||
-      parameters.transitionDimensionRef.current == null
+      parameters.animationTypeRef.current != null &&
+      parameters.transitionDimensionRef.current != null
     ) {
+      return;
+    }
+    {
       const panelStyles = getComputedStyle(element);
 
       const hasAnimation = panelStyles.animationName !== 'none' && panelStyles.animationName !== '';
@@ -110,6 +96,35 @@ export function useCollapsiblePanel(
         parameters.transitionDimensionRef.current = 'height';
       }
     }
+  }
+
+  /* Refs run without an owner in Solid 2, so the ref callback's frames are cancelled here. */
+  let refFrame = -1;
+  let refNextFrame = -1;
+  onCleanup(() => {
+    AnimationFrame.cancel(refFrame);
+    AnimationFrame.cancel(refNextFrame);
+  });
+
+  /**
+   * When `keepMounted` is `true` this runs once as soon as it exists in the DOM
+   * regardless of initial open state.
+   *
+   * When `keepMounted` is `false` this runs on every mount, typically every
+   * time it opens. If the panel is in the middle of a close transition that is
+   * interrupted and re-opens, this won't run as the panel was not unmounted.
+   */
+  function handlePanelRef(element: HTMLElement | null | undefined) {
+    if (!element) {
+      return;
+    }
+    /* Solid native-element refs can fire while the element is parented but before its parent is attached to the document — getComputedStyle returns empty strings until then.
+       Defer to a microtask so the connection completes before measuring. */
+    if (!element.isConnected) {
+      queueMicrotask(() => handlePanelRef(element));
+      return;
+    }
+    detectAnimationType(element);
 
     if (parameters.animationTypeRef.current !== 'css-transition') {
       return;
@@ -146,12 +161,11 @@ export function useCollapsiblePanel(
       }
     }
 
-    let frame = -1;
-    let nextFrame = -1;
-
-    frame = AnimationFrame.request(() => {
+    AnimationFrame.cancel(refFrame);
+    AnimationFrame.cancel(refNextFrame);
+    refFrame = AnimationFrame.request(() => {
       shouldCancelInitialOpenTransitionRef = false;
-      nextFrame = AnimationFrame.request(() => {
+      refNextFrame = AnimationFrame.request(() => {
         /**
          * This is slightly faster than another RAF and is the earliest
          * opportunity to remove the temporary `transition-duration: 0s` that
@@ -163,22 +177,20 @@ export function useCollapsiblePanel(
         });
       });
     });
-
-    onCleanup(() => {
-      AnimationFrame.cancel(frame);
-      AnimationFrame.cancel(nextFrame);
-    });
   }
 
-  createEffect(
-    on([hiddenUntilFound, keepMounted, mounted, open], () => {
-      if (parameters.animationTypeRef.current !== 'css-transition') {
-        return;
-      }
-
+  createEffect(...on([hiddenUntilFound, keepMounted, mounted, open], () => {
       const panel = parameters.panelRef.current;
 
       if (!panel) {
+        return;
+      }
+
+      if (panel.isConnected) {
+        detectAnimationType(panel);
+      }
+
+      if (parameters.animationTypeRef.current !== 'css-transition') {
         return;
       }
 
@@ -265,24 +277,21 @@ export function useCollapsiblePanel(
           attributes: true,
         });
 
-        onCleanup(() => {
+        return () => {
           attributeObserver?.disconnect();
           endingStyleFrame.cancel();
           if (parameters.abortControllerRef.current === abortController) {
             abortController.abort();
             parameters.abortControllerRef.current = null;
           }
-        });
-        return;
+        };
       }
 
-      onCleanup(() => {
-        AnimationFrame.cancel(resizeFrame);
-      });
+      return () => AnimationFrame.cancel(resizeFrame);
     }),
   );
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (parameters.animationTypeRef.current !== 'css-animation') {
       return;
     }
@@ -319,14 +328,26 @@ export function useCollapsiblePanel(
     }
   });
 
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const frame = AnimationFrame.request(() => {
       shouldCancelInitialOpenAnimationRef = false;
     });
-    onCleanup(() => AnimationFrame.cancel(frame));
-  });
+    _c.push(() => AnimationFrame.cancel(frame));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!hiddenUntilFound()) {
       return;
     }
@@ -352,13 +373,19 @@ export function useCollapsiblePanel(
       });
     }
 
-    onCleanup(() => {
+    _c.push(() => {
       AnimationFrame.cancel(frame);
       AnimationFrame.cancel(nextFrame);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     const panel = parameters.panelRef.current;
 
     if (panel && hiddenUntilFound() && hidden()) {
@@ -380,7 +407,10 @@ export function useCollapsiblePanel(
     }
   });
 
-  createEffect(function registerBeforeMatchListener() {
+  createTrackedEffect(function registerBeforeMatchListener() {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const panel = parameters.panelRef.current;
     if (!panel) {
       return;
@@ -393,10 +423,16 @@ export function useCollapsiblePanel(
     }
 
     panel.addEventListener('beforematch', handleBeforeMatch);
-    onCleanup(() => {
+    _c.push(() => {
       panel.removeEventListener('beforematch', handleBeforeMatch);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   return {
     props: {

@@ -1,7 +1,9 @@
 import { createRenderer } from '#test-utils';
 import { expect } from 'chai';
-import { createSignal, type Accessor, type JSX } from 'solid-js';
-import { Dynamic } from 'solid-js/web';
+import { createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
 import { useControlled } from './useControlled';
 
 interface TestComponentChildrenArgument {

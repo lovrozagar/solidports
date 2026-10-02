@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { untrack } from "solid-js"
-import { createStore } from "solid-js/store"
+import { untrack, flush } from 'solid-js';
 import { createInitialChartState } from "../../../src/state/chartState"
 import type { ChartState } from "../../../src/state/chartState"
 import type { TooltipState } from "../../../src/state/tooltipSlice"
 import type { LegendState } from "../../../src/state/legendSlice"
 import type { BrushSettings } from "../../../src/state/brushSlice"
 
+import { createStore } from '../../../src/util/solid-1-compat';
 describe("Phase 5 — ChartState cross-cutting slice shapes", () => {
 	it("createInitialChartState yields tooltip with all required interaction fields", () => {
 		/* Passes at Phase 4 baseline — tooltip shape already populated by makeTooltipState().
@@ -53,7 +53,9 @@ describe("Phase 5 — ChartState cross-cutting slice shapes", () => {
 		const [state, setState] = createStore<ChartState>(createInitialChartState())
 
 		setState("tooltip", "settings", "trigger" as never, "click" as never)
+		flush()
 		setState("tooltip", "settings", "axisId" as never, "custom-axis" as never)
+		flush()
 
 		const trigger = untrack(() => state.tooltip.settings.trigger)
 		const axisId = untrack(() => state.tooltip.settings.axisId)

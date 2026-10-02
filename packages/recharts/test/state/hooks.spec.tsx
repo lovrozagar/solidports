@@ -1,6 +1,6 @@
-import { render } from "@solidjs/testing-library"
+import { render } from "../helper/render"
 import { describe, expect, it } from "vitest"
-import { createEffect } from "solid-js"
+import { untrack, createEffect, onSettled } from 'solid-js';
 import { useAppDispatch, useAppSelector } from "../helper/legacyDispatch"
 import { RechartsStoreProvider } from "../../src/state/RechartsStoreProvider"
 import { useChartState } from "../../src/state/useChartState"
@@ -10,7 +10,7 @@ describe("useAppSelector", () => {
 	it("should return undefined when used outside of Redux context", () => {
 		expect.assertions(1)
 		const Spy = (): null => {
-			const state = useAppSelector((s) => s)
+			const state = untrack(() => useAppSelector((s) => s))
 			expect(state).toBe(undefined)
 			return null
 		}
@@ -19,7 +19,7 @@ describe("useAppSelector", () => {
 
 	it("should not throw an error when used outside of Redux context", () => {
 		const Spy = (): null => {
-			useAppSelector((s) => s)
+			untrack(() => useAppSelector((s) => s))
 			return null
 		}
 		expect(() => render(() => <Spy />)).not.toThrow()
@@ -28,7 +28,7 @@ describe("useAppSelector", () => {
 	it("should return state when inside a Redux context", () => {
 		expect.assertions(1)
 		const Spy = (): null => {
-			const state = useAppSelector((s) => s)
+			const state = untrack(() => useAppSelector((s) => s))
 			expect(state).not.toBe(undefined)
 			return null
 		}
@@ -46,19 +46,21 @@ describe("useAppSelector", () => {
 		   value. Both assertions land off a single tracked read. */
 		expect.assertions(2)
 		const Spy = (): null => {
-			const state = useAppSelector((s) => s)
+			const state = untrack(() => useAppSelector((s) => s))
 			const chart = useChartState()
 			let dispatched = false
-			createEffect(() => {
-				const data = state?.chartData.chartData
-				if (!dispatched) {
-					expect(data).toBe(undefined)
-					dispatched = true
-					createActions(chart.state, chart.setState).setChartData([])
-					return
-				}
-				expect(data).toEqual([])
-			})
+			createEffect(
+				() => state?.chartData.chartData,
+				(data) => {
+					if (!dispatched) {
+						expect(data).toBe(undefined)
+						dispatched = true
+						createActions(chart.state, chart.setState).setChartData([])
+						return
+					}
+					untrack(() => expect(data).toEqual([]))
+				},
+			)
 			return null
 		}
 		render(() => (
@@ -90,9 +92,12 @@ describe("useAppDispatch", () => {
 		const calls: Array<unknown> = []
 		const Dispatcher = (): null => {
 			const dispatch = useAppDispatch()
-			dispatch((setStore) => {
-				calls.push("ran")
-				setStore("chartData", "chartData", [])
+			/* Solid 2 rejects writes from a component body; dispatch once mounted. */
+			onSettled(() => {
+				dispatch((setStore) => {
+					calls.push("ran")
+					setStore("chartData", "chartData", [])
+				})
 			})
 			return null
 		}

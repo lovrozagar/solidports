@@ -1,3 +1,4 @@
+import { flush } from "solid-js"
 import { assertNotNull } from "./assertNotNull"
 
 export function focusTestHelper(
@@ -12,6 +13,8 @@ export function focusTestHelper(
 	assertNotNull(element)
 	if (element instanceof HTMLElement || element instanceof SVGElement) {
 		element.focus()
+		/* Direct DOM focus bypasses testing-library's event wrapper. */
+		flush()
 		return element
 	}
 	throw new Error(`Expected instance of HTMLElement or SVGElement, instead got: ${element}`)

@@ -1,12 +1,15 @@
-import type { CSSProperties, JSX } from "solid-js"
-import { createEffect, createSignal, mergeProps } from "solid-js"
+import type { CSSProperties } from 'solid-js';
+import { observe } from "../helper/observe"
+import type { JSX } from '@solidjs/web';
+import { createSignal, untrack, flush } from 'solid-js'
 import { Mock, MockInstance, vi } from "vitest"
-import { render, screen } from "@solidjs/testing-library"
+import { render, screen } from "../helper/render"
 import { ResponsiveContainer } from "../../src"
 import { mockGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
 import { assertNotNull } from "../helper/assertNotNull"
 import { useResponsiveContainerContext } from "../../src/component/ResponsiveContainer"
 
+import { mergeProps } from '../../src/util/solid-1-compat';
 declare global {
 	interface Window {
 		ResizeObserver: unknown
@@ -34,7 +37,11 @@ describe("<ResponsiveContainer />", () => {
 		 * from inside our test.
 		 */
 		resizeObserverMock = vi.fn().mockImplementation(function (this: unknown, callback: unknown) {
-			notifyResizeObserverChange = callback as (arg: unknown) => void
+			notifyResizeObserverChange = (arg: unknown) => {
+				;(callback as (arg: unknown) => void)(arg)
+				/* The observer callback writes signals; flush like a browser frame would. */
+				flush()
+			}
 
 			return {
 				disconnect: vi.fn(),
@@ -52,22 +59,30 @@ describe("<ResponsiveContainer />", () => {
 
 	const DimensionSpy = (_props: { style?: CSSProperties }) => {
 		const props = mergeProps({ style: {} as CSSProperties }, _props)
-		const ctx = useResponsiveContainerContext()
+		const ctx = untrack(() => useResponsiveContainerContext())
 		return (
 			<div
 				data-testid="inside"
 				style={{
 					...props.style,
-					get height() {
-						return typeof ctx.height === "number" ? `${ctx.height}px` : ctx.height
-					},
-					get width() {
-						return typeof ctx.width === "number" ? `${ctx.width}px` : ctx.width
-					},
+					height: typeof ctx.height === "number" ? `${ctx.height}px` : ctx.height,
+					width: typeof ctx.width === "number" ? `${ctx.width}px` : ctx.width,
 				}}
 			/>
 		)
 	}
+	it("should not warn on initial render before dimensions are measured", () => {
+		mockGetBoundingClientRect({ height: 200, width: 400 })
+
+		render(() => (
+			<ResponsiveContainer width="100%" height="100%">
+				<DimensionSpy />
+			</ResponsiveContainer>
+		))
+
+		expect(consoleWarnSpy).not.toHaveBeenCalled()
+	})
+
 
 	it("Render a wrapper container in ResponsiveContainer", () => {
 		const { container } = render(() => (
@@ -204,6 +219,7 @@ describe("<ResponsiveContainer />", () => {
 
 		notifyResizeObserverChange([{ contentRect: { height: 10, width: 10 } }])
 		vi.advanceTimersByTime(300)
+		flush()
 
 		const testDivBefore = screen.getByTestId("inside")
 		assertNotNull(testDivBefore)
@@ -218,12 +234,14 @@ describe("<ResponsiveContainer />", () => {
 
 		// advance time by 100ms, should still be the same
 		vi.advanceTimersByTime(100)
+		flush()
 		const testDivAfter100ms = screen.getByTestId("inside")
 		assertNotNull(testDivAfter100ms)
 		expect(testDivAfter100ms).toHaveStyle({ height: "200px", width: "10px" })
 
 		// advance time by another 100ms (total of 200ms) and now it should resize
 		vi.advanceTimersByTime(100)
+		flush()
 		const testDivAfter = screen.getByTestId("inside")
 		assertNotNull(testDivAfter)
 		// should have resized now
@@ -361,7 +379,7 @@ describe("<ResponsiveContainer />", () => {
 	it("should not re-create ResizeObserver when onResize function instance changes", () => {
 		const onResize1 = vi.fn()
 		const onResize2 = vi.fn()
-		const [onResize, setOnResize] = createSignal(onResize1)
+		const [onResize, setOnResize] = createSignal(() => onResize1)
 		render(() => (
 			<ResponsiveContainer onResize={onResize()}>
 				<div />
@@ -373,6 +391,7 @@ describe("<ResponsiveContainer />", () => {
 		expect(resizeObserverMock).toHaveBeenCalledTimes(1)
 
 		setOnResize(() => onResize2)
+		flush()
 
 		expect(initialObserverInstance.disconnect).not.toHaveBeenCalled()
 		expect(resizeObserverMock).toHaveBeenCalledTimes(1)
@@ -416,9 +435,9 @@ describe("<ResponsiveContainer />", () => {
 	it("should not re-render child if container size has not changed", () => {
 		const childRenderSpy = vi.fn()
 		function Child(): JSX.Element {
-			const ctx = useResponsiveContainerContext()
+			const ctx = untrack(() => useResponsiveContainerContext())
 			/* Solid reactivity: createEffect re-fires on size changes; same rounded value memoized at signal level so spy stays at last fire count */
-			createEffect(() => {
+			observe(() => {
 				childRenderSpy(ctx.width, ctx.height)
 			})
 			return null

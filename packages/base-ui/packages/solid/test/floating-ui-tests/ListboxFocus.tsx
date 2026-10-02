@@ -1,4 +1,6 @@
-import { createContext, createSignal, useContext, type Accessor, type JSX } from 'solid-js';
+import { createContext, createSignal, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../src/internals/composite/list/CompositeList';
 import { useCompositeListItem } from '../../src/internals/composite/list/useCompositeListItem';
 import {
@@ -83,14 +85,14 @@ function Listbox(props: { children: JSX.Element }) {
   };
 
   return (
-    <SelectContext.Provider value={selectContext}>
+    <SelectContext value={selectContext}>
       <button onClick={() => setSelectedIndex(1)} data-testid="reference" type="button">
         Select
       </button>
       <div ref={refs.setFloating} {...getFloatingProps()}>
         <CompositeList refs={compositeListRefs}>{props.children}</CompositeList>
       </div>
-    </SelectContext.Provider>
+    </SelectContext>
   );
 }
 
@@ -113,7 +115,7 @@ function Option(props: { label: string }) {
       type="button"
       role="option"
       aria-selected={isActive() && isSelected()}
-      tabIndex={isFocusable() ? 0 : -1}
+      tabindex={isFocusable() ? 0 : -1}
       style={{
         background: isActive() ? 'cyan' : '',
         'font-weight': isSelected() ? 'bold' : '',

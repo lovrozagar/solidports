@@ -1,7 +1,8 @@
-import { splitProps, type JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { ScrollArea as BaseScrollArea } from "@solidports/base-ui/scroll-area"
 import clsx from "clsx"
 
+import { splitProps } from '../utils/solid-1-compat';
 export const Root = BaseScrollArea.Root
 
 export function Viewport(props: BaseScrollArea.Viewport.Props) {

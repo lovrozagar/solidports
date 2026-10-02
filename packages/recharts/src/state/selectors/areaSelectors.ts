@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { NullableCoordinate } from "../../util/types"
+import type { DataKey, NullableCoordinate } from "../../util/types"
 import { computeArea } from "../../cartesian/Area"
 import {
 	selectAxisWithScale,
@@ -12,6 +12,7 @@ import type { AxisId, XAxisSettings, YAxisSettings } from "../cartesianAxisSlice
 import { selectChartLayout } from "../../context/chartLayoutContext"
 import { selectChartDataWithIndexesIfNotInPanoramaPosition3 } from "./dataSelectors"
 import { getBandSizeOfAxis, isCategoricalAxis, type StackId } from "../../util/ChartUtils"
+import { isNotNil } from "../../util/DataUtils"
 import type { ChartData } from "../chartDataSlice"
 import { getStackSeriesIdentifier } from "../../util/stacks/getStackSeriesIdentifier"
 import type {
@@ -180,6 +181,23 @@ export function selectGraphicalItemStackedData(
 	return found.map((item): StackDataPoint => [item[0], item[1]])
 }
 
+function selectStackDataKeys(
+	state: ChartState,
+	id: GraphicalItemId,
+	isPanorama: boolean,
+): ReadonlyArray<DataKey<unknown>> | undefined {
+	const areaSettings = selectSynchronisedAreaSettings(state, id)
+	const stackGroups = selectNumericalAxisStackGroups(state, id, isPanorama)
+	if (areaSettings == null || areaSettings.stackId == null || stackGroups == null) {
+		return undefined
+	}
+	const group: StackGroup | undefined = stackGroups[areaSettings.stackId]
+	if (group == null) {
+		return undefined
+	}
+	return group.graphicalItems.map((item) => item.dataKey).filter(isNotNil)
+}
+
 export function selectArea(
 	state: ChartState,
 	id: GraphicalItemId,
@@ -197,6 +215,7 @@ export function selectArea(
 	const bandSize = selectBandSize(state, id, isPanorama, overrides)
 	const areaSettings = overrides?.areaSettings ?? selectSynchronisedAreaSettings(state, id)
 	const chartBaseValue = selectChartBaseValue(state)
+	const stackDataKeys = selectStackDataKeys(state, id, isPanorama)
 
 	if (
 		areaSettings == null ||
@@ -232,6 +251,7 @@ export function selectArea(
 		displayedData,
 		layout,
 		stackedData,
+		stackDataKeys,
 		xAxis,
 		xAxisTicks,
 		yAxis,

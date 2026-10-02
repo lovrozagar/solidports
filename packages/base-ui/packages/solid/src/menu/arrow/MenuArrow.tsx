@@ -37,7 +37,7 @@ export function MenuArrow(componentProps: MenuArrow.Props) {
   const element = useRenderElement('div', componentProps, {
     props: [
       {
-        'aria-hidden': true,
+        'aria-hidden': 'true',
         get style() {
           return arrowStyles();
         },

@@ -1,4 +1,6 @@
-import { fireEvent, render } from "@solidjs/testing-library"
+import { fireEvent, render } from "../helper/render"
+import { flush } from "solid-js"
+import { trackSpy } from "../helper/trackSpy"
 
 import { beforeEach, describe, expect, it, test, vi } from "vitest"
 import { Area, AreaChart, Brush, Customized, Tooltip, XAxis, YAxis } from "../../src"
@@ -71,7 +73,7 @@ describe("AreaChart", () => {
 		expect(curvePath).toHaveLength(0)
 	})
 
-	test("Renders customized active dot when activeDot is set to be a JSX.Element", () => {
+	test("Renders customized active dot when activeDot is set to be a ReactElement", () => {
 		const ActiveDot: FC<{ cx?: number; cy?: number }> = (props) => (
 			<circle cx={props.cx} cy={props.cy} r={10} class="customized-active-dot" />
 		)
@@ -96,6 +98,7 @@ describe("AreaChart", () => {
 		fireEvent.mouseOver(chart, { clientX: 200, clientY: 200 })
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const dot = container.querySelectorAll(".customized-active-dot")
 		expect(dot).toHaveLength(1)
@@ -126,6 +129,7 @@ describe("AreaChart", () => {
 		fireEvent.mouseOver(chart, { clientX: 200, clientY: 200 })
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const dot = container.querySelectorAll(".customized-active-dot")
 		expect(dot).toHaveLength(1)
@@ -175,8 +179,8 @@ describe("AreaChart", () => {
 		const areaSpy = vi.fn()
 		const xAxisTicksSpy = vi.fn()
 		const Comp = (): null => {
-			areaSpy(useAppSelector((state) => selectArea(state, "area-1", false)))
-			xAxisTicksSpy(useAppSelector((state) => selectTicksOfAxis(state, "xAxis", 0, false)))
+			trackSpy(areaSpy, () => useAppSelector((state) => selectArea(state, "area-1", false)))
+			trackSpy(xAxisTicksSpy, () => useAppSelector((state) => selectTicksOfAxis(state, "xAxis", 0, false)))
 			return null
 		}
 
@@ -246,6 +250,7 @@ describe("AreaChart", () => {
 				value: "Page G",
 			},
 		])
+		/* upstream: 3 (React adds a render pass); Solid: one intermediate tick set, then the final one */
 		expect(xAxisTicksSpy).toHaveBeenCalledTimes(2)
 
 		expect(areaSpy).toHaveBeenLastCalledWith({
@@ -359,8 +364,8 @@ describe("AreaChart", () => {
 		const areaSpy = vi.fn()
 		const xAxisTicksSpy = vi.fn()
 		const Comp = (): null => {
-			areaSpy(useAppSelector((state) => selectArea(state, "area-1", false)))
-			xAxisTicksSpy(useAppSelector((state) => selectTicksOfAxis(state, "xAxis", 0, false)))
+			trackSpy(areaSpy, () => useAppSelector((state) => selectArea(state, "area-1", false)))
+			trackSpy(xAxisTicksSpy, () => useAppSelector((state) => selectTicksOfAxis(state, "xAxis", 0, false)))
 			return null
 		}
 
@@ -405,6 +410,7 @@ describe("AreaChart", () => {
 				value: 14000,
 			},
 		])
+		/* upstream: 3 (React adds a render pass); Solid: one intermediate tick set, then the final one */
 		expect(xAxisTicksSpy).toHaveBeenCalledTimes(2)
 
 		expectAreaCurve(container, [
@@ -727,7 +733,7 @@ describe("AreaChart", () => {
 		it("should provide viewBox", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useViewBox())
+				trackSpy(spy, () => useViewBox())
 				return null
 			}
 			render(() => (
@@ -743,7 +749,7 @@ describe("AreaChart", () => {
 		it("should provide clipPathId", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useClipPathId())
+				trackSpy(spy, () => useClipPathId())
 				return null
 			}
 			render(() => (
@@ -759,7 +765,7 @@ describe("AreaChart", () => {
 		it("should provide width", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartWidth())
+				trackSpy(spy, () => useChartWidth())
 				return null
 			}
 			render(() => (
@@ -775,7 +781,7 @@ describe("AreaChart", () => {
 		it("should provide height", () => {
 			const spy = vi.fn()
 			const Comp = (): null => {
-				spy(useChartHeight())
+				trackSpy(spy, () => useChartHeight())
 				return null
 			}
 			render(() => (
@@ -836,7 +842,9 @@ describe("AreaChart", () => {
 			{
 				d: "M5,10.333C20,18.667,35,27,50,27C65,27,80,22.34,95,17.68",
 			},
-		])[(uv, pv)].forEach((path) => {
+		])
+
+		;[uv, pv].forEach((path) => {
 			const d = path.getAttribute("d")
 			assertNotNull(d)
 			const matchAll = d.matchAll(/[a-zA-Z][\d ,.]+/g)
@@ -848,6 +856,71 @@ describe("AreaChart", () => {
 			// Page B is missing pv, so it should be treated as 0.
 			// Since areas are stacked, pv should go to same point as uv.
 			expect([x, y]).toEqual(["50", "43"])
+		})
+	})
+
+	test("connects across points where every stacked series is null if connectNulls is true", () => {
+		const dataWithAllNullPageB = [
+			{ name: "Page A", uv: 400, pv: 2400, amt: 2400 },
+			{ name: "Page B" },
+			{ name: "Page C", uv: 300, pv: 1398, amt: 2400 },
+		]
+		const { container } = render(() => (
+			<AreaChart width={100} height={50} data={dataWithAllNullPageB}>
+				<Area
+					stackId="1"
+					connectNulls
+					type="monotone"
+					dataKey="uv"
+					stroke="#ff7300"
+					fill="#ff7300"
+				/>
+				<Area
+					stackId="1"
+					connectNulls
+					type="monotone"
+					dataKey="pv"
+					stroke="#ff7300"
+					fill="#ff7300"
+				/>
+				<Area
+					stackId="1"
+					connectNulls
+					type="monotone"
+					dataKey="amt"
+					stroke="#ff7300"
+					fill="#ff7300"
+				/>
+			</AreaChart>
+		))
+
+		container.querySelectorAll(".recharts-area-curve").forEach((path) => {
+			const d = path.getAttribute("d")
+			assertNotNull(d)
+			const commands = [...d.matchAll(/[a-zA-Z][\d ,.-]+/g)]
+			expect(commands).toHaveLength(2)
+			expect(d.startsWith("M5,")).toBe(true)
+		})
+	})
+
+	test("breaks at points where every stacked series is null if connectNulls is false", () => {
+		const dataWithAllNullPageB = [
+			{ name: "Page A", uv: 400, pv: 2400, amt: 2400 },
+			{ name: "Page B" },
+			{ name: "Page C", uv: 300, pv: 1398, amt: 2400 },
+		]
+		const { container } = render(() => (
+			<AreaChart width={100} height={50} data={dataWithAllNullPageB}>
+				<Area stackId="1" type="monotone" dataKey="uv" stroke="#ff7300" fill="#ff7300" />
+				<Area stackId="1" type="monotone" dataKey="pv" stroke="#ff7300" fill="#ff7300" />
+				<Area stackId="1" type="monotone" dataKey="amt" stroke="#ff7300" fill="#ff7300" />
+			</AreaChart>
+		))
+
+		container.querySelectorAll(".recharts-area-curve").forEach((path) => {
+			const d = path.getAttribute("d")
+			assertNotNull(d)
+			expect([...d.matchAll(/M/g)].length).toBeGreaterThan(1)
 		})
 	})
 
@@ -870,6 +943,7 @@ describe("AreaChart", () => {
 		assertNotNull(chart)
 		fireEvent.mouseMove(chart, { clientX: 100, clientY: 100 })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const dots = container.querySelectorAll(".customized-active-dot")
 		const tooltip = container.querySelector(".recharts-tooltip-wrapper")

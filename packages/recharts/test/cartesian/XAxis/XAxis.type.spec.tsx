@@ -1,6 +1,6 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { AxisDomainTypeInput } from "../../../src/util/types"
 import { BarChart, XAxis } from "../../../src"

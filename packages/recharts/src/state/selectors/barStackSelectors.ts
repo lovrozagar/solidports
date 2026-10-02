@@ -70,8 +70,10 @@ function combineStackRects(
 	const stackRects: Array<BarStackItem | undefined> = []
 	allBarIds.forEach((barId) => {
 		const rectangles = selectBarRectangles(state, barId, isPanorama, undefined)
-		rectangles?.forEach((rect, index) => {
-			stackRects[index] = expandRectangle(stackRects[index], rect)
+		rectangles?.forEach((rect) => {
+			/* Rectangles are filtered (zero dimension), so index by the original data position. */
+			const rectIndex = rect.originalDataIndex
+			stackRects[rectIndex] = expandRectangle(stackRects[rectIndex], rect)
 		})
 	})
 	return stackRects

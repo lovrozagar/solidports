@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { UseFieldValidationReturnValue } from '../field/root/useFieldValidation';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { BaseUIEventReasons } from '../utils/reasons';
@@ -18,13 +19,13 @@ export interface CheckboxGroupContext {
   registerControlRef: (element: HTMLButtonElement | null | undefined) => void;
 }
 
-export const CheckboxGroupContext = createContext<CheckboxGroupContext>();
+export const CheckboxGroupContext = createContext<CheckboxGroupContext | null>(null);
 
 export function useCheckboxGroupContext(optional: false): CheckboxGroupContext;
-export function useCheckboxGroupContext(optional?: true): CheckboxGroupContext | undefined;
+export function useCheckboxGroupContext(optional?: true): CheckboxGroupContext | null;
 export function useCheckboxGroupContext(optional = true) {
   const context = useContext(CheckboxGroupContext);
-  if (context === undefined && !optional) {
+  if (context == null && !optional) {
     throw new Error(
       'Base UI: CheckboxGroupContext is missing. CheckboxGroup parts must be placed within <CheckboxGroup>.',
     );

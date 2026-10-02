@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isElement } from '@floating-ui/utils/dom';
-import { createSignal, splitProps } from 'solid-js';
+import { createSignal } from 'solid-js';
 import { useFloatingRootContext } from '../../floating-ui-solid';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_OBJECT, POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
@@ -14,6 +14,7 @@ import { useToastProviderContext } from '../provider/ToastProviderContext';
 import { ToastRootCssVars } from '../root/ToastRootCssVars';
 import type { ToastObject } from '../useToastManager';
 import { ToastPositionerContext } from './ToastPositionerContext';
+import { splitProps } from '../../solid-1-compat';
 
 /**
  * Positions the toast against the anchor.
@@ -152,9 +153,9 @@ export function ToastPositioner(componentProps: ToastPositioner.Props) {
   });
 
   return (
-    <ToastPositionerContext.Provider value={contextValue}>
+    <ToastPositionerContext value={contextValue}>
       {element()}
-    </ToastPositionerContext.Provider>
+    </ToastPositionerContext>
   );
 }
 

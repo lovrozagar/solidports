@@ -1,6 +1,5 @@
 import { Funnel, FunnelChart, LabelList, Tooltip } from "@solidports/recharts"
-import type { Component } from "solid-js"
-
+import type { Component } from 'solid-js';
 import { funnelData } from "../data"
 
 export const FunnelChartExample: Component = () => (

@@ -1,5 +1,5 @@
-import { type Component, createSignal, For, onCleanup, onMount, Show } from "solid-js"
-
+import { createSignal, For, onCleanup, onSettled, Show } from 'solid-js';
+import type { Component } from 'solid-js';
 import { AreaChartExample } from "./examples/AreaChart"
 import { BarChartExample } from "./examples/BarChart"
 import { ComposedChartExample } from "./examples/ComposedChart"
@@ -44,7 +44,7 @@ function readHashId(): string {
 export const App: Component = () => {
 	const [activeId, setActiveId] = createSignal(fallbackId)
 
-	onMount(() => {
+	onSettled(() => {
 		setActiveId(readHashId())
 		const onHash = () => setActiveId(readHashId())
 		window.addEventListener("hashchange", onHash)
@@ -60,7 +60,7 @@ export const App: Component = () => {
 						{(route) => (
 							<a
 								href={`#/${route.id}`}
-								classList={{ active: activeId() === route.id }}
+								class={{ active: activeId() === route.id }}
 							>
 								{route.label}
 							</a>

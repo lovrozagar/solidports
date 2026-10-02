@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, beforeEach } from "vitest"
 import { BarChart, YAxis, XAxis, Tooltip, Bar } from "../../../src"
 import { PageData } from "../../_data"

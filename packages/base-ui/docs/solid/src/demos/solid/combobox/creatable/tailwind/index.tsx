@@ -1,5 +1,5 @@
-import { createSignal, createUniqueId, type JSX } from 'solid-js';
-const React = { forwardRef: (render) => (props) => render(props, props.ref), useActionState: (_action, initial) => [initial, () => {}, false] };
+import { createSignal, createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -18,7 +18,7 @@ export default function ExampleCreatableCombobox() {
   const pendingQueryRef = { current: '' };
   const highlightedItemRef = { current: undefined };
 
-  function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+  function handleInputKeyDown(event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (event.key !== 'Enter' || highlightedItemRef.current) {
       return;
     }
@@ -83,7 +83,7 @@ export default function ExampleCreatableCombobox() {
     setQuery('');
   }
 
-  function handleCreateSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleCreateSubmit(event: Event & { currentTarget: HTMLFormElement }) {
     event.preventDefault();
     handleCreate();
   }
@@ -139,7 +139,6 @@ export default function ExampleCreatableCombobox() {
                 >
                   {(Array.isArray(value) ? value : []).map((label) => (
                     <Combobox.Chip
-                      key={label.id}
                       class="group flex min-h-[calc(1.5rem-2px)] cursor-default items-center gap-1 overflow-hidden bg-neutral-100 py-0 pr-[0.2rem] pl-[0.4rem] text-sm leading-none text-neutral-950 outline-none focus-within:bg-neutral-950 focus-within:text-white [@media(hover:hover)]:data-highlighted:bg-neutral-950 [@media(hover:hover)]:data-highlighted:text-white dark:bg-neutral-800 dark:text-white dark:focus-within:bg-white dark:focus-within:text-neutral-950 dark:[@media(hover:hover)]:data-highlighted:bg-white dark:[@media(hover:hover)]:data-highlighted:text-neutral-950"
                       aria-label={label.value}
                       aria-description="Press Backspace or Delete to remove"
@@ -183,7 +182,6 @@ export default function ExampleCreatableCombobox() {
                 {(item: LabelItem) =>
                   item.creatable ? (
                     <Combobox.Item
-                      key={item.id}
                       class="grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 p-2 text-sm leading-4 outline-none select-none data-selected:relative data-selected:z-0 data-selected:text-neutral-950 data-selected:before:absolute data-selected:before:inset-0 data-selected:before:z-[-1] [@media(hover:hover)]:data-highlighted:relative [@media(hover:hover)]:data-highlighted:z-0 [@media(hover:hover)]:data-highlighted:text-white [@media(hover:hover)]:data-highlighted:before:absolute [@media(hover:hover)]:data-highlighted:before:inset-0 [@media(hover:hover)]:data-highlighted:before:z-[-1] [@media(hover:hover)]:data-highlighted:before:bg-neutral-950 dark:data-selected:text-white dark:[@media(hover:hover)]:data-highlighted:text-neutral-950 dark:[@media(hover:hover)]:data-highlighted:before:bg-white"
                       value={item}
                     >
@@ -194,7 +192,6 @@ export default function ExampleCreatableCombobox() {
                     </Combobox.Item>
                   ) : (
                     <Combobox.Item
-                      key={item.id}
                       class="grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 p-2 text-sm leading-4 outline-none select-none data-selected:relative data-selected:z-0 data-selected:text-neutral-950 data-selected:before:absolute data-selected:before:inset-0 data-selected:before:z-[-1] [@media(hover:hover)]:data-highlighted:relative [@media(hover:hover)]:data-highlighted:z-0 [@media(hover:hover)]:data-highlighted:text-white [@media(hover:hover)]:data-highlighted:before:absolute [@media(hover:hover)]:data-highlighted:before:inset-0 [@media(hover:hover)]:data-highlighted:before:z-[-1] [@media(hover:hover)]:data-highlighted:before:bg-neutral-950 dark:data-selected:text-white dark:[@media(hover:hover)]:data-highlighted:text-neutral-950 dark:[@media(hover:hover)]:data-highlighted:before:bg-white"
                       value={item}
                     >

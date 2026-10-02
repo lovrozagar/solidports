@@ -1,8 +1,10 @@
 /* eslint-disable import/no-cycle, sort-keys */
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, vi } from "vitest"
-import { fireEvent } from "@solidjs/testing-library"
-import { BarChart, Brush } from "../../src"
+import { flush } from "solid-js"
+import { fireEvent, render } from "../helper/render"
+import { AnimationControllerProvider, Bar, BarChart, Brush } from "../../src"
+import { CompositeAnimationManager } from "../animation/CompositeAnimationManager"
 import { renderWithSignals } from "../helper/renderWithSignals"
 import { assertNotNull } from "../helper/assertNotNull"
 import type { BrushStartEndIndex } from "../../src/context/brushUpdateContext"
@@ -23,9 +25,7 @@ import type { BrushStartEndIndex } from "../../src/context/brushUpdateContext"
  *   2. window mousemove fires handleDrag -> calls onChange if indexes changed
  *   3. window mouseup fires handleDragEnd -> calls onDragEnd
  *
- * Some drag sequence tests (Cluster D in skiplist) are skipped due to
- * coordinate-dependent index computation diverging in jsdom. Here we test
- * only handler identity: does the CURRENT handler fire, or a stale snapshot?
+ * These tests cover handler identity: does the CURRENT handler fire, or a stale snapshot?
  */
 
 const data = [
@@ -63,6 +63,7 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const slide = container.querySelector(".recharts-brush-slide")
 		assertNotNull(slide)
@@ -72,6 +73,7 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		fireEvent.mouseMove(window, { clientX: 210, clientY: 60 })
 		fireEvent.mouseUp(window)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		/* spyA may or may not have been called depending on jsdom index arithmetic,
 		 * but it must NOT be called AFTER the swap. Record call count. */
@@ -80,12 +82,14 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		/* Swap the handler */
 		update({ onChange: spyB })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		/* Trigger another drag sequence */
 		fireEvent.mouseDown(slide, { clientX: 200, clientY: 60 })
 		fireEvent.mouseMove(window, { clientX: 220, clientY: 60 })
 		fireEvent.mouseUp(window)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		/* spyA must not have received new calls after the swap */
 		expect(spyA.mock.calls.length).toBe(callsBeforeSwap)
@@ -110,6 +114,7 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const slide = container.querySelector(".recharts-brush-slide")
 		assertNotNull(slide)
@@ -118,6 +123,7 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		fireEvent.mouseDown(slide, { clientX: 200, clientY: 60 })
 		fireEvent.mouseUp(window)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyA).toHaveBeenCalledTimes(1)
 		expect(spyB).not.toHaveBeenCalled()
@@ -125,11 +131,13 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		/* Swap handler */
 		update({ onDragEnd: spyB })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		/* Trigger drag end again */
 		fireEvent.mouseDown(slide, { clientX: 200, clientY: 60 })
 		fireEvent.mouseUp(window)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		/* New handler must fire; stale handler must not accumulate calls */
 		expect(spyB).toHaveBeenCalledTimes(1)
@@ -153,6 +161,7 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const slide = container.querySelector(".recharts-brush-slide")
 		assertNotNull(slide)
@@ -160,15 +169,18 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		fireEvent.mouseDown(slide, { clientX: 200, clientY: 60 })
 		fireEvent.mouseUp(window)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyA).toHaveBeenCalledTimes(1)
 
 		update({ onDragEnd: undefined })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		fireEvent.mouseDown(slide, { clientX: 200, clientY: 60 })
 		fireEvent.mouseUp(window)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		/* Handler removed — call count must not grow */
 		expect(spyA).toHaveBeenCalledTimes(1)
@@ -192,6 +204,7 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		)
 
 		vi.advanceTimersByTime(0)
+		flush()
 
 		const travellers = container.querySelectorAll(".recharts-brush-traveller")
 		const traveller = travellers[0] as SVGGElement | undefined
@@ -200,28 +213,41 @@ describe("Brush event handler reactivity — thunk fix regression", () => {
 		fireEvent.mouseDown(traveller, { clientX: 10, clientY: 60 })
 		fireEvent.mouseUp(window)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyA).toHaveBeenCalledTimes(1)
 
 		update({ onDragEnd: spyB })
 		vi.advanceTimersByTime(0)
+		flush()
 
 		fireEvent.mouseDown(traveller, { clientX: 10, clientY: 60 })
 		fireEvent.mouseUp(window)
 		vi.advanceTimersByTime(0)
+		flush()
 
 		expect(spyB).toHaveBeenCalledTimes(1)
 		expect(spyA).toHaveBeenCalledTimes(1)
 	})
 
 	/*
-	 * Animation manager identity regression from useAnimationManager.tsx.
-	 * The fix assigned createMemo result to a named var before passing to
-	 * context. Testing the animation manager identity in isolation requires
-	 * the animation mock infra and is covered adequately by the existing
-	 * animation test suite (JavascriptAnimate.timing.spec.tsx + shape specs).
+	 * Animation controller identity: the controller must start once per animation, not once
+	 * per animation frame (a stale identity would restart the animation every tick).
 	 */
-	it.todo(
-		"useAnimationManager createMemo named-var fix: stale identity would cause animation re-initialisation on every render — verify by mounting a chart with isAnimationActive=true, advancing timers, and asserting animationManager.factory is called exactly once per mount (not once per render cycle)",
-	)
+	it("starts the animation controller once per animation, not once per frame", async () => {
+		const animationManager = new CompositeAnimationManager()
+		const controller = vi.fn(animationManager.factory)
+		render(() => (
+			<AnimationControllerProvider value={controller}>
+				<BarChart width={400} height={100} data={data}>
+					<Bar dataKey="value" isAnimationActive />
+				</BarChart>
+			</AnimationControllerProvider>
+		))
+		expect(controller).toHaveBeenCalledTimes(1)
+
+		await animationManager.setAnimationProgress(0.5)
+		await animationManager.setAnimationProgress(0.9)
+		expect(controller).toHaveBeenCalledTimes(1)
+	})
 })

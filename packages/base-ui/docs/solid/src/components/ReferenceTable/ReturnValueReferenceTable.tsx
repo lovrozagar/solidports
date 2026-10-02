@@ -1,10 +1,12 @@
-import { For, Show, splitProps, type JSX } from "solid-js"
+import { For, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
 import * as Table from "../Table"
 import * as Accordion from "../Accordion"
 import { TableCode } from "../TableCode"
 import type { PropDef } from "./types"
 
+import { splitProps } from '../../utils/solid-1-compat';
 interface ReturnValueReferenceTableProps extends JSX.HTMLAttributes<HTMLDivElement> {
   data: Record<string, PropDef>
   name?: string

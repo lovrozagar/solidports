@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { ImageLoadingStatus } from './AvatarRoot';
 
 export interface AvatarRootContext {
@@ -6,11 +7,11 @@ export interface AvatarRootContext {
   setImageLoadingStatus: (status: ImageLoadingStatus) => void;
 }
 
-export const AvatarRootContext = createContext<AvatarRootContext | undefined>(undefined);
+export const AvatarRootContext = createContext<AvatarRootContext | null>(null);
 
 export function useAvatarRootContext() {
   const context = useContext(AvatarRootContext);
-  if (context === undefined) {
+  if (context == null) {
     throw new Error(
       'Base UI: AvatarRootContext is missing. Avatar parts must be placed within <Avatar.Root>.',
     );

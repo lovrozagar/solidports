@@ -1,5 +1,5 @@
-import { createEffect, Show } from 'solid-js';
-import type { JSX } from 'solid-js';
+import { createTrackedEffect, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { DROPDOWN_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
@@ -127,7 +127,7 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
     },
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     store.set('popupSide', positioning.side());
   });
 
@@ -159,12 +159,12 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
   });
 
   return (
-    <ComboboxPositionerContext.Provider value={contextValue}>
+    <ComboboxPositionerContext value={contextValue}>
       <Show when={mounted() && modal()}>
         <InternalBackdrop managed inert={!open()} cutout={inputElement() ?? triggerElement()} />
       </Show>
       {element()}
-    </ComboboxPositionerContext.Provider>
+    </ComboboxPositionerContext>
   );
 }
 

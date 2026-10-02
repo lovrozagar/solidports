@@ -101,7 +101,7 @@ export function DialogPopup(componentProps: DialogPopup.Props) {
           get role() {
             return role();
           },
-          tabIndex: -1,
+          tabindex: -1,
           get hidden() {
             return !mounted();
           },

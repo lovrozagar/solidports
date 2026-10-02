@@ -1,13 +1,13 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 'use client';
 import {
-  createEffect,
+  createTrackedEffect,
   createMemo,
-  createRenderEffect,
-  onMount,
+  createEffect,
+  onSettled,
   Show,
-  type JSX,
 } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   FloatingTree,
   useDismiss,
@@ -106,7 +106,7 @@ function PopoverRootComponentImpl<Payload>(
     },
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       props.store.context.stickIfOpenTimeout.clear();
     }
@@ -126,24 +126,33 @@ function PopoverRootComponentImpl<Payload>(
     },
   });
 
-  createRenderEffect(() => {
-    props.store.context.onOpenChange = props.onOpenChange;
-    props.store.context.onOpenChangeComplete = props.onOpenChangeComplete;
-    props.store.context.floatingRootContext = floatingRootContext;
+  props.store.useControlledProp('openProp', openProp);
+  props.store.useControlledProp('triggerIdProp', triggerIdProp);
 
-    if (floatingTreeFromContext) {
-      props.store.context.floatingTreeRoot = floatingTreeFromContext;
-    } else if (props.parentPopoverContext) {
-      props.store.context.floatingTreeRoot =
-        props.parentPopoverContext.store.context.floatingTreeRoot;
-    }
+  createEffect(
+    () => ({
+      onOpenChange: props.onOpenChange,
+      onOpenChangeComplete: props.onOpenChangeComplete,
+      floatingRootContext,
+      floatingTreeFromContext,
+      parentPopoverContext: props.parentPopoverContext,
+    }),
+    () => {
+      props.store.context.onOpenChange = props.onOpenChange;
+      props.store.context.onOpenChangeComplete = props.onOpenChangeComplete;
+      props.store.context.floatingRootContext = floatingRootContext;
 
-    props.store.useControlledProp('openProp', openProp);
-    props.store.useControlledProp('triggerIdProp', triggerIdProp);
-  });
+      if (floatingTreeFromContext) {
+        props.store.context.floatingTreeRoot = floatingTreeFromContext;
+      } else if (props.parentPopoverContext) {
+        props.store.context.floatingTreeRoot =
+          props.parentPopoverContext.store.context.floatingTreeRoot;
+      }
+    },
+  );
 
   // Support initially open state when uncontrolled
-  onMount(() => {
+  onSettled(() => {
     if (openProp() === undefined && props.store.state.open === false && defaultOpen() === true) {
       props.store.update({
         activeTriggerId: defaultTriggerIdProp(),
@@ -186,17 +195,16 @@ function PopoverRootComponentImpl<Payload>(
   const activeTriggerProps = createMemo(() => getReferenceProps(interactionTypeTriggerProps));
   const inactiveTriggerProps = createMemo(() => getTriggerProps(interactionTypeTriggerProps));
   const popupProps = createMemo(() => getFloatingProps());
-  const nested = createMemo(() => useFloatingParentNodeId() != null);
+  const parentNodeId = useFloatingParentNodeId();
+  const nested = createMemo(() => parentNodeId != null);
 
-  createRenderEffect(() => {
-    props.store.useSyncedValues({
-      activeTriggerProps,
-      inactiveTriggerProps,
-      modal,
-      nested,
-      openMethod,
-      popupProps,
-    });
+  props.store.useSyncedValues({
+    activeTriggerProps,
+    inactiveTriggerProps,
+    modal,
+    nested,
+    openMethod,
+    popupProps,
   });
 
   const popoverContext: PopoverRootContext<Payload> = {
@@ -206,9 +214,9 @@ function PopoverRootComponentImpl<Payload>(
   };
 
   return (
-    <PopoverRootContext.Provider value={popoverContext as PopoverRootContext<unknown>}>
+    <PopoverRootContext value={popoverContext as PopoverRootContext<unknown>}>
       <ComponentWithPayload payload={payload} children={props.children} />
-    </PopoverRootContext.Provider>
+    </PopoverRootContext>
   );
 }
 

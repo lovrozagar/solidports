@@ -1,4 +1,5 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 
 export interface CSPContextValue {
   nonce: Accessor<string | undefined>;
@@ -8,7 +9,7 @@ export interface CSPContextValue {
 /**
  * @internal
  */
-export const CSPContext = createContext<CSPContextValue | undefined>(undefined);
+export const CSPContext = createContext<CSPContextValue | null>(null);
 
 const DEFAULT_CSP_CONTEXT_VALUE: CSPContextValue = {
   disableStyleElements: () => false,

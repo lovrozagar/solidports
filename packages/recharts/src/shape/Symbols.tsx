@@ -1,7 +1,7 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { Show } from "solid-js"
-
+import type { JSX } from '@solidjs/web';
+import { useShapeElementProps } from "../util/ShapeElementProps"
+import { Show } from 'solid-js';
 import {
 	symbol as shapeSymbol,
 	symbolCircle,
@@ -102,7 +102,9 @@ const getSymbolPath = (type: SymbolType, size: number, sizeType: SizeType): stri
 /**
  * Renders a symbol from a set of predefined shapes.
  */
-export function Symbols(props: SymbolsProps) {
+export function Symbols(ownProps: SymbolsProps) {
+	/* Props injected for a shape passed as an element (see ShapeElementProps). */
+	const props = useShapeElementProps(ownProps)
 	const type = () => {
 		const t = props.type ?? "circle"
 		if (typeof t === "string") {

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest"
+import { flush } from "solid-js"
 import type {
 	ReferenceAreaSettings,
 	ReferenceDotSettings,
@@ -23,9 +24,11 @@ describe("referenceElementsSlice", () => {
 		}
 
 		actions.addDot(dot)
+		flush()
 		expect(store.referenceElements.dots).toEqual([dot])
 
 		actions.removeDot(dot)
+		flush()
 		expect(store.referenceElements.dots).toEqual([])
 	})
 	it("should add and remove reference area", () => {
@@ -44,9 +47,11 @@ describe("referenceElementsSlice", () => {
 		}
 
 		actions.addArea(area)
+		flush()
 		expect(store.referenceElements.areas).toEqual([area])
 
 		actions.removeArea(area)
+		flush()
 		expect(store.referenceElements.areas).toEqual([])
 	})
 	it("should add and remove reference line", () => {
@@ -64,9 +69,11 @@ describe("referenceElementsSlice", () => {
 		}
 
 		actions.addLine(line)
+		flush()
 		expect(store.referenceElements.lines).toEqual([line])
 
 		actions.removeLine(line)
+		flush()
 		expect(store.referenceElements.lines).toEqual([])
 	})
 })

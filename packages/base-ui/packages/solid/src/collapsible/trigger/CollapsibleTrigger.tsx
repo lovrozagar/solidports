@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
@@ -33,7 +33,7 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
     disabled: contextDisabled,
     state,
   } = useCollapsibleRootContext();
-  const nativeButton = () => local.nativeButton ?? true;
+  const nativeButton = () => Boolean(local.nativeButton ?? true);
   const disabled = () => local.disabled ?? contextDisabled();
 
   const button = useButton({
@@ -47,7 +47,7 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
       return open() ? panelId() : undefined;
     },
     get 'aria-expanded'() {
-      return open();
+      return open() ? 'true' : 'false';
     },
     onClick: handleTrigger,
   };

@@ -3,7 +3,8 @@
  * @fileOverview Default Tooltip Content
  */
 
-import { For, Show, type JSX } from "solid-js"
+import { createMemo, For, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import sortBy from "es-toolkit/compat/sortBy"
 import { clsx } from "clsx"
 import { isNullish, isNumOrStr } from "../util/DataUtils"
@@ -117,6 +118,28 @@ export const DefaultTooltipContent = (props: Props): JSX.Element | null => {
 	const accessibilityLayer = () =>
 		props.accessibilityLayer ?? defaultDefaultTooltipContentProps.accessibilityLayer
 
+	/* formatter can return string/number/JSX — the JSX slot accepts all */
+	const formatEntry = (
+		entry: TooltipPayloadEntry | null | undefined,
+		index: number,
+	): { name: unknown; value: unknown } | null => {
+		if (!entry || entry.type === "none") {
+			return null
+		}
+		const finalFormatter = entry.formatter ?? props.formatter ?? defaultFormatter
+		if (!finalFormatter) {
+			return { name: entry.name, value: entry.value }
+		}
+		const formatted = finalFormatter(entry.value, entry.name, entry, index, props.payload ?? [])
+		if (Array.isArray(formatted)) {
+			return { name: formatted[1], value: formatted[0] }
+		}
+		if (formatted != null) {
+			return { name: entry.name, value: formatted }
+		}
+		return null
+	}
+
 	const renderContent = (): JSX.Element | null => {
 		if (props.payload && props.payload.length) {
 			const listStyle: JSX.CSSProperties = { margin: 0, padding: 0 }
@@ -127,42 +150,28 @@ export const DefaultTooltipContent = (props: Props): JSX.Element | null => {
 				<ul class="recharts-tooltip-item-list" style={listStyle}>
 					<For each={sortedPayload as TooltipPayloadEntry[]}>
 						{(entry, i) => {
-							if (entry.type === "none") {
-								return null
-							}
-
-							const finalFormatter = entry.formatter ?? props.formatter ?? defaultFormatter
-							const { value, name } = entry
-							/* formatter can return string/number/ReactElement — JSX slot accepts all */
-							let finalValue: unknown = value
-							let finalName: unknown = name
-							if (finalFormatter) {
-								/* eslint-disable-next-line solid/reactivity -- i() is the <For> index accessor; this callback IS a tracked scope */
-								const formatted = finalFormatter(value, name, entry, i(), props.payload ?? [])
-								if (Array.isArray(formatted)) {
-									;[finalValue, finalName] = formatted
-								} else if (formatted != null) {
-									finalValue = formatted
-								} else {
-									return null
-								}
-							}
-
-							const finalItemStyle = (): JSX.CSSProperties => ({
-								...defaultDefaultTooltipContentProps.itemStyle,
-								color: entry.color || defaultDefaultTooltipContentProps.itemStyle.color,
-								...props.itemStyle,
-							})
+							const item = createMemo(() => formatEntry(entry, i()))
+							const itemStyle = createMemo(
+								(): JSX.CSSProperties => ({
+									...defaultDefaultTooltipContentProps.itemStyle,
+									color: entry.color || defaultDefaultTooltipContentProps.itemStyle.color,
+									...props.itemStyle,
+								}),
+							)
 
 							return (
-								<li class="recharts-tooltip-item" style={finalItemStyle()}>
-									<Show when={isNumOrStr(finalName)}>
-										<span class="recharts-tooltip-item-name">{finalName as JSX.Element}</span>
-										<span class="recharts-tooltip-item-separator">{separator()}</span>
-									</Show>
-									<span class="recharts-tooltip-item-value">{finalValue as JSX.Element}</span>
-									<span class="recharts-tooltip-item-unit">{entry.unit || ""}</span>
-								</li>
+								<Show when={item()}>
+									{(formatted) => (
+										<li class="recharts-tooltip-item" style={itemStyle()}>
+											<Show when={isNumOrStr(formatted().name)}>
+												<span class="recharts-tooltip-item-name">{formatted().name as JSX.Element}</span>
+												<span class="recharts-tooltip-item-separator">{separator()}</span>
+											</Show>
+											<span class="recharts-tooltip-item-value">{formatted().value as JSX.Element}</span>
+											<span class="recharts-tooltip-item-unit">{entry.unit || ""}</span>
+										</li>
+									)}
+								</Show>
 							)
 						}}
 					</For>

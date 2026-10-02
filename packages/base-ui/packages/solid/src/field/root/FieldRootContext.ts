@@ -1,6 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- field validation pipeline accepts arbitrary value types */
-import { createContext, useContext, type Accessor, type Setter } from 'solid-js';
-import { type SetStoreFunction, type Store } from 'solid-js/store';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
+import type { Store } from 'solid-js';
 import type { Form } from '../../form';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
@@ -8,6 +9,7 @@ import { NOOP } from '../../utils/noop';
 import { DEFAULT_VALIDITY_STATE } from '../utils/constants';
 import type { FieldRoot, FieldValidityData } from './FieldRoot';
 import type { UseFieldValidationReturnValue } from './useFieldValidation';
+import { type SetStoreFunction } from '../../solid-1-compat';
 
 export interface FieldRootContext {
   invalid: Accessor<boolean | undefined>;

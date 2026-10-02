@@ -1,4 +1,4 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it } from "vitest"
 import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { ComposedChart, XAxis } from "../../../src"

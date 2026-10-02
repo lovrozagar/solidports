@@ -1,7 +1,8 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it, Mock, test, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { fireEvent, render, screen } from "@solidjs/testing-library"
+import { observe } from "../helper/observe"
+
+import { fireEvent, render, screen } from "../helper/render"
 import { rechartsTestRender } from "../helper/createSelectorTestCase"
 import { Bar, BarChart, DotProps, LineChart, ReferenceDot, XAxis, YAxis } from "../../src"
 import { useAppSelector } from "../helper/legacyDispatch"
@@ -259,11 +260,7 @@ describe("<ReferenceDot />", () => {
 		))
 		expect(container.querySelectorAll(".recharts-reference-dot-dot")).toHaveLength(0)
 	})
-	/* Cluster C: clone-and-apply works for shape but resolveDefaultProps emits both
-	 * `fill-opacity:1` (default kebab) and `fillOpacity:"0.3"` (user camelCase) on the
-	 * same merged props; svgPropertiesAndEvents canonicalizes the kebab-default LAST,
-	 * overwriting the user value. Pre-existing across all shape pass-through paths. */
-	describe.skip("shape as a React Element", () => {
+	describe("shape as a React Element", () => {
 		it("should render whatever the shape returns, and pass in extra sneaky props", () => {
 			const { container } = render(() => (
 				<BarChart
@@ -318,11 +315,7 @@ describe("<ReferenceDot />", () => {
 			expect.soft(myCustomDot.getAttribute("y")).toEqual("20")
 		})
 	})
-	/* Cluster C: re-verified. Shape-as-Component receives kebab-case attrs
-	 * (`fill-opacity`, `stroke-width`, `clip-path`) instead of camelCase props
-	 * (`fillOpacity`, `strokeWidth`, `clipPath`); `fill-opacity` overwritten to 1
-	 * by svgPropertiesAndEvents canonicalization. Same root cause as Element variant. */
-	describe.skip("shape as a React Component", () => {
+	describe("shape as a React Component", () => {
 		it("should render whatever the Component returns, and pass in props", () => {
 			const Shape = (props: unknown) => {
 				expect(props).toEqual({
@@ -490,7 +483,7 @@ describe("<ReferenceDot />", () => {
 		it("should report its settings to Redux state, and remove it after removing from DOM", () => {
 			const dotSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() =>
+				observe(() =>
 					dotSpy(useAppSelector((state) => selectReferenceDotsByAxis(state, "yAxis", 0))),
 				)
 				return null

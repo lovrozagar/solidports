@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest"
-import { render } from "@solidjs/testing-library"
-import { useContext } from "solid-js"
+import { trackSpy } from "./trackSpy"
+import { render } from "./render"
+import { useContext } from 'solid-js';
 import { useAppSelector } from "../helper/legacyDispatch"
 import { RechartsStoreContext } from "../../src/state/RechartsStoreContext"
 import { createInitialState, createRechartsStore } from "../../src/state/store"
@@ -25,7 +26,7 @@ export function shouldReturnUndefinedOutOfContext(
 	it("should return undefined when called out of Recharts context", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			spy(useAppSelectorSafe(selector))
+			trackSpy(spy, () => useAppSelectorSafe(selector))
 			return null
 		}
 		render(() => <Comp />)

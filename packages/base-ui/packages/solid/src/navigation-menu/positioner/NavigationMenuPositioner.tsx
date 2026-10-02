@@ -1,4 +1,5 @@
-import { createEffect, createSignal, onCleanup, type JSX } from 'solid-js';
+import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
   disableFocusInside,
   enableFocusInside,
@@ -14,6 +15,7 @@ import { popupStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { useTimeout } from '../../utils/useTimeout';
 import { useNavigationMenuPortalContext } from '../portal/NavigationMenuPortalContext';
 import {
@@ -144,7 +146,10 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
     },
   };
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!open()) {
       return;
     }
@@ -160,10 +165,16 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
     const positionerEl = positionerElement() ?? null;
     const win = ownerWindow(positionerEl);
     win.addEventListener('resize', handleResize);
-    onCleanup(() => {
+    _c.push(() => {
       win.removeEventListener('resize', handleResize);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const element = useRenderElement('div', componentProps, {
     get props() {
@@ -172,22 +183,18 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
         getDisabledMountTransitionStyles(transitionStatus()),
         // https://codesandbox.io/s/tabbable-portal-f4tng?file=/src/TabbablePortal.tsx
         {
-          'on:focusin': {
-            capture: true,
-            handleEvent(event: FocusEvent) {
+          ref: withCaptureListeners({
+            focusin: (event) => {
               if (positionerRef && isOutsideEvent(event)) {
                 enableFocusInside(positionerRef);
               }
             },
-          },
-          'on:focusout': {
-            capture: true,
-            handleEvent(event: FocusEvent) {
+            focusout: (event) => {
               if (positionerRef && isOutsideEvent(event)) {
                 disableFocusInside(positionerRef);
               }
             },
-          },
+          }),
         },
         elementProps,
       ];
@@ -203,9 +210,9 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
   });
 
   return (
-    <NavigationMenuPositionerContext.Provider value={positioning}>
+    <NavigationMenuPositionerContext value={positioning}>
       {element()}
-    </NavigationMenuPositionerContext.Provider>
+    </NavigationMenuPositionerContext>
   );
 }
 

@@ -1,12 +1,5 @@
 import { isElement } from '@floating-ui/utils/dom';
-import {
-  createEffect,
-  createMemo,
-  on,
-  onCleanup,
-  onMount,
-  mergeProps as solidMergeProps,
-} from 'solid-js';
+import { createTrackedEffect, createEffect, createMemo, onCleanup, onSettled } from 'solid-js';
 import { access, defaultProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
@@ -24,6 +17,7 @@ import type {
 } from '../types';
 import { contains, getTarget, isInteractiveElement } from '../utils';
 import type { HandleClose } from './useHoverShared';
+import { on, mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export type { HandleClose, HandleCloseContext } from './useHoverShared';
 
@@ -156,12 +150,21 @@ export function useHover(parameters: {
   }
 
   /* When closing before opening, clear the delay timeouts to cancel it from showing. */
-  onMount(() => {
+  onSettled(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     events().on('openchange', onOpenChangeLocal);
-    onCleanup(() => {
+    _c.push(() => {
       events().off('openchange', onOpenChangeLocal);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function onLeave(event: MouseEvent) {
     if (isClickLikeOpenEvent()) {
@@ -180,7 +183,10 @@ export function useHover(parameters: {
     }
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!props.handleClose) {
       return;
     }
@@ -190,8 +196,14 @@ export function useHover(parameters: {
 
     const floating = floatingElement() ?? null;
     const html = ownerDocument(floating).documentElement;
-    onCleanup(addEventListener(html, 'mouseleave', onLeave));
-  });
+    _c.push(addEventListener(html, 'mouseleave', onLeave));
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const closeWithDelay = (event: MouseEvent, runElseBranch = true) => {
     const closeDelay = getDelay(props.delay, 'close', pointerTypeRef);
@@ -354,12 +366,15 @@ export function useHover(parameters: {
   /* Registering the mouse events on the reference directly to bypass Solid's delegation system.
    * If the cursor was on a disabled element and then entered the reference (no gap),
    * `mouseenter` doesn't fire in the delegation system. */
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     const trigger = domReferenceElement() as HTMLElement | null;
     if (isElement(trigger)) {
       const floating = floatingElement();
 
-      onCleanup(
+      _c.push(
         mergeCleanups(
           open() && addEventListener(trigger, 'mouseleave', onScrollMouseLeave),
           props.move && addEventListener(trigger, 'mousemove', onReferenceMouseEnter, { once: true }),
@@ -372,12 +387,21 @@ export function useHover(parameters: {
         ),
       );
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   /* Block pointer-events of every element other than the reference and floating
    * while the floating element is open and has a `handleClose` handler.
    * https://github.com/floating-ui/floating-ui/issues/1722 */
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (open() && props.handleClose?.__options?.blockPointerEvents && isHoverOpen()) {
       performedPointerEventsMutationRef = true;
       const floatingEl = floatingElement() ?? null;
@@ -401,16 +425,22 @@ export function useHover(parameters: {
         ref.style.pointerEvents = 'auto';
         floatingEl.style.pointerEvents = 'auto';
 
-        onCleanup(() => {
+        _c.push(() => {
           body.style.pointerEvents = '';
           ref.style.pointerEvents = '';
           floatingEl.style.pointerEvents = '';
         });
       }
     }
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!open()) {
       pointerTypeRef = undefined;
       restTimeoutPendingRef = false;
@@ -428,11 +458,7 @@ export function useHover(parameters: {
     interactedInsideRef = false;
   }
 
-  createEffect(
-    on(domReferenceElement, () => {
-      onCleanup(cleanup);
-    }),
-  );
+  createEffect(...on(domReferenceElement, () => cleanup));
 
   onCleanup(() => {
     clearPointerEvents();

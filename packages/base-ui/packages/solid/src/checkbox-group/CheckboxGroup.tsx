@@ -1,4 +1,4 @@
-import { batch, createEffect, on, mergeProps as solidMergeProps } from 'solid-js';
+import { createEffect } from 'solid-js';
 import { PARENT_CHECKBOX } from '../checkbox/root/CheckboxRoot';
 import type { FieldRoot } from '../field/root/FieldRoot';
 import { useFieldRootContext } from '../field/root/FieldRootContext';
@@ -17,6 +17,7 @@ import { useControlled } from '../utils/useControlled';
 import { useRenderElement } from '../utils/useRenderElement';
 import { CheckboxGroupContext } from './CheckboxGroupContext';
 import { useCheckboxGroupParent } from './useCheckboxGroupParent';
+import { on, mergeProps as solidMergeProps } from '../solid-1-compat';
 
 /**
  * Provides a shared state to a series of checkboxes.
@@ -33,7 +34,7 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     'render',
     'value',
   ]);
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const idProp = () => local.id;
   const externalValue = () => local.value;
 
@@ -60,7 +61,7 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
   });
 
   const setValue = (v: string[], eventDetails: CheckboxGroup.ChangeEventDetails) => {
-    batch(() => {
+    {
       local.onValueChange?.(v, eventDetails);
 
       if (eventDetails.isCanceled) {
@@ -68,7 +69,7 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
       }
 
       setValueUnwrapped(v);
-    });
+    };
   };
 
   const parent = useCheckboxGroupParent({
@@ -98,11 +99,10 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
 
   const resolvedValue = () => value() ?? EMPTY_ARRAY;
 
-  createEffect(
-    on(
+  createEffect(...on(
       resolvedValue,
       () => {
-        batch(() => {
+        {
           if (fieldName()) {
             clearErrors(fieldName());
           }
@@ -119,7 +119,7 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
           } else {
             validation.commit(resolvedValue(), true);
           }
-        });
+        };
       },
       { defer: true },
     ),
@@ -158,7 +158,7 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
   });
 
   return (
-    <CheckboxGroupContext.Provider value={contextValue}>{element()}</CheckboxGroupContext.Provider>
+    <CheckboxGroupContext value={contextValue}>{element()}</CheckboxGroupContext>
   );
 }
 

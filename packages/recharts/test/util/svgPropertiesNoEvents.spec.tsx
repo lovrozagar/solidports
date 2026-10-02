@@ -1,4 +1,5 @@
-import type { JSX } from "solid-js"
+import { createRoot } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { describe, expect, it } from "vitest"
 import {
 	SVGElementPropKeysType,
@@ -141,8 +142,50 @@ describe("svgPropertiesNoEvents", () => {
 })
 
 describe("svgPropertiesNoEventsFromUnknown", () => {
-	/* In Solid, JSX elements are opaque (not ReactElements with .props).
-	   svgPropertiesNoEventsFromUnknown returns null for non-plain-object inputs. */
+	/* Solid evaluates JSX to a DOM element; its attributes stand in for upstream's element props. */
+	it("should filter element props if given a ReactElement", () => {
+		const element = createRoot((dispose) => {
+			const node = (
+				<svg
+					aria-label="test"
+					class="svg-class"
+					color="red"
+					height="100px"
+					id="svg-id"
+					lang="en"
+					/* @ts-expect-error max/media/method/min/name/custom are not SVG attributes in Solid's JSX types */
+					max={10}
+					media="all"
+					method="get"
+					min={0}
+					name="svg-name"
+					style={{ fill: "blue" }}
+					onClick={() => {}}
+					onMouseOver={() => {}}
+					custom="not-a-svg-prop"
+				/>
+			)
+			dispose()
+			return node
+		})
+		const result: Partial<Record<SVGElementPropKeysType, unknown>> | null =
+			svgPropertiesNoEventsFromUnknown(element)
+		expect(result).toEqual({
+			"aria-label": "test",
+			className: "svg-class",
+			color: "red",
+			height: "100px",
+			id: "svg-id",
+			lang: "en",
+			max: 10,
+			media: "all",
+			method: "get",
+			min: 0,
+			name: "svg-name",
+			style: { fill: "blue" },
+		})
+	})
+
 	it.each([null, undefined, true, false, [], "string", 1, Symbol.for("key")] as const)(
 		"should return null when passed %s",
 		(input) => {
@@ -154,6 +197,21 @@ describe("svgPropertiesNoEventsFromUnknown", () => {
 })
 
 describe("type matching ActiveDotType", () => {
+	it("should return SVGProps type when passed a non-specific ReactElement", () => {
+		const input = createRoot((dispose) => {
+			const node = <circle cx={10} cy={10} r={5} />
+			dispose()
+			return node
+		})
+		const result: Partial<Record<SVGElementPropKeysType, unknown>> | null =
+			svgPropertiesNoEventsFromUnknown(input)
+		expect(result).toEqual({
+			cx: 10,
+			cy: 10,
+			r: 5,
+		})
+	})
+
 	it("should return null type when passed a boolean", () => {
 		const input = true
 		const result: Partial<Record<SVGElementPropKeysType, unknown>> | null =

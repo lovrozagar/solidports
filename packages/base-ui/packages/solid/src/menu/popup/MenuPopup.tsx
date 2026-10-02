@@ -1,4 +1,5 @@
-import { createEffect, createMemo, onCleanup, type JSX } from 'solid-js';
+import { createTrackedEffect, createMemo, onCleanup } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { COMPOSITE_KEYS } from '../../internals/composite/composite';
 import { FloatingFocusManager, useHoverFloatingInteraction } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
@@ -35,7 +36,8 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
 
   const { store } = useMenuRootContext();
   const { side, align } = useMenuPositionerContext();
-  const insideToolbar = () => useToolbarRootContext(true) != null;
+  const toolbarRootContext = useToolbarRootContext(true);
+  const insideToolbar = () => toolbarRootContext != null;
 
   const open = store.useState('open');
   const transitionStatus = store.useState('transitionStatus');
@@ -51,7 +53,7 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
   const closeDelay = store.useState('closeDelay');
   const activeTriggerElement = store.useState('activeTriggerElement');
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     store.context.hasExplicitFinalFocus = local.finalFocus !== undefined;
   });
 
@@ -78,13 +80,22 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
     store.setOpen(false, createChangeEventDetails(event.reason, event.domEvent));
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     floatingTreeRoot().events.on('close', handleClose);
 
-    onCleanup(() => {
+    _c.push(() => {
       floatingTreeRoot().events.off('close', handleClose);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   const hoverEnabled = store.useState('hoverEnabled');
   const disabled = store.useState('disabled');

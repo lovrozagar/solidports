@@ -1,12 +1,13 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
+import { flush } from "solid-js"
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { render } from "../helper/render"
 import { PieChart, Pie, Cell } from "../../src"
 import { useChartState } from "../../src/state/useChartState"
 import { selectPieSectors } from "../../src/state/selectors/pieSelectors"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../src/util/solid-1-compat';
 const data = [
 	{ name: "A", value: 100 },
 	{ name: "B", value: 200 },
@@ -50,6 +51,7 @@ describe("Phase 4 — Pie reads from new chartState", () => {
 		   Phase 4 GREEN: Pie reads graphicalItems[id].settings.dataKey inside createMemo
 		   and produces new sector paths when it changes. */
 		capturedSetState!("graphicalItems", itemId, "settings" as never, "name" as never)
+		flush()
 
 		const after = container.querySelector(".recharts-pie-sector path")?.getAttribute("d")
 		expect(after).not.toBe(before)
@@ -81,6 +83,7 @@ describe("Phase 4 — Pie reads from new chartState", () => {
 		/* Phase 4 RED: startAngle mutation not tracked by Pie via new chartState.
 		   Phase 4 GREEN: mutation triggers re-render, paths change. */
 		capturedSetState!("graphicalItems", itemId, "settings" as never, "startAngle" as never, 90 as never)
+		flush()
 
 		const after = container.querySelector(".recharts-pie-sector path")?.getAttribute("d")
 		expect(after).not.toBe(before)

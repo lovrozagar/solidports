@@ -1,13 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at root */
-import {
-  batch,
-  createEffect,
-  createMemo,
-  onMount,
-  Show,
-  mergeProps as solidMergeProps,
-  type JSX,
-} from 'solid-js';
+import { createTrackedEffect, createMemo, onSettled, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { useFieldItemContext } from '../../field/item/FieldItemContext';
@@ -30,6 +23,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import { stateAttributesMapping } from '../utils/stateAttributesMapping';
 import { RadioRootContext } from './RadioRootContext';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * Represents the radio button itself.
@@ -50,10 +44,10 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     'children',
   ]);
 
-  const disabledProp = () => local.disabled ?? false;
+  const disabledProp = () => Boolean(local.disabled);
   const readOnlyProp = () => local.readOnly ?? false;
   const requiredProp = () => local.required ?? false;
-  const nativeButton = () => local.nativeButton ?? false;
+  const nativeButton = () => Boolean(local.nativeButton);
   const idProp = () => local.id;
 
   const groupContext = useRadioGroupContext();
@@ -105,13 +99,13 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     registerControlRef(element, disabled());
   };
 
-  onMount(() => {
+  onSettled(() => {
     if (inputRef?.checked) {
       setFilled(true);
     }
   });
 
-  createEffect(() => {
+  createTrackedEffect(() => {
     if (!inputRef) {
       return;
     }
@@ -151,13 +145,13 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
   const rootProps: JSX.HTMLAttributes<HTMLButtonElement> = {
     role: 'radio',
     get 'aria-checked'() {
-      return checked();
+      return checked() ? 'true' : 'false';
     },
     get 'aria-required'() {
-      return required() || undefined;
+      return required() ? 'true' : undefined;
     },
     get 'aria-readonly'() {
-      return readOnly() || undefined;
+      return readOnly() ? 'true' : undefined;
     },
     get 'aria-labelledby'() {
       return ariaLabelledBy();
@@ -208,7 +202,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
   });
 
   const inputProps: JSX.InputHTMLAttributes<HTMLInputElement> = {
-    'aria-hidden': true,
+    'aria-hidden': 'true',
     get checked() {
       return checked();
     },
@@ -240,17 +234,17 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
         return;
       }
 
-      batch(() => {
+      {
         setFieldTouched(true);
         setDirty(local.value !== validityData.initialValue);
         setFilled(true);
         setCheckedValue(local.value, details);
-      });
+      };
     },
     onFocus() {
       radioRef?.focus();
     },
-    get readOnly() {
+    get readonly() {
       return readOnly();
     },
     ref: (el) => {
@@ -270,7 +264,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     get style() {
       return name?.() ? visuallyHiddenInput : visuallyHidden;
     },
-    tabIndex: -1,
+    tabindex: -1,
     type: 'radio',
     get value() {
       return local.value !== undefined ? serializedValue() : undefined;
@@ -337,7 +331,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
   });
 
   return (
-    <RadioRootContext.Provider value={context}>
+    <RadioRootContext value={context}>
       <Show when={isRadioGroup()} fallback={element()}>
         <CompositeItem
           tag="span"
@@ -353,7 +347,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
       </Show>
 
       <input {...inputProps} />
-    </RadioRootContext.Provider>
+    </RadioRootContext>
   );
 }
 

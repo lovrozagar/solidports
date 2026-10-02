@@ -1,4 +1,5 @@
-import { createSignal, type JSX } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { mergeProps } from '../../merge-props';
 import { HTMLProps, type BaseUIHTMLProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -76,7 +77,7 @@ export function LabelableProvider(props: LabelableProvider.Props) {
   };
 
   return (
-    <LabelableContext.Provider value={contextValue}>{props.children}</LabelableContext.Provider>
+    <LabelableContext value={contextValue}>{props.children}</LabelableContext>
   );
 }
 

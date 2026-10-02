@@ -109,6 +109,30 @@ export function numericalDomainSpecifiedWithoutRequiringData(
  *
  * @return [min, max] domain if it's well-formed; undefined if the domain is invalid
  */
+/*
+ * Upstream evaluates the user's domain functions inside memoized (reselect) selectors, so a
+ * function runs once per distinct input. Our selectors are plain functions evaluated by several
+ * memos; remember the last call per function to keep the same call pattern.
+ */
+const lastDomainCalls = new WeakMap<Function, { args: ReadonlyArray<unknown>; result: unknown }>()
+
+function sameArg(a: unknown, b: unknown): boolean {
+	if (Array.isArray(a) && Array.isArray(b)) {
+		return a.length === b.length && a.every((value, i) => Object.is(value, b[i]))
+	}
+	return Object.is(a, b)
+}
+
+function callDomainFunction<R>(fn: (...args: never[]) => R, ...args: ReadonlyArray<unknown>): R {
+	const last = lastDomainCalls.get(fn)
+	if (last != null && last.args.length === args.length && last.args.every((arg, i) => sameArg(arg, args[i]))) {
+		return last.result as R
+	}
+	const result = (fn as (...a: ReadonlyArray<unknown>) => R)(...args)
+	lastDomainCalls.set(fn, { args, result })
+	return result
+}
+
 export function parseNumericalUserDomain(
 	userDomain: AxisDomain | undefined,
 	dataDomain: NumberDomain | undefined,
@@ -119,7 +143,7 @@ export function parseNumericalUserDomain(
 	}
 	if (typeof userDomain === "function" && dataDomain != null) {
 		try {
-			const result = userDomain(dataDomain, allowDataOverflow)
+			const result = callDomainFunction(userDomain, dataDomain, allowDataOverflow)
 			if (isWellFormedNumberDomain(result)) {
 				return extendDomain(result, dataDomain, allowDataOverflow)
 			}
@@ -140,7 +164,7 @@ export function parseNumericalUserDomain(
 		} else if (typeof providedMin === "function") {
 			try {
 				if (dataDomain != null) {
-					finalMin = providedMin(dataDomain?.[0])
+					finalMin = callDomainFunction(providedMin, dataDomain?.[0])
 				}
 			} catch {
 				/* ignore the exception and compute domain from data later */
@@ -166,7 +190,7 @@ export function parseNumericalUserDomain(
 		} else if (typeof providedMax === "function") {
 			try {
 				if (dataDomain != null) {
-					finalMax = providedMax(dataDomain?.[1])
+					finalMax = callDomainFunction(providedMax, dataDomain?.[1])
 				}
 			} catch {
 				/* ignore the exception and compute domain from data later */

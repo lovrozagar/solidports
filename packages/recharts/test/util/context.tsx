@@ -1,5 +1,8 @@
-import { render } from "@solidjs/testing-library"
-import { createEffect, type Component, type JSX } from "solid-js"
+import { render } from "../helper/render"
+import { observe } from "../helper/observe"
+
+import type { Component } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import {
 	useChartHeight,
 	useChartWidth,
@@ -46,7 +49,7 @@ export function testChartLayoutContext(
 		function Spy() {
 			/* GOTCHA-007-E: createEffect re-fires on store changes so post-sibling-dispatch
 			   layout values are observed. Bare-T hooks snapshot at setup otherwise. */
-			createEffect(() => {
+			observe(() => {
 				const clipPathId = useClipPathId()
 				const viewBox = useViewBox()
 				const width = useChartWidth()

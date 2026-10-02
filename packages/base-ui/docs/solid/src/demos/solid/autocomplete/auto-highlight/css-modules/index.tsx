@@ -18,7 +18,7 @@ export default function ExampleAutocompleteAutoHighlight() {
             </Autocomplete.Empty>
             <Autocomplete.List class={styles.List}>
               {(tag: Tag) => (
-                <Autocomplete.Item key={tag.id} class={styles.Item} value={tag}>
+                <Autocomplete.Item class={styles.Item} value={tag}>
                   {tag.value}
                 </Autocomplete.Item>
               )}

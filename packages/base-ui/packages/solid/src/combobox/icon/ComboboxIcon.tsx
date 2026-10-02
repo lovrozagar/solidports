@@ -12,7 +12,7 @@ export function ComboboxIcon(componentProps: ComboboxIcon.Props) {
   const element = useRenderElement('span', componentProps, {
     props: [
       {
-        'aria-hidden': true,
+        'aria-hidden': 'true',
         children: '▼',
       },
       elementProps,

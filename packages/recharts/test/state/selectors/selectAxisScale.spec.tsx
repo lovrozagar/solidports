@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { render } from "@solidjs/testing-library"
+import { untrack, flush } from "solid-js"
+import { observe } from "../../helper/observe"
+
+import { render } from "../../helper/render"
 import { createRechartsStore, ChartState } from "../../../src/state/store"
 import { selectAxisScale } from "../../../src/state/selectors/axisSelectors"
 import {
@@ -22,11 +24,11 @@ describe("selectAxisScale", () => {
 	it("should return implicit scale if there is no XAxis with this ID", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			const result = useAppSelectorWithStableTest((state) =>
+			const result = untrack(() => useAppSelectorWithStableTest((state) =>
 				selectAxisScale(state, "xAxis", "this id is not present in the chart", false),
-			)
+			))
 			void result
-			createEffect(() =>
+			observe(() =>
 				spy(
 					useAppSelectorWithStableTest((state) =>
 						selectAxisScale(state, "xAxis", "this id is not present in the chart", false),
@@ -49,11 +51,11 @@ describe("selectAxisScale", () => {
 	it("should return scale if there is an Axis in the chart", () => {
 		const spy = vi.fn()
 		const Comp = (): null => {
-			const result = useAppSelectorWithStableTest((state) =>
+			const result = untrack(() => useAppSelectorWithStableTest((state) =>
 				selectAxisScale(state, "xAxis", "0", false),
-			)
+			))
 			void result
-			createEffect(() =>
+			observe(() =>
 				spy(
 					useAppSelectorWithStableTest((state) =>
 						selectAxisScale(state, "xAxis", "0", false),
@@ -111,6 +113,7 @@ describe("selectAxisScale", () => {
 				activeGraphicalItemId: "foo",
 				activeIndex: "7",
 			})
+			flush()
 			const result2 = selectAxisScale(store, "xAxis", "0", false)
 			expect(result1).toEqual(result2)
 		})
@@ -118,7 +121,7 @@ describe("selectAxisScale", () => {
 			const scaleDomainSpy = vi.fn()
 			const scaleRangeSpy = vi.fn()
 			const Comp = (): null => {
-				createEffect(() => {
+				observe(() => {
 					const scale = useAppSelectorWithStableTest((state) =>
 						selectAxisScale(state, "xAxis", "0", false),
 					)

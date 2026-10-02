@@ -1,12 +1,14 @@
 /* eslint-disable import/no-cycle */
-import { splitProps } from "solid-js"
 import { RootSurface } from "../container/RootSurface"
 import { RechartsWrapper } from "./RechartsWrapper"
 import { ClipPathProvider } from "../container/ClipPathProvider"
+import { useIsPanorama } from "../context/PanoramaContext"
 import type { CartesianChartProps } from "../util/types"
 import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
 import { ReportChartSize } from "../context/chartLayoutContext"
 
+import { untrack } from "solid-js"
+import { bindRef, splitProps } from '../util/solid-1-compat';
 export function CategoricalChart(
 	props: CartesianChartProps & {
 		ref?: SVGSVGElement | ((el: SVGSVGElement) => void)
@@ -41,12 +43,19 @@ export function CategoricalChart(
 	 * The "compact" mode is used as the panorama within Brush.
 	 * However because `compact` is a public prop, let's assume that it can render outside of Brush too.
 	 */
-	/* eslint-disable-next-line solid/reactivity -- `compact` is set once at creation (Brush panorama); never changes at runtime */
-	if (local.compact) {
+	/* Upstream Brush clones its child chart with `compact: true`; Solid cannot clone
+	   JSX, so a chart rendered inside the Brush panorama is compact by context.
+	   `compact` is set once at creation and never changes at runtime. */
+	const isPanorama = useIsPanorama()
+	if (isPanorama || untrack(() => local.compact)) {
 		return (
 			<>
 				<ReportChartSize width={local.width} height={local.height} />
-				<RootSurface otherAttributes={attrs()} title={local.title} desc={local.desc}>
+				<RootSurface
+					otherAttributes={attrs()}
+					title={local.title}
+					desc={local.desc}
+				>
 					{local.children}
 				</RootSurface>
 			</>
@@ -72,7 +81,12 @@ export function CategoricalChart(
 			onTouchMove={local.onTouchMove}
 			onTouchEnd={local.onTouchEnd}
 		>
-			<RootSurface otherAttributes={attrs()} title={local.title} desc={local.desc} ref={local.ref}>
+			<RootSurface
+				otherAttributes={attrs()}
+				title={local.title}
+				desc={local.desc}
+				ref={(el) => bindRef(local.ref, el)}
+			>
 				<ClipPathProvider>{local.children}</ClipPathProvider>
 			</RootSurface>
 		</RechartsWrapper>

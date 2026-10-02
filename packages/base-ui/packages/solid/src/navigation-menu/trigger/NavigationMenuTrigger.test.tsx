@@ -3,7 +3,7 @@ import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
 import { screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import { expect } from 'chai';
-import { Dynamic } from 'solid-js/web';
+import { Dynamic } from '@solidjs/web';
 
 describe('<NavigationMenu.Trigger />', () => {
   const { render } = createRenderer();

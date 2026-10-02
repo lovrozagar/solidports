@@ -1,8 +1,8 @@
 /* Test helpers. Production reads ChartState via useChartState. */
-import type { SetStoreFunction } from "solid-js/store"
 import { useOptionalChartState } from "../../src/state/useChartState"
 import type { ChartState } from "../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../src/util/solid-1-compat';
 export type ChartActionThunk = (
 	setStore: SetStoreFunction<ChartState>,
 	store: ChartState,

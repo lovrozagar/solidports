@@ -1,5 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createMemo, Match, Switch, type Accessor, type JSX } from 'solid-js';
+import { createMemo, Match, Switch } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { resolveMultipleLabels, resolveSelectedLabel } from '../../utils/resolveValueLabel';
 import { useComboboxRootContext } from '../root/ComboboxRootContext';
 

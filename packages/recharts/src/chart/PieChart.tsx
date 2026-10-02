@@ -1,10 +1,10 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
-import { mergeProps } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { arrayTooltipSearcher } from "../state/optionsSlice"
 import { defaultPolarChartProps, PolarChart } from "./PolarChart"
 import type { PolarChartProps, TooltipEventType } from "../util/types"
 
+import { mergeProps } from '../util/solid-1-compat';
 const allowedTooltipTypes: ReadonlyArray<TooltipEventType> = ["item"]
 
 export const defaultPieChartProps = {

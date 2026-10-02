@@ -1,5 +1,5 @@
-import { children as resolveChildren, type JSX } from "solid-js"
-
+import { children as resolveChildren } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 /**
  * Wraps user JSX (e.g. <ErrorBar/>) so that:
  *  - createComponent(ErrorBar, ...) fires exactly once,

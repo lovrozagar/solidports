@@ -1,30 +1,41 @@
 /* eslint-disable import/no-cycle */
-import { createEffect, onCleanup, useContext } from "solid-js"
-import { produce } from "solid-js/store"
-import { AxisDomain, BaseAxisProps, ScaleType } from "../util/types"
+import { onCleanup, useContext, createEffect } from 'solid-js';
+import { AxisDomain, BaseAxisProps, DataKey, ScaleType } from "../util/types"
 import type { AxisId, ZAxisSettings } from "../state/cartesianAxisSlice"
 import { RechartsStateContext } from "../state/RechartsStateContext"
 import { AxisRange, implicitZAxis } from "../state/selectors/axisSelectors"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { CustomScaleDefinition } from "../util/scale/CustomScaleDefinition"
+import { teardownWrite } from "../state/teardownWrite"
 
 function SetZAxisSettings(props: ZAxisSettings): null {
 	const stateCtx = useContext(RechartsStateContext)
 	let prevSettings: ZAxisSettings | null = null
 
-	createEffect(() => {
-		stateCtx?.setState("cartesianAxes", "zAxis", String(props.id), { settings: props })
-		/* eslint-disable-next-line solid/reactivity -- storing the proxy reference for identity comparison; entire block is inside createEffect (tracked) */
-		prevSettings = props
-	})
+	createEffect(
+		() => ({ ...props }),
+		(settings) => {
+			/* upstream replaceZAxis: a changed id drops the previous entry */
+			if (prevSettings != null && String(prevSettings.id) !== String(settings.id)) {
+				const prevId = String(prevSettings.id)
+				stateCtx?.setState("cartesianAxes", "zAxis", (axes) => {
+					delete axes[prevId]
+				})
+			}
+			stateCtx?.setState("cartesianAxes", "zAxis", String(settings.id), { settings })
+			prevSettings = settings
+		},
+	)
 
 	onCleanup(() => {
-		if (prevSettings) {
-			const strId = String(prevSettings.id)
-			/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
-			stateCtx?.setState("cartesianAxes", "zAxis", produce((axes) => { delete axes[strId] }))
-			prevSettings = null
-		}
+		teardownWrite(() => {
+			if (prevSettings) {
+				const strId = String(prevSettings.id)
+				/* eslint-disable-next-line solid/reactivity -- cleanup runs outside tracking; intentional */
+				stateCtx?.setState("cartesianAxes", "zAxis", (axes) => { delete axes[strId] })
+				prevSettings = null
+			}
+		})
 	})
 
 	return null
@@ -118,13 +129,16 @@ export const zAxisDefaultProps = {
  *
  * @consumes CartesianViewBoxContext
  */
-export function ZAxis(outsideProps: Props) {
+export function ZAxis<DataPointType = unknown, DataValueType = unknown>(
+	outsideProps: Props<DataPointType, DataValueType>,
+) {
 	const props = resolveDefaultProps(outsideProps, zAxisDefaultProps)
 	return (
 		<SetZAxisSettings
 			domain={props.domain}
 			id={props.zAxisId}
-			dataKey={props.dataKey}
+			/* settings are untyped; the generic only constrains what callers pass */
+			dataKey={props.dataKey as DataKey<unknown>}
 			name={props.name}
 			unit={props.unit}
 			range={props.range}

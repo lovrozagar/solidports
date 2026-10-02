@@ -1,15 +1,16 @@
-import { describe, it, expect, beforeAll, beforeEach } from "vitest"
+import { createSignal, Show, flush } from "solid-js"
+import type { JSX } from "@solidjs/web"
+import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest"
 import { createSelectorTestCase } from "../helper/createSelectorTestCase"
-import { Legend, Line, LineChart, YAxis } from "../../src"
+import { ComposedChart, Legend, Line, LineChart, Scatter, XAxis, YAxis } from "../../src"
 import { PageData } from "../_data"
 import { mockGetTotalLength } from "../helper/mockGetTotalLength"
 import { ExpectedLabel, expectLabels } from "../helper/expectLabel"
-import { mockSequenceOfGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
+import { mockGetBoundingClientRect, mockSequenceOfGetBoundingClientRect } from "../helper/mockGetBoundingClientRect"
 import { expectDots } from "../helper/expectDots"
 import { expectLines } from "../helper/expectLine"
 import { MockAnimationManager } from "../animation/MockProgressAnimationManager"
 import { assertNotNull } from "../helper/assertNotNull"
-import { createSignal, Show } from "solid-js"
 
 function getLine(container: HTMLElement) {
 	const line = container.querySelector(".recharts-line-curve")
@@ -20,8 +21,8 @@ function getLine(container: HTMLElement) {
 describe("Line animation", () => {
 	beforeEach(() => {
 		mockSequenceOfGetBoundingClientRect([
-			{ height: 0, left: 0, top: 50, width: 0 },
-			{ height: 50, left: 0, top: 50, width: 50 },
+			{ width: 0, height: 0, left: 0, top: 50 },
+			{ width: 50, height: 50, left: 0, top: 50 },
 		])
 	})
 
@@ -203,8 +204,8 @@ describe("Line animation", () => {
 			expect(line).toBeInTheDocument()
 			// the path is fully rendered
 			expect(line).toHaveAttribute("d", "M5,5L23,27.5L41,27.5L59,50L77,32.45L95,52.475")
-			// but the strokeDasharray is 0 so the line is not visible
-			expect(line).toHaveAttribute("stroke-dasharray", "0px 0px")
+			// but the strokeDasharray is 0px (dash) - 100px (gap) so the line is not visible
+			expect(line).toHaveAttribute("stroke-dasharray", "0px 100px")
 		})
 
 		it("should animate line left-to-right by continually extending the stroke-dasharray", async () => {
@@ -213,33 +214,30 @@ describe("Line animation", () => {
 			await animationManager.setAnimationProgress(0.1)
 
 			const line = getLine(container)
-			// after travelling 10% of the path, the stroke-dasharray should be 10px visible and 90px hidden
-			expect(line).toHaveAttribute("stroke-dasharray", "10px 90px")
+			// after travelling 10% of the path, the stroke-dasharray should be 10px visible with a totalLength gap
+			expect(line).toHaveAttribute("stroke-dasharray", "10px 100px")
 
 			await animationManager.setAnimationProgress(0.2)
 
-			// after travelling 20% of the path, the stroke-dasharray should be 20px visible and 80px hidden
-			expect(line).toHaveAttribute("stroke-dasharray", "20px 80px")
+			// after travelling 20% of the path, the stroke-dasharray should be 20px visible with a totalLength gap
+			expect(line).toHaveAttribute("stroke-dasharray", "20px 100px")
 
 			await animationManager.setAnimationProgress(1)
-			// after travelling 100% of the path, the stroke-dasharray should be 100px visible and 0px hidden
-			expect(line).toHaveAttribute("stroke-dasharray", "100px 0px")
+			// after the line is fully visible, stroke-dasharray is removed (no need to mask anything)
+			expect(line).not.toHaveAttribute("stroke-dasharray")
 
 			await animationManager.completeAnimation()
-			/*
-			 * After the animation is completed, the stroke-dasharray should remain 100px visible and 0px hidden.
-			 * It would also be acceptable to remove the stroke-dasharray attribute altogether. But no harm if it remains.
-			 */
-			expect(line).toHaveAttribute("stroke-dasharray", "100px 0px")
+			// After the animation is completed, stroke-dasharray should remain absent.
+			expect(line).not.toHaveAttribute("stroke-dasharray")
 		})
 
-		it("should set the stroke-dasharray to 100, 0 when the animation is completed", async () => {
+		it("should remove the stroke-dasharray when the animation is completed", async () => {
 			const { container, animationManager } = renderTestCase()
 
 			await animationManager.setAnimationProgress(1)
 
 			const line = getLine(container)
-			expect(line).toHaveAttribute("stroke-dasharray", "100px 0px")
+			expect(line).not.toHaveAttribute("stroke-dasharray")
 		})
 
 		it("should render all the dots without animation", () => {
@@ -273,15 +271,13 @@ describe("Line animation", () => {
 			])
 		})
 
-		/* GOTCHA-008/014 mid-frame arithmetic divergence */
-		it.skip("should hide all labels until the animation is completed", async () => {
+		it("should hide all labels until the animation is completed", async () => {
 			const { container, animationManager } = renderTestCase()
 
 			/*
-			 * ... the very first tick, the first render, shows all labels. This looks like a bug. Same happens in browser,
-			 * but it's too quick to notice I suppose.
+			 * ... the very first tick, the first render, no labels
 			 */
-			expectLabels(container, expectedUvLabels)
+			expectLabels(container, [])
 
 			// but after the first tick, all labels are hidden
 			await animationManager.setAnimationProgress(0.1)
@@ -297,7 +293,6 @@ describe("Line animation", () => {
 			expectLabels(container, expectedUvLabels)
 		})
 
-		/* Cluster B animation interpolation */
 		it("should not move the path itself during the animation", async () => {
 			const { container, animationManager } = renderTestCase()
 
@@ -318,6 +313,59 @@ describe("Line animation", () => {
 
 			await animationManager.completeAnimation()
 			expect(line.getAttribute("d")).toBe(initialPath)
+		})
+	})
+
+	describe("in ComposedChart with sparse best-fit line data", () => {
+		const data = [
+			{ index: 10000, red: 1643, blue: 790 },
+			{ index: 1666, red: 182, blue: 42 },
+			{ index: 625, red: 56, blue: 11 },
+			{ index: 300, redLine: 0 },
+			{ index: 10000, redLine: 1522 },
+			{ index: 600, blueLine: 0 },
+			{ index: 10000, blueLine: 678 },
+		]
+
+		const renderTestCase = createSelectorTestCase((props) => (
+			<ComposedChart data={data} width={100} height={100}>
+				<XAxis dataKey="index" type="number" />
+				<YAxis type="number" />
+				<Scatter name="red" dataKey="red" fill="red" />
+				<Scatter name="blue" dataKey="blue" fill="blue" />
+				<Line
+					dataKey="blueLine"
+					stroke="blue"
+					dot={false}
+					activeDot={false}
+					legendType="none"
+					animationEasing="linear"
+				/>
+				<Line dataKey="redLine" stroke="red" dot={false} activeDot={false} legendType="none" animationEasing="linear" />
+				{props.children}
+			</ComposedChart>
+		))
+
+		function getAnimatedLines(container: HTMLElement) {
+			return Array.from(container.querySelectorAll<SVGPathElement>(".recharts-line-curve"))
+		}
+
+		it("should keep the sparse line path present while stroke-dasharray grows during the entrance animation", async () => {
+			const { container, animationManager } = renderTestCase()
+
+			const linesAtStart = getAnimatedLines(container)
+			expect(linesAtStart).toHaveLength(2)
+			expect(linesAtStart[0]).toHaveAttribute("d")
+			expect(linesAtStart[0]?.getAttribute("d")).not.toBe("")
+			expect(linesAtStart[0]).toHaveAttribute("stroke-dasharray", "0px 100px")
+
+			await animationManager.setAnimationProgress(0.5)
+
+			const linesMidAnimation = getAnimatedLines(container)
+			expect(linesMidAnimation).toHaveLength(2)
+			expect(linesMidAnimation[0]).toHaveAttribute("d")
+			expect(linesMidAnimation[0]?.getAttribute("d")).not.toBe("")
+			expect(linesMidAnimation[0]).toHaveAttribute("stroke-dasharray", "50px 100px")
 		})
 	})
 
@@ -358,7 +406,7 @@ describe("Line animation", () => {
 				// the path is fully rendered
 				expect(line).toHaveAttribute("d", "M5,5L23,27.5L41,27.5L59,50L77,32.45L95,52.475")
 				// but the strokeDasharray is 0 so the line is not visible
-				expect(line).toHaveAttribute("stroke-dasharray", "0px, 0px")
+				expect(line).toHaveAttribute("stroke-dasharray", "0px, 100px")
 			})
 
 			it("should animate line left-to-right by continually extending the stroke-dasharray", async () => {
@@ -367,31 +415,37 @@ describe("Line animation", () => {
 				await animationManager.setAnimationProgress(0.1)
 
 				const line = getLine(container)
-				// after travelling 10% of the path, the stroke-dasharray should be 10px visible and 90px hidden
+				// after travelling 10% of the path, the stroke-dasharray should be 10px visible with a totalLength gap
 				// but as the line grows, it leaves behind the 7,3 dashed stroke as instructed by the prop
-				expect(line).toHaveAttribute("stroke-dasharray", "7px, 3px, 0px, 90px")
+				expect(line).toHaveAttribute("stroke-dasharray", "7px, 3px, 0px, 100px")
 
 				await animationManager.setAnimationProgress(0.2)
 
-				// after travelling 20% of the path, the stroke-dasharray should be 20px visible and 80px hidden
-				expect(line).toHaveAttribute("stroke-dasharray", "7px, 3px, 7px, 3px, 0px, 80px")
+				// after travelling 20% of the path, the stroke-dasharray should be 20px visible with a totalLength gap
+				expect(line).toHaveAttribute("stroke-dasharray", "7px, 3px, 7px, 3px, 0px, 100px")
 
 				await animationManager.setAnimationProgress(1)
-				// after travelling 100% of the path, the stroke-dasharray should be 100px visible and 0px hidden
-				expect(line).toHaveAttribute(
-					"stroke-dasharray",
-					"7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 0px, 0px",
-				)
+				// after the line is fully visible, stroke-dasharray reverts to the user-provided value
+				expect(line).toHaveAttribute("stroke-dasharray", "7 3")
 
 				await animationManager.completeAnimation()
-				/*
-				 * After the animation is completed, the stroke-dasharray should remain 100px visible and 0px hidden.
-				 * This could be shortened to just '7,3' but no harm if it remains as is.
-				 */
-				expect(line).toHaveAttribute(
-					"stroke-dasharray",
-					"7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 0px, 0px",
-				)
+				// After the animation is completed, stroke-dasharray is the user-provided value.
+				expect(line).toHaveAttribute("stroke-dasharray", "7 3")
+			})
+
+			it("should preserve single-value dash gaps during animation", async () => {
+				const renderSingleDash = createSelectorTestCase((props) => (
+					<LineChart data={PageData} width={100} height={100}>
+						<Line dataKey="uv" animationEasing="linear" strokeDasharray="5" />
+						{props.children}
+					</LineChart>
+				))
+				const { container, animationManager } = renderSingleDash()
+
+				await animationManager.setAnimationProgress(0.1)
+
+				const line = getLine(container)
+				expect(line).toHaveAttribute("stroke-dasharray", "5px, 5px, 0px, 100px")
 			})
 		})
 	})
@@ -405,7 +459,6 @@ describe("Line animation", () => {
 			</LineChart>
 		))
 
-		/* Cluster B animation interpolation */
 		it("should not move the path during the animation", async () => {
 			const { container, animationManager } = renderTestCase()
 
@@ -428,6 +481,150 @@ describe("Line animation", () => {
 		})
 	})
 
+	describe("in responsive charts that receive size after mount", () => {
+		let resizeObserverCallback: (entries: ResizeObserverEntry[]) => void
+
+		beforeEach(() => {
+			mockGetBoundingClientRect({ width: 0, height: 0 })
+			vi.stubGlobal(
+				"ResizeObserver",
+				vi.fn(function ResizeObserverMock(cb) {
+					resizeObserverCallback = cb
+					return {
+						observe: vi.fn(),
+						unobserve: vi.fn(),
+						disconnect: vi.fn(),
+					}
+				}),
+			)
+		})
+
+		const renderTestCase = createSelectorTestCase((props) => (
+			<LineChart responsive data={PageData}>
+				<Line dataKey="uv" animationEasing="linear" />
+				{props.children}
+			</LineChart>
+		))
+
+		it("should keep revealing the line after a late resize instead of staying fully hidden until animation end", async () => {
+			const { container, animationManager } = renderTestCase()
+
+			resizeObserverCallback([{ contentRect: { width: 500, height: 400 } }] as ResizeObserverEntry[])
+			vi.runOnlyPendingTimers()
+			flush()
+
+			const line = getLine(container)
+			expect(line).toHaveAttribute("stroke-dasharray")
+
+			await animationManager.setAnimationProgress(0.5)
+			expect(line).toHaveAttribute("stroke-dasharray", "50px 100px")
+
+			await animationManager.completeAnimation()
+			expect(line).not.toHaveAttribute("stroke-dasharray")
+		})
+
+		it("should keep revealing sparse best-fit lines in responsive ComposedChart after a late resize", async () => {
+			const data = [
+				{ index: 10000, red: 1643, blue: 790 },
+				{ index: 1666, red: 182, blue: 42 },
+				{ index: 625, red: 56, blue: 11 },
+				{ index: 300, redLine: 0 },
+				{ index: 10000, redLine: 1522 },
+				{ index: 600, blueLine: 0 },
+				{ index: 10000, blueLine: 678 },
+			]
+
+			const renderResponsiveComposed = createSelectorTestCase((props) => (
+				<ComposedChart responsive data={data}>
+					<Legend />
+					<XAxis dataKey="index" type="number" />
+					<YAxis type="number" width="auto" />
+					<Scatter name="red" dataKey="red" fill="red" />
+					<Scatter name="blue" dataKey="blue" fill="blue" />
+					<Line
+						dataKey="blueLine"
+						stroke="blue"
+						dot={false}
+						activeDot={false}
+						legendType="none"
+						animationEasing="linear"
+					/>
+					<Line
+						dataKey="redLine"
+						stroke="red"
+						dot={false}
+						activeDot={false}
+						legendType="none"
+						animationEasing="linear"
+					/>
+					{props.children}
+				</ComposedChart>
+			))
+
+			const { container, animationManager } = renderResponsiveComposed()
+
+			resizeObserverCallback([{ contentRect: { width: 500, height: 400 } }] as ResizeObserverEntry[])
+			vi.runOnlyPendingTimers()
+			flush()
+
+			const lines1 = Array.from(container.querySelectorAll<SVGPathElement>(".recharts-line-curve"))
+			expect(lines1).toHaveLength(2)
+			expect(lines1[0]).toHaveAttribute("stroke-dasharray")
+
+			const lines2 = Array.from(container.querySelectorAll<SVGPathElement>(".recharts-line-curve"))
+			await animationManager.setAnimationProgress(0.5)
+			expect(lines2[0]).toHaveAttribute("stroke-dasharray", "50px 100px")
+			expect(lines2[1]).toHaveAttribute("stroke-dasharray", "50px 100px")
+		})
+	})
+
+	describe("when layout changes during the entrance animation", () => {
+		const BaseChart = (props: { children: JSX.Element }) => (
+			<LineChart data={PageData} width={100} height={100}>
+				<Line dataKey="uv" animationEasing="linear" />
+				{props.children}
+			</LineChart>
+		)
+
+		const ChartWithLegend = (props: { children: JSX.Element }) => (
+			<LineChart data={PageData} width={100} height={100}>
+				<Legend />
+				<Line dataKey="uv" animationEasing="linear" />
+				{props.children}
+			</LineChart>
+		)
+
+		const ChartWithAutoYAxis = (props: { children: JSX.Element }) => (
+			<LineChart data={PageData} width={100} height={100}>
+				<YAxis width="auto" />
+				<Line dataKey="uv" animationEasing="linear" />
+				{props.children}
+			</LineChart>
+		)
+
+		const renderTestCase = createSelectorTestCase(BaseChart)
+
+		it("should not reset the visible stroke length when Legend is added mid-animation", async () => {
+			const { container, animationManager, rerender } = renderTestCase()
+
+			await animationManager.setAnimationProgress(0.5)
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "50px 100px")
+
+			rerender(ChartWithLegend)
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "0px 100px")
+		})
+
+		it('should not reset the visible stroke length when YAxis width="auto" is added mid-animation', async () => {
+			const { container, animationManager, rerender } = renderTestCase()
+
+			await animationManager.setAnimationProgress(0.5)
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "50px 100px")
+
+			rerender(ChartWithAutoYAxis)
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "0px 100px")
+		})
+	})
+
 	describe('with <YAxis width="auto" /> sibling', () => {
 		const renderTestCase = createSelectorTestCase((props) => (
 			<LineChart data={PageData} width={100} height={100}>
@@ -437,8 +634,7 @@ describe("Line animation", () => {
 			</LineChart>
 		))
 
-		/* GOTCHA-008/014 mid-frame arithmetic divergence */
-		it.skip("should not move the path during the animation", async () => {
+		it("should not move the path during the animation", async () => {
 			const { container, animationManager } = renderTestCase()
 
 			const line = getLine(container)
@@ -494,6 +690,7 @@ describe("Line animation", () => {
 				assertNotNull(button)
 				expect(button).toBeInTheDocument()
 				button.click()
+				flush()
 
 				// now the chart is ready for assertions
 			}
@@ -501,51 +698,47 @@ describe("Line animation", () => {
 			it("should continue growing the line where it left off", async () => {
 				const { container, animationManager } = renderTestCase()
 				await prime(container, animationManager)
-				const fullyVisibleLine = "100px 0px"
 
 				/*
 				 * During priming we have progressed the animation to 30% of the path,
-				 * so the stroke-dasharray should be 30px visible and 70px hidden.
+				 * so the stroke-dasharray should be 30px visible with a totalLength gap.
 				 */
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 70px")
+				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 100px")
 
 				/*
-				 * Now, the line should continue growing from where it left off. Previously it was 30% of the path, so 30px visible and 70px hidden.
+				 * Now, the line should continue growing from where it left off. Previously it was 30% of the path, so 30px visible with a totalLength gap.
 				 * Even though a new animation is started, it should not reset the stroke-dasharray
 				 * and it should continue growing from the most recent length.
 				 */
 				await animationManager.setAnimationProgress(0.1)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "40px 60px")
+				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "40px 100px")
 
 				await animationManager.setAnimationProgress(0.2)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "50px 50px")
+				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "50px 100px")
 
 				await animationManager.setAnimationProgress(0.3)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "60px 40px")
+				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "60px 100px")
 
 				// Because the animation had a head start, it will arrive to full length quicker than the initial animation would.
 				await animationManager.setAnimationProgress(0.7)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.completeAnimation()
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 			})
 
-			/* GOTCHA-008/014 mid-frame arithmetic divergence */
-			it.skip("should hide labels during the animation", async () => {
+			it("should hide labels during the animation", async () => {
 				const { container, animationManager } = renderTestCase()
 
-				// Chart starts with UV dataKey, so UV labels are expected
-				expectLabels(container, expectedUvLabels)
+				// Chart starts with UV dataKey, but animation is running so labels are hidden
+				expectLabels(container, [])
 
 				await prime(container, animationManager)
 
 				/*
-				 * The labels should still be hidden! But all labels now appear again.
-				 * Why? Because the animation is not started yet, but they swap to PV label values immediately.
-				 * This looks like a bug, but in the browser the labels disappear so quickly that I can't see it.
+				 * The labels should still be hidden! and indeed they are
 				 */
-				expectLabels(container, expectedPvLabels)
+				expectLabels(container, [])
 				await animationManager.setAnimationProgress(0.2)
 				// the labels should be hidden by now because the animation is in progress
 				expectLabels(container, [])
@@ -578,26 +771,18 @@ describe("Line animation", () => {
 
 				// path changes little by little as the animation progresses
 				await animationManager.setAnimationProgress(0.2)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,18.68L23,32.779L41,38.484L59,41.36L77,37.926L95,52.34",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,18.68L23,32.779L41,38.484L59,41.36L77,37.926L95,52.34")
 				expect(getLine(container).getAttribute("d")).not.toBe(initialPath)
 
 				await animationManager.setAnimationProgress(0.5)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,39.2L23,40.699L41,54.959L59,28.4L77,46.139L95,52.138",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,39.2L23,40.699L41,54.959L59,28.4L77,46.139L95,52.138")
 
 				await animationManager.setAnimationProgress(1)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8")
 
 				// path should not change after the animation is completed
 				await animationManager.completeAnimation()
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8")
 			})
 
 			it("should animate the dots", async () => {
@@ -681,6 +866,7 @@ describe("Line animation", () => {
 				assertNotNull(button)
 				expect(button).toBeInTheDocument()
 				button.click()
+				flush()
 
 				// now the chart is ready for assertions
 			}
@@ -688,38 +874,32 @@ describe("Line animation", () => {
 			it("should keep the whole line visible during the animation", async () => {
 				const { container, animationManager } = renderTestCase()
 				await prime(container, animationManager)
-				const fullyVisibleLine = "100px 0px"
 
-				/*
-				 * stroke-dasharray should still be 100px visible and 0px hidden because the animation works by changing the path, not the dasharray
-				 */
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "100px 0px")
+				// Once the line is fully visible, stroke-dasharray is removed entirely
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.setAnimationProgress(0.1)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.setAnimationProgress(0.5)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.setAnimationProgress(1)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.completeAnimation()
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 			})
 
-			/* Cluster B animation interpolation */
-			it.skip("should hide labels during the animation", async () => {
+			it("should hide labels during the animation", async () => {
 				const { container, animationManager } = renderTestCase()
 
 				await prime(container, animationManager)
 
 				/*
-				 * The labels should still be hidden! But all labels now appear again.
-				 * Why? Because the animation is not started yet, but they swap to PV label values immediately.
-				 * This looks like a bug, but in the browser the labels disappear so quickly that I can't see it.
+				 * The labels should still be hidden!
 				 */
-				expectLabels(container, expectedPvLabels)
+				expectLabels(container, [])
 				await animationManager.setAnimationProgress(0.2)
 				// the labels should be hidden by now because the animation is in progress
 				expectLabels(container, [])
@@ -752,26 +932,18 @@ describe("Line animation", () => {
 
 				// path changes little by little as the animation progresses
 				await animationManager.setAnimationProgress(0.2)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,18.68L23,32.779L41,38.484L59,41.36L77,37.926L95,52.34",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,18.68L23,32.779L41,38.484L59,41.36L77,37.926L95,52.34")
 				expect(getLine(container).getAttribute("d")).not.toBe(initialPath)
 
 				await animationManager.setAnimationProgress(0.5)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,39.2L23,40.699L41,54.959L59,28.4L77,46.139L95,52.138",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,39.2L23,40.699L41,54.959L59,28.4L77,46.139L95,52.138")
 
 				await animationManager.setAnimationProgress(1)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8")
 
 				// path should not change after the animation is completed
 				await animationManager.completeAnimation()
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8")
 			})
 
 			it("should animate the dots", async () => {
@@ -857,15 +1029,16 @@ describe("Line animation", () => {
 					<button type="button" onClick={changeDataKey}>
 						Change dataKey
 					</button>
-					{/* GOTCHA-014-C: keyed Show is Solid's equivalent of React `key={dataKey}`. */}
-					<Show when={dataKey()} keyed>
-						{(value) => (
-							<LineChart data={PageData} width={100} height={100}>
-								<Line dataKey={value} animationEasing="linear" label />
-								{props.children}
-							</LineChart>
-						)}
-					</Show>
+					<LineChart data={PageData} width={100} height={100}>
+						{/* GOTCHA-014-C: keyed Show is Solid's equivalent of React `key={dataKey}`.
+						 * This effectively makes it so that the Line always does the initial animation
+						 * even if it has already been rendered before.
+						 */}
+						<Show when={dataKey()} keyed>
+							{(key) => <Line dataKey={key} animationEasing="linear" label />}
+						</Show>
+						{props.children}
+					</LineChart>
 				</div>
 			)
 		}
@@ -881,6 +1054,7 @@ describe("Line animation", () => {
 			assertNotNull(button)
 			expect(button).toBeInTheDocument()
 			button.click()
+			flush()
 
 			// now the chart is ready for assertions
 		}
@@ -896,25 +1070,25 @@ describe("Line animation", () => {
 			 */
 			expect(getLine(container).getAttribute("d")).toBe(initialPath)
 			// stroke-dasharray should be 0px, 0px because the animation is not started yet
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "0px 0px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "0px 100px")
 
 			// path changes little by little as the animation progresses
 			await animationManager.setAnimationProgress(0.2)
 			expect(getLine(container).getAttribute("d")).toBe(initialPath)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "20px 80px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "20px 100px")
 
 			await animationManager.setAnimationProgress(0.5)
 			expect(getLine(container).getAttribute("d")).toBe(initialPath)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "50px 50px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "50px 100px")
 
 			await animationManager.setAnimationProgress(1)
 			expect(getLine(container).getAttribute("d")).toBe(initialPath)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "100px 0px")
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 			// path should not change after the animation is completed
 			await animationManager.completeAnimation()
 			expect(getLine(container).getAttribute("d")).toBe(initialPath)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "100px 0px")
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 		})
 	})
 
@@ -923,8 +1097,8 @@ describe("Line animation", () => {
 			name: string
 			val: number
 		}>
-		const uvData: DataType = PageData.map((d) => ({ name: d.name, val: d.uv }))
-		const pvData: DataType = PageData.map((d) => ({ name: d.name, val: d.pv }))
+		const uvData: DataType = PageData.map(d => ({ name: d.name, val: d.uv }))
+		const pvData: DataType = PageData.map(d => ({ name: d.name, val: d.pv }))
 
 		const MyTestCase = (props: { children: JSX.Element }) => {
 			const [data, setData] = createSignal(uvData)
@@ -965,6 +1139,7 @@ describe("Line animation", () => {
 				assertNotNull(button)
 				expect(button).toBeInTheDocument()
 				button.click()
+				flush()
 
 				// now the chart is ready for assertions
 			}
@@ -972,48 +1147,44 @@ describe("Line animation", () => {
 			it("should continue growing the line where it left off", async () => {
 				const { container, animationManager } = renderTestCase()
 				await prime(container, animationManager)
-				const fullyVisibleLine = "100px 0px"
 
 				/*
-				 * The path had arrived at 30% of the path, so it should be 30px visible and 70px hidden
+				 * The path had arrived at 30% of the path, so it should be 30px visible with a totalLength gap
 				 * before the next animation starts.
 				 */
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 70px")
+				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 100px")
 
 				/*
-				 * Now, the line should continue growing from where it left off. Previously it was 30% of the path, so 30px visible and 70px hidden.
+				 * Now, the line should continue growing from where it left off. Previously it was 30% of the path, so 30px visible with a totalLength gap.
 				 * Even though a new animation is started, it should not reset the stroke-dasharray
 				 * and it should continue growing from the most recent length.
 				 */
 				await animationManager.setAnimationProgress(0.1)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "40px 60px")
+				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "40px 100px")
 
 				await animationManager.setAnimationProgress(0.2)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "50px 50px")
+				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "50px 100px")
 
 				await animationManager.setAnimationProgress(0.3)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "60px 40px")
+				expect(getLine(container)).toHaveAttribute("stroke-dasharray", "60px 100px")
 
 				// Because the animation had a head start, it will arrive to full length quicker than the initial animation would.
 				await animationManager.setAnimationProgress(0.7)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.completeAnimation()
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 			})
 
-			/* Cluster B animation interpolation */
-			it.skip("should hide labels during the animation", async () => {
+			it("should hide labels during the animation", async () => {
 				const { container, animationManager } = renderTestCase()
 
 				await prime(container, animationManager)
 
 				/*
-				 * The labels should still be hidden! But all labels now appear again.
-				 * Why? Because the animation is not started yet, but they swap to new label values immediately.
-				 * This looks like a bug, but in the browser the labels disappear so quickly that I can't see it.
+				 * The labels should still be hidden!
 				 */
-				expectLabels(container, expectedPvLabels)
+				expectLabels(container, [])
 				await animationManager.setAnimationProgress(0.2)
 				// the labels should be hidden by now because the animation is in progress
 				expectLabels(container, [])
@@ -1043,6 +1214,7 @@ describe("Line animation", () => {
 				assertNotNull(button)
 				expect(button).toBeInTheDocument()
 				button.click()
+				flush()
 
 				// now the chart is ready for assertions
 			}
@@ -1050,38 +1222,32 @@ describe("Line animation", () => {
 			it("should keep the whole line visible during the animation", async () => {
 				const { container, animationManager } = renderTestCase()
 				await prime(container, animationManager)
-				const fullyVisibleLine = "100px 0px"
 
-				/*
-				 * stroke-dasharray should still be 100px visible and 0px hidden because the animation works by changing the path, not the dasharray
-				 */
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				// Once the line is fully visible, stroke-dasharray is removed entirely
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.setAnimationProgress(0.1)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.setAnimationProgress(0.5)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.setAnimationProgress(1)
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 				await animationManager.completeAnimation()
-				expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+				expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 			})
 
-			/* Cluster B animation interpolation */
-			it.skip("should hide labels during the animation", async () => {
+			it("should hide labels during the animation", async () => {
 				const { container, animationManager } = renderTestCase()
 
 				await prime(container, animationManager)
 
 				/*
-				 * The labels should still be hidden! But all labels now appear again.
-				 * Why? Because the animation is not started yet, but they swap to new label values immediately.
-				 * This looks like a bug, but in the browser the labels disappear so quickly that I can't see it.
+				 * The labels should still be hidden!
 				 */
-				expectLabels(container, expectedPvLabels)
+				expectLabels(container, [])
 
 				await animationManager.setAnimationProgress(0.2)
 				// the labels should be hidden by now because the animation is in progress
@@ -1115,26 +1281,18 @@ describe("Line animation", () => {
 
 				// path changes little by little as the animation progresses
 				await animationManager.setAnimationProgress(0.2)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,18.68L23,32.779L41,38.484L59,41.36L77,37.926L95,52.34",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,18.68L23,32.779L41,38.484L59,41.36L77,37.926L95,52.34")
 				expect(getLine(container).getAttribute("d")).not.toBe(initialPath)
 
 				await animationManager.setAnimationProgress(0.5)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,39.2L23,40.699L41,54.959L59,28.4L77,46.139L95,52.138",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,39.2L23,40.699L41,54.959L59,28.4L77,46.139L95,52.138")
 
 				await animationManager.setAnimationProgress(1)
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8")
 
 				// path should not change after the animation is completed
 				await animationManager.completeAnimation()
-				expect(getLine(container).getAttribute("d")).toBe(
-					"M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8",
-				)
+				expect(getLine(container).getAttribute("d")).toBe("M5,73.4L23,53.897L41,82.418L59,6.8L77,59.828L95,51.8")
 			})
 
 			it("should animate the dots", async () => {
@@ -1227,6 +1385,7 @@ describe("Line animation", () => {
 			assertNotNull(button)
 			expect(button).toBeInTheDocument()
 			button.click()
+			flush()
 
 			// now the chart is ready for assertions
 		}
@@ -1234,71 +1393,32 @@ describe("Line animation", () => {
 		it("should keep the whole line visible during the animation", async () => {
 			const { container, animationManager } = renderTestCase()
 			await prime(container, animationManager)
-			const fullyVisibleLine = "100px 0px"
 
-			/*
-			 * stroke-dasharray should still be 100px visible and 0px hidden because the animation works by changing the path, not the dasharray
-			 */
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+			// Once the line is fully visible, stroke-dasharray is removed entirely
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 			await animationManager.setAnimationProgress(0.1)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 			await animationManager.setAnimationProgress(0.5)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 			await animationManager.setAnimationProgress(1)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 
 			await animationManager.completeAnimation()
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", fullyVisibleLine)
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 		})
 
-		/* Cluster B animation interpolation */
-		it.skip("should hide labels during the animation", async () => {
+		it("should hide labels during the animation", async () => {
 			const { container, animationManager } = renderTestCase()
 
 			await prime(container, animationManager)
 
 			/*
-			 * The labels should still be hidden! But all labels now appear again.
-			 * Why? Because the animation is not started yet, but they swap to new label values immediately.
-			 * This looks like a bug, but in the browser the labels disappear so quickly that I can't see it.
+			 * The labels should still be hidden!
 			 */
-			expectLabels(container, [
-				{
-					height: "0",
-					offset: "5",
-					textContent: "400",
-					width: "0",
-					x: "5",
-					y: "5",
-				},
-				{
-					height: "0",
-					offset: "5",
-					textContent: "300",
-					width: "0",
-					x: "35",
-					y: "27.5",
-				},
-				{
-					height: "0",
-					offset: "5",
-					textContent: "300",
-					width: "0",
-					x: "65",
-					y: "27.5",
-				},
-				{
-					height: "0",
-					offset: "5",
-					textContent: "200",
-					width: "0",
-					x: "95",
-					y: "50",
-				},
-			])
+			expectLabels(container, [])
 
 			await animationManager.setAnimationProgress(0.2)
 			// the labels should be hidden by now because the animation is in progress
@@ -1487,6 +1607,161 @@ describe("Line animation", () => {
 		})
 	})
 
+	describe("when totalLength increases after initial animation completes (issue #7207)", () => {
+		// In real browsers, adding more data points or widening the chart increases the
+		// totalLength of the SVG path. The default mockGetTotalLength(100) mock hides this
+		// scenario because all paths return the same constant length.
+		// This test overrides the mock mid-test to simulate a totalLength increase.
+		let mockTotalLength = 100
+
+		beforeEach(() => {
+			// Use a closure variable so we can change the returned value mid-test.
+			// @ts-expect-error - patching SVGElement prototype in tests
+			SVGElement.prototype.getTotalLength = () => mockTotalLength
+		})
+
+		afterEach(() => {
+			mockTotalLength = 100
+			// @ts-expect-error - patching SVGElement prototype in tests
+			SVGElement.prototype.getTotalLength = () => 100
+		})
+
+		const data1 = PageData.slice(0, 2) // fewer data points → shorter SVG path
+		const data2 = PageData.slice(0, 4) // more data points → longer SVG path
+
+		const renderTestCase = createSelectorTestCase((props) => {
+			const [data, setData] = createSignal(data1)
+			const addMoreData = () => {
+				setData((prevData) => (prevData === data1 ? data2 : data1))
+			}
+			return (
+				<div>
+					<button type="button" onClick={addMoreData}>
+						Add more data
+					</button>
+					<LineChart data={data()} width={100} height={100}>
+						<Line dataKey="uv" animationEasing="linear" />
+						{props.children}
+					</LineChart>
+				</div>
+			)
+		})
+
+		it("should keep the whole line visible when totalLength increases after data changes", async () => {
+			// Start with a shorter path (fewer data points, totalLength = 50)
+			mockTotalLength = 50
+
+			const { container, animationManager } = renderTestCase()
+
+			// Complete the initial animation so the line is fully visible (50px out of 50px)
+			await animationManager.completeAnimation()
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
+
+			// Simulate switching to a longer path (e.g., more data points or a wider chart)
+			mockTotalLength = 100
+
+			const button = container.querySelector("button")
+			assertNotNull(button)
+			button.click()
+			flush()
+
+			/*
+			 * The line was fully visible before (50px out of 50px = 100%).
+			 * After data changes to a longer path (totalLength = 100px), the line should
+			 * remain fully visible — stroke-dasharray should stay absent.
+			 *
+			 * Bug (issue #7207): the animation would start at '50px 100px' (only 50% visible)
+			 * because longestAnimatedLengthRef stored the previous absolute path length (50px).
+			 * The fix uses useAnimatedLineLength hook which tracks "reached full" state
+			 * and returns null (no dasharray) once the line has been fully visible.
+			 */
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
+
+			await animationManager.setAnimationProgress(0.5)
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
+
+			await animationManager.completeAnimation()
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
+		})
+	})
+
+	describe("when totalLength grows during the transition animation", () => {
+		// In real browsers, the SVG path length (totalLength) can grow mid-animation.
+		// This happens, for example, with matchAppend: new data points immediately appear
+		// at their final positions at t=0, making the path immediately longer than the old one.
+		// As t progresses, totalLength stays large, but startingPoint is still the old absolute
+		// pixel count — causing curLength/totalLength to shrink ("line shrinks" visual bug).
+		//
+		// Reproduction: MatchingStrategiesExample.tsx — Line shrinks on dataset swap.
+		let mockTotalLength = 100
+
+		beforeEach(() => {
+			// @ts-expect-error - patching SVGElement prototype in tests
+			SVGElement.prototype.getTotalLength = () => mockTotalLength
+		})
+
+		afterEach(() => {
+			mockTotalLength = 100
+			// @ts-expect-error - patching SVGElement prototype in tests
+			SVGElement.prototype.getTotalLength = () => 100
+		})
+
+		const data1 = PageData.slice(0, 2)
+		const data2 = PageData.slice(0, 4)
+
+		const renderTestCase = createSelectorTestCase((props) => {
+			const [data, setData] = createSignal(data1)
+			const addMoreData = () => {
+				setData((prevData) => (prevData === data1 ? data2 : data1))
+			}
+			return (
+				<div>
+					<button type="button" onClick={addMoreData}>
+						Add more data
+					</button>
+					<LineChart data={data()} width={100} height={100}>
+						<Line dataKey="uv" animationEasing="linear" />
+						{props.children}
+					</LineChart>
+				</div>
+			)
+		})
+
+		it("should keep the whole line visible when totalLength grows during animation", async () => {
+			const { container, animationManager } = renderTestCase()
+
+			// Complete initial animation — line is fully visible
+			await animationManager.completeAnimation()
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
+
+			// Change data, triggering a new path animation
+			const button = container.querySelector("button")
+			assertNotNull(button)
+			button.click()
+			flush()
+
+			// Immediately after data change: still fully visible (no dasharray)
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
+
+			// Now simulate the path GROWING during the transition animation.
+			// This happens in real browsers when, e.g., matchAppend places new points at
+			// their final positions immediately, making the SVG path instantly longer.
+			mockTotalLength = 200
+			await animationManager.setAnimationProgress(0.1)
+
+			/*
+			 * The line was fully visible before (proportion reached 1.0), so it should
+			 * remain fully visible regardless of how totalLength changes.
+			 * The useAnimatedLineLength hook returns null once reachedFull is set,
+			 * so no stroke-dasharray is applied.
+			 */
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
+
+			await animationManager.completeAnimation()
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
+		})
+	})
+
 	describe("when the line element hides during the animation", () => {
 		const renderTestCase = createSelectorTestCase((props) => {
 			const [isVisible, setIsVisible] = createSignal(true)
@@ -1517,6 +1792,7 @@ describe("Line animation", () => {
 			assertNotNull(button)
 			expect(button).toBeInTheDocument()
 			button.click()
+			flush()
 
 			// the chart should not crash and should not throw any errors
 			expectLines(container, [])
@@ -1533,21 +1809,21 @@ describe("Line animation", () => {
 			assertNotNull(button)
 			expect(button).toBeInTheDocument()
 			button.click()
+			flush()
 
 			expectLines(container, [])
 
 			// show the line element again
 			button.click()
+			flush()
 
 			// the animation should restart from the beginning
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "0px 0px")
-			expect(getLine(container).getAttribute("d")).toBe(
-				"M5,5L23,27.5L41,27.5L59,50L77,32.45L95,52.475",
-			)
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "0px 100px")
+			expect(getLine(container).getAttribute("d")).toBe("M5,5L23,27.5L41,27.5L59,50L77,32.45L95,52.475")
 
 			await animationManager.setAnimationProgress(0.3)
 			// the line should be partially visible again
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 70px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 100px")
 
 			// complete the animation
 			await animationManager.completeAnimation()
@@ -1583,29 +1859,30 @@ describe("Line animation", () => {
 			await animationManager.setAnimationProgress(0.3)
 
 			// verify the line is partially visible at 30%
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 70px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 100px")
 
 			// change the strokeWidth while animation is in progress
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			expect(button).toBeInTheDocument()
 			button.click()
+			flush()
 
 			// the animation should continue from 30%, not restart from 0
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 70px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "30px 100px")
 
 			// continue animation to 60%
 			await animationManager.setAnimationProgress(0.6)
 
 			// the line should be at 60%, not at 30% (which would indicate a restart)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "60px 40px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "60px 100px")
 
 			// complete the animation
 			await animationManager.completeAnimation()
 
 			// the full line should be visible
 			expectLines(container, [{ d: "M5,5L23,27.5L41,27.5L59,50L77,32.45L95,52.475" }])
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "100px 0px")
+			expect(getLine(container)).not.toHaveAttribute("stroke-dasharray")
 		})
 
 		it("should not reset animation progress when strokeWidth changes multiple times", async () => {
@@ -1613,25 +1890,27 @@ describe("Line animation", () => {
 
 			// start the initial animation and progress to 40%
 			await animationManager.setAnimationProgress(0.4)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "40px 60px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "40px 100px")
 
 			// change strokeWidth first time
 			const button = container.querySelector("button")
 			assertNotNull(button)
 			button.click()
+			flush()
 
 			// animation should still be at 40%
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "40px 60px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "40px 100px")
 
 			// progress to 70%
 			await animationManager.setAnimationProgress(0.7)
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "70px 30px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "70px 100px")
 
 			// change strokeWidth second time
 			button.click()
+			flush()
 
 			// animation should still be at 70%, not reset to 40% or 0%
-			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "70px 30px")
+			expect(getLine(container)).toHaveAttribute("stroke-dasharray", "70px 100px")
 
 			// complete the animation
 			await animationManager.completeAnimation()
@@ -1640,11 +1919,7 @@ describe("Line animation", () => {
 	})
 
 	describe("shape prop", () => {
-		function CustomLineShape(props: {
-			animationElapsedTime?: number
-			isAnimating?: boolean
-			isEntrance?: boolean
-		}) {
+		function CustomLineShape(props: { animationElapsedTime?: number; isAnimating?: boolean; isEntrance?: boolean }) {
 			return (
 				<path
 					class="custom-line-shape"
@@ -1655,8 +1930,9 @@ describe("Line animation", () => {
 			)
 		}
 
-		const renderShapeTestCase = createSelectorTestCase((props) => (
+		const renderShapeTestCase = createSelectorTestCase((props: { children?: JSX.Element }) => (
 			<LineChart width={100} height={100} data={PageData}>
+				{/* eslint-disable-next-line react/jsx-no-bind */}
 				<Line dataKey="uv" animationEasing="linear" shape={CustomLineShape} />
 				{props.children}
 			</LineChart>
@@ -1687,12 +1963,15 @@ describe("Line animation", () => {
 			await animationManager.setAnimationProgress(0.5)
 			const shape = container.querySelector(".custom-line-shape")
 			assertNotNull(shape)
+			// When custom shape is provided, strokeDasharray should not be set
 			expect(shape.getAttribute("stroke-dasharray")).toBeNull()
 		})
 
 		it("should have isAnimating=true on the very first render to prevent flash of wrong content", () => {
 			const { container } = renderShapeTestCase()
 
+			// On the first synchronous render, before any useEffect fires,
+			// the shape should already know animation is pending.
 			const shape = container.querySelector(".custom-line-shape")
 			assertNotNull(shape)
 			expect(shape.getAttribute("data-is-animating")).toBe("true")

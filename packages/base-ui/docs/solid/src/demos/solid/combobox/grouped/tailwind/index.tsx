@@ -1,4 +1,5 @@
-import { createUniqueId, type JSX } from 'solid-js';
+import { createUniqueId } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -43,7 +44,6 @@ export default function ExampleGroupedCombobox() {
             <Combobox.List class="max-h-[min(22.5rem,var(--available-height))] overflow-auto overscroll-contain py-1 scroll-py-1 outline-0">
               {(group: ProduceGroup) => (
                 <Combobox.Group
-                  key={group.value}
                   items={group.items}
                   class="block pb-2 last:pb-0"
                 >
@@ -53,7 +53,6 @@ export default function ExampleGroupedCombobox() {
                   <Combobox.Collection>
                     {(item: Produce) => (
                       <Combobox.Item
-                        key={item.id}
                         class="grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 p-2 text-sm leading-4 outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                         value={item}
                       >

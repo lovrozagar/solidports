@@ -1,5 +1,5 @@
-import { createSignal, type JSX } from 'solid-js';
-const React = { forwardRef: (render) => (props) => render(props, props.ref), useActionState: (_action, initial) => [initial, () => {}, false] };
+import { createSignal } from 'solid-js';
+import type { ComponentProps, JSX } from '@solidjs/web';
 
 
 import { mergeProps } from '@solidports/base-ui/merge-props';
@@ -9,7 +9,7 @@ import styles from './index.module.css';
 export default function ExamplePreventBaseUIHandler() {
   const [locked, setLocked] = createSignal(true);
   const [pressed, setPressed] = createSignal(true);
-  const getToggleProps = (props: React.ComponentProps<'button'>) =>
+  const getToggleProps = (props: ComponentProps<'button'>) =>
     mergeProps<'button'>(props, {
       onClick(event) {
         if (locked) {

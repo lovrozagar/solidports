@@ -17,7 +17,6 @@ export default function OTPFieldGroupedDemo() {
         <div class={styles.Group}>
           {Array.from({ length: 3 }, (_, index) => (
             <OTPField.Input
-              key={index}
               class={styles.Input}
               aria-label={index === 0 ? undefined : `Character ${index + 1} of ${OTP_LENGTH}`}
             />
@@ -27,7 +26,6 @@ export default function OTPFieldGroupedDemo() {
         <div class={styles.Group}>
           {Array.from({ length: 3 }, (_, index) => (
             <OTPField.Input
-              key={index + 3}
               class={styles.Input}
               aria-label={`Character ${index + 4} of ${OTP_LENGTH}`}
             />

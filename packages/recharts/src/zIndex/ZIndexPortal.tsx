@@ -1,39 +1,42 @@
-import type { JSX } from "solid-js"
-import { createEffect, createMemo, For, onCleanup } from "solid-js"
+import type { JSX } from '@solidjs/web';
+import { createMemo, For, createEffect, untrack } from 'solid-js';
 import { useChartStore } from "../state/RechartsStoreContext"
 import { selectAllRegisteredZIndexes } from "./zIndexSelectors"
+import { teardownWrite } from "../state/teardownWrite"
 
 function ZIndexSvgPortal(props: { zIndex: number; isPanorama: boolean }) {
 	let ref: SVGGElement | undefined
 	const ctx = useChartStore()
 
-	createEffect(() => {
-		if (ref) {
-			if (ctx && ctx.store.zIndex.zIndexMap[props.zIndex] == null) {
-				ctx.setStore("zIndex", "zIndexMap", props.zIndex, {
-					consumers: 0,
-					element: undefined,
-					panoramaElement: undefined,
+	createEffect(
+		() => ({ isPanorama: props.isPanorama, zIndex: props.zIndex }),
+		({ isPanorama, zIndex }) => {
+			if (ref == null || ctx == null) {
+				return undefined
+			}
+			const key = isPanorama ? "panoramaElement" : "element"
+			const ensureEntry = () => {
+				if (untrack(() => ctx.store.zIndex.zIndexMap[zIndex]) == null) {
+					ctx.setStore("zIndex", "zIndexMap", zIndex, {
+						consumers: 0,
+						element: undefined,
+						panoramaElement: undefined,
+					})
+				}
+			}
+			ensureEntry()
+			ctx.setStore("zIndex", "zIndexMap", zIndex, key, ref)
+			return () => {
+				teardownWrite(() => {
+					ensureEntry()
+					ctx.setStore("zIndex", "zIndexMap", zIndex, key, undefined)
 				})
 			}
-			const key = props.isPanorama ? "panoramaElement" : "element"
-			ctx?.setStore("zIndex", "zIndexMap", props.zIndex, key, ref)
-		}
-		onCleanup(() => {
-			if (ctx && ctx.store.zIndex.zIndexMap[props.zIndex] == null) {
-				ctx.setStore("zIndex", "zIndexMap", props.zIndex, {
-					consumers: 0,
-					element: undefined,
-					panoramaElement: undefined,
-				})
-			}
-			const key = props.isPanorama ? "panoramaElement" : "element"
-			ctx?.setStore("zIndex", "zIndexMap", props.zIndex, key, undefined)
-		})
-	})
+		},
+	)
 
 	/* these g elements should not be tabbable */
-	return <g tabIndex={-1} ref={ref} class={`recharts-zIndex-layer_${props.zIndex}`} />
+	return <g tabindex={-1} ref={ref} class={`recharts-zIndex-layer_${props.zIndex}`} />
 }
 
 export function AllZIndexPortals(props: { children?: JSX.Element; isPanorama: boolean }) {

@@ -1,12 +1,13 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, expect, it } from "vitest"
-import { render } from "@solidjs/testing-library"
+import { flush } from "solid-js"
+import { render } from "../helper/render"
 import { ScatterChart, Scatter, XAxis, YAxis } from "../../src"
 import { useChartState } from "../../src/state/useChartState"
 import { selectScatterPoints } from "../../src/state/selectors/scatterSelectors"
-import type { SetStoreFunction } from "solid-js/store"
 import type { ChartState } from "../../src/state/chartState"
 
+import { type SetStoreFunction } from '../../src/util/solid-1-compat';
 /* x and y differ in magnitude so switching dataKey produces a visually distinct translate. */
 const data = [
 	{ x: 10, y: 500, z: 64 },
@@ -52,6 +53,7 @@ describe("Phase 3 — Scatter reads from new chartState", () => {
 		   Phase 3 GREEN: component reads state.cartesianAxes.xAxis["0"].settings directly
 		   inside createMemo → mutation triggers synchronous re-render, translate changes. */
 		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "domain" as never, [0, 3000] as never)
+		flush()
 
 		const after = container.querySelector(".recharts-symbols")?.getAttribute("transform")
 		expect(after).not.toBe(before)
@@ -90,6 +92,7 @@ describe("Phase 3 — Scatter reads from new chartState", () => {
 		   Phase 3 GREEN: reads state.graphicalItems[id]?.settings.dataKey → re-render.
 		   "y" (500/600/700) maps to very different pixel positions than "x" (10/20/30). */
 		capturedSetState!("graphicalItems", itemId, "settings" as never, "dataKey" as never, "y" as never)
+		flush()
 
 		const after = container.querySelector(".recharts-symbols")?.getAttribute("transform")
 		expect(after).not.toBe(before)

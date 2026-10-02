@@ -1,5 +1,11 @@
 /* eslint-disable typescript/no-explicit-any -- generic Data type erased at root */
-import { createEffect, createMemo, createSignal, onCleanup, onMount } from 'solid-js';
+import {
+  createTrackedEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onSettled,
+} from 'solid-js';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -161,7 +167,7 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     update();
   };
 
-  onMount(() => {
+  onSettled(() => {
     recalculateHeight();
   });
 
@@ -453,7 +459,10 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     }
   }
 
-  createEffect(() => {
+  createTrackedEffect(() => {
+    const _c: Array<() => void> = [];
+    (() => {
+
     if (!swipeEnabled()) {
       return;
     }
@@ -470,10 +479,16 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     }
 
     element.addEventListener('touchmove', preventDefaultTouchStart, { passive: false });
-    onCleanup(() => {
+    _c.push(() => {
       element.removeEventListener('touchmove', preventDefaultTouchStart);
     });
-  });
+      })();
+    return () => {
+      for (let i = _c.length - 1; i >= 0; i -= 1) {
+        _c[i]();
+      }
+    };
+});
 
   function getDragStyles() {
     if (
@@ -510,12 +525,12 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
       return descriptionId();
     },
     get 'aria-hidden'() {
-      return isHighPriority() && !focused() ? true : undefined;
+      return isHighPriority() && !focused() ? 'true' : undefined;
     },
     get 'aria-labelledby'() {
       return titleId();
     },
-    'aria-modal': false,
+    'aria-modal': 'false',
     get inert() {
       return local.toast.limited;
     },
@@ -550,7 +565,7 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
           : undefined,
       };
     },
-    tabIndex: 0,
+    tabindex: 0,
   };
 
   const toastRoot: ToastRootContext = {
@@ -598,7 +613,7 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     stateAttributesMapping,
   });
 
-  return <ToastRootContext.Provider value={toastRoot}>{element()}</ToastRootContext.Provider>;
+  return <ToastRootContext value={toastRoot}>{element()}</ToastRootContext>;
 }
 
 export type ToastRootToastObject<Data extends object = any> = ToastObjectType<Data>;

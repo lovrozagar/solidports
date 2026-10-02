@@ -1,4 +1,5 @@
-import { type Accessor, createMemo } from 'solid-js';
+import { createMemo } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { access, type MaybeAccessor } from '../solid-helpers';
 
 export function useFocusableWhenDisabled(
@@ -27,10 +28,10 @@ export function useFocusableWhenDisabled(
 
     if (!composite()) {
       const tabIndex = tabIndexProp();
-      additionalProps.tabIndex = tabIndex;
+      additionalProps.tabindex = tabIndex;
 
       if (!isNativeButton() && disabled()) {
-        additionalProps.tabIndex = focusableWhenDisabled() ? tabIndex ?? -1 : -1;
+        additionalProps.tabindex = focusableWhenDisabled() ? tabIndex ?? -1 : -1;
       }
     }
 
@@ -38,7 +39,7 @@ export function useFocusableWhenDisabled(
       (isNativeButton() && (focusableWhenDisabled() || isFocusableComposite())) ||
       (!isNativeButton() && disabled())
     ) {
-      additionalProps['aria-disabled'] = disabled();
+      additionalProps['aria-disabled'] = disabled() ? 'true' : undefined;
     }
 
     if (isNativeButton() && (!focusableWhenDisabled() || isNonFocusableComposite())) {
@@ -52,10 +53,10 @@ export function useFocusableWhenDisabled(
 }
 
 interface FocusableWhenDisabledProps {
-  'aria-disabled'?: boolean | undefined;
+  'aria-disabled'?: 'true' | undefined;
   disabled?: boolean | undefined;
   onKeyDown: (event: KeyboardEvent) => void;
-  tabIndex: string | number;
+  tabindex: string | number;
 }
 
 export interface UseFocusableWhenDisabledParameters {

@@ -1,9 +1,9 @@
-import { createContext, useContext, type JSX } from "solid-js"
-
+import { createContext, useContext } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 const PanoramaContext = createContext<boolean | null>(null)
 
 export const useIsPanorama = (): boolean => useContext(PanoramaContext) != null
 
 export const PanoramaContextProvider = (props: { children: JSX.Element }) => (
-	<PanoramaContext.Provider value>{props.children}</PanoramaContext.Provider>
+	<PanoramaContext value>{props.children}</PanoramaContext>
 )

@@ -1,4 +1,5 @@
-import { createSignal, onCleanup } from 'solid-js';
+import { createSignal } from 'solid-js';
+import { registerOwnerCleanup } from './useTimeout';
 
 type IntervalId = number;
 export type Interval = ReturnType<typeof useInterval>;
@@ -31,9 +32,7 @@ export function useInterval() {
     return currentId() !== EMPTY;
   }
 
-  onCleanup(() => {
-    clear();
-  });
+  registerOwnerCleanup(clear);
 
   return { clear, isStarted, start };
 }

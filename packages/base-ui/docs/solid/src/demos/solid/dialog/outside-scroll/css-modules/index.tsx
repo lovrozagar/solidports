@@ -1,4 +1,4 @@
-import { type JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 
 import { Dialog } from '@solidports/base-ui/dialog';
@@ -30,7 +30,7 @@ export default function OutsideScrollDialog() {
 
                   <div class={styles.Body}>
                     {CONTENT_SECTIONS.map((item) => (
-                      <section class={styles.Section} key={item.title}>
+                      <section class={styles.Section}>
                         <h3 class={styles.SectionTitle}>{item.title}</h3>
                         <p class={styles.SectionBody}>{item.body}</p>
                       </section>

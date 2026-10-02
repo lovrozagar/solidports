@@ -1,4 +1,5 @@
-import { render } from "@solidjs/testing-library"
+import { render } from "../../helper/render"
+import { untrack } from "solid-js"
 import { describe, expect, it } from "vitest"
 import { selectChartOffsetInternal } from "../../../src/state/selectors/selectChartOffsetInternal"
 import { useAppSelector } from "../../helper/legacyDispatch"
@@ -23,8 +24,8 @@ describe("selectChartOffset", () => {
 	it("should be stable", () => {
 		expect.assertions(2)
 		const Comp = (): null => {
-			const offset1 = useAppSelector(selectChartOffsetInternal)
-			const offset2 = useAppSelector(selectChartOffsetInternal)
+			const offset1 = untrack(() => useAppSelector(selectChartOffsetInternal))
+			const offset2 = untrack(() => useAppSelector(selectChartOffsetInternal))
 			expect(offset1).not.toBe(undefined)
 			expect(offset1).toEqual(offset2)
 			return null

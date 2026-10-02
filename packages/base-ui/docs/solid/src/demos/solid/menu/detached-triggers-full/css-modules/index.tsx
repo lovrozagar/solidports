@@ -70,7 +70,7 @@ export default function MenuDetachedTriggersFullDemo() {
                             </Menu.GroupLabel>
                           )}
                           {group.map((item) => (
-                            <Menu.Item key={item} class={styles.Item}>
+                            <Menu.Item class={styles.Item}>
                               {item}
                             </Menu.Item>
                           ))}

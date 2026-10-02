@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { Global } from "./Global"
 import { Size } from "./types"
 import { LRUCache } from "./LRUCache"

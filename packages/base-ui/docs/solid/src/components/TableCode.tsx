@@ -1,7 +1,9 @@
-import { Show, splitProps, type JSX } from "solid-js"
+import { Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
 import { highlightInline } from "../syntax-highlighting/highlight"
 
+import { splitProps } from '../utils/solid-1-compat';
 export interface TableCodeProps extends JSX.HTMLAttributes<HTMLElement> {
   printWidth?: number
   lang?: string

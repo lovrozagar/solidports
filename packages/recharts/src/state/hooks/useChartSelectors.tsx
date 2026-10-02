@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
-import { type Accessor, createContext, createMemo, useContext } from "solid-js"
+import { createContext, createMemo, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { CartesianViewBoxRequired, ChartOffsetInternal } from "../../util/types"
 import type { XAxisSettings, YAxisSettings } from "../cartesianAxisSlice"
 import type { ChartState } from "../store"
@@ -20,7 +21,7 @@ export type ChartSelectorsValue = {
 	offsetInternal: Accessor<ChartOffsetInternal>
 }
 
-const ChartSelectorsContext = createContext<ChartSelectorsValue>()
+const ChartSelectorsContext = createContext<ChartSelectorsValue | null>(null)
 
 /**
  * Creates provider-level memos for arg-free selectors.
@@ -35,9 +36,9 @@ export function createChartSelectors(store: ChartState): ChartSelectorsValue {
 	return { allXAxes, allYAxes, axisViewBox, chartViewBox, offsetInternal }
 }
 
-export const ChartSelectorsProvider = ChartSelectorsContext.Provider
+export const ChartSelectorsProvider = ChartSelectorsContext
 
-export function useChartSelectors(): ChartSelectorsValue | undefined {
+export function useChartSelectors(): ChartSelectorsValue | null {
 	return useContext(ChartSelectorsContext)
 }
 

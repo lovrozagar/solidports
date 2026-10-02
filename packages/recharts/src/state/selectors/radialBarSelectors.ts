@@ -1,5 +1,5 @@
 /* eslint-disable import/no-cycle */
-import type { JSX } from "solid-js"
+import type { JSX } from '@solidjs/web';
 import { computeRadialBarDataItems, type RadialBarDataItem } from "../../polar/RadialBar"
 import { selectChartDataAndAlwaysIgnoreIndexes, selectChartDataWithIndexes } from "./dataSelectors"
 import type { ChartState } from "../store"
@@ -374,6 +374,14 @@ function selectAngleAxisWithScaleWithOverride(
 	return { ...override, scale }
 }
 
+export const pickMaxBarSize = (
+	_state: ChartState,
+	_radiusAxisId: AxisId,
+	_angleAxisId: AxisId,
+	radialBarSettings: RadialBarSettings,
+	_cells: ReadonlyArray<Record<string, unknown>> | undefined,
+): number | undefined => radialBarSettings.maxBarSize
+
 export function selectRadialBarSectors(
 	state: ChartState,
 	radiusAxisId: AxisId,
@@ -417,7 +425,7 @@ export function selectRadialBarSectors(
 		}
 		const sizeList = selectPolarBarSizeList(state, radiusAxisId, angleAxisId, radialBarSettings)
 		const globalMaxBarSize = selectRootMaxBarSize(state)
-		const childMaxBarSize = radialBarSettings.maxBarSize
+		const childMaxBarSize = pickMaxBarSize(state, radiusAxisId, angleAxisId, radialBarSettings, cells)
 		const maxBarSize: number | undefined = isNullish(childMaxBarSize) ? globalMaxBarSize : childMaxBarSize
 		const overrideBandSize: number = (() => {
 			if (radiusAxis == null) return 0

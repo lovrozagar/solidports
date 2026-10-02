@@ -39,7 +39,8 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
   const { store } = usePopoverRootContext();
 
   const positioner = usePopoverPositionerContext();
-  const insideToolbar = () => useToolbarRootContext(true) != null;
+  const toolbarRootContext = useToolbarRootContext(true);
+  const insideToolbar = () => toolbarRootContext != null;
   const { context: closePartContext, hasClosePart } = useClosePartCount();
 
   const open = store.useState('open');
@@ -169,9 +170,9 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
       nextFocusableElement={store.context.triggerFocusTargetRef}
       beforeContentFocusGuardRef={store.context.beforeContentFocusGuardRef}
     >
-      <ClosePartContext.Provider value={closePartContext}>
+      <ClosePartContext value={closePartContext}>
         {element()}
-      </ClosePartContext.Provider>
+      </ClosePartContext>
     </FloatingFocusManager>
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
-import { createEffect } from "solid-js"
-import { fireEvent, render } from "@solidjs/testing-library"
+import { observe } from "../../helper/observe"
+
+import { fireEvent, render } from "../../helper/render"
 import { ChartState } from "../../../src/state/store"
 import { selectStackGroups } from "../../../src/state/selectors/axisSelectors"
 import {
@@ -15,8 +16,8 @@ import { createSelectorTestCase } from "../../helper/createSelectorTestCase"
 import { assertNotNull } from "../../helper/assertNotNull"
 import { expectLastCalledWith } from "../../helper/expectLastCalledWith"
 import { AreaSettings } from "../../../src/state/types/AreaSettings"
-import { createSignal, type JSX } from "solid-js"
-
+import { createSignal, untrack } from 'solid-js'
+import type { JSX } from '@solidjs/web';
 describe("selectStackGroups", () => {
 	const selector = (state: ChartState) => selectStackGroups(state, "xAxis", 0, false)
 
@@ -26,8 +27,8 @@ describe("selectStackGroups", () => {
 	it("should return empty object in an empty BarChart", () => {
 		const stackGroupsSpy = vi.fn()
 		const Comp = (): null => {
-			const isPanorama = useIsPanorama()
-			createEffect(() =>
+			const isPanorama = untrack(() => useIsPanorama())
+			observe(() =>
 				stackGroupsSpy(
 					useAppSelectorWithStableTest((state) => selectStackGroups(state, "xAxis", 0, isPanorama)),
 				),
@@ -46,8 +47,8 @@ describe("selectStackGroups", () => {
 	it("should return object keyed by stack IDs, with bar settings and stacked data", () => {
 		const stackGroupsSpy = vi.fn()
 		const Comp = (): null => {
-			const isPanorama = useIsPanorama()
-			createEffect(() =>
+			const isPanorama = untrack(() => useIsPanorama())
+			observe(() =>
 				stackGroupsSpy(
 					useAppSelectorWithStableTest((state) => selectStackGroups(state, "xAxis", 0, isPanorama)),
 				),
@@ -75,6 +76,7 @@ describe("selectStackGroups", () => {
 						isPanorama: false,
 						maxBarSize: undefined,
 						minPointSize: 0,
+						hasCustomShape: false,
 						stackId: "a",
 						type: "bar",
 						xAxisId: 0,
@@ -90,6 +92,7 @@ describe("selectStackGroups", () => {
 						isPanorama: false,
 						maxBarSize: undefined,
 						minPointSize: 0,
+						hasCustomShape: false,
 						stackId: "a",
 						type: "bar",
 						xAxisId: 0,
@@ -127,6 +130,7 @@ describe("selectStackGroups", () => {
 						isPanorama: false,
 						maxBarSize: undefined,
 						minPointSize: 0,
+						hasCustomShape: false,
 						stackId: "b",
 						type: "bar",
 						xAxisId: 0,
@@ -142,6 +146,7 @@ describe("selectStackGroups", () => {
 						isPanorama: false,
 						maxBarSize: undefined,
 						minPointSize: 0,
+						hasCustomShape: false,
 						stackId: "b",
 						type: "bar",
 						xAxisId: 0,
@@ -176,8 +181,8 @@ describe("selectStackGroups", () => {
 	it("should return empty object for Bars without stackId", () => {
 		const stackGroupsSpy = vi.fn()
 		const Comp = (): null => {
-			const isPanorama = useIsPanorama()
-			createEffect(() =>
+			const isPanorama = untrack(() => useIsPanorama())
+			observe(() =>
 				stackGroupsSpy(
 					useAppSelectorWithStableTest((state) => selectStackGroups(state, "xAxis", 0, isPanorama)),
 				),
@@ -285,8 +290,7 @@ describe("selectStackGroups", () => {
 
 		describe("after hiding one item and displaying it again", () => {
 			// https://github.com/recharts/recharts/issues/5992
-			/* Cluster D: legend click doesn't propagate hide state to graphical items */
-			it.skip("should keep the order of graphical items in stack group", () => {
+			it("should keep the order of graphical items in stack group", () => {
 				const { container, spy } = renderTestCase((state: ChartState) =>
 					selectStackGroups(state, "xAxis", 0, false),
 				)
@@ -335,8 +339,8 @@ describe("selectStackGroups", () => {
 		it("should reverse the order of graphical items and stacked data when reverseStackOrder is true", () => {
 			const stackGroupsSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() =>
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() =>
 					stackGroupsSpy(
 						useAppSelectorWithStableTest((state) =>
 							selectStackGroups(state, "xAxis", 0, isPanorama),
@@ -365,6 +369,7 @@ describe("selectStackGroups", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: "a",
 							type: "bar",
 							xAxisId: 0,
@@ -380,6 +385,7 @@ describe("selectStackGroups", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: "a",
 							type: "bar",
 							xAxisId: 0,
@@ -415,8 +421,8 @@ describe("selectStackGroups", () => {
 		it("should maintain original order when reverseStackOrder is false", () => {
 			const stackGroupsSpy = vi.fn()
 			const Comp = (): null => {
-				const isPanorama = useIsPanorama()
-				createEffect(() =>
+				const isPanorama = untrack(() => useIsPanorama())
+				observe(() =>
 					stackGroupsSpy(
 						useAppSelectorWithStableTest((state) =>
 							selectStackGroups(state, "xAxis", 0, isPanorama),
@@ -445,6 +451,7 @@ describe("selectStackGroups", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: "a",
 							type: "bar",
 							xAxisId: 0,
@@ -460,6 +467,7 @@ describe("selectStackGroups", () => {
 							isPanorama: false,
 							maxBarSize: undefined,
 							minPointSize: 0,
+							hasCustomShape: false,
 							stackId: "a",
 							type: "bar",
 							xAxisId: 0,

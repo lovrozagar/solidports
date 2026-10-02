@@ -1,4 +1,4 @@
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { DialogClose } from '../../dialog/close/DialogClose';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 

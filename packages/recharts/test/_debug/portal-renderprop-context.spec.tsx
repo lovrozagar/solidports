@@ -1,13 +1,14 @@
-/* @jsxImportSource solid-js */
+/* @jsxImportSource @solidjs/web */
 import { describe, it, expect } from "vitest"
-import { createContext, useContext, type JSX, Show, createMemo, createSignal } from "solid-js"
-import { Portal } from "solid-js/web"
-import { render } from "@solidjs/testing-library"
+import { createContext, useContext, Show, createMemo, createSignal, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { Portal } from '@solidjs/web';
+import { render } from "../helper/render"
 
 const Ctx = createContext<string | undefined>(undefined)
 
 function Inner() {
-	const v = useContext(Ctx)
+	const v = untrack(() => useContext(Ctx))
 	console.log("Inner sees ctx:", v)
 	return <span>v={String(v)}</span>
 }
@@ -28,7 +29,7 @@ function ZIndexishPortal(props: { children: JSX.Element }) {
 }
 
 function RegisterId(props: { id: string; children: (id: string) => JSX.Element }) {
-	return <Ctx.Provider value={props.id}>{props.children(props.id)}</Ctx.Provider>
+	return <Ctx value={props.id}>{props.children(props.id)}</Ctx>
 }
 
 describe("portal context with render prop", () => {

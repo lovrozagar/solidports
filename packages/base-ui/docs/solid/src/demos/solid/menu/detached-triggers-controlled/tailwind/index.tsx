@@ -92,7 +92,7 @@ export default function MenuDetachedTriggersControlledDemo() {
               <Menu.Popup class={popupClass}>
                 {payload &&
                   MENUS[payload].map((item, index) => (
-                    <Menu.Item key={index} class={itemClass} onClick={item.onClick}>
+                    <Menu.Item class={itemClass} onClick={item.onClick}>
                       {item.label}
                     </Menu.Item>
                   ))}

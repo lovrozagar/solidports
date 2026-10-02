@@ -1,5 +1,4 @@
-import { createUniqueId } from "solid-js"
-
+import { createUniqueId } from 'solid-js';
 /**
  * Generates a unique ID using Solid's createUniqueId.
  * This is SSR-safe in Solid.

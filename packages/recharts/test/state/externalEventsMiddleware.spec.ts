@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest"
+import { flush } from "solid-js"
 import { Store } from "@reduxjs/toolkit"
 import { externalEventAction } from "../../src/state/externalEventsMiddleware"
 import { createRechartsStore, ChartState } from "../../src/state/store"
@@ -44,6 +45,7 @@ describe("externalEventsMiddleware", () => {
 		)
 
 		vi.runOnlyPendingTimers()
+		flush()
 
 		expect(mockHandler).not.toHaveBeenCalled()
 		expect(mockEvent.persist).not.toHaveBeenCalled()
@@ -62,6 +64,7 @@ describe("externalEventsMiddleware", () => {
 		expect(vi.getTimerCount()).toBe(1)
 
 		vi.runOnlyPendingTimers()
+		flush()
 
 		expect(vi.getTimerCount()).toBe(0)
 		expect(mockHandler).toHaveBeenCalledTimes(1)
@@ -161,6 +164,7 @@ describe("externalEventsMiddleware", () => {
 		expect(vi.getTimerCount()).toBe(2)
 
 		vi.runOnlyPendingTimers()
+		flush()
 
 		// Both handlers should have been called
 		expect(handler1).toHaveBeenCalledTimes(1)
@@ -188,6 +192,7 @@ describe("externalEventsMiddleware", () => {
 		)
 
 		vi.runOnlyPendingTimers()
+		flush()
 
 		expect(handler1).toHaveBeenCalledTimes(1)
 		expect(handler2).toHaveBeenCalledTimes(1)
@@ -218,6 +223,7 @@ describe("externalEventsMiddleware", () => {
 		currentTarget = null
 
 		vi.runOnlyPendingTimers()
+		flush()
 
 		expect(mockHandler).toHaveBeenCalledTimes(1)
 		const eventPassedToHandler = mockHandler.mock.calls[0][1]

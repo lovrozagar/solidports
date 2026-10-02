@@ -1,11 +1,11 @@
 /* eslint-disable import/no-cycle */
-import { createContext, Show, useContext } from "solid-js"
-import type { JSX } from "solid-js"
+import { createContext, Show, useContext } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { uniqueId } from "../util/DataUtils"
 import { useChartStore } from "../state/RechartsStoreContext"
 import { selectPlotArea } from "../state/selectors/selectPlotArea"
 
-const ClipPathIdContext = createContext<string | undefined>(undefined)
+const ClipPathIdContext = createContext<string | null>(null)
 
 /**
  * Generates a unique clip path ID for use in SVG elements,
@@ -31,7 +31,7 @@ export function ClipPathProvider(props: { children: JSX.Element }) {
 	 * selectors that feed back into selectPlotArea — tight loop, OOM. Always
 	 * render the Provider + children; gate only the inline <defs> on plotArea. */
 	return (
-		<ClipPathIdContext.Provider value={clipPathId}>
+		<ClipPathIdContext value={clipPathId}>
 			<Show when={plotArea()}>
 				{(area) => (
 					<defs>
@@ -42,10 +42,10 @@ export function ClipPathProvider(props: { children: JSX.Element }) {
 				)}
 			</Show>
 			{props.children}
-		</ClipPathIdContext.Provider>
+		</ClipPathIdContext>
 	)
 }
 
-export const useClipPathId = (): string | undefined => {
+export const useClipPathId = (): string | null => {
 	return useContext(ClipPathIdContext)
 }
