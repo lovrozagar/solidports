@@ -1,108 +1,33 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import {
-  createTrackedEffect,
-  createMemo,
-  createSignal,
-  onCleanup,
-  onSettled,
-} from 'solid-js';
-import {
-  useDismiss,
-  useInteractions,
-  useRole,
-  useSyncedFloatingRootContext,
-} from '../../floating-ui-solid';
+/* eslint-disable typescript/no-explicit-any -- the store payload type is erased at the Root boundary, as in React */
+import { createSignal, untrack } from 'solid-js';
+import { useDismiss } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
-import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { useImplicitActiveTrigger, useOpenStateTransitions } from '../../utils/popups';
-import { REASONS } from '../../utils/reasons';
-import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
+import { createDepsRenderEffect } from '../../solid-helpers';
+import { usePopupInteractionProps } from '../../utils/popups';
 import { useScrollLock } from '../../utils/useScrollLock';
 import { type DialogStore } from '../store/DialogStore';
-import { type DialogRoot } from './DialogRoot';
 
-export function useDialogRoot(params: useDialogRoot.Parameters): useDialogRoot.ReturnValue {
-  const open = params.store.useState('open');
-  const disablePointerDismissal = params.store.useState('disablePointerDismissal');
-  const modal = params.store.useState('modal');
-  const popupElement = params.store.useState('popupElement');
+export function DialogInteractions(props: {
+  store: DialogStore<any>;
+  parentContext: DialogStore<unknown>['context'] | undefined;
+  isDrawer: boolean;
+}) {
+  // The store, parent context and mode are fixed for the Root's lifetime.
+  const store = props.store;
+  const open = store.useState('open');
+  const disablePointerDismissal = store.useState('disablePointerDismissal');
+  const modal = store.useState('modal');
+  const popupElement = store.useState('popupElement');
 
-  const { openMethod, triggerProps } = useOpenInteractionType(open);
-
-  useImplicitActiveTrigger({ store: params.store });
-  const { forceUnmount } = useOpenStateTransitions({
-    get open() {
-      return open();
-    },
-    store: params.store,
-  });
-
-  const handleImperativeClose = () => {
-    params.store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction));
-  };
-
-  const floatingRootContext = useSyncedFloatingRootContext({
-    onOpenChange: params.store.setOpen,
-    popupStore: params.store,
-    treatPopupAsFloatingElement: true,
-  });
-
-  params.store.context.floatingRootContext = floatingRootContext;
-
-  onSettled(() => {
-    if (params.actionsRef) {
-      params.actionsRef.current = { close: handleImperativeClose, unmount: forceUnmount };
-    }
-  });
-
-  const [ownNestedOpenDialogs, setOwnNestedOpenDialogs] = createSignal(0);
-  const [ownNestedOpenDrawers, setOwnNestedOpenDrawers] = createSignal(0);
+  const [ownNestedOpenDialogs, setOwnNestedOpenDialogs] = createSignal(0, { ownedWrite: true });
+  const [ownNestedOpenDrawers, setOwnNestedOpenDrawers] = createSignal(0, { ownedWrite: true });
   const isTopmost = () => ownNestedOpenDialogs() === 0;
 
-  const role = useRole({ context: floatingRootContext });
   const dismiss = useDismiss({
-    context: floatingRootContext,
+    context: store.context.floatingRootContext,
     props: {
-      get escapeKey() {
-        return isTopmost();
-      },
-      outsidePress(event) {
-        if (!params.store.context.outsidePressEnabledRef.current) {
-          return false;
-        }
-
-        // For mouse events, only accept left button (button 0)
-        // For touch events, a single touch is equivalent to left button
-        if ('button' in event && event.button !== 0) {
-          return false;
-        }
-        if ('touches' in event && event.touches.length !== 1) {
-          return false;
-        }
-        const target = getTarget(event) as Element | null;
-        if (isTopmost() && !disablePointerDismissal()) {
-          const eventTarget = target as Element | null;
-          // Only close if the click occurred on the dialog's owning backdrop.
-          // This supports multiple modal dialogs that aren't nested in the React tree:
-          // https://github.com/mui/base-ui/issues/1320
-          if (modal()) {
-            return params.store.context.internalBackdropRef.current ||
-              params.store.context.backdropRef.current
-              ? params.store.context.internalBackdropRef.current === eventTarget ||
-                  params.store.context.backdropRef.current === eventTarget ||
-                  (contains(eventTarget, popupElement()) &&
-                    !eventTarget?.hasAttribute('data-base-ui-portal'))
-              : true;
-          }
-          return true;
-        }
-        return false;
-      },
       outsidePressEvent() {
-        if (
-          params.store.context.internalBackdropRef.current ||
-          params.store.context.backdropRef.current
-        ) {
+        if (store.context.internalBackdropRef.current || store.context.backdropRef.current) {
           return 'intentional';
         }
         // Ensure `aria-hidden` on outside elements is removed immediately
@@ -112,6 +37,52 @@ export function useDialogRoot(params: useDialogRoot.Parameters): useDialogRoot.R
           touch: 'sloppy',
         };
       },
+      outsidePress(event) {
+        if (!store.context.outsidePressEnabledRef.current) {
+          return false;
+        }
+
+        // For mouse events, only accept left button (button 0)
+        // For touch events, a single touch is equivalent to left button
+        if ('button' in event && event.button !== 0) {
+          return false;
+        }
+        if ('touches' in event) {
+          // Outside press can be handled on `touchend`, where the lifted point is
+          // reported in `changedTouches` and `touches` contains any remaining
+          // active points. Treat it as a single-finger tap only when exactly one
+          // touch ended and no other fingers are still down.
+          if (event.type === 'touchend') {
+            if (event.changedTouches.length !== 1 || event.touches.length !== 0) {
+              return false;
+            }
+          } else if (event.touches.length !== 1) {
+            return false;
+          }
+        }
+
+        const target = getTarget(event) as Element | null;
+        if (isTopmost() && !disablePointerDismissal()) {
+          // Only close if the click occurred on the dialog's owning backdrop.
+          // This supports multiple modal dialogs that aren't nested in the component tree:
+          // https://github.com/mui/base-ui/issues/1320
+          if (modal()) {
+            const internalBackdrop = store.context.internalBackdropRef.current;
+            const backdrop = store.context.backdropRef.current;
+            return internalBackdrop || backdrop
+              ? internalBackdrop === target ||
+                  backdrop === target ||
+                  (contains(target, popupElement()) &&
+                    !target?.hasAttribute('data-base-ui-portal'))
+              : true;
+          }
+          return true;
+        }
+        return false;
+      },
+      get escapeKey() {
+        return isTopmost();
+      },
     },
   });
 
@@ -120,75 +91,58 @@ export function useDialogRoot(params: useDialogRoot.Parameters): useDialogRoot.R
     referenceElement: popupElement,
   });
 
-  const { getReferenceProps, getFloatingProps, getTriggerProps } = useInteractions([role, dismiss]);
-
-  /* Listen for nested open/close events on this store to maintain the counts. */
-  params.store.useContextCallback('onNestedDialogOpen', (dialogCount: number, drawerCount: number) => {
+  // Listen for nested open/close events on this store to maintain the counts.
+  // A close notification is an open notification with zeroed counts.
+  store.useContextCallback('onNestedDialogOpen', (dialogCount: number, drawerCount: number) => {
     setOwnNestedOpenDialogs(dialogCount);
     setOwnNestedOpenDrawers(drawerCount);
   });
 
-  params.store.useContextCallback('onNestedDialogClose', () => {
-    setOwnNestedOpenDialogs(0);
-    setOwnNestedOpenDrawers(0);
-  });
-
-  /* Notify parent of our open/close state using parent callbacks, if any. */
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (params.parentContext?.onNestedDialogOpen && open()) {
-      params.parentContext.onNestedDialogOpen(
-        ownNestedOpenDialogs() + 1,
-        ownNestedOpenDrawers() + (params.isDrawer ? 1 : 0),
-      );
-    }
-    if (params.parentContext?.onNestedDialogClose && !open()) {
-      params.parentContext.onNestedDialogClose();
-    }
-    _c.push(() => {
-      if (params.parentContext?.onNestedDialogClose && open()) {
-        params.parentContext.onNestedDialogClose();
+  // Notify parent of our open/close state using parent callbacks, if any
+  createDepsRenderEffect(
+    () => ({
+      open: open(),
+      ownNestedOpenDialogs: ownNestedOpenDialogs(),
+      ownNestedOpenDrawers: ownNestedOpenDrawers(),
+    }),
+    (deps) => {
+      const parentContext = props.parentContext;
+      if (parentContext?.onNestedDialogOpen) {
+        if (deps.open) {
+          parentContext.onNestedDialogOpen(
+            deps.ownNestedOpenDialogs + 1,
+            deps.ownNestedOpenDrawers + (props.isDrawer ? 1 : 0),
+          );
+        } else {
+          parentContext.onNestedDialogOpen(0, 0);
+        }
       }
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+      return () => {
+        if (parentContext?.onNestedDialogOpen && deps.open) {
+          parentContext.onNestedDialogOpen(0, 0);
+        }
+      };
+    },
+  );
 
-  const activeTriggerProps = createMemo(() => getReferenceProps(triggerProps));
-  const inactiveTriggerProps = createMemo(() => getTriggerProps(triggerProps));
-  const popupProps = createMemo(() => getFloatingProps());
-
-  params.store.useSyncedValues({
-    activeTriggerProps,
-    inactiveTriggerProps,
+  usePopupInteractionProps(
+    store,
+    // The dismiss prop objects are created once (`referencePressEvent` is not passed).
+    untrack(() => ({
+      // `enabled` is not passed to `useDismiss`, so its props are always defined,
+      // and `trigger` is the same object as `reference`.
+      activeTriggerProps: dismiss.reference!,
+      inactiveTriggerProps: dismiss.trigger!,
+      // DialogPopup and DrawerPopup spread `FOCUSABLE_POPUP_PROPS` directly, so
+      // this only needs to carry the dismiss handlers.
+      popupProps: dismiss.floating!,
+    })),
+  );
+  // Solid: `usePopupInteractionProps` takes plain values, so the reactive counts sync separately.
+  store.useSyncedValues({
     nestedOpenDialogCount: ownNestedOpenDialogs,
     nestedOpenDrawerCount: ownNestedOpenDrawers,
-    openMethod,
-    popupProps,
   });
-}
 
-export interface UseDialogRootSharedParameters {}
-
-export interface UseDialogRootParameters {
-  store: DialogStore<any>;
-  actionsRef?: DialogRoot.Props['actionsRef'] | undefined;
-  parentContext?: DialogStore<unknown>['context'] | undefined;
-  onOpenChange: DialogRoot.Props['onOpenChange'];
-  isDrawer: boolean;
-  triggerIdProp?: string | null | undefined;
-}
-
-export type UseDialogRootReturnValue = void;
-
-export namespace useDialogRoot {
-  export type SharedParameters = UseDialogRootSharedParameters;
-  export type Parameters = UseDialogRootParameters;
-  export type ReturnValue = UseDialogRootReturnValue;
+  return null;
 }

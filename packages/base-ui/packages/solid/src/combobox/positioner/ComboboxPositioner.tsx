@@ -1,20 +1,15 @@
-import { createTrackedEffect, Show } from 'solid-js';
+import { createRenderEffect, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { DROPDOWN_COLLISION_AVOIDANCE } from '../../utils/constants';
-import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
-import { popupStateMapping } from '../../utils/popupStateMapping';
-import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, BaseUIHTMLProps } from '../../utils/types';
 import { type Align, type Side, useAnchorPositioning } from '../../utils/useAnchorPositioning';
-import { useRenderElement } from '../../utils/useRenderElement';
+import { usePositioner } from '../../utils/usePositioner';
 import { useAnchoredPopupScrollLock } from '../../utils/useAnchoredPopupScrollLock';
 import { useComboboxPortalContext } from '../portal/ComboboxPortalContext';
-import {
-  useComboboxDerivedItemsContext,
-  useComboboxFloatingContext,
-  useComboboxRootContext,
-} from '../root/ComboboxRootContext';
+import { useComboboxFloatingContext, useComboboxRootContext } from '../root/ComboboxRootContext';
+import { useListEmpty } from '../utils/parts';
 import { ComboboxPositionerContext } from './ComboboxPositionerContext';
 
 /**
@@ -49,23 +44,24 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
   const disableAnchorTracking = () => local.disableAnchorTracking ?? false;
   const collisionAvoidance = () => local.collisionAvoidance ?? DROPDOWN_COLLISION_AVOIDANCE;
 
-  const { store } = useComboboxRootContext();
-  const { filteredItems } = useComboboxDerivedItemsContext();
-  const { context: floatingRootContext } = useComboboxFloatingContext();
+  const store = useComboboxRootContext();
+  const floatingRootContext = useComboboxFloatingContext();
   const keepMounted = useComboboxPortalContext();
 
-  const modal = store.useSelector('modal');
-  const open = store.useSelector('open');
-  const mounted = store.useSelector('mounted');
-  const openMethod = store.useSelector('openMethod');
+  const modal = store.useState('modal');
+  const open = store.useState('open');
+  const mounted = store.useState('mounted');
+  const openMethod = store.useState('openMethod');
   const triggerElement = store.useState('triggerElement');
   const inputElement = store.useState('inputElement');
+  const inputGroupElement = store.useState('inputGroupElement');
   const inputInsidePopup = store.useState('inputInsidePopup');
   const transitionStatus = store.useState('transitionStatus');
 
-  const empty = () => filteredItems().length === 0;
+  const empty = useListEmpty();
   const resolvedAnchor = () =>
-    local.anchor ?? (inputInsidePopup() ? triggerElement() : inputElement());
+    local.anchor ??
+    (inputInsidePopup() ? triggerElement() : (inputGroupElement() ?? inputElement()));
 
   const positioning = useAnchorPositioning({
     align,
@@ -89,25 +85,11 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
   });
 
   useAnchoredPopupScrollLock({
-    enabled: () => open() && modal() && openMethod() !== 'touch',
+    enabled: () => open() && modal(),
     positionerElement: store.useState('positionerElement'),
     referenceElement: triggerElement,
     touchOpen: () => openMethod() === 'touch',
   });
-
-  const defaultProps: HTMLProps = {
-    get hidden() {
-      return !mounted();
-    },
-    role: 'presentation',
-    get style(): JSX.CSSProperties {
-      const positionerStyles = positioning.positionerStyles();
-      return {
-        ...positionerStyles,
-        'pointer-events': !open() ? 'none' : positionerStyles['pointer-events'],
-      };
-    },
-  };
 
   const state: ComboboxPositioner.State = {
     get align() {
@@ -127,8 +109,8 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
     },
   };
 
-  createTrackedEffect(() => {
-    store.set('popupSide', positioning.side());
+  createRenderEffect(positioning.side, (side) => {
+    store.set('popupSide', side);
   });
 
   const contextValue: ComboboxPositionerContext = {
@@ -145,23 +127,34 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
 
   const setPositionerElement = (element: HTMLElement | null | undefined) => {
     store.set('positionerElement', element);
-    /* Register floating element with floating-ui — without this, `autoUpdate` never runs and the popup is stuck at its default 0,0 origin. Tooltip/Select positioners do the same. */
-    positioning.context.refs.setFloating(element ?? null);
   };
 
-  const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [defaultProps, getDisabledMountTransitionStyles(transitionStatus()), elementProps];
+  const element = usePositioner(componentProps, state, {
+    get styles() {
+      return positioning.positionerStyles();
     },
-    ref: setPositionerElement,
-    state,
-    stateAttributesMapping: popupStateMapping,
+    get transitionStatus() {
+      return transitionStatus();
+    },
+    // Solid: the remaining positioner props are plain element props once the positioning options are split off.
+    props: elementProps as BaseUIHTMLProps<HTMLDivElement>,
+    refs: setPositionerElement,
+    get hidden() {
+      return !mounted();
+    },
+    get inert() {
+      return !open();
+    },
   });
 
   return (
     <ComboboxPositionerContext value={contextValue}>
       <Show when={mounted() && modal()}>
-        <InternalBackdrop managed inert={!open()} cutout={inputElement() ?? triggerElement()} />
+        <InternalBackdrop
+          managed
+          inert={!open()}
+          cutout={inputGroupElement() ?? inputElement() ?? triggerElement()}
+        />
       </Show>
       {element()}
     </ComboboxPositionerContext>

@@ -4,14 +4,11 @@ import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDeta
 import { type PayloadChildRenderFunction } from '../../utils/popups';
 import { REASONS } from '../../utils/reasons';
 import { DialogHandle } from '../store/DialogHandle';
-import { IsDrawerContext } from './DialogRootContext';
 import { useRenderDialogRoot } from './useRenderDialogRoot';
-
-export { IsDrawerContext };
 
 /**
  * Groups all parts of the dialog.
- * Doesn’t render its own HTML element.
+ * Doesn't render its own HTML element.
  *
  * Documentation: [Base UI Dialog](https://base-ui.com/react/components/dialog)
  */
@@ -43,7 +40,7 @@ export interface DialogRootProps<Payload = unknown> {
    * touch screen readers can escape the popup.
    * @default true
    */
-  modal?: (boolean | 'trap-focus') | undefined;
+  modal?: boolean | 'trap-focus' | undefined;
   /**
    * Event handler called when the dialog is opened or closed.
    */
@@ -53,16 +50,15 @@ export interface DialogRootProps<Payload = unknown> {
    */
   onOpenChangeComplete?: ((open: boolean) => void) | undefined;
   /**
-   * Determines whether the dialog should close on outside clicks.
+   * Whether to prevent the dialog from closing on outside presses.
    * For non-modal dialogs, this also prevents the dialog from closing when focus moves outside of it.
    * @default false
    */
   disablePointerDismissal?: boolean | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: When specified, the dialog will not be unmounted when closed.
-   * Instead, the `unmount` function must be called to unmount the dialog manually.
-   * Useful when the dialog's animation is controlled by an external library.
+   * - `unmount`: Manually unmounts the dialog.
+   * Call this after any externally controlled closing animation finishes.
    * - `close`: Closes the dialog imperatively when called.
    */
   actionsRef?: ReactLikeRef<DialogRoot.Actions | null> | undefined;
@@ -80,14 +76,14 @@ export interface DialogRootProps<Payload = unknown> {
   /**
    * ID of the trigger that the dialog is associated with.
    * This is useful in conjunction with the `open` prop to create a controlled dialog.
-   * There's no need to specify this prop when the dialog is uncontrolled (i.e. when the `open` prop is not set).
+   * There's no need to specify this prop when the dialog is uncontrolled (that is, when the `open` prop is not set).
    */
-  triggerId?: (string | null) | undefined;
+  triggerId?: string | null | undefined;
   /**
    * ID of the trigger that the dialog is associated with.
    * This is useful in conjunction with the `defaultOpen` prop to create an initially open dialog.
    */
-  defaultTriggerId?: (string | null) | undefined;
+  defaultTriggerId?: string | null | undefined;
 }
 
 export interface DialogRootActions {
@@ -102,6 +98,7 @@ export type DialogRootChangeEventReason =
   | typeof REASONS.closePress
   | typeof REASONS.focusOut
   | typeof REASONS.imperativeAction
+  // Solid: Drawer.Viewport passes swipe dismissal details straight to `DialogStore.setOpen`.
   | typeof REASONS.swipe
   | typeof REASONS.none;
 

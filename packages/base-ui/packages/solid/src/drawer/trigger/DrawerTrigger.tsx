@@ -1,5 +1,5 @@
 import type { JSX } from '@solidjs/web';
-import type { DialogHandle as DrawerHandle } from '../../dialog/store/DialogHandle';
+import type { DrawerHandle } from '../handle';
 import { DialogTrigger } from '../../dialog/trigger/DialogTrigger';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 
@@ -16,7 +16,7 @@ export interface DrawerTrigger {
 }
 
 export interface DrawerTriggerProps<Payload = unknown>
-  extends NativeButtonProps, BaseUIComponentProps<'button', DrawerTrigger.State> {
+  extends NativeButtonProps, BaseUIComponentProps<'button', DrawerTriggerState> {
   /**
    * A handle to associate the trigger with a drawer.
    * Can be created with the Drawer.createHandle() method.
@@ -25,7 +25,8 @@ export interface DrawerTriggerProps<Payload = unknown>
   /**
    * A payload to pass to the drawer when it is opened.
    */
-  payload?: Payload | undefined;
+  // Inferred from `handle` (React gets this from method bivariance), so the payload must match it.
+  payload?: NoInfer<Payload> | undefined;
   /**
    * ID of the trigger. In addition to being forwarded to the rendered element,
    * it is also used to specify the active trigger for drawers in controlled mode (with the Drawer.Root `triggerId` prop).
@@ -35,11 +36,11 @@ export interface DrawerTriggerProps<Payload = unknown>
 
 export interface DrawerTriggerState {
   /**
-   * Whether the drawer is currently disabled.
+   * Whether the trigger is currently disabled.
    */
   disabled: boolean;
   /**
-   * Whether the drawer is currently open.
+   * Whether the drawer is currently open and was opened by this trigger.
    */
   open: boolean;
 }

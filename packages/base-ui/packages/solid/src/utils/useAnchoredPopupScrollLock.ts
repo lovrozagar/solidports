@@ -1,5 +1,5 @@
-import { createTrackedEffect, createSignal } from 'solid-js';
-import { type MaybeAccessor, access } from '../solid-helpers';
+import { createSignal } from 'solid-js';
+import { createDepsEffect, type MaybeAccessor, access } from '../solid-helpers';
 import { ownerDocument } from './owner';
 import { useScrollLock } from './useScrollLock';
 
@@ -16,25 +16,28 @@ export function useAnchoredPopupScrollLock(params: {
 }) {
   const [touchOpenShouldLockScroll, setTouchOpenShouldLockScroll] = createSignal(false);
 
-  createTrackedEffect(() => {
-    const enabled = access(params.enabled);
-    const touchOpen = access(params.touchOpen);
-    const positionerEl = access(params.positionerElement) ?? null;
+  createDepsEffect(
+    () => ({
+      enabled: access(params.enabled),
+      touchOpen: access(params.touchOpen),
+      positionerEl: access(params.positionerElement) ?? null,
+    }),
+    ({ enabled, touchOpen, positionerEl }) => {
+      if (!enabled || !touchOpen || positionerEl == null) {
+        setTouchOpenShouldLockScroll(false);
+        return;
+      }
 
-    if (!enabled || !touchOpen || positionerEl == null) {
-      setTouchOpenShouldLockScroll(false);
-      return;
-    }
+      const viewportWidth = ownerDocument(positionerEl).documentElement.clientWidth;
+      const popupWidth = positionerEl.offsetWidth;
 
-    const viewportWidth = ownerDocument(positionerEl).documentElement.clientWidth;
-    const popupWidth = positionerEl.offsetWidth;
-
-    setTouchOpenShouldLockScroll(
-      viewportWidth > 0 &&
-        popupWidth > 0 &&
-        popupWidth >= viewportWidth - VIEWPORT_WIDTH_TOLERANCE_PX,
-    );
-  });
+      setTouchOpenShouldLockScroll(
+        viewportWidth > 0 &&
+          popupWidth > 0 &&
+          popupWidth >= viewportWidth - VIEWPORT_WIDTH_TOLERANCE_PX,
+      );
+    },
+  );
 
   useScrollLock({
     enabled: () => {

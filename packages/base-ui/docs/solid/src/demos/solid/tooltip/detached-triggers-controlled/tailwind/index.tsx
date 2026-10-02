@@ -8,7 +8,7 @@ const demoTooltip = Tooltip.createHandle();
 
 export default function TooltipDetachedTriggersControlledDemo() {
   const [open, setOpen] = createSignal(false);
-  const [triggerId, setTriggerId] = createSignal(null);
+  const [triggerId, setTriggerId] = createSignal<string | null>(null);
 
   const handleOpenChange = (isOpen: boolean, eventDetails: Tooltip.Root.ChangeEventDetails) => {
     setOpen(isOpen);

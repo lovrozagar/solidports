@@ -12,13 +12,15 @@ export interface PreviewCardPositionerContext {
   arrowStyles: Accessor<JSX.CSSProperties>;
 }
 
-export const PreviewCardPositionerContext = createContext<PreviewCardPositionerContext | null>(null);
+export const PreviewCardPositionerContext = createContext<PreviewCardPositionerContext | null>(
+  null,
+);
 
 export function usePreviewCardPositionerContext() {
   const context = useContext(PreviewCardPositionerContext);
   if (context == null) {
     throw new Error(
-      'Base UI: <PreviewCard.Popup> and <PreviewCard.Arrow> must be used within the <PreviewCard.Positioner> component',
+      'Base UI: PreviewCardPositionerContext is missing. PreviewCardPositioner parts must be placed within <PreviewCard.Positioner>.',
     );
   }
 

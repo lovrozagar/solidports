@@ -1,12 +1,9 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createTrackedEffect, createMemo } from 'solid-js';
+/* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any`, mirrors React */
+import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
-import { useDirection } from '../../direction-provider/DirectionContext';
-import { splitComponentProps } from '../../solid-helpers';
-import {
-  createChangeEventDetails,
-  type BaseUIChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
+import { type BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import { EMPTY_ARRAY } from '../../utils/empty';
 import { REASONS } from '../../utils/reasons';
 import { BaseUIComponentProps, Orientation } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
@@ -24,7 +21,9 @@ const rootStateAttributesMapping = {
  *
  * Documentation: [Base UI Accordion](https://base-ui.com/react/components/accordion)
  */
-export function AccordionRoot(componentProps: AccordionRoot.Props) {
+export function AccordionRoot<Value = any>(
+  componentProps: AccordionRoot.Props<Value>,
+): JSX.Element {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'disabled',
     'hiddenUntilFound',
@@ -36,107 +35,90 @@ export function AccordionRoot(componentProps: AccordionRoot.Props) {
     'value',
     'defaultValue',
   ]);
-  const disabled = () => Boolean(local.disabled);
-  const loopFocus = () => local.loopFocus ?? true;
+  const disabled = () => local.disabled ?? false;
   const multiple = () => local.multiple ?? false;
   const orientation = () => local.orientation ?? 'vertical';
 
-  const direction = useDirection();
+  const defaultValue = () => local.defaultValue ?? (EMPTY_ARRAY as AccordionRoot.Value<Value>);
 
   if (process.env.NODE_ENV !== 'production') {
-    createTrackedEffect(() => {
-      if (local.hiddenUntilFound && local.keepMounted === false) {
-        warn(
-          'The `keepMounted={false}` prop on a Accordion.Root will be ignored when using `hiddenUntilFound` since it requires Panels to remain mounted when closed.',
-        );
-      }
-    });
+    createDepsEffect(
+      () => ({ hiddenUntilFound: local.hiddenUntilFound, keepMounted: local.keepMounted }),
+      (deps) => {
+        if (deps.hiddenUntilFound && deps.keepMounted === false) {
+          warn(
+            'The `keepMounted={false}` prop on `Accordion.Root` is ignored when `hiddenUntilFound` is enabled, since panels must remain mounted while closed.',
+          );
+        }
+      },
+    );
   }
-
-  // memoized to allow omitting both defaultValue and value
-  // which would otherwise trigger a warning in useControlled
-  const defaultValue = createMemo(() => {
-    if (local.value === undefined) {
-      return local.defaultValue ?? [];
-    }
-
-    return undefined;
-  });
 
   const accordionItemElements: (HTMLElement | null | undefined)[] = [];
 
-  const [value, setValue] = useControlled({
+  const [value, setValue] = useControlled<AccordionRoot.Value<Value>>({
     controlled: () => local.value,
     default: defaultValue,
     name: 'Accordion',
     state: 'value',
   });
 
-  const handleValueChange = (newValue: number | string, nextOpen: boolean) => {
-    const details = createChangeEventDetails(REASONS.none);
-    {
-      if (!multiple()) {
-        const nextValue = value()?.[0] === newValue ? [] : [newValue];
-        local.onValueChange?.(nextValue, details);
-        if (details.isCanceled) {
-          return;
-        }
-        setValue(nextValue);
-      } else if (nextOpen) {
-        const nextOpenValues = value()?.slice();
-        nextOpenValues.push(newValue);
-        local.onValueChange?.(nextOpenValues, details);
-        if (details.isCanceled) {
-          return;
-        }
-        setValue(nextOpenValues);
-      } else {
-        const nextOpenValues = value()?.filter((v: AccordionValue[number]) => v !== newValue);
-        local.onValueChange?.(nextOpenValues, details);
-        if (details.isCanceled) {
-          return;
-        }
-        setValue(nextOpenValues);
+  // Solid: a handler reading the latest value is React's stable callback.
+  const handleValueChange = (
+    newValue: AccordionRoot.Value<Value>[number],
+    nextOpen: boolean,
+    details: AccordionRoot.ChangeEventDetails,
+  ) => {
+    const currentValue = value();
+    if (!multiple()) {
+      const nextValue = currentValue[0] === newValue ? [] : [newValue];
+      local.onValueChange?.(nextValue, details);
+      if (details.isCanceled) {
+        return;
       }
-    };
+      setValue(nextValue);
+    } else if (nextOpen) {
+      const nextOpenValues = currentValue.slice();
+      nextOpenValues.push(newValue);
+      local.onValueChange?.(nextOpenValues, details);
+      if (details.isCanceled) {
+        return;
+      }
+      setValue(nextOpenValues);
+    } else {
+      const nextOpenValues = currentValue.filter((v) => v !== newValue);
+      local.onValueChange?.(nextOpenValues, details);
+      if (details.isCanceled) {
+        return;
+      }
+      setValue(nextOpenValues);
+    }
   };
 
-  const state: AccordionRoot.State = {
+  const state: AccordionRoot.State<Value> = {
+    get value() {
+      return value();
+    },
     get disabled() {
       return disabled();
     },
     get orientation() {
       return orientation();
     },
-    get value() {
-      return value();
-    },
   };
 
-  const contextValue: AccordionRootContext = {
-    accordionItemElements,
-    direction,
+  const contextValue: AccordionRootContext<Value> = {
     disabled,
     handleValueChange,
     hiddenUntilFound: () => local.hiddenUntilFound ?? false,
     keepMounted: () => local.keepMounted ?? false,
-    loopFocus,
-    orientation,
     state,
     value,
   };
 
   const element = useRenderElement('div', componentProps, {
-    props: [
-      {
-        get dir() {
-          return direction();
-        },
-        role: 'region',
-      },
-      elementProps,
-    ],
     state,
+    props: elementProps,
     stateAttributesMapping: rootStateAttributesMapping,
   });
 
@@ -147,30 +129,46 @@ export function AccordionRoot(componentProps: AccordionRoot.Props) {
   );
 }
 
-export type AccordionValue = (any | null)[];
+export type AccordionValue<Value = any> = Value[];
 
-export interface AccordionRootState {
-  value: AccordionValue;
+export interface AccordionRootState<Value = any> {
+  /**
+   * The current value.
+   * Treat it as read-only: it may be a shared frozen array when no value is set.
+   */
+  value: AccordionValue<Value>;
   /**
    * Whether the component should ignore user interaction.
    */
   disabled: boolean;
+  /**
+   * The component orientation.
+   *
+   * Deprecated following the [APG guidance update](https://github.com/w3c/aria-practices/pull/3434)
+   * to remove roving focus.
+   *
+   * This state no longer affects keyboard focus behavior.
+   * @deprecated
+   */
   orientation: Orientation;
 }
 
-export interface AccordionRootProps extends BaseUIComponentProps<'div', AccordionRoot.State> {
+export interface AccordionRootProps<Value = any> extends BaseUIComponentProps<
+  'div',
+  AccordionRoot.State<Value>
+> {
   /**
    * The controlled value of the item(s) that should be expanded.
    *
    * To render an uncontrolled accordion, use the `defaultValue` prop instead.
    */
-  value?: AccordionValue | undefined;
+  value?: AccordionValue<Value> | undefined;
   /**
    * The uncontrolled value of the item(s) that should be initially expanded.
    *
    * To render a controlled accordion, use the `value` prop instead.
    */
-  defaultValue?: AccordionValue | undefined;
+  defaultValue?: AccordionValue<Value> | undefined;
   /**
    * Whether the component should ignore user interaction.
    * @default false
@@ -191,9 +189,11 @@ export interface AccordionRootProps extends BaseUIComponentProps<'div', Accordio
    */
   keepMounted?: boolean | undefined;
   /**
-   * Whether to loop keyboard focus back to the first item
-   * when the end of the list is reached while using the arrow keys.
-   * @default true
+   * Deprecated following the [APG guidance update](https://github.com/w3c/aria-practices/pull/3434)
+   * to remove roving focus.
+   *
+   * This prop no longer affects keyboard focus behavior.
+   * @deprecated
    */
   loopFocus?: boolean | undefined;
   /**
@@ -201,7 +201,7 @@ export interface AccordionRootProps extends BaseUIComponentProps<'div', Accordio
    * Provides the new value as an argument.
    */
   onValueChange?:
-    | ((value: AccordionValue, eventDetails: AccordionRootChangeEventDetails) => void)
+    | ((value: AccordionValue<Value>, eventDetails: AccordionRootChangeEventDetails) => void)
     | undefined;
   /**
    * Whether multiple items can be open at the same time.
@@ -209,9 +209,12 @@ export interface AccordionRootProps extends BaseUIComponentProps<'div', Accordio
    */
   multiple?: boolean | undefined;
   /**
-   * The visual orientation of the accordion.
-   * Controls whether roving focus uses left/right or up/down arrow keys.
+   * Deprecated following the [APG guidance update](https://github.com/w3c/aria-practices/pull/3434)
+   * to remove roving focus.
+   *
+   * This prop no longer affects keyboard focus behavior.
    * @default 'vertical'
+   * @deprecated
    */
   orientation?: Orientation | undefined;
 }
@@ -222,8 +225,9 @@ export type AccordionRootChangeEventDetails =
   BaseUIChangeEventDetails<AccordionRoot.ChangeEventReason>;
 
 export namespace AccordionRoot {
-  export type State = AccordionRootState;
-  export type Props = AccordionRootProps;
+  export type Value<TValue = any> = AccordionValue<TValue>;
+  export type State<TValue = any> = AccordionRootState<TValue>;
+  export type Props<TValue = any> = AccordionRootProps<TValue>;
   export type ChangeEventReason = AccordionRootChangeEventReason;
   export type ChangeEventDetails = AccordionRootChangeEventDetails;
 }

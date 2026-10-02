@@ -8,11 +8,7 @@ import {
 import { ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT } from '../composite';
 
 type CompositeGridElementsRef = { current: Array<HTMLElement | null | undefined> };
-type CompositeGridOnLoop = (
-  event: KeyboardEvent,
-  prevIndex: number,
-  nextIndex: number,
-) => number;
+type CompositeGridOnLoop = (event: KeyboardEvent, prevIndex: number, nextIndex: number) => number;
 
 export interface CompositeGridItemSize {
   width: number;

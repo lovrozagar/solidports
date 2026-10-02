@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createTrackedEffect, createMemo, onCleanup } from 'solid-js';
+import { createMemo, createRenderEffect, createSignal, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   IndexGuessBehavior,
@@ -7,22 +8,36 @@ import {
 } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
-import { compareItemEquality, findItemIndex } from '../../utils/itemEquality';
+import { compareItemEquality, findItemIndex, resolveSelectedIndex } from '../../utils/itemEquality';
 import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { withCaptureListeners } from '../../utils/withCaptureListeners';
+import { flushSync } from '../../utils/flushSync';
 import {
   useComboboxDerivedItemsContext,
+  useComboboxHasItemsContext,
   useComboboxRootContext,
 } from '../root/ComboboxRootContext';
 import { useComboboxRowContext } from '../row/ComboboxRowContext';
 import { ComboboxItemContext } from './ComboboxItemContext';
 
-/**
- * An individual item in the list.
- * Renders a `<div>` element.
- */
-export function ComboboxItem(componentProps: ComboboxItem.Props) {
+interface ComboboxItemInnerProps {
+  componentProps: ComboboxItem.Props;
+  /**
+   * Whether the list is externally virtualized. Passed down from the wrapper (which already
+   * subscribes to it) so the inner component doesn't re-subscribe to the store.
+   */
+  virtualized: Accessor<boolean>;
+  /**
+   * Pre-resolved index for the virtualized fallback (when no `index` prop is provided).
+   * `undefined` for the common path, where the index is derived from `index` prop or the
+   * composite list registration order.
+   */
+  indexFromFilter: Accessor<number | undefined>;
+}
+
+function ComboboxItemInner(props: ComboboxItemInnerProps) {
+  const componentProps = props.componentProps;
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'value',
     'index',
@@ -32,10 +47,9 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
 
   const itemValue = () => local.value ?? null;
   const indexProp = () => local.index;
-  const disabled = () => Boolean(local.disabled);
-  const nativeButton = () => Boolean(local.nativeButton);
+  const disabledProp = () => local.disabled ?? false;
+  const nativeButton = () => local.nativeButton ?? false;
 
-  let didPointerDownRef = false;
   const textRef = useRef<HTMLElement | null | undefined>(null);
   const listItem = useCompositeListItem({
     index: indexProp,
@@ -43,138 +57,145 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
     textRef: () => textRef.current,
   });
 
-  const { store } = useComboboxRootContext();
+  const store = useComboboxRootContext();
   const isRow = useComboboxRowContext();
-  const { flatFilteredItems, hasItems } = useComboboxDerivedItemsContext();
+  const hasItems = useComboboxHasItemsContext();
 
-  const open = store.useSelector('open');
-  const selectionMode = store.useSelector('selectionMode');
-  const readOnly = store.useSelector('readOnly');
-  const virtualized = store.useSelector('virtualized');
+  const selectionMode = store.useState('selectionMode');
+  const rootDisabled = store.useState('disabled');
+  const readOnly = store.useState('readOnly');
+  const isItemEqualToValue = store.useState('isItemEqualToValue');
 
+  const disabled = () => rootDisabled() || disabledProp();
   const selectable = () => selectionMode() !== 'none';
-  const index = () =>
-    indexProp() ??
-    (virtualized()
-      ? findItemIndex(flatFilteredItems(), itemValue(), store.context.isItemEqualToValue)
-      : listItem.index());
-  const hasRegistered = () => listItem.index() !== -1;
+  const index = () => indexProp() ?? props.indexFromFilter() ?? listItem.index();
+  const hasRegistered = () => index() !== -1;
 
-  const rootId = store.useSelector('id');
-  /* memos prevent 250-item re-renders on every activeIndex/selectedValue change;
-     Solid skips downstream component updates when the boolean output is unchanged */
-  const highlighted = createMemo(() => store.selectors.isActive(index));
-  const matchesSelectedValue = createMemo(() => store.selectors.isSelected(itemValue));
+  const rootId = store.useState('id');
+  // Solid: memos keep a highlight or selection change from re-running every item's bindings.
+  const highlighted = createMemo(() => store.select('isActive', index));
+  const matchesSelectedValue = createMemo(() => store.select('isSelected', itemValue));
+  const itemProps = store.useState('itemProps');
 
-  let itemRef = null as HTMLDivElement | null | undefined;
+  // Solid: refs are applied after this component's effects are created, so the element is a
+  // signal the registration effect can wait for (React's layout effect runs after refs attach).
+  const [itemElement, setItemElement] = createSignal<HTMLDivElement | null | undefined>(null, {
+    ownedWrite: true,
+  });
 
   const id = () => (rootId() != null && hasRegistered() ? `${rootId()}-${index()}` : undefined);
   const selected = () => matchesSelectedValue() && selectable();
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    const shouldRun = hasRegistered() && (virtualized() || indexProp() != null);
-    if (!shouldRun) {
-      return;
-    }
-
-    store.context.listRef[index()] = itemRef;
-
-    _c.push(() => {
-      delete store.context.listRef[index()];
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+  createRenderEffect(
+    () => ({
+      shouldRun: hasRegistered() && (props.virtualized() || indexProp() != null),
+      index: index(),
+      element: itemElement(),
+    }),
+    ({ shouldRun, index: currentIndex, element }) => {
+      if (!shouldRun) {
+        return undefined;
       }
-    };
-});
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
+      const list = store.context.listRef.current;
+      list[currentIndex] = element;
 
-    if (!hasRegistered() || hasItems()) {
-      return;
-    }
+      return () => {
+        // Solid: each effect runs its cleanup next to its own update, so a reordered item may already
+        // have taken this slot; React runs every cleanup before the new registrations.
+        if (list[currentIndex] === element) {
+          delete list[currentIndex];
+        }
+      };
+    },
+  );
 
-    store.context.valuesRef[index()] = itemValue();
-
-    // Stable registry that doesn't depend on filtering. Assume that no
-    // filtering had occurred at this point; otherwise, an `items` prop is
-    // required.
-    if (selectionMode() !== 'none') {
-      store.context.allValuesRef.push(itemValue());
-    }
-
-    _c.push(() => {
-      delete store.context.valuesRef[index()];
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+  createRenderEffect(
+    () => ({
+      registered: hasRegistered(),
+      hasItems: hasItems(),
+      index: index(),
+      itemValue: itemValue(),
+    }),
+    (deps) => {
+      if (!deps.registered || deps.hasItems) {
+        return undefined;
       }
-    };
-});
 
-  createTrackedEffect(() => {
-    if (!open()) {
-      didPointerDownRef = false;
-      return;
-    }
+      const visibleValues = store.context.valuesRef.current;
+      visibleValues[deps.index] = deps.itemValue;
 
-    if (!hasRegistered() || hasItems()) {
-      return;
-    }
+      return () => {
+        // Solid: each effect runs its cleanup next to its own update, so a reordered item may already
+        // have taken this slot; React runs every cleanup before the new registrations.
+        if (visibleValues[deps.index] === deps.itemValue) {
+          delete visibleValues[deps.index];
+        }
+      };
+    },
+  );
 
-    const selectedValue = store.selectors.selectedValue();
-    const lastSelectedValue = Array.isArray(selectedValue)
-      ? selectedValue[selectedValue.length - 1]
-      : selectedValue;
+  createRenderEffect(
+    () => ({
+      registered: hasRegistered(),
+      hasItems: hasItems(),
+      index: index(),
+      itemValue: itemValue(),
+      isItemEqualToValue: isItemEqualToValue(),
+    }),
+    (deps) => {
+      if (!deps.registered || deps.hasItems) {
+        return;
+      }
 
-    if (compareItemEquality(itemValue(), lastSelectedValue, store.context.isItemEqualToValue)) {
-      store.set('selectedIndex', index());
-    }
+      // Runs while closed as well (the list can stay mounted via `keepMounted` or a
+      // force-mount) so the index tracks the item's composite position, keeping features
+      // like closed-trigger typeahead in sync when the rendered order changes.
+      const selectedValue = store.state.selectedValue;
+
+      let nextIndex = store.state.selectedIndex;
+      if (store.state.selectionMode === 'multiple' && Array.isArray(selectedValue)) {
+        nextIndex = resolveSelectedIndex(
+          deps.index,
+          deps.itemValue,
+          store.context.valuesRef.current,
+          selectedValue,
+          deps.isItemEqualToValue,
+          nextIndex,
+        );
+      } else if (compareItemEquality(deps.itemValue, selectedValue, deps.isItemEqualToValue)) {
+        nextIndex = deps.index;
+      }
+      store.set('selectedIndex', nextIndex);
+    },
+  );
+
+  const { getButtonProps, buttonRef } = useButton({
+    disabled,
+    focusableWhenDisabled: true,
+    native: nativeButton,
+    composite: true,
   });
 
   const state: ComboboxItem.State = {
     get disabled() {
       return disabled();
     },
-    get highlighted() {
-      return highlighted();
-    },
     get selected() {
       return selected();
     },
+    get highlighted() {
+      return highlighted();
+    },
   };
-
-  /* getItemProps runs mergeProps over all interaction hook lists — memoize so
-     it only re-runs when this item's highlighted/selected state actually changes */
-  const rootProps = createMemo(() => {
-    const props = store.context.getItemProps({ active: highlighted(), selected: selected() });
-    props.id = undefined;
-    props.onFocus = undefined;
-    return props;
-  });
-
-  const { getButtonProps, buttonRef } = useButton({
-    disabled,
-    focusableWhenDisabled: true,
-    native: nativeButton,
-  });
 
   function commitSelection(nativeEvent: MouseEvent) {
     function selectItem() {
       store.context.handleSelection(nativeEvent, itemValue());
     }
 
-    if (store.selectors.submitOnItemClick()) {
-      selectItem();
+    if (store.state.submitOnItemClick) {
+      flushSync(selectItem);
       store.context.requestSubmit();
     } else {
       selectItem();
@@ -185,9 +206,7 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
     get id() {
       return id();
     },
-    get role() {
-      return isRow ? 'gridcell' : 'option';
-    },
+    role: isRow ? 'gridcell' : 'option',
     get 'aria-selected'() {
       return selectable() ? (selected() ? 'true' : 'false') : undefined;
     },
@@ -195,22 +214,33 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
     // Warn if the user renders a natively focusable element like `<button>`,
     // as it should be a `<div>` instead.
     tabindex: undefined,
+    // Solid: capture-phase listeners have no JSX prop form.
     ref: withCaptureListeners({
       pointerdown: (event) => {
-        didPointerDownRef = true;
+        // The compat `mouseup` only fires for the primary pointer, so a non-primary
+        // touch must not overwrite the shared ref — a mismatch would make the primary
+        // pointer's release read as a drag-select and commit a second time after `click`.
+        if ((event as PointerEvent).isPrimary) {
+          store.context.pointerDownItemRef.current = event.currentTarget as Element;
+        }
         event.preventDefault();
       },
     }),
-    onClick(event) {
+    onMouseDown(event: MouseEvent) {
+      // iOS Safari can emit a synthetic mousedown for touch taps without a preceding
+      // pointerdown. Prevent default here too so tapping an item does not blur the input.
+      event.preventDefault();
+    },
+    onClick(event: MouseEvent) {
       if (disabled() || readOnly()) {
         return;
       }
 
       commitSelection(event);
     },
-    onMouseUp(event) {
-      const pointerStartedOnItem = didPointerDownRef;
-      didPointerDownRef = false;
+    onMouseUp(event: MouseEvent) {
+      const pointerStartedOnItem = store.context.pointerDownItemRef.current === event.currentTarget;
+      store.context.pointerDownItemRef.current = null;
 
       if (
         disabled() ||
@@ -227,15 +257,15 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [rootProps(), defaultProps, elementProps, getButtonProps];
-    },
     ref: (el) => {
       buttonRef(el);
       listItem.setRef(el);
-      itemRef = el;
+      setItemElement(el as HTMLDivElement | null | undefined);
     },
     state,
+    get props() {
+      return [itemProps(), defaultProps, elementProps, getButtonProps];
+    },
   });
 
   const contextValue: ComboboxItemContext = {
@@ -243,8 +273,54 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
     textRef,
   };
 
+  return <ComboboxItemContext value={contextValue}>{element()}</ComboboxItemContext>;
+}
+
+/**
+ * Resolves the index from the filtered items for the virtualized fallback (no `index` prop).
+ * Isolated here so that the subscription to the derived-items context is only paid by
+ * virtualized items.
+ */
+function ComboboxItemVirtualizedIndex(props: { componentProps: ComboboxItem.Props }) {
+  const store = useComboboxRootContext();
+  const isItemEqualToValue = store.useState('isItemEqualToValue');
+  const { flatFilteredValues } = useComboboxDerivedItemsContext();
+
+  const indexFromFilter = () =>
+    findItemIndex(flatFilteredValues(), props.componentProps.value ?? null, isItemEqualToValue());
+
+  // Only reached when `virtualized` is true (see the wrapper below).
   return (
-    <ComboboxItemContext value={contextValue}>{element()}</ComboboxItemContext>
+    <ComboboxItemInner
+      componentProps={props.componentProps}
+      virtualized={() => true}
+      indexFromFilter={indexFromFilter}
+    />
+  );
+}
+
+/**
+ * An individual item in the list.
+ * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
+ */
+export function ComboboxItem(componentProps: ComboboxItem.Props) {
+  const store = useComboboxRootContext();
+  const virtualized = store.useState('virtualized');
+
+  // `virtualized` (and whether an item provides an explicit `index`) must be stable for an
+  // item's lifetime: the two branches render different components, as in React.
+  if (untrack(() => virtualized() && componentProps.index == null)) {
+    return <ComboboxItemVirtualizedIndex componentProps={componentProps} />;
+  }
+
+  return (
+    <ComboboxItemInner
+      componentProps={componentProps}
+      virtualized={virtualized}
+      indexFromFilter={() => undefined}
+    />
   );
 }
 

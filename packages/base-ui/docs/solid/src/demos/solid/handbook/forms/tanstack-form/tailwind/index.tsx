@@ -84,7 +84,7 @@ function TanstackForm() {
     <form
       aria-label="Launch new cloud server"
       class="flex w-full max-w-3xs flex-col gap-5 sm:max-w-[20rem]"
-      noValidate
+      novalidate
       onSubmit={(event) => {
         event.preventDefault();
         form.handleSubmit();
@@ -238,7 +238,7 @@ function TanstackForm() {
                 onValueChange={field().handleChange}
               >
                 <div class="w-fit space-y-1">
-                  <label>Server type</label>
+                  <Select.Label>Server type</Select.Label>
                   <Select.Trigger class="w-48" onBlur={field().handleBlur}>
                     <Select.Value />
                     <Select.Icon>
@@ -484,7 +484,7 @@ export default function App() {
   );
 }
 
-function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretUpDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -499,7 +499,7 @@ function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -515,7 +515,7 @@ function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function PlusIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -523,8 +523,8 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >
@@ -533,7 +533,7 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function MinusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function MinusIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -541,8 +541,8 @@ function MinusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

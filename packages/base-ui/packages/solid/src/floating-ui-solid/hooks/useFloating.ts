@@ -1,10 +1,10 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { type VirtualElement } from '@floating-ui/dom';
 import { isElement } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
-import { access } from '../../solid-helpers';
+import { createMemo, createSignal, untrack } from 'solid-js';
+import { createDepsEffect, access, live } from '../../solid-helpers';
 import { FloatingRootStore } from '../components/FloatingRootStoreV2';
-import { useFloatingTree } from '../components/FloatingTree';
+import { useFloatingTreeAccessor } from '../components/FloatingTree';
 import type {
   FloatingContext,
   NarrowedElement,
@@ -20,15 +20,34 @@ import { mergeProps as solidMergeProps } from '../../solid-1-compat';
  * Provides data to position a floating element and context to add interactions.
  * @see https://floating-ui.com/docs/useFloating
  */
-
 export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn {
-  const internalRootStore = useFloatingRootContext(options);
-  const rootContext = createMemo(() => options.rootContext || internalRootStore);
+  const internalStore = useFloatingRootContext(options);
+
+  return useFloatingWithStore(options, () => options.rootContext || internalStore);
+}
+
+/**
+ * Base UI's private `useFloating` path. The caller must supply the root store, so this skips the
+ * internal root-context hook used by the public Floating UI-compatible API.
+ */
+export function useBaseUIFloating(
+  options: UseFloatingOptions & { rootContext: FloatingRootStore },
+): UseFloatingReturn {
+  return useFloatingWithStore(options, () => options.rootContext);
+}
+
+function useFloatingWithStore(
+  options: UseFloatingOptions,
+  getStore: () => FloatingRootStore,
+): UseFloatingReturn {
+  // Live: the context's getters and element accessors are also read imperatively (handlers,
+  // effect callbacks, tree traversals). Solid: a memo, since parts may swap the store.
+  const rootContext = live(createMemo(getStore));
 
   const rootContextElements = {
-    domReference: () => rootContext().useState('domReferenceElement')(),
-    floating: () => rootContext().useState('floatingElement')(),
-    reference: () => rootContext().useState('referenceElement')(),
+    domReference: () => rootContext().select('domReferenceElement'),
+    floating: () => rootContext().select('floatingElement'),
+    reference: () => rootContext().select('referenceElement'),
   };
 
   const [positionReference, setPositionReferenceRaw] = createSignal<
@@ -40,7 +59,7 @@ export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn
     return (ref ?? null) as NarrowedElement<ReferenceType> | null | undefined;
   });
 
-  const tree = useFloatingTree();
+  const getTree = useFloatingTreeAccessor(() => options.externalTree);
 
   const positionOptions = solidMergeProps(options, {
     elements: {
@@ -71,20 +90,39 @@ export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn
   const [localDomReference, setLocalDomReference] = createSignal<
     NarrowedElement<ReferenceType> | null | undefined
   >(undefined);
+  // `undefined` keeps the store's floating element, as in React.
   const [localFloatingElement, setLocalFloatingElement] = createSignal<
     HTMLElement | null | undefined
-  >(null);
+  >(undefined);
 
-  const store = untrack(() => rootContext());
-  store.useSyncedValue('referenceElement', () => localDomReference() ?? null);
-  store.useSyncedValue('domReferenceElement', () => {
-    const local = localDomReference();
-    if (local === undefined) {
-      return rootContextElements.domReference();
-    }
-    return isElement(local) ? (local as Element) : null;
-  });
-  store.useSyncedValue('floatingElement', localFloatingElement);
+  // React's three `useSyncedValue` calls: each key is written only when its own value changes.
+  // The store is part of each value because parts like NavigationMenu swap it per active trigger.
+  createDepsEffect(
+    () => ({ store: rootContext(), value: localDomReference() ?? null }),
+    ({ store, value }) => {
+      store.set('referenceElement', value);
+    },
+  );
+
+  // With no local reference, React writes the store's own value back (a no-op). Solid would write
+  // the value committed when the effect computed, over a newer one written in the same flush.
+  createDepsEffect(
+    () => ({ store: rootContext(), local: localDomReference() }),
+    ({ store, local }) => {
+      if (local !== undefined) {
+        store.set('domReferenceElement', isElement(local) ? (local as Element) : null);
+      }
+    },
+  );
+
+  createDepsEffect(
+    () => ({ store: rootContext(), value: localFloatingElement() }),
+    ({ store, value }) => {
+      if (value !== undefined) {
+        store.set('floatingElement', value);
+      }
+    },
+  );
 
   const setReference = (node: ReferenceType | null | undefined) => {
     if (isElement(node) || node == null) {
@@ -93,7 +131,8 @@ export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn
 
     // Backwards-compatibility for passing a virtual element to `reference`
     // after it has set the DOM reference.
-    const reference = position.refs.reference();
+    // A ref setter: read the current reference without subscribing.
+    const reference = untrack(position.refs.reference);
     if (
       isElement(reference) ||
       reference == null ||
@@ -122,8 +161,8 @@ export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn
     domReference: rootContextElements.domReference,
   });
 
-  const open = () => rootContext().useState('open')();
-  const floatingId = () => rootContext().useState('floatingId')();
+  const open = () => rootContext().select('open');
+  const floatingId = () => rootContext().select('floatingId');
 
   const context: FloatingContext = {
     // from UsePositionFloatingReturn
@@ -156,12 +195,14 @@ export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn
     },
   };
 
-  createEffect(
+  createDepsEffect(
     () => ({
       store: rootContext(),
       nodeId: access(options.nodeId),
+      // React re-attaches on every render; here a tree change re-attaches.
+      tree: getTree(),
     }),
-    ({ store, nodeId }) => {
+    ({ store, nodeId, tree }) => {
       store.context.dataRef.floatingContext = context;
 
       if (!tree) {

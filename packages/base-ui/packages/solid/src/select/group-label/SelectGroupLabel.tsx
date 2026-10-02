@@ -1,4 +1,4 @@
-import { createTrackedEffect } from 'solid-js';
+import { createEffect } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -19,8 +19,11 @@ export function SelectGroupLabel(componentProps: SelectGroupLabel.Props) {
 
   const id = useBaseUiId(idProp);
 
-  createTrackedEffect(() => {
-    setLabelId(id());
+  createEffect(id, (currentId) => {
+    setLabelId(currentId);
+    return () => {
+      setLabelId((labelId) => (labelId === currentId ? undefined : labelId));
+    };
   });
 
   const element = useRenderElement('div', componentProps, {
@@ -29,6 +32,7 @@ export function SelectGroupLabel(componentProps: SelectGroupLabel.Props) {
         get id() {
           return id();
         },
+        'aria-hidden': 'true',
       },
       elementProps,
     ],

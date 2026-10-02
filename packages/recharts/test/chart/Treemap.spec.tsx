@@ -19,6 +19,8 @@ import {
 import { getTooltip, showTooltip } from "../component/Tooltip/tooltipTestHelpers"
 import { treemapNodeChartMouseHoverTooltipSelector } from "../component/Tooltip/tooltipMouseHoverSelectors"
 import { assertNotNull } from "../helper/assertNotNull"
+import { AnimationControllerProvider } from "../../src/animation/useAnimationController"
+import { CompositeAnimationManager } from "../animation/CompositeAnimationManager"
 import { mockTouchingElement } from "../helper/mockTouchingElement"
 
 const multiLevelInsetData = [
@@ -1130,5 +1132,36 @@ describe("<Treemap /> mouse events", () => {
 
 		fireEvent.touchMove(firstNode, { touches: [{ clientX: 200, clientY: 200 }] })
 		expect(onTouchMove).toHaveBeenCalledTimes(0)
+	})
+})
+
+describe("<Treemap /> animation", () => {
+	function firstNodeLayer(container: Element): HTMLElement {
+		const layer = Array.from(container.querySelectorAll<HTMLElement>(".recharts-wrapper g")).find(
+			(g) => g.style.transform !== "",
+		)
+		assertNotNull(layer)
+		return layer
+	}
+
+	it("should slide nodes in from the left on the same element", async () => {
+		const animationManager = new CompositeAnimationManager()
+		const { container } = render(() => (
+			<AnimationControllerProvider value={animationManager.factory}>
+				<Treemap width={500} height={250} data={exampleTreemapData} dataKey="value" animationDuration={800} />
+			</AnimationControllerProvider>
+		))
+
+		const before = firstNodeLayer(container)
+		expect(before.style.transform).toMatch(/^translate\(-\d+(\.\d+)?px, 0px\)$/)
+		expect(before.style.transition).toBe("")
+
+		await animationManager.completeAnimation()
+
+		const after = firstNodeLayer(container)
+		/* the transition only plays if the start and end styles land on one element */
+		expect(after).toBe(before)
+		expect(after.style.transform).toBe("translate(0, 0)")
+		expect(after.style.transition).toBe("transform 800ms linear")
 	})
 })

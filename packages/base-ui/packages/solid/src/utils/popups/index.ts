@@ -4,3 +4,5 @@ export * from './popupStoreUtils';
 export * from './popupTriggerMap';
 export * from './store';
 export * from './usePopupHandleStore';
+export * from './createPopupFloatingRootContext';
+export * from './useTriggerFocusGuards';

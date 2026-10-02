@@ -84,6 +84,6 @@ export namespace PopoverViewport {
     /**
      * Present if animations should be instant.
      */
-    instant: 'dismiss' | 'click' | undefined;
+    instant: 'dismiss' | 'click' | 'focus' | 'trigger-change' | undefined;
   }
 }

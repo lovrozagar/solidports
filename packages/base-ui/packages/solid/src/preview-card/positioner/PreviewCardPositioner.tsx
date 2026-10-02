@@ -1,12 +1,11 @@
-import type { JSX } from '@solidjs/web';
+import { usePositioner } from '../../utils/usePositioner';
+import { createRenderEffect } from 'solid-js';
+import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
-import { adaptiveOrigin } from '../../utils/adaptiveOriginMiddleware';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
-import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
-import { popupStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { type Align, type Side, useAnchorPositioning } from '../../utils/useAnchorPositioning';
-import { useRenderElement } from '../../utils/useRenderElement';
+import { createInlineMiddleware } from '../../utils/popups';
 import { usePreviewCardPortalContext } from '../portal/PreviewCardPortalContext';
 import { usePreviewCardRootContext } from '../root/PreviewCardContext';
 import { PreviewCardPositionerContext } from './PreviewCardPositionerContext';
@@ -19,6 +18,8 @@ import { PreviewCardPositionerContext } from './PreviewCardPositionerContext';
  */
 export function PreviewCardPositioner(componentProps: PreviewCardPositioner.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
+    'style',
+    'ref',
     'anchor',
     'positionMethod',
     'side',
@@ -46,16 +47,17 @@ export function PreviewCardPositioner(componentProps: PreviewCardPositioner.Prop
 
   const { store } = usePreviewCardRootContext();
   const keepMounted = usePreviewCardPortalContext();
+  const nodeId = useFloatingNodeId();
 
   const open = store.useState('open');
   const mounted = store.useState('mounted');
   const instantType = store.useState('instantType');
   const transitionStatus = store.useState('transitionStatus');
-  const hasViewport = store.useState('hasViewport');
+  const adaptiveOrigin = store.useState('adaptiveOrigin');
 
   const positioning = useAnchorPositioning({
     get adaptiveOrigin() {
-      return hasViewport() ? adaptiveOrigin : undefined;
+      return adaptiveOrigin();
     },
     align,
     alignOffset,
@@ -68,30 +70,26 @@ export function PreviewCardPositioner(componentProps: PreviewCardPositioner.Prop
     get floatingRootContext() {
       return store.context.floatingRootContext;
     },
+    inline: createInlineMiddleware(store.context.inlineRectCoordsRef),
     keepMounted,
     mounted,
+    nodeId,
     positionMethod,
     side,
     sideOffset,
     sticky,
   });
 
-  const defaultProps: HTMLProps = {
-    get hidden() {
-      return !mounted();
-    },
-    role: 'presentation',
-    get style() {
-      const hiddenStyles: JSX.CSSProperties = {};
-      if (!open()) {
-        hiddenStyles['pointer-events'] = 'none';
+  const updatePosition = positioning.update;
+
+  createRenderEffect(
+    () => open() && mounted(),
+    (shouldUpdate) => {
+      if (shouldUpdate) {
+        updatePosition();
       }
-      return {
-        ...positioning.positionerStyles(),
-        ...hiddenStyles,
-      };
     },
-  };
+  );
 
   const state: PreviewCardPositioner.State = {
     get align() {
@@ -119,20 +117,28 @@ export function PreviewCardPositioner(componentProps: PreviewCardPositioner.Prop
     side: positioning.side,
   };
 
-  const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [defaultProps, getDisabledMountTransitionStyles(transitionStatus()), elementProps];
+  const element = usePositioner(componentProps, state, {
+    get styles() {
+      return positioning.positionerStyles();
     },
-    ref: (el) => {
+    get transitionStatus() {
+      return transitionStatus();
+    },
+    props: elementProps,
+    refs: (el: HTMLDivElement | null) => {
       store.set('positionerElement', el);
     },
-    state,
-    stateAttributesMapping: popupStateMapping,
+    get hidden() {
+      return !mounted();
+    },
+    get inert() {
+      return !open();
+    },
   });
 
   return (
     <PreviewCardPositionerContext value={contextValue}>
-      {element()}
+      <FloatingNode id={nodeId()}>{element()}</FloatingNode>
     </PreviewCardPositionerContext>
   );
 }

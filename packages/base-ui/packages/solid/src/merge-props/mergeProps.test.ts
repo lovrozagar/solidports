@@ -1,9 +1,12 @@
 import { expect, vi } from 'vitest';
 import { createMemo, createRoot, createSignal } from 'solid-js';
+import { act } from '#test-utils';
 import { callEventHandler } from '../solid-helpers';
 import type { BaseUIEvent } from '../utils/types';
-import { mergeProps } from './mergeProps';
+import { mergeProps, mergePropsN } from './mergeProps';
 
+// Solid: titles keep React's wording (`className`, "synthetic" events); Solid uses `class`
+// and native events.
 describe('mergeProps', () => {
   it('merges event handlers', () => {
     const theirProps = {
@@ -95,6 +98,106 @@ describe('mergeProps', () => {
     expect(prevented).toBe(true);
   });
 
+  it('makes a first-position synthetic event handler preventable', () => {
+    let prevented = false;
+
+    const mergedProps = mergeProps<'button'>(
+      {
+        onMouseDown(event) {
+          event.preventBaseUIHandler();
+          prevented = event.baseUIHandlerPrevented === true;
+        },
+      },
+      {
+        id: 'test-button',
+      },
+    );
+
+    callEventHandler(mergedProps.onMouseDown, new MouseEvent('mousedown') as any);
+
+    expect(prevented).toBe(true);
+  });
+
+  it('makes a first-position synthetic event handler preventable in mergePropsN', () => {
+    let prevented = false;
+
+    const mergedProps = mergePropsN<'button'>([
+      {
+        onMouseDown(event) {
+          event.preventBaseUIHandler();
+          prevented = event.baseUIHandlerPrevented === true;
+        },
+      },
+      {
+        id: 'test-button',
+      },
+    ]);
+
+    callEventHandler(mergedProps.onMouseDown, new MouseEvent('mousedown') as any);
+
+    expect(prevented).toBe(true);
+  });
+
+  it('makes a lone obscure synthetic event handler preventable', () => {
+    let prevented = false;
+
+    const mergedProps = mergeProps<'button'>(
+      {},
+      {
+        onContextMenu(event) {
+          event.preventBaseUIHandler();
+          prevented = event.baseUIHandlerPrevented === true;
+        },
+      },
+    );
+
+    callEventHandler(mergedProps.onContextMenu, new MouseEvent('contextmenu') as any);
+
+    expect(prevented).toBe(true);
+  });
+
+  it('forwards all arguments for a lone non-standard event handler', () => {
+    const handler = vi.fn();
+
+    const mergedProps = mergeProps<any>(
+      {},
+      {
+        onOpenChange: handler,
+      },
+    );
+
+    const eventDetails = { reason: 'test' };
+    mergedProps.onOpenChange?.(true, eventDetails);
+
+    expect(handler).toHaveBeenCalledWith(true, eventDetails);
+  });
+
+  it('forwards additional arguments for synthetic event handlers', () => {
+    const log: Array<[string, string]> = [];
+
+    const mergedProps = mergeProps<any>(
+      {
+        onMouseDown(_event: BaseUIEvent<MouseEvent>, details: { reason: string }) {
+          log.push(['ours', details.reason]);
+        },
+      },
+      {
+        onMouseDown(_event: BaseUIEvent<MouseEvent>, details: { reason: string }) {
+          log.push(['theirs', details.reason]);
+        },
+      },
+    );
+
+    mergedProps.onMouseDown?.(new MouseEvent('mousedown'), {
+      reason: 'pointer',
+    });
+
+    expect(log).toEqual([
+      ['theirs', 'pointer'],
+      ['ours', 'pointer'],
+    ]);
+  });
+
   it('merges styles', () => {
     const theirProps = {
       style: { color: 'red' },
@@ -131,7 +234,7 @@ describe('mergeProps', () => {
     expect(mergedProps.style).toBe(undefined);
   });
 
-  it('merges classes with rightmost first', () => {
+  it('merges classNames with rightmost first', () => {
     const theirProps = {
       class: 'external-class',
     };
@@ -143,7 +246,7 @@ describe('mergeProps', () => {
     expect(mergedProps.class).toBe('external-class internal-class');
   });
 
-  it('merges multiple classes', () => {
+  it('merges multiple classNames', () => {
     const mergedProps = mergeProps<'div'>(
       {
         class: 'class-1',
@@ -159,7 +262,7 @@ describe('mergeProps', () => {
     expect(mergedProps.class).toBe('class-3 class-2 class-1');
   });
 
-  it('merges classes with undefined', () => {
+  it('merges classNames with undefined', () => {
     const theirProps = {
       class: 'external-class',
     };
@@ -170,7 +273,7 @@ describe('mergeProps', () => {
     expect(mergedProps.class).toBe('external-class');
   });
 
-  it('does not merge classes if both are undefined', () => {
+  it('does not merge classNames if both are undefined', () => {
     const theirProps = {};
     const ourProps = {};
     const mergedProps = mergeProps<'button'>(ourProps, theirProps);
@@ -510,6 +613,21 @@ describe('mergeProps', () => {
       expect(observedProps).toEqual({});
     });
 
+    it('does not mutate a reused object returned by the first props getter', () => {
+      const shared = { class: 'base' };
+
+      const result = mergeProps(() => shared, {
+        class: 'next',
+      });
+
+      expect(result).toEqual({
+        class: 'next base',
+      });
+      expect(shared).toEqual({
+        class: 'base',
+      });
+    });
+
     it('accepts the result of the props getter', () => {
       const propsGetter = () => ({ class: 'test-class' });
       const result = mergeProps(
@@ -529,54 +647,67 @@ describe('mergeProps', () => {
     });
 
     it('properly merges native object getters in a reactive way (class/style/ref/classList + other dynamic props)', () => {
-      createRoot((dispose) => {
-        const [isOn, setIsOn] = createSignal(false);
-        const [color, setColor] = createSignal<'blue' | 'red'>('blue');
-        const [isEnabled, setIsEnabled] = createSignal(false);
-        const [count, setCount] = createSignal(0);
-        const [mode, setMode] = createSignal<'a' | 'b'>('a');
+      // Solid: writes inside an owned scope (the root included) are rejected, so the root only
+      // builds the memos and the updates run after it, inside `act`.
+      const [isOn, setIsOn] = createSignal(false);
+      const [color, setColor] = createSignal<'blue' | 'red'>('blue');
+      const [isEnabled, setIsEnabled] = createSignal(false);
+      const [count, setCount] = createSignal(0);
+      const [mode, setMode] = createSignal<'a' | 'b'>('a');
 
-        let classGetterCalls = 0;
-        let styleGetterCalls = 0;
-        let classListGetterCalls = 0;
-        let titleGetterCalls = 0;
-        let tabIndexGetterCalls = 0;
+      let classGetterCalls = 0;
+      let styleGetterCalls = 0;
+      let classListGetterCalls = 0;
+      let titleGetterCalls = 0;
+      let tabIndexGetterCalls = 0;
 
-        const refA = vi.fn();
-        const refB = vi.fn();
+      const refA = vi.fn();
+      const refB = vi.fn();
 
-        const mergedProps = mergeProps<'div'>(
-          {
-            get class() {
-              classGetterCalls += 1;
-              return isOn() ? 'on' : 'off';
-            },
-            get classList() {
-              classListGetterCalls += 1;
-              return { enabled: isEnabled() };
-            },
-            get style() {
-              styleGetterCalls += 1;
-              return { color: color() };
-            },
-            get tabindex() {
-              tabIndexGetterCalls += 1;
-              return mode() === 'a' ? 0 : -1;
-            },
-            get title() {
-              titleGetterCalls += 1;
-              return `title-${count()}`;
-            },
+      const {
+        dispose,
+        mergedProps,
+        classValue,
+        styleValue,
+        classListValue,
+        titleValue,
+        tabIndexValue,
+        staticValue,
+      } = createRoot((dispose) => {
+        // Solid: `classList` is not part of the typed props, so the getters are declared apart
+        // from the call (no excess-property check).
+        const dynamicProps = {
+          get class() {
+            classGetterCalls += 1;
+            return isOn() ? 'on' : 'off';
           },
-          {
-            class: 'static-class',
-            classList: { staticKey: true },
-            id: 'static-id',
-            ref: refA,
-            style: { padding: '1px' },
+          get classList() {
+            classListGetterCalls += 1;
+            return { enabled: isEnabled() };
           },
-          { ref: refB },
-        );
+          get style() {
+            styleGetterCalls += 1;
+            return { color: color() };
+          },
+          get tabindex() {
+            tabIndexGetterCalls += 1;
+            return mode() === 'a' ? 0 : -1;
+          },
+          get title() {
+            titleGetterCalls += 1;
+            return `title-${count()}`;
+          },
+        };
+
+        const staticProps = {
+          class: 'static-class',
+          classList: { staticKey: true },
+          id: 'static-id',
+          ref: refA,
+          style: { padding: '1px' },
+        };
+
+        const mergedProps = mergeProps<'div'>(dynamicProps, staticProps, { ref: refB });
 
         expect(classGetterCalls).toBe(0);
         expect(styleGetterCalls).toBe(0);
@@ -586,7 +717,9 @@ describe('mergeProps', () => {
 
         const classValue = createMemo(() => mergedProps.class);
         const styleValue = createMemo(() => mergedProps.style);
-        const classListValue = createMemo(() => mergedProps.classList);
+        const classListValue = createMemo(
+          () => (mergedProps as { classList?: Record<string, boolean | undefined> }).classList,
+        );
         const titleValue = createMemo(() => mergedProps.title);
         const tabIndexValue = createMemo(() => mergedProps.tabindex);
         const staticValue = createMemo(() => mergedProps.id);
@@ -602,36 +735,49 @@ describe('mergeProps', () => {
         expect(styleGetterCalls).toBe(1);
         expect(classListGetterCalls).toBe(1);
 
-        const titleCallsBefore = titleGetterCalls;
-        const tabIndexCallsBefore = tabIndexGetterCalls;
+        return {
+          dispose,
+          mergedProps,
+          classValue,
+          styleValue,
+          classListValue,
+          titleValue,
+          tabIndexValue,
+          staticValue,
+        };
+      });
 
-        const element = document.createElement('div');
-        (mergedProps.ref as any)?.(element);
-        expect(refB.mock.invocationCallOrder[0]).toBeLessThan(refA.mock.invocationCallOrder[0]);
-        expect(refA).toHaveBeenCalledWith(element);
-        expect(refB).toHaveBeenCalledWith(element);
+      const titleCallsBefore = titleGetterCalls;
+      const tabIndexCallsBefore = tabIndexGetterCalls;
 
+      const element = document.createElement('div');
+      (mergedProps.ref as any)?.(element);
+      expect(refB.mock.invocationCallOrder[0]).toBeLessThan(refA.mock.invocationCallOrder[0]);
+      expect(refA).toHaveBeenCalledWith(element);
+      expect(refB).toHaveBeenCalledWith(element);
+
+      act(() => {
         setIsOn(true);
         setColor('red');
         setIsEnabled(true);
         setCount(1);
         setMode('b');
-
-        expect(classValue()).toBe('static-class on');
-        expect(styleValue()).toEqual({ color: 'red', padding: '1px' });
-        expect(classListValue()).toEqual({ enabled: true, staticKey: true });
-        expect(titleValue()).toBe('title-1');
-        expect(tabIndexValue()).toBe(-1);
-        expect(staticValue()).toBe('static-id');
-
-        expect(classGetterCalls).toBe(2);
-        expect(styleGetterCalls).toBe(2);
-        expect(classListGetterCalls).toBe(2);
-        expect(titleGetterCalls).toBeGreaterThan(titleCallsBefore);
-        expect(tabIndexGetterCalls).toBeGreaterThan(tabIndexCallsBefore);
-
-        dispose();
       });
+
+      expect(classValue()).toBe('static-class on');
+      expect(styleValue()).toEqual({ color: 'red', padding: '1px' });
+      expect(classListValue()).toEqual({ enabled: true, staticKey: true });
+      expect(titleValue()).toBe('title-1');
+      expect(tabIndexValue()).toBe(-1);
+      expect(staticValue()).toBe('static-id');
+
+      expect(classGetterCalls).toBe(2);
+      expect(styleGetterCalls).toBe(2);
+      expect(classListGetterCalls).toBe(2);
+      expect(titleGetterCalls).toBeGreaterThan(titleCallsBefore);
+      expect(tabIndexGetterCalls).toBeGreaterThan(tabIndexCallsBefore);
+
+      dispose();
     });
 
     it('does not automatically prevent handlers that are manually called by getter handlers', () => {

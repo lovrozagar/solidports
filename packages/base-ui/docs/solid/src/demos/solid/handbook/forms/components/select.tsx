@@ -10,7 +10,7 @@ export function Root(props: Select.Root.Props<any>) {
 export function Label(props: Select.Label.Props) {
   const others = omit(props, 'class');
   return (
-    <label
+    <Select.Label
       class={clsx(
         'cursor-default text-sm font-bold text-neutral-950 dark:text-white',
         props.class,

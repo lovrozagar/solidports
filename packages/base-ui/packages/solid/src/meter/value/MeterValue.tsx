@@ -2,7 +2,7 @@ import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { MeterRoot } from '../root/MeterRoot';
+import type { MeterRootState } from '../root/MeterRoot';
 import { useMeterRootContext } from '../root/MeterRootContext';
 
 /**
@@ -22,7 +22,7 @@ export function MeterValue(componentProps: MeterValue.Props) {
         <>
           {typeof componentProps.children === 'function'
             ? componentProps.children(formattedValue(), value())
-            : ((formattedValue() || value()) ?? '')}
+            : formattedValue()}
         </>
       );
     },
@@ -32,13 +32,16 @@ export function MeterValue(componentProps: MeterValue.Props) {
   return <>{element()}</>;
 }
 
+export interface MeterValueState extends MeterRootState {}
+
 export interface MeterValueProps extends Omit<
-  BaseUIComponentProps<'span', MeterRoot.State>,
+  BaseUIComponentProps<'span', MeterValueState>,
   'children'
 > {
   children?: (null | ((formattedValue: string, value: number) => JSX.Element)) | undefined;
 }
 
 export namespace MeterValue {
+  export type State = MeterValueState;
   export type Props = MeterValueProps;
 }

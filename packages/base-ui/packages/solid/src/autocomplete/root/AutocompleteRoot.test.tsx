@@ -1,11 +1,13 @@
-import { createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
+import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { act, createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
 import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
-import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
-import { spy } from 'sinon';
-import type { JSX } from '@solidjs/web';
+import { Input } from '@solidports/base-ui/input';
+import { Switch } from '@solidports/base-ui/switch';
 
 describe('<Autocomplete.Root />', () => {
   beforeEach(() => {
@@ -38,27 +40,119 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'al');
 
       const firstOption = await screen.findByRole('option', { name: 'alpha' });
-      expect(firstOption).to.have.attribute('data-highlighted');
+      expect(firstOption).toHaveAttribute('data-highlighted');
 
       await user.keyboard('{Enter}');
-      expect(input.value).to.equal('alpha');
+      expect(input.value).toBe('alpha');
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).to.equal(null);
+        expect(screen.queryByRole('listbox')).toBe(null);
       });
 
       await user.clear(input);
       await user.type(input, 'a');
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).not.to.equal(null);
+        expect(screen.queryByRole('listbox')).not.toBe(null);
       });
 
       await user.tab();
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).to.equal(null);
+        expect(screen.queryByRole('listbox')).toBe(null);
       });
+    });
+  });
+
+  describe('input inside popup composition', () => {
+    // Vitest's browser runner cannot wrap mount-time adapter updates in React act.
+    // Keep the subtree mounted there while preserving unmount/remount coverage in jsdom.
+    const keepPopupMounted = !isJSDOM;
+
+    it('commits a keyboard selection, restores trigger focus, and preserves it on reopen', async () => {
+      const { user } = render(() => (
+        <Autocomplete.Root items={['alpha', 'alpine', 'beta']} autoHighlight>
+          <Autocomplete.Trigger data-testid="trigger">
+            <Autocomplete.Value />
+          </Autocomplete.Trigger>
+          <Autocomplete.Portal keepMounted={keepPopupMounted}>
+            <Autocomplete.Positioner>
+              <Autocomplete.Popup aria-label="Commands">
+                <Autocomplete.Input data-testid="input" />
+                <Autocomplete.List>
+                  {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                </Autocomplete.List>
+              </Autocomplete.Popup>
+            </Autocomplete.Positioner>
+          </Autocomplete.Portal>
+        </Autocomplete.Root>
+      ));
+
+      const trigger = screen.getByTestId('trigger');
+      await user.click(trigger);
+
+      const input = await screen.findByTestId('input');
+      await waitFor(() => expect(input).toHaveFocus());
+      await user.type(input, 'al');
+
+      const alpha = screen.getByRole('option', { name: 'alpha' });
+      await waitFor(() => expect(alpha).toHaveAttribute('data-highlighted'));
+      await user.keyboard('{Enter}');
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBe(null));
+      expect(trigger).toHaveFocus();
+      expect(trigger).toHaveTextContent('alpha');
+
+      await user.click(trigger);
+
+      expect(await screen.findByTestId('input')).toHaveValue('alpha');
+      expect(await screen.findByRole('option', { name: 'alpha' })).not.toBe(null);
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBe(null));
+    });
+
+    it('preserves the typed value when the popup is dismissed with Escape', async () => {
+      const onValueChange = vi.fn();
+      const { user } = render(() => (
+        <Autocomplete.Root items={['alpha', 'alpine', 'beta']} onValueChange={onValueChange}>
+          <Autocomplete.Trigger data-testid="trigger">
+            <Autocomplete.Value />
+          </Autocomplete.Trigger>
+          <Autocomplete.Portal keepMounted={keepPopupMounted}>
+            <Autocomplete.Positioner>
+              <Autocomplete.Popup aria-label="Commands">
+                <Autocomplete.Input data-testid="input" />
+                <Autocomplete.List>
+                  {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                </Autocomplete.List>
+              </Autocomplete.Popup>
+            </Autocomplete.Positioner>
+          </Autocomplete.Portal>
+        </Autocomplete.Root>
+      ));
+
+      const trigger = screen.getByTestId('trigger');
+      await user.click(trigger);
+      const input = await screen.findByTestId('input');
+      await waitFor(() => expect(input).toHaveFocus());
+      await user.type(input, 'al');
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBe(null));
+      expect(trigger).toHaveFocus();
+      expect(trigger).toHaveTextContent('al');
+      expect(onValueChange.mock.lastCall?.[0]).toBe('al');
+
+      await user.click(trigger);
+
+      expect(await screen.findByTestId('input')).toHaveValue('al');
+      expect(await screen.findByRole('option', { name: 'alpha' })).not.toBe(null);
+      expect(await screen.findByRole('option', { name: 'alpine' })).not.toBe(null);
+      await waitFor(() => expect(screen.queryByRole('option', { name: 'beta' })).toBe(null));
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBe(null));
     });
   });
 
@@ -90,7 +184,170 @@ describe('<Autocomplete.Root />', () => {
     await flushMicrotasks();
 
     const input = screen.getByTestId<HTMLInputElement>('input');
-    expect(input.value).to.equal('beta');
+    expect(input.value).toBe('beta');
+  });
+
+  it('ignores hidden-input autofill when readOnly', async () => {
+    const onValueChange = vi.fn();
+    render(() => (
+      <Field.Root name="auto">
+        <Autocomplete.Root defaultValue="" readOnly onValueChange={onValueChange}>
+          <Autocomplete.Input data-testid="input" />
+          <Autocomplete.Portal>
+            <Autocomplete.Positioner>
+              <Autocomplete.Popup>
+                <Autocomplete.List>
+                  <Autocomplete.Item value="alpha">alpha</Autocomplete.Item>
+                  <Autocomplete.Item value="beta">beta</Autocomplete.Item>
+                </Autocomplete.List>
+              </Autocomplete.Popup>
+            </Autocomplete.Positioner>
+          </Autocomplete.Portal>
+        </Autocomplete.Root>
+      </Field.Root>
+    ));
+
+    const hidden = screen.getByRole<HTMLInputElement>('textbox', { hidden: true });
+    fireEvent.input(hidden, { target: { value: 'beta' } });
+    await flushMicrotasks();
+
+    const input = screen.getByTestId<HTMLInputElement>('input');
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(input.value).toBe('');
+  });
+
+  it('opens the list with the arrow keys but does not commit on item press when readOnly', async () => {
+    const onValueChange = vi.fn();
+    const { user } = render(() => (
+      <Autocomplete.Root defaultValue="" readOnly onValueChange={onValueChange}>
+        <Autocomplete.Input data-testid="input" />
+        <Autocomplete.Portal>
+          <Autocomplete.Positioner>
+            <Autocomplete.Popup>
+              <Autocomplete.List>
+                <Autocomplete.Item value="alpha">alpha</Autocomplete.Item>
+                <Autocomplete.Item value="beta">beta</Autocomplete.Item>
+              </Autocomplete.List>
+            </Autocomplete.Popup>
+          </Autocomplete.Positioner>
+        </Autocomplete.Portal>
+      </Autocomplete.Root>
+    ));
+
+    const input = screen.getByTestId<HTMLInputElement>('input');
+    await user.click(input);
+    await user.keyboard('{ArrowDown}');
+
+    expect(await screen.findByRole('listbox')).toHaveAttribute('aria-readonly', 'true');
+
+    await user.click(await screen.findByRole('option', { name: 'beta' }));
+
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(input.value).toBe('');
+  });
+
+  it('does not fill the input with the highlighted item when readOnly', async () => {
+    const { user } = render(() => (
+      <Autocomplete.Root defaultValue="" readOnly mode="both">
+        <Autocomplete.Input data-testid="input" />
+        <Autocomplete.Portal>
+          <Autocomplete.Positioner>
+            <Autocomplete.Popup>
+              <Autocomplete.List>
+                <Autocomplete.Item value="alpha">alpha</Autocomplete.Item>
+                <Autocomplete.Item value="beta">beta</Autocomplete.Item>
+              </Autocomplete.List>
+            </Autocomplete.Popup>
+          </Autocomplete.Positioner>
+        </Autocomplete.Portal>
+      </Autocomplete.Root>
+    ));
+
+    const input = screen.getByTestId<HTMLInputElement>('input');
+    // Focused without a pointer event so the highlight is reported as keyboard-driven.
+    await act(async () => {
+      input.focus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowDown}');
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'alpha' })).toHaveAttribute('data-highlighted');
+    });
+    expect(input).toHaveValue('');
+  });
+
+  it('drops a pending inline completion when readOnly is turned on', async () => {
+    // Solid: no setProps; hold the prop in a signal and update it with act.
+    const [readOnly, setReadOnly] = createSignal(false);
+    const { user } = render(() => (
+      <Autocomplete.Root defaultValue="" mode="both" readOnly={readOnly()}>
+        <Autocomplete.Input data-testid="input" />
+        <Autocomplete.Portal>
+          <Autocomplete.Positioner>
+            <Autocomplete.Popup>
+              <Autocomplete.List>
+                <Autocomplete.Item value="alpha">alpha</Autocomplete.Item>
+                <Autocomplete.Item value="beta">beta</Autocomplete.Item>
+              </Autocomplete.List>
+            </Autocomplete.Popup>
+          </Autocomplete.Positioner>
+        </Autocomplete.Portal>
+      </Autocomplete.Root>
+    ));
+
+    const input = screen.getByTestId<HTMLInputElement>('input');
+    await user.click(input);
+    await user.keyboard('a');
+    await user.keyboard('{ArrowDown}');
+    expect(input).toHaveValue('alpha');
+
+    act(() => setReadOnly(true));
+    expect(input).toHaveValue('a');
+
+    // The suppressed completion must not come back when editing is restored.
+    act(() => setReadOnly(false));
+    expect(input).toHaveValue('a');
+  });
+
+  it('exposes aria-autocomplete="none" when readOnly', async () => {
+    render(() => (
+      <Autocomplete.Root defaultValue="" readOnly mode="both">
+        <Autocomplete.Input data-testid="input" />
+      </Autocomplete.Root>
+    ));
+
+    expect(screen.getByTestId('input')).toHaveAttribute('aria-autocomplete', 'none');
+  });
+
+  it('ignores hidden-input autofill when disabled', async () => {
+    const onValueChange = vi.fn();
+    render(() => (
+      <Field.Root name="auto">
+        <Autocomplete.Root defaultValue="" disabled onValueChange={onValueChange}>
+          <Autocomplete.Input data-testid="input" />
+          <Autocomplete.Portal>
+            <Autocomplete.Positioner>
+              <Autocomplete.Popup>
+                <Autocomplete.List>
+                  <Autocomplete.Item value="alpha">alpha</Autocomplete.Item>
+                  <Autocomplete.Item value="beta">beta</Autocomplete.Item>
+                </Autocomplete.List>
+              </Autocomplete.Popup>
+            </Autocomplete.Positioner>
+          </Autocomplete.Portal>
+        </Autocomplete.Root>
+      </Field.Root>
+    ));
+
+    const hidden = screen.getByRole<HTMLInputElement>('textbox', { hidden: true });
+    fireEvent.input(hidden, { target: { value: 'beta' } });
+    await flushMicrotasks();
+
+    const input = screen.getByTestId<HTMLInputElement>('input');
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(input.value).toBe('');
   });
 
   it('should pass autoComplete to the visible input', async () => {
@@ -113,16 +370,48 @@ describe('<Autocomplete.Root />', () => {
     const input = screen.getByRole('combobox');
     const hiddenInput = screen.getByRole('textbox', { hidden: true });
 
-    expect(input).to.have.attribute('name', 'search');
-    expect(input).to.have.attribute('autocomplete', 'on');
-    expect(hiddenInput).not.to.have.attribute('name');
-    expect(hiddenInput).to.have.attribute('id');
-    expect(hiddenInput).not.to.have.attribute('autocomplete');
+    expect(input).toHaveAttribute('name', 'search');
+    expect(input).toHaveAttribute('autocomplete', 'on');
+    expect(hiddenInput).not.toHaveAttribute('name');
+    expect(hiddenInput).toHaveAttribute('id');
+    expect(hiddenInput).not.toHaveAttribute('autocomplete');
+  });
+
+  it('does not expose data-placeholder on Trigger or InputGroup', async () => {
+    const { user } = render(() => (
+      <Autocomplete.Root items={['alpha', 'beta']} openOnInputClick>
+        <Autocomplete.InputGroup data-testid="group">
+          <Autocomplete.Input data-testid="input" />
+          <Autocomplete.Trigger data-testid="trigger" />
+        </Autocomplete.InputGroup>
+        <Autocomplete.Portal>
+          <Autocomplete.Positioner>
+            <Autocomplete.Popup>
+              <Autocomplete.List>
+                {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+              </Autocomplete.List>
+            </Autocomplete.Popup>
+          </Autocomplete.Positioner>
+        </Autocomplete.Portal>
+      </Autocomplete.Root>
+    ));
+
+    const group = screen.getByTestId('group');
+    const input = screen.getByTestId('input');
+    const trigger = screen.getByTestId('trigger');
+
+    expect(group).not.toHaveAttribute('data-placeholder');
+    expect(trigger).not.toHaveAttribute('data-placeholder');
+
+    await user.type(input, 'al');
+
+    expect(group).not.toHaveAttribute('data-placeholder');
+    expect(trigger).not.toHaveAttribute('data-placeholder');
   });
 
   describe('prop: autoHighlight', () => {
     it('calls onItemHighlighted when the popup auto highlights on open', async () => {
-      const onItemHighlighted = spy();
+      const onItemHighlighted = vi.fn();
 
       const { user } = render(() => (
         <Autocomplete.Root
@@ -147,14 +436,14 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'a');
 
       const firstOption = await screen.findByRole('option', { name: 'alpha' });
-      expect(onItemHighlighted.callCount).to.be.greaterThan(0);
+      expect(onItemHighlighted.mock.calls.length).toBeGreaterThan(0);
 
-      const [value, eventDetails] = onItemHighlighted.lastCall.args;
-      expect(value).to.equal('alpha');
-      expect(eventDetails.reason).to.equal('none');
+      const [value, eventDetails] = onItemHighlighted.mock.lastCall ?? [];
+      expect(value).toBe('alpha');
+      expect(eventDetails.reason).toBe('none');
 
       await waitFor(() => {
-        expect(firstOption).to.have.attribute('data-highlighted');
+        expect(firstOption).toHaveAttribute('data-highlighted');
       });
     });
 
@@ -181,14 +470,14 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'new');
 
       const newYorkOption = screen.getByRole('option', { name: 'new york' });
-      expect(newYorkOption).to.have.attribute('data-highlighted');
-      expect(input.getAttribute('aria-activedescendant')).to.equal(newYorkOption.id);
+      expect(newYorkOption).toHaveAttribute('data-highlighted');
+      expect(input.getAttribute('aria-activedescendant')).toBe(newYorkOption.id);
 
       // Trailing space should not clear highlight if matches remain
       await user.type(input, ' ');
 
-      expect(newYorkOption).to.have.attribute('data-highlighted');
-      expect(input.getAttribute('aria-activedescendant')).to.equal(newYorkOption.id);
+      expect(newYorkOption).toHaveAttribute('data-highlighted');
+      expect(input.getAttribute('aria-activedescendant')).toBe(newYorkOption.id);
     });
 
     it('does not highlight on open via click or when pressing arrow keys initially', async () => {
@@ -211,27 +500,27 @@ describe('<Autocomplete.Root />', () => {
       fireEvent.click(input);
 
       await waitFor(() => {
-        expect(input).not.to.have.attribute('aria-activedescendant');
+        expect(input).not.toHaveAttribute('aria-activedescendant');
       });
 
       await user.keyboard('{ArrowDown}');
       await waitFor(() => {
-        expect(input).not.to.have.attribute('aria-activedescendant');
+        expect(input).not.toHaveAttribute('aria-activedescendant');
       });
 
       await user.keyboard('{ArrowDown}');
       await waitFor(() => {
-        expect(input).not.to.have.attribute('aria-activedescendant');
+        expect(input).not.toHaveAttribute('aria-activedescendant');
       });
 
       await user.keyboard('{Escape}');
       await user.click(input);
 
-      expect(input).not.to.have.attribute('aria-activedescendant');
+      expect(input).not.toHaveAttribute('aria-activedescendant');
 
       await user.keyboard('{ArrowUp}');
       await waitFor(() => {
-        expect(input).to.have.attribute('aria-activedescendant');
+        expect(input).toHaveAttribute('aria-activedescendant');
       });
     });
 
@@ -257,8 +546,8 @@ describe('<Autocomplete.Root />', () => {
       await user.keyboard('{ArrowDown}');
 
       const firstOption = await screen.findByRole('option', { name: 'alpha' });
-      expect(firstOption).to.have.attribute('data-highlighted');
-      expect(input.getAttribute('aria-activedescendant')).to.equal(firstOption.id);
+      expect(firstOption).toHaveAttribute('data-highlighted');
+      expect(input.getAttribute('aria-activedescendant')).toBe(firstOption.id);
     });
 
     it('links aria-activedescendant to the highlighted item after filtering', async () => {
@@ -283,14 +572,14 @@ describe('<Autocomplete.Root />', () => {
       // Type 'f' — both items remain, first should be highlighted
       await user.type(input, 'f');
       const firstOption = screen.getByRole('option', { name: 'feature' });
-      expect(firstOption).to.have.attribute('data-highlighted');
-      expect(input.getAttribute('aria-activedescendant')).to.equal(firstOption.id);
+      expect(firstOption).toHaveAttribute('data-highlighted');
+      expect(input.getAttribute('aria-activedescendant')).toBe(firstOption.id);
 
       // Type 'i' — filters to "fix" and highlight should follow, with ids stable
       await user.type(input, 'i');
       const fixOption = screen.getByRole('option', { name: 'fix' });
-      expect(fixOption).to.have.attribute('data-highlighted');
-      expect(input.getAttribute('aria-activedescendant')).to.equal(fixOption.id);
+      expect(fixOption).toHaveAttribute('data-highlighted');
+      expect(input.getAttribute('aria-activedescendant')).toBe(fixOption.id);
     });
 
     it('does not highlight first/last item when pressing ArrowDown/ArrowUp initially', async () => {
@@ -312,16 +601,16 @@ describe('<Autocomplete.Root />', () => {
       const input = screen.getByTestId<HTMLInputElement>('input');
 
       await user.click(input);
-      expect(input).not.to.have.attribute('aria-activedescendant');
+      expect(input).not.toHaveAttribute('aria-activedescendant');
 
       await user.keyboard('{ArrowDown}');
       await waitFor(() => {
-        expect(input).not.to.have.attribute('aria-activedescendant');
+        expect(input).not.toHaveAttribute('aria-activedescendant');
       });
 
       await user.keyboard('{ArrowDown}');
       await waitFor(() => {
-        expect(input).to.have.attribute('aria-activedescendant');
+        expect(input).toHaveAttribute('aria-activedescendant');
       });
     });
 
@@ -346,16 +635,16 @@ describe('<Autocomplete.Root />', () => {
       await user.click(input);
       await user.type(input, 'ban');
 
-      await waitFor(() => expect(screen.getByRole('listbox')).not.to.equal(null));
-      expect(input).to.have.attribute('aria-activedescendant');
+      await waitFor(() => expect(screen.getByRole('listbox')).not.toBe(null));
+      expect(input).toHaveAttribute('aria-activedescendant');
 
       const highlightedBefore = input.getAttribute('aria-activedescendant');
-      expect(highlightedBefore).to.not.equal(null);
+      expect(highlightedBefore).not.toBe(null);
 
       await user.clear(input);
 
-      await waitFor(() => expect(screen.getByRole('listbox')).not.to.equal(null));
-      expect(input.getAttribute('aria-activedescendant')).to.equal(highlightedBefore);
+      await waitFor(() => expect(screen.getByRole('listbox')).not.toBe(null));
+      expect(input.getAttribute('aria-activedescendant')).toBe(highlightedBefore);
     });
 
     it('highlights the first item immediately when behavior is "always"', async () => {
@@ -377,8 +666,8 @@ describe('<Autocomplete.Root />', () => {
       const input = screen.getByRole<HTMLInputElement>('combobox');
       const firstOption = screen.getByRole('option', { name: 'alpha' });
 
-      expect(input).to.have.attribute('aria-activedescendant', firstOption.id);
-      expect(firstOption).to.have.attribute('data-highlighted');
+      expect(input).toHaveAttribute('aria-activedescendant', firstOption.id);
+      expect(firstOption).toHaveAttribute('data-highlighted');
     });
 
     it('keeps the latest pointer highlight on outside blur when behavior is "always"', async () => {
@@ -403,13 +692,15 @@ describe('<Autocomplete.Root />', () => {
       const input = screen.getByTestId<HTMLInputElement>('input');
       const banana = screen.getByRole('option', { name: 'banana' });
 
-      input.focus();
+      await act(async () => {
+        input.focus();
+      });
 
       await user.hover(banana);
 
       await waitFor(() => {
-        expect(input).to.have.attribute('aria-activedescendant', banana.id);
-        expect(banana).to.have.attribute('data-highlighted');
+        expect(input).toHaveAttribute('aria-activedescendant', banana.id);
+        expect(banana).toHaveAttribute('data-highlighted');
       });
 
       const outside = screen.getByTestId('outside');
@@ -418,13 +709,11 @@ describe('<Autocomplete.Root />', () => {
       fireEvent.focus(outside);
 
       await waitFor(() => {
-        expect(input).to.have.attribute('aria-activedescendant', banana.id);
-        expect(banana).to.have.attribute('data-highlighted');
+        expect(input).toHaveAttribute('aria-activedescendant', banana.id);
+        expect(banana).toHaveAttribute('data-highlighted');
       });
 
-      expect(screen.getByRole('option', { name: 'apple' })).not.to.have.attribute(
-        'data-highlighted',
-      );
+      expect(screen.getByRole('option', { name: 'apple' })).not.toHaveAttribute('data-highlighted');
     });
   });
 
@@ -450,18 +739,17 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'ap');
 
       const apple = await screen.findByRole('option', { name: 'apple' });
-      await waitFor(() => expect(apple).to.have.attribute('data-highlighted'));
+      await waitFor(() => expect(apple).toHaveAttribute('data-highlighted'));
 
       const outside = document.createElement('div');
       document.body.appendChild(outside);
       fireEvent.pointerLeave(apple, { pointerType: 'mouse', relatedTarget: outside });
 
-      await waitFor(() => expect(apple).to.have.attribute('data-highlighted'));
+      await waitFor(() => expect(apple).toHaveAttribute('data-highlighted'));
       outside.remove();
     });
 
-    it.skip('continues keyboard navigation from the kept highlight after pointer leave', async () => {
-      // Solid list navigation does not yet resume from keepHighlight after pointer leave the way 1.8.0 React does.
+    it('continues keyboard navigation from the kept highlight after pointer leave', async () => {
       const { user } = render(() => (
         <Autocomplete.Root items={['apple', 'banana', 'carrot']} autoHighlight keepHighlight>
           <Autocomplete.Input />
@@ -482,7 +770,7 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'a');
 
       const apple = await screen.findByRole('option', { name: 'apple' });
-      await waitFor(() => expect(apple).to.have.attribute('data-highlighted'));
+      await waitFor(() => expect(apple).toHaveAttribute('data-highlighted'));
 
       const outside = document.createElement('div');
       document.body.appendChild(outside);
@@ -491,12 +779,40 @@ describe('<Autocomplete.Root />', () => {
       await user.keyboard('{ArrowDown}');
 
       const banana = screen.getByRole('option', { name: 'banana' });
-      await waitFor(() => expect(banana).to.have.attribute('data-highlighted'));
+      await waitFor(() => expect(banana).toHaveAttribute('data-highlighted'));
       outside.remove();
     });
   });
 
   describe('prop: mode', () => {
+    it.each(['list', 'both'] as const)(
+      'mode="%s": uses the locale when applying the default filter',
+      async (mode) => {
+        const items = ['Isparta', 'İzmir'];
+
+        const { user } = render(() => (
+          <Autocomplete.Root mode={mode} items={items} locale="tr">
+            <Autocomplete.Input />
+            <Autocomplete.Portal>
+              <Autocomplete.Positioner>
+                <Autocomplete.Popup>
+                  <Autocomplete.List>
+                    {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                  </Autocomplete.List>
+                </Autocomplete.Popup>
+              </Autocomplete.Positioner>
+            </Autocomplete.Portal>
+          </Autocomplete.Root>
+        ));
+
+        const input = screen.getByRole<HTMLInputElement>('combobox');
+        await user.type(input, 'i');
+
+        expect(screen.queryByRole('option', { name: 'Isparta' })).toBe(null);
+        expect(screen.getByRole('option', { name: 'İzmir' })).not.toBe(null);
+      },
+    );
+
     it('mode="list" (default): no inline overlay, consumer handles filtering', async () => {
       const items = ['apple', 'banana', 'cherry'];
 
@@ -520,12 +836,12 @@ describe('<Autocomplete.Root />', () => {
       await user.click(input);
       await user.type(input, 'a');
 
-      expect(screen.getAllByRole('option')).to.have.length(2); // apple, banana
+      expect(screen.getAllByRole('option')).toHaveLength(2); // apple, banana
 
       await user.keyboard('{ArrowDown}');
 
-      expect(input.value).to.equal('a');
-      expect(screen.getAllByRole('option')).to.have.length(2);
+      expect(input.value).toBe('a');
+      expect(screen.getAllByRole('option')).toHaveLength(2);
     });
 
     it('mode="both": inline overlay + autocomplete handles filtering', async () => {
@@ -551,12 +867,12 @@ describe('<Autocomplete.Root />', () => {
       await user.click(input);
       await user.type(input, 'a');
 
-      expect(screen.getAllByRole('option')).to.have.length(2); // apple, banana
+      expect(screen.getAllByRole('option')).toHaveLength(2); // apple, banana
 
       await user.keyboard('{ArrowDown}');
 
-      expect(input.value).to.equal('apple');
-      expect(screen.getAllByRole('option')).to.have.length(2);
+      expect(input.value).toBe('apple');
+      expect(screen.getAllByRole('option')).toHaveLength(2);
     });
 
     it('mode="both": hovering items should not change the inline overlay (preserve temporary value)', async () => {
@@ -582,10 +898,52 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'al');
 
       await user.keyboard('{ArrowDown}');
-      expect(input.value).to.equal('alpha');
+      expect(input.value).toBe('alpha');
 
       await user.hover(screen.getByRole('option', { name: 'alpine' }));
-      expect(input.value).to.equal('alpha');
+      expect(input.value).toBe('alpha');
+    });
+
+    it('mode="both": external controlled updates replace the temporary inline value', async () => {
+      const items = ['apple', 'banana'];
+
+      function Test() {
+        const [value, setValue] = createSignal('');
+        return (
+          <div>
+            <button type="button" onClick={() => setValue('ba')}>
+              update value
+            </button>
+            <Autocomplete.Root
+              mode="both"
+              items={items}
+              value={value()}
+              onValueChange={(next) => setValue(next)}
+            >
+              <Autocomplete.Input />
+              <Autocomplete.Portal>
+                <Autocomplete.Positioner>
+                  <Autocomplete.Popup>
+                    <Autocomplete.List>
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                    </Autocomplete.List>
+                  </Autocomplete.Popup>
+                </Autocomplete.Positioner>
+              </Autocomplete.Portal>
+            </Autocomplete.Root>
+          </div>
+        );
+      }
+
+      const { user } = render(() => <Test />);
+      const input = screen.getByRole<HTMLInputElement>('combobox');
+
+      await user.type(input, 'a');
+      await user.keyboard('{ArrowDown}');
+      expect(input.value).toBe('apple');
+
+      fireEvent.click(screen.getByText('update value'));
+      expect(input.value).toBe('ba');
     });
 
     it('mode="inline": static items with inline overlay', async () => {
@@ -611,19 +969,19 @@ describe('<Autocomplete.Root />', () => {
       await user.click(input);
 
       await waitFor(() => {
-        expect(screen.getAllByRole('option')).to.have.length(3);
+        expect(screen.getAllByRole('option')).toHaveLength(3);
       });
 
       await user.keyboard('{ArrowDown}');
 
       await waitFor(() => {
-        expect(input.value).to.equal('apple');
+        expect(input.value).toBe('apple');
       });
 
       await user.type(input, 'b');
 
-      expect(input.value).to.equal('appleb');
-      expect(screen.getAllByRole('option')).to.have.length(3);
+      expect(input.value).toBe('appleb');
+      expect(screen.getAllByRole('option')).toHaveLength(3);
     });
 
     it('mode="none": static items without inline overlay', async () => {
@@ -649,14 +1007,248 @@ describe('<Autocomplete.Root />', () => {
       await user.click(input);
       await user.keyboard('{ArrowDown}');
 
-      expect(input.value).to.equal('');
-      expect(screen.getAllByRole('option')).to.have.length(3);
+      expect(input.value).toBe('');
+      expect(screen.getAllByRole('option')).toHaveLength(3);
 
       await user.type(input, 'x');
       await user.keyboard('{ArrowDown}');
 
-      expect(input.value).to.equal('x');
-      expect(screen.getAllByRole('option')).to.have.length(3);
+      expect(input.value).toBe('x');
+      expect(screen.getAllByRole('option')).toHaveLength(3);
+    });
+  });
+
+  describe('scroll reset on input value change', () => {
+    const manyItems = Array.from({ length: 50 }, (_, index) => `item-${index}`);
+
+    it.skipIf(isJSDOM)('resets the list scroll position to the top when typing', async () => {
+      const filteringItems = Array.from({ length: 50 }, (_, index) =>
+        index < 25 ? `alpha-${index}` : `beta-${index - 25}`,
+      );
+
+      const { user } = render(() => (
+        <Autocomplete.Root items={filteringItems} openOnInputClick>
+          <Autocomplete.Input data-testid="input" />
+          <Autocomplete.Portal>
+            <Autocomplete.Positioner>
+              <Autocomplete.Popup>
+                <Autocomplete.List style={{ 'max-height': '100px', 'overflow-y': 'auto' }}>
+                  {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                </Autocomplete.List>
+              </Autocomplete.Popup>
+            </Autocomplete.Positioner>
+          </Autocomplete.Portal>
+        </Autocomplete.Root>
+      ));
+
+      const input = screen.getByTestId('input');
+      await user.click(input);
+
+      const list = screen.getByRole('listbox');
+      list.scrollTop = 40;
+      expect(list.scrollTop).toBeGreaterThan(0);
+
+      // Remove the current first item while keeping enough matches for the list to scroll.
+      await user.type(input, 'b');
+
+      await waitFor(() => {
+        expect(list.scrollTop).toBe(0);
+      });
+    });
+
+    it.skipIf(isJSDOM)(
+      'mode="both": inline navigation does not reset the scroll to the top',
+      async () => {
+        const { user } = render(() => (
+          <Autocomplete.Root mode="both" items={manyItems}>
+            <Autocomplete.Input data-testid="input" />
+            <Autocomplete.Portal>
+              <Autocomplete.Positioner>
+                <Autocomplete.Popup>
+                  <Autocomplete.List style={{ 'max-height': '100px', 'overflow-y': 'auto' }}>
+                    {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                  </Autocomplete.List>
+                </Autocomplete.Popup>
+              </Autocomplete.Positioner>
+            </Autocomplete.Portal>
+          </Autocomplete.Root>
+        ));
+
+        const input = screen.getByTestId<HTMLInputElement>('input');
+        await user.click(input);
+        // Keep every item in the filtered list so navigation can scroll far down.
+        await user.type(input, 'item');
+
+        // Navigate to an item that sits below the visible viewport. Inline autocompletion
+        // rewrites the input value on each step, but that must not reset the scroll to the top.
+        for (let i = 0; i < 20; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await user.keyboard('{ArrowDown}');
+        }
+
+        const list = screen.getByRole('listbox');
+        await waitFor(() => {
+          expect(list.scrollTop).toBeGreaterThan(0);
+        });
+      },
+    );
+  });
+
+  describe('prop: filter', () => {
+    it('mode="both": keeps filtering against the typed query during inline completion', async () => {
+      const items = ['apple', 'banana'];
+      const filter = vi.fn((item: string, query: string) => item.includes(query));
+      // Solid: no setProps; hold the items in a signal and update them with act.
+      const [itemsProp, setItemsProp] = createSignal(items);
+      const { user } = render(() => (
+        <Autocomplete.Root mode="both" items={itemsProp()} filter={filter}>
+          <Autocomplete.Input />
+          <Autocomplete.Portal>
+            <Autocomplete.Positioner>
+              <Autocomplete.Popup>
+                <Autocomplete.List>
+                  {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                </Autocomplete.List>
+              </Autocomplete.Popup>
+            </Autocomplete.Positioner>
+          </Autocomplete.Portal>
+        </Autocomplete.Root>
+      ));
+
+      const input = screen.getByRole<HTMLInputElement>('combobox');
+      await user.type(input, 'a');
+      await user.keyboard('{ArrowDown}');
+
+      expect(input).toHaveValue('apple');
+
+      filter.mockClear();
+      act(() => setItemsProp([...items, 'apricot']));
+
+      expect(filter).toHaveBeenCalled();
+      expect(filter.mock.calls.every(([, query]) => query === 'a')).toBe(true);
+    });
+
+    it('mode="inline": does not call a custom filter', async () => {
+      const filter = vi.fn(() => false);
+      const { user } = render(() => (
+        <Autocomplete.Root mode="inline" items={['apple', 'banana']} filter={filter}>
+          <Autocomplete.Input />
+          <Autocomplete.Portal>
+            <Autocomplete.Positioner>
+              <Autocomplete.Popup>
+                <Autocomplete.List>
+                  {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                </Autocomplete.List>
+              </Autocomplete.Popup>
+            </Autocomplete.Positioner>
+          </Autocomplete.Portal>
+        </Autocomplete.Root>
+      ));
+
+      await user.type(screen.getByRole('combobox'), 'a');
+
+      expect(screen.getAllByRole('option')).toHaveLength(2);
+      expect(filter).not.toHaveBeenCalled();
+    });
+
+    it.each(['list', 'both'] as const)(
+      'mode="%s": uses a custom filter instead of the locale-aware default',
+      async (mode) => {
+        const items = ['Isparta', 'İzmir'];
+        const filter = (item: string, query: string) => item[0] === query.toUpperCase();
+
+        const { user } = render(() => (
+          <Autocomplete.Root mode={mode} items={items} locale="tr" filter={filter}>
+            <Autocomplete.Input />
+            <Autocomplete.Portal>
+              <Autocomplete.Positioner>
+                <Autocomplete.Popup>
+                  <Autocomplete.List>
+                    {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                  </Autocomplete.List>
+                </Autocomplete.Popup>
+              </Autocomplete.Positioner>
+            </Autocomplete.Portal>
+          </Autocomplete.Root>
+        ));
+
+        const input = screen.getByRole<HTMLInputElement>('combobox');
+        await user.type(input, 'i');
+
+        expect(screen.getByRole('option', { name: 'Isparta' })).not.toBe(null);
+        expect(screen.queryByRole('option', { name: 'İzmir' })).toBe(null);
+      },
+    );
+
+    it.each(['list', 'both'] as const)(
+      'mode="%s": does not apply default filtering when filter is null',
+      async (mode) => {
+        interface Movie {
+          id: string;
+          title: string;
+          year: number;
+        }
+
+        const asyncResults: Movie[] = [
+          { id: '1', title: 'Pulp Fiction', year: 1994 },
+          { id: '2', title: 'The Godfather', year: 1972 },
+          { id: '3', title: 'The Dark Knight', year: 2008 },
+        ];
+
+        const { user } = render(() => (
+          <Autocomplete.Root
+            mode={mode}
+            items={asyncResults}
+            filter={null}
+            itemToStringValue={(movie: Movie) => movie.title}
+          >
+            <Autocomplete.Input data-testid="input" />
+            <Autocomplete.Portal>
+              <Autocomplete.Positioner>
+                <Autocomplete.Popup>
+                  <Autocomplete.List>
+                    {(movie: Movie) => (
+                      <Autocomplete.Item value={movie}>{movie.title}</Autocomplete.Item>
+                    )}
+                  </Autocomplete.List>
+                </Autocomplete.Popup>
+              </Autocomplete.Positioner>
+            </Autocomplete.Portal>
+          </Autocomplete.Root>
+        ));
+
+        const input = screen.getByTestId<HTMLInputElement>('input');
+        await user.type(input, '1994');
+
+        await waitFor(() => {
+          expect(screen.getAllByRole('option')).toHaveLength(3);
+        });
+        expect(screen.getByRole('option', { name: 'Pulp Fiction' })).not.toBe(null);
+        expect(screen.getByRole('option', { name: 'The Godfather' })).not.toBe(null);
+        expect(screen.getByRole('option', { name: 'The Dark Knight' })).not.toBe(null);
+      },
+    );
+  });
+
+  describe('prop: value', () => {
+    it('treats a controlled null value as an empty query', async () => {
+      render(() => (
+        <Autocomplete.Root mode="both" value={null as never} items={['apple']} defaultOpen>
+          <Autocomplete.Input />
+          <Autocomplete.Portal>
+            <Autocomplete.Positioner>
+              <Autocomplete.Popup>
+                <Autocomplete.List>
+                  {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                </Autocomplete.List>
+              </Autocomplete.Popup>
+            </Autocomplete.Positioner>
+          </Autocomplete.Portal>
+        </Autocomplete.Root>
+      ));
+
+      expect(screen.getByRole('combobox')).toHaveValue('');
+      expect(screen.getByRole('option', { name: 'apple' })).not.toBe(null);
     });
   });
 
@@ -693,7 +1285,7 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'a'); // open and highlight first
       await user.keyboard('{Enter}');
 
-      expect(submitted).to.equal(0);
+      expect(submitted).toBe(0);
     });
 
     it('when true, clicking with pointer submits the owning form', async () => {
@@ -732,8 +1324,43 @@ describe('<Autocomplete.Root />', () => {
       const alphaButton = screen.getByRole('option', { name: 'alpha' });
       await user.click(alphaButton);
 
-      expect(submitValue).to.equal('alpha');
-      expect(submitCount).to.equal(1);
+      expect(submitValue).toBe('alpha');
+      expect(submitCount).toBe(1);
+    });
+
+    it('uses the combobox input form when another unscoped control owns the validation ref', async () => {
+      let submitCount = 0;
+
+      const handleSubmit: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
+        event.preventDefault();
+        submitCount += 1;
+      };
+
+      const { user } = render(() => (
+        <>
+          <form onSubmit={handleSubmit}>
+            <Autocomplete.Root items={['alpha']} submitOnItemClick>
+              <Autocomplete.Input />
+              <Autocomplete.Portal>
+                <Autocomplete.Positioner>
+                  <Autocomplete.Popup>
+                    <Autocomplete.List>
+                      <Autocomplete.Item value="alpha">alpha</Autocomplete.Item>
+                    </Autocomplete.List>
+                  </Autocomplete.Popup>
+                </Autocomplete.Positioner>
+              </Autocomplete.Portal>
+            </Autocomplete.Root>
+          </form>
+          {/* Claims the shared validation ref so Autocomplete must fall back to its input form. */}
+          <Switch.Root aria-label="Unrelated switch" />
+        </>
+      ));
+
+      await user.type(screen.getByRole('combobox'), 'a');
+      await user.click(screen.getByRole('option', { name: 'alpha' }));
+
+      expect(submitCount).toBe(1);
     });
 
     it('when true, pressing Enter in the Input submits the owning form when an item is highlighted', async () => {
@@ -771,13 +1398,58 @@ describe('<Autocomplete.Root />', () => {
       await user.keyboard('{ArrowDown}');
 
       const alphaButton = screen.getByRole('option', { name: 'alpha' });
-      expect(alphaButton).to.have.attribute('data-highlighted');
+      expect(alphaButton).toHaveAttribute('data-highlighted');
 
       await user.keyboard('{Enter}');
 
-      expect(submitValue).to.equal('alpha');
-      expect(submitCount).to.equal(1);
+      expect(submitValue).toBe('alpha');
+      expect(submitCount).toBe(1);
     });
+
+    it.skipIf(isJSDOM)(
+      'when true, clicking with pointer submits an associated external form when `form` is provided',
+      async () => {
+        let submitValue: string | null = null;
+        let submitCount = 0;
+
+        const handleSubmit: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          submitValue = (data.get('q') as string) ?? null;
+          submitCount += 1;
+        };
+
+        const { user } = render(() => (
+          <>
+            <form id="external-form" onSubmit={handleSubmit} />
+            <Autocomplete.Root
+              items={['alpha', 'alpine']}
+              name="q"
+              form="external-form"
+              submitOnItemClick
+            >
+              <Autocomplete.Input />
+              <Autocomplete.Portal>
+                <Autocomplete.Positioner>
+                  <Autocomplete.Popup>
+                    <Autocomplete.List>
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                    </Autocomplete.List>
+                  </Autocomplete.Popup>
+                </Autocomplete.Positioner>
+              </Autocomplete.Portal>
+            </Autocomplete.Root>
+          </>
+        ));
+
+        const input = screen.getByRole<HTMLInputElement>('combobox');
+        await user.type(input, 'al');
+        await user.click(screen.getByRole('option', { name: 'alpha' }));
+
+        expect(submitValue).toBe('alpha');
+        expect(submitCount).toBe(1);
+      },
+    );
 
     it('focusing the listbox should keep the input focused and maintain functionality', async () => {
       let submitValue: string | null = null;
@@ -816,16 +1488,18 @@ describe('<Autocomplete.Root />', () => {
       const listbox = screen.getByRole('listbox');
       const alphaOption = screen.getByRole('option', { name: 'alpha' });
       await waitFor(() => {
-        expect(alphaOption).to.have.attribute('data-highlighted');
+        expect(alphaOption).toHaveAttribute('data-highlighted');
       });
 
-      listbox.focus();
+      await act(() => {
+        listbox.focus();
+      });
       expect(input).toHaveFocus();
 
       await user.keyboard('{Enter}');
 
-      expect(submitValue).to.equal('alpha');
-      expect(submitCount).to.equal(1);
+      expect(submitValue).toBe('alpha');
+      expect(submitCount).toBe(1);
     });
   });
 
@@ -862,7 +1536,7 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'hello world');
       await user.click(screen.getByText('Submit'));
 
-      expect(submitted).to.equal('hello world');
+      expect(submitted).toBe('hello world');
     });
 
     it('submits the typed input value when name is provided on Autocomplete.Root', async () => {
@@ -899,12 +1573,251 @@ describe('<Autocomplete.Root />', () => {
       const input = screen.getByRole<HTMLInputElement>('combobox');
       await user.type(input, 'base ui');
 
-      expect(input.getAttribute('name'), 'input should have name attribute').to.equal('query');
-      expect(input.value, 'input should have typed value').to.equal('base ui');
+      expect(input.getAttribute('name'), 'input should have name attribute').toBe('query');
+      expect(input.value, 'input should have typed value').toBe('base ui');
 
       await user.click(screen.getByText('Submit'));
 
-      expect(submitted).to.equal('base ui');
+      expect(submitted).toBe('base ui');
+    });
+
+    it('submits the popup input value through native FormData when rendering a field-aware input', async () => {
+      let submitted: FormDataEntryValue | null = null;
+
+      const handleSubmit: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        submitted = data.get('search');
+      };
+
+      const { user } = render(() => (
+        <Form onSubmit={handleSubmit}>
+          <Field.Root name="search">
+            <Autocomplete.Root items={['alpha', 'alpine']}>
+              <Autocomplete.Trigger>
+                <Autocomplete.Value />
+              </Autocomplete.Trigger>
+              <Autocomplete.Portal>
+                <Autocomplete.Positioner>
+                  <Autocomplete.Popup>
+                    <Autocomplete.Input
+                      render={(props) => <Input {...props} data-testid="input" />}
+                    />
+                    <Autocomplete.List>
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                    </Autocomplete.List>
+                  </Autocomplete.Popup>
+                </Autocomplete.Positioner>
+              </Autocomplete.Portal>
+            </Autocomplete.Root>
+          </Field.Root>
+          <button type="submit">Submit</button>
+        </Form>
+      ));
+
+      await user.click(screen.getByRole('combobox'));
+      const input = await screen.findByTestId('input');
+      expect(input).not.toHaveAttribute('name');
+
+      await user.click(screen.getByRole('option', { name: 'alpha' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('combobox')).toHaveTextContent('alpha');
+      });
+
+      await user.click(screen.getByText('Submit'));
+
+      expect(submitted).toBe('alpha');
+    });
+
+    it('submits the inline input value through native FormData', async () => {
+      let submitted: FormDataEntryValue | null = null;
+
+      const handleSubmit: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        submitted = data.get('search');
+      };
+
+      const { user } = render(() => (
+        <Form onSubmit={handleSubmit}>
+          <Field.Root name="search">
+            <Autocomplete.Root items={['alpha', 'alpine']} inline>
+              <Autocomplete.Input data-testid="input" />
+              <Autocomplete.List>
+                {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+              </Autocomplete.List>
+            </Autocomplete.Root>
+          </Field.Root>
+          <button type="submit">Submit</button>
+        </Form>
+      ));
+
+      const input = screen.getByTestId('input');
+      expect(input).toHaveAttribute('name', 'search');
+
+      const hiddenInput = screen.getByRole('textbox', { hidden: true });
+      expect(hiddenInput).not.toHaveAttribute('name');
+
+      await user.type(input, 'alp');
+      await user.click(screen.getByText('Submit'));
+
+      expect(submitted).toBe('alp');
+    });
+
+    it('server-renders only the inline input name for native FormData', () => {
+      // Solid: the test harness has no renderToString/hydrate renderer; assert the client-rendered markup.
+      render(() => (
+        <Form>
+          <Field.Root name="search">
+            <Autocomplete.Root items={['alpha', 'alpine']} inline>
+              <Autocomplete.Input data-testid="input" />
+              <Autocomplete.List>
+                {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+              </Autocomplete.List>
+            </Autocomplete.Root>
+          </Field.Root>
+          <button type="submit">Submit</button>
+        </Form>
+      ));
+
+      const namedInputs = screen
+        .getAllByDisplayValue('')
+        .filter((element) => element.getAttribute('name') === 'search');
+      expect(namedInputs).toHaveLength(1);
+      expect(screen.getByTestId('input')).toHaveAttribute('name', 'search');
+    });
+
+    it('server-renders only the outside-popup input name for native FormData', () => {
+      // Solid: the test harness has no renderToString/hydrate renderer; assert the client-rendered markup.
+      render(() => (
+        <Form>
+          <Field.Root name="search">
+            <Autocomplete.Root items={['alpha', 'alpine']}>
+              <Autocomplete.InputGroup>
+                <Autocomplete.Input data-testid="input" />
+                <Autocomplete.Trigger>Open</Autocomplete.Trigger>
+              </Autocomplete.InputGroup>
+              <Autocomplete.Portal>
+                <Autocomplete.Positioner>
+                  <Autocomplete.Popup>
+                    <Autocomplete.List>
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                    </Autocomplete.List>
+                  </Autocomplete.Popup>
+                </Autocomplete.Positioner>
+              </Autocomplete.Portal>
+            </Autocomplete.Root>
+          </Field.Root>
+          <button type="submit">Submit</button>
+        </Form>
+      ));
+
+      const namedInputs = screen
+        .getAllByDisplayValue('')
+        .filter((element) => element.getAttribute('name') === 'search');
+      expect(namedInputs).toHaveLength(1);
+      expect(screen.getByTestId('input')).toHaveAttribute('name', 'search');
+    });
+
+    it('submits a default popup input value through native FormData before the popup opens', async () => {
+      let submitted: FormDataEntryValue | null = null;
+
+      const handleSubmit: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        submitted = data.get('search');
+      };
+
+      const { user } = render(() => (
+        <Form onSubmit={handleSubmit}>
+          <Field.Root name="search">
+            <Autocomplete.Root items={['alpha', 'alpine']} defaultValue="alpha">
+              <Autocomplete.Trigger>
+                <Autocomplete.Value />
+              </Autocomplete.Trigger>
+              <Autocomplete.Portal>
+                <Autocomplete.Positioner>
+                  <Autocomplete.Popup>
+                    <Autocomplete.Input
+                      render={(props) => <Input {...props} data-testid="input" />}
+                    />
+                    <Autocomplete.List>
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                    </Autocomplete.List>
+                  </Autocomplete.Popup>
+                </Autocomplete.Positioner>
+              </Autocomplete.Portal>
+            </Autocomplete.Root>
+          </Field.Root>
+          <button type="submit">Submit</button>
+        </Form>
+      ));
+
+      await user.click(screen.getByText('Submit'));
+
+      expect(submitted).toBe('alpha');
+    });
+
+    // Solid: the harness has no renderToString/hydrate renderer, and after mount the hidden input owns the name (as in React), so the pre-hydration markup cannot be asserted
+    it.skip('server-renders the default popup input value without a form name before hydration', () => {
+      // Solid: the test harness has no renderToString/hydrate renderer; assert the client-rendered markup.
+      render(() => (
+        <Form>
+          <Field.Root name="search">
+            <Autocomplete.Root items={['alpha', 'alpine']} defaultValue="alpha">
+              <Autocomplete.Trigger>
+                <Autocomplete.Value />
+              </Autocomplete.Trigger>
+              <Autocomplete.Portal>
+                <Autocomplete.Positioner>
+                  <Autocomplete.Popup>
+                    <Autocomplete.Input
+                      render={(props) => <Input {...props} data-testid="input" />}
+                    />
+                    <Autocomplete.List>
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
+                    </Autocomplete.List>
+                  </Autocomplete.Popup>
+                </Autocomplete.Positioner>
+              </Autocomplete.Portal>
+            </Autocomplete.Root>
+          </Field.Root>
+          <button type="submit">Submit</button>
+        </Form>
+      ));
+
+      const namedInputs = screen
+        .getAllByDisplayValue('alpha')
+        .filter((element) => element.getAttribute('name') === 'search');
+      expect(namedInputs).toHaveLength(0);
+      expect(screen.queryByTestId('input')).toBe(null);
+    });
+
+    it.skipIf(isJSDOM)('submits to an external form when `form` is provided', async () => {
+      let submitted: FormDataEntryValue | null = null;
+
+      const handleSubmit: JSX.EventHandler<HTMLFormElement, SubmitEvent> = (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        submitted = data.get('query');
+      };
+
+      const { user } = render(() => (
+        <>
+          <form id="external-form" onSubmit={handleSubmit}>
+            <button type="submit">Submit</button>
+          </form>
+          <Autocomplete.Root name="query" form="external-form">
+            <Autocomplete.Input data-testid="input" />
+          </Autocomplete.Root>
+        </>
+      ));
+
+      await user.type(screen.getByTestId('input'), 'base ui');
+      await user.click(screen.getByText('Submit'));
+
+      expect(submitted).toBe('base ui');
     });
 
     it('triggers native validation when required and empty', async () => {
@@ -922,12 +1835,12 @@ describe('<Autocomplete.Root />', () => {
         </Form>
       ));
 
-      expect(screen.queryByTestId('error')).to.equal(null);
+      expect(screen.queryByTestId('error')).toBe(null);
 
       await user.click(screen.getByText('Submit'));
 
       const error = screen.getByTestId('error');
-      expect(error).to.have.text('required');
+      expect(error).toHaveTextContent('required');
     });
 
     it('clears external errors on change', async () => {
@@ -956,16 +1869,16 @@ describe('<Autocomplete.Root />', () => {
         </Form>
       ));
 
-      expect(screen.getByTestId('error')).to.have.text('test');
+      expect(screen.getByTestId('error')).toHaveTextContent('test');
 
       const input = screen.getByTestId('input');
-      expect(input).to.have.attribute('aria-invalid', 'true');
+      expect(input).toHaveAttribute('aria-invalid', 'true');
 
       await user.type(input, 'test input');
       await flushMicrotasks();
 
-      expect(screen.queryByTestId('error')).to.equal(null);
-      expect(input).not.to.have.attribute('aria-invalid');
+      expect(screen.queryByTestId('error')).toBe(null);
+      expect(input).not.toHaveAttribute('aria-invalid');
     });
 
     it('submits the input value directly (not selection value)', async () => {
@@ -1003,7 +1916,7 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'appl');
       await user.click(screen.getByText('Submit'));
 
-      expect(submitted).to.equal('appl');
+      expect(submitted).toBe('appl');
     });
 
     it('Enter submits when no item is highlighted', async () => {
@@ -1037,7 +1950,7 @@ describe('<Autocomplete.Root />', () => {
       await user.click(screen.getByRole('combobox'));
       await user.keyboard('{Enter}');
 
-      expect(submitted).to.equal(1);
+      expect(submitted).toBe(1);
     });
 
     it('pressing Enter in the Input submits the owning form when no item is highlighted', async () => {
@@ -1076,8 +1989,8 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'xyz');
       await user.keyboard('{Enter}');
 
-      expect(submitValue).to.equal('xyz');
-      expect(submitCount).to.equal(1);
+      expect(submitValue).toBe('xyz');
+      expect(submitCount).toBe(1);
     });
 
     it('pressing Enter in the List when it has focus submits the owning form', async () => {
@@ -1115,15 +2028,17 @@ describe('<Autocomplete.Root />', () => {
       await user.keyboard('{ArrowDown}');
 
       const alphaButton = screen.getByRole('option', { name: 'alpha' });
-      expect(alphaButton).to.have.attribute('data-highlighted');
+      expect(alphaButton).toHaveAttribute('data-highlighted');
 
       const list = screen.getByRole('listbox');
-      list.focus();
+      act(() => {
+        list.focus();
+      });
 
       await user.keyboard('{Enter}');
 
-      expect(submitValue).to.equal('alpha');
-      expect(submitCount).to.equal(1);
+      expect(submitValue).toBe('alpha');
+      expect(submitCount).toBe(1);
     });
   });
 
@@ -1154,16 +2069,18 @@ describe('<Autocomplete.Root />', () => {
 
       // Should match the item by its label, not its value
       await waitFor(() => {
-        expect(screen.getAllByRole('option')).to.have.length(1);
+        expect(screen.getAllByRole('option')).toHaveLength(1);
       });
-      expect(screen.getByRole('option', { name: 'Canada' })).not.to.equal(null);
+      await user.click(screen.getByRole('option', { name: 'Canada' }));
+
+      expect(input).toHaveValue('Canada');
     });
 
     it('uses itemToStringValue when object lacks label', async () => {
       const items = [{ country: 'United States' }, { country: 'Canada' }, { country: 'Australia' }];
 
       const { user } = render(() => (
-        <Autocomplete.Root items={items} itemToStringValue={(i: { country: string }) => i.country}>
+        <Autocomplete.Root items={items} itemToStringValue={(i) => i.country}>
           <Autocomplete.Input data-testid="input" />
           <Autocomplete.Portal>
             <Autocomplete.Positioner>
@@ -1185,9 +2102,12 @@ describe('<Autocomplete.Root />', () => {
 
       // Should match by the provided itemToStringValue mapping
       await waitFor(() => {
-        expect(screen.getAllByRole('option')).to.have.length(1);
+        expect(screen.getAllByRole('option')).toHaveLength(1);
       });
-      expect(screen.getByRole('option', { name: 'Canada' })).not.to.equal(null);
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{Enter}');
+
+      expect(input).toHaveValue('Canada');
     });
 
     it('filters and displays using value for {value} objects', async () => {
@@ -1214,9 +2134,11 @@ describe('<Autocomplete.Root />', () => {
       await user.type(input, 'can');
 
       await waitFor(() => {
-        expect(screen.getAllByRole('option')).to.have.length(1);
+        expect(screen.getAllByRole('option')).toHaveLength(1);
       });
-      expect(screen.getByRole('option', { name: 'Canada' })).not.to.equal(null);
+      await user.click(screen.getByRole('option', { name: 'Canada' }));
+
+      expect(input).toHaveValue('Canada');
     });
   });
 
@@ -1241,7 +2163,7 @@ describe('<Autocomplete.Root />', () => {
         </Field.Root>
       ));
 
-      expect(screen.getByTestId('input')).to.have.attribute('required');
+      expect(screen.getByTestId('input')).toHaveAttribute('required');
     });
 
     it('[data-touched]', async () => {
@@ -1265,14 +2187,14 @@ describe('<Autocomplete.Root />', () => {
 
       const input = screen.getByTestId('input');
 
-      expect(input).not.to.have.attribute('data-touched');
+      expect(input).not.toHaveAttribute('data-touched');
 
       fireEvent.focus(input);
       fireEvent.blur(input);
 
       await flushMicrotasks();
 
-      expect(input).to.have.attribute('data-touched', '');
+      expect(input).toHaveAttribute('data-touched', '');
     });
 
     it('[data-dirty]', async () => {
@@ -1296,12 +2218,12 @@ describe('<Autocomplete.Root />', () => {
 
       const input = screen.getByTestId('input');
 
-      expect(input).not.to.have.attribute('data-dirty');
+      expect(input).not.toHaveAttribute('data-dirty');
 
       await user.type(input, 'test');
       await flushMicrotasks();
 
-      expect(input).to.have.attribute('data-dirty', '');
+      expect(input).toHaveAttribute('data-dirty', '');
     });
 
     describe('[data-filled]', () => {
@@ -1326,12 +2248,12 @@ describe('<Autocomplete.Root />', () => {
 
         const input = screen.getByTestId('input');
 
-        expect(input).not.to.have.attribute('data-filled');
+        expect(input).not.toHaveAttribute('data-filled');
 
         await user.type(input, 'test input');
         await flushMicrotasks();
 
-        expect(input).to.have.attribute('data-filled', '');
+        expect(input).toHaveAttribute('data-filled', '');
       });
 
       it('adds [data-filled] attribute when already filled with defaultValue', async () => {
@@ -1354,7 +2276,7 @@ describe('<Autocomplete.Root />', () => {
 
         const input = screen.getByTestId('input');
 
-        expect(input).to.have.attribute('data-filled');
+        expect(input).toHaveAttribute('data-filled');
       });
     });
 
@@ -1379,15 +2301,15 @@ describe('<Autocomplete.Root />', () => {
 
       const input = screen.getByTestId('input');
 
-      expect(input).not.to.have.attribute('data-focused');
+      expect(input).not.toHaveAttribute('data-focused');
 
       fireEvent.focus(input);
 
-      expect(input).to.have.attribute('data-focused', '');
+      expect(input).toHaveAttribute('data-focused', '');
 
       fireEvent.blur(input);
 
-      expect(input).not.to.have.attribute('data-focused');
+      expect(input).not.toHaveAttribute('data-focused');
     });
 
     it('[data-invalid]', async () => {
@@ -1410,7 +2332,7 @@ describe('<Autocomplete.Root />', () => {
 
       const input = screen.getByTestId('input');
 
-      expect(input).to.have.attribute('data-invalid', '');
+      expect(input).toHaveAttribute('data-invalid', '');
     });
 
     it('[data-valid]', async () => {
@@ -1432,15 +2354,15 @@ describe('<Autocomplete.Root />', () => {
       ));
 
       const input = screen.getByRole('combobox');
-      expect(input).not.to.have.attribute('data-valid');
-      expect(input).not.to.have.attribute('data-invalid');
+      expect(input).not.toHaveAttribute('data-valid');
+      expect(input).not.toHaveAttribute('data-invalid');
 
       await user.type(input, 'ok');
-      input.blur();
+      await act(async () => input.blur());
       await flushMicrotasks();
 
-      expect(input).to.have.attribute('data-valid', '');
-      expect(input).not.to.have.attribute('data-invalid');
+      expect(input).toHaveAttribute('data-valid', '');
+      expect(input).not.toHaveAttribute('data-invalid');
     });
 
     it('prop: validate', async () => {
@@ -1456,12 +2378,12 @@ describe('<Autocomplete.Root />', () => {
       ));
 
       const input = screen.getByTestId('input');
-      expect(input).not.to.have.attribute('aria-invalid');
+      expect(input).not.toHaveAttribute('aria-invalid');
 
       fireEvent.focus(input);
       fireEvent.blur(input);
       await flushMicrotasks();
-      expect(input).to.have.attribute('aria-invalid', 'true');
+      expect(input).toHaveAttribute('aria-invalid', 'true');
     });
 
     it('prop: validationMode=onSubmit', async () => {
@@ -1491,21 +2413,21 @@ describe('<Autocomplete.Root />', () => {
       ));
 
       const input = screen.getByTestId('input');
-      expect(input).not.to.have.attribute('aria-invalid');
+      expect(input).not.toHaveAttribute('aria-invalid');
 
       await user.click(screen.getByText('submit'));
-      expect(input).to.have.attribute('aria-invalid', 'true');
+      expect(input).toHaveAttribute('aria-invalid', 'true');
 
       await user.type(input, 'two');
-      expect(input).not.to.have.attribute('aria-invalid');
+      expect(input).not.toHaveAttribute('aria-invalid');
 
       await user.clear(input);
       await user.type(input, 'one');
-      expect(input).to.have.attribute('aria-invalid', 'true');
+      expect(input).toHaveAttribute('aria-invalid', 'true');
 
       await user.clear(input);
       await user.type(input, 'three');
-      expect(input).not.to.have.attribute('aria-invalid');
+      expect(input).not.toHaveAttribute('aria-invalid');
     });
 
     // flaky in real browser
@@ -1534,11 +2456,11 @@ describe('<Autocomplete.Root />', () => {
 
       const input = screen.getByTestId('input');
 
-      expect(input).not.to.have.attribute('aria-invalid');
+      expect(input).not.toHaveAttribute('aria-invalid');
 
       await user.type(input, 'invalid');
 
-      expect(input).to.have.attribute('aria-invalid', 'true');
+      expect(input).toHaveAttribute('aria-invalid', 'true');
     });
 
     // flaky in real browser
@@ -1568,14 +2490,14 @@ describe('<Autocomplete.Root />', () => {
 
       const input = screen.getByTestId('input');
 
-      expect(input).not.to.have.attribute('aria-invalid');
+      expect(input).not.toHaveAttribute('aria-invalid');
 
       await user.type(input, 'invalid');
 
       fireEvent.blur(input);
 
       await waitFor(() => {
-        expect(input).to.have.attribute('aria-invalid', 'true');
+        expect(input).toHaveAttribute('aria-invalid', 'true');
       });
     });
 
@@ -1588,11 +2510,15 @@ describe('<Autocomplete.Root />', () => {
               <Autocomplete.Positioner />
             </Autocomplete.Portal>
           </Autocomplete.Root>
-          <Field.Label data-testid="label" render="span" nativeLabel={false} />
+          <Field.Label
+            data-testid="label"
+            render={(props) => <span {...props} />}
+            nativeLabel={false}
+          />
         </Field.Root>
       ));
 
-      expect(screen.getByTestId('input')).to.have.attribute(
+      expect(screen.getByTestId('input')).toHaveAttribute(
         'aria-labelledby',
         screen.getByTestId('label').id,
       );
@@ -1611,7 +2537,7 @@ describe('<Autocomplete.Root />', () => {
         </Field.Root>
       ));
 
-      expect(screen.getByTestId('input')).to.have.attribute(
+      expect(screen.getByTestId('input')).toHaveAttribute(
         'aria-describedby',
         screen.getByTestId('description').id,
       );

@@ -1,7 +1,7 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { expect, vi } from 'vitest';
+import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
-import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 
 describe('<Menu.CheckboxItemIndicator />', () => {
@@ -29,6 +29,22 @@ describe('<Menu.CheckboxItemIndicator />', () => {
         )),
     }),
   );
+
+  it('throws when rendered outside Menu.CheckboxItem', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() => render(() => <Menu.CheckboxItemIndicator />)).to.throw(
+        'Base UI: MenuCheckboxItemContext is missing. MenuCheckboxItem parts must be placed within <Menu.CheckboxItem>.',
+      );
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
 
   it('should remove the indicator when there is no exit animation defined', async ({ skip }) => {
     if (isJSDOM) {
@@ -130,4 +146,60 @@ describe('<Menu.CheckboxItemIndicator />', () => {
       expect(animationFinished).to.equal(true);
     });
   });
+
+  it.skipIf(isJSDOM)(
+    'keeps the indicator mounted to play its exit animation when unchecked without keepMounted',
+    async () => {
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+
+      function Test() {
+        const style = `
+        @keyframes test-anim {
+          to {
+            opacity: 0;
+          }
+        }
+        .animation-test-indicator[data-ending-style] {
+          animation: test-anim 1ms;
+        }
+      `;
+
+        const [checked, setChecked] = createSignal(true);
+
+        return (
+          <div>
+            {/* eslint-disable-next-line solid/no-innerhtml */}
+            <style innerHTML={style} />
+            <button onClick={() => setChecked(false)}>Close</button>
+            <Menu.Root open modal={false}>
+              <Menu.Portal>
+                <Menu.Positioner>
+                  <Menu.Popup>
+                    <Menu.CheckboxItem checked={checked()}>
+                      <Menu.CheckboxItemIndicator
+                        class="animation-test-indicator"
+                        data-testid="indicator"
+                      />
+                    </Menu.CheckboxItem>
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
+          </div>
+        );
+      }
+
+      render(() => <Test />);
+
+      expect(screen.getByTestId('indicator')).not.to.equal(null);
+
+      fireEvent.click(screen.getByText('Close'));
+
+      expect(screen.getByTestId('indicator')).to.have.attribute('data-ending-style');
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('indicator')).to.equal(null);
+      });
+    },
+  );
 });

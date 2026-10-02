@@ -1,9 +1,8 @@
-import { createTrackedEffect, onCleanup } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useBaseUiId } from '../../utils/useBaseUiId';
+import { useRegisteredLabelId } from '../../utils/useRegisteredLabelId';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { ProgressRoot } from '../root/ProgressRoot';
+import type { ProgressRootState } from '../root/ProgressRoot';
 import { useProgressRootContext } from '../root/ProgressRootContext';
 import { progressStateAttributesMapping } from '../root/stateAttributesMapping';
 
@@ -15,27 +14,13 @@ import { progressStateAttributesMapping } from '../root/stateAttributesMapping';
  */
 export function ProgressLabel(componentProps: ProgressLabel.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['id']);
-  const idProp = () => local.id;
-
-  const id = useBaseUiId(idProp);
 
   const { setLabelId, state } = useProgressRootContext();
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    setLabelId(id());
-    _c.push(() => setLabelId(undefined));
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  const id = useRegisteredLabelId(() => (local.id === false ? undefined : local.id), setLabelId);
 
   const element = useRenderElement('span', componentProps, {
+    state,
     props: [
       {
         get id() {
@@ -45,15 +30,17 @@ export function ProgressLabel(componentProps: ProgressLabel.Props) {
       },
       elementProps,
     ],
-    state,
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
   return <>{element()}</>;
 }
 
-export interface ProgressLabelProps extends BaseUIComponentProps<'span', ProgressRoot.State> {}
+export interface ProgressLabelState extends ProgressRootState {}
+
+export interface ProgressLabelProps extends BaseUIComponentProps<'span', ProgressLabelState> {}
 
 export namespace ProgressLabel {
+  export type State = ProgressLabelState;
   export type Props = ProgressLabelProps;
 }

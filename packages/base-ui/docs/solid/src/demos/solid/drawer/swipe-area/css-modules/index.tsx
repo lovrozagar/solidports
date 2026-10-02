@@ -5,7 +5,7 @@ import { Drawer } from '@solidports/base-ui/drawer';
 import styles from './index.module.css';
 
 export default function ExampleDrawerSwipeArea() {
-  const [portalContainer, setPortalContainer] = createSignal(null);
+  const [portalContainer, setPortalContainer] = createSignal<HTMLDivElement | null>(null);
 
   return (
     <div class={styles.Root} ref={setPortalContainer}>

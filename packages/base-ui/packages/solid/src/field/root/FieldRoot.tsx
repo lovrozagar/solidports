@@ -1,29 +1,28 @@
-import { createMemo, createSignal, onSettled } from 'solid-js';
-
+import { createMemo, createRenderEffect, createSignal, untrack } from 'solid-js';
 import { useFieldsetRootContext } from '../../fieldset/root/FieldsetRootContext';
 import type { Form } from '../../form';
 import { useFormContext } from '../../form/FormContext';
+import { useFieldControlRegistration } from '../../internals/field-register-control/useFieldControlRegistration';
 import { LabelableProvider } from '../../internals/labelable-provider';
-import { splitComponentProps, useRef, type Args, type ReactLikeRef } from '../../solid-helpers';
+import { live, splitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { DEFAULT_VALIDITY_STATE, fieldValidityMapping } from '../utils/constants';
 import { FieldRootContext } from './FieldRootContext';
 import { useFieldValidation } from './useFieldValidation';
-import { createStore } from '../../solid-1-compat';
 
 /**
  * @internal
  */
 function FieldRootInner(componentProps: FieldRoot.Props) {
-  const { errors, validationMode: formValidationMode, submitAttemptedRef } = useFormContext();
+  const { errors, validationMode: formValidationMode, submitCountRef } = useFormContext();
 
   const [, local, elementProps] = splitComponentProps(componentProps, [
-    'disabled',
-    'name',
     'validate',
     'validationDebounceTime',
     'validationMode',
+    'name',
+    'disabled',
     'invalid',
     'dirty',
     'touched',
@@ -31,140 +30,215 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
   ]);
   const validationDebounceTime = () => local.validationDebounceTime ?? 0;
   const validationMode = () => local.validationMode ?? formValidationMode();
-  const disabledProp = () => Boolean(local.disabled);
+  const name = () => local.name;
+  const disabledProp = () => local.disabled ?? false;
+  const invalidProp = () => local.invalid;
   const dirtyProp = () => local.dirty;
   const touchedProp = () => local.touched;
 
-  const { disabled: disabledFieldset } = useFieldsetRootContext();
+  const fieldsetContext = useFieldsetRootContext(true);
+  const disabledFieldset = () => fieldsetContext?.disabled() ?? false;
 
-  const validate = (...args: Args<FieldRoot.Props['validate']>) =>
-    local.validate?.(...args) ?? null;
+  const validate: UseValidate = (value, formValues) =>
+    local.validate ? local.validate(value, formValues) : null;
 
   const disabled = () => disabledFieldset() || disabledProp();
 
-  const [touchedState, setTouchedUnwrapped] = createSignal(false);
-  const [dirtyState, setDirtyUnwrapped] = createSignal(false);
-  const [filled, setFilled] = createSignal(false);
-  const [focused, setFocused] = createSignal(false);
+  // Solid: `ownedWrite` because controls reset these from their unmount cleanups.
+  const [touchedState, setTouchedUnwrapped] = createSignal(false, { ownedWrite: true });
+  const [dirtyState, setDirtyUnwrapped] = createSignal(false, { ownedWrite: true });
+  const [filled, setFilled] = createSignal(false, { ownedWrite: true });
+  const [focused, setFocused] = createSignal(false, { ownedWrite: true });
 
   const dirty = () => dirtyProp() ?? dirtyState();
   const touched = () => touchedProp() ?? touchedState();
 
-  const markedDirtyRef = useRef(false);
+  const markedDirtyRef = useRef(untrack(dirty));
+  const registeredFieldIdRef = useRef<string | undefined>(undefined);
+  const [registeredFieldName, setRegisteredFieldName] = createSignal<string | undefined>(
+    undefined,
+    { ownedWrite: true },
+  );
+  const effectiveName = () => name() ?? registeredFieldName();
 
-  const setDirty: typeof setDirtyUnwrapped = (value) => {
-    if (dirtyProp() !== undefined) {
-      return;
+  createRenderEffect(dirtyProp, (value) => {
+    if (value !== undefined) {
+      markedDirtyRef.current = value;
+    }
+  });
+
+  const setDirty: typeof setDirtyUnwrapped = ((value: Parameters<typeof setDirtyUnwrapped>[0]) => {
+    if (untrack(dirtyProp) !== undefined) {
+      return undefined;
     }
 
     if (value) {
       markedDirtyRef.current = true;
     }
-    setDirtyUnwrapped(value);
-  };
+    return setDirtyUnwrapped(value);
+  }) as typeof setDirtyUnwrapped;
 
-  const setTouched: typeof setTouchedUnwrapped = (value) => {
-    if (touchedProp() !== undefined) {
-      return;
+  const setTouched: typeof setTouchedUnwrapped = ((
+    value: Parameters<typeof setTouchedUnwrapped>[0],
+  ) => {
+    if (untrack(touchedProp) !== undefined) {
+      return undefined;
     }
-    setTouchedUnwrapped(value);
-  };
+    return setTouchedUnwrapped(value);
+  }) as typeof setTouchedUnwrapped;
 
   const shouldValidateOnChange = () =>
-    validationMode() === 'onChange' || (validationMode() === 'onSubmit' && submitAttemptedRef());
+    untrack(validationMode) === 'onChange' ||
+    (untrack(validationMode) === 'onSubmit' && submitCountRef.current > 0);
 
   const invalid = createMemo(() => {
-    const err = errors();
-    const hasFormError =
-      !!local.name && Object.hasOwn(err, local.name) && err[local.name] !== undefined;
-    return local.invalid === true || hasFormError;
+    const fieldName = effectiveName();
+    const formErrors = errors();
+    const formError =
+      fieldName && Object.hasOwn(formErrors, fieldName) ? formErrors[fieldName] : null;
+    const hasFormError = !!(Array.isArray(formError) ? formError.length : formError);
+    return invalidProp() === true || hasFormError;
   });
 
-  const [validityData, setValidityData] = createStore<FieldValidityData>({
-    error: '',
-    errors: [],
-    initialValue: null,
-    state: DEFAULT_VALIDITY_STATE,
-    value: null,
-  });
-
-  const valid = () => !invalid() && validityData.state.valid;
-
-  const state: FieldRoot.State = {
-    get dirty() {
-      return dirty();
+  const [validityDataState, setValidityData] = createSignal<FieldValidityData>(
+    {
+      state: DEFAULT_VALIDITY_STATE,
+      error: '',
+      errors: [],
+      value: null,
+      initialValue: null,
     },
+    { ownedWrite: true },
+  );
+  // Solid: a live view so parts read `validityData.state` like React's object, tracked in
+  // computations and untracked in handlers.
+  const readValidityData = live(validityDataState);
+  const validityData: FieldValidityData = {
+    get state() {
+      return readValidityData().state;
+    },
+    get error() {
+      return readValidityData().error;
+    },
+    get errors() {
+      return readValidityData().errors;
+    },
+    get value() {
+      return readValidityData().value;
+    },
+    get initialValue() {
+      return readValidityData().initialValue;
+    },
+  };
+
+  // App-controlled invalidity (the `invalid` prop and `<Form>` errors) keeps the field marked
+  // invalid even while disabled. Only computed validity (native constraints and `validate`)
+  // is suppressed when disabled, matching `:disabled` not participating in constraint validation.
+  const valid = createMemo(() => !invalid() && (disabled() ? null : validityData.state.valid));
+
+  const readDisabled = live(disabled);
+  const readTouched = live(touched);
+  const readDirty = live(dirty);
+  const readValid = live(valid);
+  const readFilled = live(filled);
+  const readFocused = live(focused);
+
+  const state: FieldRootState = {
     get disabled() {
-      return disabled();
-    },
-    get filled() {
-      return filled();
-    },
-    get focused() {
-      return focused();
+      return readDisabled();
     },
     get touched() {
-      return touched();
+      return readTouched();
+    },
+    get dirty() {
+      return readDirty();
     },
     get valid() {
-      return valid();
+      return readValid();
+    },
+    get filled() {
+      return readFilled();
+    },
+    get focused() {
+      return readFocused();
     },
   };
 
   const validation = useFieldValidation({
+    setValidityData,
+    validate,
+    validityData,
+    validationDebounceTime,
     invalid,
     markedDirtyRef,
-    name: local.name,
-    setValidityData,
-    shouldValidateOnChange,
     state,
-    validate,
-    validationDebounceTime,
+    shouldValidateOnChange,
+    validationMode,
+    registeredFieldIdRef,
+    name: effectiveName,
+  });
+
+  const [validateFieldControl, registerFieldControl] = useFieldControlRegistration({
+    change: validation.change,
+    commit: validation.commit,
+    invalid,
+    markedDirtyRef,
+    name,
+    setRegisteredFieldName,
+    registeredFieldIdRef,
+    setValidityData,
     validityData,
   });
 
-  const handleImperativeValidate = () => {
-    markedDirtyRef.current = true;
-    validation.commit(validityData.value);
-  };
-
-  onSettled(() => {
-    if (local.actionsRef) {
-      local.actionsRef.current = { validate: handleImperativeValidate };
-    }
-  });
+  // Solid: a render effect so the handle exists before descendant and sibling user effects run,
+  // as React's `useImperativeHandle` does.
+  createRenderEffect(
+    () => local.actionsRef,
+    (actionsRef) => {
+      if (!actionsRef) {
+        return undefined;
+      }
+      actionsRef.current = { validate: validateFieldControl };
+      return () => {
+        actionsRef.current = null;
+      };
+    },
+  );
 
   const contextValue: FieldRootContext = {
-    dirty,
-    disabled,
-    filled,
-    focused,
     invalid,
-    markedDirtyRef,
-    name: () => local.name,
+    name: effectiveName,
+    validityData,
+    setValidityData,
+    disabled,
+    setTouched,
     setDirty,
     setFilled,
     setFocused,
-    setTouched,
-    setValidityData,
+    validationMode,
     shouldValidateOnChange,
     state,
-    touched,
-    validate,
+    registerFieldControl,
     validation,
-    validationDebounceTime,
-    validationMode,
-    validityData,
+    touched,
+    dirty,
+    filled,
+    focused,
   };
 
   const element = useRenderElement('div', componentProps, {
-    props: elementProps,
     state,
+    props: elementProps,
     stateAttributesMapping: fieldValidityMapping,
   });
 
   return <FieldRootContext value={contextValue}>{element()}</FieldRootContext>;
 }
+
+type UseValidate = (
+  value: unknown,
+  formValues: Form.Values,
+) => string | string[] | null | void | Promise<string | string[] | null | void>;
 
 /**
  * Groups all parts of the field.
@@ -205,16 +279,33 @@ export interface FieldRootActions {
 }
 
 export interface FieldRootState {
-  /** Whether the component should ignore user interaction. */
+  /**
+   * Whether the component should ignore user interaction.
+   */
   disabled: boolean;
+  /**
+   * Whether the field has been touched.
+   */
   touched: boolean;
+  /**
+   * Whether the field value has changed from its initial value.
+   */
   dirty: boolean;
+  /**
+   * Whether the field is valid.
+   */
   valid: boolean | null;
+  /**
+   * Whether the field has a value.
+   */
   filled: boolean;
+  /**
+   * Whether the field is focused.
+   */
   focused: boolean;
 }
 
-export interface FieldRootProps extends BaseUIComponentProps<'div', FieldRoot.State> {
+export interface FieldRootProps extends BaseUIComponentProps<'div', FieldRootState> {
   /**
    * Whether the component should ignore user interaction.
    * Takes precedence over the `disabled` prop on the `<Field.Control>` component.
@@ -228,7 +319,8 @@ export interface FieldRootProps extends BaseUIComponentProps<'div', FieldRoot.St
   name?: string | undefined;
   /**
    * A function for custom validation. Return a string or an array of strings with
-   * the error message(s) if the value is invalid, or `null` if the value is valid.
+   * the error message(s) if the value is invalid. Returning nothing, `null`, an empty
+   * string, or an empty array means the value is valid.
    * Asynchronous functions are supported, but they do not prevent form submission
    * when using `validationMode="onSubmit"`.
    */
@@ -236,7 +328,7 @@ export interface FieldRootProps extends BaseUIComponentProps<'div', FieldRoot.St
     | ((
         value: unknown,
         formValues: Form.Values,
-      ) => string | string[] | null | Promise<string | string[] | null>)
+      ) => string | string[] | null | void | Promise<string | string[] | null | void>)
     | undefined;
   /**
    * Determines when the field should be validated.

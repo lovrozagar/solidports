@@ -1,7 +1,8 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { expect, vi } from 'vitest';
+import { createRenderer, describeConformance, act, flushMicrotasks } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
-import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { ToolbarRootContext } from '../../toolbar/root/ToolbarRootContext';
 
 describe('<Menu.Popup />', () => {
   const { render } = createRenderer();
@@ -17,6 +18,57 @@ describe('<Menu.Popup />', () => {
         </Menu.Root>
       )),
   }));
+
+  it('throws when rendered outside Menu.Positioner', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() =>
+        render(() => (
+          <Menu.Root open>
+            <Menu.Popup />
+          </Menu.Root>
+        )),
+      ).to.throw(
+        'Base UI: MenuPositionerContext is missing. MenuPositioner parts must be placed within <Menu.Positioner>.',
+      );
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('stops toolbar navigation keys without blocking ordinary key events', async () => {
+    const onParentKeyDown = vi.fn();
+
+    render(() => (
+      <ToolbarRootContext value={{ disabled: () => false, orientation: () => 'horizontal' }}>
+        <div onKeyDown={onParentKeyDown}>
+          <Menu.Root>
+            <Menu.Portal keepMounted>
+              <Menu.Positioner>
+                <Menu.Popup data-testid="popup" />
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        </div>
+      </ToolbarRootContext>
+    ));
+
+    const popup = screen.getByTestId('popup');
+    fireEvent(
+      popup,
+      new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'ArrowRight' }),
+    );
+    expect(onParentKeyDown).not.toHaveBeenCalled();
+
+    fireEvent(popup, new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'F1' }));
+    expect(onParentKeyDown).toHaveBeenCalled();
+    expect(onParentKeyDown.mock.calls.every(([event]) => event.key === 'F1')).to.equal(true);
+  });
 
   describe('prop: finalFocus', () => {
     it('should focus the trigger by default when closed', async () => {
@@ -38,11 +90,9 @@ describe('<Menu.Popup />', () => {
       ));
 
       const trigger = screen.getByText('Open');
-      trigger.click();
-
+      act(() => trigger.click());
       const closeButton = screen.getByText('Close');
-      closeButton.click();
-
+      act(() => closeButton.click());
       await waitFor(() => {
         expect(trigger).toHaveFocus();
       });

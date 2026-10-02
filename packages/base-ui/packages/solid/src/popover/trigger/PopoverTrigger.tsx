@@ -1,25 +1,12 @@
-import { Show } from 'solid-js';
-import { type FocusableElement } from 'tabbable';
-import {
-  safePolygon,
-  useClick,
-  useHoverReferenceInteraction,
-  useInteractions,
-} from '../../floating-ui-solid';
-import {
-  contains,
-  getNextTabbable,
-  getTabbableAfterElement,
-  getTabbableBeforeElement,
-  isOutsideEvent,
-} from '../../floating-ui-solid/utils';
-import { splitComponentProps } from '../../solid-helpers';
+import { Show, createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
+import { safePolygon, useClick, useHoverReferenceInteraction } from '../../floating-ui-solid';
+import { live, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
-import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { FocusGuard } from '../../utils/FocusGuard';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
-import { useTriggerDataForwarding } from '../../utils/popups';
+import { usePopupHandleStore, useTriggerDataForwarding } from '../../utils/popups';
+import { useTriggerFocusGuards } from '../../utils/popups/useTriggerFocusGuards';
 import {
   pressableTriggerOpenStateMapping,
   triggerOpenStateMapping,
@@ -27,10 +14,11 @@ import {
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
+import { useOpenMethodTriggerProps } from '../../utils/useOpenInteractionType';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
 import { PopoverHandle } from '../store/PopoverHandle';
-import type { PopoverStore } from '../store/PopoverStore';
+import type { PopoverHandleStore } from '../store/PopoverStore';
 import { OPEN_DELAY } from '../utils/constants';
 
 /**
@@ -51,31 +39,43 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     'id',
   ]);
 
-  const disabled = () => Boolean(local.disabled);
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  const disabled = () => Boolean(local.disabled ?? false);
+  const nativeButton = () => local.nativeButton ?? true;
   const openOnHover = () => local.openOnHover ?? false;
   const delay = () => local.delay ?? OPEN_DELAY;
   const closeDelay = () => local.closeDelay ?? 0;
   const idProp = () => local.id;
 
-  const rootContext = usePopoverRootContext(true);
-  const store = local.handle?.store ?? rootContext?.store;
-  if (!store) {
+  const rootStore = usePopoverRootContext(true)?.store;
+  const handleStore = usePopupHandleStore(() => local.handle);
+  const store = createMemo(
+    () => (handleStore() ?? rootStore) as PopoverHandleStore<unknown> | undefined,
+  );
+  if (!untrack(store)) {
     throw new Error(
       'Base UI: <Popover.Trigger> must be either used within a <Popover.Root> component or provided with a handle.',
     );
   }
+  // Live: handlers, refs and effect callbacks read the latest store imperatively.
+  const currentStore = live(() => store()!);
 
   const thisTriggerId = useBaseUiId(idProp);
-  const isTriggerActive = store.useState('isTriggerActive', thisTriggerId);
-  const isOpenedByThisTrigger = store.useState('isOpenedByTrigger', thisTriggerId);
+  const isTriggerActive = () => currentStore().select('isTriggerActive', thisTriggerId);
+  const floatingContext = () => currentStore().context.floatingRootContext;
+  const isOpenedByThisTrigger = () => currentStore().select('isOpenedByTrigger', thisTriggerId);
+  const popupId = () => currentStore().select('triggerPopupId', thisTriggerId);
 
-  let triggerElementRef = null as HTMLElement | null | undefined;
+  const triggerElementRef: ReactLikeRef<HTMLElement | null> = { current: null };
+  // Solid: a signal as well, so the hover hook re-attaches its listeners once the element exists.
+  const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null>(null);
 
-  const { registerTrigger, isMountedByThisTrigger } = useTriggerDataForwarding({
-    stateUpdates: {
-      get closeDelay() {
-        return closeDelay();
+  const { registerTrigger, isMountedByThisTrigger } = useTriggerDataForwarding(
+    thisTriggerId,
+    triggerElementRef,
+    currentStore,
+    {
+      get payload() {
+        return local.payload;
       },
       get disabled() {
         return disabled();
@@ -83,78 +83,66 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
       get openOnHover() {
         return openOnHover();
       },
-      get payload() {
-        return local.payload;
+      get closeDelay() {
+        return closeDelay();
       },
     },
-    get store() {
-      return store as PopoverStore<unknown>;
-    },
-    get triggerElement() {
-      return triggerElementRef;
-    },
-    get triggerId() {
-      return thisTriggerId();
-    },
-  });
+  );
 
-  const openReason = store.useState('openChangeReason');
-  const stickIfOpen = store.useState('stickIfOpen');
-  const openMethod = store.useState('openMethod');
-  const focusManagerModal = store.useState('focusManagerModal');
-  const nested = store.useState('nested');
+  const openReason = () => currentStore().select('openChangeReason');
+  const stickIfOpen = () => currentStore().select('stickIfOpen');
+  const openMethod = () => currentStore().select('openMethod');
+  const focusManagerModal = () => currentStore().select('focusManagerModal');
 
   const hoverProps = useHoverReferenceInteraction({
     get context() {
-      return store.context.floatingRootContext;
+      return floatingContext();
     },
     props: {
-      delay: () => ({
-        close: closeDelay(),
-      }),
       get enabled() {
-        return openOnHover() && (openMethod() !== 'touch' || openReason() !== REASONS.triggerPress);
+        return (
+          !disabled() &&
+          openOnHover() &&
+          (openMethod() !== 'touch' || openReason() !== REASONS.triggerPress)
+        );
       },
-      handleClose: safePolygon(),
-      get isActiveTrigger() {
-        return isTriggerActive();
-      },
-      isClosing: () => store.select('transitionStatus') === 'ending',
       mouseOnly: true,
       move: false,
+      handleClose: safePolygon(),
       get restMs() {
         return delay();
       },
+      delay: () => ({
+        close: closeDelay(),
+      }),
       get triggerElementRef() {
-        return triggerElementRef;
+        return triggerElement();
       },
+      get isActiveTrigger() {
+        return isTriggerActive();
+      },
+      isClosing: () => currentStore().select('transitionStatus') === 'ending',
     },
   });
 
   const click = useClick({
     get context() {
-      return store.context.floatingRootContext;
+      return floatingContext();
     },
     props: {
-      enabled: true,
       get stickIfOpen() {
         return stickIfOpen();
       },
     },
   });
-
-  const localProps = useInteractions([click]);
-
-  const rootTriggerProps = store.useState('triggerProps', isMountedByThisTrigger);
-
-  const state: PopoverTrigger.State = {
-    get disabled() {
-      return disabled();
+  const interactionTypeProps = useOpenMethodTriggerProps(
+    () => currentStore().select('open'),
+    (interactionType) => {
+      currentStore().set('openMethod', interactionType);
     },
-    get open() {
-      return isOpenedByThisTrigger();
-    },
-  };
+  );
+
+  const rootTriggerProps = () => currentStore().select('triggerProps', isMountedByThisTrigger);
 
   const { getButtonProps, buttonRef } = useButton({
     disabled,
@@ -171,87 +159,72 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     },
   };
 
+  const { preFocusGuardRef, handlePreFocusGuardFocus, handleFocusTargetFocus } =
+    useTriggerFocusGuards(currentStore, triggerElementRef);
+
+  const state: PopoverTrigger.State = {
+    get disabled() {
+      return disabled();
+    },
+    get open() {
+      return isOpenedByThisTrigger();
+    },
+  };
+
   const element = useRenderElement('button', componentProps, {
+    state,
+    ref: (el: HTMLElement | null) => {
+      buttonRef(el);
+      triggerElementRef.current = el;
+      registerTrigger(el);
+      setTriggerElement(el);
+    },
     get props() {
       return [
-        localProps.getReferenceProps(),
+        click.reference,
         hoverProps,
         rootTriggerProps(),
+        interactionTypeProps,
         {
           [CLICK_TRIGGER_IDENTIFIER as string]: '',
           get id() {
             return thisTriggerId();
+          },
+          'aria-haspopup': 'dialog' as const,
+          get 'aria-expanded'() {
+            return isOpenedByThisTrigger() ? 'true' : 'false';
+          },
+          get 'aria-controls'() {
+            return popupId();
           },
         },
         elementProps,
         getButtonProps,
       ];
     },
-    ref: (el) => {
-      buttonRef(el);
-      registerTrigger(el);
-      triggerElementRef = el;
-    },
-    state,
     stateAttributesMapping,
   });
 
-  let preFocusGuardRef = null as HTMLElement | null | undefined;
+  const guardsActive = () => isMountedByThisTrigger() && !focusManagerModal();
 
-  const handlePreFocusGuardFocus = (event: FocusEvent) => {
-    const currentPreFocusGuardRef = preFocusGuardRef;
-    const previousTabbable: FocusableElement | null =
-      getTabbableBeforeElement(currentPreFocusGuardRef);
-
-    store.setOpen(
-      false,
-      createChangeEventDetails(REASONS.focusOut, event, event.currentTarget as HTMLElement),
-    );
-
-    previousTabbable?.focus();
-  };
-
-  const handleFocusTargetFocus = (event: FocusEvent) => {
-    const positionerElement = store.select('positionerElement');
-    if (positionerElement && isOutsideEvent(event, positionerElement)) {
-      store.context.beforeContentFocusGuardRef.current?.focus();
-    } else {
-      const focusTargetElement = store.context.triggerFocusTargetRef.current || triggerElementRef;
-      let nextTabbable = getTabbableAfterElement(focusTargetElement);
-
-      while (nextTabbable !== null && contains(positionerElement, nextTabbable)) {
-        const prevTabbable = nextTabbable;
-        nextTabbable = getNextTabbable(nextTabbable);
-        if (nextTabbable === prevTabbable) {
-          break;
-        }
-      }
-
-      store.setOpen(
-        false,
-        createChangeEventDetails(REASONS.focusOut, event, event.currentTarget as HTMLElement),
-      );
-
-      nextTabbable?.focus();
-    }
-  };
+  // Solid-only: React keys the element so it stays the same DOM node when the guards mount. Solid's
+  // list diff instead replaces the trigger node when guards appear on both sides in one update,
+  // which blurs a focused trigger. The leading guard mounts one update after the trailing one (an
+  // effect runs after the DOM commit), so each mount is a plain insertion.
+  const [leadingGuardReady, setLeadingGuardReady] = createSignal(false);
+  createEffect(guardsActive, (active) => {
+    setLeadingGuardReady(active);
+  });
 
   return (
     <>
-      <Show when={isTriggerActive() && !focusManagerModal() && !nested()}>
-        <FocusGuard
-          ref={(el) => {
-            preFocusGuardRef = el;
-          }}
-          onFocus={handlePreFocusGuardFocus}
-        />
+      <Show when={guardsActive() && leadingGuardReady()}>
+        <TriggerFocusGuard guardRef={preFocusGuardRef} onFocus={handlePreFocusGuardFocus} />
       </Show>
       {element()}
-      <Show when={isTriggerActive() && !focusManagerModal() && !nested()}>
-        <FocusGuard
-          ref={(el) => {
-            store.context.triggerFocusTargetRef.current = el;
-          }}
+      <Show when={guardsActive()}>
+        <TriggerFocusGuard
+          guardRef={currentStore().context.triggerFocusTargetRef}
           onFocus={handleFocusTargetFocus}
         />
       </Show>
@@ -259,13 +232,39 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
   );
 }
 
+/**
+ * A focus guard that clears its ref on unmount, as React does: Solid never calls refs with `null`,
+ * and the focus guard handlers fall back to the trigger once the guard is gone.
+ */
+function TriggerFocusGuard(props: {
+  guardRef: ReactLikeRef<HTMLElement | null | undefined>;
+  onFocus: (event: FocusEvent) => void;
+}) {
+  let guard: HTMLElement | null = null;
+  onCleanup(() => {
+    if (props.guardRef.current === guard) {
+      props.guardRef.current = null;
+    }
+  });
+
+  return (
+    <FocusGuard
+      ref={(el) => {
+        guard = el;
+        props.guardRef.current = el;
+      }}
+      onFocus={props.onFocus}
+    />
+  );
+}
+
 export interface PopoverTriggerState {
   /**
-   * Whether the popover is currently disabled.
+   * Whether the trigger is currently disabled.
    */
   disabled: boolean;
   /**
-   * Whether the popover is currently open.
+   * Whether the popover is currently open and was opened by this trigger.
    */
   open: boolean;
 }
@@ -286,7 +285,8 @@ export type PopoverTriggerProps<Payload = unknown> = NativeButtonProps &
     /**
      * A payload to pass to the popover when it is opened.
      */
-    payload?: Payload | undefined;
+    // Inferred from `handle` (React gets this from method bivariance), so the payload must match it.
+    payload?: NoInfer<Payload> | undefined;
     /**
      * ID of the trigger. In addition to being forwarded to the rendered element,
      * it is also used to specify the active trigger for the popover in controlled mode (with the PopoverRoot `triggerId` prop).

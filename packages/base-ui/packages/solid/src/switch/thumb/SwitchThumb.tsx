@@ -1,12 +1,9 @@
-
-import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { SwitchRoot } from '../root/SwitchRoot';
+import type { SwitchRootState } from '../root/SwitchRoot';
 import { useSwitchRootContext } from '../root/SwitchRootContext';
 import { stateAttributesMapping } from '../stateAttributesMapping';
-import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * The movable part of the switch that indicates whether the switch is on or off.
@@ -17,36 +14,20 @@ import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 export function SwitchThumb(componentProps: SwitchThumb.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { state: fieldState } = useFieldRootContext();
-
   const state = useSwitchRootContext();
-  const extendedState: SwitchThumb.State = solidMergeProps(fieldState, {
-    get checked() {
-      return state.checked();
-    },
-    get disabled() {
-      return state.disabled() ?? fieldState.disabled;
-    },
-    get readOnly() {
-      return state.readOnly();
-    },
-    get required() {
-      return state.required();
-    },
-  });
 
   const element = useRenderElement('span', componentProps, {
-    props: elementProps,
-    state: extendedState,
+    state,
     stateAttributesMapping,
+    props: elementProps,
   });
 
   return <>{element()}</>;
 }
 
-export interface SwitchThumbProps extends BaseUIComponentProps<'span', SwitchThumb.State> {}
+export interface SwitchThumbProps extends BaseUIComponentProps<'span', SwitchThumbState> {}
 
-export interface SwitchThumbState extends SwitchRoot.State {}
+export interface SwitchThumbState extends SwitchRootState {}
 
 export namespace SwitchThumb {
   export type Props = SwitchThumbProps;

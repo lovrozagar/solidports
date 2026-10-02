@@ -259,10 +259,10 @@ function ErrorBarImpl(props: ErrorBarInternalProps) {
 														isActive={props.isAnimationActive}
 														duration={props.animationDuration}
 													>
-														{(style: Record<string, string | number> | undefined) => (
+														{(style) => (
 															<line
 																{...c}
-																style={{ ...lineStyle(), ...style }}
+																style={{ ...lineStyle(), ...style() }}
 															/>
 														)}
 													</CSSTransitionAnimate>

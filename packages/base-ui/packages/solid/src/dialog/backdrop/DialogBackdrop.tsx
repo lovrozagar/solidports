@@ -20,7 +20,7 @@ const stateAttributesMapping: StateAttributesMapping<DialogBackdrop.State> = {
  */
 export function DialogBackdrop(componentProps: DialogBackdrop.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['forceRender']);
-  const { store } = useDialogRootContext();
+  const store = useDialogRootContext();
 
   const open = store.useState('open');
   const nested = store.useState('nested');
@@ -74,6 +74,9 @@ export interface DialogBackdropState {
    * Whether the dialog is currently open.
    */
   open: boolean;
+  /**
+   * The transition status of the component.
+   */
   transitionStatus: TransitionStatus;
 }
 

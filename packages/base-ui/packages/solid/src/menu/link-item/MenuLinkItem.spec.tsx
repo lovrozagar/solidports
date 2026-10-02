@@ -1,7 +1,12 @@
-import { describe, it } from 'vitest';
+import { expectType } from '#test-utils';
+import { Menu } from '@solidports/base-ui/menu';
+import type { JSX } from '@solidjs/web';
 
-describe.skip('MenuLinkItem.spec', () => {
-  it('skipped', () => {
-    // Solid runtime/layout/portal: 1.8.0 React suite is not ported; coverage lives in sibling Solid tests for this primitive.
-  });
-});
+// `Menu.LinkItem` exposes the native `<a>` props in its `render` callback.
+<Menu.LinkItem
+  render={(props) => {
+    // Solid: native `href` is typed as `string | SerializableAttributeValue | RemoveAttribute`.
+    expectType<JSX.AnchorHTMLAttributes<HTMLAnchorElement>['href'], typeof props.href>(props.href);
+    return <a {...props} />;
+  }}
+/>;

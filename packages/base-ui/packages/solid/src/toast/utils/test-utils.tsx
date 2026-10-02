@@ -1,4 +1,5 @@
 import { For } from 'solid-js';
+import { fireEvent } from '@solidjs/testing-library';
 import { Toast } from '../index';
 
 /**
@@ -43,4 +44,30 @@ export function List() {
       )}
     </For>
   );
+}
+
+/**
+ * Solid: React Testing Library's `mouseEnter` also dispatches `mouseover`, which React turns into
+ * `onMouseEnter` on every entered ancestor. The native event does not bubble, so enter the
+ * viewport as well, as a browser does when the pointer reaches a toast.
+ * @internal
+ */
+export function mouseEnterToast(element: HTMLElement) {
+  const viewport = element.closest<HTMLElement>('[role="region"]');
+  if (viewport && viewport !== element) {
+    fireEvent.mouseEnter(viewport);
+  }
+  fireEvent.mouseEnter(element);
+}
+
+/**
+ * Solid: the `mouseleave` counterpart of `mouseEnterToast`.
+ * @internal
+ */
+export function mouseLeaveToast(element: HTMLElement) {
+  fireEvent.mouseLeave(element);
+  const viewport = element.closest<HTMLElement>('[role="region"]');
+  if (viewport && viewport !== element) {
+    fireEvent.mouseLeave(viewport);
+  }
 }

@@ -16,7 +16,7 @@ export default function ExampleDrawer() {
       open={drawerOpen()}
       onOpenChange={(open, eventDetails) => {
         // Show the close confirmation if there’s text in the textarea
-        if (!open && textareaValue) {
+        if (!open && textareaValue()) {
           eventDetails.cancel();
           setConfirmationOpen(true);
           return;
@@ -58,7 +58,7 @@ export default function ExampleDrawer() {
                   class="min-h-32 w-full border border-neutral-950 dark:border-white bg-white dark:bg-neutral-950 p-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-2 focus:-outline-offset-1 focus:outline-neutral-950 dark:focus:outline-white"
                   placeholder="What’s on your mind?"
                   value={textareaValue()}
-                  onChange={(event) => setTextareaValue(event.target.value)}
+                  onInput={(event) => setTextareaValue(event.target.value)}
                 />
                 <div class="flex justify-end gap-3">
                   <Drawer.Close class="flex h-8 items-center justify-center gap-2 border border-neutral-950 bg-white px-3 text-sm leading-none whitespace-nowrap font-normal text-neutral-950 select-none hover:not-data-disabled:bg-neutral-100 active:not-data-disabled:bg-neutral-200 data-disabled:border-neutral-500 data-disabled:text-neutral-500 disabled:border-neutral-500 disabled:text-neutral-500 dark:border-white dark:bg-neutral-950 dark:text-white dark:hover:not-data-disabled:bg-neutral-800 dark:active:not-data-disabled:bg-neutral-700 dark:data-disabled:border-neutral-400 dark:data-disabled:text-neutral-400 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white">

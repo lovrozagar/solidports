@@ -1,4 +1,4 @@
-import { createRenderer } from '#test-utils';
+import { act, createRenderer } from '#test-utils';
 import { Drawer } from '@solidports/base-ui/drawer';
 import { screen } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
@@ -31,7 +31,7 @@ describe('<Drawer.Indent />', () => {
     expect(screen.getByTestId('indent')).toHaveAttribute('data-inactive', '');
     expect(screen.getByTestId('indent')).not.toHaveAttribute('data-active');
 
-    setOpen(true);
+    act(() => setOpen(true));
 
     expect(screen.getByTestId('indent')).toHaveAttribute('data-active', '');
     expect(screen.getByTestId('indent')).not.toHaveAttribute('data-inactive');

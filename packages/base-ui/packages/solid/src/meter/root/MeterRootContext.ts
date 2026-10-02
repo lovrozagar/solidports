@@ -3,8 +3,7 @@ import type { Accessor, Setter } from 'solid-js';
 
 export type MeterRootContext = {
   formattedValue: Accessor<string>;
-  max: Accessor<number>;
-  min: Accessor<number>;
+  percentageValue: Accessor<number>;
   setLabelId: Setter<string | undefined>;
   value: Accessor<number>;
 };

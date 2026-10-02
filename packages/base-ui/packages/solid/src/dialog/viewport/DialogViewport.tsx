@@ -1,25 +1,12 @@
 'use client';
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
-import { type StateAttributesMapping } from '../../utils/getStateAttributesProps';
-import { popupStateMapping as baseMapping } from '../../utils/popupStateMapping';
-import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import { type BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { type TransitionStatus } from '../../utils/useTransitionStatus';
 import { useDialogPortalContext } from '../portal/DialogPortalContext';
 import { useDialogRootContext } from '../root/DialogRootContext';
-import { DialogViewportDataAttributes } from './DialogViewportDataAttributes';
-
-const stateAttributesMapping: StateAttributesMapping<DialogViewport.State> = {
-  ...baseMapping,
-  ...transitionStatusMapping,
-  nested(value) {
-    return value ? { [DialogViewportDataAttributes.nested]: '' } : null;
-  },
-  nestedDialogOpen(value) {
-    return value ? { [DialogViewportDataAttributes.nestedDialogOpen]: '' } : null;
-  },
-};
+import { dialogStateAttributesMapping } from '../utils/stateAttributesMapping';
 
 /**
  * A positioning container for the dialog popup that can be made scrollable.
@@ -31,7 +18,7 @@ export function DialogViewport(componentProps: DialogViewport.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
   const keepMounted = useDialogPortalContext();
-  const { store } = useDialogRootContext();
+  const store = useDialogRootContext();
 
   const open = store.useState('open');
   const nested = store.useState('nested');
@@ -39,20 +26,22 @@ export function DialogViewport(componentProps: DialogViewport.Props) {
   const nestedOpenDialogCount = store.useState('nestedOpenDialogCount');
   const mounted = store.useState('mounted');
 
+  const setViewportElement = store.useStateSetter('viewportElement');
+
   const nestedDialogOpen = () => nestedOpenDialogCount() > 0;
 
   const state: DialogViewport.State = {
-    get nested() {
-      return nested();
-    },
-    get nestedDialogOpen() {
-      return nestedDialogOpen();
-    },
     get open() {
       return open();
     },
+    get nested() {
+      return nested();
+    },
     get transitionStatus() {
       return transitionStatus();
+    },
+    get nestedDialogOpen() {
+      return nestedDialogOpen();
     },
   };
 
@@ -60,23 +49,23 @@ export function DialogViewport(componentProps: DialogViewport.Props) {
 
   const element = useRenderElement('div', componentProps, {
     enabled: shouldRender,
+    state,
+    ref: setViewportElement,
+    stateAttributesMapping: dialogStateAttributesMapping,
     props: [
       {
         role: 'presentation',
         get hidden() {
           return !mounted();
         },
-        get style() {
+        get style(): JSX.CSSProperties {
           return {
-            pointerEvents: !open() ? 'none' : undefined,
+            'pointer-events': !open() ? 'none' : undefined,
           };
         },
       },
       elementProps,
     ],
-    ref: store.useStateSetter('viewportElement'),
-    state,
-    stateAttributesMapping,
   });
 
   return <>{element()}</>;
@@ -87,6 +76,9 @@ export interface DialogViewportState {
    * Whether the dialog is currently open.
    */
   open: boolean;
+  /**
+   * The transition status of the component.
+   */
   transitionStatus: TransitionStatus;
   /**
    * Whether the dialog is nested within another dialog.

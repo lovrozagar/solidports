@@ -10,6 +10,7 @@ declare module "*.mjs" {
   export const rehypeSubtitle: import("unified").Plugin
   export const rehypeKbd: import("unified").Plugin
   export const rehypeReference: import("unified").Plugin
+  export const demoHighlight: () => import("vite").Plugin
   const plugin: import("unified").Plugin
   export default plugin
 }

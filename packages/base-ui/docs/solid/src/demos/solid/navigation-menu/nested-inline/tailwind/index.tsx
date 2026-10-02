@@ -22,7 +22,7 @@ export default function ExampleNavigationMenu() {
           <NavigationMenu.Content class={productContentClassName}>
             <NavigationMenu.Root
               class="overflow-hidden overflow-clip text-neutral-950 dark:text-white"
-              orientation={isDesktop ? 'vertical' : 'horizontal'}
+              orientation={isDesktop() ? 'vertical' : 'horizontal'}
               defaultValue="developers"
             >
               <div class="grid grid-cols-1 overflow-hidden overflow-clip min-[700px]:grid-cols-[13rem_minmax(0,1fr)]">
@@ -146,7 +146,7 @@ function Link(props: NavigationMenu.Link.Props) {
   );
 }
 
-function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

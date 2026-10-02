@@ -1,35 +1,30 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { UseFieldValidationReturnValue } from '../field/root/useFieldValidation';
+import type { UseCheckboxGroupParentReturnValue } from './useCheckboxGroupParent';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { BaseUIEventReasons } from '../utils/reasons';
-import { useCheckboxGroupParent } from './useCheckboxGroupParent';
+import type { LabelableContext } from '../internals/labelable-provider/LabelableContext';
 
 export interface CheckboxGroupContext {
-  value: Accessor<string[] | undefined>;
-  defaultValue: Accessor<string[] | undefined>;
+  value: Accessor<string[]>;
   setValue: (
     value: string[],
     eventDetails: BaseUIChangeEventDetails<BaseUIEventReasons['none']>,
   ) => void;
   allValues: Accessor<string[] | undefined>;
-  parent: useCheckboxGroupParent.ReturnValue;
+  parent: UseCheckboxGroupParentReturnValue;
   disabled: Accessor<boolean>;
   validation: UseFieldValidationReturnValue;
-  registerControlRef: (element: HTMLButtonElement | null | undefined) => void;
+  /**
+   * `registerControlId` of the labelable scope the group renders in. A checkbox seeing the same
+   * function shares that scope, so the group, not the checkbox, is the field's control.
+   */
+  registerControlId: LabelableContext['registerControlId'];
 }
 
 export const CheckboxGroupContext = createContext<CheckboxGroupContext | null>(null);
 
-export function useCheckboxGroupContext(optional: false): CheckboxGroupContext;
-export function useCheckboxGroupContext(optional?: true): CheckboxGroupContext | null;
-export function useCheckboxGroupContext(optional = true) {
-  const context = useContext(CheckboxGroupContext);
-  if (context == null && !optional) {
-    throw new Error(
-      'Base UI: CheckboxGroupContext is missing. CheckboxGroup parts must be placed within <CheckboxGroup>.',
-    );
-  }
-
-  return context;
+export function useCheckboxGroupContext() {
+  return useContext(CheckboxGroupContext);
 }

@@ -1,3 +1,5 @@
+import { omit } from "solid-js"
+import type { JSX } from "@solidjs/web"
 import { Tooltip } from "@solidports/base-ui/tooltip"
 import { Popup as BasePopup } from "../Popup"
 
@@ -9,10 +11,8 @@ export function Root(props: Tooltip.Root.Props) {
   return <Tooltip.Root {...props} />
 }
 
-export function Popup(props: Tooltip.Popup.Props & { children?: import("solid-js").JSX.Element }) {
-  const { children, ...rest } = props as Tooltip.Popup.Props & {
-    children?: import("solid-js").JSX.Element
-  }
+export function Popup(props: Tooltip.Popup.Props & { children?: JSX.Element }) {
+  const rest = omit(props, "children")
   return (
     <Tooltip.Portal>
       <Tooltip.Positioner
@@ -28,7 +28,7 @@ export function Popup(props: Tooltip.Popup.Props & { children?: import("solid-js
           )}
           {...rest}
         >
-          <div class="flex max-w-120 flex-col gap-3 text-pretty">{children}</div>
+          <div class="flex max-w-120 flex-col gap-3 text-pretty">{props.children}</div>
           <Tooltip.Arrow class="data-[side=bottom]:top-[-8px] data-[side=left]:right-[-13px] data-[side=left]:rotate-90 data-[side=right]:left-[-13px] data-[side=right]:-rotate-90 data-[side=top]:bottom-[-8px] data-[side=top]:rotate-180">
             <svg width="20" height="10" viewBox="0 0 20 10" fill="none">
               <path

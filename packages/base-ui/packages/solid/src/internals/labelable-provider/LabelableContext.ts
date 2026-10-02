@@ -6,10 +6,12 @@ import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';
 export interface LabelableContext {
   /**
    * The `id` of the labelable element.
-   * When `null` the association is implicit.
+   * When `null` the label omits `htmlFor`, either because the association is implicit or
+   * because the control takes its name from `aria-labelledby`.
    */
   controlId: Accessor<string | null | undefined>;
   registerControlId: (source: symbol, id: string | null | undefined) => void;
+  resetControlId: () => void;
   /**
    * The `id` of the label.
    */
@@ -33,6 +35,7 @@ export const LabelableContext = createContext<LabelableContext>({
   labelId: () => undefined,
   messageIds: () => [],
   registerControlId: NOOP,
+  resetControlId: NOOP,
   setLabelId: NOOP as Setter<string | undefined>,
   setMessageIds: NOOP as Setter<string[]>,
 });

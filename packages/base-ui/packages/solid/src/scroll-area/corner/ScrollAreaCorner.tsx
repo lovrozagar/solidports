@@ -18,6 +18,7 @@ export function ScrollAreaCorner(componentProps: ScrollAreaCorner.Props) {
   const element = useRenderElement('div', componentProps, {
     props: [
       {
+        'aria-hidden': 'true',
         get style(): JSX.CSSProperties {
           return {
             position: 'absolute',
@@ -30,9 +31,7 @@ export function ScrollAreaCorner(componentProps: ScrollAreaCorner.Props) {
       },
       elementProps,
     ],
-    ref: (el) => {
-      cornerRef.current = el;
-    },
+    ref: cornerRef,
   });
 
   return <Show when={!hiddenState().corner}>{element()}</Show>;

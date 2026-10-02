@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onSettled } from 'solid-js';
+import { createSignal, onCleanup, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { access, type MaybeAccessor } from '../solid-helpers';
@@ -19,34 +19,33 @@ export function useMediaQuery(
   const matchMedia = () => options.matchMedia ?? (supportMatchMedia() ? window.matchMedia : null);
   const ssrMatchMedia = () => options.ssrMatchMedia ?? null;
   const noSsr = () => access(options.noSsr) ?? false;
-  const [match, setMatch] = createSignal(defaultMatches());
+  const [match, setMatch] = createSignal(untrack(() => defaultMatches()));
 
   onSettled(() => {
     const _c: Array<() => void> = [];
     (() => {
+      const matchMediaValue = matchMedia();
+      if (matchMediaValue === null) {
+        setMatch(defaultMatches());
+        return;
+      }
 
-    const matchMediaValue = matchMedia();
-    if (matchMediaValue === null) {
-      setMatch(defaultMatches());
-      return;
-    }
+      function notify(event: MediaQueryListEvent) {
+        setMatch(event.matches);
+      }
 
-    function notify(event: MediaQueryListEvent) {
-      setMatch(event.matches);
-    }
-
-    const mediaQueryList = matchMediaValue(safeQuery());
-    mediaQueryList.addEventListener('change', notify);
-    _c.push(() => {
-      mediaQueryList.removeEventListener('change', notify);
-    });
-      })();
+      const mediaQueryList = matchMediaValue(safeQuery());
+      mediaQueryList.addEventListener('change', notify);
+      _c.push(() => {
+        mediaQueryList.removeEventListener('change', notify);
+      });
+    })();
     return () => {
       for (let i = _c.length - 1; i >= 0; i -= 1) {
         _c[i]();
       }
     };
-});
+  });
 
   if (isServer) {
     const matchMediaValue = matchMedia();

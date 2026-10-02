@@ -1,20 +1,27 @@
-import { createTrackedEffect, createMemo, onSettled, untrack } from 'solid-js';
+import { onSettled, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { FloatingTree, useDismiss, useInteractions } from '../../floating-ui-solid';
-import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
+import { FloatingTree, useDismiss } from '../../floating-ui-solid';
+import {
+  ComponentWithPayload,
+  createDepsRenderEffect,
+  type ReactLikeRef,
+} from '../../solid-helpers';
 import {
   createChangeEventDetails,
   type BaseUIChangeEventDetails,
 } from '../../utils/createBaseUIEventDetails';
+import { REASONS } from '../../utils/reasons';
+import { PreviewCardStore } from '../store/PreviewCardStore';
 import {
   PayloadChildRenderFunction,
+  PopupHandleAttachment,
   useImplicitActiveTrigger,
+  usePopupRootStore,
   useOpenStateTransitions,
+  usePopupInteractionProps,
 } from '../../utils/popups';
-import { REASONS } from '../../utils/reasons';
 import { PreviewCardHandle } from '../store/PreviewCardHandle';
-import { PreviewCardStore } from '../store/PreviewCardStore';
 import { PreviewCardRootContext, usePreviewCardRootContext } from './PreviewCardContext';
 
 function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>) {
@@ -23,101 +30,108 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
   const triggerIdProp = () => props.triggerId;
   const defaultTriggerIdProp = () => props.defaultTriggerId ?? null;
 
-  const store = PreviewCardStore.useStore<Payload>(
-    untrack(() => props.handle?.store),
-    {
-      get activeTriggerId() {
-        return defaultTriggerIdProp();
+  const store = usePopupRootStore((floatingId, nested) =>
+    PreviewCardStore<Payload>(
+      {
+        get open() {
+          return defaultOpen();
+        },
+        get openProp() {
+          return openProp();
+        },
+        get activeTriggerId() {
+          return defaultTriggerIdProp();
+        },
+        get triggerIdProp() {
+          return triggerIdProp();
+        },
       },
-      get open() {
-        return defaultOpen();
-      },
-      get openProp() {
-        return openProp();
-      },
-      get triggerIdProp() {
-        return triggerIdProp();
-      },
-    },
+      floatingId,
+      nested,
+    ),
   );
-
-  // Support initially open state when uncontrolled
-  onSettled(() => {
-    if (openProp() === undefined && store.state.open === false && defaultOpen() === true) {
-      store.update({
-        activeTriggerId: defaultTriggerIdProp(),
-        open: true,
-      });
-    }
-  });
 
   store.useControlledProp('openProp', openProp);
   store.useControlledProp('triggerIdProp', triggerIdProp);
 
-  store.useContextCallback('onOpenChange', (open: boolean, details: PreviewCardRoot.ChangeEventDetails) =>
-    props.onOpenChange?.(open, details),
+  // Solid: the callbacks read the latest props when invoked.
+  store.useContextCallback(
+    'onOpenChange',
+    (nextOpen: boolean, eventDetails: PreviewCardRoot.ChangeEventDetails) =>
+      untrack(() => props.onOpenChange)?.(nextOpen, eventDetails),
   );
-  store.useContextCallback('onOpenChangeComplete', (open: boolean) =>
-    props.onOpenChangeComplete?.(open),
+  store.useContextCallback('onOpenChangeComplete', (nextOpen: boolean) =>
+    untrack(() => props.onOpenChangeComplete)?.(nextOpen),
   );
 
   const open = store.useState('open');
   const activeTriggerId = store.useState('activeTriggerId');
+  const mounted = store.useState('mounted');
   const payload = store.useState('payload') as Accessor<Payload | undefined>;
 
-  useImplicitActiveTrigger({ store });
-  const { forceUnmount } = useOpenStateTransitions({
-    get open() {
-      return open();
-    },
-    get store() {
-      return store;
-    },
+  useImplicitActiveTrigger(store, { closeOnActiveTriggerUnmount: true });
+  const { forceUnmount } = useOpenStateTransitions(open, store, () => {
+    store.context.inlineRectCoordsRef.current = undefined;
   });
 
-  createTrackedEffect(() => {
-    if (open()) {
-      if (activeTriggerId() == null) {
-        store.set('payload', undefined);
+  createDepsRenderEffect(
+    () => ({ activeTriggerId: activeTriggerId(), open: open() }),
+    (deps) => {
+      if (deps.open) {
+        if (deps.activeTriggerId == null) {
+          store.set('payload', undefined);
+        }
       }
-    }
-  });
+    },
+  );
 
-  const handleImperativeClose = () => {
-    store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction));
-  };
-
+  // React's `useImperativeHandle`.
   onSettled(() => {
     if (props.actionsRef) {
-      props.actionsRef.current = { close: handleImperativeClose, unmount: forceUnmount };
+      props.actionsRef.current = {
+        unmount: forceUnmount,
+        close: () => store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction)),
+      };
     }
   });
 
-  const dismiss = useDismiss({
-    get context() {
-      return store.context.floatingRootContext;
-    },
-  });
-
-  const { getReferenceProps, getTriggerProps, getFloatingProps } = useInteractions([dismiss]);
-
-  const activeTriggerProps = createMemo(() => getReferenceProps());
-  const inactiveTriggerProps = createMemo(() => getTriggerProps());
-  const popupProps = createMemo(() => getFloatingProps());
-
-  store.useSyncedValues({
-    activeTriggerProps,
-    inactiveTriggerProps,
-    popupProps,
-  });
-
-  const contextValue = { store } as PreviewCardRootContext;
+  const shouldRenderInteractions = () => open() || mounted();
 
   return (
-    <PreviewCardRootContext value={contextValue}>
+    <PreviewCardRootContext value={{ store } as PreviewCardRootContext}>
+      <Show when={props.handle}>
+        {(handle) => <PopupHandleAttachment handle={handle()} store={store} />}
+      </Show>
+      <Show when={shouldRenderInteractions()}>
+        <PreviewCardInteractions store={store} />
+      </Show>
       <ComponentWithPayload payload={payload} children={props.children} />
     </PreviewCardRootContext>
   );
+}
+
+function PreviewCardInteractions<Payload>(props: { store: PreviewCardStore<Payload> }) {
+  const dismiss = useDismiss({
+    get context() {
+      return props.store.context.floatingRootContext;
+    },
+  });
+
+  // `useDismiss` is not given an `enabled` option, so all three prop bags are always defined.
+  // `dismiss.trigger` is the same object as `dismiss.reference`.
+  usePopupInteractionProps(props.store, {
+    get activeTriggerProps() {
+      return dismiss.reference!;
+    },
+    get inactiveTriggerProps() {
+      return dismiss.trigger!;
+    },
+    get popupProps() {
+      return dismiss.floating!;
+    },
+  });
+
+  return null;
 }
 
 /**
@@ -127,7 +141,7 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
  * Documentation: [Base UI Preview Card](https://base-ui.com/react/components/preview-card)
  */
 export function PreviewCardRoot<Payload>(props: PreviewCardRoot.Props<Payload>) {
-  if (usePreviewCardRootContext(true).store) {
+  if (usePreviewCardRootContext(true)) {
     return <PreviewCardRootComponent {...props} />;
   }
 
@@ -156,8 +170,7 @@ export interface PreviewCardRootProps<Payload = unknown> {
    * Event handler called when the preview card is opened or closed.
    */
   onOpenChange?:
-    | ((open: boolean, eventDetails: PreviewCardRoot.ChangeEventDetails) => void)
-    | undefined;
+    ((open: boolean, eventDetails: PreviewCardRoot.ChangeEventDetails) => void) | undefined;
   /**
    * Event handler called after any animations complete when the preview card is opened or closed.
    */
@@ -181,15 +194,15 @@ export interface PreviewCardRootProps<Payload = unknown> {
   children?: JSX.Element | PayloadChildRenderFunction<Payload>;
   /**
    * ID of the trigger that the preview card is associated with.
-   * This is useful in conjuntion with the `open` prop to create a controlled preview card.
-   * There's no need to specify this prop when the preview card is uncontrolled (i.e. when the `open` prop is not set).
+   * This is useful in conjunction with the `open` prop to create a controlled preview card.
+   * There's no need to specify this prop when the preview card is uncontrolled (that is, when the `open` prop is not set).
    */
-  triggerId?: (string | null) | undefined;
+  triggerId?: string | null | undefined;
   /**
    * ID of the trigger that the preview card is associated with.
    * This is useful in conjunction with the `defaultOpen` prop to create an initially open preview card.
    */
-  defaultTriggerId?: (string | null) | undefined;
+  defaultTriggerId?: string | null | undefined;
 }
 
 export interface PreviewCardRootActions {

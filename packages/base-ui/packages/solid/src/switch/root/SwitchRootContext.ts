@@ -1,8 +1,7 @@
 import { createContext, useContext } from 'solid-js';
-import type { Accessorify } from '../../floating-ui-solid';
-import type { SwitchRoot } from './SwitchRoot';
+import type { SwitchRootState } from './SwitchRoot';
 
-export type SwitchRootContext = Accessorify<SwitchRoot.State>;
+export type SwitchRootContext = SwitchRootState;
 
 export const SwitchRootContext = createContext<SwitchRootContext | null>(null);
 

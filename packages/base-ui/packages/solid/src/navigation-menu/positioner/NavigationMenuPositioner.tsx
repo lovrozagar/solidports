@@ -1,27 +1,27 @@
-import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
-import type { JSX } from '@solidjs/web';
+import { createEffect, createSignal, untrack } from 'solid-js';
 import {
   disableFocusInside,
   enableFocusInside,
   isOutsideEvent,
 } from '../../floating-ui-solid/utils';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
-import { splitComponentProps } from '../../solid-helpers';
+import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
+import { addEventListener } from '../../utils/addEventListener';
 import { adaptiveOrigin } from '../../utils/adaptiveOriginMiddleware';
 import { DROPDOWN_COLLISION_AVOIDANCE, POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
-import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
+import { flushSync } from '../../utils/flushSync';
 import { ownerWindow } from '../../utils/owner';
-import { popupStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
-import { useRenderElement } from '../../utils/useRenderElement';
-import { withCaptureListeners } from '../../utils/withCaptureListeners';
+import type { Align, Side, useAnchorPositioning } from '../../utils/useAnchorPositioning';
+import { mergeCleanups } from '../../utils/mergeCleanups';
+import { usePositioner } from '../../utils/usePositioner';
 import { useTimeout } from '../../utils/useTimeout';
 import { useNavigationMenuPortalContext } from '../portal/NavigationMenuPortalContext';
 import {
   useNavigationMenuRootContext,
   useNavigationMenuTreeContext,
 } from '../root/NavigationMenuRootContext';
+import { useNavigationMenuAnchorPositioning } from '../utils/useNavigationMenuAnchorPositioning';
 import { NavigationMenuPositionerContext } from './NavigationMenuPositionerContext';
 
 const EMPTY_ROOT_CONTEXT = getEmptyRootContext();
@@ -44,6 +44,8 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
   } = useNavigationMenuRootContext();
 
   const [, local, elementProps] = splitComponentProps(componentProps, [
+    'style',
+    'ref',
     'anchor',
     'positionMethod',
     'side',
@@ -75,18 +77,44 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
   const keepMounted = useNavigationMenuPortalContext();
   const nodeId = useNavigationMenuTreeContext();
 
+  const initialInstantTimeout = useTimeout();
   const resizeTimeout = useTimeout();
 
-  const [instant, setInstant] = createSignal(false);
+  // When the menu is initially open, disable the positioner's transition for one frame
+  // so a default value does not animate in from the unpositioned portal state.
+  const [instant, setInstant] = createSignal(untrack(open));
+  let needsInitialInstantResetRef = untrack(open);
 
-  let positionerRef = null as HTMLDivElement | null | undefined;
-  let prevTriggerElementRef = null as Element | null | undefined;
+  // https://codesandbox.io/s/tabbable-portal-f4tng?file=/src/TabbablePortal.tsx
+  createEffect(positionerElement, (positionerEl) => {
+    if (!positionerEl) {
+      return undefined;
+    }
+
+    // Make sure elements inside the portal element are tabbable only when the
+    // portal has already been focused, either by tabbing into a focus trap
+    // element outside or using the mouse.
+    function onFocus(event: FocusEvent) {
+      if (positionerEl && isOutsideEvent(event)) {
+        const focusing = event.type === 'focusin';
+        const manageFocus = focusing ? enableFocusInside : disableFocusInside;
+        manageFocus(positionerEl);
+      }
+    }
+
+    // Listen to the event on the capture phase so they run before the focus
+    // trap elements onFocus prop is called.
+    return mergeCleanups(
+      addEventListener(positionerEl, 'focusin', onFocus, true),
+      addEventListener(positionerEl, 'focusout', onFocus, true),
+    );
+  });
 
   const domReference = () =>
     (floatingRootContext() || EMPTY_ROOT_CONTEXT).useState('domReferenceElement')();
 
-  const positioning = useAnchorPositioning({
-    anchor: () => local.anchor ?? domReference() ?? prevTriggerElementRef,
+  const positioning = useNavigationMenuAnchorPositioning({
+    anchor: () => local.anchor ?? domReference(),
     positionMethod,
     mounted,
     side,
@@ -103,32 +131,20 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
       return floatingRootContext();
     },
     collisionAvoidance,
-    nodeId,
+    shift: { rootBoundary: 'layoutViewport' },
+    nodeId: () => nodeId?.(),
     // Allows the menu to remain anchored without wobbling while its size
     // and position transition simultaneously when side=top or side=left.
     adaptiveOrigin,
   });
 
-  const defaultProps: JSX.HTMLAttributes<HTMLDivElement> = {
-    get hidden() {
-      return !mounted();
+  const state: NavigationMenuPositionerState = {
+    get open() {
+      return open();
     },
-    role: 'presentation',
-    get style(): JSX.CSSProperties {
-      const hiddenStyles: JSX.CSSProperties = {};
-
-      if (!open()) {
-        hiddenStyles['pointer-events'] = 'none';
-      }
-
-      return {
-        ...positioning.positionerStyles(),
-        ...hiddenStyles,
-      };
+    get side() {
+      return positioning.side();
     },
-  };
-
-  const state: NavigationMenuPositioner.State = {
     get align() {
       return positioning.align();
     },
@@ -138,75 +154,55 @@ export function NavigationMenuPositioner(componentProps: NavigationMenuPositione
     get instant() {
       return instant();
     },
-    get open() {
-      return open();
-    },
-    get side() {
-      return positioning.side();
-    },
   };
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (!open()) {
-      return;
-    }
-
-    function handleResize() {
-      setInstant(true);
-
-      resizeTimeout.start(100, () => {
-        setInstant(false);
-      });
-    }
-
-    const positionerEl = positionerElement() ?? null;
-    const win = ownerWindow(positionerEl);
-    win.addEventListener('resize', handleResize);
-    _c.push(() => {
-      win.removeEventListener('resize', handleResize);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+  createDepsEffect(
+    () => ({ open: open(), positionerElement: positionerElement() }),
+    ({ open: isOpen, positionerElement: positionerEl }) => {
+      if (!isOpen) {
+        return undefined;
       }
-    };
-});
 
-  const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [
-        defaultProps,
-        getDisabledMountTransitionStyles(transitionStatus()),
-        // https://codesandbox.io/s/tabbable-portal-f4tng?file=/src/TabbablePortal.tsx
-        {
-          ref: withCaptureListeners({
-            focusin: (event) => {
-              if (positionerRef && isOutsideEvent(event)) {
-                enableFocusInside(positionerRef);
-              }
-            },
-            focusout: (event) => {
-              if (positionerRef && isOutsideEvent(event)) {
-                disableFocusInside(positionerRef);
-              }
-            },
-          }),
-        },
-        elementProps,
-      ];
+      if (needsInitialInstantResetRef) {
+        initialInstantTimeout.start(0, () => {
+          needsInitialInstantResetRef = false;
+
+          if (!resizeTimeout.isStarted()) {
+            setInstant(false);
+          }
+        });
+      }
+
+      function handleResize() {
+        flushSync(() => {
+          setInstant(true);
+        });
+
+        resizeTimeout.start(100, () => {
+          setInstant(false);
+        });
+      }
+
+      const win = ownerWindow(positionerEl ?? null);
+      return addEventListener(win, 'resize', handleResize);
     },
-    ref: (el) => {
-      setPositionerElement(el);
-      positionerRef = el;
-      /* Without setFloating, floating-ui's autoUpdate never runs and the popup stays at 0,0 with opacity:0 until something else triggers a recompute (e.g. hovering a different trigger). */
-      positioning.context.refs.setFloating(el ?? null);
+  );
+
+  const element = usePositioner(componentProps, state, {
+    get styles() {
+      return positioning.positionerStyles();
     },
-    state,
-    stateAttributesMapping: popupStateMapping,
+    get transitionStatus() {
+      return transitionStatus();
+    },
+    props: elementProps,
+    refs: setPositionerElement,
+    get hidden() {
+      return !mounted();
+    },
+    get inert() {
+      return !open();
+    },
   });
 
   return (
@@ -221,8 +217,17 @@ export interface NavigationMenuPositionerState {
    * Whether the navigation menu is currently open.
    */
   open: boolean;
+  /**
+   * The side of the anchor the component is placed on.
+   */
   side: Side;
+  /**
+   * The alignment of the component relative to the anchor.
+   */
   align: Align;
+  /**
+   * Whether the anchor element is hidden.
+   */
   anchorHidden: boolean;
   /**
    * Whether CSS transitions should be disabled.

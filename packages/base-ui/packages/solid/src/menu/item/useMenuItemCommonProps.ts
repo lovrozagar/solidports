@@ -1,7 +1,8 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
+/* eslint-disable typescript/no-explicit-any -- the store's payload type is erased for shared item logic, as in the React port */
 import { useContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
 import { type ReactLikeRef } from '../../solid-helpers';
-import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import { isMac } from '../../utils/detectBrowser';
+import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
 import { REASONS } from '../../utils/reasons';
 import { HTMLProps } from '../../utils/types';
 import { MenuStore } from '../store/MenuStore';
@@ -29,59 +30,64 @@ export interface UseMenuItemCommonPropsParameters {
    */
   store: MenuStore<any>;
   /**
-   * Ref to the item element.
-   */
-  itemRef: ReactLikeRef<HTMLElement | null | undefined> | undefined;
-  /**
-   * Optional metadata for checking item type before triggering click.
-   * If provided, click will only be triggered for 'regular-item' type.
-   */
-  itemMetadata?: UseMenuItemMetadata | undefined;
-  /**
    * Whether a typeahead session is in progress.
    */
   typingRef?: ReactLikeRef<boolean> | undefined;
+  /**
+   * Ref to the item element.
+   */
+  itemRef: ReactLikeRef<HTMLElement | null | undefined>;
+  /**
+   * Metadata for checking item type before triggering click.
+   */
+  itemMetadata: UseMenuItemMetadata;
 }
 
 /**
  * Returns common props shared by all menu item types.
- * This hook extracts the shared logic for id, role, tabIndex, onMouseMove, onClick, and onMouseUp handlers.
+ * This hook extracts the shared logic for id, role, tabIndex, onKeyDown,
+ * onMouseMove, onClick, and onMouseUp handlers.
+ *
+ * Solid: `params` is read through getters, so the returned props stay live.
  */
 export function useMenuItemCommonProps(params: UseMenuItemCommonPropsParameters): HTMLProps {
-  const treeRoot = params.store.useState('floatingTreeRoot');
+  const floatingTreeRoot = params.store.useState('floatingTreeRoot');
+  const open = params.store.useState('open');
   const contextMenuContext = useContextMenuRootContext(true);
-  const isContextMenu = contextMenuContext !== undefined;
+  const isContextMenu = contextMenuContext != null;
 
   return {
     get id() {
       return params.id;
     },
-    onClick(event) {
-      if (params.closeOnClick) {
-        treeRoot().events.emit('close', {
-          domEvent: event,
-          reason: REASONS.itemPress,
-        });
-      }
+    role: 'menuitem',
+    get tabindex() {
+      return open() && params.highlighted ? 0 : -1;
     },
     onKeyDown(event: KeyboardEvent) {
       if (event.key === ' ' && params.typingRef?.current) {
         event.preventDefault();
       }
     },
-    onMouseMove(event) {
-      if (!params.nodeId) {
+    onMouseMove(event: MouseEvent) {
+      const nodeId = params.nodeId;
+      if (!nodeId) {
         return;
       }
 
       // Inform the floating tree that a menu item within this menu was hovered/moved over
       // so unrelated descendant submenus can be closed.
-      treeRoot().events.emit('itemhover', {
-        nodeId: params.nodeId,
+      floatingTreeRoot().events.emit('itemhover', {
+        nodeId,
         target: event.currentTarget,
       });
     },
-    onMouseUp(event) {
+    onClick(event: MouseEvent) {
+      if (params.closeOnClick) {
+        floatingTreeRoot().events.emit('close', { domEvent: event, reason: REASONS.itemPress });
+      }
+    },
+    onMouseUp(event: MouseEvent) {
       if (contextMenuContext) {
         const initialCursorPoint = contextMenuContext.initialCursorPointRef.current;
         contextMenuContext.initialCursorPointRef.current = null;
@@ -93,28 +99,29 @@ export function useMenuItemCommonProps(params: UseMenuItemCommonPropsParameters)
         ) {
           return;
         }
+
+        // On non-macOS platforms, this mouseup belongs to the right-click gesture
+        // that opened the context menu, so it must not activate an item.
+        // Solid: React reads `platform.os.mac`.
+        if (isContextMenu && !isMac && event.button === 2) {
+          return;
+        }
       }
 
+      const itemElement = params.itemRef.current;
       if (
-        params.itemRef &&
+        itemElement &&
         params.store.context.allowMouseUpTriggerRef.current &&
         (!isContextMenu || event.button === 2)
       ) {
         // This fires whenever the user clicks on the trigger, moves the cursor, and releases it over the item.
         // We trigger the click and override the `closeOnClick` preference to always close the menu.
-        if (!params.itemMetadata || params.itemMetadata.type === 'regular-item') {
-          params.itemRef.current?.click();
-
-          // Ensure nested context menus dispatch their own close event before the root tree unmounts them.
-          if (isContextMenu && params.store.context.parent.type === 'menu') {
-            params.store.setOpen(false, createChangeEventDetails(REASONS.itemPress, event));
-          }
+        if (params.itemMetadata.type === 'regular-item') {
+          // `detail: 1` marks this as a mouse-gesture click so MenuRoot doesn't
+          // treat it as a keyboard activation (`detail === 0` → `data-instant`).
+          dispatchClickWithModifiers(itemElement, event, { detail: 1 });
         }
       }
-    },
-    role: 'menuitem',
-    get tabindex() {
-      return params.highlighted ? 0 : -1;
     },
   };
 }

@@ -38,7 +38,9 @@ export function MenuViewport(componentProps: MenuViewport.Props) {
       return local.children;
     },
     cssVars: MenuViewportCssVars,
-    get side() { return side(); },
+    get side() {
+      return side();
+    },
     store,
   });
 
@@ -54,16 +56,24 @@ export function MenuViewport(componentProps: MenuViewport.Props) {
     },
   };
 
-  return useRenderElement('div', componentProps, {
-    get props() {
-      return [elementProps, { get children() { return childrenToRender; } }];
+  // Solid: the transition containers go through `children`, which takes precedence over the
+  // component's own `children` prop.
+  const element = useRenderElement('div', componentProps, {
+    get children() {
+      return childrenToRender;
     },
+    props: elementProps,
     state,
     stateAttributesMapping,
   });
+
+  return <>{element()}</>;
 }
 
 export interface MenuViewportState {
+  /**
+   * The activation direction of the transitioned content.
+   */
   activationDirection: string | undefined;
   /**
    * Whether the viewport is currently transitioning between contents.

@@ -25,8 +25,7 @@ export interface AutocompleteItemState {
 }
 
 export interface AutocompleteItemProps
-  extends NonNativeButtonProps,
-    Omit<BaseUIComponentProps<'div', AutocompleteItemState>, 'id'> {
+  extends NonNativeButtonProps, Omit<BaseUIComponentProps<'div', AutocompleteItemState>, 'id'> {
   children?: JSX.Element;
   /**
    * An optional click handler for the item when selected.

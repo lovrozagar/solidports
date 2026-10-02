@@ -8,7 +8,7 @@ const demoDialog = Dialog.createHandle<number>();
 
 export default function DialogDetachedTriggersControlledDemo() {
   const [open, setOpen] = createSignal(false);
-  const [triggerId, setTriggerId] = createSignal(null);
+  const [triggerId, setTriggerId] = createSignal<string | null>(null);
 
   const handleOpenChange = (isOpen: boolean, eventDetails: Dialog.Root.ChangeEventDetails) => {
     setOpen(isOpen);

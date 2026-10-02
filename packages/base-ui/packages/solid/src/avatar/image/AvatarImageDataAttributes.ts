@@ -2,7 +2,15 @@ import { TransitionStatusDataAttributes } from '../../utils/stateAttributesMappi
 
 export enum AvatarImageDataAttributes {
   /**
-   * Present when the image is animating in.
+   * Present while the image is loading.
+   */
+  loading = 'data-loading',
+  /**
+   * Present when the image failed to load.
+   */
+  error = 'data-error',
+  /**
+   * Present when the image begins animating in.
    */
   startingStyle = TransitionStatusDataAttributes.startingStyle,
   /**

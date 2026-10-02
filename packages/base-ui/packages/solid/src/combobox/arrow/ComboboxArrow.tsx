@@ -13,10 +13,10 @@ import { useComboboxRootContext } from '../root/ComboboxRootContext';
 export function ComboboxArrow(componentProps: ComboboxArrow.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { store } = useComboboxRootContext();
+  const store = useComboboxRootContext();
   const { arrowRef, side, align, arrowUncentered, arrowStyles } = useComboboxPositionerContext();
 
-  const open = store.useSelector('open');
+  const open = store.useState('open');
 
   const state: ComboboxArrow.State = {
     get align() {

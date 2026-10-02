@@ -1,4 +1,4 @@
-import { createSignal, createUniqueId } from 'solid-js';
+import { createSignal, createMemo, createUniqueId, type Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -9,15 +9,15 @@ import styles from './index.module.css';
 export default function ExampleCreatableCombobox() {
   const id = createUniqueId();
 
-  const [labels, setLabels] = createSignal(initialLabels);
-  const [selected, setSelected] = createSignal([]);
+  const [labels, setLabels] = createSignal<LabelItem[]>(initialLabels);
+  const [selected, setSelected] = createSignal<LabelItem[]>([]);
   const [query, setQuery] = createSignal('');
   const [openDialog, setOpenDialog] = createSignal(false);
 
-  const createInputRef = { current: null };
-  const comboboxInputRef = { current: null };
+  const createInputRef = { current: null as HTMLInputElement | null };
+  const comboboxInputRef = { current: null as HTMLInputElement | null };
   const pendingQueryRef = { current: '' };
-  const highlightedItemRef = { current: undefined };
+  const highlightedItemRef = { current: undefined as LabelItem | undefined };
 
   function handleInputKeyDown(event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (event.key !== 'Enter' || highlightedItemRef.current) {
@@ -89,19 +89,18 @@ export default function ExampleCreatableCombobox() {
     handleCreate();
   }
 
-  const trimmed = query().trim();
-  const lowered = trimmed.toLocaleLowerCase();
-  const exactExists = labels().some((l) => l.value.trim().toLocaleLowerCase() === lowered);
+  const trimmed = createMemo(() => query().trim());
+  const lowered = createMemo(() => trimmed().toLocaleLowerCase());
+  const exactExists = createMemo(() => labels().some((l) => l.value.trim().toLocaleLowerCase() === lowered()));
   // Show the creatable item alongside matches if there's no exact match
-  const itemsForView: Array<LabelItem> =
-    trimmed !== '' && !exactExists
-      ? [...labels(), { creatable: trimmed, id: `create:${lowered}`, value: `Create "${trimmed}"` }]
-      : labels();
+  const itemsForView = createMemo<Array<LabelItem>>(() => trimmed() !== '' && !exactExists()
+      ? [...labels(), { creatable: trimmed(), id: `create:${lowered()}`, value: `Create "${trimmed()}"` }]
+      : labels());
 
   return (
     <>
       <Combobox.Root
-        items={itemsForView}
+        items={itemsForView()}
         multiple
         onValueChange={(next) => {
           const creatableSelection = next.find(
@@ -130,12 +129,12 @@ export default function ExampleCreatableCombobox() {
           </label>
           <Combobox.InputGroup class={styles.InputGroup}>
             <Combobox.Value>
-              {(value: LabelItem[]) => (
+              {(value: Accessor<LabelItem[]>) => (
                 <Combobox.Chips
                   class={styles.Chips}
-                  aria-label={value.length > 0 ? 'Selected labels' : undefined}
+                  aria-label={value().length > 0 ? 'Selected labels' : undefined}
                 >
-                  {(Array.isArray(value) ? value : []).map((label) => (
+                  {value().map((label) => (
                     <Combobox.Chip
                       class={styles.Chip}
                       aria-label={label.value}
@@ -153,10 +152,10 @@ export default function ExampleCreatableCombobox() {
                   <Combobox.Input
                     ref={(el) => { comboboxInputRef.current = el; }}
                     id={id}
-                    placeholder={value.length > 0 ? '' : 'e.g. bug'}
+                    placeholder={value().length > 0 ? '' : 'e.g. bug'}
                     aria-description={
-                      value.length > 0
-                        ? `${value.length} selected(). From the start of the input, press Left Arrow to focus the selected items`
+                      value().length > 0
+                        ? `${value().length} selected(). From the start of the input, press Left Arrow to focus the selected items`
                         : undefined
                     }
                     class={styles.Input}
@@ -201,7 +200,7 @@ export default function ExampleCreatableCombobox() {
       <Dialog.Root open={openDialog()} onOpenChange={setOpenDialog}>
         <Dialog.Portal>
           <Dialog.Backdrop class={styles.Backdrop} />
-          <Dialog.Popup class={styles.DialogPopup} initialFocus={createInputRef}>
+          <Dialog.Popup class={styles.DialogPopup} initialFocus={() => createInputRef.current}>
             <Dialog.Title class={styles.Title}>Create new label</Dialog.Title>
             <Dialog.Description class={styles.Description}>
               Add a new label to select.
@@ -227,7 +226,7 @@ export default function ExampleCreatableCombobox() {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -243,7 +242,7 @@ function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function PlusIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -251,8 +250,8 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >
@@ -261,7 +260,7 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function XIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -269,8 +268,8 @@ function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

@@ -1,3 +1,4 @@
+import { createEffect } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import { styleDisableScrollbar } from '../../utils/styles';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
@@ -15,7 +16,7 @@ import { useSelectRootContext } from '../root/SelectRootContext';
 export function SelectList(componentProps: SelectList.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { store, scrollHandlerRef } = useSelectRootContext();
+  const { store, scrollHandlerRef, readOnly } = useSelectRootContext();
   const { alignItemWithTriggerActive } = useSelectPositionerContext();
 
   const hasScrollArrows = store.useState('hasScrollArrows');
@@ -26,6 +27,9 @@ export function SelectList(componentProps: SelectList.Props) {
   const defaultProps: HTMLProps = {
     get 'aria-multiselectable'() {
       return multiple() ? 'true' : undefined;
+    },
+    get 'aria-readonly'() {
+      return readOnly() ? 'true' : undefined;
     },
     get class() {
       return hasScrollArrows() && openMethod() !== 'touch'
@@ -46,6 +50,13 @@ export function SelectList(componentProps: SelectList.Props) {
       return undefined;
     },
   };
+
+  createEffect(
+    () => elementProps.id ?? `${id()}-list`,
+    (listboxId) => {
+      store.set('listboxId', listboxId);
+    },
+  );
 
   const setListElement = (element: HTMLElement | null | undefined) => {
     store.set('listElement', element);

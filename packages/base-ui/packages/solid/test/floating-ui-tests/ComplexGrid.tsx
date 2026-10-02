@@ -8,6 +8,9 @@ import {
   useListNavigation,
 } from '../../src/floating-ui-solid';
 import { defaultProps } from '../../src/solid-helpers';
+import { gridNavigationWithColumns } from './gridNavigationWithColumns';
+
+const grid = gridNavigationWithColumns(7);
 
 interface Props {
   orientation?: 'horizontal' | 'both';
@@ -52,7 +55,7 @@ export function Main(componentProps: Props) {
         return activeIndex();
       },
       onNavigate: setActiveIndex,
-      cols: 7,
+      grid,
       get orientation() {
         return props.orientation;
       },
@@ -100,7 +103,7 @@ export function Main(componentProps: Props) {
                   <button
                     type="button"
                     role="option"
-                    aria-selected={activeIndex() === index}
+                    aria-selected={activeIndex() === index ? 'true' : 'false'}
                     tabindex={activeIndex() === index ? 0 : -1}
                     disabled={disabledIndices.includes(index)}
                     ref={(node) => {

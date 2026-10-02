@@ -1,19 +1,12 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createContext, useContext } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
-import type { ReactLikeRef } from '../../solid-helpers';
 import type { ToastObject } from '../useToastManager';
 
 export interface ToastRootContext {
   toast: Accessor<ToastObject<any>>;
-  rootRef: ReactLikeRef<HTMLElement | null | undefined>;
-  titleId: Accessor<string | undefined>;
   setTitleId: Setter<string | undefined>;
-  descriptionId: Accessor<string | undefined>;
   setDescriptionId: Setter<string | undefined>;
-  swipeDirection: Accessor<'up' | 'down' | 'left' | 'right' | undefined>;
-  swiping: Accessor<boolean>;
-  index: Accessor<number>;
   visibleIndex: Accessor<number>;
   expanded: Accessor<boolean>;
   recalculateHeight: (flushSync?: boolean) => void;

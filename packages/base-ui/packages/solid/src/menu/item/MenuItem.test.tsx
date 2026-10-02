@@ -1,7 +1,7 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { expect, vi } from 'vitest';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
 import { spy } from 'sinon';
 import { splitProps } from '../../solid-1-compat';
 
@@ -19,6 +19,22 @@ describe('<Menu.Item />', () => {
     refInstanceof: window.HTMLDivElement,
     render: (node, props) => render(() => <Menu.Root open>{node(props!)}</Menu.Root>),
   }));
+
+  it('throws when rendered outside Menu.Root', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() => render(() => <Menu.Item />)).to.throw(
+        'Base UI: MenuRootContext is missing. Menu parts must be placed within <Menu.Root>.',
+      );
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
 
   it('calls the onClick handler when clicked', async () => {
     const onClick = spy();
@@ -65,6 +81,24 @@ describe('<Menu.Item />', () => {
 
     expect(onClick.callCount).to.equal(1);
     expect(screen.queryByRole('menu')).not.to.equal(null);
+  });
+
+  it('allows onMouseDown to call preventBaseUIHandler', async () => {
+    render(() => (
+      <Menu.Root open>
+        <Menu.Portal>
+          <Menu.Positioner>
+            <Menu.Popup>
+              <Menu.Item onMouseDown={(event) => event.preventBaseUIHandler()}>Item</Menu.Item>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    ));
+
+    const item = screen.getByRole('menuitem');
+
+    expect(() => fireEvent.mouseDown(item)).not.to.throw();
   });
 
   it('perf: does not rerender menu items unnecessarily', async ({ skip }) => {
@@ -248,6 +282,42 @@ describe('<Menu.Item />', () => {
       expect(handleKeyDown.callCount).to.equal(0);
       expect(handleKeyUp.callCount).to.equal(0);
       expect(handleClick.callCount).to.equal(0);
+    });
+
+    it('skips a natively disabled item during keyboard navigation', async () => {
+      const { user } = render(() => (
+        <Menu.Root open>
+          <Menu.Portal>
+            <Menu.Positioner>
+              <Menu.Popup>
+                <Menu.Item>1</Menu.Item>
+                <Menu.Item
+                  nativeButton
+                  render={(props) => <button {...props} type="button" disabled />}
+                >
+                  2
+                </Menu.Item>
+                <Menu.Item>3</Menu.Item>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      ));
+
+      const [firstItem, , lastItem] = screen.getAllByRole('menuitem');
+      await act(async () => {
+        firstItem.focus();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await waitFor(() => {
+        expect(lastItem).toHaveFocus();
+      });
+
+      await user.keyboard('{ArrowUp}');
+      await waitFor(() => {
+        expect(firstItem).toHaveFocus();
+      });
     });
   });
 });

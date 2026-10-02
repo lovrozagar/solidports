@@ -1,13 +1,11 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 
-export interface TooltipProviderContext {
-  delay: Accessor<number | undefined>;
-  closeDelay: Accessor<number | undefined>;
-}
+/**
+ * The provider's open delay. Solid: an accessor, so consumers read the latest value.
+ */
+export const TooltipProviderContext = createContext<Accessor<number | undefined> | null>(null);
 
-export const TooltipProviderContext = createContext<TooltipProviderContext | null>(null);
-
-export function useTooltipProviderContext(): TooltipProviderContext | undefined {
+export function useTooltipProviderContext(): Accessor<number | undefined> | null {
   return useContext(TooltipProviderContext);
 }

@@ -89,7 +89,7 @@ export default function ExampleMenu() {
 const itemClass =
   "grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 py-2 pr-8 pl-2.5 text-sm leading-4 outline-hidden select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] data-disabled:text-neutral-500 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white dark:data-disabled:text-neutral-400";
 
-function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -104,7 +104,7 @@ function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

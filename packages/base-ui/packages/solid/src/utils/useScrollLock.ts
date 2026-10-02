@@ -1,26 +1,35 @@
 import { isOverflowElement } from '@floating-ui/utils/dom';
-import { createTrackedEffect, onCleanup } from 'solid-js';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access, createDepsRenderEffect, type MaybeAccessor } from '../solid-helpers';
+import { addEventListener } from './addEventListener';
 import { isIOS, isWebKit } from './detectBrowser';
-import { NOOP } from './empty';
 import { ownerDocument, ownerWindow } from './owner';
-import { AnimationFrame } from './useAnimationFrame';
 import { useTimeout } from './useTimeout';
+import { AnimationFrame } from './useAnimationFrame';
 
 let originalHtmlStyles: Partial<CSSStyleDeclaration> = {};
 let originalBodyStyles: Partial<CSSStyleDeclaration> = {};
 let originalHtmlScrollBehavior = '';
 
-function hasInsetScrollbars(referenceElement: Element | null | undefined) {
+// The viewport's overflow comes from <html> when it establishes its own scroll container, and
+// propagates from <body> otherwise. An `overflow` style on the other element doesn't lock the page.
+function getViewportScroller(html: HTMLElement, body: HTMLElement) {
+  return isOverflowElement(html) ? html : body;
+}
+
+function isPageScrollLocked(win: typeof window, html: HTMLElement, body: HTMLElement) {
+  return /hidden|clip/.test(win.getComputedStyle(getViewportScroller(html, body)).overflowY);
+}
+
+function hasInsetScrollbars(referenceElement: Element | null) {
   if (typeof document === 'undefined') {
     return false;
   }
-  const doc = ownerDocument(referenceElement ?? null);
+  const doc = ownerDocument(referenceElement);
   const win = ownerWindow(doc);
   return win.innerWidth - doc.documentElement.clientWidth > 0;
 }
 
-function supportsStableScrollbarGutter(referenceElement: Element | null | undefined) {
+function supportsStableScrollbarGutter(referenceElement: Element | null) {
   const supported =
     typeof CSS !== 'undefined' && CSS.supports && CSS.supports('scrollbar-gutter', 'stable');
 
@@ -28,11 +37,11 @@ function supportsStableScrollbarGutter(referenceElement: Element | null | undefi
     return false;
   }
 
-  const doc = ownerDocument(referenceElement ?? null);
+  const doc = ownerDocument(referenceElement);
   const html = doc.documentElement;
   const body = doc.body;
 
-  const scrollContainer = isOverflowElement(html) ? html : body;
+  const scrollContainer = getViewportScroller(html, body);
 
   const originalScrollContainerOverflowY = scrollContainer.style.overflowY;
   const originalHtmlStyleGutter = html.style.scrollbarGutter;
@@ -51,8 +60,8 @@ function supportsStableScrollbarGutter(referenceElement: Element | null | undefi
   return before === after;
 }
 
-function preventScrollOverlayScrollbars(referenceElement: Element | null | undefined) {
-  const doc = ownerDocument(referenceElement ?? null);
+function preventScrollOverlayScrollbars(referenceElement: Element | null) {
+  const doc = ownerDocument(referenceElement);
   const html = doc.documentElement;
   const body = doc.body;
 
@@ -60,15 +69,15 @@ function preventScrollOverlayScrollbars(referenceElement: Element | null | undef
   // won't have any effect.
   // But if <body> has an `overflow` style (like `overflow-x: hidden`), we need to lock it
   // instead, as sticky elements shift otherwise.
-  const elementToLock = isOverflowElement(html) ? html : body;
+  const elementToLock = getViewportScroller(html, body);
   const originalElementToLockStyles = {
-    overflowX: elementToLock.style.overflowX,
     overflowY: elementToLock.style.overflowY,
+    overflowX: elementToLock.style.overflowX,
   };
 
   Object.assign(elementToLock.style, {
-    overflowX: 'hidden',
     overflowY: 'hidden',
+    overflowX: 'hidden',
   });
 
   return () => {
@@ -76,8 +85,8 @@ function preventScrollOverlayScrollbars(referenceElement: Element | null | undef
   };
 }
 
-function preventScrollInsetScrollbars(referenceElement: Element | null | undefined) {
-  const doc = ownerDocument(referenceElement ?? null);
+function preventScrollInsetScrollbars(referenceElement: Element | null) {
+  const doc = ownerDocument(referenceElement);
   const html = doc.documentElement;
   const body = doc.body;
   const win = ownerWindow(html);
@@ -105,20 +114,20 @@ function preventScrollInsetScrollbars(referenceElement: Element | null | undefin
     scrollLeft = html.scrollLeft;
 
     originalHtmlStyles = {
-      overflowX: html.style.overflowX,
-      overflowY: html.style.overflowY,
       scrollbarGutter: html.style.scrollbarGutter,
+      overflowY: html.style.overflowY,
+      overflowX: html.style.overflowX,
     };
     originalHtmlScrollBehavior = html.style.scrollBehavior;
 
     originalBodyStyles = {
-      boxSizing: body.style.boxSizing,
-      height: body.style.height,
-      overflowX: body.style.overflowX,
-      overflowY: body.style.overflowY,
       position: body.style.position,
-      scrollBehavior: body.style.scrollBehavior,
+      height: body.style.height,
       width: body.style.width,
+      boxSizing: body.style.boxSizing,
+      overflowY: body.style.overflowY,
+      overflowX: body.style.overflowX,
+      scrollBehavior: body.style.scrollBehavior,
     };
 
     const isScrollableY = html.scrollHeight > html.clientHeight;
@@ -136,7 +145,7 @@ function preventScrollInsetScrollbars(referenceElement: Element | null | undefin
     // with whitespace. Warn if <body> has margins?
     const marginY = parseFloat(bodyStyles.marginTop) + parseFloat(bodyStyles.marginBottom);
     const marginX = parseFloat(bodyStyles.marginLeft) + parseFloat(bodyStyles.marginRight);
-    const elementToLock = isOverflowElement(html) ? html : body;
+    const elementToLock = getViewportScroller(html, body);
 
     updateGutterOnly = supportsStableScrollbarGutter(referenceElement);
 
@@ -153,9 +162,9 @@ function preventScrollInsetScrollbars(referenceElement: Element | null | undefin
     }
 
     Object.assign(html.style, {
-      overflowX: 'hidden',
-      overflowY: 'hidden',
       scrollbarGutter: scrollbarGutterValue,
+      overflowY: 'hidden',
+      overflowX: 'hidden',
     });
 
     if (isScrollableY || hasConstantOverflowY) {
@@ -166,13 +175,15 @@ function preventScrollInsetScrollbars(referenceElement: Element | null | undefin
     }
 
     Object.assign(body.style, {
-      boxSizing: 'border-box',
+      position: 'relative',
       height:
         marginY || scrollbarHeight ? `calc(100dvh - ${marginY + scrollbarHeight}px)` : '100dvh',
-      overflow: 'hidden',
-      position: 'relative',
-      scrollBehavior: 'unset',
       width: marginX || scrollbarWidth ? `calc(100vw - ${marginX + scrollbarWidth}px)` : '100vw',
+      boxSizing: 'border-box',
+      // Assign the longhands that `cleanup` restores, so nothing is left behind.
+      overflowY: 'hidden',
+      overflowX: 'hidden',
+      scrollBehavior: 'unset',
     });
 
     body.scrollTop = scrollTop;
@@ -199,17 +210,16 @@ function preventScrollInsetScrollbars(referenceElement: Element | null | undefin
   }
 
   lockScroll();
-  win.addEventListener('resize', handleResize);
+  const unsubscribeResize = addEventListener(win, 'resize', handleResize);
 
   return () => {
     resizeFrame.cancel();
     cleanup();
-    // Sometimes this cleanup can be run after test teardown
-    // because it is called in a `setTimeout(fn, 0)`,
-    // in which case `removeEventListener` wouldn't be available,
-    // so we check for it to avoid test failures.
+    // Sometimes this cleanup can run after test teardown because it is called
+    // in a `setTimeout(fn, 0)`. Guard the returned cleanup to avoid calling
+    // `removeEventListener` when it is no longer available in tests.
     if (typeof win.removeEventListener === 'function') {
-      win.removeEventListener('resize', handleResize);
+      unsubscribeResize();
     }
   };
 }
@@ -249,15 +259,34 @@ class ScrollLocker {
 
     const doc = ownerDocument(referenceElement);
     const html = doc.documentElement;
-    const htmlOverflowY = ownerWindow(html).getComputedStyle(html).overflowY;
+    const body = doc.body;
+    const win = ownerWindow(html);
 
-    // If the site author already hid overflow on <html>, respect it and bail out.
-    if (htmlOverflowY === 'hidden' || htmlOverflowY === 'clip') {
-      this.restore = NOOP;
+    // The page is already locked, either by the site author or by a non-Base UI overlay that
+    // hasn't cleaned up yet. Leave it alone and wait for the lock to clear before taking over,
+    // otherwise we'd snapshot the locked state and restore it after our own lock is released.
+    if (isPageScrollLocked(win, html, body)) {
+      const observer = new win.MutationObserver(() => {
+        if (isPageScrollLocked(win, html, body)) {
+          return;
+        }
+        observer.disconnect();
+        this.restore = null;
+        this.lock(referenceElement);
+      });
+
+      // Watch every attribute: locks are applied through inline styles, classes, or attributes
+      // paired with a stylesheet (`data-scroll-locked` in react-remove-scroll, for example).
+      const options: MutationObserverInit = { attributes: true };
+
+      observer.observe(html, options);
+      observer.observe(body, options);
+
+      this.restore = () => observer.disconnect();
       return;
     }
 
-    const isOverflowHiddenLock = isIOS || !hasInsetScrollbars(referenceElement);
+    const hasOverlayScrollbars = isIOS || !hasInsetScrollbars(referenceElement);
 
     // On iOS, scroll locking does not work if the navbar is collapsed. Due to numerous
     // side effects and bugs that arise on iOS, it must be researched extensively before
@@ -265,7 +294,7 @@ class ScrollLocker {
     // - Textboxes must scroll into view when focused, nor cause a glitchy scroll animation.
     // - The navbar must not force itself into view and cause layout shift.
     // - Scroll containers must not flicker upon closing a popup when it has an exit animation.
-    this.restore = isOverflowHiddenLock
+    this.restore = hasOverlayScrollbars
       ? preventScrollOverlayScrollbars(referenceElement)
       : preventScrollInsetScrollbars(referenceElement);
   }
@@ -283,24 +312,12 @@ export function useScrollLock(params: {
   enabled: MaybeAccessor<boolean>;
   referenceElement?: MaybeAccessor<Element | null | undefined>;
 }) {
-  const enabled = () => access(params.enabled) ?? true;
-  const referenceElement = () => access(params.referenceElement) ?? null;
-
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (!enabled()) {
-      return;
-    }
-
-    const cleanup = SCROLL_LOCKER.acquire(referenceElement());
-    _c.push(cleanup);
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  createDepsRenderEffect(
+    () => ({
+      enabled: access(params.enabled) ?? true,
+      referenceElement: access(params.referenceElement) ?? null,
+    }),
+    ({ enabled, referenceElement }) =>
+      enabled ? SCROLL_LOCKER.acquire(referenceElement) : undefined,
+  );
 }

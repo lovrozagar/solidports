@@ -1,3 +1,4 @@
+import { expect } from 'vitest';
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { screen, waitFor } from '@solidjs/testing-library';
@@ -30,7 +31,10 @@ describe('<ScrollArea.Corner />', () => {
     render(node, props) {
       return render(() => (
         <ScrollArea.Root>
-          <ScrollArea.Viewport ref={mockViewportMetrics} style={{ height: '100px', width: '100px' }}>
+          <ScrollArea.Viewport
+            ref={mockViewportMetrics}
+            style={{ height: '100px', width: '100px' }}
+          >
             <div style={{ height: '1000px', width: '1000px' }} />
           </ScrollArea.Viewport>
           <ScrollArea.Scrollbar orientation="vertical" keepMounted style={{ width: '10px' }}>
@@ -45,12 +49,42 @@ describe('<ScrollArea.Corner />', () => {
     },
   }));
 
+  it('is hidden from the accessibility tree by default', async () => {
+    render(() => (
+      <ScrollArea.Root>
+        <ScrollArea.Viewport ref={mockViewportMetrics} style={{ width: '100px', height: '100px' }}>
+          <div style={{ width: '1000px', height: '1000px' }} />
+        </ScrollArea.Viewport>
+        <ScrollArea.Scrollbar orientation="vertical" keepMounted style={{ width: '10px' }} />
+        <ScrollArea.Scrollbar orientation="horizontal" keepMounted style={{ height: '10px' }} />
+        <ScrollArea.Corner data-testid="corner" />
+      </ScrollArea.Root>
+    ));
+
+    expect(screen.getByTestId('corner')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('allows overriding aria-hidden', async () => {
+    render(() => (
+      <ScrollArea.Root>
+        <ScrollArea.Viewport ref={mockViewportMetrics} style={{ width: '100px', height: '100px' }}>
+          <div style={{ width: '1000px', height: '1000px' }} />
+        </ScrollArea.Viewport>
+        <ScrollArea.Scrollbar orientation="vertical" keepMounted style={{ width: '10px' }} />
+        <ScrollArea.Scrollbar orientation="horizontal" keepMounted style={{ height: '10px' }} />
+        <ScrollArea.Corner data-testid="corner" aria-hidden={undefined} />
+      </ScrollArea.Root>
+    ));
+
+    expect(screen.getByTestId('corner')).not.toHaveAttribute('aria-hidden');
+  });
+
   describe.skipIf(isJSDOM)('interactions', () => {
     it('should apply correct corner size when both scrollbars are present', async () => {
       render(() => (
-        <ScrollArea.Root style={{ height: '200px', width: '200px' }}>
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
-            <div style={{ height: '1000px', width: '1000px' }} />
+        <ScrollArea.Root style={{ width: '200px', height: '200px' }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+            <div style={{ width: '1000px', height: '1000px' }} />
           </ScrollArea.Viewport>
           <ScrollArea.Scrollbar orientation="vertical" style={{ width: '10px' }} />
           <ScrollArea.Scrollbar orientation="horizontal" style={{ height: '10px' }} />
@@ -58,11 +92,12 @@ describe('<ScrollArea.Corner />', () => {
         </ScrollArea.Root>
       ));
 
+      const corner = screen.getByTestId('corner');
+
       await waitFor(() => {
-        const corner = screen.getByTestId('corner');
         const style = getComputedStyle(corner);
-        expect(style.getPropertyValue('--scroll-area-corner-width')).to.equal('10px');
-        expect(style.getPropertyValue('--scroll-area-corner-height')).to.equal('10px');
+        expect(style.getPropertyValue('--scroll-area-corner-width')).toBe('10px');
+        expect(style.getPropertyValue('--scroll-area-corner-height')).toBe('10px');
       });
     });
   });

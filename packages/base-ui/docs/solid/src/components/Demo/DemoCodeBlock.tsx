@@ -41,7 +41,9 @@ function Root(props: ParentProps<{ closed?: boolean }>) {
   let rootEl: HTMLDivElement | undefined
   return (
     <BaseScrollArea.Root
-      ref={(el: HTMLDivElement) => (rootEl = el)}
+      ref={(el: HTMLDivElement | null) => {
+        rootEl = el ?? undefined
+      }}
       class="DemoCodeBlockRoot"
       data-closed={props.closed ? "" : undefined}
       tabindex={-1}
@@ -92,7 +94,7 @@ export function DemoCodeBlock(props: DemoCodeBlockProps) {
       <div class="DemoCodeBlockCollapsible">
         <Root closed={collapsed()}>
           <ScrollArea.Viewport
-            aria-hidden={collapsed()}
+            aria-hidden={collapsed() ? "true" : "false"}
             data-closed={collapsed() ? "" : undefined}
             class="DemoCodeBlockViewport"
           >

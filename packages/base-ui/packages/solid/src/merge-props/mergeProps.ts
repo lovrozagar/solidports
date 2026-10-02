@@ -10,7 +10,7 @@
 /* eslint-disable guard-for-in */
 /* eslint-disable typescript/no-explicit-any -- generic prop merger handles arbitrary element types and event handler shapes; `unknown` would force casts at every cache slot and break variance with consumer prop types */
 
-import { $PROXY } from 'solid-js';
+import { $PROXY, untrack } from 'solid-js';
 import type { Ref } from 'solid-js';
 import type { ComponentProps, JSX, ValidComponent } from '@solidjs/web';
 import type { BaseUIEvent, WithBaseUIEvent } from '../utils/types';
@@ -47,6 +47,10 @@ const propTraps: ProxyHandler<{
     return _.get(property);
   },
   getOwnPropertyDescriptor(_, property) {
+    // Report only the keys the merged props have, so `hasOwnProperty` matches a plain object.
+    if (!_.has(property)) {
+      return undefined;
+    }
     return {
       configurable: true,
       enumerable: true,
@@ -118,6 +122,15 @@ export function combineStyle(
 
 type ElementType = keyof JSX.IntrinsicElements | ValidComponent;
 type PropsOf<T extends ElementType> = WithBaseUIEvent<ComponentProps<T>>;
+// Solid: the merged handlers are what the DOM calls, and they make the native event preventable
+// themselves, so the result takes plain events. React types the result as `PropsOf<T>` and relies
+// on React's bivariant `EventHandler`; Solid's `JSX.EventHandler` is checked strictly, so a
+// `BaseUIEvent` handler could not be spread onto a native element.
+// A mapped type (as React's `PropsOf`) rather than the `ComponentProps` interfaces, so the result is
+// assignable to `Record<string, unknown>` (e.g. `useRender`'s `props`).
+type MergedPropsOf<T extends ElementType> = {
+  [K in keyof ComponentProps<T>]: ComponentProps<T>[K];
+};
 export type MergablePropsCallback<T extends ElementType> = (otherProps: PropsOf<T>) => PropsOf<T>;
 
 type PropsInput<T extends ElementType> = PropsOf<T> | MergablePropsCallback<T> | undefined;
@@ -156,22 +169,22 @@ const reduce = <T, K extends keyof T>(
 export function mergeProps<
   E extends ElementType | undefined = undefined,
   Args extends Array<any> = PropsInput<E extends ElementType ? E : any>[],
-  R = PropsOf<E extends ElementType ? E : any>,
+  R = MergedPropsOf<E extends ElementType ? E : any>,
 >(sources: Args, options?: MergePropsOptions): R;
 export function mergeProps<
   E extends ElementType | undefined = undefined,
   Args extends Array<any> = PropsInput<E extends ElementType ? E : any>[],
-  R = PropsOf<E extends ElementType ? E : any>,
+  R = MergedPropsOf<E extends ElementType ? E : any>,
 >(...sources: [...Args, MergePropsOptions]): R;
 export function mergeProps<
   E extends ElementType | undefined = undefined,
   Args extends Array<any> = PropsInput<E extends ElementType ? E : any>[],
-  R = PropsOf<E extends ElementType ? E : any>,
+  R = MergedPropsOf<E extends ElementType ? E : any>,
 >(...sources: Args): R;
 export function mergeProps<
   E extends ElementType | undefined = undefined,
   Args extends Array<any> = PropsInput<E extends ElementType ? E : any>[],
-  R = PropsOf<E extends ElementType ? E : any>,
+  R = MergedPropsOf<E extends ElementType ? E : any>,
 >(...args: Args): R {
   let rawArgs = args as unknown[];
   let options: MergePropsOptions | undefined;
@@ -220,7 +233,7 @@ export function mergeProps<
           return reduce(mergedClassList, 'classList', (a, b) => ({ ...a, ...b }));
         },
         get ref() {
-          return reverseChain(mergedRefs);
+          return chainRefs(mergedRefs);
         },
         get style() {
           return reduce(mergedStyles, 'style', combineStyle as any);
@@ -324,7 +337,7 @@ export function mergeProps<
       return reduce(cacheClassList, 'classList', (a, b) => ({ ...a, ...b }));
     },
     get ref() {
-      return reverseChain(cacheRefs);
+      return chainRefs(cacheRefs);
     },
     get style() {
       return reduce(cacheStyles, 'style', combineStyle as any);
@@ -369,9 +382,32 @@ export function mergeProps<
 }
 
 /**
+ * Merges an arbitrary number of props using the same logic as {@link mergeProps}.
+ * This function accepts an array of props instead of individual arguments.
+ *
+ * @param props Array of props to merge.
+ * @returns The merged props.
+ * @see mergeProps
+ * @public
+ */
+export function mergePropsN<E extends ElementType | undefined = undefined>(
+  props: PropsInput<E extends ElementType ? E : any>[],
+): MergedPropsOf<E extends ElementType ? E : any> {
+  return mergeProps<E>(props);
+}
+
+/**
  * https://github.com/solidjs-community/solid-primitives/blob/0cbdb59bb42f50de5e08000027789ae3d4c80280/packages/utils/src/index.ts#L82-L94
  * Returns a function that will call all functions in the reversed order with the same arguments.
  */
+/** The ref callbacks a merged `ref` chains, so a consumer can apply each one exactly once. */
+export const MERGED_REFS = Symbol('mergedRefs');
+
+function chainRefs(refs: Function[]) {
+  const chained = reverseChain(refs as ((...args: any[]) => any)[]);
+  return Object.assign(chained, { [MERGED_REFS]: [...refs].reverse() });
+}
+
 export function reverseChain<Args extends [] | any[]>(
   callbacks: (((...args: Args) => any) | undefined)[],
 ): (...args: Args) => void {
@@ -390,7 +426,7 @@ function buildCallAllListeners(
   for (const name in listenerArrays) {
     const handlers = listenerArrays[name];
     result[name] = (...args: any[]) => {
-      return handlers.map((fn) => fn(...args)).find((val) => val !== undefined);
+      return untrack(() => handlers.map((fn) => fn(...args)).find((val) => val !== undefined));
     };
   }
   return result;
@@ -408,7 +444,7 @@ function wrapEventHandler(handler: EventHandler | undefined): EventHandler | und
       makeEventPreventable(event as BaseUIEvent<typeof event>);
     }
 
-    return handler(...args);
+    return untrack(() => handler(...args));
   };
 }
 
@@ -417,13 +453,13 @@ function mergeEventHandlers(
   theirHandler: EventHandler | undefined,
 ): (...args: any[]) => void {
   if (!theirHandler) {
-    return ourHandler as any;
+    return untrackedHandler(ourHandler) as any;
   }
   if (!ourHandler) {
     return wrapEventHandler(theirHandler) as any;
   }
 
-  return (...args: unknown[]) => {
+  return untrackedHandler((...args: unknown[]) => {
     const event = args[0];
 
     if (event instanceof Event) {
@@ -443,7 +479,18 @@ function mergeEventHandlers(
     const result = theirHandler(...args);
     ourHandler?.(...args);
     return result;
-  };
+  });
+}
+
+/**
+ * Handlers never subscribe. An event can be dispatched from inside an effect (an effect that
+ * calls `element.focus()`), and the handler's reads must not count as that effect's reads.
+ */
+function untrackedHandler<H extends EventHandler | undefined>(handler: H): H {
+  if (!handler) {
+    return handler;
+  }
+  return ((...args: unknown[]) => untrack(() => handler(...args))) as H;
 }
 
 export function makeEventPreventable<T extends Event>(event: BaseUIEvent<T>) {

@@ -1,4 +1,4 @@
-import { createRenderer } from '#test-utils';
+import { act, createRenderer } from '#test-utils';
 import { Drawer } from '@solidports/base-ui/drawer';
 import { screen } from '@mui/internal-test-utils';
 import { createSignal } from 'solid-js';
@@ -31,7 +31,7 @@ describe('<Drawer.IndentBackground />', () => {
     expect(background.getAttribute('data-inactive')).toBe('');
     expect(background.getAttribute('data-active')).toBeNull();
 
-    setOpen(true);
+    act(() => setOpen(true));
 
     expect(background.getAttribute('data-active')).toBe('');
     expect(background.getAttribute('data-inactive')).toBeNull();

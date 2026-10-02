@@ -1,5 +1,4 @@
 import { createContext, createSignal, useContext } from 'solid-js';
-import type { ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitProps } from '../utils/solid-1-compat';
 import { Dynamic } from '@solidjs/web';
@@ -149,7 +148,7 @@ export function Content(props: JSX.HTMLAttributes<HTMLDivElement>) {
   return <div class={clsx("AccordionContent", local.class)} {...rest} />
 }
 
-interface ScrollableProps extends JSX.HTMLAttributes<HTMLElement>, ParentProps {
+interface ScrollableProps extends JSX.HTMLAttributes<HTMLElement> {
   gradientColor?: string
   tag?: "span" | "div"
 }

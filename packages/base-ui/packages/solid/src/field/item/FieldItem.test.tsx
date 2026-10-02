@@ -5,8 +5,9 @@ import { Field } from '@solidports/base-ui/field';
 import { Radio } from '@solidports/base-ui/radio';
 import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import type { JSX } from '@solidjs/web';
 import { spy } from 'sinon';
+import { expect, vi } from 'vitest';
 import { describeConformance } from '../../../test/describeConformance';
 
 describe('<Field.Item />', () => {
@@ -20,6 +21,23 @@ describe('<Field.Item />', () => {
   }));
 
   describe('prop: disabled', () => {
+    it('reflects disabled state on the item', () => {
+      const renderItem = vi.fn();
+      function renderFieldItem(props: JSX.HTMLAttributes<HTMLDivElement>, state: Field.Item.State) {
+        renderItem({ ...state });
+        return <div {...props} />;
+      }
+
+      render(() => (
+        <Field.Root>
+          <Field.Item disabled data-testid="item" render={renderFieldItem} />
+        </Field.Root>
+      ));
+
+      expect(screen.getByTestId('item')).to.have.attribute('data-disabled');
+      expect(renderItem.mock.lastCall?.[0].disabled).to.equal(true);
+    });
+
     it('disables a wrapped checkbox', async () => {
       const onValueChange = spy();
       const { user } = render(() => (
@@ -61,5 +79,32 @@ describe('<Field.Item />', () => {
       await user.click(radio2);
       expect(onValueChange.callCount).to.equal(1);
     });
+  });
+
+  it('associates a Field.Item label with a parent checkbox', async () => {
+    const { user } = render(() => (
+      <Field.Root>
+        <CheckboxGroup allValues={['a', 'b']}>
+          <Field.Item>
+            <Field.Label>
+              <Checkbox.Root parent data-testid="parent" />
+              Toggle all
+            </Field.Label>
+          </Field.Item>
+          <Checkbox.Root value="a" data-testid="a" />
+          <Checkbox.Root value="b" data-testid="b" />
+        </CheckboxGroup>
+      </Field.Root>
+    ));
+
+    const label = screen.getByText('Toggle all').closest('label') as HTMLLabelElement;
+    const parent = screen.getByTestId('parent');
+
+    expect(label).to.have.attribute('for');
+    expect(label.control).to.have.attribute('type', 'checkbox');
+    await user.click(screen.getByText('Toggle all'));
+    expect(parent).to.have.attribute('aria-checked', 'true');
+    expect(screen.getByTestId('a')).to.have.attribute('aria-checked', 'true');
+    expect(screen.getByTestId('b')).to.have.attribute('aria-checked', 'true');
   });
 });

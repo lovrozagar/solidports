@@ -1,10 +1,12 @@
-import { createTrackedEffect, onCleanup } from 'solid-js';
+import { createEffect } from 'solid-js';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { FieldRoot } from '../root/FieldRoot';
+import { useFieldItemContext } from '../item/FieldItemContext';
+import type { FieldRootState } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
 import { fieldValidityMapping } from '../utils/constants';
 
@@ -20,29 +22,26 @@ export function FieldDescription(componentProps: FieldDescription.Props) {
   const id = useBaseUiId(() => local.id);
 
   const fieldRootContext = useFieldRootContext(false);
+  const fieldItemContext = useFieldItemContext();
   const { setMessageIds } = useLabelableContext();
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
+  const state: FieldDescriptionState = solidMergeProps(fieldRootContext.state, {
+    get disabled() {
+      return Boolean(fieldRootContext.disabled() || fieldItemContext.disabled());
+    },
+  });
 
-    const idValue = id();
+  createEffect(id, (idValue) => {
     if (!idValue) {
-      return;
+      return undefined;
     }
 
     setMessageIds((v) => v.concat(idValue));
 
-    _c.push(() => {
-      setMessageIds((v) => v.filter((item) => item !== idValue));
-    });
-      })();
     return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
+      setMessageIds((v) => v.filter((item) => item !== idValue));
     };
-});
+  });
 
   const element = useRenderElement('p', componentProps, {
     props: [
@@ -53,16 +52,16 @@ export function FieldDescription(componentProps: FieldDescription.Props) {
       },
       elementProps,
     ],
-    state: fieldRootContext.state,
+    state,
     stateAttributesMapping: fieldValidityMapping,
   });
 
   return <>{element()}</>;
 }
 
-export type FieldDescriptionState = FieldRoot.State;
+export interface FieldDescriptionState extends FieldRootState {}
 
-export interface FieldDescriptionProps extends BaseUIComponentProps<'p', FieldDescription.State> {}
+export interface FieldDescriptionProps extends BaseUIComponentProps<'p', FieldDescriptionState> {}
 
 export namespace FieldDescription {
   export type State = FieldDescriptionState;

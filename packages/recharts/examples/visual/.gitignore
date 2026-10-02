@@ -1,0 +1,3 @@
+# per-run outputs; tests/__snapshots__/react-reference is the committed baseline
+tests/__snapshots__/diffs/
+tests/__snapshots__/solid-actual/

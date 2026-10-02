@@ -3,11 +3,7 @@ import type { JSX } from '@solidjs/web';
 import { serializeValue } from './serializeValue';
 
 type ItemRecord = Record<string, JSX.Element>;
-type ItemsInput =
-  | ItemRecord
-  | ReadonlyArray<LabeledItem>
-  | ReadonlyArray<Group<LabeledItem>>
-  | undefined;
+type ItemsInput = ItemRecord | ReadonlyArray<LabeledItem> | ReadonlyArray<Group<any>> | undefined;
 
 interface LabeledItem {
   value: any;
@@ -44,11 +40,13 @@ export function flattenLeafItems<Item>(
  */
 export function hasNullItemLabel(items: ItemsInput): boolean {
   if (!Array.isArray(items)) {
-    return items != null && !('null' in items);
+    return items != null && 'null' in items;
   }
 
-  if (isGroupedItems(items)) {
-    for (const group of items) {
+  const arrayItems = items as ReadonlyArray<LabeledItem> | ReadonlyArray<Group<any>>;
+
+  if (isGroupedItems(arrayItems)) {
+    for (const group of arrayItems) {
       for (const item of group.items) {
         if (item && item.value == null && item.label != null) {
           return true;
@@ -58,7 +56,7 @@ export function hasNullItemLabel(items: ItemsInput): boolean {
     return false;
   }
 
-  for (const item of items as ReadonlyArray<LabeledItem>) {
+  for (const item of arrayItems) {
     if (item && item.value == null && item.label != null) {
       return true;
     }
@@ -112,12 +110,14 @@ export function resolveSelectedLabel(
 
   // Items provided as plain record map
   if (items && !Array.isArray(items)) {
-    return (items as any)[value] ?? fallback();
+    const label = Object.hasOwn(items, value) ? (items as any)[value] : undefined;
+    return label ?? fallback();
   }
 
   // Items provided as array (flat or grouped)
   if (Array.isArray(items)) {
-    const flatItems: LabeledItem[] = isGroupedItems(items) ? items.flatMap((g) => g.items) : items;
+    const arrayItems = items as ReadonlyArray<LabeledItem> | ReadonlyArray<Group<any>>;
+    const flatItems = flattenLeafItems<LabeledItem>(arrayItems);
 
     if (value == null || typeof value !== 'object') {
       const match = flatItems.find((item) => item.value === value);

@@ -1,4 +1,4 @@
-import { createTrackedEffect, createMemo, onCleanup } from 'solid-js';
+import { createEffect, createMemo } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { COMPOSITE_KEYS } from '../../internals/composite/composite';
 import { FloatingFocusManager, useHoverFloatingInteraction } from '../../floating-ui-solid';
@@ -52,10 +52,7 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
   const floatingTreeRoot = store.useState('floatingTreeRoot');
   const closeDelay = store.useState('closeDelay');
   const activeTriggerElement = store.useState('activeTriggerElement');
-
-  createTrackedEffect(() => {
-    store.context.hasExplicitFinalFocus = local.finalFocus !== undefined;
-  });
+  const openMethod = store.useState('openMethod');
 
   const isContextMenu = () => parent().type === 'context-menu';
 
@@ -70,32 +67,18 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
   });
 
   function handleClose(event: { domEvent: Event | undefined; reason: MenuRoot.ChangeEventReason }) {
-    if (parent().type === 'context-menu') {
-      queueMicrotask(() => {
-        store.setOpen(false, createChangeEventDetails(event.reason, event.domEvent));
-      });
-      return;
-    }
-
     store.setOpen(false, createChangeEventDetails(event.reason, event.domEvent));
   }
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    floatingTreeRoot().events.on('close', handleClose);
-
-    _c.push(() => {
-      floatingTreeRoot().events.off('close', handleClose);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  createEffect(
+    () => floatingTreeRoot().events,
+    (events) => {
+      events.on('close', handleClose);
+      return () => {
+        events.off('close', handleClose);
+      };
+    },
+  );
 
   const hoverEnabled = store.useState('hoverEnabled');
   const disabled = store.useState('disabled');
@@ -111,6 +94,8 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
       },
     },
   });
+
+  const setPopupElement = store.useStateSetter('popupElement');
 
   const state: MenuPopup.State = {
     get align() {
@@ -153,9 +138,7 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
         },
       ];
     },
-    ref: (el) => {
-      store.context.popupRef.current = el;
-    },
+    ref: [store.context.popupRef, setPopupElement],
     state,
     stateAttributesMapping,
   });
@@ -179,6 +162,7 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
   return (
     <FloatingFocusManager
       context={floatingContext}
+      openInteractionType={openMethod()}
       modal={isContextMenu()}
       disabled={!mounted()}
       returnFocus={resolvedReturnFocus()}

@@ -37,7 +37,7 @@ function ExampleForm() {
           defaultValue=""
           placeholder="e.g. api-server-01"
           required
-          minLength={3}
+          minlength={3}
           pattern=".*[A-Za-z].*"
         />
         <Field.Description>Must be 3 or more characters long</Field.Description>
@@ -116,7 +116,7 @@ function ExampleForm() {
       <Field.Root name="serverType">
         <Select.Root items={SERVER_TYPES} required>
           <div class="w-fit space-y-1">
-            <label>Server type</label>
+            <Select.Label>Server type</Select.Label>
             <Select.Trigger class="w-48">
               <Select.Value />
               <Select.Icon>
@@ -260,7 +260,7 @@ export default function App() {
   );
 }
 
-function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretUpDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -275,7 +275,7 @@ function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -291,7 +291,7 @@ function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function PlusIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -299,8 +299,8 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >
@@ -309,7 +309,7 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function MinusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function MinusIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -317,8 +317,8 @@ function MinusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

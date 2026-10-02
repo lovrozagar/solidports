@@ -17,7 +17,7 @@ export default function ExampleDrawer() {
       open={drawerOpen()}
       onOpenChange={(open, eventDetails) => {
         // Show the close confirmation if there’s text in the textarea
-        if (!open && textareaValue) {
+        if (!open && textareaValue()) {
           eventDetails.cancel();
           setConfirmationOpen(true);
           return;
@@ -55,7 +55,7 @@ export default function ExampleDrawer() {
                   class={styles.Textarea}
                   placeholder="What’s on your mind?"
                   value={textareaValue()}
-                  onChange={(event) => setTextareaValue(event.target.value)}
+                  onInput={(event) => setTextareaValue(event.target.value)}
                 />
                 <div class={styles.Actions}>
                   <Drawer.Close class={styles.Button}>Cancel</Drawer.Close>

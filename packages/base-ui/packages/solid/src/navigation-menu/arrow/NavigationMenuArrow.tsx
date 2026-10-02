@@ -1,6 +1,7 @@
 import { splitComponentProps } from '../../solid-helpers';
 import { popupStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
+import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useNavigationMenuPositionerContext } from '../positioner/NavigationMenuPositionerContext';
@@ -15,7 +16,7 @@ import { useNavigationMenuRootContext } from '../root/NavigationMenuRootContext'
 export function NavigationMenuArrow(componentProps: NavigationMenuArrow.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { open } = useNavigationMenuRootContext();
+  const { open, transitionStatus } = useNavigationMenuRootContext();
   const { arrowRef, side, align, arrowUncentered, arrowStyles } =
     useNavigationMenuPositionerContext();
 
@@ -35,15 +36,18 @@ export function NavigationMenuArrow(componentProps: NavigationMenuArrow.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    props: [
-      {
-        get style() {
-          return arrowStyles();
+    get props() {
+      return [
+        {
+          get style() {
+            return arrowStyles();
+          },
+          'aria-hidden': 'true',
         },
-        'aria-hidden': 'true',
-      },
-      elementProps,
-    ],
+        getDisabledMountTransitionStyles(transitionStatus()),
+        elementProps,
+      ];
+    },
     ref: (el) => {
       arrowRef.current = el;
     },

@@ -33,14 +33,14 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
   const keepMounted = () => local.keepMounted ?? false;
 
   const { disabled: fieldDisabled } = useFieldRootContext();
-  const { store } = useComboboxRootContext();
+  const store = useComboboxRootContext();
 
-  const selectionMode = store.useSelector('selectionMode');
-  const comboboxDisabled = store.useSelector('disabled');
-  const readOnly = store.useSelector('readOnly');
-  const open = store.useSelector('open');
-  const selectedValue = store.useSelector('selectedValue');
-  const hasSelectionChips = store.useSelector('hasSelectionChips');
+  const selectionMode = store.useState('selectionMode');
+  const comboboxDisabled = store.useState('disabled');
+  const readOnly = store.useState('readOnly');
+  const open = store.useState('open');
+  const selectedValue = store.useState('selectedValue');
+  const hasSelectionChips = store.useState('hasSelectionChips');
 
   const inputValue = useComboboxInputValueContext();
 
@@ -67,6 +67,9 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
     get disabled() {
       return disabled();
     },
+    get visible() {
+      return visible();
+    },
     get open() {
       return open();
     },
@@ -82,7 +85,7 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
       }
     },
     open: visible,
-    ref: () => store.state.clearRef,
+    ref: () => store.context.clearRef.current,
   });
 
   const element = useRenderElement('button', componentProps, {
@@ -99,28 +102,21 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
             return;
           }
 
-          const keyboardActiveRef = store.state.keyboardActiveRef;
+          const type = store.context.keyboardActiveRef.current ? REASONS.keyboard : REASONS.pointer;
 
           store.context.setInputValue('', createChangeEventDetails(REASONS.clearPress, event));
 
           if (selectionMode() !== 'none') {
             store.context.setSelectedValue(
-              Array.isArray(selectedValue) ? [] : null,
+              Array.isArray(selectedValue()) ? [] : null,
               createChangeEventDetails(REASONS.clearPress, event),
             );
-            store.context.setIndices({
-              activeIndex: null,
-              selectedIndex: null,
-              type: keyboardActiveRef ? 'keyboard' : 'pointer',
-            });
+            store.context.setIndices({ activeIndex: null, selectedIndex: null, type });
           } else {
-            store.context.setIndices({
-              activeIndex: null,
-              type: keyboardActiveRef ? 'keyboard' : 'pointer',
-            });
+            store.context.setIndices({ activeIndex: null, type });
           }
 
-          store.state.inputRef?.focus();
+          store.context.inputRef.current?.focus();
         },
       },
       elementProps,
@@ -128,7 +124,7 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
     ],
     ref: (el) => {
       buttonRef(el);
-      store.set('clearRef', el);
+      store.context.clearRef.current = el;
     },
     state,
     stateAttributesMapping,
@@ -148,6 +144,13 @@ export interface ComboboxClearState {
    * Whether the component should ignore user interaction.
    */
   disabled: boolean;
+  /**
+   * Whether the clear button should be visible.
+   */
+  visible: boolean;
+  /**
+   * The transition status of the component.
+   */
   transitionStatus: TransitionStatus;
 }
 

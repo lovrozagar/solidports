@@ -14,9 +14,7 @@ import { MenuGroupContext } from './MenuGroupContext';
 export function MenuGroup(componentProps: MenuGroup.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const [labelId, setLabelId] = createSignal<string>();
-
-  const context = { setLabelId };
+  const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
 
   const element = useRenderElement('div', componentProps, {
     props: [
@@ -30,7 +28,7 @@ export function MenuGroup(componentProps: MenuGroup.Props) {
     ],
   });
 
-  return <MenuGroupContext value={context}>{element()}</MenuGroupContext>;
+  return <MenuGroupContext value={setLabelId}>{element()}</MenuGroupContext>;
 }
 
 export interface MenuGroupProps extends BaseUIComponentProps<'div', MenuGroup.State> {

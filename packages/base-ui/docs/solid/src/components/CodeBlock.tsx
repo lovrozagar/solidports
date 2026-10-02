@@ -48,9 +48,7 @@ export function Root(props: ParentProps<JSX.HTMLAttributes<HTMLDivElement>>) {
   )
 }
 
-export function Panel(
-  props: ParentProps<JSX.HTMLAttributes<HTMLDivElement> & { title?: string }>,
-) {
+export function Panel(props: ParentProps<JSX.HTMLAttributes<HTMLDivElement>>) {
   const [local, rest] = splitProps(props, ["class", "children", "title"])
   const ctx = useContext(CodeBlockContext)
   const [copied, setCopied] = createSignal(false)
@@ -68,7 +66,7 @@ export function Panel(
 
   return (
     <div class={clsx("CodeBlockPanel", local.class)} {...rest}>
-      {local.title != null ? (
+      {typeof local.title === "string" ? (
         <>
           <span id={ctx.titleId} class="bui-sr-only">
             {local.title}
@@ -87,7 +85,7 @@ export function Panel(
   )
 }
 
-export function Content(props: ParentProps<JSX.HTMLAttributes<HTMLDivElement>>) {
+export function Content(props: ParentProps<Omit<JSX.HTMLAttributes<HTMLDivElement>, "ref" | "style">>) {
   const [local, rest] = splitProps(props, ["class", "children"])
   const ctx = useContext(CodeBlockContext)
   return (

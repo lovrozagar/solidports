@@ -5,15 +5,13 @@ export type PreviewCardRootContext<Payload = unknown> = {
   store: PreviewCardStore<Payload>;
 };
 
-export const PreviewCardRootContext = createContext<Partial<PreviewCardRootContext>>({
-  store: undefined,
-});
+export const PreviewCardRootContext = createContext<PreviewCardRootContext | null>(null);
 
 export function usePreviewCardRootContext(optional?: false): PreviewCardRootContext;
-export function usePreviewCardRootContext(optional: true): Partial<PreviewCardRootContext>;
+export function usePreviewCardRootContext(optional: true): PreviewCardRootContext | null;
 export function usePreviewCardRootContext(optional?: boolean) {
   const context = useContext(PreviewCardRootContext);
-  if (context.store === undefined && !optional) {
+  if (context == null && !optional) {
     throw new Error(
       'Base UI: PreviewCardRootContext is missing. PreviewCard parts must be placed within <PreviewCard.Root>.',
     );

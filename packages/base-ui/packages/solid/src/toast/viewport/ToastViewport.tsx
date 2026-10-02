@@ -1,7 +1,9 @@
-import { createTrackedEffect, createMemo, For, onCleanup, Show } from 'solid-js';
+import { createEffect, createMemo, For, Show, untrack } from 'solid-js';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps } from '../../solid-helpers';
+import { addEventListener } from '../../utils/addEventListener';
 import { FocusGuard } from '../../utils/FocusGuard';
+import { mergeCleanups } from '../../utils/mergeCleanups';
 import { ownerDocument, ownerWindow } from '../../utils/owner';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -28,7 +30,9 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
   let markedReadyForMouseLeaveRef = false;
   let touchActiveRef = false;
 
-  const isEmpty = store.useState('isEmpty');
+  // Solid: a memo, so the listener effect below re-runs only when emptiness flips, as React's
+  // `useStore` re-renders only on a changed selector value.
+  const isEmpty = createMemo(store.useState('isEmpty'));
   const toasts = store.useState('toasts');
   const focused = store.useState('focused');
   const expanded = store.useState('expanded');
@@ -39,62 +43,35 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     toasts().some((toast: ToastObject<any>) => toast.transitionStatus === 'ending'),
   );
 
-  // Listen globally for F6 so we can force-focus the viewport.
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    const viewport = store.state.viewport ?? null;
-    if (!viewport) {
-      return;
+  createEffect(isEmpty, (empty) => {
+    // `store.state.viewport` isn't available on the first render, since the portal node hasn't yet
+    // been created. Depending on `isEmpty` ensures the listeners are attached once toasts exist and
+    // the viewport ref is available.
+    const viewport = untrack(() => store.state.viewport) ?? null;
+    if (!viewport || empty) {
+      return undefined;
     }
 
-    function handleGlobalKeyDown(event: KeyboardEvent) {
-      if (isEmpty()) {
-        return;
-      }
+    const win = ownerWindow(viewport);
+    const doc = ownerDocument(viewport);
 
-      if (event.key === 'F6' && event.target !== viewport) {
+    // Listen globally for F6 so we can force-focus the viewport.
+    function handleGlobalKeyDown(event: KeyboardEvent) {
+      if (event.key === 'F6' && getTarget(event) !== viewport) {
         event.preventDefault();
-        store.setPrevFocusElement(activeElement(ownerDocument(viewport)) as HTMLElement | null);
+        store.set('prevFocusElement', activeElement(doc) as HTMLElement | null);
         viewport?.focus({ preventScroll: true });
         store.pauseTimers();
-        store.setFocused(true);
+        store.set('focused', true);
       }
     }
-
-    const win = ownerWindow(viewport);
-
-    win.addEventListener('keydown', handleGlobalKeyDown);
-
-    _c.push(() => {
-      win.removeEventListener('keydown', handleGlobalKeyDown);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
-
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    const viewport = store.state.viewport ?? null;
-    if (!viewport || isEmpty()) {
-      return;
-    }
-
-    const win = ownerWindow(viewport);
 
     function handleWindowBlur(event: FocusEvent) {
-      if (event.target !== win) {
+      if (getTarget(event) !== win) {
         return;
       }
 
-      store.setIsWindowFocused(false);
+      store.set('isWindowFocused', false);
       store.pauseTimers();
     }
 
@@ -104,69 +81,41 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
       }
 
       const target = getTarget(event);
-      if (target === win) {
-        return;
-      }
-
-      const activeEl = activeElement(ownerDocument(viewport));
-      if (!contains(viewport, target as HTMLElement | null) || !isFocusVisible(activeEl)) {
+      const activeEl = activeElement(doc);
+      if (
+        target === win ||
+        !contains(viewport, target as HTMLElement | null) ||
+        !isFocusVisible(activeEl)
+      ) {
         store.resumeTimers();
       }
 
       // Wait for the `handleFocus` event to fire.
-      windowFocusTimeout.start(0, () => store.setIsWindowFocused(true));
+      windowFocusTimeout.start(0, () => store.set('isWindowFocused', true));
     }
 
-    win.addEventListener('blur', handleWindowBlur, true);
-    win.addEventListener('focus', handleWindowFocus, true);
-
-    _c.push(() => {
-      win.removeEventListener('blur', handleWindowBlur, true);
-      win.removeEventListener('focus', handleWindowFocus, true);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
-
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    const viewport = store.state.viewport ?? null;
-    if (!viewport || isEmpty()) {
-      return;
-    }
-
-    const doc = ownerDocument(viewport);
-
-    doc.addEventListener('pointerdown', store.handleDocumentPointerDown, true);
-
-    _c.push(() => {
-      doc.removeEventListener('pointerdown', store.handleDocumentPointerDown, true);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+    return mergeCleanups(
+      addEventListener(win, 'keydown', handleGlobalKeyDown),
+      addEventListener(win, 'blur', handleWindowBlur, true),
+      addEventListener(win, 'focus', handleWindowFocus, true),
+      addEventListener(doc, 'pointerdown', store.handleDocumentPointerDown, true),
+    );
+  });
 
   function handleFocusGuard(event: FocusEvent) {
-    const viewport = store.state.viewport ?? null;
-    if (!viewport) {
-      return;
-    }
-
     handlingFocusGuardRef = true;
 
-    // If we're coming off the container, move to the first toast
-    if (event.relatedTarget === viewport) {
-      store.getToastRef(toasts()[0]?.id)?.focus();
+    // If we're coming off the container, move to the first toast that can hold
+    // focus, skipping toasts that are animating out or inert because they're limited.
+    const firstFocusableToast =
+      event.relatedTarget === store.state.viewport
+        ? store.state.toasts.find(
+            (toast: ToastObject<any>) => toast.transitionStatus !== 'ending' && !toast.limited,
+          )
+        : undefined;
+
+    if (firstFocusableToast) {
+      firstFocusableToast.ref?.current?.focus();
     } else {
       store.restoreFocusToPrevElement();
     }
@@ -175,34 +124,54 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
   function handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Tab' && event.shiftKey && getTarget(event) === store.state.viewport) {
       event.preventDefault();
+      // Restoring focus blurs the viewport, and `handleBlur` resumes the timers
+      // from there. Resuming here as well would also fire when the previously
+      // focused element lives inside the viewport, letting toasts dismiss out
+      // from under the keyboard.
       store.restoreFocusToPrevElement();
-      store.resumeTimers();
     }
   }
 
   function flushMouseLeave() {
-    if (!store.state.isWindowFocused || hasTransitioningToasts() || touchActiveRef) {
+    const hasEndingToasts = store.state.toasts.some(
+      (toast: ToastObject<any>) => toast.transitionStatus === 'ending',
+    );
+
+    if (hasEndingToasts || touchActiveRef || !markedReadyForMouseLeaveRef) {
       return;
     }
 
-    store.resumeTimers();
-    store.setHovering(false);
+    // Once transitions have finished, see if a mouseleave was already triggered
+    // but blocked from taking effect. If so, we can now safely collapse the viewport
+    // without restarting timers while the window is blurred.
+    if (store.state.isWindowFocused) {
+      store.resumeTimers();
+    }
+    store.set('hovering', false);
     markedReadyForMouseLeaveRef = false;
   }
 
-  createTrackedEffect(() => {
-    if (!store.state.isWindowFocused || hasTransitioningToasts() || !markedReadyForMouseLeaveRef) {
-      return;
-    }
-
-    /* Once transitions have settled, flush a blocked mouseleave. */
-    flushMouseLeave();
+  createEffect(hasTransitioningToasts, () => {
+    untrack(flushMouseLeave);
   });
 
   function handleMouseEnter() {
     store.pauseTimers();
-    store.setHovering(true);
+    store.set('hovering', true);
     markedReadyForMouseLeaveRef = false;
+  }
+
+  function resumeTimersIfWindowFocused() {
+    if (store.state.isWindowFocused) {
+      store.resumeTimers();
+    }
+  }
+
+  function handleMouseLeave() {
+    // Defer to `flushMouseLeave`: while toasts are transitioning out or a touch gesture is active it
+    // records the intent and collapses later; otherwise it collapses immediately.
+    markedReadyForMouseLeaveRef = true;
+    flushMouseLeave();
   }
 
   function handlePointerDown(event: PointerEvent) {
@@ -211,19 +180,13 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     }
   }
 
-  function handlePointerEnd(_event: PointerEvent) {
+  function handlePointerEnd(event: PointerEvent) {
+    if (event.pointerType !== 'touch') {
+      return;
+    }
+
     touchActiveRef = false;
     flushMouseLeave();
-  }
-
-  function handleMouseLeave() {
-    if (hasTransitioningToasts() || touchActiveRef) {
-      /* When swiping to dismiss, or touch is active, defer until settled. */
-      markedReadyForMouseLeaveRef = true;
-    } else {
-      store.resumeTimers();
-      store.setHovering(false);
-    }
   }
 
   function handleFocus() {
@@ -236,9 +199,11 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
       return;
     }
 
-    /* Only expand on keyboard focus — prevents staying expanded when clicking. */
+    // Only set focused when the active element is focus-visible.
+    // This prevents the viewport from staying expanded when clicking inside without
+    // keyboard navigation.
     if (isFocusVisible(activeElement(ownerDocument(store.state.viewport ?? null)))) {
-      store.setFocused(true);
+      store.set('focused', true);
       store.pauseTimers();
     }
   }
@@ -248,8 +213,8 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
       return;
     }
 
-    store.setFocused(false);
-    store.resumeTimers();
+    store.set('focused', false);
+    resumeTimersIfWindowFocused();
   }
 
   const defaultProps: HTMLProps = {

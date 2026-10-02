@@ -1,43 +1,12 @@
 import type { JSX } from '@solidjs/web';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
-import {
-  ARROW_DOWN,
-  ARROW_LEFT,
-  ARROW_RIGHT,
-  ARROW_UP,
-  END,
-  HOME,
-  stopEvent,
-} from '../../internals/composite/composite';
-import { splitComponentProps } from '../../solid-helpers';
+import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
-import { isElementDisabled } from '../../utils/isElementDisabled';
-import { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
+import { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { AccordionItem } from '../item/AccordionItem';
+import type { AccordionItemState } from '../item/AccordionItem';
 import { useAccordionItemContext } from '../item/AccordionItemContext';
-import { useAccordionRootContext } from '../root/AccordionRootContext';
-
-const SUPPORTED_KEYS = new Set([ARROW_DOWN, ARROW_UP, ARROW_RIGHT, ARROW_LEFT, HOME, END]);
-
-function getActiveTriggers(
-  accordionItemElements: (HTMLElement | null | undefined)[],
-): HTMLElement[] {
-  const output: HTMLElement[] = [];
-
-  for (let i = 0; i < accordionItemElements.length; i += 1) {
-    const section = accordionItemElements[i];
-    if (!isElementDisabled(section)) {
-      const trigger = section?.querySelector<HTMLElement>('[type="button"], [role="button"]');
-      if (trigger && !isElementDisabled(trigger)) {
-        output.push(trigger);
-      }
-    }
-  }
-
-  return output;
-}
 
 /**
  * A button that opens and closes the corresponding panel.
@@ -46,33 +15,38 @@ function getActiveTriggers(
  * Documentation: [Base UI Accordion](https://base-ui.com/react/components/accordion)
  */
 
-export function AccordionTrigger(componentProps: AccordionTrigger.Props) {
+export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.Element {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'disabled',
     'id',
     'nativeButton',
   ]);
-  const disabledProp = () => Boolean(local.disabled);
-  const native = () => Boolean(local.nativeButton ?? true);
+  const nativeButton = () => local.nativeButton ?? true;
 
   const { panelId, open, handleTrigger, disabled: contextDisabled } = useCollapsibleRootContext();
 
-  const disabled = () => disabledProp() || contextDisabled();
+  const disabled = () => (local.disabled ?? false) || contextDisabled();
 
   const { getButtonProps, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: true,
-    native,
+    native: nativeButton,
   });
 
-  const { accordionItemElements, direction, loopFocus, orientation } = useAccordionRootContext();
+  const { defaultTriggerId, state, setTriggerId } = useAccordionItemContext();
+  const registeredId = () => local.id || undefined;
+  const id = () => registeredId() ?? defaultTriggerId?.();
 
-  const isRtl = () => direction() === 'rtl';
-  const isHorizontal = () => orientation() === 'horizontal';
+  createDepsRenderEffect(registeredId, (currentRegisteredId) => {
+    setTriggerId(
+      (currentId) => currentRegisteredId ?? (currentId === null ? undefined : currentId),
+    );
+    return () => {
+      setTriggerId((currentId) => (currentId === currentRegisteredId ? null : currentId));
+    };
+  });
 
-  const { state, triggerId: id } = useAccordionItemContext();
-
-  const props: JSX.HTMLAttributes<HTMLButtonElement> = {
+  const props: HTMLProps = {
     get 'aria-controls'() {
       return open() ? panelId() : undefined;
     },
@@ -80,99 +54,27 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props) {
       return open() ? 'true' : 'false';
     },
     get id() {
-      return id?.();
+      return id();
     },
     onClick: handleTrigger,
-    onKeyDown(event: KeyboardEvent) {
-      if (!SUPPORTED_KEYS.has(event.key)) {
-        return;
-      }
-
-      stopEvent(event);
-
-      const triggers = getActiveTriggers(accordionItemElements);
-
-      const numOfEnabledTriggers = triggers.length;
-      const lastIndex = numOfEnabledTriggers - 1;
-
-      let nextIndex = -1;
-
-      const thisIndex = triggers.indexOf(event.target as HTMLButtonElement);
-
-      function toNext() {
-        if (loopFocus()) {
-          nextIndex = thisIndex + 1 > lastIndex ? 0 : thisIndex + 1;
-        } else {
-          nextIndex = Math.min(thisIndex + 1, lastIndex);
-        }
-      }
-
-      function toPrev() {
-        if (loopFocus()) {
-          nextIndex = thisIndex === 0 ? lastIndex : thisIndex - 1;
-        } else {
-          nextIndex = thisIndex - 1;
-        }
-      }
-
-      switch (event.key) {
-        case ARROW_DOWN:
-          if (!isHorizontal()) {
-            toNext();
-          }
-          break;
-        case ARROW_UP:
-          if (!isHorizontal()) {
-            toPrev();
-          }
-          break;
-        case ARROW_RIGHT:
-          if (isHorizontal()) {
-            if (isRtl()) {
-              toPrev();
-            } else {
-              toNext();
-            }
-          }
-          break;
-        case ARROW_LEFT:
-          if (isHorizontal()) {
-            if (isRtl()) {
-              toNext();
-            } else {
-              toPrev();
-            }
-          }
-          break;
-        case 'Home':
-          nextIndex = 0;
-          break;
-        case 'End':
-          nextIndex = lastIndex;
-          break;
-        default:
-          break;
-      }
-
-      if (nextIndex > -1) {
-        triggers[nextIndex].focus();
-      }
-    },
   };
 
   const element = useRenderElement('button', componentProps, {
-    props: [props, elementProps, getButtonProps],
-    ref: buttonRef,
     state,
+    ref: buttonRef,
+    props: [props, elementProps, getButtonProps],
     stateAttributesMapping: triggerOpenStateMapping,
   });
 
   return <>{element()}</>;
 }
 
+export interface AccordionTriggerState extends AccordionItemState {}
+
 export interface AccordionTriggerProps
-  extends NativeButtonProps, BaseUIComponentProps<'button', AccordionItem.State> {}
+  extends NativeButtonProps, BaseUIComponentProps<'button', AccordionTriggerState> {}
 
 export namespace AccordionTrigger {
+  export type State = AccordionTriggerState;
   export type Props = AccordionTriggerProps;
 }

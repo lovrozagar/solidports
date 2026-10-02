@@ -1,1 +1,1 @@
-export * from '../../combobox/clear/ComboboxClearDataAtributes';
+export * from '../../combobox/clear/ComboboxClearDataAttributes';

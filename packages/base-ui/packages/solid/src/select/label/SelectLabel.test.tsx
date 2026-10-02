@@ -1,7 +1,22 @@
-import { describe, it } from 'vitest';
+import { describe } from 'vitest';
+import { Select } from '@solidports/base-ui/select';
+import { createRenderer, describeConformance } from '#test-utils';
 
-describe.skip('SelectLabel.test', () => {
-  it('skipped', () => {
-    // Solid runtime/layout/portal: 1.8.0 React suite is not ported; coverage lives in sibling Solid tests for this primitive.
-  });
+describe('<Select.Label />', () => {
+  const { render } = createRenderer();
+
+  describeConformance(Select.Label, () => ({
+    refInstanceof: window.HTMLDivElement,
+    render(node, props) {
+      return render(() => (
+        <Select.Root>
+          {node(props!)}
+          <Select.Trigger />
+          <Select.Portal>
+            <Select.Positioner />
+          </Select.Portal>
+        </Select.Root>
+      ));
+    },
+  }));
 });

@@ -1,10 +1,7 @@
 import { createContext, useContext } from 'solid-js';
-import type { HTMLProps } from '../../utils/types';
 import type { useAnchorPositioning } from '../../utils/useAnchorPositioning';
 
-export interface PopoverPositionerContext extends useAnchorPositioning.ReturnValue {
-  props: HTMLProps;
-}
+export type PopoverPositionerContext = useAnchorPositioning.ReturnValue;
 
 export const PopoverPositionerContext = createContext<PopoverPositionerContext | null>(null);
 

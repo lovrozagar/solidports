@@ -15,7 +15,7 @@ export default function ExampleSelect() {
   return (
     <div class={styles.Field}>
       <Select.Root items={apples}>
-        <label class={styles.Label}>Apple</label>
+        <Select.Label class={styles.Label}>Apple</Select.Label>
         <Select.Trigger class={styles.Select}>
           <Select.Value class={styles.Value} placeholder="Select apple" />
           <Select.Icon>
@@ -49,7 +49,7 @@ export default function ExampleSelect() {
   );
 }
 
-function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretUpDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -64,7 +64,7 @@ function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -80,7 +80,7 @@ function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CaretUpIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretUpIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -95,7 +95,7 @@ function CaretUpIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

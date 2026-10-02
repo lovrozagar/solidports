@@ -26,6 +26,7 @@ export function useMenuItem(params: useMenuItem.Parameters): useMenuItem.ReturnV
     disabled,
     focusableWhenDisabled: true,
     native: nativeButton,
+    composite: true,
   });
 
   const commonProps = useMenuItemCommonProps({
@@ -67,11 +68,6 @@ export function useMenuItem(params: useMenuItem.Parameters): useMenuItem.ReturnV
 
           metadata.setActive();
         },
-        /**
-         * TODO: this is needed in order to propagate the keydown event to the button
-         * (for example, test MenuRadioItem#L162-L190 for "Enter" key)
-         */
-        onKeyDown: () => {},
       },
       externalProps,
       getButtonProps,

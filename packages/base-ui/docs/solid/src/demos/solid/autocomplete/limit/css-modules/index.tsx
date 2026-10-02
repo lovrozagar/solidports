@@ -19,7 +19,7 @@ export default function ExampleAutocompleteLimit() {
     return tags.filter((t) => contains(t.value, trimmed)).length;
   });
 
-  const moreCount = Math.max(0, totalMatches - limit);
+  const moreCount = createMemo(() => Math.max(0, totalMatches() - limit));
 
   return (
     <Autocomplete.Root items={tags} value={value()} onValueChange={setValue} limit={limit}>
@@ -44,9 +44,9 @@ export default function ExampleAutocompleteLimit() {
             </Autocomplete.List>
 
             <Autocomplete.Status>
-              {moreCount > 0 ? (
+              {moreCount() > 0 ? (
                 <div class={styles.Status}>
-                  {`Hiding ${moreCount} results (type a more specific query to narrow results)`}
+                  {`Hiding ${moreCount()} results (type a more specific query to narrow results)`}
                 </div>
               ) : null}
             </Autocomplete.Status>

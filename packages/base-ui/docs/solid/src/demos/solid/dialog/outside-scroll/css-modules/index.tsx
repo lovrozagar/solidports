@@ -6,7 +6,7 @@ import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import styles from './index.module.css';
 
 export default function OutsideScrollDialog() {
-  const popupRef = { current: null };
+  const popupRef = { current: null as HTMLDivElement | null };
   return (
     <Dialog.Root>
       <Dialog.Trigger class={styles.Button}>Open dialog</Dialog.Trigger>
@@ -16,7 +16,7 @@ export default function OutsideScrollDialog() {
           <ScrollArea.Root style={{ position: undefined }} class={styles.ScrollViewport}>
             <ScrollArea.Viewport class={styles.ScrollViewport}>
               <ScrollArea.Content class={styles.ScrollContent}>
-                <Dialog.Popup ref={(el) => { popupRef.current = el; }} class={styles.Popup} initialFocus={popupRef}>
+                <Dialog.Popup ref={(el) => { popupRef.current = el; }} class={styles.Popup} initialFocus={() => popupRef.current}>
                   <div class={styles.PopupHeader}>
                     <Dialog.Title class={styles.Title}>Dialog</Dialog.Title>
                     <Dialog.Description class={styles.Description}>
@@ -62,7 +62,7 @@ export default function OutsideScrollDialog() {
   );
 }
 
-function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function XIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -70,8 +70,8 @@ function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

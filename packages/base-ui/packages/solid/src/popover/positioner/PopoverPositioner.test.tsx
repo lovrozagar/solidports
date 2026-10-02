@@ -1,8 +1,21 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, isJSDOM, waitSingleFrame } from '#test-utils';
+import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { Popover } from '@solidports/base-ui/popover';
+import { Tooltip } from '@solidports/base-ui/tooltip';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect, vi } from 'vitest';
 import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+
+// Solid: local copy of React's `#test-utils` helper.
+async function waitForPositioned(positioner: HTMLElement) {
+  await waitFor(() => {
+    expect(positioner.style.opacity).not.to.equal('0');
+  });
+  await waitFor(() => {
+    expect(positioner).toBeVisible();
+  });
+}
 
 function Trigger(props: Popover.Trigger.Props) {
   return <Popover.Trigger {...props} ref={props.ref} render="div" nativeButton={false} />;
@@ -10,6 +23,13 @@ function Trigger(props: Popover.Trigger.Props) {
 
 describe('<Popover.Positioner />', () => {
   const { render } = createRenderer();
+
+  // Solid: React awaits `render`, which settles Floating UI's async positioning; wait for it.
+  async function renderPositioned(ui: () => JSX.Element) {
+    const result = render(ui);
+    await waitForPositioned(screen.getByTestId('positioner'));
+    return result;
+  }
 
   describeConformance(Popover.Positioner, () => ({
     refInstanceof: window.HTMLDivElement,
@@ -21,6 +41,24 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       )),
   }));
+
+  it('throws a descriptive error when rendered outside <Popover.Portal>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() =>
+        render(() => (
+          <Popover.Root open>
+            <Popover.Positioner />
+          </Popover.Root>
+        )),
+      ).to.throw('Base UI: <Popover.Portal> is missing.');
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
 
   const baselineX = 10;
   const baselineY = 36;
@@ -154,6 +192,31 @@ describe('<Popover.Positioner />', () => {
         expect(side).to.equal('inline-end');
       });
     });
+
+    it('reads logical side inside sideOffset in RTL mode', async () => {
+      let side = 'none';
+      await renderPositioned(() => (
+        <DirectionProvider direction="rtl">
+          <Popover.Root open>
+            <Trigger style={triggerStyle}>Trigger</Trigger>
+            <Popover.Portal>
+              <Popover.Positioner
+                side="inline-start"
+                data-testid="positioner"
+                sideOffset={(data) => {
+                  side = data.side;
+                  return 0;
+                }}
+              >
+                <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+        </DirectionProvider>
+      ));
+
+      expect(side).to.equal('inline-start');
+    });
   });
 
   describe.skipIf(isJSDOM)('prop: alignOffset', () => {
@@ -281,6 +344,61 @@ describe('<Popover.Positioner />', () => {
     });
   });
 
+  it.skipIf(isJSDOM)('rests exactly at collisionPadding from the colliding edge', async () => {
+    const collisionPadding = 12;
+    let setOpen!: (open: boolean) => void;
+
+    function App() {
+      const [open, setOpenState] = createSignal(false);
+      setOpen = setOpenState;
+
+      return (
+        // Anchor pinned near the bottom so the bottom-side popup flips to the top and
+        // collides with the top viewport edge.
+        <div style={{ position: 'fixed', bottom: '8px', left: '16px' }}>
+          <Popover.Root open={open()}>
+            <Trigger style={triggerStyle}>Trigger</Trigger>
+            <Popover.Portal>
+              <Popover.Positioner
+                data-testid="positioner"
+                side="bottom"
+                sideOffset={8}
+                collisionPadding={collisionPadding}
+                collisionAvoidance={{ fallbackAxisSide: 'none' }}
+              >
+                <Popover.Popup
+                  style={{
+                    width: '200px',
+                    height: '1000px',
+                    'max-height': 'var(--available-height)',
+                  }}
+                >
+                  Popup
+                </Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+        </div>
+      );
+    }
+
+    const { unmount } = render(() => <App />);
+    await act(async () => setOpen(true));
+
+    const positioner = screen.getByTestId('positioner');
+    await waitFor(() => {
+      expect(positioner).toHaveAttribute('data-side', 'top');
+    });
+
+    // The preferred-side bias used by flip() must not leak into the resting position:
+    // the popup should sit exactly `collisionPadding` away from the top edge, not +1px.
+    await waitFor(() => {
+      expect(Math.round(positioner.getBoundingClientRect().top)).to.equal(collisionPadding);
+    });
+
+    unmount();
+  });
+
   it.skipIf(isJSDOM)('remains anchored if keepMounted=false', async () => {
     function App(props: { top: number }) {
       return (
@@ -310,7 +428,7 @@ describe('<Popover.Positioner />', () => {
       expect(positioner.getBoundingClientRect()).to.include(initial);
     });
 
-    setTop(100);
+    act(() => setTop(100));
 
     await waitFor(() => {
       expect(positioner.getBoundingClientRect()).not.to.include(initial);
@@ -350,7 +468,7 @@ describe('<Popover.Positioner />', () => {
       expect(positioner.getBoundingClientRect()).to.include(initial);
     });
 
-    setTop(100);
+    act(() => setTop(100));
 
     await waitFor(() => {
       expect(positioner.getBoundingClientRect()).not.to.include(initial);
@@ -358,6 +476,618 @@ describe('<Popover.Positioner />', () => {
 
     await waitFor(() => {
       expect(positioner.getBoundingClientRect()).to.include(final);
+    });
+  });
+
+  it.skipIf(isJSDOM)('does not follow the anchor when its ancestor scrolls', async () => {
+    await renderPositioned(() => (
+      <div data-testid="scroller" style={{ height: '72px', overflow: 'auto' }}>
+        <div style={{ height: '200px' }}>
+          <Popover.Root open>
+            <Trigger data-testid="trigger" style={triggerStyle}>
+              Trigger
+            </Trigger>
+            <Popover.Portal>
+              <Popover.Positioner data-testid="positioner" disableAnchorTracking>
+                <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+        </div>
+      </div>
+    ));
+
+    const scroller = screen.getByTestId('scroller');
+    const trigger = screen.getByTestId('trigger');
+    const positioner = screen.getByTestId('positioner');
+    const initialTriggerY = trigger.getBoundingClientRect().y;
+    const initialPositionerY = positioner.getBoundingClientRect().y;
+
+    await act(async () => {
+      scroller.scrollTop = 20;
+      await waitSingleFrame();
+      await waitSingleFrame();
+    });
+
+    expect(trigger.getBoundingClientRect().y).to.equal(initialTriggerY - 20);
+    expect(positioner.getBoundingClientRect().y).to.equal(initialPositionerY);
+  });
+
+  it.skipIf(isJSDOM)('observes a custom anchor for keepMounted auto-updates', async () => {
+    const originalResizeObserver = window.ResizeObserver;
+    const observedElements: Element[] = [];
+
+    class TestResizeObserver {
+      observe(element: Element) {
+        observedElements.push(element);
+      }
+
+      unobserve() {}
+
+      disconnect() {}
+    }
+
+    window.ResizeObserver = TestResizeObserver as typeof ResizeObserver;
+
+    function App() {
+      const [anchor, setAnchor] = createSignal<HTMLElement | null>(null);
+      return (
+        <Popover.Root open>
+          <Trigger data-testid="trigger" style={{ width: '100px', height: '100px' }}>
+            Trigger
+          </Trigger>
+          <div
+            ref={setAnchor}
+            data-testid="custom-anchor"
+            style={{ width: '50px', height: '50px', position: 'relative' }}
+          >
+            Anchor
+          </div>
+          <Popover.Portal keepMounted>
+            <Popover.Positioner data-testid="positioner" anchor={anchor()}>
+              <Popover.Popup style={{ width: '100px', height: '100px' }}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      );
+    }
+
+    try {
+      render(() => <App />);
+      const anchor = screen.getByTestId('custom-anchor');
+
+      await waitFor(() => {
+        expect(observedElements).to.include(anchor);
+      });
+    } finally {
+      window.ResizeObserver = originalResizeObserver;
+    }
+  });
+
+  it.skipIf(isJSDOM)(
+    'remains anchored to the trigger when closing from a tooltip trigger close',
+    async () => {
+      const testPopover = Popover.createHandle();
+
+      function App() {
+        const [open, setOpen] = createSignal(true);
+
+        return (
+          <>
+            <Popover.Trigger
+              handle={testPopover}
+              id="trigger-1"
+              style={{ width: '100px', height: '100px' }}
+            >
+              Trigger
+            </Popover.Trigger>
+            <Popover.Root
+              handle={testPopover}
+              open={open()}
+              triggerId="trigger-1"
+              onOpenChange={(nextOpen, eventDetails) => {
+                if (!nextOpen) {
+                  eventDetails.preventUnmountOnClose();
+                }
+                setOpen(nextOpen);
+              }}
+            >
+              <Popover.Portal>
+                <Popover.Positioner data-testid="positioner">
+                  <Popover.Popup data-testid="popup" style={{ width: '160px', height: '120px' }}>
+                    <Popover.Close
+                      render={(popoverCloseProps) => (
+                        <Tooltip.Root>
+                          <Tooltip.Trigger {...popoverCloseProps}>Close</Tooltip.Trigger>
+                          <Tooltip.Portal>
+                            <Tooltip.Positioner>
+                              <Tooltip.Popup>Tooltip</Tooltip.Popup>
+                            </Tooltip.Positioner>
+                          </Tooltip.Portal>
+                        </Tooltip.Root>
+                      )}
+                    />
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+          </>
+        );
+      }
+
+      const { user } = await renderPositioned(() => <App />);
+      const positioner = screen.getByTestId('positioner');
+      const initialRect = positioner.getBoundingClientRect();
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+      await act(async () => {
+        await waitSingleFrame();
+        await waitSingleFrame();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('popup')).toHaveAttribute('data-ending-style');
+      });
+
+      const closingRect = positioner.getBoundingClientRect();
+      expect(Math.abs(closingRect.x - initialRect.x)).to.be.at.most(1);
+      expect(Math.abs(closingRect.y - initialRect.y)).to.be.at.most(1);
+    },
+  );
+
+  it.skipIf(isJSDOM)('uses transform positioning without Viewport', async () => {
+    const { unmount } = render(() => (
+      <Popover.Root open>
+        <Trigger style={triggerStyle}>Trigger</Trigger>
+        <Popover.Portal>
+          <Popover.Positioner data-testid="positioner">
+            <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+    ));
+
+    const positioner = screen.getByTestId('positioner');
+    await waitFor(() => {
+      expect(positioner.style.transform).not.to.equal('');
+    });
+    unmount();
+  });
+
+  it.skipIf(isJSDOM)('uses top/left positioning with Viewport', async () => {
+    const { unmount } = render(() => (
+      <Popover.Root open>
+        <Trigger style={triggerStyle}>Trigger</Trigger>
+        <Popover.Portal>
+          <Popover.Positioner data-testid="positioner">
+            <Popover.Popup style={popupStyle}>
+              <Popover.Viewport>Popup</Popover.Viewport>
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+    ));
+
+    const positioner = screen.getByTestId('positioner');
+    await waitForPositioned(positioner);
+    expect(positioner.style.transform).to.equal('');
+    unmount();
+  });
+
+  describe.skipIf(isJSDOM)('transform origin', () => {
+    function getTransformOrigin() {
+      return screen.getByTestId('positioner').style.getPropertyValue('--transform-origin');
+    }
+
+    it('points to the anchor center for center alignment', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner">
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      expect(getTransformOrigin()).to.equal(`${popupWidth / 2}px 0px`);
+    });
+
+    it('points to the popup start edge for start alignment', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" align="start">
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      expect(getTransformOrigin()).to.equal('0% 0px');
+    });
+
+    it('points to the popup logical start edge for start alignment in RTL', async () => {
+      await renderPositioned(() => (
+        <div dir="rtl">
+          <DirectionProvider direction="rtl">
+            <Popover.Root open>
+              <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+              <Popover.Portal>
+                <Popover.Positioner data-testid="positioner" align="start" dir="rtl">
+                  <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+          </DirectionProvider>
+        </div>
+      ));
+
+      expect(getTransformOrigin()).to.equal('100% 0px');
+    });
+
+    it('uses the floating element direction for RTL alignment', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" align="start" dir="rtl">
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      expect(getTransformOrigin()).to.equal('100% 0px');
+    });
+
+    it('points to the popup end edge for end alignment', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" align="end">
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      expect(getTransformOrigin()).to.equal('100% 0px');
+    });
+
+    it('points to the popup logical end edge for end alignment in RTL', async () => {
+      await renderPositioned(() => (
+        <div dir="rtl">
+          <DirectionProvider direction="rtl">
+            <Popover.Root open>
+              <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+              <Popover.Portal>
+                <Popover.Positioner data-testid="positioner" align="end" dir="rtl">
+                  <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+          </DirectionProvider>
+        </div>
+      ));
+
+      expect(getTransformOrigin()).to.equal('0% 0px');
+    });
+
+    it('places the side coordinate first for horizontal sides', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" side="right" align="start">
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      expect(getTransformOrigin()).to.equal('0px 0%');
+    });
+
+    it('points to the popup end edge for horizontal end alignment', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, position: 'fixed', left: '200px', top: '50px' }}>
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" side="left" align="end" sideOffset={7}>
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      expect(getTransformOrigin()).to.equal('calc(100% + 7px) 100%');
+    });
+
+    it('accounts for sideOffset', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" align="start" sideOffset={7}>
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      expect(getTransformOrigin()).to.equal('0% -7px');
+    });
+
+    it('accounts for sideOffset on top side', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, position: 'fixed', left: '50px', top: '200px' }}>
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" align="start" side="top" sideOffset={7}>
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      expect(getTransformOrigin()).to.equal('0% calc(100% + 7px)');
+    });
+
+    it('keeps the popup start edge as the origin with alignOffset', async () => {
+      const alignOffset = 7;
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" align="start" alignOffset={alignOffset}>
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByText('Trigger');
+      const positioner = screen.getByTestId('positioner');
+      const anchorRect = trigger.getBoundingClientRect();
+      const positionerRect = positioner.getBoundingClientRect();
+
+      expect(positionerRect.left - anchorRect.left).to.equal(alignOffset);
+      expect(getTransformOrigin()).to.equal('0% 0px');
+    });
+
+    it('does not let the virtual arrow displace the popup on a narrow anchor', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger
+            style={{ width: '2px', height: '20px', position: 'fixed', left: '50px', top: '50px' }}
+          >
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" align="start" arrowPadding={20}>
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByText('Trigger');
+      const positioner = screen.getByTestId('positioner');
+
+      // The arrow padding must not move a popup that has no arrow to keep off its corners.
+      expect(positioner.getBoundingClientRect().left).to.equal(
+        trigger.getBoundingClientRect().left,
+      );
+      expect(getTransformOrigin()).to.equal('0% 0px');
+    });
+
+    it('points to the flipped edge when the alignment flips', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, position: 'fixed', top: '50px', right: '4px' }}>
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner
+              data-testid="positioner"
+              align="start"
+              collisionAvoidance={{ align: 'flip' }}
+            >
+              <Popover.Popup style={{ ...popupStyle, width: '240px' }}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const positioner = screen.getByTestId('positioner');
+
+      expect(positioner.getAttribute('data-align')).to.equal('end');
+      expect(getTransformOrigin()).to.equal('100% 0px');
+    });
+
+    it('keeps the popup start edge as the origin for a 1px cross-axis shift', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger
+            style={{
+              ...triggerStyle,
+              position: 'fixed',
+              left: `calc(100vw - ${popupWidth - 1}px)`,
+              top: '50px',
+            }}
+          >
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner
+              data-testid="positioner"
+              align="start"
+              collisionAvoidance={{ align: 'shift' }}
+              collisionPadding={0}
+            >
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByText('Trigger');
+      const positioner = screen.getByTestId('positioner');
+      const anchorRect = trigger.getBoundingClientRect();
+      const positionerRect = positioner.getBoundingClientRect();
+
+      expect(Math.round(positionerRect.left - anchorRect.left)).to.equal(-1);
+      expect(getTransformOrigin()).to.equal('0% 0px');
+    });
+
+    it('points to the anchor center when start alignment is shifted on the cross axis', async () => {
+      const shiftedPopupWidth = 240;
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, position: 'fixed', top: '50px', right: '10px' }}>
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner
+              data-testid="positioner"
+              align="start"
+              collisionAvoidance={{ align: 'shift' }}
+            >
+              <Popover.Popup style={{ ...popupStyle, width: `${shiftedPopupWidth}px` }}>
+                Popup
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByText('Trigger');
+      const positioner = screen.getByTestId('positioner');
+      const anchorRect = trigger.getBoundingClientRect();
+      const positionerRect = positioner.getBoundingClientRect();
+
+      expect(positionerRect.left).to.be.lessThan(anchorRect.left);
+      expect(getTransformOrigin()).to.equal(
+        `${anchorRect.x + anchorWidth / 2 - positionerRect.x}px 0px`,
+      );
+    });
+
+    it('points to the anchor center when end alignment is shifted on the cross axis', async () => {
+      const shiftedPopupWidth = 240;
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, position: 'fixed', left: '10px', top: '50px' }}>
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner
+              data-testid="positioner"
+              align="end"
+              collisionAvoidance={{ align: 'shift' }}
+            >
+              <Popover.Popup style={{ ...popupStyle, width: `${shiftedPopupWidth}px` }}>
+                Popup
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByText('Trigger');
+      const positioner = screen.getByTestId('positioner');
+      const anchorRect = trigger.getBoundingClientRect();
+      const positionerRect = positioner.getBoundingClientRect();
+
+      expect(positionerRect.right).to.be.greaterThan(anchorRect.right);
+      expect(getTransformOrigin()).to.equal(
+        `${anchorRect.x + anchorWidth / 2 - positionerRect.x}px 0px`,
+      );
+    });
+
+    it('points to the anchor center when horizontal alignment is shifted on the cross axis', async () => {
+      const shiftedPopupHeight = 120;
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, position: 'fixed', left: '50px', bottom: '10px' }}>
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner
+              data-testid="positioner"
+              side="right"
+              align="start"
+              collisionAvoidance={{ align: 'shift' }}
+            >
+              <Popover.Popup style={{ ...popupStyle, height: `${shiftedPopupHeight}px` }}>
+                Popup
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByText('Trigger');
+      const positioner = screen.getByTestId('positioner');
+      const anchorRect = trigger.getBoundingClientRect();
+      const positionerRect = positioner.getBoundingClientRect();
+
+      expect(positionerRect.top).to.be.lessThan(anchorRect.top);
+      expect(getTransformOrigin()).to.equal(
+        `0px ${anchorRect.y + anchorHeight / 2 - positionerRect.y}px`,
+      );
+    });
+
+    it('points to the arrow when present regardless of alignment', async () => {
+      const arrowSize = 10;
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, margin: '50px' }}>Trigger</Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" align="start">
+              <Popover.Popup style={popupStyle}>
+                <Popover.Arrow style={{ width: `${arrowSize}px`, height: `${arrowSize}px` }} />
+                Popup
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      // With start alignment the anchor's center sits half an anchor width into the popup.
+      expect(getTransformOrigin()).to.equal(`${anchorWidth / 2}px 0px`);
+    });
+
+    it('points to the anchor center when the popup is shifted to overlap the anchor', async () => {
+      await renderPositioned(() => (
+        <Popover.Root open>
+          <Trigger style={{ ...triggerStyle, position: 'fixed', left: '50px', bottom: '10px' }}>
+            Trigger
+          </Trigger>
+          <Popover.Portal>
+            <Popover.Positioner data-testid="positioner" collisionAvoidance={{ side: 'shift' }}>
+              <Popover.Popup style={popupStyle}>Popup</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByText('Trigger');
+      const positioner = screen.getByTestId('positioner');
+      const anchorRect = trigger.getBoundingClientRect();
+      const positionerRect = positioner.getBoundingClientRect();
+
+      expect(positionerRect.top).to.be.lessThan(anchorRect.bottom);
+      expect(getTransformOrigin()).to.equal(
+        `${popupWidth / 2}px ${anchorRect.y + anchorHeight / 2 - positionerRect.y}px`,
+      );
     });
   });
 });

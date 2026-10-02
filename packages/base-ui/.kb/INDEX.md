@@ -30,6 +30,7 @@ Flat, grep-friendly list of every KB file. Routing logic lives in
 - [`./solid/_template.md`](./solid/_template.md) — schema.
 - [`./solid/collapsible-animation.md`](./solid/collapsible-animation.md) — populated.
 - [`./solid/reactivity-rules.md`](./solid/reactivity-rules.md) — pointer to Cursor solid-rules + project addenda.
+- [`./solid/solid-2.md`](./solid/solid-2.md) — Solid 2.0 porting rules (effects, writes, store, refs, JSX, tests).
 - [`./solid/refs.md`](./solid/refs.md) — populated (from SolidStuff).
 - [`./solid/effects-and-cleanup.md`](./solid/effects-and-cleanup.md) — populated (from SolidStuff).
 - [`./solid/events.md`](./solid/events.md) — populated (from SolidStuff).

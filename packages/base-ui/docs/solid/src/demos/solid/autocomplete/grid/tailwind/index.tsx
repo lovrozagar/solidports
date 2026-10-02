@@ -8,7 +8,7 @@ export default function ExampleEmojiPicker() {
   const [textValue, setTextValue] = createSignal('');
   const [searchValue, setSearchValue] = createSignal('');
 
-  const textInputRef = { current: null };
+  const textInputRef = { current: null as HTMLInputElement | null };
 
   function handleInsertEmoji(value: string | null) {
     if (!value || !textInputRef.current) {
@@ -40,7 +40,7 @@ export default function ExampleEmojiPicker() {
           class="-mr-px h-8 flex-1 border border-r-0 border-neutral-950 px-2 text-sm any-pointer-coarse:text-base font-normal text-neutral-950 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 bg-white dark:bg-neutral-950 focus:relative focus:outline-2 focus:-outline-offset-1 focus:outline-solid focus:outline-neutral-950 dark:focus:outline-white dark:border-white dark:text-white"
           placeholder="iMessage"
           value={textValue()}
-          onChange={(event) => setTextValue(event.target.value)}
+          onInput={(event) => setTextValue(event.target.value)}
         />
 
         <Autocomplete.Root

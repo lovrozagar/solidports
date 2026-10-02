@@ -18,11 +18,7 @@ export function GroupCollectionProvider(props: GroupCollectionProvider.Props) {
     items: () => props.items,
   };
 
-  return (
-    <GroupCollectionContext value={contextValue}>
-      {props.children}
-    </GroupCollectionContext>
-  );
+  return <GroupCollectionContext value={contextValue}>{props.children}</GroupCollectionContext>;
 }
 
 namespace GroupCollectionProvider {

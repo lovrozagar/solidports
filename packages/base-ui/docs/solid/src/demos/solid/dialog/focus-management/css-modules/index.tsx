@@ -6,8 +6,8 @@ import { Fieldset } from '@solidports/base-ui/fieldset';
 import styles from './index.module.css';
 
 export default function ExampleDialog() {
-  const initialFocusRef = { current: null };
-  const finalFocusRef = { current: null };
+  const initialFocusRef = { current: null as HTMLInputElement | null };
+  const finalFocusRef = { current: null as HTMLButtonElement | null };
 
   return (
     <div class={styles.Container}>
@@ -17,8 +17,8 @@ export default function ExampleDialog() {
           <Dialog.Backdrop class={styles.Backdrop} />
           <Dialog.Popup
             class={styles.Popup}
-            initialFocus={initialFocusRef}
-            finalFocus={finalFocusRef}
+            initialFocus={() => initialFocusRef.current}
+            finalFocus={() => finalFocusRef.current}
           >
             <div class={styles.Intro}>
               <Dialog.Title class={styles.Title}>Feedback form</Dialog.Title>

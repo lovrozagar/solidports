@@ -1,51 +1,52 @@
+import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-
-import { DrawerProviderContext, type DrawerVisualState } from './DrawerProviderContext';
-import { createStore } from '../../solid-1-compat';
+import {
+  DrawerProviderContext,
+  type DrawerVisualState,
+  type DrawerVisualStateStore,
+} from './DrawerProviderContext';
 
 /**
- * Provides a shared context for coordinating global Drawer UI,
- * such as indent/background effects based on whether any Drawer is open.
+ * Provides a shared context for coordinating global Drawer UI, such as indent/background effects based on whether any Drawer is open.
+ * Doesn't render its own HTML element.
  *
  * Documentation: [Base UI Drawer](https://base-ui.com/react/components/drawer)
  */
 export function DrawerProvider(props: DrawerProvider.Props) {
-  const [openById, setOpenById] = createStore<{
-    drawers: Record<string, boolean>;
-    active: boolean;
-  }>({
-    get active() {
-      return Object.values(this.drawers).some(Boolean);
-    },
-    drawers: {},
-  });
-  const [visualStateStore, setVisualState] = createVisualStateStore();
+  // Drawers report from layout effects and unmount cleanups, which run in owned scopes.
+  const [openDrawers, setOpenDrawers] = createSignal(new Set<object>(), { ownedWrite: true });
+  const visualStateStore = createVisualStateStore();
 
-  function setDrawerOpen(drawerId: string, open: boolean) {
-    setOpenById('drawers', drawerId, open);
-  }
+  const setDrawerOpen = (drawer: object, open: boolean) => {
+    setOpenDrawers((prev) => {
+      if (prev.has(drawer) === open) {
+        return prev;
+      }
 
-  const removeDrawer = (drawerId: string) => {
-    setOpenById(
-      (prev: { drawers: Record<string, boolean>; active: boolean }) => {
-        delete prev.drawers[drawerId];
-      },
-    );
+      const next = new Set(prev);
+      if (open) {
+        next.add(drawer);
+      } else {
+        next.delete(drawer);
+      }
+      return next;
+    });
   };
 
-  const contextValue = {
-    active: () => openById.active,
-    removeDrawer,
+  const removeDrawer = (drawer: object) => {
+    setDrawerOpen(drawer, false);
+  };
+
+  const active = () => openDrawers().size > 0;
+
+  const contextValue: DrawerProviderContext = {
     setDrawerOpen,
-    setVisualState,
+    removeDrawer,
+    active,
     visualStateStore,
   };
 
-  return (
-    <DrawerProviderContext value={contextValue}>
-      {props.children}
-    </DrawerProviderContext>
-  );
+  return <DrawerProviderContext value={contextValue}>{props.children}</DrawerProviderContext>;
 }
 
 export interface DrawerProviderState {}
@@ -59,29 +60,51 @@ export namespace DrawerProvider {
   export type Props = DrawerProviderProps;
 }
 
-function createVisualStateStore() {
-  const [state, setState] = createStore<DrawerVisualState>({
-    frontmostHeight: 0,
+type VisualStateListener = () => void;
+
+function createVisualStateStore(): DrawerVisualStateStore {
+  let state: DrawerVisualState = {
     swipeProgress: 0,
-  });
+    frontmostHeight: 0,
+  };
+  const listeners = new Set<VisualStateListener>();
 
-  function set(nextState: Partial<DrawerVisualState>) {
-    setState(
-      (currentState: DrawerVisualState) => {
-        if (nextState.swipeProgress !== undefined) {
-          currentState.swipeProgress = Number.isFinite(nextState.swipeProgress)
-            ? nextState.swipeProgress
-            : 0;
-        }
+  return {
+    getSnapshot: () => state,
+    set(nextState) {
+      let nextSwipeProgress = state.swipeProgress;
+      if (nextState.swipeProgress !== undefined) {
+        nextSwipeProgress = Number.isFinite(nextState.swipeProgress) ? nextState.swipeProgress : 0;
+      }
 
-        if (nextState.frontmostHeight !== undefined) {
-          currentState.frontmostHeight = Number.isFinite(nextState.frontmostHeight)
-            ? nextState.frontmostHeight
-            : 0;
-        }
-      },
-    );
-  }
+      let nextFrontmostHeight = state.frontmostHeight;
+      if (nextState.frontmostHeight !== undefined) {
+        nextFrontmostHeight = Number.isFinite(nextState.frontmostHeight)
+          ? nextState.frontmostHeight
+          : 0;
+      }
 
-  return [state, set] as const;
+      if (
+        nextSwipeProgress === state.swipeProgress &&
+        nextFrontmostHeight === state.frontmostHeight
+      ) {
+        return;
+      }
+
+      state = {
+        swipeProgress: nextSwipeProgress,
+        frontmostHeight: nextFrontmostHeight,
+      };
+
+      listeners.forEach((listener) => {
+        listener();
+      });
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
 }

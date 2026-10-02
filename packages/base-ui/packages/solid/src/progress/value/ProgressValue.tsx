@@ -2,7 +2,7 @@ import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { ProgressRoot } from '../root/ProgressRoot';
+import type { ProgressRootState } from '../root/ProgressRoot';
 import { useProgressRootContext } from '../root/ProgressRootContext';
 import { progressStateAttributesMapping } from '../root/stateAttributesMapping';
 /**
@@ -16,30 +16,42 @@ export function ProgressValue(componentProps: ProgressValue.Props) {
 
   const { value, formattedValue, state } = useProgressRootContext();
 
-  const formattedValueArg = () => (value() == null ? 'indeterminate' : formattedValue());
-  const formattedValueDisplay = () => (value() == null ? null : formattedValue());
+  // Follow `status` rather than re-deriving it: a non-finite `value` is also indeterminate, and
+  // has no formatted text to show.
+  const indeterminate = () => state.status === 'indeterminate';
+  const formattedValueArg = () => (indeterminate() ? 'indeterminate' : formattedValue());
+  const formattedValueDisplay = () => (indeterminate() ? null : formattedValue());
 
   const element = useRenderElement('span', componentProps, {
+    state,
     get children() {
-      return componentProps.children?.(formattedValueArg(), value()) ?? formattedValueDisplay();
+      const children = componentProps.children;
+      return (
+        <>
+          {typeof children === 'function'
+            ? children(formattedValueArg(), value())
+            : formattedValueDisplay()}
+        </>
+      );
     },
     props: [{ 'aria-hidden': 'true' }, elementProps],
-    state,
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
   return <>{element()}</>;
 }
 
+export interface ProgressValueState extends ProgressRootState {}
+
 export interface ProgressValueProps extends Omit<
-  BaseUIComponentProps<'span', ProgressRoot.State>,
+  BaseUIComponentProps<'span', ProgressValueState>,
   'children'
 > {
   children?:
-    | (null | ((formattedValue: string | null, value: number | null) => JSX.Element))
-    | undefined;
+    (null | ((formattedValue: string | null, value: number | null) => JSX.Element)) | undefined;
 }
 
 export namespace ProgressValue {
+  export type State = ProgressValueState;
   export type Props = ProgressValueProps;
 }

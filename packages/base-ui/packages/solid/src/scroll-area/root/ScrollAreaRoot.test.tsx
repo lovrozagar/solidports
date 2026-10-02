@@ -1,14 +1,54 @@
-import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { expect } from 'vitest';
+import { createEffect, createSignal, Show, useContext } from 'solid-js';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { DirectionProvider } from '../../direction-provider/DirectionProvider';
 import { SCROLL_TIMEOUT } from '../constants';
+import { ScrollAreaRootContext } from './ScrollAreaRootContext';
 
 const VIEWPORT_SIZE = 200;
 const SCROLLABLE_CONTENT_SIZE = 1000;
 const SCROLLBAR_WIDTH = 10;
 const SCROLLBAR_HEIGHT = 10;
+
+async function withMockResizeObserver(run: (notifyResizeObserver: () => void) => Promise<void>) {
+  const originalResizeObserver = window.ResizeObserver;
+  const observers = new Set<ResizeObserverMock>();
+
+  class ResizeObserverMock implements ResizeObserver {
+    callback: ResizeObserverCallback;
+
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback;
+    }
+
+    observe() {
+      observers.add(this);
+    }
+
+    unobserve() {}
+
+    disconnect() {
+      observers.delete(this);
+    }
+
+    takeRecords() {
+      return [];
+    }
+  }
+
+  window.ResizeObserver = ResizeObserverMock;
+
+  try {
+    await run(() => {
+      expect(observers.size).toBeGreaterThan(0);
+      observers.forEach((observer) => observer.callback([], observer));
+    });
+  } finally {
+    window.ResizeObserver = originalResizeObserver;
+  }
+}
 
 describe('<ScrollArea.Root />', () => {
   const { render } = createRenderer();
@@ -25,9 +65,9 @@ describe('<ScrollArea.Root />', () => {
 
     it('adds [data-scrolling] attribute when viewport is scrolled', async () => {
       renderWithClock(() => (
-        <ScrollArea.Root data-testid="root" style={{ height: '200px', width: '200px' }}>
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
-            <div style={{ height: '1000px', width: '1000px' }} />
+        <ScrollArea.Root data-testid="root" style={{ width: '200px', height: '200px' }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+            <div style={{ width: '1000px', height: '1000px' }} />
           </ScrollArea.Viewport>
         </ScrollArea.Root>
       ));
@@ -35,40 +75,275 @@ describe('<ScrollArea.Root />', () => {
       const root = screen.getByTestId('root');
       const viewport = screen.getByTestId('viewport');
 
-      expect(root).not.to.have.attribute('data-scrolling');
+      expect(root).not.toHaveAttribute('data-scrolling');
 
       fireEvent.pointerEnter(viewport);
       fireEvent.scroll(viewport, { target: { scrollTop: 1 } });
 
-      expect(root).to.have.attribute('data-scrolling', '');
+      expect(root).toHaveAttribute('data-scrolling', '');
 
-      clock.tick(SCROLL_TIMEOUT);
-      await flushMicrotasks();
+      await clock.tickAsync(SCROLL_TIMEOUT);
 
-      expect(root).not.to.have.attribute('data-scrolling');
+      expect(root).not.toHaveAttribute('data-scrolling');
 
       // Test horizontal scrolling
       fireEvent.pointerEnter(viewport);
       fireEvent.scroll(viewport, { target: { scrollLeft: 1 } });
 
-      expect(root).to.have.attribute('data-scrolling', '');
+      expect(root).toHaveAttribute('data-scrolling', '');
 
-      clock.tick(SCROLL_TIMEOUT);
-      await flushMicrotasks();
+      await clock.tickAsync(SCROLL_TIMEOUT);
 
-      expect(root).not.to.have.attribute('data-scrolling');
+      expect(root).not.toHaveAttribute('data-scrolling');
     });
   });
 
   describe.skipIf(isJSDOM)('sizing', () => {
+    it('recomputes thumb size when becoming visible without requiring scroll', async () => {
+      function App() {
+        const [visible, setVisible] = createSignal(false);
+
+        return (
+          <>
+            <button type="button" onClick={() => setVisible(true)}>
+              show
+            </button>
+            <div style={{ display: visible() ? 'block' : 'none' }}>
+              <ScrollArea.Root
+                style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
+              >
+                <ScrollArea.Viewport
+                  data-testid="viewport"
+                  style={{ width: '100%', height: '100%' }}
+                >
+                  <div
+                    style={{
+                      width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                      height: `${SCROLLABLE_CONTENT_SIZE}px`,
+                    }}
+                  />
+                </ScrollArea.Viewport>
+                <ScrollArea.Scrollbar orientation="vertical" style={{ display: 'flex' }}>
+                  <ScrollArea.Thumb
+                    data-testid="vertical-thumb"
+                    style={{ 'padding-block': '8px' }}
+                  />
+                </ScrollArea.Scrollbar>
+              </ScrollArea.Root>
+            </div>
+          </>
+        );
+      }
+
+      render(() => <App />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'show' }));
+
+      const verticalThumb = await screen.findByTestId('vertical-thumb');
+
+      await waitFor(() => {
+        expect(
+          getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height'),
+        ).not.toBe('0px');
+      });
+    });
+
+    it('shows scrollbars after mount compute before the first ResizeObserver measurement', async () => {
+      await withMockResizeObserver(async (notifyResizeObserver) => {
+        render(() => (
+          <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+            <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+              <div
+                style={{
+                  width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
+                }}
+              />
+            </ScrollArea.Viewport>
+            <ScrollArea.Scrollbar orientation="vertical" data-testid="vertical-scrollbar">
+              <ScrollArea.Thumb data-testid="vertical-thumb" />
+            </ScrollArea.Scrollbar>
+          </ScrollArea.Root>
+        ));
+
+        const verticalScrollbar = await screen.findByTestId('vertical-scrollbar');
+
+        await waitFor(() => {
+          expect(getComputedStyle(verticalScrollbar).visibility).toBe('visible');
+        });
+
+        await act(async () => {
+          notifyResizeObserver();
+        });
+
+        await waitFor(() => {
+          expect(getComputedStyle(verticalScrollbar).visibility).toBe('visible');
+        });
+      });
+    });
+
+    it('shows keepMounted scrollbar track and thumb after mount compute', async () => {
+      await withMockResizeObserver(async (notifyResizeObserver) => {
+        render(() => (
+          <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+            <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+              <div
+                style={{
+                  width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
+                }}
+              />
+            </ScrollArea.Viewport>
+            <ScrollArea.Scrollbar
+              orientation="vertical"
+              data-testid="vertical-scrollbar"
+              keepMounted
+            >
+              <ScrollArea.Thumb data-testid="vertical-thumb" />
+            </ScrollArea.Scrollbar>
+          </ScrollArea.Root>
+        ));
+
+        const verticalScrollbar = await screen.findByTestId('vertical-scrollbar');
+        const verticalThumb = await screen.findByTestId('vertical-thumb');
+
+        await waitFor(() => {
+          expect(getComputedStyle(verticalScrollbar).visibility).toBe('visible');
+          expect(getComputedStyle(verticalThumb).visibility).toBe('visible');
+        });
+
+        await act(async () => {
+          notifyResizeObserver();
+        });
+
+        await waitFor(() => {
+          expect(getComputedStyle(verticalScrollbar).visibility).toBe('visible');
+          expect(getComputedStyle(verticalThumb).visibility).toBe('visible');
+        });
+      });
+    });
+
+    it('recomputes corner size when content starts overflowing', async () => {
+      await withMockResizeObserver(async (notifyResizeObserver) => {
+        const [contentSize, setContentSize] = createSignal(VIEWPORT_SIZE / 2);
+        const renderArea = () => (
+          <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+            <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+              <div style={{ width: `${contentSize()}px`, height: `${contentSize()}px` }} />
+            </ScrollArea.Viewport>
+            <ScrollArea.Scrollbar
+              orientation="vertical"
+              data-testid="scrollbar-vertical"
+              style={{ width: '11px' }}
+            >
+              <ScrollArea.Thumb />
+            </ScrollArea.Scrollbar>
+            <ScrollArea.Scrollbar
+              orientation="horizontal"
+              data-testid="scrollbar-horizontal"
+              style={{ height: '13px' }}
+            >
+              <ScrollArea.Thumb />
+            </ScrollArea.Scrollbar>
+            <ScrollArea.Corner data-testid="corner" />
+          </ScrollArea.Root>
+        );
+
+        render(renderArea);
+
+        await act(async () => {
+          notifyResizeObserver();
+        });
+
+        expect(screen.queryByTestId('corner')).toBe(null);
+
+        act(() => setContentSize(SCROLLABLE_CONTENT_SIZE));
+
+        await act(async () => {
+          notifyResizeObserver();
+        });
+
+        await waitFor(() => {
+          const corner = screen.getByTestId('corner');
+          expect(corner.style.width).toBe('11px');
+          expect(corner.style.height).toBe('13px');
+        });
+      });
+    });
+
+    it('clears corner, overflow attributes, and metrics when content stops overflowing', async () => {
+      await withMockResizeObserver(async (notifyResizeObserver) => {
+        function App() {
+          const [contentSize, setContentSize] = createSignal(SCROLLABLE_CONTENT_SIZE);
+
+          return (
+            <>
+              <button type="button" onClick={() => setContentSize(VIEWPORT_SIZE / 2)}>
+                shrink
+              </button>
+              <ScrollArea.Root
+                data-testid="root"
+                style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
+              >
+                <ScrollArea.Viewport
+                  data-testid="viewport"
+                  style={{ width: '100%', height: '100%' }}
+                >
+                  <div style={{ width: `${contentSize()}px`, height: `${contentSize()}px` }} />
+                </ScrollArea.Viewport>
+                <ScrollArea.Scrollbar
+                  orientation="vertical"
+                  keepMounted
+                  style={{ width: `${SCROLLBAR_WIDTH}px` }}
+                >
+                  <ScrollArea.Thumb />
+                </ScrollArea.Scrollbar>
+                <ScrollArea.Scrollbar
+                  orientation="horizontal"
+                  keepMounted
+                  style={{ height: `${SCROLLBAR_HEIGHT}px` }}
+                >
+                  <ScrollArea.Thumb />
+                </ScrollArea.Scrollbar>
+                <ScrollArea.Corner data-testid="corner" />
+              </ScrollArea.Root>
+            </>
+          );
+        }
+
+        const { user } = render(() => <App />);
+        const root = screen.getByTestId('root');
+        const viewport = screen.getByTestId('viewport');
+
+        await waitFor(() => expect(root).toHaveAttribute('data-has-overflow-x'));
+        await waitFor(() => expect(root).toHaveAttribute('data-has-overflow-y'));
+        expect(screen.getByTestId('corner')).toBeInTheDocument();
+        expect(viewport.style.getPropertyValue('--scroll-area-overflow-x-end')).not.toBe('0px');
+        expect(viewport.style.getPropertyValue('--scroll-area-overflow-y-end')).not.toBe('0px');
+
+        await user.click(screen.getByRole('button', { name: 'shrink' }));
+        await act(async () => {
+          notifyResizeObserver();
+        });
+
+        await waitFor(() => expect(root).not.toHaveAttribute('data-has-overflow-x'));
+        await waitFor(() => expect(root).not.toHaveAttribute('data-has-overflow-y'));
+        expect(screen.queryByTestId('corner')).toBe(null);
+        expect(viewport.style.getPropertyValue('--scroll-area-overflow-x-start')).toBe('0px');
+        expect(viewport.style.getPropertyValue('--scroll-area-overflow-x-end')).toBe('0px');
+        expect(viewport.style.getPropertyValue('--scroll-area-overflow-y-start')).toBe('0px');
+        expect(viewport.style.getPropertyValue('--scroll-area-overflow-y-end')).toBe('0px');
+      });
+    });
+
     it('should correctly set thumb height and width based on scrollable content', async () => {
       render(() => (
-        <ScrollArea.Root style={{ height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}>
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+        <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <div
               style={{
-                height: `${SCROLLABLE_CONTENT_SIZE}px`,
                 width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                height: `${SCROLLABLE_CONTENT_SIZE}px`,
               }}
             />
           </ScrollArea.Viewport>
@@ -81,33 +356,33 @@ describe('<ScrollArea.Root />', () => {
         </ScrollArea.Root>
       ));
 
-      await waitFor(() => {
-        const verticalThumb = screen.getByTestId('vertical-thumb');
-        const horizontalThumb = screen.getByTestId('horizontal-thumb');
+      const verticalThumb = screen.getByTestId('vertical-thumb');
+      const horizontalThumb = screen.getByTestId('horizontal-thumb');
 
-        expect(
-          getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height'),
-        ).to.equal(`${(VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE) * VIEWPORT_SIZE}px`);
+      await waitFor(() => {
+        expect(getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height')).toBe(
+          `${(VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE) * VIEWPORT_SIZE}px`,
+        );
         expect(
           getComputedStyle(horizontalThumb).getPropertyValue('--scroll-area-thumb-width'),
-        ).to.equal(`${(VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE) * VIEWPORT_SIZE}px`);
+        ).toBe(`${(VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE) * VIEWPORT_SIZE}px`);
       });
     });
 
     it('should not add padding for overlay scrollbars', async () => {
       render(() => (
-        <ScrollArea.Root style={{ height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}>
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+        <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <div
               style={{
-                height: `${SCROLLABLE_CONTENT_SIZE}px`,
                 width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                height: `${SCROLLABLE_CONTENT_SIZE}px`,
               }}
             />
           </ScrollArea.Viewport>
           <ScrollArea.Scrollbar
             orientation="vertical"
-            style={{ height: '100%', width: `${SCROLLBAR_WIDTH}px` }}
+            style={{ width: `${SCROLLBAR_WIDTH}px`, height: '100%' }}
           />
           <ScrollArea.Scrollbar
             orientation="horizontal"
@@ -116,26 +391,24 @@ describe('<ScrollArea.Root />', () => {
         </ScrollArea.Root>
       ));
 
-      await waitFor(() => {
-        const contentWrapper = screen.getByTestId('viewport').firstElementChild!;
-        const style = getComputedStyle(contentWrapper);
+      const contentWrapper = screen.getByTestId('viewport').firstElementChild!;
+      const style = getComputedStyle(contentWrapper);
 
-        expect(style.paddingLeft).to.equal('0px');
-        expect(style.paddingRight).to.equal('0px');
-        expect(style.paddingBottom).to.equal('0px');
-      });
+      expect(style.paddingLeft).toBe('0px');
+      expect(style.paddingRight).toBe('0px');
+      expect(style.paddingBottom).toBe('0px');
     });
 
     it('accounts for scrollbar padding', async () => {
       const PADDING = 8;
 
       render(() => (
-        <ScrollArea.Root style={{ height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}>
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+        <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <div
               style={{
-                height: `${SCROLLABLE_CONTENT_SIZE}px`,
                 width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                height: `${SCROLLABLE_CONTENT_SIZE}px`,
               }}
             />
           </ScrollArea.Viewport>
@@ -156,20 +429,16 @@ describe('<ScrollArea.Root />', () => {
         </ScrollArea.Root>
       ));
 
-      await waitFor(() => {
-        const verticalThumb = screen.getByTestId('vertical-thumb');
-        const horizontalThumb = screen.getByTestId('horizontal-thumb');
+      const verticalThumb = screen.getByTestId('vertical-thumb');
+      const horizontalThumb = screen.getByTestId('horizontal-thumb');
 
-        expect(
-          getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height'),
-        ).to.equal(
+      await waitFor(() => {
+        expect(getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height')).toBe(
           `${(VIEWPORT_SIZE - PADDING * 2) * (VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE)}px`,
         );
         expect(
           getComputedStyle(horizontalThumb).getPropertyValue('--scroll-area-thumb-width'),
-        ).to.equal(
-          `${(VIEWPORT_SIZE - PADDING * 2) * (VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE)}px`,
-        );
+        ).toBe(`${(VIEWPORT_SIZE - PADDING * 2) * (VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE)}px`);
       });
     });
 
@@ -178,12 +447,12 @@ describe('<ScrollArea.Root />', () => {
       const viewportSize = 390;
 
       render(() => (
-        <ScrollArea.Root style={{ height: `${viewportSize}px`, width: `${viewportSize}px` }}>
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+        <ScrollArea.Root style={{ width: `${viewportSize}px`, height: `${viewportSize}px` }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <div
               style={{
-                height: `${SCROLLABLE_CONTENT_SIZE}px`,
                 width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                height: `${SCROLLABLE_CONTENT_SIZE}px`,
               }}
             />
           </ScrollArea.Viewport>
@@ -204,16 +473,16 @@ describe('<ScrollArea.Root />', () => {
         </ScrollArea.Root>
       ));
 
-      await waitFor(() => {
-        const verticalThumb = screen.getByTestId('vertical-thumb');
-        const horizontalThumb = screen.getByTestId('horizontal-thumb');
+      const verticalThumb = screen.getByTestId('vertical-thumb');
+      const horizontalThumb = screen.getByTestId('horizontal-thumb');
 
-        expect(
-          getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height'),
-        ).to.equal(`${viewportSize * (viewportSize / SCROLLABLE_CONTENT_SIZE)}px`);
+      await waitFor(() => {
+        expect(getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height')).toBe(
+          `${viewportSize * (viewportSize / SCROLLABLE_CONTENT_SIZE)}px`,
+        );
         expect(
           getComputedStyle(horizontalThumb).getPropertyValue('--scroll-area-thumb-width'),
-        ).to.equal(`${viewportSize * (viewportSize / SCROLLABLE_CONTENT_SIZE)}px`);
+        ).toBe(`${viewportSize * (viewportSize / SCROLLABLE_CONTENT_SIZE)}px`);
       });
     });
 
@@ -221,12 +490,12 @@ describe('<ScrollArea.Root />', () => {
       const MARGIN = 8;
 
       render(() => (
-        <ScrollArea.Root style={{ height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}>
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+        <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <div
               style={{
-                height: `${SCROLLABLE_CONTENT_SIZE}px`,
                 width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                height: `${SCROLLABLE_CONTENT_SIZE}px`,
               }}
             />
           </ScrollArea.Viewport>
@@ -245,33 +514,140 @@ describe('<ScrollArea.Root />', () => {
         </ScrollArea.Root>
       ));
 
-      await waitFor(() => {
-        const verticalThumb = screen.getByTestId('vertical-thumb');
-        const horizontalThumb = screen.getByTestId('horizontal-thumb');
+      const verticalThumb = screen.getByTestId('vertical-thumb');
+      const horizontalThumb = screen.getByTestId('horizontal-thumb');
 
-        expect(
-          getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height'),
-        ).to.equal(`${(VIEWPORT_SIZE - MARGIN * 2) * (VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE)}px`);
+      await waitFor(() => {
+        expect(getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height')).toBe(
+          `${(VIEWPORT_SIZE - MARGIN * 2) * (VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE)}px`,
+        );
         expect(
           getComputedStyle(horizontalThumb).getPropertyValue('--scroll-area-thumb-width'),
-        ).to.equal(`${(VIEWPORT_SIZE - MARGIN * 2) * (VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE)}px`);
+        ).toBe(`${(VIEWPORT_SIZE - MARGIN * 2) * (VIEWPORT_SIZE / SCROLLABLE_CONTENT_SIZE)}px`);
       });
     });
   });
 
   describe.skipIf(isJSDOM)('overflow data attributes', () => {
+    it('recomputes horizontal overflow edges when direction changes', async () => {
+      const [direction, setDirection] = createSignal<'ltr' | 'rtl'>('ltr');
+      const renderArea = () => (
+        <DirectionProvider direction={direction()}>
+          <ScrollArea.Root
+            data-testid="root"
+            style={{
+              width: `${VIEWPORT_SIZE}px`,
+              height: `${VIEWPORT_SIZE}px`,
+              direction: direction(),
+            }}
+          >
+            <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+              <div
+                style={{ width: `${SCROLLABLE_CONTENT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
+              />
+            </ScrollArea.Viewport>
+            <ScrollArea.Scrollbar orientation="horizontal">
+              <ScrollArea.Thumb />
+            </ScrollArea.Scrollbar>
+          </ScrollArea.Root>
+        </DirectionProvider>
+      );
+
+      render(renderArea);
+
+      const root = screen.getByTestId('root');
+      const viewport = screen.getByTestId('viewport');
+
+      await waitFor(() => expect(root).toHaveAttribute('data-has-overflow-x'));
+
+      const maxScrollLeft = viewport.scrollWidth - viewport.clientWidth;
+
+      fireEvent.scroll(viewport, {
+        target: {
+          scrollLeft: maxScrollLeft / 2,
+        },
+      });
+
+      /* eslint-disable testing-library/no-wait-for-multiple-assertions */
+      await waitFor(() => {
+        expect(root).toHaveAttribute('data-overflow-x-start');
+        expect(root).toHaveAttribute('data-overflow-x-end');
+      });
+      /* eslint-enable testing-library/no-wait-for-multiple-assertions */
+
+      act(() => setDirection('rtl'));
+
+      await act(async () => {
+        viewport.scrollLeft = -maxScrollLeft;
+      });
+
+      await waitFor(() => {
+        expect(root).toHaveAttribute('data-overflow-x-start');
+        expect(root).not.toHaveAttribute('data-overflow-x-end');
+      });
+    });
+
+    it('measures content mounted after the viewport initial measurement', async () => {
+      function App() {
+        const [show, setShow] = createSignal(false);
+        return (
+          <ScrollArea.Root
+            data-testid="root"
+            style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
+          >
+            <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+              <Show when={show()}>
+                <ScrollArea.Content>
+                  <div
+                    style={{
+                      width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                      height: `${SCROLLABLE_CONTENT_SIZE}px`,
+                    }}
+                  />
+                </ScrollArea.Content>
+              </Show>
+            </ScrollArea.Viewport>
+            <ScrollArea.Scrollbar orientation="vertical">
+              <ScrollArea.Thumb />
+            </ScrollArea.Scrollbar>
+            <button type="button" onClick={() => setShow(true)}>
+              show
+            </button>
+          </ScrollArea.Root>
+        );
+      }
+
+      render(() => <App />);
+
+      const root = screen.getByTestId('root');
+      const viewport = screen.getByTestId('viewport');
+
+      // Empty viewport: no overflow and kept out of tab order.
+      await waitFor(() => {
+        expect(root).not.toHaveAttribute('data-has-overflow-y');
+      });
+      expect(viewport).toHaveAttribute('tabindex', '-1');
+
+      fireEvent.click(screen.getByText('show'));
+
+      // Once oversized content mounts, overflow state and tab order must update.
+      await waitFor(() => expect(root).toHaveAttribute('data-has-overflow-x'));
+      await waitFor(() => expect(root).toHaveAttribute('data-has-overflow-y'));
+      await waitFor(() => expect(viewport).toHaveAttribute('tabindex', '0'));
+    });
+
     it('applies data attributes on root, viewport and scrollbars based on overflow and edges', async () => {
       render(() => (
         <ScrollArea.Root
           data-testid="root"
-          style={{ height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}
+          style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
         >
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <ScrollArea.Content data-testid="content">
               <div
                 style={{
-                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
                   width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
                 }}
               />
             </ScrollArea.Content>
@@ -292,101 +668,105 @@ describe('<ScrollArea.Root />', () => {
       const hScrollbar = screen.getByTestId('scrollbar-horizontal');
 
       // Initial: at start (top/left)
-      expect(root).to.have.attribute('data-has-overflow-x');
-      expect(root).to.have.attribute('data-has-overflow-y');
-      expect(root).not.to.have.attribute('data-overflow-x-start');
-      expect(root).to.have.attribute('data-overflow-x-end');
-      expect(root).not.to.have.attribute('data-overflow-y-start');
-      expect(root).to.have.attribute('data-overflow-y-end');
+      /* eslint-disable testing-library/no-wait-for-multiple-assertions */
+      await waitFor(() => {
+        expect(root).toHaveAttribute('data-has-overflow-x');
+        expect(root).toHaveAttribute('data-has-overflow-y');
+        expect(root).not.toHaveAttribute('data-overflow-x-start');
+        expect(root).toHaveAttribute('data-overflow-x-end');
+        expect(root).not.toHaveAttribute('data-overflow-y-start');
+        expect(root).toHaveAttribute('data-overflow-y-end');
 
-      expect(viewport).to.have.attribute('data-has-overflow-x');
-      expect(viewport).to.have.attribute('data-has-overflow-y');
-      expect(viewport).not.to.have.attribute('data-overflow-x-start');
-      expect(viewport).to.have.attribute('data-overflow-x-end');
-      expect(viewport).not.to.have.attribute('data-overflow-y-start');
-      expect(viewport).to.have.attribute('data-overflow-y-end');
-      expect(content).to.have.attribute('data-has-overflow-x');
-      expect(content).to.have.attribute('data-has-overflow-y');
-      expect(content).not.to.have.attribute('data-overflow-x-start');
-      expect(content).to.have.attribute('data-overflow-x-end');
-      expect(content).not.to.have.attribute('data-overflow-y-start');
-      expect(content).to.have.attribute('data-overflow-y-end');
+        expect(viewport).toHaveAttribute('data-has-overflow-x');
+        expect(viewport).toHaveAttribute('data-has-overflow-y');
+        expect(viewport).not.toHaveAttribute('data-overflow-x-start');
+        expect(viewport).toHaveAttribute('data-overflow-x-end');
+        expect(viewport).not.toHaveAttribute('data-overflow-y-start');
+        expect(viewport).toHaveAttribute('data-overflow-y-end');
+        expect(content).toHaveAttribute('data-has-overflow-x');
+        expect(content).toHaveAttribute('data-has-overflow-y');
+        expect(content).not.toHaveAttribute('data-overflow-x-start');
+        expect(content).toHaveAttribute('data-overflow-x-end');
+        expect(content).not.toHaveAttribute('data-overflow-y-start');
+        expect(content).toHaveAttribute('data-overflow-y-end');
 
-      expect(vScrollbar).to.have.attribute('data-has-overflow-y');
-      expect(vScrollbar).not.to.have.attribute('data-overflow-y-start');
-      expect(vScrollbar).to.have.attribute('data-overflow-y-end');
-      expect(hScrollbar).to.have.attribute('data-has-overflow-x');
-      expect(hScrollbar).not.to.have.attribute('data-overflow-x-start');
-      expect(hScrollbar).to.have.attribute('data-overflow-x-end');
+        expect(vScrollbar).toHaveAttribute('data-has-overflow-y');
+        expect(vScrollbar).not.toHaveAttribute('data-overflow-y-start');
+        expect(vScrollbar).toHaveAttribute('data-overflow-y-end');
+        expect(hScrollbar).toHaveAttribute('data-has-overflow-x');
+        expect(hScrollbar).not.toHaveAttribute('data-overflow-x-start');
+        expect(hScrollbar).toHaveAttribute('data-overflow-x-end');
+      });
+      /* eslint-enable testing-library/no-wait-for-multiple-assertions */
 
       // Scroll to middle
       const halfY = (viewport.scrollHeight - viewport.clientHeight) / 2;
       const halfX = (viewport.scrollWidth - viewport.clientWidth) / 2;
       fireEvent.scroll(viewport, {
-        target: { scrollLeft: halfX, scrollTop: halfY },
+        target: { scrollTop: halfY, scrollLeft: halfX },
       });
       await flushMicrotasks();
 
-      expect(root).to.have.attribute('data-overflow-y-start');
-      expect(root).to.have.attribute('data-overflow-y-end');
-      expect(root).to.have.attribute('data-overflow-x-start');
-      expect(root).to.have.attribute('data-overflow-x-end');
+      expect(root).toHaveAttribute('data-overflow-y-start');
+      expect(root).toHaveAttribute('data-overflow-y-end');
+      expect(root).toHaveAttribute('data-overflow-x-start');
+      expect(root).toHaveAttribute('data-overflow-x-end');
 
-      expect(viewport).to.have.attribute('data-overflow-y-start');
-      expect(viewport).to.have.attribute('data-overflow-y-end');
-      expect(viewport).to.have.attribute('data-overflow-x-start');
-      expect(viewport).to.have.attribute('data-overflow-x-end');
-      expect(content).to.have.attribute('data-overflow-y-start');
-      expect(content).to.have.attribute('data-overflow-y-end');
-      expect(content).to.have.attribute('data-overflow-x-start');
-      expect(content).to.have.attribute('data-overflow-x-end');
+      expect(viewport).toHaveAttribute('data-overflow-y-start');
+      expect(viewport).toHaveAttribute('data-overflow-y-end');
+      expect(viewport).toHaveAttribute('data-overflow-x-start');
+      expect(viewport).toHaveAttribute('data-overflow-x-end');
+      expect(content).toHaveAttribute('data-overflow-y-start');
+      expect(content).toHaveAttribute('data-overflow-y-end');
+      expect(content).toHaveAttribute('data-overflow-x-start');
+      expect(content).toHaveAttribute('data-overflow-x-end');
 
-      expect(vScrollbar).to.have.attribute('data-overflow-y-start');
-      expect(vScrollbar).to.have.attribute('data-overflow-y-end');
-      expect(hScrollbar).to.have.attribute('data-overflow-x-start');
-      expect(hScrollbar).to.have.attribute('data-overflow-x-end');
+      expect(vScrollbar).toHaveAttribute('data-overflow-y-start');
+      expect(vScrollbar).toHaveAttribute('data-overflow-y-end');
+      expect(hScrollbar).toHaveAttribute('data-overflow-x-start');
+      expect(hScrollbar).toHaveAttribute('data-overflow-x-end');
 
       // Scroll to end
       fireEvent.scroll(viewport, {
         target: {
-          scrollLeft: viewport.scrollWidth - viewport.clientWidth,
           scrollTop: viewport.scrollHeight - viewport.clientHeight,
+          scrollLeft: viewport.scrollWidth - viewport.clientWidth,
         },
       });
       await flushMicrotasks();
 
-      expect(root).to.have.attribute('data-overflow-y-start');
-      expect(root).not.to.have.attribute('data-overflow-y-end');
-      expect(root).to.have.attribute('data-overflow-x-start');
-      expect(root).not.to.have.attribute('data-overflow-x-end');
+      expect(root).toHaveAttribute('data-overflow-y-start');
+      expect(root).not.toHaveAttribute('data-overflow-y-end');
+      expect(root).toHaveAttribute('data-overflow-x-start');
+      expect(root).not.toHaveAttribute('data-overflow-x-end');
 
-      expect(viewport).to.have.attribute('data-overflow-y-start');
-      expect(viewport).not.to.have.attribute('data-overflow-y-end');
-      expect(viewport).to.have.attribute('data-overflow-x-start');
-      expect(viewport).not.to.have.attribute('data-overflow-x-end');
-      expect(content).to.have.attribute('data-overflow-y-start');
-      expect(content).not.to.have.attribute('data-overflow-y-end');
-      expect(content).to.have.attribute('data-overflow-x-start');
-      expect(content).not.to.have.attribute('data-overflow-x-end');
+      expect(viewport).toHaveAttribute('data-overflow-y-start');
+      expect(viewport).not.toHaveAttribute('data-overflow-y-end');
+      expect(viewport).toHaveAttribute('data-overflow-x-start');
+      expect(viewport).not.toHaveAttribute('data-overflow-x-end');
+      expect(content).toHaveAttribute('data-overflow-y-start');
+      expect(content).not.toHaveAttribute('data-overflow-y-end');
+      expect(content).toHaveAttribute('data-overflow-x-start');
+      expect(content).not.toHaveAttribute('data-overflow-x-end');
 
-      expect(vScrollbar).to.have.attribute('data-overflow-y-start');
-      expect(vScrollbar).not.to.have.attribute('data-overflow-y-end');
-      expect(hScrollbar).to.have.attribute('data-overflow-x-start');
-      expect(hScrollbar).not.to.have.attribute('data-overflow-x-end');
+      expect(vScrollbar).toHaveAttribute('data-overflow-y-start');
+      expect(vScrollbar).not.toHaveAttribute('data-overflow-y-end');
+      expect(hScrollbar).toHaveAttribute('data-overflow-x-start');
+      expect(hScrollbar).not.toHaveAttribute('data-overflow-x-end');
     });
 
     it('treats near-edge scroll offsets as fully scrolled', async () => {
       render(() => (
         <ScrollArea.Root
           data-testid="root"
-          style={{ height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}
+          style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
         >
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <ScrollArea.Content data-testid="content">
               <div
                 style={{
-                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
                   width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
                 }}
               />
             </ScrollArea.Content>
@@ -408,16 +788,16 @@ describe('<ScrollArea.Root />', () => {
 
       fireEvent.scroll(viewport, {
         target: {
-          scrollLeft: maxScrollLeft - 0.5,
           scrollTop: maxScrollTop - 0.5,
+          scrollLeft: maxScrollLeft - 0.5,
         },
       });
       await flushMicrotasks();
 
-      expect(root).to.have.attribute('data-overflow-y-start');
-      expect(root).not.to.have.attribute('data-overflow-y-end');
-      expect(root).to.have.attribute('data-overflow-x-start');
-      expect(root).not.to.have.attribute('data-overflow-x-end');
+      expect(root).toHaveAttribute('data-overflow-y-start');
+      expect(root).not.toHaveAttribute('data-overflow-y-end');
+      expect(root).toHaveAttribute('data-overflow-x-start');
+      expect(root).not.toHaveAttribute('data-overflow-x-end');
     });
 
     it('respects overflowEdgeThreshold and exposes scroll metrics', async () => {
@@ -425,14 +805,14 @@ describe('<ScrollArea.Root />', () => {
         <ScrollArea.Root
           data-testid="root"
           overflowEdgeThreshold={{ xStart: 20, yStart: 5 }}
-          style={{ height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}
+          style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
         >
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <ScrollArea.Content data-testid="content">
               <div
                 style={{
-                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
                   width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
                 }}
               />
             </ScrollArea.Content>
@@ -452,33 +832,121 @@ describe('<ScrollArea.Root />', () => {
         target: { scrollLeft: 15, scrollTop: 7 },
       });
 
-      await waitFor(() => expect(viewport).not.to.have.attribute('data-overflow-x-start'));
-      expect(viewport).to.have.attribute('data-overflow-y-start');
+      await waitFor(() => expect(viewport).not.toHaveAttribute('data-overflow-x-start'));
+      expect(viewport).toHaveAttribute('data-overflow-y-start');
 
       fireEvent.scroll(viewport, {
         target: { scrollLeft: 35, scrollTop: 7 },
       });
 
-      await waitFor(() => expect(viewport).to.have.attribute('data-overflow-x-start'));
+      await waitFor(() => expect(viewport).toHaveAttribute('data-overflow-x-start'));
 
       const viewportStyle = viewport.style;
       const startPx = viewportStyle.getPropertyValue('--scroll-area-overflow-x-start');
-      expect(startPx).to.equal('35px');
+      expect(startPx).toBe('35px');
 
       const horizontalEndPx = viewportStyle.getPropertyValue('--scroll-area-overflow-x-end');
-      expect(horizontalEndPx).to.not.equal('');
-      expect(horizontalEndPx).to.not.equal('0px');
+      expect(horizontalEndPx).not.toBe('');
+      expect(horizontalEndPx).not.toBe('0px');
+    });
+
+    it('applies numeric overflowEdgeThreshold to every edge', async () => {
+      render(() => (
+        <ScrollArea.Root
+          data-testid="root"
+          overflowEdgeThreshold={20}
+          style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
+        >
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+            <ScrollArea.Content>
+              <div
+                style={{
+                  width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
+                }}
+              />
+            </ScrollArea.Content>
+          </ScrollArea.Viewport>
+          <ScrollArea.Scrollbar orientation="vertical">
+            <ScrollArea.Thumb />
+          </ScrollArea.Scrollbar>
+          <ScrollArea.Scrollbar orientation="horizontal">
+            <ScrollArea.Thumb />
+          </ScrollArea.Scrollbar>
+        </ScrollArea.Root>
+      ));
+
+      const viewport = screen.getByTestId('viewport');
+
+      await waitFor(() => expect(viewport).toHaveAttribute('data-has-overflow-x'));
+
+      fireEvent.scroll(viewport, {
+        target: { scrollLeft: 15, scrollTop: 15 },
+      });
+
+      expect(viewport).not.toHaveAttribute('data-overflow-x-start');
+      expect(viewport).not.toHaveAttribute('data-overflow-y-start');
+      expect(viewport).toHaveAttribute('data-overflow-x-end');
+      expect(viewport).toHaveAttribute('data-overflow-y-end');
+
+      fireEvent.scroll(viewport, {
+        target: {
+          scrollLeft: viewport.scrollWidth - viewport.clientWidth - 15,
+          scrollTop: viewport.scrollHeight - viewport.clientHeight - 15,
+        },
+      });
+
+      expect(viewport).toHaveAttribute('data-overflow-x-start');
+      expect(viewport).toHaveAttribute('data-overflow-y-start');
+      expect(viewport).not.toHaveAttribute('data-overflow-x-end');
+      expect(viewport).not.toHaveAttribute('data-overflow-y-end');
+    });
+
+    it('recomputes overflow edges when overflowEdgeThreshold changes', async () => {
+      const [yStart, setYStart] = createSignal(5);
+      const renderArea = () => (
+        <ScrollArea.Root
+          data-testid="root"
+          overflowEdgeThreshold={{ yStart: yStart() }}
+          style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
+        >
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+            <ScrollArea.Content>
+              <div
+                style={{
+                  width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                  height: `${SCROLLABLE_CONTENT_SIZE}px`,
+                }}
+              />
+            </ScrollArea.Content>
+          </ScrollArea.Viewport>
+          <ScrollArea.Scrollbar orientation="vertical">
+            <ScrollArea.Thumb />
+          </ScrollArea.Scrollbar>
+        </ScrollArea.Root>
+      );
+
+      render(renderArea);
+
+      const viewport = screen.getByTestId('viewport');
+
+      fireEvent.scroll(viewport, { target: { scrollTop: 10 } });
+      await waitFor(() => expect(viewport).toHaveAttribute('data-overflow-y-start'));
+
+      // Raising the threshold above the current offset must clear the edge without a new scroll.
+      act(() => setYStart(20));
+      await waitFor(() => expect(viewport).not.toHaveAttribute('data-overflow-y-start'));
     });
 
     it('does not add state attributes when content does not overflow', async () => {
       render(() => (
         <ScrollArea.Root
           data-testid="root"
-          style={{ height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}
+          style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}
         >
-          <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <ScrollArea.Content data-testid="content">
-              <div style={{ height: `${VIEWPORT_SIZE / 2}px`, width: `${VIEWPORT_SIZE / 2}px` }} />
+              <div style={{ width: `${VIEWPORT_SIZE / 2}px`, height: `${VIEWPORT_SIZE / 2}px` }} />
             </ScrollArea.Content>
           </ScrollArea.Viewport>
           <ScrollArea.Scrollbar orientation="vertical" keepMounted data-testid="scrollbar-vertical">
@@ -500,26 +968,26 @@ describe('<ScrollArea.Root />', () => {
       const vScrollbar = screen.getByTestId('scrollbar-vertical');
       const hScrollbar = screen.getByTestId('scrollbar-horizontal');
 
-      expect(root).not.to.have.attribute('data-has-overflow-x');
-      expect(root).not.to.have.attribute('data-has-overflow-y');
-      expect(root).not.to.have.attribute('data-overflow-x-start');
-      expect(root).not.to.have.attribute('data-overflow-x-end');
-      expect(root).not.to.have.attribute('data-overflow-y-start');
-      expect(root).not.to.have.attribute('data-overflow-y-end');
+      expect(root).not.toHaveAttribute('data-has-overflow-x');
+      expect(root).not.toHaveAttribute('data-has-overflow-y');
+      expect(root).not.toHaveAttribute('data-overflow-x-start');
+      expect(root).not.toHaveAttribute('data-overflow-x-end');
+      expect(root).not.toHaveAttribute('data-overflow-y-start');
+      expect(root).not.toHaveAttribute('data-overflow-y-end');
 
-      expect(viewport).not.to.have.attribute('data-overflow-x-start');
-      expect(viewport).not.to.have.attribute('data-overflow-x-end');
-      expect(viewport).not.to.have.attribute('data-overflow-y-start');
-      expect(viewport).not.to.have.attribute('data-overflow-y-end');
-      expect(content).not.to.have.attribute('data-overflow-x-start');
-      expect(content).not.to.have.attribute('data-overflow-x-end');
-      expect(content).not.to.have.attribute('data-overflow-y-start');
-      expect(content).not.to.have.attribute('data-overflow-y-end');
+      expect(viewport).not.toHaveAttribute('data-overflow-x-start');
+      expect(viewport).not.toHaveAttribute('data-overflow-x-end');
+      expect(viewport).not.toHaveAttribute('data-overflow-y-start');
+      expect(viewport).not.toHaveAttribute('data-overflow-y-end');
+      expect(content).not.toHaveAttribute('data-overflow-x-start');
+      expect(content).not.toHaveAttribute('data-overflow-x-end');
+      expect(content).not.toHaveAttribute('data-overflow-y-start');
+      expect(content).not.toHaveAttribute('data-overflow-y-end');
 
-      expect(vScrollbar).not.to.have.attribute('data-overflow-y-start');
-      expect(vScrollbar).not.to.have.attribute('data-overflow-y-end');
-      expect(hScrollbar).not.to.have.attribute('data-overflow-x-start');
-      expect(hScrollbar).not.to.have.attribute('data-overflow-x-end');
+      expect(vScrollbar).not.toHaveAttribute('data-overflow-y-start');
+      expect(vScrollbar).not.toHaveAttribute('data-overflow-y-end');
+      expect(hScrollbar).not.toHaveAttribute('data-overflow-x-start');
+      expect(hScrollbar).not.toHaveAttribute('data-overflow-x-end');
     });
 
     it('correctly handles RTL', async () => {
@@ -527,10 +995,10 @@ describe('<ScrollArea.Root />', () => {
         <DirectionProvider direction="rtl">
           <ScrollArea.Root
             data-testid="root"
-            style={{ direction: 'rtl', height: `${VIEWPORT_SIZE}px`, width: `${VIEWPORT_SIZE}px` }}
+            style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px`, direction: 'rtl' }}
           >
-            <ScrollArea.Viewport data-testid="viewport" style={{ height: '100%', width: '100%' }}>
-              <div style={{ height: '200px', width: `${SCROLLABLE_CONTENT_SIZE}px` }} />
+            <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+              <div style={{ width: `${SCROLLABLE_CONTENT_SIZE}px`, height: '200px' }} />
             </ScrollArea.Viewport>
             <ScrollArea.Scrollbar orientation="horizontal" data-testid="scrollbar-horizontal">
               <ScrollArea.Thumb />
@@ -549,9 +1017,9 @@ describe('<ScrollArea.Root />', () => {
         },
       });
 
-      await waitFor(() => expect(root).to.have.attribute('data-has-overflow-x'));
-      expect(root).not.to.have.attribute('data-overflow-x-start');
-      expect(root).to.have.attribute('data-overflow-x-end');
+      await waitFor(() => expect(root).toHaveAttribute('data-has-overflow-x'));
+      expect(root).not.toHaveAttribute('data-overflow-x-start');
+      expect(root).toHaveAttribute('data-overflow-x-end');
 
       fireEvent.scroll(viewport, {
         target: {
@@ -559,8 +1027,8 @@ describe('<ScrollArea.Root />', () => {
         },
       });
 
-      await waitFor(() => expect(root).to.have.attribute('data-overflow-x-start'));
-      expect(root).to.have.attribute('data-overflow-x-end');
+      await waitFor(() => expect(root).toHaveAttribute('data-overflow-x-start'));
+      expect(root).toHaveAttribute('data-overflow-x-end');
 
       fireEvent.scroll(viewport, {
         target: {
@@ -568,8 +1036,62 @@ describe('<ScrollArea.Root />', () => {
         },
       });
 
-      await waitFor(() => expect(root).to.have.attribute('data-overflow-x-start'));
-      expect(root).not.to.have.attribute('data-overflow-x-end');
+      await waitFor(() => expect(root).toHaveAttribute('data-overflow-x-start'));
+      expect(root).not.toHaveAttribute('data-overflow-x-end');
+    });
+  });
+
+  describe.skipIf(isJSDOM)('context stability', () => {
+    it('does not re-render parts on scroll when the corner size is unchanged', async () => {
+      let commitCount = 0;
+      // Solid: parts never re-render; count the corner-size updates they would re-run for.
+      function ContextProbe() {
+        const context = useContext(ScrollAreaRootContext)!;
+        createEffect(context.cornerSize, () => {
+          commitCount += 1;
+        });
+        return null;
+      }
+
+      render(() => (
+        <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+          <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
+            <div
+              style={{
+                width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                height: `${SCROLLABLE_CONTENT_SIZE}px`,
+              }}
+            />
+          </ScrollArea.Viewport>
+          <ScrollArea.Scrollbar orientation="vertical" style={{ width: '10px' }}>
+            <ScrollArea.Thumb />
+          </ScrollArea.Scrollbar>
+          <ScrollArea.Scrollbar orientation="horizontal" style={{ height: '10px' }}>
+            <ScrollArea.Thumb />
+          </ScrollArea.Scrollbar>
+          <ScrollArea.Corner data-testid="corner" />
+          <ContextProbe />
+        </ScrollArea.Root>
+      ));
+
+      const viewport = screen.getByTestId('viewport');
+
+      // Wait until both scrollbars are visible and the corner has been measured,
+      // which is the precondition for the corner-size setter to run on scroll.
+      await waitFor(() => expect(screen.getByTestId('corner').style.width).toBe('10px'));
+      await flushMicrotasks();
+
+      const countBeforeScroll = commitCount;
+
+      // Scrolling does not change the corner size, so no scroll-area part should
+      // re-render. Previously the corner-size setter built a fresh object on every
+      // scroll frame, rebuilding the root context and re-rendering every part.
+      for (let i = 0; i < 3; i += 1) {
+        fireEvent.scroll(viewport, { target: { scrollTop: 0, scrollLeft: 0 } });
+      }
+      await flushMicrotasks();
+
+      expect(commitCount).toBe(countBeforeScroll);
     });
   });
 });

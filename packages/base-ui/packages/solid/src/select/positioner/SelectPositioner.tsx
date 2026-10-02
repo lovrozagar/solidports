@@ -1,18 +1,20 @@
-import { createTrackedEffect, createSignal, Show } from 'solid-js';
+import { createEffect, createRenderEffect, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { CompositeList, type CompositeMetadata } from '../../internals/composite/list/CompositeList';
-import { splitComponentProps, useRef } from '../../solid-helpers';
+import {
+  CompositeList,
+  type CompositeMetadata,
+} from '../../internals/composite/list/CompositeList';
+import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
+import { createDepsEffect, splitComponentProps, useRef } from '../../solid-helpers';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import { DROPDOWN_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import { findItemIndex, selectedValueIncludes } from '../../utils/itemEquality';
-import { popupStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
-import type { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps, BaseUIHTMLProps } from '../../utils/types';
 import { useAnchoredPopupScrollLock } from '../../utils/useAnchoredPopupScrollLock';
 import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
-import { useRenderElement } from '../../utils/useRenderElement';
+import { usePositioner } from '../../utils/usePositioner';
 import { clearStyles } from '../popup/utils';
 import { useSelectFloatingContext, useSelectRootContext } from '../root/SelectRootContext';
 import { SelectPositionerContext } from './SelectPositionerContext';
@@ -77,37 +79,48 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
   const isItemEqualToValue = store.useState('isItemEqualToValue');
   const transitionStatus = store.useState('transitionStatus');
 
+  // Solid: React treats presses and focus inside the portaled popup as inside an enclosing
+  // floating element through portal event bubbling; here the positioner joins its floating tree.
+  const nodeId = useFloatingNodeId();
+
   const scrollUpArrowRef = useRef<HTMLDivElement | null | undefined>(null);
   const scrollDownArrowRef = useRef<HTMLDivElement | null | undefined>(null);
 
-  const [controlledAlignItemWithTrigger, setControlledAlignItemWithTrigger] =
-    createSignal(alignItemWithTrigger());
+  const [controlledAlignItemWithTrigger, setControlledAlignItemWithTrigger] = createSignal(
+    untrack(() => alignItemWithTrigger()),
+  );
   const alignItemWithTriggerActive = () =>
     mounted() && controlledAlignItemWithTrigger() && openMethod() !== 'touch';
 
-  createTrackedEffect(() => {
-    if (!mounted() && controlledAlignItemWithTrigger() !== alignItemWithTrigger()) {
-      setControlledAlignItemWithTrigger(alignItemWithTrigger());
+  createDepsEffect(
+    () => ({ mounted: mounted(), alignItemWithTrigger: alignItemWithTrigger() }),
+    (deps) => {
+      if (!deps.mounted && untrack(controlledAlignItemWithTrigger) !== deps.alignItemWithTrigger) {
+        setControlledAlignItemWithTrigger(deps.alignItemWithTrigger);
+      }
+    },
+  );
+
+  // ––– AI-GENERATED FIX AND EXPLANATION –––
+  // Solid-specific: the store outlives the positioner's mount cycle without a rerender resetting
+  // the scroll arrow flags, so clear them once the popup unmounts.
+  createEffect(mounted, (isMounted) => {
+    if (isMounted) {
+      return;
     }
+    untrack(() => {
+      if (store.state.scrollUpArrowVisible || store.state.scrollDownArrowVisible) {
+        store.update({ scrollDownArrowVisible: false, scrollUpArrowVisible: false });
+      }
+    });
   });
 
-  createTrackedEffect(() => {
-    if (!mounted()) {
-      if (store.select('scrollUpArrowVisible')) {
-        store.setState('scrollUpArrowVisible', false);
-      }
-      if (store.select('scrollDownArrowVisible')) {
-        store.setState('scrollDownArrowVisible', false);
-      }
-    }
-  });
-
-  createTrackedEffect(() => {
-    alignItemWithTriggerActiveRef.current = alignItemWithTriggerActive();
+  createEffect(alignItemWithTriggerActive, (active) => {
+    alignItemWithTriggerActiveRef.current = active;
   });
 
   useAnchoredPopupScrollLock({
-    enabled: () => (alignItemWithTriggerActive() || modal()) && open() && openMethod() !== 'touch',
+    enabled: () => (alignItemWithTriggerActive() || modal()) && open(),
     positionerElement,
     referenceElement: triggerElement,
     touchOpen: () => openMethod() === 'touch',
@@ -127,6 +140,7 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
     },
     keepMounted: true,
     mounted,
+    nodeId,
     positionMethod,
     side,
     sideOffset,
@@ -137,25 +151,6 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
   const positionerStyles = () => {
     return alignItemWithTriggerActive() ? FIXED : positioning.positionerStyles();
   };
-
-  const defaultProps = {
-    get hidden() {
-      return !mounted();
-    },
-    role: 'presentation',
-    get style() {
-      const hiddenStyles: JSX.CSSProperties = {};
-
-      if (!open()) {
-        hiddenStyles['pointer-events'] = 'none';
-      }
-
-      return {
-        ...positionerStyles(),
-        ...hiddenStyles,
-      };
-    },
-  } satisfies JSX.HTMLAttributes<HTMLDivElement>;
 
   const state: SelectPositioner.State = {
     get align() {
@@ -172,20 +167,30 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
     },
   };
 
+  createRenderEffect(positioning.side, (positionedSide) => {
+    store.set('popupSide', positionedSide);
+  });
+
   const setPositionerElement = (element: HTMLElement | null | undefined) => {
     store.set('positionerElement', element);
   };
 
-  const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [defaultProps, getDisabledMountTransitionStyles(transitionStatus()), elementProps];
+  const element = usePositioner(componentProps, state, {
+    get styles() {
+      return positionerStyles();
     },
-    ref: (el) => {
-      setPositionerElement(el);
-      positioning.context.refs.setFloating(el);
+    get transitionStatus() {
+      return transitionStatus();
     },
-    state,
-    stateAttributesMapping: popupStateMapping,
+    // Solid: the remaining positioner props are plain element props once the positioning options are split off.
+    props: elementProps as BaseUIHTMLProps<HTMLDivElement>,
+    refs: setPositionerElement,
+    get hidden() {
+      return !mounted();
+    },
+    get inert() {
+      return !open();
+    },
   });
 
   let prevMapSizeRef = 0;
@@ -203,10 +208,6 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
 
     const prevSize = prevMapSizeRef;
     prevMapSizeRef = newMap.length;
-
-    if (newMap.length === prevSize) {
-      return;
-    }
 
     const eventDetails = createChangeEventDetails(REASONS.none);
     const val = value();
@@ -277,7 +278,7 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
         <Show when={mounted() && modal()}>
           <InternalBackdrop managed inert={!open()} cutout={triggerElement()} />
         </Show>
-        {element()}
+        <FloatingNode id={nodeId()}>{element()}</FloatingNode>
       </SelectPositionerContext>
     </CompositeList>
   );

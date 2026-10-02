@@ -1,4 +1,4 @@
-import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
+import { createEffect, createSignal, untrack } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -17,26 +17,20 @@ export function AvatarFallback(componentProps: AvatarFallback.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['delay']);
 
   const { imageLoadingStatus } = useAvatarRootContext();
-  const [delayPassed, setDelayPassed] = createSignal(local.delay === undefined);
+  const delay = () => local.delay ?? 0;
+  const [delayPassed, setDelayPassed] = createSignal(untrack(() => delay() === 0));
   const timeout = useTimeout();
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (local.delay !== undefined) {
-      timeout.start(local.delay, () => setDelayPassed(true));
+  createEffect(delay, (delayValue) => {
+    if (delayValue > 0) {
+      timeout.start(delayValue, () => setDelayPassed(true));
+    } else {
+      // Once the fallback is shown without a delay, keep it visible. Otherwise a later
+      // change from no delay to a number would re-hide an already-visible fallback.
+      setDelayPassed(true);
     }
-    _c.push(() => {
-      timeout.clear();
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+    return timeout.clear;
+  });
 
   const state: AvatarFallback.State = {
     get imageLoadingStatus() {
@@ -46,7 +40,7 @@ export function AvatarFallback(componentProps: AvatarFallback.Props) {
 
   const element = useRenderElement('span', componentProps, {
     get enabled() {
-      return imageLoadingStatus() !== 'loaded' && delayPassed();
+      return imageLoadingStatus() !== 'loaded' && (delay() === 0 || delayPassed());
     },
     props: elementProps,
     state,
@@ -61,6 +55,8 @@ export interface AvatarFallbackState extends AvatarRootState {}
 export interface AvatarFallbackProps extends BaseUIComponentProps<'span', AvatarFallback.State> {
   /**
    * How long to wait before showing the fallback. Specified in milliseconds.
+   *
+   * @default 0
    */
   delay?: number | undefined;
 }

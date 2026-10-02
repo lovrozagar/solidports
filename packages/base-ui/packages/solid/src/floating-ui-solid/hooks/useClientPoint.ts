@@ -1,11 +1,9 @@
-/* eslint-disable typescript/no-explicit-any -- empty virtual reference placeholder cast */
 import { getWindow } from '@floating-ui/utils/dom';
-import { createTrackedEffect, createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
-import { defaultProps } from '../../solid-helpers';
+import { createMemo, createSignal, onCleanup, untrack } from 'solid-js';
+import { createDepsEffect, defaultProps } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import type { ContextData, ElementProps, FloatingContext, FloatingRootContext } from '../types';
 import { contains, getTarget, isMouseLikePointerType } from '../utils';
-import { on } from '../../solid-1-compat';
 
 function createVirtualElement(
   domElement: Element | null | undefined,
@@ -125,6 +123,12 @@ export function useClientPoint(parameters: {
   let cleanupListenerRef: (() => void) | null = null;
 
   const [pointerType, setPointerType] = createSignal<string | undefined>();
+  // Bumped to re-attach the move listener once the cursor is back on the reference.
+  const [reactive, setReactive] = createSignal({});
+
+  const resetReference = (reference: Element | null | undefined) => {
+    store().set('positionReference', reference ?? null);
+  };
 
   const setReference = (
     newX: number | null,
@@ -138,25 +142,32 @@ export function useClientPoint(parameters: {
     // Prevent setting if the open event was not a mouse-like one
     // (e.g. focus to open, then hover over the reference element).
     // Only apply if the event exists.
-    const openEvent = store().context.dataRef.openEvent;
-    if (openEvent && !isMouseBasedEvent(openEvent as Event | null)) {
+    const dataRef = store().context.dataRef;
+    if (dataRef.openEvent && !isMouseBasedEvent(dataRef.openEvent as Event | null)) {
       return;
     }
 
-    const newVirtualElement = createVirtualElement(referenceElement ?? domReference(), {
-      axis: props.axis,
-      dataRef: store().context.dataRef,
-      pointerType: pointerType(),
-      x: newX,
-      y: newY,
-    });
-
-    store().set('positionReference', newVirtualElement);
+    store().set(
+      'positionReference',
+      createVirtualElement(referenceElement ?? untrack(domReference), {
+        x: newX,
+        y: newY,
+        axis: props.axis,
+        dataRef,
+        pointerType: untrack(pointerType),
+      }),
+    );
   };
 
   const handleReferenceEnterOrMove = (event: MouseEvent) => {
     if (!open()) {
       setReference(event.clientX, event.clientY, event.currentTarget as Element);
+    } else if (!cleanupListenerRef) {
+      // If there's no cleanup, there's no listener, but we want to ensure
+      // we add the listener if the cursor landed on the floating element and
+      // then back on the reference (i.e. it's interactive).
+      setReference(event.clientX, event.clientY, event.currentTarget as Element);
+      setReactive({});
     }
   };
 
@@ -164,81 +175,95 @@ export function useClientPoint(parameters: {
   // mouse even if the floating element is transitioning out. On touch
   // devices, this is undesirable because the floating element will move to
   // the dismissal touch point.
-  const openCheck = () => {
-    return isMouseLikePointerType(pointerType()) ? floating() : open();
-  };
+  const openCheck = () => (isMouseLikePointerType(pointerType()) ? floating() : open());
 
-  function handleMouseMove(event: MouseEvent) {
-    const target = getTarget(event) as Element | null;
-
-    if (!contains(floating(), target)) {
-      setReference(event.clientX, event.clientY);
-    } else {
-      cleanupListenerRef?.();
-      cleanupListenerRef = null;
-    }
-  }
-
-  createEffect(...on([open, floating, () => props.enabled], () => {
-      if (!openCheck() || !props.enabled) {
-        return;
+  createDepsEffect(
+    () => ({
+      enabled: props.enabled,
+      openCheck: openCheck(),
+      floating: floating(),
+      domReference: domReference(),
+      reactive: reactive(),
+    }),
+    (deps) => {
+      if (!deps.enabled) {
+        resetReference(deps.domReference);
+        return undefined;
       }
 
-      const win = getWindow(floating());
+      if (!deps.openCheck) {
+        return undefined;
+      }
+
+      function cleanupListener() {
+        cleanupListenerRef?.();
+        cleanupListenerRef = null;
+      }
+
+      const floatingElement = deps.floating;
+      const win = getWindow(floatingElement);
+
+      function handleMouseMove(event: MouseEvent) {
+        const target = getTarget(event) as Element | null;
+
+        if (!contains(floatingElement, target)) {
+          setReference(event.clientX, event.clientY);
+        } else {
+          cleanupListener();
+        }
+      }
 
       const openEvent = store().context.dataRef.openEvent;
-      if (!openEvent || isMouseBasedEvent(openEvent)) {
-        const cleanup = () => {
-          cleanupListenerRef?.();
-          cleanupListenerRef = null;
-        };
+      if (!openEvent || isMouseBasedEvent(openEvent as Event | null)) {
         cleanupListenerRef = addEventListener(win, 'mousemove', handleMouseMove);
-        return cleanup;
+      } else {
+        resetReference(deps.domReference);
       }
 
-      store().set('positionReference', domReference());
-    }),
+      return cleanupListener;
+    },
   );
 
-  createTrackedEffect(() => {
-    if (props.enabled && !floating()) {
-      initialRef = false;
-    }
+  // Clear virtual cursor references when the hook unmounts. Enabled flips are handled above.
+  onCleanup(() => {
+    store().set('positionReference', null);
   });
 
-  createTrackedEffect(() => {
-    if (!props.enabled && open()) {
-      initialRef = true;
-    }
-  });
+  createDepsEffect(
+    () => ({ enabled: props.enabled, floating: floating() }),
+    ({ enabled, floating: floatingElement }) => {
+      if (enabled && !floatingElement) {
+        initialRef = false;
+      }
+    },
+  );
+
+  createDepsEffect(
+    () => ({ enabled: props.enabled, open: open() }),
+    ({ enabled, open: isOpen }) => {
+      if (!enabled && isOpen) {
+        initialRef = true;
+      }
+    },
+  );
 
   function setPointerTypeRef(event: PointerEvent) {
     setPointerType(event.pointerType);
   }
 
   const reference: ElementProps['reference'] = {
-    onMouseEnter: handleReferenceEnterOrMove,
-    onMouseMove: handleReferenceEnterOrMove,
     onPointerDown: setPointerTypeRef,
     onPointerEnter: setPointerTypeRef,
+    onMouseMove: handleReferenceEnterOrMove,
+    onMouseEnter: handleReferenceEnterOrMove,
   };
 
-  /* When `enabled` is false the hook must not expose any reference/trigger event handlers — otherwise `onMouseEnter` still attaches and overwrites `positionReference` with a 0-sized virtual point element on first hover, which anchors the popup to the cursor instead of the trigger. */
-  const empty = {} as const;
   return {
-    get floating() {
-      if (!props.enabled) return empty as any;
-      return {
-        ref: () => {
-          onCleanup(() => store().set('floatingElement', null));
-        },
-      };
-    },
     get reference() {
-      return props.enabled ? reference : (empty as any);
+      return props.enabled ? reference : undefined;
     },
     get trigger() {
-      return props.enabled ? reference : (empty as any);
+      return props.enabled ? reference : undefined;
     },
   };
 }

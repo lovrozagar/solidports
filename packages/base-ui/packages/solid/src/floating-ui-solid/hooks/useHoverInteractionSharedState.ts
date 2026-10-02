@@ -1,8 +1,8 @@
-import { createRenderEffect, onCleanup } from 'solid-js';
+import { onCleanup, untrack } from 'solid-js';
 import type { Store } from 'solid-js';
 import { useTimeout } from '../../utils/useTimeout';
 import type { FloatingRootContext, SafePolygonOptions } from '../types';
-import { createStore, type SetStoreFunction } from '../../solid-1-compat';
+import type { SetStoreFunction } from '../../solid-1-compat';
 
 export { isInteractiveElement } from '../utils';
 
@@ -21,10 +21,21 @@ export interface HoverInteraction {
   handleCloseOptions: SafePolygonOptions | undefined;
 }
 
-export type HoverInteractionSharedState = [Store<HoverInteraction>, SetStoreFunction<HoverInteraction>];
+export type HoverInteractionSharedState = [
+  Store<HoverInteraction>,
+  SetStoreFunction<HoverInteraction>,
+];
+
+/**
+ * The shared hover instance is plain mutable state, as React's `HoverInteraction` class: its
+ * fields are timers and flags read imperatively by handlers, never rendered. (A Solid store
+ * wrapped the `Timeout` instances, whose own writes then went through the store proxy.)
+ */
+/** Each plain state's own `[state, setState]` pair, so ownership can record the concrete pair. */
+const concreteStatePairs = new WeakMap<HoverInteraction, HoverInteractionSharedState>();
 
 function createHoverInteractionSharedState(): HoverInteractionSharedState {
-  const [state, setState] = createStore<HoverInteraction>({
+  const state: HoverInteraction = {
     blockMouseMove: true,
     handleCloseOptions: undefined,
     handler: undefined,
@@ -37,29 +48,78 @@ function createHoverInteractionSharedState(): HoverInteractionSharedState {
     pointerType: undefined,
     restTimeout: useTimeout(),
     restTimeoutPending: false,
-  });
+  };
 
-  return [state, setState] as const;
+  // Store-setter call shapes, applied as plain mutations: `(key, value | updater)` or `(draftFn)`.
+  const setState = ((...args: unknown[]) => {
+    if (typeof args[0] === 'function') {
+      (args[0] as (draft: HoverInteraction) => void)(state);
+      return;
+    }
+    const key = args[0] as keyof HoverInteraction;
+    const value = args[1];
+    (state as any)[key] =
+      typeof value === 'function' ? (value as (prev: unknown) => unknown)(state[key]) : value;
+  }) as SetStoreFunction<HoverInteraction>;
+
+  const pair: HoverInteractionSharedState = [state, setState];
+  concreteStatePairs.set(state, pair);
+  return pair;
+}
+
+const UNDERLYING_STATE = Symbol('hoverInteractionState');
+
+/** The shared state behind a hook's live view, for identity checks across hooks. */
+function underlyingState(instance: HoverInteraction): HoverInteraction {
+  return (instance as any)[UNDERLYING_STATE] ?? instance;
 }
 
 export function useHoverInteractionSharedState(options: {
   store: FloatingRootContext;
 }): HoverInteractionSharedState {
-  createRenderEffect(
-    () => options.store.context.dataRef,
-    (dataRef) => {
-      if (!dataRef.hoverInteractionState) {
-        dataRef.hoverInteractionState = createHoverInteractionSharedState();
-      }
-    },
-  );
+  // As React: one instance per hook, adopted by a store that has none yet. The store is resolved
+  // on every access because parts like NavigationMenu swap it per active trigger.
+  const ownState = createHoverInteractionSharedState();
+
+  const current = (): HoverInteractionSharedState => {
+    const dataRef = options.store.context.dataRef;
+    if (!dataRef.hoverInteractionState) {
+      dataRef.hoverInteractionState = ownState;
+    }
+    return dataRef.hoverInteractionState;
+  };
 
   onCleanup(() => {
-    options.store.context.dataRef.hoverInteractionState?.[0].openChangeTimeout.clear();
-    options.store.context.dataRef.hoverInteractionState?.[0].restTimeout.clear();
+    for (const [state] of [ownState, untrack(current)]) {
+      state.openChangeTimeout.clear();
+      state.restTimeout.clear();
+    }
   });
 
-  return options.store.context.dataRef.hoverInteractionState;
+  const instance = new Proxy({} as HoverInteraction, {
+    get: (_, key) => {
+      // Resolving the current store is the only reactive read; the instance itself is plain.
+      const instance = untrack(current)[0];
+      return key === UNDERLYING_STATE ? instance : instance[key as keyof HoverInteraction];
+    },
+  });
+  const setInstance = ((...args: unknown[]) =>
+    (current()[1] as (...setArgs: unknown[]) => void)(
+      ...args,
+    )) as SetStoreFunction<HoverInteraction>;
+
+  return [instance, setInstance];
+}
+
+/**
+ * The concrete `[state, setState]` pair a hook's live view currently resolves to. Effects that
+ * apply a mutation keep this pair so their cleanup clears the same instance, as React's effect
+ * closes over the instance it applied with.
+ */
+export function resolveHoverInteractionSharedState(
+  hoverState: HoverInteractionSharedState,
+): HoverInteractionSharedState {
+  return concreteStatePairs.get(underlyingState(hoverState[0])) ?? hoverState;
 }
 
 /* Keyed by scope element to handle ownership conflicts across concurrent hover instances. */
@@ -68,16 +128,22 @@ const pointerEventsMutationOwnerByScopeElement = new WeakMap<
   HoverInteractionSharedState
 >();
 
-export function clearSafePolygonPointerEventsMutation(
-  [instance, setState]: HoverInteractionSharedState,
-) {
+function underlyingOwner(scopeElement: HTMLElement | SVGSVGElement) {
+  const owner = pointerEventsMutationOwnerByScopeElement.get(scopeElement);
+  return owner ? underlyingState(owner[0]) : undefined;
+}
+
+export function clearSafePolygonPointerEventsMutation([
+  instance,
+  setState,
+]: HoverInteractionSharedState) {
   if (!instance.performedPointerEventsMutation) {
     return;
   }
 
   const scopeElement = instance.pointerEventsScopeElement;
 
-  if (scopeElement && pointerEventsMutationOwnerByScopeElement.get(scopeElement)?.[0] === instance) {
+  if (scopeElement && underlyingOwner(scopeElement) === underlyingState(instance)) {
     instance.pointerEventsScopeElement?.style.removeProperty('pointer-events');
     instance.pointerEventsReferenceElement?.style.removeProperty('pointer-events');
     instance.pointerEventsFloatingElement?.style.removeProperty('pointer-events');
@@ -102,7 +168,7 @@ export function applySafePolygonPointerEventsMutation(
   const { scopeElement, referenceElement, floatingElement } = options;
 
   const existingOwner = pointerEventsMutationOwnerByScopeElement.get(scopeElement);
-  if (existingOwner && existingOwner[0] !== instance) {
+  if (existingOwner && underlyingState(existingOwner[0]) !== underlyingState(instance)) {
     clearSafePolygonPointerEventsMutation(existingOwner);
   }
 
@@ -111,7 +177,12 @@ export function applySafePolygonPointerEventsMutation(
   setState('pointerEventsScopeElement', scopeElement);
   setState('pointerEventsReferenceElement', referenceElement);
   setState('pointerEventsFloatingElement', floatingElement);
-  pointerEventsMutationOwnerByScopeElement.set(scopeElement, hoverState);
+  // Record the concrete pair: a hook's live view re-resolves when its store is swapped (the
+  // Navigation Menu popup follows the active trigger), which would make a later owner look equal.
+  pointerEventsMutationOwnerByScopeElement.set(
+    scopeElement,
+    resolveHoverInteractionSharedState(hoverState),
+  );
 
   scopeElement.style.pointerEvents = 'none';
   referenceElement.style.pointerEvents = 'auto';

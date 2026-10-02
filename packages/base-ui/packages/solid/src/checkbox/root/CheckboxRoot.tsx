@@ -1,34 +1,45 @@
-/* eslint-disable typescript/no-explicit-any -- ref forwarding + input prop spread bridge */
-import { createTrackedEffect, createEffect, createMemo, createSignal, onCleanup, Show } from 'solid-js';
-import { useCheckboxGroupContext } from '../../checkbox-group/CheckboxGroupContext';
-import { useFieldItemContext } from '../../field/item/FieldItemContext';
-import type { FieldRoot } from '../../field/root/FieldRoot';
+import { createMemo, createSignal, Show, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { useControlled } from '../../utils/useControlled';
+import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
+import { ownerWindow } from '../../utils/owner';
+import { getDefaultFormSubmitter } from '../../utils/getDefaultFormSubmitter';
+import { getCheckboxStateAttributesMapping } from '../utils/getCheckboxStateAttributesMapping';
+import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
+import { useRenderElement } from '../../utils/useRenderElement';
+import { useBaseUiId } from '../../utils/useBaseUiId';
+import type {
+  BaseUIComponentProps,
+  BaseUIEvent,
+  BaseUIHTMLProps,
+  HTMLProps,
+  NonNativeButtonProps,
+} from '../../utils/types';
+import { mergeProps } from '../../merge-props';
+import { useButton } from '../../internals/use-button/useButton';
+import type { FieldRootState } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
-import { useField } from '../../field/useField';
+import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
+import { useFieldItemContext } from '../../field/item/FieldItemContext';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useAriaLabelledBy } from '../../internals/labelable-provider/useAriaLabelledBy';
-import { mergeProps } from '../../merge-props';
-import { splitComponentProps } from '../../solid-helpers';
-import { useButton } from '../../internals/use-button/useButton';
+import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
+import { useCheckboxGroupContext } from '../../checkbox-group/CheckboxGroupContext';
+import { CheckboxRootContext } from './CheckboxRootContext';
 import {
   BaseUIChangeEventDetails,
   createChangeEventDetails,
 } from '../../utils/createBaseUIEventDetails';
-import { NOOP } from '../../utils/noop';
 import { REASONS } from '../../utils/reasons';
-import type {
-  BaseUIComponentProps,
-  BaseUIHTMLProps,
-  NonNativeButtonProps,
-} from '../../utils/types';
-import { useBaseUiId } from '../../utils/useBaseUiId';
-import { useControlled } from '../../utils/useControlled';
-import { useRenderElement } from '../../utils/useRenderElement';
-import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
-import { useStateAttributesMapping } from '../utils/useStateAttributesMapping';
-import { CheckboxRootContext } from './CheckboxRootContext';
-import { on, mergeProps as solidMergeProps, splitProps } from '../../solid-1-compat';
+import { useValueChanged } from '../../internals/useValueChanged';
+import {
+  createDepsEffect,
+  splitComponentProps,
+  useRef,
+  type ReactLikeRef,
+} from '../../solid-helpers';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export const PARENT_CHECKBOX = 'data-parent';
 
@@ -52,7 +63,6 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     'onCheckedChange',
     'parent',
     'readOnly',
-    'render',
     'required',
     'uncheckedValue',
     'value',
@@ -61,8 +71,8 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const checkedProp = () => local.checked;
   const defaultChecked = () => local.defaultChecked ?? false;
   const ariaLabelledByProp = () => local['aria-labelledby'];
-  const disabledProp = () => Boolean(local.disabled);
-  const formProp = () => local.form;
+  const disabledProp = () => local.disabled ?? false;
+  const form = () => local.form;
   const idProp = () => local.id;
   const indeterminate = () => local.indeterminate ?? false;
   const nameProp = () => local.name;
@@ -70,7 +80,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const readOnly = () => local.readOnly ?? false;
   const required = () => local.required ?? false;
   const valueProp = () => local.value;
-  const nativeButton = () => Boolean(local.nativeButton);
+  const nativeButton = () => local.nativeButton ?? false;
 
   const { clearErrors } = useFormContext();
   const {
@@ -83,285 +93,293 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     state: fieldState,
     validationMode,
     validityData,
-    shouldValidateOnChange,
     validation: localValidation,
   } = useFieldRootContext();
   const fieldItemContext = useFieldItemContext();
-  const { labelId, controlId, registerControlId, getDescriptionProps } = useLabelableContext();
+  const { labelId, registerControlId, getDescriptionProps } = useLabelableContext();
 
   const groupContext = useCheckboxGroupContext();
-  const parentContext = () => groupContext?.parent;
-  const isGroupedWithParent = createMemo(() => parentContext() && groupContext?.allValues());
+  const parentContext = () =>
+    groupContext == null || groupContext.allValues() === undefined
+      ? undefined
+      : groupContext.parent;
+  const isGroupedWithParent = () => parentContext() !== undefined;
 
   const disabled = () =>
-    rootDisabled() || fieldItemContext.disabled() || groupContext?.disabled() || disabledProp();
+    Boolean(
+      rootDisabled() || fieldItemContext.disabled() || groupContext?.disabled() || disabledProp(),
+    );
   const name = () => fieldName() ?? nameProp();
   const value = () => valueProp() ?? name();
 
   const id = useBaseUiId();
 
-  const parentId = useBaseUiId();
-  const inputId = createMemo(() => {
-    if (isGroupedWithParent()) {
-      const ctx = parentContext();
-      return parent() || !ctx ? parentId() : `${ctx.id()}-${value()}`;
-    }
-    if (idProp()) {
-      return idProp();
-    }
-    return controlId();
-  });
+  // A `CheckboxGroup` is the field's control and takes its name from `aria-labelledby`, so the
+  // checkboxes sharing its labelable scope must not claim the field's control id: they would all
+  // render that one id and collide. A `Field.Item` opens a scope the checkbox does own.
+  const ownsControlId = groupContext?.registerControlId !== registerControlId;
 
-  const groupProps = createMemo(() => {
-    let mainProps = {} as Partial<Omit<CheckboxRoot.Props, 'class'>>;
-    const ctx = groupContext;
-    if (isGroupedWithParent() && ctx) {
+  // `|| undefined` rather than `??`: an empty `id` falls back to the scope's control id.
+  const controlId = useLabelableId({ id: () => idProp() || undefined, enabled: ownsControlId });
+
+  const rootId = () => (nativeButton() ? controlId() : id());
+
+  // Solid: a memo, as React derives the group props once per render.
+  const groupProps = createMemo((): Partial<GroupProps> => {
+    const context = parentContext();
+    if (context !== undefined) {
       if (parent()) {
-        mainProps = ctx.parent.getParentProps();
-      } else {
-        const v = value();
-        if (v) {
-          mainProps = ctx.parent.getChildProps(v);
-        }
+        return context.getParentProps();
+      }
+      const childValue = value();
+      if (childValue !== undefined) {
+        return context.getChildProps(childValue);
       }
     }
-
-    const [localGroup, otherGorup] = splitProps(mainProps, [
-      'checked',
-      'indeterminate',
-      'onCheckedChange',
-    ]);
-    return {
-      local: {
-        get checked() {
-          return localGroup.checked ?? checkedProp();
-        },
-        get indeterminate() {
-          return localGroup.indeterminate ?? indeterminate();
-        },
-        get onCheckedChange() {
-          return localGroup.onCheckedChange;
-        },
-      },
-      other: otherGorup,
-    };
+    return {};
   });
 
-  const groupValue = () => groupContext?.value();
-  const setGroupValue = groupContext?.setValue;
-  const defaultGroupValue = () => groupContext?.defaultValue();
+  const groupChecked = () => {
+    const checked = groupProps().checked;
+    return checked === undefined ? checkedProp() : checked;
+  };
+  const groupIndeterminate = () => {
+    const groupValue = groupProps().indeterminate;
+    return groupValue === undefined ? indeterminate() : groupValue;
+  };
+  const otherGroupProps = (): HTMLProps => {
+    const ariaControls = groupProps()['aria-controls'];
+    return ariaControls === undefined ? {} : { 'aria-controls': ariaControls };
+  };
 
-  const [controlRef, setControlRef] = createSignal<HTMLButtonElement | null | undefined>(null);
-  const controlSourceRef = Symbol('checkbox-control');
-  let hasRegisteredRef = false;
+  const groupValue = () => groupContext?.value();
+
+  const controlRef = useRef<HTMLButtonElement | null | undefined>(null);
+  // Solid: the rendered root as a signal, so the child id registration reads the id it renders.
+  const [rootElement, setRootElement] = createSignal<HTMLElement | null | undefined>(null, {
+    ownedWrite: true,
+  });
 
   const { getButtonProps, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
 
-  const validation = createMemo(() => groupContext?.validation ?? localValidation);
+  const validation = groupContext?.validation ?? localValidation;
 
   const [checked, setCheckedState] = useControlled({
     controlled: () => {
-      const v = value();
-      const gv = groupValue();
-      return v && gv && !parent() ? gv.includes(v) : groupProps().local.checked;
+      const childValue = value();
+      const currentGroupValue = groupValue();
+      return childValue !== undefined && currentGroupValue !== undefined && !parent()
+        ? currentGroupValue.includes(childValue)
+        : groupChecked();
     },
-    default: () => {
-      const v = value();
-      const dgv = defaultGroupValue();
-      return v && dgv && !parent() ? dgv.includes(v) : defaultChecked();
-    },
+    default: defaultChecked,
     name: 'Checkbox',
     state: 'checked',
   });
 
-  // can't use useLabelableId because of optional groupContext and/or parent
-  createEffect(...on([inputId, parent], () => {
-      if (registerControlId === NOOP) {
-        return;
-      }
+  const computedChecked = () => (isGroupedWithParent() ? Boolean(groupChecked()) : checked());
+  const computedIndeterminate = () =>
+    isGroupedWithParent() ? groupIndeterminate() || indeterminate() : indeterminate();
 
-      hasRegisteredRef = true;
-      registerControlId(controlSourceRef, inputId());
-    }),
+  useRegisterFieldControl(
+    controlRef,
+    id,
+    checked,
+    undefined,
+    () => !groupContext && !disabled(),
+    nameProp,
   );
 
-  onCleanup(() => {
-    if (!hasRegisteredRef || registerControlId === NOOP) {
+  const registerChildId = () => parentContext()?.registerChildId;
+
+  const inputRef = useRef<HTMLInputElement | null | undefined>(null);
+  // Solid: the hidden input as a signal, so registration and label lookup follow its mount.
+  const [inputElement, setInputElement] = createSignal<HTMLInputElement | null | undefined>(null, {
+    ownedWrite: true,
+  });
+  const registeredInputValue = () => (groupContext ? value() : undefined);
+  // Solid: React registers the input through a ref callback with a cleanup; an effect keyed on
+  // the same inputs registers it and unregisters it on change and unmount.
+  createDepsEffect(
+    () => ({ element: inputElement(), parent: parent(), value: registeredInputValue() }),
+    ({ element, parent: isParent, value: inputValue }) => {
+      if (!element || isParent) {
+        return undefined;
+      }
+      return validation.registerInput(element, { controlRef, value: inputValue }) ?? undefined;
+    },
+  );
+  const setInputRef = (element: HTMLInputElement | null | undefined) => {
+    inputRef.current = element;
+    setInputElement(element);
+    const inputRefProp = untrack(() => local.inputRef);
+    if (typeof inputRefProp === 'function') {
+      inputRefProp(element ?? null);
+    } else if (inputRefProp) {
+      inputRefProp.current = element;
+    }
+  };
+
+  const ariaLabelledBy = useAriaLabelledBy(
+    ariaLabelledByProp,
+    labelId,
+    inputElement,
+    !untrack(nativeButton),
+    controlId,
+  );
+
+  createDepsEffect(
+    () => ({
+      checked: checked(),
+      indeterminate: computedIndeterminate(),
+      element: inputElement(),
+    }),
+    (deps) => {
+      if (deps.element) {
+        // Re-assert on `checked` changes too: clicking the input natively resets `indeterminate`.
+        deps.element.indeterminate = deps.indeterminate;
+      }
+      // Inside a group, the group derives the filled state from its value.
+      if (!groupContext) {
+        setFilled(deps.checked);
+      }
+    },
+  );
+
+  useValueChanged(checked, () => {
+    if (groupContext) {
       return;
     }
 
-    hasRegisteredRef = false;
-    registerControlId(controlSourceRef, undefined);
+    const currentChecked = untrack(checked);
+    clearErrors(untrack(name));
+    setDirty(currentChecked !== validityData.initialValue);
+
+    validation.change(currentChecked);
   });
 
-  useField({
-    commit: (...args) => validation().commit(...args),
-    controlRef,
-    enabled: () => !groupContext,
-    getValue: () => checked(),
-    id,
-    name,
-    value: checked,
-  });
+  let lastClickEventRef: MouseEvent | undefined;
 
-  let inputRef = null as HTMLInputElement | null | undefined;
-  let lastClickEvent: PointerEvent | undefined;
-
-  const ariaLabelledBy = useAriaLabelledBy(ariaLabelledByProp, labelId, () => inputRef, !nativeButton(), () => inputId() ?? undefined);
-
-  createTrackedEffect(() => {
-    if (inputRef) {
-      inputRef.indeterminate = groupProps().local.indeterminate;
-      if (checked()) {
-        setFilled(true);
-      }
-    }
-  });
-
-  createEffect(...on(
-      checked,
-      () => {
-        if (groupContext && !parent()) {
-          return;
-        }
-
-        clearErrors(name());
-        setFilled(checked());
-        setDirty(checked() !== validityData.initialValue);
-
-        if (shouldValidateOnChange()) {
-          validation().commit(checked());
-        } else {
-          validation().commit(checked(), true);
-        }
-      },
-      { defer: true },
-    ),
-  );
-
-  const inputProps = createMemo<BaseUIHTMLProps<HTMLInputElement>>(() => {
-    return mergeProps<'input'>(
+  const inputProps = (): BaseUIHTMLProps<HTMLInputElement> =>
+    mergeProps<'input'>(
       {
-        get checked() {
-          return checked();
-        },
-        get disabled() {
-          return disabled();
-        },
-        get form() {
-          return formProp();
-        },
+        checked: checked(),
+        disabled: disabled(),
+        form: form(),
         // parent checkboxes unset `name` to be excluded from form submission
-        get name() {
-          return parent() ? undefined : name();
-        },
-        // Set `id` to stop Chrome warning about an unassociated input
-        get id() {
-          return nativeButton() ? undefined : (inputId() ?? undefined);
-        },
-        get required() {
-          return required();
-        },
-        ref: (el) => {
-          inputRef = el;
-          validation().inputRef.current = el;
-        },
-        get style() {
-          return name() ? visuallyHiddenInput : visuallyHidden;
-        },
+        name: parent() ? undefined : name(),
+        // Set `id` to stop Chrome warning about an unassociated input.
+        // When using a native button, the `id` is applied to the button instead.
+        id: nativeButton() ? undefined : controlId(),
+        required: required(),
+        ref: setInputRef,
+        style: name() ? visuallyHiddenInput : visuallyHidden,
         tabindex: -1,
         type: 'checkbox',
         'aria-hidden': 'true',
         onChange(event) {
-          const groupContextValue = groupContext?.value();
+          const input = event.currentTarget as HTMLInputElement;
           // Workaround for https://github.com/facebook/react/issues/9023
           if (event.defaultPrevented) {
             return;
           }
 
-          const nextChecked = event.target.checked;
-          // Use the stored click event if available, as the native `change` event
-          // doesn't carry keyboard modifier properties (shiftKey, ctrlKey, etc.)
-          const details = createChangeEventDetails(REASONS.none, lastClickEvent ?? event);
-          lastClickEvent = undefined;
+          if (untrack(readOnly)) {
+            event.preventDefault();
+            // Solid: restore the controlled DOM state, as React does after its handlers run.
+            input.checked = untrack(checked);
+            return;
+          }
 
-          groupProps().local.onCheckedChange?.(nextChecked, details);
+          const nextChecked = input.checked;
+          // Solid: React's checkbox `onChange` is the click event, which carries the modifier
+          // keys; the native `change` event does not, so use the click that toggled the input.
+          const details = createChangeEventDetails(REASONS.none, lastClickEventRef ?? event);
+          lastClickEventRef = undefined;
+
           local.onCheckedChange?.(nextChecked, details);
 
+          if (!details.isCanceled) {
+            untrack(groupProps).onCheckedChange?.(nextChecked, details);
+          }
+
           if (details.isCanceled) {
+            // Solid: restore the controlled DOM state, as React does after its handlers run.
+            input.checked = untrack(checked);
             return;
           }
 
           setCheckedState(nextChecked);
 
-          const v = value();
-          if (v && groupContextValue && setGroupValue && !parent()) {
+          const childValue = untrack(value);
+          if (
+            childValue !== undefined &&
+            groupContext != null &&
+            !untrack(parent) &&
+            !untrack(isGroupedWithParent)
+          ) {
+            const currentGroupValue = untrack(groupContext.value);
             const nextGroupValue = nextChecked
-              ? [...groupContextValue, v]
-              : groupContextValue.filter((item) => item !== v);
+              ? [...currentGroupValue, childValue]
+              : currentGroupValue.filter((item) => item !== childValue);
 
-            setGroupValue(nextGroupValue, details);
+            groupContext.setValue(nextGroupValue, details);
           }
+
+          // Solid: React re-renders the controlled input after the change; re-assert the DOM
+          // state once the writes apply, so a rejected change does not leave it toggled.
+          queueMicrotask(() => {
+            const currentChecked = untrack(checked);
+            if (input.checked !== currentChecked) {
+              input.checked = currentChecked;
+            }
+          });
+        },
+        onClick(event) {
+          lastClickEventRef = event;
+          // The click dispatched from the root's `onClick` is an implementation detail
+          // and must not reach ancestors, which already receive the original click.
+          event.stopPropagation();
         },
         onFocus() {
-          controlRef()?.focus();
-        },
-        // React <19 sets an empty value if `undefined` is passed explicitly
-        // To avoid this, we only set the value if it's defined
-        get value() {
-          return valueProp() !== undefined
-            ? (groupContext ? checked() && local.value : local.value) || ''
-            : undefined;
+          controlRef.current?.focus();
         },
       },
-
+      // Solid writes `undefined` to an input's `value` as '', so only set the value if defined.
+      valueProp() !== undefined
+        ? { value: (groupContext ? checked() && valueProp() : valueProp()) || '' }
+        : {},
       getDescriptionProps,
-      groupContext ? validation().getValidationProps : validation().getInputValidationProps,
+      (props: BaseUIHTMLProps<HTMLInputElement>) =>
+        validation.getValidationProps(disabled(), props),
     );
-  });
-  const computedChecked = createMemo(() =>
-    isGroupedWithParent() ? Boolean(groupProps().local.checked) : checked(),
-  );
-  const computedIndeterminate = createMemo(() =>
-    isGroupedWithParent() ? groupProps().local.indeterminate || indeterminate() : indeterminate(),
-  );
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    const val = value();
-    const ctx = parentContext();
-    if (!ctx || !val) {
-      return;
-    }
-
-    const disabledStates = ctx.disabledStatesRef;
-    disabledStates.set(val, disabled());
-
-    _c.push(() => {
-      disabledStates.delete(val);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+  createDepsEffect(
+    () => ({ parentContext: parentContext(), disabled: disabled(), value: value() }),
+    (deps) => {
+      if (!deps.parentContext || deps.value === undefined) {
+        return undefined;
       }
-    };
-});
 
-  const state: CheckboxRoot.State = solidMergeProps(fieldState, {
+      const disabledStates = deps.parentContext.disabledStatesRef.current;
+      const childValue = deps.value;
+      disabledStates.set(childValue, deps.disabled);
+
+      return () => {
+        disabledStates.delete(childValue);
+      };
+    },
+  );
+
+  const state: CheckboxRootState = solidMergeProps(fieldState, {
     get checked() {
       return computedChecked();
     },
     get disabled() {
       return disabled();
-    },
-    get indeterminate() {
-      return computedIndeterminate();
     },
     get readOnly() {
       return readOnly();
@@ -369,102 +387,162 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     get required() {
       return required();
     },
+    get indeterminate() {
+      return computedIndeterminate();
+    },
   });
 
-  const stateAttributesMapping = useStateAttributesMapping(state);
+  const stateAttributesMapping = getCheckboxStateAttributesMapping(state);
 
   const element = useRenderElement('span', componentProps, {
+    state,
+    ref: [buttonRef, controlRef, setRootElement],
     get props() {
       return [
         {
-          get id() {
-            return nativeButton() ? (inputId() ?? undefined) : id();
-          },
+          id: rootId(),
           role: 'checkbox',
-          get 'aria-checked'() {
-            return groupProps().local.indeterminate ? 'mixed' : String(checked());
-          },
-          get 'aria-readonly'() {
-            return readOnly() || undefined;
-          },
-          get 'aria-required'() {
-            return required() || undefined;
-          },
-          get 'aria-labelledby'() {
-            return ariaLabelledBy();
-          },
-          get [PARENT_CHECKBOX as string]() {
-            return parent() ? '' : undefined;
-          },
+          'aria-checked': computedIndeterminate() ? 'mixed' : String(computedChecked()),
+          'aria-readonly': readOnly() ? 'true' : undefined,
+          'aria-required': required() ? 'true' : undefined,
+          'aria-labelledby': ariaLabelledBy(),
+          [PARENT_CHECKBOX as string]: parent() ? '' : undefined,
           onFocus() {
-            setFocused(true);
+            if (!untrack(disabled)) {
+              setFocused(true);
+            }
           },
           onBlur() {
-            if (!inputRef) {
+            const inputEl = inputRef.current;
+            if (!inputEl) {
               return;
             }
 
-            {
-              setTouched(true);
-              setFocused(false);
+            setTouched(true);
+            setFocused(false);
 
-              if (validationMode() === 'onBlur') {
-                validation().commit(groupContext ? groupValue() : inputRef?.checked);
-              }
+            if (untrack(validationMode) === 'onBlur') {
+              validation.commit(groupContext ? untrack(groupValue) : inputEl.checked);
+            }
+          },
+          onKeyDown(event: BaseUIEvent<KeyboardEvent>) {
+            if (event.key !== 'Enter') {
+              return;
+            }
+
+            // Let consumer `preventDefault()` handlers opt out while defensively stopping
+            // any remaining Base UI Enter handling from treating the checkbox as a button.
+            event.preventBaseUIHandler();
+
+            if (event.defaultPrevented) {
+              return;
+            }
+
+            const formToSubmit = inputRef.current?.form ?? null;
+            const currentTarget = event.currentTarget as HTMLElement;
+            const originalPreventDefault = event.preventDefault;
+            let preventDefaultCalledAfterPropagation = false;
+
+            // Solid: native events have no synthetic layer, so the native `preventDefault` is
+            // patched alone to detect ancestors opting out during propagation.
+            event.preventDefault = () => {
+              preventDefaultCalledAfterPropagation = true;
+              originalPreventDefault.call(event);
             };
+
+            // Enter should not activate/toggle the checkbox. Cancel the native button behavior.
+            originalPreventDefault.call(event);
+
+            ownerWindow(currentTarget).queueMicrotask(() => {
+              event.preventDefault = originalPreventDefault;
+
+              if (!preventDefaultCalledAfterPropagation) {
+                getDefaultFormSubmitter(formToSubmit)?.click();
+              }
+            });
           },
           onClick(event: MouseEvent) {
-            if (readOnly() || disabled()) {
+            if (untrack(readOnly) || untrack(disabled)) {
               return;
             }
 
             event.preventDefault();
 
-            const clickEvent = new PointerEvent('click', {
-              bubbles: true,
-              shiftKey: event.shiftKey,
-              ctrlKey: event.ctrlKey,
-              altKey: event.altKey,
-              metaKey: event.metaKey,
-            });
-            lastClickEvent = clickEvent;
-            inputRef?.dispatchEvent(clickEvent);
+            const input = inputRef.current;
+            if (!input) {
+              return;
+            }
+
+            dispatchClickWithModifiers(input, event);
           },
         },
-        getDescriptionProps,
-        validation().getValidationProps,
         elementProps,
-        mergeProps(groupProps().other),
+        otherGroupProps(),
         getButtonProps,
+        getDescriptionProps,
+        (props: HTMLProps) => validation.getValidationProps(disabled(), props),
       ];
     },
-    ref: (el) => {
-      buttonRef(el);
-      setControlRef(el as any);
-      groupContext?.registerControlRef(el as any);
-    },
-    state,
     stateAttributesMapping,
   });
 
-  const contextValue = { state };
+  // Solid: React reads the id from the rendered element's props; a `render` function can set its
+  // own, so read it from the mounted element (DOM attributes apply before user effects).
+  createDepsEffect(
+    () => ({
+      registerChildId: registerChildId(),
+      parent: parent(),
+      value: value(),
+      element: rootElement(),
+      rootId: rootId(),
+    }),
+    (rawDeps) => {
+      const deps = {
+        ...rawDeps,
+        renderedId: rawDeps.element ? rawDeps.element.id || undefined : rawDeps.rootId,
+      };
+      if (
+        !deps.registerChildId ||
+        deps.parent ||
+        deps.value === undefined ||
+        deps.renderedId === undefined
+      ) {
+        return undefined;
+      }
+
+      return deps.registerChildId(deps.value, deps.renderedId);
+    },
+  );
 
   return (
-    <CheckboxRootContext value={contextValue}>
+    <CheckboxRootContext value={state}>
       {element()}
       <Show
         when={
           !checked() && !groupContext && name() && !parent() && local.uncheckedValue !== undefined
         }
       >
-        <input type="hidden" form={formProp()} name={name()} value={local.uncheckedValue} />
+        <input
+          type="hidden"
+          form={form()}
+          name={name()}
+          value={local.uncheckedValue}
+          disabled={disabled()}
+        />
       </Show>
-      <input {...(inputProps() as any)} />
+      <input {...(inputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)} />
     </CheckboxRootContext>
   );
 }
 
-export interface CheckboxRootState extends FieldRoot.State {
+type GroupProps = {
+  checked: boolean;
+  indeterminate: boolean;
+  'aria-controls': string | undefined;
+  onCheckedChange: (checked: boolean, eventDetails: CheckboxRootChangeEventDetails) => void;
+};
+
+export interface CheckboxRootState extends FieldRootState {
   /**
    * Whether the checkbox is currently ticked.
    */
@@ -490,7 +568,7 @@ export interface CheckboxRootState extends FieldRoot.State {
 export interface CheckboxRootProps
   extends
     NonNativeButtonProps,
-    Omit<BaseUIComponentProps<'span', CheckboxRoot.State>, 'onChange' | 'value'> {
+    Omit<BaseUIComponentProps<'span', CheckboxRootState>, 'onChange' | 'value'> {
   /**
    * The id of the input element.
    */
@@ -526,13 +604,9 @@ export interface CheckboxRootProps
   disabled?: boolean | undefined;
   /**
    * Event handler called when the checkbox is ticked or unticked.
-   *
-   * @param {boolean} checked The new checked state.
-   * @param {Event} event The corresponding event that initiated the change.
    */
   onCheckedChange?:
-    | ((checked: boolean, eventDetails: CheckboxRootChangeEventDetails) => void)
-    | undefined;
+    ((checked: boolean, eventDetails: CheckboxRootChangeEventDetails) => void) | undefined;
   /**
    * Whether the user should be unable to tick or untick the checkbox.
    * @default false
@@ -551,21 +625,25 @@ export interface CheckboxRootProps
   /**
    * A ref to access the hidden `<input>` element.
    */
-  inputRef?: (HTMLInputElement | null) | undefined;
+  inputRef?:
+    | ReactLikeRef<HTMLInputElement | null | undefined>
+    | ((el: HTMLInputElement | null) => void)
+    | undefined;
   /**
    * Whether the checkbox controls a group of child checkboxes.
    *
    * Must be used in a [Checkbox Group](https://base-ui.com/react/components/checkbox-group).
    * @default false
    */
-  parent?: boolean;
+  parent?: boolean | undefined;
   /**
    * The value submitted with the form when the checkbox is unchecked.
    * By default, unchecked checkboxes do not submit any value, matching native checkbox behavior.
    */
   uncheckedValue?: string | undefined;
   /**
-   * The value of the selected checkbox.
+   * The checkbox's value. Identifies it within a [Checkbox Group](https://base-ui.com/react/components/checkbox-group), falling back to `name` when omitted.
+   * When submitting a form, a checked box submits `value`; with no `value`, it submits the native "on".
    */
   value?: string | undefined;
 }

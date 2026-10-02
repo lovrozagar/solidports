@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic value erased at context */
 import { createContext, useContext } from 'solid-js';
-import type { Accessor, Setter } from 'solid-js';
+import type { Accessor, Context, Setter } from 'solid-js';
 import type { FloatingRootContext } from '../../floating-ui-solid';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
@@ -11,10 +11,13 @@ export type NavigationMenuPopupAutoSizeResetState = {
   owner: any;
 };
 
-export interface NavigationMenuRootContext {
+export interface NavigationMenuRootContext<Value = any> {
   open: Accessor<boolean>;
-  value: Accessor<any>;
-  setValue: (value: any, eventDetails: NavigationMenuRoot.ChangeEventDetails) => void;
+  value: Accessor<NavigationMenuRoot.Value<Value>>;
+  setValue: (
+    value: NavigationMenuRoot.Value<Value>,
+    eventDetails: NavigationMenuRoot.ChangeEventDetails,
+  ) => void;
   transitionStatus: Accessor<TransitionStatus>;
   mounted: Accessor<boolean>;
   popupElement: Accessor<HTMLElement | null | undefined>;
@@ -45,12 +48,23 @@ export interface NavigationMenuRootContext {
   setViewportInert: Setter<boolean>;
 }
 
-export const NavigationMenuRootContext = createContext<NavigationMenuRootContext | null>(null);
+// Solid: `Context` has no `displayName` field; it is added for parity with React's dev label.
+export const NavigationMenuRootContext: Context<NavigationMenuRootContext<any> | null> & {
+  displayName?: string;
+} = createContext<NavigationMenuRootContext<any> | null>(null);
 
-function useNavigationMenuRootContext(optional?: false): NavigationMenuRootContext;
-function useNavigationMenuRootContext(optional: true): NavigationMenuRootContext | null;
-function useNavigationMenuRootContext(optional?: boolean) {
-  const context = useContext(NavigationMenuRootContext);
+if (process.env.NODE_ENV !== 'production') {
+  NavigationMenuRootContext.displayName = 'NavigationMenuRootContext';
+}
+
+function useNavigationMenuRootContext<Value = any>(
+  optional?: false,
+): NavigationMenuRootContext<Value>;
+function useNavigationMenuRootContext<Value = any>(
+  optional: true,
+): NavigationMenuRootContext<Value> | null;
+function useNavigationMenuRootContext<Value = any>(optional?: boolean) {
+  const context = useContext(NavigationMenuRootContext) as NavigationMenuRootContext<Value> | null;
   if (context == null && !optional) {
     throw new Error(
       'Base UI: NavigationMenuRootContext is missing. Navigation Menu parts must be placed within <NavigationMenu.Root>.',

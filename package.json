@@ -12,6 +12,8 @@
 			"packages/base-ui/scripts/*",
 			"packages/recharts",
 			"packages/recharts/examples/*",
+			"packages/solid-table",
+			"packages/solid-table/tests/fixture",
 			"packages/flare-ui",
 			"packages/flare-ui/tests/fixture",
 			"packages/flare-ui-consumer"
@@ -22,7 +24,7 @@
 			"@babel/plugin-transform-react-constant-elements": "8.0.1",
 			"@babel/runtime": "8.0.0",
 			"@date-fns/tz": "1.5.0",
-			"@floating-ui/dom": "1.7.6",
+			"@floating-ui/dom": "1.8.0",
 			"@floating-ui/react-dom": "^2.1.8",
 			"@floating-ui/utils": "^0.2.11",
 			"@mdx-js/loader": "^3.1.1",
@@ -170,11 +172,12 @@
 		"test:recharts": "bun run --filter @solidports/recharts test",
 		"test:flare-ui": "bun run --filter @solidports/flare-ui test",
 		"dev:flare-ui": "bun run --filter @solidports/flare-ui-consumer dev",
-		"typecheck": "bun run --filter @solidports/base-ui type:check && bun run --filter @solidports/recharts type:check && bun run --filter @solidports/flare-ui type:check && bun run --filter @solidports/flare-ui-consumer type:check",
+		"typecheck": "bun run --filter @solidports/base-ui type:check && bun run --filter @solidports/recharts type:check && bun run --filter @solidports/flare-ui type:check && bun run --filter @solidports/flare-ui-consumer type:check && bun run --filter @solidports/solid-table type:check",
 		"lint": "oxlint --config .oxlintrc.json scripts",
 		"lint:fix": "oxlint --config .oxlintrc.json --fix scripts",
 		"fmt": "oxfmt",
-		"fmt:check": "oxfmt --check"
+		"fmt:check": "oxfmt --check",
+		"test:solid-table": "bun run --filter @solidports/solid-table test"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "21.2.1",

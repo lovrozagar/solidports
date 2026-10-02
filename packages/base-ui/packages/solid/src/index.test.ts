@@ -3,8 +3,7 @@
  * import the entire lib for coverage reporting
  */
 import { isJSDOM } from '#test-utils';
-import { expect } from 'chai';
-import { describe, it } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import * as BaseUI from './index';
 
 describe('@solidports/base-ui', () => {

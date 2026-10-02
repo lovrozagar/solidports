@@ -58,7 +58,7 @@ export function SelectValue(componentProps: SelectValue.Props) {
         </Switch>
       );
     },
-    props: elementProps as any,
+    props: elementProps,
     ref: (el) => {
       valueRef.current = el;
     },

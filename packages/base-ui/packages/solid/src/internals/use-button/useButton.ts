@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- Solid `JSX.EventHandlerUnion` requires casts to bridge native Event to Solid's currentTarget-augmented event shape; BaseUIEvent extension fields also need any-casts at handler boundaries */
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import { createTrackedEffect, createEffect } from 'solid-js';
+import { createEffect, untrack } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { useCompositeRootContext } from '../composite/root/CompositeRootContext';
 import { makeEventPreventable } from '../../merge-props';
@@ -10,24 +10,25 @@ import { error } from '../../utils/error';
 import type { BaseUIEvent } from '../../utils/types';
 import { HTMLProps } from '../../utils/types';
 import { useFocusableWhenDisabled } from '../../utils/useFocusableWhenDisabled';
-import { on, splitProps } from '../../solid-1-compat';
+import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
+import { splitProps } from '../../solid-1-compat';
 
 export function useButton(parameters: useButton.Parameters = {}): useButton.ReturnValue {
   const disabled = () => Boolean(access(parameters.disabled));
   const tabIndex = () => access(parameters.tabIndex) ?? 0;
   const isNativeButton = () => Boolean(access(parameters.native) ?? true);
-  const focusableWhenDisabled = () => Boolean(access(parameters.focusableWhenDisabled));
+  // Passed through as React does: `undefined` lets composite items stay focusable when disabled.
+  const focusableWhenDisabled = () => {
+    const value = access(parameters.focusableWhenDisabled);
+    return value === '' ? true : value;
+  };
 
   let elementRef: HTMLElement | null | undefined;
 
   // Capture at hook time: Solid 2 applies refs with a null owner (`runWithOwner(null)`),
   // so calling useContext from buttonRef → updateDisabled would throw NoOwnerError.
   const compositeRootContext = useCompositeRootContext(true);
-  const isCompositeItem = () => compositeRootContext != null;
-
-  const isValidLink = () => {
-    return Boolean(elementRef?.tagName === 'A' && (elementRef as HTMLAnchorElement)?.href);
-  };
+  const isCompositeItem = () => access(parameters.composite) ?? compositeRootContext != null;
 
   const { props: focusableWhenDisabledProps } = useFocusableWhenDisabled({
     composite: isCompositeItem,
@@ -38,14 +39,14 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
   });
 
   if (process.env.NODE_ENV !== 'production') {
-    createTrackedEffect(() => {
+    createEffect(isNativeButton, (nativeButton) => {
       if (!elementRef) {
         return;
       }
 
       const isButtonTag = elementRef.tagName === 'BUTTON';
 
-      if (isNativeButton()) {
+      if (nativeButton) {
         if (!isButtonTag) {
           error(
             'A component that acts as a button expected a native <button> because the ' +
@@ -66,28 +67,32 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
     });
   }
 
-  const updateDisabled = () => {
-    if (!isButtonElement(elementRef)) {
-      return;
-    }
+  // Runs from the ref callback and an effect apply: reads the latest values without subscribing.
+  const updateDisabled = () =>
+    untrack(() => {
+      if (!isButtonElement(elementRef)) {
+        return;
+      }
 
-    if (
-      isCompositeItem() &&
-      disabled() &&
-      focusableWhenDisabledProps().disabled === undefined &&
-      elementRef.disabled
-    ) {
-      elementRef.disabled = false;
-    }
-  };
+      if (
+        isCompositeItem() &&
+        disabled() &&
+        focusableWhenDisabledProps().disabled === undefined &&
+        elementRef.disabled
+      ) {
+        elementRef.disabled = false;
+      }
+    });
 
   // handles a disabled composite button rendering another button, e.g.
   // <Toolbar.Button disabled render={() => <Menu.Trigger />} />
   // the `disabled` prop needs to pass through 2 `useButton`s then finally
   // delete the `disabled` attribute from DOM
-  createEffect(...on([disabled, () => focusableWhenDisabledProps().disabled, isCompositeItem], () => {
-      updateDisabled();
-    }),
+  createEffect(
+    () => [disabled(), focusableWhenDisabledProps().disabled, isCompositeItem()] as const,
+    () => {
+      untrack(updateDisabled);
+    },
   );
 
   // TODO: fix typing in the whole function
@@ -119,54 +124,107 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
           callEventHandler(externalOnClick, event);
         },
         onKeyDown(event) {
-          if (!disabled()) {
-            makeEventPreventable(event);
-            callEventHandler(externalOnKeyDown, event);
-          }
-
-          if ((event as BaseUIEvent<KeyboardEvent>).baseUIHandlerPrevented) {
+          if (disabled()) {
             return;
           }
 
-          const shouldClick =
-            event.target === event.currentTarget &&
-            !isNativeButton() &&
-            !isValidLink() &&
-            !disabled();
+          makeEventPreventable(event);
+          callEventHandler(externalOnKeyDown, event);
+          const baseUIEvent = event as BaseUIEvent<KeyboardEvent>;
+          if (baseUIEvent.baseUIHandlerPrevented) {
+            return;
+          }
+
+          const isCurrentTarget = event.target === event.currentTarget;
+          const currentTarget = event.currentTarget as Element;
+          const isButton = isButtonElement(currentTarget);
+          const isLink = !isNativeButton() && isValidLinkElement(currentTarget);
+          const shouldClick = isCurrentTarget && (isNativeButton() ? isButton : !isLink);
           const isEnterKey = event.key === 'Enter';
           const isSpaceKey = event.key === ' ';
+          const role = currentTarget.getAttribute('role');
+          const isTextNavigationRole =
+            role?.startsWith('menuitem') || role === 'option' || role === 'gridcell';
 
-          /* Keyboard accessibility for non interactive elements */
-          if (shouldClick) {
-            if (isSpaceKey || isEnterKey) {
+          if (isCurrentTarget && isCompositeItem() && isSpaceKey) {
+            if (event.defaultPrevented && isTextNavigationRole) {
+              return;
+            }
+
+            event.preventDefault();
+
+            // Only a native-mode item that isn't a real <button> is excluded.
+            if (!isNativeButton() || isButton) {
+              baseUIEvent.preventBaseUIHandler();
+              dispatchClickWithModifiers(currentTarget, event);
+            }
+
+            return;
+          }
+
+          // Keyboard accessibility for native and non-native elements.
+          if (!shouldClick || isNativeButton() || (!isSpaceKey && !isEnterKey)) {
+            // Space activates links on keyup (`role="button"` semantics, matching the
+            // composite path); prevent the page scroll Space would otherwise trigger.
+            // Enter is left to the browser's native link activation.
+            if (isCurrentTarget && isLink && isSpaceKey) {
               event.preventDefault();
             }
+            return;
+          }
 
-            if (isEnterKey) {
-              callEventHandler(externalOnClick, event as any);
-            }
+          // Match native buttons: preventing the keydown's default cancels activation.
+          if (event.defaultPrevented) {
+            return;
+          }
+
+          event.preventDefault();
+
+          if (isEnterKey) {
+            baseUIEvent.preventBaseUIHandler();
+            dispatchClickWithModifiers(currentTarget, event);
           }
         },
         onKeyUp(event) {
-          /* calling preventDefault in keyUp on a <button> will not dispatch a click event if Space is pressed
-             https://codesandbox.io/p/sandbox/button-keyup-preventdefault-dn7f0
-             Keyboard accessibility for non interactive elements */
-          if (!disabled()) {
-            makeEventPreventable(event);
-            callEventHandler(externalOnKeyUp, event);
-          }
-
-          if ((event as BaseUIEvent<KeyboardEvent>).baseUIHandlerPrevented) {
+          if (disabled()) {
             return;
           }
 
+          // calling preventDefault in keyUp on a <button> will not dispatch a click event if Space is pressed
+          // https://codesandbox.io/p/sandbox/button-keyup-preventdefault-dn7f0
+          makeEventPreventable(event);
+          callEventHandler(externalOnKeyUp, event);
+          const baseUIEvent = event as BaseUIEvent<KeyboardEvent>;
+
+          if (
+            event.target === event.currentTarget &&
+            isNativeButton() &&
+            isCompositeItem() &&
+            isButtonElement(event.currentTarget as HTMLElement) &&
+            event.key === ' '
+          ) {
+            event.preventDefault();
+            return;
+          }
+
+          if (baseUIEvent.baseUIHandlerPrevented) {
+            return;
+          }
+
+          // Keyboard accessibility for non interactive elements.
+          // Match native buttons: preventing the keyup's default cancels Space activation.
+          // Limitation: unlike a native <button>, a prevented *keydown* cannot cancel the
+          // activation — no state is kept between keydown and keyup, so we can't tell
+          // whether the keydown was prevented or even happened on this element.
           if (
             event.target === event.currentTarget &&
             !isNativeButton() &&
-            !disabled() &&
+            !isCompositeItem() &&
+            !event.defaultPrevented &&
             event.key === ' '
           ) {
-            callEventHandler(externalOnClick, event as any);
+            baseUIEvent.preventBaseUIHandler();
+            dispatchClickWithModifiers(event.currentTarget as Element, event);
           }
         },
         onMouseDown(event) {
@@ -181,10 +239,10 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
           }
           callEventHandler(externalOnPointerDown, event);
         },
-        get type() {
-          return isNativeButton() ? 'button' : undefined;
-        },
       },
+      // Read when the props are resolved, as React does per render; `role` is resolved last below
+      // because a later `undefined` overrides an earlier value in Solid.
+      untrack(isNativeButton) ? { type: 'button' } : {},
       focusableWhenDisabledProps(),
       otherExternalProps,
       {
@@ -207,10 +265,12 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
   };
 }
 
-function isButtonElement(
-  elem: HTMLButtonElement | HTMLAnchorElement | HTMLElement | null | undefined,
-): elem is HTMLButtonElement {
+function isButtonElement(elem: Element | null | undefined): elem is HTMLButtonElement {
   return isHTMLElement(elem) && elem.tagName === 'BUTTON';
+}
+
+function isValidLinkElement(elem: Element | null | undefined): elem is HTMLAnchorElement {
+  return isHTMLElement(elem) && elem.tagName === 'A' && Boolean((elem as HTMLAnchorElement).href);
 }
 
 interface GenericButtonProps extends HTMLProps, AdditionalButtonProps {
@@ -225,6 +285,12 @@ interface AdditionalButtonProps extends Partial<{
 }> {}
 
 export interface UseButtonParameters {
+  /**
+   * Whether the button is part of a composite widget.
+   * When `true`, keyboard activation for Space occurs on keydown rather than keyup.
+   * @default inferred from CompositeRoot context
+   */
+  composite?: MaybeAccessor<boolean | undefined>;
   /**
    * Whether the component should ignore user interaction.
    * @default false

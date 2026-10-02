@@ -1,30 +1,29 @@
 /* eslint-disable typescript/no-explicit-any -- generic Data type erased at root */
-import {
-  createTrackedEffect,
-  createMemo,
-  createSignal,
-  onCleanup,
-  onSettled,
-} from 'solid-js';
+import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps, useRef } from '../../solid-helpers';
+import { addEventListener } from '../../utils/addEventListener';
+import { BASE_UI_SWIPE_IGNORE_SELECTOR, LEGACY_SWIPE_IGNORE_SELECTOR } from '../../utils/constants';
+import { flushSync as flushSyncUpdate } from '../../utils/flushSync';
+import { getElementTransform } from '../../utils/getElementTransform';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
-import { ownerDocument, ownerWindow } from '../../utils/owner';
+import { ownerDocument } from '../../utils/owner';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { getDisplacement } from '../../utils/useSwipeDismiss';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
 import type { ToastObject as ToastObjectType } from '../useToastManager';
 import { ToastRootContext } from './ToastRootContext';
 import { ToastRootCssVars } from './ToastRootCssVars';
-import { BASE_UI_SWIPE_IGNORE_SELECTOR, LEGACY_SWIPE_IGNORE_SELECTOR } from '../../utils/constants';
+import { ToastRootDataAttributes } from './ToastRootDataAttributes';
 
-const stateAttributesMapping: StateAttributesMapping<ToastRoot.State> = {
+export const toastRootStateAttributesMapping: StateAttributesMapping<ToastRootState> = {
   ...transitionStatusMapping,
   swipeDirection(value) {
-    return value ? { 'data-swipe-direction': value } : null;
+    return value ? { [ToastRootDataAttributes.swipeDirection]: value } : null;
   },
 };
 
@@ -32,50 +31,9 @@ const SWIPE_THRESHOLD = 40;
 const REVERSE_CANCEL_THRESHOLD = 10;
 const OPPOSITE_DIRECTION_DAMPING_FACTOR = 0.5;
 const MIN_DRAG_THRESHOLD = 1;
-const TOAST_SWIPE_IGNORE_SELECTOR = `button,a,input,textarea,[role="button"],${BASE_UI_SWIPE_IGNORE_SELECTOR},${LEGACY_SWIPE_IGNORE_SELECTOR}`;
+const TOAST_SWIPE_IGNORE_SELECTOR = `${BASE_UI_SWIPE_IGNORE_SELECTOR},${LEGACY_SWIPE_IGNORE_SELECTOR}`;
 
-function getDisplacement(
-  direction: 'up' | 'down' | 'left' | 'right',
-  deltaX: number,
-  deltaY: number,
-) {
-  switch (direction) {
-    case 'up':
-      return -deltaY;
-    case 'down':
-      return deltaY;
-    case 'left':
-      return -deltaX;
-    case 'right':
-      return deltaX;
-    default:
-      return 0;
-  }
-}
-
-function getElementTransform(element: HTMLElement) {
-  const computedStyle = ownerWindow(element).getComputedStyle(element);
-  const transform = computedStyle.transform;
-  let translateX = 0;
-  let translateY = 0;
-  let scale = 1;
-  if (transform && transform !== 'none') {
-    const matrix = transform.match(/matrix(?:3d)?\(([^)]+)\)/);
-    if (matrix) {
-      const values = matrix[1].split(', ').map(parseFloat);
-      if (values.length === 6) {
-        translateX = values[4];
-        translateY = values[5];
-        scale = Math.sqrt(values[0] * values[0] + values[1] * values[1]);
-      } else if (values.length === 16) {
-        translateX = values[12];
-        translateY = values[13];
-        scale = values[0];
-      }
-    }
-  }
-  return { scale, x: translateX, y: translateY };
-}
+type SwipeDirection = 'up' | 'down' | 'left' | 'right';
 
 /**
  * Groups all parts of an individual toast.
@@ -85,16 +43,15 @@ function getElementTransform(element: HTMLElement) {
  */
 export function ToastRoot(componentProps: ToastRoot.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['toast', 'swipeDirection']);
-  const swipeDirection = () => local.swipeDirection ?? ['down', 'right'];
 
   const isAnchored = () => local.toast.positionerProps?.anchor !== undefined;
 
-  const swipeDirections = createMemo<('up' | 'down' | 'left' | 'right')[]>(() => {
+  const swipeDirections = createMemo<SwipeDirection[]>(() => {
     if (isAnchored()) {
       return [];
     }
-    const dirs = swipeDirection();
-    return Array.isArray(dirs) ? dirs : [dirs];
+    const swipeDirection = local.swipeDirection ?? ['down', 'right'];
+    return Array.isArray(swipeDirection) ? swipeDirection : [swipeDirection];
   });
 
   const swipeEnabled = () => swipeDirections().length > 0;
@@ -102,28 +59,34 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
   const store = useToastProviderContext();
 
   const [currentSwipeDirection, setCurrentSwipeDirection] = createSignal<
-    'up' | 'down' | 'left' | 'right' | undefined
+    SwipeDirection | undefined
   >(undefined);
   const [isSwiping, setIsSwiping] = createSignal(false);
   const [isRealSwipe, setIsRealSwipe] = createSignal(false);
-  const [dragDismissed, setDragDismissed] = createSignal(false);
   const [dragOffset, setDragOffset] = createSignal({ x: 0, y: 0 });
-  const [initialTransform, setInitialTransform] = createSignal({ scale: 1, x: 0, y: 0 });
-  const [titleId, setTitleId] = createSignal<string | undefined>();
-  const [descriptionId, setDescriptionId] = createSignal<string | undefined>();
+  const [initialTransform, setInitialTransform] = createSignal({ x: 0, y: 0, scale: 1 });
+  // Title and Description clear their id on unmount, which can run while a parent computation
+  // disposes them (React's unmount cleanup). `ownedWrite` permits that registration write.
+  const [titleId, setTitleId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
+  const [descriptionId, setDescriptionId] = createSignal<string | undefined>(undefined, {
+    ownedWrite: true,
+  });
   const [lockedDirection, setLockedDirection] = createSignal<'horizontal' | 'vertical' | null>(
     null,
   );
 
-  const rootRef = useRef<HTMLElement | null | undefined>(null);
-
-  let dragStartPosRef = { x: 0, y: 0 };
-  let initialTransformRef = { scale: 1, x: 0, y: 0 };
-  let intendedSwipeDirectionRef = undefined as 'up' | 'down' | 'left' | 'right' | undefined;
-  let maxSwipeDisplacementRef = 0;
-  let cancelledSwipeRef = false;
-  let swipeCancelBaselineRef = { x: 0, y: 0 };
-  let isFirstPointerMoveRef = false;
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const lastToastIdRef = useRef<string | undefined>(undefined);
+  const dragStartPosRef = useRef({ x: 0, y: 0 });
+  const initialTransformRef = useRef({ x: 0, y: 0, scale: 1 });
+  const intendedSwipeDirectionRef = useRef<SwipeDirection | undefined>(undefined);
+  const maxSwipeDisplacementRef = useRef(0);
+  const cancelledSwipeRef = useRef(false);
+  const swipeCancelBaselineRef = useRef({ x: 0, y: 0 });
+  const isFirstPointerMoveRef = useRef(false);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const activePointerIdRef = useRef<number | null>(null);
+  const dragAbortControllerRef = useRef<AbortController | null>(null);
 
   const domIndex = store.useState('toastIndex', () => local.toast.id);
   const visibleIndex = store.useState('toastVisibleIndex', () => local.toast.id);
@@ -132,21 +95,20 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
   const expanded = store.useState('expanded');
 
   useOpenChangeComplete({
-    onComplete() {
-      if (local.toast.transitionStatus === 'ending') {
-        store.removeToast(() => local.toast.id);
-      }
-    },
     open: () => local.toast.transitionStatus !== 'ending',
     ref: () => rootRef.current,
+    onComplete() {
+      const currentToast = untrack(() => local.toast);
+      if (currentToast.transitionStatus === 'ending') {
+        store.removeToast(currentToast.id);
+      }
+    },
   });
 
-  /**
-   * Recalculates the natural height of the toast and updates it in the toast manager.
-   * @param flushSync Whether to flush the update synchronously. Use in observer
-   * callbacks to avoid visual flickers.
-   */
-  const recalculateHeight = () => {
+  // Recalculates the natural height of the toast and updates it in the toast manager.
+  // `flushSync` avoids visual flickers when called from observer callbacks.
+  // The store ignores this write while the toast is transitioning out.
+  function recalculateHeight(flushSync: boolean = false) {
     const element = rootRef.current;
     if (!element) {
       return;
@@ -154,59 +116,125 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
 
     const previousHeight = element.style.height;
     element.style.height = 'auto';
+
     const height = element.offsetHeight;
+
     element.style.height = previousHeight;
 
     function update() {
-      store.updateToastInternal(() => local.toast.id, {
-        height,
-        ref: rootRef.current,
-        ...(local.toast.transitionStatus === 'starting' ? { transitionStatus: undefined } : {}),
-      });
+      store.updateToastInternal(
+        untrack(() => local.toast.id),
+        {
+          ref: rootRef,
+          height,
+          transitionStatus: undefined,
+        },
+      );
     }
-    update();
-  };
 
-  onSettled(() => {
-    recalculateHeight();
+    if (flushSync) {
+      flushSyncUpdate(update);
+    } else {
+      update();
+    }
+  }
+
+  function setResolvedDragOffset(nextDragOffset: { x: number; y: number }) {
+    dragOffsetRef.current = nextDragOffset;
+    setDragOffset(nextDragOffset);
+  }
+
+  // Initialize the toast on mount, and reinitialize when it begins a new lifecycle:
+  // re-adding an ending toast retains the same root instance (keyed by id), and
+  // index-keyed lists can hand an existing instance a different toast.
+  // Solid: a user effect, so the root element is attached before it is measured.
+  createEffect(
+    () => ({ id: local.toast.id, transitionStatus: local.toast.transitionStatus }),
+    ({ id, transitionStatus }) => {
+      const previousToastId = lastToastIdRef.current;
+      // `recalculateHeight` clears the `starting` status itself, so bail out on the
+      // resulting re-run and on the later `ending` one, which the store discards anyway.
+      if (transitionStatus !== 'starting' && previousToastId === id) {
+        return;
+      }
+
+      if (previousToastId !== undefined) {
+        // A retained root keeps component-local swipe state from its previous lifecycle;
+        // clear it so the toast doesn't stay offset or exit in the swiped direction.
+        setCurrentSwipeDirection(undefined);
+        setInitialTransform({ x: 0, y: 0, scale: 1 });
+        setResolvedDragOffset({ x: 0, y: 0 });
+      }
+
+      lastToastIdRef.current = id;
+      recalculateHeight();
+    },
+  );
+
+  onCleanup(() => {
+    dragAbortControllerRef.current?.abort();
   });
 
   function applyDirectionalDamping(deltaX: number, deltaY: number) {
-    let newDeltaX = deltaX;
-    let newDeltaY = deltaY;
+    const directions = swipeDirections();
+    const damp = (delta: number) =>
+      delta > 0
+        ? delta ** OPPOSITE_DIRECTION_DAMPING_FACTOR
+        : -(Math.abs(delta) ** OPPOSITE_DIRECTION_DAMPING_FACTOR);
 
-    if (!swipeDirections().includes('left') && !swipeDirections().includes('right')) {
-      newDeltaX =
-        deltaX > 0
-          ? deltaX ** OPPOSITE_DIRECTION_DAMPING_FACTOR
-          : -(Math.abs(deltaX) ** OPPOSITE_DIRECTION_DAMPING_FACTOR);
-    } else {
-      if (!swipeDirections().includes('right') && deltaX > 0) {
-        newDeltaX = deltaX ** OPPOSITE_DIRECTION_DAMPING_FACTOR;
-      }
-      if (!swipeDirections().includes('left') && deltaX < 0) {
-        newDeltaX = -(Math.abs(deltaX) ** OPPOSITE_DIRECTION_DAMPING_FACTOR);
-      }
-    }
+    const dampX =
+      (deltaX > 0 && !directions.includes('right')) || (deltaX < 0 && !directions.includes('left'));
+    const dampY =
+      (deltaY > 0 && !directions.includes('down')) || (deltaY < 0 && !directions.includes('up'));
 
-    if (!swipeDirections().includes('up') && !swipeDirections().includes('down')) {
-      newDeltaY =
-        deltaY > 0
-          ? deltaY ** OPPOSITE_DIRECTION_DAMPING_FACTOR
-          : -(Math.abs(deltaY) ** OPPOSITE_DIRECTION_DAMPING_FACTOR);
-    } else {
-      if (!swipeDirections().includes('down') && deltaY > 0) {
-        newDeltaY = deltaY ** OPPOSITE_DIRECTION_DAMPING_FACTOR;
-      }
-      if (!swipeDirections().includes('up') && deltaY < 0) {
-        newDeltaY = -(Math.abs(deltaY) ** OPPOSITE_DIRECTION_DAMPING_FACTOR);
-      }
-    }
-
-    return { x: newDeltaX, y: newDeltaY };
+    return {
+      x: dampX ? damp(deltaX) : deltaX,
+      y: dampY ? damp(deltaY) : deltaY,
+    };
   }
 
-  function handlePointerDown(event: PointerEvent) {
+  function handleSwipeEnd(event: PointerEvent) {
+    if (event.pointerId !== activePointerIdRef.current) {
+      return;
+    }
+
+    activePointerIdRef.current = null;
+    dragAbortControllerRef.current?.abort();
+    dragAbortControllerRef.current = null;
+    setIsSwiping(false);
+    setIsRealSwipe(false);
+    setLockedDirection(null);
+
+    const resolvedInitialTransform = initialTransformRef.current;
+
+    if (event.type === 'pointercancel' || cancelledSwipeRef.current) {
+      setResolvedDragOffset({ x: resolvedInitialTransform.x, y: resolvedInitialTransform.y });
+      setCurrentSwipeDirection(undefined);
+      return;
+    }
+
+    const resolvedDragOffset = dragOffsetRef.current;
+    const deltaX = resolvedDragOffset.x - resolvedInitialTransform.x;
+    const deltaY = resolvedDragOffset.y - resolvedInitialTransform.y;
+    let dismissDirection: SwipeDirection | undefined;
+
+    for (const direction of swipeDirections()) {
+      if (getDisplacement(direction, deltaX, deltaY) > SWIPE_THRESHOLD) {
+        dismissDirection = direction;
+        break;
+      }
+    }
+
+    if (dismissDirection) {
+      setCurrentSwipeDirection(dismissDirection);
+      store.closeToast(untrack(() => local.toast.id));
+    } else {
+      setResolvedDragOffset({ x: resolvedInitialTransform.x, y: resolvedInitialTransform.y });
+      setCurrentSwipeDirection(undefined);
+    }
+  }
+
+  function handlePointerDown(event: PointerEvent & { currentTarget: HTMLDivElement }) {
     if (event.button !== 0) {
       return;
     }
@@ -217,102 +245,115 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
 
     const target = getTarget(event) as HTMLElement | null;
 
-    const isInteractiveElement = target
-      ? target.closest(TOAST_SWIPE_IGNORE_SELECTOR)
-      : false;
+    const isInteractiveElement = target?.closest(
+      `button,a,input,textarea,[role="button"],${TOAST_SWIPE_IGNORE_SELECTOR}`,
+    );
 
     if (isInteractiveElement) {
       return;
     }
 
-    cancelledSwipeRef = false;
-    intendedSwipeDirectionRef = undefined;
-    maxSwipeDisplacementRef = 0;
-    dragStartPosRef = { x: event.clientX, y: event.clientY };
-    swipeCancelBaselineRef = dragStartPosRef;
+    cancelledSwipeRef.current = false;
+    intendedSwipeDirectionRef.current = undefined;
+    maxSwipeDisplacementRef.current = 0;
+    activePointerIdRef.current = event.pointerId;
+    dragStartPosRef.current = { x: event.clientX, y: event.clientY };
+    swipeCancelBaselineRef.current = dragStartPosRef.current;
 
-    if (rootRef.current) {
-      const transform = getElementTransform(rootRef.current);
-      initialTransformRef = transform;
-      setInitialTransform(transform);
-      setDragOffset({
-        x: transform.x,
-        y: transform.y,
-      });
-    }
+    const element = event.currentTarget;
 
-    store.setHovering(true);
+    const transform = getElementTransform(element);
+    initialTransformRef.current = transform;
+    setInitialTransform(transform);
+    setResolvedDragOffset({
+      x: transform.x,
+      y: transform.y,
+    });
+
+    store.set('hovering', true);
     setIsSwiping(true);
     setIsRealSwipe(false);
     setLockedDirection(null);
-    isFirstPointerMoveRef = true;
+    isFirstPointerMoveRef.current = true;
 
-    rootRef.current?.setPointerCapture(event.pointerId);
+    dragAbortControllerRef.current?.abort();
+    const dragAbortController = new AbortController();
+    dragAbortControllerRef.current = dragAbortController;
+
+    const doc = ownerDocument(element);
+    doc.addEventListener('pointerup', handleSwipeEnd, { signal: dragAbortController.signal });
+    doc.addEventListener('pointercancel', handleSwipeEnd, { signal: dragAbortController.signal });
+
+    element.setPointerCapture?.(event.pointerId);
   }
 
   function handlePointerMove(event: PointerEvent) {
-    if (!isSwiping()) {
+    if (event.pointerId !== activePointerIdRef.current) {
       return;
     }
 
     // Prevent text selection on Safari
     event.preventDefault();
 
-    if (isFirstPointerMoveRef) {
+    if (isFirstPointerMoveRef.current) {
       // Adjust the starting position to the current position on the first move
       // to account for the delay between pointerdown and the first pointermove on iOS.
-      dragStartPosRef = { x: event.clientX, y: event.clientY };
-      isFirstPointerMoveRef = false;
+      dragStartPosRef.current = { x: event.clientX, y: event.clientY };
+      isFirstPointerMoveRef.current = false;
     }
 
     const { clientY, clientX, movementX, movementY } = event;
 
     if (
-      (movementY < 0 && clientY > swipeCancelBaselineRef.y) ||
-      (movementY > 0 && clientY < swipeCancelBaselineRef.y)
+      (movementY < 0 && clientY > swipeCancelBaselineRef.current.y) ||
+      (movementY > 0 && clientY < swipeCancelBaselineRef.current.y)
     ) {
-      swipeCancelBaselineRef = { x: swipeCancelBaselineRef.x, y: clientY };
+      swipeCancelBaselineRef.current = { x: swipeCancelBaselineRef.current.x, y: clientY };
     }
 
     if (
-      (movementX < 0 && clientX > swipeCancelBaselineRef.x) ||
-      (movementX > 0 && clientX < swipeCancelBaselineRef.x)
+      (movementX < 0 && clientX > swipeCancelBaselineRef.current.x) ||
+      (movementX > 0 && clientX < swipeCancelBaselineRef.current.x)
     ) {
-      swipeCancelBaselineRef = { x: clientX, y: swipeCancelBaselineRef.y };
+      swipeCancelBaselineRef.current = { x: clientX, y: swipeCancelBaselineRef.current.y };
     }
 
-    const deltaX = clientX - dragStartPosRef.x;
-    const deltaY = clientY - dragStartPosRef.y;
-    const cancelDeltaY = clientY - swipeCancelBaselineRef.y;
-    const cancelDeltaX = clientX - swipeCancelBaselineRef.x;
+    const deltaX = clientX - dragStartPosRef.current.x;
+    const deltaY = clientY - dragStartPosRef.current.y;
+    const cancelDeltaY = clientY - swipeCancelBaselineRef.current.y;
+    const cancelDeltaX = clientX - swipeCancelBaselineRef.current.x;
+
+    const directions = swipeDirections();
+    // Solid: signals read in a handler see the latest write, as React's render-time state.
+    let resolvedLockedDirection = lockedDirection();
 
     if (!isRealSwipe()) {
       const movementDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
       if (movementDistance >= MIN_DRAG_THRESHOLD) {
         setIsRealSwipe(true);
-        if (lockedDirection() === null) {
-          const hasHorizontal =
-            swipeDirections().includes('left') || swipeDirections().includes('right');
-          const hasVertical =
-            swipeDirections().includes('up') || swipeDirections().includes('down');
-          if (hasHorizontal && hasVertical) {
-            const absX = Math.abs(deltaX);
-            const absY = Math.abs(deltaY);
-            setLockedDirection(absX > absY ? 'horizontal' : 'vertical');
-          }
+        // `lockedDirection` is always reset alongside `isRealSwipe`, so it is
+        // still `null` here. Locking is only meaningful when both axes are
+        // swipeable; otherwise the single axis already constrains the gesture.
+        const hasHorizontal = directions.includes('left') || directions.includes('right');
+        const hasVertical = directions.includes('up') || directions.includes('down');
+        if (hasHorizontal && hasVertical) {
+          const absX = Math.abs(deltaX);
+          const absY = Math.abs(deltaY);
+          resolvedLockedDirection = absX > absY ? 'horizontal' : 'vertical';
+          setLockedDirection(resolvedLockedDirection);
         }
       }
     }
 
-    let candidate: 'up' | 'down' | 'left' | 'right' | undefined;
-    if (!intendedSwipeDirectionRef) {
-      if (lockedDirection() === 'vertical') {
+    let candidate: SwipeDirection | undefined;
+    if (!intendedSwipeDirectionRef.current) {
+      if (resolvedLockedDirection === 'vertical') {
         if (deltaY > 0) {
           candidate = 'down';
         } else if (deltaY < 0) {
           candidate = 'up';
         }
-      } else if (lockedDirection() === 'horizontal') {
+      } else if (resolvedLockedDirection === 'horizontal') {
         if (deltaX > 0) {
           candidate = 'right';
         } else if (deltaX < 0) {
@@ -324,127 +365,44 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
         candidate = deltaY > 0 ? 'down' : 'up';
       }
 
-      if (candidate && swipeDirections().includes(candidate)) {
-        intendedSwipeDirectionRef = candidate;
-        maxSwipeDisplacementRef = getDisplacement(candidate, deltaX, deltaY);
+      if (candidate && directions.includes(candidate)) {
+        intendedSwipeDirectionRef.current = candidate;
+        maxSwipeDisplacementRef.current = getDisplacement(candidate, deltaX, deltaY);
         setCurrentSwipeDirection(candidate);
       }
     } else {
-      const direction = intendedSwipeDirectionRef;
+      const direction = intendedSwipeDirectionRef.current;
       const currentDisplacement = getDisplacement(direction, cancelDeltaX, cancelDeltaY);
+
       if (currentDisplacement > SWIPE_THRESHOLD) {
-        cancelledSwipeRef = false;
+        cancelledSwipeRef.current = false;
         setCurrentSwipeDirection(direction);
       } else if (
-        !(swipeDirections().includes('left') && swipeDirections().includes('right')) &&
-        !(swipeDirections().includes('up') && swipeDirections().includes('down')) &&
-        maxSwipeDisplacementRef - currentDisplacement >= REVERSE_CANCEL_THRESHOLD
+        !(directions.includes('left') && directions.includes('right')) &&
+        !(directions.includes('up') && directions.includes('down')) &&
+        maxSwipeDisplacementRef.current - currentDisplacement >= REVERSE_CANCEL_THRESHOLD
       ) {
         // Mark that a change-of-mind has occurred
-        cancelledSwipeRef = true;
+        cancelledSwipeRef.current = true;
       }
     }
 
     const dampedDelta = applyDirectionalDamping(deltaX, deltaY);
-    let newOffsetX = initialTransformRef.x;
-    let newOffsetY = initialTransformRef.y;
+    let newOffsetX = initialTransformRef.current.x;
+    let newOffsetY = initialTransformRef.current.y;
 
-    if (lockedDirection() === 'horizontal') {
-      if (swipeDirections().includes('left') || swipeDirections().includes('right')) {
-        newOffsetX += dampedDelta.x;
-      }
-    } else if (lockedDirection() === 'vertical') {
-      if (swipeDirections().includes('up') || swipeDirections().includes('down')) {
-        newOffsetY += dampedDelta.y;
-      }
-    } else {
-      if (swipeDirections().includes('left') || swipeDirections().includes('right')) {
-        newOffsetX += dampedDelta.x;
-      }
-      if (swipeDirections().includes('up') || swipeDirections().includes('down')) {
-        newOffsetY += dampedDelta.y;
-      }
+    const hasHorizontalDir = directions.includes('left') || directions.includes('right');
+    const hasVerticalDir = directions.includes('up') || directions.includes('down');
+
+    if (resolvedLockedDirection !== 'vertical' && hasHorizontalDir) {
+      newOffsetX += dampedDelta.x;
     }
 
-    setDragOffset({ x: newOffsetX, y: newOffsetY });
-  }
-
-  function handlePointerUp(event: PointerEvent) {
-    if (!isSwiping()) {
-      return;
+    if (resolvedLockedDirection !== 'horizontal' && hasVerticalDir) {
+      newOffsetY += dampedDelta.y;
     }
 
-    setIsSwiping(false);
-    setIsRealSwipe(false);
-    setLockedDirection(null);
-
-    rootRef.current?.releasePointerCapture(event.pointerId);
-
-    if (cancelledSwipeRef) {
-      setDragOffset({ x: initialTransform().x, y: initialTransform().y });
-      setCurrentSwipeDirection(undefined);
-      return;
-    }
-
-    let shouldClose = false;
-    const deltaX = dragOffset().x - initialTransform().x;
-    const deltaY = dragOffset().y - initialTransform().y;
-    let dismissDirection: 'up' | 'down' | 'left' | 'right' | undefined;
-
-    for (const direction of swipeDirections()) {
-      switch (direction) {
-        case 'right':
-          if (deltaX > SWIPE_THRESHOLD) {
-            shouldClose = true;
-            dismissDirection = 'right';
-          }
-          break;
-        case 'left':
-          if (deltaX < -SWIPE_THRESHOLD) {
-            shouldClose = true;
-            dismissDirection = 'left';
-          }
-          break;
-        case 'down':
-          if (deltaY > SWIPE_THRESHOLD) {
-            shouldClose = true;
-            dismissDirection = 'down';
-          }
-          break;
-        case 'up':
-          if (deltaY < -SWIPE_THRESHOLD) {
-            shouldClose = true;
-            dismissDirection = 'up';
-          }
-          break;
-        default:
-          break;
-      }
-      if (shouldClose) {
-        break;
-      }
-    }
-
-    if (shouldClose) {
-      setCurrentSwipeDirection(dismissDirection);
-      setDragDismissed(true);
-      store.closeToast(() => local.toast.id);
-    } else {
-      setDragOffset({ x: initialTransform().x, y: initialTransform().y });
-      setCurrentSwipeDirection(undefined);
-    }
-  }
-
-  function handlePointerCancel() {
-    if (!isSwiping()) {
-      return;
-    }
-
-    setIsSwiping(false);
-    setIsRealSwipe(false);
-    setLockedDirection(null);
-    setDragOffset({ x: initialTransform().x, y: initialTransform().y });
-    setCurrentSwipeDirection(undefined);
+    setResolvedDragOffset({ x: newOffsetX, y: newOffsetY });
   }
 
   function handleKeyDown(event: KeyboardEvent) {
@@ -455,63 +413,45 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
       ) {
         return;
       }
-      store.closeToast(() => local.toast.id);
+
+      store.closeToast(untrack(() => local.toast.id));
     }
   }
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (!swipeEnabled()) {
-      return;
-    }
-
+  createEffect(swipeEnabled, (enabled) => {
     const element = rootRef.current;
-    if (!element) {
-      return;
+    if (!enabled || !element) {
+      return undefined;
     }
 
     function preventDefaultTouchStart(event: TouchEvent) {
-      if (contains(element, getTarget(event) as HTMLElement | null)) {
-        event.preventDefault();
+      if (
+        activePointerIdRef.current === null ||
+        !contains(element, getTarget(event) as HTMLElement | null)
+      ) {
+        return;
       }
+
+      // The pointermove preventDefault is not enough on iOS; this
+      // non-passive touchmove listener blocks native scrolling while dragging.
+      event.preventDefault();
     }
 
-    element.addEventListener('touchmove', preventDefaultTouchStart, { passive: false });
-    _c.push(() => {
-      element.removeEventListener('touchmove', preventDefaultTouchStart);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+    return addEventListener(element, 'touchmove', preventDefaultTouchStart, { passive: false });
+  });
 
   function getDragStyles() {
-    if (
-      !isSwiping() &&
-      dragOffset().x === initialTransform().x &&
-      dragOffset().y === initialTransform().y &&
-      !dragDismissed()
-    ) {
-      return {
-        [ToastRootCssVars.swipeMovementX]: '0px',
-        [ToastRootCssVars.swipeMovementY]: '0px',
-      };
-    }
-
-    const deltaX = dragOffset().x - initialTransform().x;
-    const deltaY = dragOffset().y - initialTransform().y;
+    const offset = dragOffset();
+    const initial = initialTransform();
+    const deltaX = offset.x - initial.x;
+    const deltaY = offset.y - initial.y;
 
     return {
       transition: isSwiping() ? 'none' : undefined,
       // While swiping, freeze the element at its current visual transform so it doesn't snap to the
       // end position.
       transform: isSwiping()
-        ? `translateX(${dragOffset().x}px) translateY(${dragOffset().y}px) scale(${initialTransform().scale})`
+        ? `translateX(${offset.x}px) translateY(${offset.y}px) scale(${initial.scale})`
         : undefined,
       [ToastRootCssVars.swipeMovementX]: `${deltaX}px`,
       [ToastRootCssVars.swipeMovementY]: `${deltaY}px`,
@@ -521,28 +461,19 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
   const isHighPriority = () => local.toast.priority === 'high';
 
   const defaultProps: HTMLProps = {
+    get role() {
+      return isHighPriority() ? 'alertdialog' : 'dialog';
+    },
+    tabindex: 0,
+    'aria-modal': 'false',
+    get 'aria-labelledby'() {
+      return titleId();
+    },
     get 'aria-describedby'() {
       return descriptionId();
     },
     get 'aria-hidden'() {
       return isHighPriority() && !focused() ? 'true' : undefined;
-    },
-    get 'aria-labelledby'() {
-      return titleId();
-    },
-    'aria-modal': 'false',
-    get inert() {
-      return local.toast.limited;
-    },
-    onKeyDown: handleKeyDown,
-    onMouseEnter: () => {
-      store.state.viewport?.dispatchEvent(new Event('mouseenter'));
-    },
-    onMouseLeave: () => {
-      store.state.viewport?.dispatchEvent(new Event('mouseleave'));
-    },
-    get onPointerCancel() {
-      return swipeEnabled() ? handlePointerCancel : undefined;
     },
     get onPointerDown() {
       return swipeEnabled() ? handlePointerDown : undefined;
@@ -550,9 +481,15 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     get onPointerMove() {
       return swipeEnabled() ? handlePointerMove : undefined;
     },
-    onPointerUp: handlePointerUp,
-    get role() {
-      return isHighPriority() ? 'alertdialog' : 'dialog';
+    get onPointerUp() {
+      return swipeEnabled() ? handleSwipeEnd : undefined;
+    },
+    get onPointerCancel() {
+      return swipeEnabled() ? handleSwipeEnd : undefined;
+    },
+    onKeyDown: handleKeyDown,
+    get inert() {
+      return local.toast.limited;
     },
     get style() {
       return {
@@ -565,52 +502,45 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
           : undefined,
       };
     },
-    tabindex: 0,
   };
 
   const toastRoot: ToastRootContext = {
-    descriptionId,
-    expanded,
-    index: domIndex,
-    recalculateHeight,
-    rootRef,
-    setDescriptionId,
-    setTitleId,
-    swipeDirection: currentSwipeDirection,
-    swiping: isSwiping,
-    titleId,
     toast: () => local.toast,
+    setTitleId,
+    setDescriptionId,
+    recalculateHeight,
     visibleIndex,
+    expanded,
   };
 
-  const state: ToastRoot.State = {
+  const state: ToastRootState = {
+    get transitionStatus() {
+      return local.toast.transitionStatus;
+    },
     get expanded() {
       return expanded();
     },
     get limited() {
       return local.toast.limited || false;
     },
-    get swipeDirection() {
-      return toastRoot.swipeDirection();
-    },
-    get swiping() {
-      return toastRoot.swiping();
-    },
-    get transitionStatus() {
-      return local.toast.transitionStatus;
-    },
     get type() {
       return local.toast.type;
+    },
+    get swiping() {
+      return isSwiping();
+    },
+    get swipeDirection() {
+      return currentSwipeDirection();
     },
   };
 
   const element = useRenderElement('div', componentProps, {
-    props: [defaultProps, elementProps],
-    ref: (el) => {
-      toastRoot.rootRef.current = el;
+    ref: (el: HTMLDivElement | null) => {
+      rootRef.current = el;
     },
     state,
-    stateAttributesMapping,
+    stateAttributesMapping: toastRootStateAttributesMapping,
+    props: [defaultProps, elementProps],
   });
 
   return <ToastRootContext value={toastRoot}>{element()}</ToastRootContext>;
@@ -641,8 +571,7 @@ export interface ToastRootProps extends BaseUIComponentProps<'div', ToastRoot.St
    * @default ['down', 'right']
    */
   swipeDirection?:
-    | ('up' | 'down' | 'left' | 'right' | ('up' | 'down' | 'left' | 'right')[])
-    | undefined;
+    ('up' | 'down' | 'left' | 'right' | ('up' | 'down' | 'left' | 'right')[]) | undefined;
 }
 
 export namespace ToastRoot {

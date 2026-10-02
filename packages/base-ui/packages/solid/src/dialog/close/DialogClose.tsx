@@ -17,14 +17,8 @@ export function DialogClose(componentProps: DialogClose.Props) {
   const disabled = () => Boolean(local.disabled);
   const nativeButton = () => Boolean(local.nativeButton ?? true);
 
-  const { store } = useDialogRootContext();
+  const store = useDialogRootContext();
   const open = store.useState('open');
-
-  function handleClick(event: MouseEvent) {
-    if (open()) {
-      store.setOpen(false, createChangeEventDetails(REASONS.closePress, event));
-    }
-  }
 
   const { getButtonProps, buttonRef } = useButton({
     disabled,
@@ -37,10 +31,16 @@ export function DialogClose(componentProps: DialogClose.Props) {
     },
   };
 
+  function handleClick(event: MouseEvent) {
+    if (open()) {
+      store.setOpen(false, createChangeEventDetails(REASONS.closePress, event));
+    }
+  }
+
   const element = useRenderElement('button', componentProps, {
-    props: [{ onClick: handleClick }, elementProps, getButtonProps],
-    ref: buttonRef,
     state,
+    ref: buttonRef,
+    props: [{ onClick: handleClick }, elementProps, getButtonProps],
   });
 
   return <>{element()}</>;

@@ -17,6 +17,7 @@ describe('AriaCombobox call shapes', () => {
 
     const { user } = render(() => (
       <AriaCombobox
+        selectionMode="none"
         onInputValueChange={onInputValueChange}
         onSelectedValueChange={onSelectedValueChange}
       >
@@ -102,7 +103,9 @@ describe('AriaCombobox call shapes', () => {
 
     /* last call must carry both values as an array */
     expect(onSelectedValueChange).toHaveBeenCalled();
-    const lastCallArgs = onSelectedValueChange.mock.calls[onSelectedValueChange.mock.calls.length - 1] as [string[], object];
+    const lastCallArgs = onSelectedValueChange.mock.calls[
+      onSelectedValueChange.mock.calls.length - 1
+    ] as [string[], object];
     expect(lastCallArgs[0]).toEqual(['a', 'b']);
   });
 });

@@ -1,7 +1,7 @@
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { AccordionItem } from '../item/AccordionItem';
+import type { AccordionItemState } from '../item/AccordionItem';
 import { useAccordionItemContext } from '../item/AccordionItemContext';
 import { accordionStateAttributesMapping } from '../item/stateAttributesMapping';
 
@@ -25,7 +25,11 @@ export function AccordionHeader(componentProps: AccordionHeader.Props) {
   return <>{element()}</>;
 }
 
-export interface AccordionHeaderProps extends BaseUIComponentProps<'h3', AccordionItem.State> {}
+export interface AccordionHeaderState extends AccordionItemState {}
+
+export interface AccordionHeaderProps extends BaseUIComponentProps<'h3', AccordionHeaderState> {}
+
 export namespace AccordionHeader {
+  export type State = AccordionHeaderState;
   export type Props = AccordionHeaderProps;
 }

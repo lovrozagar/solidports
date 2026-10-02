@@ -1,6 +1,7 @@
-import { createTrackedEffect, createSignal } from 'solid-js';
+import { createSignal } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { useBaseUiId } from '../../utils/useBaseUiId';
+import { createDepsEffect } from '../../solid-helpers';
 
 type LabelSource = HTMLElement & { labels?: NodeListOf<HTMLLabelElement> | null | undefined };
 
@@ -51,26 +52,34 @@ export function useAriaLabelledBy(
   labelSourceId?: Accessor<string | undefined>,
 ): Accessor<string | undefined> {
   const generatedLabelId = useBaseUiId(
-    labelSourceId ? () => labelSourceId() ? `${labelSourceId()}-label` : undefined : undefined,
+    labelSourceId ? () => (labelSourceId() ? `${labelSourceId()}-label` : undefined) : undefined,
   );
   const [fallbackAriaLabelledBy, setFallbackAriaLabelledBy] = createSignal<string | undefined>();
 
-  /* Run after each render so DOM association changes are reflected even when deps unchanged. */
-  createTrackedEffect(() => {
-    const explicit = explicitAriaLabelledBy();
-    const label = labelId();
-    const nextAriaLabelledBy =
-      explicit || label || !enableFallback
-        ? undefined
-        : getAriaLabelledBy(labelSourceRef(), generatedLabelId());
-
-    setFallbackAriaLabelledBy(nextAriaLabelledBy);
-  });
+  // React runs this after every render; here it runs when any input changes. The DOM label
+  // lookup happens in the apply phase.
+  createDepsEffect(
+    () => ({
+      explicit: explicitAriaLabelledBy(),
+      label: labelId(),
+      labelSource: labelSourceRef(),
+      generatedLabelId: generatedLabelId(),
+    }),
+    (deps) => {
+      setFallbackAriaLabelledBy(
+        deps.explicit || deps.label || !enableFallback
+          ? undefined
+          : getAriaLabelledBy(deps.labelSource, deps.generatedLabelId),
+      );
+    },
+  );
 
   /* returned accessor — caller invokes in their tracked scope */
   // eslint-disable-next-line solid/reactivity
   return () => {
     const explicit = explicitAriaLabelledBy();
-    return (typeof explicit === 'string' ? explicit : undefined) ?? labelId() ?? fallbackAriaLabelledBy();
+    return (
+      (typeof explicit === 'string' ? explicit : undefined) ?? labelId() ?? fallbackAriaLabelledBy()
+    );
   };
 }

@@ -1,18 +1,13 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createContext, useContext } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 
 export interface FieldsetRootContext {
   legendId: Accessor<string | undefined>;
   setLegendId: Setter<string | undefined>;
-  disabled: Accessor<boolean | undefined>;
+  disabled: Accessor<boolean>;
 }
 
-export const FieldsetRootContext = createContext<FieldsetRootContext>({
-  disabled: () => undefined,
-  legendId: () => undefined,
-  setLegendId: (() => {}) as any,
-});
+export const FieldsetRootContext = createContext<FieldsetRootContext | null>(null);
 
 export function useFieldsetRootContext(optional: true): FieldsetRootContext | null;
 export function useFieldsetRootContext(optional?: false): FieldsetRootContext;

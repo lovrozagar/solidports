@@ -16,14 +16,15 @@ import { ScrollAreaRootCssVars } from './ScrollAreaRootCssVars';
 import { scrollAreaStateAttributesMapping } from './stateAttributes';
 
 const DEFAULT_COORDS = { x: 0, y: 0 };
-const DEFAULT_SIZE = { height: 0, width: 0 };
-const DEFAULT_OVERFLOW_EDGES = { xEnd: false, xStart: false, yEnd: false, yStart: false };
-const DEFAULT_HIDDEN_STATE = { corner: true, x: true, y: true };
+const DEFAULT_SIZE = { width: 0, height: 0 };
+const DEFAULT_OVERFLOW_EDGES = { xStart: false, xEnd: false, yStart: false, yEnd: false };
+const DEFAULT_HIDDEN_STATE = { x: true, y: true, corner: true };
 
 export type HiddenState = typeof DEFAULT_HIDDEN_STATE;
 export type OverflowEdges = typeof DEFAULT_OVERFLOW_EDGES;
 export type Size = typeof DEFAULT_SIZE;
 export type Coords = typeof DEFAULT_COORDS;
+type OverflowEdgeThreshold = ReturnType<typeof normalizeOverflowEdgeThreshold>;
 
 /**
  * Groups all parts of the scroll area.
@@ -34,14 +35,23 @@ export type Coords = typeof DEFAULT_COORDS;
 export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['overflowEdgeThreshold']);
 
-  const overflowEdgeThreshold = createMemo(() =>
-    normalizeOverflowEdgeThreshold(local.overflowEdgeThreshold),
+  // Solid: compared by value, as React's effect deps list the four thresholds.
+  const overflowEdgeThreshold = createMemo(
+    () => normalizeOverflowEdgeThreshold(local.overflowEdgeThreshold),
+    {
+      equals: (prev: OverflowEdgeThreshold, next: OverflowEdgeThreshold) =>
+        prev.xStart === next.xStart &&
+        prev.xEnd === next.xEnd &&
+        prev.yStart === next.yStart &&
+        prev.yEnd === next.yEnd,
+    },
   );
 
   const rootId = useBaseUiId();
 
   const scrollYTimeout = useTimeout();
   const scrollXTimeout = useTimeout();
+
   const csp = useCSPContext();
 
   const [hovering, setHovering] = createSignal(false);
@@ -62,33 +72,51 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
   const thumbXRef = useRef<HTMLDivElement | null>(null);
   const cornerRef = useRef<HTMLDivElement | null>(null);
 
-  let thumbDraggingRef = false;
-  let startYRef = 0;
-  let startXRef = 0;
-  let startScrollTopRef = 0;
-  let startScrollLeftRef = 0;
-  let currentOrientationRef: 'vertical' | 'horizontal' = 'vertical';
-  let scrollPositionRef = DEFAULT_COORDS;
+  let activePointerId: number | null = null;
+  let startY = 0;
+  let startX = 0;
+  let startScrollTop = 0;
+  let startScrollLeft = 0;
+  let currentOrientation: 'vertical' | 'horizontal' = 'vertical';
+  let scrollPosition = DEFAULT_COORDS;
+  let savedSnapType: string | null = null;
 
-  function handleScroll(scrollPosition: Coords) {
-    const offsetX = scrollPosition.x - scrollPositionRef.x;
-    const offsetY = scrollPosition.y - scrollPositionRef.y;
-    scrollPositionRef = scrollPosition;
+  function startScrolling(vertical: boolean) {
+    const setScrolling = vertical ? setScrollingY : setScrollingX;
+    const timeout = vertical ? scrollYTimeout : scrollXTimeout;
+
+    setScrolling(true);
+    timeout.start(SCROLL_TIMEOUT, () => {
+      setScrolling(false);
+    });
+  }
+
+  function handleScroll(nextScrollPosition: Coords) {
+    const offsetX = nextScrollPosition.x - scrollPosition.x;
+    const offsetY = nextScrollPosition.y - scrollPosition.y;
+
+    scrollPosition = nextScrollPosition;
 
     if (offsetY !== 0) {
-      setScrollingY(true);
-
-      scrollYTimeout.start(SCROLL_TIMEOUT, () => {
-        setScrollingY(false);
-      });
+      startScrolling(true);
     }
 
     if (offsetX !== 0) {
-      setScrollingX(true);
+      startScrolling(false);
+    }
+  }
 
-      scrollXTimeout.start(SCROLL_TIMEOUT, () => {
-        setScrollingX(false);
-      });
+  // CSS scroll snap forces every programmatic scroll to land on a snap
+  // point, making thumb dragging jump between snap points. Native
+  // scrollbars suppress snapping while dragging, so disable it until the
+  // pointer is released; restoring the value re-snaps the viewport. The
+  // save is guarded so a second pointer during an active drag can't
+  // clobber the saved value with `none`.
+  function disableViewportSnap() {
+    const viewportEl = viewportRef.current;
+    if (viewportEl && savedSnapType === null) {
+      savedSnapType = viewportEl.style.scrollSnapType;
+      viewportEl.style.scrollSnapType = 'none';
     }
   }
 
@@ -97,87 +125,113 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
       return;
     }
 
-    thumbDraggingRef = true;
-    startYRef = event.clientY;
-    startXRef = event.clientX;
-    currentOrientationRef = (event.currentTarget as HTMLElement).getAttribute(
+    if (activePointerId !== null) {
+      const activeThumb = currentOrientation === 'vertical' ? thumbYRef.current : thumbXRef.current;
+      // A live drag holds capture for the active pointer — ignore other pointers.
+      // No capture means the release went missing entirely (silent capture drop
+      // with an id that never reappears, e.g. a lost touch contact), so let the
+      // new pointer take over the latch instead of leaving dragging dead.
+      if (activeThumb?.hasPointerCapture(activePointerId)) {
+        return;
+      }
+    }
+
+    activePointerId = event.pointerId;
+    startY = event.clientY;
+    startX = event.clientX;
+    currentOrientation = (event.currentTarget as Element).getAttribute(
       ScrollAreaScrollbarDataAttributes.orientation,
     ) as 'vertical' | 'horizontal';
 
-    if (viewportRef.current) {
-      startScrollTopRef = viewportRef.current.scrollTop;
-      startScrollLeftRef = viewportRef.current.scrollLeft;
+    const viewportEl = viewportRef.current;
+    if (viewportEl) {
+      startScrollTop = viewportEl.scrollTop;
+      startScrollLeft = viewportEl.scrollLeft;
+      disableViewportSnap();
     }
 
-    if (thumbYRef.current && currentOrientationRef === 'vertical') {
-      thumbYRef.current.setPointerCapture(event.pointerId);
+    const thumb = currentOrientation === 'vertical' ? thumbYRef.current : thumbXRef.current;
+    thumb?.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerUp(event: PointerEvent) {
+    if (event.pointerId !== activePointerId) {
+      return;
     }
-    if (thumbXRef.current && currentOrientationRef === 'horizontal') {
-      thumbXRef.current.setPointerCapture(event.pointerId);
+
+    activePointerId = null;
+    // Clear the drag's scrolling state immediately rather than waiting for the
+    // `SCROLL_TIMEOUT` timer armed by the last drag move, so every release path
+    // (real, `pointercancel`, or the missed-release fallback) behaves the same.
+    (currentOrientation === 'vertical' ? setScrollingY : setScrollingX)(false);
+
+    if (savedSnapType !== null) {
+      if (viewportRef.current) {
+        viewportRef.current.style.scrollSnapType = savedSnapType;
+      }
+      savedSnapType = null;
+    }
+
+    const thumb = currentOrientation === 'vertical' ? thumbYRef.current : thumbXRef.current;
+    // `pointercancel` releases capture implicitly, so guard against releasing a
+    // capture we no longer hold (which would throw).
+    if (thumb?.hasPointerCapture(event.pointerId)) {
+      thumb.releasePointerCapture(event.pointerId);
     }
   }
 
   function handlePointerMove(event: PointerEvent) {
-    if (!thumbDraggingRef) {
+    if (event.pointerId !== activePointerId) {
       return;
     }
 
-    const deltaY = event.clientY - startYRef;
-    const deltaX = event.clientX - startXRef;
-
-    if (viewportRef.current) {
-      const scrollableContentHeight = viewportRef.current.scrollHeight;
-      const viewportHeight = viewportRef.current.clientHeight;
-      const scrollableContentWidth = viewportRef.current.scrollWidth;
-      const viewportWidth = viewportRef.current.clientWidth;
-
-      if (thumbYRef.current && scrollbarYRef.current && currentOrientationRef === 'vertical') {
-        const scrollbarYOffset = getOffset(scrollbarYRef.current, 'padding', 'y');
-        const thumbYOffset = getOffset(thumbYRef.current, 'margin', 'y');
-        const thumbHeight = thumbYRef.current.offsetHeight;
-        const maxThumbOffsetY =
-          scrollbarYRef.current.offsetHeight - thumbHeight - scrollbarYOffset - thumbYOffset;
-        const scrollRatioY = deltaY / maxThumbOffsetY;
-        viewportRef.current.scrollTop =
-          startScrollTopRef + scrollRatioY * (scrollableContentHeight - viewportHeight);
-        event.preventDefault();
-
-        setScrollingY(true);
-
-        scrollYTimeout.start(SCROLL_TIMEOUT, () => {
-          setScrollingY(false);
-        });
-      }
-
-      if (thumbXRef.current && scrollbarXRef.current && currentOrientationRef === 'horizontal') {
-        const scrollbarXOffset = getOffset(scrollbarXRef.current, 'padding', 'x');
-        const thumbXOffset = getOffset(thumbXRef.current, 'margin', 'x');
-        const thumbWidth = thumbXRef.current.offsetWidth;
-        const maxThumbOffsetX =
-          scrollbarXRef.current.offsetWidth - thumbWidth - scrollbarXOffset - thumbXOffset;
-        const scrollRatioX = deltaX / maxThumbOffsetX;
-        viewportRef.current.scrollLeft =
-          startScrollLeftRef + scrollRatioX * (scrollableContentWidth - viewportWidth);
-        event.preventDefault();
-
-        setScrollingX(true);
-
-        scrollXTimeout.start(SCROLL_TIMEOUT, () => {
-          setScrollingX(false);
-        });
-      }
+    // The release can go missing entirely (e.g. the browser drops pointer
+    // capture while the scrollbar is hidden mid-drag), leaving the drag
+    // latched so a buttonless hover over the thumb scrolls the viewport.
+    // Treat a move without the primary button held (`buttons` bit 1 unset)
+    // as the missed release.
+    if (event.buttons % 2 === 0) {
+      handlePointerUp(event);
+      return;
     }
-  }
 
-  function handlePointerUp(event: PointerEvent) {
-    thumbDraggingRef = false;
+    const viewportEl = viewportRef.current;
+    if (!viewportEl) {
+      return;
+    }
 
-    if (thumbYRef.current && currentOrientationRef === 'vertical') {
-      thumbYRef.current.releasePointerCapture(event.pointerId);
+    const vertical = currentOrientation === 'vertical';
+    const thumbEl = vertical ? thumbYRef.current : thumbXRef.current;
+    const scrollbarEl = vertical ? scrollbarYRef.current : scrollbarXRef.current;
+    if (!thumbEl || !scrollbarEl) {
+      return;
     }
-    if (thumbXRef.current && currentOrientationRef === 'horizontal') {
-      thumbXRef.current.releasePointerCapture(event.pointerId);
+
+    const axis = vertical ? 'y' : 'x';
+    const scrollbarOffset = getOffset(scrollbarEl, 'padding', axis);
+    const thumbOffset = getOffset(thumbEl, 'margin', axis);
+    const thumbSizePx = vertical ? thumbEl.offsetHeight : thumbEl.offsetWidth;
+    const trackSize = vertical ? scrollbarEl.offsetHeight : scrollbarEl.offsetWidth;
+    const maxThumbOffset = trackSize - thumbSizePx - scrollbarOffset - thumbOffset;
+    // A short or heavily padded track can drive `maxThumbOffset` to zero or
+    // negative once the thumb hits its `MIN_THUMB_SIZE` floor. Dividing by it
+    // would yield a non-finite (`Infinity`/`NaN`) or inverted scroll position.
+    const delta = vertical ? event.clientY - startY : event.clientX - startX;
+    const scrollRatio = maxThumbOffset <= 0 ? 0 : delta / maxThumbOffset;
+
+    const scrollableSize = vertical ? viewportEl.scrollHeight : viewportEl.scrollWidth;
+    const viewportSize = vertical ? viewportEl.clientHeight : viewportEl.clientWidth;
+    const startScroll = vertical ? startScrollTop : startScrollLeft;
+    const nextScroll = startScroll + scrollRatio * (scrollableSize - viewportSize);
+
+    if (vertical) {
+      viewportEl.scrollTop = nextScroll;
+    } else {
+      viewportEl.scrollLeft = nextScroll;
     }
+    event.preventDefault();
+
+    startScrolling(vertical);
   }
 
   function handleTouchModalityChange(event: PointerEvent) {
@@ -185,19 +239,17 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
   }
 
   function handlePointerEnterOrMove(event: PointerEvent) {
-    {
-      handleTouchModalityChange(event);
+    handleTouchModalityChange(event);
 
-      if (event.pointerType !== 'touch') {
-        const isTargetRootChild = contains(rootRef.current, event.target as Element);
-        setHovering(isTargetRootChild);
-      }
-    };
+    if (event.pointerType !== 'touch') {
+      const isTargetRootChild = contains(rootRef.current, event.target as Element);
+      setHovering(isTargetRootChild);
+    }
   }
 
-  const state: ScrollAreaRoot.State = {
-    get cornerHidden() {
-      return hiddenState().corner;
+  const state: ScrollAreaRootState = {
+    get scrolling() {
+      return scrollingX() || scrollingY();
     },
     get hasOverflowX() {
       return !hiddenState().x;
@@ -205,31 +257,31 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
     get hasOverflowY() {
       return !hiddenState().y;
     },
-    get overflowXEnd() {
-      return overflowEdges().xEnd;
-    },
     get overflowXStart() {
       return overflowEdges().xStart;
     },
-    get overflowYEnd() {
-      return overflowEdges().yEnd;
+    get overflowXEnd() {
+      return overflowEdges().xEnd;
     },
     get overflowYStart() {
       return overflowEdges().yStart;
     },
-    get scrolling() {
-      return scrollingX() || scrollingY();
+    get overflowYEnd() {
+      return overflowEdges().yEnd;
+    },
+    get cornerHidden() {
+      return hiddenState().corner;
     },
   };
 
   const props: HTMLProps = {
-    onPointerDown: handleTouchModalityChange,
+    role: 'presentation',
     onPointerEnter: handlePointerEnterOrMove,
+    onPointerMove: handlePointerEnterOrMove,
+    onPointerDown: handleTouchModalityChange,
     onPointerLeave() {
       setHovering(false);
     },
-    onPointerMove: handlePointerEnterOrMove,
-    role: 'presentation',
     get style(): JSX.CSSProperties {
       return {
         position: 'relative',
@@ -240,89 +292,100 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    props: [props, elementProps],
     state,
+    ref: rootRef,
+    props: [props, elementProps],
     stateAttributesMapping: scrollAreaStateAttributesMapping,
   });
 
-  const contextValue = {
-    cornerRef,
-    cornerSize,
+  const contextValue: ScrollAreaRootContext = {
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
     handleScroll,
+    disableViewportSnap,
+    cornerSize,
+    setCornerSize,
+    thumbSize,
+    setThumbSize,
     hasMeasuredScrollbar,
-    hiddenState,
-    hovering,
-    overflowEdgeThreshold,
-    overflowEdges,
-    rootId,
-    rootRef,
-    scrollbarXRef,
-    scrollbarYRef,
+    setHasMeasuredScrollbar,
+    touchModality,
+    cornerRef,
     scrollingX,
     scrollingY,
-    setCornerSize,
-    setHasMeasuredScrollbar,
-    setHiddenState,
+    hovering,
     setHovering,
-    setOverflowEdges,
-    setScrollingX,
-    setScrollingY,
-    setThumbSize,
-    thumbSize,
-    thumbXRef,
-    thumbYRef,
-    touchModality,
     viewportRef,
+    scrollbarYRef,
+    scrollbarXRef,
+    thumbYRef,
+    thumbXRef,
+    rootId,
+    hiddenState,
+    setHiddenState,
+    overflowEdges,
+    setOverflowEdges,
     viewportState: state,
+    overflowEdgeThreshold,
   };
 
+  // Solid: the style element is managed in `document.head` (React renders it as a hoisted
+  // `<style>`).
   useStyleDisableScrollbar(csp);
 
-  return (
-    <ScrollAreaRootContext value={contextValue}>
-      {element()}
-    </ScrollAreaRootContext>
-  );
+  return <ScrollAreaRootContext value={contextValue}>{element()}</ScrollAreaRootContext>;
 }
 
 export interface ScrollAreaRootState {
-  /** Whether the scroll area is being scrolled. */
+  /**
+   * Whether the scroll area is being scrolled.
+   */
   scrolling: boolean;
-  /** Whether horizontal overflow is present. */
+  /**
+   * Whether horizontal overflow is present.
+   */
   hasOverflowX: boolean;
-  /** Whether vertical overflow is present. */
+  /**
+   * Whether vertical overflow is present.
+   */
   hasOverflowY: boolean;
-  /** Whether there is overflow on the inline start side for the horizontal axis. */
+  /**
+   * Whether there is overflow on the inline start side for the horizontal axis.
+   */
   overflowXStart: boolean;
-  /** Whether there is overflow on the inline end side for the horizontal axis. */
+  /**
+   * Whether there is overflow on the inline end side for the horizontal axis.
+   */
   overflowXEnd: boolean;
-  /** Whether there is overflow on the block start side. */
+  /**
+   * Whether there is overflow on the block start side.
+   */
   overflowYStart: boolean;
-  /** Whether there is overflow on the block end side. */
+  /**
+   * Whether there is overflow on the block end side.
+   */
   overflowYEnd: boolean;
-  /** Whether the scrollbar corner is hidden. */
+  /**
+   * Whether the scrollbar corner is hidden.
+   */
   cornerHidden: boolean;
 }
 
-export interface ScrollAreaRootProps extends BaseUIComponentProps<'div', ScrollAreaRoot.State> {
+export interface ScrollAreaRootProps extends BaseUIComponentProps<'div', ScrollAreaRootState> {
   /**
    * The threshold in pixels that must be passed before the overflow edge attributes are applied.
    * Accepts a single number for all edges or an object to configure them individually.
    * @default 0
    */
   overflowEdgeThreshold?:
-    | (
-        | number
-        | Partial<{
-            xStart: number;
-            xEnd: number;
-            yStart: number;
-            yEnd: number;
-          }>
-      )
+    | number
+    | Partial<{
+        xStart: number;
+        xEnd: number;
+        yStart: number;
+        yEnd: number;
+      }>
     | undefined;
 }
 
@@ -334,20 +397,15 @@ export namespace ScrollAreaRoot {
 function normalizeOverflowEdgeThreshold(
   threshold: ScrollAreaRoot.Props['overflowEdgeThreshold'] | undefined,
 ) {
-  if (typeof threshold === 'number') {
-    const value = Math.max(0, threshold);
-    return {
-      xEnd: value,
-      xStart: value,
-      yEnd: value,
-      yStart: value,
-    };
-  }
+  const thresholds =
+    typeof threshold === 'number'
+      ? { xStart: threshold, xEnd: threshold, yStart: threshold, yEnd: threshold }
+      : threshold;
 
   return {
-    xEnd: Math.max(0, threshold?.xEnd || 0),
-    xStart: Math.max(0, threshold?.xStart || 0),
-    yEnd: Math.max(0, threshold?.yEnd || 0),
-    yStart: Math.max(0, threshold?.yStart || 0),
+    xStart: Math.max(0, thresholds?.xStart || 0),
+    xEnd: Math.max(0, thresholds?.xEnd || 0),
+    yStart: Math.max(0, thresholds?.yStart || 0),
+    yEnd: Math.max(0, thresholds?.yEnd || 0),
   };
 }

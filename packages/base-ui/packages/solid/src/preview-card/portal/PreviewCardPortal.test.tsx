@@ -1,7 +1,18 @@
-import { describe, it } from 'vitest';
+import { describe } from 'vitest';
+import { PreviewCard } from '@solidports/base-ui/preview-card';
+import { createRenderer, describeConformance } from '#test-utils';
 
-describe.skip('PreviewCardPortal.test', () => {
-  it('skipped', () => {
-    // Solid runtime/layout/portal: 1.8.0 React suite is not ported; coverage lives in sibling Solid tests for this primitive.
-  });
+describe('<PreviewCard.Portal />', () => {
+  const { render } = createRenderer();
+
+  describeConformance(PreviewCard.Portal, () => ({
+    refInstanceof: window.HTMLDivElement,
+    render(node, props) {
+      return render(() => (
+        <PreviewCard.Root open>
+          {node({ keepMounted: true, ...props } as NonNullable<typeof props>)}
+        </PreviewCard.Root>
+      ));
+    },
+  }));
 });

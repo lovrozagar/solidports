@@ -1,6 +1,6 @@
 # @solidports/recharts-examples-visual
 
-Playwright visual regression harness — diffs the SolidJS port (`examples/basic`, port 5173) against the upstream React reference (`examples/react`, port 5174) for all 12 chart stories.
+Playwright visual regression harness — diffs the SolidJS port (`examples/basic`, port 5183) against the upstream React reference (`examples/react`, port 5184) for all 12 chart stories.
 
 ## What it does
 
@@ -52,7 +52,7 @@ The baseline IS the React render — the Solid port's contract is to match it 1:
 ```
 examples/visual/
 	package.json
-	playwright.config.ts                  # two webServers (5173 Solid, 5174 React), chromium only, 1280x720
+	playwright.config.ts                  # two webServers (5183 Solid, 5184 React), chromium only, 1280x720
 	tests/
 		charts.spec.ts                      # 12 chart diff tests + 2 smoke tests
 		__snapshots__/

@@ -4,6 +4,16 @@ import { describe, expect, it, vi, beforeEach } from "vitest"
 import { CSSTransitionAnimate } from "../../src/animation/CSSTransitionAnimate"
 import { expectLastCalledWith } from "../helper/expectLastCalledWith"
 import { CompositeAnimationManager } from "./CompositeAnimationManager"
+import { trackSpy } from "../helper/trackSpy"
+
+/* CSSTransitionAnimate calls children once with a style accessor; record each style value
+   the way upstream's children function is called per render. */
+function spyOnStyle(spy: (style: Record<string, string | number>) => void) {
+	return (style: () => Record<string, string | number>) => {
+		trackSpy(spy, style)
+		return null
+	}
+}
 
 function getNamedSpy(name: string): () => void {
 	return vi.fn().mockName(name)
@@ -25,7 +35,7 @@ describe("CSSTransitionAnimate timing", () => {
 				const childFunction = vi.fn()
 				render(() => (
 					<CSSTransitionAnimate animationId="1" from="1" to="0" attributeName="opacity" duration={500}>
-						{childFunction}
+						{spyOnStyle(childFunction)}
 					</CSSTransitionAnimate>
 				))
 
@@ -56,7 +66,7 @@ describe("CSSTransitionAnimate timing", () => {
 						duration={500}
 						onAnimationEnd={handleAnimationEnd}
 					>
-						{spy}
+						{spyOnStyle(spy)}
 					</CSSTransitionAnimate>
 				))
 
@@ -84,7 +94,7 @@ describe("CSSTransitionAnimate timing", () => {
 						animationController={animationManager.factory}
 						canBegin
 					>
-						{childFunction}
+						{spyOnStyle(childFunction)}
 					</CSSTransitionAnimate>
 				))
 
@@ -118,7 +128,7 @@ describe("CSSTransitionAnimate timing", () => {
 						onAnimationEnd={handleAnimationEnd}
 						animationController={animationManager.factory}
 					>
-						{childFunction}
+						{spyOnStyle(childFunction)}
 					</CSSTransitionAnimate>
 				))
 
@@ -148,7 +158,7 @@ describe("CSSTransitionAnimate timing", () => {
 							onAnimationEnd={handleAnimationEnd}
 							animationController={animationManager.factory}
 						>
-							{childFunction}
+							{spyOnStyle(childFunction)}
 						</CSSTransitionAnimate>
 					</Show>
 				))
@@ -177,7 +187,7 @@ describe("CSSTransitionAnimate timing", () => {
 						onAnimationStart={handleAnimationStart}
 						animationController={animationManager.factory}
 					>
-						{child}
+						{spyOnStyle(child)}
 					</CSSTransitionAnimate>
 				))
 
@@ -203,7 +213,7 @@ describe("CSSTransitionAnimate timing", () => {
 						onAnimationStart={handleAnimationStart}
 						animationController={animationManager.factory}
 					>
-						{child}
+						{spyOnStyle(child)}
 					</CSSTransitionAnimate>
 				))
 
@@ -229,7 +239,7 @@ describe("CSSTransitionAnimate timing", () => {
 						onAnimationStart={handleAnimationStart}
 						animationController={animationManager.factory}
 					>
-						{child}
+						{spyOnStyle(child)}
 					</CSSTransitionAnimate>
 				))
 
@@ -276,7 +286,7 @@ describe("CSSTransitionAnimate timing", () => {
 								onAnimationStart={handleAnimationStart}
 								animationController={animationManager.factory}
 							>
-								{child}
+								{spyOnStyle(child)}
 							</CSSTransitionAnimate>
 							<button type="button" onClick={() => setIsActive(true)}>
 								Start Animation
@@ -325,7 +335,7 @@ describe("CSSTransitionAnimate timing", () => {
 						onAnimationEnd={handleAnimationEnd}
 						animationController={animationManager.factory}
 					>
-						{child}
+						{spyOnStyle(child)}
 					</CSSTransitionAnimate>
 				))
 
@@ -361,7 +371,7 @@ describe("CSSTransitionAnimate timing", () => {
 						onAnimationStart={handleAnimationStart}
 						animationController={animationManager.factory}
 					>
-						{child}
+						{spyOnStyle(child)}
 					</CSSTransitionAnimate>
 				))
 
@@ -396,7 +406,7 @@ describe("CSSTransitionAnimate timing", () => {
 						onAnimationStart={handleAnimationStart}
 						animationController={animationManager.factory}
 					>
-						{child}
+						{spyOnStyle(child)}
 					</CSSTransitionAnimate>
 				))
 
@@ -435,6 +445,33 @@ describe("CSSTransitionAnimate timing", () => {
 				/* React renders the first `to` frame twice with identical style; Solid once. */
 				expect(child).toHaveBeenCalledTimes(4)
 			})
+		})
+	})
+	describe("element identity", () => {
+		/* A CSS transition only runs when the same element changes its style. */
+		it("should keep the same element from the start style to the end style", async () => {
+			const animationManager = new CompositeAnimationManager()
+			const { container } = render(() => (
+				<CSSTransitionAnimate
+					animationId="1"
+					from="translate(-100px, 0px)"
+					to="translate(0, 0)"
+					attributeName="transform"
+					duration={500}
+					animationController={animationManager.factory}
+				>
+					{(style) => <div class="animated" style={style()} />}
+				</CSSTransitionAnimate>
+			))
+
+			const before = container.querySelector(".animated")
+			expect(before).toHaveStyle({ transform: "translate(-100px, 0px)" })
+
+			await animationManager.completeAnimation()
+
+			const after = container.querySelector(".animated")
+			expect(after).toBe(before)
+			expect(after).toHaveStyle({ transform: "translate(0, 0)", transition: "transform 500ms ease" })
 		})
 	})
 })

@@ -1,4 +1,4 @@
-import { onCleanup, onSettled, Show } from 'solid-js';
+import { onSettled, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
@@ -9,6 +9,12 @@ import { useTimeout } from '../../utils/useTimeout';
 import { type TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
 import { useSelectPositionerContext } from '../positioner/SelectPositionerContext';
 import { useSelectRootContext } from '../root/SelectRootContext';
+import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
+import {
+  getMaxScrollOffset,
+  normalizeScrollOffset,
+  SCROLL_EDGE_TOLERANCE_PX,
+} from '../../utils/scrollEdges';
 
 /**
  * @internal
@@ -16,6 +22,7 @@ import { useSelectRootContext } from '../root/SelectRootContext';
 export function SelectScrollArrow(componentProps: SelectScrollArrow.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['direction', 'keepMounted']);
   const keepMounted = () => componentProps.keepMounted ?? false;
+  const isUp = () => local.direction === 'up';
 
   const { store, popupRef, listRef, handleScrollArrowVisibility, scrollArrowsMountedCountRef } =
     useSelectRootContext();
@@ -35,30 +42,21 @@ export function SelectScrollArrow(componentProps: SelectScrollArrow.Props) {
   const scrollArrowRef = () =>
     local.direction === 'up' ? scrollUpArrowRef.current : scrollDownArrowRef.current;
 
-  const { transitionStatus, setMounted } = useTransitionStatus(visible);
+  const { mounted, transitionStatus, setMounted } = useTransitionStatus(visible);
 
   onSettled(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
     scrollArrowsMountedCountRef.current += 1;
     if (!store.state.hasScrollArrows) {
       store.set('hasScrollArrows', true);
     }
 
-    _c.push(() => {
+    return () => {
       scrollArrowsMountedCountRef.current = Math.max(0, scrollArrowsMountedCountRef.current - 1);
       if (scrollArrowsMountedCountRef.current === 0 && store.state.hasScrollArrows) {
         store.set('hasScrollArrows', false);
       }
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
     };
-});
+  });
 
   useOpenChangeComplete({
     onComplete() {
@@ -107,89 +105,32 @@ export function SelectScrollArrow(componentProps: SelectScrollArrow.Props) {
         }
 
         store.set('activeIndex', null);
-        handleScrollArrowVisibility();
+        handleScrollArrowVisibility(scroller);
 
-        const isScrolledToTop = scroller.scrollTop === 0;
-        const isScrolledToBottom =
-          Math.round(scroller.scrollTop + scroller.clientHeight) >= scroller.scrollHeight;
+        const maxScrollTop = getMaxScrollOffset(scroller.scrollHeight, scroller.clientHeight);
+        const scrollTop = normalizeScrollOffset(scroller.scrollTop, maxScrollTop);
+        const isScrolledToEdge = scrollTop === (isUp() ? 0 : maxScrollTop);
+        const items = listRef.current;
 
-        const list = listRef.current;
-
-        if (list.length === 0) {
-          if (local.direction === 'up') {
-            store.set('scrollUpArrowVisible', !isScrolledToTop);
-          } else if (local.direction === 'down') {
-            store.set('scrollDownArrowVisible', !isScrolledToBottom);
-          }
+        if (scrollTop !== scroller.scrollTop) {
+          scroller.scrollTop = scrollTop;
         }
 
-        if (
-          (local.direction === 'up' && isScrolledToTop) ||
-          (local.direction === 'down' && isScrolledToBottom)
-        ) {
+        if (isScrolledToEdge) {
           timeout.clear();
           return;
         }
 
-        if (store.state.listElement && listRef.current && listRef.current.length > 0) {
-          const items = listRef.current;
+        if (items.length > 0) {
           const scrollArrowHeight = scrollArrowRef()?.offsetHeight || 0;
-
-          if (local.direction === 'up') {
-            let firstVisibleIndex = 0;
-            const scrollTop = scroller.scrollTop + scrollArrowHeight;
-
-            for (let i = 0; i < items.length; i += 1) {
-              const item = items[i];
-              if (item) {
-                const itemTop = item.offsetTop;
-                if (itemTop >= scrollTop) {
-                  firstVisibleIndex = i;
-                  break;
-                }
-              }
-            }
-
-            const targetIndex = Math.max(0, firstVisibleIndex - 1);
-            if (targetIndex < firstVisibleIndex) {
-              const targetItem = items[targetIndex];
-              if (targetItem) {
-                scroller.scrollTop = Math.max(0, targetItem.offsetTop - scrollArrowHeight);
-              } else {
-                // Already at the first item; ensure we reach the absolute top to account for group labels.
-                scroller.scrollTop = 0;
-              }
-            }
-          } else {
-            let lastVisibleIndex = items.length - 1;
-            const scrollBottom = scroller.scrollTop + scroller.clientHeight - scrollArrowHeight;
-
-            for (let i = 0; i < items.length; i += 1) {
-              const item = items[i];
-              if (item) {
-                const itemBottom = item.offsetTop + item.offsetHeight;
-                if (itemBottom > scrollBottom) {
-                  lastVisibleIndex = Math.max(0, i - 1);
-                  break;
-                }
-              }
-            }
-
-            const targetIndex = Math.min(items.length - 1, lastVisibleIndex + 1);
-            if (targetIndex > lastVisibleIndex) {
-              const targetItem = items[targetIndex];
-              if (targetItem) {
-                scroller.scrollTop =
-                  targetItem.offsetTop +
-                  targetItem.offsetHeight -
-                  scroller.clientHeight +
-                  scrollArrowHeight;
-              }
-            } else {
-              // Already at the last item; ensure we reach the true bottom.
-              scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
-            }
-          }
+          scroller.scrollTop = getTargetScrollTop(
+            items,
+            isUp(),
+            scrollTop,
+            scroller.clientHeight,
+            scrollArrowHeight,
+            maxScrollTop,
+          );
         }
 
         timeout.start(40, scrollNextItem);
@@ -202,7 +143,7 @@ export function SelectScrollArrow(componentProps: SelectScrollArrow.Props) {
     },
   } satisfies JSX.HTMLAttributes<HTMLDivElement>;
 
-  const shouldRender = () => visible() || keepMounted();
+  const shouldRender = () => mounted() || keepMounted();
 
   const element = useRenderElement('div', componentProps, {
     props: [defaultProps, elementProps],
@@ -214,6 +155,7 @@ export function SelectScrollArrow(componentProps: SelectScrollArrow.Props) {
       }
     },
     state,
+    stateAttributesMapping: transitionStatusMapping,
   });
 
   return <Show when={shouldRender()}>{element()}</Show>;
@@ -241,4 +183,52 @@ export interface SelectScrollArrowProps extends BaseUIComponentProps<
 export namespace SelectScrollArrow {
   export type State = SelectScrollArrowState;
   export type Props = SelectScrollArrowProps;
+}
+
+function getTargetScrollTop(
+  items: Array<HTMLElement | null | undefined>,
+  isUp: boolean,
+  scrollTop: number,
+  clientHeight: number,
+  scrollArrowHeight: number,
+  maxScrollTop: number,
+) {
+  if (isUp) {
+    let firstVisibleIndex = 0;
+    const visibleTop = scrollTop + scrollArrowHeight - SCROLL_EDGE_TOLERANCE_PX;
+
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (item && item.offsetTop >= visibleTop) {
+        firstVisibleIndex = i;
+        break;
+      }
+    }
+
+    const targetIndex = Math.max(0, firstVisibleIndex - 1);
+    const targetItem = items[targetIndex];
+    return targetIndex < firstVisibleIndex && targetItem
+      ? normalizeScrollOffset(targetItem.offsetTop - scrollArrowHeight, maxScrollTop)
+      : 0;
+  }
+
+  let lastVisibleIndex = items.length - 1;
+  const visibleBottom = scrollTop + clientHeight - scrollArrowHeight + SCROLL_EDGE_TOLERANCE_PX;
+
+  for (let i = 0; i < items.length; i += 1) {
+    const item = items[i];
+    if (item && item.offsetTop + item.offsetHeight > visibleBottom) {
+      lastVisibleIndex = Math.max(0, i - 1);
+      break;
+    }
+  }
+
+  const targetIndex = Math.min(items.length - 1, lastVisibleIndex + 1);
+  const targetItem = items[targetIndex];
+  return targetIndex > lastVisibleIndex && targetItem
+    ? normalizeScrollOffset(
+        targetItem.offsetTop + targetItem.offsetHeight - clientHeight + scrollArrowHeight,
+        maxScrollTop,
+      )
+    : maxScrollTop;
 }

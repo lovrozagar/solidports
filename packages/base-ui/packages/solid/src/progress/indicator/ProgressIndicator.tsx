@@ -1,10 +1,8 @@
-import { createMemo } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { valueToPercent } from '../../utils/valueToPercent';
-import type { ProgressRoot } from '../root/ProgressRoot';
+import type { ProgressRootState } from '../root/ProgressRoot';
 import { useProgressRootContext } from '../root/ProgressRootContext';
 import { progressStateAttributesMapping } from '../root/stateAttributesMapping';
 
@@ -17,14 +15,10 @@ import { progressStateAttributesMapping } from '../root/stateAttributesMapping';
 export function ProgressIndicator(componentProps: ProgressIndicator.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { max, min, value, state } = useProgressRootContext();
-
-  const percentageValue = createMemo(() => {
-    const v = value();
-    return Number.isFinite(v) && v !== null ? valueToPercent(v, min(), max()) : null;
-  });
+  const { percentageValue, state } = useProgressRootContext();
 
   const element = useRenderElement('div', componentProps, {
+    state,
     props: [
       {
         get style(): JSX.CSSProperties {
@@ -41,15 +35,20 @@ export function ProgressIndicator(componentProps: ProgressIndicator.Props) {
       },
       elementProps,
     ],
-    state,
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
   return <>{element()}</>;
 }
 
-export interface ProgressIndicatorProps extends BaseUIComponentProps<'div', ProgressRoot.State> {}
+export interface ProgressIndicatorState extends ProgressRootState {}
+
+export interface ProgressIndicatorProps extends BaseUIComponentProps<
+  'div',
+  ProgressIndicatorState
+> {}
 
 export namespace ProgressIndicator {
+  export type State = ProgressIndicatorState;
   export type Props = ProgressIndicatorProps;
 }

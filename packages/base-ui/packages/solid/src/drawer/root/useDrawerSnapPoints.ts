@@ -1,4 +1,4 @@
-import { createTrackedEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { clamp } from '../../utils/clamp';
 import { ownerDocument } from '../../utils/owner';
@@ -8,6 +8,19 @@ export interface ResolvedDrawerSnapPoint {
   value: DrawerSnapPoint;
   height: number;
   offset: number;
+}
+
+/**
+ * Resolves the vertical swipe movement for a snap point, applying square-root damping once the drag
+ * overshoots the fully-open edge (`nextOffset < 0`) so the popup resists travelling past it.
+ */
+export function getSnapPointSwipeMovement(baseOffset: number, movementValue: number): number {
+  const nextOffset = baseOffset + movementValue;
+  if (nextOffset >= 0) {
+    return movementValue;
+  }
+
+  return -Math.sqrt(-nextOffset) - baseOffset;
 }
 
 function resolveSnapPointValue(
@@ -46,44 +59,41 @@ function resolveSnapPointValue(
   return null;
 }
 
-function findClosestSnapPoint(
-  height: number,
-  points: ResolvedDrawerSnapPoint[],
-): ResolvedDrawerSnapPoint | null {
-  let closest: ResolvedDrawerSnapPoint | null = null;
+/**
+ * Returns the index of the value closest to `target`, or `-1` if `values` is empty.
+ */
+export function closestSnapPointIndex(values: number[], target: number): number {
+  let closestIndex = -1;
   let closestDistance = Infinity;
 
-  for (const point of points) {
-    const distance = Math.abs(point.height - height);
+  for (let index = 0; index < values.length; index += 1) {
+    const distance = Math.abs(values[index] - target);
     if (distance < closestDistance) {
       closestDistance = distance;
-      closest = point;
+      closestIndex = index;
     }
   }
 
-  return closest;
+  return closestIndex;
 }
 
 export function useDrawerSnapPoints() {
-  const { store } = useDialogRootContext();
+  const store = useDialogRootContext();
   const { snapPoints, activeSnapPoint, setActiveSnapPoint, popupHeight } = useDrawerRootContext();
   const viewportElement = store.useState('viewportElement');
+  const mounted = store.useState('mounted');
 
   const [viewportHeight, setViewportHeight] = createSignal(0);
   const [rootFontSize, setRootFontSize] = createSignal(16);
 
   const measureViewportHeight = () => {
-    const viewport = viewportElement() ?? null;
+    // Solid: read untracked so the ResizeObserver callback sees the latest element, as React's
+    // stable callback does.
+    const viewport = untrack(viewportElement) ?? null;
     const doc = ownerDocument(viewport);
     const html = doc.documentElement;
 
-    if (viewport) {
-      setViewportHeight(viewport.offsetHeight);
-    }
-
-    if (!viewport) {
-      setViewportHeight(html.clientHeight);
-    }
+    setViewportHeight(viewport ? viewport.offsetHeight : html.clientHeight);
 
     const fontSize = parseFloat(getComputedStyle(html).fontSize);
     if (Number.isFinite(fontSize)) {
@@ -91,55 +101,52 @@ export function useDrawerSnapPoints() {
     }
   };
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
+  // Solid: also rerun once mounted. A kept-mounted viewport registers while still `hidden` (React
+  // commits its ref together with `mounted`), so the first measurement reads `0`.
+  createEffect(
+    () => ({ viewport: viewportElement(), mounted: mounted() }),
+    ({ viewport }) => {
+      measureViewportHeight();
 
-    measureViewportHeight();
-
-    const viewport = viewportElement();
-    if (!viewport || typeof ResizeObserver !== 'function') {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver(measureViewportHeight);
-    resizeObserver.observe(viewport);
-    _c.push(() => {
-      resizeObserver.disconnect();
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+      if (!viewport || typeof ResizeObserver !== 'function') {
+        return undefined;
       }
-    };
-});
+
+      const resizeObserver = new ResizeObserver(measureViewportHeight);
+      resizeObserver.observe(viewport);
+      return () => {
+        resizeObserver.disconnect();
+      };
+    },
+  );
 
   const resolvedSnapPoints = createMemo<ResolvedDrawerSnapPoint[]>(() => {
-    const viewportH = viewportHeight();
-    const snap = snapPoints?.();
-    const popupH = popupHeight();
-    if (!snap || snap.length === 0 || viewportH <= 0 || popupH <= 0) {
+    const currentSnapPoints = snapPoints();
+    const currentPopupHeight = popupHeight();
+    const currentViewportHeight = viewportHeight();
+    if (
+      !currentSnapPoints ||
+      currentSnapPoints.length === 0 ||
+      currentViewportHeight <= 0 ||
+      currentPopupHeight <= 0
+    ) {
       return [];
     }
 
-    const maxHeight = Math.min(popupH, viewportH);
-    if (!Number.isFinite(maxHeight) || maxHeight <= 0) {
-      return [];
-    }
+    const maxHeight = Math.min(currentPopupHeight, currentViewportHeight);
 
-    const resolved = snap
+    const resolved = currentSnapPoints
       .map((value): ResolvedDrawerSnapPoint | null => {
-        const resolvedHeight = resolveSnapPointValue(value, viewportH, rootFontSize());
-        if (resolvedHeight === null || !Number.isFinite(resolvedHeight)) {
+        const resolvedHeight = resolveSnapPointValue(value, currentViewportHeight, rootFontSize());
+        if (resolvedHeight === null) {
           return null;
         }
 
         const clampedHeight = clamp(resolvedHeight, 0, maxHeight);
         return {
-          height: clampedHeight,
-          offset: Math.max(0, popupH - clampedHeight),
           value,
+          height: clampedHeight,
+          offset: Math.max(0, currentPopupHeight - clampedHeight),
         };
       })
       .filter((point): point is ResolvedDrawerSnapPoint => Boolean(point));
@@ -167,39 +174,45 @@ export function useDrawerSnapPoints() {
   });
 
   const resolvedActiveSnapPoint = createMemo(() => {
-    const points = resolvedSnapPoints();
-    const activeSnap = activeSnapPoint?.();
-    if (activeSnap === undefined) {
-      return points[0];
-    }
-
-    if (activeSnap === null) {
+    const currentActiveSnapPoint = activeSnapPoint();
+    // Solid: `useControlled` types the value as possibly `undefined`; the root never yields it.
+    if (currentActiveSnapPoint == null) {
       return undefined;
     }
 
-    const exactMatch = points.find((point) => Object.is(point.value, activeSnap));
+    const points = resolvedSnapPoints();
+    const exactMatch = points.find((point) => Object.is(point.value, currentActiveSnapPoint));
     if (exactMatch) {
       return exactMatch;
     }
 
-    const viewportH = viewportHeight();
-    const maxHeight = Math.min(popupHeight(), viewportH);
-    const resolvedHeight = resolveSnapPointValue(activeSnap, viewportH, rootFontSize());
-    if (resolvedHeight === null || !Number.isFinite(resolvedHeight)) {
+    const currentViewportHeight = viewportHeight();
+    const maxHeight = Math.min(popupHeight(), currentViewportHeight);
+    const resolvedHeight = resolveSnapPointValue(
+      currentActiveSnapPoint,
+      currentViewportHeight,
+      rootFontSize(),
+    );
+    if (resolvedHeight === null) {
       return undefined;
     }
 
     const clampedHeight = clamp(resolvedHeight, 0, maxHeight);
-    return findClosestSnapPoint(clampedHeight, points) ?? undefined;
+    return points[
+      closestSnapPointIndex(
+        points.map((point) => point.height),
+        clampedHeight,
+      )
+    ];
   });
 
   return {
-    activeSnapPoint,
-    activeSnapPointOffset: () => resolvedActiveSnapPoint()?.offset ?? null,
-    popupHeight,
-    resolvedSnapPoints,
-    setActiveSnapPoint,
     snapPoints,
+    activeSnapPoint,
+    setActiveSnapPoint,
+    popupHeight,
     viewportHeight,
+    resolvedSnapPoints,
+    activeSnapPointOffset: () => resolvedActiveSnapPoint()?.offset ?? null,
   };
 }

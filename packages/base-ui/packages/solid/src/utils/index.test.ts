@@ -1,7 +1,6 @@
 import { isJSDOM } from '#test-utils';
 import * as Utils from '@solidports/base-ui/utils';
-import { expect } from 'chai';
-import { describe, it } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 describe('@solidports/base-ui/utils', () => {
   it('should have exports', () => {

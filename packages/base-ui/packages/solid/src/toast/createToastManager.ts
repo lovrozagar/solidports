@@ -1,22 +1,17 @@
-/* eslint-disable typescript/no-explicit-any -- generic toast Data erased at manager interface */
+/* eslint-disable typescript/no-explicit-any -- generic toast Data erased at manager interface, mirrors React */
 import { generateId } from '../utils/generateId';
 import type {
+  ToastObject,
   ToastManagerAddOptions,
   ToastManagerPromiseOptions,
   ToastManagerUpdateOptions,
-  ToastObject,
 } from './useToastManager';
-
-export interface ToastManagerEvent {
-  action: 'add' | 'close' | 'update' | 'promise';
-  options: any;
-}
 
 /**
  * Creates a new toast manager.
  */
 export function createToastManager<Data extends object = any>(): ToastManager<Data> {
-  const listeners: Set<(data: ToastManagerEvent) => void> = new Set();
+  const listeners = new Set<(data: ToastManagerEvent) => void>();
 
   function emit(data: ToastManagerEvent) {
     listeners.forEach((listener) => listener(data));
@@ -55,6 +50,18 @@ export function createToastManager<Data extends object = any>(): ToastManager<Da
       });
     },
 
+    update<T extends Data = Data>(
+      id: string,
+      updates:
+        | ToastManagerUpdateOptions<T>
+        | ((prevToast: ToastObject<T>) => ToastManagerUpdateOptions<T>),
+    ): void {
+      emit({
+        action: 'update',
+        options: { id, updates },
+      });
+    },
+
     promise<Value, T extends Data = Data>(
       promiseValue: Promise<Value>,
       options: ToastManagerPromiseOptions<Value, T>,
@@ -74,16 +81,6 @@ export function createToastManager<Data extends object = any>(): ToastManager<Da
 
       return handledPromise;
     },
-
-    update<T extends Data = Data>(id: string, updates: ToastManagerUpdateOptions<T>): void {
-      emit({
-        action: 'update',
-        options: {
-          ...updates,
-          id,
-        },
-      });
-    },
   };
 }
 
@@ -91,7 +88,11 @@ export interface ToastManager<Data extends object = any> {
   ' subscribe': (listener: (data: ToastManagerEvent) => void) => () => void;
   add: <T extends Data = Data>(options: ToastManagerAddOptions<T>) => string;
   close: (id?: string) => void;
-  update: <T extends Data = Data>(id: string, updates: ToastManagerUpdateOptions<T>) => void;
+  update: <T extends Data = Data>(
+    id: string,
+    updates:
+      ToastManagerUpdateOptions<T> | ((prevToast: ToastObject<T>) => ToastManagerUpdateOptions<T>),
+  ) => void;
   promise: <Value, T extends Data = Data>(
     promiseValue: Promise<Value>,
     options: ToastManagerPromiseOptions<Value, T>,

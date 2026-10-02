@@ -1,11 +1,10 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createTrackedEffect, createSignal, onCleanup } from 'solid-js';
+import { createRenderEffect, createSignal } from 'solid-js';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { splitComponentProps } from '../../solid-helpers';
 import { EMPTY_ARRAY } from '../../utils/constants';
-import { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
 import { tabsStateAttributesMapping } from '../root/stateAttributesMapping';
-import type { TabsRoot } from '../root/TabsRoot';
+import type { TabsRootState } from '../root/TabsRoot';
 import { useTabsRootContext } from '../root/TabsRootContext';
 import { TabsListContext } from './TabsListContext';
 
@@ -24,74 +23,50 @@ export function TabsList(componentProps: TabsList.Props) {
   const activateOnFocus = () => local.activateOnFocus ?? false;
   const loopFocus = () => local.loopFocus ?? true;
 
-  const {
-    onValueChange,
-    orientation,
-    value,
-    setTabArray,
-    tabActivationDirection,
-  } = useTabsRootContext();
+  const { orientation, setTabMap, tabActivationDirection } = useTabsRootContext();
 
   const [highlightedTabIndex, setHighlightedTabIndex] = createSignal(0);
-  const [tabsListElement, setTabsListElement] = createSignal<HTMLElement | null | undefined>(null);
+  const [tabsListElement, setTabsListElement] = createSignal<HTMLElement | null>(null);
 
   const indicatorUpdateListeners = new Set<() => void>();
   const tabResizeObserverElements = new Set<HTMLElement>();
   let resizeObserver: ResizeObserver | null = null;
 
-  function notifyIndicatorUpdateListeners() {
-    indicatorUpdateListeners.forEach((listener) => {
-      listener();
-    });
-  }
-
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    const listEl = tabsListElement();
-
+  createRenderEffect(tabsListElement, (listElement) => {
     if (typeof ResizeObserver === 'undefined') {
-      return;
+      return undefined;
     }
 
     const observer = new ResizeObserver(() => {
-      if (!indicatorUpdateListeners.size) {
-        return;
-      }
-      notifyIndicatorUpdateListeners();
+      indicatorUpdateListeners.forEach((listener) => {
+        listener();
+      });
     });
 
     resizeObserver = observer;
 
-    if (listEl) {
-      observer.observe(listEl);
+    if (listElement) {
+      observer.observe(listElement);
     }
 
     tabResizeObserverElements.forEach((element) => {
       observer.observe(element);
     });
 
-    _c.push(() => {
+    return () => {
       observer.disconnect();
       resizeObserver = null;
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
     };
-});
+  });
 
-  function registerIndicatorUpdateListener(listener: () => void): () => void {
+  function registerIndicatorUpdateListener(listener: () => void) {
     indicatorUpdateListeners.add(listener);
     return () => {
       indicatorUpdateListeners.delete(listener);
     };
   }
 
-  function registerTabResizeObserverElement(element: HTMLElement): () => void {
+  function registerTabResizeObserverElement(element: HTMLElement) {
     tabResizeObserverElements.add(element);
     resizeObserver?.observe(element);
     return () => {
@@ -100,13 +75,7 @@ export function TabsList(componentProps: TabsList.Props) {
     };
   }
 
-  const onTabActivation = (newValue: any, eventDetails: TabsRoot.ChangeEventDetails) => {
-    if (newValue !== value()) {
-      onValueChange(newValue, eventDetails);
-    }
-  };
-
-  const state: TabsList.State = {
+  const state: TabsListState = {
     get orientation() {
       return orientation();
     },
@@ -124,11 +93,8 @@ export function TabsList(componentProps: TabsList.Props) {
 
   const tabsListContextValue: TabsListContext = {
     activateOnFocus,
-    highlightedTabIndex,
-    onTabActivation,
     registerIndicatorUpdateListener,
     registerTabResizeObserverElement,
-    setHighlightedTabIndex,
     tabsListElement,
   };
 
@@ -139,22 +105,10 @@ export function TabsList(componentProps: TabsList.Props) {
         class={renderProps.class}
         state={state}
         refs={[
+          // The public `ref` also accepts Solid's native ref forms, which the merged refs apply.
+          [componentProps.ref as UseRenderElementRef<HTMLElement> | undefined],
           (el) => {
-            if (typeof componentProps.ref === 'function') {
-              componentProps.ref(el as HTMLDivElement | null);
-            } else if (
-              componentProps.ref != null &&
-              typeof componentProps.ref === 'object' &&
-              'current' in componentProps.ref
-            ) {
-              componentProps.ref.current = el as HTMLDivElement | null;
-            } else {
-              // eslint-disable-next-line solid/reactivity
-              componentProps.ref = el as any;
-            }
-          },
-          (el) => {
-            setTabsListElement(el);
+            setTabsListElement(el ?? null);
           },
         ]}
         props={[defaultProps as Record<string, unknown>, elementProps as Record<string, unknown>]}
@@ -164,7 +118,7 @@ export function TabsList(componentProps: TabsList.Props) {
         loopFocus={loopFocus()}
         orientation={orientation()}
         onHighlightedIndexChange={setHighlightedTabIndex}
-        onMapChange={setTabArray}
+        onMapChange={setTabMap}
         disabledIndices={EMPTY_ARRAY as number[]}
       >
         {local.children}
@@ -173,9 +127,9 @@ export function TabsList(componentProps: TabsList.Props) {
   );
 }
 
-export interface TabsListState extends TabsRoot.State {}
+export interface TabsListState extends TabsRootState {}
 
-export interface TabsListProps extends BaseUIComponentProps<'div', TabsList.State> {
+export interface TabsListProps extends BaseUIComponentProps<'div', TabsListState> {
   /**
    * Whether to automatically change the active tab on arrow key focus.
    * Otherwise, tabs will be activated using <kbd>Enter</kbd> or <kbd>Space</kbd> key press.

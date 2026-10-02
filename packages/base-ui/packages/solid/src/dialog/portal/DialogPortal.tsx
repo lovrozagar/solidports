@@ -16,7 +16,7 @@ export function DialogPortal(props: DialogPortal.Props) {
   const [local, portalProps] = splitProps(props, ['keepMounted']);
   const keepMounted = () => local.keepMounted ?? false;
 
-  const { store } = useDialogRootContext();
+  const store = useDialogRootContext();
   const mounted = store.useState('mounted');
   const modal = store.useState('modal');
   const open = store.useState('open');
@@ -43,11 +43,9 @@ export function DialogPortal(props: DialogPortal.Props) {
   );
 }
 
-export namespace DialogPortal {
-  export interface State {}
-}
+export interface DialogPortalState {}
 
-export interface DialogPortalProps extends FloatingPortal.Props<DialogPortal.State> {
+export interface DialogPortalProps extends FloatingPortal.Props<DialogPortalState> {
   /**
    * Whether to keep the portal mounted in the DOM while the popup is hidden.
    * @default false
@@ -56,9 +54,10 @@ export interface DialogPortalProps extends FloatingPortal.Props<DialogPortal.Sta
   /**
    * A parent element to render the portal element into.
    */
-  container?: FloatingPortal.Props<DialogPortal.State>['container'] | undefined;
+  container?: FloatingPortal.Props<DialogPortalState>['container'] | undefined;
 }
 
 export namespace DialogPortal {
+  export type State = DialogPortalState;
   export type Props = DialogPortalProps;
 }

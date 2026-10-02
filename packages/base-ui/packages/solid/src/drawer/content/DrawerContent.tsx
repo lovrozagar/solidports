@@ -2,6 +2,7 @@ import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { DRAWER_CONTENT_ATTRIBUTE } from './drawerContentAttribute';
 
 /**
  * A container for the drawer contents.
@@ -15,13 +16,14 @@ export function DrawerContent(componentProps: DrawerContent.Props) {
   useDialogRootContext();
 
   const element = useRenderElement('div', componentProps, {
-    props: [{ ['data-swipe-ignore' as string]: '' }, elementProps],
+    props: [{ [DRAWER_CONTENT_ATTRIBUTE as string]: '' }, elementProps],
   });
 
   return <>{element()}</>;
 }
 
 export interface DrawerContentProps extends BaseUIComponentProps<'div', DrawerContent.State> {}
+
 export interface DrawerContentState {}
 
 export namespace DrawerContent {

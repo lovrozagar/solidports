@@ -1,22 +1,29 @@
-import { createEffect, onCleanup, onSettled } from 'solid-js';
+import { createEffect, onSettled, untrack } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { splitComponentProps } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
 import { isWebKit } from '../../utils/detectBrowser';
+import { normalizeScrollOffset } from '../../utils/scrollEdges';
 import { styleDisableScrollbar } from '../../utils/styles';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { MIN_THUMB_SIZE } from '../constants';
-import type { HiddenState, ScrollAreaRoot } from '../root/ScrollAreaRoot';
+import type { HiddenState, ScrollAreaRootState } from '../root/ScrollAreaRoot';
 import { useScrollAreaRootContext } from '../root/ScrollAreaRootContext';
 import { scrollAreaStateAttributesMapping } from '../root/stateAttributes';
+import { ScrollAreaScrollbarCssVars } from '../scrollbar/ScrollAreaScrollbarCssVars';
 import { getOffset } from '../utils/getOffset';
-import { normalizeScrollOffset } from '../utils/scrollEdges';
 import { ScrollAreaViewportContext } from './ScrollAreaViewportContext';
 import { ScrollAreaViewportCssVars } from './ScrollAreaViewportCssVars';
-import { on } from '../../solid-1-compat';
+
+const OVERFLOW_EDGE_VARS = [
+  ScrollAreaViewportCssVars.scrollAreaOverflowXStart,
+  ScrollAreaViewportCssVars.scrollAreaOverflowXEnd,
+  ScrollAreaViewportCssVars.scrollAreaOverflowYStart,
+  ScrollAreaViewportCssVars.scrollAreaOverflowYEnd,
+];
 
 // Module-level flag to ensure we only register the CSS properties once,
 // regardless of how many Scroll Area components are mounted.
@@ -41,18 +48,13 @@ function removeCSSVariableInheritance() {
   }
 
   if (typeof CSS !== 'undefined' && 'registerProperty' in CSS) {
-    [
-      ScrollAreaViewportCssVars.scrollAreaOverflowXStart,
-      ScrollAreaViewportCssVars.scrollAreaOverflowXEnd,
-      ScrollAreaViewportCssVars.scrollAreaOverflowYStart,
-      ScrollAreaViewportCssVars.scrollAreaOverflowYEnd,
-    ].forEach((name) => {
+    OVERFLOW_EDGE_VARS.forEach((name) => {
       try {
         CSS.registerProperty({
-          inherits: false,
-          initialValue: '0px',
           name,
           syntax: '<length>',
+          inherits: false,
+          initialValue: '0px',
         });
       } catch {
         /* ignore already-registered */
@@ -87,210 +89,206 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
     hiddenState,
     setHasMeasuredScrollbar,
     handleScroll,
+    touchModality,
     setHovering,
     setOverflowEdges,
-    overflowEdges,
     overflowEdgeThreshold,
-    scrollingX,
-    scrollingY,
+    viewportState,
   } = useScrollAreaRootContext();
 
   const direction = useDirection();
 
-  let programmaticScrollRef = true;
-  let lastMeasuredViewportMetrics: [number, number, number, number] = [NaN, NaN, NaN, NaN];
+  let programmaticScroll = true;
+  const lastMeasuredViewportMetrics: [number, number, number, number] = [NaN, NaN, NaN, NaN];
 
   const scrollEndTimeout = useTimeout();
   const waitForAnimationsTimeout = useTimeout();
 
   function computeThumbPosition() {
-      const viewportEl = viewportRef.current;
-      const scrollbarXEl = scrollbarXRef.current;
-      const scrollbarYEl = scrollbarYRef.current;
-      const thumbXEl = thumbXRef.current;
-      const thumbYEl = thumbYRef.current;
-      const cornerEl = cornerRef.current;
+    const viewportEl = viewportRef.current;
+    const scrollbarYEl = scrollbarYRef.current;
+    const scrollbarXEl = scrollbarXRef.current;
+    const thumbYEl = thumbYRef.current;
+    const thumbXEl = thumbXRef.current;
+    const cornerEl = cornerRef.current;
 
-      if (!viewportEl) {
-        return;
-      }
-
-      const scrollableContentHeight = viewportEl.scrollHeight;
-      const scrollableContentWidth = viewportEl.scrollWidth;
-      const viewportHeight = viewportEl.clientHeight;
-      const viewportWidth = viewportEl.clientWidth;
-      const scrollTop = viewportEl.scrollTop;
-      const scrollLeft = viewportEl.scrollLeft;
-      const isFirstMeasurement = Number.isNaN(lastMeasuredViewportMetrics[0]);
-      lastMeasuredViewportMetrics[0] = viewportHeight;
-      lastMeasuredViewportMetrics[1] = scrollableContentHeight;
-      lastMeasuredViewportMetrics[2] = viewportWidth;
-      lastMeasuredViewportMetrics[3] = scrollableContentWidth;
-
-      if (isFirstMeasurement) {
-        setHasMeasuredScrollbar(true);
-      }
-
-      if (scrollableContentHeight === 0 || scrollableContentWidth === 0) {
-        return;
-      }
-
-      const nextHiddenState = getHiddenState(viewportEl);
-      const scrollbarYHidden = nextHiddenState.y;
-      const scrollbarXHidden = nextHiddenState.x;
-      const ratioX = viewportWidth / scrollableContentWidth;
-      const ratioY = viewportHeight / scrollableContentHeight;
-      const maxScrollLeft = Math.max(0, scrollableContentWidth - viewportWidth);
-      const maxScrollTop = Math.max(0, scrollableContentHeight - viewportHeight);
-
-      let scrollLeftFromStart = 0;
-      let scrollLeftFromEnd = 0;
-      if (!scrollbarXHidden) {
-        let rawScrollLeftFromStart = 0;
-        if (direction() === 'rtl') {
-          rawScrollLeftFromStart = clamp(-scrollLeft, 0, maxScrollLeft);
-        } else {
-          rawScrollLeftFromStart = clamp(scrollLeft, 0, maxScrollLeft);
-        }
-        scrollLeftFromStart = normalizeScrollOffset(rawScrollLeftFromStart, maxScrollLeft);
-        scrollLeftFromEnd = maxScrollLeft - scrollLeftFromStart;
-      }
-
-      const rawScrollTopFromStart = !scrollbarYHidden ? clamp(scrollTop, 0, maxScrollTop) : 0;
-      const scrollTopFromStart = !scrollbarYHidden
-        ? normalizeScrollOffset(rawScrollTopFromStart, maxScrollTop)
-        : 0;
-      const scrollTopFromEnd = !scrollbarYHidden ? maxScrollTop - scrollTopFromStart : 0;
-      const nextWidth = scrollbarXHidden ? 0 : viewportWidth;
-      const nextHeight = scrollbarYHidden ? 0 : viewportHeight;
-
-      let nextCornerWidth = 0;
-      let nextCornerHeight = 0;
-      if (!scrollbarXHidden && !scrollbarYHidden) {
-        nextCornerWidth = scrollbarYEl?.offsetWidth || 0;
-        nextCornerHeight = scrollbarXEl?.offsetHeight || 0;
-      }
-
-      // Only subtract corner size from scrollbar dimensions if the corner hasn't been sized yet.
-      // Once sized, the layout will already account for it.
-      const cornerNotYetSized = cornerSize().width === 0 && cornerSize().height === 0;
-      const cornerWidthOffset = cornerNotYetSized ? nextCornerWidth : 0;
-      const cornerHeightOffset = cornerNotYetSized ? nextCornerHeight : 0;
-
-      const scrollbarXOffset = getOffset(scrollbarXEl, 'padding', 'x');
-      const scrollbarYOffset = getOffset(scrollbarYEl, 'padding', 'y');
-      const thumbXOffset = getOffset(thumbXEl, 'margin', 'x');
-      const thumbYOffset = getOffset(thumbYEl, 'margin', 'y');
-
-      const idealNextWidth = nextWidth - scrollbarXOffset - thumbXOffset;
-      const idealNextHeight = nextHeight - scrollbarYOffset - thumbYOffset;
-
-      const maxNextWidth = scrollbarXEl
-        ? Math.min(scrollbarXEl.offsetWidth - cornerWidthOffset, idealNextWidth)
-        : idealNextWidth;
-      const maxNextHeight = scrollbarYEl
-        ? Math.min(scrollbarYEl.offsetHeight - cornerHeightOffset, idealNextHeight)
-        : idealNextHeight;
-
-      const clampedNextWidth = Math.max(MIN_THUMB_SIZE, maxNextWidth * ratioX);
-      const clampedNextHeight = Math.max(MIN_THUMB_SIZE, maxNextHeight * ratioY);
-
-      setThumbSize((prevSize) => {
-        if (prevSize.height === clampedNextHeight && prevSize.width === clampedNextWidth) {
-          return prevSize;
-        }
-
-        return {
-          height: clampedNextHeight,
-          width: clampedNextWidth,
-        };
-      });
-
-      // Handle Y (vertical) scroll
-      if (scrollbarYEl && thumbYEl) {
-        const maxThumbOffsetY =
-          scrollbarYEl.offsetHeight - clampedNextHeight - scrollbarYOffset - thumbYOffset;
-        const scrollRangeY = scrollableContentHeight - viewportHeight;
-        const scrollRatioY = scrollRangeY === 0 ? 0 : scrollTop / scrollRangeY;
-
-        // In Safari, don't allow it to go negative or too far as `scrollTop` considers the rubber
-        // band effect.
-        const thumbOffsetY = Math.min(maxThumbOffsetY, Math.max(0, scrollRatioY * maxThumbOffsetY));
-
-        thumbYEl.style.transform = `translate3d(0,${thumbOffsetY}px,0)`;
-      }
-
-      // Handle X (horizontal) scroll
-      if (scrollbarXEl && thumbXEl) {
-        const maxThumbOffsetX =
-          scrollbarXEl.offsetWidth - clampedNextWidth - scrollbarXOffset - thumbXOffset;
-        const scrollRangeX = scrollableContentWidth - viewportWidth;
-        const scrollRatioX = scrollRangeX === 0 ? 0 : scrollLeft / scrollRangeX;
-
-        // In Safari, don't allow it to go negative or too far as `scrollLeft` considers the rubber
-        // band effect.
-        const thumbOffsetX =
-          direction() === 'rtl'
-            ? clamp(scrollRatioX * maxThumbOffsetX, -maxThumbOffsetX, 0)
-            : clamp(scrollRatioX * maxThumbOffsetX, 0, maxThumbOffsetX);
-
-        thumbXEl.style.transform = `translate3d(${thumbOffsetX}px,0,0)`;
-      }
-
-      const overflowMetricsPx: Array<[ScrollAreaViewportCssVars, number]> = [
-        [ScrollAreaViewportCssVars.scrollAreaOverflowXStart, scrollLeftFromStart],
-        [ScrollAreaViewportCssVars.scrollAreaOverflowXEnd, scrollLeftFromEnd],
-        [ScrollAreaViewportCssVars.scrollAreaOverflowYStart, scrollTopFromStart],
-        [ScrollAreaViewportCssVars.scrollAreaOverflowYEnd, scrollTopFromEnd],
-      ];
-
-      for (const [cssVar, value] of overflowMetricsPx) {
-        viewportEl.style.setProperty(cssVar, `${value}px`);
-      }
-
-      if (cornerEl) {
-        if (scrollbarXHidden || scrollbarYHidden) {
-          setCornerSize({ height: 0, width: 0 });
-        } else if (!scrollbarXHidden && !scrollbarYHidden) {
-          setCornerSize({ height: nextCornerHeight, width: nextCornerWidth });
-        }
-      }
-
-      setHiddenState((prevState) => mergeHiddenState(prevState, nextHiddenState));
-
-      const nextOverflowEdges = {
-        xEnd: !scrollbarXHidden && scrollLeftFromEnd > overflowEdgeThreshold().xEnd,
-        xStart: !scrollbarXHidden && scrollLeftFromStart > overflowEdgeThreshold().xStart,
-        yEnd: !scrollbarYHidden && scrollTopFromEnd > overflowEdgeThreshold().yEnd,
-        yStart: !scrollbarYHidden && scrollTopFromStart > overflowEdgeThreshold().yStart,
-      };
-
-      setOverflowEdges((prev) => {
-        if (
-          prev.xStart === nextOverflowEdges.xStart &&
-          prev.xEnd === nextOverflowEdges.xEnd &&
-          prev.yStart === nextOverflowEdges.yStart &&
-          prev.yEnd === nextOverflowEdges.yEnd
-        ) {
-          return prev;
-        }
-        return nextOverflowEdges;
-      });
-  }
-
-  onSettled(() => {
-    if (!viewportRef.current) {
+    if (!viewportEl) {
       return;
     }
 
+    const scrollableContentHeight = viewportEl.scrollHeight;
+    const scrollableContentWidth = viewportEl.scrollWidth;
+    const viewportHeight = viewportEl.clientHeight;
+    const viewportWidth = viewportEl.clientWidth;
+    const scrollTop = viewportEl.scrollTop;
+    const scrollLeft = viewportEl.scrollLeft;
+    const isFirstMeasurement = Number.isNaN(lastMeasuredViewportMetrics[0]);
+
+    lastMeasuredViewportMetrics[0] = viewportHeight;
+    lastMeasuredViewportMetrics[1] = scrollableContentHeight;
+    lastMeasuredViewportMetrics[2] = viewportWidth;
+    lastMeasuredViewportMetrics[3] = scrollableContentWidth;
+
+    if (isFirstMeasurement) {
+      setHasMeasuredScrollbar(true);
+    }
+
+    if (scrollableContentHeight === 0 || scrollableContentWidth === 0) {
+      return;
+    }
+
+    // Solid: React's stable callback reads the latest values.
+    const textDirection = untrack(direction);
+    const threshold = untrack(overflowEdgeThreshold);
+    const nextHiddenState = getHiddenState(viewportEl);
+    const scrollbarYHidden = nextHiddenState.y;
+    const scrollbarXHidden = nextHiddenState.x;
+    const ratioX = viewportWidth / scrollableContentWidth;
+    const ratioY = viewportHeight / scrollableContentHeight;
+    const maxScrollLeft = Math.max(0, scrollableContentWidth - viewportWidth);
+    const maxScrollTop = Math.max(0, scrollableContentHeight - viewportHeight);
+
+    let scrollLeftFromStart = 0;
+    let scrollLeftFromEnd = 0;
+    if (!scrollbarXHidden) {
+      // `normalizeScrollOffset` clamps internally.
+      scrollLeftFromStart = normalizeScrollOffset(
+        textDirection === 'rtl' ? -scrollLeft : scrollLeft,
+        maxScrollLeft,
+      );
+      scrollLeftFromEnd = maxScrollLeft - scrollLeftFromStart;
+    }
+
+    const scrollTopFromStart = scrollbarYHidden
+      ? 0
+      : normalizeScrollOffset(scrollTop, maxScrollTop);
+    const scrollTopFromEnd = scrollbarYHidden ? 0 : maxScrollTop - scrollTopFromStart;
+    const nextWidth = scrollbarXHidden ? 0 : viewportWidth;
+    const nextHeight = scrollbarYHidden ? 0 : viewportHeight;
+
+    let nextCornerWidth = 0;
+    let nextCornerHeight = 0;
+    if (!scrollbarXHidden && !scrollbarYHidden) {
+      nextCornerWidth = scrollbarYEl?.offsetWidth || 0;
+      nextCornerHeight = scrollbarXEl?.offsetHeight || 0;
+    }
+
+    // Only subtract corner size from scrollbar dimensions if the corner hasn't been sized yet.
+    // Once sized, the layout will already account for it.
+    const currentCornerSize = untrack(cornerSize);
+    const cornerNotYetSized = currentCornerSize.width === 0 && currentCornerSize.height === 0;
+    const cornerWidthOffset = cornerNotYetSized ? nextCornerWidth : 0;
+    const cornerHeightOffset = cornerNotYetSized ? nextCornerHeight : 0;
+
+    const scrollbarXOffset = getOffset(scrollbarXEl, 'padding', 'x');
+    const scrollbarYOffset = getOffset(scrollbarYEl, 'padding', 'y');
+    const thumbXOffset = getOffset(thumbXEl, 'margin', 'x');
+    const thumbYOffset = getOffset(thumbYEl, 'margin', 'y');
+
+    const idealNextWidth = nextWidth - scrollbarXOffset - thumbXOffset;
+    const idealNextHeight = nextHeight - scrollbarYOffset - thumbYOffset;
+
+    const maxNextWidth = scrollbarXEl
+      ? Math.min(scrollbarXEl.offsetWidth - cornerWidthOffset, idealNextWidth)
+      : idealNextWidth;
+    const maxNextHeight = scrollbarYEl
+      ? Math.min(scrollbarYEl.offsetHeight - cornerHeightOffset, idealNextHeight)
+      : idealNextHeight;
+
+    const clampedNextWidth = Math.max(MIN_THUMB_SIZE, maxNextWidth * ratioX);
+    const clampedNextHeight = Math.max(MIN_THUMB_SIZE, maxNextHeight * ratioY);
+
+    setThumbSize((prevSize) =>
+      pickState(prevSize, { width: clampedNextWidth, height: clampedNextHeight }),
+    );
+
+    // Handle Y (vertical) scroll
+    if (scrollbarYEl && thumbYEl) {
+      const maxThumbOffsetY =
+        scrollbarYEl.offsetHeight - clampedNextHeight - scrollbarYOffset - thumbYOffset;
+
+      const thumbOffsetY = applyOverscrollThumb(
+        thumbYEl,
+        ScrollAreaScrollbarCssVars.scrollAreaThumbHeight,
+        scrollTop,
+        maxScrollTop,
+        scrollableContentHeight,
+        clampedNextHeight,
+        maxThumbOffsetY,
+      );
+      thumbYEl.style.transform = `translate3d(0,${thumbOffsetY}px,0)`;
+    }
+
+    // Handle X (horizontal) scroll
+    if (scrollbarXEl && thumbXEl) {
+      const maxThumbOffsetX =
+        scrollbarXEl.offsetWidth - clampedNextWidth - scrollbarXOffset - thumbXOffset;
+      // RTL scrolls from 0 down to `-maxScrollLeft`; measure from the inline start edge so the
+      // overscroll math is direction-agnostic, then flip the resulting offset back below.
+      const scrollFromStart = textDirection === 'rtl' ? -scrollLeft : scrollLeft;
+
+      const offsetX = applyOverscrollThumb(
+        thumbXEl,
+        ScrollAreaScrollbarCssVars.scrollAreaThumbWidth,
+        scrollFromStart,
+        maxScrollLeft,
+        scrollableContentWidth,
+        clampedNextWidth,
+        maxThumbOffsetX,
+      );
+      thumbXEl.style.transform = `translate3d(${textDirection === 'rtl' ? -offsetX : offsetX}px,0,0)`;
+    }
+
+    const overflowMetricsPx = [
+      scrollLeftFromStart,
+      scrollLeftFromEnd,
+      scrollTopFromStart,
+      scrollTopFromEnd,
+    ];
+
+    OVERFLOW_EDGE_VARS.forEach((cssVar, index) => {
+      viewportEl.style.setProperty(cssVar, `${overflowMetricsPx[index]}px`);
+    });
+
+    if (cornerEl) {
+      // Bail when the size is unchanged (like `setThumbSize` above); otherwise a
+      // fresh object literal on every scroll frame rebuilds the root context and
+      // re-renders every scroll-area part.
+      // `nextCornerWidth`/`nextCornerHeight` stay 0 when either scrollbar is hidden.
+      setCornerSize((prevSize) =>
+        pickState(prevSize, { width: nextCornerWidth, height: nextCornerHeight }),
+      );
+    }
+
+    setHiddenState((prevState) => pickState(prevState, nextHiddenState));
+
+    const nextOverflowEdges = {
+      xStart: !scrollbarXHidden && scrollLeftFromStart > threshold.xStart,
+      xEnd: !scrollbarXHidden && scrollLeftFromEnd > threshold.xEnd,
+      yStart: !scrollbarYHidden && scrollTopFromStart > threshold.yStart,
+      yEnd: !scrollbarYHidden && scrollTopFromEnd > threshold.yEnd,
+    };
+
+    setOverflowEdges((prev) => pickState(prev, nextOverflowEdges));
+  }
+
+  onSettled(() => {
     removeCSSVariableInheritance();
-    computeThumbPosition();
   });
 
-  createEffect(...on([hiddenState, direction], () => {
-      // Wait for scrollbar-related refs to be set
-      queueMicrotask(computeThumbPosition);
+  // Solid: a user effect, since the scheduled measurement writes signals.
+  createEffect(
+    () => ({
+      hiddenState: hiddenState(),
+      direction: direction(),
+      overflowEdgeThreshold: overflowEdgeThreshold(),
     }),
+    () => {
+      // Wait for scrollbar and thumb refs after hidden-state toggles, refresh math on direction
+      // flips, and re-evaluate overflow edges when the threshold changes.
+      // Solid: refs are attached before effects run, so measure now rather than in a microtask.
+      computeThumbPosition();
+    },
   );
 
   onSettled(() => {
@@ -302,19 +300,16 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
   });
 
   onSettled(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
     const viewport = viewportRef.current;
     if (typeof ResizeObserver === 'undefined' || !viewport) {
-      return;
+      return undefined;
     }
 
     let hasInitialized = false;
-    const ro = new ResizeObserver(() => {
-      /* Avoid duplicate mount-time recompute when observer data matches what the mount
-       * scheduling pass already measured. If dimensions changed before the first observer
-       * delivery, keep the recompute so overflow transitions stay in sync. */
+    const resizeObserver = new ResizeObserver(() => {
+      // Avoid duplicate mount-time recompute when observer data matches what the mount
+      // scheduling pass already measured. If dimensions changed before the first observer
+      // delivery, keep the recompute so overflow transitions stay in sync.
       if (!hasInitialized) {
         hasInitialized = true;
         if (
@@ -326,48 +321,37 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
           return;
         }
       }
+
       computeThumbPosition();
     });
 
-    ro.observe(viewport);
+    resizeObserver.observe(viewport);
 
-    // If there are animations in the viewport, wait for them to finish and then recompute the thumb position.
-    // This is necessary when the viewport contains a Dialog that is animating its popup on open
-    // and the popup is using a transform for the animation, which affects the size of the viewport.
-    // Without this, the thumb position will be incorrect until scrolling (i.e. if the scrollbar shows
-    // on hover, the thumb has an incorrect size).
-    // We assume the user is using `onOpenChangeComplete` to hide the scrollbar
-    // until animations complete because otherwise the scrollbar would show the thumb resizing mid-animation.
+    // Wait for subtree animations to finish, then recompute thumb geometry that
+    // may have been affected by transform-based animations.
     waitForAnimationsTimeout.start(0, () => {
       const animations = viewport.getAnimations({ subtree: true });
       if (animations.length === 0) {
         return;
       }
 
+      // `allSettled` never rejects, but `computeThumbPosition` can still run against a
+      // torn-down tree once the animations resolve. Swallow instead of leaking an unhandled
+      // rejection; `void` alone would only silence the floating-promise lint.
       Promise.allSettled(animations.map((animation) => animation.finished))
         .then(computeThumbPosition)
         .catch(() => {});
     });
 
-    _c.push(() => {
-      ro.disconnect();
-      waitForAnimationsTimeout.clear();
-    });
-      })();
     return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
+      resizeObserver.disconnect();
+      waitForAnimationsTimeout.clear();
     };
-});
+  });
 
   function handleUserInteraction() {
-    programmaticScrollRef = false;
+    programmaticScroll = false;
   }
-
-  const contextValue: ScrollAreaViewportContext = {
-    computeThumbPosition,
-  };
 
   const props: ComponentProps<'div'> = {
     role: 'presentation',
@@ -383,17 +367,22 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
     style: {
       overflow: 'scroll',
     },
-    onScroll: () => {
+    onScroll() {
       if (!viewportRef.current) {
         return;
       }
 
       computeThumbPosition();
 
-      if (!programmaticScrollRef) {
+      // WebKit consumes a touch that catches an in-flight momentum scroll or
+      // rubber-band bounce without dispatching any DOM events for the whole
+      // gesture (not even `touchstart`), so scrolls cannot be attributed to
+      // the user through events. Treat every scroll in touch modality as
+      // user-driven instead.
+      if (untrack(touchModality) || !programmaticScroll) {
         handleScroll({
-          x: viewportRef.current?.scrollLeft,
-          y: viewportRef.current?.scrollTop,
+          x: viewportRef.current.scrollLeft,
+          y: viewportRef.current.scrollTop,
         });
       }
 
@@ -404,65 +393,35 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
       // 100 ms without scroll events ≈ scroll end
       // https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollend_event
       scrollEndTimeout.start(100, () => {
-        programmaticScrollRef = true;
+        programmaticScroll = true;
       });
     },
     onWheel: handleUserInteraction,
-    onTouchMove: handleUserInteraction,
     onPointerMove: handleUserInteraction,
     onPointerEnter: handleUserInteraction,
     onKeyDown: handleUserInteraction,
   };
 
-  const viewportState: ScrollAreaViewport.State = {
-    get cornerHidden() {
-      return hiddenState().corner;
-    },
-    get hasOverflowX() {
-      return !hiddenState().x;
-    },
-    get hasOverflowY() {
-      return !hiddenState().y;
-    },
-    get overflowXEnd() {
-      return overflowEdges().xEnd;
-    },
-    get overflowXStart() {
-      return overflowEdges().xStart;
-    },
-    get overflowYEnd() {
-      return overflowEdges().yEnd;
-    },
-    get overflowYStart() {
-      return overflowEdges().yStart;
-    },
-    get scrolling() {
-      return scrollingX() || scrollingY();
-    },
-  };
-
   const element = useRenderElement('div', componentProps, {
-    props: [props, elementProps],
-    ref: (el) => {
-      viewportRef.current = el;
-    },
+    ref: viewportRef,
     state: viewportState,
+    props: [props, elementProps],
     stateAttributesMapping: scrollAreaStateAttributesMapping,
   });
 
-  return (
-    <ScrollAreaViewportContext value={contextValue}>
-      {element()}
-    </ScrollAreaViewportContext>
-  );
+  const contextValue: ScrollAreaViewportContext = {
+    computeThumbPosition,
+  };
+
+  return <ScrollAreaViewportContext value={contextValue}>{element()}</ScrollAreaViewportContext>;
 }
 
 export interface ScrollAreaViewportProps extends BaseUIComponentProps<
   'div',
-  ScrollAreaViewport.State
+  ScrollAreaViewportState
 > {}
 
-export interface ScrollAreaViewportState extends ScrollAreaRoot.State {}
+export interface ScrollAreaViewportState extends ScrollAreaRootState {}
 
 export namespace ScrollAreaViewport {
   export type Props = ScrollAreaViewportProps;
@@ -472,16 +431,51 @@ export namespace ScrollAreaViewport {
 function getHiddenState(viewport: HTMLElement): HiddenState {
   const y = viewport.clientHeight >= viewport.scrollHeight;
   const x = viewport.clientWidth >= viewport.scrollWidth;
-  return { corner: y || x, x, y };
+
+  return {
+    y,
+    x,
+    corner: y || x,
+  };
 }
 
-function mergeHiddenState(prevState: HiddenState, nextState: HiddenState) {
-  if (
-    prevState.y === nextState.y &&
-    prevState.x === nextState.x &&
-    prevState.corner === nextState.corner
-  ) {
-    return prevState;
+/**
+ * Returns `prev` when `next` is shallow-equal to it so setState bails out and
+ * scroll-frame updates don't rebuild the root context.
+ */
+function pickState<T extends object>(prev: T, next: T): T {
+  for (const key in next) {
+    if (prev[key as keyof T] !== next[key as keyof T]) {
+      return next;
+    }
   }
-  return nextState;
+
+  return prev;
+}
+
+/**
+ * Sizes the thumb and returns its axis offset. On overscroll (Safari rubber-band only) it shrinks
+ * against the pinned edge, damped by `content / (content + overscroll)` to match native feedback;
+ * the size flows through the thumb-size variable so the resting `var(...)` still applies.
+ */
+function applyOverscrollThumb(
+  thumbEl: HTMLElement,
+  sizeVar: string,
+  scrollFromStart: number,
+  maxScroll: number,
+  content: number,
+  size: number,
+  maxThumbOffset: number,
+): number {
+  const clamped = clamp(scrollFromStart, 0, maxScroll);
+  const overscroll = scrollFromStart - clamped;
+  const nextSize = Math.max(MIN_THUMB_SIZE, (size * content) / (content + Math.abs(overscroll)));
+
+  // Passing an empty string removes the override, restoring the resting `var(...)` size.
+  thumbEl.style.setProperty(sizeVar, overscroll ? `${nextSize}px` : '');
+
+  // Slide proportionally; at the end edge push down by the shrink so the thumb stays pinned to
+  // it, while a start overscroll pins to offset 0.
+  const offset = maxScroll ? (clamped / maxScroll) * maxThumbOffset : 0;
+  return offset + (overscroll > 0 ? size - nextSize : 0);
 }

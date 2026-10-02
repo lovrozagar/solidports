@@ -1,4 +1,4 @@
-import { createRenderer } from '#test-utils';
+import { act, createRenderer } from '#test-utils';
 import { AlertDialog } from '@solidports/base-ui/alert-dialog';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
@@ -14,7 +14,7 @@ describe('AlertDialogRoot stale-closure regression', () => {
   it('invokes the latest onOpenChange after prop swap', async () => {
     const cb1 = vi.fn();
     const cb2 = vi.fn();
-    const [cb, setCb] = createSignal(cb1);
+    const [cb, setCb] = createSignal(() => cb1);
 
     const { user } = render(() => (
       <AlertDialog.Root onOpenChange={cb()}>
@@ -35,7 +35,7 @@ describe('AlertDialogRoot stale-closure regression', () => {
 
     expect(cb1).toHaveBeenCalledTimes(1);
 
-    setCb(() => cb2);
+    act(() => setCb(() => cb2));
 
     await user.click(screen.getByTestId('close'));
 

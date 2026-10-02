@@ -44,7 +44,7 @@ function StackedToastButton() {
 
 function CopyButton() {
   const [copied, setCopied] = createSignal(false);
-  const buttonRef = { current: null };
+  const buttonRef = { current: null as HTMLButtonElement | null };
 
   function handleCopy() {
     setCopied(true);
@@ -127,7 +127,7 @@ function StackedToasts() {
   );
 }
 
-function ClipboardIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function ClipboardIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -135,7 +135,7 @@ function ClipboardIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      stroke-width="1.5"
       {...props}
       style={{ display: 'block', ...props.style }}
     >
@@ -145,7 +145,7 @@ function ClipboardIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

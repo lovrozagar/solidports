@@ -1,7 +1,7 @@
 import { createRenderer } from '#test-utils';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { createSignal, For } from 'solid-js';
 
 describe('<Combobox.Value />', () => {

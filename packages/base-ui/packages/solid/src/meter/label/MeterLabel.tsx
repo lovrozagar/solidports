@@ -1,9 +1,8 @@
-import { createTrackedEffect, onCleanup } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
-import { useBaseUiId } from '../../utils/useBaseUiId';
+import { useRegisteredLabelId } from '../../utils/useRegisteredLabelId';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { MeterRoot } from '../root/MeterRoot';
+import type { MeterRootState } from '../root/MeterRoot';
 import { useMeterRootContext } from '../root/MeterRootContext';
 
 /**
@@ -14,23 +13,10 @@ import { useMeterRootContext } from '../root/MeterRootContext';
  */
 export function MeterLabel(componentProps: MeterLabel.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['id']);
-  const id = useBaseUiId(() => local.id);
 
   const { setLabelId } = useMeterRootContext();
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    setLabelId(id());
-    _c.push(() => setLabelId(undefined));
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  const id = useRegisteredLabelId(() => (local.id === false ? undefined : local.id), setLabelId);
 
   const element = useRenderElement('span', componentProps, {
     props: [
@@ -47,8 +33,11 @@ export function MeterLabel(componentProps: MeterLabel.Props) {
   return <>{element()}</>;
 }
 
-export interface MeterLabelProps extends BaseUIComponentProps<'span', MeterRoot.State> {}
+export interface MeterLabelState extends MeterRootState {}
+
+export interface MeterLabelProps extends BaseUIComponentProps<'span', MeterLabelState> {}
 
 export namespace MeterLabel {
+  export type State = MeterLabelState;
   export type Props = MeterLabelProps;
 }

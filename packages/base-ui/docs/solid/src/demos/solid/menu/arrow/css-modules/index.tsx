@@ -32,7 +32,7 @@ export default function MenuArrowDemo() {
   );
 }
 
-function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

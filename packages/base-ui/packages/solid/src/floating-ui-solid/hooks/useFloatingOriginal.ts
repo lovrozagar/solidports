@@ -1,13 +1,8 @@
 import { computePosition } from '@floating-ui/dom';
-import {
-  createEffect,
-  createMemo,
-  createSignal,
-  onSettled,
-} from 'solid-js';
+import { createEffect, createMemo, createSignal, getObserver, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access, defaultProps } from '../../solid-helpers';
+import { access, defaultProps, live } from '../../solid-helpers';
 import type {
   ComputePositionConfig,
   ComputePositionReturn,
@@ -110,8 +105,9 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
   const [data, setData] = createStore<UsePositionData>({
     isPositioned: false,
     middlewareData: {},
-    placement: access(props.placement),
-    strategy: access(props.strategy),
+    // Initial values, like React's `useState({ placement, strategy })`.
+    placement: untrack(() => access(props.placement)),
+    strategy: untrack(() => access(props.strategy)),
     x: 0,
     y: 0,
   });
@@ -126,7 +122,12 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
 
   let isMountedRef = false;
 
+  // Imperative (React's `update` callback): called from autoUpdate, handlers and effects.
   function update() {
+    untrack(computeAndUpdate);
+  }
+
+  function computeAndUpdate() {
     const r = referenceEl();
     const f = floatingEl();
     if (!r || !f) {
@@ -170,21 +171,21 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
   onSettled(() => {
     const _c: Array<() => void> = [];
     (() => {
+      isMountedRef = true;
 
-    isMountedRef = true;
-
-    _c.push(() => {
-      isMountedRef = false;
-    });
-      })();
+      _c.push(() => {
+        isMountedRef = false;
+      });
+    })();
     return () => {
       for (let i = _c.length - 1; i >= 0; i -= 1) {
         _c[i]();
       }
     };
-});
+  });
 
-  createEffect(...on([referenceEl, floatingEl, () => props.whileElementsMounted, () => options.open], () => {
+  createEffect(
+    ...on([referenceEl, floatingEl, () => props.whileElementsMounted, () => options.open], () => {
       const r = referenceEl();
       const f = floatingEl();
       if (r && f) {
@@ -197,14 +198,16 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
     }),
   );
 
+  // As react-dom, the refs follow the resolved elements, including externally provided ones.
   const refs = {
-    floating,
-    reference,
+    floating: live(floatingEl),
+    reference: live(referenceEl),
     setFloating,
     setReference,
   };
 
-  const elements = { floating: floatingEl, reference: referenceEl };
+  // Live: consumers read the elements imperatively too (handlers, effect callbacks).
+  const elements = { floating: live(floatingEl), reference: live(referenceEl) };
 
   const floatingStyles = createMemo<JSX.CSSProperties>(() => {
     const initialStyles: JSX.CSSProperties = {
@@ -236,30 +239,34 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
     };
   });
 
+  // Live reads: consumers also read the position imperatively (handlers, effect callbacks).
+  const read = <Key extends keyof typeof data>(key: Key) =>
+    getObserver() === null ? untrack(() => data[key]) : data[key];
+
   return {
     elements,
     get floatingStyles() {
-      return floatingStyles();
+      return getObserver() === null ? untrack(floatingStyles) : floatingStyles();
     },
     get isPositioned() {
-      return data.isPositioned;
+      return read('isPositioned');
     },
     get middlewareData() {
-      return data.middlewareData;
+      return read('middlewareData');
     },
     get placement() {
-      return data.placement;
+      return read('placement');
     },
     refs,
     get strategy() {
-      return data.strategy;
+      return read('strategy');
     },
     update,
     get x() {
-      return data.x;
+      return read('x');
     },
     get y() {
-      return data.y;
+      return read('y');
     },
   };
 }

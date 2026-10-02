@@ -1,7 +1,7 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { spy } from 'sinon';
 import { splitProps } from '../../solid-1-compat';
 
@@ -199,6 +199,43 @@ describe('<Menu.CheckboxItem />', () => {
       expect(item).to.have.attribute('data-unchecked', '');
     });
 
+    it.skipIf(isJSDOM)(
+      'does not toggle when Space is pressed during an active typeahead session',
+      async () => {
+        const onCheckedChange = spy();
+        const { user } = render(() => (
+          <Menu.Root open>
+            <Menu.Portal>
+              <Menu.Positioner>
+                <Menu.Popup>
+                  <Menu.CheckboxItem onCheckedChange={onCheckedChange}>Item One</Menu.CheckboxItem>
+                  <Menu.CheckboxItem onCheckedChange={onCheckedChange}>Item Two</Menu.CheckboxItem>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        ));
+
+        const [itemOne, itemTwo] = screen.getAllByRole('menuitemcheckbox');
+
+        await act(async () => {
+          itemOne.focus();
+        });
+
+        await user.keyboard('Item T');
+
+        await waitFor(() => {
+          expect(itemTwo).toHaveFocus();
+        });
+
+        await user.keyboard('[Space]');
+        await user.keyboard('[Space]');
+
+        expect(onCheckedChange.callCount > 0).to.equal(false);
+        expect(itemTwo).to.have.attribute('aria-checked', 'false');
+      },
+    );
+
     it(`toggles the checked state when Enter is pressed`, async ({ skip }) => {
       if (isJSDOM) {
         skip();
@@ -259,6 +296,36 @@ describe('<Menu.CheckboxItem />', () => {
 
       expect(onCheckedChange.callCount).to.equal(2);
       expect(onCheckedChange.lastCall.args[0]).to.equal(false);
+    });
+
+    it('does not toggle when `onCheckedChange` cancels the event', async () => {
+      const { user } = render(() => (
+        <Menu.Root>
+          <Menu.Trigger>Open</Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner>
+              <Menu.Popup>
+                <Menu.CheckboxItem
+                  onCheckedChange={(_, eventDetails) => {
+                    eventDetails.cancel();
+                  }}
+                >
+                  Item
+                </Menu.CheckboxItem>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      ));
+
+      const trigger = screen.getByRole('button', { name: 'Open' });
+      await user.click(trigger);
+
+      const item = screen.getByRole('menuitemcheckbox');
+      await user.click(item);
+
+      expect(item).to.have.attribute('aria-checked', 'false');
+      expect(item).not.to.have.attribute('data-checked');
     });
 
     it('keeps the state when closed and reopened', async () => {

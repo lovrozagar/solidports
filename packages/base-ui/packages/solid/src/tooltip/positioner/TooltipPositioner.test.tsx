@@ -1,7 +1,18 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { expect, vi } from 'vitest';
+import { createSignal, Show } from 'solid-js';
+import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+
+// Solid: local copy of React's `#test-utils` helper.
+async function waitForPositioned(positioner: HTMLElement) {
+  await waitFor(() => {
+    expect(positioner.style.opacity).not.to.equal('0');
+  });
+  await waitFor(() => {
+    expect(positioner).toBeVisible();
+  });
+}
 
 function Trigger(props: Tooltip.Trigger.Props) {
   return <Tooltip.Trigger {...props} ref={props.ref} render="div" />;
@@ -20,6 +31,42 @@ describe('<Tooltip.Positioner />', () => {
       ));
     },
   }));
+
+  it('throws a descriptive error when rendered outside <Tooltip.Root>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() => render(() => <Tooltip.Positioner />)).to.throw(
+        'Base UI: TooltipRootContext is missing. Tooltip parts must be placed within <Tooltip.Root>.',
+      );
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('throws a descriptive error when rendered outside <Tooltip.Portal>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() =>
+        render(() => (
+          <Tooltip.Root open>
+            <Tooltip.Positioner />
+          </Tooltip.Root>
+        )),
+      ).to.throw('Base UI: <Tooltip.Portal> is missing.');
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
 
   const baselineX = 10;
   const baselineY = 36;
@@ -281,7 +328,7 @@ describe('<Tooltip.Positioner />', () => {
   });
 
   it.skipIf(isJSDOM)('uses transform positioning without Viewport', async () => {
-    render(() => (
+    const { unmount } = render(() => (
       <Tooltip.Root open>
         <Trigger style={triggerStyle}>Trigger</Trigger>
         <Tooltip.Portal>
@@ -293,11 +340,14 @@ describe('<Tooltip.Positioner />', () => {
     ));
 
     const positioner = screen.getByTestId('positioner');
-    expect(positioner.style.transform).not.to.equal('');
+    await waitFor(() => {
+      expect(positioner.style.transform).not.to.equal('');
+    });
+    unmount();
   });
 
   it.skipIf(isJSDOM)('uses top/left positioning with Viewport', async () => {
-    render(() => (
+    const { unmount } = render(() => (
       <Tooltip.Root open>
         <Trigger style={triggerStyle}>Trigger</Trigger>
         <Tooltip.Portal>
@@ -311,8 +361,49 @@ describe('<Tooltip.Positioner />', () => {
     ));
 
     const positioner = screen.getByTestId('positioner');
+    await waitForPositioned(positioner);
+    expect(positioner.style.transform).to.equal('');
+    unmount();
+  });
+
+  it.skipIf(isJSDOM)('updates positioning when Viewport mounts and unmounts', async () => {
+    function App() {
+      const [showViewport, setShowViewport] = createSignal(false);
+
+      return (
+        <>
+          <button onClick={() => setShowViewport((value) => !value)}>Toggle Viewport</button>
+          <Tooltip.Root open>
+            <Trigger style={triggerStyle}>Trigger</Trigger>
+            <Tooltip.Portal>
+              <Tooltip.Positioner data-testid="positioner">
+                <Tooltip.Popup style={popupStyle}>
+                  <Show when={showViewport()} fallback="Popup">
+                    <Tooltip.Viewport>Popup</Tooltip.Viewport>
+                  </Show>
+                </Tooltip.Popup>
+              </Tooltip.Positioner>
+            </Tooltip.Portal>
+          </Tooltip.Root>
+        </>
+      );
+    }
+
+    const { user } = render(() => <App />);
+    const positioner = screen.getByTestId('positioner');
+    // Solid: React awaits `render`, which settles Floating UI's async positioning; wait for it.
+    await waitForPositioned(positioner);
+
+    expect(positioner.style.transform).not.to.equal('');
+
+    await user.click(screen.getByRole('button', { name: 'Toggle Viewport' }));
     await waitFor(() => {
       expect(positioner.style.transform).to.equal('');
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Toggle Viewport' }));
+    await waitFor(() => {
+      expect(positioner.style.transform).not.to.equal('');
     });
   });
 });

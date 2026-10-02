@@ -1,23 +1,25 @@
-import { createEffect } from 'solid-js';
-import { PARENT_CHECKBOX } from '../checkbox/root/CheckboxRoot';
-import type { FieldRoot } from '../field/root/FieldRoot';
-import { useFieldRootContext } from '../field/root/FieldRootContext';
-import { useField } from '../field/useField';
-import { fieldValidityMapping } from '../field/utils/constants';
-import { useFormContext } from '../form/FormContext';
-import { useLabelableContext } from '../internals/labelable-provider/LabelableContext';
-import { splitComponentProps } from '../solid-helpers';
-import { areArraysEqual } from '../utils/areArraysEqual';
-import { EMPTY_ARRAY } from '../utils/constants';
-import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
-import { REASONS } from '../utils/reasons';
-import type { BaseUIComponentProps } from '../utils/types';
-import { useBaseUiId } from '../utils/useBaseUiId';
+import { createEffect, untrack } from 'solid-js';
 import { useControlled } from '../utils/useControlled';
+import { EMPTY_ARRAY } from '../utils/empty';
+import { areArraysEqual } from '../utils/areArraysEqual';
+import { useBaseUiId } from '../utils/useBaseUiId';
 import { useRenderElement } from '../utils/useRenderElement';
 import { CheckboxGroupContext } from './CheckboxGroupContext';
+import type { FieldRootState } from '../field/root/FieldRoot';
+import { isEligibleInput } from '../field/root/useFieldValidation';
+import { useFieldRootContext } from '../field/root/FieldRootContext';
+import { useRegisterFieldControl } from '../internals/field-register-control/useRegisterFieldControl';
+import { useLabelableContext } from '../internals/labelable-provider/LabelableContext';
+import { useLabelableId } from '../internals/labelable-provider/useLabelableId';
+import type { BaseUIComponentProps } from '../utils/types';
+import { fieldValidityMapping } from '../field/utils/constants';
 import { useCheckboxGroupParent } from './useCheckboxGroupParent';
-import { on, mergeProps as solidMergeProps } from '../solid-1-compat';
+import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
+import { REASONS } from '../utils/reasons';
+import { useFormContext } from '../form/FormContext';
+import { useValueChanged } from '../internals/useValueChanged';
+import { splitComponentProps, type ReactLikeRef } from '../solid-helpers';
+import { mergeProps as solidMergeProps } from '../solid-1-compat';
 
 /**
  * Provides a shared state to a series of checkboxes.
@@ -31,12 +33,10 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     'disabled',
     'id',
     'onValueChange',
-    'render',
     'value',
   ]);
-  const disabledProp = () => Boolean(local.disabled);
+  const disabledProp = () => local.disabled ?? false;
   const idProp = () => local.id;
-  const externalValue = () => local.value;
 
   const {
     disabled: fieldDisabled,
@@ -45,87 +45,106 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     validation,
     setFilled,
     setDirty,
-    shouldValidateOnChange,
     validityData,
   } = useFieldRootContext();
-  const { labelId, getDescriptionProps } = useLabelableContext();
-  const { clearErrors } = useFormContext();
+  const { labelId, registerControlId, getDescriptionProps } = useLabelableContext();
+  const { clearErrors, elementRef } = useFormContext();
 
-  const disabled = () => fieldDisabled() || disabledProp();
+  const disabled = () => Boolean(fieldDisabled() || disabledProp());
+  const defaultValue = () => local.defaultValue ?? (EMPTY_ARRAY as string[]);
 
-  const [value, setValueUnwrapped] = useControlled({
-    controlled: externalValue,
-    default: () => local.defaultValue ?? (EMPTY_ARRAY as string[]),
+  const [valueUnwrapped, setValueUnwrapped] = useControlled<string[]>({
+    controlled: () => local.value,
+    default: defaultValue,
     name: 'CheckboxGroup',
     state: 'value',
   });
+  // Solid: a controlled value that becomes `undefined` reads as empty, as React's array spreads do.
+  const value = (): string[] => valueUnwrapped() ?? (EMPTY_ARRAY as string[]);
 
   const setValue = (v: string[], eventDetails: CheckboxGroup.ChangeEventDetails) => {
-    {
-      local.onValueChange?.(v, eventDetails);
+    local.onValueChange?.(v, eventDetails);
 
-      if (eventDetails.isCanceled) {
-        return;
-      }
+    if (eventDetails.isCanceled) {
+      return;
+    }
 
-      setValueUnwrapped(v);
-    };
+    setValueUnwrapped(v);
   };
 
   const parent = useCheckboxGroupParent({
     allValues: () => local.allValues,
-    onValueChange: setValue,
     value,
+    onValueChange: setValue,
   });
+
+  // The group is the field's control and takes its name from `aria-labelledby`, so `Field.Label`
+  // must not point `htmlFor` at one arbitrary checkbox inside the group.
+  useLabelableId({ id: null });
 
   const id = useBaseUiId(idProp);
+  const getInputControl = validation.getInputControl;
 
-  let controlRef: HTMLButtonElement | null | undefined = null;
-  const registerControlRef = (element: HTMLButtonElement | null | undefined) => {
-    if (controlRef == null && element != null && !element.hasAttribute(PARENT_CHECKBOX)) {
-      controlRef = element;
-    }
+  const controlRef: ReactLikeRef<HTMLElement | null> = {
+    get current() {
+      return getInputControl();
+    },
   };
 
-  useField({
-    commit: validation.commit,
-    controlRef: () => controlRef,
-    enabled: () => !!fieldName(),
-    getValue: value,
+  const getFormValue = () => {
+    const currentValue = untrack(value);
+    const formElement = elementRef.current;
+    if (!formElement) {
+      return currentValue;
+    }
+
+    const successfulValues = new Set<string>();
+    for (const [input, registration] of validation.registeredInputs) {
+      if (
+        registration.value !== undefined &&
+        input.checked &&
+        isEligibleInput(input, formElement)
+      ) {
+        successfulValues.add(registration.value);
+      }
+    }
+
+    return currentValue.filter((inputValue) => successfulValues.has(inputValue));
+  };
+
+  useRegisterFieldControl(
+    controlRef,
     id,
-    name: fieldName,
     value,
-  });
-
-  const resolvedValue = () => value() ?? EMPTY_ARRAY;
-
-  createEffect(...on(
-      resolvedValue,
-      () => {
-        {
-          if (fieldName()) {
-            clearErrors(fieldName());
-          }
-
-          const initialValue = Array.isArray(validityData.initialValue)
-            ? (validityData.initialValue as readonly string[])
-            : EMPTY_ARRAY;
-
-          setFilled(resolvedValue().length > 0);
-          setDirty(!areArraysEqual(resolvedValue(), initialValue));
-
-          if (shouldValidateOnChange()) {
-            validation.commit(resolvedValue());
-          } else {
-            validation.commit(resolvedValue(), true);
-          }
-        };
-      },
-      { defer: true },
-    ),
+    getFormValue,
+    () => !!fieldName() && !disabled(),
+    fieldName,
   );
 
-  const state: CheckboxGroup.State = solidMergeProps(fieldState, {
+  createEffect(
+    () => value().length > 0,
+    (filled) => {
+      setFilled(filled);
+    },
+  );
+
+  useValueChanged(value, () => {
+    const currentValue = untrack(value);
+    const currentFieldName = untrack(fieldName);
+    if (currentFieldName) {
+      clearErrors(currentFieldName);
+    }
+
+    const initialValue = Array.isArray(validityData.initialValue)
+      ? (validityData.initialValue as readonly string[])
+      : EMPTY_ARRAY;
+
+    setDirty(!areArraysEqual(currentValue, initialValue));
+
+    validation.change(currentValue);
+  });
+
+  const state: CheckboxGroupState = solidMergeProps(fieldState, {
     get disabled() {
       return disabled();
     },
@@ -133,43 +152,43 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
 
   const contextValue: CheckboxGroupContext = {
     allValues: () => local.allValues,
-    defaultValue: () => local.defaultValue,
-    disabled,
-    parent,
-    registerControlRef,
-    setValue,
-    validation,
     value,
+    setValue,
+    parent,
+    disabled,
+    validation,
+    registerControlId,
   };
 
   const element = useRenderElement('div', componentProps, {
+    state,
     props: [
       {
+        get id() {
+          return idProp();
+        },
         role: 'group',
         get 'aria-labelledby'() {
           return labelId();
         },
       },
-      getDescriptionProps,
       elementProps,
+      getDescriptionProps,
     ],
-    state,
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return (
-    <CheckboxGroupContext value={contextValue}>{element()}</CheckboxGroupContext>
-  );
+  return <CheckboxGroupContext value={contextValue}>{element()}</CheckboxGroupContext>;
 }
 
-export interface CheckboxGroupState extends FieldRoot.State {
+export interface CheckboxGroupState extends FieldRootState {
   /**
    * Whether the component should ignore user interaction.
    */
   disabled: boolean;
 }
 
-export interface CheckboxGroupProps extends BaseUIComponentProps<'div', CheckboxGroup.State> {
+export interface CheckboxGroupProps extends BaseUIComponentProps<'div', CheckboxGroupState> {
   /**
    * Names of the checkboxes in the group that should be ticked.
    *
@@ -187,8 +206,7 @@ export interface CheckboxGroupProps extends BaseUIComponentProps<'div', Checkbox
    * Provides the new value as an argument.
    */
   onValueChange?:
-    | ((value: string[], eventDetails: CheckboxGroupChangeEventDetails) => void)
-    | undefined;
+    ((value: string[], eventDetails: CheckboxGroupChangeEventDetails) => void) | undefined;
   /**
    * Names of all checkboxes in the group. Use this when creating a parent checkbox.
    */

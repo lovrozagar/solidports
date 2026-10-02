@@ -14,7 +14,7 @@ const dangerButtonClasses = `${buttonClasses} text-red-700 dark:text-red-400`;
 
 export default function AlertDialogDetachedTriggersControlledDemo() {
   const [open, setOpen] = createSignal(false);
-  const [triggerId, setTriggerId] = createSignal(null);
+  const [triggerId, setTriggerId] = createSignal<string | null>(null);
 
   const handleOpenChange = (isOpen: boolean, eventDetails: AlertDialog.Root.ChangeEventDetails) => {
     setOpen(isOpen);

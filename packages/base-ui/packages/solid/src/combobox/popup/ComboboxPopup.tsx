@@ -1,27 +1,22 @@
-import { createEffect, createMemo } from 'solid-js';
+import { createRenderEffect, createSignal } from 'solid-js';
 import { FloatingFocusManager } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps } from '../../solid-helpers';
-import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { popupStateMapping } from '../../utils/popupStateMapping';
-import { REASONS } from '../../utils/reasons';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import { BaseUIComponentProps } from '../../utils/types';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
-import { useAnimationFrame } from '../../utils/useAnimationFrame';
 import { InteractionType } from '../../utils/useEnhancedClickHandler';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useComboboxPositionerContext } from '../positioner/ComboboxPositionerContext';
-import {
-  useComboboxDerivedItemsContext,
-  useComboboxFloatingContext,
-  useComboboxRootContext,
-} from '../root/ComboboxRootContext';
-import { on } from '../../solid-1-compat';
+import { useComboboxFloatingContext, useComboboxRootContext } from '../root/ComboboxRootContext';
+import { getComboboxPopupId } from '../root/utils';
+import { ComboboxInternalDismissButton } from '../utils/ComboboxInternalDismissButton';
+import { useListEmpty } from '../utils/parts';
 
 const stateAttributesMapping: StateAttributesMapping<ComboboxPopup.State> = {
   ...popupStateMapping,
@@ -38,99 +33,94 @@ export function ComboboxPopup(componentProps: ComboboxPopup.Props) {
     'finalFocus',
   ]);
 
-  const { store } = useComboboxRootContext();
+  const store = useComboboxRootContext();
   const positioning = useComboboxPositionerContext();
-  const { context: floatingRootContext } = useComboboxFloatingContext();
-  const { filteredItems } = useComboboxDerivedItemsContext();
+  const floatingRootContext = useComboboxFloatingContext();
 
-  const mounted = store.useSelector('mounted');
-  const open = store.useSelector('open');
-  const openMethod = store.useSelector('openMethod');
+  const mounted = store.useState('mounted');
+  const open = store.useState('open');
+  const openMethod = store.useState('openMethod');
+  const popupProps = store.useState('popupProps');
   const transitionStatus = store.useState('transitionStatus');
   const inputInsidePopup = store.useState('inputInsidePopup');
-  const focusInputFrame = useAnimationFrame();
+  const inputElement = store.useState('inputElement');
+  const modal = store.useState('modal');
+  const rootId = store.useState('id');
 
-  const empty = () => filteredItems().length === 0;
+  const empty = useListEmpty();
+  const popupId = () =>
+    (elementProps as { id?: string | undefined }).id ??
+    (inputInsidePopup() ? getComboboxPopupId(rootId()) : undefined);
+
+  // Solid: refs are applied after this effect is created, so the element is tracked to read its
+  // rendered id once it exists (React's layout effect runs after the ref is attached).
+  const [popupElement, setPopupElement] = createSignal<HTMLDivElement | null | undefined>(null, {
+    ownedWrite: true,
+  });
+
+  createRenderEffect(
+    () => ({ id: popupId(), element: popupElement() }),
+    ({ id, element }) => {
+      // Prefer the rendered DOM id, which a `render` prop element or function may override.
+      store.set('popupId', element?.id || id);
+      return () => {
+        store.set('popupId', undefined);
+      };
+    },
+  );
 
   useOpenChangeComplete({
+    open,
+    ref: () => store.context.popupRef.current,
     onComplete() {
       if (open()) {
         store.context.onOpenChangeComplete(true);
       }
     },
-    open,
-    ref: () => store.state.popupRef,
   });
 
   const state: ComboboxPopup.State = {
-    get align() {
-      return positioning.align();
-    },
-    get anchorHidden() {
-      return positioning.anchorHidden();
-    },
-    get empty() {
-      return empty();
-    },
     get open() {
       return open();
     },
     get side() {
       return positioning.side();
     },
+    get align() {
+      return positioning.align();
+    },
+    get anchorHidden() {
+      return positioning.anchorHidden();
+    },
     get transitionStatus() {
       return transitionStatus();
     },
+    get empty() {
+      return empty();
+    },
   };
 
-  function handlePopupFocusExit(
-    currentTarget: EventTarget | null,
-    relatedTarget: EventTarget | null,
-  ) {
-    if (!inputInsidePopup()) {
-      return false;
-    }
-
-    const currentElement = currentTarget as Element | null;
-    const nextFocusedElement = relatedTarget as Element | null;
-    if (
-      contains(currentElement, nextFocusedElement) ||
-      contains(store.state.triggerElement, nextFocusedElement)
-    ) {
-      return false;
-    }
-
-    return true;
-  }
-
   const element = useRenderElement('div', componentProps, {
+    state,
+    ref: (el) => {
+      store.context.popupRef.current = el;
+      setPopupElement(el);
+    },
     get props() {
       return [
+        popupProps(),
         {
-          get role() {
-            return inputInsidePopup() ? 'dialog' : 'presentation';
-          },
-          tabindex: -1,
-          // React's `onFocus` bubbles, so focusing the listbox re-enters this handler and
-          // hands focus back to the input. In Solid, we need `focusin` to observe that
-          // descendant focus transition.
+          id: popupId(),
+          role: inputInsidePopup() ? 'dialog' : 'presentation',
+          // Solid: React's `onFocus` bubbles, so focusing the list re-enters this handler and
+          // hands focus back to the input; `focusin` observes that descendant focus.
           onFocusIn(event: FocusEvent) {
             const target = getTarget(event) as Element | null;
             if (
               openMethod() !== 'touch' &&
               (contains(store.state.listElement, target) || target === event.currentTarget)
             ) {
-              store.state.inputRef?.focus();
-            }
-          },
-          onFocusOut(event: FocusEvent) {
-            if (handlePopupFocusExit(event.currentTarget, event.relatedTarget)) {
-              store.context.setOpen(false, createChangeEventDetails(REASONS.focusOut, event));
-            }
-          },
-          onBlur(event: FocusEvent) {
-            if (handlePopupFocusExit(event.currentTarget, event.relatedTarget)) {
-              store.context.setOpen(false, createChangeEventDetails(REASONS.focusOut, event));
+              store.context.inputRef.current?.focus();
             }
           },
         },
@@ -138,71 +128,53 @@ export function ComboboxPopup(componentProps: ComboboxPopup.Props) {
         elementProps,
       ];
     },
-    ref: (el) => {
-      store.set('popupRef', el);
-    },
-    state,
     stateAttributesMapping,
   });
 
   // Default initial focus logic:
   // If opened by touch, focus the popup element to prevent the virtual keyboard from opening
   // (this is required for Android specifically as iOS handles this automatically).
-  // React can read the latest input element from rerendered state here. In Solid, the
-  // popup focus manager may run before the reactive `inputElement` path has propagated,
-  // so prefer the live imperative ref at focus time.
-  const computedDefaultInitialFocus = createMemo(() =>
+  const computedDefaultInitialFocus = () =>
     inputInsidePopup()
       ? (interactionType: InteractionType) =>
-          interactionType === 'touch' ? store.state.popupRef : store.state.inputRef
-      : false,
-  );
+          interactionType === 'touch' ? store.context.popupRef.current : inputElement()
+      : false;
 
-  const resolvedInitialFocus = createMemo(() =>
-    local.initialFocus === undefined ? computedDefaultInitialFocus() : local.initialFocus,
-  );
+  const resolvedInitialFocus = () =>
+    local.initialFocus === undefined ? computedDefaultInitialFocus() : local.initialFocus;
 
-  const resolvedFinalFocus = createMemo(() => {
+  const resolvedFinalFocus = () => {
     if (local.finalFocus != null) {
       return local.finalFocus;
     }
-
     return inputInsidePopup() ? undefined : false;
-  });
+  };
 
-  createEffect(...on([open, inputInsidePopup, openMethod, () => local.initialFocus], () => {
-      if (
-        !open() ||
-        !inputInsidePopup() ||
-        openMethod() === 'touch' ||
-        local.initialFocus != null
-      ) {
-        return;
-      }
-
-      // React's focus manager path reliably wins the trigger's native button focus on open.
-      // In Solid, that native focus can persist through the same click, so hand focus to the
-      // popup input once it has mounted when using the default initial focus behavior.
-      queueMicrotask(() => {
-        focusInputFrame.request(() => {
-          if (open()) {
-            store.state.inputRef?.focus();
-          }
-        });
-      });
-    }),
-  );
+  const focusManagerModal = () => !inputInsidePopup() || modal();
 
   return (
     <FloatingFocusManager
       context={floatingRootContext}
       disabled={!mounted()}
-      modal={!inputInsidePopup()}
+      modal={focusManagerModal()}
       openInteractionType={openMethod()}
       initialFocus={resolvedInitialFocus()}
       returnFocus={resolvedFinalFocus()}
+      getInsideElements={() => [
+        store.context.startDismissRef.current,
+        store.context.endDismissRef.current,
+      ]}
     >
-      {element()}
+      <>
+        {element()}
+        {focusManagerModal() && (
+          <ComboboxInternalDismissButton
+            ref={(el) => {
+              store.context.endDismissRef.current = el;
+            }}
+          />
+        )}
+      </>
     </FloatingFocusManager>
   );
 }

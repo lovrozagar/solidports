@@ -1,9 +1,8 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { Show } from 'solid-js';
+import { omit, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Portal } from '@solidjs/web';
 import { useFloatingPortalNode, type FloatingPortal } from '../floating-ui-solid';
-import { splitProps } from '../solid-1-compat';
 
 /**
  * `FloatingPortal` includes tabbable logic handling for focus management.
@@ -11,45 +10,27 @@ import { splitProps } from '../solid-1-compat';
  * @internal
  */
 export function FloatingPortalLite(componentProps: FloatingPortalLite.Props<any>): JSX.Element {
-  const [local, , elementProps] = splitProps(
+  const elementProps = omit(
     componentProps,
-    ['container', 'class', 'render', 'style'],
-    ['children'],
+    'render',
+    'class',
+    'style',
+    'children',
+    'container',
+    'ref',
   );
 
-  const { portalNode, containerElement, uniqueId, registerHost } = useFloatingPortalNode({
-    componentProps: local,
+  const { node: portalNode, subtree: portalSubtree } = useFloatingPortalNode({
     get container() {
-      return local.container;
+      return componentProps.container;
     },
+    componentProps,
     elementProps,
-    ref: (el) => {
-      if (typeof componentProps.ref === 'function') {
-        componentProps.ref(el);
-      } else if (
-        componentProps.ref !== null &&
-        componentProps.ref !== undefined &&
-        typeof componentProps.ref === 'object' &&
-        'current' in componentProps.ref
-      ) {
-        (componentProps.ref as { current: unknown }).current = el;
-      } else {
-        (componentProps as { ref: HTMLDivElement | null | undefined }).ref = el ?? null;
-      }
-    },
   });
 
   return (
     <>
-      <Portal mount={containerElement() as HTMLElement | undefined}>
-        <div
-          id={uniqueId()}
-          class={local.class}
-          style={local.style}
-          {...{ ['data-base-ui-portal']: '' }}
-          ref={registerHost}
-        />
-      </Portal>
+      {portalSubtree()}
       <Show when={portalNode()} keyed>
         {(node) => <Portal mount={node}>{componentProps.children}</Portal>}
       </Show>

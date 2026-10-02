@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal, For } from 'solid-js';
 
@@ -721,5 +721,50 @@ describe('<Select.Value />', () => {
 
       expect(screen.getByTestId('placeholder')).to.have.text('Select an option');
     });
+  });
+
+  it('supports ReactNode labels in items array', async () => {
+    const items = [
+      { value: 'bold', label: <strong>Bold Text</strong> },
+      { value: 'italic', label: <em>Italic Text</em> },
+    ];
+
+    render(() => (
+      <Select.Root value="bold" items={items}>
+        <Select.Value data-testid="value" />
+      </Select.Root>
+    ));
+
+    expect(screen.getByTestId('value').querySelector('strong')).toHaveTextContent('Bold Text');
+  });
+
+  it('displays placeholder when object items do not have a null key', async () => {
+    const items = {
+      option1: 'Option 1',
+      option2: 'Option 2',
+    };
+
+    render(() => (
+      <Select.Root items={items}>
+        <Select.Value data-testid="value" placeholder="Select an option" />
+      </Select.Root>
+    ));
+
+    expect(screen.getByTestId('value')).toHaveTextContent('Select an option');
+  });
+
+  it('null key label in object items takes precedence over placeholder', async () => {
+    const items = {
+      null: 'None',
+      option1: 'Option 1',
+    };
+
+    render(() => (
+      <Select.Root items={items}>
+        <Select.Value data-testid="value" placeholder="Select an option" />
+      </Select.Root>
+    ));
+
+    expect(screen.getByTestId('value')).toHaveTextContent('None');
   });
 });

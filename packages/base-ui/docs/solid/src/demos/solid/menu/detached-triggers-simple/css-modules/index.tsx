@@ -31,7 +31,7 @@ export default function MenuDetachedTriggersSimpleDemo() {
   );
 }
 
-function EllipsisHorizontalIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function EllipsisHorizontalIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

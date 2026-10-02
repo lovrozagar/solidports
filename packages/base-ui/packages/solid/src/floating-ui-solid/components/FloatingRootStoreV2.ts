@@ -1,3 +1,4 @@
+import { untrack } from 'solid-js';
 
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { PopupTriggerMap } from '../../utils/popups';
@@ -5,11 +6,13 @@ import { SolidStore } from '../../utils/store/SolidStoreV2';
 import type { FloatingUIOpenChangeDetails } from '../../utils/types';
 import type { ContextData, FloatingEvents, ReferenceType } from '../types';
 import { createEventEmitter } from '../utils/createEventEmitter';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { isClickLikeEvent } from '../utils/event';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export interface FloatingRootState {
   open: boolean;
+  transitionStatus: TransitionStatus | undefined;
   domReferenceElement: Element | null | undefined;
   referenceElement: ReferenceType | null | undefined;
   floatingElement: HTMLElement | null | undefined;
@@ -20,8 +23,7 @@ export interface FloatingRootState {
 
 export interface FloatingRootStoreContext {
   onOpenChange:
-    | ((open: boolean, eventDetails: BaseUIChangeEventDetails<string>) => void)
-    | undefined;
+    ((open: boolean, eventDetails: BaseUIChangeEventDetails<string>) => void) | undefined;
   readonly dataRef: ContextData;
   readonly events: FloatingEvents;
   nested: boolean;
@@ -35,10 +37,12 @@ const selectors = {
   floatingId: (state: FloatingRootState) => state.floatingId,
   open: (state: FloatingRootState) => state.open,
   referenceElement: (state: FloatingRootState) => state.positionReference ?? state.referenceElement,
+  transitionStatus: (state: FloatingRootState) => state.transitionStatus,
 };
 
 interface FloatingRootStoreOptions {
   open: boolean;
+  transitionStatus?: TransitionStatus | undefined;
   referenceElement: ReferenceType | null | undefined;
   floatingElement: HTMLElement | null | undefined;
   floatingId: string | undefined;
@@ -49,30 +53,70 @@ interface FloatingRootStoreOptions {
   /** Non-reactive */
   syncOnly: boolean;
   onOpenChange:
-    | ((open: boolean, eventDetails: BaseUIChangeEventDetails<string>) => void)
-    | undefined;
+    ((open: boolean, eventDetails: BaseUIChangeEventDetails<string>) => void) | undefined;
 }
 
 export function FloatingRootStore(options: FloatingRootStoreOptions) {
+  // Options are initial values (callers keep them in sync afterwards), so read them untracked.
+  const [initialState, initialContext] = untrack(
+    () =>
+      [
+        {
+          domReferenceElement: options.referenceElement as Element | null | undefined,
+          floatingElement: options.floatingElement,
+          floatingId: options.floatingId,
+          open: options.open,
+          positionReference: options.referenceElement,
+          referenceElement: options.referenceElement,
+          transitionStatus: options.transitionStatus,
+        },
+        {
+          dataRef: {},
+          events: createEventEmitter(),
+          nested: options.nested,
+          onOpenChange: options.onOpenChange,
+          syncOnly: options.syncOnly,
+          triggerElements: options.triggerElements,
+        },
+      ] as const,
+  );
   const store = SolidStore<FloatingRootState, FloatingRootStoreContext, typeof selectors>(
-    {
-      domReferenceElement: options.referenceElement as Element | null | undefined,
-      floatingElement: options.floatingElement,
-      floatingId: options.floatingId,
-      open: options.open,
-      positionReference: options.referenceElement,
-      referenceElement: options.referenceElement,
-    },
-    {
-      dataRef: {},
-      events: createEventEmitter(),
-      nested: options.nested,
-      onOpenChange: options.onOpenChange,
-      syncOnly: options.syncOnly,
-      triggerElements: options.triggerElements,
-    },
+    initialState,
+    initialContext,
     selectors,
   );
+
+  /**
+   * Syncs the event used by hover logic to distinguish hover-open from click-like interaction.
+   */
+  function syncOpenEvent(newOpen: boolean, event: Event | undefined) {
+    if (
+      !newOpen ||
+      !store.state.open ||
+      // Prevent a pending hover-open from overwriting a click-open event, while allowing
+      // click events to upgrade a hover-open.
+      (event != null && isClickLikeEvent(event))
+    ) {
+      store.context.dataRef.openEvent = newOpen ? event : undefined;
+    }
+  }
+
+  /**
+   * Runs the root-owned side effects for an open state change.
+   */
+  function dispatchOpenChange(newOpen: boolean, eventDetails: BaseUIChangeEventDetails<string>) {
+    syncOpenEvent(newOpen, eventDetails.event);
+
+    const details: FloatingUIOpenChangeDetails = {
+      open: newOpen,
+      reason: eventDetails.reason,
+      nativeEvent: eventDetails.event,
+      nested: store.context.nested,
+      triggerElement: eventDetails.trigger,
+    };
+
+    store.context.events.emit('openchange', details);
+  }
 
   /**
    * Emits the `openchange` event through the internal event emitter and calls the `onOpenChange` handler with the provided arguments.
@@ -81,31 +125,18 @@ export function FloatingRootStore(options: FloatingRootStoreOptions) {
    * @param eventDetails Details about the event that triggered the open state change.
    */
   function setOpen(newOpen: boolean, eventDetails: BaseUIChangeEventDetails<string>) {
-    if (
-      !newOpen ||
-      !store.state.open ||
-      // Prevent a pending hover-open from overwriting a click-open event, while allowing
-      // click events to upgrade a hover-open.
-      isClickLikeEvent(eventDetails.event)
-    ) {
-      store.context.dataRef.openEvent = newOpen ? eventDetails.event : undefined;
+    // A popup-synced root only forwards: the popup store owns `dispatchOpenChange(...)`.
+    if (store.context.syncOnly) {
+      store.context.onOpenChange?.(newOpen, eventDetails);
+      return;
     }
-    if (!store.context.syncOnly) {
-      const details: FloatingUIOpenChangeDetails = {
-        nativeEvent: eventDetails.event,
-        nested: store.context.nested,
-        open: newOpen,
-        reason: eventDetails.reason,
-        triggerElement: eventDetails.trigger,
-      };
 
-      store.context.events.emit('openchange', details);
-    }
+    dispatchOpenChange(newOpen, eventDetails);
 
     store.context.onOpenChange?.(newOpen, eventDetails);
   }
 
-  const merged = solidMergeProps(store, { setOpen });
+  const merged = solidMergeProps(store, { dispatchOpenChange, setOpen, syncOpenEvent });
   return merged;
 }
 

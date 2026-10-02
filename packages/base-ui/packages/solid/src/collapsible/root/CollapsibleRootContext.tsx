@@ -1,13 +1,10 @@
 import { createContext, useContext } from 'solid-js';
-import type { Accessor } from 'solid-js';
-import type { TransitionStatus } from '../../utils/useTransitionStatus';
-import type { CollapsibleRoot } from './CollapsibleRoot';
-import type { useCollapsibleRoot } from './useCollapsibleRoot';
+import type { UseCollapsibleRootReturnValue } from './useCollapsibleRoot';
+import type { CollapsibleRoot, CollapsibleRootState } from './CollapsibleRoot';
 
-export interface CollapsibleRootContext extends useCollapsibleRoot.ReturnValue {
+export interface CollapsibleRootContext extends UseCollapsibleRootReturnValue {
   onOpenChange: (open: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => void;
-  state: CollapsibleRoot.State;
-  transitionStatus: Accessor<TransitionStatus>;
+  state: CollapsibleRootState;
 }
 
 export const CollapsibleRootContext = createContext<CollapsibleRootContext | null>(null);

@@ -2,7 +2,7 @@ import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { createSignal } from 'solid-js';
 
 describe('<Field.Error />', () => {
@@ -60,7 +60,7 @@ describe('<Field.Error />', () => {
       render(() => (
         <Form>
           <Field.Root>
-            <Field.Control required minLength={2} />
+            <Field.Control required minlength={2} />
             <Field.Error match="valueMissing">Message</Field.Error>
           </Field.Root>
           <button type="submit">submit</button>
@@ -102,6 +102,199 @@ describe('<Field.Error />', () => {
 
       fireEvent.click(screen.getByText('submit'));
       expect(screen.queryByText('Message')).not.to.equal(null);
+    });
+
+    it('uses `match={false}` as the default slot for Form errors', async () => {
+      render(() => (
+        <Form errors={{ username: 'Username is reserved' }}>
+          <Field.Root name="username">
+            <Field.Control defaultValue="admin" required minlength={8} pattern="[a-z]+" />
+            <Field.Error match="valueMissing">Username is required.</Field.Error>
+            <Field.Error match="tooShort">Username must be at least 8 characters.</Field.Error>
+            <Field.Error match="patternMismatch">
+              Username can only include lowercase letters.
+            </Field.Error>
+            <Field.Error data-testid="default-error" match={false} />
+          </Field.Root>
+        </Form>
+      ));
+
+      expect(screen.queryByText('Username is required.')).toBe(null);
+      expect(screen.queryByText('Username must be at least 8 characters.')).toBe(null);
+      expect(screen.queryByText('Username can only include lowercase letters.')).toBe(null);
+      expect(screen.getByTestId('default-error')).toHaveTextContent('Username is reserved');
+    });
+
+    it('uses an omitted `match` as the default slot for Form errors', async () => {
+      render(() => (
+        <Form errors={{ username: 'Username is reserved' }}>
+          <Field.Root name="username">
+            <Field.Control defaultValue="admin" required minlength={8} pattern="[a-z]+" />
+            <Field.Error match="valueMissing">Username is required.</Field.Error>
+            <Field.Error match="tooShort">Username must be at least 8 characters.</Field.Error>
+            <Field.Error match="patternMismatch">
+              Username can only include lowercase letters.
+            </Field.Error>
+            <Field.Error data-testid="default-error" />
+          </Field.Root>
+        </Form>
+      ));
+
+      expect(screen.queryByText('Username is required.')).toBe(null);
+      expect(screen.queryByText('Username must be at least 8 characters.')).toBe(null);
+      expect(screen.queryByText('Username can only include lowercase letters.')).toBe(null);
+      expect(screen.getByTestId('default-error')).toHaveTextContent('Username is reserved');
+    });
+
+    it('uses the Field.Control name fallback for Form errors', async () => {
+      render(() => (
+        <Form errors={{ email: 'Email is already taken' }}>
+          <Field.Root>
+            <Field.Control name="email" />
+            <Field.Error data-testid="default-error" />
+          </Field.Root>
+        </Form>
+      ));
+
+      const control = screen.getByRole('textbox');
+
+      expect(control).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.getByTestId('default-error')).toHaveTextContent('Email is already taken');
+
+      fireEvent.input(control, { target: { value: 'next@example.com' } });
+
+      expect(control).not.toHaveAttribute('aria-invalid');
+      expect(screen.queryByTestId('default-error')).toBe(null);
+    });
+
+    it('ignores inherited Form error properties', async () => {
+      render(() => (
+        <Form errors={{}}>
+          <Field.Root name="constructor">
+            <Field.Control />
+            <Field.Error data-testid="default-error" />
+          </Field.Root>
+        </Form>
+      ));
+
+      expect(screen.getByRole('textbox')).not.toHaveAttribute('aria-invalid');
+      expect(screen.queryByTestId('default-error')).toBe(null);
+    });
+
+    it('renders Form error arrays as a list', async () => {
+      render(() => (
+        <Form errors={{ username: ['Username is reserved', 'Username is too short'] }}>
+          <Field.Root name="username">
+            <Field.Control defaultValue="admin" />
+            <Field.Error data-testid="default-error" />
+          </Field.Root>
+        </Form>
+      ));
+
+      const list = screen.getByTestId('default-error').querySelector('ul');
+      expect(list).not.toBe(null);
+      expect(list?.querySelectorAll('li')).toHaveLength(2);
+      expect(screen.getByText('Username is reserved')).not.toBe(null);
+      expect(screen.getByText('Username is too short')).not.toBe(null);
+    });
+
+    it('renders single-item Form error arrays as text', async () => {
+      render(() => (
+        <Form errors={{ username: ['Username is reserved'] }}>
+          <Field.Root name="username">
+            <Field.Control defaultValue="admin" />
+            <Field.Error data-testid="default-error" />
+          </Field.Root>
+        </Form>
+      ));
+
+      expect(screen.getByTestId('default-error').querySelector('ul')).toBe(null);
+      expect(screen.getByTestId('default-error')).toHaveTextContent('Username is reserved');
+    });
+
+    it('renders client validation error arrays as a list', async () => {
+      render(() => (
+        <Form>
+          <Field.Root validate={() => ['First error', 'Second error']}>
+            <Field.Control />
+            <Field.Error data-testid="default-error" />
+          </Field.Root>
+          <button type="submit">submit</button>
+        </Form>
+      ));
+
+      fireEvent.click(screen.getByText('submit'));
+
+      const list = screen.getByTestId('default-error').querySelector('ul');
+      expect(list).not.toBe(null);
+      expect(list?.querySelectorAll('li')).toHaveLength(2);
+      expect(screen.getByText('First error')).not.toBe(null);
+      expect(screen.getByText('Second error')).not.toBe(null);
+    });
+
+    it('does not register an empty error id', async () => {
+      render(() => (
+        <Field.Root invalid>
+          <Field.Control aria-describedby="external-description" />
+          <Field.Error id="">Message</Field.Error>
+        </Field.Root>
+      ));
+
+      expect(screen.getByRole('textbox')).toHaveAttribute(
+        'aria-describedby',
+        'external-description',
+      );
+    });
+
+    it('ignores empty Form error arrays', async () => {
+      render(() => (
+        <Form errors={{ username: [] }}>
+          <Field.Root name="username">
+            <Field.Control defaultValue="admin" />
+            <Field.Error data-testid="default-error" />
+          </Field.Root>
+        </Form>
+      ));
+
+      expect(screen.queryByTestId('default-error')).toBe(null);
+      expect(screen.getByRole('textbox')).not.toHaveAttribute('aria-invalid');
+    });
+
+    it('uses `match={false}` as the default slot for client validation errors', async () => {
+      render(() => (
+        <Form>
+          <Field.Root>
+            <Field.Control required />
+            <Field.Error data-testid="default-error" match={false} />
+          </Field.Root>
+          <button type="submit">submit</button>
+        </Form>
+      ));
+
+      expect(screen.queryByTestId('default-error')).toBe(null);
+
+      fireEvent.click(screen.getByText('submit'));
+
+      expect(screen.getByTestId('default-error')).not.toBe(null);
+    });
+
+    it('uses the client validation path for specific matches when Form errors are present', async () => {
+      render(() => (
+        <Form errors={{ username: 'Username is reserved' }}>
+          <Field.Root name="username" validate={() => 'Client validation error'}>
+            <Field.Control />
+            <Field.Error data-testid="custom-error" match="customError" />
+            <Field.Error data-testid="default-error" />
+          </Field.Root>
+          <button type="submit">submit</button>
+        </Form>
+      ));
+
+      fireEvent.click(screen.getByText('submit'));
+
+      expect(screen.getByTestId('custom-error')).toHaveTextContent('Client validation error');
+      expect(screen.getByTestId('custom-error')).not.toHaveTextContent('Username is reserved');
+      expect(screen.getByTestId('default-error')).toHaveTextContent('Username is reserved');
     });
 
     it('always renders the error message when `match` is true', async () => {

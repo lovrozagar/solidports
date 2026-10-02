@@ -1,7 +1,7 @@
 import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { mergeProps } from '../../merge-props';
-import { HTMLProps, type BaseUIHTMLProps } from '../../utils/types';
+import { mergeProps } from '../../solid-1-compat';
+import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { LabelableContext, useLabelableContext } from './LabelableContext';
 
@@ -11,11 +11,19 @@ import { LabelableContext, useLabelableContext } from './LabelableContext';
 export function LabelableProvider(props: LabelableProvider.Props) {
   const defaultId = useBaseUiId();
 
-  const [controlId, setControlIdState] = createSignal<string | null | undefined>(
-    props.initialControlId === undefined ? defaultId() : props.initialControlId,
-  );
-  const [labelId, setLabelId] = createSignal<string | undefined>(undefined);
-  const [messageIds, setMessageIds] = createSignal<string[]>([]);
+  // Solid: `ownedWrite` because controls unregister from their unmount cleanups.
+  const [controlIdState, setControlIdState] = createSignal<string | null | undefined>(undefined, {
+    ownedWrite: true,
+  });
+  const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
+  const [messageIds, setMessageIds] = createSignal<string[]>([], { ownedWrite: true });
+
+  // `undefined` only survives until the first registration. Do not use `??`:
+  // `null` deliberately suppresses `htmlFor`.
+  const controlId = () => {
+    const current = controlIdState();
+    return current === undefined ? defaultId() : current;
+  };
 
   const registrationsRef = new Map<symbol, string | null>();
 
@@ -26,23 +34,23 @@ export function LabelableProvider(props: LabelableProvider.Props) {
 
     if (nextId === undefined) {
       registrations.delete(source);
-      return;
+    } else {
+      registrations.set(source, nextId);
     }
 
-    registrations.set(source, nextId);
-
-    // Only flush when registering, not when unregistering.
-    // This prevents loops during rapid unmount/remount cycles (e.g. React Activity).
-    // The next registration will pick up the correct state.
     setControlIdState((prev) => {
       if (registrations.size === 0) {
-        return undefined;
+        // A hidden subtree (React Activity, a re-suspending Suspense) destroys effects but keeps
+        // its DOM, so preserve its selected control.
+        return prev;
       }
 
       let nextControlId: string | null | undefined;
 
       for (const id of registrations.values()) {
-        if (prev !== undefined && id === prev) {
+        // Keep the current selection while it is still registered, so rapid unmount/remount
+        // cycles don't churn it.
+        if (id === prev) {
           return prev;
         }
 
@@ -55,37 +63,44 @@ export function LabelableProvider(props: LabelableProvider.Props) {
     });
   };
 
-  const getDescriptionProps = (externalProps: HTMLProps | BaseUIHTMLProps) => {
-    return mergeProps(
-      {
-        get 'aria-describedby'() {
-          return parentMessageIds().concat(messageIds()).join(' ') || undefined;
-        },
-      },
-      externalProps,
-    );
+  const resetControlId = () => {
+    if (registrationsRef.size === 0) {
+      setControlIdState(undefined);
+    }
   };
+
+  // Solid: the merged view keeps `aria-describedby` live as message ids register.
+  const getDescriptionProps = (externalProps: HTMLProps | BaseUIHTMLProps) =>
+    mergeProps(externalProps, {
+      get 'aria-describedby'() {
+        const external = (externalProps as Record<string, unknown>)['aria-describedby'];
+        const ids = typeof external === 'string' && external ? external.split(' ') : [];
+        ids.push(...parentMessageIds(), ...messageIds());
+        return Array.from(new Set(ids)).join(' ') || undefined;
+      },
+    }) as BaseUIHTMLProps;
 
   const contextValue: LabelableContext = {
     controlId,
-    getDescriptionProps,
-    labelId,
-    messageIds,
     registerControlId,
+    resetControlId,
+    labelId,
     setLabelId,
+    messageIds,
     setMessageIds,
+    getDescriptionProps,
   };
 
-  return (
-    <LabelableContext value={contextValue}>{props.children}</LabelableContext>
-  );
+  return <LabelableContext value={contextValue}>{props.children}</LabelableContext>;
 }
 
+export interface LabelableProviderState {}
+
 export interface LabelableProviderProps {
-  initialControlId?: string | null | undefined;
   children?: JSX.Element;
 }
 
 export namespace LabelableProvider {
+  export type State = LabelableProviderState;
   export type Props = LabelableProviderProps;
 }

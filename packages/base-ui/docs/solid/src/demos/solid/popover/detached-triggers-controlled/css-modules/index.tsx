@@ -8,7 +8,7 @@ const demoPopover = Popover.createHandle();
 
 export default function PopoverDetachedTriggersControlledDemo() {
   const [open, setOpen] = createSignal(false);
-  const [triggerId, setTriggerId] = createSignal(null);
+  const [triggerId, setTriggerId] = createSignal<string | null>(null);
 
   const handleOpenChange = (isOpen: boolean, eventDetails: Popover.Root.ChangeEventDetails) => {
     setOpen(isOpen);

@@ -1,4 +1,4 @@
-import { onCleanup, onSettled } from 'solid-js';
+import { onSettled } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -18,18 +18,15 @@ export function ToastContent(componentProps: ToastContent.Props) {
   let contentRef: HTMLDivElement | null | undefined;
 
   onSettled(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
     const node = contentRef;
     if (!node) {
-      return;
+      return undefined;
     }
 
     recalculateHeight();
 
     if (typeof ResizeObserver !== 'function' || typeof MutationObserver !== 'function') {
-      return;
+      return undefined;
     }
 
     const resizeObserver = new ResizeObserver(() => recalculateHeight(true));
@@ -38,17 +35,11 @@ export function ToastContent(componentProps: ToastContent.Props) {
     resizeObserver.observe(node);
     mutationObserver.observe(node, { characterData: true, childList: true, subtree: true });
 
-    _c.push(() => {
+    return () => {
       resizeObserver.disconnect();
       mutationObserver.disconnect();
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
     };
-});
+  });
 
   const behind = () => visibleIndex() > 0;
 

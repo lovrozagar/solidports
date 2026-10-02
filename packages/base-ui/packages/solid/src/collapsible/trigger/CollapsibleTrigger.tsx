@@ -6,10 +6,10 @@ import type { StateAttributesMapping } from '../../utils/getStateAttributesProps
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { CollapsibleRoot } from '../root/CollapsibleRoot';
 import { useCollapsibleRootContext } from '../root/CollapsibleRootContext';
+import { type CollapsibleRootState } from '../root/CollapsibleRoot';
 
-const stateAttributesMapping: StateAttributesMapping<CollapsibleRoot.State> = {
+const stateAttributesMapping: StateAttributesMapping<CollapsibleRootState> = {
   ...triggerOpenStateMapping,
   ...transitionStatusMapping,
 };
@@ -21,22 +21,19 @@ const stateAttributesMapping: StateAttributesMapping<CollapsibleRoot.State> = {
  * Documentation: [Base UI Collapsible](https://base-ui.com/react/components/collapsible)
  */
 export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JSX.Element {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'disabled',
-    'id',
-    'nativeButton',
-  ]);
   const {
     panelId,
     open,
     handleTrigger,
-    disabled: contextDisabled,
     state,
+    disabled: contextDisabled,
   } = useCollapsibleRootContext();
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
-  const disabled = () => local.disabled ?? contextDisabled();
 
-  const button = useButton({
+  const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
+  const disabled = () => local.disabled ?? contextDisabled();
+  const nativeButton = () => local.nativeButton ?? true;
+
+  const { getButtonProps, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: true,
     native: nativeButton,
@@ -53,18 +50,21 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
   };
 
   const element = useRenderElement('button', componentProps, {
-    props: [props, elementProps, button.getButtonProps],
-    ref: button.buttonRef,
     state,
+    ref: buttonRef,
+    props: [props, elementProps, getButtonProps],
     stateAttributesMapping,
   });
 
   return <>{element()}</>;
 }
 
+export interface CollapsibleTriggerState extends CollapsibleRootState {}
+
 export interface CollapsibleTriggerProps
-  extends NativeButtonProps, BaseUIComponentProps<'button', CollapsibleRoot.State> {}
+  extends NativeButtonProps, BaseUIComponentProps<'button', CollapsibleTriggerState> {}
 
 export namespace CollapsibleTrigger {
+  export type State = CollapsibleTriggerState;
   export type Props = CollapsibleTriggerProps;
 }

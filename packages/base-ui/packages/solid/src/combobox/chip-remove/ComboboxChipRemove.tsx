@@ -19,12 +19,12 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
   const disabledProp = () => Boolean(local.disabled);
   const nativeButton = () => Boolean(local.nativeButton ?? true);
 
-  const { store } = useComboboxRootContext();
+  const store = useComboboxRootContext();
   const { index } = useComboboxChipContext();
 
-  const comboboxDisabled = store.useSelector('disabled');
-  const readOnly = store.useSelector('readOnly');
-  const selectedValue = store.useSelector('selectedValue');
+  const comboboxDisabled = store.useState('disabled');
+  const readOnly = store.useState('readOnly');
+  const selectedValue = store.useState('selectedValue');
 
   const disabled = () => comboboxDisabled() || disabledProp();
 
@@ -50,14 +50,14 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
     // Try current visible list first; if not found, it's filtered out.
     // No need to clear highlight in that case since it can't equal activeIndex.
     const removedIndex = findItemIndex(
-      store.context.valuesRef,
+      store.context.valuesRef.current,
       removedItem,
-      store.context.isItemEqualToValue,
+      store.state.isItemEqualToValue,
     );
     if (removedIndex !== -1 && activeIndex === removedIndex) {
       store.context.setIndices({
         activeIndex: null,
-        type: store.state.keyboardActiveRef ? 'keyboard' : 'pointer',
+        type: store.context.keyboardActiveRef.current ? 'keyboard' : 'pointer',
       });
     }
   }
@@ -75,7 +75,7 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
       eventDetails,
     );
 
-    store.state.inputRef?.focus();
+    store.context.inputRef.current?.focus();
     return eventDetails;
   }
 
@@ -83,6 +83,9 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
     props: [
       {
         tabindex: -1,
+        onMouseDown(event: MouseEvent) {
+          event.preventDefault();
+        },
         onClick(event: MouseEvent) {
           if (disabled() || readOnly()) {
             return;

@@ -1,172 +1,217 @@
 /* eslint-disable typescript/no-explicit-any -- combobox value type is generic at the component boundary but erased here; carrying `Value` through store context would require parameterizing every selector */
-import { createMemo } from 'solid-js';
 import type { Accessor } from 'solid-js';
-
-import { compareItemEquality } from '../utils/itemEquality';
-import { hasNullItemLabel } from '../utils/resolveValueLabel';
-import type { HTMLProps } from '../utils/types';
-import type { Side } from '../utils/useAnchorPositioning';
 import type { InteractionType } from '../utils/useEnhancedClickHandler';
 import type { TransitionStatus } from '../utils/useTransitionStatus';
+import type { HTMLProps } from '../utils/types';
+import type { Side } from '../utils/useAnchorPositioning';
+import type { ReactLikeRef } from '../solid-helpers';
+import type { SolidStore } from '../utils/store/SolidStoreV2';
+import { compareItemEquality } from '../utils/itemEquality';
+import { hasNullItemLabel } from '../utils/resolveValueLabel';
 import type { AriaCombobox } from './root/AriaCombobox';
-import { createSelector, mergeProps as solidMergeProps, createStore } from '../solid-1-compat';
 
-// only fields that are mutated via store setter
-export interface State {
+export type State = {
+  id: string | undefined;
+  labelId: string | undefined;
+
+  items: readonly any[] | undefined;
+
+  selectedValue: any;
+
+  open: boolean;
+  mounted: boolean;
+  transitionStatus: TransitionStatus;
+  forceMounted: boolean;
+
+  inline: boolean;
+
   activeIndex: number | null;
   selectedIndex: number | null;
-  forceMounted: boolean;
-  transitionStatus: TransitionStatus;
+
+  popupProps: HTMLProps;
+  listProps: HTMLProps;
+  inputProps: HTMLProps;
+  triggerProps: HTMLProps;
+  itemProps: HTMLProps;
+
   positionerElement: HTMLElement | null | undefined;
   listElement: HTMLElement | null | undefined;
-  listboxId: string | undefined;
+  /**
+   * Solid-specific: the id of the element acting as the listbox. React reads `listElement.id`
+   * during render; in Solid the element can exist before its `id` attribute is applied, and that
+   * DOM write is not reactive, so the list publishes its id here for `aria-controls`.
+   */
+  listId: string | undefined;
+  popupId: string | undefined;
   triggerElement: HTMLElement | null | undefined;
   inputElement: HTMLInputElement | null | undefined;
   inputGroupElement: HTMLDivElement | null | undefined;
   popupSide: Side | null;
+
+  openMethod: InteractionType | null;
+
   inputInsidePopup: boolean;
-  popupRef: HTMLDivElement | null | undefined;
-  emptyRef: HTMLDivElement | null | undefined;
-  inputRef: HTMLInputElement | null | undefined;
-  keyboardActiveRef: boolean;
-  selectionEventRef: MouseEvent | PointerEvent | KeyboardEvent | null;
-  chipsContainerRef: HTMLDivElement | null | undefined;
-  clearRef: HTMLButtonElement | null | undefined;
-}
+  inputOwnsFormValue: boolean;
 
-// imperative callbacks only
-export interface Context {
-  setOpen: (open: boolean, eventDetails: AriaCombobox.ChangeEventDetails) => void;
-  setInputValue: (value: string, eventDetails: AriaCombobox.ChangeEventDetails) => void;
-  setSelectedValue: (value: any, eventDetails: AriaCombobox.ChangeEventDetails) => void;
-  setIndices: (indices: {
-    activeIndex?: (number | null) | undefined;
-    selectedIndex?: (number | null) | undefined;
-    type?: ('keyboard' | 'pointer' | 'none') | undefined;
-  }) => void;
-  onItemHighlighted: (item: any, eventDetails: AriaCombobox.HighlightEventDetails) => void;
-  forceMount: () => void;
-  handleSelection: (event: MouseEvent | PointerEvent | KeyboardEvent, passedValue?: any) => void;
-  getItemProps: (
-    props?: HTMLProps & { active?: boolean | undefined; selected?: boolean | undefined },
-  ) => Record<string, unknown>;
-  requestSubmit: () => void;
-  onOpenChangeComplete: (open: boolean) => void;
-  itemToStringLabel: ((item: any) => string) | undefined;
+  selectionMode: 'single' | 'multiple' | 'none';
+
+  name: string | undefined;
+  form: string | undefined;
+  disabled: boolean;
+  readOnly: boolean;
+  required: boolean;
+  grid: boolean;
+  virtualized: boolean;
+  openOnInputClick: boolean;
+  itemToStringLabel?: ((item: any) => string) | undefined;
   isItemEqualToValue: (itemValue: any, selectedValue: any) => boolean;
-  listRef: Array<HTMLElement | null | undefined>;
-  labelsRef: Array<string | null>;
-  valuesRef: Array<any>;
-  allValuesRef: Array<any>;
-}
+  modal: boolean;
+  autoHighlight: false | 'always' | 'input-change';
+  submitOnItemClick: boolean;
+  hasInputValue: boolean;
+};
 
-// prop pass-throughs supplied by AriaCombobox
-export interface PassThroughs {
-  id: Accessor<string | undefined>;
-  open: Accessor<boolean>;
-  query: Accessor<string>;
-  selectionMode: Accessor<'single' | 'multiple' | 'none'>;
-  name: Accessor<string | undefined>;
-  disabled: Accessor<boolean>;
-  readOnly: Accessor<boolean>;
-  required: Accessor<boolean>;
-  grid: Accessor<boolean>;
-  isGrouped: Accessor<boolean>;
-  virtualized: Accessor<boolean>;
-  openOnInputClick: Accessor<boolean>;
-  modal: Accessor<boolean>;
-  autoHighlight: Accessor<false | 'always' | 'input-change'>;
-  submitOnItemClick: Accessor<boolean>;
-  inline: Accessor<boolean>;
-  hasInputValue: Accessor<boolean>;
-  selectedValue: Accessor<any>;
-  items: Accessor<readonly any[] | undefined>;
-  popupProps: HTMLProps;
-  inputProps: HTMLProps;
-  triggerProps: HTMLProps;
-  mounted: Accessor<boolean>;
-  openMethod: Accessor<InteractionType | null>;
-}
+/**
+ * Non-reactive values shared with the combobox parts. Nothing here is observable through
+ * `selectors`, so writing to a ref never notifies subscribers.
+ */
+export type ComboboxStoreContext = {
+  /** Item elements in list order, owned by `Combobox.List`. */
+  readonly listRef: ReactLikeRef<Array<HTMLElement | null | undefined>>;
+  /** Item text labels in list order, used for typeahead. */
+  readonly labelsRef: ReactLikeRef<Array<string | null>>;
+  /** The popup element. */
+  readonly popupRef: ReactLikeRef<HTMLDivElement | null | undefined>;
+  /** The empty-state element. */
+  readonly emptyRef: ReactLikeRef<HTMLDivElement | null | undefined>;
+  /** The input element that owns the combobox role. */
+  readonly inputRef: ReactLikeRef<HTMLInputElement | null | undefined>;
+  /** Internal dismiss button rendered before the popup content. */
+  readonly startDismissRef: ReactLikeRef<HTMLSpanElement | null | undefined>;
+  /** Internal dismiss button rendered after the popup content. */
+  readonly endDismissRef: ReactLikeRef<HTMLSpanElement | null | undefined>;
+  /** Whether the last interaction came from the keyboard. */
+  readonly keyboardActiveRef: ReactLikeRef<boolean>;
+  /** Container holding the selection chips. */
+  readonly chipsContainerRef: ReactLikeRef<HTMLDivElement | null | undefined>;
+  /** The clear button. */
+  readonly clearRef: ReactLikeRef<HTMLButtonElement | null | undefined>;
+  /** Item values in list order. */
+  readonly valuesRef: ReactLikeRef<Array<any>>;
+  /** Item element that received the last pointerdown, to pair it with a mouseup. */
+  readonly pointerDownItemRef: ReactLikeRef<Element | null>;
+  /** Native event that triggered the in-flight selection. */
+  readonly selectionEventRef: ReactLikeRef<MouseEvent | PointerEvent | KeyboardEvent | null>;
 
-export interface Selectors extends PassThroughs {
-  hasSelectionChips: () => boolean;
-  hasSelectedValue: () => boolean;
-  hasNullItemLabel: (enabled: Accessor<boolean>) => boolean;
-  isActive: (index: Accessor<number>) => boolean;
-  isSelected: (itemValue: Accessor<any>) => boolean;
-}
+  // Commands. Seeded with `NOOP` when the store is constructed and assigned during the root's
+  // setup, so they are not `readonly`.
 
-export function createComboboxStore(args: {
-  initialState: State;
-  passThroughs: PassThroughs;
-  context: Context;
-}) {
-  const [state, setState] = createStore<State>(args.initialState);
-  const isActiveSelector = createSelector<number | null, number>(() => state.activeIndex);
-  const selectors: Selectors = solidMergeProps(args.passThroughs, {
-    hasNullItemLabel: (enabled: Accessor<boolean>) =>
-      enabled() ? hasNullItemLabel(args.passThroughs.items()) : false,
+  /** Opens or closes the popup. */
+  setOpen: (open: boolean, eventDetails: AriaCombobox.ChangeEventDetails) => void;
+  /** Sets the input value. */
+  setInputValue: (value: string, eventDetails: AriaCombobox.ChangeEventDetails) => void;
+  /** Sets the selected value. */
+  setSelectedValue: (value: any, eventDetails: AriaCombobox.ChangeEventDetails) => void;
+  /** Sets the active and/or selected index. */
+  setIndices: (indices: {
+    activeIndex?: number | null | undefined;
+    selectedIndex?: number | null | undefined;
+    type?: AriaCombobox.HighlightEventReason | undefined;
+  }) => void;
+  /** Mounts the popup subtree without opening it, to resolve derived item labels. */
+  forceMount: () => void;
+  /** Applies a selection originating from an item. */
+  handleSelection: (event: MouseEvent | PointerEvent | KeyboardEvent, itemValue: any) => void;
+  /** Requests submission of the owning form. */
+  requestSubmit: () => void;
+  /** Called when the open state change animation completes. */
+  onOpenChangeComplete: (open: boolean) => void;
+};
 
-    hasSelectedValue: () => {
-      const v = args.passThroughs.selectedValue();
-      if (v == null) {
-        return false;
-      }
-      if (args.passThroughs.selectionMode() === 'multiple' && Array.isArray(v)) {
-        return v.length > 0;
-      }
-      return true;
-    },
+// Solid: selector arguments are accessors so `store.useState(key, arg)` stays reactive.
+export const selectors = {
+  id: (state: State) => state.id,
+  labelId: (state: State) => state.labelId,
 
-    hasSelectionChips: () => {
-      const v = args.passThroughs.selectedValue();
-      return Array.isArray(v) && v.length > 0;
-    },
+  items: (state: State) => state.items,
 
-    isActive: (index: Accessor<number>) => isActiveSelector(index()),
+  selectedValue: (state: State) => state.selectedValue,
+  hasSelectionChips: (state: State) => {
+    const selectedValue = state.selectedValue;
+    return Array.isArray(selectedValue) && selectedValue.length > 0;
+  },
 
-    isSelected: (itemValue: Accessor<any>) => {
-      const sv = args.passThroughs.selectedValue();
-      if (Array.isArray(sv)) {
-        return sv.some((s) => compareItemEquality(itemValue(), s, args.context.isItemEqualToValue));
-      }
-      return compareItemEquality(itemValue(), sv, args.context.isItemEqualToValue);
-    },
-  });
-
-  function useState<const Key extends keyof State>(key: Key): Accessor<State[Key]> {
-    const memo = createMemo(() => state[key]);
-    return memo;
-  }
-
-  function useSelector<Key extends keyof Selectors>(
-    key: Key,
-    ...params: SelectorArgs<Selectors[Key]>
-  ): Selectors[Key] {
-    const selector = selectors[key];
-    if (typeof selector === 'function') {
-      // @ts-expect-error - TODO: fix typing
-      return () => selector(...params);
+  hasSelectedValue: (state: State) => {
+    const { selectedValue, selectionMode } = state;
+    if (selectedValue == null) {
+      return false;
     }
-    return selector;
-  }
+    if (selectionMode === 'multiple' && Array.isArray(selectedValue)) {
+      return selectedValue.length > 0;
+    }
+    return true;
+  },
 
-  return {
-    get context() {
-      return args.context;
-    },
-    selectors,
-    set: setState,
-    state,
-    useSelector,
-    useState,
-  };
-}
+  hasNullItemLabel: (state: State, enabled: Accessor<boolean>) => {
+    return enabled() ? hasNullItemLabel(state.items) : false;
+  },
 
-export type ComboboxStore = ReturnType<typeof createComboboxStore>;
+  open: (state: State) => state.open,
+  mounted: (state: State) => state.mounted,
+  forceMounted: (state: State) => state.forceMounted,
 
-type Tail<T extends readonly any[]> = T extends readonly [any, ...infer Rest] ? Rest : [];
+  inline: (state: State) => state.inline,
 
-export type SelectorArgs<Selector> = Selector extends (...params: infer Params) => any
-  ? Tail<Params>
-  : never;
+  activeIndex: (state: State) => state.activeIndex,
+  selectedIndex: (state: State) => state.selectedIndex,
+  isActive: (state: State, index: Accessor<number>) => state.activeIndex === index(),
+  isSelected: (state: State, itemValue: Accessor<any>) => {
+    const comparer = state.isItemEqualToValue;
+    const selectedValue = state.selectedValue;
+    const value = itemValue();
+    if (Array.isArray(selectedValue)) {
+      return selectedValue.some((selectedItem) =>
+        compareItemEquality(value, selectedItem, comparer),
+      );
+    }
+    return compareItemEquality(value, selectedValue, comparer);
+  },
+
+  transitionStatus: (state: State) => state.transitionStatus,
+
+  popupProps: (state: State) => state.popupProps,
+  listProps: (state: State) => state.listProps,
+  inputProps: (state: State) => state.inputProps,
+  triggerProps: (state: State) => state.triggerProps,
+  itemProps: (state: State) => state.itemProps,
+
+  positionerElement: (state: State) => state.positionerElement,
+  listElement: (state: State) => state.listElement,
+  listId: (state: State) => state.listId,
+  popupId: (state: State) => state.popupId,
+  triggerElement: (state: State) => state.triggerElement,
+  inputElement: (state: State) => state.inputElement,
+  inputGroupElement: (state: State) => state.inputGroupElement,
+  popupSide: (state: State) => state.popupSide,
+
+  openMethod: (state: State) => state.openMethod,
+
+  inputInsidePopup: (state: State) => state.inputInsidePopup,
+  inputOwnsFormValue: (state: State) => state.inputOwnsFormValue,
+
+  selectionMode: (state: State) => state.selectionMode,
+
+  name: (state: State) => state.name,
+  form: (state: State) => state.form,
+  disabled: (state: State) => state.disabled,
+  readOnly: (state: State) => state.readOnly,
+  required: (state: State) => state.required,
+  grid: (state: State) => state.grid,
+  virtualized: (state: State) => state.virtualized,
+  itemToStringLabel: (state: State) => state.itemToStringLabel,
+  isItemEqualToValue: (state: State) => state.isItemEqualToValue,
+  modal: (state: State) => state.modal,
+  autoHighlight: (state: State) => state.autoHighlight,
+};
+
+export type ComboboxStore = SolidStore<State, ComboboxStoreContext, typeof selectors>;

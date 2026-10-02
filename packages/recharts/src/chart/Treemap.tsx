@@ -871,7 +871,7 @@ function TreemapItem(itemProps: {
 					onMouseEnter={onMouseEnter}
 					onMouseLeave={onMouseLeave}
 					onClick={onClick}
-					style={{ ...style, "transform-origin": `${x} ${y}` }}
+					style={{ ...style(), "transform-origin": `${x} ${y}` }}
 				>
 					<ContentItemWithEvents
 						id={itemProps.treemapProps.id}

@@ -1,4 +1,4 @@
-import { createTrackedEffect, createMemo, createSignal } from 'solid-js';
+import { createEffect, createMemo, createSignal } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import { useId } from '../../utils/useId';
 import { useFloatingParentNodeId } from '../components/FloatingTree';
@@ -51,9 +51,8 @@ export function useRole(parameters: {
 
   // Track the actual floating element id (including user-provided custom id) after mount.
   const [resolvedFloatingId, setResolvedFloatingId] = createSignal<string | undefined>(undefined);
-  createTrackedEffect(() => {
-    const element = getFloatingFocusElement(floatingElement());
-    setResolvedFloatingId(element?.id);
+  createEffect(floatingElement, (element) => {
+    setResolvedFloatingId(getFloatingFocusElement(element)?.id);
   });
   const floatingId = createMemo(() => resolvedFloatingId() || defaultFloatingId());
   const ariaRole = createMemo(() => componentRoleToAriaRoleMap.get(props.role) ?? props.role);

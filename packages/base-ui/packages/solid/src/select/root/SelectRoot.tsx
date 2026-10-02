@@ -1,13 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value type erased at root level */
-import {
-  createTrackedEffect,
-  createEffect,
-  createMemo,
-  For,
-  onSettled,
-  Show,
-  snapshot,
-} from 'solid-js';
+import { createEffect, createMemo, For, onSettled, Show, snapshot, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useField } from '../../field/useField';
@@ -22,25 +14,32 @@ import {
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { mergeProps } from '../../merge-props';
-import { useRef, type ReactLikeRef } from '../../solid-helpers';
+import { createDepsEffect, useRef, type ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
 import {
   createChangeEventDetails,
   type BaseUIChangeEventDetails,
 } from '../../utils/createBaseUIEventDetails';
-import { defaultItemEquality, findItemIndex } from '../../utils/itemEquality';
+import {
+  defaultItemEquality,
+  findSelectionIndex,
+  isSelectedValueDirty,
+} from '../../utils/itemEquality';
 import { REASONS } from '../../utils/reasons';
-import { getDefaultLabelId } from '../../utils/resolveAriaLabelledBy';
-import { stringifyAsValue } from '../../utils/resolveValueLabel';
+import { isElementDisabled } from '../../utils/isElementDisabled';
+import { type Group, stringifyAsLabel, stringifyAsValue } from '../../utils/resolveValueLabel';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { useControlled } from '../../utils/useControlled';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
+import { usePreviousValue } from '../../utils/usePreviousValue';
 import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
+import { getMaxScrollOffset, normalizeScrollOffset } from '../../utils/scrollEdges';
 import { selectors, type State as StoreState } from '../store';
 import { SelectFloatingContext, SelectRootContext } from './SelectRootContext';
 import { on } from '../../solid-1-compat';
+import type { HTMLProps } from '../../utils/types';
 
 /**
  * Groups all parts of the select.
@@ -76,6 +75,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     disabled: fieldDisabled,
     validation,
     validationMode,
+    validityData,
   } = useFieldRootContext();
 
   const generatedId = useLabelableId({ id: () => props.id });
@@ -107,10 +107,12 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   const valuesRef = useRef<Array<any>>([]);
   const typingRef = useRef(false);
   const keyboardActiveRef = useRef(false);
-  const selectedItemTextRef = useRef<HTMLSpanElement | null | undefined>(null);
+  const firstItemTextRef = useRef<HTMLElement | null | undefined>(null);
+  const selectedItemTextRef = useRef<HTMLElement | null | undefined>(null);
   const selectionRef = useRef({
     allowSelectedMouseUp: false,
     allowUnselectedMouseUp: false,
+    dragY: 0,
   });
   const alignItemWithTriggerActiveRef = useRef(false);
   const triggerPressedRef = useRef(false);
@@ -137,10 +139,9 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       get items() {
         return props.items;
       },
-      get labelId() {
-        return getDefaultLabelId(generatedId());
-      },
+      labelId: undefined,
       listElement: null,
+      listboxId: undefined,
       get modal() {
         return modal();
       },
@@ -155,6 +156,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       },
       openMethod: null,
       popupProps: {},
+      popupSide: null,
       positionerElement: null,
       scrollDownArrowVisible: false,
       scrollUpArrowVisible: false,
@@ -177,12 +179,17 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   const triggerElement = store.useState('triggerElement');
   const positionerElement = store.useState('positionerElement');
 
+  const previousOpenMethod = usePreviousValue(openMethod);
+  const renderedOpenMethod = () => openMethod() ?? previousOpenMethod();
+
   const serializedValue = createMemo(() => {
-    const val = value();
-    if (multiple() && Array.isArray(val) && val.length === 0) {
+    // In multiple mode the shared input is nameless; per-value entries are submitted via
+    // hidden inputs. Its value is therefore irrelevant, and passing the whole array to
+    // `stringifyAsValue` would invoke a user `itemToStringValue` with an array it doesn't expect.
+    if (multiple()) {
       return '';
     }
-    return stringifyAsValue(val, props.itemToStringValue);
+    return stringifyAsValue(value(), props.itemToStringValue);
   });
 
   const multipleHiddenValues = createMemo(() => {
@@ -213,59 +220,67 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     value: fieldRawValue,
   });
 
-  const initialValueRef = useRef(value());
-  createTrackedEffect(() => {
-    // Ensure the values and labels are registered for programmatic value changes.
-    if (value() !== initialValueRef.current) {
-      store.set('forceMount', true);
-    }
-  });
+  const initialValueRef = useRef(untrack(() => value()));
 
-  createTrackedEffect(() => {
-    // ––– AI-GENERATED FIX AND EXPLANATION –––
-    // React naturally clears this bookkeeping as the popup rerenders around a null single value.
-    // In Solid, the previous selected index can survive longer because setup does not rerun,
-    // so we clear it explicitly when an empty single-select opens.
-    if (open() && !multiple() && value() == null) {
-      store.set('selectedIndex', null);
-    }
-  });
-
-  createTrackedEffect(() => {
-    const val = value();
-    setFilled(multiple() ? Array.isArray(val) && val.length > 0 : val != null);
-  });
-
-  createTrackedEffect(() => {
-    if (open()) {
-      return;
-    }
-
-    const registry = valuesRef.current;
-
-    if (multiple()) {
-      const val = value();
-      const currentValue = Array.isArray(val) ? val : [];
-      if (currentValue.length === 0) {
+  // ––– AI-GENERATED FIX AND EXPLANATION –––
+  // React naturally clears this bookkeeping as the popup rerenders around a null single value.
+  // In Solid, the previous selected index can survive longer because setup does not rerun,
+  // so we clear it explicitly when an empty single-select opens.
+  createDepsEffect(
+    () => ({ open: open(), multiple: multiple(), value: value() }),
+    (deps) => {
+      if (deps.open && !deps.multiple && deps.value == null) {
         store.set('selectedIndex', null);
+      }
+    },
+  );
+
+  // Mirror the `hasSelectedValue` store selector so the Field's filled state agrees with the
+  // trigger/value placeholder semantics (a value serializing to `''` counts as empty).
+  const hasSelectedValue = createMemo(() => {
+    const val = value();
+    return multiple()
+      ? Array.isArray(val) && val.length > 0
+      : val != null && serializedValue() !== '';
+  });
+
+  createEffect(hasSelectedValue, (filled) => {
+    setFilled(filled);
+  });
+
+  createDepsEffect(
+    () => ({
+      multiple: multiple(),
+      open: open(),
+      value: value(),
+      isItemEqualToValue: props.isItemEqualToValue ?? defaultItemEquality,
+    }),
+    function syncSelectedIndex(deps) {
+      const nextIndex = findSelectionIndex(
+        untrack(() => valuesRef.current),
+        deps.value,
+        deps.isItemEqualToValue,
+        deps.multiple,
+      );
+
+      if (nextIndex === null) {
+        selectedItemTextRef.current = null;
+      }
+
+      if (deps.open) {
         return;
       }
 
-      const lastValue = currentValue[currentValue.length - 1];
-      const lastIndex = findItemIndex(registry, lastValue, isItemEqualToValue);
-      store.set('selectedIndex', lastIndex === -1 ? null : lastIndex);
-      return;
-    }
+      store.set('selectedIndex', nextIndex);
+    },
+  );
 
-    const index = findItemIndex(registry, value() as Value, isItemEqualToValue);
-    store.set('selectedIndex', index === -1 ? null : index);
-  });
-
-  createEffect(...on(
+  createEffect(
+    ...on(
       value,
       () => {
         clearErrors(name());
-        setDirty(value() !== initialValueRef.current);
+        setDirty(isSelectedValueDirty(value(), validityData.initialValue, isItemEqualToValue));
 
         if (shouldValidateOnChange()) {
           validation.commit(fieldRawValue());
@@ -358,26 +373,23 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     }
 
     setValueUnwrapped(nextValue);
-    setDirty(nextValue !== initialValueRef.current);
   };
 
-  const handleScrollArrowVisibility = () => {
-    const scroller = store.state.listElement || popupRef.current;
+  // Solid: callers may omit the scroller, which defaults to the one every React caller passes.
+  const handleScrollArrowVisibility = (
+    scroller: HTMLElement | null | undefined = store.state.listElement || popupRef.current,
+  ) => {
     if (!scroller) {
       return;
     }
 
-    const viewportTop = scroller.scrollTop;
-    const viewportBottom = scroller.scrollTop + scroller.clientHeight;
-    const shouldShowUp = viewportTop > 1;
-    const shouldShowDown = viewportBottom < scroller.scrollHeight - 1;
+    const maxScrollTop = getMaxScrollOffset(scroller.scrollHeight, scroller.clientHeight);
+    const scrollTop = normalizeScrollOffset(scroller.scrollTop, maxScrollTop);
+    const shouldShowUp = scrollTop > 0;
+    const shouldShowDown = scrollTop < maxScrollTop;
 
-    if (store.state.scrollUpArrowVisible !== shouldShowUp) {
-      store.set('scrollUpArrowVisible', shouldShowUp);
-    }
-    if (store.state.scrollDownArrowVisible !== shouldShowDown) {
-      store.set('scrollDownArrowVisible', shouldShowDown);
-    }
+    store.set('scrollUpArrowVisible', shouldShowUp);
+    store.set('scrollDownArrowVisible', shouldShowDown);
   };
 
   const floatingContext = useFloatingRootContext({
@@ -410,13 +422,16 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     },
   );
 
+  // `readOnly` locks the value, not the interaction: the popup can be opened and browsed so the
+  // user can see the available options and which one is selected. Committing a value is blocked
+  // separately in `SelectItem` and in the hidden input's autofill handler.
   const click = useClick({
     get context() {
       return floatingContext;
     },
     props: {
       get enabled() {
-        return !readOnly() && !disabled();
+        return !disabled();
       },
       event: 'mousedown',
     },
@@ -426,9 +441,6 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     get context() {
       return floatingContext;
     },
-    props: {
-      bubbles: false,
-    },
   });
 
   const listNavigation = useListNavigation({
@@ -437,7 +449,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     },
     props: {
       get enabled() {
-        return !readOnly() && !disabled();
+        return !disabled();
       },
       get listRef() {
         return listRef.current;
@@ -473,9 +485,17 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       get activeIndex() {
         return activeIndex();
       },
+      // Typeahead on an open popup only moves the highlight, so it remains available while
+      // `readOnly`. The closed-trigger variant commits a value instead, so it doesn't.
       get enabled() {
-        return !readOnly() && !disabled() && (open() || !multiple());
+        return !disabled() && (open() || (!readOnly() && !multiple()));
       },
+      // Skip disabled items while matching so typeahead advances to the next selectable item
+      // (a click can never select a disabled item and native `<select>` skips them too). Resolve
+      // the disabled state from the element via the attribute-only `isElementDisabled` so the
+      // hidden, force-mounted items used for closed-trigger typeahead aren't dropped by the
+      // `elementsRef`/visibility filter that `disabledIndices` deliberately sidesteps.
+      disabledIndices: (index: number) => isElementDisabled(listRef.current[index]),
       get listRef() {
         return labelsRef.current;
       },
@@ -486,7 +506,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
           setValue(valuesRef.current[index], createChangeEventDetails('none'));
         }
       },
-      onTypingChange(typing) {
+      onTyping(typing) {
         // FIXME: Floating UI doesn't support allowing space to select an item while the popup is
         // closed and the trigger isn't a native <button>.
         typingRef.current = typing;
@@ -504,35 +524,31 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     typeahead,
   ]);
 
+  // The interaction getters return live views, so each is created once.
+  const referenceProps = getReferenceProps();
+  const popupProps = getFloatingProps();
+
   const mergedTriggerProps = createMemo(() =>
     mergeProps(
-      getReferenceProps(),
+      referenceProps,
       interactionTypeProps,
       generatedId() ? { id: generatedId() } : EMPTY_OBJECT,
     ),
   );
 
-  onSettled(() => {
-    store.update({
-      popupProps: getFloatingProps(),
-      triggerProps: mergedTriggerProps(),
-    });
-  });
-
-  createEffect(
+  createDepsEffect(
     () => ({
       id: generatedId(),
       isItemEqualToValue,
       itemToStringLabel: props.itemToStringLabel,
       itemToStringValue: props.itemToStringValue,
       items: props.items,
-      labelId: getDefaultLabelId(generatedId()),
       modal: modal(),
       mounted: mounted(),
       multiple: multiple(),
       open: open(),
-      openMethod: openMethod(),
-      popupProps: getFloatingProps(),
+      openMethod: renderedOpenMethod(),
+      popupProps,
       transitionStatus: transitionStatus(),
       triggerProps: mergedTriggerProps(),
       value: value(),
@@ -573,6 +589,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     labelsRef,
     typingRef,
     selectionRef,
+    firstItemTextRef,
     selectedItemTextRef,
     validation,
     get onOpenChangeComplete() {
@@ -590,12 +607,14 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     return multiple() && Array.isArray(val) && val.length > 0;
   };
 
+  const hiddenInputName = () => (multiple() ? undefined : name());
+
   return (
     <SelectRootContext value={contextValue}>
       <SelectFloatingContext value={floatingContext}>
         {props.children}
         <input
-          {...(validation.getInputValidationProps({
+          {...(validation.getValidationProps(disabled(), {
             onFocus() {
               // Move focus to the trigger element when the hidden input is focused.
               store.state.triggerElement?.focus({
@@ -604,13 +623,18 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
               } as FocusOptions);
             },
             // Handle browser autofill.
-            onInput(event) {
+            onInput(
+              event: InputEvent & { currentTarget: HTMLInputElement; target: HTMLInputElement },
+            ) {
               // Workaround for https://github.com/facebook/react/issues/9023
-              if (event.defaultPrevented) {
+              if (event.defaultPrevented || disabled() || readOnly()) {
+                // Solid: inputs are not controlled, so restore the value React's controlled
+                // hidden input keeps when the change is ignored.
+                event.currentTarget.value = serializedValue();
                 return;
               }
 
-              const nextValue = event.target.value;
+              const nextValue = event.currentTarget.value;
               const details = createChangeEventDetails(REASONS.none, event);
 
               function handleChange() {
@@ -619,35 +643,48 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
                   return;
                 }
 
-                // Handle single selection: match against registered values using serialization
-                const matchingValue = valuesRef.current.find((v) => {
-                  const candidate = stringifyAsValue(v, props.itemToStringValue);
-                  if (candidate.toLowerCase() === nextValue.toLowerCase()) {
-                    return true;
-                  }
-                  return false;
-                });
+                // Preserve the original serialized matching, then fall back to rendered text,
+                // which browsers can autofill for primitive values like
+                // `value="US">United States`.
+                const nextValueLower = nextValue.toLowerCase();
+                let matchingIndex = valuesRef.current.findIndex(
+                  (candidate) =>
+                    stringifyAsValue(candidate, props.itemToStringValue).toLowerCase() ===
+                      nextValueLower ||
+                    stringifyAsLabel(candidate, props.itemToStringLabel).toLowerCase() ===
+                      nextValueLower,
+                );
 
+                if (matchingIndex === -1) {
+                  matchingIndex = valuesRef.current.findIndex((_, index) => {
+                    const renderedLabel = labelsRef.current[index];
+                    return renderedLabel != null && renderedLabel.toLowerCase() === nextValueLower;
+                  });
+                }
+
+                const matchingValue = valuesRef.current[matchingIndex];
                 if (matchingValue != null) {
-                  setDirty(matchingValue !== initialValueRef.current);
+                  // `setValue` may be canceled by `onValueChange`; rely on the value-change
+                  // effect to mark the field dirty and run validation only when the value
+                  // actually changes.
                   setValue(matchingValue, details);
-
-                  if (shouldValidateOnChange()) {
-                    validation.commit(matchingValue);
-                  }
                 }
               }
 
               store.set('forceMount', true);
               queueMicrotask(handleChange);
             },
-          }) as any)}
-          name={multiple() ? undefined : name()}
-          autoComplete={props.autoComplete}
+          }) as HTMLProps<HTMLInputElement>)}
+          id={
+            generatedId() && hiddenInputName() == null ? `${generatedId()}-hidden-input` : undefined
+          }
+          form={props.form}
+          name={hiddenInputName()}
+          autocomplete={props.autoComplete}
           value={serializedValue()}
           disabled={disabled()}
           required={required() && !hasMultipleSelection()}
-          readOnly={readOnly()}
+          readonly={readOnly()}
           ref={(el) => {
             if (props.inputRef) {
               props.inputRef.current = el;
@@ -665,8 +702,10 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
             {(v) => (
               <input
                 type="hidden"
+                form={props.form}
                 name={name()}
                 value={stringifyAsValue(v, props.itemToStringValue)}
+                disabled={disabled()}
               />
             )}
           </For>
@@ -690,6 +729,11 @@ export interface SelectRootProps<Value, Multiple extends boolean | undefined = f
    * Identifies the field when a form is submitted.
    */
   name?: string | undefined;
+  /**
+   * Identifies the form that owns the hidden input.
+   * Useful when the select is rendered outside the form.
+   */
+  form?: string | undefined;
   /**
    * Provides a hint to the browser for autofill.
    * @see https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/autocomplete
@@ -773,7 +817,9 @@ export interface SelectRootProps<Value, Multiple extends boolean | undefined = f
    * ```
    */
   items?:
-    | (Record<string, JSX.Element> | ReadonlyArray<{ label: JSX.Element; value: any }>)
+    | Record<string, JSX.Element>
+    | ReadonlyArray<{ label: JSX.Element; value: any }>
+    | ReadonlyArray<Group<any>>
     | undefined;
   /**
    * When the item values are objects (`<Select.Item value={object}>`), this function converts the object value to a string representation for display in the trigger.

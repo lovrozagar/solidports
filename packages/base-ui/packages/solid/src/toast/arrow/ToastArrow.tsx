@@ -13,7 +13,8 @@ import { useToastPositionerContext } from '../positioner/ToastPositionerContext'
 export function ToastArrow(componentProps: ToastArrow.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { arrowRef, side, align, arrowUncentered, arrowStyles } = useToastPositionerContext();
+  const positionerContext = useToastPositionerContext();
+  const { arrowRef, side, align, arrowUncentered } = positionerContext;
 
   const state: ToastArrow.State = {
     get align() {
@@ -28,7 +29,16 @@ export function ToastArrow(componentProps: ToastArrow.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    props: [{ style: arrowStyles, 'aria-hidden': 'true' }, elementProps],
+    props: [
+      {
+        // Solid: the context exposes the arrow styles as a live getter.
+        get style() {
+          return positionerContext.arrowStyles;
+        },
+        'aria-hidden': 'true',
+      },
+      elementProps,
+    ],
     ref: (el) => {
       arrowRef.current = el;
     },

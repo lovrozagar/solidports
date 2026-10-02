@@ -14,7 +14,9 @@ import { avatarStateAttributesMapping } from './stateAttributesMapping';
 export function AvatarRoot(componentProps: AvatarRoot.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const [imageLoadingStatus, setImageLoadingStatus] = createSignal<ImageLoadingStatus>('idle');
+  const [imageLoadingStatus, setImageLoadingStatus] = createSignal<ImageLoadingStatus>('idle', {
+    ownedWrite: true,
+  });
 
   const state: AvatarRoot.State = {
     get imageLoadingStatus() {

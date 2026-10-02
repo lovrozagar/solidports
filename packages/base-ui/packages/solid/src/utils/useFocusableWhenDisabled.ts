@@ -31,7 +31,7 @@ export function useFocusableWhenDisabled(
       additionalProps.tabindex = tabIndex;
 
       if (!isNativeButton() && disabled()) {
-        additionalProps.tabindex = focusableWhenDisabled() ? tabIndex ?? -1 : -1;
+        additionalProps.tabindex = focusableWhenDisabled() ? (tabIndex ?? -1) : -1;
       }
     }
 
@@ -39,7 +39,8 @@ export function useFocusableWhenDisabled(
       (isNativeButton() && (focusableWhenDisabled() || isFocusableComposite())) ||
       (!isNativeButton() && disabled())
     ) {
-      additionalProps['aria-disabled'] = disabled() ? 'true' : undefined;
+      // React renders the boolean as a string; Solid 2 needs the string itself.
+      additionalProps['aria-disabled'] = disabled() ? 'true' : 'false';
     }
 
     if (isNativeButton() && (!focusableWhenDisabled() || isNonFocusableComposite())) {
@@ -53,7 +54,7 @@ export function useFocusableWhenDisabled(
 }
 
 interface FocusableWhenDisabledProps {
-  'aria-disabled'?: 'true' | undefined;
+  'aria-disabled'?: 'true' | 'false' | undefined;
   disabled?: boolean | undefined;
   onKeyDown: (event: KeyboardEvent) => void;
   tabindex: string | number;

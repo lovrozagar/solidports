@@ -1,4 +1,4 @@
-import { createTrackedEffect, onCleanup } from 'solid-js';
+import { createEffect, createRenderEffect, onSettled, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { ToastManager, ToastManagerEvent } from '../createToastManager';
 import { ToastStore } from '../store';
@@ -13,61 +13,72 @@ export function ToastProvider(props: ToastProvider.Props) {
   const timeout = () => props.timeout ?? 5000;
   const limit = () => props.limit ?? 3;
 
-  const store = ToastStore({
-    focused: false,
-    hovering: false,
-    isWindowFocused: true,
-    get limit() {
-      return limit();
-    },
-    prevFocusElement: null,
-    get timeout() {
-      return timeout();
-    },
-    toasts: [],
-    viewport: null,
-  });
+  const store = ToastStore(
+    untrack(() => ({
+      timeout: timeout(),
+      limit: limit(),
+      viewport: null,
+      toasts: [],
+      hovering: false,
+      focused: false,
+      isWindowFocused: true,
+      prevFocusElement: null,
+    })),
+  );
 
-  onCleanup(() => {
-    store.disposeEffect();
-  });
+  onSettled(store.disposeEffect);
 
-  const onUnsubscribe = ({ action, options }: ToastManagerEvent) => {
-    const id = options.id;
-
-    if (action === 'promise' && options.promise) {
-      store.promiseToast(options.promise, options);
-    } else if (action === 'update' && id) {
-      store.updateToast(() => id, options);
-    } else if (action === 'close') {
-      store.closeToast(id ? () => id : undefined);
-    } else {
-      store.addToast(options);
-    }
-  };
-
-  store.useSyncedValues({ limit, timeout });
-
-  createTrackedEffect(function subscribeToToastManager() {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (!props.toastManager) {
-      return;
-    }
-
-    const unsubscribe = props.toastManager[' subscribe'](onUnsubscribe);
-    _c.push(unsubscribe);
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+  createEffect(
+    () => props.toastManager,
+    function subscribeToToastManager(toastManager) {
+      if (!toastManager) {
+        return undefined;
       }
-    };
-});
 
-  return <ToastContext value={store}>{props.children}</ToastContext>;
+      const unsubscribe = toastManager[' subscribe'](({ action, options }: ToastManagerEvent) => {
+        const id = options.id;
+
+        if (action === 'promise' && options.promise) {
+          store.promiseToast(options.promise, options);
+        } else if (action === 'update' && id) {
+          store.updateToast(id, options.updates);
+        } else if (action === 'close') {
+          store.closeToast(id);
+        } else {
+          store.addToast(options);
+        }
+      });
+
+      return unsubscribe;
+    },
+  );
+
+  return (
+    <ToastContext value={store}>
+      <ToastProviderPropsSynchronizer store={store} timeout={timeout()} limit={limit()} />
+      {props.children}
+    </ToastContext>
+  );
 }
+
+function ToastProviderPropsSynchronizer(props: {
+  store: ToastStore;
+  timeout: number;
+  limit: number;
+}) {
+  // `limit` needs custom syncing because changing it must also recompute each
+  // toast's `limited` flag; `useSyncedValues` would only update the raw value.
+  createRenderEffect(
+    () => [props.timeout, props.limit] as const,
+    ([timeout, limit]) => {
+      props.store.syncProviderProps(timeout, limit);
+    },
+  );
+
+  return null;
+}
+
+export interface ToastProviderState {}
 
 export interface ToastProviderProps {
   children?: JSX.Element;
@@ -79,7 +90,8 @@ export interface ToastProviderProps {
   timeout?: number | undefined;
   /**
    * The maximum number of toasts that can be displayed at once.
-   * When the limit is reached, the oldest toast will be removed to make room for the new one.
+   * When the limit is exceeded, the oldest toasts are marked as `limited` (via the `data-limited`
+   * attribute) rather than removed, so they can be hidden or animated out.
    * @default 3
    */
   limit?: number | undefined;
@@ -90,5 +102,6 @@ export interface ToastProviderProps {
 }
 
 export namespace ToastProvider {
+  export type State = ToastProviderState;
   export type Props = ToastProviderProps;
 }

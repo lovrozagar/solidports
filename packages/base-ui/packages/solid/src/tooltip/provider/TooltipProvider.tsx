@@ -12,15 +12,10 @@ import { TooltipProviderContext } from './TooltipProviderContext';
 export function TooltipProvider(props: TooltipProvider.Props) {
   const timeout = () => props.timeout ?? 400;
 
-  const contextValue: TooltipProviderContext = {
-    closeDelay: () => props.closeDelay,
-    delay: () => props.delay,
-  };
-
-  const delayValue = createMemo(() => ({ close: props.closeDelay, open: props.delay }));
+  const delayValue = createMemo(() => ({ open: props.delay, close: props.closeDelay }));
 
   return (
-    <TooltipProviderContext value={contextValue}>
+    <TooltipProviderContext value={() => props.delay}>
       <FloatingDelayGroup delay={delayValue()} timeoutMs={timeout()}>
         {props.children}
       </FloatingDelayGroup>
@@ -28,10 +23,12 @@ export function TooltipProvider(props: TooltipProvider.Props) {
   );
 }
 
+export interface TooltipProviderState {}
+
 export interface TooltipProviderProps {
   children?: JSX.Element;
   /**
-   * How long to wait before opening a tooltip. Specified in milliseconds.
+   * How long to wait before opening the tooltip on hover. Specified in milliseconds.
    */
   delay?: number | undefined;
   /**
@@ -47,5 +44,6 @@ export interface TooltipProviderProps {
 }
 
 export namespace TooltipProvider {
+  export type State = TooltipProviderState;
   export type Props = TooltipProviderProps;
 }

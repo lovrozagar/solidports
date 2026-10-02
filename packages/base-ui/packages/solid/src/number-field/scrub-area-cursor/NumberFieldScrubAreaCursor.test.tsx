@@ -1,20 +1,17 @@
-import { createRenderer, describeConformance } from '#test-utils';
-import { isWebKit } from '#utils/detectBrowser';
-import { NumberField } from '@solidports/base-ui/number-field';
+import { expect, vi, it } from 'vitest';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
-import sinon from 'sinon';
+import { NumberField } from '@solidports/base-ui/number-field';
+import { platform } from '../../utils/platform';
+import { act, createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { NumberFieldScrubAreaContext } from '../scrub-area/NumberFieldScrubAreaContext';
 
+const isWebKit = platform.engine.webkit;
+
 const defaultScrubAreaContext: NumberFieldScrubAreaContext = {
-  direction: () => 'horizontal',
-  isPointerLockDenied: () => false,
   isScrubbing: () => true,
   isTouchInput: () => false,
-  pixelSensitivity: () => 2,
+  isPointerLockDenied: () => false,
   scrubAreaCursorRef: { current: null },
-  scrubAreaRef: { current: null },
-  teleportDistance: () => undefined,
 };
 
 // This component doesn't render on WebKit.
@@ -41,14 +38,42 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
         <NumberField.ScrubArea />
       </NumberField.Root>
     ));
-    expect(screen.queryByRole('presentation')).not.to.equal(null);
+    expect(screen.queryByRole('presentation')).not.toBe(null);
+  });
+
+  it('throws a descriptive error when rendered outside <NumberField.ScrubArea>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: a throwing component also reports REACTIVITY_HALTED through `console.warn`.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Solid: the halt is also handed to `reportError` (browsers only), which raises a window error.
+    const reportErrorSpy =
+      typeof globalThis.reportError === 'function'
+        ? vi.spyOn(globalThis, 'reportError').mockImplementation(() => {})
+        : null;
+
+    try {
+      expect(() =>
+        render(() => (
+          <NumberField.Root>
+            <NumberField.ScrubAreaCursor />
+          </NumberField.Root>
+        )),
+      ).toThrow(
+        'Base UI: NumberFieldScrubAreaContext is missing. NumberFieldScrubArea parts must be placed within <NumberField.ScrubArea>.',
+      );
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      reportErrorSpy?.mockRestore();
+    }
   });
 
   it('renders when using mouse input', async () => {
     const originalRequestPointerLock = Element.prototype.requestPointerLock;
 
     try {
-      Element.prototype.requestPointerLock = sinon.stub().resolves();
+      Element.prototype.requestPointerLock = vi.fn().mockResolvedValue(undefined);
 
       const { user } = render(() => (
         <NumberField.Root>
@@ -61,12 +86,14 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
 
       const scrubArea = screen.getByTestId('scrub-area');
 
-      await user.pointer({ keys: '[MouseLeft>]', pointerName: 'mouse', target: scrubArea });
-      await new Promise((resolve) => {
-        setTimeout(resolve, 25);
+      await act(async () => {
+        await user.pointer({ target: scrubArea, keys: '[MouseLeft>]', pointerName: 'mouse' });
+        await new Promise((resolve) => {
+          setTimeout(resolve, 25);
+        });
       });
 
-      expect(screen.queryByTestId('scrub-area-cursor')).not.to.equal(null);
+      expect(screen.queryByTestId('scrub-area-cursor')).not.toBe(null);
     } finally {
       Element.prototype.requestPointerLock = originalRequestPointerLock;
     }
@@ -76,7 +103,7 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
     const originalRequestPointerLock = Element.prototype.requestPointerLock;
 
     try {
-      Element.prototype.requestPointerLock = sinon.stub().resolves();
+      Element.prototype.requestPointerLock = vi.fn().mockResolvedValue(undefined);
 
       const { user } = render(() => (
         <NumberField.Root>
@@ -92,12 +119,14 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
 
       const firstScrubArea = screen.getByTestId('scrub-area-1');
 
-      await user.pointer({ keys: '[MouseLeft>]', pointerName: 'mouse', target: firstScrubArea });
-      await new Promise((resolve) => {
-        setTimeout(resolve, 25);
+      await act(async () => {
+        await user.pointer({ target: firstScrubArea, keys: '[MouseLeft>]', pointerName: 'mouse' });
+        await new Promise((resolve) => {
+          setTimeout(resolve, 25);
+        });
       });
 
-      expect(screen.queryAllByTestId('scrub-area-cursor')).to.have.length(1);
+      expect(screen.queryAllByTestId('scrub-area-cursor')).toHaveLength(1);
     } finally {
       Element.prototype.requestPointerLock = originalRequestPointerLock;
     }
@@ -114,21 +143,25 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
 
     const scrubArea = screen.getByRole('presentation');
 
-    await user.pointer({ keys: '[TouchA>]', pointerName: 'touch', target: scrubArea });
-    await new Promise((resolve) => {
-      setTimeout(resolve, 25);
+    await act(async () => {
+      await user.pointer({ target: scrubArea, keys: '[TouchA>]', pointerName: 'touch' });
+      await new Promise((resolve) => {
+        setTimeout(resolve, 25);
+      });
     });
 
-    expect(screen.queryByTestId('scrub-area-cursor')).to.equal(null);
+    expect(screen.queryByTestId('scrub-area-cursor')).toBe(null);
   });
 
   it('handles pointer lock denial through requestPointerLock API', async () => {
     const originalRequestPointerLock = Element.prototype.requestPointerLock;
 
     try {
-      Element.prototype.requestPointerLock = sinon
-        .stub()
-        .throws(new Error('User denied pointer lock'));
+      const requestLockStub = vi.fn(() => {
+        throw new Error('User denied pointer lock');
+      });
+      Element.prototype.requestPointerLock =
+        requestLockStub as typeof Element.prototype.requestPointerLock;
 
       const { user } = render(() => (
         <NumberField.Root>
@@ -140,15 +173,15 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
 
       const scrubArea = screen.getByRole('presentation');
 
-      await user.pointer({ keys: '[MouseLeft>]', pointerName: 'mouse', target: scrubArea });
-      await new Promise((resolve) => {
-        setTimeout(resolve, 25);
+      await act(async () => {
+        await user.pointer({ target: scrubArea, keys: '[MouseLeft>]', pointerName: 'mouse' });
+        await new Promise((resolve) => {
+          setTimeout(resolve, 25);
+        });
       });
 
-      expect(screen.queryByTestId('scrub-area-cursor')).to.equal(null);
-
-      const requestLockStub = Element.prototype.requestPointerLock as sinon.SinonStub;
-      expect(requestLockStub.called).to.equal(true);
+      expect(screen.queryByTestId('scrub-area-cursor')).toBe(null);
+      expect(requestLockStub).toHaveBeenCalled();
     } finally {
       Element.prototype.requestPointerLock = originalRequestPointerLock;
     }
@@ -159,7 +192,7 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
 
     try {
       // Simulate pointer lock resolving after the user already released the pointer (tap)
-      Element.prototype.requestPointerLock = sinon.stub().returns(
+      Element.prototype.requestPointerLock = vi.fn().mockReturnValue(
         new Promise((resolve) => {
           setTimeout(resolve, 30);
         }),
@@ -176,17 +209,19 @@ describe.skipIf(isWebKit)('<NumberField.ScrubAreaCursor />', () => {
 
       const scrubArea = screen.getByTestId('scrub-area');
 
-      // Quick press and release (tap)
-      await user.pointer({ keys: '[MouseLeft>]', pointerName: 'mouse', target: scrubArea });
-      await user.pointer({ keys: '[/MouseLeft]', pointerName: 'mouse', target: scrubArea });
-      window.dispatchEvent(new Event('pointerup'));
-      // Wait longer than the delayed pointer lock resolution
-      await new Promise((resolve) => {
-        setTimeout(resolve, 50);
+      await act(async () => {
+        // Quick press and release (tap)
+        await user.pointer({ target: scrubArea, keys: '[MouseLeft>]', pointerName: 'mouse' });
+        await user.pointer({ target: scrubArea, keys: '[/MouseLeft]', pointerName: 'mouse' });
+        window.dispatchEvent(new Event('pointerup'));
+        // Wait longer than the delayed pointer lock resolution
+        await new Promise((resolve) => {
+          setTimeout(resolve, 50);
+        });
       });
 
       // After a tap, the scrub cursor should not remain rendered
-      expect(screen.queryByTestId('scrub-area-cursor')).to.equal(null);
+      expect(screen.queryByTestId('scrub-area-cursor')).toBe(null);
     } finally {
       Element.prototype.requestPointerLock = originalRequestPointerLock;
     }

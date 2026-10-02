@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createTrackedEffect, createEffect, createRenderEffect, createSignal } from 'solid-js';
+import { createEffect, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
 import { ownerDocument } from '../../utils/owner';
@@ -7,19 +7,19 @@ import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden'
 import { contains } from '../../floating-ui-solid/utils';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
-import { useField } from '../../field/useField';
+import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useAriaLabelledBy } from '../../internals/labelable-provider/useAriaLabelledBy';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useControlled } from '../../utils/useControlled';
-import { splitComponentProps, useRef } from '../../solid-helpers';
-import { createChangeEventDetails, createGenericEventDetails } from '../../utils/createBaseUIEventDetails';
-import type {
-  BaseUIChangeEventDetails,
-  BaseUIGenericEventDetails,
-} from '../../types';
+import { createDepsEffect, splitComponentProps, useRef } from '../../solid-helpers';
+import {
+  createChangeEventDetails,
+  createGenericEventDetails,
+} from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails, BaseUIGenericEventDetails } from '../../types';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { OTPFieldRootContext } from './OTPFieldRootContext';
@@ -89,7 +89,6 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     state: fieldState,
     validation,
     validationMode,
-    shouldValidateOnChange,
     setFocused,
     setTouched,
   } = useFieldRootContext();
@@ -107,6 +106,8 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     state: 'value',
   });
 
+  const [inputCount, setInputCount] = createSignal(0);
+
   /* holds the sorted array of registered input elements */
   const inputElements: Array<HTMLInputElement | null | undefined> = [];
   let rootRef: HTMLDivElement | null = null;
@@ -115,7 +116,12 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     eventDetails: OTPFieldRoot.CompleteEventDetails;
   } | null>(null);
 
-  const firstInputRef = () => inputElements[0] ?? null;
+  // Solid: reads `inputCount` so label lookups re-run once the slots register, as React's
+  // label fallback re-runs after every commit.
+  const firstInputRef = () => {
+    inputCount();
+    return inputElements[0] ?? null;
+  };
 
   const id = useLabelableId({ id: idProp });
   const ariaLabelledBy = useAriaLabelledBy(ariaLabelledByProp, labelId, firstInputRef, true, id);
@@ -125,8 +131,8 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   const ariaDescribedBy = () => {
     const describedBy = ariaDescribedByProp();
     return mergeAriaIds(
-      fieldDescriptionProps['aria-describedby'] as string | undefined,
       typeof describedBy === 'string' ? describedBy : undefined,
+      fieldDescriptionProps['aria-describedby'] as string | undefined,
     );
   };
 
@@ -136,11 +142,13 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   const inputMode = () => inputModeProp() ?? validationConfig()?.inputMode;
   const hasValidLength = () => Number.isInteger(length()) && length() > 0;
 
-  const value = () => normalizeOTPValue(valueUnwrapped(), length(), validationType(), normalizeValue());
+  const value = () =>
+    normalizeOTPValue(valueUnwrapped(), length(), validationType(), normalizeValue());
   const filled = () => value() !== '';
 
-  const [inputCount, setInputCount] = createSignal(0);
-  const [focusedIndex, setFocusedIndex] = createSignal(Math.min(value().length, length() - 1));
+  const [focusedIndex, setFocusedIndex] = createSignal(
+    untrack(() => Math.min(value().length, length() - 1)),
+  );
   const [focused, setFocusedState] = createSignal(false);
 
   const activeIndex = () => {
@@ -152,28 +160,29 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     return Math.min(v.length, l - 1);
   };
 
-  createEffect(...on(filled, (f) => {
+  createEffect(
+    ...on(filled, (f) => {
       setFilled(f);
     }),
   );
 
   if (process.env.NODE_ENV !== 'production') {
-    createTrackedEffect(() => {
-      const count = inputCount();
-      const len = length();
-      if (!Number.isInteger(len) || len <= 0 || count === 0 || count === len) {
-        return;
-      }
-      warn(
-        '<OTPField.Root> `length` must match the number of rendered ' +
-          `<OTPField.Input /> parts. Received \`length={${len}}\` but rendered ` +
-          `${count} input${count === 1 ? '' : 's'}.`,
-        '',
-      );
-    });
+    createDepsEffect(
+      () => ({ inputCount: inputCount(), length: length() }),
+      ({ inputCount: count, length: len }) => {
+        if (!Number.isInteger(len) || len <= 0 || count === 0 || count === len) {
+          return;
+        }
+        warn(
+          '<OTPField.Root> `length` must match the number of rendered ' +
+            `<OTPField.Input /> parts. Received \`length={${len}}\` but rendered ` +
+            `${count} input${count === 1 ? '' : 's'}.`,
+          '',
+        );
+      },
+    );
 
-    createTrackedEffect(() => {
-      const len = length();
+    createEffect(length, (len) => {
       if (Number.isInteger(len) && len > 0) {
         return;
       }
@@ -182,24 +191,19 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
         '',
       );
     });
-
   }
 
-  /* Use the solid `useField` hook — equivalent to useRegisterFieldControl in React. */
-  useField({
-    commit: validation.commit,
-    controlRef: firstInputRef,
-    getValue: value,
-    id,
-    name,
-    value,
-  });
+  // Solid: a ref-shaped view of the first slot, as React's `firstInputRef`.
+  const firstInputControlRef = {
+    get current() {
+      return inputElements[0] ?? null;
+    },
+  };
+
+  useRegisterFieldControl(firstInputControlRef, id, value, undefined, () => !disabled(), nameProp);
 
   function focusInput(index: number) {
-    const targetIndex = Math.min(
-      Math.max(index, 0),
-      Math.max(inputElements.length - 1, 0),
-    );
+    const targetIndex = Math.min(Math.max(index, 0), Math.max(inputElements.length - 1, 0));
     const target = inputElements[targetIndex];
     target?.focus();
     target?.select();
@@ -213,8 +217,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   }
 
   function requestSubmit() {
-    let formElement =
-      validation.inputRef.current?.form ?? inputElements[0]?.form ?? null;
+    let formElement = validation.inputRef.current?.form ?? inputElements[0]?.form ?? null;
 
     const formProp = form();
     if (formProp) {
@@ -230,50 +233,38 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   }
 
   /* Track previous value to skip the initial run — mirrors React's useValueChanged
-     pattern (useLayoutEffect + ref). createRenderEffect runs synchronously on updates,
-     matching React's useLayoutEffect commit-phase timing. */
+     pattern (layout effect + ref). Solid: a user effect, so it runs after the slots' DOM
+     bindings, as React's layout effect runs after commit (`select()` must see the new value). */
   const prevValueRef = useRef<string | undefined>(undefined);
-  createRenderEffect(
-    () => ({
-      currentValue: value(),
-      name: name(),
-      shouldValidate: shouldValidateOnChange(),
-      initialValue: validityData.initialValue,
-    }),
-    ({ currentValue, name: fieldName, shouldValidate, initialValue }) => {
-      const previousValue = prevValueRef.current;
-      prevValueRef.current = currentValue;
+  createEffect(value, (currentValue) => {
+    const previousValue = prevValueRef.current;
+    prevValueRef.current = currentValue;
 
-      if (previousValue === undefined || previousValue === currentValue) {
-        return;
+    if (previousValue === undefined || previousValue === currentValue) {
+      return;
+    }
+
+    clearErrors(untrack(name));
+    setDirty(currentValue !== validityData.initialValue);
+
+    validation.change(currentValue);
+
+    const pendingFocus = pendingFocusRef.current;
+    if (pendingFocus != null) {
+      pendingFocusRef.current = null;
+      if (pendingFocus.value === currentValue) {
+        focusInput(pendingFocus.index);
       }
+    }
 
-      clearErrors(fieldName);
-      setDirty(currentValue !== initialValue);
-
-      if (shouldValidate) {
-        validation.commit(currentValue);
-      } else {
-        validation.commit(currentValue, true);
+    const pendingCompleteValue = pendingCompleteValueRef.current;
+    if (pendingCompleteValue != null) {
+      pendingCompleteValueRef.current = null;
+      if (pendingCompleteValue.value === currentValue) {
+        completeValue(currentValue, pendingCompleteValue.eventDetails);
       }
-
-      const pendingFocus = pendingFocusRef.current;
-      if (pendingFocus != null) {
-        pendingFocusRef.current = null;
-        if (pendingFocus.value === currentValue) {
-          focusInput(pendingFocus.index);
-        }
-      }
-
-      const pendingCompleteValue = pendingCompleteValueRef.current;
-      if (pendingCompleteValue != null) {
-        pendingCompleteValueRef.current = null;
-        if (pendingCompleteValue.value === currentValue) {
-          completeValue(currentValue, pendingCompleteValue.eventDetails);
-        }
-      }
-    },
-  );
+    }
+  });
 
   function completeValue(completedValue: string, eventDetails: OTPFieldRoot.CompleteEventDetails) {
     local.onValueComplete?.(completedValue, eventDetails);
@@ -282,12 +273,14 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     }
   }
 
-  function setValue(
-    nextValue: string,
-    details: OTPFieldRoot.ChangeEventDetails,
-  ): string | null {
+  function setValue(nextValue: string, details: OTPFieldRoot.ChangeEventDetails): string | null {
     const currentValue = value();
-    const normalizedValue = normalizeOTPValue(nextValue, length(), validationType(), normalizeValue());
+    const normalizedValue = normalizeOTPValue(
+      nextValue,
+      length(),
+      validationType(),
+      normalizeValue(),
+    );
     const canComplete =
       details.reason === REASONS.inputChange || details.reason === REASONS.inputPaste;
     const completeEventDetails =
@@ -324,10 +317,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     return normalizedValue;
   }
 
-  function reportValueInvalid(
-    invalidValue: string,
-    details: OTPFieldRoot.InvalidEventDetails,
-  ) {
+  function reportValueInvalid(invalidValue: string, details: OTPFieldRoot.InvalidEventDetails) {
     local.onValueInvalid?.(invalidValue, details);
   }
 
@@ -344,7 +334,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       setFocusedIndex(index);
       setFocusedState(true);
       setFocused(true);
-    };
+    }
     event.currentTarget.select();
   }
 
@@ -357,7 +347,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       setTouched(true);
       setFocusedState(false);
       setFocused(false);
-    };
+    }
 
     if (validationMode() === 'onBlur') {
       validation.commit(value());
@@ -455,13 +445,13 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   });
 
   const hiddenInputProps = () => {
-    const validationProps = validation.getInputValidationProps({
+    const validationProps = validation.getValidationProps(disabled(), {
       onFocus() {
         focusInput(0);
       },
-      /* Handles password-manager autofill via the hidden input. */
-      onChange(event: Event & { currentTarget: HTMLInputElement }) {
-        if ((event as any).nativeEvent?.defaultPrevented) {
+      // Solid: `onInput` is React's `onChange` (fires on every edit, including autofill).
+      onInput(event: InputEvent & { currentTarget: HTMLInputElement }) {
+        if (event.defaultPrevented || disabled() || readOnly()) {
           return;
         }
 
@@ -474,10 +464,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
         );
 
         if (didRejectCharacters) {
-          reportValueInvalid(
-            rawValue,
-            createGenericEventDetails(REASONS.inputChange, event),
-          );
+          reportValueInvalid(rawValue, createGenericEventDetails(REASONS.inputChange, event));
         }
 
         const committedValue = setValue(
@@ -504,8 +491,10 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
         {element()}
         {hasValidLength() && (
           <input
-            {...hiddenInputProps()}
-            ref={validation.inputRef.current as HTMLInputElement | undefined}
+            {...(hiddenInputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)}
+            ref={(el) => {
+              validation.inputRef.current = el;
+            }}
             type="text"
             id={id() && name() == null ? `${id()}-hidden-input` : undefined}
             form={form()}
@@ -544,8 +533,10 @@ export interface OTPFieldRootState extends FieldRootState {
   value: string;
 }
 
-export interface OTPFieldRootProps
-  extends Omit<BaseUIComponentProps<'div', OTPFieldRootState>, 'onChange'> {
+export interface OTPFieldRootProps extends Omit<
+  BaseUIComponentProps<'div', OTPFieldRootState>,
+  'onChange'
+> {
   /** The id of the first input element. */
   id?: string | undefined;
   /** @default 'one-time-code' */
@@ -582,14 +573,11 @@ export interface OTPFieldRootProps
   value?: string | undefined;
   defaultValue?: string | undefined;
   onValueChange?:
-    | ((value: string, eventDetails: OTPFieldRoot.ChangeEventDetails) => void)
-    | undefined;
+    ((value: string, eventDetails: OTPFieldRoot.ChangeEventDetails) => void) | undefined;
   onValueInvalid?:
-    | ((value: string, eventDetails: OTPFieldRoot.InvalidEventDetails) => void)
-    | undefined;
+    ((value: string, eventDetails: OTPFieldRoot.InvalidEventDetails) => void) | undefined;
   onValueComplete?:
-    | ((value: string, eventDetails: OTPFieldRoot.CompleteEventDetails) => void)
-    | undefined;
+    ((value: string, eventDetails: OTPFieldRoot.CompleteEventDetails) => void) | undefined;
 }
 
 export type OTPFieldRootChangeEventReason =
@@ -605,8 +593,7 @@ export type OTPFieldRootInvalidEventDetails =
   BaseUIGenericEventDetails<OTPFieldRoot.InvalidEventReason>;
 
 export type OTPFieldRootCompleteEventReason =
-  | typeof REASONS.inputChange
-  | typeof REASONS.inputPaste;
+  typeof REASONS.inputChange | typeof REASONS.inputPaste;
 export type OTPFieldRootCompleteEventDetails =
   BaseUIGenericEventDetails<OTPFieldRoot.CompleteEventReason>;
 

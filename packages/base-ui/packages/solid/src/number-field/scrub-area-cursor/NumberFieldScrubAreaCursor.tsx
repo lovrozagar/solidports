@@ -1,8 +1,8 @@
 import { createSignal } from 'solid-js';
 import { Portal } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
-import { isWebKit } from '../../utils/detectBrowser';
 import { ownerDocument } from '../../utils/owner';
+import { platform } from '../../utils/platform';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { NumberFieldRoot } from '../root/NumberFieldRoot';
@@ -29,7 +29,7 @@ export function NumberFieldScrubAreaCursor(componentProps: NumberFieldScrubAreaC
   const [domElement, setDomElement] = createSignal<Element | null | undefined>(null);
 
   const shouldRender = () =>
-    isScrubbing() && !isWebKit && !isTouchInput() && !isPointerLockDenied();
+    isScrubbing() && !platform.engine.webkit && !isTouchInput() && !isPointerLockDenied();
 
   const element = useRenderElement('span', componentProps, {
     enabled: shouldRender,

@@ -34,6 +34,8 @@ export function SelectItemIndicator(componentProps: SelectItemIndicator.Props) {
   };
 
   useOpenChangeComplete({
+    batch: true,
+    enabled: () => !selected(),
     onComplete() {
       if (!selected()) {
         setMounted(false);

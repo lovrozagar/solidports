@@ -1,8 +1,8 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Progress } from '@solidports/base-ui/progress';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
 import { spy } from 'sinon';
+import { expect, vi } from 'vitest';
 
 describe('<Progress.Value />', () => {
   const { render } = createRenderer();
@@ -62,19 +62,19 @@ describe('<Progress.Value />', () => {
         expect(renderSpy.lastCall.args[1]).to.deep.equal(30);
       });
 
-      it('indeterminate value', async () => {
-        const renderSpy = spy();
+      it.each([null, Number.NaN])('indeterminate value %s', async (value) => {
+        const renderSpy = vi.fn();
         const format: Intl.NumberFormatOptions = {
-          currency: 'USD',
           style: 'currency',
+          currency: 'USD',
         };
         render(() => (
-          <Progress.Root value={null} format={format}>
+          <Progress.Root value={value} format={format}>
             <Progress.Value data-testid="value">{renderSpy}</Progress.Value>
           </Progress.Root>
         ));
-        expect((renderSpy.lastCall as any).proxy.args[0][0]).to.deep.equal('indeterminate');
-        expect((renderSpy.lastCall as any).proxy.args[0][1]).to.deep.equal(null);
+        expect(renderSpy.mock.lastCall?.[0]).to.deep.equal('indeterminate');
+        expect(renderSpy.mock.lastCall?.[1]).to.deep.equal(value);
       });
     });
   });

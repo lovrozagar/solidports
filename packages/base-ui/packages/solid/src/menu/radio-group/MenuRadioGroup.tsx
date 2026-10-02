@@ -1,10 +1,12 @@
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at radio-group context boundary */
+import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { MenuRoot } from '../root/MenuRoot';
+import { MenuGroupContext } from '../group/MenuGroupContext';
 import { MenuRadioGroupContext } from './MenuRadioGroupContext';
 
 /**
@@ -19,8 +21,11 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
     'defaultValue',
     'onValueChange',
     'disabled',
+    'aria-labelledby',
   ]);
   const disabled = () => Boolean(local.disabled);
+
+  const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
 
   const [value, setValueUnwrapped] = useControlled({
     controlled: () => local.value,
@@ -54,6 +59,9 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
     props: [
       {
         role: 'group',
+        get 'aria-labelledby'() {
+          return local['aria-labelledby'] ?? labelId();
+        },
         get 'aria-disabled'() {
           return disabled() ? 'true' : undefined;
         },
@@ -64,7 +72,9 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
   });
 
   return (
-    <MenuRadioGroupContext value={context}>{element()}</MenuRadioGroupContext>
+    <MenuGroupContext value={setLabelId}>
+      <MenuRadioGroupContext value={context}>{element()}</MenuRadioGroupContext>
+    </MenuGroupContext>
   );
 }
 
@@ -89,8 +99,7 @@ export interface MenuRadioGroupProps extends BaseUIComponentProps<'div', MenuRad
    * Function called when the selected value changes.
    */
   onValueChange?:
-    | ((value: any, eventDetails: MenuRadioGroup.ChangeEventDetails) => void)
-    | undefined;
+    ((value: any, eventDetails: MenuRadioGroup.ChangeEventDetails) => void) | undefined;
   /**
    * Whether the component should ignore user interaction.
    *

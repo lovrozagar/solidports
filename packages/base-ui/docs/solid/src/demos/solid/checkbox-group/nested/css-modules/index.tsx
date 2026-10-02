@@ -11,8 +11,8 @@ const userManagementPermissions = ['create-user', 'edit-user', 'delete-user', 'a
 
 export default function PermissionsForm() {
   const id = createUniqueId();
-  const [mainValue, setMainValue] = createSignal([]);
-  const [managementValue, setManagementValue] = createSignal([]);
+  const [mainValue, setMainValue] = createSignal<string[]>([]);
+  const [managementValue, setManagementValue] = createSignal<string[]>([]);
 
   return (
     <CheckboxGroup
@@ -136,7 +136,7 @@ export default function PermissionsForm() {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -152,14 +152,14 @@ function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function HorizontalRuleIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function HorizontalRuleIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="12"
       height="12"
       viewBox="0 0 24 24"
       fill="currentColor"
-      strokeWidth={1}
+      stroke-width={1}
       {...props}
       style={{ display: 'block', ...props.style }}
     >
@@ -169,7 +169,7 @@ function HorizontalRuleIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
         x2="21"
         y2="12"
         stroke="currentColor"
-        vectorEffect="non-scaling-stroke"
+        vector-effect="non-scaling-stroke"
       />
     </svg>
   );

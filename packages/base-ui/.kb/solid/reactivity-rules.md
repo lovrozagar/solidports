@@ -8,7 +8,7 @@
 
 - **Ported:** yes (rules in active use)
 - **Verified:** yes
-- **Last reviewed:** 2026-04-16
+- **Last reviewed:** 2026-10-02
 
 ## What this file is
 
@@ -31,6 +31,8 @@ Snapshots: [`../_snapshots/cursor-solid-rules.AGENTS.md`](../_snapshots/cursor-s
 These extend (do not contradict) the Cursor sources above. Each links to
 the deeper KB file for the topic:
 
+- **Solid 2.** Effects, reads, writes, the Base UI store, refs, JSX and test rules for
+  Solid 2.0 → [`./solid-2.md`](./solid-2.md). Where an older file below disagrees, `solid-2.md` wins.
 - **Refs.** Project conventions on where `ref` may appear, plus render-prop
   ref forwarding pattern → [`./refs.md`](./refs.md).
 - **Effects and cleanup.** Cleanup runs child-first (opposite of React).
@@ -42,7 +44,7 @@ the deeper KB file for the topic:
 - **Props, hook params, return shapes.** All hook params reactive,
   `MaybeAccessor<T>` pattern, hooks return accessors, `children()` mirrors
   conditional → [`./props-and-context.md`](./props-and-context.md).
-- **Testing quirks.** No `act()` / `flushMicrotasks`; jest-dom matcher
+- **Testing quirks.** `act()` applies queued Solid 2 writes (see `solid-2.md`); jest-dom matcher
   behavior in iframes → [`./testing-quirks.md`](./testing-quirks.md).
 - **Gotchas registry.** Append-only list of cross-cutting Solid sharp
   edges → [`./gotchas.md`](./gotchas.md).

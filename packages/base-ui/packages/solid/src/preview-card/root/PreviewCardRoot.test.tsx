@@ -1,9 +1,10 @@
-import { createRenderer, flushMicrotasks, isJSDOM, popupConformanceTests } from '#test-utils';
+import { act, createRenderer, flushMicrotasks, isJSDOM, popupConformanceTests } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
 import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
+import { expect as vitestExpect, vi } from 'vitest';
+import { REASONS } from '../../utils/reasons';
 import { CLOSE_DELAY, OPEN_DELAY } from '../utils/constants';
 import { splitProps } from '../../solid-1-compat';
 
@@ -160,6 +161,71 @@ describe('<PreviewCard.Root />', () => {
         expect(handleChange.firstCall.args[0]).to.equal(false);
         expect(handleChange.secondCall.args[0]).to.equal(true);
       });
+      it('does not close after hovering out of a popup opened externally', async () => {
+        function App() {
+          const [open, setOpen] = createSignal(false);
+
+          return (
+            <>
+              <button type="button" onClick={() => setOpen(true)}>
+                Show
+              </button>
+              <TestPreviewCard rootProps={{ open: open(), onOpenChange: setOpen }} />
+            </>
+          );
+        }
+
+        renderFakeTimers(() => <App />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+
+        expect(screen.queryByText('Content')).not.to.equal(null);
+
+        const positioner = screen.getByTestId('positioner');
+
+        fireEvent.mouseEnter(positioner);
+        fireEvent.mouseLeave(positioner);
+
+        await flushMicrotasks();
+
+        clock.tick(CLOSE_DELAY);
+
+        await flushMicrotasks();
+
+        expect(screen.queryByText('Content')).not.to.equal(null);
+      });
+
+      it('closes after hovering out of a popup opened by its trigger', async () => {
+        function App() {
+          const [open, setOpen] = createSignal(false);
+
+          return <TestPreviewCard rootProps={{ open: open(), onOpenChange: setOpen }} />;
+        }
+
+        renderFakeTimers(() => <App />);
+
+        const trigger = screen.getByRole('link', { name: 'Link' });
+
+        fireEvent.mouseEnter(trigger);
+        fireEvent.mouseMove(trigger);
+
+        clock.tick(OPEN_DELAY);
+        await flushMicrotasks();
+
+        expect(screen.queryByText('Content')).not.to.equal(null);
+
+        const positioner = screen.getByTestId('positioner');
+
+        fireEvent.mouseEnter(positioner);
+        fireEvent.mouseLeave(positioner);
+
+        await flushMicrotasks();
+
+        clock.tick(CLOSE_DELAY);
+        await flushMicrotasks();
+
+        expect(screen.queryByText('Content')).to.equal(null);
+      });
 
       it('should not call onChange when the open state does not change', async () => {
         const handleChange = spy();
@@ -261,6 +327,29 @@ describe('<PreviewCard.Root />', () => {
 
         expect(screen.queryByText('Content')).to.equal(null);
       });
+      it('does not close after hovering out of a popup opened without trigger hover', async () => {
+        renderFakeTimers(() => (
+          <TestPreviewCard
+            rootProps={{
+              defaultOpen: true,
+            }}
+          />
+        ));
+
+        expect(screen.getByText('Content')).not.to.equal(null);
+
+        const positioner = screen.getByTestId('positioner');
+
+        fireEvent.mouseEnter(positioner);
+        fireEvent.mouseLeave(positioner);
+
+        await flushMicrotasks();
+
+        clock.tick(CLOSE_DELAY);
+        await flushMicrotasks();
+
+        expect(screen.getByText('Content')).not.to.equal(null);
+      });
     });
 
     describe('prop: delay', () => {
@@ -341,6 +430,42 @@ describe('<PreviewCard.Root />', () => {
       });
     });
 
+    describe('dismissal', () => {
+      const { render: renderFakeTimers, clock } = createRenderer();
+
+      clock.withFakeTimers();
+
+      it('reopens on hover after Escape closes it', async () => {
+        renderFakeTimers(() => <TestPreviewCard triggerProps={{ delay: 100 }} />);
+
+        const trigger = screen.getByRole('link', { name: 'Link' });
+
+        fireEvent.pointerDown(trigger, { pointerType: 'mouse' });
+        fireEvent.mouseEnter(trigger);
+        fireEvent.mouseMove(trigger);
+
+        clock.tick(100);
+        await flushMicrotasks();
+
+        expect(screen.getByText('Content')).not.to.equal(null);
+
+        fireEvent.keyDown(document.body, { key: 'Escape' });
+        await flushMicrotasks();
+
+        expect(screen.queryByText('Content')).to.equal(null);
+
+        // Re-enter with mouse events only. A fresh pointerenter can be missed
+        // after the click-driven close, but hover should still work.
+        fireEvent.mouseEnter(trigger);
+        fireEvent.mouseMove(trigger);
+
+        clock.tick(100);
+        await flushMicrotasks();
+
+        expect(screen.getByText('Content')).not.to.equal(null);
+      });
+    });
+
     describe.skipIf(!isJSDOM)('prop: actionsRef', () => {
       it('unmounts the preview card when the `unmount` method is called', async () => {
         const actionsRef = {
@@ -378,96 +503,39 @@ describe('<PreviewCard.Root />', () => {
           expect(screen.queryByTestId('positioner')).not.to.equal(null);
         });
 
-        actionsRef.current.unmount();
+        await act(async () => actionsRef.current.unmount());
 
         await waitFor(() => {
           expect(screen.queryByTestId('positioner')).to.equal(null);
         });
       });
-    });
 
-    describe.skipIf(isJSDOM)('prop: onOpenChangeComplete', () => {
-      it('is called on close when there is no exit animation defined', async () => {
-        const onOpenChangeComplete = spy();
+      it('closes the preview card when the `close` method is called', async () => {
+        const onOpenChange = vi.fn();
+        const actionsRef: { current: PreviewCard.Root.Actions | null } = { current: null };
 
-        function Test() {
-          const [open, setOpen] = createSignal(true);
-          return (
-            <div>
-              <button onClick={() => setOpen(false)}>Close</button>
-              <TestPreviewCard
-                rootProps={{
-                  onOpenChangeComplete,
-                  open: open(),
-                }}
-              />
-            </div>
-          );
-        }
+        const { user } = render(() => (
+          <TestPreviewCard rootProps={{ actionsRef, onOpenChange }} triggerProps={{ delay: 0 }} />
+        ));
 
-        const { user } = render(() => <Test />);
-
-        const closeButton = screen.getByText('Close');
-        await user.click(closeButton);
+        const trigger = screen.getByRole('link', { name: 'Link' });
+        await user.hover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('popup')).to.equal(null);
+          expect(screen.queryByTestId('popup')).not.to.equal(null);
         });
 
-        expect(onOpenChangeComplete.firstCall.args[0]).to.equal(true);
-        expect(onOpenChangeComplete.lastCall.args[0]).to.equal(false);
-      });
-
-      it('is called on close when the exit animation finishes', async () => {
-        globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
-
-        const onOpenChangeComplete = spy();
-
-        function Test() {
-          const style = `
-          @keyframes test-anim {
-            to {
-              opacity: 0;
-            }
-          }
-
-          .animation-test-indicator[data-ending-style] {
-            animation: test-anim 1ms;
-          }
-        `;
-
-          const [open, setOpen] = createSignal(true);
-
-          return (
-            <div>
-              {/* eslint-disable-next-line solid/no-innerhtml */}
-              <style innerHTML={style} />
-              <button onClick={() => setOpen(false)}>Close</button>
-              <TestPreviewCard
-                rootProps={{
-                  onOpenChangeComplete,
-                  open: open(),
-                }}
-                popupProps={{
-                  class: 'animation-test-indicator',
-                }}
-              />
-            </div>
-          );
-        }
-
-        const { user } = render(() => <Test />);
-
-        expect(screen.getByTestId('popup')).not.to.equal(null);
-
-        const closeButton = screen.getByText('Close');
-        await user.click(closeButton);
+        await act(async () => actionsRef.current?.close());
 
         await waitFor(() => {
-          expect(screen.queryByTestId('popup')).to.equal(null);
+          expect(screen.queryByTestId('positioner')).to.equal(null);
         });
 
-        expect(onOpenChangeComplete.lastCall.args[0]).to.equal(false);
+        vitestExpect(trigger).not.toHaveAttribute('data-popup-open');
+        vitestExpect(onOpenChange).toHaveBeenLastCalledWith(
+          false,
+          vitestExpect.objectContaining({ reason: REASONS.imperativeAction }),
+        );
       });
     });
 
@@ -654,6 +722,297 @@ describe('<PreviewCard.Root />', () => {
         ));
 
         expect(onOpenChangeComplete.callCount).to.equal(0);
+      });
+    });
+  });
+
+  describe('nested preview card interactions', () => {
+    it('keeps the parent preview card open when clicking nested trigger', async () => {
+      function Test() {
+        return (
+          <PreviewCard.Root defaultOpen>
+            <PreviewCard.Trigger href="#">Parent</PreviewCard.Trigger>
+            <PreviewCard.Portal>
+              <PreviewCard.Positioner>
+                <PreviewCard.Popup data-testid="parent-popup">
+                  <PreviewCard.Root>
+                    <PreviewCard.Trigger href="#">Child</PreviewCard.Trigger>
+                    <PreviewCard.Portal>
+                      <PreviewCard.Positioner>
+                        <PreviewCard.Popup data-testid="child-popup">
+                          Child content
+                        </PreviewCard.Popup>
+                      </PreviewCard.Positioner>
+                    </PreviewCard.Portal>
+                  </PreviewCard.Root>
+                </PreviewCard.Popup>
+              </PreviewCard.Positioner>
+            </PreviewCard.Portal>
+          </PreviewCard.Root>
+        );
+      }
+
+      render(() => <Test />);
+
+      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+
+      const childTrigger = screen.getByRole('link', { name: 'Child' });
+
+      fireEvent.click(childTrigger);
+
+      await flushMicrotasks();
+
+      // Parent popup should still be open after clicking the child trigger
+      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+    });
+
+    it('keeps the parent preview card open when press starts in nested popup and ends outside', async () => {
+      function Test() {
+        return (
+          <div>
+            <button type="button" data-testid="outside">
+              Outside
+            </button>
+
+            <PreviewCard.Root defaultOpen>
+              <PreviewCard.Trigger href="#">Parent</PreviewCard.Trigger>
+              <PreviewCard.Portal>
+                <PreviewCard.Positioner>
+                  <PreviewCard.Popup data-testid="parent-popup">
+                    <PreviewCard.Root defaultOpen>
+                      <PreviewCard.Trigger href="#">Child</PreviewCard.Trigger>
+                      <PreviewCard.Portal>
+                        <PreviewCard.Positioner>
+                          <PreviewCard.Popup data-testid="child-popup">
+                            Child content
+                          </PreviewCard.Popup>
+                        </PreviewCard.Positioner>
+                      </PreviewCard.Portal>
+                    </PreviewCard.Root>
+                  </PreviewCard.Popup>
+                </PreviewCard.Positioner>
+              </PreviewCard.Portal>
+            </PreviewCard.Root>
+          </div>
+        );
+      }
+
+      render(() => <Test />);
+
+      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+      expect(screen.queryByTestId('child-popup')).not.to.equal(null);
+
+      const childPopup = screen.getByTestId('child-popup');
+      const outside = screen.getByTestId('outside');
+
+      fireEvent.pointerDown(childPopup, { pointerType: 'mouse', button: 0 });
+      fireEvent.click(outside);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+      });
+      expect(screen.queryByTestId('child-popup')).not.to.equal(null);
+    });
+
+    it('keeps the parent preview card open when hovering nested trigger', async () => {
+      function Test() {
+        return (
+          <PreviewCard.Root defaultOpen>
+            <PreviewCard.Trigger href="#">Parent</PreviewCard.Trigger>
+            <PreviewCard.Portal>
+              <PreviewCard.Positioner data-testid="parent-positioner">
+                <PreviewCard.Popup data-testid="parent-popup">
+                  <div>Parent content</div>
+                  <PreviewCard.Root>
+                    <PreviewCard.Trigger href="#" data-testid="child-trigger">
+                      Child
+                    </PreviewCard.Trigger>
+                    <PreviewCard.Portal>
+                      <PreviewCard.Positioner>
+                        <PreviewCard.Popup data-testid="child-popup">
+                          Child content
+                        </PreviewCard.Popup>
+                      </PreviewCard.Positioner>
+                    </PreviewCard.Portal>
+                  </PreviewCard.Root>
+                </PreviewCard.Popup>
+              </PreviewCard.Positioner>
+            </PreviewCard.Portal>
+          </PreviewCard.Root>
+        );
+      }
+
+      render(() => <Test />);
+
+      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+
+      const childTrigger = screen.getByTestId('child-trigger');
+
+      // Simulate hovering from parent content to child trigger
+      fireEvent.pointerDown(childTrigger, { pointerType: 'mouse' });
+      fireEvent.mouseEnter(childTrigger);
+      fireEvent.mouseMove(childTrigger);
+
+      await flushMicrotasks();
+
+      // Parent popup should still be open after hovering the child trigger
+      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+    });
+
+    describe('race condition between close timers and hover-open logic', () => {
+      const { render, clock } = createRenderer();
+
+      clock.withFakeTimers();
+
+      it('keeps the parent open and re-opens the child when re-entering after partial close', async () => {
+        function Test() {
+          return (
+            <PreviewCard.Root defaultOpen>
+              <PreviewCard.Trigger href="#" data-testid="parent-trigger">
+                Parent
+              </PreviewCard.Trigger>
+              <PreviewCard.Portal>
+                <PreviewCard.Positioner>
+                  <PreviewCard.Popup data-testid="parent-popup">
+                    <div>Parent content</div>
+                    <PreviewCard.Root>
+                      <PreviewCard.Trigger href="#" data-testid="child-trigger">
+                        Child
+                      </PreviewCard.Trigger>
+                      <PreviewCard.Portal>
+                        <PreviewCard.Positioner>
+                          <PreviewCard.Popup data-testid="child-popup">
+                            Child content
+                          </PreviewCard.Popup>
+                        </PreviewCard.Positioner>
+                      </PreviewCard.Portal>
+                    </PreviewCard.Root>
+                  </PreviewCard.Popup>
+                </PreviewCard.Positioner>
+              </PreviewCard.Portal>
+            </PreviewCard.Root>
+          );
+        }
+
+        render(() => <Test />);
+
+        // Events must be triggered on positioner elements (parent of popup)
+        const parentPopup = screen.getByTestId('parent-popup').parentElement!;
+        const childTrigger = screen.getByTestId('child-trigger');
+
+        fireEvent.mouseEnter(childTrigger);
+        fireEvent.mouseMove(childTrigger);
+
+        clock.tick(OPEN_DELAY);
+        await flushMicrotasks();
+
+        let childPopup = screen.getByTestId('child-popup').parentElement!;
+
+        // Step 3: Move mouse outside all previews
+        fireEvent.mouseLeave(childPopup);
+        fireEvent.mouseLeave(parentPopup);
+        fireEvent.mouseMove(document.body);
+
+        // Advance partway through close delay but not all the way
+        clock.tick(CLOSE_DELAY / 2);
+        await flushMicrotasks();
+
+        // Step 4: Re-enter parent popup before it closes
+        fireEvent.mouseEnter(parentPopup);
+
+        // Let the child's close delay finish — child closes
+        clock.tick(CLOSE_DELAY);
+        await flushMicrotasks();
+
+        // Parent should still be open
+        expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+        expect(screen.queryByTestId('child-popup')).to.equal(null);
+
+        // Step 5: Hover child trigger again to re-open child
+        fireEvent.mouseEnter(childTrigger);
+        fireEvent.mouseMove(childTrigger);
+
+        clock.tick(OPEN_DELAY);
+        await flushMicrotasks();
+
+        // Parent and child should be open
+        expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+        childPopup = screen.getByTestId('child-popup').parentElement!;
+
+        fireEvent.mouseLeave(childTrigger, { relatedTarget: childPopup });
+        fireEvent.mouseLeave(parentPopup, { relatedTarget: childPopup });
+        fireEvent.mouseEnter(childPopup);
+
+        clock.tick(CLOSE_DELAY);
+
+        expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+        expect(screen.queryByTestId('child-popup')).not.to.equal(null);
+      });
+    });
+
+    describe('synchronized closing', () => {
+      const { render, clock } = createRenderer();
+
+      clock.withFakeTimers();
+
+      it('parent popup closes as soon as the child popup closes', async () => {
+        function Test() {
+          return (
+            <PreviewCard.Root>
+              <PreviewCard.Trigger href="#" data-testid="parent-trigger">
+                Parent
+              </PreviewCard.Trigger>
+              <PreviewCard.Portal>
+                <PreviewCard.Positioner>
+                  <PreviewCard.Popup data-testid="parent-popup">
+                    <div>Parent content</div>
+                    <PreviewCard.Root>
+                      <PreviewCard.Trigger href="#" data-testid="child-trigger">
+                        Child
+                      </PreviewCard.Trigger>
+                      <PreviewCard.Portal>
+                        <PreviewCard.Positioner>
+                          <PreviewCard.Popup data-testid="child-popup">
+                            Child content
+                          </PreviewCard.Popup>
+                        </PreviewCard.Positioner>
+                      </PreviewCard.Portal>
+                    </PreviewCard.Root>
+                  </PreviewCard.Popup>
+                </PreviewCard.Positioner>
+              </PreviewCard.Portal>
+            </PreviewCard.Root>
+          );
+        }
+
+        render(() => <Test />);
+
+        const parentTrigger = screen.getByTestId('parent-trigger');
+        fireEvent.mouseEnter(parentTrigger);
+        clock.tick(OPEN_DELAY);
+
+        // Events must be triggered on positioner elements (parent of popup)
+        const parentPopup = screen.getByTestId('parent-popup').parentElement!;
+        const childTrigger = screen.getByTestId('child-trigger');
+
+        fireEvent.mouseLeave(parentTrigger, { relatedTarget: parentPopup });
+        fireEvent.mouseEnter(parentPopup);
+        fireEvent.mouseEnter(childTrigger);
+        clock.tick(OPEN_DELAY);
+
+        const childPopup = screen.getByTestId('child-popup').parentElement!;
+
+        fireEvent.mouseLeave(childTrigger, { relatedTarget: childPopup });
+        fireEvent.mouseLeave(parentPopup, { relatedTarget: childPopup });
+        fireEvent.mouseEnter(childPopup);
+        fireEvent.mouseLeave(childPopup);
+        fireEvent.mouseMove(document.body);
+
+        clock.tick(CLOSE_DELAY + 10);
+        await flushMicrotasks();
+
+        expect(screen.queryByTestId('child-popup')).to.equal(null);
+        expect(screen.queryByTestId('parent-popup')).to.equal(null);
       });
     });
   });

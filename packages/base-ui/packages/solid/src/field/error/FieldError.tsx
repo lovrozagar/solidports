@@ -1,11 +1,4 @@
-import {
-  createTrackedEffect,
-  createMemo,
-  createSignal,
-  For,
-  onCleanup,
-  Show,
-} from 'solid-js';
+import { createMemo, For, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -20,6 +13,7 @@ import { FieldRoot } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
 import { fieldValidityMapping } from '../utils/constants';
 import { mergeProps as solidMergeProps, splitProps } from '../../solid-1-compat';
+import { createDepsEffect } from '../../solid-helpers';
 
 const stateAttributesMapping: StateAttributesMapping<FieldError.State> = {
   ...fieldValidityMapping,
@@ -43,83 +37,90 @@ export function FieldError(componentProps: FieldError.Props) {
 
   const { errors } = useFormContext();
 
-  const formError = () => {
-    const n = name();
-    return n ? errors()[n] : null;
+  const formError = createMemo(() => {
+    const fieldName = name();
+    const formErrors = errors();
+    return fieldName && Object.hasOwn(formErrors, fieldName) ? formErrors[fieldName] : null;
+  });
+  const hasFormError = () => {
+    const err = formError();
+    return !!(Array.isArray(err) ? err.length : err);
   };
+  const hasSpecificMatch = () => typeof local.match === 'string';
 
   const rendered = createMemo(() => {
-    let isRendered = false;
-    if (formError() || local.match === true) {
-      isRendered = true;
-    } else if (typeof local.match === 'string') {
-      isRendered = Boolean(validityData.state[local.match]);
-    } else {
-      isRendered = validityData.state.valid === false;
+    const match = local.match;
+    if (match === true) {
+      return true;
     }
-    return isRendered;
+    if (fieldState.disabled) {
+      return false;
+    }
+    if (typeof match === 'string') {
+      return Boolean(validityData.state[match]);
+    }
+    return hasFormError() || validityData.state.valid === false;
   });
 
-  const { mounted, transitionStatus, setMounted } = useTransitionStatus(() => rendered());
+  const { mounted, transitionStatus, setMounted } = useTransitionStatus(rendered);
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    const idValue = id();
-    if (!rendered() || !idValue) {
-      return;
-    }
-
-    setMessageIds((v) => v.concat(idValue));
-
-    _c.push(() => {
-      setMessageIds((v) => v.filter((item) => item !== idValue));
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+  createDepsEffect(
+    () => ({ rendered: rendered(), id: id() }),
+    ({ rendered: isRendered, id: idValue }) => {
+      if (!isRendered || !idValue) {
+        return undefined;
       }
-    };
-});
+
+      setMessageIds((v) => v.concat(idValue));
+
+      return () => {
+        setMessageIds((v) => v.filter((item) => item !== idValue));
+      };
+    },
+  );
 
   let errorRef = null as HTMLDivElement | null | undefined;
-  const [lastRenderedMessage, setLastRenderedMessage] = createSignal<JSX.Element>(null);
-  const [lastRenderedMessageKey, setLastRenderedMessageKey] = createSignal<string | null>(null);
 
-  const errorMessage = createMemo(() => {
-    return (
-      <>
-        {formError() ||
-          (validityData.errors.length > 1 ? (
-            <ul>
-              <For each={validityData.errors}>{(message) => <li>{message}</li>}</For>
-            </ul>
-          ) : (
-            <>{validityData.error}</>
-          ))}
-      </>
-    );
+  const error = createMemo(() => {
+    let nextError: string | string[] | null | undefined = validityData.error;
+    if (!hasSpecificMatch() && hasFormError()) {
+      nextError = formError();
+    } else if (validityData.errors.length > 1) {
+      nextError = validityData.errors;
+    }
+    return nextError;
   });
 
-  const errorKey = createMemo(() => {
-    const err = formError();
-    if (err != null) {
-      return Array.isArray(err) ? JSON.stringify(err) : err;
+  const errorMessage = createMemo((): JSX.Element => {
+    const err = error();
+    if (Array.isArray(err)) {
+      return err.length > 1 ? (
+        <ul>
+          <For each={err}>{(message) => <li>{message}</li>}</For>
+        </ul>
+      ) : (
+        err[0]
+      );
     }
-    if (validityData.errors.length > 1) {
-      return JSON.stringify(validityData.errors);
-    }
-    return validityData.error;
+    return err;
   });
 
-  createTrackedEffect(() => {
-    if (rendered() && errorKey() !== lastRenderedMessageKey()) {
-      setLastRenderedMessageKey(errorKey());
-      setLastRenderedMessage(errorMessage());
-    }
-  });
+  const errorKey = () => {
+    const err = error();
+    return Array.isArray(err) ? JSON.stringify(err) : err;
+  };
+
+  // React stores the last rendered message in state during render so the message stays visible
+  // while the error transitions out. A memo over its previous value models the same derivation.
+  const lastRendered = createMemo(
+    (previous: { key: string | null | undefined; message: JSX.Element } | undefined) => {
+      const last = previous ?? { key: null, message: null };
+      if (rendered() && errorKey() !== last.key) {
+        return { key: errorKey(), message: errorMessage() };
+      }
+      return last;
+    },
+  );
 
   useOpenChangeComplete({
     onComplete() {
@@ -145,7 +146,7 @@ export function FieldError(componentProps: FieldError.Props) {
           return id();
         },
         get children() {
-          return <>{rendered() ? errorMessage() : lastRenderedMessage()}</>;
+          return <>{rendered() ? errorMessage() : lastRendered().message}</>;
         },
       },
       elementProps,

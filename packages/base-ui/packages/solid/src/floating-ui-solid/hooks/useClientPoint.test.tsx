@@ -1,8 +1,12 @@
-import { flushMicrotasks } from '#test-utils';
+import { act, flushMicrotasks } from '#test-utils';
 import type { Coords } from '@floating-ui/dom';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
-import { createSignal, Show } from 'solid-js';
-import { test } from 'vitest';
+import { createSignal, onCleanup, Show } from 'solid-js';
+import { expect, test, vi } from 'vitest';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import { REASONS } from '../../utils/reasons';
+import { PopupTriggerMap } from '../../utils/popups';
+import { FloatingRootStore } from '../components/FloatingRootStoreV2';
 import { useClientPoint, useFloating, useInteractions } from '../index';
 
 function expectLocation({ x, y }: Coords) {
@@ -12,7 +16,33 @@ function expectLocation({ x, y }: Coords) {
   expect(Number(screen.getByTestId('height')?.textContent)).toBe(0);
 }
 
-function App(props: { enabled?: boolean; axis?: 'both' | 'x' | 'y'; useTriggerProps?: boolean }) {
+function expectRect({ x, y, width, height }: DOMRectInit) {
+  expect(Number(screen.getByTestId('x')?.textContent)).toBe(x);
+  expect(Number(screen.getByTestId('y')?.textContent)).toBe(y);
+  expect(Number(screen.getByTestId('width')?.textContent)).toBe(width);
+  expect(Number(screen.getByTestId('height')?.textContent)).toBe(height);
+}
+
+function createRootStore(referenceElement: HTMLElement) {
+  return FloatingRootStore({
+    open: false,
+    transitionStatus: undefined,
+    referenceElement,
+    floatingElement: document.createElement('div'),
+    triggerElements: new PopupTriggerMap(),
+    floatingId: undefined,
+    syncOnly: false,
+    nested: false,
+    onOpenChange: vi.fn(),
+  });
+}
+
+function App(props: {
+  enabled?: boolean;
+  axis?: 'both' | 'x' | 'y';
+  useTriggerProps?: boolean;
+  openWithFocusEvent?: boolean;
+}) {
   const [isOpen, setIsOpen] = createSignal(false);
   const { refs, elements, context } = useFloating({
     onOpenChange: setIsOpen,
@@ -47,17 +77,51 @@ function App(props: { enabled?: boolean; axis?: 'both' | 'x' | 'y'; useTriggerPr
         Reference
       </div>
       <Show when={isOpen()}>
-        <div data-testid="floating" ref={refs.setFloating} {...getFloatingProps()}>
-          Floating
-        </div>
+        {(() => {
+          // Solid applies refs on mount only; clear it on unmount as React's ref(null) does.
+          onCleanup(() => refs.setFloating(null));
+          return (
+            <div data-testid="floating" ref={refs.setFloating} {...getFloatingProps()}>
+              Floating
+            </div>
+          );
+        })()}
       </Show>
-      <button onClick={() => setIsOpen((v) => !v)} />
+      <button
+        onClick={() => {
+          if (!props.openWithFocusEvent) {
+            setIsOpen((v) => !v);
+            return;
+          }
+
+          context.rootStore.setOpen(
+            true,
+            createChangeEventDetails(
+              REASONS.triggerFocus,
+              new FocusEvent('focus'),
+              refs.domReference() as HTMLElement,
+            ),
+          );
+        }}
+      />
       <span data-testid="x">{rect()?.x}</span>
       <span data-testid="y">{rect()?.y}</span>
       <span data-testid="width">{rect()?.width}</span>
       <span data-testid="height">{rect()?.height}</span>
     </>
   );
+}
+
+function ClientPointStoreTest(props: { store: FloatingRootStore; enabled?: boolean }) {
+  useClientPoint({
+    context: props.store,
+    props: {
+      get enabled() {
+        return props.enabled ?? true;
+      },
+    },
+  });
+  return null;
 }
 
 test('updates position from trigger props', async () => {
@@ -171,13 +235,13 @@ test('renders at mouse event coords', async () => {
     document.body,
     new MouseEvent('mousemove', {
       bubbles: true,
-      clientX: 0,
-      clientY: 0,
+      clientX: 100,
+      clientY: 200,
     }),
   );
   await flushMicrotasks();
 
-  expectLocation({ x: 0, y: 0 });
+  expectLocation({ x: 100, y: 200 });
 });
 
 test('cleans up window listener when closing or disabling', async () => {
@@ -224,7 +288,7 @@ test('cleans up window listener when closing or disabling', async () => {
 
   expectLocation({ x: 500, y: 500 });
 
-  setEnabled(false);
+  act(() => setEnabled(false));
 
   fireEvent(
     document.body,
@@ -236,7 +300,8 @@ test('cleans up window listener when closing or disabling', async () => {
   );
   await flushMicrotasks();
 
-  expectLocation({ x: 500, y: 500 });
+  // Disabling resets the position reference to the DOM reference (React 1.8.0).
+  expectRect({ x: 0, y: 0, width: 0, height: 0 });
 });
 
 test('axis x', async () => {
@@ -309,4 +374,155 @@ test('removes window listener when cursor lands on floating element', async () =
   await flushMicrotasks();
 
   expectLocation({ x: 500, y: 500 });
+});
+
+test('clears virtual references on unmount without retaining a stale DOM reference', async () => {
+  const reference = document.createElement('button');
+  const store = createRootStore(reference);
+  const virtualReference = {
+    getBoundingClientRect: () => reference.getBoundingClientRect(),
+  };
+
+  store.set('positionReference', virtualReference);
+
+  // Solid: props change through a signal instead of `rerender`.
+  const [enabled, setEnabled] = createSignal(true);
+  const { unmount } = render(() => <ClientPointStoreTest store={store} enabled={enabled()} />);
+
+  act(() => setEnabled(false));
+  await flushMicrotasks();
+
+  expect(store.state.positionReference).toBe(reference);
+
+  store.set('positionReference', virtualReference);
+  unmount();
+
+  expect(store.state.positionReference).toBe(null);
+});
+
+test('reattaches window listener after cursor returns from floating element to reference', async () => {
+  render(() => <App />);
+
+  fireEvent.click(screen.getByRole('button'));
+
+  fireEvent(
+    screen.getByTestId('reference'),
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 500,
+      clientY: 500,
+    }),
+  );
+
+  fireEvent(
+    screen.getByTestId('floating'),
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 500,
+      clientY: 500,
+    }),
+  );
+
+  await flushMicrotasks();
+
+  fireEvent(
+    document.body,
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 0,
+      clientY: 0,
+    }),
+  );
+
+  expectLocation({ x: 500, y: 500 });
+
+  fireEvent(
+    screen.getByTestId('reference'),
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 600,
+      clientY: 700,
+    }),
+  );
+  await flushMicrotasks();
+
+  // Reapply deterministic coordinates after the effect attaches the window listener.
+  fireEvent(
+    screen.getByTestId('reference'),
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 600,
+      clientY: 700,
+    }),
+  );
+
+  expectLocation({ x: 600, y: 700 });
+
+  fireEvent(
+    document.body,
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 100,
+      clientY: 200,
+    }),
+  );
+  await flushMicrotasks();
+
+  expectLocation({ x: 100, y: 200 });
+});
+
+test('restores the DOM reference when opened by a non-mouse event', async () => {
+  render(() => <App openWithFocusEvent />);
+
+  const reference = screen.getByTestId('reference');
+
+  reference.getBoundingClientRect = () => ({
+    x: 10,
+    y: 20,
+    width: 30,
+    height: 40,
+    top: 20,
+    right: 40,
+    bottom: 60,
+    left: 10,
+    toJSON: () => {},
+  });
+
+  fireEvent(
+    reference,
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 500,
+      clientY: 500,
+    }),
+  );
+  await flushMicrotasks();
+
+  expectLocation({ x: 500, y: 500 });
+
+  fireEvent.click(screen.getByRole('button'));
+  await flushMicrotasks();
+
+  expectRect({ x: 10, y: 20, width: 30, height: 40 });
+
+  fireEvent(
+    document.body,
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 100,
+      clientY: 200,
+    }),
+  );
+
+  fireEvent(
+    reference,
+    new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 300,
+      clientY: 400,
+    }),
+  );
+  await flushMicrotasks();
+
+  expectRect({ x: 10, y: 20, width: 30, height: 40 });
 });

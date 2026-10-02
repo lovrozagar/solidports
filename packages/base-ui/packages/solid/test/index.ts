@@ -1,7 +1,10 @@
 export * from '../src/utils/testUtils';
+export { act } from './act';
 export { createRenderer, randomStringValue } from './createRenderer';
 export { describeConformance, type MuiRenderResult } from './describeConformance';
+export { describeGregorianAdapter } from './describeGregorianAdapter';
 export { flushMicrotasks } from './flushMicrotasks';
+export { enterWithMouse, firePointer, moveMouse } from './pointer';
 export { mockAnimationsFinished } from './mockAnimationsFinished';
 export { popupConformanceTests } from './popupConformanceTests';
 export * from './wait';

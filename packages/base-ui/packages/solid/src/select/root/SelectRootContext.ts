@@ -21,7 +21,7 @@ export interface SelectRootContext {
   listRef: ReactLikeRef<Array<HTMLElement | null | undefined>>;
   popupRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   scrollHandlerRef: ReactLikeRef<((el: HTMLDivElement) => void) | null>;
-  handleScrollArrowVisibility: () => void;
+  handleScrollArrowVisibility: (scroller?: HTMLElement | null | undefined) => void;
   scrollArrowsMountedCountRef: ReactLikeRef<number>;
   getItemProps: (
     props?: HTMLProps & { active?: boolean | undefined; selected?: boolean | undefined },
@@ -34,8 +34,10 @@ export interface SelectRootContext {
   selectionRef: ReactLikeRef<{
     allowUnselectedMouseUp: boolean;
     allowSelectedMouseUp: boolean;
+    dragY: number;
   }>;
-  selectedItemTextRef: ReactLikeRef<HTMLSpanElement | null | undefined>;
+  firstItemTextRef: ReactLikeRef<HTMLElement | null | undefined>;
+  selectedItemTextRef: ReactLikeRef<HTMLElement | null | undefined>;
   validation: UseFieldValidationReturnValue;
   onOpenChangeComplete?: ((open: boolean) => void) | undefined;
   keyboardActiveRef: ReactLikeRef<boolean>;

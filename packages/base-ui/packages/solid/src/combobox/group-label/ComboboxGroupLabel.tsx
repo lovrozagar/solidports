@@ -1,4 +1,4 @@
-import { createTrackedEffect, onCleanup } from 'solid-js';
+import { createEffect } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -17,21 +17,12 @@ export function ComboboxGroupLabel(componentProps: ComboboxGroupLabel.Props) {
 
   const id = useBaseUiId(idProp);
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    setLabelId(id());
-    _c.push(() => {
-      setLabelId(undefined);
-    });
-      })();
+  createEffect(id, (currentId) => {
+    setLabelId(currentId);
     return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
+      setLabelId((labelId) => (labelId === currentId ? undefined : labelId));
     };
-});
+  });
 
   const element = useRenderElement('div', componentProps, {
     props: [
@@ -39,6 +30,7 @@ export function ComboboxGroupLabel(componentProps: ComboboxGroupLabel.Props) {
         get id() {
           return id();
         },
+        'aria-hidden': 'true',
       },
       elementProps,
     ],

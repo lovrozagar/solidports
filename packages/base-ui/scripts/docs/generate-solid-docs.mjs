@@ -218,8 +218,11 @@ function rewriteHooks(text) {
   let match = re.exec(text);
   while (match) {
     const hook = match[1];
-    let i = match.index + match[0].length;
-    i = skipGeneric(text, i);
+    const genericAt = match.index + match[0].length;
+    const i = skipGeneric(text, genericAt);
+    /* Type arguments carry over: without them `createSignal([])` infers `never[]`. */
+    const generic = text.slice(genericAt, i);
+    const typeArg = generic.slice(1, -1).trim();
     if (text[i] !== '(') {
       match = re.exec(text);
       continue;
@@ -229,19 +232,27 @@ function rewriteHooks(text) {
     const args = splitArgs(call.inner);
     let replacement = null;
     if (hook === 'useState') {
-      replacement = `createSignal(${args[0] ?? ''})`;
+      replacement = `createSignal${generic}(${args[0] ?? ''})`;
       const decl = text.slice(last, match.index);
       const named = decl.match(/\[(\w+)\s*,/);
       if (named) signalNames.push(named[1]);
     } else if (hook === 'useRef') {
-      replacement = `{ current: ${args[0] ?? 'null'} }`;
+      /* React's `useRef<T>(null)` is a `RefObject<T | null>`. */
+      const initial = args[0] ?? 'undefined';
+      let current = initial;
+      if (typeArg) {
+        const nullable =
+          initial === 'null' && !/\bnull\b/.test(typeArg) ? `${typeArg} | null` : typeArg;
+        current = `${initial} as ${nullable}`;
+      }
+      replacement = `{ current: ${current} }`;
       const decl = text.slice(Math.max(0, match.index - 80), match.index);
       const named = decl.match(/const\s+(\w+)\s*=\s*$/);
       if (named) refNames.push(named[1]);
     } else if (hook === 'useCallback') {
       replacement = args[0] ?? '() => {}';
     } else if (hook === 'useMemo') {
-      replacement = `createMemo(${args[0] ?? '() => undefined'})`;
+      replacement = `createMemo${generic}(${args[0] ?? '() => undefined'})`;
     } else if (hook === 'useEffect' || hook === 'useLayoutEffect') {
       replacement = effectCall(args);
     } else if (hook === 'useId') {
@@ -293,6 +304,111 @@ function kebabStyleKeys(text) {
     );
     text = `${text.slice(0, match.index + match[0].length)}${inner}${text.slice(object.end - 1)}`;
     re.lastIndex = match.index + match[0].length + inner.length;
+  }
+  return text;
+}
+
+/** React prop names that Solid 2 writes under their DOM attribute names. */
+const DOM_ATTRIBUTE_NAMES = {
+  htmlFor: 'for',
+  autoComplete: 'autocomplete',
+  autoFocus: 'autofocus',
+  crossOrigin: 'crossorigin',
+  itemProp: 'itemprop',
+  itemScope: 'itemscope',
+  itemType: 'itemtype',
+  maxLength: 'maxlength',
+  minLength: 'minlength',
+  noValidate: 'novalidate',
+  readOnly: 'readonly',
+  spellCheck: 'spellcheck',
+  tabIndex: 'tabindex',
+  clipPath: 'clip-path',
+  clipRule: 'clip-rule',
+  fillOpacity: 'fill-opacity',
+  fillRule: 'fill-rule',
+  stopColor: 'stop-color',
+  strokeDasharray: 'stroke-dasharray',
+  strokeLinecap: 'stroke-linecap',
+  strokeLinejoin: 'stroke-linejoin',
+  strokeMiterlimit: 'stroke-miterlimit',
+  strokeOpacity: 'stroke-opacity',
+  strokeWidth: 'stroke-width',
+  vectorEffect: 'vector-effect',
+};
+
+/** Renames JSX attributes (`name=` or a bare boolean `name`) to their DOM names. */
+function renameDomAttributes(text) {
+  const rename = (_m, lead, name) => `${lead}${DOM_ATTRIBUTE_NAMES[name]}`;
+  const names = Object.keys(DOM_ATTRIBUTE_NAMES).join('|');
+  const booleans = 'autoFocus|itemScope|noValidate|readOnly';
+  return text
+    .replace(new RegExp(`(\\s)(${names})(?==)`, 'g'), rename)
+    .replace(new RegExp(`(\\s)(${booleans})(?=\\s*\\/?>|\\s+[A-Za-z{]|[ \\t]*\\n)`, 'g'), rename);
+}
+
+/**
+ * Solid types `style` as `CSSProperties | string`, so an icon that merges `...props.style` into its
+ * own style object (React's `ComponentProps<'svg'>` style is always an object) narrows `style`.
+ */
+function objectStyleSvgProps(text) {
+  const re = /(function \w+\(props: )JSX\.SvgSVGAttributes<SVGSVGElement>(\) \{)/g;
+  let match;
+  while ((match = re.exec(text))) {
+    const body = readBalanced(text, match.index + match[0].length - 1, '{', '}');
+    if (!body || !body.inner.includes('...props.style')) continue;
+    const head = `${match[1]}Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }${match[2]}`;
+    text = text.slice(0, match.index) + head + text.slice(match.index + match[0].length);
+    re.lastIndex = match.index + head.length;
+  }
+  return text;
+}
+
+/**
+ * `<Combobox.Value>` and `<Autocomplete.Value>` pass their render function an accessor so the
+ * rendered children track the selection. Type the parameter as one and call it where it is read.
+ */
+function accessorValueChildren(text) {
+  const re = /<(Combobox|Autocomplete)\.Value>\s*\{\s*\((\w+)(?::\s*([^)]+))?\)\s*=>/g;
+  let match;
+  while ((match = re.exec(text))) {
+    const [, part, name, type] = match;
+    /* React passes Autocomplete render functions `String(inputValue)`. */
+    const read = part === 'Autocomplete' ? `String(${name}())` : `${name}()`;
+    const container = text.lastIndexOf('{', match.index + match[0].length);
+    const block = readBalanced(text, container, '{', '}');
+    if (!block) continue;
+    const arrowEnd = match.index + match[0].length;
+    const head = type
+      ? text.slice(container, arrowEnd).replace(`${name}: ${type}`, `${name}: Accessor<${type.trim()}>`)
+      : text.slice(container, arrowEnd);
+    const body = text
+      .slice(arrowEnd, block.end)
+      .replace(new RegExp(`(?<![\\w$.'"])${name}(?![\\w$(:'"])`, 'g'), read);
+    text = text.slice(0, container) + head + body + text.slice(block.end);
+    re.lastIndex = container + head.length;
+  }
+  return text;
+}
+
+/**
+ * React's `onChange` on a text field fires on every edit (the native `input` event). Solid binds
+ * the native `change` event, which fires on commit, so a controlled field would lag behind.
+ */
+function nativeInputEvents(text) {
+  const re = /<(input|textarea)\b/g;
+  let match;
+  while ((match = re.exec(text))) {
+    let depth = 0;
+    let end = match.index + match[0].length;
+    for (; end < text.length; end += 1) {
+      const c = text[end];
+      if (c === '{') depth += 1;
+      else if (c === '}') depth -= 1;
+      else if (c === '>' && depth === 0) break;
+    }
+    const tag = text.slice(match.index, end).replace(/(\s)onChange=/g, '$1onInput=');
+    text = text.slice(0, match.index) + tag + text.slice(end);
   }
   return text;
 }
@@ -491,13 +607,123 @@ function addSolidImport(text, name) {
   return `import { ${name} } from 'solid-js';\n${text}`;
 }
 
+/**
+ * Rewrites reads of the accessor `name` (a signal getter or memo) into calls. React reads these as
+ * plain values. `declaration` marks the line that defines it. With `strict`, only `{name}` is
+ * rewritten when a parameter elsewhere in the file shadows the name.
+ */
+function callAccessor(text, name, declaration, strict) {
+  const shadowed = declaresParameter(text, name);
+  const call = `${name}()`;
+  const rules = [
+    [new RegExp(`\\{${name}\\}`, 'g'), `{${call}}`, false],
+    [new RegExp(`(?<![\\w.])${name}\\.(?!\\.)`, 'g'), `${call}.`, strict],
+    [
+      new RegExp(`(?<![\\w.])${name}(?=\\s*(?:===|!==|==|!=|>=|<=|[<>+?]|&&|\\|\\|))`, 'g'),
+      call,
+      strict,
+    ],
+    [new RegExp(`\\breturn\\s+${name}\\b(?!\\()`), `return ${call}`, strict],
+    [new RegExp(`\\.\\.\\.${name}\\b(?!\\()`), `...${call}`, strict],
+    [new RegExp(`([?:]\\s*)${name}\\b(?!\\()`), `$1${call}`, strict],
+    /* A getter read as a condition or an operand is always truthy / NaN. */
+    [
+      new RegExp(
+        `(?<=(?:\\bif\\s*\\(|&&|\\|\\||!|[=!]==?|\\s[<>]=?)\\s*)${name}\\b(?![\\w$(.:])`,
+        'g',
+      ),
+      call,
+      true,
+    ],
+    [new RegExp(`(?<![\\w.$-])${name}(?=\\s+[-*/%]\\s)`, 'g'), call, true],
+    [new RegExp(`(?<=\\s[-*/%]\\s+)${name}\\b(?![\\w$(.-])`, 'g'), call, true],
+  ];
+  return text
+    .split('\n')
+    .map((line) => {
+      if (line.includes(declaration)) return line;
+      for (const [re, replacement, gated] of rules) {
+        if (gated && shadowed) continue;
+        line = line.replace(re, replacement);
+      }
+      return line;
+    })
+    .join('\n');
+}
+
+/** End index (exclusive, past `;`) of the statement whose expression starts at `i`. */
+function statementEnd(text, i) {
+  let depth = 0;
+  let quote = null;
+  for (; i < text.length; i += 1) {
+    const c = text[i];
+    if (quote) {
+      if (c === '\\') i += 1;
+      else if (c === quote) quote = null;
+    } else if (c === '"' || c === "'" || c === '`') quote = c;
+    else if ('([{'.includes(c)) depth += 1;
+    else if (')]}'.includes(c)) depth -= 1;
+    else if (c === ';' && depth === 0) return i + 1;
+  }
+  return -1;
+}
+
+const COMPONENT_CONST =
+  /^ {2}const (\w+)(?::\s*([^=\n]+?))? =\s+(?!createSignal|createMemo|createUniqueId|\{ current)/gm;
+
+/**
+ * Component-body constants computed from state re-run on every React render. Solid runs the body
+ * once, so a constant that reads an accessor would never update. Returns those names in order.
+ */
+function memoizeDerivedConsts(text, accessorNames) {
+  const names = [];
+  const known = new Set(accessorNames);
+  for (const match of text.matchAll(COMPONENT_CONST)) {
+    const start = match.index + match[0].length;
+    const end = statementEnd(text, start);
+    if (end === -1) continue;
+    const expr = text.slice(start, end - 1).trim();
+    if (/^(?:async\s*)?(?:\([^)]*\)|\w+)\s*(?::[^=]+)?=>|^function\b/.test(expr)) continue;
+    const reads =
+      [...known].some((name) => new RegExp(`(?<![\\w.$])${name}\\(\\)`).test(expr)) ||
+      names.some((name) => new RegExp(`(?<![\\w.$])${name}(?![\\w$:])`).test(expr));
+    if (!reads) continue;
+    names.push(match[1]);
+    known.add(match[1]);
+  }
+  return names;
+}
+
+/** `const name: T = expr;` → `const name = createMemo<T>(() => expr);` */
+function memoizeConst(text, name) {
+  const match = new RegExp(`^ {2}const ${name}(?::\\s*([^=\\n]+?))? =\\s+`, 'm').exec(text);
+  const start = match.index + match[0].length;
+  const end = statementEnd(text, start);
+  const expr = text.slice(start, end - 1);
+  const generic = match[1] ? `<${match[1].trim()}>` : '';
+  const head = `${text.slice(0, match.index)}  const ${name} = createMemo${generic}(() => `;
+  return `${head}${expr});${text.slice(end)}`;
+}
+
+/** Whether any arrow function or function declaration in `text` takes a parameter called `name`. */
+function declaresParameter(text, name) {
+  const own = new RegExp(`(?<![\\w$.])${name}(?![\\w$])`);
+  if (new RegExp(`(?<![\\w$.])${name}\\s*=>`).test(text)) return true;
+  for (const match of text.matchAll(/\(([^()]*)\)\s*(?::\s*[^=;{]+)?=>|\bfunction\s*\w*\s*(?:<[^>]*>)?\(([^()]*)\)/g)) {
+    const params = (match[1] ?? match[2]).replace(/:[^,]*/g, '');
+    if (own.test(params)) return true;
+  }
+  return false;
+}
+
 function transformDemoTsx(src) {
   let text = src;
   text = text.replaceAll('@base-ui/react/', '@solidports/base-ui/');
   text = text.replaceAll("'@base-ui/react'", "'@solidports/base-ui'");
   text = text.replaceAll('"@base-ui/react"', '"@solidports/base-ui"');
   text = text.replace(/\bclassName=/g, 'class=');
-  text = text.replace(/\bhtmlFor=/g, 'for=');
+  text = renameDomAttributes(text);
+  text = nativeInputEvents(text);
 
   // Keep the newline so a removed React import still occupies a line in the
   // demo source view. Short samples render fully, and a missing line shifts
@@ -512,7 +738,13 @@ function transformDemoTsx(src) {
   text = text.replace(/<\/React\.Fragment>/g, '</>');
   text = text.replace(/React\.ComponentProps<'svg'>/g, 'JSX.SvgSVGAttributes<SVGSVGElement>');
   text = text.replace(/React\.ComponentProps<"svg">/g, 'JSX.SvgSVGAttributes<SVGSVGElement>');
-  text = text.replace(/React\.ComponentProps(?:WithoutRef)?<('[a-z]+')>/g, 'ComponentProps<$1>');
+  /* React's native props carry an object `style`; Solid's also allow a string, which Base UI parts
+     (like React's) do not accept. */
+  text = text.replace(
+    /React\.ComponentPropsWithoutRef<('[a-z]+')>/g,
+    "Omit<ComponentProps<$1>, 'ref' | 'style'> & { style?: JSX.CSSProperties }",
+  );
+  text = text.replace(/React\.ComponentProps<('[a-z]+')>/g, 'ComponentProps<$1>');
   text = text.replace(/React\.CSSProperties/g, 'JSX.CSSProperties');
   /* Solid handlers receive native DOM events with a typed `currentTarget`. */
   text = text.replace(
@@ -531,38 +763,25 @@ function transformDemoTsx(src) {
       `ref={${name}}`,
       `ref={(el) => { ${name}.current = el; }}`,
     );
+    /* Solid focus props take an element or a getter, not a ref object. */
+    text = text.replace(
+      new RegExp(`\\b(initialFocus|finalFocus)=\\{${name}\\}`, 'g'),
+      `$1={() => ${name}.current}`,
+    );
   }
 
   for (const name of rewritten.signalNames) {
-    const lines = text.split('\n');
-    const expr = new RegExp(`\\{${name}\\}`, 'g');
-    const member = new RegExp(`(?<![\\w.])${name}\\.(?!\\.)`, 'g');
-    const compare = new RegExp(
-      `(?<![\\w.])${name}(?=\\s*(?:===|!==|==|!=|>=|<=|[<>+?]|&&|\\|\\|))`,
-      'g',
-    );
-    for (let i = 0; i < lines.length; i += 1) {
-      if (lines[i].includes(`const [${name},`)) continue;
-      lines[i] = lines[i].replace(expr, `{${name}()}`);
-      lines[i] = lines[i].replace(member, `${name}().`);
-      lines[i] = lines[i].replace(compare, `${name}()`);
-      lines[i] = lines[i].replace(new RegExp(`\\breturn\\s+${name}\\b(?!\\()`), `return ${name}()`);
-      lines[i] = lines[i].replace(new RegExp(`\\.\\.\\.${name}\\b(?!\\()`), `...${name}()`);
-      lines[i] = lines[i].replace(new RegExp(`([?:]\\s*)${name}\\b(?!\\()`), `$1${name}()`);
-    }
-    text = lines.join('\n');
+    text = callAccessor(text, name, `const [${name},`, false);
   }
-  const memoNames = [...text.matchAll(/const\s+(\w+)\s*=\s*createMemo\(/g)].map((match) => match[1]);
-  if (memoNames.length > 0) {
-    const lines = text.split('\n');
-    for (const name of memoNames) {
-      const expr = new RegExp(`\\{${name}\\}`, 'g');
-      for (let i = 0; i < lines.length; i += 1) {
-        if (lines[i].includes(`const ${name} = createMemo`)) continue;
-        lines[i] = lines[i].replace(expr, `{${name}()}`);
-      }
-    }
-    text = lines.join('\n');
+  const accessorNames = new Set(rewritten.signalNames);
+  for (const [, name] of text.matchAll(/const\s+(\w+)\s*=\s*(?:createMemo|useMediaQuery)\b/g)) {
+    accessorNames.add(name);
+    text = callAccessor(text, name, `const ${name} = `, true);
+  }
+  for (const name of memoizeDerivedConsts(text, accessorNames)) {
+    text = memoizeConst(text, name);
+    accessorNames.add(name);
+    text = callAccessor(text, name, `const ${name} = `, true);
   }
   text = text.replace(/\btoasts\./g, 'toasts().');
   text = kebabStyleKeys(text);
@@ -574,9 +793,7 @@ function transformDemoTsx(src) {
     /return toasts\(\)\.map\(\(([^)]+)\) => (<[^;]+)\);/g,
     'return (\n    <For each={toasts()}>\n      {($1) => $2}\n    </For>\n  );',
   );
-  text = text.replace(/\{value\.map\(/g, '{(Array.isArray(value) ? value : []).map(');
-  text = text.replace(/<Select\.Label\b/g, '<label');
-  text = text.replace(/<\/Select\.Label>/g, '</label>');
+  text = accessorValueChildren(text);
   text = text.replace(/import\s+\{[^}]+\}\s+from\s+'motion\/react';\n*/g, '');
   text = text.replace(/<motion\.div\b[\s\S]*?\/>/g, '<div />');
   text = text.replace(/<motion\.div\b([^>]*)>/g, '<div$1>');
@@ -587,21 +804,22 @@ function transformDemoTsx(src) {
   text = stringifyBareAria(text);
   text = rewriteDestructuredProps(text);
   text = rewriteTanstackForm(text);
+  text = objectStyleSvgProps(text);
   if (/\bReact\./.test(text)) {
     text = `const React = { forwardRef: (render) => (props) => render(props, props.ref), useActionState: (_action, initial) => [initial, () => {}, false] };\n${text}`;
   }
 
   const needed = [];
-  if (text.includes('createSignal(')) needed.push('createSignal');
-  if (text.includes('createEffect(')) needed.push('createEffect');
-  if (text.includes('createMemo(')) needed.push('createMemo');
-  if (text.includes('createUniqueId(')) needed.push('createUniqueId');
+  for (const name of ['createSignal', 'createEffect', 'createMemo', 'createUniqueId']) {
+    if (new RegExp(`\\b${name}(?:<[^(]*>)?\\(`).test(text)) needed.push(name);
+  }
   if (/\bonCleanup\(/.test(text)) needed.push('onCleanup');
   if (/\bonSettled\(/.test(text)) needed.push('onSettled');
   if (/<For[\s>]/.test(text)) needed.push('For');
+  if (/\bAccessor</.test(text)) needed.push('type Accessor');
   const typeJsx = /JSX\.(SvgSVGAttributes|CSSProperties|Element)/.test(text);
   const header = [];
-  if (needed.length > 0 && !text.includes("from 'solid-js'") && !text.includes('from "solid-js"')) {
+  if (needed.length > 0) {
     header.push(`import { ${[...new Set(needed)].join(', ')} } from 'solid-js';`);
   }
   /* Solid 2 moved the JSX namespace (and ComponentProps) to @solidjs/web. */
@@ -616,16 +834,6 @@ function transformDemoTsx(src) {
   if (/\bomit\(/.test(text)) text = addSolidImport(text, 'omit');
   if (/<Component>/.test(text)) text = addSolidImport(text, 'type Component');
 
-  text = text.replace(/\bReact\.useId\(/g, 'createUniqueId(');
-  if (text.includes('createUniqueId(') && !text.includes('createUniqueId')) {
-    text = text.replace(
-      "from 'solid-js';",
-      "from 'solid-js';\nimport { createUniqueId } from 'solid-js';",
-    );
-    if (!text.includes("from 'solid-js'")) {
-      text = `import { createUniqueId } from 'solid-js';\n${text}`;
-    }
-  }
 
   return text;
 }
@@ -918,6 +1126,7 @@ function transformSolidTsx(src) {
   text = text.replace(/^import \* as React from 'react';\n/m, '');
   text = text.replace(/^import type \{[^}]+\} from 'next(?:\/types)?';\n/gm, '');
   text = text.replace(/\bclassName=/g, 'class=');
+  text = renameDomAttributes(text);
   text = text.replaceAll('@base-ui/react/', '@solidports/base-ui/');
   text = text.replaceAll('@base-ui/react', '@solidports/base-ui');
   text = text.replaceAll('/react/', '/solid/');
@@ -928,7 +1137,7 @@ function transformSolidTsx(src) {
   if (text.includes('JSX.SvgSVGAttributes') && !/\bJSX\b[^;]*from '@solidjs\/web'/.test(text)) {
     text = `import type { JSX } from '@solidjs/web';\n${text}`;
   }
-  return kebabStyleKeys(text);
+  return objectStyleSvgProps(kebabStyleKeys(text));
 }
 
 const HOME_LAYOUT = `import type { ParentProps } from 'solid-js'

@@ -1,14 +1,19 @@
-import { createTrackedEffect } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { safePolygon, useFocus, useHoverReferenceInteraction } from '../../floating-ui-solid';
-import { splitComponentProps } from '../../solid-helpers';
-import { useTriggerDataForwarding } from '../../utils/popups';
+import { live, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
+import {
+  getInlineRectTriggerProps,
+  usePopupHandleStore,
+  useTriggerDataForwarding,
+} from '../../utils/popups';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { usePreviewCardRootContext } from '../root/PreviewCardContext';
 import { PreviewCardHandle } from '../store/PreviewCardHandle';
-import type { PreviewCardStore } from '../store/PreviewCardStore';
+import type { PreviewCardHandleStore } from '../store/PreviewCardStore';
 import { CLOSE_DELAY, OPEN_DELAY } from '../utils/constants';
 
 /**
@@ -26,68 +31,69 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
     'handle',
   ]);
   const idProp = () => local.id;
-  const delayWithDefault = () => local.delay ?? OPEN_DELAY;
-  const closeDelayWithDefault = () => local.closeDelay ?? CLOSE_DELAY;
 
   const rootContext = usePreviewCardRootContext(true);
-  const store = local.handle?.store ?? rootContext?.store;
-  if (!store) {
+  const handleStore = usePopupHandleStore(() => local.handle);
+  const store = createMemo(
+    () => (handleStore() ?? rootContext?.store) as PreviewCardHandleStore<unknown> | undefined,
+  );
+  if (!untrack(store)) {
     throw new Error(
       'Base UI: <PreviewCard.Trigger> must be either used within a <PreviewCard.Root> component or provided with a handle.',
     );
   }
+  // Live: handlers, refs and effect callbacks read the latest store imperatively.
+  const currentStore = live(() => store()!);
 
   const thisTriggerId = useBaseUiId(idProp);
-  const isTriggerActive = store.useState('isTriggerActive', thisTriggerId);
-  const isOpenedByThisTrigger = store.useState('isOpenedByTrigger', thisTriggerId);
+  const isTriggerActive = () => currentStore().select('isTriggerActive', thisTriggerId);
+  const isOpenedByThisTrigger = () => currentStore().select('isOpenedByTrigger', thisTriggerId);
+  const floatingRootContext = () => currentStore().context.floatingRootContext;
+  const inlineRectCoordsRef = () => currentStore().context.inlineRectCoordsRef;
 
-  let triggerElementRef = null as Element | null | undefined;
+  const triggerElementRef: ReactLikeRef<Element | null> = { current: null };
+  // Solid: a signal as well, so the hover hook re-attaches its listeners once the element exists.
+  const [triggerElement, setTriggerElement] = createSignal<Element | null>(null);
 
-  const { registerTrigger, isMountedByThisTrigger } = useTriggerDataForwarding({
-    stateUpdates: {
+  const delayWithDefault = () => local.delay ?? OPEN_DELAY;
+  const closeDelayWithDefault = () => local.closeDelay ?? CLOSE_DELAY;
+
+  const { registerTrigger, isMountedByThisTrigger } = useTriggerDataForwarding(
+    thisTriggerId,
+    triggerElementRef,
+    currentStore,
+    {
       get payload() {
         return local.payload;
       },
+      get closeDelay() {
+        return closeDelayWithDefault();
+      },
     },
-    get store() {
-      return store as PreviewCardStore<Payload>;
-    },
-    get triggerElement() {
-      return triggerElementRef;
-    },
-    get triggerId() {
-      return thisTriggerId();
-    },
-  });
-
-  createTrackedEffect(() => {
-    if (isMountedByThisTrigger()) {
-      store.context.closeDelayRef.current = closeDelayWithDefault();
-    }
-  });
+  );
 
   const hoverProps = useHoverReferenceInteraction({
     get context() {
-      return store.context.floatingRootContext;
+      return floatingRootContext();
     },
     props: {
-      delay: () => ({ open: delayWithDefault(), close: closeDelayWithDefault() }),
+      mouseOnly: true,
+      move: false,
       handleClose: safePolygon(),
+      delay: () => ({ open: untrack(delayWithDefault), close: untrack(closeDelayWithDefault) }),
+      get triggerElementRef() {
+        return triggerElement();
+      },
       get isActiveTrigger() {
         return isTriggerActive();
       },
-      isClosing: () => store.select('transitionStatus') === 'ending',
-      mouseOnly: true,
-      move: false,
-      get triggerElementRef() {
-        return triggerElementRef;
-      },
+      isClosing: () => currentStore().select('transitionStatus') === 'ending',
     },
   });
 
   const focusProps = useFocus({
     get context() {
-      return store.context.floatingRootContext;
+      return floatingRootContext();
     },
     props: {
       get delay() {
@@ -102,14 +108,25 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
     },
   };
 
-  const rootTriggerProps = store.useState('triggerProps', isMountedByThisTrigger);
+  const rootTriggerProps = () => currentStore().select('triggerProps', isMountedByThisTrigger);
+  // Rebuilt when the open state changes, as React rebuilds it on render.
+  const inlineRectTriggerProps = createMemo(
+    () => getInlineRectTriggerProps(inlineRectCoordsRef(), isOpenedByThisTrigger()) as HTMLProps,
+  );
 
   const element = useRenderElement('a', componentProps, {
+    state,
+    ref: (el: Element | null) => {
+      triggerElementRef.current = el;
+      registerTrigger(el);
+      setTriggerElement(el);
+    },
     get props() {
       return [
         hoverProps,
         focusProps.reference as HTMLProps,
         rootTriggerProps(),
+        inlineRectTriggerProps(),
         {
           get id() {
             return thisTriggerId();
@@ -118,11 +135,6 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
         elementProps,
       ];
     },
-    ref: (el) => {
-      registerTrigger(el);
-      triggerElementRef = el;
-    },
-    state,
     stateAttributesMapping: triggerOpenStateMapping,
   });
 
@@ -131,14 +143,15 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
 
 export interface PreviewCardTriggerState {
   /**
-   * Whether the preview card is currently open.
+   * Whether the preview card is currently open and was opened by this trigger.
    */
   open: boolean;
 }
 
 export interface PreviewCardTriggerProps<Payload = unknown> extends BaseUIComponentProps<
   'a',
-  PreviewCardTrigger.State
+  PreviewCardTrigger.State,
+  JSX.AnchorHTMLAttributes<HTMLAnchorElement>
 > {
   /**
    * A handle to associate the trigger with a preview card.
@@ -147,7 +160,8 @@ export interface PreviewCardTriggerProps<Payload = unknown> extends BaseUICompon
   /**
    * A payload to pass to the preview card when it is opened.
    */
-  payload?: Payload | undefined;
+  // Inferred from `handle` (React gets this from method bivariance), so the payload must match it.
+  payload?: NoInfer<Payload> | undefined;
   /**
    * How long to wait before the preview card opens. Specified in milliseconds.
    * @default 600

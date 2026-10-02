@@ -32,11 +32,11 @@ export default function ExampleFuzzyMatchingAutocomplete() {
                       <span class={styles.ItemContent}>
                         <span class={styles.ItemHeader}>
                           <span class={styles.ItemTitle}>
-                            {highlightText(item.title, value)}
+                            {highlightText(item.title, String(value()))}
                           </span>
                         </span>
                         <span class={styles.ItemDescription}>
-                          {highlightText(item.description, value)}
+                          {highlightText(item.description, String(value()))}
                         </span>
                       </span>
                     )}

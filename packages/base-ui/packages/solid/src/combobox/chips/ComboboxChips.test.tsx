@@ -1,7 +1,8 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { expect, vi, describe, it } from 'vitest';
 import { Combobox } from '@solidports/base-ui/combobox';
-import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { createRenderer, describeConformance } from '#test-utils';
+import { Field } from '@solidports/base-ui/field';
 
 describe('<Combobox.Chips />', () => {
   const { render } = createRenderer();
@@ -21,7 +22,7 @@ describe('<Combobox.Chips />', () => {
     ));
 
     const chips = screen.getByTestId('chips');
-    expect(chips).not.to.have.attribute('role');
+    expect(chips).not.toHaveAttribute('role');
   });
 
   it('sets role="toolbar" when there is at least one chip', async () => {
@@ -34,6 +35,272 @@ describe('<Combobox.Chips />', () => {
     ));
 
     const chips = screen.getByTestId('chips');
-    expect(chips).to.have.attribute('role', 'toolbar');
+    expect(chips).toHaveAttribute('role', 'toolbar');
+  });
+
+  it('focuses the input when clicking anywhere in the Chips area', async () => {
+    render(() => (
+      <Combobox.Root multiple defaultValue={['apple']}>
+        <Combobox.Chips data-testid="chips">
+          <Combobox.Chip data-testid="chip">apple</Combobox.Chip>
+          <Combobox.Input data-testid="input" />
+        </Combobox.Chips>
+      </Combobox.Root>
+    ));
+
+    const chips = screen.getByTestId('chips');
+    const chip = screen.getByTestId('chip');
+    const input = screen.getByTestId('input');
+
+    expect(document.activeElement).not.toBe(input);
+
+    fireEvent.mouseDown(chips);
+    expect(input).toHaveFocus();
+
+    // Blur and click on a chip: input should still receive focus.
+    input.blur();
+    expect(document.activeElement).not.toBe(input);
+    fireEvent.mouseDown(chip);
+    expect(input).toHaveFocus();
+  });
+
+  it('lets onMouseDown prevent the built-in focus and open behavior', async () => {
+    const handleMouseDown = vi.fn();
+
+    render(() => (
+      <Combobox.Root items={['apple', 'banana']} multiple defaultValue={['apple']}>
+        <Combobox.Chips
+          data-testid="chips"
+          onMouseDown={(event) => {
+            handleMouseDown(event);
+            event.preventBaseUIHandler();
+          }}
+        >
+          <Combobox.Chip>apple</Combobox.Chip>
+          <Combobox.Input data-testid="input" />
+        </Combobox.Chips>
+        <Combobox.Portal>
+          <Combobox.Positioner>
+            <Combobox.Popup>
+              <Combobox.List>
+                <Combobox.Item value="apple">apple</Combobox.Item>
+                <Combobox.Item value="banana">banana</Combobox.Item>
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+    ));
+
+    const chips = screen.getByTestId('chips');
+    const input = screen.getByTestId('input');
+
+    fireEvent.mouseDown(chips);
+
+    expect(handleMouseDown).toHaveBeenCalledTimes(1);
+    expect(input).not.toHaveFocus();
+    expect(screen.queryByRole('listbox')).toBe(null);
+  });
+
+  it('lets nested chip onMouseDown prevent the built-in focus and open behavior', async () => {
+    const handleMouseDown = vi.fn();
+
+    render(() => (
+      <Combobox.Root items={['apple', 'banana']} multiple defaultValue={['apple']}>
+        <Combobox.Chips data-testid="chips">
+          <Combobox.Chip
+            data-testid="chip"
+            onMouseDown={(event) => {
+              handleMouseDown(event);
+              event.preventBaseUIHandler();
+            }}
+          >
+            apple
+          </Combobox.Chip>
+          <Combobox.Input data-testid="input" />
+        </Combobox.Chips>
+        <Combobox.Portal>
+          <Combobox.Positioner>
+            <Combobox.Popup>
+              <Combobox.List>
+                <Combobox.Item value="apple">apple</Combobox.Item>
+                <Combobox.Item value="banana">banana</Combobox.Item>
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+    ));
+
+    fireEvent.mouseDown(screen.getByTestId('chip'));
+
+    expect(handleMouseDown).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('input')).not.toHaveFocus();
+    expect(screen.queryByRole('listbox')).toBe(null);
+  });
+
+  it('lets nested chip onContextMenu call preventBaseUIHandler', async () => {
+    const handleContextMenu = vi.fn();
+
+    render(() => (
+      <Combobox.Root items={['apple', 'banana']} multiple defaultValue={['apple']}>
+        <Combobox.Chips>
+          <Combobox.Chip
+            data-testid="chip"
+            onContextMenu={(event) => {
+              handleContextMenu(event);
+              event.preventBaseUIHandler();
+            }}
+          >
+            apple
+          </Combobox.Chip>
+          <Combobox.Input />
+        </Combobox.Chips>
+      </Combobox.Root>
+    ));
+
+    expect(() => fireEvent.contextMenu(screen.getByTestId('chip'))).not.toThrow();
+    expect(handleContextMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not treat chip remove presses as chips-area presses', async () => {
+    render(() => (
+      <Combobox.Root items={['apple', 'banana']} multiple defaultValue={['apple']}>
+        <Combobox.Chips>
+          <Combobox.Chip>
+            apple
+            <Combobox.ChipRemove data-testid="remove" />
+          </Combobox.Chip>
+          <Combobox.Input />
+        </Combobox.Chips>
+        <Combobox.Portal>
+          <Combobox.Positioner>
+            <Combobox.Popup>
+              <Combobox.List>
+                <Combobox.Item value="apple">apple</Combobox.Item>
+                <Combobox.Item value="banana">banana</Combobox.Item>
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+    ));
+
+    fireEvent.mouseDown(screen.getByTestId('remove'));
+    expect(screen.queryByRole('listbox')).toBe(null);
+  });
+
+  it('does not focus or open when disabled by Field.Root', async () => {
+    render(() => (
+      <Field.Root disabled>
+        <Combobox.Root items={['apple', 'banana']} multiple defaultValue={['apple']}>
+          <Combobox.Chips data-testid="chips">
+            <Combobox.Chip>apple</Combobox.Chip>
+            <Combobox.Input data-testid="input" />
+          </Combobox.Chips>
+          <Combobox.Portal>
+            <Combobox.Positioner>
+              <Combobox.Popup>
+                <Combobox.List>
+                  <Combobox.Item value="apple">apple</Combobox.Item>
+                  <Combobox.Item value="banana">banana</Combobox.Item>
+                </Combobox.List>
+              </Combobox.Popup>
+            </Combobox.Positioner>
+          </Combobox.Portal>
+        </Combobox.Root>
+      </Field.Root>
+    ));
+
+    fireEvent.mouseDown(screen.getByTestId('chips'));
+
+    expect(screen.getByTestId('input')).not.toHaveFocus();
+    expect(screen.queryByRole('listbox')).toBe(null);
+  });
+
+  it('focuses the input and opens when readOnly', async () => {
+    render(() => (
+      <Combobox.Root items={['apple', 'banana']} multiple readOnly defaultValue={['apple']}>
+        <Combobox.Chips data-testid="chips">
+          <Combobox.Chip>apple</Combobox.Chip>
+          <Combobox.Input data-testid="input" />
+        </Combobox.Chips>
+        <Combobox.Portal>
+          <Combobox.Positioner>
+            <Combobox.Popup>
+              <Combobox.List>
+                <Combobox.Item value="apple">apple</Combobox.Item>
+                <Combobox.Item value="banana">banana</Combobox.Item>
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+    ));
+
+    fireEvent.mouseDown(screen.getByTestId('chips'));
+
+    expect(screen.getByTestId('input')).toHaveFocus();
+    expect(screen.queryByRole('listbox')).not.toBe(null);
+  });
+
+  it('opens and focuses an input rendered inside the popup when the chips area is pressed', async () => {
+    const { user } = render(() => (
+      <Combobox.Root items={['apple', 'banana']} multiple defaultValue={['apple']}>
+        <Combobox.Chips data-testid="chips">
+          <Combobox.Chip>apple</Combobox.Chip>
+        </Combobox.Chips>
+        <Combobox.Trigger>Open</Combobox.Trigger>
+        <Combobox.Portal>
+          <Combobox.Positioner>
+            <Combobox.Popup>
+              <Combobox.Input data-testid="input" />
+              <Combobox.List>
+                {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+    ));
+
+    await user.click(screen.getByTestId('chips'));
+
+    expect(await screen.findByRole('dialog')).not.toBe(null);
+    await waitFor(() => expect(screen.getByTestId('input')).toHaveFocus());
+  });
+
+  it('clears the highlighted chip when the popup opens', async () => {
+    const { user } = render(() => (
+      <Combobox.Root multiple defaultValue={['apple']}>
+        <Combobox.Chips>
+          <Combobox.Chip data-testid="chip">apple</Combobox.Chip>
+          <Combobox.Input data-testid="input" />
+        </Combobox.Chips>
+        <Combobox.Portal>
+          <Combobox.Positioner>
+            <Combobox.Popup>
+              <Combobox.List>
+                <Combobox.Item value="banana">banana</Combobox.Item>
+              </Combobox.List>
+            </Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+    ));
+
+    const input = screen.getByTestId<HTMLInputElement>('input');
+    input.focus();
+    input.setSelectionRange(0, 0);
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByTestId('chip')).toHaveFocus();
+
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('listbox')).not.toBe(null);
+
+    input.focus();
+    input.setSelectionRange(0, 0);
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByTestId('chip')).toHaveFocus();
   });
 });

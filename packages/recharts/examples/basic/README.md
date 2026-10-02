@@ -8,12 +8,12 @@ on a different port for pixel-level visual diff.
 ## Quick start
 
 ```bash
-# Solid port app — :5173 (default vite)
+# Solid port app — http://localhost:5183
 cd packages/recharts/examples/basic
 bun install
 bun run dev
 
-# React reference app — :5174
+# React reference app (upstream recharts) — http://localhost:5184
 cd ../react
 bun install
 bun run dev

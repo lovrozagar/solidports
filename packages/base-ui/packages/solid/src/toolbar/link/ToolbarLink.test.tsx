@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { NOOP } from '../../utils/noop';
 import { ToolbarRootContext } from '../root/ToolbarRootContext';
@@ -16,7 +16,6 @@ const testCompositeContext: CompositeRootContext = {
 const testToolbarContext: ToolbarRootContext = {
   disabled: () => false,
   orientation: () => 'horizontal',
-  setItemArray: NOOP,
 };
 
 describe('<Toolbar.Link />', () => {
@@ -27,9 +26,7 @@ describe('<Toolbar.Link />', () => {
     render: (node, props) => {
       return render(() => (
         <ToolbarRootContext value={testToolbarContext}>
-          <CompositeRootContext value={testCompositeContext}>
-            {node(props!)}
-          </CompositeRootContext>
+          <CompositeRootContext value={testCompositeContext}>{node(props!)}</CompositeRootContext>
         </ToolbarRootContext>
       ));
     },

@@ -1,38 +1,33 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createContext, useContext } from 'solid-js';
-import type { Accessor } from 'solid-js';
-import type { MaybeAccessor } from '../../../solid-helpers';
-import type { CompositeMetadata } from './CompositeList';
+
+export interface CompositeListRegistration<Metadata> {
+  metadata: Metadata | null;
+  index: number | null;
+  label: string | null | undefined;
+  textRef: HTMLElement | null | undefined;
+}
 
 export interface CompositeListContextValue<Metadata> {
-  register: (node: Element, metadata: MaybeAccessor<Metadata>) => void;
-  unregister: (node: Element) => void;
-  subscribeMapChange: (fn: (map: Map<Element, CompositeMetadata<Metadata> | null>) => void) => void;
-  unsubscribeMapChange: (
-    fn: (map: Map<Element, CompositeMetadata<Metadata> | null>) => void,
+  /**
+   * Solid: `owner` identifies the registering item. Nested items that share one DOM node keep the
+   * outer (first-attached) registration; React gets the same result from ref attachment order.
+   */
+  register: (
+    node: Element,
+    registration: CompositeListRegistration<Metadata>,
+    owner: object,
   ) => void;
-  refs: {
-    elements: Array<HTMLElement | null | undefined>;
-    labels?: Array<string | null> | undefined;
-  };
-  nextIndex: Accessor<number>;
-  setNextIndex: (nextIndex: number) => void;
+  unregister: (node: Element, owner: object) => void;
+  subscribeMapChange: (fn: (map: Map<Element, Metadata>) => void) => () => void;
+  nextIndexRef: { current: number };
 }
 
 export const CompositeListContext = createContext<CompositeListContextValue<any>>({
-  nextIndex: () => 0,
-  refs: {
-    elements: [],
-  },
   register: () => {},
-  setNextIndex: () => {},
-  subscribeMapChange: () => {
-    return () => {};
-  },
   unregister: () => {},
-  unsubscribeMapChange: () => {
-    return () => {};
-  },
+  subscribeMapChange: () => () => {},
+  nextIndexRef: { current: 0 },
 });
 
 export function useCompositeListContext() {

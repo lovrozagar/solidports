@@ -6,11 +6,7 @@ export interface NumberFieldScrubAreaContext {
   isScrubbing: Accessor<boolean>;
   isTouchInput: Accessor<boolean>;
   isPointerLockDenied: Accessor<boolean>;
-  scrubAreaCursorRef: ReactLikeRef<HTMLSpanElement | null | undefined>;
-  scrubAreaRef: ReactLikeRef<HTMLSpanElement | null | undefined>;
-  direction: Accessor<'horizontal' | 'vertical'>;
-  pixelSensitivity: Accessor<number>;
-  teleportDistance: Accessor<number | undefined>;
+  scrubAreaCursorRef: ReactLikeRef<HTMLSpanElement | null>;
 }
 
 export const NumberFieldScrubAreaContext = createContext<NumberFieldScrubAreaContext | null>(null);

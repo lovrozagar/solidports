@@ -1,6 +1,5 @@
-import { createEffect, createSignal } from 'solid-js';
+import { createMemo } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { on } from '../solid-1-compat';
 
 /**
  * Returns a previous value of its argument.
@@ -8,19 +7,17 @@ import { on } from '../solid-1-compat';
  * @returns Previous value, or null if there is no previous value.
  */
 export function usePreviousValue<T>(value: Accessor<T>): Accessor<T | null> {
-  const [state, setState] = createSignal<{ current: T; previous: T | null }>({
-    current: value(),
-    previous: null,
+  // Solid: a memo derives the pair during the same flush, as React updates it during render.
+  const state = createMemo<{ current: T; previous: T | null }>((prev) => {
+    const current = value();
+    if (prev === undefined) {
+      return { current, previous: null };
+    }
+    if (Object.is(current, prev.current)) {
+      return prev;
+    }
+    return { current, previous: prev.current };
   });
 
-  createEffect(...on(value, (currentValue) => {
-      setState((prev) => {
-        return { current: currentValue, previous: prev.current };
-      });
-    }),
-  );
-
-  /* returned accessor — caller invokes in their tracked scope */
-  // eslint-disable-next-line solid/reactivity
   return () => state().previous;
 }

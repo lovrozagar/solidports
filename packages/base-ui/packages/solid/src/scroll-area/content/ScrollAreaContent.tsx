@@ -1,8 +1,8 @@
-import { onCleanup, onSettled } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { onSettled, untrack } from 'solid-js';
+import { splitComponentProps, useRef } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { ScrollAreaRoot } from '../root/ScrollAreaRoot';
+import type { ScrollAreaRootState } from '../root/ScrollAreaRoot';
 import { useScrollAreaRootContext } from '../root/ScrollAreaRootContext';
 import { scrollAreaStateAttributesMapping } from '../root/stateAttributes';
 import { useScrollAreaViewportContext } from '../viewport/ScrollAreaViewportContext';
@@ -16,46 +16,47 @@ import { useScrollAreaViewportContext } from '../viewport/ScrollAreaViewportCont
 export function ScrollAreaContent(componentProps: ScrollAreaContent.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  let contentWrapperRef: HTMLDivElement | null | undefined;
-
   const { computeThumbPosition } = useScrollAreaViewportContext();
-  const { viewportState } = useScrollAreaRootContext();
+  const { hasMeasuredScrollbar, viewportState } = useScrollAreaRootContext();
+
+  const contentWrapperRef = useRef<HTMLDivElement | null>(null);
+  const computeOnInitialResize = untrack(hasMeasuredScrollbar);
 
   onSettled(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
     if (typeof ResizeObserver === 'undefined') {
-      return;
+      return undefined;
     }
 
     let hasInitialized = false;
-    const ro = new ResizeObserver(() => {
-      // ResizeObserver fires once upon observing, so we skip the initial call
-      // to avoid double-calculating the thumb position on mount.
+    const resizeObserver = new ResizeObserver(() => {
       if (!hasInitialized) {
         hasInitialized = true;
-        return;
+
+        // ResizeObserver fires once upon observing. Skip that initial call to avoid
+        // double-calculating the thumb position on mount, unless the content mounted
+        // after the viewport's initial measurement (in which case this fire is what
+        // brings the overflow state in sync).
+        if (!computeOnInitialResize) {
+          return;
+        }
       }
+
       computeThumbPosition();
     });
 
-    if (contentWrapperRef) {
-      ro.observe(contentWrapperRef);
+    if (contentWrapperRef.current) {
+      resizeObserver.observe(contentWrapperRef.current);
     }
 
-    _c.push(() => {
-      ro.disconnect();
-    });
-      })();
     return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
+      resizeObserver.disconnect();
     };
-});
+  });
 
   const element = useRenderElement('div', componentProps, {
+    ref: contentWrapperRef,
+    state: viewportState,
+    stateAttributesMapping: scrollAreaStateAttributesMapping,
     props: [
       {
         role: 'presentation',
@@ -65,17 +66,12 @@ export function ScrollAreaContent(componentProps: ScrollAreaContent.Props) {
       },
       elementProps,
     ],
-    ref: (el) => {
-      contentWrapperRef = el;
-    },
-    state: viewportState,
-    stateAttributesMapping: scrollAreaStateAttributesMapping,
   });
 
   return <>{element()}</>;
 }
 
-export interface ScrollAreaContentState extends ScrollAreaRoot.State {}
+export interface ScrollAreaContentState extends ScrollAreaRootState {}
 
 export interface ScrollAreaContentProps extends BaseUIComponentProps<
   'div',

@@ -1,8 +1,8 @@
-import { flushMicrotasks } from '#test-utils';
+import { act, flushMicrotasks } from '#test-utils';
 import { isJSDOM } from '#utils/detectBrowser';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { createSignal, Show } from 'solid-js';
+import { createSignal, onCleanup, Show } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import { describe, expect, test, vi } from 'vitest';
 import { Popover } from '../../../test/floating-ui-tests/Popover';
@@ -26,7 +26,11 @@ function App(componentProps: UseHoverProps & { showReference?: boolean }) {
   return (
     <>
       <Show when={props.showReference}>
-        <button {...getReferenceProps({ ref: refs.setReference })} />
+        {(() => {
+          // Solid applies refs on mount only; clear it on unmount as React's ref(null) does.
+          onCleanup(() => refs.setReference(null));
+          return <button {...getReferenceProps({ ref: refs.setReference })} />;
+        })()}
       </Show>
       <Show when={open()}>
         <div role="tooltip" {...getFloatingProps({ ref: refs.setFloating })} />
@@ -64,11 +68,11 @@ describe.skipIf(!isJSDOM)('useHover', () => {
 
       fireEvent.mouseEnter(screen.getByRole('button'));
 
-      vi.advanceTimersByTime(999);
+      act(() => vi.advanceTimersByTime(999));
 
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
-      vi.advanceTimersByTime(1);
+      act(() => vi.advanceTimersByTime(1));
 
       expect(screen.getByRole('tooltip')).toBeInTheDocument();
     });
@@ -78,11 +82,11 @@ describe.skipIf(!isJSDOM)('useHover', () => {
 
       fireEvent.mouseEnter(screen.getByRole('button'));
 
-      vi.advanceTimersByTime(499);
+      act(() => vi.advanceTimersByTime(499));
 
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
-      vi.advanceTimersByTime(1);
+      act(() => vi.advanceTimersByTime(1));
 
       expect(screen.getByRole('tooltip')).toBeInTheDocument();
     });
@@ -93,11 +97,11 @@ describe.skipIf(!isJSDOM)('useHover', () => {
       fireEvent.mouseEnter(screen.getByRole('button'));
       fireEvent.mouseLeave(screen.getByRole('button'));
 
-      vi.advanceTimersByTime(499);
+      act(() => vi.advanceTimersByTime(499));
 
       expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
-      vi.advanceTimersByTime(1);
+      act(() => vi.advanceTimersByTime(1));
 
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
@@ -107,11 +111,11 @@ describe.skipIf(!isJSDOM)('useHover', () => {
 
       fireEvent.mouseEnter(screen.getByRole('button'));
 
-      vi.advanceTimersByTime(499);
+      act(() => vi.advanceTimersByTime(499));
 
       fireEvent.mouseLeave(screen.getByRole('button'));
 
-      vi.advanceTimersByTime(1);
+      act(() => vi.advanceTimersByTime(1));
 
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
@@ -121,7 +125,7 @@ describe.skipIf(!isJSDOM)('useHover', () => {
 
       fireEvent.mouseEnter(screen.getByRole('button'));
 
-      vi.advanceTimersByTime(99);
+      act(() => vi.advanceTimersByTime(99));
 
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
@@ -141,24 +145,24 @@ describe.skipIf(!isJSDOM)('useHover', () => {
 
     fireEvent.mouseMove(button);
 
-    vi.advanceTimersByTime(99);
+    act(() => vi.advanceTimersByTime(99));
 
     fireEvent.mouseMove(button);
 
-    vi.advanceTimersByTime(1);
+    act(() => vi.advanceTimersByTime(1));
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
     fireEvent.mouseMove(button);
 
-    vi.advanceTimersByTime(100);
+    act(() => vi.advanceTimersByTime(100));
 
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
     spy.mockRestore();
   });
 
-  test.skip('restMs is always 0 for touch input', async () => {
+  test.todo('restMs is always 0 for touch input', async () => {
     render(() => <App restMs={100} />);
 
     fireEvent.pointerDown(screen.getByRole('button'), { pointerType: 'touch' });
@@ -185,11 +189,11 @@ describe.skipIf(!isJSDOM)('useHover', () => {
 
     fireEvent.mouseMove(button);
 
-    vi.advanceTimersByTime(99);
+    act(() => vi.advanceTimersByTime(99));
 
     fireEvent.mouseMove(button);
 
-    vi.advanceTimersByTime(1);
+    act(() => vi.advanceTimersByTime(1));
 
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
@@ -218,11 +222,11 @@ describe.skipIf(!isJSDOM)('useHover', () => {
 
     fireEvent.mouseEnter(screen.getByRole('button'));
 
-    vi.advanceTimersByTime(1);
+    act(() => vi.advanceTimersByTime(1));
 
-    setShowReference(false);
+    act(() => setShowReference(false));
 
-    vi.advanceTimersByTime(999);
+    act(() => vi.advanceTimersByTime(999));
 
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
@@ -258,6 +262,54 @@ describe.skipIf(!isJSDOM)('useHover', () => {
     fireEvent.mouseEnter(button);
     await flushMicrotasks();
     fireEvent.mouseLeave(button);
+  });
+
+  test('does not treat a synthetic child target as inactive when the native path differs', async () => {
+    const onOpenChange = vi.fn();
+
+    function App() {
+      const [open, setOpen] = createSignal(true);
+      const { refs, context } = useFloating({
+        get open() {
+          return open();
+        },
+        onOpenChange(nextOpen, details) {
+          onOpenChange(nextOpen, details);
+          setOpen(nextOpen);
+        },
+      });
+      const { getReferenceProps, getFloatingProps } = useInteractions([useHover({ context })]);
+
+      return (
+        <>
+          <button ref={refs.setReference} {...getReferenceProps()}>
+            <span data-testid="child" />
+          </button>
+          <Show when={open()}>
+            <div role="tooltip" ref={refs.setFloating} {...getFloatingProps()} />
+          </Show>
+        </>
+      );
+    }
+
+    render(() => <App />);
+
+    const child = screen.getByTestId('child');
+    const event = new MouseEvent('mousemove', { bubbles: true });
+
+    // Deliberately skew the native path so `getTarget(nativeEvent)` resolves
+    // outside the trigger while the event's own `target` remains `child`.
+    Object.defineProperty(event, 'composedPath', {
+      configurable: true,
+      value: () => [document.body, child.parentElement, child],
+    });
+
+    fireEvent(child, event);
+
+    await flushMicrotasks();
+
+    expect(onOpenChange).toHaveBeenCalledTimes(0);
+    expect(screen.queryByRole('tooltip')).not.toBe(null);
   });
 
   test('cleans up blockPointerEvents if trigger changes', async () => {

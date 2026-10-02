@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import type { Component } from 'solid-js';
 import type {
   BaseUiConformanceTestsOptions,

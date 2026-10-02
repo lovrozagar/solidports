@@ -1,7 +1,7 @@
 import { flushMicrotasks } from '#test-utils';
 import { randomStringValue } from '@mui/internal-test-utils';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import type { Component } from 'solid-js';
 import { Dynamic } from '@solidjs/web';
 import type {

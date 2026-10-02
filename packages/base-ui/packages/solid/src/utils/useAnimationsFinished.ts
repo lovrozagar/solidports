@@ -1,22 +1,51 @@
 import { access, type MaybeAccessor } from '../solid-helpers';
-import { TransitionStatusDataAttributes } from './stateAttributesMapping';
+import { flushSync } from './flushSync';
+import * as TransitionStatusDataAttributes from '../internals/TransitionStatusDataAttributes';
 import { useAnimationFrame } from './useAnimationFrame';
+
+let pendingCallbacks: Array<() => void> | null = null;
+
+/**
+ * Runs the callback in a synchronous flush before the browser paints, so that the
+ * browser doesn't paint an intermediate frame: https://github.com/mui/base-ui/issues/979
+ * Callbacks that become ready within the same microtask checkpoint (e.g. multiple elements
+ * whose animations finish together) are batched into a single commit:
+ * https://github.com/mui/base-ui/issues/5481
+ */
+function flushBeforePaint(fn: () => void) {
+  if (!pendingCallbacks) {
+    const callbacks: Array<() => void> = [];
+    pendingCallbacks = callbacks;
+    queueMicrotask(() => {
+      pendingCallbacks = null;
+      flushSync(() => {
+        for (const callback of callbacks) {
+          callback();
+        }
+      });
+    });
+  }
+  pendingCallbacks.push(fn);
+}
 
 /**
  * Executes a function once all animations have finished on the provided element.
+ * If an animation is canceled, waits for any replacement animations before executing.
  * @param elementOrRef - The element to watch for animations.
  * @param waitForStartingStyleRemoved - Whether to wait for [data-starting-style] to be removed before checking for animations.
- * @param treatAbortedAsFinished - Whether to treat aborted animations as finished. If `false`, and there are aborted animations,
- *   the function will check again if any new animations have started and wait for them to finish.
+ * @param batch - Whether completions ready in the same microtask may be coalesced into a single
+ * commit. A batched callback runs before earlier callbacks' updates have committed, so only
+ * opt in when the callback doesn't read state that another completion can change.
  * @returns A function that takes a callback to execute once all animations have finished, and an optional AbortSignal to abort the callback
  */
 export function useAnimationsFinished<T extends HTMLElement>(
   elementOrRef: MaybeAccessor<T | null | undefined>,
   waitForStartingStyleRemoved: MaybeAccessor<boolean | undefined> = false,
-  treatAbortedAsFinished: MaybeAccessor<boolean | undefined> = true,
+  batch: MaybeAccessor<boolean | undefined> = false,
 ) {
   const frame = useAnimationFrame();
 
+  // Solid: a plain closure is already stable and reads its arguments when called.
   return (
     /**
      * A function to execute once all animations have finished.
@@ -31,86 +60,96 @@ export function useAnimationsFinished<T extends HTMLElement>(
   ) => {
     frame.cancel();
 
-    function done() {
-      // Synchronously flush the unmounting of the component so that the browser doesn't
-      // paint: https://github.com/mui/base-ui/issues/979
-      fnToExecute();
-    }
     const element = access(elementOrRef);
-
     if (element == null) {
       return;
     }
+
     const resolvedElement = element;
+
+    const done = () => {
+      if (!access(batch)) {
+        // Synchronously flush the unmounting of the component so that the browser doesn't
+        // paint: https://github.com/mui/base-ui/issues/979
+        // Each callback gets its own commit so that later completions observe the
+        // updates caused by earlier ones.
+        flushSync(fnToExecute);
+        return;
+      }
+
+      flushBeforePaint(() => {
+        // Re-check at flush time: the signal may abort between queueing and the flush.
+        if (!signal?.aborted) {
+          fnToExecute();
+        }
+      });
+    };
 
     if (
       typeof resolvedElement.getAnimations !== 'function' ||
       (globalThis as { BASE_UI_ANIMATIONS_DISABLED?: boolean }).BASE_UI_ANIMATIONS_DISABLED
     ) {
       fnToExecute();
-    } else {
-      function execWaitForStartingStyleRemoved() {
-        const startingStyleAttribute = TransitionStatusDataAttributes.startingStyle;
+      return;
+    }
 
-        // If `[data-starting-style]` isn't present, fall back to waiting one more frame
-        // to give "open" animations a chance to be registered.
-        if (!resolvedElement.hasAttribute(startingStyleAttribute)) {
-          frame.request(exec);
-          return;
-        }
-
-        // Wait for `[data-starting-style]` to have been removed.
-        const attributeObserver = new MutationObserver(() => {
-          if (!resolvedElement.hasAttribute(startingStyleAttribute)) {
-            attributeObserver.disconnect();
-            exec();
-          }
-        });
-
-        attributeObserver.observe(resolvedElement, {
-          attributeFilter: [startingStyleAttribute],
-          attributes: true,
-        });
-
-        signal?.addEventListener('abort', () => attributeObserver.disconnect(), { once: true });
-      }
-
-      function exec() {
-        Promise.all(resolvedElement.getAnimations().map((anim) => anim.finished))
-          .then(() => {
-            if (signal?.aborted) {
-              return;
-            }
-
-            // eslint-disable-next-line eslint-plugin-promise/no-callback-in-promise
+    function exec() {
+      Promise.all(resolvedElement.getAnimations().map((animation) => animation.finished)).then(
+        () => {
+          if (!signal?.aborted) {
             done();
-          })
-          .catch(() => {
-            const currentAnimations = resolvedElement.getAnimations();
+          }
+        },
+        () => {
+          if (signal?.aborted) {
+            return;
+          }
 
-            if (access(treatAbortedAsFinished)) {
-              if (signal?.aborted) {
-                return;
-              }
+          const currentAnimations = resolvedElement.getAnimations();
 
-              // eslint-disable-next-line eslint-plugin-promise/no-callback-in-promise
-              done();
-            } else if (
-              currentAnimations.some((anim) => anim.pending || anim.playState !== 'finished')
-            ) {
-              // Sometimes animations can be aborted because a property they depend on changes while the animation plays.
-              // In such cases, we need to re-check if any new animations have started.
-              exec();
-            }
-          });
-      }
+          if (
+            currentAnimations.some(
+              (animation) => animation.pending || animation.playState !== 'finished',
+            )
+          ) {
+            // Sometimes animations can be aborted because a property they depend on changes while the animation plays.
+            // In such cases, we need to re-check if any new animations have started.
+            exec();
+            return;
+          }
 
-      if (access(waitForStartingStyleRemoved)) {
-        execWaitForStartingStyleRemoved();
+          done();
+        },
+      );
+    }
+
+    if (access(waitForStartingStyleRemoved)) {
+      const startingStyleAttribute = TransitionStatusDataAttributes.startingStyle;
+
+      // If `[data-starting-style]` isn't present, fall back to waiting one more frame
+      // to give "open" animations a chance to be registered.
+      if (!resolvedElement.hasAttribute(startingStyleAttribute)) {
+        frame.request(exec);
         return;
       }
 
-      frame.request(exec);
+      // Wait for `[data-starting-style]` to have been removed.
+      const attributeObserver = new MutationObserver(() => {
+        if (!resolvedElement.hasAttribute(startingStyleAttribute)) {
+          attributeObserver.disconnect();
+          exec();
+        }
+      });
+
+      attributeObserver.observe(resolvedElement, {
+        attributes: true,
+        attributeFilter: [startingStyleAttribute],
+      });
+
+      signal?.addEventListener('abort', () => attributeObserver.disconnect(), { once: true });
+      return;
     }
+
+    frame.request(exec);
   };
 }

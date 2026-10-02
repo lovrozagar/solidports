@@ -1,6 +1,6 @@
 import { randomStringValue } from '@mui/internal-test-utils';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import type { Component, ParentComponent } from 'solid-js';
 import { Dynamic } from '@solidjs/web';
 import type {

@@ -1,16 +1,17 @@
-import { createTrackedEffect, createMemo } from 'solid-js';
-import { useClick, useInteractions } from '../../floating-ui-solid';
-import { splitComponentProps } from '../../solid-helpers';
+import { createMemo, untrack } from 'solid-js';
+import { useClick } from '../../floating-ui-solid';
+import { splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
-import { useTriggerDataForwarding } from '../../utils/popups';
+import { usePopupHandleStore, useTriggerDataForwarding } from '../../utils/popups';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
+import { useOpenMethodTriggerProps } from '../../utils/useOpenInteractionType';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useDialogRootContext } from '../root/DialogRootContext';
 import { DialogHandle } from '../store/DialogHandle';
-import type { DialogStore } from '../store/DialogStore';
+import type { DialogHandleStore } from '../store/DialogStore';
 
 /**
  * A button that opens the dialog.
@@ -20,8 +21,6 @@ import type { DialogStore } from '../store/DialogStore';
  */
 export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Payload>) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
-    'render',
-    'class',
     'disabled',
     'nativeButton',
     'id',
@@ -29,64 +28,56 @@ export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Paylo
     'handle',
   ]);
   const disabled = () => Boolean(local.disabled);
-  const native = () => Boolean(local.nativeButton ?? true);
-  const idProp = () => local.id;
+  const nativeButton = () => local.nativeButton ?? true;
 
-  const dialogRootContext = useDialogRootContext(true);
-  const store = () => (local.handle?.store ?? dialogRootContext?.store) as DialogStore<unknown>;
+  const dialogRootStore = useDialogRootContext(true);
+  // The handle is read once: a trigger keeps the handle it mounted with.
+  const handleStore = usePopupHandleStore(() => local.handle);
+  const store = (): DialogHandleStore<unknown> =>
+    (handleStore() ?? dialogRootStore) as DialogHandleStore<unknown>;
+  if (!untrack(() => handleStore() ?? dialogRootStore)) {
+    throw new Error(
+      'Base UI: <Dialog.Trigger> must be used within <Dialog.Root> or provided with a handle.',
+    );
+  }
 
-  createTrackedEffect(() => {
-    if (!store()) {
-      throw new Error(
-        'Base UI: <Dialog.Trigger> must be used within <Dialog.Root> or provided with a handle.',
-      );
-    }
-  });
-
-  const thisTriggerId = useBaseUiId(idProp);
-  const floatingContext = () => store()?.context.floatingRootContext;
+  const thisTriggerId = useBaseUiId(() => local.id);
   const isOpenedByThisTrigger = createMemo(() =>
-    store()?.select('isOpenedByTrigger', thisTriggerId),
+    store().select('isOpenedByTrigger', thisTriggerId),
   );
+  const popupId = createMemo(() => store().select('triggerPopupId', thisTriggerId));
 
-  let triggerElementRef = null as Element | null | undefined;
+  const triggerElementRef: ReactLikeRef<HTMLElement | null> = { current: null };
 
-  const { registerTrigger, isMountedByThisTrigger } = useTriggerDataForwarding({
-    stateUpdates: {
+  const { registerTrigger, isMountedByThisTrigger } = useTriggerDataForwarding(
+    thisTriggerId,
+    triggerElementRef,
+    store,
+    {
       get payload() {
         return local.payload;
       },
     },
-    get store() {
-      return store();
-    },
-    get triggerElement() {
-      return triggerElementRef;
-    },
-    get triggerId() {
-      return thisTriggerId();
-    },
-  });
+  );
 
   const { getButtonProps, buttonRef } = useButton({
     disabled,
-    native,
+    native: nativeButton,
   });
 
   const click = useClick({
     get context() {
-      return floatingContext();
-    },
-    props: {
-      get enabled() {
-        return floatingContext() != null;
-      },
+      return store().context.floatingRootContext;
     },
   });
+  const interactionTypeProps = useOpenMethodTriggerProps(
+    () => store().select('open'),
+    (interactionType) => {
+      untrack(store).set('openMethod', interactionType);
+    },
+  );
 
-  const localInteractionProps = useInteractions([click]);
-
-  const state: DialogTrigger.State = {
+  const state: DialogTriggerState = {
     get disabled() {
       return disabled();
     },
@@ -95,29 +86,36 @@ export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Paylo
     },
   };
 
-  const rootTriggerProps = () => store()?.select('triggerProps', isMountedByThisTrigger);
+  const rootTriggerProps = createMemo(() => store().select('triggerProps', isMountedByThisTrigger));
 
   const element = useRenderElement('button', componentProps, {
+    state,
+    ref: [
+      buttonRef,
+      registerTrigger,
+      (el: HTMLElement | null) => {
+        triggerElementRef.current = el;
+      },
+    ],
     get props() {
       return [
-        localInteractionProps.getReferenceProps(),
+        click.reference,
         rootTriggerProps(),
         {
+          onClick: interactionTypeProps.onClick,
+          onPointerDown: interactionTypeProps.onPointerDown,
+        },
+        {
           [CLICK_TRIGGER_IDENTIFIER as string]: '',
-          get id() {
-            return thisTriggerId();
-          },
+          id: thisTriggerId(),
+          'aria-haspopup': 'dialog' as const,
+          'aria-expanded': isOpenedByThisTrigger() ? 'true' : 'false',
+          'aria-controls': popupId(),
         },
         elementProps,
         getButtonProps,
       ];
     },
-    ref: (el) => {
-      buttonRef(el);
-      registerTrigger(el);
-      triggerElementRef = el;
-    },
-    state,
     stateAttributesMapping: triggerOpenStateMapping,
   });
 
@@ -125,7 +123,7 @@ export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Paylo
 }
 
 export interface DialogTriggerProps<Payload = unknown>
-  extends NativeButtonProps, BaseUIComponentProps<'button', DialogTrigger.State> {
+  extends NativeButtonProps, BaseUIComponentProps<'button', DialogTriggerState> {
   /**
    * A handle to associate the trigger with a dialog.
    * Can be created with the Dialog.createHandle() method.
@@ -134,21 +132,22 @@ export interface DialogTriggerProps<Payload = unknown>
   /**
    * A payload to pass to the dialog when it is opened.
    */
-  payload?: Payload | undefined;
+  // Inferred from `handle` (React gets this from method bivariance), so the payload must match it.
+  payload?: NoInfer<Payload> | undefined;
   /**
    * ID of the trigger. In addition to being forwarded to the rendered element,
-   * it is also used to specify the active trigger for the dialogs in controlled mode (with the DialogRoot `triggerId` prop).
+   * it is also used to specify the active trigger for the dialog in controlled mode (with the DialogRoot `triggerId` prop).
    */
   id?: string | undefined;
 }
 
 export interface DialogTriggerState {
   /**
-   * Whether the dialog is currently disabled.
+   * Whether the trigger is currently disabled.
    */
   disabled: boolean;
   /**
-   * Whether the dialog is currently open.
+   * Whether the dialog is currently open and was opened by this trigger.
    */
   open: boolean;
 }

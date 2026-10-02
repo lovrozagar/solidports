@@ -54,7 +54,7 @@ export default function ExamplePopoverCombobox() {
   );
 }
 
-function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretUpDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -69,7 +69,7 @@ function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

@@ -1,9 +1,21 @@
 import { createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { ContextMenu } from '@solidports/base-ui/context-menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { spy } from 'sinon';
 import { REASONS } from '../../utils/reasons';
+
+// Solid: React mocks `platform.os.mac`; the Solid port reads `isMac`.
+vi.mock('../../utils/detectBrowser', async () => {
+  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
+    '../../utils/detectBrowser',
+  );
+
+  return {
+    ...actual,
+    isMac: true,
+  };
+});
 
 describe('<ContextMenu.Root />', () => {
   beforeEach(() => {
@@ -77,6 +89,52 @@ describe('<ContextMenu.Root />', () => {
       expect(submenuOnOpenChange.lastCall?.args[1].reason).to.equal(REASONS.itemPress);
       expect(rootOnOpenChange.lastCall?.args[0]).to.equal(false);
       expect(rootOnOpenChange.lastCall?.args[1].reason).to.equal(REASONS.itemPress);
+    });
+
+    it('does not activate a submenu trigger when releasing the context menu pointer over it', async () => {
+      const submenuOnOpenChange = vi.fn();
+
+      render(() => (
+        <ContextMenu.Root>
+          <ContextMenu.Trigger data-testid="context-trigger">Surface</ContextMenu.Trigger>
+          <ContextMenu.Portal>
+            <ContextMenu.Positioner>
+              <ContextMenu.Popup data-testid="context-root-popup">
+                <ContextMenu.SubmenuRoot onOpenChange={submenuOnOpenChange}>
+                  <ContextMenu.SubmenuTrigger
+                    data-testid="context-submenu-trigger"
+                    openOnHover={false}
+                  >
+                    More options
+                  </ContextMenu.SubmenuTrigger>
+                  <ContextMenu.Portal>
+                    <ContextMenu.Positioner>
+                      <ContextMenu.Popup data-testid="context-submenu-popup">
+                        <ContextMenu.Item>Deep action</ContextMenu.Item>
+                      </ContextMenu.Popup>
+                    </ContextMenu.Positioner>
+                  </ContextMenu.Portal>
+                </ContextMenu.SubmenuRoot>
+              </ContextMenu.Popup>
+            </ContextMenu.Positioner>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
+      ));
+
+      const trigger = screen.getByTestId('context-trigger');
+      fireEvent.contextMenu(trigger, { clientX: 20, clientY: 20, button: 2 });
+      await screen.findByTestId('context-root-popup');
+
+      fireEvent.pointerMove(document.body, { clientX: 24, clientY: 24 });
+      fireEvent.mouseUp(screen.getByTestId('context-submenu-trigger'), {
+        button: 2,
+        clientX: 24,
+        clientY: 24,
+      });
+      await flushMicrotasks();
+
+      expect(screen.queryByTestId('context-submenu-popup')).to.equal(null);
+      expect(submenuOnOpenChange).not.toHaveBeenCalled();
     });
 
     it('ignores mouseup directly under the cursor when the context menu spawns there', async () => {

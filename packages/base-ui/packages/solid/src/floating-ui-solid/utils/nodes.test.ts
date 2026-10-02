@@ -1,10 +1,9 @@
-/* eslint-disable solid/reactivity */
-import { createMemo } from 'solid-js';
 import type { FloatingContext } from '../types';
 import { getNodeAncestors, getNodeChildren } from './nodes';
 
-const contextOpen = { open: createMemo(() => true) } as FloatingContext;
-const contextClosed = { open: createMemo(() => false) } as FloatingContext;
+// Solid: `open` is an accessor.
+const contextOpen = { open: () => true } as FloatingContext;
+const contextClosed = { open: () => false } as FloatingContext;
 
 test('getNodeChildren returns an array of children, ignoring closed ones when onlyOpenChildren=true', () => {
   const nodes = [

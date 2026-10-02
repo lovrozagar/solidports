@@ -1,10 +1,11 @@
-import { createTrackedEffect, createSignal } from 'solid-js';
+import { createEffect, createSignal } from 'solid-js';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useComboboxRootContext } from '../root/ComboboxRootContext';
+import { handleInputPress } from '../utils/handleInputPress';
 import { ComboboxChipsContext } from './ComboboxChipsContext';
 
 /**
@@ -14,31 +15,42 @@ import { ComboboxChipsContext } from './ComboboxChipsContext';
 export function ComboboxChips(componentProps: ComboboxChips.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { store } = useComboboxRootContext();
+  const store = useComboboxRootContext();
 
-  const open = store.useSelector('open');
-  const hasSelectionChips = store.useSelector('hasSelectionChips');
+  const open = store.useState('open');
+  const hasSelectionChips = store.useState('hasSelectionChips');
 
   const [highlightedChipIndex, setHighlightedChipIndex] = createSignal<number | undefined>(
     undefined,
   );
 
-  createTrackedEffect(() => {
-    if (open() && highlightedChipIndex() !== undefined) {
-      setHighlightedChipIndex(undefined);
-    }
-  });
+  createEffect(
+    () => open() && highlightedChipIndex() !== undefined,
+    (shouldReset) => {
+      if (shouldReset) {
+        setHighlightedChipIndex(undefined);
+      }
+    },
+  );
 
   const chipsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
   const element = useRenderElement('div', componentProps, {
     ref: (el) => {
-      store.set('chipsContainerRef', el);
+      store.context.chipsContainerRef.current = el;
     },
     // NVDA enters browse mode instead of staying in focus mode when navigating with
     // arrow keys inside a container unless it has a toolbar role.
     get props() {
-      return [hasSelectionChips() ? { role: 'toolbar' } : EMPTY_OBJECT, elementProps];
+      return [
+        hasSelectionChips() ? { role: 'toolbar' } : EMPTY_OBJECT,
+        {
+          onMouseDown(event: MouseEvent) {
+            handleInputPress(event, store, store.state.disabled);
+          },
+        },
+        elementProps,
+      ];
     },
   });
 

@@ -1,13 +1,5 @@
 import c from 'clsx';
-import {
-  createTrackedEffect,
-  createContext,
-  createEffect,
-  createSignal,
-  onCleanup,
-  Show,
-  useContext,
-} from 'solid-js';
+import { createContext, createEffect, createSignal, Show, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../src/internals/composite/list/CompositeList';
@@ -37,7 +29,8 @@ import {
 } from '../../src/floating-ui-solid';
 import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyRootContext';
 import { callEventHandler, defaultProps } from '../../src/solid-helpers';
-import { on, splitProps } from '../../src/solid-1-compat';
+import { splitProps } from '../../src/solid-1-compat';
+import { gridNavigationWithColumns } from './gridNavigationWithColumns';
 
 type MenuContextType = {
   getItemProps: ReturnType<typeof useInteractions>['getItemProps'];
@@ -170,8 +163,9 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
       get orientation() {
         return orientation();
       },
-      get cols() {
-        return local.cols;
+      // Solid test helper: `cols` selects React's `grid` navigator with that column count.
+      get grid() {
+        return local.cols ? gridNavigationWithColumns(local.cols) : undefined;
       },
     },
   });
@@ -203,63 +197,68 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
   // Event emitter allows you to communicate across tree components.
   // This effect closes all menus when an item gets clicked anywhere
   // in the tree.
-  createTrackedEffect(() => {
-    if (!tree) {
-      return;
-    }
+  createEffect(
+    () => ({ nodeId: nodeId() }),
+    (deps) => {
+      if (!tree) {
+        return undefined;
+      }
 
-    function handleTreeClick() {
-      setIsOpen(false);
-    }
-
-    function onSubMenuOpen(event: { nodeId: string; parentId: string }) {
-      if (event.nodeId !== nodeId() && event.parentId === parentId) {
+      function handleTreeClick() {
         setIsOpen(false);
       }
-    }
 
-    tree.events.on('click', handleTreeClick);
-    tree.events.on('menuopen', onSubMenuOpen);
+      function onSubMenuOpen(event: { nodeId: string; parentId: string }) {
+        if (event.nodeId !== deps.nodeId && event.parentId === parentId) {
+          setIsOpen(false);
+        }
+      }
 
-    onCleanup(() => {
-      tree.events.off('click', handleTreeClick);
-      tree.events.off('menuopen', onSubMenuOpen);
-    });
-  });
+      tree.events.on('click', handleTreeClick);
+      tree.events.on('menuopen', onSubMenuOpen);
 
-  createTrackedEffect(() => {
-    if (isOpen() && tree) {
-      tree.events.emit('menuopen', { parentId, nodeId: nodeId() });
-    }
-  });
+      return () => {
+        tree.events.off('click', handleTreeClick);
+        tree.events.off('menuopen', onSubMenuOpen);
+      };
+    },
+  );
+
+  createEffect(
+    () => ({ isOpen: isOpen(), nodeId: nodeId() }),
+    (deps) => {
+      if (deps.isOpen && tree) {
+        tree.events.emit('menuopen', { parentId, nodeId: deps.nodeId });
+      }
+    },
+  );
 
   // Determine if "hover" logic can run based on the modality of input. This
   // prevents unwanted focus synchronization as menus open and close with
   // keyboard navigation and the cursor is resting on the menu.
-  createEffect(...on(allowHover, () => {
-      function onPointerMove({ pointerType }: PointerEvent) {
-        if (pointerType !== 'touch') {
-          setAllowHover(true);
-        }
+  createEffect(allowHover, () => {
+    function onPointerMove({ pointerType }: PointerEvent) {
+      if (pointerType !== 'touch') {
+        setAllowHover(true);
       }
+    }
 
-      function onKeyDown() {
-        setAllowHover(false);
-      }
+    function onKeyDown() {
+      setAllowHover(false);
+    }
 
-      window.addEventListener('pointermove', onPointerMove, {
-        once: true,
+    window.addEventListener('pointermove', onPointerMove, {
+      once: true,
+      capture: true,
+    });
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove, {
         capture: true,
       });
-      window.addEventListener('keydown', onKeyDown, true);
-      onCleanup(() => {
-        window.removeEventListener('pointermove', onPointerMove, {
-          capture: true,
-        });
-        window.removeEventListener('keydown', onKeyDown, true);
-      });
-    }),
-  );
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  });
 
   return (
     <FloatingNode id={nodeId()}>
@@ -276,7 +275,7 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
         }}
         data-open={isOpen() ? '' : undefined}
         // eslint-disable-next-line no-nested-ternary
-        tabindex={!isNested ? props.tabIndex : parent.activeIndex() === item.index() ? 0 : -1}
+        tabindex={!isNested ? props.tabindex : parent.activeIndex() === item.index() ? 0 : -1}
         class={c(
           props.class || 'flex items-center justify-between gap-4 rounded px-2 py-1 text-left',
           {
@@ -344,7 +343,7 @@ export function MenuComponent(componentProps: MenuProps & JSX.HTMLAttributes<HTM
                     // eslint-disable-next-line no-nested-ternary
                     visibility: !props.keepMounted ? undefined : isOpen() ? 'visible' : 'hidden',
                   }}
-                  aria-hidden={!isOpen()}
+                  aria-hidden={isOpen() ? 'false' : 'true'}
                   /**
                    * TODO: I have absolutely no idea why, but passing an empty object
                    * to getFloatingProps is necessary to get last 5 tests from

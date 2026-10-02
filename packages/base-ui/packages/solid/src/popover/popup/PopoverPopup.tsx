@@ -8,6 +8,7 @@ import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTr
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { ClosePartContext, useClosePartCount } from '../../utils/closePart';
 import { popupStateMapping as baseMapping } from '../../utils/popupStateMapping';
+import { FOCUSABLE_POPUP_PROPS } from '../../utils/popups';
 import { REASONS } from '../../utils/reasons';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
@@ -51,9 +52,15 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
   const titleId = store.useState('titleElementId');
   const descriptionId = store.useState('descriptionElementId');
   const modal = store.useState('modal');
-  
+
   const mounted = store.useState('mounted');
+  const floatingId = () => store.context.floatingRootContext.select('floatingId');
   const openReason = store.useState('openChangeReason');
+  // A memo so the focus manager's effects only rerun when the boolean changes (React compares
+  // effect dependencies by value).
+  const focusManagerDisabled = createMemo(
+    () => !mounted() || openReason() === REASONS.triggerHover,
+  );
 
   useOpenChangeComplete({
     onComplete() {
@@ -120,15 +127,18 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
   // eslint-disable-next-line solid/reactivity
   store.useSyncedValue('focusManagerModal', focusManagerModal);
 
-  const setPopupElement = (element: HTMLElement | null | undefined) => {
-    store.set('popupElement', element);
-  };
+  const setPopupElement = store.useStateSetter('popupElement');
 
   const element = useRenderElement('div', componentProps, {
     get props() {
       return [
         popupProps(),
         {
+          get id() {
+            return floatingId();
+          },
+          role: 'dialog',
+          ...FOCUSABLE_POPUP_PROPS,
           get 'aria-labelledby'() {
             return titleId();
           },
@@ -145,10 +155,7 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
         elementProps,
       ];
     },
-    ref: (el) => {
-      store.context.popupRef.current = el;
-      setPopupElement(el);
-    },
+    ref: [store.context.popupRef, setPopupElement],
     state,
     stateAttributesMapping,
   });
@@ -158,7 +165,7 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
       context={store.context.floatingRootContext}
       openInteractionType={openMethod()}
       modal={focusManagerModal()}
-      disabled={!mounted() || openReason() === REASONS.triggerHover}
+      disabled={focusManagerDisabled()}
       initialFocus={resolvedInitialFocus()}
       returnFocus={local.finalFocus}
       restoreFocus="popup"
@@ -170,9 +177,7 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
       nextFocusableElement={store.context.triggerFocusTargetRef}
       beforeContentFocusGuardRef={store.context.beforeContentFocusGuardRef}
     >
-      <ClosePartContext value={closePartContext}>
-        {element()}
-      </ClosePartContext>
+      <ClosePartContext value={closePartContext}>{element()}</ClosePartContext>
     </FloatingFocusManager>
   );
 }
@@ -185,7 +190,7 @@ export interface PopoverPopupState {
   side: Side;
   align: Align;
   transitionStatus: TransitionStatus;
-  instant: 'dismiss' | 'click' | undefined;
+  instant: 'dismiss' | 'click' | 'focus' | 'trigger-change' | undefined;
 }
 
 export interface PopoverPopupProps extends BaseUIComponentProps<'div', PopoverPopup.State> {

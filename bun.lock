@@ -490,6 +490,45 @@
         "typescript": "catalog:",
       },
     },
+    "packages/solid-table": {
+      "name": "@solidports/solid-table",
+      "version": "0.0.1",
+      "dependencies": {
+        "@tanstack/store": "^0.11.1",
+      },
+      "devDependencies": {
+        "@playwright/test": "catalog:",
+        "@solidjs/testing-library": "catalog:",
+        "@solidjs/vite-plugin": "catalog:",
+        "@solidjs/web": "catalog:",
+        "@tanstack/table-core": "9.2.4",
+        "@types/node": "catalog:",
+        "jsdom": "29.1.1",
+        "solid-js": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
+      },
+      "peerDependencies": {
+        "@solidjs/web": ">=2.0.0-rc.13",
+        "@tanstack/table-core": "^9.2.4",
+        "solid-js": ">=2.0.0-rc.13",
+      },
+    },
+    "packages/solid-table/tests/fixture": {
+      "name": "@solidports/solid-table-fixture",
+      "dependencies": {
+        "@solidjs/web": "catalog:",
+        "@solidports/solid-table": "workspace:*",
+        "@tanstack/table-core": "9.2.4",
+        "@tanstack/virtual-core": "3.17.3",
+        "solid-js": "catalog:",
+      },
+      "devDependencies": {
+        "@solidjs/vite-plugin": "catalog:",
+        "typescript": "catalog:",
+        "vite": "catalog:",
+      },
+    },
   },
   "overrides": {
     "@solidjs/web": "2.0.0-rc.13",
@@ -502,7 +541,7 @@
     "@babel/plugin-transform-react-constant-elements": "8.0.1",
     "@babel/runtime": "8.0.0",
     "@date-fns/tz": "1.5.0",
-    "@floating-ui/dom": "1.7.6",
+    "@floating-ui/dom": "1.8.0",
     "@floating-ui/react-dom": "^2.1.8",
     "@floating-ui/utils": "^0.2.11",
     "@mdx-js/loader": "^3.1.1",
@@ -1099,7 +1138,7 @@
 
     "@floating-ui/core": ["@floating-ui/core@1.8.0", "", { "dependencies": { "@floating-ui/utils": "^0.2.12" } }, "sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ=="],
 
-    "@floating-ui/dom": ["@floating-ui/dom@1.7.6", "", { "dependencies": { "@floating-ui/core": "^1.7.5", "@floating-ui/utils": "^0.2.11" } }, "sha512-9gZSAI5XM36880PPMm//9dfiEngYoC6Am2izES1FF406YFsjvyBMmeJ2g4SAju3xWwtuynNRFL2s9hgxpLI5SQ=="],
+    "@floating-ui/dom": ["@floating-ui/dom@1.8.0", "", { "dependencies": { "@floating-ui/core": "^1.8.0", "@floating-ui/utils": "^0.2.12" } }, "sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg=="],
 
     "@floating-ui/react-dom": ["@floating-ui/react-dom@2.1.9", "", { "dependencies": { "@floating-ui/dom": "^1.8.0" }, "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-JDjEFGCpImxDCA7JJKviA0M9+RtmJdj0m/NVU5IMgBK+AmZouAQQ7/+2GLH0GXXY0YMw9oXPB8hKdbPYg5QLYg=="],
 
@@ -1911,6 +1950,10 @@
 
     "@solidports/recharts-examples-visual": ["@solidports/recharts-examples-visual@workspace:packages/recharts/examples/visual"],
 
+    "@solidports/solid-table": ["@solidports/solid-table@workspace:packages/solid-table"],
+
+    "@solidports/solid-table-fixture": ["@solidports/solid-table-fixture@workspace:packages/solid-table/tests/fixture"],
+
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
     "@standard-schema/utils": ["@standard-schema/utils@0.3.0", "", {}, "sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g=="],
@@ -1970,6 +2013,8 @@
     "@tanstack/solid-virtual": ["@tanstack/solid-virtual@3.13.32", "", { "dependencies": { "@tanstack/virtual-core": "3.17.3" }, "peerDependencies": { "solid-js": "^1.3.0" } }, "sha512-yhX4A4Kgn+wyTg6Mmu8+zwoMTwjz4K1ucvLfRJ8f0rPGDDAIqSaf0v6oU0yT9+SvrjmUaZQ0VX7g4byexbhNng=="],
 
     "@tanstack/store": ["@tanstack/store@0.11.2", "", {}, "sha512-sJ4mjol8uQsHV0gOJzzjwXfh2Fwm+Sz0+8deqiTm4jGbMdjzNSW+xZCFm0kUa870uhd8yi+DpKnZb5Kc4apa0Q=="],
+
+    "@tanstack/table-core": ["@tanstack/table-core@9.2.4", "", { "dependencies": { "@tanstack/store": "^0.11.1" } }, "sha512-GwdDyGGr6UXAtubF14yAwcXvdaogqfsQgIk89Suebjxob/Rjq2xvfmXsjDF1rQmKmhHsJm9TOY7myxv3i6geJw=="],
 
     "@tanstack/virtual-core": ["@tanstack/virtual-core@3.17.3", "", {}, "sha512-8Np/TFELpI0ySuJoVmjvOrQYXH/8sTX0Biv9szhFhY39xOdAAY+smrMxjxOum/ux3eM8MUJQsEJ0/R0UpvC8dw=="],
 
@@ -4620,8 +4665,6 @@
     "@eslint/json/@eslint/core": ["@eslint/core@0.17.0", "", { "dependencies": { "@types/json-schema": "^7.0.15" } }, "sha512-yL/sLrpmtDaFEiUj1osRP4TI2MDz1AddJL+jZ7KSqvBuliN4xqYY54IfdN8qD8Toa6g1iloph1fxQNkjOxrrpQ=="],
 
     "@eslint/json/@eslint/plugin-kit": ["@eslint/plugin-kit@0.4.1", "", { "dependencies": { "@eslint/core": "^0.17.0", "levn": "^0.4.1" } }, "sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA=="],
-
-    "@floating-ui/react-dom/@floating-ui/dom": ["@floating-ui/dom@1.8.0", "", { "dependencies": { "@floating-ui/core": "^1.8.0", "@floating-ui/utils": "^0.2.12" } }, "sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg=="],
 
     "@img/sharp-freebsd-wasm32/@img/sharp-wasm32": ["@img/sharp-wasm32@0.35.5", "", { "dependencies": { "@emnapi/runtime": "^1.11.3" } }, "sha512-Ptsga1su4tQx+LLF1ECS9U6nz5kmrXKo6XVbtR48Ke3ZRxxgaWBu7IDtEe1quo8hiupwm6WFqxVlXaSf7IINGQ=="],
 

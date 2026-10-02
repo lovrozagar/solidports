@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { createSignal } from 'solid-js';
 
 describe('<Dialog.Backdrop />', () => {

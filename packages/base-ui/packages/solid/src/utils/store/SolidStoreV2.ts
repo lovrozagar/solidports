@@ -1,10 +1,24 @@
 /* eslint-disable typescript/no-explicit-any -- generic store accepts arbitrary state/context/selector shapes; `unknown` would force casts at every internal write */
-import { createEffect, createMemo, createRoot, onCleanup } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createRenderEffect,
+  createStore,
+  getObserver,
+  onCleanup,
+  runWithOwner,
+  untrack,
+} from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { Store } from 'solid-js';
-import { access, type MaybeAccessor, type MaybeAccessorValue } from '../../solid-helpers';
+import {
+  access,
+  createDepsEffect,
+  type MaybeAccessor,
+  type MaybeAccessorValue,
+} from '../../solid-helpers';
 import { NOOP } from '../empty';
-import { on, createStore, writeStorePatch, type SetStoreFunction } from '../../solid-1-compat';
+import type { SetStoreFunction } from '../../solid-1-compat';
 
 /**
  * A Store that supports controlled state keys, non-reactive values and provides utility methods for React.
@@ -30,14 +44,9 @@ export function SolidStore<
     key: keyof State,
     value: Accessor<Value>,
   ) {
-    createEffect(
-      () => value(),
-      (next) => {
-        if (!Object.is(state[key], next)) {
-          setState(key as any, next);
-        }
-      },
-    );
+    createEffect(value, (next) => {
+      setState(key as any, next);
+    });
   }
 
   function useSyncedValueWithCleanup<Key extends KeysAllowingUndefined<State>>(
@@ -64,7 +73,7 @@ export function SolidStore<
     statePart: Accessor<Partial<State>> | Partial<{ [Key in Keys]: MaybeAccessor<State[Key]> }>,
   ) {
     if (process.env.NODE_ENV !== 'production') {
-      const keys = createMemo(() => Object.keys(access(statePart)));
+      const keys = createMemo(() => Object.keys(access(statePart) as object));
       createEffect(keys, (next, prev) => {
         if (
           prev !== undefined &&
@@ -77,22 +86,11 @@ export function SolidStore<
       });
     }
 
-    createEffect(
+    // As React, depend on the entries rather than on the object identity.
+    createDepsEffect(
       () => readSyncedSnapshot(statePart as any),
       (snapshot) => {
-        let changed = false;
-        for (const key in snapshot) {
-          if (!Object.is(state[key as keyof State], snapshot[key])) {
-            changed = true;
-            break;
-          }
-        }
-        if (!changed) {
-          return;
-        }
-        setState((currentState: State) => {
-          writeStorePatch(currentState, snapshot);
-        });
+        setState(snapshot as any);
       },
     );
   }
@@ -103,8 +101,9 @@ export function SolidStore<
   ): void {
     const controlled = createMemo(() => access(controlledProp));
 
-    createEffect(controlled, (value) => {
-      if (value !== undefined && !Object.is(state[key], value)) {
+    // Layout-effect timing, as React: descendants' effects see the controlled value.
+    createRenderEffect(controlled, (value) => {
+      if (value !== undefined) {
         setState(key as any, value);
       }
     });
@@ -148,7 +147,10 @@ export function SolidStore<
     ...args: SelectorArgs<Selectors[Key]>
   ): Accessor<MaybeAccessorValue<ReturnType<Selectors[Key]>>> {
     if (selectors && key in selectors) {
-      return () => selectors[key](state, ...args);
+      // Tracked reads go through a memo, so dependents re-run only when the selected value changes
+      // (React's selector equality). Untracked reads compute directly and see the latest write.
+      const selected = createMemo(() => selectors[key](state, ...args));
+      return () => (getObserver() === null ? selectors[key](state, ...args) : selected());
     }
 
     // eslint-disable-next-line solid/reactivity
@@ -163,7 +165,18 @@ export function SolidStore<
   }
 
   function useStateSetter<const Key extends keyof State, Value extends State[Key]>(key: Key) {
-    return (value: Value) => setState(key as any, value as any);
+    // Used as a ref setter. Solid 2 can attach a replacement element before the previous one's
+    // cleanup clears it (React detaches first), so a clear only applies to the value this setter
+    // wrote.
+    let written: Value | undefined;
+    return (value: Value) => {
+      if (value == null && written != null && !Object.is(state[key], written)) {
+        written = undefined;
+        return;
+      }
+      written = value;
+      setState(key as any, value as any);
+    };
   }
 
   function observe<Key extends keyof Selectors>(
@@ -171,7 +184,7 @@ export function SolidStore<
     listener: (
       newValue: ReturnType<Selectors[Key]>,
       oldValue: ReturnType<Selectors[Key]>,
-      store: Store<State>,
+      store: SolidStore<State, Context, Selectors>,
     ) => void,
   ): () => void;
 
@@ -180,40 +193,40 @@ export function SolidStore<
     listener: (
       newValue: ReturnType<Selector>,
       oldValue: ReturnType<Selector>,
-      store: Store<State>,
+      store: SolidStore<State, Context, Selectors>,
     ) => void,
   ): () => void;
 
   function observe(
     selector: keyof Selectors | ObserveSelector<State>,
-    listener: (newValue: any, oldValue: any, store: Store<State>) => void,
+    listener: (newValue: any, oldValue: any, store: SolidStore<State, Context, Selectors>) => void,
   ) {
-    let unsubscribe!: () => void;
+    let selectFn: ObserveSelector<State>;
+    if (typeof selector === 'function') {
+      selectFn = selector;
+    } else {
+      if (!selectors) {
+        throw new Error('Base UI: SolidStore.observe with key selector requires selectors.');
+      }
+      selectFn = selectors[selector] as ObserveSelector<State>;
+    }
 
-    createRoot((dispose) => {
-      unsubscribe = dispose;
-      let renderCount = 0;
+    // As React's Store: called once with the current value, then synchronously after every
+    // write that changes the selected value. Selection is untracked; this is not a computation.
+    let prevValue = untrack(() => selectFn(state));
+    listener(prevValue, prevValue, store);
 
-      const data = createMemo(() => {
-        if (typeof selector === 'function') return selector(state);
-        if (!selectors) {
-          throw new Error('Base UI: SolidStore.observe with key selector requires selectors.');
-        }
-        return selectors[selector](state);
-      });
-
-      createEffect(...on(data, (nextValue, prevValue) => {
-          const prev = renderCount === 0 ? nextValue : prevValue;
-          renderCount += 1;
-          listener(nextValue, prev, state);
-        }),
-      );
+    return subscribeToStore(state, (nextState) => {
+      const nextValue = untrack(() => selectFn(nextState));
+      if (!Object.is(prevValue, nextValue)) {
+        const oldValue = prevValue;
+        prevValue = nextValue;
+        listener(nextValue, oldValue, store);
+      }
     });
-
-    return unsubscribe;
   }
 
-  return {
+  const store = {
     context,
     observe,
     select,
@@ -229,6 +242,7 @@ export function SolidStore<
     useSyncedValueWithCleanup,
     useSyncedValues,
   };
+  return store;
 }
 
 function createInitialStore<State extends object>(
@@ -237,9 +251,165 @@ function createInitialStore<State extends object>(
   if (Array.isArray(initialState)) {
     return initialState;
   }
+  return createStoreState(initialState);
+}
 
-  const [state, setState] = createStore(initialState);
-  return [state, setState] as const;
+const storeListeners = new WeakMap<object, Set<(state: any) => void>>();
+
+/**
+ * Subscribes to every write of a store created by `createStoreState`, as React's
+ * `Store.subscribe`: listeners run synchronously after each change, with the latest state.
+ */
+function subscribeToStore<State extends object>(state: State, listener: (state: State) => void) {
+  const listeners = storeListeners.get(state);
+  if (!listeners) {
+    return NOOP;
+  }
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+/**
+ * Creates the backing state of a Base UI store, with the semantics of React's Store:
+ *
+ * - Shallow: keys are reactive and values are held by reference. Values are prop bags, elements
+ *   and records replaced wholesale, so deep-wrapping them only adds proxies.
+ * - Synchronous: Solid batches writes until the next flush, while Base UI reads its store right
+ *   after writing it (`set` then `select` in one handler). Untracked reads (handlers, effect
+ *   callbacks, store methods) see the latest written value at once. Tracked reads subscribe
+ *   through the Solid store, so rendering stays consistent within a flush.
+ * - External: `set` is valid anywhere, including unmount cleanups that Solid runs while a parent
+ *   computation disposes its children.
+ *
+ * Getter fields stay live as store computeds and are never written.
+ */
+export function createStoreState<State extends object>(
+  initialState: State,
+): [Store<State>, SetStoreFunction<State>] {
+  const [reactive, writeReactive] = untrack(() =>
+    createStore(initialState as any, { shallow: true }),
+  ) as unknown as [State, (fn: (draft: any) => void) => void];
+
+  const computedKeys = new Set<PropertyKey>();
+  const descriptors = Object.getOwnPropertyDescriptors(initialState);
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (descriptors[key as keyof typeof descriptors]?.get) {
+      computedKeys.add(key);
+    }
+  }
+
+  // Latest value of every written key. Equal to the reactive value once a flush applies it.
+  const written = new Map<PropertyKey, unknown>();
+
+  const latest = (key: PropertyKey) =>
+    written.has(key) ? written.get(key) : untrack(() => (reactive as any)[key]);
+
+  const listeners = new Set<(state: State) => void>();
+  // Internal state to handle recursive writes from listeners, as React's Store.
+  let updateTick = 0;
+
+  const state = new Proxy(reactive, {
+    get(target, key, receiver) {
+      if (getObserver() !== null) {
+        return Reflect.get(target, key, receiver);
+      }
+      // An untracked read is an imperative store read (handler, effect callback, store method).
+      return written.has(key)
+        ? written.get(key)
+        : untrack(() => Reflect.get(target, key, receiver));
+    },
+    // Enumeration (spreads, `Object.keys`) sees the same latest values as untracked reads.
+    has(target, key) {
+      return (getObserver() === null && written.has(key)) || Reflect.has(target, key);
+    },
+    ownKeys(target) {
+      const keys = Reflect.ownKeys(target);
+      if (getObserver() !== null) {
+        return keys;
+      }
+      written.forEach((_, key) => {
+        // Numeric keys are stored as strings, as property keys.
+        const ownKey = typeof key === 'number' ? String(key) : key;
+        if (!keys.includes(ownKey)) {
+          keys.push(ownKey);
+        }
+      });
+      return keys;
+    },
+    getOwnPropertyDescriptor(target, key) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
+      if (getObserver() !== null || !written.has(key)) {
+        return descriptor;
+      }
+      return { configurable: true, enumerable: true, writable: true, value: written.get(key) };
+    },
+  });
+
+  function commit(patch: Record<PropertyKey, unknown>) {
+    const changes: Array<[PropertyKey, unknown]> = [];
+    for (const key of Reflect.ownKeys(patch)) {
+      const value = patch[key as keyof typeof patch];
+      if (computedKeys.has(key) || Object.is(latest(key), value)) {
+        continue;
+      }
+      written.set(key, value);
+      changes.push([key, value]);
+    }
+    if (changes.length === 0) {
+      return;
+    }
+    // The write runs outside any owner (see above), and untracked: ingesting a value probes it
+    // (store internals read symbol keys, which reach the memo behind a live `merge` view).
+    runWithOwner(null, () =>
+      untrack(() =>
+        writeReactive((draft) => {
+          for (const [key, value] of changes) {
+            draft[key] = value;
+          }
+        }),
+      ),
+    );
+    updateTick += 1;
+    const currentTick = updateTick;
+    for (const listener of Array.from(listeners)) {
+      if (currentTick !== updateTick) {
+        // A recursive write has already notified all listeners.
+        return;
+      }
+      listener(state);
+    }
+  }
+
+  function setState(...args: unknown[]) {
+    if (args.length >= 2) {
+      // React's `store.set(key, value)`: a function value is stored as is, not called.
+      commit({ [args[0] as PropertyKey]: args[1] });
+      return;
+    }
+    const [arg] = args;
+    if (typeof arg === 'function') {
+      // Draft form: reads see the latest values, writes collect into one patch.
+      const patch: Record<PropertyKey, unknown> = {};
+      const draft = new Proxy(patch, {
+        get: (_, key) => (key in patch ? patch[key as string] : latest(key)),
+        set: (_, key, value) => {
+          patch[key as string] = value;
+          return true;
+        },
+      });
+      const result = (arg as (draft: State) => unknown)(draft as State);
+      commit(result != null && typeof result === 'object' ? (result as any) : patch);
+      return;
+    }
+    if (arg != null && typeof arg === 'object') {
+      commit(arg as Record<PropertyKey, unknown>);
+    }
+  }
+
+  storeListeners.set(state, listeners);
+  return [state as Store<State>, setState as unknown as SetStoreFunction<State>];
 }
 
 type MaybeCallable = (...args: any[]) => any;

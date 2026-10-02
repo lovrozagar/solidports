@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic FormValues plus SubmitEvent / Solid JSX handler bridge requires `any` casts; tightening would force redundant SolidJSXEvent shape conversions */
-import { createTrackedEffect, createEffect, createMemo, createSignal, onSettled } from 'solid-js';
+import { createEffect, createSignal, onSettled, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
 import { callEventHandler, splitComponentProps, type ReactLikeRef } from '../solid-helpers';
 import { EMPTY_OBJECT } from '../utils/constants';
@@ -11,7 +12,6 @@ import { REASONS } from '../utils/reasons';
 import type { BaseUIComponentProps } from '../utils/types';
 import { useRenderElement } from '../utils/useRenderElement';
 import { FormContext, type Errors } from './FormContext';
-import { on, createStore } from '../solid-1-compat';
 
 /**
  * A native form element with consolidated error handling.
@@ -33,56 +33,67 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
   const validationMode = () => local.validationMode ?? 'onSubmit';
 
   const externalErrors = () => local.errors;
-  const [formRef, setFormRef] = createStore<FormContext['formRef']>({ fields: {} });
-
+  const formRef: FormContext['formRef'] = { fields: new Map() };
+  const elementRef: FormContext['elementRef'] = { current: null };
   let submittedRef = false;
-  let submitAttemptedRef = false;
+  const submitCountRef: FormContext['submitCountRef'] = { current: 0 };
 
-  const focusControl = (control: HTMLElement | null | undefined) => {
-    if (!control) {
-      return;
+  const focusFirstInvalid = () => {
+    // A field can be invalid without a focusable control (for example a checkbox group whose
+    // custom validation failed while every checkbox is unmounted, disabled, or reassociated).
+    // Keep submission blocked, but move focus to the first invalid field that has a usable control.
+    // Registration order can diverge from DOM order (keyed fields reordered without
+    // remounting, portals), so pick the first control by document position. For controls
+    // in disconnected trees (e.g. separate shadow roots), where document position is
+    // implementation-specific, keep registration order.
+    let hasInvalid = false;
+    let firstControl: HTMLElement | null = null;
+    for (const field of formRef.fields.values()) {
+      if (field.validityData.state.valid !== false) {
+        continue;
+      }
+      hasInvalid = true;
+      const control = field.controlRef.current;
+      if (control && (!firstControl || comesBeforeInSameTree(control, firstControl))) {
+        firstControl = control;
+      }
     }
-    control.focus();
-    if (control.tagName === 'INPUT') {
-      (control as HTMLInputElement).select();
+    if (firstControl) {
+      firstControl.focus();
+      if (firstControl.tagName === 'INPUT') {
+        (firstControl as HTMLInputElement).select();
+      }
+      return true;
     }
+    return hasInvalid;
   };
 
-  const [errors, setErrors] = createSignal(externalErrors());
+  // React keeps `errors` in state and resets it whenever the `errors` prop changes
+  // (`useValueChanged`). A writable derived signal models the same reset-on-prop-change state.
+  const [errors, setErrors] = createSignal<Errors | undefined>(() => externalErrors());
 
-  createTrackedEffect(() => {
-    setErrors(externalErrors());
+  createEffect(errors, () => {
+    if (!submittedRef) {
+      return;
+    }
+
+    submittedRef = false;
+    // React runs child effects before parent effects, so its fields have registered their new
+    // validity by the time this runs. Solid runs this parent effect first, so wait for the
+    // fields' registration effects in the same flush before reading their validity.
+    queueMicrotask(() => {
+      untrack(focusFirstInvalid);
+    });
   });
 
-  const invalidFields = createMemo(() =>
-    Object.values(formRef.fields).filter((field) => field.validityData.state.valid === false),
-  );
-
-  createEffect(...on(invalidFields, (invalid) => {
-      if (!submittedRef) {
-        return;
-      }
-
-      submittedRef = false;
-
-      if (invalid.length) {
-        const controlRef = invalid[0].controlRef;
-        focusControl(controlRef);
-      }
-    }),
-  );
-
   const handleImperativeValidate = (fieldName?: string | undefined) => {
-    const values = Object.values(formRef.fields);
-
     if (fieldName) {
-      const namedField = values.find((field) => field.name === fieldName);
-      if (namedField) {
-        namedField.validate(false);
-      }
+      Array.from(formRef.fields.values())
+        .find((field) => field.name === fieldName)
+        ?.validate();
     } else {
-      values.forEach((field) => {
-        field.validate(false);
+      formRef.fields.forEach((field) => {
+        field.validate();
       });
     }
   };
@@ -94,39 +105,37 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
   });
 
   const element = useRenderElement('form', componentProps, {
+    ref: elementRef,
     props: [
       {
         novalidate: true,
         onSubmit(event: SubmitEvent) {
-          submitAttemptedRef = true;
+          submitCountRef.current += 1;
 
           // Async validation isn't supported to stop the submit event.
-          let values = Object.values(formRef.fields);
-          values.forEach((field) => field.validate());
-          values = Object.values(formRef.fields);
+          formRef.fields.forEach((field) => {
+            field.validate();
+          });
 
-          const invalid = values.filter((field) => field.validityData.state.valid === false);
-
-          if (invalid.length) {
+          if (focusFirstInvalid()) {
             event.preventDefault();
-            const controlRef = invalid[0].controlRef;
-            focusControl(controlRef);
-          } else {
-            submittedRef = true;
-            callEventHandler(local.onSubmit, event as any);
+            return;
+          }
 
-            if (local.onFormSubmit) {
-              event.preventDefault();
+          submittedRef = true;
+          callEventHandler(local.onSubmit, event as any);
 
-              const formValues = Object.values(formRef.fields).reduce((acc, field) => {
-                if (field.name) {
-                  (acc as Record<string, any>)[field.name] = field.getValue();
-                }
-                return acc;
-              }, {} as FormValues);
+          if (local.onFormSubmit) {
+            event.preventDefault();
 
-              local.onFormSubmit?.(formValues, createGenericEventDetails(REASONS.none, event));
-            }
+            const formValues = {} as FormValues;
+            formRef.fields.forEach((field) => {
+              if (field.name) {
+                (formValues as Record<string, any>)[field.name] = field.getValue();
+              }
+            });
+
+            local.onFormSubmit(formValues, createGenericEventDetails(REASONS.none, event));
           }
         },
       },
@@ -135,24 +144,37 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
   });
 
   const clearErrors = (name: string | undefined) => {
-    const err = errors();
-    if (name && err && EMPTY_OBJECT.hasOwnProperty.call(err, name)) {
-      const nextErrors = { ...err };
-      delete nextErrors[name];
-      setErrors(nextErrors);
+    if (!name) {
+      return;
     }
+    setErrors((previousErrors) => {
+      if (!previousErrors || !Object.hasOwn(previousErrors, name)) {
+        return previousErrors;
+      }
+      const nextErrors = { ...previousErrors };
+      delete nextErrors[name];
+      return nextErrors;
+    });
   };
 
   const contextValue: FormContext = {
     clearErrors,
     errors: () => errors() ?? EMPTY_OBJECT,
+    elementRef,
     formRef,
-    setFormRef,
-    submitAttemptedRef: () => submitAttemptedRef,
+    submitCountRef,
     validationMode,
   };
 
   return <FormContext value={contextValue}>{element()}</FormContext>;
+}
+
+function comesBeforeInSameTree(element: Node, reference: Node) {
+  const position = element.compareDocumentPosition(reference);
+  return (
+    (position & Node.DOCUMENT_POSITION_DISCONNECTED) === 0 &&
+    (position & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+  );
 }
 
 export type FormSubmitEventReason = typeof REASONS.none;
@@ -168,7 +190,7 @@ export interface FormState {}
 
 export interface FormProps<
   FormValues extends Record<string, any> = Record<string, any>,
-> extends BaseUIComponentProps<'form', Form.State> {
+> extends BaseUIComponentProps<'form', FormState, JSX.FormHTMLAttributes<HTMLFormElement>> {
   /**
    * Determines when the form should be validated.
    * The `validationMode` prop on `<Field.Root>` takes precedence over this.
@@ -191,8 +213,7 @@ export interface FormProps<
    * `preventDefault()` is called on the native submit event when used.
    */
   onFormSubmit?:
-    | ((formValues: FormValues, eventDetails: Form.SubmitEventDetails) => void)
-    | undefined;
+    ((formValues: FormValues, eventDetails: Form.SubmitEventDetails) => void) | undefined;
   /**
    * A ref to imperative actions.
    * - `validate`: Validates all fields when called. Optionally pass a field name to validate a single field.

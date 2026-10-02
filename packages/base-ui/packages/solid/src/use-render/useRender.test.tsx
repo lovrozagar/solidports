@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/render-result-naming-convention */
-import { createRenderer } from '#test-utils';
-import { expect } from 'chai';
+import { act, createRenderer } from '#test-utils';
+import { expect } from 'vitest';
 import { createSignal } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { useRender } from './useRender';
@@ -9,7 +9,8 @@ import { splitProps } from '../solid-1-compat';
 describe('useRender', () => {
   const { render } = createRenderer();
 
-  it('render props does not overwrite class in a render function when unspecified', async () => {
+  // Solid: React's title; the Solid prop is `class`.
+  it('render props does not overwrite className in a render function when unspecified', async () => {
     function TestComponent(props: {
       render: useRender.Parameters<{}, Element, undefined>['render'];
       class?: string;
@@ -83,7 +84,7 @@ describe('useRender', () => {
       const { container } = render(() => <TestComponent defaultTagName={defaultTagName()} />);
       expect(container.firstElementChild).to.have.property('tagName', 'DIV');
 
-      setDefaultTagName('span');
+      act(() => setDefaultTagName('span'));
       expect(container.firstElementChild).to.have.property('tagName', 'SPAN');
     });
 
@@ -101,7 +102,7 @@ describe('useRender', () => {
       ));
       expect(container.firstElementChild).to.have.property('tagName', 'SPAN');
 
-      setDefaultTagName('a');
+      act(() => setDefaultTagName('a'));
       expect(container.firstElementChild).to.have.property('tagName', 'SPAN');
     });
   });

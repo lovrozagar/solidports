@@ -1,7 +1,7 @@
 import { createRenderer } from '#test-utils';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 
 describe('<Autocomplete.InputGroup />', () => {
   const { render } = createRenderer();

@@ -1,6 +1,7 @@
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { useInitialLiveRegionTextMutation } from '../utils/useInitialLiveRegionTextMutation';
 import {
   useComboboxDerivedItemsContext,
   useComboboxRootContext,
@@ -16,7 +17,8 @@ export function ComboboxEmpty(componentProps: ComboboxEmpty.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['children']);
 
   const { filteredItems } = useComboboxDerivedItemsContext();
-  const { store } = useComboboxRootContext();
+  const store = useComboboxRootContext();
+  const emptyRef = useInitialLiveRegionTextMutation<HTMLDivElement>();
 
   const element = useRenderElement('div', componentProps, {
     get children() {
@@ -31,7 +33,8 @@ export function ComboboxEmpty(componentProps: ComboboxEmpty.Props) {
       elementProps,
     ],
     ref: (el) => {
-      store.set('emptyRef', el);
+      store.context.emptyRef.current = el;
+      emptyRef.current = el;
     },
   });
 

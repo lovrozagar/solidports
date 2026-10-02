@@ -4,7 +4,8 @@ import { REASONS } from '../../utils/reasons';
 import { useAnimationFrame } from '../../utils/useAnimationFrame';
 import { useTimeout } from '../../utils/useTimeout';
 import type { ElementProps, FloatingContext, FloatingRootContext } from '../types';
-import { isClickLikeEvent, isMouseLikePointerType, isTypeableElement, getTarget } from '../utils';
+import { getTarget, isTypeableElement } from '../utils/element';
+import { isMouseLikePointerType, isVirtualPointerEvent } from '../utils/event';
 
 export interface UseClickProps {
   /**
@@ -53,6 +54,8 @@ export interface UseClickProps {
  * Opens or closes the floating element when clicking the reference element.
  * @see https://floating-ui.com/docs/useClick
  */
+// Solid: takes `{ context, props }` and reads `props` lazily, so prop changes apply without
+// recreating the handlers.
 export function useClick(parameters: {
   context: FloatingRootContext | FloatingContext;
   props?: UseClickProps;
@@ -60,25 +63,124 @@ export function useClick(parameters: {
   const props = defaultProps(parameters.props ?? {}, {
     enabled: true,
     event: 'click',
-    ignoreMouse: false,
-    reason: REASONS.triggerPress,
-    stickIfOpen: true,
     toggle: true,
+    ignoreMouse: false,
+    stickIfOpen: true,
     touchOpenDelay: 0,
+    reason: REASONS.triggerPress,
   });
 
   const store = () => {
     const context = parameters.context;
     return 'rootStore' in context ? context.rootStore : context;
   };
+
   const dataRef = () => store().context.dataRef;
 
-  let pointerTypeRef: 'mouse' | 'pen' | 'touch' | undefined | ({} & string);
+  let pointerTypeRef: 'mouse' | 'pen' | 'touch' | 'virtual' | undefined;
   const frame = useAnimationFrame();
   const touchOpenTimeout = useTimeout();
 
+  function setOpenWithTouchDelay(
+    nextOpen: boolean,
+    nativeEvent: MouseEvent,
+    target: HTMLElement,
+    pointerType: 'mouse' | 'pen' | 'touch' | 'virtual' | undefined,
+  ) {
+    const details = createChangeEventDetails(props.reason, nativeEvent, target);
+
+    if (nextOpen && pointerType === 'touch' && props.touchOpenDelay > 0) {
+      touchOpenTimeout.start(props.touchOpenDelay, () => {
+        store().setOpen(true, details);
+      });
+    } else {
+      store().setOpen(nextOpen, details);
+    }
+  }
+
+  function getNextOpen(
+    open: boolean,
+    currentTarget: EventTarget | null,
+    isClickLikeOpenEvent: (eventType: string | undefined) => boolean,
+  ) {
+    const openEvent = dataRef().openEvent;
+    const hasClickedOnInactiveTrigger = store().select('domReferenceElement') !== currentTarget;
+
+    if (open && hasClickedOnInactiveTrigger) {
+      // Moving between triggers should always open the newly active one.
+      return true;
+    }
+
+    if (!open) {
+      // A closed popup should open on the next press.
+      return true;
+    }
+
+    if (!props.toggle) {
+      // Non-toggle mode never closes on a repeated trigger press.
+      return true;
+    }
+
+    if (openEvent && props.stickIfOpen) {
+      // Preserve hover/focus-opened popups until the matching click-like event closes them.
+      return !isClickLikeOpenEvent(openEvent.type);
+    }
+
+    // Otherwise, a repeated click toggles the popup closed.
+    return false;
+  }
+
   const reference: ElementProps['reference'] = {
-    onClick: (event) => {
+    onPointerDown(event) {
+      // Screen reader activations (Android TalkBack, desktop screen readers) report a
+      // mouse-like `pointerType`, but `ignoreMouse` must not drop them: hover logic cannot
+      // open for a virtual press since there is no real pointer movement to wait for.
+      // Virtual `touch` presses (iOS VoiceOver) keep their type so `touchOpenDelay` applies.
+      pointerTypeRef =
+        isMouseLikePointerType(event.pointerType, true) && isVirtualPointerEvent(event)
+          ? 'virtual'
+          : (event.pointerType as 'mouse' | 'pen' | 'touch');
+    },
+    onMouseDown(event) {
+      const pointerType = pointerTypeRef;
+      const open = store().select('open');
+
+      // Ignore all buttons except for the "main" button.
+      // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
+      if (
+        event.button !== 0 ||
+        props.event === 'click' ||
+        (isMouseLikePointerType(pointerType, true) && props.ignoreMouse)
+      ) {
+        return;
+      }
+
+      const nextOpen = getNextOpen(
+        open,
+        event.currentTarget,
+        (openEventType) => openEventType === 'click' || openEventType === 'mousedown',
+      );
+
+      // Animations sometimes won't run on a typeable element if using a rAF.
+      // Focus is always set on these elements. For touch, we may delay opening.
+      const target = getTarget(event);
+
+      if (isTypeableElement(target)) {
+        setOpenWithTouchDelay(nextOpen, event, target as HTMLElement, pointerType);
+        return;
+      }
+
+      // Capture the currentTarget before the rAF.
+      // as the event clears it after the handler completes.
+      const eventCurrentTarget = event.currentTarget as HTMLElement;
+
+      // Wait until focus is set on the element. This is an alternative to
+      // `event.preventDefault()` to avoid :focus-visible from appearing when using a pointer.
+      frame.request(() => {
+        setOpenWithTouchDelay(nextOpen, event, eventCurrentTarget, pointerType);
+      });
+    },
+    onClick(event) {
       if (props.event === 'mousedown-only') {
         return;
       }
@@ -94,97 +196,20 @@ export function useClick(parameters: {
         return;
       }
 
-      const open = store().state.open;
-      const openEvent = dataRef().openEvent;
-      const fallbackReferenceElement =
-        openEvent?.target instanceof Element ? openEvent.target : null;
-      const referenceElement = store().state.domReferenceElement ?? fallbackReferenceElement;
-      const hasClickedOnInactiveTrigger = referenceElement !== event.currentTarget;
-      const nextOpen =
-        (open && hasClickedOnInactiveTrigger) ||
-        !(
-          open &&
-          props.toggle &&
-          (openEvent && props.stickIfOpen ? isClickLikeEvent(openEvent) : true)
-        );
-      const details = createChangeEventDetails(
-        props.reason,
-        event,
-        event.currentTarget as HTMLElement,
+      const open = store().select('open');
+      const nextOpen = getNextOpen(
+        open,
+        event.currentTarget,
+        (openEventType) =>
+          openEventType === 'click' ||
+          openEventType === 'mousedown' ||
+          openEventType === 'keydown' ||
+          openEventType === 'keyup',
       );
-
-      if (nextOpen && pointerType === 'touch' && props.touchOpenDelay > 0) {
-        touchOpenTimeout.start(props.touchOpenDelay, () => {
-          store().setOpen(true, details);
-        });
-      } else {
-        store().setOpen(nextOpen, details);
-      }
+      setOpenWithTouchDelay(nextOpen, event, event.currentTarget as HTMLElement, pointerType);
     },
-    onKeyDown: () => {
+    onKeyDown() {
       pointerTypeRef = undefined;
-    },
-    onMouseDown: (event) => {
-      const pointerType = pointerTypeRef;
-      const open = store().state.open;
-
-      // Ignore all buttons except for the "main" button.
-      // https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/button
-      if (
-        event.button !== 0 ||
-        props.event === 'click' ||
-        (isMouseLikePointerType(pointerType, true) && props.ignoreMouse)
-      ) {
-        return;
-      }
-
-      const openEvent = dataRef().openEvent;
-      const openEventType = openEvent?.type;
-      const hasClickedOnInactiveTrigger = store().state.domReferenceElement !== event.currentTarget;
-      const nextOpen =
-        (open && hasClickedOnInactiveTrigger) ||
-        !(
-          open &&
-          props.toggle &&
-          (openEvent && props.stickIfOpen
-            ? openEventType === 'click' || openEventType === 'mousedown'
-            : true)
-        );
-
-      /* Animations sometimes won't run on a typeable element if using a rAF.
-       * Focus is always set on these elements. For touch, we may delay opening. */
-      const target = getTarget(event);
-
-      if (isTypeableElement(target)) {
-        const details = createChangeEventDetails(props.reason, event, target as HTMLElement);
-        const fn = () => store().setOpen(true, details);
-        if (nextOpen && pointerType === 'touch' && props.touchOpenDelay > 0) {
-          touchOpenTimeout.start(props.touchOpenDelay, fn);
-        } else {
-          store().setOpen(nextOpen, details);
-        }
-        return;
-      }
-
-      // Capture the currentTarget before the rAF.
-      // as React sets it to null after the event handler completes.
-      const eventCurrentTarget = event.currentTarget as HTMLElement;
-
-      // Wait until focus is set on the element. This is an alternative to
-      // `event.preventDefault()` to avoid :focus-visible from appearing when using a pointer.
-
-      frame.request(() => {
-        const details = createChangeEventDetails(props.reason, event, eventCurrentTarget);
-        const fn = () => store().setOpen(true, details);
-        if (nextOpen && pointerType === 'touch' && props.touchOpenDelay > 0) {
-          touchOpenTimeout.start(props.touchOpenDelay, fn);
-        } else {
-          store().setOpen(nextOpen, details);
-        }
-      });
-    },
-    onPointerDown: (event) => {
-      pointerTypeRef = event.pointerType;
     },
   };
 

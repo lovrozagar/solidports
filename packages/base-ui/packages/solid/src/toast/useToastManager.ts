@@ -1,29 +1,25 @@
 /* eslint-disable typescript/no-explicit-any -- generic toast Data erased at manager interface */
-import { useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import type { MaybeAccessor } from '../solid-helpers';
+import type { ReactLikeRef } from '../solid-helpers';
 import type { ToastPositionerProps } from './positioner/ToastPositioner';
-import { ToastContext } from './provider/ToastProviderContext';
+import { useToastProviderContext } from './provider/ToastProviderContext';
 
 /**
  * Returns the array of toasts and methods to manage them.
  */
 export function useToastManager<Data extends object = any>(): UseToastManagerReturnValue<Data> {
-  const store = useContext(ToastContext);
+  const store = useToastProviderContext();
 
-  if (!store) {
-    throw new Error('Base UI: useToastManager must be used within <Toast.Provider>.');
-  }
-
+  // Solid: `toasts` is an accessor, so readers subscribe where they read it.
   const toasts = store.useState('toasts');
 
   return {
+    toasts,
     add: store.addToast,
     close: store.closeToast,
-    promise: store.promiseToast,
-    toasts,
     update: store.updateToast,
+    promise: store.promiseToast,
   };
 }
 
@@ -35,7 +31,7 @@ export interface ToastObject<Data extends object> {
   /**
    * The ref for the toast.
    */
-  ref?: (HTMLElement | null) | undefined;
+  ref?: ReactLikeRef<HTMLElement | null | undefined> | undefined;
   /**
    * The title of the toast.
    */
@@ -71,7 +67,7 @@ export interface ToastObject<Data extends object> {
    */
   updateKey?: number | undefined;
   /**
-   * Determines if the toast was closed due to the limit being reached.
+   * Determines if the toast was limited because the toast limit was exceeded.
    */
   limited?: boolean | undefined;
   /**
@@ -113,10 +109,11 @@ export interface ToastManagerPositionerProps extends Omit<
 export interface UseToastManagerReturnValue<Data extends object = any> {
   toasts: Accessor<ToastObject<Data>[]>;
   add: <T extends Data = Data>(options: ToastManagerAddOptions<T>) => string;
-  close: (toastId?: MaybeAccessor<string>) => void;
+  close: (toastId?: string) => void;
   update: <T extends Data = Data>(
-    toastId: MaybeAccessor<string>,
-    options: ToastManagerUpdateOptions<T>,
+    toastId: string,
+    options:
+      ToastManagerUpdateOptions<T> | ((prevToast: ToastObject<T>) => ToastManagerUpdateOptions<T>),
   ) => void;
   promise: <Value, T extends Data = Data>(
     promise: Promise<Value>,

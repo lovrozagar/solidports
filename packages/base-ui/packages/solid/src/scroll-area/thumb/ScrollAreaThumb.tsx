@@ -21,65 +21,63 @@ export function ScrollAreaThumb(componentProps: ScrollAreaThumb.Props) {
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
-    setScrollingX,
-    setScrollingY,
+    scrollingX,
+    scrollingY,
     hasMeasuredScrollbar,
   } = useScrollAreaRootContext();
 
   const { orientation } = useScrollAreaScrollbarContext();
+  const vertical = () => orientation() === 'vertical';
 
-  const state: ScrollAreaThumb.State = {
+  const state: ScrollAreaThumbState = {
+    get scrolling() {
+      return vertical() ? scrollingY() : scrollingX();
+    },
     get orientation() {
       return orientation();
     },
   };
 
   const element = useRenderElement('div', componentProps, {
+    // Solid: one callback stands in for React's `vertical ? thumbYRef : thumbXRef`.
+    ref: (el: HTMLDivElement | null) => {
+      (vertical() ? thumbYRef : thumbXRef).current = el;
+    },
+    state,
     props: [
       {
         onPointerDown: handlePointerDown,
         onPointerMove: handlePointerMove,
-        onPointerUp(event: PointerEvent) {
-          if (orientation() === 'vertical') {
-            setScrollingY(false);
-          }
-          if (orientation() === 'horizontal') {
-            setScrollingX(false);
-          }
-          handlePointerUp(event);
-        },
+        onPointerUp: handlePointerUp,
+        onPointerCancel: handlePointerUp,
         get style(): JSX.CSSProperties {
           return {
             ...(!hasMeasuredScrollbar() && { visibility: 'hidden' }),
-            ...(orientation() === 'vertical' && {
-              height: `var(${ScrollAreaScrollbarCssVars.scrollAreaThumbHeight})`,
-            }),
-            ...(orientation() === 'horizontal' && {
-              width: `var(${ScrollAreaScrollbarCssVars.scrollAreaThumbWidth})`,
-            }),
+            ...(vertical()
+              ? { height: `var(${ScrollAreaScrollbarCssVars.scrollAreaThumbHeight})` }
+              : { width: `var(${ScrollAreaScrollbarCssVars.scrollAreaThumbWidth})` }),
           };
         },
       },
       elementProps,
     ],
-    ref: (el) => {
-      if (orientation() === 'vertical') {
-        thumbYRef.current = el;
-      } else {
-        thumbXRef.current = el;
-      }
-    },
-    state,
   });
 
   return <>{element()}</>;
 }
 
 export interface ScrollAreaThumbState {
-  orientation?: ('horizontal' | 'vertical') | undefined;
+  /**
+   * Whether the scroll area is being scrolled.
+   */
+  scrolling: boolean;
+  /**
+   * The component orientation.
+   */
+  orientation: 'horizontal' | 'vertical';
 }
 
-export interface ScrollAreaThumbProps extends BaseUIComponentProps<'div', ScrollAreaThumb.State> {}
+export interface ScrollAreaThumbProps extends BaseUIComponentProps<'div', ScrollAreaThumbState> {}
 
 export namespace ScrollAreaThumb {
   export type State = ScrollAreaThumbState;

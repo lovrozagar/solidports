@@ -1,8 +1,8 @@
 import { defineConfig, devices } from "@playwright/test"
 
 /* Solid port and React reference run side-by-side; tests diff per-chart screenshots. */
-const SOLID_PORT = 5173
-const REACT_PORT = 5174
+const SOLID_PORT = 5183
+const REACT_PORT = 5184
 
 export default defineConfig({
 	testDir: "./tests",

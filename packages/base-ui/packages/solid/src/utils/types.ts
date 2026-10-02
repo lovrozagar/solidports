@@ -5,7 +5,11 @@ import type { ReactLikeRef } from '../solid-helpers';
 
 export type UseRenderElementRef<T> =
   | ((el: T | null) => void)
-  | ReactLikeRef<T | null | undefined>;
+  // Object refs do not drive inference of the rendered element type; one typed for a wider element
+  // type (e.g. a store's `HTMLElement` ref) also accepts it.
+  | ReactLikeRef<NoInfer<T> | null | undefined>
+  | ReactLikeRef<Element | null | undefined>;
+
 
 /**
  * Element type of an intrinsic tag. Solid 2 `JSX.Ref<T>` is a union
@@ -33,20 +37,24 @@ export type BaseUIEvent<E extends Event> = E & {
   readonly baseUIHandlerPrevented?: boolean | undefined;
 };
 
-type WithPreventBaseUIHandler<T, K extends keyof T> = T[K] extends
-  | JSX.EventHandlerUnion<infer TT, infer E>
-  | undefined
-  ? JSX.EventHandlerUnion<TT, BaseUIEvent<E>>
-  : T[K] extends JSX.EventHandler<infer TT, infer E> | undefined
-    ? JSX.EventHandler<TT, BaseUIEvent<E>>
-    : T[K];
+// Solid: infers each handler's own event parameter rather than matching `JSX.EventHandlerUnion`, so
+// handlers typed with Solid's specialized `FocusEventHandler`/`InputEventHandler`/`ChangeEventHandler`
+// (different `target` typing) also receive `BaseUIEvent`, as do bound `[handler, data]` tuples.
+type WithPreventBaseUIHandler<T> = T extends (event: infer E) => infer R
+  ? E extends Event
+    ? (event: BaseUIEvent<E>) => R
+    : T
+  : T extends { 0: (data: any, event: infer E) => void; 1: any }
+    ? E extends Event
+      ? { 0: (data: any, event: BaseUIEvent<E>) => void; 1: any }
+      : T
+    : T;
 
 /**
  * Adds a `preventBaseUIHandler` method to all event handlers.
  */
-// export type WithBaseUIEvent<T> = T;
 export type WithBaseUIEvent<T> = {
-  [K in keyof T]: WithPreventBaseUIHandler<T, K>;
+  [K in keyof T]: WithPreventBaseUIHandler<T[K]>;
 };
 
 /**
@@ -58,6 +66,18 @@ export type WithBaseUIEvent<T> = {
 export type ComponentRenderFn<Props, State> = (props: Props, state: State) => JSX.Element;
 
 /**
+ * Props a component passes to its render function. `class` and `style` arrive resolved from the
+ * component's `class`/`style` props (a string and a style object, like React's `className` and
+ * `style`), and `id` is resolved by `useBaseUiId` (never `false`), so the props can be spread onto
+ * another Base UI component as well as a native element.
+ */
+export type RenderFunctionHTMLProps<Props> = Omit<Props, 'class' | 'style' | 'id'> & {
+  class?: string | undefined;
+  style?: JSX.CSSProperties | undefined;
+  id?: string | undefined;
+};
+
+/**
  * Props shared by all Base UI components.
  * Contains `class` (string or callback taking the component's state as an argument) and `render` (function to customize rendering).
  *
@@ -66,6 +86,7 @@ export type ComponentRenderFn<Props, State> = (props: Props, state: State) => JS
 export type BaseUIComponentProps<
   ElementType extends keyof JSX.IntrinsicElements | undefined,
   State,
+  RenderFunctionProps = JSX.HTMLAttributes<any>,
   RenderFnElement extends ValidComponent = ValidComponent,
 > = WithBaseUIEvent<
   ElementType extends keyof JSX.IntrinsicElements
@@ -88,7 +109,7 @@ export type BaseUIComponentProps<
     | (
         | keyof JSX.IntrinsicElements
         | DynamicProps<RenderFnElement>
-        | ComponentRenderFn<JSX.HTMLAttributes<any>, State>
+        | ComponentRenderFn<RenderFunctionHTMLProps<RenderFunctionProps>, State>
         | null
       )
     | undefined;

@@ -1,4 +1,5 @@
 import { createMemo, createSignal, untrack, createEffect } from "solid-js"
+import type { Accessor } from "solid-js"
 import type { JSX } from "@solidjs/web"
 import { useAnimationController } from "./useAnimationController"
 import { getTransitionVal } from "./util"
@@ -15,7 +16,10 @@ type CSSTransitionAnimateProps = {
 	attributeName: string
 	begin?: number
 	canBegin?: boolean
-	children: (style: Record<string, string | number>) => JSX.Element
+	/* Children receive an accessor and are invoked once, like JavascriptAnimate. A CSS
+	   transition only runs when the SAME element changes its style: re-invoking children
+	   per style change would mount a new element already at `to`, and nothing animates. */
+	children: (style: Accessor<Record<string, string | number>>) => JSX.Element
 	duration?: number
 	easing?: NamedBezier
 	from: string
@@ -121,7 +125,6 @@ export function CSSTransitionAnimate(outsideProps: CSSTransitionAnimateProps) {
 		return { [props.attributeName]: props.from }
 	})
 
-	/* Wrap in fragment so the children call is a reactive computation; a bare
-	 * `return props.children(...)` evaluates once at setup. */
-	return <>{props.children(childStyle())}</>
+	/* eslint-disable-next-line solid/reactivity -- one-time children() call keeps element identity; childStyle is reactive */
+	return untrack(() => props.children(childStyle))
 }

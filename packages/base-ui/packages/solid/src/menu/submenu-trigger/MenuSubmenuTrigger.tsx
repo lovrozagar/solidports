@@ -1,21 +1,24 @@
-import { createMemo, onCleanup } from 'solid-js';
+import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
+import { safePolygon, useClick, useHoverReferenceInteraction } from '../../floating-ui-solid';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
-import {
-  safePolygon,
-  useClick,
-  useHoverReferenceInteraction,
-  useInteractions,
-} from '../../floating-ui-solid';
-import { splitComponentProps } from '../../solid-helpers';
+import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
+import { isIOS, isMac } from '../../utils/detectBrowser';
+import { EMPTY_OBJECT } from '../../utils/empty';
+import { isElementDisabled } from '../../utils/isElementDisabled';
 import { useTriggerRegistration } from '../../utils/popups';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
-import { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/types';
+import { REASONS } from '../../utils/reasons';
+import { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { warn } from '../../utils/warn';
 import { useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
+
+// Solid: React reads `platform.screenReader.voiceOver`, which is true on any Apple platform.
+const isVoiceOverPlatform = isMac || isIOS;
 
 /**
  * A menu item that opens a submenu.
@@ -34,148 +37,161 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     'disabled',
   ]);
   const idProp = () => local.id;
-  const nativeButton = () => Boolean(local.nativeButton);
+  const nativeButton = () => local.nativeButton ?? false;
   const openOnHover = () => local.openOnHover ?? true;
   const delay = () => local.delay ?? 100;
   const closeDelay = () => local.closeDelay ?? 0;
-  const disabledProp = () => Boolean(local.disabled);
-
-  const listItem = useCompositeListItem();
-  const menuPositionerContext = useMenuPositionerContext();
-
-  const { store } = useMenuRootContext();
-
-  const thisTriggerId = useBaseUiId(idProp);
-  const open = store.useState('open');
-
-  const baseRegisterTrigger = useTriggerRegistration({
-    get id() {
-      return thisTriggerId();
-    },
-    store,
-  });
-  const registerTrigger = (element: Element | null | undefined) => {
-    const cleanup = baseRegisterTrigger(element);
-
-    if (element !== null && store.select('open') && store.select('activeTriggerId') == null) {
-      store.update({
-        activeTriggerElement: element,
-        activeTriggerId: thisTriggerId(),
-        closeDelay: closeDelay(),
-      });
-    }
-
-    return cleanup;
-  };
-
-  let triggerElementRef = null as HTMLElement | null | undefined;
-  const handleTriggerElementRef = (el: HTMLElement | null | undefined) => {
-    triggerElementRef = el;
-    store.set('activeTriggerElement', el);
-  };
+  const disabledProp = () => local.disabled ?? false;
 
   const submenuRootContext = useMenuSubmenuRootContext();
   if (!submenuRootContext?.parentMenu) {
     throw new Error('Base UI: <Menu.SubmenuTrigger> must be placed in <Menu.SubmenuRoot>.');
   }
 
+  // Solid: no `guess`; Solid has no extra post-mount render for it to avoid.
+  const listItem = useCompositeListItem({ label: () => local.label });
+  const menuPositionerContext = useMenuPositionerContext();
+
+  const { store } = useMenuRootContext();
+
+  const thisTriggerId = useBaseUiId(idProp);
+  const open = store.useState('open');
+  const floatingRootContext = store.context.floatingRootContext;
+  const floatingTreeRoot = store.useState('floatingTreeRoot');
+  const popupId = store.useState('triggerPopupId', thisTriggerId);
+
+  const baseRegisterTrigger = useTriggerRegistration(thisTriggerId, store);
+  // Stable, so the merged ref on the rendered element keeps its identity for the trigger's whole
+  // lifetime; the latest `closeDelay` is read when it runs.
+  const registerTrigger = (element: Element | null | undefined) =>
+    untrack(() => {
+      baseRegisterTrigger(element);
+
+      if (element != null && store.select('open') && store.select('activeTriggerId') == null) {
+        store.update({
+          activeTriggerId: thisTriggerId() ?? null,
+          activeTriggerElement: element,
+          closeDelay: closeDelay(),
+        });
+      }
+    });
+
+  const triggerElementRef = { current: null as HTMLElement | null | undefined };
+  // Solid: a signal mirror so the hover hook re-attaches its listeners once the element exists.
+  const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null | undefined>(null);
+  const handleTriggerElementRef = (el: HTMLElement | null | undefined) => {
+    triggerElementRef.current = el;
+    setTriggerElement(el);
+    store.set('activeTriggerElement', el);
+  };
+
+  // A stable ref does not re-fire when the id changes, so register the rendered element here
+  // instead.
+  createDepsRenderEffect(
+    () => [thisTriggerId(), store],
+    () => {
+      registerTrigger(triggerElementRef.current);
+      return () => registerTrigger(null);
+    },
+  );
+
   store.useSyncedValue('closeDelay', closeDelay);
 
   const parentMenuStore = submenuRootContext.parentMenu;
-  let cleanupTriggerMouseMove = () => {};
+  const rootDisabled = store.useState('disabled');
+  const parentDisabled = parentMenuStore.useState('disabled');
+  const disabled = createMemo(() => disabledProp() || rootDisabled() || parentDisabled());
+
+  if (process.env.NODE_ENV !== 'production') {
+    // Solid: React checks after every render; check whenever `disabled` changes.
+    createEffect(disabled, (isDisabled) => {
+      const element = triggerElementRef.current;
+      if (element && isElementDisabled(element) && !isDisabled) {
+        warn(
+          'A disabled element was detected on <Menu.SubmenuTrigger>. To properly disable the trigger, use the `disabled` prop on the component instead of setting it on the rendered element.',
+        );
+      }
+    });
+  }
 
   const itemProps = parentMenuStore.useState('itemProps');
   const highlighted = parentMenuStore.useState('isActive', listItem.index);
 
-  const handleTriggerHoverIntent = () => {
-    parentMenuStore.set('allowMouseEnter', true);
-  };
-
-  onCleanup(() => {
-    cleanupTriggerMouseMove();
-  });
-
   const itemMetadata = () => ({
-    setActive() {
-      parentMenuStore.set('activeIndex', listItem.index());
-    },
     type: 'submenu-trigger' as const,
+    setActive() {
+      if (parentMenuStore.select('highlightItemOnHover')) {
+        parentMenuStore.set('activeIndex', untrack(listItem.index));
+      }
+    },
   });
-
-  const rootDisabled = store.useState('disabled');
-  const disabled = () => disabledProp() || rootDisabled();
 
   const { getItemProps, setItemRef } = useMenuItem({
     closeOnClick: false,
     disabled,
     highlighted,
     id: thisTriggerId,
-    itemMetadata,
-    nativeButton,
-    nodeId: () => menuPositionerContext?.context.nodeId(),
     store,
-    typingRef: () => parentMenuStore.context.typingRef,
+    typingRef: parentMenuStore.context.typingRef,
+    nativeButton,
+    itemMetadata,
+    nodeId: () => menuPositionerContext?.context.nodeId(),
   });
 
   const hoverEnabled = store.useState('hoverEnabled');
-  const allowMouseEnter = parentMenuStore.useState('allowMouseEnter');
 
   const hoverProps = useHoverReferenceInteraction({
-    get context() {
-      return store.context.floatingRootContext;
-    },
+    context: floatingRootContext,
     props: {
-      get delay() {
-        return allowMouseEnter() ? { open: delay(), close: closeDelay() } : 0;
-      },
       get enabled() {
         return hoverEnabled() && openOnHover() && !disabled();
       },
-      get externalTree() {
-        return store.context.floatingTreeRoot;
-      },
       handleClose: safePolygon({ blockPointerEvents: true }),
-      isClosing: () => store.select('transitionStatus') === 'ending',
       mouseOnly: true,
       move: true,
       get restMs() {
         return delay();
       },
-      get triggerElementRef() {
-        return triggerElementRef;
+      get delay() {
+        return { open: delay(), close: closeDelay() };
       },
+      get shouldOpen() {
+        return delay() > 0 ? () => parentMenuStore.select('allowMouseEnter') : undefined;
+      },
+      get triggerElementRef() {
+        return triggerElement();
+      },
+      get externalTree() {
+        return floatingTreeRoot();
+      },
+      isClosing: () => store.select('transitionStatus') === 'ending',
+      // Chrome can drop the trigger's `mouseleave` during a fast pointer sweep,
+      // leaving a stale submenu open (see #5152) — cancel from `mouseout` too.
+      guardStaleOpen: true,
     },
   });
 
   const click = useClick({
-    get context() {
-      return store.context.floatingRootContext;
-    },
+    context: floatingRootContext,
     props: {
       get enabled() {
         return !disabled();
       },
       event: 'mousedown',
+      get toggle() {
+        return !openOnHover();
+      },
       get ignoreMouse() {
         return openOnHover();
       },
       stickIfOpen: false,
-      get toggle() {
-        return !openOnHover();
-      },
     },
   });
 
-  const localInteractionProps = useInteractions([click]);
+  const localInteractionProps = () => click.reference ?? EMPTY_OBJECT;
 
   const rootTriggerProps = createMemo(() => {
-    const triggerProps = store.select('triggerProps', () => true);
-
-    if (!triggerProps) {
-      return triggerProps;
-    }
-
-    const { id: _id, ...rest } = triggerProps;
+    const { id: _id, ...rest } = store.select('triggerProps', () => true) as HTMLProps;
     return rest;
   });
 
@@ -191,17 +207,33 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     },
   };
 
+  const openMethod = store.useState('openMethod');
+  const lastOpenChangeReason = store.useState('lastOpenChangeReason');
+  // Arrow keys open the submenu through list navigation without dispatching a click, so
+  // `openMethod` stays null there; Enter and Space do dispatch one and report `keyboard`.
+  const openedByKeyboard = () =>
+    lastOpenChangeReason() === REASONS.listNavigation || openMethod() === 'keyboard';
+  const shouldOmitExpanded = () => open() && openedByKeyboard() && isVoiceOverPlatform;
+
   const element = useRenderElement('div', componentProps, {
+    state,
+    stateAttributesMapping: triggerOpenStateMapping,
     get props() {
+      const expandedProps = rootTriggerProps();
       return [
-        localInteractionProps.getReferenceProps(),
+        localInteractionProps(),
         hoverProps,
-        rootTriggerProps(),
+        // Opening a submenu changes the trigger's expanded state while the trigger still holds
+        // focus, and VoiceOver announces that state change instead of the submenu item that focus
+        // moves to a moment later, so the first item is never announced. Dropping the state while
+        // the submenu is open avoids the announcement without claiming the submenu is collapsed;
+        // `aria-haspopup` still conveys that the item opens a submenu.
+        // Solid: a later `undefined` would not remove the key, so it is omitted instead.
+        shouldOmitExpanded() ? omitExpanded(expandedProps) : expandedProps,
         itemProps(),
         {
-          get tabindex() {
-            return open() || highlighted() ? 0 : -1;
-          },
+          'aria-controls': popupId(),
+          tabindex: open() || highlighted() ? 0 : -1,
           onBlur() {
             if (highlighted()) {
               parentMenuStore.set('activeIndex', null);
@@ -212,29 +244,15 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
         getItemProps,
       ];
     },
-    ref: (el) => {
-      cleanupTriggerMouseMove();
-      if (el) {
-        el.addEventListener('mouseenter', handleTriggerHoverIntent);
-        el.addEventListener('mousemove', handleTriggerHoverIntent);
-        cleanupTriggerMouseMove = () => {
-          el.removeEventListener('mouseenter', handleTriggerHoverIntent);
-          el.removeEventListener('mousemove', handleTriggerHoverIntent);
-        };
-      } else {
-        cleanupTriggerMouseMove = () => {};
-      }
-
-      listItem.setRef(el);
-      setItemRef(el);
-      registerTrigger(el);
-      handleTriggerElementRef(el);
-    },
-    state,
-    stateAttributesMapping: triggerOpenStateMapping,
+    ref: [listItem.setRef, setItemRef, registerTrigger, handleTriggerElementRef],
   });
 
   return <>{element()}</>;
+}
+
+function omitExpanded(props: HTMLProps) {
+  const { 'aria-expanded': _expanded, ...rest } = props;
+  return rest;
 }
 
 export interface MenuSubmenuTriggerState {
@@ -285,6 +303,7 @@ export interface MenuSubmenuTriggerProps
   closeDelay?: number | undefined;
   /**
    * Whether the menu should also open when the trigger is hovered.
+   * @default true
    */
   openOnHover?: boolean | undefined;
 }

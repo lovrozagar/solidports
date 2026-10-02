@@ -1,11 +1,13 @@
 import { isJSDOM } from '../src/utils/testUtils';
 import { randomStringValue } from '@mui/internal-test-utils';
-import { screen, waitFor, type render as testingLibraryRender } from '@solidjs/testing-library';
+import { screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
 import type { Component } from 'solid-js';
+import { act } from './act';
+import type { BaseUITestRenderer } from './createRenderer';
 
 export function popupConformanceTests(config: PopupTestConfig) {
   const {
@@ -49,7 +51,7 @@ export function popupConformanceTests(config: PopupTestConfig) {
           expect(getPopup()).toBeInaccessible();
         }
 
-        setOpen(true);
+        act(() => setOpen(true));
         expect(getPopup()).not.to.equal(null);
       });
     });
@@ -258,7 +260,7 @@ export interface PopupTestConfig {
   /**
    * Render function returned from `createRenderer`.
    */
-  render: typeof testingLibraryRender;
+  render: BaseUITestRenderer['render'];
   /**
    * Expected `role` attribute of the popup element.
    */

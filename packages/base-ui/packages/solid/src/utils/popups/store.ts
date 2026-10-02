@@ -1,13 +1,13 @@
-import type { Accessor } from 'solid-js';
+import { untrack, type Accessor } from 'solid-js';
 
 import type { FloatingRootContext } from '../../floating-ui-solid';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../constants';
-import type { SolidStore } from '../store/SolidStoreV2';
+import { createStoreState, type SolidStore } from '../store/SolidStoreV2';
 import { HTMLProps } from '../types';
 import { TransitionStatus } from '../useTransitionStatus';
 import { PopupTriggerMap } from './popupTriggerMap';
-import { createStore, type SetStoreFunction } from '../../solid-1-compat';
+import type { SetStoreFunction } from '../../solid-1-compat';
 
 /**
  * State common to all popup stores.
@@ -30,9 +30,14 @@ export type PopupStoreState<Payload> = {
    * The current enter/exit transition status of the popup.
    */
   transitionStatus: TransitionStatus;
+  floatingId: string | undefined;
+  /**
+   * Number of trigger elements currently registered for this popup.
+   */
+  triggerCount: number;
   /**
    * Whether to prevent unmounting the popup when closed.
-   * Useful for interactling with JS animation libraries that control unmounting themselves.
+   * Useful for interacting with JS animation libraries that control unmounting themselves.
    */
   preventUnmountingOnClose: boolean;
 
@@ -83,23 +88,28 @@ export type PopupStoreState<Payload> = {
 export function createInitialPopupStoreState<Payload, State extends PopupStoreState<Payload>>(
   initialState: Partial<State> = {},
 ) {
-  const [state, setState] = createStore({
-    activeTriggerElement: null,
-    activeTriggerId: null,
-    activeTriggerProps: EMPTY_OBJECT,
-    inactiveTriggerProps: EMPTY_OBJECT,
-    mounted: false,
-    open: false,
-    openProp: undefined,
-    payload: undefined,
-    popupElement: null,
-    popupProps: EMPTY_OBJECT,
-    positionerElement: null,
-    preventUnmountingOnClose: false,
-    transitionStatus: undefined,
-    triggerIdProp: undefined,
-    ...initialState,
-  });
+  // Initial values: the spread reads the caller's getters once.
+  const [state, setState] = createStoreState(
+    untrack(() => ({
+      activeTriggerElement: null,
+      activeTriggerId: null,
+      activeTriggerProps: EMPTY_OBJECT,
+      floatingId: undefined,
+      inactiveTriggerProps: EMPTY_OBJECT,
+      mounted: false,
+      open: false,
+      openProp: undefined,
+      payload: undefined,
+      popupElement: null,
+      popupProps: EMPTY_OBJECT,
+      positionerElement: null,
+      preventUnmountingOnClose: false,
+      transitionStatus: undefined,
+      triggerCount: 0,
+      triggerIdProp: undefined,
+      ...initialState,
+    })),
+  );
   return [state, setState] as unknown as [State, SetStoreFunction<State>];
 }
 
@@ -127,14 +137,43 @@ type S = PopupStoreState<unknown>;
 
 const activeTriggerIdSelector = (state: S) => state.triggerIdProp ?? state.activeTriggerId;
 
+const openSelector = (state: S) => state.openProp ?? state.open;
+
+const popupIdSelector = (state: S) => {
+  const popupId = state.popupElement?.id ?? state.floatingId;
+  return popupId || undefined;
+};
+
+function triggerOwnsOpenPopup(state: S, triggerId: string | undefined) {
+  return (
+    triggerId !== undefined && openSelector(state) && activeTriggerIdSelector(state) === triggerId
+  );
+}
+
+function triggerOwnsOpenPopupOrIsOnlyTrigger(state: S, triggerId: string | undefined) {
+  if (triggerOwnsOpenPopup(state, triggerId)) {
+    return true;
+  }
+
+  return (
+    triggerId !== undefined &&
+    openSelector(state) &&
+    activeTriggerIdSelector(state) == null &&
+    state.triggerCount === 1
+  );
+}
+
 export const popupStoreSelectors = {
-  open: (state: S) => state.openProp ?? state.open,
+  open: openSelector,
   mounted: (state: S) => state.mounted,
   transitionStatus: (state: S) => state.transitionStatus,
+  triggerCount: (state: S) => state.triggerCount,
   preventUnmountingOnClose: (state: S) => state.preventUnmountingOnClose,
   payload: (state: S) => state.payload,
+
   activeTriggerId: activeTriggerIdSelector,
   activeTriggerElement: (state: S) => (state.mounted ? state.activeTriggerElement : null),
+  popupId: popupIdSelector,
   /**
    * Whether the trigger with the given ID was used to open the popup.
    */
@@ -144,15 +183,19 @@ export const popupStoreSelectors = {
    * Whether the popup is open and was activated by a trigger with the given ID.
    */
   isOpenedByTrigger: (state: S, triggerId: Accessor<string | undefined>) =>
-    triggerId() !== undefined && activeTriggerIdSelector(state) === triggerId() && state.open,
+    triggerOwnsOpenPopup(state, triggerId()),
   /**
    * Whether the popup is mounted and was activated by a trigger with the given ID.
    */
   isMountedByTrigger: (state: S, triggerId: Accessor<string | undefined>) =>
     triggerId() !== undefined && activeTriggerIdSelector(state) === triggerId() && state.mounted,
-
   triggerProps: (state: S, isActive: Accessor<boolean>) =>
     isActive() ? state.activeTriggerProps : state.inactiveTriggerProps,
+  /**
+   * Popup id for the trigger that currently owns the open popup.
+   */
+  triggerPopupId: (state: S, triggerId: Accessor<string | undefined>) =>
+    triggerOwnsOpenPopupOrIsOnlyTrigger(state, triggerId()) ? popupIdSelector(state) : undefined,
   popupProps: (state: S) => state.popupProps,
 
   popupElement: (state: S) => state.popupElement,
@@ -163,12 +206,15 @@ export type PopupStoreSelectors = typeof popupStoreSelectors;
 
 /**
  * Store members a detached handle-backed trigger reads or invokes for trigger registration and data
- * forwarding.
+ * forwarding. `set`/`update` are included only for trigger-count and trigger-data bookkeeping; on a
+ * detached (inert) store they are intentionally no-ops, so a write through them is not guaranteed to
+ * be durable.
  */
 export type PopupTriggerStoreKeys = 'context' | 'select' | 'set' | 'state' | 'update' | 'useState';
 
 /**
- * The subset of a popup store that trigger registration and data forwarding rely on.
+ * The subset of a popup store that trigger registration and data forwarding rely on. Narrow enough
+ * that an inert store can be passed while detached.
  */
 export type PopupTriggerDataStore<State extends PopupStoreState<unknown>> = Pick<
   SolidStore<State, PopupStoreContext<never>, PopupStoreSelectors>,

@@ -48,7 +48,7 @@ export default function ExampleContextMenu() {
   );
 }
 
-function CaretRightIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretRightIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

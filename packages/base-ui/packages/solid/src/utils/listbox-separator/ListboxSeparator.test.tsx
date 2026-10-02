@@ -1,46 +1,59 @@
-import { createRenderer } from '#test-utils';
+import { expect, describe, it } from 'vitest';
+import type { JSX } from '@solidjs/web';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { Select } from '@solidports/base-ui/select';
 import { screen } from '@solidjs/testing-library';
-import { describe, expect, it } from 'vitest';
+import { createRenderer, describeConformance } from '#test-utils';
 import { ListboxSeparator } from './ListboxSeparator';
 
 describe('<ListboxSeparator />', () => {
   const { render } = createRenderer();
 
-  it('has role="presentation" and defaults to horizontal', () => {
-    render(() => <ListboxSeparator data-testid="separator" />);
+  describeConformance(ListboxSeparator, () => ({
+    render,
+    refInstanceof: window.HTMLDivElement,
+  }));
+
+  it('has role="presentation" and defaults to horizontal', async () => {
+    await render(() => <ListboxSeparator data-testid="separator" />);
 
     const separator = screen.getByTestId('separator');
-    expect(separator).to.have.attribute('role', 'presentation');
-    expect(separator).to.have.attribute('data-orientation', 'horizontal');
-    expect(separator).to.not.have.attribute('aria-orientation');
+    expect(separator).toHaveAttribute('role', 'presentation');
+    expect(separator).toHaveAttribute('data-orientation', 'horizontal');
+    expect(separator).not.toHaveAttribute('aria-orientation');
   });
 
   describe('prop: orientation', () => {
-    (['horizontal', 'vertical'] as const).forEach((orientation) => {
-      it(orientation, () => {
-        render(() => <ListboxSeparator orientation={orientation} data-testid="separator" />);
+    ['horizontal', 'vertical'].forEach((orientation) => {
+      it(orientation, async () => {
+        await render(() => (
+          <ListboxSeparator
+            orientation={orientation as ListboxSeparator.Props['orientation']}
+            data-testid="separator"
+          />
+        ));
 
         const separator = screen.getByTestId('separator');
-        expect(separator).to.have.attribute('data-orientation', orientation);
-        expect(separator).to.not.have.attribute('aria-orientation');
+        expect(separator).toHaveAttribute('data-orientation', orientation);
+        expect(separator).not.toHaveAttribute('aria-orientation');
       });
     });
   });
 
-  it('Autocomplete.Separator exposes the listbox separator behavior', () => {
-    render(() => <Autocomplete.Separator data-testid="separator" />);
-    const element = screen.getByTestId('separator');
-    expect(element).to.have.attribute('role', 'presentation');
-    expect(element).to.have.attribute('data-orientation', 'horizontal');
-  });
+  // Solid: elements are created inside the render scope, so each case renders through a thunk.
+  describe.each<[string, () => JSX.Element]>([
+    ['Autocomplete.Separator', () => <Autocomplete.Separator data-testid="separator" />],
+    ['Combobox.Separator', () => <Combobox.Separator data-testid="separator" />],
+    ['Select.Separator', () => <Select.Separator data-testid="separator" />],
+  ])('%s', (_, separator) => {
+    it('exposes the listbox separator behavior', async () => {
+      await render(separator);
 
-  it('Combobox.Separator exposes the listbox separator behavior', () => {
-    render(() => <Combobox.Separator data-testid="separator" />);
-    const element = screen.getByTestId('separator');
-    expect(element).to.have.attribute('role', 'presentation');
-    expect(element).to.have.attribute('data-orientation', 'horizontal');
+      const element = screen.getByTestId('separator');
+      expect(element).toHaveAttribute('role', 'presentation');
+      expect(element).toHaveAttribute('data-orientation', 'horizontal');
+      expect(element).not.toHaveAttribute('aria-orientation');
+    });
   });
 });

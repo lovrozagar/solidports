@@ -1,5 +1,6 @@
 export { SelectArrow as Arrow } from './arrow/SelectArrow';
 export { SelectBackdrop as Backdrop } from './backdrop/SelectBackdrop';
+export { SelectLabel as Label } from './label/SelectLabel';
 export { SelectGroupLabel as GroupLabel } from './group-label/SelectGroupLabel';
 export { SelectGroup as Group } from './group/SelectGroup';
 export { SelectIcon as Icon } from './icon/SelectIcon';

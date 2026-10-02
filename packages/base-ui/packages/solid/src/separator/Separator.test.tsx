@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Separator } from '@solidports/base-ui/separator';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 
 describe('<Separator />', () => {
   const { render } = createRenderer();

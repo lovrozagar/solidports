@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 
 describe('<Popover.Description />', () => {
   const { render } = createRenderer();

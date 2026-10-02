@@ -14,3 +14,8 @@ interface Values {
     values.email.startsWith('a');
   }}
 />;
+
+// `Form` exposes the native `<form>` props in its `render` callback.
+// Solid: render callbacks are contextually typed as `any` by the shared `render` union in
+// `utils/types.ts`, so the React assertion on `props.noValidate` cannot be expressed yet.
+<Form render={(props) => <form {...props} />} />;

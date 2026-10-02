@@ -4,7 +4,7 @@ import {
   type DialogTriggerProps,
   type DialogTriggerState,
 } from '../../dialog/trigger/DialogTrigger';
-import type { DialogHandle } from '../../dialog/store/DialogHandle';
+import type { AlertDialogHandle } from '../handle';
 
 /**
  * A button that opens the alert dialog.
@@ -12,7 +12,11 @@ import type { DialogHandle } from '../../dialog/store/DialogHandle';
  *
  * Documentation: [Base UI Alert Dialog](https://base-ui.com/react/components/alert-dialog)
  */
-export const AlertDialogTrigger = DialogTrigger;
+export const AlertDialogTrigger = DialogTrigger as AlertDialogTrigger;
+
+export interface AlertDialogTrigger {
+  <Payload>(componentProps: AlertDialogTriggerProps<Payload>): JSX.Element;
+}
 
 export interface AlertDialogTriggerProps<Payload = unknown> extends Omit<
   DialogTriggerProps<Payload>,
@@ -22,7 +26,7 @@ export interface AlertDialogTriggerProps<Payload = unknown> extends Omit<
    * A handle to associate the trigger with an alert dialog.
    * Can be created with the AlertDialog.createHandle() method.
    */
-  handle?: DialogHandle<Payload> | undefined;
+  handle?: AlertDialogHandle<Payload> | undefined;
 }
 
 export interface AlertDialogTriggerState extends DialogTriggerState {}

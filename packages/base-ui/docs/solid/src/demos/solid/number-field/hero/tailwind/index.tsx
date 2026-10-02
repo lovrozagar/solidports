@@ -35,7 +35,7 @@ export default function ExampleNumberField() {
   );
 }
 
-function CursorGrowIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CursorGrowIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="26"
@@ -51,7 +51,7 @@ function CursorGrowIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function PlusIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -59,8 +59,8 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >
@@ -69,7 +69,7 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function MinusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function MinusIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -77,8 +77,8 @@ function MinusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

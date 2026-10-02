@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 
 describe('<Select.Group />', () => {
   const { render } = createRenderer();

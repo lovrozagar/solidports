@@ -8,10 +8,9 @@ export function handleInputPress(
   event: MouseEvent & { baseUIHandlerPrevented?: boolean | undefined },
   store: ComboboxStore,
   disabled: boolean,
-  readOnly: boolean,
   shouldIgnoreTarget?: ((target: Element | null) => boolean) | undefined,
 ) {
-  if (event.baseUIHandlerPrevented || readOnly) {
+  if (event.baseUIHandlerPrevented) {
     return;
   }
 
@@ -30,9 +29,9 @@ export function handleInputPress(
     return;
   }
 
-  store.state.inputRef?.focus();
+  store.context.inputRef.current?.focus();
 
-  if (store.selectors.openOnInputClick()) {
+  if (store.state.openOnInputClick) {
     store.context.setOpen(true, createChangeEventDetails(REASONS.inputPress, event));
   }
 }

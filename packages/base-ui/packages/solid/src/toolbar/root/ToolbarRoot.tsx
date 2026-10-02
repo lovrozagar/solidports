@@ -1,5 +1,4 @@
 import { createMemo, createSignal } from 'solid-js';
-import type { Accessor } from 'solid-js';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { splitComponentProps } from '../../solid-helpers';
@@ -23,17 +22,22 @@ export function ToolbarRoot(componentProps: ToolbarRoot.Props) {
   const loopFocus = () => local.loopFocus ?? true;
   const orientation = () => local.orientation ?? 'horizontal';
 
-  const [itemArray, setItemArray] = createSignal<
+  const [itemMap, setItemMap] = createSignal<
     Array<{ element: Element; metadata: CompositeMetadata<ToolbarRoot.ItemMetadata> | null }>
   >([]);
 
   const disabledIndices = createMemo(() => {
     const output: number[] = [];
-    for (const { metadata } of itemArray()) {
-      const idx = metadata?.index;
-      /* Non-toolbar composite children (e.g. Toggle inside Toolbar.Button render) register without focusableWhenDisabled — treat as focusable */
-      if (idx && metadata?.focusableWhenDisabled && !metadata.focusableWhenDisabled()) {
-        output.push(idx);
+    for (const { metadata: itemMetadata } of itemMap()) {
+      // Only items that are disabled and not focusable when disabled
+      // are removed from roving focus.
+      // Solid: the composite index is nullable until the list registers the item.
+      if (
+        itemMetadata?.disabled &&
+        !itemMetadata.focusableWhenDisabled &&
+        itemMetadata.index != null
+      ) {
+        output.push(itemMetadata.index);
       }
     }
     return output;
@@ -42,7 +46,6 @@ export function ToolbarRoot(componentProps: ToolbarRoot.Props) {
   const toolbarRootContext: ToolbarRootContext = {
     disabled,
     orientation,
-    setItemArray,
   };
 
   const state: ToolbarRoot.State = {
@@ -71,7 +74,7 @@ export function ToolbarRoot(componentProps: ToolbarRoot.Props) {
         props={[defaultProps, elementProps]}
         disabledIndices={disabledIndices()}
         loopFocus={loopFocus()}
-        onMapChange={setItemArray}
+        onMapChange={setItemMap}
         orientation={orientation()}
       >
         {local.children}
@@ -81,13 +84,20 @@ export function ToolbarRoot(componentProps: ToolbarRoot.Props) {
 }
 
 export interface ToolbarRootItemMetadata {
-  focusableWhenDisabled: Accessor<boolean>;
+  disabled: boolean;
+  focusableWhenDisabled: boolean;
 }
 
 export type ToolbarRootOrientation = BaseOrientation;
 
 export interface ToolbarRootState {
+  /**
+   * Whether the component is disabled.
+   */
   disabled: boolean;
+  /**
+   * The component orientation.
+   */
   orientation: ToolbarRoot.Orientation;
 }
 

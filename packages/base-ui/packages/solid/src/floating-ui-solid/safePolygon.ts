@@ -88,8 +88,6 @@ export interface SafePolygonOptions extends HandleCloseOptions {}
  * @see https://floating-ui.com/docs/useHover#safepolygon
  */
 export function safePolygon(options: SafePolygonOptions = {}) {
-  const { blockPointerEvents = false } = options;
-
   const timeout = useTimeout();
 
   const fn: HandleClose = (fnOptions) => {
@@ -170,9 +168,9 @@ export function safePolygon(options: SafePolygonOptions = {}) {
       function hasOpenChildNode() {
         return Boolean(
           fnOptions.tree &&
-            getNodeChildren(fnOptions.tree.nodesRef, fnOptions.nodeId()).some(
-              (node) => node.context?.open(),
-            ),
+          getNodeChildren(fnOptions.tree.nodesRef, fnOptions.nodeId()).some((node) =>
+            node.context?.open(),
+          ),
         );
       }
 
@@ -449,9 +447,15 @@ export function safePolygon(options: SafePolygonOptions = {}) {
     };
   };
 
+  // Read on access: callers pass a getter that follows their state (React recreates the handler
+  // every render).
   fn.__options = {
-    ...options,
-    blockPointerEvents,
+    get blockPointerEvents() {
+      return options.blockPointerEvents ?? false;
+    },
+    get getScope() {
+      return options.getScope;
+    },
   };
 
   return fn;

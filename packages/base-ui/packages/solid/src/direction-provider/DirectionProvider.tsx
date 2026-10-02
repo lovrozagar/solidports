@@ -8,9 +8,7 @@ import { DirectionContext, type TextDirection } from './DirectionContext';
  */
 export function DirectionProvider(props: DirectionProvider.Props) {
   const direction = () => props.direction ?? 'ltr';
-  return (
-    <DirectionContext value={{ direction }}>{props.children}</DirectionContext>
-  );
+  return <DirectionContext value={{ direction }}>{props.children}</DirectionContext>;
 }
 
 export interface DirectionProviderState {}

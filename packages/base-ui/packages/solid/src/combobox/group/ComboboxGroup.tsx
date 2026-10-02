@@ -4,6 +4,7 @@ import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { GroupCollectionProvider } from '../collection/GroupCollectionContext';
+import { useComboboxRootContext } from '../root/ComboboxRootContext';
 import { ComboboxGroupContext } from './ComboboxGroupContext';
 
 /**
@@ -13,7 +14,10 @@ import { ComboboxGroupContext } from './ComboboxGroupContext';
 export function ComboboxGroup(componentProps: ComboboxGroup.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['items']);
 
-  const [labelId, setLabelId] = createSignal<string | undefined>();
+  const store = useComboboxRootContext();
+  const grid = store.useState('grid');
+
+  const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
 
   const contextValue = {
     items: () => local.items,
@@ -24,10 +28,14 @@ export function ComboboxGroup(componentProps: ComboboxGroup.Props) {
   const element = useRenderElement('div', componentProps, {
     props: [
       {
+        // `group` is not a valid owned element of `grid`, and `row` must be owned
+        // by `grid`, `rowgroup`, or `treegrid`.
+        get role() {
+          return grid() ? 'rowgroup' : 'group';
+        },
         get 'aria-labelledby'() {
           return labelId();
         },
-        role: 'group',
       },
       elementProps,
     ],
@@ -37,17 +45,11 @@ export function ComboboxGroup(componentProps: ComboboxGroup.Props) {
     <Show
       keyed
       when={local.items}
-      fallback={
-        <ComboboxGroupContext value={contextValue}>
-          {element()}
-        </ComboboxGroupContext>
-      }
+      fallback={<ComboboxGroupContext value={contextValue}>{element()}</ComboboxGroupContext>}
     >
       {(items) => (
         <GroupCollectionProvider items={items}>
-          <ComboboxGroupContext value={contextValue}>
-            {element()}
-          </ComboboxGroupContext>
+          <ComboboxGroupContext value={contextValue}>{element()}</ComboboxGroupContext>
         </GroupCollectionProvider>
       )}
     </Show>

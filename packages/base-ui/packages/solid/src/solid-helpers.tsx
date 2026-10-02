@@ -1,4 +1,12 @@
-import { children, createMemo, onSettled, Show } from 'solid-js';
+import {
+  children,
+  createEffect,
+  createMemo,
+  createRenderEffect,
+  getObserver,
+  Show,
+  untrack,
+} from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { PayloadChildRenderFunction } from './utils/popups';
@@ -9,11 +17,14 @@ export function callEventHandler<T, E extends Event>(
   event: E & { currentTarget?: T; target?: Element },
 ) {
   if (eventHandler) {
-    if (typeof eventHandler === 'function') {
-      eventHandler(event);
-    } else {
-      eventHandler[0](eventHandler[1], event);
-    }
+    // Handlers never subscribe (see mergeProps' wrapEventHandler).
+    untrack(() => {
+      if (typeof eventHandler === 'function') {
+        eventHandler(event);
+      } else {
+        eventHandler[0](eventHandler[1], event);
+      }
+    });
   }
 
   return event.defaultPrevented;
@@ -36,12 +47,58 @@ export function autofocus(element: HTMLElement | null | undefined) {
     return;
   }
 
-  onSettled(() => {
+  // Refs run ownerless once the element is inserted, so focus right away, as React applies
+  // `autoFocus` during commit (before effects such as a focus manager's initial focus).
+  if (element.isConnected) {
+    element.focus();
+  } else {
     queueMicrotask(() => element.focus());
-  });
+  }
 }
 
 // https://github.com/solidjs-community/solid-primitives/blob/461ab9edda2ffa6666d7ed2d5deed8b6b77f65a6/packages/utils/src/index.ts#L106C1-L107C59
+function depsEqual(prev: unknown, next: unknown) {
+  if (Object.is(prev, next)) {
+    return true;
+  }
+  if (prev == null || next == null || typeof prev !== 'object' || typeof next !== 'object') {
+    return false;
+  }
+  const prevKeys = Object.keys(prev);
+  if (prevKeys.length !== Object.keys(next).length) {
+    return false;
+  }
+  return prevKeys.every((key) =>
+    Object.is((prev as Record<string, unknown>)[key], (next as Record<string, unknown>)[key]),
+  );
+}
+
+type DepsEffectFn<T> = (deps: T, prev: T | undefined) => void | (() => void);
+
+/**
+ * React `useEffect(fn, deps)`: `deps` reads the dependency values and returns them as an object
+ * (or array). The effect runs when one of them changes by `Object.is`, as React compares its
+ * dependency array; recomputing to equal values does not re-run it. The effect returns its
+ * cleanup.
+ */
+export function createDepsEffect<T>(deps: () => T, effect: DepsEffectFn<T>) {
+  createEffect(createMemo(deps, { equals: depsEqual }), effect);
+}
+
+/** `createDepsEffect` with render-effect timing (React's `useIsoLayoutEffect`). */
+export function createDepsRenderEffect<T>(deps: () => T, effect: DepsEffectFn<T>) {
+  createRenderEffect(createMemo(deps, { equals: depsEqual }), effect);
+}
+
+/**
+ * An accessor for the latest value: it subscribes inside computations and reads untracked
+ * elsewhere (event handlers, effect callbacks and cleanups), as React code reads refs and stores
+ * imperatively.
+ */
+export function live<T>(read: () => T): () => T {
+  return () => (getObserver() === null ? untrack(read) : read());
+}
+
 export function access<V extends MaybeAccessor<unknown>>(
   v: V,
 ): V extends Accessor<infer U> ? U : V {

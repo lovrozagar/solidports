@@ -1,5 +1,10 @@
 import { useFakeTimers } from 'sinon';
+import { act } from './act';
 
+/**
+ * Every clock operation runs inside `act`, as in React's test utils: timers that write state are
+ * applied before the next assertion.
+ */
 export interface Clock {
   /**
    * Runs all timers until there are no more remaining.
@@ -80,7 +85,9 @@ function createVitestClock(
       });
     },
     runToLast: () => {
-      vi.runOnlyPendingTimers();
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
     },
     isReal() {
       return !vi.isFakeTimers();
@@ -89,13 +96,19 @@ function createVitestClock(
       vi.useRealTimers();
     },
     tick(timeoutMS: number) {
-      vi.advanceTimersByTime(timeoutMS);
+      act(() => {
+        vi.advanceTimersByTime(timeoutMS);
+      });
     },
     async tickAsync(timeoutMS: number) {
-      await vi.advanceTimersByTimeAsync(timeoutMS);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(timeoutMS);
+      });
     },
     runAll() {
-      vi.runAllTimers();
+      act(() => {
+        vi.runAllTimers();
+      });
     },
   };
 }
@@ -106,7 +119,9 @@ export function createClock(
   options: Exclude<Parameters<typeof useFakeTimers>[0], number | Date>,
   vi: any,
 ): Clock {
-  if (isVitest) {
+  // `vi` is passed whenever the suite runs under vitest, including browser mode, where the
+  // environment flags above can be unset.
+  if (isVitest || vi != null) {
     return createVitestClock(defaultMode, config, options, vi);
   }
 
@@ -137,22 +152,30 @@ export function createClock(
       if (clock === null) {
         throw new Error(`Can't advance the real clock. Did you mean to call this on fake clock?`);
       }
-      clock!.tick(timeoutMS);
+      act(() => {
+        clock!.tick(timeoutMS);
+      });
     },
     async tickAsync(timeoutMS: number) {
-      await vi.advanceTimersByTimeAsync(timeoutMS);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(timeoutMS);
+      });
     },
     runAll() {
       if (clock === null) {
         throw new Error(`Can't advance the real clock. Did you mean to call this on fake clock?`);
       }
-      clock!.runAll();
+      act(() => {
+        clock!.runAll();
+      });
     },
     runToLast() {
       if (clock === null) {
         throw new Error(`Can't advance the real clock. Did you mean to call this on fake clock?`);
       }
-      clock!.runToLast();
+      act(() => {
+        clock!.runToLast();
+      });
     },
     isReal() {
       return setTimeout.hasOwnProperty('clock') === false;

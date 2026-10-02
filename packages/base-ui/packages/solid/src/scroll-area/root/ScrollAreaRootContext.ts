@@ -1,7 +1,13 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
-import type { Coords, HiddenState, OverflowEdges, ScrollAreaRoot, Size } from './ScrollAreaRoot';
+import type {
+  Coords,
+  HiddenState,
+  OverflowEdges,
+  ScrollAreaRootState,
+  Size,
+} from './ScrollAreaRoot';
 
 export interface ScrollAreaRootContext {
   cornerSize: Accessor<Size>;
@@ -14,26 +20,24 @@ export interface ScrollAreaRootContext {
   hovering: Accessor<boolean>;
   setHovering: Setter<boolean>;
   scrollingX: Accessor<boolean>;
-  setScrollingX: Setter<boolean>;
   scrollingY: Accessor<boolean>;
-  setScrollingY: Setter<boolean>;
-  rootRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   viewportRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   scrollbarYRef: ReactLikeRef<HTMLDivElement | null | undefined>;
-  scrollbarXRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   thumbYRef: ReactLikeRef<HTMLDivElement | null | undefined>;
+  scrollbarXRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   thumbXRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   cornerRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   handlePointerDown: (event: PointerEvent) => void;
   handlePointerMove: (event: PointerEvent) => void;
   handlePointerUp: (event: PointerEvent) => void;
   handleScroll: (scrollPosition: Coords) => void;
+  disableViewportSnap: () => void;
   rootId: Accessor<string | undefined>;
   hiddenState: Accessor<HiddenState>;
   setHiddenState: Setter<HiddenState>;
   overflowEdges: Accessor<OverflowEdges>;
   setOverflowEdges: Setter<OverflowEdges>;
-  viewportState: ScrollAreaRoot.State;
+  viewportState: ScrollAreaRootState;
   overflowEdgeThreshold: Accessor<{
     xStart: number;
     xEnd: number;

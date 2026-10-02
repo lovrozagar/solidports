@@ -14,10 +14,17 @@ export function AutocompleteValue(props: AutocompleteValue.Props) {
 
   return (
     <Switch fallback={<>{inputValue()}</>}>
-      <Match keyed when={typeof props.children === 'function' && props.children}>
+      <Match
+        keyed
+        when={
+          typeof props.children === 'function'
+            ? (props.children as (value: typeof inputValue) => JSX.Element)
+            : undefined
+        }
+      >
         {(renderer) => renderer(inputValue)}
       </Match>
-      <Match when={props.children != null}>{props.children}</Match>
+      <Match when={props.children != null}>{props.children as JSX.Element}</Match>
     </Switch>
   );
 }

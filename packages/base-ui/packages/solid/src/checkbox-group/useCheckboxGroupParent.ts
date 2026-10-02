@@ -1,119 +1,150 @@
-import { createSignal } from 'solid-js';
+import { createSignal, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import { useRef, type ReactLikeRef } from '../solid-helpers';
+import { EMPTY_ARRAY } from '../utils/empty';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { BaseUIEventReasons } from '../utils/reasons';
-import { useBaseUiId } from '../utils/useBaseUiId';
-
-const EMPTY: string[] = [];
 
 export function useCheckboxGroupParent(
-  params: useCheckboxGroupParent.Parameters,
-): useCheckboxGroupParent.ReturnValue {
-  const allValues = () => params.allValues?.() ?? EMPTY;
-  const value = () => params.value?.() ?? EMPTY;
+  params: UseCheckboxGroupParentParameters,
+): UseCheckboxGroupParentReturnValue {
+  const allValues = (): readonly string[] => params.allValues?.() ?? EMPTY_ARRAY;
+  const value = (): string[] => params.value();
 
-  let uncontrolledStateRef = value();
-  const disabledStatesRef = new Map<string, boolean>();
+  const uncontrolledStateRef = useRef(untrack(value));
+  const disabledStatesRef = useRef(new Map<string, boolean>());
 
   const [status, setStatus] = createSignal<'on' | 'off' | 'mixed'>('mixed');
+  // A `Map` rather than an object: checkbox values are consumer data, and a value like
+  // `constructor` would otherwise read straight off `Object.prototype`.
+  // Replace only the wrapper to rerender without cloning the growing registry.
+  // Solid: `ownedWrite` because a child checkbox unregisters its id from an unmount cleanup.
+  const [childIdsState, setChildIdsState] = createSignal(
+    { registry: new Map<string, readonly string[]>() },
+    { ownedWrite: true },
+  );
 
-  const id = useBaseUiId();
   const checked = () => value().length === allValues().length;
   const indeterminate = () => value().length !== allValues().length && value().length > 0;
 
-  const getParentProps: useCheckboxGroupParent.ReturnValue['getParentProps'] = () => ({
-    get id() {
-      return id();
-    },
-    get indeterminate() {
-      return indeterminate();
-    },
-    get checked() {
-      return checked();
-    },
-    // TODO: custom `id` on child checkboxes breaks this
-    // https://github.com/mui/base-ui/issues/2691
-    get 'aria-controls'() {
-      return allValues()
-        .map((v) => `${id()}-${v}`)
-        .join(' ');
-    },
+  const onValueChange: NonNullable<UseCheckboxGroupParentParameters['onValueChange']> = (
+    nextValue,
+    eventDetails,
+  ) => params.onValueChange?.(nextValue, eventDetails);
+
+  const registerChildId = (childValue: string, childId: string) => {
+    const childIds = untrack(childIdsState).registry;
+    const ids = childIds.get(childValue);
+    if (!ids?.includes(childId)) {
+      childIds.set(childValue, ids ? ids.concat(childId) : [childId]);
+      setChildIdsState({ registry: childIds });
+    }
+
+    return () => {
+      const registeredIds = childIds.get(childValue);
+      if (!registeredIds?.includes(childId)) {
+        return;
+      }
+
+      const nextIds = registeredIds.filter((id) => id !== childId);
+      if (nextIds.length === 0) {
+        childIds.delete(childValue);
+      } else {
+        childIds.set(childValue, nextIds);
+      }
+      setChildIdsState({ registry: childIds });
+    };
+  };
+
+  // Solid: called from a computation, so the values below are read (and tracked) per call, as
+  // React reads them per render; the handler reads the latest values when it runs.
+  const getParentProps: UseCheckboxGroupParentReturnValue['getParentProps'] = () => ({
+    indeterminate: indeterminate(),
+    checked: checked(),
+    // Children report their own rendered id, so a custom `id` survives and no unmounted
+    // element is named.
+    'aria-controls':
+      allValues()
+        .flatMap((v) => childIdsState().registry.get(v) ?? EMPTY_ARRAY)
+        .join(' ') || undefined,
     onCheckedChange(_, eventDetails) {
-      {
-        const uncontrolledState = uncontrolledStateRef;
+      const uncontrolledState = uncontrolledStateRef.current;
+      const currentAllValues = untrack(allValues);
 
-        // None except the disabled ones that are checked, which can't be changed.
-        const none = allValues().filter(
-          (v) => disabledStatesRef.get(v) && uncontrolledState.includes(v),
-        );
-        // "All" that are valid:
-        // - any that aren't disabled
-        // - disabled ones that are checked
-        const all = allValues().filter(
-          (v) =>
-            !disabledStatesRef.get(v) ||
-            (disabledStatesRef.get(v) && uncontrolledState.includes(v)),
-        );
+      // None except the disabled ones that are checked, which can't be changed.
+      const none = currentAllValues.filter(
+        (v) => disabledStatesRef.current.get(v) && uncontrolledState.includes(v),
+      );
+      // "All" that are valid:
+      // - any that aren't disabled
+      // - disabled ones that are checked
+      const all = currentAllValues.filter(
+        (v) => !disabledStatesRef.current.get(v) || uncontrolledState.includes(v),
+      );
 
-        const allOnOrOff =
-          uncontrolledState.length === all.length || uncontrolledState.length === 0;
+      const allOnOrOff = uncontrolledState.length === all.length || uncontrolledState.length === 0;
 
-        if (allOnOrOff) {
-          if (value().length === all.length) {
-            params.onValueChange?.(none, eventDetails);
-          } else {
-            params.onValueChange?.(all, eventDetails);
-          }
-          return;
+      if (allOnOrOff) {
+        if (untrack(value).length === all.length) {
+          onValueChange(none, eventDetails);
+        } else {
+          onValueChange(all, eventDetails);
         }
+        return;
+      }
 
-        if (status() === 'mixed') {
-          params.onValueChange?.(all, eventDetails);
-          setStatus('on');
-        } else if (status() === 'on') {
-          params.onValueChange?.(none, eventDetails);
-          setStatus('off');
-        } else if (status() === 'off') {
-          params.onValueChange?.(uncontrolledState, eventDetails);
-          setStatus('mixed');
-        }
-      };
+      let nextStatus: 'on' | 'off' | 'mixed' = 'mixed';
+      let nextValue = uncontrolledState;
+
+      const currentStatus = untrack(status);
+      if (currentStatus === 'mixed') {
+        nextStatus = 'on';
+        nextValue = all;
+      } else if (currentStatus === 'on') {
+        nextStatus = 'off';
+        nextValue = none;
+      }
+
+      onValueChange(nextValue, eventDetails);
+
+      if (!eventDetails.isCanceled) {
+        setStatus(nextStatus);
+      }
     },
   });
 
-  const getChildProps: useCheckboxGroupParent.ReturnValue['getChildProps'] = (
+  const getChildProps: UseCheckboxGroupParentReturnValue['getChildProps'] = (
     childValue: string,
   ) => ({
-    get checked() {
-      return value().includes(childValue);
-    },
+    checked: value().includes(childValue),
     onCheckedChange(nextChecked, eventDetails) {
-      {
-        const newValue = value().slice();
-        if (nextChecked) {
-          newValue.push(childValue);
-        } else {
-          newValue.splice(newValue.indexOf(childValue), 1);
-        }
-        uncontrolledStateRef = newValue;
-        params.onValueChange?.(newValue, eventDetails);
+      const newValue = untrack(value).slice();
+      if (nextChecked) {
+        newValue.push(childValue);
+      } else {
+        newValue.splice(newValue.indexOf(childValue), 1);
+      }
+
+      onValueChange(newValue, eventDetails);
+
+      if (!eventDetails.isCanceled) {
+        uncontrolledStateRef.current = newValue;
         setStatus('mixed');
-      };
+      }
     },
   });
 
   return {
-    disabledStatesRef,
-    getChildProps,
     getParentProps,
-    id,
-    indeterminate,
+    getChildProps,
+    registerChildId,
+    disabledStatesRef,
   };
 }
 
 export interface UseCheckboxGroupParentParameters {
-  allValues?: Accessor<string[] | undefined>;
-  value?: Accessor<string[] | undefined>;
+  allValues?: Accessor<string[] | undefined> | undefined;
+  value: Accessor<string[]>;
   onValueChange?:
     | ((
         value: string[],
@@ -123,20 +154,21 @@ export interface UseCheckboxGroupParentParameters {
 }
 
 export interface UseCheckboxGroupParentReturnValue {
-  id: Accessor<string | undefined>;
-  indeterminate: Accessor<boolean>;
-  disabledStatesRef: Map<string, boolean>;
+  disabledStatesRef: ReactLikeRef<Map<string, boolean>>;
+  /**
+   * Reports the `id` of the element a child checkbox exposes.
+   */
+  registerChildId: (value: string, id: string) => () => void;
   getParentProps: () => {
-    id: string | undefined;
     indeterminate: boolean;
     checked: boolean;
-    'aria-controls': string;
+    'aria-controls': string | undefined;
     onCheckedChange: (
       checked: boolean,
       eventDetails: BaseUIChangeEventDetails<BaseUIEventReasons['none']>,
     ) => void;
   };
-  getChildProps: (name: string) => {
+  getChildProps: (value: string) => {
     checked: boolean;
     onCheckedChange: (
       checked: boolean,

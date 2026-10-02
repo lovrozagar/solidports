@@ -1,7 +1,7 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { act, createRenderer, describeConformance } from '#test-utils';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { createSignal } from 'solid-js';
 
 describe('<Dialog.Viewport />', () => {
@@ -60,8 +60,29 @@ describe('<Dialog.Viewport />', () => {
 
     expect(screen.getByTestId('viewport')).not.to.equal(null);
 
-    setOpen(false);
+    act(() => setOpen(false));
 
     expect(screen.getByTestId('viewport')).not.to.equal(null);
+  });
+
+  // Solid-only: guards the `pointer-events` style key (Solid styles use CSS property names).
+  it('disables pointer events while closed', () => {
+    const [open, setOpen] = createSignal<boolean>(true);
+    render(() => (
+      <Dialog.Root open={open()} modal={false}>
+        <Dialog.Portal keepMounted>
+          <Dialog.Viewport data-testid="viewport">
+            <Dialog.Popup>Content</Dialog.Popup>
+          </Dialog.Viewport>
+        </Dialog.Portal>
+      </Dialog.Root>
+    ));
+
+    const viewport = screen.getByTestId('viewport');
+    expect(viewport.style.pointerEvents).to.equal('');
+
+    act(() => setOpen(false));
+
+    expect(viewport.style.pointerEvents).to.equal('none');
   });
 });

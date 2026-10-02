@@ -135,7 +135,7 @@ export function ItemIndicator(props: Combobox.ItemIndicator.Props) {
   return <Combobox.ItemIndicator class={clsx('col-start-1', props.class)} {...others} />;
 }
 
-export function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+export function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -150,7 +150,7 @@ export function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function XIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -158,8 +158,8 @@ function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

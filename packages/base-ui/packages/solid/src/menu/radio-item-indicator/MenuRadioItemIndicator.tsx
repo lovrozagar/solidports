@@ -20,16 +20,18 @@ export function MenuRadioItemIndicator(componentProps: MenuRadioItemIndicator.Pr
 
   let indicatorRef = null as HTMLSpanElement | null | undefined;
 
-  const { transitionStatus, setMounted } = useTransitionStatus(item.checked);
+  const { transitionStatus, mounted, setMounted } = useTransitionStatus(item.checked);
 
   useOpenChangeComplete({
+    batch: true,
+    enabled: () => !item.checked(),
+    open: item.checked,
+    ref: () => indicatorRef,
     onComplete() {
       if (!item.checked()) {
         setMounted(false);
       }
     },
-    open: item.checked,
-    ref: () => indicatorRef,
   });
 
   const state: MenuRadioItemIndicator.State = {
@@ -48,7 +50,7 @@ export function MenuRadioItemIndicator(componentProps: MenuRadioItemIndicator.Pr
   };
 
   const element = useRenderElement('span', componentProps, {
-    enabled: () => keepMounted() || item.checked(),
+    enabled: () => keepMounted() || mounted(),
     props: [{ 'aria-hidden': 'true' }, elementProps],
     ref: (el) => {
       indicatorRef = el;

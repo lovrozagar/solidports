@@ -1,10 +1,43 @@
-import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { ContextMenu } from '@solidports/base-ui/context-menu';
 import { Menu } from '@solidports/base-ui/menu';
+import { Menubar } from '@solidports/base-ui/menubar';
 import { cleanup, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { expect } from 'chai';
 import { createSignal } from 'solid-js';
-import { afterEach } from 'vitest';
+import { expect, afterEach, beforeEach, vi } from 'vitest';
+import { access } from '../../solid-helpers';
+
+const useAnchorPositioningSpy = vi.hoisted(() => vi.fn());
+
+vi.mock('../../utils/useAnchorPositioning', async () => {
+  const actual = await vi.importActual<typeof import('../../utils/useAnchorPositioning')>(
+    '../../utils/useAnchorPositioning',
+  );
+
+  return {
+    ...actual,
+    useAnchorPositioning: ((...args: Parameters<typeof actual.useAnchorPositioning>) => {
+      useAnchorPositioningSpy(...args);
+      return actual.useAnchorPositioning(...args);
+    }) satisfies typeof actual.useAnchorPositioning,
+  };
+});
+
+// Solid: positioning parameters are accessors read live, so the spy resolves them when asserting.
+function lastAnchorPositioningParameter(key: string) {
+  const parameters = useAnchorPositioningSpy.mock.lastCall?.[0];
+  return access(parameters?.[key]);
+}
+
+async function waitForPositioned(positioner: HTMLElement) {
+  await waitFor(() => {
+    expect(positioner.style.opacity).not.to.equal('0');
+  });
+  await waitFor(() => {
+    expect(positioner).toBeVisible();
+  });
+}
 
 function Trigger(props: Menu.Trigger.Props) {
   return <Menu.Trigger {...props} ref={props.ref} render="div" nativeButton={false} />;
@@ -12,6 +45,30 @@ function Trigger(props: Menu.Trigger.Props) {
 
 describe('<Menu.Positioner />', () => {
   const { render } = createRenderer();
+
+  beforeEach(() => {
+    useAnchorPositioningSpy.mockClear();
+  });
+
+  it('throws when rendered outside Menu.Portal', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() =>
+        render(() => (
+          <Menu.Root open>
+            <Menu.Positioner />
+          </Menu.Root>
+        )),
+      ).to.throw('Base UI: <Menu.Portal> is missing.');
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
 
   describeConformance(Menu.Positioner, () => ({
     refInstanceof: window.HTMLDivElement,
@@ -22,6 +79,118 @@ describe('<Menu.Positioner />', () => {
         </Menu.Root>
       )),
   }));
+
+  describe('layout viewport', () => {
+    it('uses the layout viewport for a root context menu', async () => {
+      render(() => (
+        <ContextMenu.Root open>
+          <ContextMenu.Portal>
+            <ContextMenu.Positioner>
+              <ContextMenu.Popup>Popup</ContextMenu.Popup>
+            </ContextMenu.Positioner>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
+      ));
+
+      expect(lastAnchorPositioningParameter('shift')).to.deep.equal({
+        crossAxis: true,
+        rootBoundary: 'layoutViewport',
+      });
+    });
+
+    it('disables cross-axis shifting when side collision avoidance is flip', async () => {
+      render(() => (
+        <ContextMenu.Root open>
+          <ContextMenu.Portal>
+            <ContextMenu.Positioner collisionAvoidance={{ side: 'flip' }}>
+              <ContextMenu.Popup>Popup</ContextMenu.Popup>
+            </ContextMenu.Positioner>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
+      ));
+
+      expect(lastAnchorPositioningParameter('shift')).to.deep.equal({
+        crossAxis: false,
+        rootBoundary: 'layoutViewport',
+      });
+    });
+
+    it('preserves explicit context-menu placement and offsets', async () => {
+      render(() => (
+        <ContextMenu.Root open>
+          <ContextMenu.Portal>
+            <ContextMenu.Positioner side="right" align="center" sideOffset={11} alignOffset={13}>
+              <ContextMenu.Popup>Popup</ContextMenu.Popup>
+            </ContextMenu.Positioner>
+          </ContextMenu.Portal>
+        </ContextMenu.Root>
+      ));
+
+      expect({
+        side: lastAnchorPositioningParameter('side'),
+        align: lastAnchorPositioningParameter('align'),
+        sideOffset: lastAnchorPositioningParameter('sideOffset'),
+        alignOffset: lastAnchorPositioningParameter('alignOffset'),
+      }).to.deep.equal({
+        side: 'right',
+        align: 'center',
+        sideOffset: 11,
+        alignOffset: 13,
+      });
+    });
+
+    it('uses the visual viewport for a context menu submenu', async () => {
+      render(() => (
+        <ContextMenu.Root open>
+          <ContextMenu.SubmenuRoot defaultOpen>
+            <ContextMenu.Portal>
+              <ContextMenu.Positioner>
+                <ContextMenu.Popup>Popup</ContextMenu.Popup>
+              </ContextMenu.Positioner>
+            </ContextMenu.Portal>
+          </ContextMenu.SubmenuRoot>
+        </ContextMenu.Root>
+      ));
+
+      expect(useAnchorPositioningSpy).toHaveBeenCalled();
+      expect(lastAnchorPositioningParameter('shift')).to.equal(undefined);
+    });
+  });
+
+  it('closes an open submenu with a sibling reason when its controlled parent closes', async () => {
+    const onSubmenuOpenChange = vi.fn();
+    const [open, setOpen] = createSignal(true);
+
+    render(() => (
+      <Menu.Root open={open()}>
+        <Menu.Trigger>Open</Menu.Trigger>
+        <Menu.Portal keepMounted>
+          <Menu.Positioner>
+            <Menu.Popup>
+              <Menu.SubmenuRoot defaultOpen onOpenChange={onSubmenuOpenChange}>
+                <Menu.SubmenuTrigger>More</Menu.SubmenuTrigger>
+                <Menu.Portal>
+                  <Menu.Positioner>
+                    <Menu.Popup data-testid="submenu-popup" />
+                  </Menu.Positioner>
+                </Menu.Portal>
+              </Menu.SubmenuRoot>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    ));
+    expect(screen.queryByTestId('submenu-popup')).not.to.equal(null);
+
+    await act(async () => {
+      setOpen(false);
+    });
+
+    await waitFor(() => {
+      expect(onSubmenuOpenChange.mock.lastCall?.[0]).to.equal(false);
+    });
+    expect(onSubmenuOpenChange.mock.lastCall?.[1].reason).to.equal('sibling-open');
+  });
 
   describe.skipIf(isJSDOM)('prop: anchor', () => {
     it('should be placed near the specified element when a ref is passed', async () => {
@@ -383,6 +552,60 @@ describe('<Menu.Positioner />', () => {
   const triggerStyle = { height: `${anchorHeight}px`, width: `${anchorWidth}px` };
   const popupStyle = { height: `${popupHeight}px`, width: `${popupWidth}px` };
 
+  describe.skipIf(isJSDOM)('Menubar parent', () => {
+    it('uses bottom as the default side when the menubar is horizontal', async () => {
+      let side = 'none';
+
+      render(() => (
+        <Menubar>
+          <Menu.Root open>
+            <Trigger style={triggerStyle}>File</Trigger>
+            <Menu.Portal>
+              <Menu.Positioner
+                sideOffset={(data) => {
+                  side = data.side;
+                  return 0;
+                }}
+              >
+                <Menu.Popup style={popupStyle}>Open</Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        </Menubar>
+      ));
+
+      await waitFor(() => {
+        expect(side).to.equal('bottom');
+      });
+    });
+
+    it('uses inline-end as the default side when the menubar is vertical', async () => {
+      let side = 'none';
+
+      render(() => (
+        <Menubar orientation="vertical">
+          <Menu.Root open>
+            <Trigger style={triggerStyle}>File</Trigger>
+            <Menu.Portal>
+              <Menu.Positioner
+                sideOffset={(data) => {
+                  side = data.side;
+                  return 0;
+                }}
+              >
+                <Menu.Popup style={popupStyle}>Open</Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        </Menubar>
+      ));
+
+      await waitFor(() => {
+        expect(side).to.equal('inline-end');
+      });
+    });
+  });
+
   describe.skipIf(isJSDOM)('prop: sideOffset', () => {
     it('offsets the side when a number is specified', async () => {
       const sideOffset = 7;
@@ -624,5 +847,44 @@ describe('<Menu.Positioner />', () => {
         expect(side).to.equal('inline-end');
       });
     });
+  });
+
+  it.skipIf(isJSDOM)('uses transform positioning without Viewport', async () => {
+    const { unmount } = render(() => (
+      <Menu.Root open>
+        <Trigger style={triggerStyle}>Trigger</Trigger>
+        <Menu.Portal>
+          <Menu.Positioner data-testid="positioner">
+            <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    ));
+
+    const positioner = screen.getByTestId('positioner');
+    await waitFor(() => {
+      expect(positioner.style.transform).not.to.equal('');
+    });
+    unmount();
+  });
+
+  it.skipIf(isJSDOM)('uses top/left positioning with Viewport', async () => {
+    const { unmount } = render(() => (
+      <Menu.Root open>
+        <Trigger style={triggerStyle}>Trigger</Trigger>
+        <Menu.Portal>
+          <Menu.Positioner data-testid="positioner">
+            <Menu.Popup style={popupStyle}>
+              <Menu.Viewport>Popup</Menu.Viewport>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    ));
+
+    const positioner = screen.getByTestId('positioner');
+    await waitForPositioned(positioner);
+    expect(positioner.style.transform).to.equal('');
+    unmount();
   });
 });

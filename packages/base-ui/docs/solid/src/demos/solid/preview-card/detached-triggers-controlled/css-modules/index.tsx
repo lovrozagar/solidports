@@ -57,7 +57,7 @@ const cardContents = {
 
 export default function PreviewCardDetachedTriggersControlledDemo() {
   const [open, setOpen] = createSignal(false);
-  const [triggerId, setTriggerId] = createSignal(null);
+  const [triggerId, setTriggerId] = createSignal<string | null>(null);
 
   const handleOpenChange = (isOpen: boolean, eventDetails: PreviewCard.Root.ChangeEventDetails) => {
     setOpen(isOpen);

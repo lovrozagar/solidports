@@ -7,14 +7,6 @@ export interface ToolbarGroupContext {
 
 export const ToolbarGroupContext = createContext<ToolbarGroupContext | null>(null);
 
-export function useToolbarGroupContext(optional?: false): ToolbarGroupContext;
-export function useToolbarGroupContext(optional: true): ToolbarGroupContext | null;
-export function useToolbarGroupContext(optional?: boolean) {
-  const context = useContext(ToolbarGroupContext);
-  if (context == null && !optional) {
-    throw new Error(
-      'Base UI: ToolbarGroupContext is missing. ToolbarGroup parts must be placed within <Toolbar.Group>.',
-    );
-  }
-  return context;
+export function useToolbarGroupContext(): ToolbarGroupContext | null {
+  return useContext(ToolbarGroupContext);
 }

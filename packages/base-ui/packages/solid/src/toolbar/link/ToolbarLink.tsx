@@ -1,3 +1,4 @@
+import type { JSX } from '@solidjs/web';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -5,9 +6,9 @@ import type { ToolbarRoot } from '../root/ToolbarRoot';
 import { useToolbarRootContext } from '../root/ToolbarRootContext';
 
 const TOOLBAR_LINK_METADATA = {
-  // links cannot be disabled, this metadata is only used for deriving `disabledIndices``
-  // TODO: better name
-  focusableWhenDisabled: () => true,
+  // Links cannot be disabled, but they still occupy a focusable composite item slot.
+  disabled: false,
+  focusableWhenDisabled: true,
 };
 
 /**
@@ -46,7 +47,11 @@ export interface ToolbarLinkState {
   orientation: ToolbarRoot.Orientation;
 }
 
-export interface ToolbarLinkProps extends BaseUIComponentProps<'a', ToolbarLink.State> {}
+export interface ToolbarLinkProps extends BaseUIComponentProps<
+  'a',
+  ToolbarLink.State,
+  JSX.AnchorHTMLAttributes<HTMLAnchorElement>
+> {}
 
 export namespace ToolbarLink {
   export type State = ToolbarLinkState;

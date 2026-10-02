@@ -26,6 +26,7 @@
   },
   "include": [
     "src",
+    "file-routes.d.ts",
     "vite.config.ts"
   ]
 }

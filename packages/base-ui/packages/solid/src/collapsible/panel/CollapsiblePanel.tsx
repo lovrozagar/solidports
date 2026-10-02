@@ -1,15 +1,15 @@
-import { createTrackedEffect, createMemo, onCleanup, Show } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { omit, Show } from 'solid-js';
+import { createDepsEffect, createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
-import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
+import { resolveStyle } from '../../utils/resolveStyle';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
-import type { CollapsibleRoot } from '../root/CollapsibleRoot';
 import { useCollapsibleRootContext } from '../root/CollapsibleRootContext';
+import type { CollapsibleRootState } from '../root/CollapsibleRoot';
 import { collapsibleStateAttributesMapping } from '../root/stateAttributesMapping';
-import { CollapsiblePanelCssVars } from './CollapsiblePanelCssVars';
 import { useCollapsiblePanel } from './useCollapsiblePanel';
+import { CollapsiblePanelCssVars } from './CollapsiblePanelCssVars';
 
 /**
  * A panel with the collapsible contents.
@@ -22,136 +22,119 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
     'hiddenUntilFound',
     'keepMounted',
     'id',
+    'style',
   ]);
-  const hiddenUntilFound = () => local.hiddenUntilFound ?? false;
-  const keepMounted = () => local.keepMounted ?? false;
 
   if (process.env.NODE_ENV !== 'production') {
-    createTrackedEffect(() => {
-      if (hiddenUntilFound() && keepMounted() === false) {
-        warn(
-          'The `keepMounted={false}` prop on a Collapsible will be ignored when using `hiddenUntilFound` since it requires the Panel to remain mounted even when closed.',
-        );
-      }
-    });
+    createDepsEffect(
+      () => ({ hiddenUntilFound: local.hiddenUntilFound, keepMounted: local.keepMounted }),
+      (deps) => {
+        if (deps.hiddenUntilFound && deps.keepMounted === false) {
+          warn(
+            'The `keepMounted={false}` prop on `Collapsible.Panel` is ignored when `hiddenUntilFound` is enabled, since the panel must remain mounted while closed.',
+          );
+        }
+      },
+    );
   }
 
   const {
-    animationTypeRef,
-    height,
-    setHiddenUntilFound,
-    setKeepMounted,
-    panelId,
+    defaultPanelId,
     mounted,
     onOpenChange,
     open,
-    panelRef,
-    abortControllerRef,
-    runOnceAnimationsFinish,
-    setDimensions,
     setMounted,
     setPanelIdState,
     setOpen,
-    setVisible,
-    transitionDimensionRef,
-    visible,
-    width,
     state,
     transitionStatus,
   } = useCollapsibleRootContext();
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
+  const hiddenUntilFound = () => local.hiddenUntilFound ?? false;
+  const keepMounted = () => local.keepMounted ?? false;
+  const registeredId = () => local.id || undefined;
+  const id = () => registeredId() ?? defaultPanelId();
 
-    if (local.id) {
-      setPanelIdState(local.id);
-      _c.push(() => setPanelIdState(undefined));
-    }
-      })();
+  createDepsRenderEffect(registeredId, (currentRegisteredId) => {
+    setPanelIdState(
+      (currentId) => currentRegisteredId ?? (currentId === null ? undefined : currentId),
+    );
     return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
+      setPanelIdState((currentId) => (currentId === currentRegisteredId ? null : currentId));
     };
-});
-
-  createTrackedEffect(() => {
-    setHiddenUntilFound(hiddenUntilFound());
   });
 
-  createTrackedEffect(() => {
-    setKeepMounted(keepMounted());
-  });
-
-  const { props, setRef } = useCollapsiblePanel({
-    abortControllerRef,
-    animationTypeRef,
-    height,
+  const panel = useCollapsiblePanel({
     hiddenUntilFound,
-    id: () => local.id ?? panelId(),
+    id,
     keepMounted,
     mounted,
     onOpenChange,
     open,
-    panelRef,
-    runOnceAnimationsFinish,
-    setDimensions,
     setMounted,
     setOpen,
-    setVisible,
-    transitionDimensionRef,
-    visible,
-    width,
+    transitionStatus,
   });
 
-  useOpenChangeComplete({
-    onComplete() {
-      if (!open()) {
-        return;
-      }
-
-      setDimensions({ height: undefined, width: undefined });
+  const panelState: CollapsiblePanelState = {
+    get open() {
+      return state.open;
     },
-    open: () => open() && transitionStatus() === 'idle',
-    ref: () => panelRef.current,
-  });
+    get disabled() {
+      return state.disabled;
+    },
+    get transitionStatus() {
+      return panel.transitionStatus();
+    },
+  };
 
-  const shouldRender = createMemo(
-    () => keepMounted() || hiddenUntilFound() || mounted(),
-  );
-
-  const element = useRenderElement('div', componentProps, {
-    props: [
-      props,
-      {
-        get style() {
-          return {
-            [CollapsiblePanelCssVars.collapsiblePanelHeight as string]:
-              height() === undefined ? 'auto' : `${height()}px`,
-            [CollapsiblePanelCssVars.collapsiblePanelWidth as string]:
-              width() === undefined ? 'auto' : `${width()}px`,
-          };
+  const element = useRenderElement('div', omit(componentProps, 'style'), {
+    state: panelState,
+    ref: panel.ref,
+    get props() {
+      return [
+        panel.props(),
+        {
+          get style() {
+            const height = panel.height();
+            const width = panel.width();
+            return {
+              [CollapsiblePanelCssVars.collapsiblePanelHeight as string]:
+                height === undefined ? 'auto' : `${height}px`,
+              [CollapsiblePanelCssVars.collapsiblePanelWidth as string]:
+                width === undefined ? 'auto' : `${width}px`,
+            };
+          },
         },
-      },
-      elementProps,
-    ],
-    ref: (el) => {
-      panelRef.current = el;
-      setRef(el);
+        elementProps,
+        {
+          get style() {
+            return resolveStyle(local.style, panelState);
+          },
+        },
+        // Resolve the public `style` prop so temporary `animationName: 'none'`
+        // can still win after user's inline styles have been merged.
+        {
+          get style() {
+            return panel.shouldPreventOpenAnimation() ? { 'animation-name': 'none' } : undefined;
+          },
+        },
+      ];
     },
-    state,
     stateAttributesMapping: collapsibleStateAttributesMapping,
   });
 
-  return <Show when={shouldRender()}>{element()}</Show>;
+  return <Show when={panel.shouldRender()}>{element()}</Show>;
 }
 
-export interface CollapsiblePanelState extends CollapsibleRoot.State {
+export interface CollapsiblePanelState extends CollapsibleRootState {
+  /**
+   * The transition status of the component.
+   */
   transitionStatus: TransitionStatus;
 }
 
-export interface CollapsiblePanelProps extends BaseUIComponentProps<'div', CollapsiblePanel.State> {
+export interface CollapsiblePanelProps extends BaseUIComponentProps<'div', CollapsiblePanelState> {
   /**
    * Allows the browser’s built-in page search to find and expand the panel contents.
    *

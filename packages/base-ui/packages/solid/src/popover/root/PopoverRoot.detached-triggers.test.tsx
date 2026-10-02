@@ -1,7 +1,10 @@
-import { createRenderer, isJSDOM } from '#test-utils';
+import { act, createRenderer, isJSDOM } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { createSignal, Match, Switch } from 'solid-js';
+import { createRenderEffect, createSignal, For, Match, Show, Switch, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { vi } from 'vitest';
+import { splitProps } from '../../solid-1-compat';
 
 describe('<Popover.Root />', () => {
   beforeEach(() => {
@@ -10,48 +13,480 @@ describe('<Popover.Root />', () => {
 
   const { render } = createRenderer();
 
-  describe.skipIf(isJSDOM)('multiple triggers within Root', () => {
-    type NumberPayload = { payload: number | undefined };
+  // Stands in for ref mergers like `@rc-component/util`'s `useComposeRef`, which retain the
+  // callback they were first given. Solid: a single-item `For` keyed by `nodeKey` swaps the host
+  // node.
+  function StaleRefButton(
+    props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & { nodeKey?: string },
+  ) {
+    const [local, rest] = splitProps(props, ['nodeKey', 'ref']);
+    const staleRef = untrack(() => local.ref);
+    return (
+      <For each={[local.nodeKey ?? 'default']}>{() => <button {...rest} ref={staleRef} />}</For>
+    );
+  }
 
-    it('should open the popover with any trigger', async () => {
-      const { user } = render(() => (
-        <Popover.Root>
-          <Popover.Trigger>Trigger 1</Popover.Trigger>
-          <Popover.Trigger>Trigger 2</Popover.Trigger>
-          <Popover.Trigger>Trigger 3</Popover.Trigger>
+  it('opens by trigger from a descendant layout effect on initial mount', async () => {
+    const handle = Popover.createHandle();
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
+    function OpenOnMount() {
+      // React's `useIsoLayoutEffect(fn, [])`.
+      createRenderEffect(
+        () => undefined,
+        () => {
+          handle.open('trigger');
+        },
+      );
+      return null;
+    }
+
+    render(() => (
+      <Popover.Root handle={handle}>
+        <Popover.Trigger id="trigger">Trigger</Popover.Trigger>
+        <OpenOnMount />
+      </Popover.Root>
+    ));
+
+    const detachedWarned = consoleWarn.mock.calls.some(
+      ([message]) =>
+        typeof message === 'string' && message.includes('no root using this handle is mounted'),
+    );
+    consoleWarn.mockRestore();
+
+    expect(detachedWarned).to.equal(false);
+    expect(handle.isOpen).to.equal(true);
+    expect(screen.getByRole('button', { name: 'Trigger' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('hands off hover between detached triggers when the rendered component retains a stale ref', async () => {
+    const handle = Popover.createHandle<number>();
+    const fallbackStore = handle.store;
+
+    const { user } = render(() => (
+      <>
+        {[1, 2].map((payload) => (
+          <Popover.Trigger
+            handle={handle}
+            id={`trigger-${payload}`}
+            payload={payload}
+            openOnHover
+            delay={0}
+            // Forces the handoff path: without a close delay the popup just closes and reopens,
+            // which works even when the trigger is registered on the wrong store.
+            closeDelay={100}
+            render={(props) => <StaleRefButton {...props} />}
+          >
+            Trigger {payload}
+          </Popover.Trigger>
+        ))}
+        <Popover.Root handle={handle}>
+          {(data: { payload: number | undefined }) => (
+            <Popover.Portal>
+              <Popover.Positioner>
+                <Popover.Popup data-testid="popup">{data.payload}</Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          )}
+        </Popover.Root>
+      </>
+    ));
+
+    expect(fallbackStore.context.triggerElements.size).to.equal(0);
+    expect(handle.store.context.triggerElements.size).to.equal(2);
+
+    await user.hover(screen.getByRole('button', { name: 'Trigger 1' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('popup')).toHaveTextContent('1');
+    });
+
+    await user.hover(screen.getByRole('button', { name: 'Trigger 2' }));
+    await waitFor(() => {
+      expect(screen.getByTestId('popup')).toHaveTextContent('2');
+    });
+  });
+
+  it('keeps registration on the attached store when a stale-ref component swaps its host node', async () => {
+    const handle = Popover.createHandle<number>();
+    const fallbackStore = handle.store;
+
+    function App() {
+      const [nodeKey, setNodeKey] = createSignal('a');
+      return (
+        <>
+          <button type="button" onClick={() => setNodeKey('b')}>
+            Swap node
+          </button>
+          <Popover.Trigger
+            handle={handle}
+            id="trigger"
+            payload={1}
+            render={(props) => <StaleRefButton {...props} nodeKey={nodeKey()} />}
+          >
+            Trigger
+          </Popover.Trigger>
+          <Popover.Root handle={handle}>
+            <Popover.Portal>
+              <Popover.Positioner>
+                <Popover.Popup data-testid="popup">Content</Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+        </>
+      );
+    }
+
+    const { user } = render(() => <App />);
+
+    const initialTrigger = screen.getByRole('button', { name: 'Trigger' });
+    expect(fallbackStore.context.triggerElements.size).to.equal(0);
+    expect(handle.store.context.triggerElements.getById('trigger')).to.equal(initialTrigger);
+
+    // Replacing the host node re-fires the retained ref callback after the migration.
+    await user.click(screen.getByRole('button', { name: 'Swap node' }));
+
+    const swappedTrigger = screen.getByRole('button', { name: 'Trigger' });
+    // Guards the setup: without a real host swap the rest of the test proves nothing.
+    expect(swappedTrigger).not.to.equal(initialTrigger);
+    expect(initialTrigger.isConnected).to.equal(false);
+    expect(fallbackStore.context.triggerElements.size).to.equal(0);
+    expect(handle.store.context.triggerElements.getById('trigger')).to.equal(swappedTrigger);
+
+    // `open()` searches attached stores first, so a registration left on the wrong store would
+    // anchor the popup to the removed node.
+    await act(async () => {
+      handle.open('trigger');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('popup')).toBeVisible();
+    });
+    expect(handle.store.state.activeTriggerElement).to.equal(swappedTrigger);
+  });
+
+  it('does not detach the consumer ref when the handle attaches to a root', async () => {
+    const handle = Popover.createHandle();
+    const refCalls: (Element | null)[] = [];
+
+    render(() => (
+      <>
+        <Popover.Trigger
+          handle={handle}
+          id="trigger"
+          ref={(element: HTMLElement | null) => {
+            refCalls.push(element);
+          }}
+        >
+          Trigger
+        </Popover.Trigger>
+        <Popover.Root handle={handle}>
           <Popover.Portal>
             <Popover.Positioner>
-              <Popover.Popup>
-                Popover Content
-                <Popover.Close>Close</Popover.Close>
-              </Popover.Popup>
+              <Popover.Popup>Content</Popover.Popup>
             </Popover.Positioner>
           </Popover.Portal>
         </Popover.Root>
+      </>
+    ));
+
+    expect(handle.store.context.triggerElements.getById('trigger')).to.equal(
+      screen.getByRole('button', { name: 'Trigger' }),
+    );
+    // Migrating from the fallback store to the root's store must not churn the merged ref, which
+    // would hand the consumer a spurious `null` and back.
+    expect(refCalls).to.deep.equal([screen.getByRole('button', { name: 'Trigger' })]);
+  });
+
+  describe.skipIf(isJSDOM)('handle-backed root ownership', () => {
+    type NumberPayload = { payload: number | undefined };
+
+    it('ignores imperative handle calls made before a root is attached', async () => {
+      const handle = Popover.createHandle<number>();
+
+      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      handle.open('trigger');
+      handle.close();
+      const detachedWarnings = consoleWarn.mock.calls.filter(
+        ([message]) =>
+          typeof message === 'string' && message.includes('no root using this handle is mounted'),
+      );
+      consoleWarn.mockRestore();
+
+      expect(handle.isOpen).to.equal(false);
+      expect(detachedWarnings).toHaveLength(2);
+
+      const { user } = render(() => (
+        <>
+          <Popover.Trigger handle={handle} id="trigger" payload={1}>
+            Trigger
+          </Popover.Trigger>
+          <Popover.Root handle={handle}>
+            {(data: NumberPayload) => (
+              <>
+                <span data-testid="payload">{data.payload ?? 'No payload'}</span>
+                <Popover.Portal>
+                  <Popover.Positioner>
+                    <Popover.Popup>Popover Content</Popover.Popup>
+                  </Popover.Positioner>
+                </Popover.Portal>
+              </>
+            )}
+          </Popover.Root>
+        </>
       ));
 
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-      const trigger3 = screen.getByRole('button', { name: 'Trigger 3' });
-
       expect(screen.queryByText('Popover Content')).to.equal(null);
+      expect(screen.getByTestId('payload').textContent).to.equal('No payload');
 
-      await user.click(trigger1);
-      expect(screen.getByText('Popover Content')).toBeVisible();
-      await user.click(screen.getByText('Close'));
-      expect(screen.queryByText('Popover Content')).to.equal(null);
-
-      await user.click(trigger2);
-      expect(screen.getByText('Popover Content')).toBeVisible();
-      await user.click(screen.getByText('Close'));
-      expect(screen.queryByText('Popover Content')).to.equal(null);
-
-      await user.click(trigger3);
-      expect(screen.getByText('Popover Content')).toBeVisible();
-      await user.click(screen.getByText('Close'));
-      expect(screen.queryByText('Popover Content')).to.equal(null);
+      await user.click(screen.getByRole('button', { name: 'Trigger' }));
+      await waitFor(() => {
+        expect(screen.getByText('Popover Content')).toBeVisible();
+      });
+      expect(screen.getByTestId('payload').textContent).to.equal('1');
     });
+
+    it('ignores imperative handle calls made after the root is detached', async () => {
+      const handle = Popover.createHandle<number>();
+
+      function App() {
+        const [mounted, setMounted] = createSignal(true);
+
+        return (
+          <>
+            <Popover.Trigger handle={handle} id="trigger" payload={1}>
+              Trigger
+            </Popover.Trigger>
+            <Show when={!mounted()}>
+              <button type="button" onClick={() => setMounted(true)}>
+                Remount root
+              </button>
+            </Show>
+            <Show when={mounted()}>
+              <Popover.Root handle={handle}>
+                {(data: NumberPayload) => (
+                  <>
+                    <span data-testid="payload">{data.payload ?? 'No payload'}</span>
+                    <Popover.Portal>
+                      <Popover.Positioner>
+                        <Popover.Popup>
+                          Popover Content
+                          <button type="button" onClick={() => setMounted(false)}>
+                            Unmount root
+                          </button>
+                        </Popover.Popup>
+                      </Popover.Positioner>
+                    </Popover.Portal>
+                  </>
+                )}
+              </Popover.Root>
+            </Show>
+          </>
+        );
+      }
+
+      const { user } = render(() => <App />);
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+
+      await user.click(trigger);
+      await waitFor(() => {
+        expect(screen.getByText('Popover Content')).toBeVisible();
+      });
+      expect(screen.getByTestId('payload').textContent).to.equal('1');
+
+      await user.click(screen.getByRole('button', { name: 'Unmount root' }));
+      expect(handle.isOpen).to.equal(false);
+      await waitFor(() => {
+        expect(screen.queryByText('Popover Content')).to.equal(null);
+      });
+
+      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      handle.open('trigger');
+      handle.close();
+      const detachedWarnings = consoleWarn.mock.calls.filter(
+        ([message]) =>
+          typeof message === 'string' && message.includes('no root using this handle is mounted'),
+      );
+      consoleWarn.mockRestore();
+
+      expect(handle.isOpen).to.equal(false);
+      expect(detachedWarnings).toHaveLength(2);
+
+      await user.click(screen.getByRole('button', { name: 'Remount root' }));
+      expect(screen.queryByText('Popover Content')).to.equal(null);
+      expect(screen.getByTestId('payload').textContent).to.equal('No payload');
+
+      await user.click(trigger);
+      await waitFor(() => {
+        expect(screen.getByText('Popover Content')).toBeVisible();
+      });
+      expect(screen.getByTestId('payload').textContent).to.equal('1');
+    });
+
+    it('registers a detached trigger declared after the root', async () => {
+      const handle = Popover.createHandle();
+
+      const { user } = render(() => (
+        <>
+          <Popover.Root handle={handle}>
+            <Popover.Portal>
+              <Popover.Positioner>
+                <Popover.Popup>Popover Content</Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+          <Popover.Trigger handle={handle} id="trigger">
+            Trigger
+          </Popover.Trigger>
+        </>
+      ));
+
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+
+      await user.click(trigger);
+      await waitFor(() => {
+        expect(screen.getByText('Popover Content')).toBeVisible();
+      });
+
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('throws when called with an unregistered trigger id', async () => {
+      const handle = Popover.createHandle();
+
+      render(() => (
+        <>
+          <Popover.Root handle={handle}>
+            <Popover.Portal>
+              <Popover.Positioner>
+                <Popover.Popup>Popover Content</Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+          <Popover.Trigger handle={handle} id="trigger">
+            Trigger
+          </Popover.Trigger>
+        </>
+      ));
+
+      expect(() => handle.open('missing')).to.throw('was called with the trigger id "missing"');
+      expect(handle.isOpen).to.equal(false);
+    });
+
+    describe('multiple roots sharing one handle', () => {
+      // Fake timers so the deferred overlap check only runs when ticked, after the handoff settles.
+      const { render: renderFakeTimers, clock } = createRenderer();
+      clock.withFakeTimers();
+
+      it('warns when a handle stays attached to more than one mounted root', async () => {
+        const handle = Popover.createHandle();
+        const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        renderFakeTimers(() => (
+          <>
+            <Popover.Root handle={handle}>
+              <Popover.Portal>
+                <Popover.Positioner>
+                  <Popover.Popup>First</Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+            <Popover.Root handle={handle}>
+              <Popover.Portal>
+                <Popover.Positioner>
+                  <Popover.Popup>Second</Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+          </>
+        ));
+
+        // Both roots stay mounted, so the deferred check still sees the overlap and warns.
+        clock.tick(20);
+
+        const overlapWarned = consoleWarn.mock.calls.some(
+          ([message]) =>
+            typeof message === 'string' && message.includes('more than one mounted root'),
+        );
+        expect(overlapWarned).to.equal(true);
+        consoleWarn.mockRestore();
+      });
+
+      it('resolves a trigger still registered to the previous root during a transient overlap', async () => {
+        const handle = Popover.createHandle();
+        const openErrors: unknown[] = [];
+
+        function OpenOnMount() {
+          // React's `useLayoutEffect(fn, [])`.
+          createRenderEffect(
+            () => undefined,
+            () => {
+              try {
+                handle.open('trigger');
+              } catch (error) {
+                openErrors.push(error);
+              }
+            },
+          );
+          return null;
+        }
+
+        const [phase, setPhase] = createSignal<'outgoing' | 'overlap' | 'incoming'>('outgoing');
+
+        function App() {
+          return (
+            <>
+              <Popover.Trigger handle={handle} id="trigger">
+                Trigger
+              </Popover.Trigger>
+              <Show when={phase() === 'outgoing' || phase() === 'overlap'}>
+                <Popover.Root handle={handle}>
+                  <Popover.Portal>
+                    <Popover.Positioner>
+                      <Popover.Popup>Outgoing</Popover.Popup>
+                    </Popover.Positioner>
+                  </Popover.Portal>
+                </Popover.Root>
+              </Show>
+              <Show when={phase() === 'overlap' || phase() === 'incoming'}>
+                <Popover.Root handle={handle}>
+                  <Popover.Portal>
+                    <Popover.Positioner>
+                      <Popover.Popup>Incoming</Popover.Popup>
+                    </Popover.Positioner>
+                  </Popover.Portal>
+                </Popover.Root>
+                <OpenOnMount />
+              </Show>
+            </>
+          );
+        }
+
+        // The detached trigger settles into the outgoing root's store (it is no longer in the
+        // fallback map). The incoming root then attaches while the outgoing one is still mounted,
+        // and a layout effect in that same commit opens by trigger id — before the trigger has
+        // migrated to the incoming root's store.
+        renderFakeTimers(() => <App />);
+        await act(async () => setPhase('overlap'));
+
+        expect(openErrors).toHaveLength(0);
+        expect(handle.isOpen).to.equal(true);
+        expect(screen.getByRole('button', { name: 'Trigger' })).toHaveAttribute(
+          'aria-expanded',
+          'true',
+        );
+
+        // Completing the handoff (the outgoing root unmounts) keeps the popup open and associated.
+        await act(async () => setPhase('incoming'));
+        expect(handle.isOpen).to.equal(true);
+      });
+    });
+  });
+
+  describe.skipIf(isJSDOM)('multiple triggers within Root', () => {
+    type NumberPayload = { payload: number | undefined };
 
     it('should open the popover with any trigger', async () => {
       const { user } = render(() => (
@@ -121,6 +556,51 @@ describe('<Popover.Root />', () => {
 
       await user.click(trigger2);
       expect(screen.getByTestId('content').textContent).to.equal('2');
+    });
+
+    it('synchronizes ARIA attributes in controlled mode', async () => {
+      render(() => (
+        <Popover.Root open triggerId="trigger-2">
+          <Popover.Trigger id="trigger-1">Trigger 1</Popover.Trigger>
+          <Popover.Trigger id="trigger-2">Trigger 2</Popover.Trigger>
+
+          <Popover.Portal>
+            <Popover.Positioner>
+              <Popover.Popup>Popover Content</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
+      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
+      const popup = await screen.findByRole('dialog');
+
+      expect(trigger1).toHaveAttribute('aria-expanded', 'false');
+      expect(trigger1).not.toHaveAttribute('aria-controls');
+      expect(trigger2).toHaveAttribute('aria-expanded', 'true');
+      expect(trigger2.getAttribute('aria-controls')).to.equal(popup.getAttribute('id'));
+    });
+
+    it('synchronizes ARIA attributes for a controlled open single trigger without triggerId', async () => {
+      render(() => (
+        <Popover.Root open>
+          <Popover.Trigger>Trigger</Popover.Trigger>
+
+          <Popover.Portal>
+            <Popover.Positioner>
+              <Popover.Popup>Popover Content</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      const popup = await screen.findByRole('dialog');
+
+      await waitFor(() => {
+        expect(trigger.getAttribute('aria-controls')).to.equal(popup.getAttribute('id'));
+      });
     });
 
     it('should reuse the popup and positioner DOM nodes when switching triggers', async () => {
@@ -217,6 +697,131 @@ describe('<Popover.Root />', () => {
       expect(screen.getByTestId('content').textContent).to.equal('2');
       await user.click(screen.getByRole('button', { name: 'Close' }));
       expect(screen.queryByTestId('content')).to.equal(null);
+    });
+
+    it('returns focus to the active trigger when opening programmatically from body focus', async () => {
+      function Test() {
+        const [open, setOpen] = createSignal(false);
+        const [activeTrigger, setActiveTrigger] = createSignal<string | null>(null);
+
+        return (
+          <>
+            <Popover.Root
+              open={open()}
+              triggerId={activeTrigger()}
+              onOpenChange={(nextOpen, details) => {
+                setActiveTrigger(details.trigger?.id ?? null);
+                setOpen(nextOpen);
+              }}
+            >
+              <Popover.Trigger payload={1} id="trigger-1">
+                Trigger 1
+              </Popover.Trigger>
+              <Popover.Trigger payload={2} id="trigger-2">
+                Trigger 2
+              </Popover.Trigger>
+
+              <Popover.Portal>
+                <Popover.Positioner>
+                  <Popover.Popup>
+                    <span data-testid="content">Content</span>
+                    <Popover.Close>Close</Popover.Close>
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+
+            <button
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                setOpen(true);
+                setActiveTrigger('trigger-2');
+              }}
+            >
+              Open Trigger 2 without focus
+            </button>
+          </>
+        );
+      }
+
+      const { user } = render(() => <Test />);
+
+      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
+      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
+
+      await user.click(trigger1);
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+      await waitFor(() => {
+        expect(trigger1).toHaveFocus();
+      });
+
+      trigger1.blur();
+      expect(document.body).toHaveFocus();
+
+      await user.click(screen.getByRole('button', { name: 'Open Trigger 2 without focus' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('content')).toBeVisible();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+      await waitFor(() => {
+        expect(trigger2).toHaveFocus();
+      });
+    });
+
+    it('returns focus to the previous element when the trigger unmounts while open', async () => {
+      function Test() {
+        const [open, setOpen] = createSignal(false);
+        const [showTrigger, setShowTrigger] = createSignal(true);
+
+        return (
+          <>
+            <button type="button">Focus fallback</button>
+
+            <Popover.Root
+              open={open()}
+              onOpenChange={(nextOpen) => {
+                if (nextOpen) {
+                  setShowTrigger(false);
+                }
+                setOpen(nextOpen);
+              }}
+            >
+              <Show when={showTrigger()}>
+                <Popover.Trigger onMouseDown={(event) => event.preventDefault()}>
+                  Disappearing trigger
+                </Popover.Trigger>
+              </Show>
+
+              <Popover.Portal>
+                <Popover.Positioner>
+                  <Popover.Popup>
+                    <span data-testid="content">Content</span>
+                    <Popover.Close>Close</Popover.Close>
+                  </Popover.Popup>
+                </Popover.Positioner>
+              </Popover.Portal>
+            </Popover.Root>
+          </>
+        );
+      }
+
+      const { user } = render(() => <Test />);
+
+      const fallback = screen.getByRole('button', { name: 'Focus fallback' });
+      await user.click(fallback);
+      expect(fallback).toHaveFocus();
+
+      await user.click(screen.getByRole('button', { name: 'Disappearing trigger' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('content')).toBeVisible();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+      await waitFor(() => {
+        expect(screen.queryByTestId('content')).to.equal(null);
+      });
+      expect(fallback).toHaveFocus();
     });
 
     it('allows setting an initially open popover', async () => {
@@ -403,13 +1008,13 @@ describe('<Popover.Root />', () => {
 
       await openAndClosePopover(user);
 
-      setNesting(2);
+      act(() => setNesting(2));
       await openAndClosePopover(user);
 
-      setNesting(1);
+      act(() => setNesting(1));
       await openAndClosePopover(user);
 
-      setNesting(0);
+      act(() => setNesting(0));
       await openAndClosePopover(user);
     });
 
@@ -422,13 +1027,13 @@ describe('<Popover.Root />', () => {
 
       await openAndClosePopover(user);
 
-      setNesting(1);
+      act(() => setNesting(1));
       await openAndClosePopover(user);
 
-      setNesting(2);
+      act(() => setNesting(2));
       await openAndClosePopover(user);
 
-      setNesting(3);
+      act(() => setNesting(3));
       await openAndClosePopover(user);
     });
 
@@ -444,13 +1049,13 @@ describe('<Popover.Root />', () => {
 
       await openAndClosePopover(user);
 
-      setState({ handle: Popover.createHandle(), nesting: 2 });
+      act(() => setState({ handle: Popover.createHandle(), nesting: 2 }));
       await openAndClosePopover(user);
 
-      setState({ handle: Popover.createHandle(), nesting: 1 });
+      act(() => setState({ handle: Popover.createHandle(), nesting: 1 }));
       await openAndClosePopover(user);
 
-      setState({ handle: Popover.createHandle(), nesting: 0 });
+      act(() => setState({ handle: Popover.createHandle(), nesting: 0 }));
       await openAndClosePopover(user);
     });
 

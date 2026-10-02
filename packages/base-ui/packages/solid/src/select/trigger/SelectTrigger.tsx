@@ -1,4 +1,4 @@
-import { createTrackedEffect, createMemo, onCleanup, snapshot } from 'solid-js';
+import { createEffect, createMemo, snapshot } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -15,19 +15,22 @@ import { ownerDocument } from '../../utils/owner';
 import { pressableTriggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import { resolveAriaLabelledBy } from '../../utils/resolveAriaLabelledBy';
-import { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
+import { BaseUIComponentProps, NativeButtonProps, type HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { useSelectRootContext } from '../root/SelectRootContext';
+import type { Side } from '../../utils/useAnchorPositioning';
+import { SelectTriggerDataAttributes } from './SelectTriggerDataAttributes';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 const BOUNDARY_OFFSET = 2;
 const SELECTED_DELAY = 400;
-const UNSELECTED_DELAY = 200;
 
 const stateAttributesMapping: StateAttributesMapping<SelectTrigger.State> = {
   ...pressableTriggerOpenStateMapping,
   ...fieldValidityMapping,
+  popupSide: (side: Side | null) =>
+    side ? { [SelectTriggerDataAttributes.popupSide]: side } : null,
   value: () => null,
 };
 
@@ -51,7 +54,6 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
     setTouched,
     setFocused,
     validationMode,
-    dirty: fieldDirty,
     state: fieldState,
     disabled: fieldDisabled,
   } = useFieldRootContext();
@@ -63,7 +65,6 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
     validation,
     readOnly,
     required,
-    initialValueRef,
     alignItemWithTriggerActiveRef,
     triggerPressedRef,
     disabled: selectDisabled,
@@ -80,13 +81,12 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
   const listElement = store.useState('listElement');
   const rootId = store.useState('id');
   const hasSelectedValue = store.useState('hasSelectedValue');
-  const shouldCheckNullItemLabel = () => !hasSelectedValue() && open();
-  const hasNullItemLabel = store.useState('hasNullItemLabel', shouldCheckNullItemLabel);
+  const mounted = store.useState('mounted');
+  const popupSideValue = store.useState('popupSide');
+  const popupSide = () => (mounted() && positionerElement() ? popupSideValue() : null);
 
   const id = () => idProp() ?? rootId();
   useLabelableId({ id });
-
-  const positionerRef = positionerElement();
 
   let triggerRef = null as HTMLElement | null | undefined;
 
@@ -102,66 +102,40 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
   const timeoutFocus = useTimeout();
   const timeoutMouseDown = useTimeout();
   const selectedDelayTimeout = useTimeout();
-  const unselectedDelayTimeout = useTimeout();
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (open()) {
-      const hasSelectedItemInList = hasSelectedValue() || hasNullItemLabel();
-      const shouldDelayUnselectedMouseUpLonger = !hasSelectedItemInList;
-
-      // When there is no selected item in the list (placeholder-only selects), a mousedown
-      // on the trigger followed by a quick mouseup over the first option can accidentally select
-      // within 200ms. Delay unselected mouseup to match the safer 400ms window.
-      if (shouldDelayUnselectedMouseUpLonger) {
-        selectedDelayTimeout.start(SELECTED_DELAY, () => {
-          selectionRef.current.allowUnselectedMouseUp = true;
-          selectionRef.current.allowSelectedMouseUp = true;
-        });
-      } else {
-        // mousedown -> move to unselected item -> mouseup should not select within 200ms.
-        unselectedDelayTimeout.start(UNSELECTED_DELAY, () => {
-          selectionRef.current.allowUnselectedMouseUp = true;
-
-          // mousedown -> mouseup on selected item should not select within 400ms.
-          selectedDelayTimeout.start(UNSELECTED_DELAY, () => {
-            selectionRef.current.allowSelectedMouseUp = true;
-          });
-        });
-      }
-
-      _c.push(() => {
-        selectedDelayTimeout.clear();
-        unselectedDelayTimeout.clear();
+  createEffect(open, (isOpen) => {
+    if (isOpen) {
+      // A mousedown on the trigger can open the popup under the cursor. Keep mouseup selection
+      // disabled briefly so releasing over either the selected item or a neighboring item doesn't
+      // commit an accidental selection. SelectItem can still opt into unselected mouseup sooner
+      // after a real drag over the item.
+      selectedDelayTimeout.start(SELECTED_DELAY, () => {
+        selectionRef.current.allowUnselectedMouseUp = true;
+        selectionRef.current.allowSelectedMouseUp = true;
       });
 
-      return;
+      return () => {
+        selectedDelayTimeout.clear();
+      };
     }
 
     selectionRef.current = {
       allowSelectedMouseUp: false,
       allowUnselectedMouseUp: false,
+      dragY: 0,
     };
 
     timeoutMouseDown.clear();
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
 
+    return undefined;
+  });
+
+  const listboxId = store.useState('listboxId');
   const ariaControlsId = createMemo(() => {
-    return listElement()?.id ?? getFloatingFocusElement(positionerElement())?.id;
+    return listboxId() ?? listElement()?.id ?? getFloatingFocusElement(positionerElement())?.id;
   });
 
   const state: SelectTrigger.State = solidMergeProps(fieldState, {
-    get dirty() {
-      return fieldDirty() || value() !== initialValueRef.current;
-    },
     get disabled() {
       return disabled();
     },
@@ -170,6 +144,9 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
     },
     get placeholder() {
       return !hasSelectedValue();
+    },
+    get popupSide() {
+      return popupSide();
     },
     get readOnly() {
       return readOnly();
@@ -259,7 +236,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
               // Early return if clicked on trigger element or its children
               if (
                 contains(triggerRef, mouseUpTarget) ||
-                contains(positionerRef, mouseUpTarget) ||
+                contains(store.state.positionerElement, mouseUpTarget) ||
                 mouseUpTarget === triggerRef
               ) {
                 return;
@@ -293,7 +270,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
           },
         },
         getButtonProps,
-        validation.getValidationProps(elementProps as JSX.HTMLAttributes<HTMLButtonElement>),
+        validation.getValidationProps(disabled(), elementProps as HTMLProps),
         /* prevent nested useButton from overwriting the combobox role, e.g. <Toolbar.Button render={<Select.Trigger />} /> */
         { role: 'combobox' as const },
       ];
@@ -319,6 +296,10 @@ export interface SelectTriggerState extends FieldRoot.State {
    * Whether the select popup is readonly.
    */
   readOnly: boolean;
+  /**
+   * Indicates which side the corresponding popup is positioned relative to its anchor.
+   */
+  popupSide: Side | null;
   /**
    * The value of the currently selected item.
    */

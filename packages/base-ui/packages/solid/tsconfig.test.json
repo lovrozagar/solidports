@@ -8,10 +8,11 @@
     "noImplicitAny": false,
     "module": "esnext",
     "moduleResolution": "bundler",
-    "noEmit": true,
+    "noEmit": false,
     "outDir": "build-tests",
     "rootDir": ".",
     "skipLibCheck": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": [
       "vitest/globals",
       "@types/chai",

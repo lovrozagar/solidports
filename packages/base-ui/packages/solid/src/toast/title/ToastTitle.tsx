@@ -1,9 +1,8 @@
-import { createTrackedEffect, children, createMemo, onCleanup, Show } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useId } from '../../utils/useId';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { useToastRootContext } from '../root/ToastRootContext';
+import { useToastLabelElement, useToastLabelPart } from '../utils/useToastLabelPart';
+import { getRenderContent } from '../utils/useRenderableElement';
 
 /**
  * A title that labels the toast.
@@ -13,46 +12,24 @@ import { useToastRootContext } from '../root/ToastRootContext';
  */
 export function ToastTitle(componentProps: ToastTitle.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['id', 'children']);
-  const idProp = () => local.id;
 
-  const { toast, setTitleId } = useToastRootContext();
-
-  const safeChildren = children(() => local.children ?? toast().title);
-
-  const shouldRender = createMemo(() => Boolean(safeChildren()));
-
-  const id = useId(idProp);
-
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (!shouldRender()) {
-      return;
-    }
-
-    setTitleId(id());
-
-    _c.push(() => {
-      setTitleId(undefined);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  const { id, children, type, setId } = useToastLabelPart(
+    () => local.id,
+    () => local.children,
+    'title',
+  );
 
   const state: ToastTitle.State = {
     get type() {
-      return toast().type;
+      return type();
     },
   };
 
+  const content = () => getRenderContent(componentProps.render, children());
+
   const element = useRenderElement('h2', componentProps, {
     get children() {
-      return safeChildren();
+      return content();
     },
     props: [
       {
@@ -65,7 +42,7 @@ export function ToastTitle(componentProps: ToastTitle.Props) {
     state,
   });
 
-  return <Show when={shouldRender()}>{element()}</Show>;
+  return useToastLabelElement(element, () => componentProps.render, content, id, setId);
 }
 
 export interface ToastTitleState {

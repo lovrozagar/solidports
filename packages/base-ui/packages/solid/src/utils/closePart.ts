@@ -1,19 +1,25 @@
-import { createContext, createSignal, onCleanup, useContext } from 'solid-js';
+import { createContext, createRenderEffect, createSignal, useContext } from 'solid-js';
 
 interface ClosePartContextValue {
-  register: () => void;
-  unregister: () => void;
+  register: () => () => void;
 }
 
 export const ClosePartContext = createContext<ClosePartContextValue | null>(null);
 
 export function useClosePartCount() {
-  const [closePartCount, setClosePartCount] = createSignal(0);
+  // Solid: close parts register from a render effect and unregister from its cleanup, both of
+  // which run in owned scopes.
+  const [closePartCount, setClosePartCount] = createSignal(0, { ownedWrite: true });
 
-  const register = () => setClosePartCount((c) => c + 1);
-  const unregister = () => setClosePartCount((c) => Math.max(0, c - 1));
+  const register = () => {
+    setClosePartCount((count) => count + 1);
 
-  const context: ClosePartContextValue = { register, unregister };
+    return () => {
+      setClosePartCount((count) => Math.max(0, count - 1));
+    };
+  };
+
+  const context: ClosePartContextValue = { register };
 
   return {
     context,
@@ -24,8 +30,9 @@ export function useClosePartCount() {
 export function useClosePartRegistration() {
   const context = useContext(ClosePartContext);
 
-  if (context) {
-    context.register();
-    onCleanup(context.unregister);
-  }
+  // Layout-effect timing, as React's `useIsoLayoutEffect`.
+  createRenderEffect(
+    () => context,
+    (currentContext) => currentContext?.register(),
+  );
 }

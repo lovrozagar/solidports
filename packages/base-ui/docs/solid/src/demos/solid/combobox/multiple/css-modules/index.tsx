@@ -1,4 +1,4 @@
-import { createUniqueId } from 'solid-js';
+import { createUniqueId, type Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -16,12 +16,12 @@ export default function ExampleMultipleCombobox() {
         </label>
         <Combobox.InputGroup class={styles.InputGroup}>
           <Combobox.Value>
-            {(value: ProgrammingLanguage[]) => (
+            {(value: Accessor<ProgrammingLanguage[]>) => (
               <Combobox.Chips
                 class={styles.Chips}
-                aria-label={value.length > 0 ? 'Selected languages' : undefined}
+                aria-label={value().length > 0 ? 'Selected languages' : undefined}
               >
-                {(Array.isArray(value) ? value : []).map((language) => (
+                {value().map((language) => (
                   <Combobox.Chip
                     class={styles.Chip}
                     aria-label={language.value}
@@ -38,10 +38,10 @@ export default function ExampleMultipleCombobox() {
                 ))}
                 <Combobox.Input
                   id={id}
-                  placeholder={value.length > 0 ? '' : 'e.g. TypeScript'}
+                  placeholder={value().length > 0 ? '' : 'e.g. TypeScript'}
                   aria-description={
-                    value.length > 0
-                      ? `${value.length} selected. From the start of the input, press Left Arrow to focus the selected items`
+                    value().length > 0
+                      ? `${value().length} selected. From the start of the input, press Left Arrow to focus the selected items`
                       : undefined
                   }
                   class={styles.Input}
@@ -75,7 +75,7 @@ export default function ExampleMultipleCombobox() {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -91,7 +91,7 @@ function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function XIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -99,8 +99,8 @@ function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

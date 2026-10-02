@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, onSettled, Show } from 'solid-js';
+import { createSignal, For, onSettled, Show } from 'solid-js';
 import type { Component } from 'solid-js';
 import { AreaChartExample } from "./examples/AreaChart"
 import { BarChartExample } from "./examples/BarChart"
@@ -48,7 +48,7 @@ export const App: Component = () => {
 		setActiveId(readHashId())
 		const onHash = () => setActiveId(readHashId())
 		window.addEventListener("hashchange", onHash)
-		onCleanup(() => window.removeEventListener("hashchange", onHash))
+		return () => window.removeEventListener("hashchange", onHash)
 	})
 
 	return (

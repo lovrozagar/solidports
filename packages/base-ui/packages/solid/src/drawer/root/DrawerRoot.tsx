@@ -1,20 +1,15 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import {
-  createTrackedEffect,
-  createMemo,
-  createSignal,
-  createUniqueId,
-  onCleanup,
-} from 'solid-js';
+import { createMemo, createRenderEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { RenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
-import type { DialogHandle } from '../../dialog/store/DialogHandle';
-import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
+import type { DrawerHandle } from '../handle';
+import { createDepsEffect, ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
 import {
   createChangeEventDetails,
   type BaseUIChangeEventDetails,
 } from '../../utils/createBaseUIEventDetails';
+import { addEventListener } from '../../utils/addEventListener';
 import { isAndroid } from '../../utils/detectBrowser';
 import { ownerWindow } from '../../utils/owner';
 import type { PayloadChildRenderFunction } from '../../utils/popups';
@@ -24,6 +19,7 @@ import { useDrawerProviderContext } from '../provider/DrawerProviderContext';
 import {
   DrawerRootContext,
   useDrawerRootContext,
+  type DrawerNestedSwipeProgressStore,
   type DrawerSnapPoint,
   type DrawerSwipeDirection,
 } from './DrawerRootContext';
@@ -52,11 +48,12 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
   const notifyParentSwipingChange = parentDrawerRootContext?.onNestedSwipingChange;
   const notifyParentHasNestedDrawer = parentDrawerRootContext?.onNestedDrawerPresenceChange;
 
-  const [popupHeight, setPopupHeight] = createSignal(0);
-  const [frontmostHeight, setFrontmostHeight] = createSignal(0);
-  const [hasNestedDrawer, setHasNestedDrawer] = createSignal(false);
+  // Written from the popup's render effects.
+  const [popupHeight, setPopupHeight] = createSignal(0, { ownedWrite: true });
+  const [frontmostHeight, setFrontmostHeight] = createSignal(0, { ownedWrite: true });
+  const [hasNestedDrawer, setHasNestedDrawer] = createSignal(false, { ownedWrite: true });
   const [nestedSwiping, setNestedSwiping] = createSignal(false);
-  const [nestedSwipeProgress, setNestedSwipeProgress] = createSignal(0);
+  const nestedSwipeProgressStore = createNestedSwipeProgressStore();
 
   const resolvedDefaultSnapPoint = () =>
     props.defaultSnapPoint !== undefined ? props.defaultSnapPoint : (props.snapPoints?.[0] ?? null);
@@ -70,6 +67,7 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
   });
 
   let isNestedDrawerOpenRef = false;
+  const swipeAreaActiveRef = { current: false };
 
   const setActiveSnapPoint = (
     nextSnapPoint: DrawerSnapPoint | null,
@@ -121,8 +119,9 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
     }
 
     isNestedDrawerOpenRef = false;
-    if (popupHeight() > 0) {
-      setFrontmostHeight(popupHeight());
+    const currentPopupHeight = untrack(popupHeight);
+    if (currentPopupHeight > 0) {
+      setFrontmostHeight(currentPopupHeight);
     }
   };
 
@@ -131,7 +130,7 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
   };
 
   const onNestedSwipeProgressChange = (progress: number) => {
-    setNestedSwipeProgress(progress);
+    nestedSwipeProgressStore.set(progress);
     notifyParentSwipeProgressChange?.(progress);
   };
 
@@ -160,28 +159,26 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
   };
 
   const contextValue: DrawerRootContext = {
-    activeSnapPoint: resolvedActiveSnapPoint,
-    frontmostHeight,
-    hasNestedDrawer,
-    nestedSwipeProgress,
-    nestedSwiping,
-    notifyParentFrontmostHeight,
-    notifyParentHasNestedDrawer,
-    notifyParentSwipeProgressChange,
-    notifyParentSwipingChange,
-    onNestedDrawerPresenceChange,
-    onNestedFrontmostHeightChange,
-    onNestedSwipeProgressChange,
-    onNestedSwipingChange,
-    onPopupHeightChange,
-    popupHeight,
-    setActiveSnapPoint,
-    setNestedSwipeProgress: (nextProgress: number) => {
-      setNestedSwipeProgress(Number.isFinite(nextProgress) ? nextProgress : 0);
-    },
-    snapPoints: () => props.snapPoints,
-    snapToSequentialPoints,
     swipeDirection,
+    swipeAreaActiveRef,
+    snapToSequentialPoints,
+    snapPoints: () => props.snapPoints,
+    activeSnapPoint: resolvedActiveSnapPoint,
+    setActiveSnapPoint,
+    frontmostHeight,
+    popupHeight,
+    hasNestedDrawer,
+    nestedSwiping,
+    nestedSwipeProgressStore,
+    onNestedDrawerPresenceChange,
+    onPopupHeightChange,
+    onNestedFrontmostHeightChange,
+    onNestedSwipingChange,
+    onNestedSwipeProgressChange,
+    notifyParentFrontmostHeight,
+    notifyParentSwipingChange,
+    notifyParentSwipeProgressChange,
+    notifyParentHasNestedDrawer,
   };
 
   return (
@@ -210,6 +207,8 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
   );
 }
 
+export interface DrawerRootState {}
+
 export interface DrawerRootProps<Payload = unknown> {
   /**
    * Whether the drawer is currently open.
@@ -229,7 +228,7 @@ export interface DrawerRootProps<Payload = unknown> {
    * - `'trap-focus'`: focus is trapped inside the drawer, but document page scroll is not locked and pointer interactions outside of it remain enabled.
    * @default true
    */
-  modal?: (boolean | 'trap-focus') | undefined;
+  modal?: boolean | 'trap-focus' | undefined;
   /**
    * Event handler called when the drawer is opened or closed.
    */
@@ -239,15 +238,15 @@ export interface DrawerRootProps<Payload = unknown> {
    */
   onOpenChangeComplete?: ((open: boolean) => void) | undefined;
   /**
-   * Determines whether the drawer should close on outside clicks.
+   * Whether to prevent the drawer from closing on outside presses.
+   * For non-modal drawers, this also prevents the drawer from closing when focus moves outside of it.
    * @default false
    */
   disablePointerDismissal?: boolean | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: When specified, the drawer will not be unmounted when closed.
-   * Instead, the `unmount` function must be called to unmount the drawer manually.
-   * Useful when the drawer's animation is controlled by an external library.
+   * - `unmount`: Manually unmounts the drawer.
+   * Call this after any externally controlled closing animation finishes.
    * - `close`: Closes the drawer imperatively when called.
    */
   actionsRef?: ReactLikeRef<DrawerRoot.Actions | null> | undefined;
@@ -256,18 +255,18 @@ export interface DrawerRootProps<Payload = unknown> {
    * If specified, allows detached triggers to control the drawer's open state.
    * Can be created with the Drawer.createHandle() method.
    */
-  handle?: DialogHandle<Payload> | undefined;
+  handle?: DrawerHandle<Payload> | undefined;
   /**
    * ID of the trigger that the drawer is associated with.
    * This is useful in conjunction with the `open` prop to create a controlled drawer.
-   * There's no need to specify this prop when the drawer is uncontrolled (i.e. when the `open` prop is not set).
+   * There's no need to specify this prop when the drawer is uncontrolled (that is, when the `open` prop is not set).
    */
-  triggerId?: (string | null) | undefined;
+  triggerId?: string | null | undefined;
   /**
    * ID of the trigger that the drawer is associated with.
    * This is useful in conjunction with the `defaultOpen` prop to create an initially open drawer.
    */
-  defaultTriggerId?: (string | null) | undefined;
+  defaultTriggerId?: string | null | undefined;
   /**
    * The content of the drawer.
    */
@@ -335,6 +334,7 @@ export type DrawerRootSnapPointChangeEventDetails =
   BaseUIChangeEventDetails<DrawerRootSnapPointChangeEventReason>;
 
 export namespace DrawerRoot {
+  export type State = DrawerRootState;
   export type Props<Payload = unknown> = DrawerRootProps<Payload>;
   export type Actions = DrawerRootActions;
   export type ChangeEventReason = DrawerRootChangeEventReason;
@@ -344,81 +344,90 @@ export namespace DrawerRoot {
   export type SnapPoint = DrawerSnapPoint;
 }
 
+interface NestedSwipeProgressStore extends DrawerNestedSwipeProgressStore {
+  set: (progress: number) => void;
+}
+
+function createNestedSwipeProgressStore(): NestedSwipeProgressStore {
+  let progress = 0;
+  const listeners = new Set<() => void>();
+
+  return {
+    getSnapshot: () => progress,
+    set(nextProgress) {
+      const resolved = Number.isFinite(nextProgress) ? nextProgress : 0;
+      if (resolved === progress) {
+        return;
+      }
+
+      progress = resolved;
+      listeners.forEach((listener) => {
+        listener();
+      });
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
 function DrawerProviderReporter() {
-  const drawerId = createUniqueId();
+  const providerContext = useDrawerProviderContext();
+  const store = useDialogRootContext(false);
+  const setDrawerOpen = providerContext?.setDrawerOpen;
+  const removeDrawer = providerContext?.removeDrawer;
 
-  const providerContext = useDrawerProviderContext(true);
-  const dialogRootContext = useDialogRootContext(false);
-
-  const open = dialogRootContext.store.useState('open');
-  const nestedOpenDialogCount = dialogRootContext.store.useState('nestedOpenDialogCount');
-  const popupElement = dialogRootContext.store.useState('popupElement');
+  const open = store.useState('open');
+  const nestedOpenDialogCount = store.useState('nestedOpenDialogCount');
+  const popupElement = store.useState('popupElement');
 
   const isTopmost = () => nestedOpenDialogCount() === 0;
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (!providerContext) {
-      return;
-    }
-
-    _c.push(() => {
-      providerContext.removeDrawer(drawerId);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
-
-  createTrackedEffect(() => {
-    providerContext?.setDrawerOpen(drawerId, open());
+  // The provider and store are fixed for the reporter's lifetime.
+  onCleanup(() => {
+    removeDrawer?.(store);
   });
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
+  createRenderEffect(open, (isOpen) => {
+    setDrawerOpen?.(store, isOpen);
+  });
 
-    // CloseWatcher enables the Android back gesture (Chromium-only).
-    // Keep this Android-only for now to avoid interfering with Escape/nesting semantics on desktop due to `useDismiss`.
-    if (!open() || !isTopmost() || !isAndroid) {
-      return;
-    }
-
-    const win = ownerWindow(popupElement());
-
-    const CloseWatcherCtor = (win as Window & { CloseWatcher?: (new () => any) | undefined })
-      .CloseWatcher;
-    if (!CloseWatcherCtor) {
-      return;
-    }
-
-    function handleCloseWatcher(event: Event) {
-      if (!dialogRootContext.store.select('open')) {
-        return;
+  createDepsEffect(
+    () => ({ open: open(), isTopmost: isTopmost(), popupElement: popupElement() }),
+    (deps) => {
+      // CloseWatcher enables the Android back gesture (Chromium-only).
+      // Keep this Android-only for now to avoid interfering with Escape/nesting semantics on desktop due to `useDismiss`.
+      if (!deps.open || !deps.isTopmost || !isAndroid) {
+        return undefined;
       }
-      dialogRootContext.store.setOpen(false, createChangeEventDetails(REASONS.closeWatcher, event));
-    }
 
-    const closeWatcher = new CloseWatcherCtor();
+      const win = ownerWindow(deps.popupElement);
 
-    closeWatcher.addEventListener('close', handleCloseWatcher);
-
-    _c.push(() => {
-      closeWatcher.removeEventListener('close', handleCloseWatcher);
-      closeWatcher.destroy();
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+      const CloseWatcherCtor = (win as Window & { CloseWatcher?: (new () => any) | undefined })
+        .CloseWatcher;
+      if (!CloseWatcherCtor) {
+        return undefined;
       }
-    };
-});
+
+      function handleCloseWatcher(event: Event) {
+        if (!store.select('open')) {
+          return;
+        }
+        store.setOpen(false, createChangeEventDetails(REASONS.closeWatcher, event));
+      }
+
+      const closeWatcher = new CloseWatcherCtor();
+      const unsubscribe = addEventListener(closeWatcher, 'close', handleCloseWatcher);
+
+      return () => {
+        unsubscribe();
+        closeWatcher.destroy();
+      };
+    },
+  );
 
   return null;
 }

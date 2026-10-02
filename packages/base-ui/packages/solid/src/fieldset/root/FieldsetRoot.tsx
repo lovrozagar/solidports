@@ -2,7 +2,7 @@ import { createSignal } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { FieldsetRootContext } from './FieldsetRootContext';
+import { FieldsetRootContext, useFieldsetRootContext } from './FieldsetRootContext';
 
 /**
  * Groups a shared legend with related controls.
@@ -12,9 +12,12 @@ import { FieldsetRootContext } from './FieldsetRootContext';
  */
 export function FieldsetRoot(componentProps: FieldsetRoot.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled']);
-  const disabled = () => Boolean(local.disabled);
+  const disabledProp = () => Boolean(local.disabled);
 
-  const [legendId, setLegendId] = createSignal<string | undefined>();
+  const [legendId, setLegendId] = createSignal<string | undefined>(undefined);
+
+  const parentContext = useFieldsetRootContext(true);
+  const disabled = () => (parentContext?.disabled() ?? false) || disabledProp();
 
   const state: FieldsetRoot.State = {
     get disabled() {
@@ -22,27 +25,28 @@ export function FieldsetRoot(componentProps: FieldsetRoot.Props) {
     },
   };
 
-  const contextValue: FieldsetRootContext = {
-    disabled,
-    legendId,
-    setLegendId,
-  };
-
   const element = useRenderElement('fieldset', componentProps, {
+    state,
     props: [
       {
         get 'aria-labelledby'() {
           return legendId();
         },
+        get disabled() {
+          return disabled();
+        },
       },
       elementProps,
     ],
-    state,
   });
 
-  return (
-    <FieldsetRootContext value={contextValue}>{element()}</FieldsetRootContext>
-  );
+  const contextValue: FieldsetRootContext = {
+    legendId,
+    setLegendId,
+    disabled,
+  };
+
+  return <FieldsetRootContext value={contextValue}>{element()}</FieldsetRootContext>;
 }
 
 export interface FieldsetRootState {
@@ -51,7 +55,8 @@ export interface FieldsetRootState {
    */
   disabled: boolean;
 }
-export interface FieldsetRootProps extends BaseUIComponentProps<'fieldset', FieldsetRoot.State> {}
+
+export interface FieldsetRootProps extends BaseUIComponentProps<'fieldset', FieldsetRootState> {}
 
 export namespace FieldsetRoot {
   export type State = FieldsetRootState;

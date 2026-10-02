@@ -21,7 +21,7 @@ export default function ExampleCollapsible() {
   );
 }
 
-export function CaretRightIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+export function CaretRightIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

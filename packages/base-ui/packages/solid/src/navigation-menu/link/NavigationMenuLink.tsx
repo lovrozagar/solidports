@@ -1,4 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
+import type { JSX } from '@solidjs/web';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { useFloatingTree } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
@@ -94,7 +95,8 @@ export interface NavigationMenuLinkState {
 
 export interface NavigationMenuLinkProps extends BaseUIComponentProps<
   'a',
-  NavigationMenuLink.State
+  NavigationMenuLink.State,
+  JSX.AnchorHTMLAttributes<HTMLAnchorElement>
 > {
   /**
    * Whether the link is the currently active page.

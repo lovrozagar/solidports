@@ -1,4 +1,4 @@
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import type { Component } from 'solid-js';
 import type {
   BaseUiConformanceTestsOptions,
@@ -10,11 +10,17 @@ async function verifyRef(
   render: BaseUiConformanceTestsOptions['render'],
   onRef: (instance: unknown, element: HTMLElement | null) => void,
 ) {
-  const props = { ref: null };
+  // Solid compiles `let el; <Part ref={el} />` to a ref callback, so parts receive a function.
+  let instance: unknown = null;
+  const props = {
+    ref: (el: unknown) => {
+      instance = el;
+    },
+  };
 
   const { container } = render(element, props);
 
-  onRef(props.ref, container);
+  onRef(instance, container);
 }
 
 export function testRefForwarding(

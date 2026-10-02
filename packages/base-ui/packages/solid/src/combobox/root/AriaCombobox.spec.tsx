@@ -39,6 +39,7 @@ import { AriaCombobox } from './AriaCombobox';
 
 /* Mode='none' — onInputValueChange receives string. */
 <AriaCombobox
+  selectionMode="none"
   onInputValueChange={(v, _e) => {
     v.startsWith('a');
   }}

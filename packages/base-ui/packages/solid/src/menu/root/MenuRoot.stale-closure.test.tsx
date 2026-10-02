@@ -1,4 +1,4 @@
-import { createRenderer } from '#test-utils';
+import { act, createRenderer } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
@@ -14,7 +14,7 @@ describe('MenuRoot stale-closure regression', () => {
   it('invokes the latest onOpenChangeComplete after prop swap', async () => {
     const cb1 = vi.fn();
     const cb2 = vi.fn();
-    const [cb, setCb] = createSignal<(open: boolean) => void>(cb1);
+    const [cb, setCb] = createSignal<(open: boolean) => void>(() => cb1);
 
     const { user } = render(() => (
       <Menu.Root onOpenChangeComplete={cb()}>
@@ -38,7 +38,7 @@ describe('MenuRoot stale-closure regression', () => {
     expect(cb1).toHaveBeenCalledTimes(1);
     expect(cb1).toHaveBeenLastCalledWith(true);
 
-    setCb(() => cb2);
+    act(() => setCb(() => cb2));
 
     await user.keyboard('{Escape}');
 

@@ -4,7 +4,7 @@ import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { useDismiss, useHoverFloatingInteraction } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
 import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
-import { splitComponentProps } from '../../solid-helpers';
+import { live, splitComponentProps } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -39,7 +39,8 @@ export function NavigationMenuList(componentProps: NavigationMenuList.Props) {
   const nodeId = useNavigationMenuTreeContext();
 
   const fallbackContext = createMemo(() => getEmptyRootContext());
-  const context = () => floatingRootContext() || fallbackContext();
+  // Floating hooks read the context from effect callbacks too: track only in computations.
+  const context = live(() => floatingRootContext() || fallbackContext());
   const interactionsEnabled = () => (positionerElement() ? true : !value());
   const hoverInteractionsEnabled = () =>
     positionerElement() || viewportElement() ? true : !value();
@@ -132,7 +133,9 @@ export function NavigationMenuList(componentProps: NavigationMenuList.Props) {
   // handler that blocks propagation so arrow keys can reach the parent CompositeRoot.
   const element = useRenderElement('ul', componentProps, {
     enabled: nested,
-    props: props.props,
+    get props() {
+      return props.props;
+    },
     state,
   });
 
@@ -140,12 +143,12 @@ export function NavigationMenuList(componentProps: NavigationMenuList.Props) {
     <Show
       when={!nested()}
       fallback={
-        <NavigationMenuDismissContext value={dismissProps.props}>
+        <NavigationMenuDismissContext value={() => dismissProps.props}>
           {element()}
         </NavigationMenuDismissContext>
       }
     >
-      <NavigationMenuDismissContext value={dismissProps.props}>
+      <NavigationMenuDismissContext value={() => dismissProps.props}>
         <CompositeRoot
           render={renderProps.render}
           class={renderProps.class}

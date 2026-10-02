@@ -9,8 +9,8 @@ import {
   isShadowRoot,
   isWebKit,
 } from '@floating-ui/utils/dom';
-import { createTrackedEffect, createEffect, createMemo, onCleanup } from 'solid-js';
-import { access, defaultProps } from '../../solid-helpers';
+import { createEffect, createMemo, onCleanup, untrack } from 'solid-js';
+import { createDepsEffect, access, defaultProps, live } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -18,7 +18,7 @@ import { mergeCleanups } from '../../utils/mergeCleanups';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
 import { useTimeout } from '../../utils/useTimeout';
-import { useFloatingTree } from '../components/FloatingTree';
+import { useFloatingTreeAccessor } from '../components/FloatingTree';
 import { FloatingTreeStore } from '../components/FloatingTreeStore';
 import type { ElementProps, FloatingContext, FloatingRootContext } from '../types';
 import {
@@ -27,8 +27,11 @@ import {
   getTarget,
   isEventTargetInsidePortal,
   isEventTargetWithin,
+  isRenderTreeDescendant,
   isRootElement,
+  isVirtualClick,
 } from '../utils';
+import type { FloatingUIOpenChangeDetails } from '../../utils/types';
 import { createAttribute } from '../utils/createAttribute';
 import { on } from '../../solid-1-compat';
 
@@ -126,9 +129,7 @@ export interface UseDismissProps {
    * floating elements.
    */
   bubbles?:
-    | boolean
-    | { escapeKey?: boolean | undefined; outsidePress?: boolean | undefined }
-    | undefined;
+    boolean | { escapeKey?: boolean | undefined; outsidePress?: boolean | undefined } | undefined;
   /**
    * External FlatingTree to use when the one provided by context can't be used.
    */
@@ -154,8 +155,10 @@ export function useDismiss(parameters: {
     referencePressEvent: 'sloppy' as PressType,
   });
 
-  const store = () =>
-    'rootStore' in parameters.context ? parameters.context.rootStore : parameters.context;
+  // Live: handlers and effect callbacks read the store imperatively, as React's refs.
+  const store = live(() =>
+    'rootStore' in parameters.context ? parameters.context.rootStore : parameters.context,
+  );
   const dataRef = () => store().context.dataRef;
   const open = createMemo(() => store().select('open'));
   const floatingElement = createMemo(() => store().select('floatingElement'));
@@ -164,7 +167,7 @@ export function useDismiss(parameters: {
 
   const bubbles = createMemo(() => normalizeProp(props.bubbles));
 
-  const tree = useFloatingTree(props.externalTree);
+  const getTree = useFloatingTreeAccessor(() => props.externalTree);
   const outsidePress = createMemo(() => {
     // If it's an event callback
     if (typeof props.outsidePress === 'function') {
@@ -185,6 +188,9 @@ export function useDismiss(parameters: {
   let pressStartPreventedRef = false;
   /* Ignore only the very next outside click after dragging from inside to outside. */
   let suppressNextOutsideClickRef = false;
+  // A click whose press began before the floating element opened is the tail of that
+  // gesture (e.g. the drag-release that opened it), not a new outside press.
+  let sawPressWhileOpenRef = false;
 
   let touchStateRef = null as {
     startTime: number;
@@ -197,6 +203,7 @@ export function useDismiss(parameters: {
   const cancelDismissOnEndTimeout = useTimeout();
   const clearinsidePortalTimeout = useTimeout();
   const compositionTimeout = useTimeout();
+  const preventedPressSuppressionTimeout = useTimeout();
 
   const clearinsidePortal = () => {
     clearinsidePortalTimeout.clear();
@@ -226,8 +233,8 @@ export function useDismiss(parameters: {
     const nodeId = dataRef().floatingContext?.nodeId();
 
     return (
-      tree &&
-      getNodeChildren(tree.nodesRef, nodeId).some((node) =>
+      getTree() &&
+      getNodeChildren(getTree()?.nodesRef ?? [], nodeId).some((node) =>
         isEventTargetWithin(event, node.context?.elements.floating()),
       )
     );
@@ -239,6 +246,29 @@ export function useDismiss(parameters: {
       isEventTargetWithin(event, domReferenceElement()) ||
       isEventTargetWithinChildren(event)
     );
+  };
+
+  const hasBlockingChild = (bubbleKey: '__escapeKeyBubbles' | '__outsidePressBubbles') => {
+    const nodeId = dataRef().floatingContext?.nodeId();
+    const children = getTree() ? getNodeChildren(getTree()?.nodesRef ?? [], nodeId) : [];
+
+    return children.some((child) => {
+      const childContext = access(child.context);
+      return childContext?.open() && !childContext.dataRef[bubbleKey];
+    });
+  };
+
+  const isEventWithinOwnElements = (event: Event) =>
+    isEventTargetWithin(event, floatingElement()) ||
+    isEventTargetWithin(event, domReferenceElement());
+
+  const suppressImmediateOutsideClickAfterPreventedStart = () => {
+    suppressNextOutsideClickRef = true;
+    // Firefox can emit the synthetic outside click in a later task after
+    // pointer lock exit, so microtask clearing is too early here.
+    preventedPressSuppressionTimeout.start(0, () => {
+      suppressNextOutsideClickRef = false;
+    });
   };
 
   const isPrimaryButtonPress = (event: MouseEvent | PointerEvent) => {
@@ -260,21 +290,7 @@ export function useDismiss(parameters: {
       return;
     }
 
-    const nodeId = dataRef().floatingContext?.nodeId();
-
-    const children = tree ? getNodeChildren(tree.nodesRef, nodeId) : [];
-
-    let shouldDismiss = true;
-    if (children.length > 0) {
-      for (const child of children) {
-        if (child.context?.open() && !child.context.dataRef.__escapeKeyBubbles) {
-          shouldDismiss = false;
-          break;
-        }
-      }
-    }
-
-    if (!shouldDismiss) {
+    if (!bubbles().escapeKey && hasBlockingChild('__escapeKeyBubbles')) {
       return;
     }
 
@@ -283,6 +299,10 @@ export function useDismiss(parameters: {
     const eventDetails = createChangeEventDetails(REASONS.escapeKey, event);
 
     store().setOpen(false, eventDetails);
+
+    if (!eventDetails.isCanceled) {
+      event.preventDefault();
+    }
 
     if (!bubbles().escapeKey && !eventDetails.isPropagationAllowed) {
       event.stopImmediatePropagation();
@@ -304,6 +324,12 @@ export function useDismiss(parameters: {
 
   const closeOnPressOutside = (event: MouseEvent | PointerEvent | TouchEvent) => {
     if (shouldIgnoreEvent(event)) {
+      // A new press began outside the floating element and its trigger. Clear any
+      // leftover drag-out suppression so this press's eventual click can dismiss.
+      if (event.type !== 'click' && !isEventWithinOwnElements(event)) {
+        preventedPressSuppressionTimeout.clear();
+        suppressNextOutsideClickRef = false;
+      }
       clearinsidePortal();
       return;
     }
@@ -314,11 +340,12 @@ export function useDismiss(parameters: {
     }
 
     if (isEventTargetInsidePortal(event)) {
-      markinsidePortal();
+      // Solid adaptation for React's portal event bubbling. No flag is set here: a flag cleared on
+      // a timer would swallow the next genuine outside press (React has no such state).
       /* If the target is inside a portal OR its dismissal is managed externally then don't dismiss here */
       const managed = (event.target as HTMLElement)?.hasAttribute(createAttribute('managed'));
 
-      if (!tree && !managed && typeof outsidePress() !== 'function') {
+      if (!getTree() && !managed && typeof outsidePress() !== 'function') {
         return;
       }
     }
@@ -412,32 +439,30 @@ export function useDismiss(parameters: {
       return;
     }
 
-    /* In intentional mode, a press that starts inside and ends outside gets one suppressed outside click.
-     * Check both the pointerup-set flag (real browsers) and pressStartedInsideRef (JSDOM tests where
-     * pointerup may not fire between pointerdown + click). */
-    if (getOutsidePressEvent() === 'intentional' && (suppressNextOutsideClickRef || pressStartedInsideRef)) {
-      suppressNextOutsideClickRef = false;
-      pressStartedInsideRef = false;
-      return;
-    }
-
-    const nodeId = dataRef().floatingContext?.nodeId();
-
-    const children = tree ? getNodeChildren(tree.nodesRef, nodeId) : [];
-
-    if (children.length > 0) {
-      let shouldDismiss = true;
-
-      children.forEach((child) => {
-        const childContext = access(child.context);
-        if (childContext?.open() && !childContext.dataRef.__outsidePressBubbles) {
-          shouldDismiss = false;
-        }
-      });
-
-      if (!shouldDismiss) {
+    // Only `click` events reach this point in intentional mode.
+    if (getOutsidePressEvent() === 'intentional') {
+      // Press-less clicks (keyboard, assistive technology, `element.click()`) report no
+      // click count; `isVirtualClick` also catches the ones that do.
+      if (
+        (event as MouseEvent).detail !== 0 &&
+        !isVirtualClick(event as MouseEvent) &&
+        !sawPressWhileOpenRef
+      ) {
         return;
       }
+
+      // A press that starts inside and ends outside gets one suppressed
+      // outside click. Run this after inside-target checks so inside clicks
+      // don't consume the one-shot suppression.
+      if (suppressNextOutsideClickRef) {
+        preventedPressSuppressionTimeout.clear();
+        suppressNextOutsideClickRef = false;
+        return;
+      }
+    }
+
+    if (hasBlockingChild('__outsidePressBubbles')) {
+      return;
     }
 
     store().setOpen(false, createChangeEventDetails(REASONS.outsidePress, event));
@@ -495,10 +520,14 @@ export function useDismiss(parameters: {
   ) {
     const target = getTarget(event);
     if (!target) return;
-    const unsubscribe = addEventListener(target as EventTarget & { addEventListener: any; removeEventListener: any }, event.type, () => {
-      listener(event);
-      unsubscribe();
-    });
+    const unsubscribe = addEventListener(
+      target as EventTarget & { addEventListener: any; removeEventListener: any },
+      event.type,
+      () => {
+        listener(event);
+        unsubscribe();
+      },
+    );
   }
 
   const handleTouchStartCapture = (event: TouchEvent) => {
@@ -507,24 +536,22 @@ export function useDismiss(parameters: {
   };
 
   const closeOnPressOutsideCapture = (event: PointerEvent | MouseEvent) => {
+    cancelDismissOnEndTimeout.clear();
+
+    // Only `pointerdown` marks a press; `mousedown` is its compatibility event, and
+    // counting it would misattribute a gesture that started before open.
     if (event.type === 'pointerdown') {
+      // Only a primary press can produce a `click`.
+      if (event.button === 0) {
+        sawPressWhileOpenRef = true;
+      }
       currentPointerTypeRef = (event as PointerEvent).pointerType;
     }
 
-    cancelDismissOnEndTimeout.clear();
-
-    /* Track presses that start inside the floating tree — used to suppress dismissal in intentional mode. */
-    if (
-      (event.type === 'pointerdown' || event.type === 'mousedown') &&
-      open() &&
-      props.enabled &&
-      isPrimaryButtonPress(event) &&
-      isEventTargetWithinFloatingTree(event)
-    ) {
-      if (!pressStartedInsideRef) {
-        pressStartedInsideRef = true;
-        pressStartPreventedRef = false;
-      }
+    // Solid adaptation for React's portal event bubbling: a press inside a portaled child
+    // reaches this floating element's capture handlers in React, so mark it as inside here.
+    if (open() && props.enabled && isEventTargetWithinChildren(event)) {
+      markinsidePortal();
     }
 
     if (event.type === 'mousedown' && touchStateRef && !touchStateRef.dismissOnMouseDown) {
@@ -543,6 +570,18 @@ export function useDismiss(parameters: {
   };
 
   const handlePressEndCapture = (event: PointerEvent | MouseEvent) => {
+    // Solid adaptation for React's portal event bubbling: a release inside a portaled child
+    // reaches this floating element's `mouseup` capture handler in React.
+    if (open() && props.enabled && isEventTargetWithinChildren(event)) {
+      markinsidePortal();
+    }
+
+    // A cancelled gesture produces no click. Not cleared on `pointerup`: the click
+    // fires after it and must still find the press.
+    if (event.type === 'pointercancel') {
+      sawPressWhileOpenRef = false;
+    }
+
     if (!pressStartedInsideRef) {
       return;
     }
@@ -557,7 +596,7 @@ export function useDismiss(parameters: {
 
     if (event.type === 'pointercancel') {
       if (pressStartedInsideDefaultPrevented) {
-        suppressNextOutsideClickRef = true;
+        suppressImmediateOutsideClickAfterPreventedStart();
       }
       return;
     }
@@ -566,8 +605,12 @@ export function useDismiss(parameters: {
       return;
     }
 
+    // If pointerdown was prevented, no click may be generated for that
+    // interaction. However, Firefox may still emit an immediate click after
+    // pointerup (e.g. NumberField scrub with pointer lock), so suppress for
+    // one tick to absorb that synthetic click only.
     if (pressStartedInsideDefaultPrevented) {
-      suppressNextOutsideClickRef = true;
+      suppressImmediateOutsideClickAfterPreventedStart();
       return;
     }
 
@@ -575,6 +618,7 @@ export function useDismiss(parameters: {
       return;
     }
 
+    preventedPressSuppressionTimeout.clear();
     suppressNextOutsideClickRef = true;
     clearinsidePortal();
   };
@@ -635,109 +679,144 @@ export function useDismiss(parameters: {
     addTargetEventListenerOnce(event, handleTouchEnd);
   };
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
+  createDepsEffect(
+    () => ({
+      active: open() && props.enabled,
+      escapeKey: props.escapeKey,
+      outsidePressEnabled: outsidePressEnabled(),
+      ancestorScroll: props.ancestorScroll,
+      bubbles: bubbles(),
+      floating: floatingElement(),
+      domReference: domReferenceElement(),
+      reference: referenceElement(),
+    }),
+    (deps) => {
+      if (!deps.active) {
+        // Reset in the effect body, not the cleanup, which also runs when a dependency
+        // changes mid-gesture.
+        if (!untrack(open)) {
+          sawPressWhileOpenRef = false;
+        }
+        dataRef().pressStartedInside = false;
+        return undefined;
+      }
 
-    if (!open() || !props.enabled) {
-      dataRef().pressStartedInside = false;
-      return;
-    }
+      dataRef().__escapeKeyBubbles = deps.bubbles.escapeKey;
+      dataRef().__outsidePressBubbles = deps.bubbles.outsidePress;
 
-    dataRef().__escapeKeyBubbles = bubbles().escapeKey;
-    dataRef().__outsidePressBubbles = bubbles().outsidePress;
+      function onScroll(event: Event) {
+        store().setOpen(false, createChangeEventDetails(REASONS.none, event));
+      }
 
-    function onScroll(event: Event) {
-      store().setOpen(false, createChangeEventDetails(REASONS.none, event));
-    }
+      function handleCompositionStart() {
+        compositionTimeout.clear();
+        isComposingRef = true;
+      }
 
-    function handleCompositionStart() {
-      compositionTimeout.clear();
-      isComposingRef = true;
-    }
+      function handleCompositionEnd() {
+        // Safari fires `compositionend` before `keydown`, so we need to wait
+        // until the next tick to set `isComposing` to `false`.
+        // https://bugs.webkit.org/show_bug.cgi?id=165004
+        compositionTimeout.start(
+          // 0ms or 1ms don't work in Safari. 5ms appears to consistently work.
+          // Only apply to WebKit for the test to remain 0ms.
+          isWebKit() ? 5 : 0,
+          () => {
+            isComposingRef = false;
+          },
+        );
+      }
 
-    function handleCompositionEnd() {
-      // Safari fires `compositionend` before `keydown`, so we need to wait
-      // until the next tick to set `isComposing` to `false`.
-      // https://bugs.webkit.org/show_bug.cgi?id=165004
-      compositionTimeout.start(
-        // 0ms or 1ms don't work in Safari. 5ms appears to consistently work.
-        // Only apply to WebKit for the test to remain 0ms.
-        isWebKit() ? 5 : 0,
-        () => {
-          isComposingRef = false;
-        },
+      const doc = ownerDocument(deps.floating ?? null);
+
+      const unsubscribe = mergeCleanups(
+        deps.escapeKey &&
+          mergeCleanups(
+            addEventListener(doc, 'keydown', closeOnEscapeKeyDown),
+            addEventListener(doc, 'compositionstart', handleCompositionStart),
+            addEventListener(doc, 'compositionend', handleCompositionEnd),
+          ),
+        deps.outsidePressEnabled &&
+          mergeCleanups(
+            addEventListener(doc, 'click', closeOnPressOutsideCapture, true),
+            addEventListener(doc, 'pointerdown', closeOnPressOutsideCapture, true),
+            addEventListener(doc, 'pointerup', handlePressEndCapture, true),
+            addEventListener(doc, 'pointercancel', handlePressEndCapture, true),
+            addEventListener(doc, 'mousedown', closeOnPressOutsideCapture, true),
+            addEventListener(doc, 'mouseup', handlePressEndCapture, true),
+            addEventListener(doc, 'touchstart', handleTouchStartCapture, {
+              capture: true,
+              passive: true,
+            }),
+            addEventListener(doc, 'touchmove', handleTouchMoveCapture, {
+              capture: true,
+              passive: true,
+            }),
+            addEventListener(doc, 'touchend', handleTouchEndCapture, {
+              capture: true,
+              passive: true,
+            }),
+          ),
       );
-    }
 
-    const floating = floatingElement();
-    const doc = ownerDocument(floating ?? null);
+      let ancestors: (Element | Window | VisualViewport)[] = [];
 
-    const unsubscribe = mergeCleanups(
-      props.escapeKey &&
-        mergeCleanups(
-          addEventListener(doc, 'keydown', closeOnEscapeKeyDown),
-          addEventListener(doc, 'compositionstart', handleCompositionStart),
-          addEventListener(doc, 'compositionend', handleCompositionEnd),
-        ),
-      outsidePressEnabled() &&
-        mergeCleanups(
-          addEventListener(doc, 'click', closeOnPressOutsideCapture, true),
-          addEventListener(doc, 'pointerdown', closeOnPressOutsideCapture, true),
-          addEventListener(doc, 'pointerup', handlePressEndCapture, true),
-          addEventListener(doc, 'pointercancel', handlePressEndCapture, true),
-          addEventListener(doc, 'mousedown', closeOnPressOutsideCapture, true),
-          addEventListener(doc, 'mouseup', handlePressEndCapture, true),
-          addEventListener(doc, 'touchstart', handleTouchStartCapture, true),
-          addEventListener(doc, 'touchmove', handleTouchMoveCapture, true),
-          addEventListener(doc, 'touchend', handleTouchEndCapture, true),
-        ),
-    );
+      if (deps.ancestorScroll) {
+        if (isElement(deps.domReference)) {
+          ancestors = getOverflowAncestors(deps.domReference);
+        }
 
-    let ancestors: (Element | Window | VisualViewport)[] = [];
+        if (isElement(deps.floating)) {
+          ancestors = ancestors.concat(getOverflowAncestors(deps.floating));
+        }
 
-    if (props.ancestorScroll) {
-      const domReference = domReferenceElement();
-      if (isElement(domReference)) {
-        ancestors = getOverflowAncestors(domReference);
+        const reference = deps.reference;
+        if (!isElement(reference) && reference && reference.contextElement) {
+          ancestors = ancestors.concat(getOverflowAncestors(reference.contextElement));
+        }
       }
 
-      const floatingEl = floatingElement();
-      if (isElement(floatingEl)) {
-        ancestors = ancestors.concat(getOverflowAncestors(floatingEl));
-      }
+      // Ignore the visual viewport for scrolling dismissal (allow pinch-zoom)
+      const scrollCleanups = ancestors
+        .filter((ancestor) => ancestor !== doc.defaultView?.visualViewport)
+        .map((ancestor) => addEventListener(ancestor, 'scroll', onScroll, { passive: true }));
 
-      const reference = referenceElement();
-      if (!isElement(reference) && reference && reference.contextElement) {
-        ancestors = ancestors.concat(getOverflowAncestors(reference.contextElement));
-      }
-    }
-
-    /* Ignore the visual viewport for scrolling dismissal (allow pinch-zoom) */
-    ancestors
-      .filter((ancestor) => ancestor !== doc.defaultView?.visualViewport)
-      .forEach((ancestor) => {
-        ancestor.addEventListener('scroll', onScroll, { passive: true });
-        _c.push(() => ancestor.removeEventListener('scroll', onScroll));
-      });
-
-    _c.push(() => {
-      unsubscribe();
-      compositionTimeout.clear();
-      pressStartedInsideRef = false;
-      pressStartPreventedRef = false;
-      suppressNextOutsideClickRef = false;
-      dataRef().pressStartedInside = false;
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+      return () => {
+        for (const cleanup of scrollCleanups) {
+          cleanup();
+        }
+        unsubscribe();
+        compositionTimeout.clear();
+        preventedPressSuppressionTimeout.clear();
+        pressStartedInsideRef = false;
+        pressStartPreventedRef = false;
+        suppressNextOutsideClickRef = false;
+        dataRef().pressStartedInside = false;
+      };
+    },
+  );
 
   createEffect(...on(outsidePress, clearinsidePortal));
+
+  // A same-batch close+reopen never commits `open === false`, so only `openchange` can
+  // observe that session boundary. The effect above covers controlled flips.
+  createEffect(
+    () => store().context.events,
+    (events) => {
+      function handleOpenChange(details: FloatingUIOpenChangeDetails) {
+        // Only the closing half ends the session: `setOpen(true)` on an already-open
+        // element (hovering an inactive trigger) must not drop a press mid-gesture.
+        if (!details.open) {
+          sawPressWhileOpenRef = false;
+        }
+      }
+
+      events.on('openchange', handleOpenChange);
+      return () => {
+        events.off('openchange', handleOpenChange);
+      };
+    },
+  );
 
   const reference = createMemo<ElementProps['reference']>(() => ({
     onKeyDown: closeOnEscapeKeyDown,
@@ -778,6 +857,50 @@ export function useDismiss(parameters: {
     markPressStartedInsideTree(event);
   };
 
+  const floatingCaptureListeners: Parameters<typeof withCaptureListeners>[0] = {
+    click: markinsidePortal,
+    mousedown: (event) => {
+      markinsidePortal();
+      markPressStartedinsidePortal(event);
+    },
+    pointerdown: (event) => {
+      markinsidePortal();
+      markPressStartedinsidePortal(event);
+    },
+    mouseup: markinsidePortal,
+    touchend: markinsidePortal,
+    touchmove: markinsidePortal,
+  };
+
+  // Solid adaptation: React's capture handlers also see events from portaled descendants (portal
+  // events bubble through the React tree). The element listeners below only see DOM descendants,
+  // so mark events whose target is rendered inside the floating element through a Solid portal.
+  createEffect(
+    () => ({ enabled: props.enabled, floating: floatingElement() }),
+    ({ enabled, floating: floatingValue }) => {
+      if (!enabled || !floatingValue) {
+        return undefined;
+      }
+
+      const doc = ownerDocument(floatingValue);
+      const cleanups = Object.entries(floatingCaptureListeners).map(([type, handler]) =>
+        addEventListener(
+          doc,
+          type as keyof DocumentEventMap,
+          (event: Event) => {
+            const target = getTarget(event) as Element | null;
+            if (!contains(floatingValue, target) && isRenderTreeDescendant(floatingValue, target)) {
+              (handler as (event: Event) => void)(event);
+            }
+          },
+          true,
+        ),
+      );
+
+      return mergeCleanups(...cleanups);
+    },
+  );
+
   const floating: ElementProps['floating'] = {
     onKeyDown: closeOnEscapeKeyDown,
 
@@ -786,20 +909,7 @@ export function useDismiss(parameters: {
      * See https://github.com/mui/base-ui/pull/3379 */
     onPointerDown: markInsidePressStartPrevented,
     onMouseDown: markInsidePressStartPrevented,
-    ref: withCaptureListeners({
-      click: markinsidePortal,
-      mousedown: (event) => {
-        markinsidePortal();
-        markPressStartedinsidePortal(event);
-      },
-      pointerdown: (event) => {
-        markinsidePortal();
-        markPressStartedinsidePortal(event);
-      },
-      mouseup: markinsidePortal,
-      touchend: markinsidePortal,
-      touchmove: markinsidePortal,
-    }),
+    ref: withCaptureListeners(floatingCaptureListeners),
   };
 
   return {

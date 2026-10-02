@@ -1,7 +1,7 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { createRenderer, describeConformance, act } from '#test-utils';
 import { Toggle } from '@solidports/base-ui/toggle';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';
@@ -35,12 +35,10 @@ describe('<Toggle />', () => {
 
       expect(button).to.have.attribute('aria-pressed', 'false');
 
-      checkbox.click();
-
+      act(() => checkbox.click());
       expect(button).to.have.attribute('aria-pressed', 'true');
 
-      checkbox.click();
-
+      act(() => checkbox.click());
       expect(button).to.have.attribute('aria-pressed', 'false');
     });
 
@@ -50,12 +48,10 @@ describe('<Toggle />', () => {
       const button = screen.getByRole('button');
 
       expect(button).to.have.attribute('aria-pressed', 'false');
-      button.click();
-
+      act(() => button.click());
       expect(button).to.have.attribute('aria-pressed', 'true');
 
-      button.click();
-
+      act(() => button.click());
       expect(button).to.have.attribute('aria-pressed', 'false');
     });
   });
@@ -67,10 +63,49 @@ describe('<Toggle />', () => {
 
       const button = screen.getByRole('button');
 
-      button.click();
-
+      act(() => button.click());
       expect(handlePressed.callCount).to.equal(1);
       expect(handlePressed.firstCall.args[0]).to.equal(true);
+    });
+
+    it('does not change the pressed state when the event is canceled', async () => {
+      render(() => (
+        <Toggle
+          defaultPressed={false}
+          onPressedChange={(_pressed, eventDetails) => {
+            eventDetails.cancel();
+          }}
+        />
+      ));
+
+      const button = screen.getByRole('button');
+
+      act(() => button.click());
+
+      expect(button).to.have.attribute('aria-pressed', 'false');
+    });
+
+    it('canceling in a grouped Toggle prevents the group value from changing', async () => {
+      const onValueChange = spy();
+
+      render(() => (
+        <ToggleGroup onValueChange={onValueChange}>
+          <Toggle
+            value="one"
+            onPressedChange={(_pressed, eventDetails) => {
+              eventDetails.cancel();
+            }}
+          />
+          <Toggle value="two" />
+        </ToggleGroup>
+      ));
+
+      const [button1] = screen.getAllByRole('button');
+
+      act(() => button1.click());
+
+      expect(button1).to.have.attribute('aria-pressed', 'false');
+      expect(onValueChange.callCount).to.equal(0);
     });
   });
 
@@ -85,8 +120,7 @@ describe('<Toggle />', () => {
       expect(button).to.have.attribute('data-disabled');
       expect(button).to.have.attribute('aria-pressed', 'false');
 
-      button.click();
-
+      act(() => button.click());
       expect(handlePressed.callCount).to.equal(0);
       expect(button).to.have.attribute('aria-pressed', 'false');
     });

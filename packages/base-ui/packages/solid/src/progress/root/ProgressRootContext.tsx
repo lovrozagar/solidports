@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'solid-js';
-import type { Accessor } from 'solid-js';
-import type { ProgressRoot, ProgressStatus } from './ProgressRoot';
+import type { Accessor, Setter } from 'solid-js';
+import type { ProgressRootState } from './ProgressRoot';
 
 export type ProgressRootContext = {
   /**
@@ -8,20 +8,16 @@ export type ProgressRootContext = {
    */
   formattedValue: Accessor<string>;
   /**
-   * The maximum value.
+   * The value normalized to a `0`–`100` percentage of the range, clamped to those bounds.
+   * `null` while the progress is indeterminate.
    */
-  max: Accessor<number>;
-  /**
-   * The minimum value.
-   */
-  min: Accessor<number>;
+  percentageValue: Accessor<number | null>;
   /**
    * Value of the component.
    */
   value: Accessor<number | null>;
-  state: ProgressRoot.State;
-  status: Accessor<ProgressStatus>;
-  setLabelId: (labelId: string | undefined) => void;
+  setLabelId: Setter<string | undefined>;
+  state: ProgressRootState;
 };
 
 /**

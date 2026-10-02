@@ -6,6 +6,7 @@ import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { popupStateMapping as baseMapping } from '../../utils/popupStateMapping';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
+import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import { Align, Side } from '../../utils/useAnchorPositioning';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -53,43 +54,38 @@ export function NavigationMenuPopup(componentProps: NavigationMenuPopup.Props) {
   };
 
   // Ensure popup size transitions correctly when anchored to `bottom` (side=top) or `right` (side=left).
-  // TODO: this breaks the repositioning due to synchronious change of positioning.side(). Do not use for now.
-  const calculatedStyles = createMemo(() => {
+  const isPhysicalLeft = createMemo(() => {
     const side = positioning.side();
-    const dir = direction();
-
-    let isOriginSide = side === 'top';
-    let isPhysicalLeft = side === 'left';
-    if (dir === 'rtl') {
-      isOriginSide = isOriginSide || side === 'inline-end';
-      isPhysicalLeft = isPhysicalLeft || side === 'inline-end';
+    let physicalLeft = side === 'left';
+    if (direction() === 'rtl') {
+      physicalLeft = physicalLeft || side === 'inline-end';
     } else {
-      isOriginSide = isOriginSide || side === 'inline-start';
-      isPhysicalLeft = isPhysicalLeft || side === 'inline-start';
+      physicalLeft = physicalLeft || side === 'inline-start';
     }
-
-    return { isOriginSide, isPhysicalLeft };
+    return physicalLeft;
   });
+  const isOriginSide = () => positioning.side() === 'top' || isPhysicalLeft();
 
   const element = useRenderElement('nav', componentProps, {
-    props: [
-      {
-        get id() {
-          return id();
-        },
-        tabindex: -1,
-        get style(): JSX.CSSProperties | undefined {
-          return calculatedStyles().isOriginSide
+    get props() {
+      return [
+        {
+          get id() {
+            return id();
+          },
+          tabindex: -1,
+          style: (isOriginSide()
             ? {
                 position: 'absolute',
-                [calculatedStyles().isOriginSide ? 'bottom' : 'top']: '0',
-                [calculatedStyles().isPhysicalLeft ? 'right' : 'left']: '0',
+                [positioning.side() === 'top' ? 'bottom' : 'top']: '0',
+                [isPhysicalLeft() ? 'right' : 'left']: '0',
               }
-            : undefined;
+            : {}) as JSX.CSSProperties,
         },
-      },
-      elementProps,
-    ],
+        getDisabledMountTransitionStyles(transitionStatus()),
+        elementProps,
+      ];
+    },
     ref: setPopupElement,
     state,
     stateAttributesMapping,

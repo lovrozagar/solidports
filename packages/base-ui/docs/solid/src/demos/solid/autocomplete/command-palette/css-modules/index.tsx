@@ -97,7 +97,7 @@ export default function ExampleAutocompleteCommandPalette() {
   );
 }
 
-function MagnifyingGlassIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function MagnifyingGlassIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -105,8 +105,8 @@ function MagnifyingGlassIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

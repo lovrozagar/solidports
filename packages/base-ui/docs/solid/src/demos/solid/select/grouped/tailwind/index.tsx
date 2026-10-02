@@ -65,7 +65,7 @@ export default function ExampleSelectGrouped() {
   );
 }
 
-function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretUpDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -80,7 +80,7 @@ function CaretUpDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -125,7 +125,7 @@ const groupedProduce = [
   },
 ];
 
-function CaretUpIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretUpIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -140,7 +140,7 @@ function CaretUpIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

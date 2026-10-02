@@ -1,7 +1,8 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { act, createRenderer, describeConformance } from '#test-utils';
 import { Meter } from '@solidports/base-ui/meter';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
+import { createSignal } from 'solid-js';
 import { spy } from 'sinon';
 
 describe('<Meter.Value />', () => {
@@ -59,6 +60,29 @@ describe('<Meter.Value />', () => {
 
       expect(renderSpy.lastCall.args[0]).to.deep.equal(formatValue(30));
       expect(renderSpy.lastCall.args[1]).to.deep.equal(30);
+    });
+
+    it('passes updated arguments to the render function when value changes', async () => {
+      const renderSpy = spy();
+      const [value, setValue] = createSignal(30);
+
+      render(() => (
+        <Meter.Root value={value()}>
+          <Meter.Value>{renderSpy}</Meter.Value>
+        </Meter.Root>
+      ));
+
+      expect(renderSpy.lastCall.args[0]).to.deep.equal(
+        (0.3).toLocaleString(undefined, { style: 'percent' }),
+      );
+      expect(renderSpy.lastCall.args[1]).to.deep.equal(30);
+
+      act(() => setValue(60));
+
+      expect(renderSpy.lastCall.args[0]).to.deep.equal(
+        (0.6).toLocaleString(undefined, { style: 'percent' }),
+      );
+      expect(renderSpy.lastCall.args[1]).to.deep.equal(60);
     });
   });
 });

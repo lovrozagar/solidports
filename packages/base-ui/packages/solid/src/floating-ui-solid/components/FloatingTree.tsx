@@ -1,9 +1,9 @@
-import { createContext, createRenderEffect, useContext } from 'solid-js';
+import { createContext, createRenderEffect, useContext, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access } from '../../solid-helpers';
+import { access, live, type MaybeAccessor } from '../../solid-helpers';
 import { useId } from '../../utils/useId';
-import type { FloatingContext, FloatingTreeType } from '../types';
+import type { FloatingContext, FloatingNodeType, FloatingTreeType } from '../types';
 import { FloatingTreeStore } from './FloatingTreeStore';
 
 const FloatingNodeContext = createContext<{
@@ -11,7 +11,7 @@ const FloatingNodeContext = createContext<{
   parentId: Accessor<string | null>;
   context?: FloatingContext;
 } | null>(null);
-const FloatingTreeContext = createContext<FloatingTreeType | null>(null);
+const FloatingTreeContext = createContext<Accessor<FloatingTreeType | null> | null>(null);
 
 /**
  * Returns the parent node id for nested floating elements, if available.
@@ -19,41 +19,60 @@ const FloatingTreeContext = createContext<FloatingTreeType | null>(null);
  */
 export const useFloatingParentNodeId = () => {
   const context = useContext(FloatingNodeContext);
-  return access(context?.id) || null;
+  // Node ids are generated once per node, so the parent id is a constant for this hook's owner
+  // (as in React, where it is read during render).
+  return untrack(() => access(context?.id)) || null;
 };
 
 /**
  * Returns the nearest floating tree context, if available.
  */
 export const useFloatingTree = (externalTree?: FloatingTreeStore): FloatingTreeType | null => {
-  const contextTree = useContext(FloatingTreeContext) as FloatingTreeType | null;
-  return externalTree ?? contextTree;
+  const contextTree = useContext(FloatingTreeContext);
+  return externalTree ?? untrack(() => contextTree?.()) ?? null;
+};
+
+/**
+ * `useFloatingTree` as a live accessor: it follows a changing `externalTree`, as React reads it
+ * on every render. Tracks inside computations and reads untracked elsewhere.
+ */
+export const useFloatingTreeAccessor = (
+  externalTree?: MaybeAccessor<FloatingTreeStore | undefined>,
+): Accessor<FloatingTreeType | null> => {
+  const contextTree = useContext(FloatingTreeContext);
+  return live(() => access(externalTree) ?? contextTree?.() ?? null);
 };
 
 /**
  * Registers a node into the `FloatingTree`, returning its id.
  * @see https://floating-ui.com/docs/FloatingTree
  */
-export function useFloatingNodeId(externalTree?: FloatingTreeStore): Accessor<string | undefined> {
+export function useFloatingNodeId(
+  externalTree?: MaybeAccessor<FloatingTreeStore | undefined>,
+): Accessor<string | undefined> {
   const id = useId();
-  const tree = useFloatingTree(externalTree);
+  const tree = useFloatingTreeAccessor(externalTree);
   const parentContext = useContext(FloatingNodeContext);
+  // `useFloating` attaches its context to the node once. React re-attaches it on every render;
+  // here a node re-created for a new parent carries the context over instead.
+  let nodeContext: FloatingNodeType['context'];
 
   createRenderEffect(
     () => {
       const nodeId = id();
       const parentId = access(parentContext?.id) || null;
-      return { nodeId, parentId, tree };
+      return { nodeId, parentId, tree: tree() };
     },
     ({ nodeId, parentId, tree: currentTree }) => {
       if (!nodeId) {
         return;
       }
 
-      const node = { id: nodeId, parentId };
+      const node: FloatingNodeType = { id: nodeId, parentId, context: nodeContext };
       currentTree?.addNode(node);
 
       return () => {
+        nodeContext = node.context;
         currentTree?.removeNode(node);
       };
     },
@@ -76,11 +95,7 @@ export function FloatingNode(props: FloatingNodeProps): JSX.Element {
   const parentId = useFloatingParentNodeId();
   const contextValue = { id: () => props.id, parentId: () => parentId };
 
-  return (
-    <FloatingNodeContext value={contextValue}>
-      {props.children}
-    </FloatingNodeContext>
-  );
+  return <FloatingNodeContext value={contextValue}>{props.children}</FloatingNodeContext>;
 }
 
 export interface FloatingTreeProps {
@@ -100,7 +115,8 @@ export interface FloatingTreeProps {
  * @internal
  */
 export function FloatingTree(props: FloatingTreeProps): JSX.Element {
-  // eslint-disable-next-line solid/reactivity
-  const tree = props.externalTree ?? new FloatingTreeStore();
+  // Fixed on creation, as React's `useRefWithInit`.
+  const fixedTree = untrack(() => props.externalTree) ?? new FloatingTreeStore();
+  const tree = () => fixedTree;
   return <FloatingTreeContext value={tree}>{props.children}</FloatingTreeContext>;
 }

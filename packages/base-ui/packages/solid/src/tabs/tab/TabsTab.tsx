@@ -1,10 +1,10 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createTrackedEffect, onCleanup } from 'solid-js';
-import type { Accessor } from 'solid-js';
+import { createMemo } from 'solid-js';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';
 import { useCompositeItem } from '../../internals/composite/item/useCompositeItem';
+import { useCompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { activeElement, contains } from '../../floating-ui-solid/utils';
-import { splitComponentProps } from '../../solid-helpers';
+import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
@@ -14,6 +14,7 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { useTabsListContext } from '../list/TabsListContext';
+import { tabsStateAttributesMapping } from '../root/stateAttributesMapping';
 import type { TabsRoot } from '../root/TabsRoot';
 import { useTabsRootContext } from '../root/TabsRootContext';
 
@@ -30,28 +31,30 @@ export function TabsTab(componentProps: TabsTab.Props) {
     'id',
     'nativeButton',
   ]);
-  const disabled = () => Boolean(local.disabled);
-  const idProp = () => local.id;
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
-
-  const { value: activeTabValue, getTabPanelIdByValue, orientation } = useTabsRootContext();
+  const disabled = () => local.disabled ?? false;
+  const value = () => local.value;
+  const nativeButton = () => local.nativeButton ?? true;
 
   const {
-    activateOnFocus,
-    highlightedTabIndex,
-    onTabActivation,
-    registerTabResizeObserverElement,
-    setHighlightedTabIndex,
-    tabsListElement,
-  } = useTabsListContext();
+    value: activeTabValue,
+    getTabPanelIdByValue,
+    onValueChange,
+    orientation,
+    tabActivationDirection,
+  } = useTabsRootContext();
 
-  const id = useBaseUiId(idProp);
+  const { activateOnFocus, registerTabResizeObserverElement, tabsListElement } =
+    useTabsListContext();
 
-  const tabMetadata = {
-    disabled,
-    id,
-    value: () => local.value,
-  };
+  const { highlightedIndex, onHighlightedIndexChange } = useCompositeRootContext();
+
+  const id = useBaseUiId(() => local.id);
+
+  const tabMetadata = createMemo<TabsTab.Metadata>(() => ({
+    disabled: disabled(),
+    id: id(),
+    value: value(),
+  }));
 
   const {
     compositeProps,
@@ -63,115 +66,104 @@ export function TabsTab(componentProps: TabsTab.Props) {
     metadata: tabMetadata,
   });
 
-  const active = () => local.value === activeTabValue();
+  const active = () => value() === activeTabValue();
 
-  let isNavigatingRef = false;
-  let tabElementRef: HTMLElement | null = null;
+  let isNavigating = false;
+  let unobserveTabElement: (() => void) | null = null;
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (!tabElementRef) {
-      return;
-    }
-    const cleanup = registerTabResizeObserverElement(tabElementRef);
-    _c.push(cleanup);
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  // Registered from the ref callback rather than an effect so the observer
+  // follows the rendered element when the `render` prop swaps the host element.
+  function observeTabElement(element: HTMLElement | null | undefined) {
+    unobserveTabElement?.();
+    unobserveTabElement = element ? registerTabResizeObserverElement(element) : null;
+  }
 
   // Keep the highlighted item in sync with the currently active tab
   // when the value prop changes externally (controlled mode)
-  createEffect(
-    () => {
-      if (isNavigatingRef) {
-        return { skip: true as const };
+  // Solid: a user effect, since a render effect's mount-time apply may not write signals.
+  createDepsEffect(
+    () => ({
+      active: active(),
+      index: index(),
+      highlightedIndex: highlightedIndex(),
+      disabled: disabled(),
+      tabsListElement: tabsListElement(),
+    }),
+    (deps) => {
+      if (isNavigating) {
+        isNavigating = false;
+        return;
       }
 
-      if (!(active() && index() > -1 && highlightedTabIndex() !== index())) {
-        return { skip: true as const };
+      if (!(deps.active && deps.index > -1 && deps.highlightedIndex !== deps.index)) {
+        return;
       }
 
-      const listElement = tabsListElement();
+      // If focus is currently within the tabs list, don't override the roving
+      // focus highlight. This keeps keyboard navigation relative to the focused
+      // item after an external/asynchronous selection change.
+      const listElement = deps.tabsListElement;
       if (listElement != null) {
         const activeEl = activeElement(ownerDocument(listElement));
         if (activeEl && contains(listElement, activeEl)) {
-          return { skip: true as const };
+          return;
         }
       }
 
-      if (disabled()) {
-        return { skip: true as const };
+      // Don't highlight disabled tabs to prevent them from interfering with keyboard navigation.
+      // Keyboard focus (tabIndex) should remain on an enabled tab even when a disabled tab is selected.
+      if (!deps.disabled) {
+        onHighlightedIndexChange(deps.index);
       }
-
-      return { skip: false as const, index: index() };
-    },
-    (next) => {
-      if (isNavigatingRef) {
-        isNavigatingRef = false;
-        return;
-      }
-      if (next.skip) {
-        return;
-      }
-      setHighlightedTabIndex(next.index);
     },
   );
 
   const { getButtonProps, buttonRef } = useButton({
     disabled,
-    focusableWhenDisabled: true,
     native: nativeButton,
+    focusableWhenDisabled: true,
   });
 
-  const tabPanelId = () => getTabPanelIdByValue(local.value);
+  const tabPanelId = () => getTabPanelIdByValue(value());
 
-  let isPressingRef = false;
-  let isMainButtonRef = false;
+  let isPressing = false;
+  let isMainButton = false;
 
-  function onClick(event: MouseEvent) {
-    if (active() || disabled()) {
-      return;
-    }
-
-    onTabActivation(
-      local.value,
+  // Both callers guard on `!active`, so the current value is never re-committed.
+  function activate(event: Event) {
+    onValueChange(
+      value(),
       createChangeEventDetails(REASONS.none, event, undefined, {
         activationDirection: 'none',
       }),
     );
   }
 
-  function onFocus(event: FocusEvent) {
-    if (active()) {
+  function onClick(event: MouseEvent) {
+    // Solid: React DOM drops `click` events from the secondary mouse button before they reach
+    // `onClick`; match it.
+    if (event.button === 2) {
       return;
     }
 
-    // Only highlight enabled tabs when focused (disabled tabs remain focusable via focusableWhenDisabled).
-    if (index() > -1 && !disabled()) {
-      setHighlightedTabIndex(index());
+    if (active() || disabled()) {
+      return;
     }
 
-    if (disabled()) {
+    activate(event);
+  }
+
+  function onFocus(event: FocusEvent) {
+    if (active() || disabled()) {
       return;
     }
 
     if (
       activateOnFocus() &&
-      (!isPressingRef || // keyboard or touch focus
-        (isPressingRef && isMainButtonRef)) // mouse focus
+      (!isPressing || // keyboard or touch focus
+        isMainButton) // main mouse button focus
     ) {
-      onTabActivation(
-        local.value,
-        createChangeEventDetails(REASONS.none, event, undefined, {
-          activationDirection: 'none',
-        }),
-      );
+      activate(event);
     }
   }
 
@@ -180,34 +172,44 @@ export function TabsTab(componentProps: TabsTab.Props) {
       return;
     }
 
-    isPressingRef = true;
+    isPressing = true;
+    // Secondary presses (context menu, middle click) may focus the tab, but
+    // must not activate it with `activateOnFocus`.
+    isMainButton = event.button === 0;
 
-    function handlePointerUp() {
-      isPressingRef = false;
-      isMainButtonRef = false;
+    // Registered for every button so a secondary press doesn't leave the tab
+    // stuck in the pressing state, which would suppress later focus activation.
+    const doc = ownerDocument(event.currentTarget as Element);
+
+    function handlePointerEnd() {
+      isPressing = false;
+      isMainButton = false;
+      doc.removeEventListener('pointerup', handlePointerEnd);
+      doc.removeEventListener('pointercancel', handlePointerEnd);
     }
 
-    if (!event.button || event.button === 0) {
-      isMainButtonRef = true;
-
-      const doc = ownerDocument(event.currentTarget as Element);
-      doc.addEventListener('pointerup', handlePointerUp, { once: true });
-    }
+    doc.addEventListener('pointerup', handlePointerEnd);
+    doc.addEventListener('pointercancel', handlePointerEnd);
   }
 
-  const state: TabsTab.State = {
-    get active() {
-      return active();
-    },
+  const state: TabsTabState = {
     get disabled() {
       return disabled();
+    },
+    get active() {
+      return active();
     },
     get orientation() {
       return orientation();
     },
+    get tabActivationDirection() {
+      return tabActivationDirection();
+    },
   };
 
   const element = useRenderElement('button', componentProps, {
+    state,
+    ref: [buttonRef, setCompositeRef, observeTabElement],
     props: [
       compositeProps,
       {
@@ -221,27 +223,23 @@ export function TabsTab(componentProps: TabsTab.Props) {
         get id() {
           return id();
         },
-        get [ACTIVE_COMPOSITE_ITEM as string]() {
-          return active() ? '' : undefined;
-        },
         onClick,
         onFocus,
         onPointerDown,
+        get [ACTIVE_COMPOSITE_ITEM as string]() {
+          return active() ? '' : undefined;
+        },
+        // Solid: React's `onKeyDownCapture`.
         ref: withCaptureListeners({
           keydown: () => {
-            isNavigatingRef = true;
+            isNavigating = true;
           },
         }),
       },
       elementProps,
       getButtonProps,
     ],
-    ref: (el) => {
-      tabElementRef = el ?? null;
-      buttonRef(el);
-      setCompositeRef(el);
-    },
-    state,
+    stateAttributesMapping: tabsStateAttributesMapping,
   });
 
   return <>{element()}</>;
@@ -264,9 +262,9 @@ export interface TabsTabSize {
 }
 
 export interface TabsTabMetadata {
-  disabled: Accessor<boolean>;
-  id: Accessor<string | undefined>;
-  value: Accessor<TabsTab.Value | undefined>;
+  disabled: boolean;
+  id: string | undefined;
+  value: TabsTab.Value | undefined;
 }
 
 export interface TabsTabState {
@@ -274,12 +272,22 @@ export interface TabsTabState {
    * Whether the component should ignore user interaction.
    */
   disabled: boolean;
+  /**
+   * Whether the component is active.
+   */
   active: boolean;
+  /**
+   * The component orientation.
+   */
   orientation: TabsRoot.Orientation;
+  /**
+   * The direction used for tab activation.
+   */
+  tabActivationDirection: TabsTab.ActivationDirection;
 }
 
 export interface TabsTabProps
-  extends NativeButtonProps, BaseUIComponentProps<'button', TabsTab.State> {
+  extends NativeButtonProps, BaseUIComponentProps<'button', TabsTabState> {
   /**
    * The value of the Tab.
    */

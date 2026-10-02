@@ -62,6 +62,8 @@ function Inner(componentProps: ComboboxItemIndicator.Props) {
   });
 
   useOpenChangeComplete({
+    batch: true,
+    enabled: () => !selected(),
     onComplete() {
       if (!selected()) {
         setMounted(false);

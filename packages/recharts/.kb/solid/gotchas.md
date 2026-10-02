@@ -2107,3 +2107,7 @@ Rule: every write of `chartData` / `computedData` goes through `markRawData` (sr
 ## GOTCHA-026: lists whose entries are rebuilt use index slots
 
 Legend payload entries are new objects whenever an item toggles `inactive`. An identity-keyed `<For>` replaces every `<li>`, so a node captured before a click is detached afterwards. Upstream keys legend items by index (`legend-item-${i}`); `DefaultLegendContent` uses `<For keyed={false}>` to match.
+
+## GOTCHA-027: render-prop animators must call children once
+
+React re-renders `children(style)` into the same DOM node; Solid re-invoking a children function creates new nodes. For CSS transitions that is fatal: the new element mounts already at `to` with `transition` set, so nothing animates (Treemap's slide-in, ErrorBar's scale-in). `JavascriptAnimate` and `CSSTransitionAnimate` call children once with an accessor (`(t) => …t()`, `(style) => <g style={style()} />`); only the bound attributes update. `test/animation/CSSTransitionAnimate.timing.spec.tsx` "element identity" guards it.

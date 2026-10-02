@@ -1,8 +1,7 @@
-import { createTrackedEffect, onCleanup } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { useRegisteredLabelId } from '../../utils/useRegisteredLabelId';
 import { useFieldsetRootContext } from '../root/FieldsetRootContext';
 
 /**
@@ -13,35 +12,20 @@ import { useFieldsetRootContext } from '../root/FieldsetRootContext';
  */
 export function FieldsetLegend(componentProps: FieldsetLegend.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['id']);
-  const idProp = () => local.id;
 
   const { disabled, setLegendId } = useFieldsetRootContext();
 
-  const id = useBaseUiId(idProp);
-
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    setLegendId(id());
-    _c.push(() => {
-      setLegendId(undefined);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  // Solid: JSX `id` may be `false` (remove the attribute), which means no explicit id.
+  const id = useRegisteredLabelId(() => (local.id === false ? undefined : local.id), setLegendId);
 
   const state: FieldsetLegend.State = {
     get disabled() {
-      return disabled() ?? false;
+      return disabled();
     },
   };
 
   const element = useRenderElement('div', componentProps, {
+    state,
     props: [
       {
         get id() {
@@ -50,7 +34,6 @@ export function FieldsetLegend(componentProps: FieldsetLegend.Props) {
       },
       elementProps,
     ],
-    state,
   });
 
   return <>{element()}</>;
@@ -63,7 +46,7 @@ export interface FieldsetLegendState {
   disabled: boolean;
 }
 
-export interface FieldsetLegendProps extends BaseUIComponentProps<'div', FieldsetLegend.State> {}
+export interface FieldsetLegendProps extends BaseUIComponentProps<'div', FieldsetLegendState> {}
 
 export namespace FieldsetLegend {
   export type State = FieldsetLegendState;

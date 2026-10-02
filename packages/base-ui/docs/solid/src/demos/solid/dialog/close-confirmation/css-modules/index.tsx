@@ -16,7 +16,7 @@ export default function ExampleDialog() {
       open={dialogOpen()}
       onOpenChange={(open) => {
         // Show the close confirmation if there’s text in the textarea
-        if (!open && textareaValue) {
+        if (!open && textareaValue()) {
           setConfirmationOpen(true);
         } else {
           // Reset the text area value
@@ -48,7 +48,7 @@ export default function ExampleDialog() {
                 class={styles.Textarea}
                 placeholder="What’s on your mind?"
                 value={textareaValue()}
-                onChange={(event) => setTextareaValue(event.target.value)}
+                onInput={(event) => setTextareaValue(event.target.value)}
               />
               <div class={styles.Actions}>
                 <Dialog.Close class={styles.Button}>Cancel</Dialog.Close>

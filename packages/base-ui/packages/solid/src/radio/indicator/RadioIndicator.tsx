@@ -1,11 +1,13 @@
 import { Show } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, useRef } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { type TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
+import type { RadioRootState } from '../root/RadioRoot';
 import { useRadioRootContext } from '../root/RadioRootContext';
 import { stateAttributesMapping } from '../utils/stateAttributesMapping';
+import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * Indicates whether the radio button is selected.
@@ -19,56 +21,43 @@ export function RadioIndicator(componentProps: RadioIndicator.Props) {
 
   const rootState = useRadioRootContext();
 
-  const rendered = rootState.checked;
+  const rendered = () => rootState.checked;
 
   const { mounted, transitionStatus, setMounted } = useTransitionStatus(rendered);
 
-  const state: RadioIndicator.State = {
-    get checked() {
-      return rootState.checked();
-    },
-    // @ts-expect-error - disabled is not part of the RadioIndicator.State
-    get disabled() {
-      return rootState.disabled();
-    },
-    get readOnly() {
-      return rootState.readOnly();
-    },
-    get required() {
-      return rootState.required();
-    },
+  const state: RadioIndicatorState = solidMergeProps(rootState, {
     get transitionStatus() {
       return transitionStatus();
     },
-  };
+  });
 
-  let indicatorRef = null as HTMLSpanElement | null | undefined;
+  const indicatorRef = useRef<HTMLSpanElement | null | undefined>(null);
 
   const shouldRender = () => keepMounted() || mounted();
 
   const element = useRenderElement('span', componentProps, {
-    props: elementProps,
-    ref: (el) => {
-      indicatorRef = el;
-    },
+    ref: indicatorRef,
     state,
+    props: elementProps,
     stateAttributesMapping,
   });
 
   useOpenChangeComplete({
+    batch: true,
+    enabled: () => !rendered(),
+    open: rendered,
+    ref: () => indicatorRef.current,
     onComplete() {
       if (!rendered()) {
         setMounted(false);
       }
     },
-    open: rendered,
-    ref: () => indicatorRef,
   });
 
   return <Show when={shouldRender()}>{element()}</Show>;
 }
 
-export interface RadioIndicatorProps extends BaseUIComponentProps<'span', RadioIndicator.State> {
+export interface RadioIndicatorProps extends BaseUIComponentProps<'span', RadioIndicatorState> {
   /**
    * Whether to keep the HTML element in the DOM when the radio button is inactive.
    * @default false
@@ -76,11 +65,10 @@ export interface RadioIndicatorProps extends BaseUIComponentProps<'span', RadioI
   keepMounted?: boolean | undefined;
 }
 
-export interface RadioIndicatorState {
+export interface RadioIndicatorState extends RadioRootState {
   /**
-   * Whether the radio button is currently selected.
+   * The transition status of the component.
    */
-  checked: boolean;
   transitionStatus: TransitionStatus;
 }
 

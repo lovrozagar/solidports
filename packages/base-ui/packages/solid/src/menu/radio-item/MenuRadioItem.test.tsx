@@ -1,7 +1,7 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { expect, vi } from 'vitest';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
 import { spy } from 'sinon';
 
 import { MenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
@@ -36,6 +36,28 @@ describe('<Menu.RadioItem />', () => {
         )),
     }),
   );
+
+  it('throws when rendered outside Menu.RadioGroup', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() =>
+        render(() => (
+          <Menu.Root open>
+            <Menu.RadioItem value="one" />
+          </Menu.Root>
+        )),
+      ).to.throw(
+        'Base UI: MenuRadioGroupContext is missing. MenuRadioGroup parts must be placed within <Menu.RadioGroup>.',
+      );
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
 
   it('perf: does not rerender menu items unnecessarily', async ({ skip }) => {
     if (isJSDOM) {
@@ -178,6 +200,45 @@ describe('<Menu.RadioItem />', () => {
       });
     });
 
+    it.skipIf(isJSDOM)(
+      'does not select when Space is pressed during an active typeahead session',
+      async () => {
+        const onValueChange = spy();
+        const { user } = render(() => (
+          <Menu.Root open>
+            <Menu.Portal>
+              <Menu.Positioner>
+                <Menu.Popup>
+                  <Menu.RadioGroup defaultValue={0} onValueChange={onValueChange}>
+                    <Menu.RadioItem value={1}>Item One</Menu.RadioItem>
+                    <Menu.RadioItem value={2}>Item Two</Menu.RadioItem>
+                  </Menu.RadioGroup>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        ));
+
+        const [itemOne, itemTwo] = screen.getAllByRole('menuitemradio');
+
+        await act(async () => {
+          itemOne.focus();
+        });
+
+        await user.keyboard('Item T');
+
+        await waitFor(() => {
+          expect(itemTwo).toHaveFocus();
+        });
+
+        await user.keyboard('[Space]');
+        await user.keyboard('[Space]');
+
+        expect(onValueChange.callCount > 0).to.equal(false);
+        expect(itemTwo).to.have.attribute('aria-checked', 'false');
+      },
+    );
+
     it('calls `onValueChange` when the item is clicked', async () => {
       const onValueChange = spy();
       const { user } = render(() => (
@@ -203,6 +264,37 @@ describe('<Menu.RadioItem />', () => {
 
       expect(onValueChange.callCount).to.equal(1);
       expect(onValueChange.lastCall.args[0]).to.equal(1);
+    });
+
+    it('does not select when `onValueChange` cancels the event', async () => {
+      const { user } = render(() => (
+        <Menu.Root>
+          <Menu.Trigger>Open</Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner>
+              <Menu.Popup>
+                <Menu.RadioGroup
+                  defaultValue={0}
+                  onValueChange={(_, eventDetails) => {
+                    eventDetails.cancel();
+                  }}
+                >
+                  <Menu.RadioItem value={1}>Item</Menu.RadioItem>
+                </Menu.RadioGroup>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      ));
+
+      const trigger = screen.getByRole('button', { name: 'Open' });
+      await user.click(trigger);
+
+      const item = screen.getByRole('menuitemradio');
+      await user.click(item);
+
+      expect(item).to.have.attribute('aria-checked', 'false');
+      expect(item).not.to.have.attribute('data-checked');
     });
 
     it('keeps the state when closed and reopened', async () => {

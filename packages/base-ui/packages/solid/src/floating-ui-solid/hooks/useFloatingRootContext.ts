@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isElement } from '@floating-ui/utils/dom';
-import { createTrackedEffect, createEffect } from 'solid-js';
+import { createEffect } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { PopupTriggerMap } from '../../utils/popups';
@@ -26,16 +26,18 @@ export function useFloatingRootContext(options: UseFloatingRootContextOptions): 
   const nested = useFloatingParentNodeId() != null;
 
   if (process.env.NODE_ENV !== 'production') {
-    createTrackedEffect(() => {
-      const optionDomReference = props.elements?.reference;
-      if (optionDomReference && !isElement(optionDomReference)) {
-        console.error(
-          'Cannot pass a virtual element to the `elements.reference` option,',
-          'as it must be a real DOM element. Use `refs.setPositionReference()`',
-          'instead.',
-        );
-      }
-    });
+    createEffect(
+      () => props.elements?.reference,
+      (optionDomReference) => {
+        if (optionDomReference && !isElement(optionDomReference)) {
+          console.error(
+            'Cannot pass a virtual element to the `elements.reference` option,',
+            'as it must be a real DOM element. Use `refs.setPositionReference()`',
+            'instead.',
+          );
+        }
+      },
+    );
   }
 
   const store = FloatingRootStore({

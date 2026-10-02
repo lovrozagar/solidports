@@ -35,7 +35,7 @@ export default function ExampleToggleGroupMultiple() {
   );
 }
 
-function BoldIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function BoldIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -50,7 +50,7 @@ function BoldIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function ItalicIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function ItalicIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -65,7 +65,7 @@ function ItalicIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function UnderlineIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function UnderlineIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

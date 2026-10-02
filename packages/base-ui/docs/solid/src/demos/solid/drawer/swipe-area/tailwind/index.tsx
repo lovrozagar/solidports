@@ -4,7 +4,7 @@ import { createSignal } from 'solid-js';
 import { Drawer } from '@solidports/base-ui/drawer';
 
 export default function ExampleDrawerSwipeArea() {
-  const [portalContainer, setPortalContainer] = createSignal(null);
+  const [portalContainer, setPortalContainer] = createSignal<HTMLDivElement | null>(null);
 
   return (
     <div

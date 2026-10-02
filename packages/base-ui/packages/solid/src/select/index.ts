@@ -2,6 +2,7 @@ export * as Select from './index.parts';
 
 export type * from './arrow/SelectArrow';
 export type * from './backdrop/SelectBackdrop';
+export type * from './label/SelectLabel';
 export type * from './group-label/SelectGroupLabel';
 export type * from './group/SelectGroup';
 export type * from './icon/SelectIcon';

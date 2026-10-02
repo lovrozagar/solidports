@@ -1,9 +1,9 @@
-import { createRenderer, isJSDOM, wait } from '#test-utils';
+import { act, createRenderer, isJSDOM, wait } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { spy } from 'sinon';
-import { createSignal } from 'solid-js';
+import { createRenderEffect, createSignal, Show } from 'solid-js';
 
 describe('<MenuRoot />', () => {
   beforeEach(() => {
@@ -11,6 +11,302 @@ describe('<MenuRoot />', () => {
   });
 
   const { render } = createRenderer();
+
+  describe.skipIf(isJSDOM)('handle-backed root ownership', () => {
+    type NumberPayload = { payload: number | undefined };
+
+    it('ignores imperative handle calls made before a root is attached', async () => {
+      const handle = Menu.createHandle<number>();
+
+      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      handle.open('trigger');
+      handle.close();
+      const detachedWarnings = consoleWarn.mock.calls.filter(
+        ([message]) =>
+          typeof message === 'string' && message.includes('no root using this handle is mounted'),
+      );
+      consoleWarn.mockRestore();
+
+      expect(handle.isOpen).to.equal(false);
+      expect(detachedWarnings).to.have.length(2);
+
+      const { user } = render(() => (
+        <>
+          <Menu.Trigger handle={handle} id="trigger" payload={1}>
+            Trigger
+          </Menu.Trigger>
+          <Menu.Root handle={handle}>
+            {(data: NumberPayload) => (
+              <>
+                <span data-testid="payload">{data.payload ?? 'No payload'}</span>
+                <Menu.Portal>
+                  <Menu.Positioner>
+                    <Menu.Popup>
+                      <Menu.Item>Menu Content</Menu.Item>
+                    </Menu.Popup>
+                  </Menu.Positioner>
+                </Menu.Portal>
+              </>
+            )}
+          </Menu.Root>
+        </>
+      ));
+
+      expect(screen.queryByRole('menu')).to.equal(null);
+      expect(screen.getByTestId('payload').textContent).to.equal('No payload');
+
+      await user.click(screen.getByRole('button', { name: 'Trigger' }));
+      await screen.findByRole('menu');
+      expect(screen.getByTestId('payload').textContent).to.equal('1');
+    });
+
+    it('ignores imperative handle calls made after the root is detached', async () => {
+      const handle = Menu.createHandle<number>();
+
+      function App() {
+        const [mounted, setMounted] = createSignal(true);
+
+        return (
+          <>
+            <Menu.Trigger handle={handle} id="trigger" payload={1}>
+              Trigger
+            </Menu.Trigger>
+            <Show when={!mounted()}>
+              <button type="button" onClick={() => setMounted(true)}>
+                Remount root
+              </button>
+            </Show>
+            <Show when={mounted()}>
+              <Menu.Root handle={handle}>
+                {(data: NumberPayload) => (
+                  <>
+                    <span data-testid="payload">{data.payload ?? 'No payload'}</span>
+                    <Menu.Portal>
+                      <Menu.Positioner>
+                        <Menu.Popup>
+                          <Menu.Item onClick={() => setMounted(false)}>Unmount root</Menu.Item>
+                        </Menu.Popup>
+                      </Menu.Positioner>
+                    </Menu.Portal>
+                  </>
+                )}
+              </Menu.Root>
+            </Show>
+          </>
+        );
+      }
+
+      const { user } = render(() => <App />);
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+
+      await user.click(trigger);
+      await screen.findByRole('menu');
+      expect(screen.getByTestId('payload').textContent).to.equal('1');
+
+      await user.click(screen.getByRole('menuitem', { name: 'Unmount root' }));
+      expect(handle.isOpen).to.equal(false);
+      await waitFor(() => {
+        expect(screen.queryByRole('menu')).to.equal(null);
+      });
+
+      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      handle.open('trigger');
+      handle.close();
+      const detachedWarnings = consoleWarn.mock.calls.filter(
+        ([message]) =>
+          typeof message === 'string' && message.includes('no root using this handle is mounted'),
+      );
+      consoleWarn.mockRestore();
+
+      expect(handle.isOpen).to.equal(false);
+      expect(detachedWarnings).to.have.length(2);
+
+      await user.click(screen.getByRole('button', { name: 'Remount root' }));
+      expect(screen.queryByRole('menu')).to.equal(null);
+      expect(screen.getByTestId('payload').textContent).to.equal('No payload');
+
+      await user.click(trigger);
+      await screen.findByRole('menu');
+      expect(screen.getByTestId('payload').textContent).to.equal('1');
+    });
+
+    it('registers a detached trigger declared after the root', async () => {
+      const handle = Menu.createHandle();
+
+      const { user } = render(() => (
+        <>
+          <Menu.Root handle={handle}>
+            <Menu.Portal>
+              <Menu.Positioner>
+                <Menu.Popup>
+                  <Menu.Item>Menu Content</Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+          <Menu.Trigger handle={handle} id="trigger">
+            Trigger
+          </Menu.Trigger>
+        </>
+      ));
+
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+
+      await user.click(trigger);
+      await screen.findByRole('menu');
+
+      expect(trigger).to.have.attribute('aria-expanded', 'true');
+    });
+
+    it('throws when called with an unregistered trigger id', async () => {
+      const handle = Menu.createHandle();
+
+      render(() => (
+        <>
+          <Menu.Root handle={handle}>
+            <Menu.Portal>
+              <Menu.Positioner>
+                <Menu.Popup>
+                  <Menu.Item>Menu Content</Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+          <Menu.Trigger handle={handle} id="trigger">
+            Trigger
+          </Menu.Trigger>
+        </>
+      ));
+
+      expect(() => handle.open('missing')).to.throw('was called with the trigger id "missing"');
+      expect(handle.isOpen).to.equal(false);
+    });
+
+    describe('multiple roots sharing one handle', () => {
+      // Fake timers so the deferred overlap check only runs when ticked, after the handoff settles.
+      // Solid: the browser-mode test clock's `withFakeTimers()` applies to the whole file, so the
+      // fake timers are scoped to this block directly.
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it('warns when a handle stays attached to more than one mounted root', async () => {
+        const handle = Menu.createHandle();
+        const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+        render(() => (
+          <>
+            <Menu.Root handle={handle}>
+              <Menu.Portal>
+                <Menu.Positioner>
+                  <Menu.Popup>
+                    <Menu.Item>First</Menu.Item>
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
+            <Menu.Root handle={handle}>
+              <Menu.Portal>
+                <Menu.Positioner>
+                  <Menu.Popup>
+                    <Menu.Item>Second</Menu.Item>
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
+          </>
+        ));
+
+        // Both roots stay mounted, so the deferred check still sees the overlap and warns.
+        act(() => {
+          vi.advanceTimersByTime(20);
+        });
+
+        const overlapWarned = consoleWarn.mock.calls.some(
+          ([message]) =>
+            typeof message === 'string' && message.includes('more than one mounted root'),
+        );
+        expect(overlapWarned).to.equal(true);
+        consoleWarn.mockRestore();
+      });
+
+      it('resolves a trigger still registered to the previous root during a transient overlap', async () => {
+        const handle = Menu.createHandle();
+        const openErrors: unknown[] = [];
+
+        function OpenOnMount() {
+          // Solid: a render effect stands in for React's layout effect.
+          createRenderEffect(
+            () => undefined,
+            () => {
+              try {
+                handle.open('trigger');
+              } catch (error) {
+                openErrors.push(error);
+              }
+            },
+          );
+          return null;
+        }
+
+        const [phase, setPhase] = createSignal<'outgoing' | 'overlap' | 'incoming'>('outgoing');
+
+        function App() {
+          return (
+            <>
+              <Menu.Trigger handle={handle} id="trigger">
+                Trigger
+              </Menu.Trigger>
+              <Show when={phase() === 'outgoing' || phase() === 'overlap'}>
+                <Menu.Root handle={handle}>
+                  <Menu.Portal>
+                    <Menu.Positioner>
+                      <Menu.Popup>
+                        <Menu.Item>Outgoing</Menu.Item>
+                      </Menu.Popup>
+                    </Menu.Positioner>
+                  </Menu.Portal>
+                </Menu.Root>
+              </Show>
+              <Show when={phase() === 'overlap' || phase() === 'incoming'}>
+                <Menu.Root handle={handle}>
+                  <Menu.Portal>
+                    <Menu.Positioner>
+                      <Menu.Popup>
+                        <Menu.Item>Incoming</Menu.Item>
+                      </Menu.Popup>
+                    </Menu.Positioner>
+                  </Menu.Portal>
+                </Menu.Root>
+                <OpenOnMount />
+              </Show>
+            </>
+          );
+        }
+
+        // The detached trigger settles into the outgoing root's store (it is no longer in the
+        // fallback map). The incoming root then attaches while the outgoing one is still mounted,
+        // and a render effect in that same flush opens by trigger id — before the trigger has
+        // migrated to the incoming root's store.
+        render(() => <App />);
+        await act(() => setPhase('overlap'));
+
+        expect(openErrors).to.have.length(0);
+        expect(handle.isOpen).to.equal(true);
+        expect(screen.getByRole('button', { name: 'Trigger' })).to.have.attribute(
+          'aria-expanded',
+          'true',
+        );
+
+        // Completing the handoff (the outgoing root unmounts) keeps the popup open and associated.
+        await act(() => setPhase('incoming'));
+        expect(handle.isOpen).to.equal(true);
+      });
+    });
+  });
 
   describe.skipIf(isJSDOM)('multiple triggers within Root', () => {
     type NumberPayload = { payload: number | undefined };
@@ -724,6 +1020,57 @@ describe('<MenuRoot />', () => {
       ));
 
       expect(screen.getByTestId('popup-content').textContent).to.equal('2');
+    });
+
+    it('should not have inline scale style after switching triggers', async () => {
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+
+      const testMenu = Menu.createHandle<number>();
+
+      function Test() {
+        return (
+          <>
+            <Menu.Trigger handle={testMenu} payload={1}>
+              Trigger 1
+            </Menu.Trigger>
+            <Menu.Trigger handle={testMenu} payload={2}>
+              Trigger 2
+            </Menu.Trigger>
+
+            <Menu.Root handle={testMenu}>
+              {(data: NumberPayload) => (
+                <Menu.Portal>
+                  <Menu.Positioner>
+                    <Menu.Popup data-testid="popup">
+                      <Menu.Viewport>
+                        <Menu.Item data-testid="content">{data.payload}</Menu.Item>
+                      </Menu.Viewport>
+                    </Menu.Popup>
+                  </Menu.Positioner>
+                </Menu.Portal>
+              )}
+            </Menu.Root>
+          </>
+        );
+      }
+
+      const { user } = render(() => <Test />);
+
+      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
+      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
+
+      await user.click(trigger1);
+      await waitFor(() => {
+        expect(screen.getByTestId('content').textContent).to.equal('1');
+      });
+
+      await user.click(trigger2);
+      await waitFor(() => {
+        expect(screen.getByTestId('content').textContent).to.equal('2');
+      });
+
+      const popup = screen.getByTestId('popup');
+      expect(popup.style.scale).to.equal('');
     });
 
     describe('nested menus', () => {

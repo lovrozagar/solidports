@@ -1,5 +1,5 @@
 import { isElement } from '@floating-ui/utils/dom';
-import { createTrackedEffect, createEffect, onCleanup, untrack } from 'solid-js';
+import { createEffect, onCleanup, untrack } from 'solid-js';
 
 import { defaultProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -10,10 +10,11 @@ import { mergeCleanups } from '../../utils/mergeCleanups';
 import { useTimeout } from '../../utils/useTimeout';
 import { useFloatingParentNodeId, useFloatingTree } from '../components/FloatingTree';
 import type { FloatingContext, FloatingRootContext } from '../types';
-import { contains, getTarget } from '../utils';
+import { contains, getTarget, isTargetInsideEnabledTrigger } from '../utils';
 import { getNodeChildren } from '../utils/nodes';
 import {
   applySafePolygonPointerEventsMutation,
+  resolveHoverInteractionSharedState,
   clearSafePolygonPointerEventsMutation,
   useHoverInteractionSharedState,
   type HoverInteraction,
@@ -49,16 +50,18 @@ export function useHoverFloatingInteraction(parameters: {
   parameters: UseHoverFloatingInteractionProps;
 }): void {
   const props = defaultProps(parameters.parameters, { closeDelay: 0, enabled: true });
-  const store =
+  // Re-read per use: parts like NavigationMenu swap the context per active trigger, as React
+  // re-reads it every render.
+  const store = () =>
     'rootStore' in parameters.context ? parameters.context.rootStore : parameters.context;
 
-  const open = store.useState('open');
-  const floatingElement = store.useState('floatingElement');
-  const domReferenceElement = store.useState('domReferenceElement');
+  const open = () => store().select('open');
+  const floatingElement = () => store().select('floatingElement');
+  const domReferenceElement = () => store().select('domReferenceElement');
 
   const hoverState = useHoverInteractionSharedState({
     get store() {
-      return store;
+      return store();
     },
   });
   const [instance, setInstanceState] = hoverState;
@@ -67,18 +70,17 @@ export function useHoverFloatingInteraction(parameters: {
   const parentId = useFloatingParentNodeId();
 
   const isClickLikeOpenEvent = () =>
-    isClickLikeOpenEventShared(store.context.dataRef.openEvent?.type, instance.interactedInside);
+    isClickLikeOpenEventShared(store().context.dataRef.openEvent?.type, instance.interactedInside);
 
-  const isHoverOpen = () =>
-    store.context.dataRef.openEvent?.type?.includes('mouse') &&
-    store.context.dataRef.openEvent.type !== 'mousedown';
-
-  
+  const isHoverOpen = () => {
+    const type = store().context.dataRef.openEvent?.type;
+    return type?.includes('mouse') && type !== 'mousedown';
+  };
 
   const closeWithDelay = (event: MouseEvent) => {
     const closeDelay = getDelay(props.closeDelay, 'close', instance.pointerType);
     const close = () => {
-      store.setOpen(false, createChangeEventDetails(REASONS.triggerHover, event));
+      store().setOpen(false, createChangeEventDetails(REASONS.triggerHover, event));
       tree?.events.emit('floating.closed', event);
     };
     if (closeDelay) {
@@ -98,8 +100,8 @@ export function useHoverFloatingInteraction(parameters: {
     setInstanceState('interactedInside', target?.closest('[aria-haspopup]') != null);
   };
 
-  createTrackedEffect(() => {
-    if (!open()) {
+  createEffect(open, (isOpen) => {
+    if (!isOpen) {
       /* untrack: setInstanceState and clearPointerEvents both read from the
        * hoverState Solid store. Those reads must not establish tracking
        * dependencies here — they're write-only side effects in response to
@@ -107,13 +109,11 @@ export function useHoverFloatingInteraction(parameters: {
        * (e.g. performedPointerEventsMutation false→true) re-triggers this
        * effect, creating a reactive cycle that overflows the call stack. */
       untrack(() => {
-        setInstanceState(
-          (i: HoverInteraction) => {
-            i.pointerType = undefined;
-            i.restTimeoutPending = false;
-            i.interactedInside = false;
-          },
-        );
+        setInstanceState((i: HoverInteraction) => {
+          i.pointerType = undefined;
+          i.restTimeoutPending = false;
+          i.interactedInside = false;
+        });
         clearPointerEvents();
       });
     }
@@ -123,7 +123,8 @@ export function useHoverFloatingInteraction(parameters: {
     clearPointerEvents();
   });
 
-  createEffect(...on(
+  createEffect(
+    ...on(
       [() => props.enabled, open, domReferenceElement, floatingElement],
       ([enabled, isOpen, domReference, floatingEl]) => {
         if (!enabled) {
@@ -148,21 +149,32 @@ export function useHoverFloatingInteraction(parameters: {
             parentFloating.style.pointerEvents = '';
           }
 
+          // A keep-mounted submenu can appear in the tree before it opens, so a
+          // cached scope or parent lookup may resolve to the submenu itself. That
+          // would not shield sibling items in the parent menu.
+          const cachedScopeElement = untrack(() =>
+            instance.pointerEventsScopeElement !== resolvedFloatingEl
+              ? instance.pointerEventsScopeElement
+              : null,
+          );
+          const parentScopeElement = parentFloating !== resolvedFloatingEl ? parentFloating : null;
           const scopeElement =
             untrack(() => instance.handleCloseOptions?.getScope?.()) ??
-            untrack(() => instance.pointerEventsScopeElement) ??
-            parentFloating ??
+            cachedScopeElement ??
+            parentScopeElement ??
             (ref.closest('[data-rootownerid]') as HTMLElement | SVGSVGElement | null) ??
             doc.body;
 
-          applySafePolygonPointerEventsMutation(hoverState, {
+          // Solid: the live view follows store swaps, so pin the applied instance for cleanup.
+          const appliedState = resolveHoverInteractionSharedState(hoverState);
+          applySafePolygonPointerEventsMutation(appliedState, {
             floatingElement: resolvedFloatingEl,
             referenceElement: ref,
             scopeElement,
           });
 
           return () => {
-            clearPointerEvents();
+            clearSafePolygonPointerEventsMutation(appliedState);
           };
         }
       },
@@ -171,9 +183,14 @@ export function useHoverFloatingInteraction(parameters: {
 
   const childClosedTimeout = useTimeout();
 
-  createEffect(...on([() => props.enabled, floatingElement], ([enabled, floating]) => {
+  createEffect(
+    ...on([() => props.enabled, floatingElement], ([enabled, floating]) => {
       if (!enabled) {
         return;
+      }
+
+      function hasParentChildren() {
+        return !!(tree && parentId && getNodeChildren(tree.nodesRef, parentId).length > 0);
       }
 
       function onFloatingMouseEnter() {
@@ -184,12 +201,18 @@ export function useHoverFloatingInteraction(parameters: {
       }
 
       function onFloatingMouseLeave(event: MouseEvent) {
-        if (tree && parentId && getNodeChildren(tree.nodesRef, parentId).length > 0) {
+        if (hasParentChildren() && tree) {
           tree.events.on('floating.closed', onNodeClosed);
           return;
         }
 
-        const currentNodeId = store.context.dataRef.floatingContext?.nodeId?.() ?? props.nodeId;
+        if (isTargetInsideEnabledTrigger(event.relatedTarget, store().context.triggerElements)) {
+          // If the mouse is leaving the reference element to another trigger, don't explicitly close the popup
+          // as it will be moved.
+          return;
+        }
+
+        const currentNodeId = store().context.dataRef.floatingContext?.nodeId?.() ?? props.nodeId;
         const relatedTarget = event.relatedTarget;
         const isMovingIntoDescendantFloating =
           tree &&
@@ -210,18 +233,19 @@ export function useHoverFloatingInteraction(parameters: {
         }
 
         clearPointerEvents();
-        if (!isClickLikeOpenEvent()) {
+        if (isHoverOpen() && !isClickLikeOpenEvent()) {
           closeWithDelay(event);
         }
       }
 
       function onNodeClosed(event: MouseEvent) {
-        if (!tree || !parentId || getNodeChildren(tree.nodesRef, parentId).length > 0) {
+        if (!tree || !parentId || hasParentChildren()) {
           return;
         }
+        // Allow the mouseenter event to fire in case child was closed because mouse moved into parent.
         childClosedTimeout.start(0, () => {
           tree.events.off('floating.closed', onNodeClosed);
-          store.setOpen(false, createChangeEventDetails(REASONS.triggerHover, event));
+          store().setOpen(false, createChangeEventDetails(REASONS.triggerHover, event));
           tree.events.emit('floating.closed', event);
         });
       }

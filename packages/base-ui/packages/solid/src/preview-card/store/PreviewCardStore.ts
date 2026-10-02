@@ -1,132 +1,154 @@
-
-import { useSyncedFloatingRootContext } from '../../floating-ui-solid/hooks/useSyncedFloatingRootContext';
-import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
+import { untrack } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
+import { NullStore } from '../../utils/NullStore';
 import {
+  applyPopupOpenChange,
   createInitialPopupStoreState,
+  createPopupFloatingRootContext,
+  InlineRectCoords,
   PopupStoreContext,
   popupStoreSelectors,
   PopupStoreState,
   PopupTriggerMap,
+  type PopupTriggerStoreKeys,
+  updateInlineRectCoords,
 } from '../../utils/popups';
 import { REASONS } from '../../utils/reasons';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { type PreviewCardRoot } from '../root/PreviewCardRoot';
 import { CLOSE_DELAY } from '../utils/constants';
-import { mergeProps as solidMergeProps } from '../../solid-1-compat';
+import type { AdaptiveOriginMiddleware } from '../../utils/adaptiveOriginConstants';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   instantType: 'dismiss' | 'focus' | undefined;
-  hasViewport: boolean;
+  // Solid: the viewport flags itself here; the positioner derives the adaptive-origin middleware.
+  adaptiveOrigin: AdaptiveOriginMiddleware | undefined;
+  closeDelay: number;
 };
 
-type Context = PopupStoreContext<PreviewCardRoot.ChangeEventDetails> & {
+export type Context = PopupStoreContext<PreviewCardRoot.ChangeEventDetails> & {
   readonly popupRef: ReactLikeRef<HTMLElement | null | undefined>;
-  readonly closeDelayRef: ReactLikeRef<number>;
+  inlineRectCoordsRef: ReactLikeRef<InlineRectCoords | undefined>;
 };
 
 const selectors = {
   ...popupStoreSelectors,
-  hasViewport: (state: State<unknown>) => state.hasViewport,
   instantType: (state: State<unknown>) => state.instantType,
+  adaptiveOrigin: (state: State<unknown>): AdaptiveOriginMiddleware | undefined =>
+    state.adaptiveOrigin,
+  closeDelay: (state: State<unknown>) => state.closeDelay,
 };
 
-function createInitialState<Payload>(initialState: Partial<State<Payload>> = {}) {
-  return createInitialPopupStoreState<Payload, State<Payload>>({
-    hasViewport: false,
-    instantType: undefined,
-    ...initialState,
-  });
-}
+type Selectors = typeof selectors;
 
-export function PreviewCardStore<Payload>(initialState?: Partial<State<Payload>>) {
-  const [state, setState] = createInitialState(initialState);
-  const store = SolidStore<State<Payload>, Context, typeof selectors>(
-    [state, setState],
-    {
-      closeDelayRef: { current: CLOSE_DELAY },
-      floatingRootContext: getEmptyRootContext(),
-      onOpenChange: undefined,
-      onOpenChangeComplete: undefined,
-      popupRef: { current: null },
-      triggerElements: new PopupTriggerMap(),
-    },
+/**
+ * The store view that detached handle-backed triggers read from. Both the real `PreviewCardStore`
+ * and the inert fallback store satisfy it, so a trigger can read from whichever store the handle
+ * currently exposes. Narrowed to the trigger-data members a trigger uses; it exposes no popup-open
+ * mutator, so the inert fallback can be a plain `NullStore`.
+ */
+export type PreviewCardHandleStore<Payload> = Pick<
+  PreviewCardStore<Payload>,
+  PopupTriggerStoreKeys
+>;
+
+export function PreviewCardStore<Payload>(
+  initialState: Partial<State<Payload>>,
+  floatingId: string | undefined,
+  nested: boolean,
+) {
+  const triggerElements = new PopupTriggerMap();
+  const store = SolidStore<State<Payload>, Context, Selectors>(
+    createInitialState<Payload>(initialState, floatingId),
+    createInitialContext(triggerElements, floatingId, nested),
     selectors,
   );
 
-  function setOpen(
+  const setOpen = (
     nextOpen: boolean,
     eventDetails: Omit<PreviewCardRoot.ChangeEventDetails, 'preventUnmountOnClose'>,
-  ) {
-    const reason = eventDetails.reason;
-    const isHover = reason === REASONS.triggerHover;
-    const isFocusOpen = nextOpen && reason === REASONS.triggerFocus;
-    const isDismissClose =
-      !nextOpen && (reason === REASONS.triggerPress || reason === REASONS.escapeKey);
+  ) => {
+    const { inlineRectCoordsRef } = store.context;
 
-    (eventDetails as PreviewCardRoot.ChangeEventDetails).preventUnmountOnClose = () => {
-      store.set('preventUnmountingOnClose', true);
-    };
+    applyPopupOpenChange(store, nextOpen, eventDetails as PreviewCardRoot.ChangeEventDetails, {
+      onBeforeDispatch() {
+        // Capture the hovered inline-rect coordinates so the card anchors to the
+        // exact point on the link that was hovered.
+        const event = eventDetails.event;
+        if (
+          nextOpen &&
+          eventDetails.reason === REASONS.triggerHover &&
+          eventDetails.trigger &&
+          'clientX' in event &&
+          'clientY' in event &&
+          inlineRectCoordsRef.current?.element !== eventDetails.trigger
+        ) {
+          updateInlineRectCoords(
+            inlineRectCoordsRef,
+            eventDetails.trigger,
+            event.clientX,
+            event.clientY,
+          );
+        }
+      },
+    });
+  };
 
-    store.context.onOpenChange?.(nextOpen, eventDetails as PreviewCardRoot.ChangeEventDetails);
-
-    if (eventDetails.isCanceled) {
-      return;
-    }
-
-    /* Notify floating-ui interaction hooks (useHover, useFocus) of the open change. */
-    if (!store.context.floatingRootContext.context.syncOnly) {
-      store.context.floatingRootContext.context.events.emit('openchange', {
-        nativeEvent: eventDetails.event,
-        nested: false,
-        open: nextOpen,
-        reason: eventDetails.reason,
-      });
-    }
-
-    const changeState = () => {
-      const updatedState: Partial<State<Payload>> = { open: nextOpen };
-      if (isFocusOpen) {
-        updatedState.instantType = 'focus';
-      } else if (isDismissClose) {
-        updatedState.instantType = 'dismiss';
-      } else if (reason === REASONS.triggerHover) {
-        updatedState.instantType = undefined;
-      }
-
-      // If a popup is closing, the `trigger` may be null.
-      // We want to keep the previous value so that exit animations are played and focus is returned correctly.
-      const newTriggerId = eventDetails.trigger?.id ?? null;
-      if (newTriggerId || nextOpen) {
-        updatedState.activeTriggerId = newTriggerId;
-        updatedState.activeTriggerElement = eventDetails.trigger ?? null;
-      }
-
-      store.update(updatedState);
-    };
-
-    if (isHover) {
-      changeState();
-    } else {
-      changeState();
-    }
-  }
-
-  const merged = solidMergeProps(store, { setOpen });
-  return merged;
+  return { ...store, setOpen };
 }
 
-PreviewCardStore.useStore = <Payload>(
-  externalStore: ReturnType<typeof PreviewCardStore<Payload>> | undefined,
-  initialState?: Partial<State<Payload>>,
-): PreviewCardStore<Payload> => {
-  const store = externalStore ?? PreviewCardStore<Payload>(initialState);
-  const floatingRootContext = useSyncedFloatingRootContext({
-    onOpenChange: store.setOpen,
-    popupStore: store,
-  });
-  store.context.floatingRootContext = floatingRootContext;
-  return store;
-};
-
 export type PreviewCardStore<Payload> = ReturnType<typeof PreviewCardStore<Payload>>;
+
+/**
+ * Creates the inert fallback store used by detached handle-backed triggers while no
+ * `PreviewCard.Root` is attached. It preserves a preview-card-specific trigger registry in context
+ * so detached triggers can register before migrating to the live root store.
+ */
+export function createNullPreviewCardStore<Payload>(): PreviewCardHandleStore<Payload> {
+  const triggerElements = new PopupTriggerMap();
+
+  // Solid: the state is not frozen because Solid stores mark their source object.
+  return NullStore<State<Payload>, Context, Selectors>(
+    createInitialStateSnapshot<Payload>(),
+    Object.freeze(createInitialContext(triggerElements)),
+    selectors,
+  );
+}
+
+function createInitialState<Payload>(
+  initialState: Partial<State<Payload>> | undefined,
+  floatingId?: string | undefined,
+) {
+  // Initial values: the spread reads the caller's getters once.
+  return untrack(() =>
+    createInitialPopupStoreState<Payload, State<Payload>>({
+      instantType: undefined,
+      adaptiveOrigin: undefined,
+      closeDelay: CLOSE_DELAY,
+      floatingId,
+      ...initialState,
+    }),
+  );
+}
+
+/** A plain copy of the default state, for the inert store (which holds plain values). */
+function createInitialStateSnapshot<Payload>(): State<Payload> {
+  const [state] = createInitialState<Payload>(undefined);
+  return untrack(() => ({ ...state }));
+}
+
+function createInitialContext(
+  triggerElements: PopupTriggerMap,
+  floatingId?: string | undefined,
+  nested = false,
+): Context {
+  return {
+    // Solid keeps the store-owned floating root in context (React keeps it in state).
+    floatingRootContext: createPopupFloatingRootContext(triggerElements, floatingId, nested),
+    onOpenChange: undefined,
+    onOpenChangeComplete: undefined,
+    popupRef: { current: null },
+    triggerElements,
+    inlineRectCoordsRef: { current: undefined },
+  };
+}

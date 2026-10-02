@@ -1,12 +1,13 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createMemo, createSignal } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { AriaCombobox } from '../../combobox/root/AriaCombobox';
 import { useCoreFilter } from '../../combobox/root/utils/useFilter';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { REASONS } from '../../utils/reasons';
-import { stringifyAsLabel } from '../../utils/resolveValueLabel';
-import { on, splitProps } from '../../solid-1-compat';
+import { stringifyAsLabel, type Group } from '../../utils/resolveValueLabel';
+import { splitProps } from '../../solid-1-compat';
+import { createDepsEffect } from '../../solid-helpers';
 
 /**
  * Groups all parts of the autocomplete.
@@ -29,21 +30,29 @@ export function AutocompleteRoot<ItemValue>(props: AutocompleteRoot.Props<ItemVa
   const openOnInputClick = () => local.openOnInputClick ?? false;
   const mode = () => local.mode ?? 'list';
 
-  const enableInline = () => mode() === 'inline' || mode() === 'both';
+  // Inline completion writes the highlighted label into the input, which `readOnly` must prevent.
+  const enableInline = () => (mode() === 'inline' || mode() === 'both') && !other.readOnly;
   const staticItems = () => mode() === 'inline' || mode() === 'none';
 
   // Mirror the typed value for uncontrolled usage so we can compose the temporary
   // inline input value.
   const isControlled = () => local.value !== undefined;
-  const [internalValue, setInternalValue] = createSignal(local.defaultValue ?? '');
+  const [internalValue, setInternalValue] = createSignal(untrack(() => local.defaultValue ?? ''));
   const [inlineInputValue, setInlineInputValue] = createSignal('');
 
-  createEffect(...on([isControlled, () => local.value], ([controlled]) => {
-      if (controlled) {
-        setInlineInputValue('');
-      }
-    }),
-  );
+  // Solid: React runs this parent effect after the combobox's highlight effect (children first);
+  // Solid runs effects in creation order, so it is created by a component rendered inside it.
+  function InlineValueReset() {
+    createDepsEffect(
+      () => ({ value: local.value, isControlled: isControlled(), enableInline: enableInline() }),
+      (deps) => {
+        if (deps.isControlled || !deps.enableInline) {
+          setInlineInputValue('');
+        }
+      },
+    );
+    return null;
+  }
 
   // Compose the input value shown to the user: inline value takes precedence when present.
   const resolvedInputValue = createMemo(() => {
@@ -67,36 +76,13 @@ export function AutocompleteRoot<ItemValue>(props: AutocompleteRoot.Props<ItemVa
     local.onValueChange?.(nextValue, eventDetails);
   };
 
-  const collator = useCoreFilter();
+  const collator = createMemo(() => useCoreFilter({ locale: other.locale }));
 
-  const baseFilter = createMemo(() => {
-    if (other.filter !== undefined) {
-      return other.filter;
-    }
-    return collator.contains;
-  });
+  const resolvedQuery = () => String((isControlled() ? local.value : internalValue()) ?? '').trim();
 
-  const resolvedQuery = () => String(isControlled() ? local.value : internalValue()).trim();
-
-  // In "both", wrap filtering to use only the typed value, ignoring the inline value.
-  const resolvedFilter = createMemo<typeof other.filter>(() => {
-    if (mode() !== 'both') {
-      return staticItems() ? null : baseFilter();
-    }
-
-    const baseFilterFn = baseFilter();
-    if (baseFilterFn === null) {
-      return null;
-    }
-    const resolvedQueryValue = resolvedQuery();
-    return (
-      item: ItemValue,
-      _query: string,
-      toString?: (itemValue: ItemValue) => string,
-    ) => {
-      return baseFilterFn(item, resolvedQueryValue, toString);
-    };
-  });
+  const resolvedFilter = createMemo(() =>
+    staticItems() || other.filter === null ? null : (other.filter ?? collator().contains),
+  );
 
   const handleItemHighlighted = (
     highlightedValue: any,
@@ -108,15 +94,11 @@ export function AutocompleteRoot<ItemValue>(props: AutocompleteRoot.Props<ItemVa
       return;
     }
 
-    if (enableInline()) {
-      if (highlightedValue == null) {
-        setInlineInputValue('');
-      } else {
-        setInlineInputValue(stringifyAsLabel(highlightedValue, local.itemToStringValue));
-      }
-    } else {
-      setInlineInputValue('');
-    }
+    setInlineInputValue(
+      enableInline() && highlightedValue != null
+        ? stringifyAsLabel(highlightedValue, local.itemToStringValue)
+        : '',
+    );
   };
 
   return (
@@ -127,12 +109,19 @@ export function AutocompleteRoot<ItemValue>(props: AutocompleteRoot.Props<ItemVa
       selectionMode="none"
       fillInputOnItemPress
       filter={resolvedFilter()}
+      filterQuery={
+        // Inline completion temporarily changes the displayed input without changing this query.
+        mode() === 'both' ? resolvedQuery() : undefined
+      }
       autoComplete={mode()}
       inputValue={resolvedInputValue()}
       defaultInputValue={local.defaultValue}
       onInputValueChange={handleValueChange}
       onItemHighlighted={handleItemHighlighted}
-    />
+    >
+      {other.children}
+      <InlineValueReset />
+    </AriaCombobox>
   );
 }
 
@@ -165,13 +154,41 @@ export interface AutocompleteRootProps<ItemValue> extends Omit<
   | 'formAutoComplete'
   | 'itemToStringLabel' // itemToStringValue
   // Custom JSDoc
+  | 'inline'
   | 'autoHighlight'
   | 'keepHighlight'
   | 'highlightItemOnHover'
   | 'actionsRef'
   | 'onOpenChange'
   | 'openOnInputClick'
+  | 'form'
+  | 'items'
+  | 'filteredItems'
+  | 'filter'
 > {
+  /**
+   * Identifies the form that owns the internal input.
+   * Useful when the autocomplete is rendered outside the form.
+   */
+  form?: string | undefined;
+  /**
+   * The items to be displayed in the list.
+   * Can be either a flat array of items or an array of groups with items.
+   * Nullish entries are not supported: remove them from the data before passing it.
+   */
+  items?: readonly ItemValue[] | readonly Group<ItemValue>[] | undefined;
+  /**
+   * Filtered items to display in the list.
+   * When provided, the list uses these items instead of filtering the `items` prop internally.
+   * When `items` is also provided, this array must preserve its flat or grouped structure.
+   * Nullish entries are not supported, as in `items`.
+   * Use when you want to control filtering logic externally with the `useFilter()` hook.
+   */
+  filteredItems?: readonly ItemValue[] | readonly Group<ItemValue>[] | undefined;
+  /**
+   * Filter function used to match items against the input query.
+   */
+  filter?: AriaCombobox.Props<ItemValue, 'none'>['filter'] | undefined;
   /**
    * Controls how the autocomplete behaves with respect to list filtering and inline autocompletion.
    * - `list` (default): items are dynamically filtered based on the input value. The input value does not change based on the active item.
@@ -181,6 +198,14 @@ export interface AutocompleteRootProps<ItemValue> extends Omit<
    * @default 'list'
    */
   mode?: 'list' | 'both' | 'inline' | 'none' | undefined;
+  /**
+   * Whether the list is rendered inline without using the component's own popup.
+   *
+   * Specify `open` unconditionally in conjunction with this prop so the list is considered
+   * visible: `<Autocomplete.Root inline open>`
+   * @default false
+   */
+  inline?: boolean | undefined;
   /**
    * Whether the first matching item is highlighted automatically.
    * - `true`: highlight after the user types and keep the highlight while the query changes.
@@ -205,8 +230,7 @@ export interface AutocompleteRootProps<ItemValue> extends Omit<
    * To render a controlled autocomplete, use the `value` prop instead.
    */
   defaultValue?:
-    | AriaCombobox.Props<ComponentProps<'input'>['value'], 'none'>['defaultInputValue']
-    | undefined;
+    AriaCombobox.Props<ComponentProps<'input'>['value'], 'none'>['defaultInputValue'] | undefined;
   /**
    * The input value of the autocomplete. Use when controlled.
    */
@@ -215,8 +239,7 @@ export interface AutocompleteRootProps<ItemValue> extends Omit<
    * Event handler called when the input value of the autocomplete changes.
    */
   onValueChange?:
-    | ((value: string, eventDetails: AutocompleteRootChangeEventDetails) => void)
-    | undefined;
+    ((value: string, eventDetails: AutocompleteRootChangeEventDetails) => void) | undefined;
   /**
    * Whether clicking an item should submit the autocomplete's owning form.
    * By default, clicking an item via a pointer or <kbd>Enter</kbd> key does not submit the owning form.
@@ -240,8 +263,7 @@ export interface AutocompleteRootProps<ItemValue> extends Omit<
    * Event handler called when the popup is opened or closed.
    */
   onOpenChange?:
-    | ((open: boolean, eventDetails: AutocompleteRootChangeEventDetails) => void)
-    | undefined;
+    ((open: boolean, eventDetails: AutocompleteRootChangeEventDetails) => void) | undefined;
   /**
    * Callback fired when an item is highlighted or unhighlighted.
    * Receives the highlighted item value (or `undefined` if no item is highlighted) and event details with a `reason` property describing why the highlight changed.

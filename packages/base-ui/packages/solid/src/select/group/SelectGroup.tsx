@@ -13,7 +13,7 @@ import { SelectGroupContext } from './SelectGroupContext';
 export function SelectGroup(componentProps: SelectGroup.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const [labelId, setLabelId] = createSignal<string | undefined>();
+  const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
 
   const contextValue: SelectGroupContext = { labelId, setLabelId };
 
@@ -29,9 +29,7 @@ export function SelectGroup(componentProps: SelectGroup.Props) {
     ],
   });
 
-  return (
-    <SelectGroupContext value={contextValue}>{element()}</SelectGroupContext>
-  );
+  return <SelectGroupContext value={contextValue}>{element()}</SelectGroupContext>;
 }
 
 export interface SelectGroupState {}

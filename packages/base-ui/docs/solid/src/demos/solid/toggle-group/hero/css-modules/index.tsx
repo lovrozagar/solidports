@@ -20,7 +20,7 @@ export default function ExampleToggleGroup() {
   );
 }
 
-function AlignLeftIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function AlignLeftIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -31,12 +31,12 @@ function AlignLeftIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       {...props}
       style={{ display: 'block', ...props.style }}
     >
-      <path strokeLinecap="square" strokeLinejoin="round" d="M2.5 4.5h11m-11 7h9M2.5 8h5" />
+      <path stroke-linecap="square" stroke-linejoin="round" d="M2.5 4.5h11m-11 7h9M2.5 8h5" />
     </svg>
   );
 }
 
-function AlignCenterIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function AlignCenterIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -46,12 +46,12 @@ function AlignCenterIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       {...props}
       style={{ display: 'block', ...props.style }}
     >
-      <path strokeLinecap="square" strokeLinejoin="round" d="M2.5 4.5h11m-10 7h9M5.5 8h5" />
+      <path stroke-linecap="square" stroke-linejoin="round" d="M2.5 4.5h11m-10 7h9M5.5 8h5" />
     </svg>
   );
 }
 
-function AlignRightIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function AlignRightIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -61,7 +61,7 @@ function AlignRightIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       {...props}
       style={{ display: 'block', ...props.style }}
     >
-      <path strokeLinecap="square" strokeLinejoin="round" d="M2.5 4.5h11m-9 7h9M8.5 8h5" />
+      <path stroke-linecap="square" stroke-linejoin="round" d="M2.5 4.5h11m-9 7h9M8.5 8h5" />
     </svg>
   );
 }

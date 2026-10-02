@@ -1,15 +1,15 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { For } from 'solid-js';
+import { expect, vi, describe, it } from 'vitest';
 import { Combobox } from '@solidports/base-ui/combobox';
-import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
-import { spy } from 'sinon';
+import { act, createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 
 describe('<Combobox.ChipRemove />', () => {
   const { render } = createRenderer();
 
   describeConformance(Combobox.ChipRemove, () => ({
-    button: true,
     refInstanceof: window.HTMLButtonElement,
+    button: true,
     render(node, props) {
       return render(() => (
         <Combobox.Root multiple>
@@ -20,6 +20,37 @@ describe('<Combobox.ChipRemove />', () => {
       ));
     },
   }));
+
+  it('throws a descriptive error when rendered outside <Combobox.Chip>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Solid: the uncaught render error also reaches `reportError` where the platform has one.
+    const reportErrorSpy =
+      typeof globalThis.reportError === 'function'
+        ? vi.spyOn(globalThis, 'reportError').mockImplementation(() => {})
+        : undefined;
+
+    try {
+      // Solid: rendering is synchronous, so the error is thrown rather than rejected.
+      expect(() =>
+        render(() => (
+          <Combobox.Root multiple>
+            <Combobox.Chips>
+              <Combobox.ChipRemove />
+            </Combobox.Chips>
+          </Combobox.Root>
+        )),
+      ).toThrow(
+        'Base UI: ComboboxChipContext is missing. ComboboxChip parts must be placed within <Combobox.Chip>.',
+      );
+    } finally {
+      await flushMicrotasks();
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      reportErrorSpy?.mockRestore();
+    }
+  });
 
   describe('prop: disabled', () => {
     it('should render disabled attribute when disabled', async () => {
@@ -35,11 +66,11 @@ describe('<Combobox.ChipRemove />', () => {
       ));
 
       const remove = screen.getByTestId('remove');
-      expect(remove).to.have.attribute('aria-disabled', 'true');
+      expect(remove).toHaveAttribute('aria-disabled', 'true');
     });
 
     it('should not remove chip when disabled', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
       const { user } = render(() => (
         <Combobox.Root
           multiple
@@ -65,14 +96,14 @@ describe('<Combobox.ChipRemove />', () => {
 
       await user.click(removeApple);
 
-      expect(handleValueChange.callCount).to.equal(0);
-      expect(screen.getByTestId('chip-apple')).not.to.equal(null);
+      expect(handleValueChange.mock.calls.length).toBe(0);
+      expect(screen.getByTestId('chip-apple')).not.toBe(null);
     });
   });
 
   describe('prop: readOnly', () => {
     it('should not remove chip when readOnly', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
       const { user } = render(() => (
         <Combobox.Root
           multiple
@@ -98,8 +129,8 @@ describe('<Combobox.ChipRemove />', () => {
 
       await user.click(removeApple);
 
-      expect(handleValueChange.callCount).to.equal(0);
-      expect(screen.getByTestId('chip-apple')).not.to.equal(null);
+      expect(handleValueChange.mock.calls.length).toBe(0);
+      expect(screen.getByTestId('chip-apple')).not.toBe(null);
     });
 
     it('should be focusable but not functional when readOnly', async () => {
@@ -117,18 +148,20 @@ describe('<Combobox.ChipRemove />', () => {
       const remove = screen.getByTestId('remove');
 
       // Should be focusable
-      remove.focus();
+      await act(async () => {
+        remove.focus();
+      });
       expect(remove).toHaveFocus();
 
       // But should not trigger action
       await user.keyboard('{Enter}');
-      expect(screen.getByTestId('remove')).not.to.equal(null);
+      expect(screen.getByTestId('remove')).not.toBe(null);
     });
   });
 
   describe('interaction behavior', () => {
     it('should remove chip on click when enabled', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
       const { user } = render(() => (
         <Combobox.Root
           multiple
@@ -153,8 +186,8 @@ describe('<Combobox.ChipRemove />', () => {
 
       await user.click(removeApple);
 
-      expect(handleValueChange.callCount).to.equal(1);
-      expect(handleValueChange.args[0][0]).to.deep.equal(['banana']);
+      expect(handleValueChange.mock.calls.length).toBe(1);
+      expect(handleValueChange.mock.calls[0][0]).toEqual(['banana']);
     });
 
     it('should focus input after removing chip', async () => {
@@ -178,9 +211,88 @@ describe('<Combobox.ChipRemove />', () => {
       expect(input).toHaveFocus();
     });
 
+    it('should keep the popup open while removing a chip', async () => {
+      const { user } = render(() => (
+        <Combobox.Root items={['apple', 'banana']} multiple defaultValue={['apple']}>
+          <Combobox.Input data-testid="input" />
+          <Combobox.Trigger>Open</Combobox.Trigger>
+          <Combobox.Chips>
+            <Combobox.Chip>
+              apple
+              <Combobox.ChipRemove data-testid="remove" />
+            </Combobox.Chip>
+          </Combobox.Chips>
+          <Combobox.Portal>
+            <Combobox.Positioner>
+              <Combobox.Popup>
+                <Combobox.List>
+                  <Combobox.Item value="apple">apple</Combobox.Item>
+                  <Combobox.Item value="banana">banana</Combobox.Item>
+                </Combobox.List>
+              </Combobox.Popup>
+            </Combobox.Positioner>
+          </Combobox.Portal>
+        </Combobox.Root>
+      ));
+
+      await user.click(screen.getByRole('button', { name: 'Open' }));
+      await screen.findByRole('listbox');
+
+      await user.click(screen.getByTestId('remove'));
+
+      await screen.findByRole('listbox');
+      expect(screen.getByTestId('input')).toHaveFocus();
+    });
+
+    it('keeps a popup input focused when removing a chip rendered outside the popup', async () => {
+      const { user } = render(() => (
+        <Combobox.Root items={['apple', 'banana']} multiple defaultValue={['apple']}>
+          <Combobox.Chips>
+            <Combobox.Value>
+              {(value) => (
+                <For each={value() as string[]}>
+                  {(item) => (
+                    <Combobox.Chip>
+                      {item}
+                      <Combobox.ChipRemove data-testid={`remove-${item}`} />
+                    </Combobox.Chip>
+                  )}
+                </For>
+              )}
+            </Combobox.Value>
+          </Combobox.Chips>
+          <Combobox.Trigger>Open</Combobox.Trigger>
+          <Combobox.Portal>
+            <Combobox.Positioner>
+              <Combobox.Popup>
+                <Combobox.Input data-testid="input" />
+                <Combobox.List>
+                  {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                </Combobox.List>
+              </Combobox.Popup>
+            </Combobox.Positioner>
+          </Combobox.Portal>
+        </Combobox.Root>
+      ));
+
+      await user.click(screen.getByRole('combobox'));
+      const input = await screen.findByTestId('input');
+      await waitFor(() => expect(input).toHaveFocus());
+
+      await user.click(screen.getByTestId('remove-apple'));
+
+      expect(screen.queryByTestId('remove-apple')).toBe(null);
+      expect(screen.getByRole('dialog')).not.toBe(null);
+      expect(input).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'apple' })).toHaveAttribute(
+        'aria-selected',
+        'false',
+      );
+    });
+
     it('should prevent event propagation', async () => {
-      const handleChipClick = spy();
-      const handleRemoveClick = spy();
+      const handleChipClick = vi.fn();
+      const handleRemoveClick = vi.fn();
       const { user } = render(() => (
         <Combobox.Root multiple defaultValue={['apple']}>
           <Combobox.Input data-testid="input" />
@@ -198,12 +310,200 @@ describe('<Combobox.ChipRemove />', () => {
       await user.click(remove);
 
       // Remove click should happen but not propagate to chip
-      expect(handleRemoveClick.callCount).to.equal(1);
-      expect(handleChipClick.callCount).to.equal(0);
+      expect(handleRemoveClick.mock.calls.length).toBe(1);
+      expect(handleChipClick.mock.calls.length).toBe(0);
+    });
+
+    it('allows click and keyboard events to propagate when requested', async () => {
+      const handleChipClick = vi.fn();
+      const handleChipKeyDown = vi.fn();
+      const allowPropagation = (
+        _value: string[],
+        eventDetails: Combobox.Root.ChangeEventDetails,
+      ) => {
+        eventDetails.allowPropagation();
+      };
+      const { user } = render(() => (
+        <Combobox.Root multiple defaultValue={['apple']} onValueChange={allowPropagation}>
+          <Combobox.Input />
+          <Combobox.Chips>
+            <Combobox.Chip onClick={handleChipClick} onKeyDown={handleChipKeyDown}>
+              apple
+              <Combobox.ChipRemove data-testid="remove">×</Combobox.ChipRemove>
+            </Combobox.Chip>
+          </Combobox.Chips>
+        </Combobox.Root>
+      ));
+
+      const remove = screen.getByTestId('remove');
+      await user.click(remove);
+      expect(handleChipClick).toHaveBeenCalledTimes(1);
+
+      await act(async () => remove.focus());
+      await user.keyboard('{Enter}');
+      expect(handleChipKeyDown).toHaveBeenCalled();
+    });
+
+    it.each([{ disabled: true }, { readOnly: true }])(
+      'ignores click and keyboard activation on a non-native button: %o',
+      async (rootProps) => {
+        const handleValueChange = vi.fn();
+        render(() => (
+          <Combobox.Root
+            multiple
+            defaultValue={['apple']}
+            onValueChange={handleValueChange}
+            {...rootProps}
+          >
+            <Combobox.Chips>
+              <Combobox.Chip>
+                apple
+                <Combobox.ChipRemove
+                  data-testid="remove"
+                  nativeButton={false}
+                  render={(props) => <div {...props} />}
+                />
+              </Combobox.Chip>
+            </Combobox.Chips>
+          </Combobox.Root>
+        ));
+
+        const remove = screen.getByTestId('remove');
+        await act(async () => {
+          remove.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+          remove.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+          );
+        });
+
+        expect(handleValueChange).not.toHaveBeenCalled();
+      },
+    );
+
+    it('removes a chip with Space but ignores unrelated keys', async () => {
+      const handleValueChange = vi.fn();
+      render(() => (
+        <Combobox.Root
+          multiple
+          defaultValue={['apple', 'banana']}
+          onValueChange={handleValueChange}
+        >
+          <Combobox.Chips>
+            <Combobox.Chip>
+              apple
+              <Combobox.ChipRemove data-testid="remove">×</Combobox.ChipRemove>
+            </Combobox.Chip>
+            <Combobox.Chip>banana</Combobox.Chip>
+          </Combobox.Chips>
+        </Combobox.Root>
+      ));
+
+      const remove = screen.getByTestId('remove');
+      remove.focus();
+      fireEvent.keyDown(remove, { key: 'ArrowDown' });
+      expect(handleValueChange).not.toHaveBeenCalled();
+
+      fireEvent.keyDown(remove, { key: ' ' });
+      expect(handleValueChange).toHaveBeenCalledWith(['banana'], expect.anything());
+    });
+
+    it('keeps a different active item highlighted when removing a chip', async () => {
+      const { user } = render(() => (
+        <Combobox.Root multiple defaultOpen defaultValue={['apple', 'banana']}>
+          <Combobox.Input />
+          <Combobox.Chips>
+            <Combobox.Chip>
+              apple
+              <Combobox.ChipRemove data-testid="remove-apple">×</Combobox.ChipRemove>
+            </Combobox.Chip>
+            <Combobox.Chip>
+              banana
+              <Combobox.ChipRemove data-testid="remove-banana">×</Combobox.ChipRemove>
+            </Combobox.Chip>
+          </Combobox.Chips>
+          <Combobox.Portal>
+            <Combobox.Positioner>
+              <Combobox.Popup>
+                <Combobox.List>
+                  <Combobox.Item value="apple">apple option</Combobox.Item>
+                  <Combobox.Item value="banana">banana option</Combobox.Item>
+                </Combobox.List>
+              </Combobox.Popup>
+            </Combobox.Positioner>
+          </Combobox.Portal>
+        </Combobox.Root>
+      ));
+
+      await user.hover(screen.getByRole('option', { name: 'apple option' }));
+      fireEvent.click(screen.getByTestId('remove-banana'));
+
+      expect(screen.getByRole('option', { name: 'apple option' })).toHaveAttribute(
+        'data-highlighted',
+      );
+    });
+
+    it('removes a filtered-out chip without clearing the visible highlight', async () => {
+      const { user } = render(() => (
+        <Combobox.Root multiple defaultOpen defaultValue={['apple', 'banana']} items={['banana']}>
+          <Combobox.Input />
+          <Combobox.Chips>
+            <Combobox.Chip>
+              apple
+              <Combobox.ChipRemove data-testid="remove-apple">×</Combobox.ChipRemove>
+            </Combobox.Chip>
+            <Combobox.Chip>banana</Combobox.Chip>
+          </Combobox.Chips>
+          <Combobox.Portal>
+            <Combobox.Positioner>
+              <Combobox.Popup>
+                <Combobox.List>
+                  <Combobox.Item value="banana">banana option</Combobox.Item>
+                </Combobox.List>
+              </Combobox.Popup>
+            </Combobox.Positioner>
+          </Combobox.Portal>
+        </Combobox.Root>
+      ));
+
+      await user.hover(screen.getByRole('option', { name: 'banana option' }));
+      fireEvent.click(screen.getByTestId('remove-apple'));
+
+      expect(screen.getByRole('option', { name: 'banana option' })).toHaveAttribute(
+        'data-highlighted',
+      );
+    });
+
+    it('records pointer-origin removal when clearing the highlighted item', async () => {
+      const { user } = render(() => (
+        <Combobox.Root multiple defaultOpen defaultValue={['apple']}>
+          <Combobox.Chips>
+            <Combobox.Chip>
+              apple
+              <Combobox.ChipRemove data-testid="remove">×</Combobox.ChipRemove>
+            </Combobox.Chip>
+          </Combobox.Chips>
+          <Combobox.Portal>
+            <Combobox.Positioner>
+              <Combobox.Popup>
+                <Combobox.List>
+                  <Combobox.Item value="apple">apple option</Combobox.Item>
+                </Combobox.List>
+              </Combobox.Popup>
+            </Combobox.Positioner>
+          </Combobox.Portal>
+        </Combobox.Root>
+      ));
+
+      fireEvent.pointerMove(screen.getByRole('option', { name: 'apple option' }));
+      await user.click(screen.getByTestId('remove'));
+
+      expect(screen.getByRole('option', { name: 'apple option' })).not.toHaveAttribute(
+        'data-highlighted',
+      );
     });
 
     it('should handle keyboard activation', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
       const { user } = render(() => (
         <Combobox.Root
           multiple
@@ -223,11 +523,13 @@ describe('<Combobox.ChipRemove />', () => {
 
       const remove = screen.getByTestId('remove');
 
-      remove.focus();
+      await act(async () => {
+        remove.focus();
+      });
       await user.keyboard('{Enter}');
 
-      expect(handleValueChange.callCount).to.equal(1);
-      expect(handleValueChange.args[0][0]).to.deep.equal(['banana']);
+      expect(handleValueChange.mock.calls.length).toBe(1);
+      expect(handleValueChange.mock.calls[0][0]).toEqual(['banana']);
     });
 
     it('should have proper tab index', async () => {
@@ -243,7 +545,7 @@ describe('<Combobox.ChipRemove />', () => {
       ));
 
       const remove = screen.getByTestId('remove');
-      expect(remove).to.have.attribute('tabindex', '-1');
+      expect(remove).toHaveAttribute('tabindex', '-1');
     });
   });
 });

@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createTrackedEffect } from 'solid-js';
+
+import { createRenderEffect, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
 import { stopEvent } from '../../floating-ui-solid/utils';
@@ -9,18 +10,17 @@ import {
 } from '../../internals/composite/list/useCompositeListItem';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { createChangeEventDetails, createGenericEventDetails } from '../../utils/createBaseUIEventDetails';
+import {
+  createChangeEventDetails,
+  createGenericEventDetails,
+} from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
-import { splitComponentProps } from '../../solid-helpers';
+import { useDirection } from '../../direction-provider/DirectionContext';
+import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
 import { useOTPFieldRootContext, getOTPFieldInputState } from '../root/OTPFieldRootContext';
 import type { OTPFieldRootState } from '../root/OTPFieldRoot';
 import { inputStateAttributesMapping } from '../utils/stateAttributesMapping';
-import {
-  normalizeOTPValue,
-  normalizeOTPValueWithDetails,
-  removeOTPCharacter,
-  replaceOTPValue,
-} from '../utils/otp';
+import { normalizeOTPValueWithDetails, removeOTPCharacter, replaceOTPValue } from '../utils/otp';
 
 /**
  * An individual OTP character input.
@@ -67,7 +67,11 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     indexGuessBehavior: IndexGuessBehavior.GuessFromOrder,
   });
 
-  let inputRef: HTMLInputElement | null = null;
+  // Solid: a signal, because the spread applies the ref after this component's render effects run.
+  const [inputElement, setInputElement] = createSignal<HTMLInputElement | null>(null, {
+    ownedWrite: true,
+  });
+  const direction = useDirection();
 
   const slotValue = () => value()[index()] ?? '';
   const inputState = () => getOTPFieldInputState(state, slotValue(), index());
@@ -76,23 +80,92 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
   const ariaLabel = () => (index() === 0 ? undefined : slotAriaLabel());
 
   if (process.env.NODE_ENV !== 'production') {
-    createTrackedEffect(() => {
-      if (index() !== 0 || slotAriaLabel() == null || inputRef?.labels?.length) {
-        return;
+    createDepsEffect(
+      () => ({ index: index(), slotAriaLabel: slotAriaLabel() }),
+      (deps) => {
+        if (
+          deps.index !== 0 ||
+          deps.slotAriaLabel == null ||
+          untrack(inputElement)?.labels?.length
+        ) {
+          return;
+        }
+        warn(
+          '<OTPField.Input> ignores `aria-label` on the first input. Use a `<label>` or `<Field.Label>` to label the OTP field.',
+          '',
+        );
+      },
+    );
+  }
+
+  // Solid: the spread rewrites `value` on every pass (collapsing the selection) and never reverts a
+  // rejected edit. Sync the slot like React's controlled input: write only when the DOM differs.
+  function syncInputValue(input: HTMLInputElement | null, nextValue: string) {
+    if (input && input.value !== nextValue) {
+      input.value = nextValue;
+    }
+  }
+
+  createRenderEffect(
+    () => [inputElement(), slotValue()] as const,
+    ([input, nextValue]) => {
+      syncInputValue(input, nextValue);
+    },
+  );
+
+  function handleInputChange(event: InputEvent & { currentTarget: HTMLInputElement }) {
+    if (event.defaultPrevented || disabled() || readOnly()) {
+      return;
+    }
+
+    const rawValue = (event.currentTarget as HTMLInputElement).value;
+    const [nextDigits, didRejectCharacters] = normalizeOTPValueWithDetails(
+      rawValue,
+      length(),
+      validationType(),
+      normalizeValue(),
+    );
+
+    if (didRejectCharacters) {
+      reportValueInvalid(rawValue, createGenericEventDetails(REASONS.inputChange, event));
+    }
+
+    if (nextDigits === '') {
+      if (rawValue === '') {
+        setValue(
+          removeOTPCharacter(value(), index()),
+          createChangeEventDetails(REASONS.inputClear, event),
+        );
+      } else if (slotValue() !== '') {
+        (event.currentTarget as HTMLInputElement).value = slotValue();
+        (event.currentTarget as HTMLInputElement).select();
       }
-      warn(
-        '<OTPField.Input> ignores `aria-label` on the first input. Use a `<label>` or `<Field.Label>` to label the OTP field.',
-        '',
-      );
-    });
+      return;
+    }
+
+    const nextValue = replaceOTPValue(
+      value(),
+      index(),
+      nextDigits,
+      length(),
+      validationType(),
+      normalizeValue(),
+    );
+
+    const committedValue = setValue(
+      nextValue,
+      createChangeEventDetails(REASONS.inputChange, event),
+    );
+
+    if (committedValue != null) {
+      const nextInput = Math.min(index() + nextDigits.length, length() - 1);
+      queueFocusInput(nextInput, committedValue);
+    }
   }
 
   const inputProps: JSX.InputHTMLAttributes<HTMLInputElement> = {
     get id() {
       return getInputId(index());
-    },
-    get value() {
-      return slotValue();
     },
     get type() {
       return mask() ? 'password' : 'text';
@@ -108,9 +181,9 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     get enterkeyhint() {
       return index() === length() - 1 ? 'done' : 'next';
     },
-    /* First slot accepts a full code so browser paste/autofill can target it directly. */
+    // Only the first slot has a max length to avoid password manager bubbles appearing after later inputs.
     get maxlength() {
-      return index() === 0 ? length() : 1;
+      return index() === 0 ? length() : undefined;
     },
     get tabindex() {
       return activeIndex() === index() ? 0 : -1;
@@ -134,7 +207,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       return ariaLabel() == null ? inheritedLabel() : undefined;
     },
     get 'aria-invalid'() {
-      return invalid() ? 'true' : undefined;
+      return !disabled() && invalid() ? 'true' : undefined;
     },
     get 'aria-label'() {
       return ariaLabel();
@@ -160,84 +233,48 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     },
     /* onInput used instead of onChange for Solid reactivity */
     onInput(event) {
-      if ((event as InputEvent).defaultPrevented || disabled() || readOnly()) {
-        return;
-      }
-
-      const rawValue = (event.currentTarget as HTMLInputElement).value;
-      const [nextDigits, didRejectCharacters] = normalizeOTPValueWithDetails(
-        rawValue,
-        length(),
-        validationType(),
-        normalizeValue(),
-      );
-
-      if (didRejectCharacters) {
-        reportValueInvalid(
-          rawValue,
-          createGenericEventDetails(REASONS.inputChange, event),
-        );
-      }
-
-      if (nextDigits === '') {
-        if (rawValue === '') {
-          setValue(
-            removeOTPCharacter(value(), index()),
-            createChangeEventDetails(REASONS.inputClear, event),
-          );
-        } else if (slotValue() !== '') {
-          (event.currentTarget as HTMLInputElement).value = slotValue();
-          (event.currentTarget as HTMLInputElement).select();
-        }
-        return;
-      }
-
-      const nextValue = replaceOTPValue(
-        value(),
-        index(),
-        nextDigits,
-        length(),
-        validationType(),
-        normalizeValue(),
-      );
-
-      const committedValue = setValue(
-        nextValue,
-        createChangeEventDetails(REASONS.inputChange, event),
-      );
-
-      if (committedValue != null) {
-        const nextInput = Math.min(index() + nextDigits.length, length() - 1);
-        queueFocusInput(nextInput, committedValue);
-      }
+      handleInputChange(event as InputEvent & { currentTarget: HTMLInputElement });
+      // Solid: restore the controlled slot value after the change, as React does for controlled inputs.
+      syncInputValue(event.currentTarget as HTMLInputElement, untrack(slotValue));
     },
     onKeyDown(event) {
-      const kbEvent = event as KeyboardEvent;
+      const kbEvent = event as KeyboardEvent & { currentTarget: HTMLInputElement };
       if (kbEvent.defaultPrevented || disabled()) {
         return;
       }
 
-      if (kbEvent.key === 'ArrowLeft') {
+      const currentIndex = index();
+      const currentLength = length();
+      const currentValue = value();
+      const firstIndex = 0;
+      const lastIndex = Math.max(currentLength - 1, firstIndex);
+      const endTargetIndex = Math.min(currentValue.length, lastIndex);
+      const hasBoundaryModifier = (kbEvent.ctrlKey || kbEvent.metaKey) && !kbEvent.altKey;
+      const isRtl = direction() === 'rtl';
+      const previousKey = isRtl ? 'ArrowRight' : 'ArrowLeft';
+      const nextKey = isRtl ? 'ArrowLeft' : 'ArrowRight';
+
+      if (kbEvent.key === previousKey) {
         stopEvent(kbEvent);
-        focusInput(Math.max(0, index() - 1));
+        focusInput(hasBoundaryModifier ? firstIndex : Math.max(firstIndex, currentIndex - 1));
         return;
       }
 
-      if (kbEvent.key === 'ArrowRight') {
+      if (kbEvent.key === nextKey) {
         stopEvent(kbEvent);
-        focusInput(Math.min(length() - 1, index() + 1));
+        focusInput(hasBoundaryModifier ? endTargetIndex : Math.min(lastIndex, currentIndex + 1));
         return;
       }
 
-      if (kbEvent.key === 'Home') {
+      if (kbEvent.key === 'Home' || kbEvent.key === 'ArrowUp') {
         stopEvent(kbEvent);
-        focusInput(0);
+        focusInput(firstIndex);
         return;
       }
 
-      if (kbEvent.key === 'End') {
+      if (kbEvent.key === 'End' || kbEvent.key === 'ArrowDown') {
         stopEvent(kbEvent);
-        focusInput(Math.max(value().length - 1, 0));
+        focusInput(endTargetIndex);
         return;
       }
 
@@ -245,40 +282,47 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
         return;
       }
 
-      if (kbEvent.key === 'Delete') {
-        stopEvent(kbEvent);
+      function setKeyboardValue(nextValue: string, targetIndex: number) {
         const committedValue = setValue(
-          removeOTPCharacter(value(), index()),
+          nextValue,
           createChangeEventDetails(REASONS.keyboard, kbEvent),
         );
+
         if (committedValue != null) {
-          queueFocusInput(index(), committedValue);
+          queueFocusInput(targetIndex, committedValue);
         }
+      }
+
+      if (kbEvent.key === 'Backspace' && hasBoundaryModifier) {
+        stopEvent(kbEvent);
+        setKeyboardValue('', firstIndex);
         return;
       }
 
-      const inputValue = (kbEvent.currentTarget as HTMLInputElement).value;
+      if (kbEvent.key === 'Delete') {
+        stopEvent(kbEvent);
+        setKeyboardValue(removeOTPCharacter(currentValue, currentIndex), currentIndex);
+        return;
+      }
+
+      const inputValue = kbEvent.currentTarget.value;
       const fullSelection =
-        (kbEvent.currentTarget as HTMLInputElement).selectionStart === 0 &&
-        (kbEvent.currentTarget as HTMLInputElement).selectionEnd === inputValue.length;
+        kbEvent.currentTarget.selectionStart === 0 &&
+        kbEvent.currentTarget.selectionEnd === inputValue.length;
 
       if (kbEvent.key.length === 1 && fullSelection && slotValue() === kbEvent.key) {
         stopEvent(kbEvent);
-        focusInput(Math.min(length() - 1, index() + 1));
+        if (currentIndex < currentLength - 1) {
+          focusInput(currentIndex + 1);
+        }
         return;
       }
 
       if (kbEvent.key === 'Backspace') {
         stopEvent(kbEvent);
-        const deleteIndex = slotValue() === '' ? Math.max(0, index() - 1) : index();
-        const targetIndex = Math.max(0, index() - 1);
-        const committedValue = setValue(
-          removeOTPCharacter(value(), deleteIndex),
-          createChangeEventDetails(REASONS.keyboard, kbEvent),
-        );
-        if (committedValue != null) {
-          queueFocusInput(targetIndex, committedValue);
-        }
+        const targetIndex = Math.max(firstIndex, currentIndex - 1);
+        const deleteIndex = slotValue() === '' ? targetIndex : currentIndex;
+        setKeyboardValue(removeOTPCharacter(currentValue, deleteIndex), targetIndex);
       }
     },
     onPaste(event) {
@@ -293,10 +337,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
         rawValue = pevent.clipboardData?.getData('text/plain') ?? '';
       } catch {
         if (process.env.NODE_ENV !== 'production') {
-          warn(
-            '<OTPField.Input> could not read clipboard text during paste handling.',
-            '',
-          );
+          warn('<OTPField.Input> could not read clipboard text during paste handling.', '');
         }
         return;
       }
@@ -311,10 +352,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       );
 
       if (didRejectCharacters) {
-        reportValueInvalid(
-          rawValue,
-          createGenericEventDetails(REASONS.inputPaste, pevent),
-        );
+        reportValueInvalid(rawValue, createGenericEventDetails(REASONS.inputPaste, pevent));
       }
 
       if (nextDigits === '') {
@@ -336,25 +374,49 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
   /* Reactive getter object so data-* state attributes update when value/index change.
      Plain inputState() snapshot would freeze attributes at mount time. */
   const liveState: OTPFieldInputState = {
-    get complete() { return inputState().complete; },
-    get dirty() { return inputState().dirty; },
-    get disabled() { return inputState().disabled; },
-    get filled() { return inputState().filled; },
-    get focused() { return inputState().focused; },
-    get index() { return inputState().index; },
-    get length() { return inputState().length; },
-    get readOnly() { return inputState().readOnly; },
-    get required() { return inputState().required; },
-    get touched() { return inputState().touched; },
-    get valid() { return inputState().valid; },
-    get value() { return inputState().value; },
+    get complete() {
+      return inputState().complete;
+    },
+    get dirty() {
+      return inputState().dirty;
+    },
+    get disabled() {
+      return inputState().disabled;
+    },
+    get filled() {
+      return inputState().filled;
+    },
+    get focused() {
+      return inputState().focused;
+    },
+    get index() {
+      return inputState().index;
+    },
+    get length() {
+      return inputState().length;
+    },
+    get readOnly() {
+      return inputState().readOnly;
+    },
+    get required() {
+      return inputState().required;
+    },
+    get touched() {
+      return inputState().touched;
+    },
+    get valid() {
+      return inputState().valid;
+    },
+    get value() {
+      return inputState().value;
+    },
   };
 
   const element = useRenderElement('input', componentProps, {
     props: [inputProps as any, elementProps],
     ref: (el: HTMLInputElement | null | undefined) => {
       setRef(el ?? null);
-      inputRef = el ?? null;
+      setInputElement(el ?? null);
     },
     state: liveState,
     stateAttributesMapping: inputStateAttributesMapping,
@@ -372,7 +434,11 @@ export interface OTPFieldInputState extends Omit<OTPFieldRootState, 'filled' | '
   value: string;
 }
 
-export interface OTPFieldInputProps extends BaseUIComponentProps<'input', OTPFieldInputState> {}
+export interface OTPFieldInputProps extends BaseUIComponentProps<
+  'input',
+  OTPFieldInputState,
+  JSX.InputHTMLAttributes<HTMLInputElement>
+> {}
 
 export namespace OTPFieldInput {
   export type State = OTPFieldInputState;

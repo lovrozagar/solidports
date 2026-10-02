@@ -3,6 +3,7 @@ import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 interface DrawerViewportContextValue {
+  // Solid: render-time values are accessors so consumers track them.
   swiping: Accessor<boolean>;
   getDragStyles: () => JSX.CSSProperties;
   swipeStrength: Accessor<number | null>;
@@ -11,16 +12,6 @@ interface DrawerViewportContextValue {
 
 export const DrawerViewportContext = createContext<DrawerViewportContextValue | null>(null);
 
-export function useDrawerViewportContext(optional?: false): DrawerViewportContextValue;
-export function useDrawerViewportContext(optional: true): DrawerViewportContextValue | null;
-export function useDrawerViewportContext(optional?: boolean) {
-  const context = useContext(DrawerViewportContext);
-
-  if (!optional && context == null) {
-    throw new Error(
-      'Base UI: DrawerViewportContext is missing. Drawer parts must be placed within <Drawer.Viewport>.',
-    );
-  }
-
-  return context;
+export function useDrawerViewportContext() {
+  return useContext(DrawerViewportContext);
 }

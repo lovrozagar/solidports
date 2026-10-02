@@ -19,7 +19,6 @@ import {
   useFloatingParentNodeId,
   useHover,
   useInteractions,
-  useRole,
 } from '../../src/floating-ui-solid';
 import type { Placement } from '../../src/floating-ui-solid/types';
 import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyRootContext';
@@ -141,6 +140,7 @@ function PopoverComponent(componentProps: Props) {
   const id = createUniqueId();
   const labelId = `${id}-label`;
   const descriptionId = `${id}-description`;
+  const triggerId = `${id}-trigger`;
   const fallbackContext = getEmptyRootContext();
 
   const hoverInteraction = useHover({
@@ -152,13 +152,11 @@ function PopoverComponent(componentProps: Props) {
     },
   });
   const click = useClick({ context });
-  const role = useRole({ context });
   const dismiss = useDismiss({ context, props: { bubbles: props.bubbles } });
 
   const { getReferenceProps, getFloatingProps } = useInteractions([
     hoverInteraction,
     click,
-    role,
     dismiss,
   ]);
 
@@ -168,6 +166,10 @@ function PopoverComponent(componentProps: Props) {
         component={props.children}
         {...getReferenceProps({
           ref: refs.setReference,
+          id: triggerId,
+          'aria-haspopup': 'dialog',
+          'aria-expanded': open() ? 'true' : 'false',
+          'aria-controls': open() ? context.floatingId() : undefined,
           'data-open': open() ? '' : undefined,
         } as JSX.HTMLAttributes<Element>)}
       />
@@ -179,6 +181,8 @@ function PopoverComponent(componentProps: Props) {
               class="border-slate-900/10 rounded border bg-white bg-clip-padding px-4 py-6 shadow-md"
               ref={refs.setFloating}
               style={floatingStyles()}
+              id={context.floatingId()}
+              role="dialog"
               aria-labelledby={labelId}
               aria-describedby={descriptionId}
               {...getFloatingProps()}

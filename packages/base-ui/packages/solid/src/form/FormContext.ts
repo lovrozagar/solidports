@@ -1,44 +1,51 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import type { Store } from 'solid-js';
 import type { FieldValidityData } from '../field/root/FieldRoot';
+import type { ReactLikeRef } from '../solid-helpers';
 import { NOOP } from '../utils/noop';
 import type { Form } from './Form';
-import { type SetStoreFunction } from '../solid-1-compat';
 
 export type Errors = Record<string, string | string[]>;
 
-type FormRef = {
-  fields: Record<
-    string,
-    {
-      name: string | undefined;
-      validate: (flushSync?: boolean | undefined) => void;
-      validityData: FieldValidityData;
-      controlRef: HTMLElement | null | undefined;
-      getValue: () => unknown;
-    }
-  >;
+export interface FormField {
+  name: string | undefined;
+  /**
+   * After this returns, the field registry entry reflects the latest synchronous
+   * validity verdict. Async validators do not block submit.
+   */
+  validate: () => void;
+  validityData: FieldValidityData;
+  controlRef: ReactLikeRef<HTMLElement | null | undefined>;
+  getValue: () => unknown;
+}
+
+export type FormRef = {
+  fields: Map<string, FormField>;
 };
 
 export interface FormContext {
   errors: Accessor<Errors>;
   clearErrors: (name: string | undefined) => void;
-  formRef: Store<FormRef>;
-  setFormRef: SetStoreFunction<FormRef>;
+  elementRef: ReactLikeRef<HTMLFormElement | null | undefined>;
+  /**
+   * Mutable registry of the form's fields (React's `formRef.current`). Not reactive.
+   */
+  formRef: FormRef;
   validationMode: Accessor<Form.ValidationMode>;
-  submitAttemptedRef: Accessor<boolean>;
+  submitCountRef: ReactLikeRef<number>;
 }
 
 export const FormContext = createContext<FormContext>({
-  clearErrors: NOOP,
-  errors: () => ({}),
+  elementRef: { current: null },
   formRef: {
-    fields: {},
+    fields: new Map(),
   },
-  setFormRef: NOOP,
-  submitAttemptedRef: () => false,
+  errors: () => ({}),
+  clearErrors: NOOP,
   validationMode: () => 'onSubmit' as const,
+  submitCountRef: {
+    current: 0,
+  },
 });
 
 export function useFormContext() {

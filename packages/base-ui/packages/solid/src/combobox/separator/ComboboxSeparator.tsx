@@ -2,7 +2,10 @@ import type { JSX } from '@solidjs/web';
 import { ListboxSeparator } from '../../utils/listbox-separator/ListboxSeparator';
 import type { BaseUIComponentProps, Orientation } from '../../utils/types';
 
-export interface ComboboxSeparatorProps extends BaseUIComponentProps<'div', ComboboxSeparatorState> {
+export interface ComboboxSeparatorProps extends BaseUIComponentProps<
+  'div',
+  ComboboxSeparatorState
+> {
   /**
    * The orientation of the separator.
    * @default 'horizontal'

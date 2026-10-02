@@ -1,4 +1,3 @@
-import { createTrackedEffect, onCleanup } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -18,21 +17,7 @@ export function PopoverDescription(componentProps: PopoverDescription.Props) {
 
   const id = useBaseUiId(() => elementProps.id);
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    store.set('descriptionElementId', id());
-    _c.push(() => {
-      store.set('descriptionElementId', undefined);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  store.useSyncedValueWithCleanup('descriptionElementId', id);
 
   const element = useRenderElement('p', componentProps, {
     props: [

@@ -80,14 +80,13 @@ export function TooltipPopup(componentProps: TooltipPopup.Props) {
     },
   };
 
+  const setPopupElement = store.useStateSetter('popupElement');
+
   const element = useRenderElement('div', componentProps, {
     get props() {
       return [popupProps(), getDisabledMountTransitionStyles(transitionStatus()), elementProps];
     },
-    ref: (el) => {
-      store.context.popupRef.current = el;
-      store.useStateSetter('popupElement')(el);
-    },
+    ref: [store.context.popupRef, setPopupElement],
     state,
     stateAttributesMapping,
   });

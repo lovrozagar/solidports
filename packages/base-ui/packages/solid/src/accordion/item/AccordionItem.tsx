@@ -1,21 +1,20 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createMemo, createSignal } from 'solid-js';
-
-import type { CollapsibleRoot } from '../../collapsible/root/CollapsibleRoot';
+/* eslint-disable typescript/no-explicit-any -- `value` is `any`, mirrors React */
+import { createMemo, createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import type { CollapsibleRoot, CollapsibleRootState } from '../../collapsible/root/CollapsibleRoot';
 import { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
-import { type CodependentRefs, splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps } from '../../solid-helpers';
 import { type BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { AccordionRoot } from '../root/AccordionRoot';
+import type { AccordionRootState } from '../root/AccordionRoot';
 import { useAccordionRootContext } from '../root/AccordionRootContext';
 import { AccordionItemContext } from './AccordionItemContext';
 import { accordionStateAttributesMapping } from './stateAttributesMapping';
-import { on, mergeProps as solidMergeProps, createStore } from '../../solid-1-compat';
 
 /**
  * Groups an accordion header with the corresponding panel.
@@ -23,14 +22,14 @@ import { on, mergeProps as solidMergeProps, createStore } from '../../solid-1-co
  *
  * Documentation: [Base UI Accordion](https://base-ui.com/solid/components/accordion)
  */
-export function AccordionItem(componentProps: AccordionItem.Props) {
+export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'disabled',
     'onOpenChange',
     'value',
   ]);
 
-  const { setRef: setListItemRef, index } = useCompositeListItem();
+  const { setRef: listItemRef, index } = useCompositeListItem();
 
   const {
     disabled: contextDisabled,
@@ -40,119 +39,124 @@ export function AccordionItem(componentProps: AccordionItem.Props) {
   } = useAccordionRootContext();
 
   const fallbackValue = useBaseUiId();
+
   const value = () => local.value ?? fallbackValue();
 
-  const disabled = () => (Boolean(local.disabled)) || contextDisabled();
+  const disabled = () => (local.disabled ?? false) || contextDisabled();
 
-  const isOpen = createMemo(() => {
-    const values = openValues();
-    if (!values) {
-      return false;
-    }
+  const isOpen = createMemo(() => openValues().indexOf(value()) !== -1);
 
-    for (let i = 0; i < values.length; i += 1) {
-      if (values[i] === value()) {
-        return true;
-      }
-    }
-
-    return false;
-  });
-
+  // Solid: a handler reading the latest props is React's stable callback.
   const onOpenChange = (nextOpen: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => {
-    {
-      local.onOpenChange?.(nextOpen, eventDetails);
+    local.onOpenChange?.(nextOpen, eventDetails);
 
-      if (eventDetails.isCanceled) {
-        return;
-      }
+    if (eventDetails.isCanceled) {
+      return;
+    }
 
-      handleValueChange(value(), nextOpen);
-    };
+    handleValueChange(value(), nextOpen, eventDetails);
   };
 
   const collapsible = useCollapsibleRoot({
-    disabled,
-    onOpenChange,
     open: isOpen,
+    onOpenChange,
+    disabled,
   });
 
-  const collapsibleState = {
-    get disabled() {
-      return collapsible.disabled();
-    },
-    get hidden() {
-      return !collapsible.mounted();
-    },
+  const collapsibleState: CollapsibleRootState = {
     get open() {
       return collapsible.open();
+    },
+    get disabled() {
+      return collapsible.disabled();
     },
     get transitionStatus() {
       return collapsible.transitionStatus();
     },
   };
 
-  const collapsibleContext: CollapsibleRootContext = solidMergeProps(collapsible, {
+  const collapsibleContext: CollapsibleRootContext = {
+    ...collapsible,
     onOpenChange,
     state: collapsibleState,
-  });
+  };
 
-  const state: AccordionItem.State = solidMergeProps(rootState, {
-    get disabled() {
-      return disabled();
+  const state: AccordionItemState = {
+    get value() {
+      return rootState.value;
+    },
+    get orientation() {
+      return rootState.orientation;
+    },
+    get hidden() {
+      return !isOpen() && !collapsible.mounted();
     },
     get index() {
       return index();
     },
+    get disabled() {
+      return disabled();
+    },
     get open() {
       return isOpen();
     },
+  };
+
+  const defaultTriggerId = useBaseUiId();
+  // `undefined` uses the initial generated fallback; `null` means the trigger unmounted.
+  // Solid: the trigger clears its registration from an unmount cleanup, so the signal allows owned writes.
+  const [registeredTriggerId, setTriggerId] = createSignal<string | null | undefined>(undefined, {
+    ownedWrite: true,
   });
-
-  const initialTriggerId = useBaseUiId();
-  const [triggerId, setTriggerId] = createSignal<string | undefined>(initialTriggerId());
-  const [codependentRefs, setCodependentRefs] = createStore<CodependentRefs<['trigger']>>({});
-
-  createEffect(...on(
-      () => codependentRefs.trigger,
-      (trigger) => {
-        if (trigger) {
-          setTriggerId(trigger.id() ?? trigger.explicitId());
-        }
-      },
-    ),
-  );
+  const triggerId = () => {
+    const registered = registeredTriggerId();
+    return registered === null ? undefined : (registered ?? defaultTriggerId());
+  };
 
   const accordionItemContext: AccordionItemContext = {
-    codependentRefs,
+    defaultTriggerId,
     open: isOpen,
-    setCodependentRefs,
     state,
+    setTriggerId,
     triggerId,
   };
 
   const element = useRenderElement('div', componentProps, {
-    props: elementProps,
-    ref: setListItemRef,
     state,
+    ref: listItemRef,
+    props: elementProps,
     stateAttributesMapping: accordionStateAttributesMapping,
   });
 
   return (
     <CollapsibleRootContext value={collapsibleContext}>
-      <AccordionItemContext value={accordionItemContext}>
-        {element()}
-      </AccordionItemContext>
+      <AccordionItemContext value={accordionItemContext}>{element()}</AccordionItemContext>
     </CollapsibleRootContext>
   );
 }
 
-export interface AccordionItemState extends AccordionRoot.State {
+export interface AccordionItemState extends AccordionRootState {
+  /**
+   * Whether the accordion item's panel is currently hidden.
+   */
+  hidden: boolean;
+  /**
+   * The item index.
+   */
   index: number;
+  /**
+   * Whether the component is open.
+   */
   open: boolean;
 }
 
-export interface AccordionItemProps extends BaseUIComponentProps<'div', AccordionItem.State> {
+export interface AccordionItemProps extends BaseUIComponentProps<'div', AccordionItemState> {
+  /**
+   * Whether the component should ignore user interaction.
+   * @default false
+   */
+  // Solid: declared here because the hook parameter accepts an accessor.
+  disabled?: boolean | undefined;
   /**
    * A unique value that identifies this accordion item.
    * If no value is provided, a unique ID will be generated automatically.
@@ -171,9 +175,7 @@ export interface AccordionItemProps extends BaseUIComponentProps<'div', Accordio
    * Event handler called when the panel is opened or closed.
    */
   onOpenChange?:
-    | ((open: boolean, eventDetails: AccordionItem.ChangeEventDetails) => void)
-    | undefined;
-  disabled?: boolean;
+    ((open: boolean, eventDetails: AccordionItem.ChangeEventDetails) => void) | undefined;
 }
 
 export type AccordionItemChangeEventReason = typeof REASONS.triggerPress | typeof REASONS.none;

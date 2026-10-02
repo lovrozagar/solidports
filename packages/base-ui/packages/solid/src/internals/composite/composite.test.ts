@@ -3,8 +3,7 @@ import { scrollIntoViewIfNeeded } from './composite';
 
 describe('Composite', () => {
   describe('scrollIntoViewIfNeeded', () => {
-    it.skip('uses the left scroll margin when checking left overflow in RTL', () => {
-      // Solid composite still uses the 1.4.1 RTL scroll-margin path; 1.8.0 React expects left: -10.
+    it('uses the left scroll margin when checking left overflow in RTL', () => {
       const scrollContainer = document.createElement('div');
       const element = document.createElement('div');
       const scrollTo = vi.fn();

@@ -1,3 +1,5 @@
+import { untrack } from 'solid-js';
+
 type EventTargetWithListeners = Pick<EventTarget, 'addEventListener' | 'removeEventListener'>;
 
 type KnownEventTarget =
@@ -29,11 +31,12 @@ type EventMap<Target> = Target extends Window
                 : never;
 
 type TypedEventListener<Target, Event> =
-  | { handleEvent(event: Event): void }
-  | ((this: Target, event: Event) => void);
+  { handleEvent(event: Event): void } | ((this: Target, event: Event) => void);
 
 /**
  * Adds an event listener and returns a cleanup function to remove it.
+ * The listener runs untracked: an event can fire synchronously inside an effect callback (e.g.
+ * `focus()` dispatching `focusout`), and a listener's reads are never subscriptions.
  */
 export function addEventListener<
   Target extends KnownEventTarget,
@@ -56,8 +59,14 @@ export function addEventListener(
   listener: EventListenerOrEventListenerObject | ((event: any) => void),
   options?: boolean | AddEventListenerOptions,
 ) {
-  target.addEventListener(type, listener, options);
+  const untrackedListener = (event: Event) =>
+    untrack(() =>
+      typeof listener === 'function'
+        ? (listener as (event: Event) => void).call(target, event)
+        : listener.handleEvent(event),
+    );
+  target.addEventListener(type, untrackedListener, options);
   return () => {
-    target.removeEventListener(type, listener, options);
+    target.removeEventListener(type, untrackedListener, options);
   };
 }

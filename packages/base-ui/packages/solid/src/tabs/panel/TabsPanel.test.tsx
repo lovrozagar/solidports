@@ -1,7 +1,8 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Tabs } from '@solidports/base-ui/tabs';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { afterEach, expect } from 'vitest';
+import { createMemo, createSignal, Loading, Show } from 'solid-js';
+import { afterEach, expect, vi } from 'vitest';
 
 describe('<Tabs.Panel />', () => {
   const { render } = createRenderer();
@@ -15,6 +16,141 @@ describe('<Tabs.Panel />', () => {
       },
     }),
   );
+
+  it('throws a descriptive error when rendered outside <Tabs.Root>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() => render(() => <Tabs.Panel value="1" keepMounted />)).toThrow(
+        'Base UI: TabsRootContext is missing. Tabs parts must be placed within <Tabs.Root>.',
+      );
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
+  describe('panels sharing a value', () => {
+    it('keeps the surviving registration when a shadowed panel unmounts', async () => {
+      function App() {
+        const [shadowedMounted, setShadowedMounted] = createSignal(true);
+
+        return (
+          <>
+            <button type="button" onClick={() => setShadowedMounted(false)}>
+              unmount shadowed
+            </button>
+            <Tabs.Root value="a">
+              <Tabs.List>
+                <Tabs.Tab value="a">A</Tabs.Tab>
+                <Tabs.Tab value="b">B</Tabs.Tab>
+              </Tabs.List>
+              <Show when={shadowedMounted()}>
+                <Tabs.Panel value="b" keepMounted data-testid="shadowed" />
+              </Show>
+              <Tabs.Panel value="b" keepMounted data-testid="owner" />
+            </Tabs.Root>
+          </>
+        );
+      }
+
+      const { user } = render(() => <App />);
+
+      const tabB = screen.getAllByRole('tab')[1];
+      const owner = screen.getByTestId('owner');
+
+      // The last panel to register owns the value.
+      expect(tabB).toHaveAttribute('aria-controls', owner.id);
+
+      await user.click(screen.getByRole('button', { name: 'unmount shadowed' }));
+
+      expect(screen.queryByTestId('shadowed')).toBe(null);
+      expect(tabB).toHaveAttribute('aria-controls', owner.id);
+    });
+  });
+
+  it('sets the panel index data attribute', async () => {
+    render(() => (
+      <Tabs.Root defaultValue="one">
+        <Tabs.List>
+          <Tabs.Tab value="one" />
+        </Tabs.List>
+        <Tabs.Panel value="one" data-testid="panel" />
+      </Tabs.Root>
+    ));
+
+    expect(screen.getByTestId('panel')).toHaveAttribute('data-index', '0');
+  });
+
+  describe('Suspense integration', () => {
+    // Solid: `<Loading>` with an async memo is the counterpart of `React.Suspense` + `React.use`.
+    it('renders a panel that suspends when opened with the boundary outside the root', async () => {
+      function createSuspensePromise() {
+        let resolvePromise: ((value: string) => void) | null = null;
+        const promise = new Promise<string>((resolve) => {
+          resolvePromise = resolve;
+        });
+
+        return {
+          promise,
+          resolve(value: string) {
+            if (!resolvePromise) {
+              throw new Error('Suspense promise resolver not initialized.');
+            }
+            resolvePromise(value);
+          },
+        };
+      }
+
+      const suspender = createSuspensePromise();
+
+      function SuspendingChild() {
+        const text = createMemo(() => suspender.promise);
+        return <div>{text()}</div>;
+      }
+
+      const handleValueChange = vi.fn();
+
+      render(() => (
+        <Loading fallback={<div>Loading…</div>}>
+          <Tabs.Root defaultValue="a" onValueChange={handleValueChange}>
+            <Tabs.List>
+              <Tabs.Tab value="a">Tab A</Tabs.Tab>
+              <Tabs.Tab value="b">Tab B</Tabs.Tab>
+            </Tabs.List>
+            <Tabs.Panel value="a">Panel A</Tabs.Panel>
+            <Tabs.Panel value="b">
+              <SuspendingChild />
+            </Tabs.Panel>
+          </Tabs.Root>
+        </Loading>
+      ));
+
+      const tabB = screen.getByRole('tab', { name: 'Tab B' });
+
+      await act(async () => {
+        tabB.click();
+      });
+
+      // Solid: a settled `<Loading>` boundary holds the current UI while the selection
+      // transition is pending, instead of re-showing its fallback.
+      expect(screen.getByText('Panel A')).toBeVisible();
+      expect(screen.queryByText('Loading…')).toBe(null);
+
+      await act(async () => {
+        suspender.resolve('Panel B');
+        await Promise.resolve();
+      });
+
+      await screen.findByText('Panel B');
+      expect(handleValueChange.mock.calls).toHaveLength(1);
+      expect(handleValueChange.mock.calls[0][0]).toBe('b');
+      expect(handleValueChange.mock.calls[0][1].reason).toBe('none');
+    });
+  });
 
   describe.skipIf(isJSDOM)('animations', () => {
     afterEach(() => {

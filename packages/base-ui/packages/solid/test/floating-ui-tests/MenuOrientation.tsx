@@ -1,13 +1,5 @@
 import c from 'clsx';
-import {
-  createTrackedEffect,
-  createContext,
-  createEffect,
-  createSignal,
-  onCleanup,
-  Show,
-  useContext,
-} from 'solid-js';
+import { createContext, createEffect, createSignal, Show, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../src/internals/composite/list/CompositeList';
@@ -36,7 +28,8 @@ import {
 } from '../../src/floating-ui-solid';
 import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyRootContext';
 import { callEventHandler, defaultProps } from '../../src/solid-helpers';
-import { on, splitProps } from '../../src/solid-1-compat';
+import { splitProps } from '../../src/solid-1-compat';
+import { gridNavigationWithColumns } from './gridNavigationWithColumns';
 
 type MenuContextType = {
   getItemProps: ReturnType<typeof useInteractions>['getItemProps'];
@@ -160,8 +153,9 @@ export function MenuComponent(
       get orientation() {
         return orientation();
       },
-      get cols() {
-        return local.cols;
+      // Solid test helper: `cols` selects React's `grid` navigator with that column count.
+      get grid() {
+        return local.cols ? gridNavigationWithColumns(local.cols) : undefined;
       },
     },
   });
@@ -188,63 +182,68 @@ export function MenuComponent(
   // Event emitter allows you to communicate across tree components.
   // This effect closes all menus when an item gets clicked anywhere
   // in the tree.
-  createTrackedEffect(() => {
-    if (!tree) {
-      return;
-    }
+  createEffect(
+    () => ({ nodeId: nodeId() }),
+    (deps) => {
+      if (!tree) {
+        return undefined;
+      }
 
-    function handleTreeClick() {
-      setIsOpen(false);
-    }
-
-    function onSubMenuOpen(event: { nodeId: string; parentId: string }) {
-      if (event.nodeId !== nodeId() && event.parentId === parentId) {
+      function handleTreeClick() {
         setIsOpen(false);
       }
-    }
 
-    tree.events.on('click', handleTreeClick);
-    tree.events.on('menuopen', onSubMenuOpen);
+      function onSubMenuOpen(event: { nodeId: string; parentId: string }) {
+        if (event.nodeId !== deps.nodeId && event.parentId === parentId) {
+          setIsOpen(false);
+        }
+      }
 
-    onCleanup(() => {
-      tree.events.off('click', handleTreeClick);
-      tree.events.off('menuopen', onSubMenuOpen);
-    });
-  });
+      tree.events.on('click', handleTreeClick);
+      tree.events.on('menuopen', onSubMenuOpen);
 
-  createTrackedEffect(() => {
-    if (isOpen() && tree) {
-      tree.events.emit('menuopen', { parentId, nodeId: nodeId() });
-    }
-  });
+      return () => {
+        tree.events.off('click', handleTreeClick);
+        tree.events.off('menuopen', onSubMenuOpen);
+      };
+    },
+  );
+
+  createEffect(
+    () => ({ isOpen: isOpen(), nodeId: nodeId() }),
+    (deps) => {
+      if (deps.isOpen && tree) {
+        tree.events.emit('menuopen', { parentId, nodeId: deps.nodeId });
+      }
+    },
+  );
 
   // Determine if "hover" logic can run based on the modality of input. This
   // prevents unwanted focus synchronization as menus open and close with
   // keyboard navigation and the cursor is resting on the menu.
-  createEffect(...on(allowHover, () => {
-      function onPointerMove({ pointerType }: PointerEvent) {
-        if (pointerType !== 'touch') {
-          setAllowHover(true);
-        }
+  createEffect(allowHover, () => {
+    function onPointerMove({ pointerType }: PointerEvent) {
+      if (pointerType !== 'touch') {
+        setAllowHover(true);
       }
+    }
 
-      function onKeyDown() {
-        setAllowHover(false);
-      }
+    function onKeyDown() {
+      setAllowHover(false);
+    }
 
-      window.addEventListener('pointermove', onPointerMove, {
-        once: true,
+    window.addEventListener('pointermove', onPointerMove, {
+      once: true,
+      capture: true,
+    });
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove, {
         capture: true,
       });
-      window.addEventListener('keydown', onKeyDown, true);
-      onCleanup(() => {
-        window.removeEventListener('pointermove', onPointerMove, {
-          capture: true,
-        });
-        window.removeEventListener('keydown', onKeyDown, true);
-      });
-    }),
-  );
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  });
 
   return (
     <FloatingNode id={nodeId()}>
@@ -258,7 +257,7 @@ export function MenuComponent(
         }}
         data-open={isOpen() ? '' : undefined}
         // eslint-disable-next-line no-nested-ternary
-        tabindex={!isNested ? props.tabIndex : parent.activeIndex() === item.index() ? 0 : -1}
+        tabindex={!isNested ? props.tabindex : parent.activeIndex() === item.index() ? 0 : -1}
         class={c(
           props.class || 'flex items-center justify-between gap-4 rounded px-2 py-1 text-left',
           {
@@ -276,7 +275,7 @@ export function MenuComponent(
                 callEventHandler(props.onFocus, event);
                 setHasFocusInside(false);
                 parent.setHasFocusInside(true);
-              };
+              }
             },
             onMouseEnter(event) {
               {
@@ -284,14 +283,14 @@ export function MenuComponent(
                 if (parent.allowHover() && parent.isOpen()) {
                   parent.setActiveIndex(item.index());
                 }
-              };
+              }
             },
           }),
         )}
       >
         {props.label}
         <Show when={isNested}>
-          <span aria-hidden class="ml-4">
+          <span aria-hidden="true" class="ml-4">
             Icon
           </span>
         </Show>
@@ -338,7 +337,7 @@ export function MenuComponent(
                     // eslint-disable-next-line no-nested-ternary
                     visibility: !props.keepMounted ? undefined : isOpen() ? 'visible' : 'hidden',
                   }}
-                  aria-hidden={!isOpen()}
+                  aria-hidden={isOpen() ? 'false' : 'true'}
                   {...getFloatingProps({})}
                 >
                   {local.children}
@@ -390,7 +389,7 @@ export function MenuItem(props: MenuItemProps & JSX.HTMLAttributes<HTMLButtonEle
           {
             callEventHandler(props.onFocus, event);
             menu.setHasFocusInside(true);
-          };
+          }
         },
         onMouseEnter(event) {
           callEventHandler(props.onMouseEnter, event);

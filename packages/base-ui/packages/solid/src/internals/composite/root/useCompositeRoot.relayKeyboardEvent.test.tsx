@@ -14,14 +14,11 @@ describe('useCompositeRoot — relayKeyboardEvent regression', () => {
     let relay: ReturnType<typeof useCompositeRoot>['relayKeyboardEvent'] | undefined;
 
     function Probe() {
-      const root = useCompositeRoot(
-        {
-          orientation: 'horizontal',
-          cols: 1,
-          loopFocus: true,
-        },
-        () => 'ltr' as const,
-      );
+      const root = useCompositeRoot({
+        orientation: 'horizontal',
+        loopFocus: true,
+        direction: 'ltr',
+      });
       relay = root.relayKeyboardEvent;
       return null;
     }

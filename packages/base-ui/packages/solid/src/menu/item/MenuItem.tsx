@@ -23,7 +23,7 @@ export function MenuItem(componentProps: MenuItem.Props) {
   ]);
   const idProp = () => local.id;
   const nativeButton = () => Boolean(local.nativeButton);
-  const disabled = () => Boolean(local.disabled);
+  const disabledProp = () => Boolean(local.disabled);
   const closeOnClick = () => local.closeOnClick ?? true;
 
   const listItem = useCompositeListItem({
@@ -35,6 +35,8 @@ export function MenuItem(componentProps: MenuItem.Props) {
   const id = useBaseUiId(idProp);
 
   const { store } = useMenuRootContext();
+  const rootDisabled = store.useState('disabled');
+  const disabled = () => disabledProp() || rootDisabled();
   const highlighted = store.useState('isActive', listItem.index);
   const itemProps = store.useState('itemProps');
 

@@ -114,7 +114,7 @@ function Option(props: { label: string }) {
       ref={setRef}
       type="button"
       role="option"
-      aria-selected={isActive() && isSelected()}
+      aria-selected={isActive() && isSelected() ? 'true' : 'false'}
       tabindex={isFocusable() ? 0 : -1}
       style={{
         background: isActive() ? 'cyan' : '',

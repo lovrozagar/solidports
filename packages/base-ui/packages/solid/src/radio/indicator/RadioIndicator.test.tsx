@@ -2,7 +2,7 @@ import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Radio } from '@solidports/base-ui/radio';
 import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { createSignal } from 'solid-js';
 
 describe('<Radio.Indicator />', () => {

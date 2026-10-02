@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Toast } from '@solidports/base-ui/toast';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { Button, List } from '../utils/test-utils';
 
 describe('<Toast.Action />', () => {
@@ -84,5 +84,53 @@ describe('<Toast.Action />', () => {
 
     const actionElement = screen.queryByTestId('action');
     expect(actionElement).to.equal(null);
+  });
+
+  // Solid: React's `render={<button>…</button>}` element maps to a `{ component, children }` render
+  // config, whose own children replace the part's content as the element's do.
+  it('renders content passed through the render prop', async () => {
+    await render(() => (
+      <Toast.Provider>
+        <Toast.Viewport>
+          <Toast.Root toast={toast}>
+            <Toast.Action
+              render={{ component: 'button', type: 'button', children: 'render prop action' }}
+            />
+          </Toast.Root>
+        </Toast.Viewport>
+      </Toast.Provider>
+    ));
+
+    expect(screen.getByText('render prop action')).not.toBe(null);
+  });
+
+  it('does not render a childless render prop when there is no action content', async () => {
+    await render(() => (
+      <Toast.Provider>
+        <Toast.Viewport>
+          <Toast.Root toast={toast}>
+            <Toast.Action
+              render={{ component: 'button', type: 'button', 'data-testid': 'action-render' }}
+            />
+          </Toast.Root>
+        </Toast.Viewport>
+      </Toast.Provider>
+    ));
+
+    expect(screen.queryByTestId('action-render')).toBe(null);
+  });
+
+  it('renders the toast action content through a childless render prop', async () => {
+    await render(() => (
+      <Toast.Provider>
+        <Toast.Viewport>
+          <Toast.Root toast={{ id: 'test', actionProps: { children: 'Undo' } }}>
+            <Toast.Action render={{ component: 'button', type: 'button' }} />
+          </Toast.Root>
+        </Toast.Viewport>
+      </Toast.Provider>
+    ));
+
+    expect(screen.getByText('Undo')).not.toBe(null);
   });
 });

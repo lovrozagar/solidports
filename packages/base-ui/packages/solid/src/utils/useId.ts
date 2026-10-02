@@ -15,9 +15,10 @@ export function useId(
   idOverride?: MaybeAccessor<string | false | undefined>,
   prefix: string = 'mui',
 ): Accessor<string> {
-  const id = createMemo(() => {
+  // Generated once, as React's `useId`; an explicit string override (even `''`) wins, as `??`.
+  const generatedId = `${prefix}-${createUniqueId()}`;
+  return createMemo(() => {
     const override = access(idOverride);
-    return (typeof override === 'string' && override) || `${prefix}-${createUniqueId()}`;
+    return typeof override === 'string' ? override : generatedId;
   });
-  return id;
 }

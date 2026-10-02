@@ -1,7 +1,17 @@
-import { describe, it } from 'vitest';
+// TODO: Remove if temporal adapters are supported
+// @ts-nocheck No types available
+import { describe } from 'vitest';
+import { DateTime, Settings } from 'luxon';
+import { describeGregorianAdapter } from '#test-utils';
+import { TemporalAdapterLuxon } from './TemporalAdapterLuxon';
 
-describe.skip('TemporalAdapterLuxon.test', () => {
-  it('skipped', () => {
-    // Solid runtime/layout/portal: 1.8.0 React suite is not ported; coverage lives in sibling Solid tests for this primitive.
+describe('TemporalAdapterLuxon', () => {
+  describeGregorianAdapter({
+    adapter: new TemporalAdapterLuxon(),
+    adapterFr: new TemporalAdapterLuxon({ locale: 'fr' }),
+    setDefaultTimezone: (timezone) => {
+      Settings.defaultZone = timezone ?? 'system';
+    },
+    createDateInFrenchLocale: (dateStr) => DateTime.fromISO(dateStr, { locale: 'fr' }),
   });
 });

@@ -27,7 +27,7 @@ const demoMenu = Menu.createHandle<MenuKey>();
 
 export default function MenuDetachedTriggersControlledDemo() {
   const [open, setOpen] = createSignal(false);
-  const [activeTrigger, setActiveTrigger] = createSignal(null);
+  const [activeTrigger, setActiveTrigger] = createSignal<string | null>(null);
 
   const handleOpenChange = (isOpen: boolean, eventDetails: Menu.Root.ChangeEventDetails) => {
     setOpen(isOpen);

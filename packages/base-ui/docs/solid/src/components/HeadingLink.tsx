@@ -3,7 +3,7 @@ import { splitProps } from '../utils/solid-1-compat';
 import clsx from "clsx"
 import "./HeadingLink.css"
 
-export function HeadingLink(props: JSX.AnchorHTMLAttributes<HTMLAnchorElement> & { id?: string }) {
+export function HeadingLink(props: JSX.AnchorHTMLAttributes<HTMLAnchorElement>) {
   const [local, rest] = splitProps(props, ["class", "id"])
   return (
     <a

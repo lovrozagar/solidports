@@ -39,11 +39,11 @@ export default function ExampleFuzzyMatchingAutocomplete() {
                       <span class="flex w-full flex-col gap-1">
                         <span class="flex items-center justify-between gap-3">
                           <span class="flex-1 font-bold leading-5">
-                            {highlightText(item.title, value)}
+                            {highlightText(item.title, String(value()))}
                           </span>
                         </span>
                         <span class="text-sm text-neutral-500 dark:text-neutral-400">
-                          {highlightText(item.description, value)}
+                          {highlightText(item.description, String(value()))}
                         </span>
                       </span>
                     )}

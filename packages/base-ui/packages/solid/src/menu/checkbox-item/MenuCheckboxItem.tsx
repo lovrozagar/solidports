@@ -1,6 +1,7 @@
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import { NOOP } from '../../utils/empty';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -32,7 +33,7 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
   ]);
   const idProp = () => local.id;
   const nativeButton = () => Boolean(local.nativeButton);
-  const disabled = () => Boolean(local.disabled);
+  const disabledProp = () => Boolean(local.disabled);
   const closeOnClick = () => local.closeOnClick ?? false;
   const checkedProp = () => local.checked;
   const defaultChecked = () => local.defaultChecked;
@@ -42,6 +43,8 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
   const id = useBaseUiId(idProp);
 
   const { store } = useMenuRootContext();
+  const rootDisabled = store.useState('disabled');
+  const disabled = () => disabledProp() || rootDisabled();
   const highlighted = store.useState('isActive', listItem.index);
   const itemProps = store.useState('itemProps');
 
@@ -82,10 +85,9 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
   };
 
   const handleClick = (event: MouseEvent) => {
-    const details = {
-      ...createChangeEventDetails(REASONS.itemPress, event),
-      preventUnmountOnClose: () => {},
-    };
+    const details = createChangeEventDetails(REASONS.itemPress, event, undefined, {
+      preventUnmountOnClose: NOOP,
+    });
 
     local.onCheckedChange?.(!checked(), details);
 
@@ -119,11 +121,7 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     stateAttributesMapping: itemMapping,
   });
 
-  return (
-    <MenuCheckboxItemContext value={contextValue}>
-      {element()}
-    </MenuCheckboxItemContext>
-  );
+  return <MenuCheckboxItemContext value={contextValue}>{element()}</MenuCheckboxItemContext>;
 }
 
 export type MenuCheckboxItemState = {
@@ -160,8 +158,7 @@ export interface MenuCheckboxItemProps
    * Event handler called when the checkbox item is ticked or unticked.
    */
   onCheckedChange?:
-    | ((checked: boolean, eventDetails: MenuCheckboxItem.ChangeEventDetails) => void)
-    | undefined;
+    ((checked: boolean, eventDetails: MenuCheckboxItem.ChangeEventDetails) => void) | undefined;
   /**
    * The click handler for the menu item.
    */

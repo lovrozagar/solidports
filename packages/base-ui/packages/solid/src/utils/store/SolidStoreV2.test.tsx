@@ -1,5 +1,5 @@
-import { createRenderer } from '#test-utils';
-import { createRoot, createSignal } from 'solid-js';
+import { act, createRenderer } from '#test-utils';
+import { createRoot, createSignal, untrack } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { SolidStore } from './SolidStoreV2';
 
@@ -13,37 +13,30 @@ describe('SolidStore.useContextCallback', () => {
   const { render } = createRenderer();
 
   it('reads the latest signal-backed callback on each invocation', () => {
-    let dispose!: () => void;
+    let counter = 0;
+    const v1 = () => {
+      counter += 1;
+    };
+    const v2 = () => {
+      counter += 100;
+    };
 
-    createRoot((d) => {
-      dispose = d;
-
-      const store = SolidStore<TestState, TestContext>(
-        { value: 0 },
-        { onChange: undefined },
-      );
-
-      let counter = 0;
-      const v1 = () => {
-        counter += 1;
-      };
-      const v2 = () => {
-        counter += 100;
-      };
-
-      const [fn, setFn] = createSignal<() => void>(v1);
-
-      store.useContextCallback('onChange', () => fn()());
-
-      store.context.onChange?.();
-      expect(counter).toBe(1);
-
-      setFn(() => v2);
-
-      store.context.onChange?.();
-      /* stale closure would give 2; live read gives 101 */
-      expect(counter).toBe(101);
+    // The store and signal live in a root; writes and calls happen outside it, as in an app.
+    const { dispose, store, setFn } = createRoot((d) => {
+      const rootStore = SolidStore<TestState, TestContext>({ value: 0 }, { onChange: undefined });
+      const [fn, setFnSignal] = createSignal<() => void>(() => v1);
+      rootStore.useContextCallback('onChange', () => fn()());
+      return { dispose: d, store: rootStore, setFn: setFnSignal };
     });
+
+    store.context.onChange?.();
+    expect(counter).toBe(1);
+
+    act(() => setFn(() => v2));
+
+    store.context.onChange?.();
+    /* stale closure would give 2; live read gives 101 */
+    expect(counter).toBe(101);
 
     dispose();
   });
@@ -54,10 +47,7 @@ describe('SolidStore.useContextCallback', () => {
     createRoot((d) => {
       dispose = d;
 
-      const store = SolidStore<TestState, TestContext>(
-        { value: 0 },
-        { onChange: undefined },
-      );
+      const store = SolidStore<TestState, TestContext>({ value: 0 }, { onChange: undefined });
 
       store.useContextCallback('onChange', undefined);
 
@@ -73,10 +63,7 @@ describe('SolidStore.useContextCallback', () => {
     createRoot((d) => {
       dispose = d;
 
-      const store = SolidStore<TestState, TestContext>(
-        { value: 0 },
-        { onChange: undefined },
-      );
+      const store = SolidStore<TestState, TestContext>({ value: 0 }, { onChange: undefined });
 
       const calls: string[] = [];
 
@@ -100,10 +87,7 @@ describe('SolidStore.useContextCallback', () => {
 
       type ArgsContext = { onAction: ((x: number, y: string) => void) | undefined };
 
-      const store = SolidStore<TestState, ArgsContext>(
-        { value: 0 },
-        { onAction: undefined },
-      );
+      const store = SolidStore<TestState, ArgsContext>({ value: 0 }, { onAction: undefined });
 
       const received: [number, string][] = [];
       store.useContextCallback('onAction', (x, y) => received.push([x, y]));
@@ -119,19 +103,17 @@ describe('SolidStore.useContextCallback', () => {
     const calls: string[] = [];
 
     function TestComponent(props: { label: string }) {
-      const store = SolidStore<TestState, TestContext>(
-        { value: 0 },
-        { onChange: undefined },
-      );
+      const store = SolidStore<TestState, TestContext>({ value: 0 }, { onChange: undefined });
 
       store.useContextCallback('onChange', () => calls.push(props.label));
 
-      store.context.onChange?.();
+      // Called while rendering, as in React: a component body reads untracked.
+      untrack(() => store.context.onChange?.());
 
       return null;
     }
 
-    const [label, setLabel] = createSignal('initial');
+    const [label] = createSignal('initial');
     render(() => <TestComponent label={label()} />);
 
     expect(calls).toContain('initial');

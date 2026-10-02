@@ -1,6 +1,6 @@
 import { getWindow, isElement, isHTMLElement } from '@floating-ui/utils/dom';
-import { createTrackedEffect, onCleanup } from 'solid-js';
-import { defaultProps } from '../../solid-helpers';
+import { createEffect } from 'solid-js';
+import { createDepsEffect, defaultProps, live } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isMac, isSafari } from '../../utils/detectBrowser';
 import { ownerDocument } from '../../utils/owner';
@@ -47,9 +47,10 @@ export function useFocus(parameters: {
 }): ElementProps {
   const props = defaultProps(parameters.props ?? {}, { enabled: true });
 
-  const store = () =>
-    'rootStore' in parameters.context ? parameters.context.rootStore : parameters.context;
-  const events = () => store().context.events;
+  // Live: handlers and effect callbacks read the store imperatively, as React's refs.
+  const store = live(() =>
+    'rootStore' in parameters.context ? parameters.context.rootStore : parameters.context,
+  );
   const dataRef = () => store().context.dataRef;
 
   let blockFocusRef = false;
@@ -58,83 +59,69 @@ export function useFocus(parameters: {
   let keyboardModalityRef = true;
   const timeout = useTimeout();
 
-  // If the reference was focused and the user left the tab/window, and the
-  // floating element was not open, the focus should be blocked when they
-  // return to the tab/window.
-  function onBlur() {
-    const currentDomReference = store().select('domReferenceElement');
-    if (
-      !store().select('open') &&
-      isHTMLElement(currentDomReference) &&
-      currentDomReference === activeElement(ownerDocument(currentDomReference))
-    ) {
-      blockFocusRef = true;
-    }
-  }
+  createDepsEffect(
+    () => ({ enabled: props.enabled, domReference: store().select('domReferenceElement') }),
+    (deps) => {
+      if (!deps.enabled) {
+        return undefined;
+      }
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
+      const win = getWindow(deps.domReference ?? null);
 
-    const domReference = store().select('domReferenceElement');
-    if (!props.enabled) {
-      return;
-    }
+      // If the reference was focused and the user left the tab/window, and the
+      // floating element was not open, the focus should be blocked when they
+      // return to the tab/window.
+      function onBlur() {
+        const currentDomReference = store().select('domReferenceElement');
+        if (
+          !store().select('open') &&
+          isHTMLElement(currentDomReference) &&
+          currentDomReference === activeElement(ownerDocument(currentDomReference))
+        ) {
+          blockFocusRef = true;
+          blockedReferenceRef = currentDomReference;
+        }
+      }
 
-    const win = getWindow(domReference);
+      function onKeyDown() {
+        keyboardModalityRef = true;
+      }
 
-    function onKeyDown() {
-      keyboardModalityRef = true;
-    }
+      function onPointerDown() {
+        keyboardModalityRef = false;
+      }
 
-    function onPointerDown() {
-      keyboardModalityRef = false;
-    }
-
-    _c.push(
-      mergeCleanups(
+      return mergeCleanups(
         addEventListener(win, 'blur', onBlur),
         isMacSafari && addEventListener(win, 'keydown', onKeyDown, true),
         isMacSafari && addEventListener(win, 'pointerdown', onPointerDown, true),
-      ),
-    );
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
+      );
+    },
+  );
+
+  createEffect(
+    () => (props.enabled ? store().context.events : null),
+    (events) => {
+      if (!events) {
+        return undefined;
       }
-    };
-});
 
-  function onOpenChangeLocal(details: FloatingUIOpenChangeDetails) {
-    if (details.reason === REASONS.triggerPress || details.reason === REASONS.escapeKey) {
-      const referenceElement = store().select('domReferenceElement');
-      if (isElement(referenceElement)) {
-        blockedReferenceRef = referenceElement;
-        blockFocusRef = true;
+      function onOpenChangeLocal(details: FloatingUIOpenChangeDetails) {
+        if (details.reason === REASONS.triggerPress || details.reason === REASONS.escapeKey) {
+          const referenceElement = store().select('domReferenceElement');
+          if (isElement(referenceElement)) {
+            blockedReferenceRef = referenceElement;
+            blockFocusRef = true;
+          }
+        }
       }
-    }
-  }
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    if (!props.enabled) {
-      return;
-    }
-
-    events().on('openchange', onOpenChangeLocal);
-    _c.push(() => {
-      events().off('openchange', onOpenChangeLocal);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+      events.on('openchange', onOpenChangeLocal);
+      return () => {
+        events.off('openchange', onOpenChangeLocal);
+      };
+    },
+  );
 
   const reference: ElementProps['reference'] = {
     onBlur: (event) => {

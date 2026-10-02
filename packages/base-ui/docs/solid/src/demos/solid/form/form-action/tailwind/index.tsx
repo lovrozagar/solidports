@@ -33,7 +33,7 @@ export default function ActionStateForm() {
         </Field.Label>
         <Field.Control
           type="text"
-          autoComplete="username"
+          autocomplete="username"
           required
           defaultValue="admin"
           placeholder="e.g. alice132"

@@ -1,8 +1,12 @@
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
+import { useButton } from '../../internals/use-button';
+import { mergeProps } from '../../merge-props';
 import { splitComponentProps, useRef } from '../../solid-helpers';
-import type { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps, BaseUIHTMLProps, HTMLProps } from '../../utils/types';
+import type { JSX } from '@solidjs/web';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { REGULAR_ITEM } from '../item/useMenuItem';
 import { useMenuItemCommonProps } from '../item/useMenuItemCommonProps';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
@@ -33,6 +37,12 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
   const { store } = useMenuRootContext();
   const highlighted = store.useState('isActive', listItem.index);
   const itemProps = store.useState('itemProps');
+  const typingRef = store.context.typingRef;
+
+  const { getButtonProps, buttonRef } = useButton({
+    native: false,
+    composite: true,
+  });
 
   const commonProps = useMenuItemCommonProps({
     get closeOnClick() {
@@ -49,7 +59,13 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
       return nodeId();
     },
     store,
+    typingRef,
+    itemMetadata: REGULAR_ITEM,
   });
+
+  function getItemProps(externalProps?: HTMLProps | BaseUIHTMLProps) {
+    return mergeProps<'a'>([commonProps, externalProps, getButtonProps]);
+  }
 
   const state: MenuLinkItem.State = {
     get highlighted() {
@@ -59,10 +75,11 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
 
   const element = useRenderElement('a', componentProps, {
     get props() {
-      return [itemProps(), elementProps, commonProps];
+      return [itemProps(), elementProps, getItemProps];
     },
     ref: (el) => {
       linkRef.current = el;
+      buttonRef(el);
       listItem.setRef(el);
     },
     state,
@@ -78,7 +95,11 @@ export interface MenuLinkItemState {
   highlighted: boolean;
 }
 
-export interface MenuLinkItemProps extends BaseUIComponentProps<'a', MenuLinkItem.State> {
+export interface MenuLinkItemProps extends BaseUIComponentProps<
+  'a',
+  MenuLinkItem.State,
+  JSX.AnchorHTMLAttributes<HTMLAnchorElement>
+> {
   /**
    * Overrides the text label to use when the item is matched during keyboard text navigation.
    */

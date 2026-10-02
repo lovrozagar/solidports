@@ -3,7 +3,7 @@ import { isJSDOM } from '#utils/detectBrowser';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal, onSettled } from 'solid-js';
 import { FloatingPortalLite } from '../../utils/FloatingPortalLite';
-import { FloatingPortal, useFloating } from '../index';
+import { FloatingFocusManager, FloatingPortal, useFloating } from '../index';
 import type { UseFloatingPortalNodeProps } from './FloatingPortal';
 
 interface AppProps {
@@ -152,6 +152,25 @@ describe.skipIf(!isJSDOM)('FloatingPortal', () => {
     expect(portal).not.toBeNull();
     expect(portal).toHaveClass('closed');
     expect(portal).toHaveAttribute('data-base-ui-portal');
+  });
+
+  test('uses the rendered portal ID for the aria-owns relationship', async () => {
+    function Test() {
+      const { context, refs } = useFloating({ open: true });
+
+      return (
+        <FloatingPortal id="custom-portal">
+          <FloatingFocusManager context={context} modal={false}>
+            <div ref={refs.setFloating} />
+          </FloatingFocusManager>
+        </FloatingPortal>
+      );
+    }
+
+    render(() => <Test />);
+    await flushMicrotasks();
+
+    expect(document.querySelector('[aria-owns]')).toHaveAttribute('aria-owns', 'custom-portal');
   });
 
   test('FloatingPortalLite forwards HTML props to the portal element', async () => {

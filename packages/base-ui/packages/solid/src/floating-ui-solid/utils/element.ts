@@ -1,5 +1,6 @@
-import { isElement, isHTMLElement, isShadowRoot } from '@floating-ui/utils/dom';
+import { isElement, isHTMLElement } from '@floating-ui/utils/dom';
 import { isJSDOM } from '../../utils/detectBrowser';
+import { activeElement, contains, getTarget } from '../../utils/shadowDom';
 import { type PopupTriggerMap } from '../../utils/popups';
 import { FOCUSABLE_ATTRIBUTE, TYPEABLE_SELECTOR } from './constants';
 import { createAttribute } from './createAttribute';
@@ -10,42 +11,7 @@ export function isInteractiveElement(element: Element | null | undefined) {
   return element ? Boolean(element.closest(interactiveSelector)) : false;
 }
 
-export function activeElement(doc: Document) {
-  let element = doc.activeElement;
-
-  while (element?.shadowRoot?.activeElement != null) {
-    element = element.shadowRoot.activeElement;
-  }
-
-  return element;
-}
-
-export function contains(parent?: Element | null | undefined, child?: Element | null | undefined) {
-  if (!parent || !child) {
-    return false;
-  }
-
-  const rootNode = child.getRootNode?.();
-
-  // First, attempt with faster native method
-  if (parent.contains(child)) {
-    return true;
-  }
-
-  // then fallback to custom implementation with Shadow DOM support
-  if (rootNode && isShadowRoot(rootNode)) {
-    let next = child;
-    while (next) {
-      if (parent === next) {
-        return true;
-      }
-      next = (next.parentNode as Element) || (next as unknown as ShadowRoot).host;
-    }
-  }
-
-  // Give up, the result is false
-  return false;
-}
+export { activeElement, contains, getTarget };
 
 export function isTargetInsideEnabledTrigger(
   target: EventTarget | null | undefined,
@@ -68,16 +34,6 @@ export function isTargetInsideEnabledTrigger(
   }
 
   return false;
-}
-
-export function getTarget(event: Event) {
-  if ('composedPath' in event) {
-    return event.composedPath()[0];
-  }
-
-  // TS thinks `event` is of type never as it assumes all browsers support
-  // `composedPath()`, but browsers without shadow DOM don't.
-  return (event as Event).target;
 }
 
 export function isEventTargetWithin(event: Event, node: Node | null | undefined) {
@@ -117,7 +73,7 @@ export function matchesFocusVisible(element: Element | null) {
   }
   try {
     return element.matches(':focus-visible');
-  } catch  {
+  } catch {
     return true;
   }
 }
@@ -135,6 +91,32 @@ export function getFloatingFocusElement(
   return floatingElement.hasAttribute(FOCUSABLE_ATTRIBUTE)
     ? floatingElement
     : floatingElement.querySelector(`[${FOCUSABLE_ATTRIBUTE}]`) || floatingElement;
+}
+
+/**
+ * Solid adaptation for React's portal event bubbling: whether `node` is a render-tree descendant of
+ * `ancestor`, following Solid portals (`_$host`) back to where they are rendered.
+ */
+export function isRenderTreeDescendant(
+  ancestor: Node | null | undefined,
+  node: Node | null | undefined,
+): boolean {
+  if (!ancestor) {
+    return false;
+  }
+
+  let current: Node | null | undefined = node;
+  while (current) {
+    if (current === ancestor) {
+      return true;
+    }
+    current =
+      (current as Node & { _$host?: Node | null })._$host ||
+      current.parentNode ||
+      (current as Partial<ShadowRoot>).host;
+  }
+
+  return false;
 }
 
 export function isEventTargetInsidePortal<E extends Event>(event: E) {

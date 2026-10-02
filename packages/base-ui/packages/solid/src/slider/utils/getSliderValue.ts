@@ -16,7 +16,7 @@ export function getSliderValue(
   }
 
   const output = values.slice();
-  // Bound the new value to the thumb's neighbours. `??` keeps a neighbour at 0.
+  // Bound the new value to the thumb's neighbours.
   output[index] = clamp(clamped, values[index - 1] ?? -Infinity, values[index + 1] ?? Infinity);
   return output.sort(asc);
 }

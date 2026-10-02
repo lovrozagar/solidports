@@ -2,8 +2,7 @@ import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { valueToPercent } from '../../utils/valueToPercent';
-import type { MeterRoot } from '../root/MeterRoot';
+import type { MeterRootState } from '../root/MeterRoot';
 import { useMeterRootContext } from '../root/MeterRootContext';
 
 /**
@@ -15,18 +14,16 @@ import { useMeterRootContext } from '../root/MeterRootContext';
 export function MeterIndicator(componentProps: MeterIndicator.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const context = useMeterRootContext();
-
-  const percentageWidth = () => valueToPercent(context.value(), context.min(), context.max());
+  const { percentageValue } = useMeterRootContext();
 
   const element = useRenderElement('div', componentProps, {
     props: [
       {
         get style(): JSX.CSSProperties {
           return {
-            height: 'inherit',
             'inset-inline-start': 0,
-            width: `${percentageWidth()}%`,
+            height: 'inherit',
+            width: `${percentageValue()}%`,
           };
         },
       },
@@ -37,8 +34,11 @@ export function MeterIndicator(componentProps: MeterIndicator.Props) {
   return <>{element()}</>;
 }
 
-export interface MeterIndicatorProps extends BaseUIComponentProps<'div', MeterRoot.State> {}
+export interface MeterIndicatorState extends MeterRootState {}
+
+export interface MeterIndicatorProps extends BaseUIComponentProps<'div', MeterIndicatorState> {}
 
 export namespace MeterIndicator {
+  export type State = MeterIndicatorState;
   export type Props = MeterIndicatorProps;
 }

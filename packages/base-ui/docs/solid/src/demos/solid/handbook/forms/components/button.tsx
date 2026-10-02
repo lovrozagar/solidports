@@ -1,10 +1,10 @@
 import { omit } from 'solid-js';
-import type { ComponentProps } from '@solidjs/web';
+import type { ComponentProps, JSX } from '@solidjs/web';
 
 import { Button as BaseButton } from '@solidports/base-ui/button';
 import clsx from 'clsx';
 
-export function Button(props: ComponentProps<'button'>) {
+export function Button(props: Omit<ComponentProps<'button'>, 'ref' | 'style'> & { style?: JSX.CSSProperties }) {
   const others = omit(props, 'class');
   return (
     <BaseButton

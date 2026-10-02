@@ -1,20 +1,29 @@
-import { createTrackedEffect, createMemo, onSettled, untrack } from 'solid-js';
+import { onSettled, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { useClientPoint, useDismiss, useInteractions } from '../../floating-ui-solid';
-import { ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
+import { EMPTY_OBJECT } from '../../utils/empty';
+import { useClientPoint, useDismiss } from '../../floating-ui-solid';
 import {
-  createChangeEventDetails,
+  ComponentWithPayload,
+  createDepsRenderEffect,
+  type ReactLikeRef,
+} from '../../solid-helpers';
+import {
   type BaseUIChangeEventDetails,
+  createChangeEventDetails,
 } from '../../utils/createBaseUIEventDetails';
 import {
+  PopupHandleAttachment,
   useImplicitActiveTrigger,
+  usePopupRootStore,
   useOpenStateTransitions,
+  usePopupInteractionProps,
   type PayloadChildRenderFunction,
 } from '../../utils/popups';
-import { REASONS } from '../../utils/reasons';
+import { mergeProps } from '../../merge-props';
+import { TooltipStore, type State as TooltipStoreState } from '../store/TooltipStore';
 import { type TooltipHandle } from '../store/TooltipHandle';
-import { TooltipStore } from '../store/TooltipStore';
+import { REASONS } from '../../utils/reasons';
 import { TooltipRootContext } from './TooltipRootContext';
 
 /**
@@ -32,74 +41,55 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   const triggerIdProp = () => props.triggerId;
   const defaultTriggerIdProp = () => props.defaultTriggerId ?? null;
 
-  const store = TooltipStore.useStore<Payload>(
-    untrack(() => props.handle?.store),
-    {
-      get activeTriggerId() {
-        return defaultTriggerIdProp();
+  const store = usePopupRootStore((floatingId, nested) =>
+    TooltipStore<Payload>(
+      {
+        get open() {
+          return defaultOpen();
+        },
+        get openProp() {
+          return openProp();
+        },
+        get activeTriggerId() {
+          return defaultTriggerIdProp();
+        },
+        get triggerIdProp() {
+          return triggerIdProp();
+        },
       },
-      get open() {
-        return defaultOpen();
-      },
-      get openProp() {
-        return openProp();
-      },
-      get triggerIdProp() {
-        return triggerIdProp();
-      },
-    },
+      floatingId,
+      nested,
+    ),
   );
-
-  // Support initially open state when uncontrolled
-  onSettled(() => {
-    if (openProp() === undefined && store.state.open === false && defaultOpen() === true) {
-      store.update({
-        activeTriggerId: defaultTriggerIdProp(),
-        open: true,
-      });
-    }
-  });
 
   store.useControlledProp('openProp', openProp);
   store.useControlledProp('triggerIdProp', triggerIdProp);
 
-  store.useContextCallback('onOpenChange', (open: boolean, details: TooltipRoot.ChangeEventDetails) =>
-    props.onOpenChange?.(open, details),
+  // Solid: the callbacks read the latest props when invoked.
+  store.useContextCallback(
+    'onOpenChange',
+    (nextOpen: boolean, eventDetails: TooltipRoot.ChangeEventDetails) =>
+      untrack(() => props.onOpenChange)?.(nextOpen, eventDetails),
   );
-  store.useContextCallback('onOpenChangeComplete', (open: boolean) =>
-    props.onOpenChangeComplete?.(open),
+  store.useContextCallback('onOpenChangeComplete', (nextOpen: boolean) =>
+    untrack(() => props.onOpenChangeComplete)?.(nextOpen),
   );
 
   const openState = store.useState('open');
   const open = () => !disabled() && openState();
 
   const activeTriggerId = store.useState('activeTriggerId');
+  const mounted = store.useState('mounted');
   const payload = store.useState('payload') as Accessor<Payload | undefined>;
 
   store.useSyncedValues({
-    get disableHoverablePopup() {
-      return disableHoverablePopup();
-    },
-    get trackCursorAxis() {
-      return trackCursorAxis();
-    },
+    trackCursorAxis,
+    disableHoverablePopup,
+    disabled,
   });
 
-  createTrackedEffect(() => {
-    if (openState() && disabled()) {
-      store.setOpen(false, createChangeEventDetails(REASONS.disabled));
-    }
-  });
-
-  store.useSyncedValue('disabled', disabled);
-
-  useImplicitActiveTrigger({ store });
-  const { forceUnmount, transitionStatus } = useOpenStateTransitions({
-    get open() {
-      return open();
-    },
-    store,
-  });
+  useImplicitActiveTrigger(store, { closeOnActiveTriggerUnmount: true });
+  const { forceUnmount, transitionStatus } = useOpenStateTransitions(open, store);
   const isInstantPhase = store.useState('isInstantPhase');
   const instantType = store.useState('instantType');
   const lastOpenChangeReason = store.useState('lastOpenChangeReason');
@@ -109,89 +99,79 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   // 2) Closing because another tooltip opened (reason === 'none')
   // Otherwise, allow the animation to play. In particular, do not disable animations
   // during the 'ending' phase unless it's due to a sibling opening.
-  let previousInstantTypeRef = null as string | undefined | null;
-  createTrackedEffect(() => {
-    if (
-      (transitionStatus() === 'ending' && lastOpenChangeReason() === REASONS.none) ||
-      (transitionStatus() !== 'ending' && isInstantPhase())
-    ) {
-      // Capture the current instant type so we can restore it later
-      // and set to 'delay' to disable animations while moving from one trigger to another
-      // within a delay group.
-      if (instantType() !== 'delay') {
-        previousInstantTypeRef = instantType();
+  let previousInstantTypeRef: TooltipStoreState<Payload>['instantType'] | null = null;
+
+  createDepsRenderEffect(
+    () => ({ openState: openState(), disabled: disabled() }),
+    (deps) => {
+      if (deps.openState && deps.disabled) {
+        store.setOpen(false, createChangeEventDetails(REASONS.disabled));
       }
-      store.set('instantType', 'delay');
-    } else if (previousInstantTypeRef !== null) {
-      store.set('instantType', previousInstantTypeRef as 'delay' | 'dismiss' | 'focus' | undefined);
-      previousInstantTypeRef = null;
-    }
-  });
+    },
+  );
 
-  createTrackedEffect(() => {
-    if (open()) {
-      if (activeTriggerId() == null) {
-        store.set('payload', undefined);
+  createDepsRenderEffect(
+    () => ({
+      transitionStatus: transitionStatus(),
+      isInstantPhase: isInstantPhase(),
+      lastOpenChangeReason: lastOpenChangeReason(),
+      instantType: instantType(),
+    }),
+    (deps) => {
+      if (
+        (deps.transitionStatus === 'ending' && deps.lastOpenChangeReason === REASONS.none) ||
+        (deps.transitionStatus !== 'ending' && deps.isInstantPhase)
+      ) {
+        // Capture the current instant type so we can restore it later
+        // and set to 'delay' to disable animations while moving from one trigger to another
+        // within a delay group.
+        if (deps.instantType !== 'delay') {
+          previousInstantTypeRef = deps.instantType;
+        }
+        store.set('instantType', 'delay');
+      } else if (previousInstantTypeRef !== null) {
+        store.set('instantType', previousInstantTypeRef);
+        previousInstantTypeRef = null;
       }
-    }
-  });
+    },
+  );
 
-  const handleImperativeClose = () => {
-    store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction));
-  };
+  createDepsRenderEffect(
+    () => ({ activeTriggerId: activeTriggerId(), open: open() }),
+    (deps) => {
+      if (deps.open) {
+        if (deps.activeTriggerId == null) {
+          store.set('payload', undefined);
+        }
+      }
+    },
+  );
 
+  // React's `useImperativeHandle`.
   onSettled(() => {
     if (props.actionsRef) {
-      props.actionsRef.current = { close: handleImperativeClose, unmount: forceUnmount };
+      props.actionsRef.current = {
+        unmount: forceUnmount,
+        close: () => store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction)),
+      };
     }
   });
 
-  const closeOnClick = store.useState('closeOnClick');
-  const dismiss = useDismiss({
-    get context() {
-      return store.context.floatingRootContext;
-    },
-    props: {
-      get enabled() {
-        return !disabled();
-      },
-      get referencePress() {
-        return closeOnClick();
-      },
-    },
-  });
-  const clientPoint = useClientPoint({
-    get context() {
-      return store.context.floatingRootContext;
-    },
-    props: {
-      get axis() {
-        const axis = trackCursorAxis();
-        return axis === 'none' ? undefined : axis;
-      },
-      get enabled() {
-        return !disabled() && trackCursorAxis() !== 'none';
-      },
-    },
-  });
-
-  const { getReferenceProps, getFloatingProps, getTriggerProps } = useInteractions([
-    dismiss,
-    clientPoint,
-  ]);
-
-  const activeTriggerProps = createMemo(() => getReferenceProps());
-  const inactiveTriggerProps = createMemo(() => getTriggerProps());
-  const popupProps = createMemo(() => getFloatingProps());
-
-  store.useSyncedValues({
-    activeTriggerProps,
-    inactiveTriggerProps,
-    popupProps,
-  });
+  const shouldRenderInteractions = () =>
+    open() || mounted() || (!disabled() && trackCursorAxis() !== 'none');
 
   return (
     <TooltipRootContext value={{ store } as TooltipRootContext}>
+      <Show when={props.handle}>
+        {(handle) => <PopupHandleAttachment handle={handle()} store={store} />}
+      </Show>
+      <Show when={shouldRenderInteractions()}>
+        <TooltipInteractions
+          store={store}
+          disabled={disabled()}
+          trackCursorAxis={trackCursorAxis()}
+        />
+      </Show>
       <ComponentWithPayload payload={payload} children={props.children} />
     </TooltipRootContext>
   );
@@ -215,8 +195,7 @@ export interface TooltipRootProps<Payload = unknown> {
    * Event handler called when the tooltip is opened or closed.
    */
   onOpenChange?:
-    | ((open: boolean, eventDetails: TooltipRoot.ChangeEventDetails) => void)
-    | undefined;
+    ((open: boolean, eventDetails: TooltipRoot.ChangeEventDetails) => void) | undefined;
   /**
    * Event handler called after any animations complete when the tooltip is opened or closed.
    */
@@ -230,7 +209,7 @@ export interface TooltipRootProps<Payload = unknown> {
    * Determines which axis the tooltip should track the cursor on.
    * @default 'none'
    */
-  trackCursorAxis?: ('none' | 'x' | 'y' | 'both') | undefined;
+  trackCursorAxis?: 'none' | 'x' | 'y' | 'both' | undefined;
   /**
    * A ref to imperative actions.
    * - `unmount`: Unmounts the tooltip popup.
@@ -256,14 +235,14 @@ export interface TooltipRootProps<Payload = unknown> {
   /**
    * ID of the trigger that the tooltip is associated with.
    * This is useful in conjunction with the `open` prop to create a controlled tooltip.
-   * There's no need to specify this prop when the tooltip is uncontrolled (i.e. when the `open` prop is not set).
+   * There's no need to specify this prop when the tooltip is uncontrolled (that is, when the `open` prop is not set).
    */
-  triggerId?: (string | null) | undefined;
+  triggerId?: string | null | undefined;
   /**
    * ID of the trigger that the tooltip is associated with.
    * This is useful in conjunction with the `defaultOpen` prop to create an initially open tooltip.
    */
-  defaultTriggerId?: (string | null) | undefined;
+  defaultTriggerId?: string | null | undefined;
 }
 
 export interface TooltipRootActions {
@@ -292,4 +271,52 @@ export namespace TooltipRoot {
   export type Actions = TooltipRootActions;
   export type ChangeEventReason = TooltipRootChangeEventReason;
   export type ChangeEventDetails = TooltipRootChangeEventDetails;
+}
+
+function TooltipInteractions<Payload>(props: {
+  store: TooltipStore<Payload>;
+  disabled: boolean;
+  trackCursorAxis: 'none' | 'x' | 'y' | 'both';
+}) {
+  const dismiss = useDismiss({
+    get context() {
+      return props.store.context.floatingRootContext;
+    },
+    props: {
+      get enabled() {
+        return !props.disabled;
+      },
+      referencePress: () => props.store.select('closeOnClick'),
+    },
+  });
+  const clientPoint = useClientPoint({
+    get context() {
+      return props.store.context.floatingRootContext;
+    },
+    props: {
+      get enabled() {
+        return !props.disabled && props.trackCursorAxis !== 'none';
+      },
+      get axis() {
+        return props.trackCursorAxis === 'none' ? undefined : props.trackCursorAxis;
+      },
+    },
+  });
+
+  // Both hooks return `trigger: reference` (same object identity), so the active and
+  // inactive trigger props can never differ. `useClientPoint` has no floating-side props.
+  const triggerProps = () => mergeProps(clientPoint.reference, dismiss.reference);
+  usePopupInteractionProps(props.store, {
+    get activeTriggerProps() {
+      return triggerProps();
+    },
+    get inactiveTriggerProps() {
+      return triggerProps();
+    },
+    get popupProps() {
+      return dismiss.floating ?? EMPTY_OBJECT;
+    },
+  });
+
+  return null;
 }

@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic prop merger handles arbitrary handler shapes */
-import { createMemo } from 'solid-js';
+import { createMemo, merge, omit } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { mergeProps } from '../../merge-props';
 import type { ElementProps } from '../types';
@@ -62,24 +62,36 @@ export function useInteractions(propsList: Array<ElementProps> = []): UseInterac
     };
   });
 
+  // React calls these getters every render. In Solid they are called once, so each returns a
+  // live view that re-merges when the hooks' prop lists change.
+  const live = (build: () => Record<string, unknown>) => merge(build) as any;
+
   return {
     getFloatingProps(userProps) {
-      return mergeProps(
-        [{ tabindex: -1, [FOCUSABLE_ATTRIBUTE as any]: '' }, ...lists().floating, userProps],
-        { callAllHandlers: true },
+      return live(() =>
+        mergeProps(
+          [{ tabindex: -1, [FOCUSABLE_ATTRIBUTE as any]: '' }, ...lists().floating, userProps],
+          { callAllHandlers: true },
+        ),
       );
     },
     getItemProps(userProps) {
-      return mergeProps(
-        [...lists().item, { ...userProps, active: undefined, selected: undefined }],
-        { callAllHandlers: true },
+      return live(() =>
+        // `active`/`selected` are item states for the consumer, not DOM props: omit them (React
+        // skips these keys). Set to `undefined`, they would override an explicit prop when spread.
+        mergeProps(
+          [...lists().item, userProps ? omit(userProps, ACTIVE_KEY, SELECTED_KEY) : undefined],
+          {
+            callAllHandlers: true,
+          },
+        ),
       );
     },
     getReferenceProps(userProps) {
-      return mergeProps([...lists().reference, userProps], { callAllHandlers: true });
+      return live(() => mergeProps([...lists().reference, userProps], { callAllHandlers: true }));
     },
     getTriggerProps(userProps) {
-      return mergeProps([...lists().trigger, userProps], { callAllHandlers: true });
+      return live(() => mergeProps([...lists().trigger, userProps], { callAllHandlers: true }));
     },
   };
 }

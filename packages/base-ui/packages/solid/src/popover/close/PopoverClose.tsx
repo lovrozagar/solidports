@@ -4,6 +4,7 @@ import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { useClosePartRegistration } from '../../utils/closePart';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
 
 /**
@@ -24,15 +25,13 @@ export function PopoverClose(props: PopoverClose.Props) {
   });
 
   const { store } = usePopoverRootContext();
+  useClosePartRegistration();
 
   const element = useRenderElement('button', props, {
     props: [
       {
         onClick(event: MouseEvent) {
-          store.setOpen(
-            false,
-            createChangeEventDetails(REASONS.closePress, event, event.currentTarget as HTMLElement),
-          );
+          store.setOpen(false, createChangeEventDetails(REASONS.closePress, event));
         },
       },
       elementProps,

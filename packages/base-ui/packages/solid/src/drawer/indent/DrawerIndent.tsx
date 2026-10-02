@@ -1,4 +1,4 @@
-import { createTrackedEffect, onCleanup } from 'solid-js';
+import { onSettled } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -18,62 +18,51 @@ const stateAttributesMapping: StateAttributesMapping<DrawerIndent.State> = {
 
 /**
  * A wrapper element intended to contain your app's main UI.
- * Applies `data-active` when any drawer within the nearest <Drawer.Provider> is open.
+ * Applies `data-active` when any drawer within the nearest `<Drawer.Provider>` is open.
+ * Renders a `<div>` element.
  *
  * Documentation: [Base UI Drawer](https://base-ui.com/react/components/drawer)
  */
 export function DrawerIndent(componentProps: DrawerIndent.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const providerContext = useDrawerProviderContext(true);
+  const providerContext = useDrawerProviderContext();
 
   const active = () => providerContext?.active() ?? false;
   const visualStateStore = providerContext?.visualStateStore;
 
   let indentRef = null as HTMLDivElement | null | undefined;
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
+  onSettled(() => {
     const element = indentRef;
     if (!element || !visualStateStore) {
-      return;
+      return undefined;
     }
 
     const syncVisualState = () => {
-      if (visualStateStore.swipeProgress <= 0) {
+      const { swipeProgress, frontmostHeight } = visualStateStore.getSnapshot();
+      if (swipeProgress <= 0) {
         element.style.setProperty(DrawerBackdropCssVars.swipeProgress, '0');
       } else {
-        element.style.setProperty(
-          DrawerBackdropCssVars.swipeProgress,
-          `${visualStateStore.swipeProgress}`,
-        );
+        element.style.setProperty(DrawerBackdropCssVars.swipeProgress, `${swipeProgress}`);
       }
 
-      if (visualStateStore.frontmostHeight <= 0) {
+      if (frontmostHeight <= 0) {
         element.style.removeProperty(DrawerPopupCssVars.height);
       } else {
-        element.style.setProperty(
-          DrawerPopupCssVars.height,
-          `${visualStateStore.frontmostHeight}px`,
-        );
+        element.style.setProperty(DrawerPopupCssVars.height, `${frontmostHeight}px`);
       }
     };
 
     syncVisualState();
 
-    _c.push(() => {
+    const unsubscribe = visualStateStore.subscribe(syncVisualState);
+    return () => {
+      unsubscribe();
       element.style.setProperty(DrawerBackdropCssVars.swipeProgress, '0');
       element.style.removeProperty(DrawerPopupCssVars.height);
-    });
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
     };
-});
+  });
 
   const state: DrawerIndent.State = {
     get active() {

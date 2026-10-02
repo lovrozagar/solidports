@@ -1,17 +1,19 @@
-
-import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
+import { untrack } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
+import { NullStore } from '../../utils/NullStore';
 import {
   createInitialPopupStoreState,
+  createPopupFloatingRootContext,
+  createPopupOpenState,
   PopupStoreContext,
   popupStoreSelectors,
   PopupStoreState,
+  PopupTriggerDataStore,
   PopupTriggerMap,
 } from '../../utils/popups';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { type InteractionType } from '../../utils/useEnhancedClickHandler';
 import { type DialogRoot } from '../root/DialogRoot';
-import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   modal: boolean | 'trap-focus';
@@ -32,37 +34,38 @@ type Context = PopupStoreContext<DialogRoot.ChangeEventDetails> & {
   readonly internalBackdropRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   readonly outsidePressEnabledRef: ReactLikeRef<boolean>;
   readonly onNestedDialogOpen?: ((dialogCount: number, drawerCount: number) => void) | undefined;
-  readonly onNestedDialogClose?: (() => void) | undefined;
 };
 
 const selectors = {
   ...popupStoreSelectors,
-  descriptionElementId: (state: State<unknown>) => state.descriptionElementId,
-  disablePointerDismissal: (state: State<unknown>) => state.disablePointerDismissal,
   modal: (state: State<unknown>) => state.modal,
   nested: (state: State<unknown>) => state.nested,
   nestedOpenDialogCount: (state: State<unknown>) => state.nestedOpenDialogCount,
   nestedOpenDrawerCount: (state: State<unknown>) => state.nestedOpenDrawerCount,
+  disablePointerDismissal: (state: State<unknown>) => state.disablePointerDismissal,
   openMethod: (state: State<unknown>) => state.openMethod,
-  role: (state: State<unknown>) => state.role,
+  descriptionElementId: (state: State<unknown>) => state.descriptionElementId,
   titleElementId: (state: State<unknown>) => state.titleElementId,
   viewportElement: (state: State<unknown>) => state.viewportElement,
+  role: (state: State<unknown>) => state.role,
 };
 
-export function DialogStore<Payload>(initialState?: Partial<State<Payload>>) {
-  const [state, setState] = createInitialState<Payload>(initialState);
+/**
+ * The subset of `DialogStore` that detached handle-backed triggers rely on. Both the real
+ * `DialogStore` and the inert fallback store satisfy it, so a trigger can read from whichever
+ * store the handle currently exposes.
+ */
+export type DialogHandleStore<Payload> = PopupTriggerDataStore<State<Payload>>;
+
+export function DialogStore<Payload>(
+  initialState: Partial<State<Payload>> | undefined,
+  floatingId: string | undefined,
+  nested: boolean,
+) {
+  const triggerElements = new PopupTriggerMap();
   const store = SolidStore<State<Payload>, Context, typeof selectors>(
-    [state, setState],
-    {
-      backdropRef: { current: null },
-      floatingRootContext: getEmptyRootContext(),
-      internalBackdropRef: { current: null },
-      onOpenChange: undefined,
-      onOpenChangeComplete: undefined,
-      outsidePressEnabledRef: { current: true },
-      popupRef: { current: null },
-      triggerElements: new PopupTriggerMap(),
-    },
+    createInitialState<Payload>(initialState, floatingId),
+    createInitialContext(triggerElements, floatingId, nested),
     selectors,
   );
 
@@ -86,50 +89,71 @@ export function DialogStore<Payload>(initialState?: Partial<State<Payload>>) {
       return;
     }
 
-    /* Notify floating-ui interaction hooks of the open change. */
-    if (!store.context.floatingRootContext.context.syncOnly) {
-      store.context.floatingRootContext.context.events.emit('openchange', {
-        nativeEvent: eventDetails.event,
-        nested: store.state.nested,
-        open: nextOpen,
-        reason: eventDetails.reason,
-      });
-    }
+    store.context.floatingRootContext.dispatchOpenChange(nextOpen, eventDetails);
 
-    const updatedState: Partial<State<Payload>> = {
-      open: nextOpen,
-    };
-
-    // If a popup is closing, the `trigger` may be null.
-    // We want to keep the previous value so that exit animations are played and focus is returned correctly.
-    const newTriggerId = eventDetails.trigger?.id ?? null;
-    if (newTriggerId || nextOpen) {
-      updatedState.activeTriggerId = newTriggerId;
-      updatedState.activeTriggerElement = eventDetails.trigger ?? null;
-    }
-
-    store.update(updatedState);
+    store.update(createPopupOpenState(store.state, nextOpen, eventDetails.trigger));
   }
 
-  const merged = solidMergeProps(store, { setOpen });
-  return merged;
-}
-
-function createInitialState<Payload>(initialState: Partial<State<Payload>> = {}) {
-  return createInitialPopupStoreState<Payload, State<Payload>>({
-    descriptionElementId: undefined,
-    disablePointerDismissal: false,
-    modal: true,
-    nested: false,
-    nestedOpenDialogCount: 0,
-    nestedOpenDrawerCount: 0,
-    openMethod: null,
-    popupElement: null,
-    role: 'dialog',
-    titleElementId: undefined,
-    viewportElement: null,
-    ...initialState,
-  });
+  return Object.assign(store, { setOpen });
 }
 
 export type DialogStore<Payload> = ReturnType<typeof DialogStore<Payload>>;
+
+/**
+ * Creates the inert fallback store used by detached handle-backed triggers while no
+ * `Dialog.Root` is attached. It preserves a dialog-specific trigger registry in context so
+ * detached triggers can register before migrating to the live root store.
+ */
+export function createNullDialogStore<Payload>(): DialogHandleStore<Payload> {
+  const triggerElements = new PopupTriggerMap();
+
+  // `NullStore` takes a plain state object: snapshot the default state once.
+  const [initialState] = createInitialState<Payload>(undefined);
+
+  return NullStore<State<Payload>, Context, typeof selectors>(
+    untrack(() => ({ ...initialState })),
+    Object.freeze(createInitialContext(triggerElements)),
+    selectors,
+  );
+}
+
+function createInitialState<Payload>(
+  initialState: Partial<State<Payload>> | undefined,
+  floatingId?: string | undefined,
+) {
+  // Initial values: the spread reads the caller's getters once.
+  return untrack(() =>
+    createInitialPopupStoreState<Payload, State<Payload>>({
+      floatingId,
+      modal: true,
+      disablePointerDismissal: false,
+      viewportElement: null,
+      descriptionElementId: undefined,
+      titleElementId: undefined,
+      openMethod: null,
+      nested: false,
+      nestedOpenDialogCount: 0,
+      nestedOpenDrawerCount: 0,
+      role: 'dialog',
+      ...initialState,
+    }),
+  );
+}
+
+function createInitialContext(
+  triggerElements: PopupTriggerMap,
+  floatingId?: string | undefined,
+  nested = false,
+): Context {
+  return {
+    popupRef: { current: null },
+    backdropRef: { current: null },
+    internalBackdropRef: { current: null },
+    outsidePressEnabledRef: { current: true },
+    // Solid keeps the floating root in context (React keeps it in state); see `usePopupRootStore`.
+    floatingRootContext: createPopupFloatingRootContext(triggerElements, floatingId, nested),
+    triggerElements,
+    onOpenChange: undefined,
+    onOpenChangeComplete: undefined,
+  };
+}

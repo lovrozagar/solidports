@@ -1,8 +1,10 @@
+import { Show } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useToastRootContext } from '../root/ToastRootContext';
+import { getRenderContent, useRenderableElement } from '../utils/useRenderableElement';
 
 /**
  * Performs an action when clicked.
@@ -27,11 +29,13 @@ export function ToastAction(componentProps: ToastAction.Props) {
     },
   };
 
+  const computedChildren = () => toast().actionProps?.children ?? componentProps.children;
+  const content = () => getRenderContent(componentProps.render, computedChildren());
+
   const element = useRenderElement('button', componentProps, {
     get children() {
-      return <>{toast().actionProps?.children ?? componentProps.children}</>;
+      return content();
     },
-    enabled: () => Boolean(toast().actionProps?.children ?? componentProps.children),
     get props() {
       return [elementProps, toast().actionProps, getButtonProps];
     },
@@ -39,7 +43,13 @@ export function ToastAction(componentProps: ToastAction.Props) {
     state,
   });
 
-  return <>{element()}</>;
+  const { rendered, shouldRender } = useRenderableElement(
+    element,
+    () => componentProps.render,
+    content,
+  );
+
+  return <Show when={shouldRender()}>{rendered()}</Show>;
 }
 
 export interface ToastActionState {

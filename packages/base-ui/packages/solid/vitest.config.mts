@@ -27,11 +27,15 @@ export default mergeConfig(
       },
     },
     test: {
+      setupFiles: [
+        resolve(__dirname, 'test/disableAutoCleanup.ts'),
+        resolve(__dirname, 'test/setupSolid.ts'),
+      ],
       // TODO: Remove this once we have solved the PopoverPopup test timeout issue.
       // testTimeout: 500,
       server: {
         deps: {
-          inline: ['@solidjs/testing-library', 'solid-js', '@solidjs/router'],
+          inline: [/^solid-js/, /^@solidjs\//, /solid-js\/dist/, /@solidjs\/(web|signals|testing-library|router)/],
         },
       },
     },

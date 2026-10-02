@@ -1,31 +1,48 @@
-import { useField } from '../../field/useField';
+import { createEffect, onCleanup } from 'solid-js';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { access, type MaybeAccessor } from '../../solid-helpers';
 import type { FieldControlRegistration } from './useFieldControlRegistration';
 
 export function useRegisterFieldControl(
   controlRef: FieldControlRegistration['controlRef'],
-  id: FieldControlRegistration['id'] | (() => FieldControlRegistration['id']),
-  value: FieldControlRegistration['value'] | (() => FieldControlRegistration['value']),
+  id: MaybeAccessor<FieldControlRegistration['id']>,
+  value: MaybeAccessor<FieldControlRegistration['value']>,
   getFormValueOverride?: FieldControlRegistration['getValue'],
-  enabled: boolean | (() => boolean) = true,
-  name?: FieldControlRegistration['name'] | (() => FieldControlRegistration['name']),
+  enabled: MaybeAccessor<boolean | undefined> = true,
+  name?: MaybeAccessor<FieldControlRegistration['name']>,
 ) {
-  const { validation } = useFieldRootContext();
+  const { registerFieldControl } = useFieldRootContext();
+  const source = Symbol('field-control');
 
-  useField({
-    commit: validation.commit,
-    controlRef: () => {
-      if (typeof controlRef === 'function') {
-        return undefined;
+  // Re-register without unregistering first: re-registration with the same id updates the
+  // form's fields Map entry in place, while a delete + re-add would move the field to the
+  // end of the Map every time its value changes.
+  createEffect(
+    () => ({
+      enabled: access(enabled) ?? true,
+      id: access(id),
+      name: access(name),
+      value: access(value),
+    }),
+    (deps) => {
+      if (!deps.enabled) {
+        registerFieldControl(source, undefined);
+        return;
       }
-      return controlRef && typeof controlRef === 'object' && 'current' in controlRef
-        ? controlRef.current
-        : controlRef;
+
+      const registration: FieldControlRegistration = {
+        controlRef,
+        getValue: getFormValueOverride,
+        id: deps.id,
+        name: deps.name,
+        value: deps.value,
+      };
+
+      registerFieldControl(source, registration);
     },
-    enabled: () => (typeof enabled === 'function' ? enabled() : enabled),
-    getValue: getFormValueOverride,
-    id: () => (typeof id === 'function' ? id() : id),
-    name: () => (typeof name === 'function' ? name() : name),
-    value: () => (typeof value === 'function' ? value() : value),
+  );
+
+  onCleanup(() => {
+    registerFieldControl(source, undefined);
   });
 }

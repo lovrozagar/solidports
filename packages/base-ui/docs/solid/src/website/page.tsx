@@ -206,19 +206,19 @@ export default function Homepage() {
         <div class="bui-gcs-1 bui-gce-9 bp2:bui-gcs-3 bp4:bui-gce-7">
           <Accordion.Root
             class="AccordionWebsiteRoot"
-            itemScope
-            itemType="https://schema.org/FAQPage"
+            itemscope
+            itemtype="https://schema.org/FAQPage"
             // Setting `keepMounted` so that the content of all panels is available in the DOM for search engines. This is especially important for the homepage, which contains important SEO content.
             keepMounted
           >
             <Accordion.Item
               class="AccordionWebsiteItem"
-              itemScope
-              itemProp="mainEntity"
-              itemType="https://schema.org/Question"
+              itemscope
+              itemprop="mainEntity"
+              itemtype="https://schema.org/Question"
             >
               <Accordion.Header class="AccordionWebsiteHeader">
-                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemProp="name">
+                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemprop="name">
                   What is Base UI?
                   <PlusIcon class="AccordionWebsiteIcon AccordionWebsiteIconPlus" />
                   <MinusIcon class="AccordionWebsiteIcon AccordionWebsiteIconMinus" />
@@ -226,11 +226,11 @@ export default function Homepage() {
               </Accordion.Header>
               <Accordion.Panel
                 class="AccordionWebsitePanel"
-                itemScope
-                itemProp="acceptedAnswer"
-                itemType="https://schema.org/Answer"
+                itemscope
+                itemprop="acceptedAnswer"
+                itemtype="https://schema.org/Answer"
               >
-                <p class="Text sz-2" itemProp="text">
+                <p class="Text sz-2" itemprop="text">
                   Base UI is a library of unstyled UI components for building accessible component
                   libraries, user interfaces, web applications, and websites with React. Base UI
                   components are highly configurable, composable, and customizable.
@@ -239,12 +239,12 @@ export default function Homepage() {
             </Accordion.Item>
             <Accordion.Item
               class="AccordionWebsiteItem"
-              itemScope
-              itemProp="mainEntity"
-              itemType="https://schema.org/Question"
+              itemscope
+              itemprop="mainEntity"
+              itemtype="https://schema.org/Question"
             >
               <Accordion.Header class="AccordionWebsiteHeader">
-                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemProp="name">
+                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemprop="name">
                   Does Base UI work with any styling library?
                   <PlusIcon class="AccordionWebsiteIcon AccordionWebsiteIconPlus" />
                   <MinusIcon class="AccordionWebsiteIcon AccordionWebsiteIconMinus" />
@@ -252,11 +252,11 @@ export default function Homepage() {
               </Accordion.Header>
               <Accordion.Panel
                 class="AccordionWebsitePanel"
-                itemScope
-                itemProp="acceptedAnswer"
-                itemType="https://schema.org/Answer"
+                itemscope
+                itemprop="acceptedAnswer"
+                itemtype="https://schema.org/Answer"
               >
-                <p class="Text sz-2" itemProp="text">
+                <p class="Text sz-2" itemprop="text">
                   Yes. Base UI works with Tailwind, CSS Modules, CSS-in-JS, plain CSS, and any other
                   styling library you prefer. It also works with JavaScript animation libraries like
                   Motion, or just plain CSS transitions. Base UI is an unstyled component library.
@@ -266,12 +266,12 @@ export default function Homepage() {
             </Accordion.Item>
             <Accordion.Item
               class="AccordionWebsiteItem"
-              itemScope
-              itemProp="mainEntity"
-              itemType="https://schema.org/Question"
+              itemscope
+              itemprop="mainEntity"
+              itemtype="https://schema.org/Question"
             >
               <Accordion.Header class="AccordionWebsiteHeader">
-                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemProp="name">
+                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemprop="name">
                   Which accessibility standards does Base UI follow?
                   <PlusIcon class="AccordionWebsiteIcon AccordionWebsiteIconPlus" />
                   <MinusIcon class="AccordionWebsiteIcon AccordionWebsiteIconMinus" />
@@ -279,11 +279,11 @@ export default function Homepage() {
               </Accordion.Header>
               <Accordion.Panel
                 class="AccordionWebsitePanel"
-                itemScope
-                itemProp="acceptedAnswer"
-                itemType="https://schema.org/Answer"
+                itemscope
+                itemprop="acceptedAnswer"
+                itemtype="https://schema.org/Answer"
               >
-                <p class="Text sz-2" itemProp="text">
+                <p class="Text sz-2" itemprop="text">
                   When designing and speccing components, we follow{' '}
                   <Link href="https://www.w3.org/WAI/ARIA/apg/patterns/">
                     ARIA Authoring Practices Guide patterns
@@ -301,12 +301,12 @@ export default function Homepage() {
             </Accordion.Item>
             <Accordion.Item
               class="AccordionWebsiteItem"
-              itemScope
-              itemProp="mainEntity"
-              itemType="https://schema.org/Question"
+              itemscope
+              itemprop="mainEntity"
+              itemtype="https://schema.org/Question"
             >
               <Accordion.Header class="AccordionWebsiteHeader">
-                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemProp="name">
+                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemprop="name">
                   How does Base UI differ from Radix UI?
                   <PlusIcon class="AccordionWebsiteIcon AccordionWebsiteIconPlus" />
                   <MinusIcon class="AccordionWebsiteIcon AccordionWebsiteIconMinus" />
@@ -314,11 +314,11 @@ export default function Homepage() {
               </Accordion.Header>
               <Accordion.Panel
                 class="AccordionWebsitePanel"
-                itemScope
-                itemProp="acceptedAnswer"
-                itemType="https://schema.org/Answer"
+                itemscope
+                itemprop="acceptedAnswer"
+                itemtype="https://schema.org/Answer"
               >
-                <div class="bui-d-f bui-fd-c bui-g-4" itemProp="text">
+                <div class="bui-d-f bui-fd-c bui-g-4" itemprop="text">
                   <p class="Text sz-2">
                     In terms of API design, both libraries are very similar. We intentionally kept
                     our APIs close to Radix UI for an easier migration path. Base UI provides more
@@ -337,12 +337,12 @@ export default function Homepage() {
             </Accordion.Item>
             <Accordion.Item
               class="AccordionWebsiteItem"
-              itemScope
-              itemProp="mainEntity"
-              itemType="https://schema.org/Question"
+              itemscope
+              itemprop="mainEntity"
+              itemtype="https://schema.org/Question"
             >
               <Accordion.Header class="AccordionWebsiteHeader">
-                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemProp="name">
+                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemprop="name">
                   Can I use Base UI without React?
                   <PlusIcon class="AccordionWebsiteIcon AccordionWebsiteIconPlus" />
                   <MinusIcon class="AccordionWebsiteIcon AccordionWebsiteIconMinus" />
@@ -350,11 +350,11 @@ export default function Homepage() {
               </Accordion.Header>
               <Accordion.Panel
                 class="AccordionWebsitePanel"
-                itemScope
-                itemProp="acceptedAnswer"
-                itemType="https://schema.org/Answer"
+                itemscope
+                itemprop="acceptedAnswer"
+                itemtype="https://schema.org/Answer"
               >
-                <p class="Text sz-2" itemProp="text">
+                <p class="Text sz-2" itemprop="text">
                   Base UI is a React library. It is not designed to be used without React. We may
                   consider supporting other libraries at some point, but for the foreseeable future,
                   React is our primary focus.
@@ -363,12 +363,12 @@ export default function Homepage() {
             </Accordion.Item>
             <Accordion.Item
               class="AccordionWebsiteItem"
-              itemScope
-              itemProp="mainEntity"
-              itemType="https://schema.org/Question"
+              itemscope
+              itemprop="mainEntity"
+              itemtype="https://schema.org/Question"
             >
               <Accordion.Header class="AccordionWebsiteHeader">
-                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemProp="name">
+                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemprop="name">
                   Is Base UI free for commercial use?
                   <PlusIcon class="AccordionWebsiteIcon AccordionWebsiteIconPlus" />
                   <MinusIcon class="AccordionWebsiteIcon AccordionWebsiteIconMinus" />
@@ -376,11 +376,11 @@ export default function Homepage() {
               </Accordion.Header>
               <Accordion.Panel
                 class="AccordionWebsitePanel"
-                itemScope
-                itemProp="acceptedAnswer"
-                itemType="https://schema.org/Answer"
+                itemscope
+                itemprop="acceptedAnswer"
+                itemtype="https://schema.org/Answer"
               >
-                <p class="Text sz-2" itemProp="text">
+                <p class="Text sz-2" itemprop="text">
                   Yes. Base UI is licensed under the MIT license, and is free for commercial use.
                   You are free to use it in your commercial projects, and to modify it to suit your
                   needs.
@@ -389,12 +389,12 @@ export default function Homepage() {
             </Accordion.Item>
             <Accordion.Item
               class="AccordionWebsiteItem"
-              itemScope
-              itemProp="mainEntity"
-              itemType="https://schema.org/Question"
+              itemscope
+              itemprop="mainEntity"
+              itemtype="https://schema.org/Question"
             >
               <Accordion.Header class="AccordionWebsiteHeader">
-                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemProp="name">
+                <Accordion.Trigger class="AccordionWebsiteTrigger Text sz-2" itemprop="name">
                   Do you offer enterprise SLAs?
                   <PlusIcon class="AccordionWebsiteIcon AccordionWebsiteIconPlus" />
                   <MinusIcon class="AccordionWebsiteIcon AccordionWebsiteIconMinus" />
@@ -402,11 +402,11 @@ export default function Homepage() {
               </Accordion.Header>
               <Accordion.Panel
                 class="AccordionWebsitePanel"
-                itemScope
-                itemProp="acceptedAnswer"
-                itemType="https://schema.org/Answer"
+                itemscope
+                itemprop="acceptedAnswer"
+                itemtype="https://schema.org/Answer"
               >
-                <p class="Text sz-2" itemProp="text">
+                <p class="Text sz-2" itemprop="text">
                   Not currently. We do provide dedicated support channels to some very large
                   enterprise companies who are working with us as design partners. But we do not
                   currently provide Service Level Agreements, guaranteed response times, issue

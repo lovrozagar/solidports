@@ -1,6 +1,7 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { act, createRenderer, describeConformance } from '#test-utils';
 import { Field } from '@solidports/base-ui/field';
 import { screen } from '@solidjs/testing-library';
+import { createSignal, Show } from 'solid-js';
 import { expect } from 'vitest';
 
 describe('<Field.Label />', () => {
@@ -42,6 +43,58 @@ describe('<Field.Label />', () => {
     expect(control).toHaveFocus();
   });
 
+  describe('control selection', () => {
+    // Solid: a signal drives the controls instead of React's `rerender`.
+    function renderFields() {
+      const [first, setFirst] = createSignal(true);
+      const [second, setSecond] = createSignal(true);
+      render(() => (
+        <Field.Root>
+          <Show when={first()}>
+            <Field.Control id="a" />
+          </Show>
+          <Show when={second()}>
+            <Field.Control id="b" />
+          </Show>
+          <Field.Label data-testid="label">Label</Field.Label>
+        </Field.Root>
+      ));
+      return { setFirst, setSecond };
+    }
+
+    it('keeps the selected control id when another control unmounts', async () => {
+      const { setSecond } = renderFields();
+
+      expect(screen.getByTestId('label')).to.have.attribute('for', 'a');
+
+      await act(() => setSecond(false));
+
+      expect(screen.getByTestId('label')).to.have.attribute('for', 'a');
+    });
+
+    it('falls over to the remaining control when the selected one unmounts', async () => {
+      const { setFirst } = renderFields();
+
+      expect(screen.getByTestId('label')).to.have.attribute('for', 'a');
+
+      await act(() => setFirst(false));
+
+      expect(screen.getByTestId('label')).to.have.attribute('for', 'b');
+    });
+  });
+
+  it('reflects the disabled state from Field.Item', () => {
+    render(() => (
+      <Field.Root>
+        <Field.Item disabled>
+          <Field.Label data-testid="label">Label</Field.Label>
+        </Field.Item>
+      </Field.Root>
+    ));
+
+    expect(screen.getByTestId('label')).to.have.attribute('data-disabled');
+  });
+
   describe('dev warnings', () => {
     it('does not warn by default', async () => {
       const errorSpy = vi
@@ -53,6 +106,26 @@ describe('<Field.Label />', () => {
         <Field.Root>
           <Field.Control />
           <Field.Label>Label</Field.Label>
+        </Field.Root>
+      ));
+
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it('does not warn when the render function returns no element', async () => {
+      const errorSpy = vi
+        .spyOn(console, 'error')
+        .mockName('console.error')
+        .mockImplementation(() => {});
+
+      function EmptyLabel() {
+        return null;
+      }
+
+      render(() => (
+        <Field.Root>
+          <Field.Label render={() => <EmptyLabel />}>Label</Field.Label>
         </Field.Root>
       ));
 

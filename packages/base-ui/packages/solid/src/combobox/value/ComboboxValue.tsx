@@ -12,21 +12,21 @@ import { useComboboxRootContext } from '../root/ComboboxRootContext';
  * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxValue(props: ComboboxValue.Props) {
-  const { store } = useComboboxRootContext();
+  const store = useComboboxRootContext();
 
-  const selectedValue = store.useSelector('selectedValue');
-  const items = store.useSelector('items');
-  const multiple = createMemo(() => store.selectors.selectionMode() === 'multiple');
-  const hasSelectedValue = store.useSelector('hasSelectedValue');
+  const itemToStringLabel = store.useState('itemToStringLabel');
+  const selectedValue = store.useState('selectedValue');
+  const items = store.useState('items');
+  const selectionMode = store.useState('selectionMode');
+  const multiple = () => selectionMode() === 'multiple';
+  const hasSelectedValue = store.useState('hasSelectedValue');
 
   const shouldCheckNullItemLabel = () =>
     !hasSelectedValue() && props.placeholder != null && props.children == null;
-  const hasNullLabel = () => store.selectors.hasNullItemLabel(shouldCheckNullItemLabel);
+  const hasNullLabel = store.useState('hasNullItemLabel', shouldCheckNullItemLabel);
 
   return (
-    <Switch
-      fallback={resolveSelectedLabel(selectedValue(), items(), store.context.itemToStringLabel)}
-    >
+    <Switch fallback={resolveSelectedLabel(selectedValue(), items(), itemToStringLabel())}>
       <Match keyed when={typeof props.children === 'function' && props.children}>
         {(renderer) => renderer(selectedValue)}
       </Match>
@@ -35,7 +35,7 @@ export function ComboboxValue(props: ComboboxValue.Props) {
         {props.placeholder}
       </Match>
       <Match when={multiple() && Array.isArray(selectedValue())}>
-        {resolveMultipleLabels(selectedValue(), items(), store.context.itemToStringLabel)}
+        {resolveMultipleLabels(selectedValue(), items(), itemToStringLabel())}
       </Match>
     </Switch>
   );

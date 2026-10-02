@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
-import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { expect } from 'vitest';
 
 describe('<NavigationMenu.Link />', () => {
   const { render } = createRenderer();
@@ -131,5 +131,38 @@ describe('<NavigationMenu.Link />', () => {
       ));
       expect(screen.getByRole('link', { name: 'inactive' })).not.to.have.attribute('aria-current');
     });
+  });
+
+  it('keeps the menu open when a link loses focus without a related target', async () => {
+    const { user } = render(() => (
+      <NavigationMenu.Root>
+        <NavigationMenu.List>
+          <NavigationMenu.Item value="item-1">
+            <NavigationMenu.Trigger>Item 1</NavigationMenu.Trigger>
+            <NavigationMenu.Content>
+              <NavigationMenu.Link href="#link-1">Link 1</NavigationMenu.Link>
+            </NavigationMenu.Content>
+          </NavigationMenu.Item>
+        </NavigationMenu.List>
+
+        <NavigationMenu.Portal>
+          <NavigationMenu.Positioner>
+            <NavigationMenu.Popup>
+              <NavigationMenu.Viewport />
+            </NavigationMenu.Popup>
+          </NavigationMenu.Positioner>
+        </NavigationMenu.Portal>
+      </NavigationMenu.Root>
+    ));
+
+    const trigger = screen.getByRole('button', { name: 'Item 1' });
+    await user.click(trigger);
+
+    const link = await screen.findByRole('link', { name: 'Link 1' });
+    fireEvent.focus(link);
+    fireEvent.blur(link, { relatedTarget: null });
+
+    expect(screen.getByRole('link', { name: 'Link 1' })).not.toBe(null);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
   });
 });

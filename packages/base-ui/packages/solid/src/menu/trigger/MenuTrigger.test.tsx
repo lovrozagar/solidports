@@ -1,9 +1,10 @@
-import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
+import { createSignal } from 'solid-js';
+import { expect, vi } from 'vitest';
+import { createRenderer, describeConformance, flushMicrotasks, act, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { Popover } from '@solidports/base-ui/popover';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { expect } from 'chai';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 
 describe('<Menu.Trigger />', () => {
@@ -15,6 +16,22 @@ describe('<Menu.Trigger />', () => {
     render: (node, props) => render(() => <Menu.Root open>{node(props!)}</Menu.Root>),
     testComponentPropWith: 'button',
   }));
+
+  it('throws without Menu.Root or a handle', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() => render(() => <Menu.Trigger />)).to.throw(
+        'Base UI: <Menu.Trigger> must be either used within a <Menu.Root> component or provided with a handle.',
+      );
+      await flushMicrotasks();
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
 
   describe('prop: disabled', () => {
     it('should render a disabled button', async () => {
@@ -135,14 +152,26 @@ describe('<Menu.Trigger />', () => {
       expect(button).to.have.attribute('aria-expanded', 'false');
     });
 
-    it('has the aria-expanded=true attribute when open', async () => {
+    it('has aria-expanded=true when the menu is opened', async () => {
       render(() => (
-        <Menu.Root open>
+        <Menu.Root>
           <Menu.Trigger>Toggle</Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner>
+              <Menu.Popup />
+            </Menu.Positioner>
+          </Menu.Portal>
         </Menu.Root>
       ));
 
       const button = screen.getByRole('button', { name: 'Toggle' });
+      expect(button).to.have.attribute('aria-expanded', 'false');
+
+      await user.click(button);
+
+      const menuPopup = await screen.findByRole('menu', { hidden: false });
+      expect(menuPopup).not.to.equal(null);
+      expect(button).to.have.attribute('data-popup-open');
       expect(button).to.have.attribute('aria-expanded', 'true');
     });
   });
@@ -157,10 +186,56 @@ describe('<Menu.Trigger />', () => {
 
       const trigger = screen.getByRole('button');
 
-      trigger.click();
-
+      act(() => trigger.click());
       expect(trigger).to.have.attribute('data-popup-open');
       expect(trigger).to.have.attribute('data-pressed');
+    });
+
+    it('keeps the data-popup-open attribute and handle.isOpen when a controlled close is vetoed', async () => {
+      const handle = Menu.createHandle();
+
+      function TestCase() {
+        const [open, setOpen] = createSignal(false);
+
+        return (
+          <>
+            <Menu.Root
+              handle={handle}
+              open={open()}
+              onOpenChange={(nextOpen) => {
+                if (nextOpen) {
+                  setOpen(true);
+                }
+              }}
+            >
+              <Menu.Trigger>Actions</Menu.Trigger>
+              <Menu.Portal>
+                <Menu.Positioner>
+                  <Menu.Popup>
+                    <Menu.Item>Item</Menu.Item>
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
+            <button type="button">Outside</button>
+          </>
+        );
+      }
+
+      render(() => <TestCase />);
+
+      const trigger = screen.getByRole('button', { name: 'Actions' });
+      await user.click(trigger);
+
+      await screen.findByRole('menu');
+      expect(trigger).to.have.attribute('data-popup-open');
+      expect(handle.isOpen).to.equal(true);
+
+      await user.click(screen.getByRole('button', { name: 'Outside' }));
+
+      expect(screen.getByRole('menu')).to.have.attribute('data-open');
+      expect(trigger).to.have.attribute('data-popup-open');
+      expect(handle.isOpen).to.equal(true);
     });
   });
 
@@ -321,6 +396,40 @@ describe('<Menu.Trigger />', () => {
       expect(screen.getByText('Content')).not.to.equal(null);
     });
   });
+
+  it.skipIf(isJSDOM)(
+    'keeps a hover-opened menu open when mouseup lands outside the trigger DOM but within its bounds',
+    async () => {
+      const { user: renderUser } = render(() => (
+        <Menu.Root>
+          <Menu.Trigger
+            openOnHover
+            delay={0}
+            style={{ width: '120px', height: '40px', display: 'block' }}
+          >
+            Open
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner>
+              <Menu.Popup />
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      ));
+
+      const trigger = screen.getByRole('button', { name: 'Open' });
+      await renderUser.hover(trigger);
+      expect(screen.queryByRole('menu')).not.to.equal(null);
+
+      const rect = trigger.getBoundingClientRect();
+      fireEvent.mouseUp(document.body, {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      });
+
+      expect(screen.queryByRole('menu')).not.to.equal(null);
+    },
+  );
 
   describe('preventBaseUIHandler', () => {
     it('prevents opening the menu with a mouse when `preventBaseUIHandler` is called in onMouseDown', async () => {

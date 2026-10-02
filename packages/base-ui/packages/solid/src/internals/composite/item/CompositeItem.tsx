@@ -32,12 +32,13 @@ export function CompositeItem<Metadata, State extends Record<string, any>>(
     } as typeof local,
     local,
   );
-  const { compositeProps, setCompositeRef } = useCompositeItem({ metadata: local.metadata });
+  const { compositeProps, setCompositeRef } = useCompositeItem({
+    get metadata() {
+      return local.metadata;
+    },
+  });
 
   const element = useRenderElement(() => mergedProps.tag, componentProps, {
-    get children() {
-      return local.children;
-    },
     get props() {
       return [compositeProps, mergedProps.props, elementProps];
     },
@@ -57,7 +58,7 @@ export function CompositeItem<Metadata, State extends Record<string, any>>(
 
 export interface CompositeItemProps<Metadata, State extends Record<string, any>> extends Pick<
   BaseUIComponentProps<any, State>,
-  'render' | 'class'
+  'render' | 'class' | 'style'
 > {
   children?: JSX.Element;
   metadata?: MaybeAccessor<Metadata | undefined>;

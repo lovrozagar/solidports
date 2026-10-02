@@ -14,15 +14,5 @@ export function createTouches(touches: Touches) {
 }
 
 export function getHorizontalSliderRect(width = 100) {
-  return {
-    bottom: 10,
-    height: 10,
-    left: 0,
-    right: width,
-    toJSON() {},
-    top: 0,
-    width,
-    x: 0,
-    y: 0,
-  };
+  return new DOMRect(0, 0, width, 10);
 }

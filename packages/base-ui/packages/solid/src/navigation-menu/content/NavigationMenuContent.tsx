@@ -1,15 +1,22 @@
-/* eslint-disable typescript/no-explicit-any -- ref forwarding + Solid relatedTarget Element bridge */
-import { createTrackedEffect, createEffect, createSignal, Match, Switch } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createRenderEffect,
+  createSignal,
+  Match,
+  Switch,
+  untrack,
+} from 'solid-js';
 import { Portal } from '@solidjs/web';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { FloatingNode } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, useRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/empty';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { popupStateMapping } from '../../utils/popupStateMapping';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
-import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
 import { useNavigationMenuItemContext } from '../item/NavigationMenuItemContext';
@@ -17,7 +24,6 @@ import {
   useNavigationMenuRootContext,
   useNavigationMenuTreeContext,
 } from '../root/NavigationMenuRootContext';
-import { on } from '../../solid-1-compat';
 
 const stateAttributesMapping: StateAttributesMapping<NavigationMenuContent.State> = {
   ...popupStateMapping,
@@ -43,6 +49,7 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
   const [renderProps, local, elementProps] = splitComponentProps(componentProps, [
     'keepMounted',
     'children',
+    'ref',
   ]);
   const keepMounted = () => local.keepMounted ?? false;
 
@@ -57,58 +64,67 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
   const { value: itemValue } = useNavigationMenuItemContext();
   const nodeId = useNavigationMenuTreeContext();
 
-  const open = () => popupMounted() && value() === itemValue();
+  const open = createMemo(() => popupMounted() && value() === itemValue());
 
-  let ref = null as HTMLDivElement | null | undefined;
+  const ref = useRef<HTMLDivElement | null>(null);
 
-  const [hasMountedInPortal, setHasMountedInPortal] = createSignal(false);
   const [focusInside, setFocusInside] = createSignal(false);
 
-  const { transitionStatus, setMounted, mounted } = useTransitionStatus(open);
+  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open);
 
   // If the popup unmounts before the content's exit animation completes, reset the internal
   // mounted state so the next open can re-enter via `transitionStatus="starting"`.
-  createEffect(...on([mounted, popupMounted], ([mountedValue, popupMountedValue]) => {
-      if (mountedValue && !popupMountedValue) {
+  // Solid: an effect, since React's render-phase state update cannot run in a Solid body.
+  createEffect(
+    () => mounted() && !popupMounted(),
+    (shouldReset) => {
+      if (shouldReset) {
         setMounted(false);
       }
-    }),
+    },
   );
 
   useOpenChangeComplete({
+    ref: () => ref.current,
+    open,
     onComplete() {
-      if (!open()) {
+      if (!untrack(open)) {
         setMounted(false);
       }
     },
-    open,
-    ref: () => ref,
+  });
+
+  // When a content re-enters while still mounted (e.g. switching top-level triggers
+  // back before the exit animation completes), the DOM element hasn't changed so the
+  // callback ref won't fire again. Ensure the shared ref is updated so the
+  // MutationObserver in the trigger watches the correct content element.
+  createRenderEffect(open, (isOpen) => {
+    if (isOpen && ref.current) {
+      currentContentRef.current = ref.current;
+    }
   });
 
   const state: NavigationMenuContent.State = {
-    get activationDirection() {
-      return activationDirection();
-    },
     get open() {
       return open();
     },
     get transitionStatus() {
       return transitionStatus();
     },
+    get activationDirection() {
+      return activationDirection();
+    },
   };
 
-  const handleCurrentContentRef = (node: HTMLDivElement | null | undefined) => {
-    if (node) {
+  const handleCurrentContentRef = (node: HTMLDivElement | null) => {
+    // Inactive `keepMounted` content also mounts in the viewport; only the
+    // active content can own the shared sizing observer target.
+    if (node && untrack(open)) {
       currentContentRef.current = node;
     }
   };
 
   const commonProps: HTMLProps<HTMLDivElement> = {
-    onBlur(event) {
-      if (!contains(event.currentTarget, event.relatedTarget as any)) {
-        setFocusInside(false);
-      }
-    },
     onFocus(event) {
       const target = getTarget(event) as Element | null;
       if (target?.hasAttribute('data-base-ui-focus-guard')) {
@@ -116,29 +132,30 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
       }
       setFocusInside(true);
     },
-  };
-
-  const defaultProps = {
-    get props(): HTMLProps {
-      return !open() && mounted()
-        ? {
-            inert: !focusInside(),
-            style: { left: 0, position: 'absolute', top: 0 },
-            ...commonProps,
-          }
-        : commonProps;
+    onBlur(event) {
+      if (!contains(event.currentTarget, event.relatedTarget as Element | null)) {
+        setFocusInside(false);
+      }
     },
   };
 
-  const portalContainer = () => viewportTargetElement() || viewportElement();
-  const hidden = () => keepMounted() && !open() && !mounted();
-  const shouldRenderInline = () => keepMounted() && !portalContainer() && !hasMountedInPortal();
+  const defaultProps = (): Omit<HTMLProps, 'children'> =>
+    !open() && mounted()
+      ? {
+          style: { position: 'absolute', top: 0, left: 0 },
+          inert: !focusInside(),
+          ...commonProps,
+        }
+      : commonProps;
 
-  createTrackedEffect(() => {
-    if (keepMounted() && portalContainer() && !hasMountedInPortal()) {
-      setHasMountedInPortal(true);
-    }
-  });
+  const portalContainer = () => viewportTargetElement() || viewportElement();
+  // Solid: `mounted` lags `open` by a flush, so an opening content is not treated as unmounted.
+  const hidden = () => keepMounted() && !open() && !mounted();
+  // React latches this state during render once a kept-mounted content has a portal container.
+  const hasMountedInPortal = createMemo(
+    (previous: boolean | undefined) => previous || (keepMounted() && Boolean(portalContainer())),
+  );
+  const shouldRenderInline = () => keepMounted() && !portalContainer() && !hasMountedInPortal();
 
   return (
     <Switch>
@@ -147,43 +164,28 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
           render={renderProps.render}
           class={renderProps.class}
           state={state}
-          refs={[
-            (el) => {
-              if (typeof componentProps.ref === 'function') {
-                componentProps.ref(el as HTMLDivElement);
-              } else {
-                // eslint-disable-next-line solid/reactivity
-                componentProps.ref = el as any;
-              }
-            },
-          ]}
-          props={[defaultProps, { hidden: true }, elementProps]}
+          refs={[local.ref as UseRenderElementRef<HTMLElement>]}
+          props={[defaultProps(), { hidden: true }, elementProps]}
           stateAttributesMapping={stateAttributesMapping}
         >
           {local.children}
         </CompositeRoot>
       </Match>
 
+      {/* Solid: `open` also renders, since `mounted` lags it by a flush. */}
       <Match when={portalContainer() && (open() || mounted() || keepMounted())}>
-        <Portal mount={portalContainer() ?? document.body}>
+        <Portal mount={portalContainer() ?? undefined}>
           <FloatingNode id={nodeId?.()}>
             <CompositeRoot
               render={renderProps.render}
               class={renderProps.class}
               state={state}
               refs={[
-                (el) => {
-                  if (typeof componentProps.ref === 'function') {
-                    componentProps.ref(el as HTMLDivElement);
-                  } else {
-                    // eslint-disable-next-line solid/reactivity
-                    componentProps.ref = el as any;
-                  }
-                  ref = el as HTMLDivElement;
-                  handleCurrentContentRef(el as HTMLDivElement);
-                },
+                local.ref as UseRenderElementRef<HTMLElement>,
+                ref as UseRenderElementRef<HTMLElement>,
+                handleCurrentContentRef as UseRenderElementRef<HTMLElement>,
               ]}
-              props={[defaultProps.props, hidden() ? { hidden: true } : EMPTY_OBJECT, elementProps]}
+              props={[defaultProps(), hidden() ? { hidden: true } : EMPTY_OBJECT, elementProps]}
               stateAttributesMapping={stateAttributesMapping}
             >
               {local.children}

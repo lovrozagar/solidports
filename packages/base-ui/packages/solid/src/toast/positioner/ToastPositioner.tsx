@@ -2,19 +2,17 @@
 import { isElement } from '@floating-ui/utils/dom';
 import { createSignal } from 'solid-js';
 import { useFloatingRootContext } from '../../floating-ui-solid';
-import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_OBJECT, POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
-import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import { NOOP } from '../../utils/noop';
-import { popupStateMapping } from '../../utils/popupStateMapping';
-import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
-import { useRenderElement } from '../../utils/useRenderElement';
+import { usePositioner } from '../../utils/usePositioner';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
 import { ToastRootCssVars } from '../root/ToastRootCssVars';
 import type { ToastObject } from '../useToastManager';
 import { ToastPositionerContext } from './ToastPositionerContext';
 import { splitProps } from '../../solid-1-compat';
+import { splitComponentProps } from '../../solid-helpers';
 
 /**
  * Positions the toast against the anchor.
@@ -31,7 +29,9 @@ export function ToastPositioner(componentProps: ToastPositioner.Props) {
       typeof posLocal.toast.positionerProps
     >;
 
-  const [local, elementProps] = splitProps(props, [
+  const [, local, elementProps] = splitComponentProps(props, [
+    'style',
+    'ref',
     'anchor',
     'positionMethod',
     'side',
@@ -45,7 +45,7 @@ export function ToastPositioner(componentProps: ToastPositioner.Props) {
     'disableAnchorTracking',
     'collisionAvoidance',
   ]);
-  const anchorProp = () => local.anchor?.current ?? positionerProps().anchor;
+  const anchorProp = () => local.anchor ?? positionerProps().anchor;
   const positionMethod = () =>
     local.positionMethod ?? positionerProps().positionMethod ?? 'absolute';
   const side = () => local.side ?? positionerProps().side ?? 'top';
@@ -105,17 +105,6 @@ export function ToastPositioner(componentProps: ToastPositioner.Props) {
     sticky,
   });
 
-  const defaultProps: HTMLProps = {
-    role: 'presentation',
-    get style() {
-      return {
-        ...positioning.positionerStyles(),
-        [ToastRootCssVars.index as string]:
-          posLocal.toast.transitionStatus === 'ending' ? domIndex() : visibleIndex(),
-      };
-    },
-  };
-
   const state: ToastPositioner.State = {
     get align() {
       return positioning.align();
@@ -139,24 +128,22 @@ export function ToastPositioner(componentProps: ToastPositioner.Props) {
     side: () => state.side,
   };
 
-  const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [
-        defaultProps,
-        getDisabledMountTransitionStyles(posLocal.toast.transitionStatus),
-        elementProps,
-      ];
+  const element = usePositioner(componentProps, state, {
+    get styles() {
+      return {
+        ...positioning.positionerStyles(),
+        [ToastRootCssVars.index as string]:
+          posLocal.toast.transitionStatus === 'ending' ? domIndex() : visibleIndex(),
+      };
     },
-    ref: setPositionerElement,
-    state,
-    stateAttributesMapping: popupStateMapping,
+    get transitionStatus() {
+      return posLocal.toast.transitionStatus;
+    },
+    props: elementProps,
+    refs: setPositionerElement,
   });
 
-  return (
-    <ToastPositionerContext value={contextValue}>
-      {element()}
-    </ToastPositionerContext>
-  );
+  return <ToastPositionerContext value={contextValue}>{element()}</ToastPositionerContext>;
 }
 
 export interface ToastPositionerState {
@@ -172,7 +159,7 @@ export interface ToastPositionerProps
   /**
    * An element to position the toast against.
    */
-  anchor?: ReactLikeRef<Element | null | undefined> | undefined;
+  anchor?: Element | null | undefined;
   /**
    * Which side of the anchor element to align the toast against.
    * May automatically change to avoid collisions.

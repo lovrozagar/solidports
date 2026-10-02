@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createTrackedEffect, Show } from 'solid-js';
+import { createEffect, createMemo, Show } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
@@ -9,6 +9,7 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { ComboboxCollection } from '../collection/ComboboxCollection';
+import { clickHighlightedItem } from '../utils/parts';
 import { useComboboxPositionerContext } from '../positioner/ComboboxPositionerContext';
 import {
   useComboboxDerivedItemsContext,
@@ -23,25 +24,20 @@ import {
 export function ComboboxList(componentProps: ComboboxList.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['children', 'id']);
 
-  const { store } = useComboboxRootContext();
-  const { context: floatingRootContext } = useComboboxFloatingContext();
+  const store = useComboboxRootContext();
+  const floatingRootContext = useComboboxFloatingContext();
   const hasPositionerContext = Boolean(useComboboxPositionerContext(true));
-  const { filteredItems } = useComboboxDerivedItemsContext();
-  const floatingId = floatingRootContext.useState('floatingId');
+  const { filteredItems, hasItems } = useComboboxDerivedItemsContext();
 
-  const items = store.useSelector('items');
-  const selectionMode = store.useSelector('selectionMode');
-  const grid = store.useSelector('grid');
-  const disabled = store.useSelector('disabled');
-  const readOnly = store.useSelector('readOnly');
-  const virtualized = store.useSelector('virtualized');
+  const selectionMode = store.useState('selectionMode');
+  const grid = store.useState('grid');
+  const readOnly = store.useState('readOnly');
+  const listProps = store.useState('listProps');
+  const virtualized = store.useState('virtualized');
+  const forceMounted = store.useState('forceMounted');
 
   const multiple = () => selectionMode() === 'multiple';
   const empty = () => filteredItems().length === 0;
-  // React can derive `aria-controls` from the list ref on rerender. In Solid,
-  // the listbox id needs to be an explicit reactive value because assigning the
-  // DOM `id` later does not make `element.id` reactive.
-  const listboxId = () => local.id ?? floatingId();
 
   const setPositionerElement = (element: HTMLElement | null | undefined) => {
     store.set('positionerElement', element);
@@ -51,99 +47,112 @@ export function ComboboxList(componentProps: ComboboxList.Props) {
     store.set('listElement', element);
   };
 
+  type ItemRenderFunction = (item: any, index: Accessor<number>) => JSX.Element;
+
   const state: ComboboxList.State = {
     get empty() {
       return empty();
     },
   };
 
-  createTrackedEffect(() => {
-    store.set('listboxId', listboxId());
+  const floatingId = floatingRootContext.useState('floatingId');
+  // Solid: the element's `id` attribute is not reactive, so the list publishes it for the
+  // `aria-controls` of the combobox element (see `State.listId`).
+  const listId = () => local.id ?? floatingId();
+
+  createEffect(listId, (id) => {
+    store.set('listId', id);
   });
 
-  const element = useRenderElement('div', componentProps, {
-    state,
-    ref: (el) => {
-      setListElement(el);
-      if (!hasPositionerContext) {
-        setPositionerElement(el);
-      }
-    },
+  // Solid: the element (and its children) are created inside `CompositeList`, so the items they
+  // instantiate register with it.
+  function ListElement() {
     // Support "closed template" API: if children is a function, implicitly wrap it
     // with a Combobox.Collection that reads items from context/root.
-    // Ensures this component's `popupProps` subscription does not cause <Combobox.Item>
+    // Ensures this component's `listProps` subscription does not cause <Combobox.Item>
     // to re-render on every active index change.
-    get children() {
-      return (
-        <Show
-          keyed
-          /**
-           * Only render inside collection if children is rendered via explicit function call
-           * and not an accessor.
-           */
-          when={typeof local.children === 'function' && local.children.length > 0 && local.children}
-          fallback={local.children}
-        >
-          {(children) => <ComboboxCollection>{children}</ComboboxCollection>}
-        </Show>
-      );
-    },
-    get props() {
-      return [
-        store.selectors.popupProps,
-        {
-          'aria-multiselectable': multiple() ? ('true' as const) : undefined,
-          id: listboxId(),
-          ref: withCaptureListeners({
-            keydown: () => {
-              store.set('keyboardActiveRef', true);
-            },
-            pointermove: () => {
-              store.set('keyboardActiveRef', false);
-            },
-          }),
-          onKeyDown(event: KeyboardEvent) {
-            if (disabled() || readOnly()) {
-              return;
-            }
+    // Solid: children are resolved once per change of the prop, as React's `useMemo([children])`;
+    // reading a JSX `children` getter instantiates its elements.
+    const resolvedChildren = createMemo(() => {
+      const children = local.children as unknown;
+      // A render function with parameters (not an accessor) is the closed-template API.
+      if (typeof children === 'function' && children.length > 0) {
+        return <ComboboxCollection>{children as ItemRenderFunction}</ComboboxCollection>;
+      }
+      return children as JSX.Element;
+    });
 
-            if (event.key === 'Enter') {
-              const activeIndex = store.state.activeIndex;
-
-              if (activeIndex == null) {
-                // Allow form submission when no item is highlighted.
+    const element = useRenderElement('div', componentProps, {
+      state,
+      ref: (el) => {
+        setListElement(el);
+        if (!hasPositionerContext) {
+          setPositionerElement(el);
+        }
+      },
+      get children() {
+        return resolvedChildren();
+      },
+      get props() {
+        return [
+          listProps(),
+          {
+            tabindex: -1,
+            id: listId(),
+            role: (grid() ? 'grid' : 'listbox') as 'grid' | 'listbox',
+            'aria-multiselectable': multiple() ? ('true' as const) : undefined,
+            // On a grid the attribute describes cell editability, not selection, so it's left to the
+            // combobox element in that mode.
+            'aria-readonly': !grid() && readOnly() ? ('true' as const) : undefined,
+            // Solid: capture-phase listeners have no JSX prop form.
+            ref: withCaptureListeners({
+              keydown: () => {
+                store.context.keyboardActiveRef.current = true;
+              },
+              pointermove: () => {
+                store.context.keyboardActiveRef.current = false;
+              },
+            }),
+            onKeyDown(event: KeyboardEvent) {
+              if (store.state.disabled || store.state.readOnly) {
                 return;
               }
 
-              stopEvent(event);
+              if (event.key === 'Enter') {
+                const activeIndex = store.state.activeIndex;
 
-              const nativeEvent = event;
-              const listItem = store.context.listRef[activeIndex];
+                if (activeIndex == null) {
+                  // Allow form submission when no item is highlighted.
+                  return;
+                }
 
-              if (listItem) {
-                store.set('selectionEventRef', nativeEvent);
-                listItem.click();
-                store.set('selectionEventRef', null);
+                stopEvent(event);
+                clickHighlightedItem(store, activeIndex, event);
               }
-            }
+            },
           },
-          role: (grid() ? 'grid' : 'listbox') as 'grid' | 'listbox',
-          tabindex: -1,
-        },
-        elementProps,
-      ];
-    },
-  });
+          elementProps,
+        ];
+      },
+    });
+
+    return element();
+  }
+
+  // With the `items` prop, typeahead labels are derived from the items so they survive the list
+  // unmounting (unmounting clears the registered labels). Rendered labels only need to be
+  // registered when the list is force-mounted to match browser autofill against rendered text.
+  const labelsRef = () => (hasItems() && !forceMounted() ? undefined : store.context.labelsRef);
 
   return (
-    <Show when={!virtualized()} fallback={element()}>
+    <Show when={!virtualized()} fallback={<ListElement />}>
       <CompositeList
         refs={{
-          elements: store.context.listRef,
-          labels: items() ? undefined : store.context.labelsRef,
+          elements: store.context.listRef.current,
+          labels: labelsRef()?.current,
         }}
       >
-        {element()}
+        <ListElement />
       </CompositeList>
     </Show>
   );

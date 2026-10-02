@@ -1,4 +1,4 @@
-import { createEffect } from 'solid-js';
+import { createEffect, untrack } from 'solid-js';
 import { access, type MaybeAccessor } from '../solid-helpers';
 import { useAnimationsFinished } from './useAnimationsFinished';
 import { on } from '../solid-1-compat';
@@ -9,16 +9,22 @@ import { on } from '../solid-1-compat';
 export function useOpenChangeComplete(parameters: useOpenChangeComplete.Parameters) {
   const open = () => access(parameters.open);
   const enabled = () => access(parameters.enabled) ?? true;
-  const runOnceAnimationsFinish = useAnimationsFinished(() => access(parameters.ref), open, false);
+  const runOnceAnimationsFinish = useAnimationsFinished(
+    () => access(parameters.ref),
+    open,
+    () => access(parameters.batch) ?? false,
+  );
 
-  createEffect(...on([open, enabled], () => {
+  createEffect(
+    ...on([open, enabled], () => {
       if (!enabled()) {
         return;
       }
 
       const abortController = new AbortController();
 
-      runOnceAnimationsFinish(parameters.onComplete, abortController.signal);
+      // `onComplete` is a callback: it reads the latest state, it does not subscribe.
+      runOnceAnimationsFinish(() => untrack(parameters.onComplete), abortController.signal);
 
       return () => abortController.abort();
     }),
@@ -39,6 +45,12 @@ export interface UseOpenChangeCompleteParameters {
    * Ref to the element being closed.
    */
   ref: MaybeAccessor<HTMLElement | null | undefined>;
+  /**
+   * Whether completions ready in the same microtask may be coalesced into a single commit.
+   * Only safe when `onComplete` doesn't read state that another completion can change.
+   * @default false
+   */
+  batch?: MaybeAccessor<boolean | undefined>;
   /**
    * Function to call when the animation completes (or there is no animation).
    */

@@ -1,4 +1,5 @@
 import { render } from '@solidjs/testing-library';
+import { untrack } from 'solid-js';
 import { vi } from 'vitest';
 import { useInteractions } from '../index';
 
@@ -15,7 +16,13 @@ describe('useInteractions', () => {
         { reference: { onClick: secondInteractionOnClick, onKeyDown: secondInteractionOnKeyDown } },
       ]);
 
-      const { onClick, onKeyDown } = interactions.getReferenceProps({ onClick: userOnClick });
+      // A component body is not a tracking scope; the live props view is read imperatively.
+      const { onClick, onKeyDown } = untrack(() => {
+        const { onClick: click, onKeyDown: keyDown } = interactions.getReferenceProps({
+          onClick: userOnClick,
+        });
+        return { onClick: click, onKeyDown: keyDown };
+      });
 
       // @ts-expect-error
       onClick();
@@ -37,8 +44,10 @@ describe('useInteractions', () => {
     function App() {
       const interactions = useInteractions([{ reference: { onClick() {} } }]);
       expect(() =>
-        // @ts-expect-error
-        interactions.getReferenceProps({ onClick: undefined }).onClick(),
+        untrack(() =>
+          // @ts-expect-error
+          interactions.getReferenceProps({ onClick: undefined }).onClick(),
+        ),
       ).not.toThrowError();
       return null;
     }
@@ -56,8 +65,8 @@ describe('useInteractions', () => {
         onyx: () => {},
       });
 
-      expect(props.onlyShowVotes).toBe(true);
-      expect(typeof props.onyx).toBe('function');
+      expect(untrack(() => props.onlyShowVotes)).toBe(true);
+      expect(typeof untrack(() => props.onyx)).toBe('function');
 
       return null;
     }
@@ -75,7 +84,7 @@ describe('useInteractions', () => {
       });
 
       // @ts-expect-error
-      expect(props.onyx()).toBe('returned value');
+      expect(untrack(() => props.onyx())).toBe('returned value');
 
       return null;
     }

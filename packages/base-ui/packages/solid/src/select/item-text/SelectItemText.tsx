@@ -4,7 +4,6 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useSelectItemContext } from '../item/SelectItemContext';
 import { useSelectRootContext } from '../root/SelectRootContext';
-import { on } from '../../solid-1-compat';
 
 /**
  * A text label of the select item.
@@ -14,24 +13,34 @@ import { on } from '../../solid-1-compat';
  */
 export function SelectItemText(componentProps: SelectItemText.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
-  let localRef = null as HTMLElement | null | undefined;
 
-  const { indexRef, textRef, selectedByFocus, hasRegistered } = useSelectItemContext();
-  const { selectedItemTextRef } = useSelectRootContext();
+  const { index, textRef, selectedByFocus } = useSelectItemContext();
+  const { firstItemTextRef, selectedItemTextRef } = useSelectRootContext();
 
-  createEffect(...on([selectedByFocus, hasRegistered], () => {
-      const hasNoSelectedItemText =
-        selectedItemTextRef.current === null || !selectedItemTextRef.current?.isConnected;
-      if (selectedByFocus() || (hasNoSelectedItemText && indexRef.current === 0)) {
-        selectedItemTextRef.current = localRef;
+  let node: HTMLElement | null | undefined = null;
+
+  // Solid: refs are applied once, so React's ref callback (keyed on `index`/`selectedByFocus`)
+  // re-runs as an effect when either changes.
+  createEffect(
+    () => ({ index: index(), selectedByFocus: selectedByFocus() }),
+    (deps) => {
+      if (!node) {
+        return;
       }
-    }),
+
+      if (deps.index === 0) {
+        firstItemTextRef.current = node;
+      }
+      if (deps.selectedByFocus) {
+        selectedItemTextRef.current = node;
+      }
+    },
   );
 
   const element = useRenderElement('div', componentProps, {
     props: elementProps,
     ref: (el) => {
-      localRef = el;
+      node = el;
       textRef.current = el;
     },
   });

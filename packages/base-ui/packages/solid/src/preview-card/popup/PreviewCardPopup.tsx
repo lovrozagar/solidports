@@ -33,6 +33,7 @@ export function PreviewCardPopup(componentProps: PreviewCardPopup.Props) {
   const instantType = store.useState('instantType');
   const transitionStatus = store.useState('transitionStatus');
   const popupProps = store.useState('popupProps');
+  const closeDelay = store.useState('closeDelay');
 
   useOpenChangeComplete({
     onComplete() {
@@ -49,7 +50,9 @@ export function PreviewCardPopup(componentProps: PreviewCardPopup.Props) {
       return store.context.floatingRootContext;
     },
     parameters: {
-      closeDelay: () => store.context.closeDelayRef.current,
+      get closeDelay() {
+        return closeDelay();
+      },
     },
   });
 
@@ -71,14 +74,13 @@ export function PreviewCardPopup(componentProps: PreviewCardPopup.Props) {
     },
   };
 
+  const setPopupElement = store.useStateSetter('popupElement');
+
   const element = useRenderElement('div', componentProps, {
     get props() {
       return [popupProps(), getDisabledMountTransitionStyles(transitionStatus()), elementProps];
     },
-    ref: (el) => {
-      store.context.popupRef.current = el;
-      store.useStateSetter('popupElement')(el);
-    },
+    ref: [store.context.popupRef, setPopupElement],
     state,
     stateAttributesMapping,
   });

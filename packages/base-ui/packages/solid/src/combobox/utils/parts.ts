@@ -8,7 +8,7 @@ import type { Side } from '../../utils/useAnchorPositioning';
  * last resolved side after the popup unmounts.
  */
 export function usePopupSide(store: ComboboxStore) {
-  const mounted = store.useSelector('mounted');
+  const mounted = store.useState('mounted');
   const popupSide = store.useState('popupSide');
   const positionerElement = store.useState('positionerElement');
 
@@ -49,11 +49,11 @@ export function clickHighlightedItem(
   activeIndex: number,
   nativeEvent: KeyboardEvent,
 ) {
-  const listItem = store.context.listRef[activeIndex];
+  const listItem = store.context.listRef.current[activeIndex];
 
   if (listItem) {
-    store.set('selectionEventRef', nativeEvent);
+    store.context.selectionEventRef.current = nativeEvent;
     listItem.click();
-    store.set('selectionEventRef', null);
+    store.context.selectionEventRef.current = null;
   }
 }

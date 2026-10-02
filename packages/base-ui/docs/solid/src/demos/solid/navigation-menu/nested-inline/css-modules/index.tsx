@@ -22,7 +22,7 @@ export default function ExampleNavigationMenu() {
           <NavigationMenu.Content class={`${styles.Content} ${styles.ProductContent}`}>
             <NavigationMenu.Root
               class={styles.SubmenuRoot}
-              orientation={isDesktop ? 'vertical' : 'horizontal'}
+              orientation={isDesktop() ? 'vertical' : 'horizontal'}
               defaultValue="developers"
             >
               <div class={styles.SubmenuLayout}>
@@ -130,7 +130,7 @@ function Link(props: NavigationMenu.Link.Props) {
   );
 }
 
-function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

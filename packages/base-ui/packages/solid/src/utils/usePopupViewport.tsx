@@ -1,16 +1,27 @@
 /* eslint-disable typescript/no-explicit-any -- generic store across all popup variants */
-import { createTrackedEffect, createEffect, createMemo, createSignal, Show } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createRenderEffect,
+  createSignal,
+  onSettled,
+  Show,
+  untrack,
+} from 'solid-js';
 import type { Accessor, ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider';
 import { Dimensions } from '../floating-ui-solid/types';
 import type { SolidStore } from './store/SolidStoreV2';
 import { Side } from './useAnchorPositioning';
+import { flushSync } from './flushSync';
 import { useAnimationFrame } from './useAnimationFrame';
 import { useAnimationsFinished } from './useAnimationsFinished';
 import { usePopupAutoResize } from './usePopupAutoResize';
 import { usePreviousValue } from './usePreviousValue';
+import { adaptiveOrigin } from './adaptiveOriginMiddleware';
 import { on } from '../solid-1-compat';
+import { createDepsEffect } from '../solid-helpers';
 
 export type PopupViewportCssVars = {
   /**
@@ -98,6 +109,7 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
 
   const onAnimationsFinished = useAnimationsFinished(() => currentContainerRef, true, false);
   const cleanupFrame = useAnimationFrame();
+  let cleanupControllerRef: AbortController | null = null;
 
   const [previousContentDimensions, setPreviousContentDimensions] = createSignal<{
     width: number;
@@ -106,19 +118,15 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
 
   const [showStartingStyleAttribute, setShowStartingStyleAttribute] = createSignal(false);
 
-  createTrackedEffect(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-
-    parameters.store.set('hasViewport', true);
-    _c.push(() => parameters.store.set('hasViewport', false));
-      })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-});
+  createRenderEffect(
+    () => parameters.store,
+    (store) => {
+      store.set('adaptiveOrigin', adaptiveOrigin);
+      return () => {
+        store.set('adaptiveOrigin', undefined);
+      };
+    },
+  );
 
   const handleMeasureLayout = () => {
     currentContainerRef?.style.setProperty('animation', 'none');
@@ -138,46 +146,90 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
     }
   };
 
+  const armViewportCleanup = () => {
+    cleanupControllerRef?.abort();
+    const controller = new AbortController();
+    cleanupControllerRef = controller;
+    onAnimationsFinished(() => {
+      setPreviousContentNode(null);
+      setPreviousContentDimensions(null);
+      capturedNodeRef = null;
+    }, controller.signal);
+  };
+
   let lastHandledTriggerRef = null as Element | null | undefined;
 
-  createTrackedEffect(() => {
-    /* When a trigger changes, set the captured children HTML to state,
-       so we can render both new and old content. */
-    const current = activeTrigger();
-    const previous = previousActiveTrigger();
-    if (
-      current &&
-      previous &&
-      current !== previous &&
-      lastHandledTriggerRef !== current &&
-      capturedNodeRef
-    ) {
-      setPreviousContentNode(capturedNodeRef);
+  createDepsEffect(
+    () => ({ open: open(), mounted: mounted() }),
+    (state) => {
+      if (!state.open || !state.mounted) {
+        lastHandledTriggerRef = null;
+      }
+    },
+  );
+
+  createDepsEffect(
+    () => ({ current: activeTrigger(), previous: previousActiveTrigger() }),
+    ({ current, previous }) => {
+      // When a trigger changes, set the captured children HTML to state,
+      // so we can render both new and old content.
+      if (
+        current &&
+        previous &&
+        current !== previous &&
+        lastHandledTriggerRef !== current &&
+        capturedNodeRef
+      ) {
+        setPreviousContentNode(capturedNodeRef);
+        setShowStartingStyleAttribute(true);
+
+        // Calculate the relative position between the previous and new trigger,
+        // so we can pass it to the style hook for animation purposes.
+        const offset = calculateRelativePosition(previous, current);
+        setNewTriggerOffset(offset);
+
+        lastHandledTriggerRef = current;
+      }
+    },
+  );
+
+  // Arm cleanup after a trigger change, and re-arm it if the current container remounts
+  // mid-transition when a lagging payload bumps `currentContentKey`. The remount discards
+  // the running entry animation (and with transition-style CSS the replacement mounts at
+  // final styles with no animation at all), so re-run the starting-style choreography —
+  // otherwise the watcher either strands or fires before the previous container's exit
+  // animation finishes.
+  createDepsEffect(
+    () => ({ contentKey: currentContentKey(), previousContentNode: previousContentNode() }),
+    (deps) => {
+      if (deps.previousContentNode == null) {
+        return;
+      }
+
+      // Abort the stale watcher synchronously. The remount cancels the old container's
+      // animations, and the resulting promise rejection would otherwise run the cleanup
+      // in a microtask before the re-armed watcher below is in place.
+      cleanupControllerRef?.abort();
+
       setShowStartingStyleAttribute(true);
 
-      /* Calculate the relative position between the previous and new trigger,
-         so we can pass it to the style hook for animation purposes. */
-      const offset = calculateRelativePosition(previous, current);
-      setNewTriggerOffset(offset);
-
+      // Solid: wait a second frame. Solid flushes a write made in a rAF before that frame's
+      // style recalc, so `[data-starting-style]` must be painted once before it is removed.
       cleanupFrame.request(() => {
         cleanupFrame.request(() => {
-          setShowStartingStyleAttribute(false);
-          onAnimationsFinished(() => {
-            setPreviousContentNode(null);
-            setPreviousContentDimensions(null);
-            capturedNodeRef = null;
+          flushSync(() => {
+            setShowStartingStyleAttribute(false);
           });
+          armViewportCleanup();
         });
       });
-
-      lastHandledTriggerRef = activeTrigger();
-    }
-  });
+    },
+  );
 
   // Capture a clone of the current content DOM subtree when not transitioning.
   // We can't store previous React nodes as they may be stateful; instead we capture DOM clones for visual continuity.
-  createEffect(...on(currentContentKey, () => {
+  createEffect(
+    ...on(currentContentKey, () => {
       let cancelled = false;
 
       queueMicrotask(() => {
@@ -213,7 +265,8 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
   const isTransitioning = () => previousContentNode() != null;
 
   // When previousContentNode is present, imperatively populate the previous container with the cloned children.
-  createEffect(...on(previousContentNode, (contentNode) => {
+  createEffect(
+    ...on(previousContentNode, (contentNode) => {
       if (!contentNode) {
         return;
       }
@@ -247,7 +300,7 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
     onMeasureLayoutComplete: handleMeasureLayoutComplete,
     popupElement,
     positionerElement,
-    side: parameters.side,
+    side: () => parameters.side,
   });
 
   const state: PopupViewportState = {
@@ -265,7 +318,8 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
 
   function CurrentContainer(props: ParentProps<{ 'data-starting-style'?: '' | undefined }>) {
     return (
-      <Show when={currentContentKey()}>
+      // Keyed: a new content key remounts the container, as React's `key`.
+      <Show when={currentContentKey()} keyed>
         <ContainerComponent {...props}>{parameters.children}</ContainerComponent>
       </Show>
     );
@@ -283,13 +337,11 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
               data-previous
               inert={true}
               ref={previousContainerRef}
-              style={
-                {
-                  [parameters.cssVars.popupWidth]: `${previousContentDimensions()?.width}px`,
-                  [parameters.cssVars.popupHeight]: `${previousContentDimensions()?.height}px`,
-                  position: 'absolute',
-                }
-              }
+              style={{
+                [parameters.cssVars.popupWidth]: `${previousContentDimensions()?.width}px`,
+                [parameters.cssVars.popupHeight]: `${previousContentDimensions()?.height}px`,
+                position: 'absolute',
+              }}
               data-ending-style={showStartingStyleAttribute() ? undefined : ''}
             />
             <CurrentContainer data-starting-style={showStartingStyleAttribute() ? '' : undefined}>
@@ -379,34 +431,33 @@ function usePopupContentKey(parameters: {
   payload: Accessor<unknown>;
 }): Accessor<string> {
   const [contentKey, setContentKey] = createSignal(0);
-  let previousActiveTriggerIdRef = parameters.activeTriggerId();
-  let previousPayloadRef = parameters.payload();
+  // Initial values for the first comparison, as React's refs.
+  let previousActiveTriggerIdRef = untrack(parameters.activeTriggerId);
+  let previousPayloadRef = untrack(parameters.payload);
   let pendingPayloadUpdateRef = false;
 
-  createTrackedEffect(() => {
-    const activeTriggerId = parameters.activeTriggerId();
-    const payload = parameters.payload();
+  createDepsEffect(
+    () => ({ activeTriggerId: parameters.activeTriggerId(), payload: parameters.payload() }),
+    ({ activeTriggerId, payload }) => {
+      // Compare against the last committed values to decide whether we need a new DOM subtree.
+      const triggerIdChanged = activeTriggerId !== previousActiveTriggerIdRef;
+      const payloadChanged = payload !== previousPayloadRef;
 
-    // Compare against the last committed values to decide whether we need a new DOM subtree.
-    const previousActiveTriggerId = previousActiveTriggerIdRef;
-    const previousPayload = previousPayloadRef;
-    const triggerIdChanged = activeTriggerId !== previousActiveTriggerId;
-    const payloadChanged = payload !== previousPayload;
+      if (triggerIdChanged) {
+        // Remount immediately on trigger change; remember if payload hasn't caught up yet.
+        setContentKey((value) => value + 1);
+        pendingPayloadUpdateRef = !payloadChanged;
+      } else if (pendingPayloadUpdateRef && payloadChanged) {
+        // Payload arrived a render later, so remount once more to avoid reusing the old <img>.
+        setContentKey((value) => value + 1);
+        pendingPayloadUpdateRef = false;
+      }
 
-    if (triggerIdChanged) {
-      // Remount immediately on trigger change; remember if payload hasn't caught up yet.
-      setContentKey((value) => value + 1);
-      pendingPayloadUpdateRef = !payloadChanged;
-    } else if (pendingPayloadUpdateRef && payloadChanged) {
-      // Payload arrived a render later, so remount once more to avoid reusing the old <img>.
-      setContentKey((value) => value + 1);
-      pendingPayloadUpdateRef = false;
-    }
-
-    // Persist current values for the next render's comparison.
-    previousActiveTriggerIdRef = activeTriggerId;
-    previousPayloadRef = payload;
-  });
+      // Persist current values for the next render's comparison.
+      previousActiveTriggerIdRef = activeTriggerId;
+      previousPayloadRef = payload;
+    },
+  );
 
   const key = createMemo(() => `${parameters.activeTriggerId() ?? 'current'}-${contentKey()}`);
   return key;

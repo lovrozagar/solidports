@@ -35,7 +35,9 @@ function getBrowserConfig(): BrowserModeConfig {
 
   return {
     enabled: true,
-    provider: playwright(),
+    // Pin the browser timezone: date tests expect UTC (as CI), and a browser cannot follow
+    // `process.env.TZ` changes the way Node does.
+    provider: playwright({ contextOptions: { timezoneId: 'UTC' } }),
     screenshotFailures: false,
     headless: true,
     instances,

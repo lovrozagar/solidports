@@ -15,15 +15,21 @@ export function MenuPortal(props: MenuPortal.Props) {
   const [local, portalProps] = splitProps(props, ['keepMounted']);
   const keepMounted = () => local.keepMounted ?? false;
 
-  const { store } = useMenuRootContext();
+  const { store, parent } = useMenuRootContext();
   const mounted = store.useState('mounted');
 
   const shouldRender = () => mounted() || keepMounted();
 
+  // The hidden `aria-owns` owner renders here, in the component tree, so the role must be decided by
+  // where this portal sits, not by the active trigger. `parent` comes from context (the `Menu.Root`
+  // position), unlike the store's `parent`, which a detached trigger overwrites with its own.
+  const portalOwnerRole = parent.type === 'menu' || parent.type === 'menubar' ? 'group' : undefined;
+
   return (
     <Show when={shouldRender()}>
       <MenuPortalContext value={keepMounted}>
-        <FloatingPortal {...portalProps} />
+        {/* The hidden `aria-owns` owner needs `group` only under role-constrained parents. */}
+        <FloatingPortal {...portalProps} portalOwnerRole={portalOwnerRole} />
       </MenuPortalContext>
     </Show>
   );

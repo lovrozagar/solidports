@@ -1,19 +1,6 @@
 import { clamp } from '../../utils/clamp';
-import { SliderRootContext } from '../root/SliderRootContext';
 import { getPushedThumbValues } from './getPushedThumbValues';
-
-export interface ResolveThumbCollisionParams {
-  behavior: ReturnType<SliderRootContext['thumbCollisionBehavior']>;
-  values: readonly number[];
-  currentValues?: (readonly number[] | null) | undefined;
-  initialValues?: (readonly number[] | null) | undefined;
-  pressedIndex: number;
-  nextValue: number;
-  min: number;
-  max: number;
-  step: number;
-  minStepsBetweenValues: number;
-}
+import type { SliderRootContext } from '../root/SliderRootContext';
 
 export interface ResolveThumbCollisionResult {
   value: number | number[];
@@ -21,46 +8,67 @@ export interface ResolveThumbCollisionResult {
   didSwap: boolean;
 }
 
-export function resolveThumbCollision({
-  behavior,
-  values,
-  currentValues,
-  initialValues,
-  pressedIndex,
-  nextValue,
-  min,
-  max,
-  step,
-  minStepsBetweenValues,
-}: ResolveThumbCollisionParams): ResolveThumbCollisionResult {
+/**
+ * Positional arguments are deliberate: property names of an options object don't
+ * minify, so passing them positionally keeps this internal helper smaller in the bundle.
+ */
+export function resolveThumbCollision(
+  behavior: ReturnType<SliderRootContext['thumbCollisionBehavior']>,
+  values: readonly number[],
+  currentValues: readonly number[] | null | undefined,
+  initialValues: readonly number[] | null | undefined,
+  pressedIndex: number,
+  nextValue: number,
+  min: number,
+  max: number,
+  step: number,
+  minStepsBetweenValues: number,
+): ResolveThumbCollisionResult {
   const activeValues = currentValues ?? values;
   const baselineValues = initialValues ?? values;
   const range = activeValues.length > 1;
 
   if (!range) {
     return {
-      didSwap: false,
-      thumbIndex: 0,
       value: nextValue,
+      thumbIndex: 0,
+      didSwap: false,
     };
   }
 
   const minValueDifference = step * minStepsBetweenValues;
 
+  // `push` does its own copy/bounds/rounding pass in `getPushedThumbValues`, so it must not
+  // pay for the neighbor-clamp setup below (this is the hottest path — `push` is the default).
+  if (behavior === 'push') {
+    return {
+      value: getPushedThumbValues(
+        activeValues,
+        pressedIndex,
+        nextValue,
+        min,
+        max,
+        step,
+        minStepsBetweenValues,
+      ),
+      thumbIndex: pressedIndex,
+      didSwap: false,
+    };
+  }
+
+  // Shared by `swap` and `none`.
+  const candidateValues = activeValues.slice();
+  const previousNeighbor = candidateValues[pressedIndex - 1];
+  const nextNeighbor = candidateValues[pressedIndex + 1];
+  const lowerBound = previousNeighbor != null ? previousNeighbor + minValueDifference : min;
+  const upperBound = nextNeighbor != null ? nextNeighbor - minValueDifference : max;
+  const pressedValueAfterClamp = Number(clamp(nextValue, lowerBound, upperBound).toFixed(12));
+  candidateValues[pressedIndex] = pressedValueAfterClamp;
+
   switch (behavior) {
     case 'swap': {
       const pressedInitialValue = activeValues[pressedIndex];
       const epsilon = 1e-7;
-      const candidateValues = activeValues.slice();
-      const previousNeighbor = candidateValues[pressedIndex - 1];
-      const nextNeighbor = candidateValues[pressedIndex + 1];
-
-      const lowerBound = previousNeighbor != null ? previousNeighbor + minValueDifference : min;
-      const upperBound = nextNeighbor != null ? nextNeighbor - minValueDifference : max;
-
-      const constrainedValue = clamp(nextValue, lowerBound, upperBound);
-      const pressedValueAfterClamp = Number(constrainedValue.toFixed(12));
-      candidateValues[pressedIndex] = pressedValueAfterClamp;
 
       const movingForward = nextValue > pressedInitialValue;
       const movingBackward = nextValue < pressedInitialValue;
@@ -72,9 +80,9 @@ export function resolveThumbCollision({
 
       if (!shouldSwapForward && !shouldSwapBackward) {
         return {
-          didSwap: false,
-          thumbIndex: pressedIndex,
           value: candidateValues,
+          thumbIndex: pressedIndex,
+          didSwap: false,
         };
       }
 
@@ -100,75 +108,46 @@ export function resolveThumbCollision({
         nextValueForTarget = Math.min(nextValue, candidateValues[targetIndex]);
       }
 
-      const adjustedValues = getPushedThumbValues({
-        index: targetIndex,
-        initialValues: initialValuesForPush,
-        max,
+      const adjustedValues = getPushedThumbValues(
+        candidateValues,
+        targetIndex,
+        nextValueForTarget,
         min,
-        minStepsBetweenValues,
-        nextValue: nextValueForTarget,
+        max,
         step,
-        values: candidateValues,
-      });
+        minStepsBetweenValues,
+        initialValuesForPush,
+      );
 
       const neighborIndex = shouldSwapForward ? targetIndex - 1 : targetIndex + 1;
 
-      if (neighborIndex >= 0 && neighborIndex < adjustedValues.length) {
-        const previousValue = adjustedValues[neighborIndex - 1];
-        const nextValueAfter = adjustedValues[neighborIndex + 1];
+      const previousValue = adjustedValues[neighborIndex - 1];
+      const nextValueAfter = adjustedValues[neighborIndex + 1];
 
-        let neighborLowerBound = previousValue != null ? previousValue + minValueDifference : min;
-        neighborLowerBound = Math.max(neighborLowerBound, min + neighborIndex * minValueDifference);
+      let neighborLowerBound = previousValue != null ? previousValue + minValueDifference : min;
+      neighborLowerBound = Math.max(neighborLowerBound, min + neighborIndex * minValueDifference);
 
-        let neighborUpperBound = nextValueAfter != null ? nextValueAfter - minValueDifference : max;
-        neighborUpperBound = Math.min(
-          neighborUpperBound,
-          max - (adjustedValues.length - 1 - neighborIndex) * minValueDifference,
-        );
+      let neighborUpperBound = nextValueAfter != null ? nextValueAfter - minValueDifference : max;
+      neighborUpperBound = Math.min(
+        neighborUpperBound,
+        max - (adjustedValues.length - 1 - neighborIndex) * minValueDifference,
+      );
 
-        const restoredValue = clamp(pressedValueAfterClamp, neighborLowerBound, neighborUpperBound);
-        adjustedValues[neighborIndex] = Number(restoredValue.toFixed(12));
-      }
+      const restoredValue = clamp(pressedValueAfterClamp, neighborLowerBound, neighborUpperBound);
+      adjustedValues[neighborIndex] = Number(restoredValue.toFixed(12));
 
       return {
-        didSwap: true,
-        thumbIndex: targetIndex,
         value: adjustedValues,
-      };
-    }
-    case 'push': {
-      const nextValues = getPushedThumbValues({
-        index: pressedIndex,
-        max,
-        min,
-        minStepsBetweenValues,
-        nextValue,
-        step,
-        values: activeValues,
-      });
-
-      return {
-        didSwap: false,
-        thumbIndex: pressedIndex,
-        value: nextValues,
+        thumbIndex: targetIndex,
+        didSwap: true,
       };
     }
     case 'none':
     default: {
-      const candidateValues = activeValues.slice();
-      const previousNeighbor = candidateValues[pressedIndex - 1];
-      const nextNeighbor = candidateValues[pressedIndex + 1];
-
-      const lowerBound = previousNeighbor != null ? previousNeighbor + minValueDifference : min;
-      const upperBound = nextNeighbor != null ? nextNeighbor - minValueDifference : max;
-
-      const constrainedValue = clamp(nextValue, lowerBound, upperBound);
-      candidateValues[pressedIndex] = Number(constrainedValue.toFixed(12));
-
       return {
-        didSwap: false,
-        thumbIndex: pressedIndex,
         value: candidateValues,
+        thumbIndex: pressedIndex,
+        didSwap: false,
       };
     }
   }

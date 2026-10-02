@@ -61,7 +61,7 @@ interface ItemProps extends JSX.LiHTMLAttributes<HTMLLIElement> {
   href: string
   isNew?: boolean
   external?: boolean
-  icon?: JSX.Element | ((props?: Record<string, never>) => JSX.Element)
+  icon?: JSX.Element | ((props: JSX.SvgSVGAttributes<SVGSVGElement>) => JSX.Element)
 }
 
 const SCROLL_MARGIN = 48
@@ -109,7 +109,7 @@ export function Item(props: ItemProps) {
   const commonAttrs = () =>
     active()
       ? {
-          "aria-current": true as const,
+          "aria-current": "true" as const,
           "data-active": "" as const,
           onClick: () => {
             /* Scroll to top smoothly when clicking on the currently active item. */

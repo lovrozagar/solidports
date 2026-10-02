@@ -4,10 +4,13 @@ import {
   flushMicrotasks,
   isJSDOM,
   waitSingleFrame,
+  act,
 } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
+import { Toolbar } from '@solidports/base-ui/toolbar';
+import { expect, vi } from 'vitest';
+import type { JSX } from '@solidjs/web';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
 import { createSignal } from 'solid-js';
 
 describe('<Popover.Popup />', () => {
@@ -25,6 +28,42 @@ describe('<Popover.Popup />', () => {
         </Popover.Root>
       )),
   }));
+
+  it('throws a descriptive error when rendered outside <Popover.Root>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() => render(() => <Popover.Popup />)).to.throw(
+        'Base UI: PopoverRootContext is missing. Popover parts must be placed within <Popover.Root>.',
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('throws a descriptive error when rendered outside <Popover.Positioner>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() =>
+        render(() => (
+          <Popover.Root open>
+            <Popover.Portal>
+              <Popover.Popup />
+            </Popover.Portal>
+          </Popover.Root>
+        )),
+      ).to.throw(
+        'Base UI: PopoverPositionerContext is missing. PopoverPositioner parts must be placed within <Popover.Positioner>.',
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
 
   it('should render the children', async () => {
     render(() => (
@@ -97,8 +136,7 @@ describe('<Popover.Popup />', () => {
       render(() => <TestComponent />);
 
       const trigger = screen.getByText('Open');
-      trigger.click();
-
+      act(() => trigger.click());
       await waitFor(() => {
         const input2 = screen.getByTestId('input-2');
         expect(input2).to.toHaveFocus();
@@ -185,6 +223,41 @@ describe('<Popover.Popup />', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('input-2')).toHaveFocus();
+      });
+    });
+
+    it('passes the latest interaction type to initialFocus after reopening', async () => {
+      const initialFocus = vi.fn(() => false);
+
+      const { user } = render(() => (
+        <Popover.Root>
+          <Popover.Trigger>Open</Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Positioner>
+              <Popover.Popup initialFocus={initialFocus}>Content</Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+      ));
+
+      const trigger = screen.getByText('Open');
+      await act(async () => trigger.focus());
+      await user.keyboard('[Enter]');
+
+      await waitFor(() => {
+        expect(initialFocus).toHaveBeenLastCalledWith('keyboard');
+      });
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).to.equal(null);
+      });
+
+      fireEvent.pointerDown(trigger, { pointerType: 'touch' });
+      fireEvent.click(trigger, { detail: 1 });
+
+      await waitFor(() => {
+        expect(initialFocus).toHaveBeenLastCalledWith('touch');
       });
     });
 
@@ -347,7 +420,7 @@ describe('<Popover.Popup />', () => {
     });
   });
 
-  describe('prop: final focus', () => {
+  describe('prop: finalFocus', () => {
     it('should focus the trigger by default when closed', async () => {
       render(() => (
         <div>
@@ -367,11 +440,9 @@ describe('<Popover.Popup />', () => {
       ));
 
       const trigger = screen.getByText('Open');
-      trigger.click();
-
+      act(() => trigger.click());
       const closeButton = screen.getByText('Close');
-      closeButton.click();
-
+      act(() => closeButton.click());
       await waitFor(() => {
         expect(trigger).toHaveFocus();
       });
@@ -403,11 +474,9 @@ describe('<Popover.Popup />', () => {
       render(() => <TestComponent />);
 
       const trigger = screen.getByText('Open');
-      trigger.click();
-
+      act(() => trigger.click());
       const closeButton = screen.getByText('Close');
-      closeButton.click();
-
+      act(() => closeButton.click());
       const inputToFocus = screen.getByTestId('input-to-focus');
 
       await waitFor(() => {
@@ -579,6 +648,82 @@ describe('<Popover.Popup />', () => {
       await waitFor(() => {
         expect(trigger).toHaveFocus();
       });
+    });
+  });
+
+  describe('inside a toolbar', () => {
+    function ToolbarPopover(props: { children: JSX.Element }) {
+      return (
+        <Toolbar.Root>
+          <Toolbar.Button>First</Toolbar.Button>
+          <Popover.Root>
+            <Toolbar.Button render={{ component: Popover.Trigger }}>Open</Toolbar.Button>
+            <Popover.Portal>
+              <Popover.Positioner>
+                <Popover.Popup>{props.children}</Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+          <Toolbar.Button>Last</Toolbar.Button>
+        </Toolbar.Root>
+      );
+    }
+
+    // The popup is portaled but still bubbles events up to `Toolbar.Root`, whose composite
+    // handler would move the roving highlight and pull focus out of the open popup.
+    it('does not relay composite keys from the popup to the toolbar', async () => {
+      const { user } = render(() => (
+        <ToolbarPopover>
+          <button type="button">Inside</button>
+        </ToolbarPopover>
+      ));
+
+      // The toolbar itself still navigates with the same key, so a passing assertion below can't
+      // come from an inert toolbar.
+      await user.keyboard('[Tab]');
+      expect(screen.getByRole('button', { name: 'First' })).toHaveFocus();
+      await user.keyboard('[ArrowRight]');
+      const trigger = screen.getByRole('button', { name: 'Open' });
+      await waitFor(() => {
+        expect(trigger).toHaveFocus();
+      });
+
+      await user.keyboard('[Enter]');
+      const insideButton = screen.getByRole('button', { name: 'Inside' });
+      await waitFor(() => {
+        expect(insideButton).toHaveFocus();
+      });
+
+      await user.keyboard('[ArrowRight]');
+      await flushMicrotasks();
+
+      expect(insideButton).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'Last' })).not.toHaveFocus();
+    });
+
+    // Shielding the toolbar must not disable the keys inside the popup: only propagation is
+    // stopped, so native caret movement in popup content keeps working.
+    it('keeps composite keys working inside the popup content', async () => {
+      const { user } = render(() => (
+        <ToolbarPopover>
+          <input value="ab" />
+        </ToolbarPopover>
+      ));
+
+      await user.click(screen.getByRole('button', { name: 'Open' }));
+
+      const input = screen.getByRole('textbox') as HTMLInputElement;
+      await waitFor(() => {
+        expect(input).toHaveFocus();
+      });
+
+      await act(async () => {
+        input.setSelectionRange(0, 0);
+      });
+      await user.keyboard('[ArrowRight]');
+
+      expect(input.selectionStart).to.equal(1);
+      expect(screen.getByRole('button', { name: 'Last' })).not.toHaveFocus();
     });
   });
 });

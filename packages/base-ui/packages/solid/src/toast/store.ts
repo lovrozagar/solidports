@@ -1,241 +1,347 @@
-/* eslint-disable typescript/no-explicit-any -- toast Data is generic at consumer; ToastObject<any> erases consumer type at store level */
-import { createMemo } from 'solid-js';
+/* eslint-disable typescript/no-explicit-any -- toast Data is generic at consumer; StoredToast<any> erases consumer type at store level, mirrors React */
+import { createSignal, getObserver, runWithOwner, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import type { Store } from 'solid-js';
 import { activeElement, contains, getTarget } from '../floating-ui-solid/utils';
-import { access, type MaybeAccessor } from '../solid-helpers';
 import { generateId } from '../utils/generateId';
 import { ownerDocument } from '../utils/owner';
 import { SolidStore } from '../utils/store/SolidStoreV2';
-import { useTimeout } from '../utils/useTimeout';
+import { useTimeout, type Timeout } from '../utils/useTimeout';
 import {
   ToastManagerAddOptions,
   ToastManagerPromiseOptions,
   ToastManagerUpdateOptions,
   ToastObject,
 } from './useToastManager';
-import { isFocusVisible } from './utils/focusVisible';
 import { resolvePromiseOptions } from './utils/resolvePromiseOptions';
-import { mergeProps as solidMergeProps, createStore, type SetStoreFunction } from '../solid-1-compat';
+import { isFocusVisible } from './utils/focusVisible';
 
-type ToastInternalUpdateOptions<Data extends object> = Partial<Omit<ToastObject<Data>, 'id'>>;
-type UpdateToastBehavior = {
-  resetTimer?: boolean | undefined;
-  markUpdated?: boolean | undefined;
-};
-type RemoveToastBehavior = {
-  skipOnRemove?: boolean | undefined;
-};
+type ToastInternalUpdateOptions<Data extends object> = Partial<
+  Omit<ToastObject<Data>, 'id' | 'updateKey'>
+>;
+
+/**
+ * A toast once it lives in the store. `addToast` is the only way in and it always
+ * assigns `updateKey`, so unlike the public `ToastObject` it is never missing.
+ */
+export type StoredToast<Data extends object = any> = ToastObject<Data> & { updateKey: number };
 
 export type State = {
-  toasts: ToastObject<any>[];
+  toasts: StoredToast[];
+  toastMetadata: Map<string, ToastMetadata>;
   hovering: boolean;
   focused: boolean;
   timeout: number;
   limit: number;
   isWindowFocused: boolean;
-  viewport: HTMLElement | null | undefined;
-  prevFocusElement: HTMLElement | null | undefined;
-  toastMap: Map<
-    string,
-    { value: ToastObject<any>; domIndex: number; visibleIndex: number; offsetY: number }
-  >;
+  viewport: HTMLElement | null;
+  prevFocusElement: HTMLElement | null;
 };
 
+type ToastMetadata = {
+  value: StoredToast;
+  domIndex: number;
+  visibleIndex: number;
+  offsetY: number;
+};
+
+type InitialState = Omit<State, 'toastMetadata'>;
+
+function createToastMetadata(toasts: StoredToast[]) {
+  const metadata = new Map<string, ToastMetadata>();
+  let visibleIndex = 0;
+  let offsetY = 0;
+
+  toasts.forEach((toast, toastIndex) => {
+    const isEnding = toast.transitionStatus === 'ending';
+    metadata.set(toast.id, {
+      value: toast,
+      domIndex: toastIndex,
+      visibleIndex: isEnding ? -1 : visibleIndex,
+      offsetY,
+    });
+
+    offsetY += toast.height || 0;
+
+    if (!isEnding) {
+      visibleIndex += 1;
+    }
+  });
+
+  return metadata;
+}
+
+// Marks the active (non-ending) toasts beyond `limit` as limited. Callers pass
+// toasts in newest-first order, so the newest `limit` toasts stay visible and
+// the rest are flagged. Returns the same toast reference when its `limited`
+// flag is unchanged to avoid unnecessary re-renders.
+function applyLimited(toasts: StoredToast[], limit: number): StoredToast[] {
+  let activeIndex = 0;
+  return toasts.map((toast) => {
+    if (toast.transitionStatus === 'ending') {
+      return toast;
+    }
+    const limited = activeIndex >= limit;
+    activeIndex += 1;
+    return toast.limited === limited ? toast : { ...toast, limited };
+  });
+}
+
+// Solid: selector arguments are accessors, so a selector subscribes to the id it reads.
 export const selectors = {
+  toasts: (state: State) => state.toasts,
+  isEmpty: (state: State) => state.toasts.length === 0,
+  toast: (state: State, id: Accessor<string>) => state.toastMetadata.get(id())?.value,
+  toastIndex: (state: State, id: Accessor<string>) => state.toastMetadata.get(id())?.domIndex ?? -1,
+  toastOffsetY: (state: State, id: Accessor<string>) => state.toastMetadata.get(id())?.offsetY ?? 0,
+  toastVisibleIndex: (state: State, id: Accessor<string>) =>
+    state.toastMetadata.get(id())?.visibleIndex ?? -1,
+  focused: (state: State) => state.focused,
   expanded: (state: State) => state.hovering || state.focused,
   expandedOrOutOfFocus: (state: State) => state.hovering || state.focused || !state.isWindowFocused,
-  focused: (state: State) => state.focused,
-  hovering: (state: State) => state.hovering,
-  isEmpty: (state: State) => state.toasts.length === 0,
   prevFocusElement: (state: State) => state.prevFocusElement,
-  toast: (state: State, id: Accessor<string>) => state.toastMap.get(id())?.value,
-  toastIndex: (state: State, id: Accessor<string>) => state.toastMap.get(id())?.domIndex ?? -1,
-  toastOffsetY: (state: State, id: Accessor<string>) => state.toastMap.get(id())?.offsetY ?? 0,
-  toastVisibleIndex: (state: State, id: Accessor<string>) =>
-    state.toastMap.get(id())?.visibleIndex ?? -1,
-  toasts: (state: State) => state.toasts,
 };
 
-function createInitialState(initialState: Omit<State, 'toastMap'>) {
-  let toastMap: Accessor<State['toastMap']>;
-  const fullInitialState = Object.create(
-    Object.getPrototypeOf(initialState),
-    Object.getOwnPropertyDescriptors(initialState),
-  );
+/**
+ * Solid: a toast with a stable identity, so lists keyed by reference keep their item when the
+ * toast updates. Like the store, tracked reads see the committed toast and untracked reads (store
+ * methods, handlers) see the latest one, including key enumeration for spreads.
+ */
+function createToastRecord(initialToast: StoredToast) {
+  let latest = initialToast;
+  const [committed, setCommitted] = createSignal(initialToast);
+  const current = () => (getObserver() === null ? latest : committed());
 
-  Object.defineProperty(fullInitialState, 'toastMap', {
-    get() {
-      return toastMap();
+  const record = new Proxy({} as StoredToast, {
+    get: (_, key) => Reflect.get(current(), key),
+    has: (_, key) => Reflect.has(current(), key),
+    ownKeys: () => Reflect.ownKeys(current()),
+    getOwnPropertyDescriptor: (_, key) => {
+      const descriptor = Reflect.getOwnPropertyDescriptor(current(), key);
+      return descriptor && { ...descriptor, configurable: true };
     },
   });
 
-  const [state, setState] = createStore<State>(fullInitialState);
+  function write(nextToast: StoredToast) {
+    latest = nextToast;
+    runWithOwner(null, () => untrack(() => setCommitted(() => nextToast)));
+  }
 
-  // eslint-disable-next-line solid/reactivity
-  toastMap = createMemo<State['toastMap']>(() => {
-    const map = new Map<
-      string,
-      { value: ToastObject<any>; domIndex: number; visibleIndex: number; offsetY: number }
-    >();
-    let visibleIndex = 0;
-    let offsetY = 0;
-    state.toasts.forEach((toast, toastIndex) => {
-      const isEnding = toast.transitionStatus === 'ending';
-      map.set(toast.id, {
-        domIndex: toastIndex,
-        offsetY,
-        value: toast,
-        visibleIndex: isEnding ? -1 : visibleIndex,
-      });
-
-      offsetY += toast.height || 0;
-
-      if (!isEnding) {
-        visibleIndex += 1;
-      }
-    });
-    return map;
-  });
-
-  return [state, setState] as [Store<State>, SetStoreFunction<State>];
+  return { record, write };
 }
 
-export function ToastStore(initialState: Omit<State, 'toastMap'>) {
+function shallowEqualToast(a: StoredToast, b: StoredToast) {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  return (
+    aKeys.length === bKeys.length &&
+    aKeys.every((key) => Object.is(a[key as keyof StoredToast], b[key as keyof StoredToast]))
+  );
+}
+
+// Solid: React's `Timeout.create()`; created ownerless so an owning effect re-run never clears it.
+function createTimeout(): Timeout {
+  return runWithOwner(null, useTimeout);
+}
+
+/**
+ * Solid: React's `ToastStore extends ReactStore`. The base store already has React's synchronous
+ * semantics (untracked reads see the latest write), so the methods port one to one.
+ */
+export function ToastStore(initialState: InitialState) {
+  // Solid: lists key by reference (`<For>`), while React keys toasts by `id`. Each toast keeps one
+  // record per id; updates are written into it, so a list keeps its item and only the changed
+  // fields update. The records read synchronously like the store itself.
+  const toastRecords = new Map<string, ReturnType<typeof createToastRecord>>();
+
+  function reconcileToasts(nextToasts: StoredToast[]) {
+    let changed = false;
+    const nextIds = new Set<string>();
+    const reconciled = nextToasts.map((toast) => {
+      nextIds.add(toast.id);
+      const existing = toastRecords.get(toast.id);
+      if (!existing) {
+        const created = createToastRecord({ ...toast });
+        toastRecords.set(toast.id, created);
+        changed = true;
+        return created.record;
+      }
+      if (existing.record !== toast && !shallowEqualToast(existing.record, toast)) {
+        existing.write({ ...toast });
+        changed = true;
+      }
+      return existing.record;
+    });
+    toastRecords.forEach((_, id) => {
+      if (!nextIds.has(id)) {
+        scheduleRecordRemoval(id);
+      }
+    });
+    return { toasts: reconciled, changed };
+  }
+
+  // Solid: React keeps a keyed instance when its key leaves and returns within one update
+  // (re-adding an ending toast removes and re-adds it). Keep a removed record until the end of
+  // the tick, so a re-add in the same tick reuses it and the list keeps its item.
+  const pendingRecordRemovals = new Set<string>();
+
+  function scheduleRecordRemoval(id: string) {
+    if (pendingRecordRemovals.has(id)) {
+      return;
+    }
+    pendingRecordRemovals.add(id);
+    queueMicrotask(() => {
+      pendingRecordRemovals.delete(id);
+      if (!state.toasts.some((toast) => toast.id === id)) {
+        toastRecords.delete(id);
+      }
+    });
+  }
+
+  const initialToasts = reconcileToasts(initialState.toasts).toasts;
+  const base = SolidStore<State, {}, typeof selectors>(
+    {
+      ...initialState,
+      toasts: initialToasts,
+      toastMetadata: createToastMetadata(initialToasts),
+    },
+    {},
+    selectors,
+  );
+  const { state } = base;
+
   const timers = new Map<string, TimerInfo>();
-  const refs = new Map<string, HTMLElement | null | undefined>();
+
   let areTimersPaused = false;
-  const [state, setState] = createInitialState(initialState);
-  const store = SolidStore<State, {}, typeof selectors>([state, setState], {}, selectors);
 
-  function setFocused(focused: boolean) {
-    setState('focused', focused);
+  const setViewport = (viewport: HTMLElement | null) => {
+    base.set('viewport', viewport);
+  };
+
+  function syncProviderProps(timeout: number, limit: number) {
+    const limitChanged = state.limit !== limit;
+
+    if (state.timeout === timeout && !limitChanged) {
+      return;
+    }
+
+    const updates = { timeout, limit } as Pick<
+      State,
+      'timeout' | 'limit' | 'toasts' | 'toastMetadata'
+    >;
+
+    if (limitChanged) {
+      // Solid: reconcile into the per-id records, so rendered toasts see the new `limited` flag.
+      const newToasts = reconcileToasts(applyLimited(state.toasts, limit)).toasts;
+      updates.toasts = newToasts;
+      updates.toastMetadata = createToastMetadata(newToasts);
+    }
+
+    base.update(updates);
   }
 
-  function setHovering(hovering: boolean) {
-    setState('hovering', hovering);
-  }
-
-  function setIsWindowFocused(isWindowFocused: boolean) {
-    setState('isWindowFocused', isWindowFocused);
-  }
-
-  function setPrevFocusElement(prevFocusElement: HTMLElement | null | undefined) {
-    setState('prevFocusElement', prevFocusElement);
-  }
-
-  function setViewport(viewport: HTMLElement | null | undefined) {
-    setState('viewport', viewport);
-  }
-
-  function disposeEffect() {
+  const disposeEffect = () => {
     return () => {
       timers.forEach((timer) => {
         timer.timeout?.clear();
       });
       timers.clear();
     };
-  }
+  };
 
-  function removeToast(toastId: Accessor<string>, behavior: RemoveToastBehavior = {}) {
-    const index = selectors.toastIndex(state, toastId);
+  function removeToast(toastId: string, skipOnRemove: boolean = false) {
+    const index = selectors.toastIndex(state, () => toastId);
     if (index === -1) {
       return;
     }
 
     const toast = state.toasts[index];
-    if (!behavior.skipOnRemove) {
+    if (!skipOnRemove) {
       toast?.onRemove?.();
     }
-    refs.delete(toastId());
 
-    setState(
-      (s: State) => {
-        s.toasts.splice(index, 1);
-        if (s.toasts.length === 0) {
-          s.hovering = false;
-          s.focused = false;
-        }
-      },
-    );
+    const newToasts = [...state.toasts];
+    newToasts.splice(index, 1);
+    setToasts(newToasts);
   }
 
-  function addToast<Data extends object>(toast: ToastManagerAddOptions<Data>): string {
-    const { timeout } = state;
+  const addToast = <Data extends object>(toast: ToastManagerAddOptions<Data>): string => {
+    const { timeout, limit } = state;
     const id = toast.id || generateId('toast');
 
-    const toastId = toast.id;
-    if (toastId) {
+    if (toast.id) {
+      const toastId = toast.id;
       const existingToast = selectors.toast(state, () => toastId);
+
       if (existingToast) {
         if (existingToast.transitionStatus === 'ending') {
-          removeToast(() => toastId, { skipOnRemove: true });
+          removeToast(toastId, true);
         } else {
-          const { id: _ignoredId, transitionStatus: _ignoredTs, ...updates } = toast as any;
-          updateToastInternal(() => toastId, updates, { markUpdated: true, resetTimer: true });
+          const { id: ignoredId, transitionStatus: ignoredTransitionStatus, ...updates } = toast;
+          updateToastInternal(toastId, updates, true, true);
           return toastId;
         }
       }
     }
 
-    const toastToAdd: ToastObject<Data> = {
+    const toastToAdd: StoredToast<Data> = {
       ...toast,
       id,
-      transitionStatus: 'starting',
       updateKey: 0,
+      transitionStatus: 'starting',
     };
+
+    const updatedToasts = [toastToAdd, ...state.toasts];
+    setToasts(applyLimited(updatedToasts, limit));
 
     const duration = toastToAdd.timeout ?? timeout;
     if (toastToAdd.type !== 'loading' && duration > 0) {
-      scheduleTimer(id, duration, () => closeToast(() => id));
+      scheduleTimer(id, duration, () => closeToast(id));
     }
 
     if (selectors.expandedOrOutOfFocus(state)) {
       pauseTimers();
     }
 
-    // Insert the new toast at the beginning and update limited flags.
-    // setState is called last because it triggers effects synchronously
-    // (e.g. recalculateHeight) that call updateToastInternal and expect
-    // the timer to already be registered.
-    setState(
-      (s: State) => {
-        s.toasts.unshift(toastToAdd);
-        const active = s.toasts.filter((t: ToastObject<any>) => t.transitionStatus !== 'ending');
-        if (active.length > s.limit) {
-          const excessCount = active.length - s.limit;
-          const limitedIds = new Set(active.slice(-excessCount).map((t: ToastObject<any>) => t.id));
-          for (const t of s.toasts) {
-            t.limited = limitedIds.has(t.id);
-          }
-        } else {
-          for (const t of s.toasts) {
-            t.limited = false;
-          }
-        }
-      },
-    );
-
     return id;
-  }
+  };
 
-  function updateToast<Data extends object>(
-    id: MaybeAccessor<string>,
-    updates: ToastManagerUpdateOptions<Data>,
-  ) {
-    updateToastInternal(id, updates, { markUpdated: true });
-  }
-
-  function updateToastInternal<Data extends object>(
-    id: MaybeAccessor<string>,
-    updates: ToastInternalUpdateOptions<Data>,
-    behavior: UpdateToastBehavior = {},
-  ) {
-    const { timeout } = state;
-    const prevToast = selectors.toast(state, () => access(id)) ?? null;
-    if (!prevToast) {
+  const updateToast = <Data extends object>(
+    id: string,
+    updates:
+      | ToastManagerUpdateOptions<Data>
+      | ((prevToast: ToastObject<Data>) => ToastManagerUpdateOptions<Data>),
+  ) => {
+    const prevToast = selectors.toast(state, () => id);
+    // Never run the updater for an update the store is going to ignore.
+    if (!prevToast || prevToast.transitionStatus === 'ending') {
       return;
     }
+
+    // The updater may have called back into the store, so the internal update
+    // reads the current state again.
+    updateToastInternal(
+      id,
+      // Solid: the record is updated in place, so the updater gets a snapshot, as React's
+      // immutable toast.
+      typeof updates === 'function' ? updates({ ...prevToast }) : updates,
+      false,
+      true,
+    );
+  };
+
+  const updateToastInternal = <Data extends object>(
+    id: string,
+    updates: ToastInternalUpdateOptions<Data>,
+    resetTimer: boolean = false,
+    markUpdated: boolean = false,
+  ) => {
+    const { timeout, toasts } = state;
+    const prevToastRecord = selectors.toast(state, () => id);
+    if (!prevToastRecord) {
+      return;
+    }
+    // Solid: records update in place, so keep the previous values as React's immutable toast.
+    const prevToast: StoredToast = { ...prevToastRecord };
 
     // Ignore updates for toasts that are already closing.
     // This prevents races where async updates (e.g. promise success/error)
@@ -244,121 +350,88 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
       return;
     }
 
-    // Snapshot values before mutating the store, since prevToast is a store proxy.
-    const prevTimeout = prevToast.timeout ?? timeout;
-    const wasLoading = prevToast.type === 'loading';
+    const nextToast: StoredToast<Data> = {
+      ...prevToast,
+      ...updates,
+      ...(markUpdated && {
+        updateKey: prevToast.updateKey + 1,
+      }),
+    };
 
-    const toastId = access(id);
+    setToasts(toasts.map((toast) => (toast.id === id ? nextToast : toast)));
 
-    // Store ref in a non-reactive side map so it doesn't trigger
-    // reactive loops when consumers spread toast objects in <For>.
-    if ('ref' in updates) {
-      refs.set(toastId, updates.ref);
-    }
-    const storeUpdates: Record<string, unknown> = { ...updates };
-    delete storeUpdates.ref;
-    if (behavior.markUpdated) {
-      storeUpdates.updateKey = (prevToast.updateKey ?? 0) + 1;
-    }
-
-    setState('toasts', (toast: ToastObject<any>) => toast.id === toastId, storeUpdates);
-
-    const nextToast = { ...prevToast, ...updates, ...storeUpdates };
     const nextTimeout = nextToast.timeout ?? timeout;
+    const prevTimeout = prevToast.timeout ?? timeout;
+
     const timeoutUpdated = Object.hasOwn(updates, 'timeout');
 
     const shouldHaveTimer =
       nextToast.transitionStatus !== 'ending' && nextToast.type !== 'loading' && nextTimeout > 0;
 
-    const hasTimer = timers.has(toastId);
+    const hasTimer = timers.has(id);
     const timeoutChanged = prevTimeout !== nextTimeout;
+    const wasLoading = prevToast.type === 'loading';
 
     if (!shouldHaveTimer && hasTimer) {
-      const timer = timers.get(toastId);
-      timer?.timeout?.clear();
-      timers.delete(toastId);
+      clearTimer(id);
       return;
     }
 
     // Schedule or reschedule timer if needed
-    if (shouldHaveTimer && (!hasTimer || timeoutChanged || timeoutUpdated || wasLoading || behavior.resetTimer)) {
-      const timer = timers.get(toastId);
-      if (timer) {
-        timer.timeout?.clear();
-        timers.delete(toastId);
-      }
+    if (
+      shouldHaveTimer &&
+      (!hasTimer || timeoutChanged || timeoutUpdated || wasLoading || resetTimer)
+    ) {
+      clearTimer(id);
 
-      scheduleTimer(toastId, nextTimeout, () => closeToast(id));
+      scheduleTimer(id, nextTimeout, () => closeToast(id));
 
       if (selectors.expandedOrOutOfFocus(state)) {
         pauseTimers();
       }
     }
-  }
+  };
 
-  function closeToast(toastId?: MaybeAccessor<string>) {
+  const closeToast = (toastId?: string) => {
     const closeAll = toastId === undefined;
-    const id = toastId !== undefined ? access(toastId) : undefined;
+    const { limit, toasts } = state;
+    let toastsToClose: StoredToast[];
 
-    /* Snapshot callbacks before setState mutates transitionStatus to 'ending'. */
-    let onCloseCallbacks: (() => void)[];
-
-    if (closeAll || id === undefined) {
-      onCloseCallbacks = state.toasts
-        .filter((t) => t.transitionStatus !== 'ending')
-        .map((t) => t.onClose)
-        .filter((fn): fn is () => void => fn != null);
-      timers.forEach((timer) => {
-        timer.timeout?.clear();
-      });
-      timers.clear();
+    if (closeAll) {
+      toastsToClose = toasts;
+      clearTimers();
     } else {
-      const toast = selectors.toast(state, () => id);
+      const toast = selectors.toast(state, () => toastId);
       if (!toast) {
         return;
       }
-      onCloseCallbacks =
-        toast.transitionStatus !== 'ending' && toast.onClose ? [toast.onClose] : [];
-      const timer = timers.get(id);
-      if (timer?.timeout) {
-        timer.timeout.clear();
-        timers.delete(id);
-      }
+      toastsToClose = [toast];
+      clearTimer(toastId);
     }
+
+    const endingToasts = toasts.map((item) =>
+      closeAll || item.id === toastId
+        ? { ...item, transitionStatus: 'ending' as const, height: 0 }
+        : item,
+    );
+    const newToasts = applyLimited(endingToasts, limit);
+    // Solid: records update in place, so read which toasts were already closing beforehand.
+    const wasEnding = toastsToClose.map((toast) => toast.transitionStatus === 'ending');
+    setToasts(newToasts, !newToasts.some((toast) => toast.transitionStatus !== 'ending'));
+
+    toastsToClose.forEach((toast, index) => {
+      if (!wasEnding[index]) {
+        toast.onClose?.();
+      }
+    });
 
     handleFocusManagement(toastId);
+  };
 
-    setState(
-      (s: State) => {
-        let activeIndex = 0;
-        for (const item of s.toasts) {
-          if (closeAll || item.id === id) {
-            item.transitionStatus = 'ending';
-            item.height = 0;
-            continue;
-          }
-          if (item.transitionStatus === 'ending') {
-            continue;
-          }
-          item.limited = activeIndex >= s.limit;
-          activeIndex += 1;
-        }
-        if (closeAll || s.toasts.length <= 1) {
-          s.hovering = false;
-          s.focused = false;
-        }
-      },
-    );
-
-    for (const fn of onCloseCallbacks) {
-      fn();
-    }
-  }
-
-  function promiseToast<Value, Data extends object>(
+  const promiseToast = <Value, Data extends object>(
     promiseValue: Promise<Value>,
     options: ToastManagerPromiseOptions<Value, Data>,
-  ): Promise<Value> {
+  ): Promise<Value> => {
     // Create a loading toast (which does not auto-dismiss).
     const loadingOptions = resolvePromiseOptions(options.loading);
     const id = addToast({
@@ -369,23 +442,23 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     const handledPromise = promiseValue
       .then((result: Value) => {
         const successOptions = resolvePromiseOptions(options.success, result);
-        updateToast(() => id, {
+        updateToast(id, {
           ...successOptions,
-          timeout: successOptions.timeout,
           type: 'success',
+          timeout: successOptions.timeout,
         });
 
         return result;
       })
       .catch((error) => {
         const errorOptions = resolvePromiseOptions(options.error, error);
-        updateToast(() => id, {
+        updateToast(id, {
           ...errorOptions,
-          timeout: errorOptions.timeout,
           type: 'error',
+          timeout: errorOptions.timeout,
         });
 
-        throw error;
+        return Promise.reject(error);
       });
 
     // Private API used exclusively by `Manager` to handoff the promise
@@ -395,7 +468,7 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     }
 
     return handledPromise;
-  }
+  };
 
   function pauseTimers() {
     if (areTimersPaused) {
@@ -403,11 +476,14 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     }
     areTimersPaused = true;
     timers.forEach((timer) => {
+      // Timers added while already paused have no running timeout, so their
+      // `remaining` is still the full delay and must be left alone.
       if (timer.timeout) {
         timer.timeout.clear();
-        const elapsed = Date.now() - timer.start;
-        const remaining = timer.delay - elapsed;
-        timer.remaining = remaining > 0 ? remaining : 0;
+        // `start` is stamped on every resume, so subtracting from `remaining`
+        // (rather than from the original delay) keeps repeated pause/resume
+        // cycles from handing the toast extra time.
+        timer.remaining = Math.max(timer.remaining - (Date.now() - timer.start), 0);
       }
     });
   }
@@ -419,9 +495,9 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     areTimersPaused = false;
     timers.forEach((timer, id) => {
       timer.remaining = timer.remaining > 0 ? timer.remaining : timer.delay;
-      timer.timeout ??= useTimeout();
+      timer.timeout ??= createTimeout();
       timer.timeout.start(timer.remaining, () => {
-        timers.delete(id);
+        handleTimerFired(id);
         timer.callback();
       });
       timer.start = Date.now();
@@ -432,7 +508,7 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     state.prevFocusElement?.focus({ preventScroll: true });
   }
 
-  function handleDocumentPointerDown(event: PointerEvent) {
+  const handleDocumentPointerDown = (event: PointerEvent) => {
     if (event.pointerType !== 'touch') {
       return;
     }
@@ -442,31 +518,89 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
       return;
     }
 
+    // This is explicit touch activity outside the viewport, so the paused
+    // interaction state should end even if the window focus state is unchanged.
     resumeTimers();
-    store.update({ focused: false, hovering: false });
-  }
+    base.update({ hovering: false, focused: false });
+  };
 
   function scheduleTimer(id: string, delay: number, callback: () => void) {
     const start = Date.now();
     const shouldStartActive = !selectors.expandedOrOutOfFocus(state);
-    const currentTimeout = shouldStartActive ? useTimeout() : undefined;
+    const currentTimeout = shouldStartActive ? createTimeout() : undefined;
 
     currentTimeout?.start(delay, () => {
-      timers.delete(id);
+      handleTimerFired(id);
       callback();
     });
 
     timers.set(id, {
-      callback,
+      timeout: currentTimeout,
+      start,
       delay,
       remaining: delay,
-      start: shouldStartActive ? start : 0,
-      timeout: currentTimeout,
+      callback,
     });
   }
 
-  function handleFocusManagement(toastId?: MaybeAccessor<string>) {
-    const activeEl = activeElement(ownerDocument(state.viewport ?? null));
+  function clearTimers() {
+    timers.forEach((timer) => {
+      timer.timeout?.clear();
+    });
+    timers.clear();
+    areTimersPaused = false;
+  }
+
+  function clearTimer(id: string) {
+    const timer = timers.get(id);
+    timer?.timeout?.clear();
+    timers.delete(id);
+
+    resetPausedStateIfNoTimersRemain();
+  }
+
+  function handleTimerFired(id: string) {
+    timers.delete(id);
+    resetPausedStateIfNoTimersRemain();
+  }
+
+  function resetPausedStateIfNoTimersRemain() {
+    if (timers.size === 0) {
+      // No timers remain to keep paused; clear the flag so a fresh toast's
+      // running timer can be paused again on hover/focus.
+      areTimersPaused = false;
+    }
+  }
+
+  function setToasts(newToasts: StoredToast[], clearInteraction: boolean = newToasts.length === 0) {
+    const { toasts: reconciledToasts, changed } = reconcileToasts(newToasts);
+    // Solid: an update that changes nothing keeps the list as is, so lists keyed by reference
+    // (including ones that recreate toast objects) do not remount their toasts.
+    const currentToasts = state.toasts;
+    if (
+      !changed &&
+      !clearInteraction &&
+      reconciledToasts.length === currentToasts.length &&
+      reconciledToasts.every((toast, index) => toast === currentToasts[index])
+    ) {
+      return;
+    }
+
+    const updates = {
+      toasts: reconciledToasts,
+      toastMetadata: createToastMetadata(reconciledToasts),
+    } as Pick<State, 'toasts' | 'toastMetadata' | 'hovering' | 'focused'>;
+
+    if (clearInteraction) {
+      updates.hovering = false;
+      updates.focused = false;
+    }
+
+    base.update(updates);
+  }
+
+  function handleFocusManagement(toastId: string | undefined) {
+    const activeEl = activeElement(ownerDocument(state.viewport));
     if (!state.viewport || !contains(state.viewport, activeEl) || !isFocusVisible(activeEl)) {
       return;
     }
@@ -477,68 +611,52 @@ export function ToastStore(initialState: Omit<State, 'toastMap'>) {
     }
 
     const toasts = selectors.toasts(state);
-    const currentIndex = selectors.toastIndex(state, () => access(toastId));
-    let nextToast: ToastObject<any> | null = null;
+    const currentIndex = selectors.toastIndex(state, () => toastId);
 
-    // Try to find the next toast that isn't animating out
-    let index = currentIndex + 1;
-    while (index < toasts.length) {
-      if (toasts[index].transitionStatus !== 'ending') {
-        nextToast = toasts[index];
-        break;
-      }
-      index += 1;
-    }
-
-    // Go backwards if no next toast is found
-    if (!nextToast) {
-      index = currentIndex - 1;
-      while (index >= 0) {
+    const scan = (from: number, step: number) => {
+      for (let index = from; index >= 0 && index < toasts.length; index += step) {
         if (toasts[index].transitionStatus !== 'ending') {
-          nextToast = toasts[index];
-          break;
+          return toasts[index];
         }
-        index -= 1;
       }
-    }
+      return null;
+    };
+
+    // Try to find the next toast that isn't animating out, then fall back to the previous one.
+    const nextToast = scan(currentIndex + 1, 1) ?? scan(currentIndex - 1, -1);
 
     if (nextToast) {
-      refs.get(nextToast.id)?.focus();
+      nextToast.ref?.current?.focus();
     } else {
       restoreFocusToPrevElement();
     }
   }
 
-  function getToastRef(id: string) {
-    return refs.get(id);
-  }
-
-  const merged = solidMergeProps(store, {
-    addToast,
-    closeToast,
-    disposeEffect,
-    getToastRef,
-    handleDocumentPointerDown,
-    pauseTimers,
-    promiseToast,
-    removeToast,
-    restoreFocusToPrevElement,
-    resumeTimers,
-    setFocused,
-    setHovering,
-    setIsWindowFocused,
-    setPrevFocusElement,
+  return {
+    ...base,
     setViewport,
+    syncProviderProps,
+    disposeEffect,
+    removeToast,
+    addToast,
     updateToast,
     updateToastInternal,
-  });
-  return merged;
+    closeToast,
+    promiseToast,
+    pauseTimers,
+    resumeTimers,
+    restoreFocusToPrevElement,
+    handleDocumentPointerDown,
+  };
 }
 
 interface TimerInfo {
-  timeout?: ReturnType<typeof useTimeout> | undefined;
+  timeout?: Timeout | undefined;
+  /** Timestamp of the last time the timeout started running. */
   start: number;
+  /** Full timeout duration, used to restart a timer that elapsed while throttled. */
   delay: number;
+  /** Time left before the toast auto-dismisses, excluding any paused time. */
   remaining: number;
   callback: () => void;
 }

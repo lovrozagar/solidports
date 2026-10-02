@@ -3,7 +3,6 @@ import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { BaseUIEventReasons } from '../utils/reasons';
-import type { Orientation } from '../utils/types';
 
 export interface ToggleGroupContext<Value> {
   value: Accessor<readonly Value[]>;
@@ -13,7 +12,6 @@ export interface ToggleGroupContext<Value> {
     eventDetails: BaseUIChangeEventDetails<BaseUIEventReasons['none']>,
   ) => void;
   disabled: Accessor<boolean>;
-  orientation: Accessor<Orientation>;
   /**
    * Indicates whether the value has been initialized via `value` or `defaultValue` props.
    * Used to determine if Toggle should warn users about data inconsistency problems.

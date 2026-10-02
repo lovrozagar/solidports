@@ -2,6 +2,7 @@
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import { NOOP } from '../../utils/empty';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -38,6 +39,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
   const id = useBaseUiId(idProp);
 
   const { store } = useMenuRootContext();
+  const rootDisabled = store.useState('disabled');
   const highlighted = store.useState('isActive', listItem.index);
   const itemProps = store.useState('itemProps');
 
@@ -47,7 +49,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     disabled: groupDisabled,
   } = useMenuRadioGroupContext();
 
-  const disabled = () => groupDisabled() || disabledProp();
+  const disabled = () => disabledProp() || groupDisabled() || rootDisabled();
   const checked = () => selectedValue() === local.value;
 
   const { getItemProps, setItemRef } = useMenuItem({
@@ -80,10 +82,9 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
   };
 
   const handleClick = (event: MouseEvent) => {
-    const details = {
-      ...createChangeEventDetails(REASONS.itemPress, event),
-      preventUnmountOnClose: () => {},
-    };
+    const details = createChangeEventDetails(REASONS.itemPress, event, undefined, {
+      preventUnmountOnClose: NOOP,
+    });
     setSelectedValue(local.value, details);
   };
 
@@ -110,9 +111,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     stateAttributesMapping: itemMapping,
   });
 
-  return (
-    <MenuRadioItemContext value={contextValue}>{element()}</MenuRadioItemContext>
-  );
+  return <MenuRadioItemContext value={contextValue}>{element()}</MenuRadioItemContext>;
 }
 
 export type MenuRadioItemState = {

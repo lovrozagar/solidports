@@ -1,24 +1,18 @@
 import { createContext, useContext } from 'solid-js';
 import { DialogStore } from '../store/DialogStore';
 
-export const IsDrawerContext = createContext(false);
+export const DialogRootContext = createContext<DialogStore<unknown> | null>(null);
 
-export interface DialogRootContext<Payload = unknown> {
-  store: DialogStore<Payload>;
-}
-
-export const DialogRootContext = createContext<DialogRootContext | null>(null);
-
-export function useDialogRootContext(optional?: false): DialogRootContext;
-export function useDialogRootContext(optional: true): DialogRootContext | null;
+export function useDialogRootContext(optional?: false): DialogStore<unknown>;
+export function useDialogRootContext(optional: true): DialogStore<unknown> | null;
 export function useDialogRootContext(optional?: boolean) {
-  const dialogRootContext = useContext(DialogRootContext);
+  const store = useContext(DialogRootContext);
 
-  if (!optional && dialogRootContext == null) {
+  if (!optional && store == null) {
     throw new Error(
       'Base UI: DialogRootContext is missing. Dialog parts must be placed within <Dialog.Root>.',
     );
   }
 
-  return dialogRootContext;
+  return store;
 }

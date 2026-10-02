@@ -1,4 +1,3 @@
-
 import { contains } from '../../floating-ui-solid/utils';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -6,12 +5,10 @@ import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import type { Side } from '../../utils/useAnchorPositioning';
 import { useRenderElement } from '../../utils/useRenderElement';
-import {
-  useComboboxDerivedItemsContext,
-  useComboboxRootContext,
-} from '../root/ComboboxRootContext';
+import { useComboboxRootContext } from '../root/ComboboxRootContext';
 import { triggerStateAttributesMapping } from '../utils/stateAttributesMapping';
 import { handleInputPress } from '../utils/handleInputPress';
+import { useListEmpty, usePopupSide } from '../utils/parts';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
@@ -24,41 +21,37 @@ export function ComboboxInputGroup(componentProps: ComboboxInputGroup.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
   const { state: fieldState } = useFieldRootContext();
-  const { store } = useComboboxRootContext();
-  const { filteredItems } = useComboboxDerivedItemsContext();
+  const store = useComboboxRootContext();
 
-  const open = store.useSelector('open');
-  const mounted = store.useSelector('mounted');
-  const popupSideValue = store.useState('popupSide');
-  const positionerElement = store.useState('positionerElement');
-  const comboboxDisabled = store.useSelector('disabled');
-  const readOnly = store.useSelector('readOnly');
-  const hasSelectedValue = store.useSelector('hasSelectedValue');
-  const selectionMode = store.useSelector('selectionMode');
+  const open = store.useState('open');
+  const comboboxDisabled = store.useState('disabled');
+  const readOnly = store.useState('readOnly');
+  const hasSelectedValue = store.useState('hasSelectedValue');
+  const selectionMode = store.useState('selectionMode');
 
-  const popupSide = () => (mounted() && positionerElement() ? popupSideValue() : null);
-  const disabled = () => comboboxDisabled();
-  const listEmpty = () => filteredItems().length === 0;
+  const popupSide = usePopupSide(store);
+  const disabled = comboboxDisabled;
+  const listEmpty = useListEmpty();
   const placeholder = () => (selectionMode() === 'none' ? false : !hasSelectedValue());
 
   const state: ComboboxInputGroup.State = solidMergeProps(fieldState, {
-    get disabled() {
-      return disabled();
-    },
-    get listEmpty() {
-      return listEmpty();
-    },
     get open() {
       return open();
     },
-    get placeholder() {
-      return placeholder();
+    get disabled() {
+      return disabled();
+    },
+    get readOnly() {
+      return readOnly();
     },
     get popupSide() {
       return popupSide();
     },
-    get readOnly() {
-      return readOnly();
+    get listEmpty() {
+      return listEmpty();
+    },
+    get placeholder() {
+      return placeholder();
     },
   });
 
@@ -67,20 +60,18 @@ export function ComboboxInputGroup(componentProps: ComboboxInputGroup.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
+    ref: setInputGroupElement,
     props: [
       {
         role: 'group',
         onMouseDown(event: MouseEvent) {
-          handleInputPress(event, store, disabled(), readOnly(), (target) => {
-            return contains(store.state.chipsContainerRef, target);
+          handleInputPress(event, store, disabled(), (target) => {
+            return contains(store.context.chipsContainerRef.current, target);
           });
         },
       },
       elementProps,
     ],
-    ref: (el) => {
-      setInputGroupElement(el);
-    },
     state,
     stateAttributesMapping: triggerStateAttributesMapping,
   });
@@ -115,8 +106,10 @@ export interface ComboboxInputGroupState extends FieldRoot.State {
   placeholder: boolean;
 }
 
-export interface ComboboxInputGroupProps
-  extends BaseUIComponentProps<'div', ComboboxInputGroup.State> {}
+export interface ComboboxInputGroupProps extends BaseUIComponentProps<
+  'div',
+  ComboboxInputGroup.State
+> {}
 
 export namespace ComboboxInputGroup {
   export type State = ComboboxInputGroupState;

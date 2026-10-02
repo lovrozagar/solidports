@@ -1,6 +1,6 @@
-import { createRenderer } from '#test-utils';
+import { act, createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { createSignal } from 'solid-js';
 import { NoHydration } from '@solidjs/web';
 import { access } from '../solid-helpers';
@@ -25,7 +25,7 @@ describe('useId', () => {
 
     expect(screen.getByTestId('target')).to.have.property('id', 'some-id');
 
-    setId('another-id');
+    act(() => setId('another-id'));
 
     expect(screen.getByTestId('target')).to.have.property('id', 'another-id');
   });
@@ -40,7 +40,7 @@ describe('useId', () => {
     render(() => <TestComponent id={id()} />);
 
     expect(screen.getByTestId('target').id).not.to.equal('');
-    setId('another-id');
+    act(() => setId('another-id'));
     expect(screen.getByTestId('target')).to.have.property('id', 'another-id');
   });
 
@@ -94,8 +94,8 @@ describe('useId', () => {
     );
   });
 
-  // TODO: not sure if this is needed as supposedly Solid is SSR friendly
-  it('provides an ID on server', () => {
+  // Solid: React's title; rendered under NoHydration as the server-render counterpart.
+  it('provides an ID on server in React 18', () => {
     function TestComponent() {
       const id = useId();
       return <span data-testid="target" id={access(id)} />;

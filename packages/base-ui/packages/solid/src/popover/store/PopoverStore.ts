@@ -1,37 +1,41 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-
-import { FloatingTreeStore } from '../../floating-ui-solid/components/FloatingTreeStore';
-import { getEmptyRootContext } from '../../floating-ui-solid/utils/getEmptyRootContext';
+import { untrack } from 'solid-js';
 import { type ReactLikeRef } from '../../solid-helpers';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
+import { NOOP } from '../../utils/empty';
+import { NullStore } from '../../utils/NullStore';
 import {
+  attachPreventUnmountOnClose,
   createInitialPopupStoreState,
+  createPopupFloatingRootContext,
+  createPopupOpenState,
   PopupStoreContext,
   popupStoreSelectors,
   PopupStoreState,
   PopupTriggerMap,
+  type PopupTriggerStoreKeys,
 } from '../../utils/popups';
+import { flushSync } from '../../utils/flushSync';
 import { REASONS } from '../../utils/reasons';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { type InteractionType } from '../../utils/useEnhancedClickHandler';
-import { Timeout, useTimeout } from '../../utils/useTimeout';
+import { useTimeout, type Timeout } from '../../utils/useTimeout';
 import type { PopoverRoot } from '../root/PopoverRoot';
-import { mergeProps as solidMergeProps } from '../../solid-1-compat';
+import type { AdaptiveOriginMiddleware } from '../../utils/adaptiveOriginConstants';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   disabled: boolean;
-  instantType: 'dismiss' | 'click' | undefined;
+  instantType: 'dismiss' | 'click' | 'focus' | 'trigger-change' | undefined;
   modal: boolean | 'trap-focus';
   focusManagerModal: boolean;
   openMethod: InteractionType | null;
   openChangeReason: PopoverRoot.ChangeEventReason | null;
   stickIfOpen: boolean;
-  nested: boolean;
   titleElementId: string | undefined;
   descriptionElementId: string | undefined;
   openOnHover: boolean;
   closeDelay: number;
-  hasViewport: boolean;
+  // Solid: the viewport flags itself here; the positioner derives the adaptive-origin middleware.
+  adaptiveOrigin: AdaptiveOriginMiddleware | undefined;
 };
 
 type Context = PopupStoreContext<PopoverRoot.ChangeEventDetails> & {
@@ -41,71 +45,55 @@ type Context = PopupStoreContext<PopoverRoot.ChangeEventDetails> & {
   readonly triggerFocusTargetRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly beforeContentFocusGuardRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly stickIfOpenTimeout: Timeout;
-  floatingTreeRoot: FloatingTreeStore;
 };
-
-function createInitialState<Payload>(initialState?: Partial<State<Payload>>) {
-  return createInitialPopupStoreState<Payload, State<Payload>>({
-    disabled: false,
-    modal: false,
-    focusManagerModal: false,
-    instantType: undefined,
-    openMethod: null,
-    openChangeReason: null,
-    titleElementId: undefined,
-    descriptionElementId: undefined,
-    stickIfOpen: true,
-    nested: false,
-    openOnHover: false,
-    closeDelay: 0,
-    hasViewport: false,
-    ...initialState,
-    mounted:
-      initialState?.open && initialState?.mounted === undefined ? true : initialState?.mounted,
-  });
-}
 
 const selectors = {
   ...popupStoreSelectors,
-  closeDelay: (state: State<unknown>) => state.closeDelay,
-  descriptionElementId: (state: State<unknown>) => state.descriptionElementId,
   disabled: (state: State<unknown>) => state.disabled,
-  focusManagerModal: (state: State<unknown>) => state.focusManagerModal,
-  hasViewport: (state: State<unknown>) => state.hasViewport,
   instantType: (state: State<unknown>) => state.instantType,
-  modal: (state: State<unknown>) => state.modal,
-  nested: (state: State<unknown>) => state.nested,
-  openChangeReason: (state: State<unknown>) => state.openChangeReason,
   openMethod: (state: State<unknown>) => state.openMethod,
-  openOnHover: (state: State<unknown>) => state.openOnHover,
+  openChangeReason: (state: State<unknown>) => state.openChangeReason,
+  modal: (state: State<unknown>) => state.modal,
+  focusManagerModal: (state: State<unknown>) => state.focusManagerModal,
   stickIfOpen: (state: State<unknown>) => state.stickIfOpen,
   titleElementId: (state: State<unknown>) => state.titleElementId,
+  descriptionElementId: (state: State<unknown>) => state.descriptionElementId,
+  openOnHover: (state: State<unknown>) => state.openOnHover,
+  closeDelay: (state: State<unknown>) => state.closeDelay,
+  adaptiveOrigin: (state: State<unknown>): AdaptiveOriginMiddleware | undefined =>
+    state.adaptiveOrigin,
 };
 
-export function PopoverStore<Payload>(initialState?: Partial<State<Payload>>) {
-  const [state, setState] = createInitialState(initialState);
-  const store = SolidStore<State<Payload>, Context, typeof selectors>(
-    [state, setState],
-    {
-      backdropRef: { current: null },
-      beforeContentFocusGuardRef: { current: null },
-      floatingRootContext: getEmptyRootContext(),
-      floatingTreeRoot: new FloatingTreeStore(),
-      internalBackdropRef: { current: null },
-      onOpenChange: undefined,
-      onOpenChangeComplete: undefined,
-      popupRef: { current: null },
-      stickIfOpenTimeout: useTimeout(),
-      triggerElements: new PopupTriggerMap(),
-      triggerFocusTargetRef: { current: null },
-    },
+type Selectors = typeof selectors;
+
+/**
+ * The store view that detached handle-backed triggers read from. Both the real `PopoverStore` and
+ * the inert fallback store satisfy it, so a trigger can read from whichever store the handle
+ * currently exposes. Narrowed to the members a trigger actually uses — the trigger-data members plus
+ * `setOpen` (called by the focus guards) — so the exposed surface can't bypass the open-change
+ * pipeline; on the detached fallback store every one of these mutations is a no-op.
+ */
+export type PopoverHandleStore<Payload> = Pick<
+  PopoverStore<Payload>,
+  PopupTriggerStoreKeys | 'setOpen'
+>;
+
+export function PopoverStore<Payload>(
+  initialState: Partial<State<Payload>>,
+  floatingId: string | undefined,
+  nested: boolean,
+) {
+  const triggerElements = new PopupTriggerMap();
+  const store = SolidStore<State<Payload>, Context, Selectors>(
+    createInitialState<Payload>(initialState, floatingId),
+    createInitialContext(triggerElements, floatingId, nested),
     selectors,
   );
 
-  function setOpen(
+  const setOpen = (
     nextOpen: boolean,
     eventDetails: Omit<PopoverRoot.ChangeEventDetails, 'preventUnmountOnClose'>,
-  ) {
+  ) => {
     const isHover = eventDetails.reason === REASONS.triggerHover;
     const isKeyboardClick =
       eventDetails.reason === REASONS.triggerPress &&
@@ -113,9 +101,23 @@ export function PopoverStore<Payload>(initialState?: Partial<State<Payload>>) {
     const isDismissClose =
       !nextOpen && (eventDetails.reason === REASONS.escapeKey || eventDetails.reason == null);
 
-    (eventDetails as PopoverRoot.ChangeEventDetails).preventUnmountOnClose = () => {
-      store.set('preventUnmountingOnClose', true);
-    };
+    const shouldPreventUnmountOnClose = attachPreventUnmountOnClose(
+      eventDetails as PopoverRoot.ChangeEventDetails,
+    );
+
+    const activeTriggerId = store.select('activeTriggerId');
+
+    if (
+      !nextOpen &&
+      eventDetails.reason === REASONS.closePress &&
+      eventDetails.trigger == null &&
+      activeTriggerId != null
+    ) {
+      eventDetails.trigger =
+        store.context.triggerElements.getById(activeTriggerId) ??
+        store.select('activeTriggerElement') ??
+        undefined;
+    }
 
     store.context.onOpenChange?.(nextOpen, eventDetails as PopoverRoot.ChangeEventDetails);
 
@@ -123,31 +125,18 @@ export function PopoverStore<Payload>(initialState?: Partial<State<Payload>>) {
       return;
     }
 
-    if (!store.context.floatingRootContext.context.syncOnly) {
-      store.context.floatingRootContext.context.events.emit('openchange', {
-        nativeEvent: eventDetails.event,
-        nested: store.state.nested,
-        open: nextOpen,
-        reason: eventDetails.reason,
-        triggerElement: eventDetails.trigger,
-      });
-    }
+    store.context.floatingRootContext.dispatchOpenChange(nextOpen, eventDetails);
 
     const changeState = () => {
-      const updatedState: Partial<State<Payload>> = {
-        open: nextOpen,
+      store.update({
+        ...createPopupOpenState(
+          store.state,
+          nextOpen,
+          eventDetails.trigger,
+          shouldPreventUnmountOnClose(),
+        ),
         openChangeReason: eventDetails.reason,
-      };
-
-      // If a popup is closing, the `trigger` may be null.
-      // We want to keep the previous value so that exit animations are played and focus is returned correctly.
-      const newTriggerId = eventDetails.trigger?.id ?? null;
-      if (newTriggerId || nextOpen) {
-        updatedState.activeTriggerId = newTriggerId;
-        updatedState.activeTriggerElement = eventDetails.trigger ?? null;
-      }
-
-      store.update(updatedState);
+      });
     };
 
     if (isHover) {
@@ -158,26 +147,99 @@ export function PopoverStore<Payload>(initialState?: Partial<State<Payload>>) {
         store.set('stickIfOpen', false);
       });
 
-      changeState();
+      flushSync(changeState);
     } else {
       changeState();
     }
 
-    if (isKeyboardClick || isDismissClose) {
-      store.set('instantType', isKeyboardClick ? 'click' : 'dismiss');
+    let instantType: State<Payload>['instantType'];
+    if (isKeyboardClick) {
+      instantType = 'click';
+    } else if (isDismissClose) {
+      instantType = 'dismiss';
     } else if (eventDetails.reason === REASONS.focusOut) {
-      store.set('instantType', 'focus' as any);
-    } else {
-      store.set('instantType', undefined);
+      instantType = 'focus';
     }
-  }
+    store.set('instantType', instantType);
+  };
 
-  function disposeEffect() {
-    return store.context.stickIfOpenTimeout.clear();
-  }
-
-  const merged = solidMergeProps(store, { disposeEffect, setOpen });
-  return merged;
+  return { ...store, setOpen };
 }
 
 export type PopoverStore<Payload> = ReturnType<typeof PopoverStore<Payload>>;
+
+/**
+ * Creates the inert fallback store used by detached handle-backed triggers while no
+ * `Popover.Root` is attached. It preserves a popover-specific trigger registry in context so
+ * detached triggers can register before migrating to the live root store. `setOpen` is a no-op
+ * (matching the inert reads/writes of `NullStore`), so a trigger can hand the store to focus-guard
+ * helpers that expect `setOpen` without it ever taking effect while detached.
+ */
+export function createNullPopoverStore<Payload>(): PopoverHandleStore<Payload> {
+  const triggerElements = new PopupTriggerMap();
+
+  // Solid: the state is not frozen because Solid stores mark their source object.
+  const store = NullStore<State<Payload>, Context, Selectors>(
+    createInitialStateSnapshot<Payload>(),
+    Object.freeze(createInitialContext(triggerElements)),
+    selectors,
+  );
+  return { ...store, setOpen: NOOP };
+}
+
+function createInitialState<Payload>(
+  initialState: Partial<State<Payload>> | undefined,
+  floatingId?: string | undefined,
+) {
+  // Initial values: the spread reads the caller's getters once.
+  return untrack(() => {
+    const state = {
+      disabled: false,
+      modal: false,
+      focusManagerModal: false,
+      instantType: undefined,
+      openMethod: null,
+      openChangeReason: null,
+      titleElementId: undefined,
+      descriptionElementId: undefined,
+      stickIfOpen: true,
+      openOnHover: false,
+      closeDelay: 0,
+      adaptiveOrigin: undefined,
+      floatingId,
+      ...initialState,
+    } as Partial<State<Payload>>;
+
+    if (state.open && initialState?.mounted === undefined) {
+      state.mounted = true;
+    }
+
+    return createInitialPopupStoreState<Payload, State<Payload>>(state);
+  });
+}
+
+/** A plain copy of the default state, for the inert store (which holds plain values). */
+function createInitialStateSnapshot<Payload>(): State<Payload> {
+  const [state] = createInitialState<Payload>(undefined);
+  return untrack(() => ({ ...state }));
+}
+
+function createInitialContext(
+  triggerElements: PopupTriggerMap,
+  floatingId?: string | undefined,
+  nested = false,
+): Context {
+  return {
+    backdropRef: { current: null },
+    beforeContentFocusGuardRef: { current: null },
+    // Solid keeps the store-owned floating root in context (React keeps it in state).
+    floatingRootContext: createPopupFloatingRootContext(triggerElements, floatingId, nested),
+    internalBackdropRef: { current: null },
+    onOpenChange: undefined,
+    onOpenChangeComplete: undefined,
+    popupRef: { current: null },
+    stickIfOpenTimeout: useTimeout(),
+    triggerElements,
+    triggerFocusTargetRef: { current: null },
+  };
+}

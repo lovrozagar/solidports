@@ -63,7 +63,7 @@ function getOffset({ side }: { side: Menu.Positioner.Props['side'] }) {
   return side === 'top' || side === 'bottom' ? 4 : -4;
 }
 
-function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -78,7 +78,7 @@ function CaretDownIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function CaretRightIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretRightIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"

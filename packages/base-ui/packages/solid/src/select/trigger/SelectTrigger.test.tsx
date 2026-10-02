@@ -1,7 +1,7 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect, vi } from 'vitest';
 import { spy } from 'sinon';
 
 describe('<Select.Trigger />', () => {
@@ -205,5 +205,177 @@ describe('<Select.Trigger />', () => {
       const trigger = screen.getByTestId('trigger');
       expect(trigger).to.have.attribute('aria-required', 'true');
     });
+  });
+
+  it('throws a descriptive error when rendered outside <Select.Root>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows an uncaught render error with a console footer.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Solid: the uncaught render error also reaches `reportError` where the platform has one.
+    const reportErrorSpy =
+      typeof globalThis.reportError === 'function'
+        ? vi.spyOn(globalThis, 'reportError').mockImplementation(() => {})
+        : undefined;
+
+    try {
+      expect(() => render(() => <Select.Trigger />)).toThrow(
+        'Base UI: SelectRootContext is missing. Select parts must be placed within <Select.Root>.',
+      );
+    } finally {
+      await flushMicrotasks();
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      reportErrorSpy?.mockRestore();
+    }
+  });
+
+  it.skipIf(isJSDOM)(
+    'closes an aligned popup when focus lands on the trigger so it is not obscured',
+    async () => {
+      // Focusing the trigger starts its deferred `forceMount` timer, which settles after the
+      // assertions below.
+      const onOpenChange = vi.fn();
+
+      render(() => (
+        <div style={{ 'padding-top': '200px', 'min-height': '600px' }}>
+          <Select.Root defaultOpen defaultValue="a" onOpenChange={onOpenChange}>
+            <Select.Trigger data-testid="trigger">
+              <Select.Value />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner data-testid="positioner" alignItemWithTrigger>
+                <Select.Popup>
+                  <Select.Item value="a">a</Select.Item>
+                  <Select.Item value="b">b</Select.Item>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+        </div>
+      ));
+
+      const trigger = screen.getByTestId('trigger');
+
+      // `data-side="none"` proves the popup is still item-aligned over the trigger.
+      await waitFor(() => {
+        expect(screen.getByTestId('positioner')).toHaveAttribute('data-side', 'none');
+      });
+
+      fireEvent.focus(trigger);
+
+      await waitFor(() => {
+        expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      });
+
+      expect(onOpenChange).toHaveBeenCalledWith(false, expect.objectContaining({ reason: 'none' }));
+    },
+  );
+
+  it('keeps a non-aligned popup open when focus lands on the trigger', async () => {
+    // Focusing the trigger starts its deferred `forceMount` timer, which settles after the
+    // assertions below.
+    const onOpenChange = vi.fn();
+
+    render(() => (
+      <Select.Root defaultOpen onOpenChange={onOpenChange}>
+        <Select.Trigger data-testid="trigger">
+          <Select.Value />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner alignItemWithTrigger={false}>
+            <Select.Popup>
+              <Select.Item value="a">a</Select.Item>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    ));
+
+    const trigger = screen.getByTestId('trigger');
+
+    fireEvent.focus(trigger);
+
+    await waitFor(() => {
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it.skipIf(isJSDOM)('sets data-popup-side to the current popup side', async () => {
+    const { user } = render(() => (
+      <Select.Root>
+        <Select.Trigger data-testid="trigger">Trigger</Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner side="right" alignItemWithTrigger={false}>
+            <Select.Popup>
+              <Select.Item value="apple">apple</Select.Item>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    ));
+
+    const trigger = screen.getByTestId('trigger');
+    expect(trigger).not.toHaveAttribute('data-popup-side');
+
+    await user.click(trigger);
+
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBe(null));
+    expect(trigger).toHaveAttribute('data-popup-side', 'right');
+
+    await user.click(document.body);
+
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBe(null));
+    expect(trigger).not.toHaveAttribute('data-popup-side');
+  });
+
+  it.skipIf(isJSDOM)(
+    'sets data-popup-side to the resolved side when alignItemWithTrigger is active',
+    async () => {
+      const { user } = render(() => (
+        <div style={{ 'padding-top': '100px', 'padding-left': '10px' }}>
+          <Select.Root defaultValue="apple">
+            <Select.Trigger data-testid="trigger" style={{ width: '120px', height: '36px' }}>
+              <Select.Value />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner data-testid="positioner">
+                <Select.Popup style={{ 'max-height': 'none' }}>
+                  <Select.Item value="apple">apple</Select.Item>
+                  <Select.Item value="orange">orange</Select.Item>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+        </div>
+      ));
+
+      const trigger = screen.getByTestId('trigger');
+
+      await user.click(trigger);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('positioner')).toHaveAttribute('data-side', 'none');
+        expect(trigger).toHaveAttribute('data-popup-side', 'bottom');
+      });
+    },
+  );
+
+  it('should have the data-popup-open and data-pressed attributes when open', async () => {
+    const { user } = render(() => (
+      <Select.Root>
+        <Select.Trigger />
+      </Select.Root>
+    ));
+
+    const trigger = screen.getByRole('combobox');
+
+    await user.click(trigger);
+
+    await waitFor(() => {
+      expect(trigger).toHaveAttribute('data-popup-open');
+    });
+    expect(trigger).toHaveAttribute('data-pressed');
   });
 });

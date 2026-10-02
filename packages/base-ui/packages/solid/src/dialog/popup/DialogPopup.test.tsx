@@ -1,10 +1,10 @@
-import { createRenderer, describeConformance, isJSDOM, waitSingleFrame } from '#test-utils';
+import { act, createRenderer, describeConformance, isJSDOM, waitSingleFrame } from '#test-utils';
 import { AlertDialog } from '@solidports/base-ui/alert-dialog';
 import { Dialog } from '@solidports/base-ui/dialog';
-import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { spy } from 'sinon';
 import { createSignal, Show } from 'solid-js';
+import { expect, vi } from 'vitest';
 
 describe('<Dialog.Popup />', () => {
   const { render } = createRenderer();
@@ -19,13 +19,36 @@ describe('<Dialog.Popup />', () => {
       )),
   }));
 
+  it('throws a descriptive error when rendered outside <Dialog.Root>', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() => render(() => <Dialog.Popup />)).to.throw(
+        'Base UI: DialogRootContext is missing. Dialog parts must be placed within <Dialog.Root>.',
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   describe('prop: keepMounted', () => {
-    [
-      [true, true],
-      [false, false],
-      [undefined, false],
-    ].forEach(([keepMounted, expectedIsMounted]) => {
-      it(`should ${!expectedIsMounted ? 'not ' : ''}keep the dialog mounted when keepMounted=${keepMounted}`, () => {
+    it('should keep the dialog mounted when keepMounted=true', () => {
+      render(() => (
+        <Dialog.Root open={false} modal={false}>
+          <Dialog.Portal keepMounted>
+            <Dialog.Popup />
+          </Dialog.Portal>
+        </Dialog.Root>
+      ));
+
+      const dialog = screen.getByRole('dialog', { hidden: true });
+      expect(dialog).toBeInaccessible();
+    });
+
+    [false, undefined].forEach((keepMounted) => {
+      it(`should not keep the dialog mounted when keepMounted=${keepMounted}`, () => {
         render(() => (
           <Dialog.Root open={false} modal={false}>
             <Dialog.Portal keepMounted={keepMounted}>
@@ -34,13 +57,7 @@ describe('<Dialog.Popup />', () => {
           </Dialog.Root>
         ));
 
-        const dialog = screen.queryByRole('dialog', { hidden: true });
-        if (expectedIsMounted) {
-          expect(dialog).not.to.equal(null);
-          expect(dialog).toBeInaccessible();
-        } else {
-          expect(dialog).to.equal(null);
-        }
+        expect(screen.queryByRole('dialog', { hidden: true })).to.equal(null);
       });
     });
   });
@@ -183,6 +200,62 @@ describe('<Dialog.Popup />', () => {
       });
     });
 
+    it('passes the latest interaction type to initialFocus after reopening', async () => {
+      const initialFocus = vi.fn(() => false);
+
+      const { user } = render(() => (
+        <Dialog.Root modal={false}>
+          <Dialog.Trigger>Open</Dialog.Trigger>
+          <Dialog.Portal>
+            <Dialog.Popup initialFocus={initialFocus}>Content</Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root>
+      ));
+
+      const trigger = screen.getByText('Open');
+      await act(async () => trigger.focus());
+      await user.keyboard('[Enter]');
+
+      await waitFor(() => {
+        expect(initialFocus.mock.lastCall).to.deep.equal(['keyboard']);
+      });
+
+      await user.keyboard('[Escape]');
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).to.equal(null);
+      });
+
+      fireEvent.pointerDown(trigger, { pointerType: 'touch' });
+      fireEvent.click(trigger, { detail: 1 });
+
+      await waitFor(() => {
+        expect(initialFocus.mock.lastCall).to.deep.equal(['touch']);
+      });
+    });
+
+    it('focuses the popup itself rather than inner content when opened by touch', async () => {
+      render(() => (
+        <Dialog.Root modal={false}>
+          <Dialog.Trigger>Open</Dialog.Trigger>
+          <Dialog.Portal>
+            <Dialog.Popup data-testid="dialog">
+              <input data-testid="input" />
+            </Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root>
+      ));
+
+      const trigger = screen.getByText('Open');
+      fireEvent.pointerDown(trigger, { pointerType: 'touch' });
+      fireEvent.click(trigger, { detail: 1 });
+
+      // On touch the default focuses the popup to avoid opening the virtual keyboard.
+      await waitFor(() => {
+        expect(screen.getByTestId('dialog')).toHaveFocus();
+      });
+      expect(screen.getByTestId('input')).not.toHaveFocus();
+    });
+
     it('should not move focus when initialFocus is false', async () => {
       function TestComponent() {
         return (
@@ -303,7 +376,78 @@ describe('<Dialog.Popup />', () => {
     });
   });
 
-  describe('prop: final focus', () => {
+  describe.skipIf(isJSDOM)('display: contents ancestors', () => {
+    it('keeps initial focus working when the popup is wrapped by a display: contents ancestor', async () => {
+      const { user } = render(() => (
+        <div>
+          <button data-testid="outside-before">Outside before</button>
+          <Dialog.Root modal={false}>
+            <Dialog.Trigger>Open</Dialog.Trigger>
+            <Dialog.Portal>
+              <form style={{ display: 'contents' }}>
+                <Dialog.Popup data-testid="dialog-popup">
+                  <input data-testid="dialog-input" />
+                  <button type="button">Close</button>
+                </Dialog.Popup>
+              </form>
+            </Dialog.Portal>
+          </Dialog.Root>
+          <button data-testid="outside-after">Outside after</button>
+        </div>
+      ));
+
+      await user.click(screen.getByText('Open'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('dialog-input')).toHaveFocus();
+      });
+    });
+
+    it('keeps trap-focus tab cycling inside the popup when wrapped by a display: contents ancestor', async () => {
+      const { user } = render(() => (
+        <div>
+          <button data-testid="outside-before">Outside before</button>
+          <Dialog.Root defaultOpen modal="trap-focus">
+            <Dialog.Portal>
+              <form style={{ display: 'contents' }}>
+                <Dialog.Popup data-testid="dialog-popup">
+                  <input data-testid="first-input" />
+                  <button type="button" data-testid="second-button">
+                    Second
+                  </button>
+                </Dialog.Popup>
+              </form>
+            </Dialog.Portal>
+          </Dialog.Root>
+          <button data-testid="outside-after">Outside after</button>
+        </div>
+      ));
+
+      const popup = screen.getByTestId('dialog-popup');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('first-input')).toHaveFocus();
+      });
+
+      await user.keyboard('[Tab]');
+      expect(screen.getByTestId('second-button')).toHaveFocus();
+
+      await user.keyboard('[Tab]');
+      await waitFor(() => {
+        expect(screen.getByTestId('first-input')).toHaveFocus();
+      });
+      expect(screen.getByTestId('outside-before')).not.toHaveFocus();
+      expect(screen.getByTestId('outside-after')).not.toHaveFocus();
+
+      await user.keyboard('[ShiftLeft>][Tab][/ShiftLeft]');
+      await waitFor(() => {
+        expect(screen.getByTestId('second-button')).toHaveFocus();
+      });
+      expect(popup.contains(document.activeElement)).to.equal(true);
+    });
+  });
+
+  describe('prop: finalFocus', () => {
     it('should focus the trigger by default when closed', async () => {
       const { user } = render(() => (
         <div>
@@ -364,7 +508,9 @@ describe('<Dialog.Popup />', () => {
 
       const inputToFocus = screen.getByTestId('input-to-focus');
 
-      expect(inputToFocus).toHaveFocus();
+      await waitFor(() => {
+        expect(inputToFocus).toHaveFocus();
+      });
     });
 
     it('should support function returning element for finalFocus when closed', async () => {
@@ -789,7 +935,7 @@ describe('<Dialog.Popup />', () => {
   });
 
   describe('style hooks', () => {
-    it('adds the `nested` and `nested-dialog-open` style hooks if a dialog has a parent dialog', () => {
+    it('adds the `nested` and `nested-dialog-open` style hooks if a dialog has a parent dialog', async () => {
       render(() => (
         <Dialog.Root open>
           <Dialog.Portal>

@@ -9,6 +9,9 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { useComboboxChipsContext } from '../chips/ComboboxChipsContext';
 import { useComboboxRootContext } from '../root/ComboboxRootContext';
 import { ComboboxChipContext } from './ComboboxChipContext';
+import { useDirection } from '../../internals/direction-context/DirectionContext';
+import { flushSync } from '../../utils/flushSync';
+import { getChipNavigationKeys, getIndexAfterChipRemoval } from '../utils/parts';
 
 /**
  * An individual chip that represents a value in a multiselectable input.
@@ -17,48 +20,48 @@ import { ComboboxChipContext } from './ComboboxChipContext';
 export function ComboboxChip(componentProps: ComboboxChip.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
-  const { store } = useComboboxRootContext();
-  const chipsContext = useComboboxChipsContext();
-  if (!chipsContext) {
-    throw new Error('Base UI: ComboboxChip must be used within <Combobox.Chips>.');
-  }
-  const { setHighlightedChipIndex, chipsRef } = chipsContext;
+  const store = useComboboxRootContext();
+  const { setHighlightedChipIndex, chipsRef } = useComboboxChipsContext()!;
+  const direction = useDirection();
 
-  const disabled = store.useSelector('disabled');
-  const readOnly = store.useSelector('readOnly');
-  const open = store.useSelector('open');
-  const selectedValue = store.useSelector('selectedValue');
+  const disabled = store.useState('disabled');
+  const readOnly = store.useState('readOnly');
+  const selectedValue = store.useState('selectedValue');
 
   const { setRef, index } = useCompositeListItem();
 
   function handleKeyDown(event: KeyboardEvent) {
-    const idx = index();
-    const val = selectedValue();
-    let nextIndex: number | undefined = idx;
+    const currentIndex = index();
+    let nextIndex: number | undefined = currentIndex;
+    const [previousChipKey, nextChipKey] = getChipNavigationKeys(direction());
 
-    if (event.key === 'ArrowLeft') {
+    if (event.key === previousChipKey) {
       event.preventDefault();
-      if (idx > 0) {
-        nextIndex = idx - 1;
+      if (currentIndex > 0) {
+        nextIndex = currentIndex - 1;
       } else {
         nextIndex = undefined;
       }
-    } else if (event.key === 'ArrowRight') {
+    } else if (event.key === nextChipKey) {
       event.preventDefault();
-      if (idx < val.length - 1) {
-        nextIndex = idx + 1;
+      if (currentIndex < chipsRef.current.length - 1) {
+        nextIndex = currentIndex + 1;
       } else {
         nextIndex = undefined;
       }
     } else if (event.key === 'Backspace' || event.key === 'Delete') {
-      const computedNextIndex = idx >= val.length - 1 ? val.length - 2 : idx;
-      nextIndex = computedNextIndex >= 0 ? computedNextIndex : undefined;
+      const currentSelectedValue = selectedValue();
+      nextIndex = getIndexAfterChipRemoval(currentIndex, currentSelectedValue.length);
 
       stopEvent(event);
 
-      store.context.setIndices({ activeIndex: null, selectedIndex: null, type: 'keyboard' });
+      store.context.setIndices({
+        activeIndex: null,
+        selectedIndex: null,
+        type: REASONS.keyboard,
+      });
       store.context.setSelectedValue(
-        val.filter((_: any, i: number) => i !== idx),
+        currentSelectedValue.filter((_: any, i: number) => i !== currentIndex),
         createChangeEventDetails(REASONS.none, event),
       );
     } else if (event.key === 'Enter' || event.key === ' ') {
@@ -88,6 +91,8 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
+    ref: setRef,
+    state,
     props: [
       {
         tabindex: -1,
@@ -97,11 +102,6 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
         get 'aria-readonly'() {
           return readOnly() ? 'true' : undefined;
         },
-        onFocus(event: FocusEvent) {
-          if (open()) {
-            store.context.setOpen(false, createChangeEventDetails(REASONS.focusOut, event));
-          }
-        },
         onKeyDown(event: KeyboardEvent) {
           if (disabled() || readOnly()) {
             return;
@@ -109,40 +109,26 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
 
           const nextIndex = handleKeyDown(event);
 
-          setHighlightedChipIndex(nextIndex);
+          flushSync(() => {
+            setHighlightedChipIndex(nextIndex);
+          });
 
           if (nextIndex === undefined) {
-            store.state.inputRef?.focus();
+            store.context.inputRef.current?.focus();
           } else {
             chipsRef.current[nextIndex]?.focus();
           }
         },
-        onMouseDown(event: MouseEvent) {
-          if (readOnly()) {
-            return;
-          }
-
-          event.preventDefault();
-
-          if (disabled()) {
-            return;
-          }
-          store.state.inputRef?.focus();
-        },
       },
       elementProps,
     ],
-    ref: setRef,
-    state,
   });
 
   const contextValue: ComboboxChipContext = {
     index,
   };
 
-  return (
-    <ComboboxChipContext value={contextValue}>{element()}</ComboboxChipContext>
-  );
+  return <ComboboxChipContext value={contextValue}>{element()}</ComboboxChipContext>;
 }
 
 export interface ComboboxChipState {

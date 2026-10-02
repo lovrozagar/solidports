@@ -1,7 +1,7 @@
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import type { ProgressRoot } from '../root/ProgressRoot';
+import type { ProgressRootState } from '../root/ProgressRoot';
 import { useProgressRootContext } from '../root/ProgressRootContext';
 import { progressStateAttributesMapping } from '../root/stateAttributesMapping';
 
@@ -17,16 +17,19 @@ export function ProgressTrack(componentProps: ProgressTrack.Props) {
   const { state } = useProgressRootContext();
 
   const element = useRenderElement('div', componentProps, {
-    props: elementProps,
     state,
+    props: elementProps,
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
   return <>{element()}</>;
 }
 
-export interface ProgressTrackProps extends BaseUIComponentProps<'div', ProgressRoot.State> {}
+export interface ProgressTrackState extends ProgressRootState {}
+
+export interface ProgressTrackProps extends BaseUIComponentProps<'div', ProgressTrackState> {}
 
 export namespace ProgressTrack {
+  export type State = ProgressTrackState;
   export type Props = ProgressTrackProps;
 }

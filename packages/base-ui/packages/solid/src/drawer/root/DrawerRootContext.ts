@@ -1,34 +1,43 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import type { ReactLikeRef } from '../../solid-helpers';
 import type { SwipeDirection } from '../../utils/useSwipeDismiss';
 import type { DrawerRootSnapPointChangeEventDetails } from './DrawerRoot';
 
 export type DrawerSwipeDirection = SwipeDirection;
 export type DrawerSnapPoint = number | string;
 
+export interface DrawerNestedSwipeProgressStore {
+  getSnapshot: () => number;
+  subscribe: (listener: () => void) => () => void;
+}
+
 export interface DrawerRootContext {
   swipeDirection: Accessor<DrawerSwipeDirection>;
   /**
-   * Whether snap points can be skipped based on swipe velocity.
+   * Whether `Drawer.SwipeArea` is currently driving an open gesture (writing the popup's
+   * swipe-movement vars imperatively). The viewport reads this to skip resetting them on open.
+   */
+  swipeAreaActiveRef: ReactLikeRef<boolean>;
+  /**
+   * Whether to disable velocity-based snap skipping.
    */
   snapToSequentialPoints: Accessor<boolean>;
   /**
    * Snap points used to size/position the drawer.
    */
-  snapPoints?: Accessor<DrawerSnapPoint[] | undefined>;
+  snapPoints: Accessor<DrawerSnapPoint[] | undefined>;
   /**
    * The currently active snap point.
    */
-  activeSnapPoint?: Accessor<DrawerSnapPoint | null | undefined>;
+  activeSnapPoint: Accessor<DrawerSnapPoint | null | undefined>;
   /**
    * Updates the currently active snap point.
    */
-  setActiveSnapPoint?:
-    | ((
-        snapPoint: DrawerSnapPoint | null,
-        eventDetails?: DrawerRootSnapPointChangeEventDetails,
-      ) => void)
-    | undefined;
+  setActiveSnapPoint: (
+    snapPoint: DrawerSnapPoint | null,
+    eventDetails?: DrawerRootSnapPointChangeEventDetails,
+  ) => void;
   /**
    * The measured height of the frontmost open drawer within the current nested drawer stack.
    */
@@ -43,22 +52,21 @@ export interface DrawerRootContext {
    */
   hasNestedDrawer: Accessor<boolean>;
   /**
+   * Called by the drawer popup to report its own measured height.
+   */
+  onPopupHeightChange: (height: number) => void;
+  /**
    * Whether a nested drawer is currently being swiped.
    */
   nestedSwiping: Accessor<boolean>;
   /**
    * Provides nested swipe progress without re-rendering the drawer tree.
    */
-  nestedSwipeProgress: Accessor<number>;
-  setNestedSwipeProgress: (progress: number) => void;
+  nestedSwipeProgressStore: DrawerNestedSwipeProgressStore;
   /**
    * Called by a nested drawer to report whether it is still present (open or transitioning out).
    */
   onNestedDrawerPresenceChange: (present: boolean) => void;
-  /**
-   * Called by the drawer popup to report its own measured height.
-   */
-  onPopupHeightChange: (height: number) => void;
   /**
    * Called by a nested drawer to report the frontmost height of its own stack.
    */

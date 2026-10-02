@@ -1,13 +1,11 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import type { Store } from 'solid-js';
 
 export interface DrawerProviderContext {
-  setDrawerOpen: (drawerId: string, open: boolean) => void;
-  removeDrawer: (drawerId: string) => void;
+  setDrawerOpen: (drawer: object, open: boolean) => void;
+  removeDrawer: (drawer: object) => void;
   active: Accessor<boolean>;
-  visualStateStore: Store<DrawerVisualState>;
-  setVisualState: (state: Partial<DrawerVisualState>) => void;
+  visualStateStore: DrawerVisualStateStore;
 }
 
 export const DrawerProviderContext = createContext<DrawerProviderContext | null>(null);
@@ -17,14 +15,12 @@ export interface DrawerVisualState {
   frontmostHeight: number;
 }
 
-export function useDrawerProviderContext(optional?: false): DrawerProviderContext;
-export function useDrawerProviderContext(optional: true): DrawerProviderContext | null;
-export function useDrawerProviderContext(optional?: boolean) {
-  const context = useContext(DrawerProviderContext);
+export interface DrawerVisualStateStore {
+  getSnapshot: () => DrawerVisualState;
+  subscribe: (listener: () => void) => () => void;
+  set: (state: Partial<DrawerVisualState>) => void;
+}
 
-  if (!optional && context == null) {
-    throw new Error('Base UI: DrawerProviderContext is missing. Use <Drawer.Provider>.');
-  }
-
-  return context;
+export function useDrawerProviderContext() {
+  return useContext(DrawerProviderContext);
 }

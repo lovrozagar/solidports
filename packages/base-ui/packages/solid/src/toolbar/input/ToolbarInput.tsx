@@ -1,5 +1,5 @@
+import { createMemo } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';
-import { ARROW_LEFT, ARROW_RIGHT, stopEvent } from '../../internals/composite/composite';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -25,13 +25,16 @@ export function ToolbarInput(componentProps: ToolbarInput.Props) {
   const focusableWhenDisabled = () => local.focusableWhenDisabled ?? true;
   const disabledProp = () => Boolean(local.disabled);
 
-  const itemMetadata = { focusableWhenDisabled };
-
   const { disabled: toolbarDisabled, orientation } = useToolbarRootContext();
 
-  const groupContext = useToolbarGroupContext(true);
+  const groupContext = useToolbarGroupContext();
 
   const disabled = () => toolbarDisabled() || (groupContext?.disabled() ?? false) || disabledProp();
+
+  const itemMetadata = createMemo(() => ({
+    disabled: disabled(),
+    focusableWhenDisabled: focusableWhenDisabled(),
+  }));
 
   const { props: focusableWhenDisabledProps } = useFocusableWhenDisabled({
     composite: true,
@@ -52,22 +55,16 @@ export function ToolbarInput(componentProps: ToolbarInput.Props) {
     },
   };
 
+  const preventWhenDisabled = (event: Event) => {
+    if (disabled()) {
+      event.preventDefault();
+    }
+  };
+
   const defaultProps: Omit<ComponentProps<'input'>, 'children'> = {
-    onClick(event) {
-      if (disabled()) {
-        event.preventDefault();
-      }
-    },
-    onKeyDown(event) {
-      if (event.key !== ARROW_LEFT && event.key !== ARROW_RIGHT && disabled()) {
-        stopEvent(event);
-      }
-    },
-    onPointerDown(event) {
-      if (disabled()) {
-        event.preventDefault();
-      }
-    },
+    onClick: preventWhenDisabled,
+    onPointerDown: preventWhenDisabled,
+    // Solid: DOM inputs have no `defaultValue` prop; seed `value` from it.
     get value() {
       return local.value ?? local.defaultValue;
     },
@@ -89,7 +86,13 @@ export function ToolbarInput(componentProps: ToolbarInput.Props) {
 }
 
 export interface ToolbarInputState extends ToolbarRoot.State {
+  /**
+   * Whether the component is disabled.
+   */
   disabled: boolean;
+  /**
+   * Whether the component remains focusable when disabled.
+   */
   focusable: boolean;
 }
 
@@ -100,7 +103,7 @@ export interface ToolbarInputProps extends BaseUIComponentProps<'input', Toolbar
    */
   disabled?: boolean | undefined;
   /**
-   * When `true` the item remains focuseable when disabled.
+   * When `true` the item remains focusable when disabled.
    * @default true
    */
   focusableWhenDisabled?: boolean | undefined;

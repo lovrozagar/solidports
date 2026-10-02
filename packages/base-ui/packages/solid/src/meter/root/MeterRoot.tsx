@@ -1,9 +1,11 @@
 import { createMemo, createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
-import { formatNumberValue } from '../../utils/formatNumber';
+import { clamp } from '../../utils/clamp';
+import { formatNumber } from '../../utils/formatNumber';
 import { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { valueToPercent } from '../../utils/valueToPercent';
 import { visuallyHidden } from '../../utils/visuallyHidden';
 import { MeterRootContext } from './MeterRootContext';
 
@@ -26,23 +28,34 @@ export function MeterRoot(componentProps: MeterRoot.Props) {
   const min = () => local.min ?? 0;
   const valueProp = () => local.value;
 
-  const [labelId, setLabelId] = createSignal<string>();
-  const formattedValue = () => formatNumberValue(valueProp(), local.locale, local.format);
+  const [labelId, setLabelId] = createSignal<string | undefined>();
+
+  // `clamp` handles infinity, but NaN needs an explicit fallback before normalizing range outputs.
+  const percentageValue = createMemo(() => {
+    const rawPercentage = valueToPercent(valueProp(), min(), max());
+    return clamp(Number.isNaN(rawPercentage) ? 0 : rawPercentage, 0, 100);
+  });
+  const clampedValue = createMemo(() =>
+    clamp(Number.isNaN(valueProp()) ? min() : valueProp(), min(), max()),
+  );
+
+  // Format the clamped value so visible and accessible text stay in sync with `aria-valuenow` and
+  // the indicator fill. The raw value remains available as the second `getAriaValueText` argument.
+  const formattedValue = createMemo(() =>
+    local.format
+      ? formatNumber(clampedValue(), local.locale, local.format)
+      : formatNumber(percentageValue() / 100, local.locale, { style: 'percent' }),
+  );
 
   const ariaValuetext = createMemo(() => {
+    let text = formattedValue();
     if (local.getAriaValueText) {
-      return local.getAriaValueText(formattedValue(), valueProp());
+      text = local.getAriaValueText(text, valueProp());
     }
-
-    if (local.format) {
-      return formattedValue();
-    }
-
-    return `${valueProp()}%`;
+    return text;
   });
 
   const defaultProps: HTMLProps = {
-    role: 'meter',
     get 'aria-labelledby'() {
       return labelId();
     },
@@ -53,17 +66,19 @@ export function MeterRoot(componentProps: MeterRoot.Props) {
       return min();
     },
     get 'aria-valuenow'() {
-      return valueProp();
+      return clampedValue();
     },
     get 'aria-valuetext'() {
       return ariaValuetext();
     },
-    /* force NVDA to read the label https://github.com/mui/base-ui/issues/4184 */
+    role: 'meter',
     get children() {
       return (
         <>
           {componentProps.children}
-          <span role="presentation" style={visuallyHidden}>x</span>
+          <span role="presentation" style={visuallyHidden}>
+            {/* force NVDA to read the label https://github.com/mui/base-ui/issues/4184 */}x
+          </span>
         </>
       );
     },
@@ -71,8 +86,7 @@ export function MeterRoot(componentProps: MeterRoot.Props) {
 
   const contextValue: MeterRootContext = {
     formattedValue,
-    max,
-    min,
+    percentageValue,
     setLabelId,
     value: valueProp,
   };
@@ -86,7 +100,7 @@ export function MeterRoot(componentProps: MeterRoot.Props) {
 
 export interface MeterRootState {}
 
-export interface MeterRootProps extends BaseUIComponentProps<'div', MeterRoot.State> {
+export interface MeterRootProps extends BaseUIComponentProps<'div', MeterRootState> {
   /**
    * A string value that provides a user-friendly name for `aria-valuenow`, the current value of the meter.
    */

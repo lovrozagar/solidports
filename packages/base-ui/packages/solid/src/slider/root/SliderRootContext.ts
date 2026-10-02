@@ -5,7 +5,7 @@ import type { UseFieldValidationReturnValue } from '../../field/root/useFieldVal
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { Orientation } from '../../utils/types';
 import type { ThumbMetadata } from '../thumb/SliderThumb';
-import type { SliderRoot } from './SliderRoot';
+import type { SliderRoot, SliderRootState } from './SliderRoot';
 
 export interface SliderRootContext {
   /**
@@ -16,31 +16,30 @@ export interface SliderRootContext {
    * The index of the most recently interacted thumb.
    */
   lastUsedThumbIndex: Accessor<number>;
+  controlRef: ReactLikeRef<HTMLElement | null>;
   dragging: Accessor<boolean>;
   disabled: Accessor<boolean>;
   validation: UseFieldValidationReturnValue;
-  controlRef: ReactLikeRef<HTMLElement | null | undefined>;
-  formatOptionsRef: ReactLikeRef<Intl.NumberFormatOptions | undefined>;
-  lastChangedValueRef: ReactLikeRef<number | readonly number[] | null>;
-  lastChangeReasonRef: ReactLikeRef<SliderRoot.ChangeEventReason>;
-  pressedInputRef: ReactLikeRef<HTMLInputElement | null | undefined>;
-  pressedThumbCenterOffsetRef: ReactLikeRef<number | null>;
-  pressedThumbIndexRef: ReactLikeRef<number>;
-  pressedValuesRef: ReactLikeRef<readonly number[] | null>;
-  thumbRefs: ReactLikeRef<(HTMLElement | null | undefined)[]>;
-  handleInputChange: (valueInput: number, index: number, event: KeyboardEvent | InputEvent) => void;
-  form: Accessor<string | undefined>;
+  /**
+   * Options to format the value.
+   */
+  format: Accessor<Intl.NumberFormatOptions | undefined>;
+  handleInputChange: (
+    valueInput: number,
+    index: number,
+    event: KeyboardEvent | InputEvent | Event,
+  ) => void;
   indicatorPosition: Accessor<(number | undefined)[]>;
   inset: Accessor<boolean>;
   labelId: Accessor<string | undefined>;
   rootLabelId: Accessor<string | undefined>;
-  setRootLabelId: Setter<string | undefined>;
   /**
    * The large step value of the slider when incrementing or decrementing while the shift key is held,
    * or when using Page-Up or Page-Down keys. Snaps to multiples of this value.
    * @default 10
    */
   largeStep: Accessor<number>;
+  lastChangeReasonRef: ReactLikeRef<SliderRoot.ChangeEventReason>;
   /**
    * The locale used by `Intl.NumberFormat` when formatting the value.
    * Defaults to the user's runtime locale.
@@ -58,6 +57,7 @@ export interface SliderRootContext {
    * The minimum steps between values in a range slider.
    */
   minStepsBetweenValues: Accessor<number>;
+  form: Accessor<string | undefined>;
   name: Accessor<string | undefined>;
   /**
    * Function to be called when drag ends and the pointer is released.
@@ -71,16 +71,22 @@ export interface SliderRootContext {
    * @default 'horizontal'
    */
   orientation: Accessor<Orientation>;
+  pressedThumbCenterOffsetRef: ReactLikeRef<number | null>;
+  pressedThumbIndexRef: ReactLikeRef<number>;
+  pressedValuesRef: ReactLikeRef<readonly number[] | null>;
   renderBeforeHydration: Accessor<boolean>;
-  registerFieldControlRef: (element: HTMLElement | null | undefined) => void;
+  registerFieldControlRef: (element: HTMLElement | null) => void;
   setActive: (index: number) => void;
-  setDragging: (dragging: boolean) => void;
+  setDragging: Setter<boolean>;
   setIndicatorPosition: Setter<(number | undefined)[]>;
+  setLabelId: Setter<string | undefined>;
   /**
-   * Callback fired when dragging and invokes onValueChange.
+   * Applies a new value through `onValueChange` for keyboard, input, track-press,
+   * and drag interactions. Returns `true` when the value was applied, or `false`
+   * when it was invalid (NaN), unchanged, or the change was canceled.
    */
-  setValue: (newValue: number | number[], details?: SliderRoot.ChangeEventDetails) => void;
-  state: SliderRoot.State;
+  setValue: (newValue: number | number[], details: SliderRoot.ChangeEventDetails) => boolean;
+  state: SliderRootState;
   /**
    * The step increment of the slider when incrementing or decrementing. It will snap
    * to multiples of this value. Decimal values are supported.
@@ -88,9 +94,8 @@ export interface SliderRootContext {
    */
   step: Accessor<number>;
   thumbCollisionBehavior: Accessor<'push' | 'swap' | 'none'>;
-  thumbArray: Accessor<
-    Array<{ element: Element; metadata: CompositeMetadata<ThumbMetadata> | null }>
-  >;
+  thumbMap: Accessor<Map<Node, CompositeMetadata<ThumbMetadata>>>;
+  thumbRefs: ReactLikeRef<(HTMLElement | null | undefined)[]>;
   /**
    * The value(s) of the slider
    */

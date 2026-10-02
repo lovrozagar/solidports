@@ -38,3 +38,5 @@ export const imperativeAction = 'imperative-action' as const;
 export const swipe = 'swipe' as const;
 
 export const windowResize = 'window-resize' as const;
+export const missing = 'missing' as const;
+export const initial = 'initial' as const;

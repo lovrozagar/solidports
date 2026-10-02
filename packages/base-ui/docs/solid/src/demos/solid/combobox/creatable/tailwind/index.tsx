@@ -1,4 +1,4 @@
-import { createSignal, createUniqueId } from 'solid-js';
+import { createSignal, createMemo, createUniqueId, type Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -8,15 +8,15 @@ import { Dialog } from '@solidports/base-ui/dialog';
 export default function ExampleCreatableCombobox() {
   const id = createUniqueId();
 
-  const [labels, setLabels] = createSignal(initialLabels);
-  const [selected, setSelected] = createSignal([]);
+  const [labels, setLabels] = createSignal<LabelItem[]>(initialLabels);
+  const [selected, setSelected] = createSignal<LabelItem[]>([]);
   const [query, setQuery] = createSignal('');
   const [openDialog, setOpenDialog] = createSignal(false);
 
-  const createInputRef = { current: null };
-  const comboboxInputRef = { current: null };
+  const createInputRef = { current: null as HTMLInputElement | null };
+  const comboboxInputRef = { current: null as HTMLInputElement | null };
   const pendingQueryRef = { current: '' };
-  const highlightedItemRef = { current: undefined };
+  const highlightedItemRef = { current: undefined as LabelItem | undefined };
 
   function handleInputKeyDown(event: KeyboardEvent & { currentTarget: HTMLInputElement }) {
     if (event.key !== 'Enter' || highlightedItemRef.current) {
@@ -88,19 +88,18 @@ export default function ExampleCreatableCombobox() {
     handleCreate();
   }
 
-  const trimmed = query().trim();
-  const lowered = trimmed.toLocaleLowerCase();
-  const exactExists = labels().some((l) => l.value.trim().toLocaleLowerCase() === lowered);
+  const trimmed = createMemo(() => query().trim());
+  const lowered = createMemo(() => trimmed().toLocaleLowerCase());
+  const exactExists = createMemo(() => labels().some((l) => l.value.trim().toLocaleLowerCase() === lowered()));
   // Show the creatable item alongside matches if there's no exact match
-  const itemsForView: Array<LabelItem> =
-    trimmed !== '' && !exactExists
-      ? [...labels(), { creatable: trimmed, id: `create:${lowered}`, value: `Create "${trimmed}"` }]
-      : labels();
+  const itemsForView = createMemo<Array<LabelItem>>(() => trimmed() !== '' && !exactExists()
+      ? [...labels(), { creatable: trimmed(), id: `create:${lowered()}`, value: `Create "${trimmed()}"` }]
+      : labels());
 
   return (
     <>
       <Combobox.Root
-        items={itemsForView}
+        items={itemsForView()}
         multiple
         onValueChange={(next) => {
           const creatableSelection = next.find(
@@ -132,12 +131,12 @@ export default function ExampleCreatableCombobox() {
           </label>
           <Combobox.InputGroup class="flex min-h-8 w-64 cursor-text flex-wrap items-center gap-0.5 border border-neutral-950 bg-white dark:bg-neutral-950 px-2 py-1 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-neutral-950 dark:focus-within:outline-white has-[button]:px-1 dark:border-white min-[32rem]:w-[22rem]">
             <Combobox.Value>
-              {(value: LabelItem[]) => (
+              {(value: Accessor<LabelItem[]>) => (
                 <Combobox.Chips
                   class="flex w-full flex-wrap items-center gap-1"
-                  aria-label={value.length > 0 ? 'Selected labels' : undefined}
+                  aria-label={value().length > 0 ? 'Selected labels' : undefined}
                 >
-                  {(Array.isArray(value) ? value : []).map((label) => (
+                  {value().map((label) => (
                     <Combobox.Chip
                       class="group flex min-h-[calc(1.5rem-2px)] cursor-default items-center gap-1 overflow-hidden bg-neutral-100 py-0 pr-[0.2rem] pl-[0.4rem] text-sm leading-none text-neutral-950 outline-none focus-within:bg-neutral-950 focus-within:text-white [@media(hover:hover)]:data-highlighted:bg-neutral-950 [@media(hover:hover)]:data-highlighted:text-white dark:bg-neutral-800 dark:text-white dark:focus-within:bg-white dark:focus-within:text-neutral-950 dark:[@media(hover:hover)]:data-highlighted:bg-white dark:[@media(hover:hover)]:data-highlighted:text-neutral-950"
                       aria-label={label.value}
@@ -155,10 +154,10 @@ export default function ExampleCreatableCombobox() {
                   <Combobox.Input
                     ref={(el) => { comboboxInputRef.current = el; }}
                     id={id}
-                    placeholder={value.length > 0 ? '' : 'e.g. bug'}
+                    placeholder={value().length > 0 ? '' : 'e.g. bug'}
                     aria-description={
-                      value.length > 0
-                        ? `${value.length} selected(). From the start of the input, press Left Arrow to focus the selected items`
+                      value().length > 0
+                        ? `${value().length} selected(). From the start of the input, press Left Arrow to focus the selected items`
                         : undefined
                     }
                     class="h-[calc(1.5rem-2px)] min-w-12 flex-1 border-0 bg-white p-0 text-sm any-pointer-coarse:text-base dark:bg-neutral-950 font-normal text-neutral-950 outline-none placeholder:text-neutral-500 dark:placeholder:text-neutral-400 dark:text-white"
@@ -213,7 +212,7 @@ export default function ExampleCreatableCombobox() {
           <Dialog.Backdrop class="fixed inset-0 min-h-dvh bg-black opacity-20 transition-opacity dark:opacity-70 data-starting-style:opacity-0 data-ending-style:opacity-0 supports-[-webkit-touch-callout:none]:absolute" />
           <Dialog.Popup
             class="fixed top-1/2 left-1/2 mt-[-2rem] w-[24rem] max-w-[calc(100vw-3rem)] -translate-x-1/2 -translate-y-1/2 border border-neutral-950 bg-white p-6 text-neutral-950 shadow-[0.25rem_0.25rem_0_rgb(0_0_0_/_12%)] transition-all data-starting-style:scale-90 data-starting-style:opacity-0 data-ending-style:scale-90 data-ending-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none"
-            initialFocus={createInputRef}
+            initialFocus={() => createInputRef.current}
           >
             <Dialog.Title class="text-sm leading-5 font-bold">Create new label</Dialog.Title>
             <Dialog.Description class="mb-4 text-sm leading-5 text-neutral-600 dark:text-neutral-400">
@@ -245,7 +244,7 @@ export default function ExampleCreatableCombobox() {
   );
 }
 
-function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -261,7 +260,7 @@ function CheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function PlusIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -269,8 +268,8 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >
@@ -279,7 +278,7 @@ function PlusIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   );
 }
 
-function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function XIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -287,8 +286,8 @@ function XIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeLinecap="square"
-      strokeLinejoin="round"
+      stroke-linecap="square"
+      stroke-linejoin="round"
       {...props}
       style={{ display: 'block', ...props.style }}
     >

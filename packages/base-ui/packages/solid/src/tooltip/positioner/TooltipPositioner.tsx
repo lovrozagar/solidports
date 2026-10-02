@@ -1,12 +1,8 @@
-import type { JSX } from '@solidjs/web';
+import { usePositioner } from '../../utils/usePositioner';
 import { splitComponentProps } from '../../solid-helpers';
-import { adaptiveOrigin } from '../../utils/adaptiveOriginMiddleware';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
-import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
-import { popupStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
-import { useRenderElement } from '../../utils/useRenderElement';
 import { useTooltipPortalContext } from '../portal/TooltipPortalContext';
 import { useTooltipRootContext } from '../root/TooltipRootContext';
 import { TooltipPositionerContext } from './TooltipPositionerContext';
@@ -19,6 +15,8 @@ import { TooltipPositionerContext } from './TooltipPositionerContext';
  */
 export function TooltipPositioner(componentProps: TooltipPositioner.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
+    'style',
+    'ref',
     'anchor',
     'positionMethod',
     'side',
@@ -53,11 +51,11 @@ export function TooltipPositioner(componentProps: TooltipPositioner.Props) {
   const disableHoverablePopup = store.useState('disableHoverablePopup');
   const instantType = store.useState('instantType');
   const transitionStatus = store.useState('transitionStatus');
-  const hasViewport = store.useState('hasViewport');
+  const adaptiveOrigin = store.useState('adaptiveOrigin');
 
   const positioning = useAnchorPositioning({
     get adaptiveOrigin() {
-      return hasViewport() ? adaptiveOrigin : undefined;
+      return adaptiveOrigin();
     },
     align,
     alignOffset,
@@ -77,25 +75,6 @@ export function TooltipPositioner(componentProps: TooltipPositioner.Props) {
     sideOffset,
     sticky,
   });
-
-  const defaultProps: HTMLProps = {
-    get hidden() {
-      return !mounted();
-    },
-    role: 'presentation',
-    get style() {
-      const hiddenStyles: JSX.CSSProperties = {};
-
-      if (!open() || trackCursorAxis() === 'both' || disableHoverablePopup()) {
-        hiddenStyles['pointer-events'] = 'none';
-      }
-
-      return {
-        ...positioning.positionerStyles(),
-        ...hiddenStyles,
-      };
-    },
-  };
 
   const state: TooltipPositioner.State = {
     get align() {
@@ -125,23 +104,26 @@ export function TooltipPositioner(componentProps: TooltipPositioner.Props) {
     side: () => state.side,
   };
 
-  const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [defaultProps, getDisabledMountTransitionStyles(transitionStatus()), elementProps];
+  const element = usePositioner(componentProps, state, {
+    get styles() {
+      return positioning.positionerStyles();
     },
-    ref: (el) => {
+    get transitionStatus() {
+      return transitionStatus();
+    },
+    props: elementProps,
+    refs: (el: HTMLDivElement | null) => {
       store.set('positionerElement', el);
-      positioning.context.refs.setFloating(el);
     },
-    state,
-    stateAttributesMapping: popupStateMapping,
+    get hidden() {
+      return !mounted();
+    },
+    get inert() {
+      return !open() || trackCursorAxis() === 'both' || disableHoverablePopup();
+    },
   });
 
-  return (
-    <TooltipPositionerContext value={contextValue}>
-      {element()}
-    </TooltipPositionerContext>
-  );
+  return <TooltipPositionerContext value={contextValue}>{element()}</TooltipPositionerContext>;
 }
 
 export interface TooltipPositionerState {

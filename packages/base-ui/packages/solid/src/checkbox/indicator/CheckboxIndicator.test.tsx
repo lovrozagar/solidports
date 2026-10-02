@@ -1,23 +1,21 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { expect, vi } from 'vitest';
+import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Checkbox } from '@solidports/base-ui/checkbox';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
 import { createSignal } from 'solid-js';
 import { CheckboxRootContext } from '../root/CheckboxRootContext';
 
 const testContext = {
-  state: {
-    checked: true,
-    dirty: false,
-    disabled: false,
-    filled: false,
-    focused: false,
-    indeterminate: false,
-    readOnly: false,
-    required: false,
-    touched: false,
-    valid: null,
-  },
+  checked: true,
+  dirty: false,
+  disabled: false,
+  filled: false,
+  focused: false,
+  indeterminate: false,
+  readOnly: false,
+  required: false,
+  touched: false,
+  valid: null,
 };
 
 describe('<Checkbox.Indicator />', () => {
@@ -30,12 +28,30 @@ describe('<Checkbox.Indicator />', () => {
   describeConformance(Checkbox.Indicator, () => ({
     refInstanceof: window.HTMLSpanElement,
     render: (node, props) =>
-      render(() => (
-        <CheckboxRootContext value={testContext}>
-          {node(props!)}
-        </CheckboxRootContext>
-      )),
+      render(() => <CheckboxRootContext value={testContext}>{node(props!)}</CheckboxRootContext>),
   }));
+
+  it('throws a descriptive error when rendered outside <Checkbox.Root>', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the halted render also reports a `REACTIVITY_HALTED` warning in a microtask, and
+    // hands the error to `reportError` (the uncaught-error channel) where the platform has one.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const reportErrorSpy =
+      typeof globalThis.reportError === 'function'
+        ? vi.spyOn(globalThis, 'reportError').mockImplementation(() => {})
+        : undefined;
+
+    try {
+      expect(() => render(() => <Checkbox.Indicator />)).to.throw(
+        'Base UI: CheckboxRootContext is missing. Checkbox parts must be placed within <Checkbox.Root>.',
+      );
+    } finally {
+      await flushMicrotasks();
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      reportErrorSpy?.mockRestore();
+    }
+  });
 
   it('should not render indicator by default', async () => {
     render(() => (
@@ -183,7 +199,7 @@ describe('<Checkbox.Indicator />', () => {
     });
   });
 
-  describe.skip('animations', () => {
+  describe.skipIf(isJSDOM)('animations', () => {
     // Solid layout: enter `data-starting-style` timing does not match Chromium 1.8.0 React.
     afterEach(() => {
       globalThis.BASE_UI_ANIMATIONS_DISABLED = true;
@@ -289,6 +305,71 @@ describe('<Checkbox.Indicator />', () => {
       await waitFor(() => {
         expect(screen.queryByTestId('indicator')).to.equal(null);
       });
+    });
+
+    it('removes all indicators in a single commit when multiple checkboxes are unchecked', async () => {
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+
+      const style = `
+        @keyframes test-anim {
+          to {
+            opacity: 0;
+          }
+        }
+
+        .animation-test-indicator[data-ending-style] {
+          animation: test-anim 1ms;
+        }
+      `;
+
+      const indicatorCounts: number[] = [];
+
+      function Test() {
+        const [checked, setChecked] = createSignal(true);
+
+        function handleUncheck() {
+          setChecked(false);
+        }
+
+        return (
+          <div>
+            <style>{style}</style>
+            <button onClick={handleUncheck}>Uncheck</button>
+            <div>
+              {Array.from({ length: 10 }, (_, index) => (
+                <Checkbox.Root checked={checked()}>
+                  <Checkbox.Indicator
+                    class="animation-test-indicator"
+                    data-testid={`indicator-${index}`}
+                  />
+                </Checkbox.Root>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      const { user } = render(() => <Test />);
+
+      // Solid: no `React.Profiler`; a mutation observer records the count after each DOM commit.
+      const observer = new MutationObserver(() => {
+        indicatorCounts.push(document.querySelectorAll('[data-testid^="indicator-"]').length);
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      try {
+        await user.click(screen.getByText('Uncheck'));
+
+        await waitFor(() => {
+          expect(screen.queryByTestId('indicator-0')).to.equal(null);
+        });
+        expect(screen.queryByTestId('indicator-9')).to.equal(null);
+      } finally {
+        observer.disconnect();
+      }
+
+      expect(indicatorCounts).to.include(0);
+      expect(indicatorCounts.every((count) => count === 0 || count === 10)).to.equal(true);
     });
   });
 });

@@ -24,7 +24,7 @@ const stateAttributesMapping: StateAttributesMapping<DrawerBackdrop.State> = {
 export function DrawerBackdrop(componentProps: DrawerBackdrop.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['forceRender']);
   const forceRender = () => local.forceRender ?? false;
-  const { store } = useDialogRootContext();
+  const store = useDialogRootContext();
 
   const open = store.useState('open');
   const nested = store.useState('nested');
@@ -83,6 +83,9 @@ export interface DrawerBackdropState {
    * Whether the drawer is currently open.
    */
   open: boolean;
+  /**
+   * The transition status of the component.
+   */
   transitionStatus: TransitionStatus;
 }
 

@@ -7,6 +7,6 @@ export interface MenuSubmenuRootContext {
   parentMenu: MenuStore<unknown>;
 }
 
-export function useMenuSubmenuRootContext(): MenuSubmenuRootContext | undefined {
+export function useMenuSubmenuRootContext(): MenuSubmenuRootContext | null {
   return useContext(MenuSubmenuRootContext);
 }

@@ -1,7 +1,7 @@
-import { createRenderer, describeConformance } from '#test-utils';
+import { act, createRenderer, describeConformance } from '#test-utils';
 import { Toast } from '@solidports/base-ui/toast';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 import { Button, List } from '../utils/test-utils';
 
 describe('<Toast.Close />', () => {
@@ -44,7 +44,9 @@ describe('<Toast.Close />', () => {
 
     expect(screen.getByTestId('title')).not.to.equal(null);
 
-    viewport.focus();
+    await act(async () => {
+      viewport.focus();
+    });
 
     const closeButton = screen.getByRole('button', { name: 'close-press' });
 

@@ -1,6 +1,6 @@
 import c from 'clsx';
 import {
-  createTrackedEffect,
+  createEffect,
   createMemo,
   createSignal,
   For,
@@ -28,6 +28,9 @@ import type { Placement } from '../../src/floating-ui-solid/types';
 import { useId } from '../../src/utils/useId';
 import { Button } from './Button';
 import { splitProps } from '../../src/solid-1-compat';
+import { gridNavigationWithColumns } from './gridNavigationWithColumns';
+
+const grid = gridNavigationWithColumns(3);
 
 const emojis = [
   {
@@ -89,7 +92,7 @@ function Option(props: OptionProps) {
         'bg-cyan-200': local.active,
         'opacity-40': local.name === 'orange',
       })}
-      aria-selected={local.selected}
+      aria-selected={local.selected ? 'true' : 'false'}
       disabled={local.name === 'orange'}
       aria-label={local.name}
       tabindex={-1}
@@ -158,7 +161,7 @@ export function Main() {
       get activeIndex() {
         return activeIndex();
       },
-      cols: 3,
+      grid,
       orientation: 'horizontal',
       loopFocus: true,
       focusItemOnOpen: false,
@@ -174,15 +177,18 @@ export function Main() {
     getItemProps,
   } = useInteractions([listNavigation]);
 
-  createTrackedEffect(() => {
-    if (open()) {
-      setPlacement(resultantPlacement());
-    } else {
-      setSearch('');
-      setActiveIndex(null);
-      setPlacement(null);
-    }
-  });
+  createEffect(
+    () => ({ open: open(), resultantPlacement: resultantPlacement() }),
+    (deps) => {
+      if (deps.open) {
+        setPlacement(deps.resultantPlacement);
+      } else {
+        setSearch('');
+        setActiveIndex(null);
+        setPlacement(null);
+      }
+    },
+  );
 
   const handleEmojiClick = () => {
     if (activeIndex() !== null) {
@@ -261,26 +267,28 @@ export function Main() {
                     <Match when={filteredEmojis().length > 0}>
                       <div class="grid grid-cols-3" role="listbox">
                         <For keyed={false} each={filteredEmojis()}>
-                          {(item, index) => (
-                            <Option
-                              name={item().name}
-                              selected={selectedEmoji() === item().emoji}
-                              active={activeIndex() === index}
-                              {...getItemProps({
-                                onClick: handleEmojiClick,
-                                // TODO: need to figure out why is ref getting overwritten if it's above?
-                                ref(node: HTMLElement | null) {
-                                  const idx = index;
-                                  listRef[idx] = node ?? undefined;
-                                  onCleanup(() => {
-                                    listRef[idx] = undefined;
-                                  });
-                                },
-                              })}
-                            >
-                              {item().emoji}
-                            </Option>
-                          )}
+                          {(item, index) => {
+                            // Solid applies refs on mount only: clear the entry when the item
+                            // unmounts, as React's ref(null) does.
+                            onCleanup(() => {
+                              listRef[index] = undefined;
+                            });
+                            return (
+                              <Option
+                                name={item().name}
+                                selected={selectedEmoji() === item().emoji}
+                                active={activeIndex() === index}
+                                {...getItemProps({
+                                  onClick: handleEmojiClick,
+                                  ref(node: HTMLElement | null) {
+                                    listRef[index] = node ?? undefined;
+                                  },
+                                })}
+                              >
+                                {item().emoji}
+                              </Option>
+                            );
+                          }}
                         </For>
                       </div>
                     </Match>

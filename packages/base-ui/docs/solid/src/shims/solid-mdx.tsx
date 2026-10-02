@@ -4,7 +4,9 @@ import { Dynamic } from "@solidjs/web"
 import { mdxComponents } from "../components/mdx-components"
 
 type MDXComponent = (props: Record<string, unknown>) => JSX.Element
-export type MDXComponents = Record<string, MDXComponent | MDXComponents | undefined>
+export interface MDXComponents {
+	[key: string]: MDXComponent | MDXComponents | undefined
+}
 
 const MDXContext = createContext<MDXComponents>({})
 

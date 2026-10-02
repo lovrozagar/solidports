@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect, vi } from 'vitest';
 
 describe('<Dialog.Trigger />', () => {
   const { render } = createRenderer();
@@ -17,6 +17,20 @@ describe('<Dialog.Trigger />', () => {
       )),
     testComponentPropWith: 'button',
   }));
+
+  it('throws a descriptive error without a root or handle', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(() => render(() => <Dialog.Trigger />)).to.throw(
+        'Base UI: <Dialog.Trigger> must be used within <Dialog.Root> or provided with a handle.',
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
 
   describe('prop: disabled', () => {
     it('disables the dialog', async () => {

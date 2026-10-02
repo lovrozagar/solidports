@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Meter } from '@solidports/base-ui/meter';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'chai';
+import { expect } from 'vitest';
 
 describe('<Meter.Indicator />', () => {
   const { render } = createRenderer();
@@ -10,6 +10,44 @@ describe('<Meter.Indicator />', () => {
     refInstanceof: window.HTMLDivElement,
     render: (node, props) => render(() => <Meter.Root value={30}>{node(props!)}</Meter.Root>),
   }));
+
+  describe('value bounds', () => {
+    it('clamps the width to 100% when the value exceeds max', async () => {
+      render(() => (
+        <Meter.Root value={150}>
+          <Meter.Track>
+            <Meter.Indicator data-testid="indicator" />
+          </Meter.Track>
+        </Meter.Root>
+      ));
+
+      expect(screen.getByTestId('indicator').style.width).to.equal('100%');
+    });
+
+    it('clamps the width to 0% when the value is below min', async () => {
+      render(() => (
+        <Meter.Root value={-10}>
+          <Meter.Track>
+            <Meter.Indicator data-testid="indicator" />
+          </Meter.Track>
+        </Meter.Root>
+      ));
+
+      expect(screen.getByTestId('indicator').style.width).to.equal('0%');
+    });
+
+    it('produces a finite width when min equals max', async () => {
+      render(() => (
+        <Meter.Root value={5} min={5} max={5}>
+          <Meter.Track>
+            <Meter.Indicator data-testid="indicator" />
+          </Meter.Track>
+        </Meter.Root>
+      ));
+
+      expect(screen.getByTestId('indicator').style.width).to.equal('0%');
+    });
+  });
 
   describe.skipIf(isJSDOM)('internal styles', () => {
     it('sets positioning styles', async () => {

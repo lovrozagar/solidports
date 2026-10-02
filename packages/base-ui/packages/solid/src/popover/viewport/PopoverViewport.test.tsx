@@ -1,8 +1,8 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'chai';
-import { Show } from 'solid-js';
+import { expect } from 'vitest';
+import { createSignal, Show } from 'solid-js';
 
 describe('<Popover.Viewport />', () => {
   const { render } = createRenderer();
@@ -198,6 +198,96 @@ describe('<Popover.Viewport />', () => {
       });
 
       expect(document.querySelector('[data-current]')).toBeVisible();
+      expect(screen.getByText('Content 1')).toBeVisible();
+    });
+
+    it('should create morphing containers after a kept-mounted popup closes and reopens', async () => {
+      function TestComponent() {
+        const [open, setOpen] = createSignal(false);
+
+        return (
+          <div>
+            <style>
+              {`
+                [data-transitioning] [data-previous] {
+                  animation: slide-out 0.2s ease-out forwards;
+                }
+                [data-transitioning] [data-current] {
+                  animation: slide-in 0.2s ease-out forwards;
+                }
+                @keyframes slide-out {
+                  from { transform: translateX(0); opacity: 1; }
+                  to { transform: translateX(-30%); opacity: 0; }
+                }
+                @keyframes slide-in {
+                  from { transform: translateX(30%); opacity: 0; }
+                  to { transform: translateX(0); opacity: 1; }
+                }
+              `}
+            </style>
+            <button type="button" onClick={() => setOpen(false)}>
+              Close
+            </button>
+            <Popover.Root open={open()} onOpenChange={setOpen}>
+              {(rootProps) => (
+                <>
+                  <Popover.Trigger payload={0} data-testid="trigger1">
+                    Trigger 1
+                  </Popover.Trigger>
+                  <Popover.Trigger payload={1} data-testid="trigger2">
+                    Trigger 2
+                  </Popover.Trigger>
+                  <Popover.Portal keepMounted>
+                    <Popover.Positioner>
+                      <Popover.Popup data-testid="popup">
+                        <Popover.Viewport>Content {rootProps.payload as number}</Popover.Viewport>
+                      </Popover.Popup>
+                    </Popover.Positioner>
+                  </Popover.Portal>
+                </>
+              )}
+            </Popover.Root>
+          </div>
+        );
+      }
+
+      const { user } = render(() => <TestComponent />);
+
+      const trigger1 = screen.getByTestId('trigger1');
+      const trigger2 = screen.getByTestId('trigger2');
+
+      await user.click(trigger1);
+      await waitFor(() => {
+        expect(screen.getByText('Content 0')).toBeVisible();
+      });
+
+      await user.click(trigger2);
+      await waitFor(() => {
+        expect(document.querySelector('[data-previous]')).not.to.equal(null);
+      });
+      await waitFor(() => {
+        expect(document.querySelector('[data-previous]')).to.equal(null);
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+      await waitFor(() => {
+        expect(screen.getByTestId('popup')).not.toBeVisible();
+      });
+
+      await user.click(trigger1);
+      await waitFor(() => {
+        expect(screen.getByText('Content 0')).toBeVisible();
+      });
+
+      await user.click(trigger2);
+
+      let previousContainer: HTMLElement | null = null;
+      await waitFor(() => {
+        previousContainer = document.querySelector('[data-previous]');
+        expect(previousContainer).not.to.equal(null);
+      });
+
+      expect(previousContainer!.textContent).to.equal('Content 0');
       expect(screen.getByText('Content 1')).toBeVisible();
     });
 

@@ -22,8 +22,8 @@ const CHARTS = [
 	"sunburst",
 ] as const
 
-const SOLID_BASE = "http://localhost:5173"
-const REACT_BASE = "http://localhost:5174"
+const SOLID_BASE = "http://localhost:5183"
+const REACT_BASE = "http://localhost:5184"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REFERENCE_DIR = join(__dirname, "__snapshots__", "react-reference")

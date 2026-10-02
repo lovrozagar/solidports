@@ -13,7 +13,7 @@ import { useDialogRootContext } from '../root/DialogRootContext';
 export function DialogDescription(componentProps: DialogDescription.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['id']);
   const idProp = () => local.id;
-  const { store } = useDialogRootContext();
+  const store = useDialogRootContext();
 
   const id = useBaseUiId(idProp);
 

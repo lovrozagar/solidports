@@ -4,6 +4,7 @@ import type { ReactLikeRef } from '../../solid-helpers';
 
 export interface SelectItemContext {
   selected: Accessor<boolean>;
+  index: Accessor<number>;
   indexRef: ReactLikeRef<number>;
   textRef: ReactLikeRef<HTMLElement | null | undefined>;
   selectedByFocus: Accessor<boolean>;

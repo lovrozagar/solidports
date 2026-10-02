@@ -1,8 +1,8 @@
-import { flushMicrotasks } from '#test-utils';
+import { act, flushMicrotasks } from '#test-utils';
 import { isJSDOM } from '#utils/detectBrowser';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { createSignal, For, Show } from 'solid-js';
+import { createSignal, For, Show, untrack } from 'solid-js';
 import { describe, it, vi } from 'vitest';
 import { Main as ComplexGrid } from '../../../test/floating-ui-tests/ComplexGrid';
 import { Main as EmojiPicker } from '../../../test/floating-ui-tests/EmojiPicker';
@@ -12,12 +12,22 @@ import { Main as NestedMenu } from '../../../test/floating-ui-tests/Menu';
 import { HorizontalMenu } from '../../../test/floating-ui-tests/MenuOrientation';
 import { useClick, useDismiss, useFloating, useInteractions, useListNavigation } from '../index';
 import type { UseListNavigationProps } from '../types';
+import { gridNavigation } from './gridNavigation';
+import type { JSX } from '@solidjs/web';
 import { splitProps } from '../../solid-1-compat';
 
 function App(
-  inProps: Omit<Partial<UseListNavigationProps>, 'listRef'> & { disableFirstItem?: boolean } = {},
+  inProps: Omit<Partial<UseListNavigationProps>, 'listRef'> & {
+    disableFirstItem?: boolean;
+    hideFirstItem?: boolean;
+    firstItemStyle?: JSX.CSSProperties;
+  } = {},
 ) {
-  const [local, props] = splitProps(inProps, ['disableFirstItem']);
+  const [local, props] = splitProps(inProps, [
+    'disableFirstItem',
+    'hideFirstItem',
+    'firstItemStyle',
+  ]);
   const [open, setOpen] = createSignal(false);
   const [activeIndex, setActiveIndex] = createSignal<null | number>(null);
   const listRef: Array<HTMLLIElement | null> = [];
@@ -58,8 +68,7 @@ function App(
               {(string, index) => {
                 const disabledIndecies = () => {
                   if (typeof props.disabledIndices === 'function') {
-                    const resolved = props.disabledIndices(index);
-                    return typeof resolved === 'boolean' ? resolved : resolved.includes(index);
+                    return props.disabledIndices(index);
                   }
                   return props.disabledIndices?.includes(index);
                 };
@@ -67,9 +76,20 @@ function App(
                   // eslint-disable-next-line
                   <li
                     data-testid={`item-${index}`}
-                    aria-selected={activeIndex() === index}
+                    aria-selected={activeIndex() === index ? 'true' : 'false'}
+                    style={
+                      index === 0
+                        ? local.hideFirstItem
+                          ? { display: 'none' }
+                          : local.firstItemStyle
+                        : undefined
+                    }
                     tabindex={-1}
-                    aria-disabled={(local.disableFirstItem && index === 0) || disabledIndecies()}
+                    aria-disabled={
+                      (local.disableFirstItem && index === 0) || disabledIndecies()
+                        ? 'true'
+                        : 'false'
+                    }
                     {...getItemProps<HTMLLIElement>({
                       ref(node) {
                         listRef[index] = node;
@@ -88,7 +108,118 @@ function App(
   );
 }
 
+function VirtualizedGridRows(componentProps: {
+  totalItems?: number;
+  initialActiveIndex?: number;
+  loopFocus?: boolean;
+  disabledIndices?: UseListNavigationProps['disabledIndices'];
+  hiddenIndices?: number[];
+}) {
+  const COLUMNS = 5;
+  const VISIBLE_ROWS = 3;
+  const totalItems = componentProps.totalItems ?? 100;
+
+  const [open, setOpen] = createSignal(true);
+  const [activeIndex, setActiveIndex] = createSignal<number | null>(
+    untrack(() => componentProps.initialActiveIndex ?? 0),
+  );
+  // Solid: the list is sized up front, as React's effect does after mount (virtualized slots).
+  const listRef: Array<HTMLButtonElement | null> = [];
+  listRef.length = totalItems;
+
+  const { refs, context } = useFloating({
+    get open() {
+      return open();
+    },
+    onOpenChange: setOpen,
+  });
+
+  const { getReferenceProps, getFloatingProps, getItemProps } = useInteractions([
+    useListNavigation({
+      context,
+      props: {
+        listRef,
+        get activeIndex() {
+          return activeIndex();
+        },
+        onNavigate: setActiveIndex,
+        virtual: true,
+        get loopFocus() {
+          return componentProps.loopFocus ?? true;
+        },
+        orientation: 'horizontal',
+        get disabledIndices() {
+          return componentProps.disabledIndices;
+        },
+        grid: gridNavigation,
+      },
+    }),
+  ]);
+
+  const visibleIndices = Array.from({ length: VISIBLE_ROWS }, (_row, rowIndex) =>
+    Array.from(
+      { length: COLUMNS },
+      (_column, columnIndex) => rowIndex * COLUMNS + columnIndex,
+    ).filter((itemIndex) => itemIndex < totalItems),
+  );
+
+  return (
+    <>
+      <input
+        data-testid="virtual-grid-reference"
+        {...getReferenceProps({ ref: refs.setReference })}
+      />
+      <Show when={open()}>
+        <div
+          role="grid"
+          data-testid="virtual-grid-floating"
+          {...getFloatingProps({ ref: refs.setFloating })}
+        >
+          <For each={visibleIndices}>
+            {(row) => (
+              <div role="row">
+                <For each={row}>
+                  {(itemIndex) => (
+                    <button
+                      type="button"
+                      role="gridcell"
+                      style={
+                        componentProps.hiddenIndices?.includes(itemIndex)
+                          ? { display: 'none' }
+                          : undefined
+                      }
+                      data-active={activeIndex() === itemIndex ? '' : undefined}
+                      {...getItemProps<HTMLButtonElement>({
+                        ref(node) {
+                          listRef[itemIndex] = node;
+                        },
+                      })}
+                    >
+                      {itemIndex}
+                    </button>
+                  )}
+                </For>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+      <span data-testid="virtual-grid-active-index" data-active-index={activeIndex() ?? ''} />
+    </>
+  );
+}
+
 describe('useListNavigation', () => {
+  it('does not add role-dependent aria-orientation', async () => {
+    render(() => <App orientation="horizontal" />);
+
+    fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowRight' });
+    await waitFor(() => {
+      expect(screen.getByTestId('item-0')).toHaveFocus();
+    });
+
+    expect(screen.getByRole('menu')).not.toHaveAttribute('aria-orientation');
+  });
   it('opens on ArrowDown and focuses first item', async () => {
     render(() => <App />);
 
@@ -186,6 +317,36 @@ describe('useListNavigation', () => {
     });
   });
 
+  it('skips items hidden with CSS in navigation', async () => {
+    render(() => <App hideFirstItem loopFocus disabledIndices={[]} />);
+
+    fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowDown' });
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('item-1')).toHaveFocus();
+    });
+
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowUp' });
+    await waitFor(() => {
+      expect(screen.getByTestId('item-2')).toHaveFocus();
+    });
+  });
+
+  it('skips visibility:hidden items in navigation', async () => {
+    render(() => <App firstItemStyle={{ visibility: 'hidden' }} loopFocus disabledIndices={[]} />);
+
+    fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowDown' });
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('item-1')).toHaveFocus();
+    });
+
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'ArrowUp' });
+    await waitFor(() => {
+      expect(screen.getByTestId('item-2')).toHaveFocus();
+    });
+  });
+
   it('resets indexRef to -1 upon close', async () => {
     const data = ['a', 'ab', 'abc', 'abcd'];
 
@@ -274,7 +435,7 @@ describe('useListNavigation', () => {
                           (refs.domReference() as HTMLElement | null)?.focus();
                         },
                         ref(node) {
-                          listRef[index()] = node;
+                          listRef[untrack(index)] = node;
                         },
                       })}
                     >
@@ -320,7 +481,7 @@ describe('useListNavigation', () => {
     expect(screen.getByTestId('active-index').textContent).toBe('0');
   });
 
-  describe('loop', () => {
+  describe('prop: loopFocus', () => {
     it('ArrowDown looping', async () => {
       render(() => <App loopFocus />);
 
@@ -374,7 +535,7 @@ describe('useListNavigation', () => {
     });
   });
 
-  describe('orientation', () => {
+  describe('prop: orientation', () => {
     it('navigates down on ArrowRight', async () => {
       render(() => <App orientation="horizontal" />);
 
@@ -428,7 +589,7 @@ describe('useListNavigation', () => {
     });
   });
 
-  describe('rtl', () => {
+  describe('prop: rtl', () => {
     it('navigates down on ArrowLeft', async () => {
       render(() => <App rtl orientation="horizontal" />);
 
@@ -482,8 +643,8 @@ describe('useListNavigation', () => {
     });
   });
 
-  describe('focusItemOnOpen', () => {
-    it('true click', async () => {
+  describe('prop: focusItemOnOpen', () => {
+    it('focuses the first item on click when true', async () => {
       render(() => <App focusItemOnOpen />);
       fireEvent.click(screen.getByRole('button'));
       await waitFor(() => {
@@ -491,7 +652,7 @@ describe('useListNavigation', () => {
       });
     });
 
-    it('false click', async () => {
+    it('does not focus the first item on click when false', async () => {
       render(() => <App focusItemOnOpen={false} />);
       fireEvent.click(screen.getByRole('button'));
       await waitFor(() => {
@@ -500,8 +661,8 @@ describe('useListNavigation', () => {
     });
   });
 
-  describe('selectedIndex', () => {
-    it('scrollIntoView on open', async ({ onTestFinished }) => {
+  describe('prop: selectedIndex', () => {
+    it('scrolls the selected item into view on open', async ({ onTestFinished }) => {
       const requestAnimationFrame = vi
         .spyOn(window, 'requestAnimationFrame')
         .mockImplementation(() => 0);
@@ -525,7 +686,7 @@ describe('useListNavigation', () => {
   });
 
   describe('allowEscape + virtual', () => {
-    it('true', async () => {
+    it('when true', async () => {
       render(() => <App allowEscape virtual loopFocus />);
       fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowDown' });
       expect(screen.getByTestId('item-0').getAttribute('aria-selected')).toBe('true');
@@ -542,7 +703,7 @@ describe('useListNavigation', () => {
       await flushMicrotasks();
     });
 
-    it('false', async () => {
+    it('when false', async () => {
       render(() => <App allowEscape={false} virtual loopFocus />);
       fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowDown' });
       expect(screen.getByTestId('item-0').getAttribute('aria-selected')).toBe('true');
@@ -562,35 +723,35 @@ describe('useListNavigation', () => {
     });
   });
 
-  describe('openOnArrowKeyDown', () => {
-    it('true ArrowDown', async () => {
+  describe('prop: openOnArrowKeyDown', () => {
+    it('opens on ArrowDown when true', async () => {
       render(() => <App openOnArrowKeyDown />);
       fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowDown' });
       expect(screen.getByRole('menu')).toBeInTheDocument();
       await flushMicrotasks();
     });
 
-    it('true ArrowUp', async () => {
+    it('opens on ArrowUp when true', async () => {
       render(() => <App openOnArrowKeyDown />);
       fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowUp' });
       expect(screen.getByRole('menu')).toBeInTheDocument();
       await flushMicrotasks();
     });
 
-    it('false ArrowDown', () => {
+    it('does not open on ArrowDown when false', () => {
       render(() => <App openOnArrowKeyDown={false} />);
       fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowDown' });
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
-    it('false ArrowUp', () => {
+    it('does not open on ArrowUp when false', () => {
       render(() => <App openOnArrowKeyDown={false} />);
       fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowUp' });
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
   });
 
-  describe('disabledIndices', () => {
+  describe('prop: disabledIndices', () => {
     it('indices are skipped in focus order', async () => {
       render(() => <App disabledIndices={[0]} />);
       fireEvent.keyDown(screen.getByRole('button'), { key: 'ArrowDown' });
@@ -604,15 +765,84 @@ describe('useListNavigation', () => {
     });
   });
 
-  describe('focusOnHover', () => {
+  describe('prop: focusItemOnHover', () => {
+    it.skipIf(isJSDOM)(
+      'cancels pending item focus when the pointer leaves before focus lands',
+      async () => {
+        const frameCallbacks = new Map<number, FrameRequestCallback>();
+        let frameId = 0;
+        const requestAnimationFrameSpy = vi
+          .spyOn(window, 'requestAnimationFrame')
+          .mockImplementation((callback) => {
+            frameId += 1;
+            frameCallbacks.set(frameId, callback);
+            return frameId;
+          });
+        const cancelAnimationFrameSpy = vi
+          .spyOn(window, 'cancelAnimationFrame')
+          .mockImplementation((id) => {
+            frameCallbacks.delete(id);
+          });
+        const spy = vi.fn();
+
+        try {
+          render(() => <App focusItemOnOpen onNavigate={(index) => spy(index)} />);
+
+          fireEvent.click(screen.getByRole('button'));
+          await flushMicrotasks();
+
+          const menu = screen.getByRole('menu');
+          const item = screen.getByTestId('item-0');
+
+          expect(item).toHaveAttribute('aria-selected', 'true');
+          expect(item).not.toHaveFocus();
+
+          fireEvent.pointerLeave(item, {
+            pointerType: 'mouse',
+            relatedTarget: document.body,
+          });
+
+          act(() => {
+            const callbacks = Array.from(frameCallbacks.values());
+            frameCallbacks.clear();
+            callbacks.forEach((callback) => callback(performance.now()));
+          });
+
+          expect(item).not.toHaveFocus();
+          expect(menu).not.toHaveFocus();
+          await waitFor(() => {
+            expect(item).toHaveAttribute('aria-selected', 'false');
+          });
+          expect(spy).toHaveBeenLastCalledWith(null);
+        } finally {
+          requestAnimationFrameSpy.mockRestore();
+          cancelAnimationFrameSpy.mockRestore();
+        }
+      },
+    );
+
     it('true - focuses item on hover and syncs the active index', async () => {
       const spy = vi.fn();
       render(() => <App onNavigate={(index) => spy(index)} />);
       fireEvent.click(screen.getByRole('button'));
-      fireEvent.mouseMove(screen.getByTestId('item-1'));
+      fireEvent.mouseMove(screen.getByTestId('item-1'), { movementX: 10, movementY: 10 });
       expect(screen.getByTestId('item-1')).toHaveFocus();
       fireEvent.pointerLeave(screen.getByTestId('item-1'));
       expect(screen.getByRole('menu')).toHaveFocus();
+      expect(spy.mock.calls.some((args) => args[0] === 1)).toBe(true);
+      await flushMicrotasks();
+    });
+
+    it('true - syncs an item on hover when activeIndex is null but selectedIndex matches', async () => {
+      const spy = vi.fn();
+      render(() => (
+        <App focusItemOnOpen={false} selectedIndex={1} onNavigate={(index) => spy(index)} />
+      ));
+
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.mouseMove(screen.getByTestId('item-1'), { movementX: 10, movementY: 10 });
+
+      expect(screen.getByTestId('item-1')).toHaveFocus();
       expect(spy).toHaveBeenCalledWith(1);
       await flushMicrotasks();
     });
@@ -623,10 +853,69 @@ describe('useListNavigation', () => {
         <App onNavigate={(index) => spy(index)} focusItemOnOpen={false} focusItemOnHover={false} />
       ));
       fireEvent.click(screen.getByRole('button'));
-      fireEvent.mouseMove(screen.getByTestId('item-1'));
+      fireEvent.mouseMove(screen.getByTestId('item-1'), { movementX: 10, movementY: 10 });
       expect(screen.getByTestId('item-1')).not.toHaveFocus();
       expect(spy).toHaveBeenCalledTimes(0);
       await flushMicrotasks();
+    });
+
+    it('clears the active item when the pointer leaves a clipped container while still within the item bounds', async () => {
+      const spy = vi.fn();
+      render(() => <App onNavigate={(index) => spy(index)} />);
+
+      fireEvent.click(screen.getByRole('button'));
+
+      const menu = screen.getByRole('menu');
+      const item = screen.getByTestId('item-1');
+
+      menu.style.overflow = 'auto';
+      menu.style.maxHeight = '40px';
+
+      vi.spyOn(menu, 'getBoundingClientRect').mockReturnValue({
+        x: 0,
+        y: 0,
+        top: 0,
+        right: 100,
+        bottom: 40,
+        left: 0,
+        width: 100,
+        height: 40,
+        toJSON() {
+          return {};
+        },
+      });
+
+      vi.spyOn(item, 'getBoundingClientRect').mockReturnValue({
+        x: 0,
+        y: 0,
+        top: 0,
+        right: 100,
+        bottom: 80,
+        left: 0,
+        width: 100,
+        height: 80,
+        toJSON() {
+          return {};
+        },
+      });
+
+      fireEvent.mouseMove(item, { movementX: 10, movementY: 10 });
+
+      await waitFor(() => {
+        expect(item).toHaveFocus();
+      });
+
+      fireEvent.pointerLeave(item, {
+        clientX: 50,
+        clientY: 60,
+        pointerType: 'mouse',
+        relatedTarget: document.body,
+      });
+
+      await waitFor(() => {
+        expect(item).toHaveAttribute('aria-selected', 'false');
+      });
+      expect(spy.mock.calls.at(-1)?.[0]).toBe(null);
     });
   });
 
@@ -636,7 +925,7 @@ describe('useListNavigation', () => {
 
       fireEvent.click(screen.getByRole('button'));
       expect(screen.getByRole('menu')).toBeInTheDocument();
-      fireEvent.keyDown(screen.getByTestId('floating'), { key: 'ArrowDown' });
+      fireEvent.keyDown(document, { key: 'ArrowDown' });
       await waitFor(() => {
         expect(screen.getAllByRole('option')[8]).toHaveFocus();
       });
@@ -799,9 +1088,141 @@ describe('useListNavigation', () => {
       expect(screen.getAllByRole('option')[46]).toHaveFocus();
       await flushMicrotasks();
     });
+
+    it('wraps ArrowUp to the last row in the full list for virtualized rows', async () => {
+      render(() => <VirtualizedGridRows />);
+
+      const reference = screen.getByTestId('virtual-grid-reference');
+      act(() => {
+        reference.focus();
+      });
+
+      await userEvent.keyboard('{ArrowUp}');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('virtual-grid-active-index')).toHaveAttribute(
+          'data-active-index',
+          '95',
+        );
+      });
+    });
+
+    it('clamps ArrowUp to the last item in a partial last row for virtualized rows', async () => {
+      render(() => <VirtualizedGridRows totalItems={98} initialActiveIndex={4} />);
+
+      const reference = screen.getByTestId('virtual-grid-reference');
+      act(() => {
+        reference.focus();
+      });
+
+      await userEvent.keyboard('{ArrowUp}');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('virtual-grid-active-index')).toHaveAttribute(
+          'data-active-index',
+          '97',
+        );
+      });
+    });
+
+    it('clamps ArrowDown into a partial last row for virtualized rows', async () => {
+      render(() => <VirtualizedGridRows totalItems={98} initialActiveIndex={93} />);
+
+      const reference = screen.getByTestId('virtual-grid-reference');
+      act(() => {
+        reference.focus();
+      });
+
+      await userEvent.keyboard('{ArrowDown}');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('virtual-grid-active-index')).toHaveAttribute(
+          'data-active-index',
+          '97',
+        );
+      });
+    });
+
+    it('does not wrap ArrowUp when loopFocus is false for virtualized rows', async () => {
+      render(() => (
+        <VirtualizedGridRows totalItems={98} initialActiveIndex={4} loopFocus={false} />
+      ));
+
+      const reference = screen.getByTestId('virtual-grid-reference');
+      act(() => {
+        reference.focus();
+      });
+
+      await userEvent.keyboard('{ArrowUp}');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('virtual-grid-active-index')).toHaveAttribute(
+          'data-active-index',
+          '4',
+        );
+      });
+    });
+
+    it('still clamps ArrowDown into a partial last row when loopFocus is false', async () => {
+      render(() => (
+        <VirtualizedGridRows totalItems={98} initialActiveIndex={93} loopFocus={false} />
+      ));
+
+      const reference = screen.getByTestId('virtual-grid-reference');
+      act(() => {
+        reference.focus();
+      });
+
+      await userEvent.keyboard('{ArrowDown}');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('virtual-grid-active-index')).toHaveAttribute(
+          'data-active-index',
+          '97',
+        );
+      });
+    });
+
+    it('falls back left in a partial last row when the preferred candidate is disabled', async () => {
+      render(() => (
+        <VirtualizedGridRows totalItems={98} initialActiveIndex={93} disabledIndices={[97]} />
+      ));
+
+      const reference = screen.getByTestId('virtual-grid-reference');
+      act(() => {
+        reference.focus();
+      });
+
+      await userEvent.keyboard('{ArrowDown}');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('virtual-grid-active-index')).toHaveAttribute(
+          'data-active-index',
+          '96',
+        );
+      });
+    });
+
+    it('falls back left when the preferred candidate is hidden', async () => {
+      render(() => <VirtualizedGridRows initialActiveIndex={9} hiddenIndices={[14]} />);
+
+      const reference = screen.getByTestId('virtual-grid-reference');
+      act(() => {
+        reference.focus();
+      });
+
+      await userEvent.keyboard('{ArrowDown}');
+
+      await waitFor(() => {
+        expect(screen.getByTestId('virtual-grid-active-index')).toHaveAttribute(
+          'data-active-index',
+          '13',
+        );
+      });
+    });
   });
 
-  describe('grid navigation when items have different sizes', () => {
+  describe('grid navigation in a multi-column grid with disabled items', () => {
     it('focuses first non-disabled item in grid', async () => {
       render(() => <ComplexGrid />);
       fireEvent.keyDown(screen.getByRole('button'), { key: 'Enter' });
@@ -1152,7 +1573,7 @@ describe('useListNavigation', () => {
                     // eslint-disable-next-line jsx-a11y/role-supports-aria-props
                     <li
                       data-testid={`item-${index}`}
-                      aria-selected={activeIndex() === index}
+                      aria-selected={activeIndex() === index ? 'true' : 'false'}
                       tabindex={-1}
                       {...getItemProps({
                         ref(node) {
