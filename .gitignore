@@ -9,6 +9,7 @@ node_modules
 **/*.tsbuildinfo
 **/.wrangler/
 **/.output
+**/.next/
 **/.nitro
 **/.vinxi
 **/.vercel/
@@ -38,5 +39,12 @@ ISSUES.md
 
 .cache/
 
+# merge leftovers
+*.orig
+*.rej
+
 # regenerable upstream clones
 packages/recharts/opensrc/repos
+packages/recharts/.upstream/cache/
+packages/recharts/.upstream/patches/
+packages/recharts/.upstream/last-diff.patch

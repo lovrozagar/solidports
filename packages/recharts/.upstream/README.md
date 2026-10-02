@@ -20,7 +20,7 @@ If you need to inspect upstream source, run `bun run upstream:fetch`.
 
 ```bash
 # Fetch or reuse cached upstream clone
-cd /home/ecomet/Development/monorepo/public/solid-ports/recharts
+cd packages/recharts
 bun run upstream:fetch
 
 # Check how far behind the pin we are
