@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -91,7 +91,7 @@ function AnchoredToasts() {
   return (
     <Toast.Portal>
       <Toast.Viewport class={styles.AnchoredViewport}>
-        {toasts().map((toast) => (
+        <For each={toasts()}>{(toast) => (
           <Toast.Positioner toast={toast} class={styles.AnchoredPositioner}>
             <Toast.Root toast={toast} class={styles.AnchoredToast}>
               <Toast.Arrow class={styles.Arrow} />
@@ -100,7 +100,7 @@ function AnchoredToasts() {
               </Toast.Content>
             </Toast.Root>
           </Toast.Positioner>
-        ))}
+        )}</For>
       </Toast.Viewport>
     </Toast.Portal>
   );
@@ -111,7 +111,7 @@ function StackedToasts() {
   return (
     <Toast.Portal>
       <Toast.Viewport class={styles.StackedViewport}>
-        {toasts().map((toast) => (
+        <For each={toasts()}>{(toast) => (
           <Toast.Root toast={toast} class={styles.StackedToast}>
             <Toast.Content class={styles.Content}>
               <div class={styles.Text}>
@@ -121,7 +121,7 @@ function StackedToasts() {
               <Toast.Close class={styles.Close}>Dismiss</Toast.Close>
             </Toast.Content>
           </Toast.Root>
-        ))}
+        )}</For>
       </Toast.Viewport>
     </Toast.Portal>
   );

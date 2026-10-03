@@ -10,7 +10,8 @@ import {
   FloatingTree,
   useDismiss,
   useFloatingNodeId,
-  useFloatingParentNodeId,
+  useFloatingParentNodeIdAccessor,
+  useHasFloatingParentNode,
   useListNavigation,
   useSyncedFloatingRootContext,
   useTypeahead,
@@ -105,7 +106,10 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
 
   const rootId = useId();
   const floatingId = useId();
-  const floatingParentNodeIdFromContext = useFloatingParentNodeId();
+  const floatingParentNodeIdFromContext = useFloatingParentNodeIdAccessor();
+  // Solid: the parent node's id can arrive after this root is created; being inside a node is what
+  // React's `floatingParentNodeId != null` means once it has.
+  const hasFloatingParentNode = useHasFloatingParentNode();
 
   const parentMenuStore = parentFromContext.type === 'menu' ? parentFromContext.store : undefined;
   // An initially open submenu should animate in only when the user watches it appear, i.e. when
@@ -141,7 +145,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
       instantType: seededInstantType,
     })),
     untrack(floatingId),
-    floatingParentNodeIdFromContext != null,
+    hasFloatingParentNode,
   );
 
   store.useControlledProp('openProp', openProp);
@@ -266,8 +270,11 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   );
 
   createRenderEffect(
-    () => floatingNodeIdFromContext(),
-    (floatingNodeId) => {
+    () => ({
+      floatingNodeId: floatingNodeIdFromContext(),
+      floatingParentNodeId: floatingParentNodeIdFromContext(),
+    }),
+    ({ floatingNodeId, floatingParentNodeId }) => {
       if (contextMenuContext && !parentMenuRootContext) {
         // This is a context menu root.
         // It doesn't support detached triggers yet, so we have to sync the parent context manually.
@@ -277,12 +284,12 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
             context: contextMenuContext,
           },
           floatingNodeId,
-          floatingParentNodeId: floatingParentNodeIdFromContext,
+          floatingParentNodeId,
         });
       } else if (parentMenuRootContext) {
         store.update({
           floatingNodeId,
-          floatingParentNodeId: floatingParentNodeIdFromContext,
+          floatingParentNodeId,
         });
       }
     },
@@ -434,7 +441,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     popupStore: store,
     floatingRootContext: store.context.floatingRootContext,
     floatingId,
-    nested: floatingParentNodeIdFromContext != null,
+    nested: hasFloatingParentNode,
     onOpenChange: setOpen,
   });
 
@@ -542,6 +549,10 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   });
 
   const direction = useDirection();
+
+  // List navigation resets the highlight from an effect once the menu closes. Solid derives the
+  // reset, so a closed menu has no active item in the same flush.
+  store.useSyncedValue('activeIndex', (prev) => (open() ? prev : null));
 
   const setActiveIndex = (index: number | null) => {
     if (store.select('activeIndex') === index) {

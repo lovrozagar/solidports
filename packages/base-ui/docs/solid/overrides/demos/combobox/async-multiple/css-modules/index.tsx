@@ -1,4 +1,4 @@
-import { type Accessor, createMemo, createSignal, createUniqueId } from 'solid-js';
+import { type Accessor, createMemo, createSignal, createUniqueId, For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Combobox } from '@solidports/base-ui/combobox';
 import styles from './index.module.css';
@@ -144,7 +144,7 @@ export default function ExampleAsyncMultipleCombobox() {
                 class={styles.Chips}
                 aria-label={value().length > 0 ? 'Selected reviewers' : undefined}
               >
-                {value().map((user) => (
+                <For each={value()}>{(user) => (
                   <Combobox.Chip
                     class={styles.Chip}
                     aria-label={user.name}
@@ -158,7 +158,7 @@ export default function ExampleAsyncMultipleCombobox() {
                       <XIcon />
                     </Combobox.ChipRemove>
                   </Combobox.Chip>
-                ))}
+                )}</For>
                 <Combobox.Input
                   id={id}
                   placeholder={value().length > 0 ? '' : 'e.g. Michael'}

@@ -1,4 +1,4 @@
-import { createUniqueId, type Accessor } from 'solid-js';
+import { createUniqueId, For, type Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -21,7 +21,7 @@ export default function ExampleMultipleCombobox() {
                 class={styles.Chips}
                 aria-label={value().length > 0 ? 'Selected languages' : undefined}
               >
-                {value().map((language) => (
+                <For each={value()}>{(language) => (
                   <Combobox.Chip
                     class={styles.Chip}
                     aria-label={language.value}
@@ -35,7 +35,7 @@ export default function ExampleMultipleCombobox() {
                       <XIcon />
                     </Combobox.ChipRemove>
                   </Combobox.Chip>
-                ))}
+                )}</For>
                 <Combobox.Input
                   id={id}
                   placeholder={value().length > 0 ? '' : 'e.g. TypeScript'}

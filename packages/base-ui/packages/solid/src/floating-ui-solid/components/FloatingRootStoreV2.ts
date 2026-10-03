@@ -19,6 +19,11 @@ export interface FloatingRootState {
   positionReference: ReferenceType | null | undefined;
   /** The ID of the floating element. */
   floatingId: string | undefined;
+  /**
+   * Whether the floating element is mounted. While it is not, the element selectors read `null`.
+   * Solid: React clears the elements once the popup unmounts; deriving it keeps them in sync.
+   */
+  elementsMounted: boolean;
 }
 
 export interface FloatingRootStoreContext {
@@ -32,11 +37,14 @@ export interface FloatingRootStoreContext {
 }
 
 const selectors = {
-  domReferenceElement: (state: FloatingRootState) => state.domReferenceElement,
-  floatingElement: (state: FloatingRootState) => state.floatingElement,
+  domReferenceElement: (state: FloatingRootState) =>
+    state.elementsMounted ? state.domReferenceElement : null,
+  floatingElement: (state: FloatingRootState) =>
+    state.elementsMounted ? state.floatingElement : null,
   floatingId: (state: FloatingRootState) => state.floatingId,
   open: (state: FloatingRootState) => state.open,
-  referenceElement: (state: FloatingRootState) => state.positionReference ?? state.referenceElement,
+  referenceElement: (state: FloatingRootState) =>
+    state.elementsMounted ? (state.positionReference ?? state.referenceElement) : null,
   transitionStatus: (state: FloatingRootState) => state.transitionStatus,
 };
 
@@ -63,6 +71,7 @@ export function FloatingRootStore(options: FloatingRootStoreOptions) {
       [
         {
           domReferenceElement: options.referenceElement as Element | null | undefined,
+          elementsMounted: true,
           floatingElement: options.floatingElement,
           floatingId: options.floatingId,
           open: options.open,

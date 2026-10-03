@@ -33,6 +33,7 @@ import {
   type MaybeAccessor,
   type MaybeAccessorValue,
   type ReactLikeRef,
+  shallowEqual,
 } from '../solid-helpers';
 import { DEFAULT_SIDES } from './adaptiveOriginMiddleware';
 import { hide } from './hideMiddleware';
@@ -140,16 +141,10 @@ export function useAnchorPositioning(
   const adaptiveOrigin = () => access(params.adaptiveOrigin);
   const lazyFlip = () => access(params.lazyFlip) ?? false;
 
-  const [mountSide, setMountSide] = createSignal<PhysicalSide | null>(null);
-
-  // React resets the locked side during render once the popup unmounts.
-  createEffect(
-    () => !mounted() && mountSide() !== null,
-    (shouldReset) => {
-      if (shouldReset) {
-        setMountSide(null);
-      }
-    },
+  // React resets the locked side during render once the popup unmounts. Solid derives the reset:
+  // the lock written below stands while mounted.
+  const [mountSide, setMountSide] = createSignal<PhysicalSide | null>((prev) =>
+    mounted() ? (prev ?? null) : null,
   );
 
   const collisionAvoidanceSide = () => collisionAvoidance().side || 'flip';
@@ -161,20 +156,21 @@ export function useAnchorPositioning(
   const direction = useDirection();
   const isRtl = () => direction() === 'rtl';
 
-  const side = createMemo(
+  // The requested side, before a lazy-flip lock.
+  const baseSide = createMemo(
     () =>
-      mountSide() ||
       (
-        {
+        ({
           top: 'top',
           right: 'right',
           bottom: 'bottom',
           left: 'left',
           'inline-end': isRtl() ? 'left' : 'right',
           'inline-start': isRtl() ? 'right' : 'left',
-        } satisfies Record<Side, PhysicalSide>
+        }) satisfies Record<Side, PhysicalSide>
       )[sideParam()],
   );
+  const side = createMemo(() => mountSide() || baseSide());
 
   const placement = () => (align() === 'center' ? side() : (`${side()}-${align()}` as Placement));
 
@@ -447,22 +443,10 @@ export function useAnchorPositioning(
     return middlewareArray;
   });
 
-  // Layout-effect timing, as React's `useIsoLayoutEffect`.
-  createDepsRenderEffect(
-    () => ({ mounted: mounted(), floatingRootContext: params.floatingRootContext }),
-    (deps) => {
-      // Ensure positioning doesn't run initially for `keepMounted` elements that
-      // aren't initially open.
-      if (!deps.mounted && deps.floatingRootContext) {
-        deps.floatingRootContext.update({
-          referenceElement: null,
-          floatingElement: null,
-          domReferenceElement: null,
-          positionReference: null,
-        });
-      }
-    },
-  );
+  // Ensure positioning doesn't run initially for `keepMounted` elements that aren't initially open.
+  // React clears the root's elements in a layout effect once unmounted; Solid derives it, so the
+  // elements read `null` in the same flush as `mounted`.
+  untrack(() => params.floatingRootContext)?.useSyncedValue('elementsMounted', mounted);
 
   const autoUpdateOptions = createMemo<AutoUpdateOptions>(() => ({
     ancestorScroll: !disableAnchorTracking(),
@@ -612,7 +596,7 @@ export function useAnchorPositioning(
   // the size of the popup dynamically to avoid unwanted flipping when typing.
   createEffect(
     () =>
-      lazyFlip() && mounted() && isPositioned() && renderedSide() !== side()
+      lazyFlip() && mounted() && isPositioned() && renderedSide() !== baseSide()
         ? renderedSide()
         : null,
     (sideToLock) => {
@@ -623,14 +607,18 @@ export function useAnchorPositioning(
   );
 
   // Solid: style values need explicit units.
-  const arrowStyles = createMemo<JSX.CSSProperties>(() => {
-    const arrowData = middlewareData().arrow;
-    return {
-      position: 'absolute',
-      top: arrowData?.y == null ? undefined : `${arrowData.y}px`,
-      left: arrowData?.x == null ? undefined : `${arrowData.x}px`,
-    };
-  });
+  // Solid: equal style objects keep the memo closed (React keeps them via `useMemo` deps).
+  const arrowStyles = createMemo<JSX.CSSProperties>(
+    () => {
+      const arrowData = middlewareData().arrow;
+      return {
+        position: 'absolute',
+        top: arrowData?.y == null ? undefined : `${arrowData.y}px`,
+        left: arrowData?.x == null ? undefined : `${arrowData.x}px`,
+      };
+    },
+    { equals: shallowEqual },
+  );
 
   const arrowUncentered = () => middlewareData().arrow?.centerOffset !== 0;
 

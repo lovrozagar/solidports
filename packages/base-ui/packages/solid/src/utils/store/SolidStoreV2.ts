@@ -2,7 +2,6 @@
 import {
   createEffect,
   createMemo,
-  createRenderEffect,
   createSignal,
   createStore,
   getObserver,
@@ -12,7 +11,13 @@ import {
 } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { Store } from 'solid-js';
-import { access, type MaybeAccessor, type MaybeAccessorValue } from '../../solid-helpers';
+import {
+  access,
+  createDepsEffect,
+  createDepsMemo,
+  type MaybeAccessor,
+  type MaybeAccessorValue,
+} from '../../solid-helpers';
 import { NOOP } from '../empty';
 import type { SetStoreFunction } from '../../solid-1-compat';
 
@@ -41,11 +46,11 @@ export function SolidStore<
    * is derived from `value` (a writable memo) rather than copied by an effect, so readers see the
    * synced value in the same flush as its source. A `set` overrides it until `value` changes.
    */
-  function useSyncedValue<Key extends keyof State, Value extends State[Key]>(
-    key: keyof State,
-    value: Accessor<Value>,
+  function useSyncedValue<Key extends keyof State>(
+    key: Key,
+    value: Accessor<State[Key]> | ((prev: State[Key]) => State[Key]),
   ) {
-    bindStoreKey(state, setState, key, value);
+    bindStoreKey(state, setState, key, value as BindingSource);
   }
 
   function useSyncedValueWithCleanup<Key extends KeysAllowingUndefined<State>>(
@@ -72,13 +77,37 @@ export function SolidStore<
       });
     }
 
-    // As React, sync each entry rather than the object identity. Keys are stable (checked above).
-    const keys = Object.keys(untrack(() => access(statePart as any)) as object);
-    for (const key of keys) {
-      bindStoreKey(state, setState, key as keyof State, () =>
-        access((access(statePart as any) as Record<string, unknown>)[key]),
+    if (!storeBinders.has(state)) {
+      // A store created elsewhere: copy the entries. As React, depend on the entries rather than
+      // on the object identity.
+      createDepsEffect(
+        () => readSyncedSnapshot(statePart as any),
+        (snapshot) => {
+          setState(snapshot as any);
+        },
       );
+      return;
     }
+
+    // As React, the entries are synced together: a change to any entry re-syncs every key (React
+    // writes the whole part), which also drops values `set` over them since. A change of object
+    // identity alone does not. Keys are stable (checked above).
+    const snapshot = createDepsMemo(() => readSyncedSnapshot(statePart as any));
+    for (const key of Object.keys(untrack(snapshot))) {
+      bindStoreKey(state, setState, key as keyof State, () => snapshot()[key]);
+    }
+  }
+
+  function readSyncedSnapshot(
+    statePart: Accessor<Partial<State>> | Partial<{ [key: string]: MaybeAccessor<unknown> }>,
+  ) {
+    const part = access(statePart) as Record<string, unknown>;
+    const snapshot: Record<string, unknown> = {};
+    // eslint-disable-next-line guard-for-in
+    for (const key in part) {
+      snapshot[key] = access(part[key]);
+    }
+    return snapshot;
   }
 
   function useControlledProp<Key extends keyof State, Value extends State[Key]>(
@@ -87,11 +116,12 @@ export function SolidStore<
   ): void {
     const controlled = createMemo(() => access(controlledProp));
 
-    // Layout-effect timing, as React: descendants' effects see the controlled value.
-    createRenderEffect(controlled, (value) => {
-      if (value !== undefined) {
-        setState(key as any, value);
-      }
+    // React writes a defined controlled value into the store in a layout effect. Solid derives it:
+    // the key follows the controlled value while there is one, and keeps the store's own value
+    // (written by uncontrolled updates) otherwise.
+    bindStoreKey(state, setState, key, (prev) => {
+      const value = controlled();
+      return value !== undefined ? value : prev;
     });
 
     if (process.env.NODE_ENV !== 'production') {
@@ -426,10 +456,17 @@ export function createStoreState<State extends object>(
     );
   }
 
-  function bind(key: PropertyKey, source: Accessor<unknown>, clearOnCleanup: boolean) {
+  function bind(key: PropertyKey, source: BindingSource, clearOnCleanup: boolean) {
+    if (computedKeys.has(key)) {
+      // A getter field is already live, and `set` ignores it.
+      return;
+    }
     // Re-deriving from `source` drops an override written with `set` (React re-syncs on render).
-    const [value, setValue] = createSignal<unknown>(() => {
-      const next = source();
+    // The first derivation sees the key's value from before binding as `prev`.
+    let unbound: { value: unknown } | null = { value: latest(key) };
+    const [value, setValue] = createSignal<unknown>((prev: unknown) => {
+      const next = source(unbound ? unbound.value : prev);
+      unbound = null;
       written.delete(key);
       return next;
     });
@@ -471,6 +508,9 @@ export function createStoreState<State extends object>(
 
 const BINDING = Symbol('binding');
 
+/** A synced value's source. It receives the key's previous value (or the value last `set`). */
+type BindingSource = (prev: unknown) => unknown;
+
 interface Binding {
   [BINDING]: true;
   value: Accessor<unknown>;
@@ -483,7 +523,7 @@ function isBinding(value: unknown): value is Binding {
 
 const storeBinders = new WeakMap<
   object,
-  (key: PropertyKey, source: Accessor<unknown>, clearOnCleanup: boolean) => void
+  (key: PropertyKey, source: BindingSource, clearOnCleanup: boolean) => void
 >();
 
 /**
@@ -493,7 +533,7 @@ function bindStoreKey<State extends object>(
   state: State,
   setState: SetStoreFunction<State>,
   key: keyof State,
-  source: Accessor<unknown>,
+  source: BindingSource,
   options: { clearOnCleanup?: boolean } = {},
 ) {
   const bind = storeBinders.get(state);
@@ -502,9 +542,12 @@ function bindStoreKey<State extends object>(
     return;
   }
   // A store created elsewhere: copy the value.
-  createEffect(source, (next) => {
-    (setState as any)(key, next);
-  });
+  createEffect(
+    () => source(undefined),
+    (next) => {
+      (setState as any)(key, next);
+    },
+  );
   if (options.clearOnCleanup) {
     onCleanup(() => (setState as any)(key, undefined));
   }

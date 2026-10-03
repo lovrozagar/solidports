@@ -87,11 +87,24 @@ export function useRenderElement<
         objects.add(ref as { current: unknown });
       }
     };
+    // Reads only the `ref` of each props source (the sources `merged` combines), so a change to any
+    // other prop does not re-run the ref sync. Tracking the whole merged props would make a ref
+    // that writes state those props read (a part registering its element) re-run its own sync.
     const readRefs = () => {
       const callbacks = new Set<Function>();
       const objects = new Set<{ current: unknown }>();
       collectRefs(componentProps.ref, callbacks, objects);
-      collectRefs((merged() as { ref?: unknown }).ref, callbacks, objects);
+      collectRefs((renderProps as { ref?: unknown }).ref, callbacks, objects);
+      const render = renderProp();
+      if (render != null && typeof render === 'object') {
+        collectRefs((render as { ref?: unknown }).ref, callbacks, objects);
+      }
+      const partProps = Array.isArray(params.props) ? params.props.flat() : [params.props];
+      partProps.forEach((partProp) => {
+        if (partProp != null && typeof partProp === 'object') {
+          collectRefs((partProp as { ref?: unknown }).ref, callbacks, objects);
+        }
+      });
       collectRefs(params.ref, callbacks, objects);
       return { callbacks, objects };
     };

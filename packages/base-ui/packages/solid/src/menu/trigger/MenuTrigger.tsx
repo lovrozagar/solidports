@@ -1,4 +1,12 @@
-import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onSettled,
+  Show,
+  untrack,
+} from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
@@ -373,16 +381,15 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
 
   // Solid-only: React keys the element so it stays the same DOM node when the guards mount. Solid's
   // list diff instead replaces the trigger node when guards appear on both sides in one update,
-  // which blurs a focused trigger. The leading guard mounts one update after the trailing one (an
-  // effect runs after the DOM commit), so each mount is a plain insertion.
-  const [leadingGuardReady, setLeadingGuardReady] = createSignal(false);
-  createEffect(isOpenedByThisTrigger, (opened) => {
-    setLeadingGuardReady(opened);
+  // which blurs a focused trigger. The leading guard mounts once the trailing guard is in the DOM,
+  // so each mount is a plain insertion.
+  const [trailingGuardAttached, setTrailingGuardAttached] = createSignal(false, {
+    ownedWrite: true,
   });
 
   return (
     <>
-      <Show when={isOpenedByThisTrigger() && leadingGuardReady()}>
+      <Show when={isOpenedByThisTrigger() && trailingGuardAttached()}>
         <TriggerFocusGuard guardRef={preFocusGuardRef} onFocus={handlePreFocusGuardFocus} />
       </Show>
       {element()}
@@ -390,6 +397,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
         <TriggerFocusGuard
           guardRef={store().context.triggerFocusTargetRef}
           onFocus={handleFocusTargetFocus}
+          onAttach={setTrailingGuardAttached}
         />
       </Show>
     </>
@@ -403,12 +411,18 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
 function TriggerFocusGuard(props: {
   guardRef: ReactLikeRef<HTMLElement | null | undefined>;
   onFocus: (event: FocusEvent) => void;
+  onAttach?: ((attached: boolean) => void) | undefined;
 }) {
   let guard: HTMLElement | null = null;
+  // After the guard is in the DOM, not when its ref runs (that is still the same update).
+  onSettled(() => {
+    props.onAttach?.(true);
+  });
   onCleanup(() => {
     if (props.guardRef.current === guard) {
       props.guardRef.current = null;
     }
+    props.onAttach?.(false);
   });
 
   return (

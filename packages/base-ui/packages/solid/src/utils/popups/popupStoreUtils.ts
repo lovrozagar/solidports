@@ -271,11 +271,9 @@ export function usePopupRootSync<
   store: SolidStore<State, PopupStoreContext<any>, typeof popupStoreSelectors>,
   open: Accessor<boolean>,
 ) {
-  createRenderEffect(open, (isOpen) => {
-    if (!isOpen && store.state.openMethod !== null) {
-      store.set('openMethod' as any, null);
-    }
-  });
+  // React clears `openMethod` in a layout effect once closed. Solid derives it: the trigger's write
+  // stands while open, and closing resets it in the same flush.
+  store.useSyncedValue('openMethod', (prev) => (open() ? prev : null));
 
   onCleanup(() => {
     if (store.state.openMethod !== null) {
@@ -471,13 +469,23 @@ export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(
   // Distinguishes a trigger that unmounted from a new active trigger that has not hydrated yet.
   let resolvedActiveTriggerId: string | null = null;
 
+  // Solid: the open popup's trigger count is derived from the registry. React writes it here and
+  // when a trigger registers, and reruns this reconciliation on that write.
+  store.useSyncedValue(
+    'triggerCount',
+    () =>
+      (store.select('open')
+        ? store.context.triggerElements.trackedSize()
+        : 0) as State['triggerCount'],
+  );
+
   createDepsRenderEffect(
     () => ({
       open: store.select('open'),
       // Rerun when the registry size changes, when ownership moves to another trigger while the
       // popup stays open, and when a pending active trigger registers in a commit where the
       // trigger count nets out unchanged.
-      triggerCount: store.select('triggerCount'),
+      triggerCount: store.context.triggerElements.trackedSize(),
       activeTriggerId: store.select('activeTriggerId'),
       activeTriggerElement: store.select('activeTriggerElement'),
       closeOnActiveTriggerUnmount: Boolean(access(options.closeOnActiveTriggerUnmount)),
@@ -485,20 +493,11 @@ export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(
     ({ open, closeOnActiveTriggerUnmount }) => {
       if (!open) {
         resolvedActiveTriggerId = null;
-        if (store.state.triggerCount !== 0) {
-          store.set('triggerCount', 0);
-        }
         return;
       }
 
       const triggerCount = store.context.triggerElements.size;
-      const stateUpdates = {} as Partial<
-        Pick<State, 'triggerCount' | 'activeTriggerId' | 'activeTriggerElement'>
-      >;
-
-      if (store.state.triggerCount !== triggerCount) {
-        stateUpdates.triggerCount = triggerCount;
-      }
+      const stateUpdates = {} as Partial<Pick<State, 'activeTriggerId' | 'activeTriggerElement'>>;
 
       const currentActiveTriggerId = store.select('activeTriggerId');
       let lostActiveTriggerId: string | null = null;
@@ -543,7 +542,6 @@ export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(
       }
 
       if (
-        stateUpdates.triggerCount !== undefined ||
         stateUpdates.activeTriggerId !== undefined ||
         stateUpdates.activeTriggerElement !== undefined
       ) {

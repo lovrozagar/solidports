@@ -1,3 +1,5 @@
+import { createSignal, runWithOwner, type Accessor, type Setter } from 'solid-js';
+
 /**
  * Development-only reverse index of element to registered id, keyed by the owning map.
  *
@@ -28,8 +30,17 @@ function getDevElementIds(map: PopupTriggerMap) {
 export class PopupTriggerMap {
   private idMap: Map<string, Element>;
 
+  /**
+   * The number of registered triggers, reactive. Solid: lets a popup derive its trigger count from
+   * the registry instead of copying it into the store when triggers register.
+   */
+  public readonly trackedSize: Accessor<number>;
+
+  private setTrackedSize: Setter<number>;
+
   constructor() {
     this.idMap = new Map();
+    [this.trackedSize, this.setTrackedSize] = createSignal(0);
   }
 
   /**
@@ -61,6 +72,7 @@ export class PopupTriggerMap {
     }
 
     this.idMap.set(id, element);
+    this.syncTrackedSize();
   }
 
   /**
@@ -75,6 +87,13 @@ export class PopupTriggerMap {
     }
 
     this.idMap.delete(id);
+    this.syncTrackedSize();
+  }
+
+  private syncTrackedSize() {
+    const size = this.idMap.size;
+    // Triggers register from ref callbacks and cleanups; like store writes, this one is external.
+    runWithOwner(null, () => this.setTrackedSize(size));
   }
 
   /**

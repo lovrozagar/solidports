@@ -100,6 +100,9 @@ export function FieldControl(componentProps: FieldControl.Props) {
     nameProp,
   );
 
+  // Solid: an effect, as React's layout effect. Registering a derived source (as other controls
+  // do) would read the value through a parent render function's props, which also carry this
+  // field's state, so `filled` would depend on itself.
   createEffect(serializedValue, (nextSerializedValue) => {
     const currentValue = nextSerializedValue ?? validation.inputRef.current?.value;
     if (currentValue !== undefined) {

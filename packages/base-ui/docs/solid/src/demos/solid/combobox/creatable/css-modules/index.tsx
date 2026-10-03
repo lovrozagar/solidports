@@ -1,4 +1,4 @@
-import { createSignal, createMemo, createUniqueId, type Accessor } from 'solid-js';
+import { createSignal, createMemo, createUniqueId, For, type Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -134,7 +134,7 @@ export default function ExampleCreatableCombobox() {
                   class={styles.Chips}
                   aria-label={value().length > 0 ? 'Selected labels' : undefined}
                 >
-                  {value().map((label) => (
+                  <For each={value()}>{(label) => (
                     <Combobox.Chip
                       class={styles.Chip}
                       aria-label={label.value}
@@ -148,7 +148,7 @@ export default function ExampleCreatableCombobox() {
                         <XIcon />
                       </Combobox.ChipRemove>
                     </Combobox.Chip>
-                  ))}
+                  )}</For>
                   <Combobox.Input
                     ref={(el) => { comboboxInputRef.current = el; }}
                     id={id}

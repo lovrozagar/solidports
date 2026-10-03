@@ -297,8 +297,9 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
       hiddenStateEffectMounted = true;
       return;
     }
-    // Wait for scrollbar and thumb refs after hidden-state toggles.
-    computeThumbPosition();
+    // Wait for scrollbar and thumb refs after hidden-state toggles. As React, in a microtask: the
+    // measurement reads the layout the toggled scrollbars produce.
+    queueMicrotask(computeThumbPosition);
   });
 
   onSettled(() => {

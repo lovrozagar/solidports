@@ -131,7 +131,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     setDirty,
     validityData,
     shouldValidateOnChange,
-    setFilled,
+    registerFilledSource,
     name: fieldName,
     disabled: fieldDisabled,
     setTouched,
@@ -1276,19 +1276,16 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     ),
   );
 
-  // Solid: a user effect, since `setFilled` writes a signal (render effects may not on mount).
-  createEffect(
-    ...on([selectionMode, inputValue, selectedValue, multiple], () => {
-      if (selectionMode() === 'none') {
-        setFilled(String(inputValue()) !== '');
-        return;
-      }
-      const currentValue = selectedValue();
-      setFilled(
-        multiple() ? Array.isArray(currentValue) && currentValue.length > 0 : currentValue != null,
-      );
-    }),
-  );
+  // React sets `filled` from a layout effect; the field derives it from this source.
+  registerFilledSource(() => {
+    if (selectionMode() === 'none') {
+      return String(inputValue()) !== '';
+    }
+    const currentValue = selectedValue();
+    return multiple()
+      ? Array.isArray(currentValue) && currentValue.length > 0
+      : currentValue != null;
+  });
 
   // Ensures that the active index is not set to 0 when the list is empty.
   // This avoids needing to press ArrowDown twice under certain conditions.

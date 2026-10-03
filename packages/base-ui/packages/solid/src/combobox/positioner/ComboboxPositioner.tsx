@@ -1,4 +1,4 @@
-import { createRenderEffect, Show } from 'solid-js';
+import { Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { DROPDOWN_COLLISION_AVOIDANCE } from '../../utils/constants';
@@ -109,9 +109,8 @@ export function ComboboxPositioner(componentProps: ComboboxPositioner.Props) {
     },
   };
 
-  createRenderEffect(positioning.side, (side) => {
-    store.set('popupSide', side);
-  });
+  // React copies the side into the store in a layout effect; Solid derives it.
+  store.useSyncedValue('popupSide', positioning.side);
 
   const contextValue: ComboboxPositionerContext = {
     align: positioning.align,

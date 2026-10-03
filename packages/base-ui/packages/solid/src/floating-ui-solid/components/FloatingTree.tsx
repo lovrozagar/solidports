@@ -25,6 +25,19 @@ export const useFloatingParentNodeId = () => {
 };
 
 /**
+ * The parent node id as an accessor. A node's id can be assigned after its children are created
+ * (a menu root receives its node id from the active trigger), where React re-renders the children
+ * with the new id.
+ */
+export const useFloatingParentNodeIdAccessor = (): Accessor<string | null> => {
+  const context = useContext(FloatingNodeContext);
+  return () => access(context?.id) || null;
+};
+
+/** Whether this owner renders inside a floating node, whether or not its id is known yet. */
+export const useHasFloatingParentNode = () => useContext(FloatingNodeContext) != null;
+
+/**
  * Returns the nearest floating tree context, if available.
  */
 export const useFloatingTree = (externalTree?: FloatingTreeStore): FloatingTreeType | null => {

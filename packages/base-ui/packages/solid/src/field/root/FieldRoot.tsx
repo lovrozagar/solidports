@@ -1,4 +1,5 @@
-import { createMemo, createRenderEffect, createSignal, untrack } from 'solid-js';
+import { createMemo, createRenderEffect, createSignal, onSettled, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { useFieldsetRootContext } from '../../fieldset/root/FieldsetRootContext';
 import type { Form } from '../../form';
 import { useFormContext } from '../../form/FormContext';
@@ -47,7 +48,31 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
   // Solid: `ownedWrite` because controls reset these from their unmount cleanups.
   const [touchedState, setTouchedUnwrapped] = createSignal(false, { ownedWrite: true });
   const [dirtyState, setDirtyUnwrapped] = createSignal(false, { ownedWrite: true });
-  const [filled, setFilled] = createSignal(false, { ownedWrite: true });
+  const [filledState, setFilled] = createSignal(false, { ownedWrite: true });
+  // Solid: a control whose filled state follows reactive values registers it as a source, so the
+  // field derives `filled` in the same flush (React's controls set it from layout effects).
+  const [filledSource, setFilledSource] = createSignal<Accessor<boolean> | undefined>(undefined, {
+    ownedWrite: true,
+  });
+  const filled = createMemo(() => {
+    const source = filledSource();
+    return source ? source() : filledState();
+  });
+  // Registered once mounted: a control can be created inside a computation that reads `filled`
+  // (a render prop), where writing the source during setup would re-run that computation.
+  function registerFilledSource(source: Accessor<boolean>) {
+    onSettled(() => {
+      setFilledSource(() => source);
+      return () => {
+        if (untrack(filledSource) === source) {
+          // Keep the value: a control replaced by a new instance (a render prop re-run) hands
+          // over without `filled` changing in between.
+          setFilled(untrack(source));
+          setFilledSource(undefined);
+        }
+      };
+    });
+  }
   const [focused, setFocused] = createSignal(false, { ownedWrite: true });
 
   const dirty = () => dirtyProp() ?? dirtyState();
@@ -214,6 +239,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
     setTouched,
     setDirty,
     setFilled,
+    registerFilledSource,
     setFocused,
     validationMode,
     shouldValidateOnChange,

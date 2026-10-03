@@ -3,7 +3,7 @@
  * @fileOverview Cartesian Axis
  */
 import type { JSX } from '@solidjs/web';
-import { createEffect, createSignal, For, onCleanup, onSettled, Show, untrack, useContext } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, onCleanup, onSettled, Show, untrack, useContext } from 'solid-js';
 import isEqual from "es-toolkit/compat/isEqual"
 import { RechartsStateContext } from "../state/RechartsStateContext"
 import { teardownWrite } from "../state/teardownWrite"
@@ -387,12 +387,13 @@ type TicksProps = {
 
 function Ticks(props: TicksProps) {
 	const ticks = () => props.ticks ?? []
-	const finalTicks = () =>
+	const finalTicks = createMemo(() =>
 		getTicks(
 			{ ...props.getTicksConfig, ticks: ticks() } as Parameters<typeof getTicks>[0],
 			props.fontSize,
 			props.letterSpacing,
-		)
+		),
+	)
 	/*
 	 * Publish the actually rendered ticks so hooks and the inverse tick-snap scale can read them.
 	 * Skip the write when the tick values are unchanged so re-renders keep a stable reference
@@ -446,17 +447,17 @@ function Ticks(props: TicksProps) {
 		})
 	})
 
-	const axisProps = () => svgPropertiesNoEvents(props.getTicksConfig)
+	const axisProps = createMemo(() => svgPropertiesNoEvents(props.getTicksConfig))
 	/* User-provided textAnchor wins; svgPropertiesNoEvents emits it as kebab `text-anchor`. */
-	const textAnchor = (): TextAnchor => {
+	const textAnchor = createMemo((): TextAnchor => {
 		const userAnchor = (axisProps() as Record<string, string | undefined>)["text-anchor"]
 		return isValidTextAnchor(userAnchor) ? userAnchor : getTickTextAnchor(props.orientation, props.mirror)
-	}
+	})
 	const verticalAnchor = (): TextVerticalAnchor =>
 		getTickVerticalAnchor(props.orientation, props.mirror)
-	const customTickProps = () => svgPropertiesNoEventsFromUnknown(props.tick)
+	const customTickProps = createMemo(() => svgPropertiesNoEventsFromUnknown(props.tick))
 
-	const tickLineProps = (): JSX.LineSVGAttributes<SVGLineElement> => {
+	const tickLineProps = createMemo((): JSX.LineSVGAttributes<SVGLineElement> => {
 		let tickLinePropsObject: JSX.LineSVGAttributes<SVGLineElement> = {}
 		if (typeof props.tickLine === "object") {
 			tickLinePropsObject = props.tickLine
@@ -466,9 +467,9 @@ function Ticks(props: TicksProps) {
 			fill: "none",
 			...tickLinePropsObject,
 		}
-	}
+	})
 
-	const tickLineCoords = () =>
+	const tickLineCoords = createMemo(() =>
 		finalTicks().map((entry: CartesianTickItem) =>
 			Object.assign(
 				{ entry },
@@ -484,7 +485,8 @@ function Ticks(props: TicksProps) {
 					props.tickMargin,
 				),
 			),
-		)
+		),
+	)
 
 	return (
 		<g class={`recharts-cartesian-axis-ticks recharts-${props.axisType}-ticks`}>

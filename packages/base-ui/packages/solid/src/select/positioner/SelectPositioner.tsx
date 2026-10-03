@@ -1,4 +1,4 @@
-import { createEffect, createRenderEffect, createSignal, Show, untrack } from 'solid-js';
+import { createEffect, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   CompositeList,
@@ -167,9 +167,8 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
     },
   };
 
-  createRenderEffect(positioning.side, (positionedSide) => {
-    store.set('popupSide', positionedSide);
-  });
+  // React copies the side into the store in a layout effect; Solid derives it.
+  store.useSyncedValue('popupSide', positioning.side);
 
   const setPositionerElement = (element: HTMLElement | null | undefined) => {
     store.set('positionerElement', element);

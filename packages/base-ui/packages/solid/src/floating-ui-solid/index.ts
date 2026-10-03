@@ -6,6 +6,8 @@ export {
   FloatingTree,
   useFloatingNodeId,
   useFloatingParentNodeId,
+  useFloatingParentNodeIdAccessor,
+  useHasFloatingParentNode,
   useFloatingTree,
 } from './components/FloatingTree';
 export { FloatingTreeStore } from './components/FloatingTreeStore';

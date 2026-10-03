@@ -7,6 +7,7 @@ import {
   onCleanup,
   Show,
   useContext,
+  untrack,
 } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { isNode } from '@floating-ui/utils/dom';
@@ -52,6 +53,8 @@ const PortalContext = createContext<{
   setBeforeOutsideRef: (el: HTMLSpanElement | null | undefined) => void;
   afterOutsideRef: Accessor<HTMLSpanElement | null | undefined>;
   setAfterOutsideRef: (el: HTMLSpanElement | null | undefined) => void;
+  /** Re-enables tabbing into the portal if leaving it had disabled that. */
+  restoreFocusInside: () => void;
 } | null>(null);
 
 export const usePortalContext = () => useContext(PortalContext);
@@ -247,20 +250,29 @@ export function FloatingPortal(
     },
   );
 
+  function restoreFocusInside() {
+    const node = untrack(portalNode);
+    if (!node || !focusInsideDisabledRef) {
+      return;
+    }
+    enableFocusInside(node);
+    focusInsideDisabledRef = false;
+  }
+
   createDepsEffect(
     () => ({ node: portalNode(), open: open() }),
     ({ node, open: isOpen }) => {
-      if (!node || isOpen !== true || !focusInsideDisabledRef) {
-        return;
+      if (node && isOpen === true) {
+        // Restore tabbability before the focus manager's queued focus-on-open step runs. Solid: the
+        // focus manager also calls this from that step, since `open` reaches this portal through
+        // the focus manager's state one flush later.
+        restoreFocusInside();
       }
-
-      // Restore tabbability before the focus manager's queued focus-on-open step runs.
-      enableFocusInside(node);
-      focusInsideDisabledRef = false;
     },
   );
 
   const portalContextValue = {
+    restoreFocusInside,
     afterInsideRef,
     afterOutsideRef,
     beforeInsideRef,

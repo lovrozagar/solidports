@@ -2,7 +2,7 @@ import { computePosition } from '@floating-ui/dom';
 import { createEffect, createMemo, createSignal, getObserver, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access, defaultProps, live } from '../../solid-helpers';
+import { access, defaultProps, live, shallowEqual } from '../../solid-helpers';
 import type {
   ComputePositionConfig,
   ComputePositionReturn,
@@ -102,8 +102,9 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
     transform: true,
   });
 
-  const [data, setData] = createStore<UsePositionData>({
+  const [data, setData] = createStore<UsePositionData & { session: number }>({
     isPositioned: false,
+    session: 0,
     middlewareData: {},
     // Initial values, like React's `useState({ placement, strategy })`.
     placement: untrack(() => access(props.placement)),
@@ -154,19 +155,20 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
           // `isPositioned` will be `false` initially on the next open, avoid
           // setting it to `true` when `open === false` (must be specified).
           isPositioned: options.open !== false,
+          session: untrack(closedCount),
         });
       }
     });
   }
 
-  createEffect(
-    () => options.open === false && data.isPositioned,
-    (shouldReset) => {
-      if (shouldReset) {
-        setData('isPositioned', false);
-      }
-    },
+  // React resets `isPositioned` in a layout effect once `open` is `false`, so the next open starts
+  // unpositioned. Solid: derive it instead. Each close starts a new session, a position is only
+  // valid for the session it was computed in, and readers see the reset in the same flush.
+  const closedCount = createMemo<number>((prev) =>
+    options.open === false ? (prev ?? 0) + 1 : (prev ?? 0),
   );
+  const isPositioned = () =>
+    options.open !== false && data.isPositioned && data.session === closedCount();
 
   onSettled(() => {
     const _c: Array<() => void> = [];
@@ -209,35 +211,38 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
   // Live: consumers read the elements imperatively too (handlers, effect callbacks).
   const elements = { floating: live(floatingEl), reference: live(referenceEl) };
 
-  const floatingStyles = createMemo<JSX.CSSProperties>(() => {
-    const initialStyles: JSX.CSSProperties = {
-      left: 0,
-      position: props.strategy,
-      top: 0,
-    };
-
-    const el = elements.floating();
-    if (!el) {
-      return initialStyles;
-    }
-
-    const x = roundByDPR(el, data.x);
-    const y = roundByDPR(el, data.y);
-
-    if (props.transform) {
-      return {
-        ...initialStyles,
-        transform: `translate(${x}px, ${y}px)`,
-        ...(getDPR(el) >= 1.5 && { willChange: 'transform' }),
+  const floatingStyles = createMemo<JSX.CSSProperties>(
+    () => {
+      const initialStyles: JSX.CSSProperties = {
+        left: 0,
+        position: props.strategy,
+        top: 0,
       };
-    }
 
-    return {
-      left: `${x}px`,
-      position: props.strategy,
-      top: `${y}px`,
-    };
-  });
+      const el = elements.floating();
+      if (!el) {
+        return initialStyles;
+      }
+
+      const x = roundByDPR(el, data.x);
+      const y = roundByDPR(el, data.y);
+
+      if (props.transform) {
+        return {
+          ...initialStyles,
+          transform: `translate(${x}px, ${y}px)`,
+          ...(getDPR(el) >= 1.5 && { willChange: 'transform' }),
+        };
+      }
+
+      return {
+        left: `${x}px`,
+        position: props.strategy,
+        top: `${y}px`,
+      };
+    },
+    { equals: shallowEqual },
+  );
 
   // Live reads: consumers also read the position imperatively (handlers, effect callbacks).
   const read = <Key extends keyof typeof data>(key: Key) =>
@@ -249,7 +254,7 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
       return getObserver() === null ? untrack(floatingStyles) : floatingStyles();
     },
     get isPositioned() {
-      return read('isPositioned');
+      return getObserver() === null ? untrack(isPositioned) : isPositioned();
     },
     get middlewareData() {
       return read('middlewareData');

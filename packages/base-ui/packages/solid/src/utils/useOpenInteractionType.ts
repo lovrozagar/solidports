@@ -1,6 +1,5 @@
 import { createSignal, untrack } from 'solid-js';
 import { access, type MaybeAccessor } from '../solid-helpers';
-import { useValueChanged } from '../internals/useValueChanged';
 import { isIOS } from './detectBrowser';
 import { InteractionType, useEnhancedClickHandler } from './useEnhancedClickHandler';
 
@@ -37,18 +36,13 @@ export function useOpenMethodTriggerProps(
  * @param open The open state of the component.
  */
 export function useOpenInteractionType(open: MaybeAccessor<boolean>) {
-  const [openMethod, setOpenMethod] = createSignal<InteractionType | null>(null);
-
-  const triggerProps = useOpenMethodTriggerProps(open, setOpenMethod);
-
-  useValueChanged(
-    () => access(open),
-    (previousOpen) => {
-      if (previousOpen && !untrack(() => access(open))) {
-        setOpenMethod(null);
-      }
-    },
+  // React clears the method in an effect once closed. Solid derives it: the trigger's write stands
+  // while open, and closing resets it in the same flush.
+  const [openMethod, setOpenMethod] = createSignal<InteractionType | null>((prev) =>
+    access(open) ? (prev ?? null) : null,
   );
+
+  const triggerProps = useOpenMethodTriggerProps(open, (method) => setOpenMethod(method));
 
   return {
     openMethod,

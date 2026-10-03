@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
 import range from "es-toolkit/compat/range"
+import { markRawData } from "../rawData"
 import { selectChartLayout } from "../../context/chartLayoutContext"
 import {
 	getDomainOfStackGroups,
@@ -147,7 +148,8 @@ export const implicitXAxis: XAxisSettings = {
 	name: undefined,
 	niceTicks: "auto",
 	orientation: "bottom",
-	padding: { left: 0, right: 0 },
+	/* Shared default: served raw so it never ties a chart store to this module (see markRawData). */
+	padding: markRawData({ left: 0, right: 0 }),
 	reversed: false,
 	scale: "auto",
 	tick: true,
@@ -200,7 +202,8 @@ export const implicitYAxis: YAxisSettings = {
 	name: undefined,
 	niceTicks: "auto",
 	orientation: "left",
-	padding: { bottom: 0, top: 0 },
+	/* Shared default: served raw so it never ties a chart store to this module (see markRawData). */
+	padding: markRawData({ bottom: 0, top: 0 }),
 	reversed: false,
 	scale: "auto",
 	tick: true,

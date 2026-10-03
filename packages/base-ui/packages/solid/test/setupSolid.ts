@@ -128,13 +128,24 @@ if (!navigator.userAgent.includes('jsdom')) {
 const diagFile = process.env.SOLID_DIAG_FILE;
 if (diagFile) {
   const fullStack = process.env.SOLID_DIAG_FULL === '1';
+  // SOLID_ATTRIBUTION=1 also enables the attribution engine `vite dev` runs (relayed/self-written
+  // state, over-wide subscriptions), so a suite run inventories those diagnostics too.
+  if (process.env.SOLID_ATTRIBUTION === '1') {
+    const { attribution } = await import('solid-js/attribution');
+    attribution.enable();
+  }
   Error.stackTraceLimit = 60;
   const { appendFileSync } = await import('node:fs');
   beforeEach(() => {
     const original = console.warn;
     console.warn = (...args: unknown[]) => {
       const message = String(args[0] ?? '');
-      if (/^\[[A-Z_]+\]/.test(message) && !/repair guide/.test(message)) {
+      // `FLUSH_IN_EFFECT_CALLBACK` is the harness's own: the event wrapper flushes after events, and an
+      // effect can dispatch one (`element.focus()`).
+      if (message.startsWith('[FLUSH_IN_EFFECT_CALLBACK]')) {
+        return undefined;
+      }
+      if (/^\[[A-Z_]+\]/.test(message) && !/repair guide|deeper evidence/.test(message)) {
         const frames = (new Error().stack ?? '').split('\n').slice(2);
         const libraryFrames = frames
           .filter(
@@ -152,6 +163,11 @@ if (diagFile) {
           )
           .join(' < ');
         appendFileSync(diagFile, `${message.split('\n')[0].slice(0, 200)} @ ${where}\n`);
+        // Recorded for the inventory, not failed per test.
+        return undefined;
+      }
+      if (/^\[[A-Z_]+\] (repair guide|deeper evidence)/.test(message)) {
+        return undefined;
       }
       return original(...args);
     };

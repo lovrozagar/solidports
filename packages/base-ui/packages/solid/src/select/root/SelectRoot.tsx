@@ -14,7 +14,7 @@ import {
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { mergeProps } from '../../merge-props';
-import { createDepsEffect, useRef, type ReactLikeRef } from '../../solid-helpers';
+import { createDepsEffect, createDepsMemo, useRef, type ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
 import {
   createChangeEventDetails,
@@ -70,7 +70,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     setTouched,
     setFocused,
     shouldValidateOnChange,
-    setFilled,
+    registerFilledSource,
     name: fieldName,
     disabled: fieldDisabled,
     validation,
@@ -244,9 +244,8 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       : val != null && serializedValue() !== '';
   });
 
-  createEffect(hasSelectedValue, (filled) => {
-    setFilled(filled);
-  });
+  // React sets `filled` from a layout effect; the field derives it from this source.
+  registerFilledSource(hasSelectedValue);
 
   createDepsEffect(
     () => ({
@@ -414,7 +413,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     (ref) => {
       if (
         ref !== undefined &&
-        floatingContext.state.floatingElement == null &&
+        floatingContext.select('floatingElement') == null &&
         floatingContext.state.positionReference === floatingContext.state.referenceElement
       ) {
         floatingContext.update({ positionReference: ref });
@@ -536,27 +535,29 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     ),
   );
 
-  createDepsEffect(
-    () => ({
-      id: generatedId(),
-      isItemEqualToValue,
-      itemToStringLabel: props.itemToStringLabel,
-      itemToStringValue: props.itemToStringValue,
-      items: props.items,
-      modal: modal(),
-      mounted: mounted(),
-      multiple: multiple(),
-      open: open(),
-      openMethod: renderedOpenMethod(),
-      popupProps,
-      transitionStatus: transitionStatus(),
-      triggerProps: mergedTriggerProps(),
-      value: value(),
-    }),
-    (snapshot) => {
-      store.update(snapshot);
-    },
-  );
+  // React writes these into the store together in a layout effect whenever any of them changes.
+  // The store's getters keep most keys live; the plain keys are derived from the same snapshot, so a
+  // change to any value re-syncs them all in the same flush.
+  const synced = createDepsMemo(() => ({
+    id: generatedId(),
+    isItemEqualToValue,
+    itemToStringLabel: props.itemToStringLabel,
+    itemToStringValue: props.itemToStringValue,
+    items: props.items,
+    modal: modal(),
+    mounted: mounted(),
+    multiple: multiple(),
+    open: open(),
+    openMethod: renderedOpenMethod(),
+    popupProps,
+    transitionStatus: transitionStatus(),
+    triggerProps: mergedTriggerProps(),
+    value: value(),
+  }));
+  store.useSyncedValue('isItemEqualToValue', () => synced().isItemEqualToValue);
+  store.useSyncedValue('openMethod', () => synced().openMethod);
+  store.useSyncedValue('popupProps', () => synced().popupProps);
+  store.useSyncedValue('triggerProps', () => synced().triggerProps);
 
   const contextValue: SelectRootContext = {
     store,

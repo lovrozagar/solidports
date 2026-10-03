@@ -6,6 +6,7 @@ import type {
 } from "./graphicalItemsSlice"
 import type { CartesianItemState, PolarItemState } from "./chartState"
 import { teardownWrite } from "./teardownWrite"
+import { markRawData } from "./rawData"
 
 /** Registers a cartesian graphical item into chartState on mount, updates on change, removes on cleanup. */
 export function SetCartesianGraphicalItem<T extends CartesianGraphicalItemSettings>(
@@ -22,6 +23,8 @@ export function SetCartesianGraphicalItem<T extends CartesianGraphicalItemSettin
 		() => ({ ...props }) as T,
 		(current) => {
 			if (current.id != null) {
+				/* Item-level data is served by reference like chart data (see markRawData). */
+				markRawData(current.data)
 				const itemState = { settings: current, type: current.type } as CartesianItemState
 				stateCtx.setState("graphicalItems", String(current.id), itemState as never)
 			}
@@ -54,6 +57,8 @@ export function SetPolarGraphicalItem(props: PolarGraphicalItemSettings): null {
 		() => ({ ...props }) as PolarGraphicalItemSettings,
 		(current) => {
 			if (current.id != null) {
+				/* Item-level data is served by reference like chart data (see markRawData). */
+				markRawData(current.data)
 				const itemState = { settings: current, type: current.type } as PolarItemState
 				stateCtx.setState("graphicalItems", String(current.id), itemState as never)
 			}

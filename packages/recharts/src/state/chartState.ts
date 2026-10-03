@@ -274,7 +274,6 @@ export function createInitialChartState(overrides?: Partial<ChartState>): ChartS
 		layout,
 		legend: makeLegendState(),
 		margin: { bottom: 5, left: 5, right: 5, top: 5 },
-		options: makeOptionsState(),
 		polarAxes: { angleAxis: {}, radiusAxis: {} },
 		polarOptions: null,
 		referenceElements: makeReferenceElementsState(),
@@ -283,5 +282,16 @@ export function createInitialChartState(overrides?: Partial<ChartState>): ChartS
 		tooltip: makeTooltipState(),
 		zIndex: makeZIndexState(),
 		...overrides,
+		options: ownChartOptions(overrides?.options ?? makeOptionsState()),
 	}
+}
+
+/*
+ * Chart modules pass module-level options (and tooltip event type lists). Solid's store maps
+ * every raw object it wraps to its target in one global WeakMap, so a shared constant would
+ * keep the last store that wrapped it alive and hand the next chart that store's proxy.
+ */
+function ownChartOptions(options: ChartOptions): ChartOptions {
+	const types = options.validateTooltipEventTypes
+	return types == null ? { ...options } : { ...options, validateTooltipEventTypes: [...types] }
 }

@@ -368,6 +368,35 @@ function objectStyleSvgProps(text) {
  * `<Combobox.Value>` and `<Autocomplete.Value>` pass their render function an accessor so the
  * rendered children track the selection. Type the parameter as one and call it where it is read.
  */
+/**
+ * `{items().map((item) => (<Item />))}` in JSX recreates every item whenever the list changes in
+ * Solid (React reconciles them by key). Render reactive lists with `<For>`, which keeps each item.
+ */
+function reactiveMapChildrenToFor(text) {
+  const pattern = /\{(\w+)\(\)\.map\(\((\w+)\) => \(/g;
+  let result = '';
+  let last = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index < last) continue;
+    const bodyStart = match.index + match[0].length;
+    let depth = 1;
+    let index = bodyStart;
+    while (index < text.length && depth > 0) {
+      const char = text[index];
+      if (char === '(') depth += 1;
+      else if (char === ')') depth -= 1;
+      index += 1;
+    }
+    // `index` is just past the body's closing paren; the map call and the JSX brace follow.
+    if (text.slice(index, index + 2) !== ')}') continue;
+    const body = text.slice(bodyStart, index - 1);
+    result += text.slice(last, match.index);
+    result += `<For each={${match[1]}()}>{(${match[2]}) => (${body})}</For>`;
+    last = index + 2;
+  }
+  return result + text.slice(last);
+}
+
 function accessorValueChildren(text) {
   const re = /<(Combobox|Autocomplete)\.Value>\s*\{\s*\((\w+)(?::\s*([^)]+))?\)\s*=>/g;
   let match;
@@ -794,6 +823,7 @@ function transformDemoTsx(src) {
     'return (\n    <For each={toasts()}>\n      {($1) => $2}\n    </For>\n  );',
   );
   text = accessorValueChildren(text);
+  text = reactiveMapChildrenToFor(text);
   text = text.replace(/import\s+\{[^}]+\}\s+from\s+'motion\/react';\n*/g, '');
   text = text.replace(/<motion\.div\b[\s\S]*?\/>/g, '<div />');
   text = text.replace(/<motion\.div\b([^>]*)>/g, '<div$1>');

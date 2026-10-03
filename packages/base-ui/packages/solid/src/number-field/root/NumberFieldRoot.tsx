@@ -92,7 +92,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
     setDirty,
     validityData,
     disabled: fieldDisabled,
-    setFilled,
+    registerFilledSource,
     name: fieldName,
     state: fieldState,
     validation,
@@ -132,13 +132,8 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
     valueRef.current = nextValue;
   });
 
-  // Solid: a user effect, since a render effect's mount-time apply may not write signals.
-  createEffect(
-    () => value() !== null,
-    (filled) => {
-      setFilled(filled);
-    },
-  );
+  // React sets `filled` from a layout effect; the field derives it from this source.
+  registerFilledSource(() => value() !== null);
 
   const formatOptionsRef = useRef<Intl.NumberFormatOptions | undefined>(
     untrack(() => local.format),

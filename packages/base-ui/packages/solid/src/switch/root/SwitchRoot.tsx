@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -64,7 +64,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     setTouched,
     setDirty,
     validityData,
-    setFilled,
+    registerFilledSource,
     setFocused,
     validationMode,
     disabled: fieldDisabled,
@@ -107,9 +107,8 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
 
   useRegisterFieldControl(switchRef, id, checked, undefined, () => !disabled(), nameProp);
 
-  createEffect(checked, (value) => {
-    setFilled(value);
-  });
+  // React sets `filled` from a layout effect; the field derives it from this source.
+  registerFilledSource(checked);
 
   useValueChanged(checked, () => {
     const value = untrack(checked);

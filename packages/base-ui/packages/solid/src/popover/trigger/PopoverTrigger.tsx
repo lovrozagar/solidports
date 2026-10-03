@@ -1,4 +1,4 @@
-import { Show, createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
+import { Show, createMemo, createSignal, onCleanup, onSettled, untrack } from 'solid-js';
 import { safePolygon, useClick, useHoverReferenceInteraction } from '../../floating-ui-solid';
 import { live, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
@@ -209,16 +209,15 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
 
   // Solid-only: React keys the element so it stays the same DOM node when the guards mount. Solid's
   // list diff instead replaces the trigger node when guards appear on both sides in one update,
-  // which blurs a focused trigger. The leading guard mounts one update after the trailing one (an
-  // effect runs after the DOM commit), so each mount is a plain insertion.
-  const [leadingGuardReady, setLeadingGuardReady] = createSignal(false);
-  createEffect(guardsActive, (active) => {
-    setLeadingGuardReady(active);
+  // which blurs a focused trigger. The leading guard mounts once the trailing guard is in the DOM,
+  // so each mount is a plain insertion.
+  const [trailingGuardAttached, setTrailingGuardAttached] = createSignal(false, {
+    ownedWrite: true,
   });
 
   return (
     <>
-      <Show when={guardsActive() && leadingGuardReady()}>
+      <Show when={guardsActive() && trailingGuardAttached()}>
         <TriggerFocusGuard guardRef={preFocusGuardRef} onFocus={handlePreFocusGuardFocus} />
       </Show>
       {element()}
@@ -226,6 +225,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
         <TriggerFocusGuard
           guardRef={currentStore().context.triggerFocusTargetRef}
           onFocus={handleFocusTargetFocus}
+          onAttach={setTrailingGuardAttached}
         />
       </Show>
     </>
@@ -239,12 +239,18 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
 function TriggerFocusGuard(props: {
   guardRef: ReactLikeRef<HTMLElement | null | undefined>;
   onFocus: (event: FocusEvent) => void;
+  onAttach?: ((attached: boolean) => void) | undefined;
 }) {
   let guard: HTMLElement | null = null;
+  // After the guard is in the DOM, not when its ref runs (that is still the same update).
+  onSettled(() => {
+    props.onAttach?.(true);
+  });
   onCleanup(() => {
     if (props.guardRef.current === guard) {
       props.guardRef.current = null;
     }
+    props.onAttach?.(false);
   });
 
   return (

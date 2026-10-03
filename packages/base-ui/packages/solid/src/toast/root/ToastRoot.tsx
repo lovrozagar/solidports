@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Data type erased at root */
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
-import { splitComponentProps, useRef } from '../../solid-helpers';
+import { splitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { BASE_UI_SWIPE_IGNORE_SELECTOR, LEGACY_SWIPE_IGNORE_SELECTOR } from '../../utils/constants';
 import { flushSync as flushSyncUpdate } from '../../utils/flushSync';
@@ -75,7 +75,11 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     null,
   );
 
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  // Solid: a root rendered again for the same toast (a list that recreates its items, such as
+  // `toasts().map(...)`) reuses the toast's ref, so measuring it again writes the same values and
+  // the update settles. React keeps the instance (and its ref) through the list's keys.
+  const rootRef = (untrack(() => local.toast.ref) ??
+    useRef<HTMLDivElement | null>(null)) as ReactLikeRef<HTMLDivElement | null>;
   const lastToastIdRef = useRef<string | undefined>(undefined);
   const dragStartPosRef = useRef({ x: 0, y: 0 });
   const initialTransformRef = useRef({ x: 0, y: 0, scale: 1 });

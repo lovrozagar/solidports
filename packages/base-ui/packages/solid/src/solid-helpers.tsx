@@ -57,7 +57,8 @@ export function autofocus(element: HTMLElement | null | undefined) {
 }
 
 // https://github.com/solidjs-community/solid-primitives/blob/461ab9edda2ffa6666d7ed2d5deed8b6b77f65a6/packages/utils/src/index.ts#L106C1-L107C59
-function depsEqual(prev: unknown, next: unknown) {
+/** Shallow equality: `Object.is`, or same keys with `Object.is` values (a React dependency list). */
+export function shallowEqual(prev: unknown, next: unknown) {
   if (Object.is(prev, next)) {
     return true;
   }
@@ -82,12 +83,20 @@ type DepsEffectFn<T> = (deps: T, prev: T | undefined) => void | (() => void);
  * cleanup.
  */
 export function createDepsEffect<T>(deps: () => T, effect: DepsEffectFn<T>) {
-  createEffect(createMemo(deps, { equals: depsEqual }), effect);
+  createEffect(createMemo(deps, { equals: shallowEqual }), effect);
+}
+
+/**
+ * A memo of dependency values (an object or array) that only changes when one of them changes by
+ * `Object.is`, as a React dependency array.
+ */
+export function createDepsMemo<T>(deps: () => T) {
+  return createMemo(deps, { equals: shallowEqual });
 }
 
 /** `createDepsEffect` with render-effect timing (React's `useIsoLayoutEffect`). */
 export function createDepsRenderEffect<T>(deps: () => T, effect: DepsEffectFn<T>) {
-  createRenderEffect(createMemo(deps, { equals: depsEqual }), effect);
+  createRenderEffect(createMemo(deps, { equals: shallowEqual }), effect);
 }
 
 /**

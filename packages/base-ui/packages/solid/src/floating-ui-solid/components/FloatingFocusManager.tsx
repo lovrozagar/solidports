@@ -1,5 +1,5 @@
 import { getNodeName, isHTMLElement } from '@floating-ui/utils/dom';
-import { createMemo, createSignal, Show, untrack } from 'solid-js';
+import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createDepsEffect, defaultProps, live, type ReactLikeRef } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
@@ -678,6 +678,9 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
 
       // Wait for any layout effect state setters to execute to set `tabIndex`.
       queueMicrotask(() => {
+        // Solid: the portal re-enables tabbing into itself before this step (see FloatingPortal).
+        portalContext?.restoreFocusInside();
+
         // Read at focus time, as React's `initialFocusRef`.
         const initialFocusValueOrFn = untrack(() => props.initialFocus);
         const resolvedInitialFocus =
@@ -923,27 +926,33 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
 
   // Synchronize the focus manager state (modal, closeOnFocusOut, open, etc.) to the
   // FloatingPortal context, which uses it to decide whether to render its own guards.
-  createDepsEffect(
-    () => ({
-      active: !props.disabled && portalContext != null,
-      modal: props.modal,
-      closeOnFocusOut: props.closeOnFocusOut,
-      open: open(),
-      domReference: domReference(),
-      store: store(),
-    }),
-    (deps) => {
-      if (!deps.active || !portalContext) {
+  // React publishes a snapshot of these to the portal on every change. Solid publishes a live view
+  // once, so the portal reads them in the same flush as the focus manager.
+  const focusManagerState = {
+    get modal() {
+      return props.modal;
+    },
+    get closeOnFocusOut() {
+      return props.closeOnFocusOut;
+    },
+    get open() {
+      return open();
+    },
+    get onOpenChange() {
+      return store().setOpen;
+    },
+    get domReference() {
+      return domReference();
+    },
+  };
+  createEffect(
+    () => !props.disabled && portalContext != null,
+    (active) => {
+      if (!active || !portalContext) {
         return undefined;
       }
 
-      portalContext.setFocusManagerState({
-        modal: deps.modal,
-        closeOnFocusOut: deps.closeOnFocusOut,
-        open: deps.open,
-        onOpenChange: deps.store.setOpen,
-        domReference: deps.domReference,
-      });
+      portalContext.setFocusManagerState(focusManagerState);
 
       return () => {
         portalContext.setFocusManagerState(null);

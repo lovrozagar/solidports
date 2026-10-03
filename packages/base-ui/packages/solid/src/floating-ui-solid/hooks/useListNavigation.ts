@@ -324,7 +324,6 @@ export function useListNavigation(parameters: {
   const isMounted = () => !!floatingElement() || hasMountedList();
   const forceScrollIntoViewRef = useRef(false);
   const previousMountedRef = useRef(false);
-  const previousOpenRef = useRef(false);
   const previousOnNavigateRef = useRef(onNavigate);
   const disabledIndicesRef = useRef(untrack(() => props.disabledIndices));
   const selectedIndexRef = useRef(untrack(() => props.selectedIndex));
@@ -388,10 +387,15 @@ export function useListNavigation(parameters: {
         selected: props.selectedIndex,
       };
     },
-    (info) => {
+    (info, prev) => {
       if (!info.enabled) {
         return;
       }
+
+      // Solid: this effect's previous run gives the previous pass's values (React's refs, updated
+      // after this effect). The shared refs below are written by another render effect, which
+      // Solid may run first when `open` and `mounted` change in the same flush.
+      const wasMounted = prev?.enabled ? prev.mounted : false;
 
       if (info.isOpen && info.mounted) {
         if (info.currentActive != null) {
@@ -406,7 +410,7 @@ export function useListNavigation(parameters: {
           forceScrollIntoViewRef.current = true;
           onNavigate();
         }
-      } else if (previousMountedRef.current) {
+      } else if (wasMounted) {
         indexRef.current = -1;
         previousOnNavigateRef.current();
       }
@@ -425,10 +429,14 @@ export function useListNavigation(parameters: {
       rtl: props.rtl,
       nested: props.nested,
     }),
-    (info) => {
+    (info, prev) => {
       if (!info.enabled) {
         return;
       }
+
+      // Solid: the previous pass's values come from this effect's previous run (see above).
+      const wasOpen = prev?.enabled ? prev.isOpen : false;
+      const wasMounted = prev?.enabled ? prev.mounted : false;
 
       if (!info.isOpen) {
         forceSyncFocusRef.current = false;
@@ -448,14 +456,14 @@ export function useListNavigation(parameters: {
         }
 
         // Reset while the floating element was open (e.g. the list changed).
-        if (previousMountedRef.current) {
+        if (wasMounted) {
           indexRef.current = -1;
           focusItem();
         }
 
         // Initial sync.
         if (
-          (!previousOpenRef.current || !previousMountedRef.current) &&
+          (!wasOpen || !wasMounted) &&
           focusItemOnOpenRef.current &&
           (keyRef.current != null ||
             (focusItemOnOpenRef.current === true && keyRef.current == null))
@@ -574,7 +582,6 @@ export function useListNavigation(parameters: {
     (values) => {
       floatingFocusElementRef.current = values.floatingFocusElement;
       previousOnNavigateRef.current = onNavigate;
-      previousOpenRef.current = values.open;
       previousMountedRef.current = values.mounted;
       disabledIndicesRef.current = values.disabledIndices;
       selectedIndexRef.current = values.selectedIndex;

@@ -31,7 +31,6 @@ import {
   type OTPValidationType,
 } from '../utils/otp';
 import type { FieldRootState } from '../../field/root/FieldRoot';
-import { on } from '../../solid-1-compat';
 
 /**
  * Groups all OTP field parts and manages their state.
@@ -83,7 +82,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     setDirty,
     validityData,
     disabled: fieldDisabled,
-    setFilled,
+    registerFilledSource,
     invalid,
     name: fieldName,
     state: fieldState,
@@ -160,11 +159,8 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     return Math.min(v.length, l - 1);
   };
 
-  createEffect(
-    ...on(filled, (f) => {
-      setFilled(f);
-    }),
-  );
+  // React sets `filled` from a layout effect; the field derives it from this source.
+  registerFilledSource(filled);
 
   if (process.env.NODE_ENV !== 'production') {
     createDepsEffect(
