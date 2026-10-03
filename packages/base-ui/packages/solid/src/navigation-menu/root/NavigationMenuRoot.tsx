@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any`, mirrors React */
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, createSignal, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, onSettled, Show, type Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   FloatingNode,
@@ -110,9 +110,29 @@ export function NavigationMenuRoot<Value = any>(
   >(null);
   const [activationDirection, setActivationDirection] =
     createSignal<ReturnType<NavigationMenuRootContext['activationDirection']>>(null);
-  const [floatingRootContext, setFloatingRootContext] = createSignal<
-    FloatingRootContext | undefined
-  >(undefined);
+  // Solid: the active trigger's floating context, derived in the same flush (React copies it
+  // from the trigger's effect and clears it when the menu closes or unmounts).
+  const [triggerFloatingContexts, setTriggerFloatingContexts] = createSignal<
+    readonly { active: Accessor<boolean>; context: FloatingRootContext }[]
+  >([], { ownedWrite: true });
+  const floatingRootContext = createMemo<FloatingRootContext | undefined>(() => {
+    for (const entry of triggerFloatingContexts()) {
+      if (entry.active()) {
+        return entry.context;
+      }
+    }
+    return undefined;
+  });
+  function registerTriggerFloatingContext(entry: {
+    active: Accessor<boolean>;
+    context: FloatingRootContext;
+  }) {
+    onSettled(() => {
+      setTriggerFloatingContexts((current) => [...current, entry]);
+      return () =>
+        setTriggerFloatingContexts((current) => current.filter((item) => item !== entry));
+    });
+  }
   const [viewportInert, setViewportInert] = createSignal(false);
 
   const prevTriggerElementRef = useRef<Element | null | undefined>(null);
@@ -182,7 +202,6 @@ export function NavigationMenuRoot<Value = any>(
 
     if (nextValue == null) {
       setActivationDirection(null);
-      setFloatingRootContext(undefined);
     }
 
     setValueUnwrapped(nextValue);
@@ -219,7 +238,6 @@ export function NavigationMenuRoot<Value = any>(
     setMounted(false);
     local.onOpenChangeComplete?.(false);
     setActivationDirection(null);
-    setFloatingRootContext(undefined);
 
     currentContentRef.current = null;
     closeReasonRef.current = undefined;
@@ -281,7 +299,7 @@ export function NavigationMenuRoot<Value = any>(
     activationDirection: contextActivationDirection,
     setActivationDirection,
     floatingRootContext,
-    setFloatingRootContext,
+    registerTriggerFloatingContext,
     currentContentRef,
     nested,
     rootRef,

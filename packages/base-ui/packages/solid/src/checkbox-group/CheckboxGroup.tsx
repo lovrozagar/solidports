@@ -18,7 +18,7 @@ import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails
 import { REASONS } from '../utils/reasons';
 import { useFormContext } from '../form/FormContext';
 import { useValueChanged } from '../internals/useValueChanged';
-import { splitComponentProps, type ReactLikeRef } from '../solid-helpers';
+import { splitComponentProps, type ReactLikeRef, provideContext } from '../solid-helpers';
 import { mergeProps as solidMergeProps } from '../solid-1-compat';
 
 /**
@@ -44,6 +44,7 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     state: fieldState,
     validation,
     setFilled,
+    registerDirtySource,
     setDirty,
     validityData,
   } = useFieldRootContext();
@@ -128,6 +129,17 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     },
   );
 
+  // React sets `dirty` from a layout effect when the value changes; the field derives it.
+  registerDirtySource(
+    () =>
+      !areArraysEqual(
+        value(),
+        Array.isArray(validityData.initialValue)
+          ? (validityData.initialValue as readonly string[])
+          : EMPTY_ARRAY,
+      ),
+  );
+
   useValueChanged(value, () => {
     const currentValue = untrack(value);
     const currentFieldName = untrack(fieldName);
@@ -178,7 +190,7 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return <CheckboxGroupContext value={contextValue}>{element()}</CheckboxGroupContext>;
+  return provideContext(CheckboxGroupContext, contextValue, element);
 }
 
 export interface CheckboxGroupState extends FieldRootState {

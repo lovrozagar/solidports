@@ -1,21 +1,15 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createSignal, untrack } from 'solid-js';
+import { createMemo, createSignal, onSettled, untrack } from 'solid-js';
 import type { ParentProps } from 'solid-js';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
-import {
-  FloatingNode,
-  FloatingTree,
-  useFloatingNodeId,
-  useFloatingTree,
-} from '../floating-ui-solid';
+import { FloatingNode, FloatingTree, useFloatingNodeId } from '../floating-ui-solid';
 import { type MenuRoot } from '../menu/root/MenuRoot';
-import { MenuOpenEventDetails } from '../menu/utils/types';
 import { splitComponentProps, useRef } from '../solid-helpers';
 import { StateAttributesMapping } from '../utils/getStateAttributesProps';
 import { BaseUIComponentProps } from '../utils/types';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { REASONS } from '../utils/reasons';
-import { MenubarContext, useMenubarContext } from './MenubarContext';
+import { MenubarContext, type MenubarMenu } from './MenubarContext';
 import { MenubarDataAttributes } from './MenubarDataAttributes';
 
 const menubarStateAttributesMapping: StateAttributesMapping<Menubar.State> = {
@@ -45,7 +39,29 @@ export function Menubar(props: Menubar.Props) {
   const idProp = () => local.id;
 
   const [contentElement, setContentElement] = createSignal<HTMLElement | null | undefined>();
-  const [hasSubmenuOpen, setHasSubmenuOpen] = createSignal(false);
+  // Solid: derived from the top-level menus, which register themselves. React sets it from the
+  // `menuopenchange` tree events its menus emit from effects. A menu opening sets it; a close
+  // clears it unless the close hands over to another menu (moving along the bar).
+  const [menus, setMenus] = createSignal<readonly MenubarMenu[]>([], { ownedWrite: true });
+  function registerMenu(menu: MenubarMenu) {
+    onSettled(() => {
+      setMenus((current) => [...current, menu]);
+      return () => setMenus((current) => current.filter((item) => item !== menu));
+    });
+  }
+  const submenuState = createMemo<{ open: boolean; openMenus: readonly MenubarMenu[] }>((prev) => {
+    const openMenus = menus().filter((menu) => menu.open());
+    if (openMenus.length > 0) {
+      return { open: true, openMenus };
+    }
+    const closed = prev?.openMenus ?? [];
+    const handedOver = closed.every((menu) => {
+      const reason = untrack(menu.lastOpenChangeReason);
+      return reason === REASONS.siblingOpen || reason === REASONS.listNavigation;
+    });
+    return { open: handedOver ? (prev?.open ?? false) : false, openMenus };
+  });
+  const hasSubmenuOpen = createMemo(() => submenuState().open);
   const allowMouseUpTriggerRef = useRef(false);
 
   const id = useBaseUiId(idProp);
@@ -69,9 +85,9 @@ export function Menubar(props: Menubar.Props) {
     hasSubmenuOpen,
     modal,
     orientation,
+    registerMenu,
     rootId: id,
     setContentElement,
-    setHasSubmenuOpen,
   };
 
   return (
@@ -110,38 +126,6 @@ export function Menubar(props: Menubar.Props) {
 
 function MenubarContent(props: ParentProps) {
   const nodeId = useFloatingNodeId();
-  const tree = useFloatingTree();
-  if (!tree) {
-    throw new Error('Base UI: Menubar must be used within <FloatingTree>.');
-  }
-  const { events: menuEvents } = tree;
-  const rootContext = useMenubarContext();
-
-  createEffect(nodeId, (parentNodeId) => {
-    function onSubmenuOpenChange(details: MenuOpenEventDetails) {
-      if (!details.nodeId || details.parentNodeId !== parentNodeId) {
-        return;
-      }
-
-      if (details.open) {
-        if (!untrack(rootContext.hasSubmenuOpen)) {
-          rootContext.setHasSubmenuOpen(true);
-        }
-      } else if (
-        details.reason !== REASONS.siblingOpen &&
-        details.reason !== REASONS.listNavigation
-      ) {
-        rootContext.setHasSubmenuOpen(false);
-      }
-    }
-
-    menuEvents.on('menuopenchange', onSubmenuOpenChange);
-
-    return () => {
-      menuEvents.off('menuopenchange', onSubmenuOpenChange);
-    };
-  });
-
   return <FloatingNode id={nodeId()}>{props.children}</FloatingNode>;
 }
 

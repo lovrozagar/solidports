@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { FieldsetRootContext, useFieldsetRootContext } from './FieldsetRootContext';
@@ -46,7 +46,7 @@ export function FieldsetRoot(componentProps: FieldsetRoot.Props) {
     disabled,
   };
 
-  return <FieldsetRootContext value={contextValue}>{element()}</FieldsetRootContext>;
+  return provideContext(FieldsetRootContext, contextValue, element);
 }
 
 export interface FieldsetRootState {

@@ -1,4 +1,4 @@
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -57,7 +57,7 @@ export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
     stateAttributesMapping: collapsibleStateAttributesMapping,
   });
 
-  return <CollapsibleRootContext value={contextValue}>{element()}</CollapsibleRootContext>;
+  return provideContext(CollapsibleRootContext, contextValue, element);
 }
 
 // Solid: React picks these from the hook's return value; here the hook returns accessors.

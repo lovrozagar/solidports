@@ -31,7 +31,11 @@ export interface NavigationMenuRootContext<Value = any> {
   activationDirection: Accessor<'left' | 'right' | 'up' | 'down' | null>;
   setActivationDirection: Setter<'left' | 'right' | 'up' | 'down' | null>;
   floatingRootContext: Accessor<FloatingRootContext | undefined>;
-  setFloatingRootContext: Setter<FloatingRootContext | undefined>;
+  /** Makes a trigger's floating context the root's while that trigger is active (once mounted). */
+  registerTriggerFloatingContext: (entry: {
+    active: Accessor<boolean>;
+    context: FloatingRootContext;
+  }) => void;
   currentContentRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   rootRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   beforeInsideRef: ReactLikeRef<HTMLSpanElement | null | undefined>;

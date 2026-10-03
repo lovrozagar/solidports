@@ -2,7 +2,12 @@
 import { createEffect, createSignal, onSettled, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
-import { callEventHandler, splitComponentProps, type ReactLikeRef } from '../solid-helpers';
+import {
+  callEventHandler,
+  splitComponentProps,
+  type ReactLikeRef,
+  provideContext,
+} from '../solid-helpers';
 import { EMPTY_OBJECT } from '../utils/constants';
 import {
   createGenericEventDetails,
@@ -166,7 +171,7 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
     validationMode,
   };
 
-  return <FormContext value={contextValue}>{element()}</FormContext>;
+  return provideContext(FormContext, contextValue, element);
 }
 
 function comesBeforeInSameTree(element: Node, reference: Node) {

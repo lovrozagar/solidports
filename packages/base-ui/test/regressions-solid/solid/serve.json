@@ -1,0 +1,9 @@
+{
+  "public": "build",
+  "rewrites": [
+    {
+      "destination": "/index.html",
+      "source": "**"
+    }
+  ]
+}

@@ -91,6 +91,13 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
   const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null | undefined>(null);
 
   const parent = useMenuParent();
+  // A trigger in a menubar reports the menu it opens, so the menubar derives `hasSubmenuOpen`.
+  if (parent.type === 'menubar') {
+    parent.context.registerMenu({
+      open: isOpenedByThisTrigger,
+      lastOpenChangeReason: () => store().select('lastOpenChangeReason'),
+    });
+  }
   const compositeRootContext = useCompositeRootContext(true);
   const floatingTreeRootFromContext = useFloatingTree();
   const floatingTreeRoot: FloatingTreeStore =
@@ -443,22 +450,19 @@ export namespace MenuTrigger {
  */
 function useStickIfOpen(open: Accessor<boolean>, openReason: Accessor<string | null>) {
   const stickIfOpenTimeout = useTimeout();
-  const [stickIfOpen, setStickIfOpen] = createSignal(false);
-  // Solid: a passive effect, as a render effect's first apply runs in the owned scope.
-  createEffect(open, (isOpen) => {
-    const reason = openReason();
-    if (isOpen && reason === REASONS.triggerHover) {
-      // Only allow "patient" clicks to close the menu if it's open.
-      // If they clicked within 500ms of the menu opening, keep it open.
-      setStickIfOpen(true);
+  // Only allow "patient" clicks to close the menu if it's open: a menu opened by hover sticks
+  // for a moment. Derived from the open change (a writable memo); the timeout ends it.
+  const [stickIfOpen, setStickIfOpen] = createSignal<boolean>(
+    () => open() && untrack(openReason) === REASONS.triggerHover,
+    { ownedWrite: true },
+  );
+  createEffect(stickIfOpen, (stick) => {
+    if (stick) {
       stickIfOpenTimeout.start(PATIENT_CLICK_THRESHOLD, () => {
         setStickIfOpen(false);
       });
-    } else if (!isOpen) {
+    } else {
       stickIfOpenTimeout.clear();
-      if (untrack(stickIfOpen)) {
-        setStickIfOpen(false);
-      }
     }
   });
 

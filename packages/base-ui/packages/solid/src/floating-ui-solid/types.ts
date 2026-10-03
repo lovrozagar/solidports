@@ -176,6 +176,11 @@ export type UseFloatingReturn = Prettify<
 export interface UseFloatingOptions extends Omit<UsePositionOptions, 'elements'> {
   rootContext?: FloatingRootContext | undefined;
   /**
+   * Solid-only: a derived position reference (`refs.setPositionReference` without an effect).
+   * A new object sets `anchor` as the position reference; `undefined` keeps the current one.
+   */
+  positionReference?: { anchor: ReferenceType | null } | undefined;
+  /**
    * Object of external elements as an alternative to the `refs` object setters.
    */
   elements?:

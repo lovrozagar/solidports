@@ -27,7 +27,7 @@ import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useDirection } from '../../internals/direction-context/DirectionContext';
 import { mergeProps } from '../../merge-props';
-import { type ReactLikeRef, useRef } from '../../solid-helpers';
+import { type ReactLikeRef, shallowEqual, useRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
 import {
   createChangeEventDetails,
@@ -128,6 +128,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
 
   const { clearErrors } = useFormContext();
   const {
+    registerDirtySource,
     setDirty,
     validityData,
     shouldValidateOnChange,
@@ -382,95 +383,101 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     return resolvedItems ? flattenLeafItems<Item>(resolvedItems) : EMPTY_ARRAY;
   });
 
-  const filteredItems = createMemo<Item[] | Group<Item>[]>(() => {
-    const filteredItemsPropValue = filteredItemsProp();
-    if (filteredItemsPropValue && !shouldIgnoreExternalFiltering()) {
-      return filteredItemsPropValue as Item[] | Group<Item>[];
-    }
+  const filteredItems = createMemo<Item[] | Group<Item>[]>(
+    () => {
+      const filteredItemsPropValue = filteredItemsProp();
+      if (filteredItemsPropValue && !shouldIgnoreExternalFiltering()) {
+        return filteredItemsPropValue as Item[] | Group<Item>[];
+      }
 
-    const resolvedItems = items();
-    if (!resolvedItems) {
-      return EMPTY_ARRAY as Item[];
-    }
+      const resolvedItems = items();
+      if (!resolvedItems) {
+        return EMPTY_ARRAY as Item[];
+      }
 
-    const filterQueryValue = filterQuery();
-    const filterFn = filter();
-    const itemToString = filterItemToString();
-    const limitValue = limit();
+      const filterQueryValue = filterQuery();
+      const filterFn = filter();
+      const itemToString = filterItemToString();
+      const limitValue = limit();
 
-    if (isGrouped()) {
-      const groupedItems = resolvedItems as readonly Group<Item>[];
-      const resultingGroups: Group<Item>[] = [];
-      let currentCount = 0;
+      if (isGrouped()) {
+        const groupedItems = resolvedItems as readonly Group<Item>[];
+        const resultingGroups: Group<Item>[] = [];
+        let currentCount = 0;
 
-      for (const group of groupedItems) {
-        if (limitValue > -1 && currentCount >= limitValue) {
-          break;
-        }
+        for (const group of groupedItems) {
+          if (limitValue > -1 && currentCount >= limitValue) {
+            break;
+          }
 
-        const remainingLimit = limitValue > -1 ? limitValue - currentCount : Infinity;
-        const itemsToTake = filterQueryValue === '' ? group.items.slice(0, remainingLimit) : [];
+          const remainingLimit = limitValue > -1 ? limitValue - currentCount : Infinity;
+          const itemsToTake = filterQueryValue === '' ? group.items.slice(0, remainingLimit) : [];
 
-        if (filterQueryValue !== '') {
-          for (const item of group.items) {
-            if (itemsToTake.length >= remainingLimit) {
-              break;
+          if (filterQueryValue !== '') {
+            for (const item of group.items) {
+              if (itemsToTake.length >= remainingLimit) {
+                break;
+              }
+              if (filterFn(item, filterQueryValue, itemToString)) {
+                itemsToTake.push(item);
+              }
             }
-            if (filterFn(item, filterQueryValue, itemToString)) {
-              itemsToTake.push(item);
-            }
+          }
+
+          if (itemsToTake.length > 0) {
+            const newGroup = { ...group, items: itemsToTake };
+            resultingGroups.push(newGroup);
+            currentCount += itemsToTake.length;
           }
         }
 
-        if (itemsToTake.length > 0) {
-          const newGroup = { ...group, items: itemsToTake };
-          resultingGroups.push(newGroup);
-          currentCount += itemsToTake.length;
+        return resultingGroups;
+      }
+
+      const flatItemsValue = flatItems();
+      if (filterQueryValue === '') {
+        return limitValue > -1
+          ? flatItemsValue.slice(0, limitValue)
+          : // The cast here is done as `flatItems` is readonly.
+            // valuesRef.current, a mutable ref, can be set to `flatFilteredValues`, which may
+            // reference this exact readonly value, creating a mutation risk.
+            // However, <Combobox.Item> can never mutate this value as the mutating effect
+            // bails early when `items` is provided, and this is only ever returned
+            // when `items` is provided due to the early return at the top of this hook.
+            (flatItemsValue as Item[]);
+      }
+
+      const limitedItems: Item[] = [];
+      for (const item of flatItemsValue) {
+        if (limitValue > -1 && limitedItems.length >= limitValue) {
+          break;
+        }
+        if (filterFn(item, filterQueryValue, itemToString)) {
+          limitedItems.push(item);
         }
       }
 
-      return resultingGroups;
-    }
-
-    const flatItemsValue = flatItems();
-    if (filterQueryValue === '') {
-      return limitValue > -1
-        ? flatItemsValue.slice(0, limitValue)
-        : // The cast here is done as `flatItems` is readonly.
-          // valuesRef.current, a mutable ref, can be set to `flatFilteredValues`, which may
-          // reference this exact readonly value, creating a mutation risk.
-          // However, <Combobox.Item> can never mutate this value as the mutating effect
-          // bails early when `items` is provided, and this is only ever returned
-          // when `items` is provided due to the early return at the top of this hook.
-          (flatItemsValue as Item[]);
-    }
-
-    const limitedItems: Item[] = [];
-    for (const item of flatItemsValue) {
-      if (limitValue > -1 && limitedItems.length >= limitValue) {
-        break;
-      }
-      if (filterFn(item, filterQueryValue, itemToString)) {
-        limitedItems.push(item);
-      }
-    }
-
-    return limitedItems;
-  });
+      return limitedItems;
+    },
+    { equals: shallowEqual },
+  );
 
   /**
    * The filtered items flattened across groups and projected to their selection values.
    */
-  const flatFilteredValues = createMemo<any[]>(() => {
-    const filtered = filteredItems();
-    const window = externalWindow();
-    if (window && filtered === filteredItemsProp()) {
-      return window.values;
-    }
-    const flat = flattenLeafItems<Item>(filtered as readonly Item[] | readonly Group<Item>[]);
-    const toValue = itemToValue();
-    return toValue ? flat.map((item) => toValue(item)) : (flat as any[]);
-  });
+  const flatFilteredValues = createMemo<any[]>(
+    () => {
+      const filtered = filteredItems();
+      const window = externalWindow();
+      if (window && filtered === filteredItemsProp()) {
+        return window.values;
+      }
+      const flat = flattenLeafItems<Item>(filtered as readonly Item[] | readonly Group<Item>[]);
+      const toValue = itemToValue();
+      return toValue ? flat.map((item) => toValue(item)) : (flat as any[]);
+    },
+    { equals: shallowEqual },
+  );
 
   const { mounted, setMounted, transitionStatus } = useTransitionStatus(open);
   const { openMethod, triggerProps } = useOpenInteractionType(open);
@@ -988,6 +995,12 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
         return;
       }
 
+      // Set the selected index with the value (the closed-state sync derives the same one), so
+      // readers see both in the same flush.
+      const registry: readonly any[] = hasItems() ? flatFilteredValues() : valuesRef.current;
+      setIndices({
+        selectedIndex: findSelectionIndex(registry, itemValue, isItemEqualToValue(), false),
+      });
       setOpen(false, eventDetails);
     }
   };
@@ -1135,6 +1148,23 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
       }
     }),
   );
+
+  // The highlight normalizes with the list in the same flush (React corrects it from an effect):
+  // a navigable list in `always` mode highlights its first item, and an index past the end clears.
+  // Writes through `setIndices` stand until the list or mode changes.
+  store.useSyncedValue('activeIndex', (prev) => {
+    if (!open() && !inline()) {
+      return prev;
+    }
+    const candidateItems =
+      hasItems() || hasFilteredItemsProp()
+        ? flatFilteredValues()
+        : untrack(() => valuesRef.current);
+    if (prev == null) {
+      return autoHighlightMode() === 'always' && candidateItems.length > 0 ? 0 : prev;
+    }
+    return prev >= candidateItems.length ? null : prev;
+  });
 
   // Solid: a user effect, since emitting a highlight runs user callbacks that may write signals.
   createEffect(
@@ -1343,6 +1373,13 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
       validation.commit(value, true);
     }
   }
+
+  // React sets `dirty` from a layout effect when the value changes; the field derives it.
+  registerDirtySource(() =>
+    selectionMode() === 'none'
+      ? inputValue() !== validityData.initialValue
+      : isSelectedValueDirty(selectedValue(), validityData.initialValue, isItemEqualToValue()),
+  );
 
   function handleSelectedValueChanged() {
     if (selectionMode() === 'none') {

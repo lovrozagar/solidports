@@ -3,16 +3,12 @@
   "bugs": {
     "url": "https://github.com/lovrozagar/solidports/issues"
   },
-  "dependencies": {
-    "@floating-ui/dom": "catalog:",
-    "@floating-ui/utils": "catalog:",
-    "tabbable": "catalog:"
-  },
   "description": "Headless, accessible Solid 2 components and hooks: a port of MUI Base UI.",
   "devDependencies": {
     "@date-fns/tz": "catalog:",
+    "@floating-ui/dom": "catalog:",
+    "@floating-ui/utils": "catalog:",
     "@solidjs/router": "catalog:",
-    "@solidjs/signals": "catalog:",
     "@solidjs/testing-library": "catalog:",
     "@solidjs/vite-plugin": "catalog:",
     "@solidjs/web": "catalog:",
@@ -452,7 +448,8 @@
   "name": "@solidports/base-ui",
   "peerDependencies": {
     "@date-fns/tz": "^1.2.0",
-    "@solidjs/signals": "~2.0.0-rc.13",
+    "@floating-ui/dom": "^1.8.0",
+    "@floating-ui/utils": "^0.2.11",
     "@solidjs/web": "~2.0.0-rc.13",
     "date-fns": "^4.0.0",
     "luxon": "^3.0.0",

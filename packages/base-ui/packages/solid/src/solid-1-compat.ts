@@ -6,7 +6,6 @@ import {
   type StoreSetter,
   untrack,
 } from 'solid-js';
-import { storePath } from '@solidjs/signals';
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
   ? I
@@ -145,17 +144,6 @@ export type SetStoreFunction<T> = {
   (...args: any[]): void;
 };
 
-function pathHasFilter(args: unknown[]): boolean {
-  return args.some(
-    (arg) =>
-      typeof arg === 'function' ||
-      (arg !== null &&
-        typeof arg === 'object' &&
-        !Array.isArray(arg) &&
-        ('from' in (arg as object) || 'to' in (arg as object) || 'by' in (arg as object))),
-  );
-}
-
 /** Solid 2 store drafts use getter-only nodes for `get x()` initial fields.
  *  Object.assign throws "which has only a getter"; skip those keys — they stay live. */
 export function writeStorePatch(draft: any, patch: Record<string, unknown>) {
@@ -173,58 +161,52 @@ export function writeStorePatch(draft: any, patch: Record<string, unknown>) {
   }
 }
 
+/**
+ * Applies a 1.x setter call: a draft function, a patch object, or a key path ending in a value or
+ * an updater. Path filters (functions, ranges) are not supported.
+ */
 function applyPath(set: StoreSetter<any>, args: any[]) {
   if (args.length === 0) return;
   if (args.length === 1) {
     const arg = args[0];
     if (typeof arg === 'function') {
       set(arg);
-      return;
-    }
-    if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
+    } else if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
       set((draft: any) => {
         writeStorePatch(draft, arg);
       });
-      return;
     }
-    set(storePath(arg as never) as never);
     return;
   }
 
   const last = args[args.length - 1];
   const path = args.slice(0, -1);
 
-  if (typeof last === 'function' && !pathHasFilter(path)) {
-    set((draft: any) => {
-      let parent = draft;
-      for (let i = 0; i < path.length; i++) {
-        const key = path[i];
-        if (parent == null) return;
-        if (i === path.length - 1) {
-          let current = parent[key];
-          if (current == null) {
-            /* Solid 2 reconcile throws on null/undefined. Seed a node so
-						   first-write path setters (`set("fields", id, reconcile(obj))`)
-						   match Solid 1 and create the nested record. */
-            parent[key] = {};
-            current = parent[key];
-          }
-          const result = last(current);
-          if (result !== undefined && result !== current) {
-            writeStorePatch(parent, { [key]: result });
-          }
-          return;
-        }
-        if (parent[key] == null) {
-          parent[key] = {};
-        }
-        parent = parent[key];
+  set((draft: any) => {
+    let parent = draft;
+    for (let i = 0; i < path.length - 1; i += 1) {
+      if (parent[path[i]] == null) {
+        parent[path[i]] = {};
       }
-    });
-    return;
-  }
-
-  set((storePath as any)(...args));
+      parent = parent[path[i]];
+    }
+    const key = path[path.length - 1];
+    if (typeof last !== 'function') {
+      writeStorePatch(parent, { [key]: last });
+      return;
+    }
+    let current = parent[key];
+    if (current == null) {
+      // Solid 2 reconcile throws on null/undefined. Seed a node so first-write path setters
+      // (`set("fields", id, reconcile(obj))`) match Solid 1 and create the nested record.
+      parent[key] = {};
+      current = parent[key];
+    }
+    const result = last(current);
+    if (result !== undefined && result !== current) {
+      writeStorePatch(parent, { [key]: result });
+    }
+  });
 }
 
 /**

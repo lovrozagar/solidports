@@ -5,7 +5,12 @@ import {
   IndexGuessBehavior,
   useCompositeListItem,
 } from '../../internals/composite/list/useCompositeListItem';
-import { createDepsRenderEffect, splitComponentProps, useRef } from '../../solid-helpers';
+import {
+  createDepsRenderEffect,
+  splitComponentProps,
+  useRef,
+  provideContext,
+} from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isVirtualClick } from '../../floating-ui-solid/utils/event';
@@ -194,6 +199,9 @@ export function SelectItem(componentProps: SelectItem.Props) {
         : [...currentValue, itemValue()];
       setValue(nextValue, createChangeEventDetails(REASONS.itemPress, event));
     } else {
+      // Set the selected index with the value (the root derives the same one after closing), so
+      // readers see both in the same flush.
+      store.set('selectedIndex', index());
       setValue(itemValue(), createChangeEventDetails(REASONS.itemPress, event));
       setOpen(false, createChangeEventDetails(REASONS.itemPress, event));
     }
@@ -336,7 +344,7 @@ export function SelectItem(componentProps: SelectItem.Props) {
     textRef,
   };
 
-  return <SelectItemContext value={contextValue}>{element()}</SelectItemContext>;
+  return provideContext(SelectItemContext, contextValue, element);
 }
 
 export interface SelectItemState {

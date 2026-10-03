@@ -50,9 +50,23 @@ function useFloatingWithStore(
     reference: () => rootContext().select('referenceElement'),
   };
 
+  const toPositionReference = (node: ReferenceType | null | undefined) =>
+    isElement(node)
+      ? ({
+          contextElement: node,
+          getBoundingClientRect: () => node.getBoundingClientRect(),
+          getClientRects: () => node.getClientRects(),
+        } satisfies VirtualElement)
+      : node;
+
+  // A writable memo: a derived `options.positionReference` sets it in the same flush, and
+  // `refs.setPositionReference` writes it imperatively.
   const [positionReference, setPositionReferenceRaw] = createSignal<
     ReferenceType | null | undefined
-  >(null);
+  >((prev) => {
+    const input = options.positionReference;
+    return input ? toPositionReference(input.anchor) : (prev ?? null);
+  });
 
   const domReference = createMemo(() => {
     const ref = rootContextElements.domReference();
@@ -74,13 +88,7 @@ function useFloatingWithStore(
   const position = usePosition(positionOptions);
 
   const setPositionReference = (node: ReferenceType | null | undefined) => {
-    const computedPositionReference = isElement(node)
-      ? ({
-          contextElement: node,
-          getBoundingClientRect: () => node.getBoundingClientRect(),
-          getClientRects: () => node.getClientRects(),
-        } satisfies VirtualElement)
-      : node;
+    const computedPositionReference = toPositionReference(node);
     // Store the positionReference in state if the DOM reference is specified externally via the
     // `elements.reference` option. This ensures that it won't be overridden on future renders.
     setPositionReferenceRaw(computedPositionReference);
@@ -97,10 +105,16 @@ function useFloatingWithStore(
 
   // React's three `useSyncedValue` calls: each key is written only when its own value changes.
   // The store is part of each value because parts like NavigationMenu swap it per active trigger.
+  // A store swapped in keeps its own reference until this hook has one: writing `null` over it
+  // only discards the reference the new store's owner synced (positioning uses the position
+  // reference), and would relay the swap a flush late.
   createDepsEffect(
-    () => ({ store: rootContext(), value: localDomReference() ?? null }),
-    ({ store, value }) => {
-      store.set('referenceElement', value);
+    () => ({ store: rootContext(), local: localDomReference() }),
+    ({ store, local }, prev) => {
+      if (local === undefined && prev !== undefined && prev.store !== store) {
+        return;
+      }
+      store.set('referenceElement', local ?? null);
     },
   );
 

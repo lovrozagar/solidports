@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { SelectGroupContext } from './SelectGroupContext';
@@ -29,7 +29,7 @@ export function SelectGroup(componentProps: SelectGroup.Props) {
     ],
   });
 
-  return <SelectGroupContext value={contextValue}>{element()}</SelectGroupContext>;
+  return provideContext(SelectGroupContext, contextValue, element);
 }
 
 export interface SelectGroupState {}

@@ -6,7 +6,7 @@ import {
   IndexGuessBehavior,
   useCompositeListItem,
 } from '../../internals/composite/list/useCompositeListItem';
-import { splitComponentProps, useRef } from '../../solid-helpers';
+import { provideContext, splitComponentProps, useRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { compareItemEquality, findItemIndex, resolveSelectedIndex } from '../../utils/itemEquality';
 import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
@@ -273,7 +273,7 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
     textRef,
   };
 
-  return <ComboboxItemContext value={contextValue}>{element()}</ComboboxItemContext>;
+  return provideContext(ComboboxItemContext, contextValue, element);
 }
 
 /**

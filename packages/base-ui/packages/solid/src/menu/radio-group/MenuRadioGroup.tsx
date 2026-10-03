@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at radio-group context boundary */
 import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -71,10 +71,8 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
     state,
   });
 
-  return (
-    <MenuGroupContext value={setLabelId}>
-      <MenuRadioGroupContext value={context}>{element()}</MenuRadioGroupContext>
-    </MenuGroupContext>
+  return provideContext(MenuGroupContext, setLabelId, () =>
+    provideContext(MenuRadioGroupContext, context, element),
   );
 }
 

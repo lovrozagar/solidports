@@ -1,5 +1,4 @@
 import {
-  createEffect,
   createMemo,
   createRenderEffect,
   createSignal,
@@ -70,18 +69,15 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
 
   const [focusInside, setFocusInside] = createSignal(false);
 
-  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open);
-
   // If the popup unmounts before the content's exit animation completes, reset the internal
-  // mounted state so the next open can re-enter via `transitionStatus="starting"`.
-  // Solid: an effect, since React's render-phase state update cannot run in a Solid body.
-  createEffect(
-    () => mounted() && !popupMounted(),
-    (shouldReset) => {
-      if (shouldReset) {
-        setMounted(false);
-      }
-    },
+  // mounted state so the next open can re-enter via `transitionStatus="starting"`. React does it
+  // with a render-phase update; Solid derives it in the same flush.
+  const { mounted, setMounted, transitionStatus } = useTransitionStatus(
+    open,
+    false,
+    false,
+    false,
+    popupMounted,
   );
 
   useOpenChangeComplete({

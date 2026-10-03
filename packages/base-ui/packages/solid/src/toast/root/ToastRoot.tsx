@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Data type erased at root */
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
-import { splitComponentProps, useRef } from '../../solid-helpers';
+import { splitComponentProps, useRef, provideContext } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { BASE_UI_SWIPE_IGNORE_SELECTOR, LEGACY_SWIPE_IGNORE_SELECTOR } from '../../utils/constants';
 import { flushSync as flushSyncUpdate } from '../../utils/flushSync';
@@ -543,7 +543,7 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     props: [defaultProps, elementProps],
   });
 
-  return <ToastRootContext value={toastRoot}>{element()}</ToastRootContext>;
+  return provideContext(ToastRootContext, toastRoot, element);
 }
 
 export type ToastRootToastObject<Data extends object = any> = ToastObjectType<Data>;

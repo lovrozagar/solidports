@@ -5,6 +5,7 @@ import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRoo
 import { createDepsEffect, createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
+import { isServer } from '@solidjs/web';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
@@ -71,6 +72,10 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
   });
 
   const panel = useCollapsiblePanel({
+    dimensionCssVars: {
+      height: AccordionPanelCssVars.accordionPanelHeight,
+      width: AccordionPanelCssVars.accordionPanelWidth,
+    },
     hiddenUntilFound,
     id,
     keepMounted,
@@ -119,15 +124,15 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
             return triggerId?.();
           },
           role: 'region',
+          // The client writes measured sizes to these variables directly (see
+          // `useCollapsiblePanel`); the server renders their initial `auto`.
           get style() {
-            const height = panel.height();
-            const width = panel.width();
-            return {
-              [AccordionPanelCssVars.accordionPanelHeight as string]:
-                height === undefined ? 'auto' : `${height}px`,
-              [AccordionPanelCssVars.accordionPanelWidth as string]:
-                width === undefined ? 'auto' : `${width}px`,
-            };
+            return isServer
+              ? {
+                  [AccordionPanelCssVars.accordionPanelHeight as string]: 'auto',
+                  [AccordionPanelCssVars.accordionPanelWidth as string]: 'auto',
+                }
+              : undefined;
           },
         },
         elementProps,

@@ -62,7 +62,8 @@ export function DemoFileSelector(props: DemoFileSelectorProps) {
         onValueChange={onValueChange}
       >
         <Tabs.List class="DemoTabsList" aria-label="Files">
-          <For each={tabs()}>
+          {/* Keyed by file name: the tab list is rebuilt from the files, and a tab keeps its element. */}
+          <For each={tabs()} keyed={(tab) => tab.id}>
             {(tab) => (
               <Tabs.Tab
                 render={(tabProps) => {
@@ -70,7 +71,7 @@ export function DemoFileSelector(props: DemoFileSelectorProps) {
                   return (
                     <a
                       {...merged}
-                      href={tab.slug ? `#${tab.slug}` : undefined}
+                      href={tab().slug ? `#${tab().slug}` : undefined}
                       onClick={(event) => {
                         /* Tabs.Tab's internal click handler triggers value change — must run BEFORE preventDefault. */
                         const innerOnClick = merged.onClick
@@ -79,12 +80,12 @@ export function DemoFileSelector(props: DemoFileSelectorProps) {
                       }}
                     >
                       {/* Span paints above the active tab's ::before fill. */}
-                      <span>{tab.name}</span>
+                      <span>{tab().name}</span>
                     </a>
                   )
                 }}
                 class="DemoTab"
-                value={tab.id}
+                value={tab().id}
                 nativeButton={false}
                 onPointerDown={onTabPointerDown}
               />

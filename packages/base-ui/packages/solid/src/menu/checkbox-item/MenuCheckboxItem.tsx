@@ -1,5 +1,5 @@
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { NOOP } from '../../utils/empty';
 import { REASONS } from '../../utils/reasons';
@@ -121,7 +121,7 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     stateAttributesMapping: itemMapping,
   });
 
-  return <MenuCheckboxItemContext value={contextValue}>{element()}</MenuCheckboxItemContext>;
+  return provideContext(MenuCheckboxItemContext, contextValue, element);
 }
 
 export type MenuCheckboxItemState = {

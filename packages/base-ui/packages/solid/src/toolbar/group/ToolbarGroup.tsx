@@ -1,4 +1,4 @@
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { ToolbarRoot } from '../root/ToolbarRoot';
@@ -37,9 +37,7 @@ export function ToolbarGroup(componentProps: ToolbarGroup.Props) {
     state,
   });
 
-  return (
-    <ToolbarGroupContext value={contextValue}>{element()}</ToolbarGroupContext>
-  );
+  return provideContext(ToolbarGroupContext, contextValue, element);
 }
 
 export interface ToolbarGroupProps extends BaseUIComponentProps<'div', ToolbarRoot.State> {

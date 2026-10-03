@@ -5,7 +5,7 @@ import type { CollapsibleRoot, CollapsibleRootState } from '../../collapsible/ro
 import { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { type BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -128,10 +128,8 @@ export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element 
     stateAttributesMapping: accordionStateAttributesMapping,
   });
 
-  return (
-    <CollapsibleRootContext value={collapsibleContext}>
-      <AccordionItemContext value={accordionItemContext}>{element()}</AccordionItemContext>
-    </CollapsibleRootContext>
+  return provideContext(CollapsibleRootContext, collapsibleContext, () =>
+    provideContext(AccordionItemContext, accordionItemContext, element),
   );
 }
 

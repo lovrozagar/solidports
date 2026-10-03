@@ -29,12 +29,15 @@ function requestAfterPaint(callback: () => void) {
  * @param animateInitialOpen - a boolean that makes an element which mounts already open still go
  *   through `'starting'`. Off by default so content that was open on the first render (a
  *   `defaultOpen` popup on page load, SSR'd markup) doesn't animate in.
+ * @param canStayMounted - while closed, whether the element may stay mounted (e.g. its container
+ *   is still mounted). When it turns `false`, `mounted` resets in the same flush.
  */
 export function useTransitionStatus(
   open: MaybeAccessor<boolean>,
   enableIdleState: MaybeAccessor<boolean> = false,
   deferEndingState: MaybeAccessor<boolean> = false,
   animateInitialOpen: MaybeAccessor<boolean> = false,
+  canStayMounted: MaybeAccessor<boolean> = true,
 ) {
   const openProp = () => Boolean(access(open));
   const enableIdleStateProp = () => Boolean(access(enableIdleState));
@@ -44,7 +47,9 @@ export function useTransitionStatus(
   // them in the same flush instead: writable memos re-derive whenever their inputs change, and keep
   // what the frame callbacks and `setMounted` write until the next change. Copying them from an
   // effect would render one flush with the new `open` and the stale status.
-  const [mounted, setMounted] = createSignal<boolean>((prev) => openProp() || (prev ?? false));
+  const [mounted, setMounted] = createSignal<boolean>(
+    (prev) => openProp() || ((prev ?? false) && Boolean(access(canStayMounted))),
+  );
 
   let previouslyOpen: boolean | undefined;
   const [transitionStatus, setTransitionStatus] = createSignal<TransitionStatus>((prev) => {

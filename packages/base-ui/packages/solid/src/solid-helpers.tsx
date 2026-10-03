@@ -3,12 +3,15 @@ import {
   createEffect,
   createMemo,
   createRenderEffect,
+  createRoot,
   getObserver,
+  isHydrating,
   Show,
   untrack,
 } from 'solid-js';
-import type { Accessor } from 'solid-js';
+import type { Accessor, Context } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
 import type { PayloadChildRenderFunction } from './utils/popups';
 import { mergeProps as solidMergeProps, splitProps, type SplitProps } from './solid-1-compat';
 
@@ -197,4 +200,35 @@ export function ComponentWithPayload<Payload>(props: {
       {(fn) => <>{fn()(payloadContext)}</>}
     </Show>
   );
+}
+
+/**
+ * `<Context value={value}>{render()}</Context>` that hands back `render`'s own result. Outside SSR
+ * and hydration, the provider runs `render` once (untracked, as a component body) and its children
+ * memo stays internal: a part whose element is a plain node then gives its parent a node, not a
+ * memo, so a list of parts adds nothing per row to the list's insert.
+ */
+export function provideContext<T>(
+  context: Context<T>,
+  value: T,
+  render: () => JSX.Element,
+): JSX.Element {
+  const Provider = context as unknown as (props: {
+    value: T;
+    children: JSX.Element;
+  }) => JSX.Element;
+  if (isServer || isHydrating()) {
+    // Hydration must create the same owners the server did.
+    return <Provider value={value}>{render()}</Provider>;
+  }
+  let result: JSX.Element;
+  const resolveChildren = Provider({
+    value,
+    get children() {
+      result = untrack(render);
+      return undefined;
+    },
+  }) as unknown as () => unknown;
+  untrack(resolveChildren);
+  return result;
 }

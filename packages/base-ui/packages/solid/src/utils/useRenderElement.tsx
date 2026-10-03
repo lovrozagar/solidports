@@ -5,6 +5,8 @@ import {
   createRenderEffect,
   createRoot,
   getObserver,
+  isHydrating,
+  isStatic,
   mapArray,
   onCleanup,
   runWithOwner,
@@ -12,13 +14,18 @@ import {
   type Accessor,
 } from 'solid-js';
 import type { JSX, ValidComponent } from '@solidjs/web';
-import { assign, Dynamic, isServer, spread } from '@solidjs/web';
+import { assign, Dynamic, dynamic, isServer, spread } from '@solidjs/web';
 import type { DynamicProps } from '@solidjs/web';
 import { MERGED_REFS } from '../merge-props/mergeProps';
 import { access, shallowEqual, type MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
 import { type StateAttributesMapping } from './getStateAttributesProps';
-import { createPropsView, createStateAttributesSource, propsSourceAccessor } from './propsView';
+import {
+  createPropsView,
+  createStateAttributesSource,
+  isPropsSourceAccessor,
+  propsSourceAccessor,
+} from './propsView';
 import { resolveClassName } from './resolveClassName';
 import { resolveStyle } from './resolveStyle';
 import type {
@@ -186,7 +193,7 @@ export function useRenderElement<
         const entries = Array.isArray(params.props) ? params.props.flat() : [params.props];
         let result: unknown[] = [];
         for (const entry of entries) {
-          if (typeof entry === 'function') {
+          if (typeof entry === 'function' && !isPropsSourceAccessor(entry)) {
             const previous = createPropsView(result);
             const callback = entry as (props: Record<string, any>) => object | null | undefined;
             result = [propsSourceAccessor(createMemo(() => callback(previous)))];
@@ -198,14 +205,25 @@ export function useRenderElement<
       },
       { equals: shallowEqual },
     );
-    const classStyleSource = {
-      get class() {
-        return resolveClassName(componentProps.class, state());
-      },
-      get style() {
-        return resolveStyle(componentProps.style, state());
-      },
-    };
+    // `class` and `style` exist only when the part's props have them, so an element without them
+    // gets no attribute work for either.
+    const resolveClassStyle = (key: string | symbol) =>
+      key === 'class'
+        ? resolveClassName(componentProps.class, state())
+        : key === 'style'
+          ? resolveStyle(componentProps.style, state())
+          : undefined;
+    const hasClassStyle = (key: string | symbol) =>
+      (key === 'class' || key === 'style') && key in componentProps;
+    const classStyleSource = new Proxy({} as Record<string, unknown>, {
+      get: (_, key) => (hasClassStyle(key) ? resolveClassStyle(key) : undefined),
+      has: (_, key) => hasClassStyle(key),
+      ownKeys: () => ['class', 'style'].filter(hasClassStyle),
+      getOwnPropertyDescriptor: (_, key) =>
+        hasClassStyle(key)
+          ? { configurable: true, enumerable: true, get: () => resolveClassStyle(key) }
+          : undefined,
+    });
     // The render object and React's `renderTag` defaults (`type="button"` / `alt=""` at the lowest
     // priority) are read here, so a prop read subscribes to one memo for them.
     const sources = createMemo(
@@ -333,15 +351,10 @@ export function useRenderElement<
     // React does. The server renders the element props as one spread.
     // The attribute root is unowned so the component's cleanup marks it detached before it
     // disposes (an owned child root would dispose first and strip the detached element).
+    // Event handlers need no effect: each gets one listener that calls the current chain when the
+    // event fires (handlers never subscribe), so only attribute values track their sources.
     let disposeAttributes: (() => void) | undefined;
     onCleanup(() => disposeAttributes?.());
-    const attributeKeys = createMemo(
-      () =>
-        (Reflect.ownKeys(elementProps) as string[]).filter(
-          (key) => key !== 'ref' && key !== 'children',
-        ),
-      { equals: (a, b) => a.length === b.length && a.every((key, index) => key === b[index]) },
-    );
     const attachAttributes = (el: Element) => {
       disposeAttributes?.();
       runWithOwner(null, () =>
@@ -351,13 +364,30 @@ export function useRenderElement<
             attached = false;
             dispose();
           };
+          const attributeKeys = createMemo(
+            () =>
+              (Reflect.ownKeys(elementProps) as string[]).filter(
+                (key) => key !== 'ref' && key !== 'children',
+              ),
+            { equals: shallowEqual },
+          );
           const applied = mapArray(attributeKeys, (key) => {
-            // `spread` returns the props it applied; a key that goes away is removed with them.
-            const appliedProps = spread(
-              el,
-              () => ({ [key]: elementProps[key] }),
-              true,
-            ) as unknown as Record<string, unknown>;
+            let appliedProps: Record<string, unknown>;
+            if (key.length > 2 && key[0] === 'o' && key[1] === 'n') {
+              const dispatch = (...args: unknown[]) =>
+                (untrack(() => elementProps[key]) as ((...a: unknown[]) => unknown) | undefined)?.(
+                  ...args,
+                );
+              appliedProps = { [key]: dispatch };
+              assign(el, appliedProps, true, {}, true);
+            } else {
+              // `spread` returns the props it applied; a key that goes away is removed with them.
+              appliedProps = spread(
+                el,
+                () => ({ [key]: elementProps[key] }),
+                true,
+              ) as unknown as Record<string, unknown>;
+            }
             onCleanup(() => {
               if (attached) {
                 assign(el, {}, true, appliedProps, true);
@@ -372,6 +402,33 @@ export function useRenderElement<
       attachAttributes(el);
       applyRef(el);
     };
+
+    // A part whose tag and `render` prop never change (no `render`, a string, or a config object)
+    // renders its element directly: no branch memo, so a list of parts gives its parent nothing
+    // to track per row. Render functions keep the branch: their top-level reads re-run them.
+    const staticRender = untrack(() => {
+      // The server and hydration render through `<Dynamic>`, so both create the same owners.
+      if (
+        isServer ||
+        isHydrating() ||
+        typeof element === 'function' ||
+        ('render' in componentProps && !isStatic(componentProps, 'render'))
+      ) {
+        return false;
+      }
+      const render = componentProps.render;
+      return typeof render !== 'function' && !(render instanceof Node);
+    });
+    if (staticRender) {
+      const component = untrack(tag);
+      const Tag = dynamic(() => component, { static: true }) as (props: any) => JSX.Element;
+      const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
+      return typeof component === 'string' ? (
+        <Tag ref={hostRef}>{resolvedChildren()}</Tag>
+      ) : (
+        <Tag {...componentTagProps}>{resolvedChildren()}</Tag>
+      );
+    }
 
     // The branch follows the `render` prop, as React re-evaluates it every render. A render
     // function re-runs (re-creating its element) only for state read at its top level, as React
@@ -404,13 +461,15 @@ export function useRenderElement<
     );
   };
 
-  const Component = (props: HTMLProps) => {
-    return (
-      <Show when={access(params.enabled) ?? true}>
-        <Resolved {...props} />
-      </Show>
-    );
-  };
+  // A part without `enabled` always renders, so it skips the `<Show>` layer.
+  const Component =
+    'enabled' in params
+      ? (props: HTMLProps) => (
+          <Show when={access(params.enabled) ?? true}>
+            <Resolved {...props} />
+          </Show>
+        )
+      : Resolved;
 
   return ((renderFnProps: HTMLProps = {}) => {
     return <Component {...renderFnProps} />;

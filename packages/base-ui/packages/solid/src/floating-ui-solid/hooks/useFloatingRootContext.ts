@@ -61,13 +61,20 @@ export function useFloatingRootContext(options: UseFloatingRootContextOptions): 
     triggerElements: new PopupTriggerMap(),
   });
 
+  // `open` and the id derive in the same flush (store bindings), so readers never see the new open
+  // state with a stale store value.
+  store.useSyncedValue('open', () => props.open);
+  store.useSyncedValue('floatingId', floatingId);
+
+  // The elements re-sync whenever an option changes, `open` included (React's `useSyncedValues`
+  // writes them all on every render), dropping elements set elsewhere since. Equal values are not
+  // written.
   createEffect(
     () => {
       const ref = props.elements?.reference;
-      const valuesToSync: Writeable<Partial<FloatingRootState>> = {
-        floatingId: floatingId(),
-        open: props.open,
-      };
+      // Read for its change: reopening re-syncs the elements.
+      void props.open;
+      const valuesToSync: Writeable<Partial<FloatingRootState>> = {};
 
       // Only sync elements that are defined to avoid overwriting existing ones
       if (ref !== undefined) {

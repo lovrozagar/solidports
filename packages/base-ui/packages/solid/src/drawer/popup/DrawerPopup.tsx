@@ -6,6 +6,7 @@ import { createDepsEffect, createDepsRenderEffect, splitComponentProps } from '.
 import { EMPTY_OBJECT } from '../../utils/constants';
 import { FloatingFocusManager } from '../../floating-ui-solid';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { BaseUIComponentProps } from '../../utils/types';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
@@ -410,24 +411,35 @@ export function DrawerPopup(componentProps: DrawerPopup.Props) {
 
   const element = useRenderElement('div', componentProps, {
     state,
-    get props() {
-      const swipeStrengthValue = swipeStrength();
-      const snapPointOffset = snapPointOffsetValue();
-      return [
-        rootPopupProps(),
-        {
-          id: popupId(),
-          'aria-labelledby': titleElementId(),
-          'aria-describedby': descriptionElementId(),
-          role: role(),
-          ...FOCUSABLE_POPUP_PROPS,
-          hidden: !mounted(),
-          onKeyDown(event: KeyboardEvent) {
-            if (COMPOSITE_KEYS.has(event.key)) {
-              event.stopPropagation();
-            }
-          },
-          style: {
+    // Static sources with per-key getters: a prop read tracks only what that prop uses.
+    props: [
+      propsSourceAccessor(rootPopupProps),
+      {
+        get id() {
+          return popupId();
+        },
+        get 'aria-labelledby'() {
+          return titleElementId();
+        },
+        get 'aria-describedby'() {
+          return descriptionElementId();
+        },
+        get role() {
+          return role();
+        },
+        ...FOCUSABLE_POPUP_PROPS,
+        get hidden() {
+          return !mounted();
+        },
+        onKeyDown(event: KeyboardEvent) {
+          if (COMPOSITE_KEYS.has(event.key)) {
+            event.stopPropagation();
+          }
+        },
+        get style() {
+          const swipeStrengthValue = swipeStrength();
+          const snapPointOffset = snapPointOffsetValue();
+          return {
             ...dragStyles(),
             [DrawerBackdropCssVars.swipeProgress]: '0',
             [DrawerPopupCssVars.nestedDrawers]: nestedOpenDrawerCount(),
@@ -443,11 +455,11 @@ export function DrawerPopup(componentProps: DrawerPopup.Props) {
               swipeStrengthValue > 0
                 ? `${swipeStrengthValue}`
                 : '1',
-          } as JSX.CSSProperties,
+          } as JSX.CSSProperties;
         },
-        elementProps,
-      ];
-    },
+      },
+      elementProps,
+    ],
     ref: [popupRef, setPopupElement],
     stateAttributesMapping,
   });

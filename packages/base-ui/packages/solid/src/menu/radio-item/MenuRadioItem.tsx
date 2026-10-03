@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { NOOP } from '../../utils/empty';
 import { REASONS } from '../../utils/reasons';
@@ -111,7 +111,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     stateAttributesMapping: itemMapping,
   });
 
-  return <MenuRadioItemContext value={contextValue}>{element()}</MenuRadioItemContext>;
+  return provideContext(MenuRadioItemContext, contextValue, element);
 }
 
 export type MenuRadioItemState = {

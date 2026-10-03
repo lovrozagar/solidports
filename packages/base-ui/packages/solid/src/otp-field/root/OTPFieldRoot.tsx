@@ -79,6 +79,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
   const form = () => local.form;
 
   const {
+    registerDirtySource,
     setDirty,
     validityData,
     disabled: fieldDisabled,
@@ -227,6 +228,9 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       formElement.requestSubmit();
     }
   }
+
+  // React sets `dirty` from a layout effect when the value changes; the field derives it.
+  registerDirtySource(() => value() !== validityData.initialValue);
 
   /* Track previous value to skip the initial run — mirrors React's useValueChanged
      pattern (layout effect + ref). Solid: a user effect, so it runs after the slots' DOM

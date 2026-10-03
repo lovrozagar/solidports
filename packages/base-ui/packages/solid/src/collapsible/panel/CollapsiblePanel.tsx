@@ -2,6 +2,7 @@ import { omit, Show } from 'solid-js';
 import { createDepsEffect, createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
+import { isServer } from '@solidjs/web';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
@@ -65,6 +66,10 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   });
 
   const panel = useCollapsiblePanel({
+    dimensionCssVars: {
+      height: CollapsiblePanelCssVars.collapsiblePanelHeight,
+      width: CollapsiblePanelCssVars.collapsiblePanelWidth,
+    },
     hiddenUntilFound,
     id,
     keepMounted,
@@ -95,15 +100,15 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
       return [
         panel.props(),
         {
+          // The client writes measured sizes to these variables directly (see
+          // `useCollapsiblePanel`); the server renders their initial `auto`.
           get style() {
-            const height = panel.height();
-            const width = panel.width();
-            return {
-              [CollapsiblePanelCssVars.collapsiblePanelHeight as string]:
-                height === undefined ? 'auto' : `${height}px`,
-              [CollapsiblePanelCssVars.collapsiblePanelWidth as string]:
-                width === undefined ? 'auto' : `${width}px`,
-            };
+            return isServer
+              ? {
+                  [CollapsiblePanelCssVars.collapsiblePanelHeight as string]: 'auto',
+                  [CollapsiblePanelCssVars.collapsiblePanelWidth as string]: 'auto',
+                }
+              : undefined;
           },
         },
         elementProps,

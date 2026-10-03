@@ -12,7 +12,7 @@ import { ToastRootCssVars } from '../root/ToastRootCssVars';
 import type { ToastObject } from '../useToastManager';
 import { ToastPositionerContext } from './ToastPositionerContext';
 import { splitProps } from '../../solid-1-compat';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 
 /**
  * Positions the toast against the anchor.
@@ -143,7 +143,7 @@ export function ToastPositioner(componentProps: ToastPositioner.Props) {
     refs: setPositionerElement,
   });
 
-  return <ToastPositionerContext value={contextValue}>{element()}</ToastPositionerContext>;
+  return provideContext(ToastPositionerContext, contextValue, element);
 }
 
 export interface ToastPositionerState {

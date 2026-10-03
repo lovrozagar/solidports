@@ -430,7 +430,9 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
           reachedMaxHeightRef = true;
         }
 
-        rootContext.handleScrollArrowVisibility(scroller);
+        // Measured after this frame's layout, as the unaligned path does: the arrows read the
+        // scroll position this pass just set.
+        scrollArrowFrame.request(() => rootContext.handleScrollArrowVisibility(scroller));
 
         if (
           deps.highlightItemOnHover &&

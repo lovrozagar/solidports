@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -26,11 +26,7 @@ export function NavigationMenuItem(componentProps: NavigationMenuItem.Props) {
 
   const element = useRenderElement('li', componentProps, { props: elementProps });
 
-  return (
-    <NavigationMenuItemContext value={contextValue}>
-      {element()}
-    </NavigationMenuItemContext>
-  );
+  return provideContext(NavigationMenuItemContext, contextValue, element);
 }
 
 export interface NavigationMenuItemState {}

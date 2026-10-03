@@ -1,7 +1,7 @@
 import { createEffect, onSettled, untrack } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';
 import { useDirection } from '../../direction-provider/DirectionContext';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
 import { isWebKit } from '../../utils/detectBrowser';
 import { normalizeScrollOffset } from '../../utils/scrollEdges';
@@ -424,7 +424,7 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
     computeThumbPosition,
   };
 
-  return <ScrollAreaViewportContext value={contextValue}>{element()}</ScrollAreaViewportContext>;
+  return provideContext(ScrollAreaViewportContext, contextValue, element);
 }
 
 export interface ScrollAreaViewportProps extends BaseUIComponentProps<

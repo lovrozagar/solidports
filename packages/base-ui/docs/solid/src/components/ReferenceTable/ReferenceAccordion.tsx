@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, onSettled, Show } from 'solid-js';
+import { createMemo, createSignal, For, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import clsx from "clsx"
 import { Link } from "../Link"
@@ -12,10 +12,9 @@ import * as ReferenceTableTooltip from "./ReferenceTableTooltip"
 import { sortPropEntries } from "./propOrder"
 
 import { splitProps } from '../../utils/solid-1-compat';
-/* Tooltip.Portal crashes hydration with `template2 is not a function` — the portal
-   moves subtree to body, so SSR markers don't line up with client. Gate the tooltip
-   render to post-mount; SSR + initial hydrate emit plain <TableCode> (matches across
-   boundaries), then the tooltip lights up after mount. */
+/* The tooltip mounts on the first hover or focus of the cell: SSR and hydration emit plain
+   <TableCode> (Tooltip.Portal moves its subtree to body, so its markers would not line up), and a
+   page with many props does not build every tooltip at once after mounting. */
 function TypeCell(props: {
   detailedDisplayType: string | undefined
   displayType: string | undefined
@@ -23,12 +22,20 @@ function TypeCell(props: {
   hasExpandedType: boolean
   showTooltip: boolean
 }) {
-  const [mounted, setMounted] = createSignal(false)
-  onSettled(() => {
-    setMounted(true)
-  })
+  const [active, setActive] = createSignal(false)
+  const activate = () => setActive(true)
   return (
-    <Show when={mounted() && props.showTooltip} fallback={<TableCode>{props.shortPropTypeName}</TableCode>}>
+    <Show
+      when={active() && props.showTooltip}
+      fallback={
+        <TableCode
+          onPointerEnter={props.showTooltip ? activate : undefined}
+          onFocusIn={props.showTooltip ? activate : undefined}
+        >
+          {props.shortPropTypeName}
+        </TableCode>
+      }
+    >
       <ReferenceTableTooltip.Root disableHoverablePopup>
         <ReferenceTableTooltip.Trigger delay={300}>
           <TableCode>{props.shortPropTypeName}</TableCode>

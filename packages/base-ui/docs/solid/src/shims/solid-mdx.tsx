@@ -1,6 +1,6 @@
 import { createContext, useContext, type ParentProps } from "solid-js"
 import type { JSX } from "@solidjs/web"
-import { Dynamic } from "@solidjs/web"
+import { dynamic } from "@solidjs/web"
 import { mdxComponents } from "../components/mdx-components"
 
 type MDXComponent = (props: Record<string, unknown>) => JSX.Element
@@ -60,8 +60,11 @@ const HTML_TAGS = [
 	"ul",
 ] as const
 
+/** A static element per tag: created directly (no memo per element), so a long list of children
+ *  (Shiki's token spans, a page's paragraphs) does not make its parent track every child. */
 function htmlTag(tag: string): MDXComponent {
-	return (props) => <Dynamic component={tag} {...props} />
+	const Tag = dynamic(() => tag, { static: true }) as MDXComponent
+	return (props) => <Tag {...props} />
 }
 
 const htmlComponents: MDXComponents = Object.fromEntries(

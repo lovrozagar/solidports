@@ -52,6 +52,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
     name: fieldName,
     disabled: fieldDisabled,
     setTouched,
+    registerDirtySource,
     setDirty,
     validityData,
     setFocused,
@@ -103,6 +104,14 @@ export function FieldControl(componentProps: FieldControl.Props) {
   // A controlled value derives `filled`; an uncontrolled input reports its DOM value at mount and
   // on input.
   const [inputFilled, setInputFilled] = createSignal(false, { ownedWrite: true });
+  // Likewise `dirty`: a controlled value derives it; an uncontrolled input reports it on input.
+  const [inputDirty, setInputDirty] = createSignal(false, { ownedWrite: true });
+  registerDirtySource(() => {
+    const currentValue = serializedValue();
+    return currentValue !== undefined
+      ? currentValue !== (validityData.initialValue ?? '')
+      : inputDirty();
+  });
   registerFilledSource(() => {
     const currentValue = serializedValue();
     return currentValue !== undefined ? currentValue !== '' : inputFilled();
@@ -182,6 +191,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
 
             // `validation.change` reads `markedDirtyRef`, so update dirty before validating.
             setDirty(inputValue !== (validityData.initialValue ?? ''));
+            setInputDirty(inputValue !== (validityData.initialValue ?? ''));
             setInputFilled(inputValue !== '');
 
             // Workaround for https://github.com/facebook/react/issues/9023

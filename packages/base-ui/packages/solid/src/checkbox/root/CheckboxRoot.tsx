@@ -86,6 +86,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const {
     disabled: rootDisabled,
     name: fieldName,
+    registerDirtySource,
     setDirty,
     setFilled,
     setFocused,
@@ -248,6 +249,12 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
       }
     },
   );
+
+  // React sets `dirty` from a layout effect when the value changes; the field derives it.
+  // Inside a group, the group derives the dirty state from its value.
+  if (!groupContext) {
+    registerDirtySource(() => checked() !== validityData.initialValue);
+  }
 
   useValueChanged(checked, () => {
     if (groupContext) {

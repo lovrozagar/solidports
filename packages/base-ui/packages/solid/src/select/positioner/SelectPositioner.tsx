@@ -101,20 +101,6 @@ export function SelectPositioner(componentProps: SelectPositioner.Props) {
     },
   );
 
-  // ––– AI-GENERATED FIX AND EXPLANATION –––
-  // Solid-specific: the store outlives the positioner's mount cycle without a rerender resetting
-  // the scroll arrow flags, so clear them once the popup unmounts.
-  createEffect(mounted, (isMounted) => {
-    if (isMounted) {
-      return;
-    }
-    untrack(() => {
-      if (store.state.scrollUpArrowVisible || store.state.scrollDownArrowVisible) {
-        store.update({ scrollDownArrowVisible: false, scrollUpArrowVisible: false });
-      }
-    });
-  });
-
   createEffect(alignItemWithTriggerActive, (active) => {
     alignItemWithTriggerActiveRef.current = active;
   });

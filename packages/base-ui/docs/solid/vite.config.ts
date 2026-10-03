@@ -60,6 +60,10 @@ export default defineConfig({
 			start: true,
 			ssr: true,
 			extensions: [".jsx", ".tsx", ".mdx", ".md"],
+			// The docs compile the library from source, where HMR wraps its components; packages
+			// in node_modules never get those wrappers. `DOCS_NO_REFRESH=1` renders the library as
+			// apps consume it (used by the dev diagnostics crawl).
+			refresh: { disabled: process.env.DOCS_NO_REFRESH === "1" },
 		}),
 		fileRoutes({
 			types: true,

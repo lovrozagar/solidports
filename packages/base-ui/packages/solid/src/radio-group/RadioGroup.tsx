@@ -60,6 +60,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     disabled: fieldDisabled,
     state: fieldState,
     validation,
+    registerDirtySource,
     setDirty,
     setFilled,
     validityData,
@@ -179,6 +180,10 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     () => !disabled(),
     nameProp,
   );
+
+  // React sets `dirty` from a layout effect when the value changes; the field derives it.
+  // Nullish values compare equal: an unset group starts as `undefined` against a `null` initial value.
+  registerDirtySource(() => (checkedValue() ?? null) !== (validityData.initialValue ?? null));
 
   useValueChanged(checkedValue, () => {
     const value = untrack(checkedValue);

@@ -1,6 +1,6 @@
 import { createMemo, createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
 import { formatNumber } from '../../utils/formatNumber';
 import { BaseUIComponentProps, HTMLProps } from '../../utils/types';
@@ -95,7 +95,7 @@ export function MeterRoot(componentProps: MeterRoot.Props) {
     props: [defaultProps, elementProps],
   });
 
-  return <MeterRootContext value={contextValue}>{element()}</MeterRootContext>;
+  return provideContext(MeterRootContext, contextValue, element);
 }
 
 export interface MeterRootState {}

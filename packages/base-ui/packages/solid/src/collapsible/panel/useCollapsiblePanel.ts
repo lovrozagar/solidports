@@ -1,4 +1,11 @@
-import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createRenderEffect,
+  createSignal,
+  onCleanup,
+  untrack,
+} from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
@@ -49,7 +56,9 @@ export function useCollapsiblePanel(
     ownedWrite: true,
   });
   let animationTypeRef: AnimationType | null = null;
-  const [dimensions, setDimensionsUnwrapped] = createSignal<Dimensions>(EMPTY_DIMENSIONS);
+  // Measured sizes go straight to the panel's CSS variables: a measurement is a layout read, and
+  // writing it to the element skips a reactive round trip and a re-render (React renders it).
+  let dimensionsRef: Dimensions = EMPTY_DIMENSIONS;
   let lastMeasuredDimensionsRef: Dimensions = EMPTY_DIMENSIONS;
   // `beforematch` should reveal the matched content immediately, so the next
   // open cycle skips author-defined motion once and then returns to normal.
@@ -63,7 +72,11 @@ export function useCollapsiblePanel(
   // Some open paths intentionally bypass motion, but the shared root transition
   // status still advances asynchronously. Override the panel to idle so its data
   // attributes and dimension cleanup reflect the immediate open state.
-  const [forcePanelIdle, setForcePanelIdle] = createSignal(false);
+  // A writable memo: an open path that skips motion sets it, and it drops once the shared root
+  // transition leaves `starting` (derived, so the override never outlives that frame).
+  const [forcePanelIdle, setForcePanelIdle] = createSignal<boolean>((prev) =>
+    transitionStatus() === 'starting' ? (prev ?? false) : false,
+  );
   let pendingTemporaryStyleRestoreRef: (() => void) | null = null;
 
   // Only used to handle panel close
@@ -78,18 +91,40 @@ export function useCollapsiblePanel(
       // paths while closed, and the memo re-reads it when `open` flips back.
       shouldPreventMountAnimationRef,
   );
-  const renderedDimensions = createMemo(() =>
-    !open() &&
-    mounted() &&
-    // These 2 refs are also safe to read here, both hold the last committed
-    // animation mode and measurement. This fallback only restores a previously
-    // measured pixel size after the live dimensions state has been reset back to `auto`.
-    animationTypeRef === 'css-animation' &&
-    dimensions().height === undefined &&
-    dimensions().width === undefined
+  // The size the variables show: a closing keyframe panel restores its last measured pixel size
+  // after the live size has been reset back to `auto`.
+  function renderedDimensions() {
+    return !untrack(open) &&
+      untrack(mounted) &&
+      animationTypeRef === 'css-animation' &&
+      dimensionsRef.height === undefined &&
+      dimensionsRef.width === undefined
       ? lastMeasuredDimensionsRef
-      : dimensions(),
+      : dimensionsRef;
+  }
+
+  function applyDimensions() {
+    const panel = untrack(panelElement);
+    if (!panel) {
+      return;
+    }
+    const { height, width } = renderedDimensions();
+    panel.style.setProperty(
+      parameters.dimensionCssVars.height,
+      height === undefined ? 'auto' : `${height}px`,
+    );
+    panel.style.setProperty(
+      parameters.dimensionCssVars.width,
+      width === undefined ? 'auto' : `${width}px`,
+    );
+  }
+
+  // Re-apply when the inputs of the rendered size change (and once the element attaches).
+  createRenderEffect(
+    () => [panelElement(), open(), mounted()] as const,
+    () => applyDimensions(),
   );
+
   const shouldPersistHiddenTransitionStyles = createMemo(
     () => hiddenUntilFound() && hidden() && animationTypeRef !== 'css-animation',
   );
@@ -102,7 +137,8 @@ export function useCollapsiblePanel(
       lastMeasuredDimensionsRef = nextDimensions;
     }
 
-    setDimensionsUnwrapped(nextDimensions);
+    dimensionsRef = nextDimensions;
+    applyDimensions();
   }
 
   function restorePendingTemporaryStyle() {
@@ -118,20 +154,6 @@ export function useCollapsiblePanel(
     };
   }
 
-  createDepsRenderEffect(
-    () => ({ forcePanelIdle: forcePanelIdle(), transitionStatus: transitionStatus() }),
-    (deps) => {
-      // `forcePanelIdle` is only a temporary override for open paths that skip
-      // motion. Keep it active while the shared root still reports `starting`,
-      // then drop it once the root transition state catches up.
-      if (!deps.forcePanelIdle || deps.transitionStatus === 'starting') {
-        return;
-      }
-
-      setForcePanelIdle(false);
-    },
-  );
-
   onCleanup(() => {
     restorePendingTemporaryStyle();
   });
@@ -141,18 +163,19 @@ export function useCollapsiblePanel(
   createDepsEffect(
     () => ({
       panel: panelElement(),
-      mounted: mounted(),
       open: open(),
       shouldPreventOpenAnimation: shouldPreventOpenAnimation(),
       transitionStatus: transitionStatus(),
     }),
     ({
       panel,
-      mounted: isMounted,
       open: isOpen,
       shouldPreventOpenAnimation: preventOpenAnimation,
       transitionStatus: status,
     }) => {
+      // Not a dependency: open and status changes drive this pass, and it unmounts the panel
+      // itself when there is nothing to animate.
+      const isMounted = untrack(mounted);
       // Solid: a render function that swaps its element for `null` does not call the ref with
       // `null`, so a detached element stands for React's cleared ref.
       if (!panel || !panel.isConnected) {
@@ -381,13 +404,11 @@ export function useCollapsiblePanel(
   }));
 
   return {
-    height: () => renderedDimensions().height,
     props,
     ref: setPanelElement,
     shouldPreventOpenAnimation,
     shouldRender,
     transitionStatus: panelTransitionStatus,
-    width: () => renderedDimensions().width,
   };
 }
 
@@ -537,19 +558,19 @@ export interface UseCollapsiblePanelParameters {
    */
   open: MaybeAccessor<boolean>;
   setMounted: (nextMounted: boolean) => void;
+  /** The CSS variables the panel's measured height and width are written to. */
+  dimensionCssVars: { height: string; width: string };
   setOpen: (nextOpen: boolean) => void;
   transitionStatus: MaybeAccessor<TransitionStatus>;
 }
 
 export interface UseCollapsiblePanelReturnValue {
-  height: Accessor<number | undefined>;
   props: Accessor<HTMLProps>;
   // Solid: the caller merges this with the user's ref through `useRenderElement`.
   ref: (element: HTMLDivElement | null) => void;
   shouldPreventOpenAnimation: Accessor<boolean>;
   shouldRender: Accessor<boolean>;
   transitionStatus: Accessor<TransitionStatus>;
-  width: Accessor<number | undefined>;
 }
 
 export namespace useCollapsiblePanel {

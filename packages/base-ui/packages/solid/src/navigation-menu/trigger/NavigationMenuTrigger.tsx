@@ -90,7 +90,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     open,
     positionerElement,
     setActivationDirection,
-    setFloatingRootContext,
+    registerTriggerFloatingContext,
     popupElement,
     viewportElement,
     transitionStatus,
@@ -502,10 +502,13 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
       get reference() {
         return triggerElement();
       },
-      get floating() {
-        return hoverFloatingElement();
-      },
     },
+  });
+  // The shared positioner (or viewport) is each trigger's floating element: derived in the same
+  // flush, so a positioner that mounts never shows readers a stale floating element.
+  context.useSyncedValue('floatingElement', (prev) => {
+    const floating = hoverFloatingElement();
+    return floating !== undefined ? floating : prev;
   });
 
   const hoverInteractionState = useHoverInteractionSharedState({ store: context });
@@ -592,12 +595,12 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     ) as ElementProps[],
   );
 
-  // Solid: a user effect, since a render effect's mount-time apply may not write signals.
+  // The root derives its floating context from the active trigger; this remembers the element.
+  registerTriggerFloatingContext({ active: isActiveItem, context });
   createDepsEffect(
     () => ({ active: isActiveItem(), element: triggerElement() }),
     ({ active, element }) => {
       if (active) {
-        setFloatingRootContext(context);
         prevTriggerElementRef.current = element;
       }
     },

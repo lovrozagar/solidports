@@ -1,6 +1,6 @@
 import { createMemo, createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
 import { formatNumber } from '../../utils/formatNumber';
 import { BaseUIComponentProps, HTMLProps } from '../../utils/types';
@@ -116,7 +116,7 @@ export function ProgressRoot(componentProps: ProgressRoot.Props) {
     stateAttributesMapping: progressStateAttributesMapping,
   });
 
-  return <ProgressRootContext value={contextValue}>{element()}</ProgressRootContext>;
+  return provideContext(ProgressRootContext, contextValue, element);
 }
 
 export type ProgressStatus = 'indeterminate' | 'progressing' | 'complete';

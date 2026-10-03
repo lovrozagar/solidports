@@ -12,6 +12,10 @@ const SRC_ROOT = join(PACKAGE_ROOT, 'src');
 const packageJson = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8')) as {
   exports: Record<string, { types: string; solid: string; default: string }>;
   dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  bundleDependencies?: string[];
+  bundledDependencies?: string[];
   peerDependencies?: Record<string, string>;
 };
 
@@ -78,11 +82,28 @@ describe.skipIf(!isJSDOM)('package exports', () => {
     );
   });
 
-  it('only imports published files and runtime dependencies', () => {
-    const allowed = new Set([
-      ...Object.keys(packageJson.dependencies ?? {}),
-      ...Object.keys(packageJson.peerDependencies ?? {}),
-    ]);
+  it('has no dependencies of its own: every package it needs is a peer, installed for development', () => {
+    expect(packageJson.dependencies, 'dependencies').to.equal(undefined);
+    expect(packageJson.optionalDependencies, 'optionalDependencies').to.equal(undefined);
+    expect(packageJson.bundleDependencies, 'bundleDependencies').to.equal(undefined);
+    expect(packageJson.bundledDependencies, 'bundledDependencies').to.equal(undefined);
+    const devDependencies = Object.keys(packageJson.devDependencies ?? {});
+    Object.keys(packageJson.peerDependencies ?? {}).forEach((peer) => {
+      expect(devDependencies, `${peer} in devDependencies`).to.include(peer);
+    });
+  });
+
+  it('reaches the reactive core only through solid-js', () => {
+    // Vite dev never pre-bundles a bare import made from `node_modules`: a direct
+    // `@solidjs/signals` import would load a second reactive core next to the one bundled into
+    // `solid-js`, and contexts set through it would not reach `useContext`.
+    expect(packageJson.peerDependencies, 'peerDependencies').not.to.have.property(
+      '@solidjs/signals',
+    );
+  });
+
+  it('only imports published files and peer dependencies', () => {
+    const allowed = new Set(Object.keys(packageJson.peerDependencies ?? {}));
     const violations: string[] = [];
 
     listRuntimeFiles(SRC_ROOT).forEach((file) => {

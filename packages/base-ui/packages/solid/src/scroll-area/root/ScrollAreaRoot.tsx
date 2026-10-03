@@ -2,7 +2,7 @@ import { createMemo, createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useCSPContext } from '../../csp-provider/CSPContext';
 import { contains } from '../../floating-ui-solid/utils';
-import { splitComponentProps, useRef } from '../../solid-helpers';
+import { splitComponentProps, useRef, provideContext } from '../../solid-helpers';
 import { useStyleDisableScrollbar } from '../../utils/styles';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -334,7 +334,7 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
   // `<style>`).
   useStyleDisableScrollbar(csp);
 
-  return <ScrollAreaRootContext value={contextValue}>{element()}</ScrollAreaRootContext>;
+  return provideContext(ScrollAreaRootContext, contextValue, element);
 }
 
 export interface ScrollAreaRootState {

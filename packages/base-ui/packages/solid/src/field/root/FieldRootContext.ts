@@ -25,6 +25,8 @@ export interface FieldRootContext {
   setFilled: Setter<boolean>;
   /** Derives `filled` from `source` for the lifetime of the current owner. */
   registerFilledSource: (source: Accessor<boolean>) => void;
+  /** Derives the field's `dirty` from a control's value (once mounted, until unmounted). */
+  registerDirtySource: (source: Accessor<boolean>) => void;
   setFocused: Setter<boolean>;
   validationMode: Accessor<Form.ValidationMode>;
   shouldValidateOnChange: () => boolean;
@@ -59,6 +61,7 @@ export const DEFAULT_FIELD_ROOT_CONTEXT: FieldRootContext = {
   setDirty: NOOP as Setter<boolean>,
   setFilled: NOOP as Setter<boolean>,
   registerFilledSource: NOOP,
+  registerDirtySource: NOOP,
   setFocused: NOOP as Setter<boolean>,
   validationMode: () => 'onSubmit' as const,
   shouldValidateOnChange: () => false,

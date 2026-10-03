@@ -66,6 +66,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
   const { clearErrors } = useFormContext();
   const {
+    registerDirtySource,
     setDirty,
     setTouched,
     setFocused,
@@ -222,19 +223,6 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
   const initialValueRef = useRef(untrack(() => value()));
 
-  // ––– AI-GENERATED FIX AND EXPLANATION –––
-  // React naturally clears this bookkeeping as the popup rerenders around a null single value.
-  // In Solid, the previous selected index can survive longer because setup does not rerun,
-  // so we clear it explicitly when an empty single-select opens.
-  createDepsEffect(
-    () => ({ open: open(), multiple: multiple(), value: value() }),
-    (deps) => {
-      if (deps.open && !deps.multiple && deps.value == null) {
-        store.set('selectedIndex', null);
-      }
-    },
-  );
-
   // Mirror the `hasSelectedValue` store selector so the Field's filled state agrees with the
   // trigger/value placeholder semantics (a value serializing to `''` counts as empty).
   const hasSelectedValue = createMemo(() => {
@@ -247,30 +235,27 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   // React sets `filled` from a layout effect; the field derives it from this source.
   registerFilledSource(hasSelectedValue);
 
-  createDepsEffect(
-    () => ({
-      multiple: multiple(),
-      open: open(),
-      value: value(),
-      isItemEqualToValue: props.isItemEqualToValue ?? defaultItemEquality,
-    }),
-    function syncSelectedIndex(deps) {
-      const nextIndex = findSelectionIndex(
-        untrack(() => valuesRef.current),
-        deps.value,
-        deps.isItemEqualToValue,
-        deps.multiple,
-      );
-
-      if (nextIndex === null) {
+  // The selected index follows the value while closed (React syncs it from a layout effect).
+  // While open, items and list navigation set it, and an empty single value clears it.
+  const closedSelectedIndex = () =>
+    findSelectionIndex(
+      untrack(() => valuesRef.current),
+      value(),
+      props.isItemEqualToValue ?? defaultItemEquality,
+      multiple(),
+    );
+  store.useSyncedValue('selectedIndex', (prev) => {
+    if (open()) {
+      return !multiple() && value() == null ? null : prev;
+    }
+    return closedSelectedIndex();
+  });
+  createEffect(
+    () => closedSelectedIndex() === null,
+    (noSelection) => {
+      if (noSelection) {
         selectedItemTextRef.current = null;
       }
-
-      if (deps.open) {
-        return;
-      }
-
-      store.set('selectedIndex', nextIndex);
     },
   );
 
@@ -373,6 +358,11 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
     setValueUnwrapped(nextValue);
   };
+
+  // The scroll arrows are hidden while the popup is unmounted (derived in the same flush); while it
+  // is mounted, the scroll measurement below sets them.
+  store.useSyncedValue('scrollUpArrowVisible', (prev) => (mounted() ? prev : false));
+  store.useSyncedValue('scrollDownArrowVisible', (prev) => (mounted() ? prev : false));
 
   // Solid: callers may omit the scroller, which defaults to the one every React caller passes.
   const handleScrollArrowVisibility = (

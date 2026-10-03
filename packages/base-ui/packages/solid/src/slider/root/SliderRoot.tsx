@@ -103,6 +103,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
     disabled: fieldDisabled,
     name: fieldName,
     setTouched,
+    registerDirtySource,
     setDirty,
     validityData,
     validation,
@@ -204,6 +205,15 @@ export function SliderRoot<Value extends number | readonly number[]>(
     () => !disabled(),
     nameProp,
   );
+
+  // React sets `dirty` from a layout effect when the value changes; the field derives it.
+  registerDirtySource(() => {
+    const value = fieldValue();
+    const initialValue = validityData.initialValue as number | readonly number[] | undefined;
+    return Array.isArray(value) && Array.isArray(initialValue)
+      ? !areArraysEqual(value, initialValue)
+      : value !== initialValue;
+  });
 
   useValueChanged(fieldValue, () => {
     const value = untrack(fieldValue);

@@ -5,7 +5,13 @@ import type { Form } from '../../form';
 import { useFormContext } from '../../form/FormContext';
 import { useFieldControlRegistration } from '../../internals/field-register-control/useFieldControlRegistration';
 import { LabelableProvider } from '../../internals/labelable-provider';
-import { live, splitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
+import {
+  live,
+  splitComponentProps,
+  useRef,
+  type ReactLikeRef,
+  provideContext,
+} from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { DEFAULT_VALIDITY_STATE, fieldValidityMapping } from '../utils/constants';
@@ -49,33 +55,13 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
   const [touchedState, setTouchedUnwrapped] = createSignal(false, { ownedWrite: true });
   const [dirtyState, setDirtyUnwrapped] = createSignal(false, { ownedWrite: true });
   const [filledState, setFilled] = createSignal(false, { ownedWrite: true });
-  // Solid: a control whose filled state follows reactive values registers it as a source, so the
-  // field derives `filled` in the same flush (React's controls set it from layout effects).
-  const [filledSource, setFilledSource] = createSignal<Accessor<boolean> | undefined>(undefined, {
-    ownedWrite: true,
-  });
-  const filled = createMemo(() => {
-    const source = filledSource();
-    return source ? source() : filledState();
-  });
-  // Registered once mounted: a control can be created inside a computation that reads `filled`
-  // (a render prop), where writing the source during setup would re-run that computation.
-  function registerFilledSource(source: Accessor<boolean>) {
-    onSettled(() => {
-      setFilledSource(() => source);
-      return () => {
-        if (untrack(filledSource) === source) {
-          // Keep the value: a control replaced by a new instance (a render prop re-run) hands
-          // over without `filled` changing in between.
-          setFilled(untrack(source));
-          setFilledSource(undefined);
-        }
-      };
-    });
-  }
+  // Solid: a control whose filled or dirty state follows reactive values registers it as a source,
+  // so the field derives it in the same flush (React's controls set them from layout effects).
+  const [filled, registerFilledSource] = createSourcedState(filledState, setFilled);
+  const [sourcedDirty, registerDirtySource] = createSourcedState(dirtyState, setDirtyUnwrapped);
   const [focused, setFocused] = createSignal(false, { ownedWrite: true });
 
-  const dirty = () => dirtyProp() ?? dirtyState();
+  const dirty = () => dirtyProp() ?? sourcedDirty();
   const touched = () => touchedProp() ?? touchedState();
 
   const markedDirtyRef = useRef(untrack(dirty));
@@ -240,6 +226,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
     setDirty,
     setFilled,
     registerFilledSource,
+    registerDirtySource,
     setFocused,
     validationMode,
     shouldValidateOnChange,
@@ -258,7 +245,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
     stateAttributesMapping: fieldValidityMapping,
   });
 
-  return <FieldRootContext value={contextValue}>{element()}</FieldRootContext>;
+  return provideContext(FieldRootContext, contextValue, element);
 }
 
 type UseValidate = (
@@ -399,4 +386,37 @@ export namespace FieldRoot {
   export type State = FieldRootState;
   export type Props = FieldRootProps;
   export type Actions = FieldRootActions;
+}
+
+/**
+ * A field state that a control can derive: `register(source)` makes `source` the value once the
+ * control is mounted, until it unmounts (keeping the last value). Registered after mounting, since a
+ * control can be created inside a computation that reads the state (a render prop), where writing
+ * the source during setup would re-run that computation.
+ */
+function createSourcedState(
+  state: Accessor<boolean>,
+  setState: (value: boolean) => void,
+): [Accessor<boolean>, (source: Accessor<boolean>) => void] {
+  const [source, setSource] = createSignal<Accessor<boolean> | undefined>(undefined, {
+    ownedWrite: true,
+  });
+  const value = createMemo(() => {
+    const current = source();
+    return current ? current() : state();
+  });
+  function register(nextSource: Accessor<boolean>) {
+    onSettled(() => {
+      setSource(() => nextSource);
+      return () => {
+        if (untrack(source) === nextSource) {
+          // Keep the value: a control replaced by a new instance (a render prop re-run) hands
+          // over without the state changing in between.
+          setState(untrack(nextSource));
+          setSource(undefined);
+        }
+      };
+    });
+  }
+  return [value, register];
 }

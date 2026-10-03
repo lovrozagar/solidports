@@ -9,10 +9,16 @@ export interface MenubarContext {
   contentElement: Accessor<HTMLElement | null | undefined>;
   setContentElement: (element: HTMLElement | null | undefined) => void;
   hasSubmenuOpen: Accessor<boolean>;
-  setHasSubmenuOpen: (open: boolean) => void;
+  /** Registers a top-level menu (once mounted, until unmounted) so `hasSubmenuOpen` follows it. */
+  registerMenu: (menu: MenubarMenu) => void;
   orientation: Accessor<MenuRoot.Orientation>;
   allowMouseUpTriggerRef: ReactLikeRef<boolean>;
   rootId: Accessor<string | undefined>;
+}
+
+export interface MenubarMenu {
+  open: Accessor<boolean>;
+  lastOpenChangeReason: Accessor<string | null | undefined>;
 }
 
 export const MenubarContext = createContext<MenubarContext | null>(null);

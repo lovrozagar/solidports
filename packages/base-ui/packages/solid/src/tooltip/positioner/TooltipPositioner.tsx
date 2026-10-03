@@ -1,5 +1,5 @@
 import { usePositioner } from '../../utils/usePositioner';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
@@ -123,7 +123,7 @@ export function TooltipPositioner(componentProps: TooltipPositioner.Props) {
     },
   });
 
-  return <TooltipPositionerContext value={contextValue}>{element()}</TooltipPositionerContext>;
+  return provideContext(TooltipPositionerContext, contextValue, element);
 }
 
 export interface TooltipPositionerState {

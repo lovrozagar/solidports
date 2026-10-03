@@ -73,69 +73,40 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
   const getTabElementBySelectedValue = (selectedValue: TabsTab.Value): HTMLElement | null =>
     findTabElement(tabMap(), selectedValue);
 
-  const [activationDirectionState, setActivationDirectionState] = createSignal(
-    untrack(() => ({
-      previousValue: value(),
-      tabActivationDirection: 'none' as TabsTab.ActivationDirection,
-    })),
-  );
-
-  // Compute activation direction during render when value changes so children see
-  // the correct direction on their very first render after the selection update.
-  // The previous value snapshot is stored in state and synced after commit.
-  // https://github.com/mui/base-ui/issues/3873
-  const activationDirection = createMemo(() => {
-    const { previousValue, tabActivationDirection: committedTabActivationDirection } =
-      activationDirectionState();
+  // React computes the direction during render from a previous-value snapshot it syncs after
+  // commit (https://github.com/mui/base-ui/issues/3873). Solid derives it in the same flush: a
+  // writable memo whose previous value is that snapshot. The automatic fallback below writes it.
+  const [activationDirectionState, setActivationDirectionState] = createSignal<{
+    previousValue: TabsTab.Value;
+    tabActivationDirection: TabsTab.ActivationDirection;
+  }>((prev) => {
     const currentValue = value();
-    let tabActivationDirection = committedTabActivationDirection;
-    let directionComputationIncomplete = false;
-
-    if (previousValue !== currentValue) {
-      tabActivationDirection = computeActivationDirection(
-        previousValue,
-        currentValue,
-        orientation(),
-        tabMap(),
-      );
-
-      // When a new tab is added and selected in the same controlled update,
-      // the tab element may not yet be registered in tabMap, so direction was
-      // computed from a value-based fallback. Keep the previous value snapshot
-      // stale so we re-compute from DOM positions once tabMap is up to date.
-      directionComputationIncomplete =
-        previousValue != null &&
-        currentValue != null &&
-        findTabElement(tabMap(), currentValue) == null;
+    if (prev === undefined) {
+      return { previousValue: currentValue, tabActivationDirection: 'none' };
     }
-
-    const nextPreviousValue = directionComputationIncomplete ? previousValue : currentValue;
-    const shouldSyncActivationDirectionState =
-      previousValue !== nextPreviousValue ||
-      committedTabActivationDirection !== tabActivationDirection;
-
-    return { tabActivationDirection, nextPreviousValue, shouldSyncActivationDirectionState };
+    const { previousValue } = prev;
+    if (previousValue === currentValue) {
+      return prev;
+    }
+    const tabActivationDirection = computeActivationDirection(
+      previousValue,
+      currentValue,
+      orientation(),
+      tabMap(),
+    );
+    // When a new tab is added and selected in the same controlled update, the tab element may
+    // not be registered yet, so the direction came from a value-based fallback. Keep the previous
+    // value so it is computed again from DOM positions once the tab registers.
+    const directionComputationIncomplete =
+      previousValue != null &&
+      currentValue != null &&
+      findTabElement(tabMap(), currentValue) == null;
+    return {
+      previousValue: directionComputationIncomplete ? previousValue : currentValue,
+      tabActivationDirection,
+    };
   });
-  const tabActivationDirection = () => activationDirection().tabActivationDirection;
-
-  // Solid: a user effect, since a render effect's mount-time apply may not write signals.
-  createDepsEffect(
-    () => ({
-      nextPreviousValue: activationDirection().nextPreviousValue,
-      shouldSyncActivationDirectionState: activationDirection().shouldSyncActivationDirectionState,
-      tabActivationDirection: activationDirection().tabActivationDirection,
-    }),
-    (deps) => {
-      if (!deps.shouldSyncActivationDirectionState) {
-        return;
-      }
-
-      setActivationDirectionState({
-        previousValue: deps.nextPreviousValue,
-        tabActivationDirection: deps.tabActivationDirection,
-      });
-    },
-  );
+  const tabActivationDirection = () => activationDirectionState().tabActivationDirection;
 
   // Solid: a handler reading the latest values is React's stable callback.
   const onValueChange = (newValue: TabsTab.Value, eventDetails: TabsRoot.ChangeEventDetails) => {

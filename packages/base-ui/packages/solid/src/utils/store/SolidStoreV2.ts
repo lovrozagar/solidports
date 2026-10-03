@@ -9,6 +9,7 @@ import {
   untrack,
 } from 'solid-js';
 import type { Accessor, Signal } from 'solid-js';
+import { isServer } from '@solidjs/web';
 import type { Store } from 'solid-js';
 import {
   access,
@@ -332,7 +333,10 @@ export function createStoreState<State extends object>(
         ? (initialState as Record<PropertyKey, unknown>)[key]
         : undefined;
       current = runWithOwner(null, () =>
-        createSignal({ value: initial }, { equals: false, ownedWrite: true }),
+        createSignal(
+          { value: initial },
+          { equals: false, ownedWrite: true, name: `store.${String(key)}` },
+        ),
       ) as Signal<{ value: unknown }>;
       slots.set(key, current);
     }
@@ -342,6 +346,11 @@ export function createStoreState<State extends object>(
   const readSlot = (key: PropertyKey) => slot(key)[0]().value;
 
   function writeSlot(key: PropertyKey, value: unknown) {
+    if (isServer) {
+      // Server state is the recorded latest values: signals are never written there.
+      committedKeys.add(key);
+      return;
+    }
     runWithOwner(null, () =>
       untrack(() => {
         slot(key)[1]({ value });
@@ -387,7 +396,8 @@ export function createStoreState<State extends object>(
 
   const state: State = new Proxy({} as State, {
     get(_, key) {
-      if (getObserver() !== null) {
+      // The server renders once: every read is the latest value, with nothing to subscribe to.
+      if (getObserver() !== null && !isServer) {
         const getter = computedGetters.get(key);
         if (getter) {
           return getter.call(state);
@@ -405,18 +415,19 @@ export function createStoreState<State extends object>(
       if (computedKeys.has(key)) {
         return true;
       }
-      if (getObserver() === null) {
+      if (getObserver() === null || isServer) {
         return written.has(key) || committedKeys.has(key);
       }
       keySet();
       return committedKeys.has(key);
     },
     ownKeys() {
-      if (getObserver() !== null) {
+      const tracked = getObserver() !== null && !isServer;
+      if (tracked) {
         keySet();
       }
       const keys: PropertyKey[] = [...committedKeys, ...computedKeys];
-      if (getObserver() === null) {
+      if (!tracked) {
         written.forEach((_, key) => {
           if (!committedKeys.has(key)) {
             keys.push(key);
@@ -433,7 +444,7 @@ export function createStoreState<State extends object>(
       if (getter) {
         return { configurable: true, enumerable: true, get: () => getter.call(state) };
       }
-      if (getObserver() !== null) {
+      if (getObserver() !== null && !isServer) {
         keySet();
         if (!committedKeys.has(key)) {
           return undefined;
@@ -465,8 +476,11 @@ export function createStoreState<State extends object>(
     // The write runs outside any owner (see above), and untracked.
     runWithOwner(null, () =>
       untrack(() => {
-        for (const [key, value] of changes) {
-          bindings.get(key)?.setValue(value);
+        // The server reads the recorded values (`written`); it never writes signals.
+        if (!isServer) {
+          for (const [key, value] of changes) {
+            bindings.get(key)?.setValue(value);
+          }
         }
         for (const [key, value] of plainChanges) {
           writeSlot(key, value);
@@ -522,12 +536,15 @@ export function createStoreState<State extends object>(
     // Re-deriving from `source` drops an override written with `set` (React re-syncs on render).
     // The first derivation sees the key's value from before binding as `prev`.
     let unbound: { value: unknown } | null = { value: latest(key) };
-    const [value, setValue] = createSignal<unknown>((prev: unknown) => {
-      const next = source(unbound ? unbound.value : prev);
-      unbound = null;
-      written.delete(key);
-      return next;
-    });
+    const [value, setValue] = createSignal<unknown>(
+      (prev: unknown) => {
+        const next = source(unbound ? unbound.value : prev);
+        unbound = null;
+        written.delete(key);
+        return next;
+      },
+      { name: `store.${String(key)}` },
+    );
     const binding: Binding = {
       [BINDING]: true,
       value,

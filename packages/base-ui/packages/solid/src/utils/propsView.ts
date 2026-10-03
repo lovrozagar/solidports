@@ -21,6 +21,11 @@ export function propsSourceAccessor<T extends object | null | undefined>(
   return accessor;
 }
 
+/** Whether `value` was marked with `propsSourceAccessor`. */
+export function isPropsSourceAccessor(value: unknown): value is Accessor<PropsSource> {
+  return typeof value === 'function' && ACCESSOR_SOURCES.has(value);
+}
+
 function resolve(source: unknown): Record<string, any> | undefined {
   const value =
     typeof source === 'function' && ACCESSOR_SOURCES.has(source)
@@ -34,7 +39,29 @@ function isHandlerKey(key: string) {
 }
 
 function arraysEqual(a: readonly string[], b: readonly string[]) {
-  return a.length === b.length && a.every((value, index) => value === b[index]);
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * A memo created on first read, owned by `owner`: views that are never enumerated (most element
+ * props are read per key) never pay for it.
+ */
+function lazyMemo<T>(
+  owner: ReturnType<typeof getOwner>,
+  compute: () => T,
+  equals: (a: T, b: T) => boolean,
+): Accessor<T> {
+  let memo: Accessor<T> | undefined;
+  return () =>
+    (memo ??= runWithOwner(owner, () => createMemo(compute, { equals })) as Accessor<T>)();
 }
 
 type EventHandler = (...args: any[]) => unknown;
@@ -165,7 +192,8 @@ export function createPropsView(
     return undefined;
   }
 
-  const keys = createMemo(
+  const keys = lazyMemo(
+    getOwner(),
     () => {
       const seen = new Set<string>();
       const handlerNames = new Set<string>();
@@ -192,7 +220,7 @@ export function createPropsView(
       }
       return result;
     },
-    { equals: arraysEqual },
+    arraysEqual,
   );
 
   // Per key, so `key in view` depends only on the sources' `key`, not on every key they have.
@@ -201,8 +229,10 @@ export function createPropsView(
       return false;
     }
     const lower = isHandlerKey(key) ? key.toLowerCase() : undefined;
-    for (const source of list()) {
-      const props = resolve(source);
+    // Last to first: later sources usually carry the key (`ref`, `children`), ending the scan early.
+    const all = list();
+    for (let index = all.length - 1; index >= 0; index -= 1) {
+      const props = resolve(all[index]);
       if (props && (key in props || (lower !== undefined && lower !== key && lower in props))) {
         return true;
       }
@@ -350,7 +380,8 @@ export function createStateAttributesSource<State extends Record<string, any>>(
 
   const read = (key: string) => access(owning(key)?.[key]);
 
-  const keys = createMemo(
+  const keys = lazyMemo(
+    owner,
     () => {
       const result = new Set<string>();
       for (const { stateKey } of [...layout()].reverse()) {
@@ -363,7 +394,7 @@ export function createStateAttributesSource<State extends Record<string, any>>(
       }
       return [...result];
     },
-    { equals: arraysEqual },
+    arraysEqual,
   );
 
   return new Proxy({} as Record<string, any>, {

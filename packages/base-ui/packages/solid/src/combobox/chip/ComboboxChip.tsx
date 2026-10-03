@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { stopEvent } from '../../floating-ui-solid/utils';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -128,7 +128,7 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
     index,
   };
 
-  return <ComboboxChipContext value={contextValue}>{element()}</ComboboxChipContext>;
+  return provideContext(ComboboxChipContext, contextValue, element);
 }
 
 export interface ComboboxChipState {

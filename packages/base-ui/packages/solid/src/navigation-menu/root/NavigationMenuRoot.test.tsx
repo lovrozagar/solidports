@@ -1137,12 +1137,6 @@ describe('<NavigationMenu.Root />', () => {
       fireEvent.mouseEnter(trigger2);
       fireEvent.mouseMove(trigger2);
       await flushMicrotasks();
-      console.log(
-        'STATE',
-        topLevelList.style.pointerEvents,
-        trigger1.style.pointerEvents,
-        trigger2.style.pointerEvents,
-      );
 
       expect(topLevelList.style.pointerEvents).toBe('none');
       expect(document.body.style.pointerEvents).toBe('');

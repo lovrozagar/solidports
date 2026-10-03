@@ -62,6 +62,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
   const {
     state: fieldState,
     setTouched,
+    registerDirtySource,
     setDirty,
     validityData,
     registerFilledSource,
@@ -109,6 +110,9 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
 
   // React sets `filled` from a layout effect; the field derives it from this source.
   registerFilledSource(checked);
+
+  // React sets `dirty` from a layout effect when the value changes; the field derives it.
+  registerDirtySource(() => checked() !== validityData.initialValue);
 
   useValueChanged(checked, () => {
     const value = untrack(checked);

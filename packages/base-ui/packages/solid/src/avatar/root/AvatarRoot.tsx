@@ -1,5 +1,5 @@
 import { createMemo, createSignal, onSettled, untrack, type Accessor } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { AvatarRootContext } from './AvatarRootContext';
@@ -58,7 +58,7 @@ export function AvatarRoot(componentProps: AvatarRoot.Props) {
     stateAttributesMapping: avatarStateAttributesMapping,
   });
 
-  return <AvatarRootContext value={contextValue}>{element()}</AvatarRootContext>;
+  return provideContext(AvatarRootContext, contextValue, element);
 }
 
 export type ImageLoadingStatus = 'idle' | 'loading' | 'loaded' | 'error';

@@ -11,12 +11,16 @@ and ports its behavior and test suite one to one.
 ## Installation
 
 ```bash
-npm install @solidports/base-ui@next solid-js @solidjs/web
+npm install @solidports/base-ui@next solid-js @solidjs/web @floating-ui/dom @floating-ui/utils
 ```
+
+The package has no dependencies of its own; everything it imports is a peer dependency, so your
+app controls every version.
 
 Requirements:
 
 - `solid-js` and `@solidjs/web` 2.0 RC (`~2.0.0-rc.13`).
+- `@floating-ui/dom` (`^1.8.0`) and `@floating-ui/utils` (`^0.2.11`) for positioning.
 - A Solid compiler in your build, such as Vite with `@solidjs/vite-plugin`. The package ships its
   TypeScript and JSX source (ESM only) so your build compiles it for the DOM, SSR, or hydration
   target you use. Type declarations are prebuilt.

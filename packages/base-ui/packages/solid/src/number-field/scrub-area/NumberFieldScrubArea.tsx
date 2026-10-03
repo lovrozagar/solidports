@@ -1,6 +1,6 @@
 import { createSignal, onCleanup } from 'solid-js';
 import { getTarget } from '../../floating-ui-solid/utils';
-import { createDepsEffect, splitComponentProps, useRef } from '../../solid-helpers';
+import { createDepsEffect, splitComponentProps, useRef, provideContext } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { createGenericEventDetails } from '../../utils/createBaseUIEventDetails';
 import { flushSync } from '../../utils/flushSync';
@@ -329,9 +329,7 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
     scrubAreaCursorRef,
   };
 
-  return (
-    <NumberFieldScrubAreaContext value={contextValue}>{element()}</NumberFieldScrubAreaContext>
-  );
+  return provideContext(NumberFieldScrubAreaContext, contextValue, element);
 }
 
 export interface NumberFieldScrubAreaState extends NumberFieldRootState {}

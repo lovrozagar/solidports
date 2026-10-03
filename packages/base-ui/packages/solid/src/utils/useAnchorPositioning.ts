@@ -454,6 +454,26 @@ export function useAnchorPositioning(
     layoutShift: !disableAnchorTracking() && typeof IntersectionObserver !== 'undefined',
   }));
 
+  // The resolved anchor while mounted, as Floating UI's position reference (React sets it from an
+  // effect). Same anchor, same object: the reference is replaced only when the anchor changes.
+  const anchorReference = createMemo<{ anchor: Element | VirtualElement | null } | undefined>(
+    (prev) => {
+      if (!mounted()) {
+        return prev;
+      }
+      const anchorValue = anchor();
+      // A callable ref (ReactLikeRef function with `.current`) is a ref, not an accessor.
+      const isCallableRef =
+        typeof anchorValue === 'function' && 'current' in (anchorValue as { current?: unknown });
+      const resolved = unwrapAnchor(
+        typeof anchorValue === 'function' && !isCallableRef
+          ? (anchorValue as () => unknown)()
+          : anchorValue,
+      );
+      return prev && prev.anchor === resolved ? prev : { anchor: resolved };
+    },
+  );
+
   const {
     refs,
     elements,
@@ -468,6 +488,9 @@ export function useAnchorPositioning(
   } = useFloating({
     get rootContext() {
       return params.floatingRootContext;
+    },
+    get positionReference() {
+      return anchorReference();
     },
     get open() {
       return keepMounted() ? mounted() : undefined;
@@ -502,35 +525,36 @@ export function useAnchorPositioning(
     isPositioned() ? positionMethod() : 'fixed',
   );
 
-  const floatingStyles = createMemo<JSX.CSSProperties>(() => {
-    let base: JSX.CSSProperties & Record<string, unknown>;
-    if (!isPositioned()) {
-      // Until a position for the current open is computed, ignore any coordinates retained from a
-      // previous open (or from a pass that measured the hidden popup as 0x0). Rendering the
-      // full-size popup at such stale coordinates can overflow the layout viewport, which makes
-      // mobile Chrome zoom the page out and reflow everything the popup is anchored to.
-      base = { position: resolvedPosition(), top: '0px', left: '0px' };
-    } else if (adaptiveOrigin()) {
-      const { sideX, sideY } = middlewareData().adaptiveOrigin || DEFAULT_SIDES;
-      base = { position: resolvedPosition(), [sideX]: `${x()}px`, [sideY]: `${y()}px` };
-    } else {
-      base = { ...originalFloatingStyles(), position: resolvedPosition() };
-    }
+  const floatingStyles = createMemo<JSX.CSSProperties>(
+    () => {
+      let base: JSX.CSSProperties & Record<string, unknown>;
+      if (!isPositioned()) {
+        // Until a position for the current open is computed, ignore any coordinates retained from a
+        // previous open (or from a pass that measured the hidden popup as 0x0). Rendering the
+        // full-size popup at such stale coordinates can overflow the layout viewport, which makes
+        // mobile Chrome zoom the page out and reflow everything the popup is anchored to.
+        base = { position: resolvedPosition(), top: '0px', left: '0px' };
+      } else if (adaptiveOrigin()) {
+        const { sideX, sideY } = middlewareData().adaptiveOrigin || DEFAULT_SIDES;
+        base = { position: resolvedPosition(), [sideX]: `${x()}px`, [sideY]: `${y()}px` };
+      } else {
+        base = { ...originalFloatingStyles(), position: resolvedPosition() };
+      }
 
-    // Seed the available size vars so consumer `max-height: min(x, var(--available-height))` rules
-    // resolve to a valid length on the first positioning pass, before `size()` writes the real
-    // values. Seeded unconditionally so the keys stay present with a constant value and the style
-    // binding never rewrites them after mount, preserving the px values `size()` sets imperatively.
-    base[AVAILABLE_WIDTH_VAR] = '100vw';
-    base[AVAILABLE_HEIGHT_VAR] = '100vh';
+      // Seed the available size vars so consumer `max-height: min(x, var(--available-height))` rules
+      // resolve to a valid length on the first positioning pass, before `size()` writes the real
+      // values. Seeded unconditionally so the keys stay present with a constant value and the style
+      // binding never rewrites them after mount, preserving the px values `size()` sets imperatively.
+      base[AVAILABLE_WIDTH_VAR] = '100vw';
+      base[AVAILABLE_HEIGHT_VAR] = '100vh';
 
-    if (!isPositioned()) {
-      base.opacity = 0;
-    }
-    return base;
-  });
-
-  let registeredPositionReferenceRef: Element | VirtualElement | null = null;
+      if (!isPositioned()) {
+        base.opacity = 0;
+      }
+      return base;
+    },
+    { equals: shallowEqual },
+  );
 
   // Resolves the `anchor` param: a Solid accessor (called, tracked), a ref (`.current`, read when
   // the effect runs, as React reads refs after commit), or an element/virtual element.
@@ -541,35 +565,6 @@ export function useAnchorPositioning(
     const resolved = isReactLikeRef ? (value as { current: unknown }).current : value;
     return (resolved as Element | VirtualElement | null | undefined) || null;
   }
-
-  createEffect(
-    () => {
-      if (!mounted()) {
-        return null;
-      }
-      const anchorValue = anchor();
-      // A callable ref (ReactLikeRef function with `.current`) is a ref, not an accessor.
-      const isCallableRef =
-        typeof anchorValue === 'function' && 'current' in (anchorValue as { current?: unknown });
-      return {
-        value:
-          typeof anchorValue === 'function' && !isCallableRef
-            ? (anchorValue as () => unknown)()
-            : anchorValue,
-      };
-    },
-    (target) => {
-      if (!target) {
-        return;
-      }
-      const finalAnchor = unwrapAnchor(target.value);
-
-      if (finalAnchor !== registeredPositionReferenceRef) {
-        refs.setPositionReference(finalAnchor);
-        registeredPositionReferenceRef = finalAnchor;
-      }
-    },
-  );
 
   createDepsEffect(
     () => ({
