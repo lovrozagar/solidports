@@ -1,29 +1,30 @@
 import { createMemo, createSignal, For, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { Link } from "../Link"
-import * as CodeBlock from "../CodeBlock"
-import * as Accordion from "../Accordion"
-import { highlightInline } from "../../syntax-highlighting/highlight"
-import * as DescriptionList from "../DescriptionList"
-import type { PropDef as BasePropDef } from "./types"
-import { TableCode } from "../TableCode"
-import * as ReferenceTableTooltip from "./ReferenceTableTooltip"
-import { sortPropEntries } from "./propOrder"
+import clsx from 'clsx';
+import { Link } from '../Link';
+import * as CodeBlock from '../CodeBlock';
+import * as Accordion from '../Accordion';
+import { highlightInline } from '../../syntax-highlighting/highlight';
+import * as DescriptionList from '../DescriptionList';
+import type { PropDef as BasePropDef } from './types';
+import { Description } from './Description';
+import { TableCode } from '../TableCode';
+import * as ReferenceTableTooltip from './ReferenceTableTooltip';
+import { sortPropEntries } from './propOrder';
 
 import { splitProps } from '../../utils/solid-1-compat';
 /* The tooltip mounts on the first hover or focus of the cell: SSR and hydration emit plain
    <TableCode> (Tooltip.Portal moves its subtree to body, so its markers would not line up), and a
    page with many props does not build every tooltip at once after mounting. */
 function TypeCell(props: {
-  detailedDisplayType: string | undefined
-  displayType: string | undefined
-  shortPropTypeName: string | undefined
-  hasExpandedType: boolean
-  showTooltip: boolean
+  detailedDisplayType: string | undefined;
+  displayType: string | undefined;
+  shortPropTypeName: string | undefined;
+  hasExpandedType: boolean;
+  showTooltip: boolean;
 }) {
-  const [active, setActive] = createSignal(false)
-  const activate = () => setActive(true)
+  const [active, setActive] = createSignal(false);
+  const activate = () => setActive(true);
   return (
     <Show
       when={active() && props.showTooltip}
@@ -41,88 +42,73 @@ function TypeCell(props: {
           <TableCode>{props.shortPropTypeName}</TableCode>
         </ReferenceTableTooltip.Trigger>
         <ReferenceTableTooltip.Popup>
-          <TableCode>{props.hasExpandedType ? props.detailedDisplayType : props.displayType}</TableCode>
+          <TableCode>
+            {props.hasExpandedType ? props.detailedDisplayType : props.displayType}
+          </TableCode>
         </ReferenceTableTooltip.Popup>
       </ReferenceTableTooltip.Root>
     </Show>
-  )
+  );
 }
 
 interface PropDef extends BasePropDef {
-  detailedType?: string
-  example?: string
+  detailedType?: string;
+  example?: string;
 }
 
 interface Props extends JSX.HTMLAttributes<HTMLElement> {
-  data: Record<string, PropDef>
-  type?: "props" | "return"
-  name: string
-  renameFrom?: string
-  renameTo?: string
-  nameLabel?: string
-  caption?: string
-}
-
-function InlineDescription(props: { text: string }) {
-  const parts = () => props.text.split(/(`[^`]+`)/g)
-  return (
-    <For each={parts()}>
-      {(part) =>
-        part.startsWith("`") && part.endsWith("`") ? (
-          <code class="Code MdCode" data-inline>
-            {part.slice(1, -1)}
-          </code>
-        ) : (
-          part.replace(/\s*\n+\s*/g, " ")
-        )
-      }
-    </For>
-  )
+  data: Record<string, PropDef>;
+  type?: 'props' | 'return';
+  name: string;
+  renameFrom?: string;
+  renameTo?: string;
+  nameLabel?: string;
+  caption?: string;
 }
 
 function getShortPropType(name: string, type: string | undefined) {
-  if (/^(on|get)[A-Z].*/.test(name)) return { type: "function", detailedType: true }
-  if (type === undefined || type === null) return { type: String(type), detailedType: false }
-  if (name === "class") return { type: "string | function", detailedType: true }
-  if (name === "style") return { type: "CSSProperties | function", detailedType: true }
-  if (name === "render") return { type: "JSX.Element | function", detailedType: true }
+  if (/^(on|get)[A-Z].*/.test(name)) return { type: 'function', detailedType: true };
+  if (type === undefined || type === null) return { type: String(type), detailedType: false };
+  if (name === 'class') return { type: 'string | function', detailedType: true };
+  if (name === 'style') return { type: 'CSSProperties | function', detailedType: true };
+  if (name === 'render') return { type: 'JSX.Element | function', detailedType: true };
 
   if (
-    name.endsWith("Ref") ||
-    name === "children" ||
-    type === "boolean" ||
-    type === "string" ||
-    type === "number" ||
-    type.indexOf(" | ") === -1 ||
-    (type.split("|").length < 3 && type.length < 30)
+    name.endsWith('Ref') ||
+    name === 'children' ||
+    type === 'boolean' ||
+    type === 'string' ||
+    type === 'number' ||
+    type.indexOf(' | ') === -1 ||
+    (type.split('|').length < 3 && type.length < 30)
   ) {
-    return { type, detailedType: false }
+    return { type, detailedType: false };
   }
 
-  return { type: "Union", detailedType: true }
+  return { type: 'Union', detailedType: true };
 }
 
 function escapeRegExp(input: string) {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function replaceComponentPrefix(input: string | undefined, from?: string, to?: string) {
-  if (!input || !from || !to) return input ?? ""
-  const pattern = new RegExp(`\\b${escapeRegExp(from)}(?=\\.)`, "g")
-  return input.replace(pattern, to)
+  if (!input || !from || !to) return input ?? '';
+  const pattern = new RegExp(`\\b${escapeRegExp(from)}(?=\\.)`, 'g');
+  return input.replace(pattern, to);
 }
 
 const visuallyHidden: JSX.CSSProperties = {
   border: 0,
-  clip: "rect(0 0 0 0)",
-  height: "1px",
-  margin: "-1px",
-  overflow: "hidden",
+  clip: 'rect(0 0 0 0)',
+  height: '1px',
+  margin: '-1px',
+  overflow: 'hidden',
   padding: 0,
-  position: "absolute",
-  "white-space": "nowrap",
-  width: "1px",
-}
+  position: 'absolute',
+  'white-space': 'nowrap',
+  width: '1px',
+};
 
 /** Prop reference accordion. Each row is a `<details>` with the prop name, short
     type, and default in the trigger, full description/type/default/example
@@ -131,31 +117,31 @@ const visuallyHidden: JSX.CSSProperties = {
     Solid MDX renderer. */
 export function ReferenceAccordion(props: Props) {
   const [local, rest] = splitProps(props, [
-    "data",
-    "name",
-    "renameFrom",
-    "renameTo",
-    "nameLabel",
-    "caption",
-    "class",
-    "style",
-  ])
-  const captionId = () => `${local.name}-caption`
-  const nameLabel = () => local.nameLabel ?? "Prop"
-  const caption = () => local.caption ?? "Component props table"
+    'data',
+    'name',
+    'renameFrom',
+    'renameTo',
+    'nameLabel',
+    'caption',
+    'class',
+    'style',
+  ]);
+  const captionId = () => `${local.name}-caption`;
+  const nameLabel = () => local.nameLabel ?? 'Prop';
+  const caption = () => local.caption ?? 'Component props table';
   const entries = createMemo(() =>
-    nameLabel() === "Prop" ? sortPropEntries(local.data) : Object.entries(local.data),
-  )
+    nameLabel() === 'Prop' ? sortPropEntries(local.data) : Object.entries(local.data),
+  );
   const rowsStyle = createMemo((): JSX.CSSProperties => ({
-    "--rows": String(Object.keys(local.data).length),
-    ...(typeof local.style === "object" && local.style ? local.style : {}),
-  }))
+    '--rows': String(Object.keys(local.data).length),
+    ...(typeof local.style === 'object' && local.style ? local.style : {}),
+  }));
 
   return (
     <Accordion.Root
       aria-describedby={captionId()}
       {...rest}
-      class={clsx("ReferenceAccordionRoot", local.class)}
+      class={clsx('ReferenceAccordionRoot', local.class)}
       style={rowsStyle()}
     >
       <span id={captionId()} style={visuallyHidden} aria-hidden="true">
@@ -169,31 +155,31 @@ export function ReferenceAccordion(props: Props) {
       </Accordion.HeaderRow>
       <For each={entries()}>
         {([name, prop], index) => {
-          const displayType = replaceComponentPrefix(prop.type, local.renameFrom, local.renameTo)
+          const displayType = replaceComponentPrefix(prop.type, local.renameFrom, local.renameTo);
           const detailedDisplayType = replaceComponentPrefix(
             prop.detailedType ?? prop.type,
             local.renameFrom,
             local.renameTo,
-          )
-          const { type: shortPropTypeName, detailedType } = getShortPropType(name, displayType)
-          const hasExpandedType = Boolean(prop.detailedType)
-          const id = `${local.name}-${name}`
+          );
+          const { type: shortPropTypeName, detailedType } = getShortPropType(name, displayType);
+          const hasExpandedType = Boolean(prop.detailedType);
+          const id = `${local.name}-${name}`;
 
           return (
             <Accordion.Item>
               <Accordion.Trigger
                 id={id}
                 index={index()}
-                aria-label={`${nameLabel()}: ${name},${prop.required ? " required," : ""} type: ${shortPropTypeName} ${prop.default !== undefined ? `(default: ${prop.default})` : ""}`}
+                aria-label={`${nameLabel()}: ${name},${prop.required ? ' required,' : ''} type: ${shortPropTypeName} ${prop.default !== undefined ? `(default: ${prop.default})` : ''}`}
                 class="ReferenceTrigger"
               >
                 <Accordion.Scrollable class="ReferenceNameCell">
-                  <TableCode class="bui-ws-nw" style={{ color: "var(--color-navy)" }}>
+                  <TableCode class="bui-ws-nw" style={{ color: 'var(--color-navy)' }}>
                     {name}
                   </TableCode>
                   <sup
                     class="ReferenceRequired"
-                    style={{ display: prop.required ? "inline" : "none" }}
+                    style={{ display: prop.required ? 'inline' : 'none' }}
                   >
                     *
                   </sup>
@@ -212,7 +198,11 @@ export function ReferenceAccordion(props: Props) {
                 <Accordion.Scrollable class="ReferenceDefaultCell">
                   <Show
                     when={!(prop.required || prop.default === undefined)}
-                    fallback={<TableCode style={{ color: "var(--color-docs-infra-syntax-nullish)" }}>—</TableCode>}
+                    fallback={
+                      <TableCode style={{ color: 'var(--color-docs-infra-syntax-nullish)' }}>
+                        —
+                      </TableCode>
+                    }
                   >
                     <TableCode>{prop.default}</TableCode>
                   </Show>
@@ -245,7 +235,7 @@ export function ReferenceAccordion(props: Props) {
                       <DescriptionList.Item>
                         <DescriptionList.Term separator>Description</DescriptionList.Term>
                         <DescriptionList.Details class="ReferenceDescription">
-                          <InlineDescription text={prop.description ?? ""} />
+                          <Description html={prop.descriptionHtml} text={prop.description} />
                         </DescriptionList.Details>
                       </DescriptionList.Item>
                     </Show>
@@ -253,7 +243,7 @@ export function ReferenceAccordion(props: Props) {
                       <DescriptionList.Term separator>Type</DescriptionList.Term>
                       <DescriptionList.Details>
                         <CodeBlock.Root>
-                          <code innerHTML={highlightInline(detailedDisplayType, "tsx")} />
+                          <code innerHTML={highlightInline(detailedDisplayType, 'tsx')} />
                         </CodeBlock.Root>
                       </DescriptionList.Details>
                     </DescriptionList.Item>
@@ -277,9 +267,9 @@ export function ReferenceAccordion(props: Props) {
                 </Accordion.Content>
               </Accordion.Panel>
             </Accordion.Item>
-          )
+          );
         }}
       </For>
     </Accordion.Root>
-  )
+  );
 }

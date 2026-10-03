@@ -1,26 +1,30 @@
 import { For, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import type { AttributeDef } from "./types"
-import * as Table from "../Table"
-import * as Accordion from "../Accordion"
-import { TableCode } from "../TableCode"
+import clsx from 'clsx';
+import type { AttributeDef } from './types';
+import { Description } from './Description';
+import * as Table from '../Table';
+import * as Accordion from '../Accordion';
+import { TableCode } from '../TableCode';
 
 import { splitProps } from '../../utils/solid-1-compat';
 interface AttributesReferenceTableProps extends JSX.HTMLAttributes<HTMLDivElement> {
-  data: Record<string, AttributeDef>
-  name?: string
+  data: Record<string, AttributeDef>;
+  name?: string;
 }
 
 /** Data-attribute table. Upstream renders both an Accordion (xs) and a Table (>xs)
     version with the same contents, switched via Tailwind `hidden` utility. */
 export function AttributesReferenceTable(props: AttributesReferenceTableProps) {
-  const [local, rest] = splitProps(props, ["data", "name", "class"])
-  const entries = () => Object.entries(local.data)
+  const [local, rest] = splitProps(props, ['data', 'name', 'class']);
+  const entries = () => Object.entries(local.data);
 
   return (
     <>
-      <Accordion.Root {...(rest as JSX.HTMLAttributes<HTMLElement>)} class={clsx(local.class, "xs:hidden")}>
+      <Accordion.Root
+        {...(rest as JSX.HTMLAttributes<HTMLElement>)}
+        class={clsx(local.class, 'xs:hidden')}
+      >
         <Accordion.HeaderRow>
           <Accordion.HeaderCell>Attribute</Accordion.HeaderCell>
         </Accordion.HeaderRow>
@@ -33,7 +37,7 @@ export function AttributesReferenceTable(props: AttributesReferenceTableProps) {
               </Accordion.Trigger>
               <Accordion.Panel>
                 <Accordion.Content class="flex flex-col gap-3 p-4 text-md text-pretty">
-                  {attribute.description}
+                  <Description html={attribute.descriptionHtml} text={attribute.description} />
                 </Accordion.Content>
               </Accordion.Panel>
             </Accordion.Item>
@@ -41,7 +45,7 @@ export function AttributesReferenceTable(props: AttributesReferenceTableProps) {
         </For>
       </Accordion.Root>
 
-      <Table.Root {...rest} class={clsx("hidden xs:block", local.class)}>
+      <Table.Root {...rest} class={clsx('hidden xs:block', local.class)}>
         <Table.Head>
           <Table.Row>
             <Table.ColumnHeader class="w-full xs:w-48 sm:w-56 md:w-[calc(5/16.5*100%)]">
@@ -51,7 +55,7 @@ export function AttributesReferenceTable(props: AttributesReferenceTableProps) {
               <span class="sr-only xs:not-sr-only xs:contents">Description</span>
             </Table.ColumnHeader>
             <Table.ColumnHeader class="w-10 max-xs:hidden" aria-hidden="true">
-              <span class="invisible">{"-"}</span>
+              <span class="invisible">{'-'}</span>
             </Table.ColumnHeader>
           </Table.Row>
         </Table.Head>
@@ -63,7 +67,9 @@ export function AttributesReferenceTable(props: AttributesReferenceTableProps) {
                   <TableCode class="text-navy">{name}</TableCode>
                 </Table.RowHeader>
                 <Table.Cell colspan={2}>
-                  <Show when={attribute.description}>{attribute.description}</Show>
+                  <Show when={attribute.description}>
+                    <Description html={attribute.descriptionHtml} text={attribute.description} />
+                  </Show>
                 </Table.Cell>
               </Table.Row>
             )}
@@ -71,7 +77,7 @@ export function AttributesReferenceTable(props: AttributesReferenceTableProps) {
         </Table.Body>
       </Table.Root>
     </>
-  )
+  );
 }
 
 function AccordionChevron() {
@@ -86,5 +92,5 @@ function AccordionChevron() {
     >
       <path d="M1 3.5L5 7.5L9 3.5" stroke="currentcolor" />
     </svg>
-  )
+  );
 }

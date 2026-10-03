@@ -1,6 +1,7 @@
 // @ts-check
 import { createHast } from '../../mdx/createHast.mjs';
 import { createMdxElement } from '../../mdx/createMdxElement.mjs';
+import { descriptionToHtml, withDescriptionHtml } from './descriptionHtml.mjs';
 import { kebabCase } from 'es-toolkit/string';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'path';
@@ -160,7 +161,7 @@ function describeComponents(componentDefs, referenceName, parts, asParam) {
               asParam && def.name.startsWith(referenceName)
                 ? `${asParam}${def.name.substring(referenceName.length)}`
                 : def.name,
-            data: def.props,
+            data: withDescriptionHtml(def.props),
             renameFrom: asParam ? referenceName : undefined,
             renameTo: asParam,
           },
@@ -174,7 +175,7 @@ function describeComponents(componentDefs, referenceName, parts, asParam) {
           name: ATTRIBUTES_TABLE,
           props: {
             name: def.name,
-            data: def.dataAttributes,
+            data: withDescriptionHtml(def.dataAttributes),
           },
         }),
       );
@@ -186,7 +187,7 @@ function describeComponents(componentDefs, referenceName, parts, asParam) {
           name: CSS_VARIABLES_TABLE,
           props: {
             name: def.name,
-            data: def.cssVariables,
+            data: withDescriptionHtml(def.cssVariables),
           },
         }),
       );
@@ -222,7 +223,7 @@ function describeFunction(functionDef) {
         name: PARAMETERS_TABLE,
         props: {
           name: `${functionDef.name}-parameters`,
-          data: parameters,
+          data: withDescriptionHtml(parameters),
         },
       }),
     );
@@ -244,11 +245,33 @@ function describeFunction(functionDef) {
         name: RETURN_VALUE_TABLE,
         props: {
           name: `${functionDef.name}-return`,
-          data: returnValue,
+          data: withReturnValueDescriptionHtml(returnValue),
         },
       }),
     );
   }
 
   return subtree;
+}
+
+/**
+ * Return values render their description and example together, prefixed with the value name when
+ * there are several.
+ *
+ * @param {Record<string, import('./types').PropDef>} returnValue
+ */
+function withReturnValueDescriptionHtml(returnValue) {
+  const entries = Object.entries(returnValue);
+  const includeName = entries.length > 1;
+  return Object.fromEntries(
+    entries.map(([name, def]) => {
+      const description = [def.description, def.example].filter(Boolean).join('\n\n');
+      const markdown = includeName
+        ? description
+          ? `**${name}**: ${description}`
+          : `**${name}**`
+        : description;
+      return [name, { ...def, descriptionHtml: descriptionToHtml(markdown) }];
+    }),
+  );
 }

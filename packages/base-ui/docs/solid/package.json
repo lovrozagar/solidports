@@ -21,6 +21,7 @@
     "filesystem-routing": "catalog:",
     "globby": "catalog:",
     "hast-util-heading-rank": "catalog:",
+    "hast-util-to-html": "catalog:",
     "hast-util-to-string": "catalog:",
     "lucide-solid": "catalog:",
     "match-sorter": "catalog:",

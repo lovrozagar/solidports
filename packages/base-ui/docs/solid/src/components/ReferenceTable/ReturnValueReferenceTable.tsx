@@ -1,42 +1,34 @@
 import { For, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import * as Table from "../Table"
-import * as Accordion from "../Accordion"
-import { TableCode } from "../TableCode"
-import type { PropDef } from "./types"
+import clsx from 'clsx';
+import * as Table from '../Table';
+import * as Accordion from '../Accordion';
+import { TableCode } from '../TableCode';
+import type { PropDef } from './types';
+import { Description } from './Description';
 
 import { splitProps } from '../../utils/solid-1-compat';
 interface ReturnValueReferenceTableProps extends JSX.HTMLAttributes<HTMLDivElement> {
-  data: Record<string, PropDef>
-  name?: string
-}
-
-function getDescription(def: PropDef, name: string, includeName: boolean) {
-  const baseDescription = [def.description, def.example].filter(Boolean).join("\n\n")
-  if (!includeName) return baseDescription
-  const nameLabel = `**${name}**`
-  return baseDescription ? `${nameLabel}: ${baseDescription}` : nameLabel
+  data: Record<string, PropDef>;
+  name?: string;
 }
 
 export function ReturnValueReferenceTable(props: ReturnValueReferenceTableProps) {
-  const [local, rest] = splitProps(props, ["data", "name", "class"])
-  const entries = () => Object.entries(local.data)
-  const includeName = () => entries().length > 1
+  const [local, rest] = splitProps(props, ['data', 'name', 'class']);
+  const entries = () => Object.entries(local.data);
 
   return (
     <>
       <Accordion.Root
         {...(rest as JSX.HTMLAttributes<HTMLElement>)}
-        class={clsx(local.class, "xs:hidden")}
+        class={clsx(local.class, 'xs:hidden')}
       >
         <Accordion.HeaderRow>
           <Accordion.HeaderCell>Type</Accordion.HeaderCell>
         </Accordion.HeaderRow>
         <For each={entries()}>
           {([name, def], index) => {
-            const typeValue = def.type ?? def.detailedType
-            const descriptionText = getDescription(def, name, includeName())
+            const typeValue = def.type ?? def.detailedType;
             return (
               <Accordion.Item>
                 <Accordion.Trigger index={index()}>
@@ -60,20 +52,20 @@ export function ReturnValueReferenceTable(props: ReturnValueReferenceTableProps)
                 <Accordion.Panel>
                   <Accordion.Content class="flex flex-col gap-3 p-4 text-md text-pretty">
                     <Show
-                      when={descriptionText}
+                      when={def.descriptionHtml}
                       fallback={<TableCode class="text-(--syntax-nullish)">—</TableCode>}
                     >
-                      {descriptionText}
+                      <Description html={def.descriptionHtml} />
                     </Show>
                   </Accordion.Content>
                 </Accordion.Panel>
               </Accordion.Item>
-            )
+            );
           }}
         </For>
       </Accordion.Root>
 
-      <Table.Root {...rest} class={clsx("hidden xs:block", local.class)}>
+      <Table.Root {...rest} class={clsx('hidden xs:block', local.class)}>
         <Table.Head>
           <Table.Row>
             <Table.ColumnHeader class="xs:w-2/5">Type</Table.ColumnHeader>
@@ -85,8 +77,7 @@ export function ReturnValueReferenceTable(props: ReturnValueReferenceTableProps)
         <Table.Body>
           <For each={entries()}>
             {([name, def]) => {
-              const typeValue = def.type ?? def.detailedType
-              const descriptionText = getDescription(def, name, includeName())
+              const typeValue = def.type ?? def.detailedType;
               return (
                 <Table.Row>
                   <Table.Cell>
@@ -99,18 +90,18 @@ export function ReturnValueReferenceTable(props: ReturnValueReferenceTableProps)
                   </Table.Cell>
                   <Table.Cell>
                     <Show
-                      when={descriptionText}
+                      when={def.descriptionHtml}
                       fallback={<TableCode class="text-(--syntax-nullish)">—</TableCode>}
                     >
-                      {descriptionText}
+                      <Description html={def.descriptionHtml} />
                     </Show>
                   </Table.Cell>
                 </Table.Row>
-              )
+              );
             }}
           </For>
         </Table.Body>
       </Table.Root>
     </>
-  )
+  );
 }

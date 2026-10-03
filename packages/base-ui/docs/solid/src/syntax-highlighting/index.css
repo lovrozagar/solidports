@@ -48,3 +48,10 @@
   color: var(--syntax-default);
   background-color: var(--color-inline-highlight);
 }
+
+/* MDX code blocks are highlighted by rehype-pretty-code, whose lines are `[data-line]` spans.
+   React's highlighter wraps lines in `.frame`, which carries the block's inline padding
+   (CodeBlock.css); give the lines the same inset. */
+.CodeBlockRoot code > [data-line] {
+  padding-inline: 0.75rem;
+}
