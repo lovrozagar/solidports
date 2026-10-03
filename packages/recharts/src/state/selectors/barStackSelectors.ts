@@ -4,13 +4,10 @@ import type { NormalizedStackId } from "../../util/ChartUtils"
 import type { BarSettings } from "../types/BarSettings"
 import { selectUnfilteredCartesianItems } from "./axisSelectors"
 import type { CartesianGraphicalItemSettings } from "../graphicalItemsSlice"
+import { chartSelector } from "./chartSelector"
 import { selectBarRectangles } from "./barSelectors"
 
-export function selectAllBarsInStack(
-	state: ChartState,
-	stackId: NormalizedStackId,
-	isPanorama: boolean,
-): ReadonlyArray<BarSettings> {
+export const selectAllBarsInStack = chartSelector(function selectAllBarsInStack(state: ChartState, stackId: NormalizedStackId, isPanorama: boolean): ReadonlyArray<BarSettings> {
 	const allItems: ReadonlyArray<CartesianGraphicalItemSettings> =
 		selectUnfilteredCartesianItems(state)
 	return allItems
@@ -18,15 +15,11 @@ export function selectAllBarsInStack(
 		.filter((i) => i.stackId === stackId)
 		.filter((i) => i.isPanorama === isPanorama)
 		.filter((i) => !i.hide) as ReadonlyArray<BarSettings>
-}
+})
 
-function selectAllBarIdsInStack(
-	state: ChartState,
-	stackId: NormalizedStackId,
-	isPanorama: boolean,
-) {
+const selectAllBarIdsInStack = chartSelector(function selectAllBarIdsInStack(state: ChartState, stackId: NormalizedStackId, isPanorama: boolean) {
 	return selectAllBarsInStack(state, stackId, isPanorama).map((bar) => bar.id)
-}
+})
 
 export type BarStackItem = {
 	x: number
@@ -79,10 +72,6 @@ function combineStackRects(
 	return stackRects
 }
 
-export function selectStackRects(
-	state: ChartState,
-	stackId: NormalizedStackId,
-	isPanorama: boolean,
-): ReadonlyArray<BarStackItem | undefined> {
+export const selectStackRects = chartSelector(function selectStackRects(state: ChartState, stackId: NormalizedStackId, isPanorama: boolean): ReadonlyArray<BarStackItem | undefined> {
 	return combineStackRects(state, stackId, isPanorama)
-}
+})

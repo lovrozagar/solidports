@@ -44,12 +44,12 @@ import type { BaseAxisWithScale } from "../state/selectors/axisSelectors"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { selectLinePoints } from "../state/selectors/lineSelectors"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/useChartState"
 import type { AxisId } from "../state/cartesianAxisSlice"
 import { SetLegendPayload } from "../state/SetLegendPayload"
 import { useAnimationId } from "../util/useAnimationId"
 import { useAnimatedLineLength } from "./useAnimatedLineLength"
 import { LineDrawShape } from "./LineDrawShape"
+import { pathTotalLength } from "../util/pathTotalLength"
 import type { LineDrawShapeProps } from "./LineDrawShape"
 import { resolveDefaultProps } from "../util/resolveDefaultProps"
 import { usePlotArea } from "../hooks"
@@ -275,23 +275,12 @@ function SetLineTooltipEntrySettings(
 	return <SetTooltipEntrySettings tooltipEntrySettings={tooltipEntrySettings()} />
 }
 
-function getTotalLength(mainCurve: SVGPathElement | null): number {
-	try {
-		return (mainCurve && mainCurve.getTotalLength && mainCurve.getTotalLength()) || 0
-	} catch {
-		return 0
-	}
-}
-
 function LineDotsWrapper(props: {
 	points: ReadonlyArray<LinePointItem>
 	clipPathId: string
 	allProps: InternalProps
 }) {
-	const lineProps = () => {
-		const { id: _id, ...propsWithoutId } = props.allProps
-		return svgPropertiesNoEvents(propsWithoutId)
-	}
+	const lineProps = createMemo(() => svgPropertiesNoEvents(props.allProps, "id"))
 
 	return (
 		<Dots
@@ -491,9 +480,14 @@ function CurveWithAnimation(props: {
 	const lengthAnimationId = useAnimationId(() => props.allProps.points, "recharts-line-length-")
 	const getVisibleLength = useAnimatedLineLength(lengthAnimationId)
 
-	// Guard for totalLength: don't update previousPointsRef before SVG path is measured
+	/* Measured once per path `d` (see pathTotalLength), and only for animating lines. */
+	const totalLength = (): number => pathTotalLength(pathRef.current)
+
+	// Guard for totalLength: don't update previousPointsRef before SVG path is measured.
+	// A line that never animates has nothing to reveal, so a mounted path is enough.
 	const shouldUpdatePreviousRef = (animationElapsedTime: number) =>
-		animationElapsedTime > 0 && getTotalLength(pathRef.current) > 0
+		animationElapsedTime > 0 &&
+		(props.allProps.isAnimationActive === false ? pathRef.current != null : totalLength() > 0)
 
 	return (
 		<LineLabelListProvider points={props.allProps.points} showLabels={!isAnimating()}>
@@ -521,7 +515,7 @@ function CurveWithAnimation(props: {
 					const animationActive = () => isAnimating() || animationElapsedTime() < 1
 					const visibleLength = createMemo(() =>
 						animationActive()
-							? getVisibleLength(animationElapsedTime(), getTotalLength(pathRef.current))
+							? getVisibleLength(animationElapsedTime(), totalLength())
 							: null,
 					)
 					return (
@@ -653,32 +647,14 @@ function LineImpl(props: WithIdRequired<Props>) {
 	const layout = createMemo(() => useChartLayout())
 	const isPanorama = useIsPanorama()
 	const ctx = useChartStore()
-	const stateCtx = useOptionalChartState()
-	/* perf: createMemo caches selectLinePoints result; without it, every consumer
-	   read during the animation loop triggers a fresh selector chain (selectLinePoints
-	   → selectAxisWithScale → axis recompute), costing 16ms/frame. Memoizing collapses
-	   that to one recompute per store-change.
-	   Axis reactivity: selectLinePoints reads ctx.store.cartesianAxes (a Solid store
-	   proxy) without untrack — this memo tracks those signals directly.
-	   Item reactivity: explicit read of stateCtx.state.graphicalItems[id] tracks mutations
-	   to graphicalItems (e.g. dataKey change) and passes updated settings to the selector. */
-	const points = createMemo(() => {
-		const rawItem = stateCtx?.state.graphicalItems[resolved.id]
-		const itemSettings =
-			rawItem != null && rawItem.type === "line"
-				? (rawItem as import("../state/chartState").LineState).settings
-				: undefined
-		return ctx
-			? selectLinePoints(
-					ctx.store,
-					resolved.xAxisId,
-					resolved.yAxisId,
-					isPanorama,
-					resolved.id,
-					itemSettings != null ? { lineSettings: itemSettings } : undefined,
-				)
-			: undefined
-	})
+	/* selectLinePoints is a per-chart chartSelector memo keyed by these ids. It resolves the
+	   item's settings from the store itself, so a dataKey or data change re-derives the points
+	   once for every reader, and an all-primitive key never pins a replaced settings node. */
+	const points = createMemo(() =>
+		ctx
+			? selectLinePoints(ctx.store, resolved.xAxisId, resolved.yAxisId, isPanorama, resolved.id)
+			: undefined,
+	)
 
 	return (
 		<Show

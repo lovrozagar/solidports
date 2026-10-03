@@ -138,6 +138,8 @@ describe('<Menu.SubmenuTrigger />', () => {
   testCases.forEach(({ direction, openKey }) => {
     it(`opens the submenu with ${openKey} and highlights a single item in ${direction.toUpperCase()} direction`, async () => {
       render(() => <TestComponent direction={direction as TextDirection} />);
+      // Solid: React's `await render` flushes the root menu's initial focus before the keydown.
+      await flushMicrotasks();
       const submenuTrigger = screen.getByText('2');
 
       fireEvent.focus(submenuTrigger);

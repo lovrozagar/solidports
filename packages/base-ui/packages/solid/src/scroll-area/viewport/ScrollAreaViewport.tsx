@@ -276,20 +276,30 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
     removeCSSVariableInheritance();
   });
 
-  // Solid: a user effect, since the scheduled measurement writes signals.
+  // Solid: user effects, since the measurement writes signals. Refs are attached before effects
+  // run, so measure now rather than in a microtask. React's single effect also depends on
+  // `hiddenState`, which the measurement writes; Solid flags an effect that re-runs from its own
+  // write, so the hidden-state re-measure is a separate effect that skips the mount run.
   createEffect(
     () => ({
-      hiddenState: hiddenState(),
       direction: direction(),
       overflowEdgeThreshold: overflowEdgeThreshold(),
     }),
     () => {
-      // Wait for scrollbar and thumb refs after hidden-state toggles, refresh math on direction
-      // flips, and re-evaluate overflow edges when the threshold changes.
-      // Solid: refs are attached before effects run, so measure now rather than in a microtask.
+      // Refresh math on direction flips, and re-evaluate overflow edges when the threshold changes.
       computeThumbPosition();
     },
   );
+
+  let hiddenStateEffectMounted = false;
+  createEffect(hiddenState, () => {
+    if (!hiddenStateEffectMounted) {
+      hiddenStateEffectMounted = true;
+      return;
+    }
+    // Wait for scrollbar and thumb refs after hidden-state toggles.
+    computeThumbPosition();
+  });
 
   onSettled(() => {
     // `onMouseEnter` doesn't fire upon load, so we need to check if the viewport is already

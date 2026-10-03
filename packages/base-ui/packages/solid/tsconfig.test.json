@@ -27,6 +27,7 @@
     "src/**/*.spec.ts*",
     "src/**/*.test.ts*",
     "src/index.test.ts",
+    "src/**/test-utils.ts*",
     "test",
     "src/global.d.ts",
     "package.json",

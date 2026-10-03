@@ -2,9 +2,10 @@
 import { selectChartOffsetInternal } from "./selectChartOffsetInternal"
 import type { ChartOffsetInternal } from "../../util/types"
 import type { ChartOffset } from "../../types"
+import { chartSelector } from "./chartSelector"
 import type { ChartState } from "../store"
 
-export function selectChartOffset(state: ChartState): ChartOffset {
+export const selectChartOffset = chartSelector(function selectChartOffset(state: ChartState): ChartOffset {
 	const offsetInternal: ChartOffsetInternal = selectChartOffsetInternal(state)
 	return {
 		bottom: offsetInternal.bottom,
@@ -12,4 +13,4 @@ export function selectChartOffset(state: ChartState): ChartOffset {
 		right: offsetInternal.right,
 		top: offsetInternal.top,
 	}
-}
+})

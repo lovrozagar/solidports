@@ -10,26 +10,19 @@ import type { LegendPayload } from "../../component/DefaultLegendContent"
 import { getTooltipNameProp, getValueByDataKey } from "../../util/ChartUtils"
 import { selectUnfilteredPolarItems } from "./polarSelectors"
 import type { PieSettings } from "../types/PieSettings"
+import { chartSelector } from "./chartSelector"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 
-function selectSynchronisedPieSettings(
-	state: ChartState,
-	id: GraphicalItemId,
-): PieSettings | undefined {
+const selectSynchronisedPieSettings = chartSelector(function selectSynchronisedPieSettings(state: ChartState, id: GraphicalItemId): PieSettings | undefined {
 	const graphicalItems = selectUnfilteredPolarItems(state)
 	return graphicalItems.filter((item) => item.type === "pie").find((item) => item.id === id) as
 		| PieSettings
 		| undefined
-}
+})
 
 const emptyArray: ReadonlyArray<Record<string, unknown>> = []
 
-export function selectDisplayedData(
-	state: ChartState,
-	id: GraphicalItemId,
-	cells: ReadonlyArray<Record<string, unknown>> | undefined,
-	pieSettingsOverride?: PieSettings,
-): ChartData | undefined {
+export const selectDisplayedData = chartSelector(function selectDisplayedData(state: ChartState, id: GraphicalItemId, cells: ReadonlyArray<Record<string, unknown>> | undefined, pieSettingsOverride?: PieSettings): ChartData | undefined {
 	const { chartData }: ChartDataState = selectChartDataAndAlwaysIgnoreIndexes(state)
 	const pieSettings = pieSettingsOverride ?? selectSynchronisedPieSettings(state, id)
 	const safeCells = cells?.length === 0 ? emptyArray : cells
@@ -56,13 +49,9 @@ export function selectDisplayedData(
 	}
 
 	return displayedData
-}
+})
 
-export function selectPieLegend(
-	state: ChartState,
-	id: GraphicalItemId,
-	cells: ReadonlyArray<Record<string, unknown>> | undefined,
-): ReadonlyArray<LegendPayload> | undefined {
+export const selectPieLegend = chartSelector(function selectPieLegend(state: ChartState, id: GraphicalItemId, cells: ReadonlyArray<Record<string, unknown>> | undefined): ReadonlyArray<LegendPayload> | undefined {
 	const displayedData = selectDisplayedData(state, id, cells)
 	const pieSettings = selectSynchronisedPieSettings(state, id)
 	const safeCells = cells?.length === 0 ? emptyArray : cells
@@ -89,14 +78,9 @@ export function selectPieLegend(
 			value: getTooltipNameProp(name, pieSettings.dataKey),
 		}
 	})
-}
+})
 
-export function selectPieSectors(
-	state: ChartState,
-	id: GraphicalItemId,
-	cells: ReadonlyArray<Record<string, unknown>> | undefined,
-	pieSettingsOverride?: PieSettings,
-): ReadonlyArray<PieSectorDataItem> | undefined {
+export const selectPieSectors = chartSelector(function selectPieSectors(state: ChartState, id: GraphicalItemId, cells: ReadonlyArray<Record<string, unknown>> | undefined, pieSettingsOverride?: PieSettings): ReadonlyArray<PieSectorDataItem> | undefined {
 	const pieSettings = pieSettingsOverride ?? selectSynchronisedPieSettings(state, id)
 	const displayedData = selectDisplayedData(state, id, cells, pieSettings)
 	const offset: ChartOffsetInternal = selectChartOffsetInternal(state)
@@ -110,4 +94,4 @@ export function selectPieSectors(
 		offset,
 		pieSettings,
 	})
-}
+})

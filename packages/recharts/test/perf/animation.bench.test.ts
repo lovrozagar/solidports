@@ -1,99 +1,41 @@
-import { chromium } from "playwright"
-import { describe, expect, test } from "vitest"
+// @vitest-environment node
+import { beforeAll, describe, expect, test, vi } from "vitest"
+import { average, measureTwins, twinsReachable } from "./liveTwins"
 
-const SOLID_PROD_URL = "http://localhost:5183/#/bar"
-const PASSES = 5
+const ROUTE = "bar"
 const SELECTOR = ".recharts-bar-rectangle"
-const TIMEOUT_MS = 5000
+const PASSES = 5
 const WINDOW_MS = 800
+/* Post-mount animation frames must cost no more than React's on the same machine and run. */
+const MAX_RATIO = 1
 
-async function isServerReachable(url: string): Promise<boolean> {
-	try {
-		const res = await fetch(url, { signal: AbortSignal.timeout(2000) })
-		return res.ok || res.status < 500
-	} catch {
-		return false
-	}
-}
-
-type RafResult = {
-	tFirstBar: number
-	samples: number[]
-}
-
-async function measurePass(url: string): Promise<RafResult> {
-	const browser = await chromium.launch()
-	const ctx = await browser.newContext({ viewport: { height: 720, width: 1280 } })
-	const page = await ctx.newPage()
-
-	await page.addInitScript(() => {
-		;(window as unknown as Record<string, unknown>).__rafSamples = []
-		;(window as unknown as Record<string, unknown>).__rafTimestamps = []
-		const orig = window.requestAnimationFrame.bind(window)
-		window.requestAnimationFrame = (cb) => {
-			return orig((t) => {
-				const start = performance.now()
-				cb(t)
-				const duration = performance.now() - start
-				;(window as unknown as Record<string, unknown[]>).__rafSamples.push(duration)
-				;(window as unknown as Record<string, unknown[]>).__rafTimestamps.push(start)
-			})
-		}
-	})
-
-	const t0 = Date.now()
-	await page.goto(url)
-	await page.waitForSelector(SELECTOR, { timeout: TIMEOUT_MS })
-	const tFirstBar = Date.now() - t0
-
-	await page.waitForTimeout(WINDOW_MS)
-
-	const { samples, timestamps } = await page.evaluate(() => {
-		return {
-			samples: (window as unknown as Record<string, number[]>).__rafSamples,
-			timestamps: (window as unknown as Record<string, number[]>).__rafTimestamps,
-		}
-	})
-
-	await browser.close()
-
-	/* exclude samples taken before tFirstBar — those are mount-phase ticks */
-	const postMountSamples = samples.filter((_, i) => (timestamps[i] ?? 0) >= tFirstBar)
-
-	return { samples: postMountSamples, tFirstBar }
-}
+/* test/vitest.setup.ts installs fake timers; page waits and fetch timeouts need real ones. */
+beforeAll(() => {
+	vi.useRealTimers()
+})
 
 describe("animation tick benchmark — T4", () => {
 	test(
-		"avg per-raf time after mount < 0.002ms (animation tick at parity)",
+		"avg post-mount rAF time Solid / React <= 1 (live React twin)",
 		async () => {
-			const reachable = await isServerReachable(SOLID_PROD_URL)
-			if (!reachable) {
-				console.log("Solid prod server :5183 not running, skipping animation benchmark")
+			if (!(await twinsReachable())) {
 				return
 			}
-
-			const allPostMountSamples: number[] = []
-
-			for (let i = 0; i < PASSES; i++) {
-				const { samples } = await measurePass(SOLID_PROD_URL)
-				allPostMountSamples.push(...samples)
-			}
-
-			if (allPostMountSamples.length === 0) {
-				console.log("T4: no post-mount raf samples collected — skipping avg assertion")
+			const runs = await measureTwins(ROUTE, SELECTOR, PASSES, WINDOW_MS)
+			const solidSamples = runs.solid.flatMap((r) => r.rafSamples)
+			const reactSamples = runs.react.flatMap((r) => r.rafSamples)
+			if (solidSamples.length === 0 || reactSamples.length === 0) {
+				console.log("T4: no post-mount rAF samples on one side; skipping ratio assertion")
 				return
 			}
-
-			const avgRafMs =
-				allPostMountSamples.reduce((a, b) => a + b, 0) / allPostMountSamples.length
-
+			const solid = average(solidSamples)
+			const react = average(reactSamples)
+			const ratio = solid / react
 			console.log(
-				`T4 animation: avgRafMs=${avgRafMs.toFixed(4)}ms sampleCount=${allPostMountSamples.length}`,
+				`T4 animation ${ROUTE}: solid=${solid.toFixed(4)}ms (${solidSamples.length}) react=${react.toFixed(4)}ms (${reactSamples.length}) ratio=${ratio.toFixed(3)}`,
 			)
-
-			expect(avgRafMs).toBeLessThan(0.002)
+			expect(ratio).toBeLessThanOrEqual(MAX_RATIO)
 		},
-		120_000,
+		180_000,
 	)
 })

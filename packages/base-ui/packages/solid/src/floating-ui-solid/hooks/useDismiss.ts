@@ -888,7 +888,11 @@ export function useDismiss(parameters: {
           doc,
           type as keyof DocumentEventMap,
           (event: Event) => {
-            const target = getTarget(event) as Element | null;
+            const target = getTarget(event);
+            // The target can be the window or document (e.g. a retargeted composed path).
+            if (!isElement(target)) {
+              return;
+            }
             if (!contains(floatingValue, target) && isRenderTreeDescendant(floatingValue, target)) {
               (handler as (event: Event) => void)(event);
             }

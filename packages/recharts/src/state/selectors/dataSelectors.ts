@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { ChartState } from "../store"
+import { chartSelector } from "./chartSelector"
 import { ChartData, ChartDataState } from "../chartDataSlice"
 
 /**
@@ -22,7 +23,7 @@ export const selectChartDataWithIndexes = (state: ChartState): ChartDataState =>
  * Useful for when you want to render the full range of data, even if a Brush is active.
  * For example: in the Brush panorama, in Legend, in Tooltip.
  */
-export function selectChartDataAndAlwaysIgnoreIndexes(state: ChartState): ChartDataState {
+export const selectChartDataAndAlwaysIgnoreIndexes = chartSelector(function selectChartDataAndAlwaysIgnoreIndexes(state: ChartState): ChartDataState {
 	const dataState = selectChartDataWithIndexes(state)
 	const dataEndIndex = dataState.chartData != null ? dataState.chartData.length - 1 : 0
 	return {
@@ -31,9 +32,9 @@ export function selectChartDataAndAlwaysIgnoreIndexes(state: ChartState): ChartD
 		dataEndIndex,
 		dataStartIndex: 0,
 	}
-}
+})
 
-export const selectChartDataWithIndexesIfNotInPanoramaPosition4 = (
+export const selectChartDataWithIndexesIfNotInPanoramaPosition4 = chartSelector((
 	state: ChartState,
 	_unused1: unknown,
 	_unused2: unknown,
@@ -43,12 +44,12 @@ export const selectChartDataWithIndexesIfNotInPanoramaPosition4 = (
 		return selectChartDataAndAlwaysIgnoreIndexes(state)
 	}
 	return selectChartDataWithIndexes(state)
-}
+})
 
 /**
  * Returns the chart-level data sliced by the Brush indexes (full range in the panorama).
  */
-export const selectChartDataSliceIfNotInPanorama = (
+export const selectChartDataSliceIfNotInPanorama = chartSelector((
 	state: ChartState,
 	_unused1: unknown,
 	_unused2: unknown,
@@ -61,9 +62,9 @@ export const selectChartDataSliceIfNotInPanorama = (
 		isPanorama,
 	)
 	return chartData != null ? chartData.slice(dataStartIndex, dataEndIndex + 1) : []
-}
+})
 
-export const selectChartDataWithIndexesIfNotInPanoramaPosition3 = (
+export const selectChartDataWithIndexesIfNotInPanoramaPosition3 = chartSelector((
 	state: ChartState,
 	_unused1: unknown,
 	isPanorama: boolean,
@@ -72,16 +73,16 @@ export const selectChartDataWithIndexesIfNotInPanoramaPosition3 = (
 		return selectChartDataAndAlwaysIgnoreIndexes(state)
 	}
 	return selectChartDataWithIndexes(state)
-}
+})
 
 /** Chart-level data slice ignoring Brush indexes (polar charts always use the full range). */
-export function selectChartDataSliceIgnoringIndexes(state: ChartState): ChartData {
+export const selectChartDataSliceIgnoringIndexes = chartSelector(function selectChartDataSliceIgnoringIndexes(state: ChartState): ChartData {
 	const { chartData, dataStartIndex, dataEndIndex } = selectChartDataAndAlwaysIgnoreIndexes(state)
 	return chartData != null ? chartData.slice(dataStartIndex, dataEndIndex + 1) : []
-}
+})
 
 /** Chart-level data slice honoring Brush indexes (tooltip never renders in the panorama). */
-export function selectChartDataSliceWithIndexes(state: ChartState): ChartData {
+export const selectChartDataSliceWithIndexes = chartSelector(function selectChartDataSliceWithIndexes(state: ChartState): ChartData {
 	const { chartData, dataStartIndex, dataEndIndex } = selectChartDataWithIndexes(state)
 	return chartData != null ? chartData.slice(dataStartIndex, dataEndIndex + 1) : []
-}
+})

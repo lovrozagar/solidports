@@ -769,14 +769,15 @@ function PieSectors(props: PieSectorsProps): JSX.Element {
 		() => props.allOtherPieProps.dataKey,
 		props.id,
 	)
-	const restOfAllOtherProps = (): Record<string, unknown> => {
+	/* Once per series, not per sector: the rest-spread copies every Pie prop. */
+	const restOfAllOtherProps = createMemo((): Record<string, unknown> => {
 		const { onMouseEnter, onClick, onMouseLeave, ...rest } =
 			props.allOtherPieProps as unknown as Record<string, unknown>
 		void onMouseEnter
 		void onClick
 		void onMouseLeave
 		return rest
-	}
+	})
 
 	/* eslint-enable solid/reactivity */
 

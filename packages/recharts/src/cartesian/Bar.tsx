@@ -64,7 +64,6 @@ import { useChartLayout } from "../context/chartLayoutContext"
 import { selectBarRectangles } from "../state/selectors/barSelectors"
 import type { BaseAxisWithScale } from "../state/selectors/axisSelectors"
 import { useChartStore } from "../state/RechartsStoreContext"
-import { useOptionalChartState } from "../state/useChartState"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { selectActiveTooltipDataKey, selectActiveTooltipIndex } from "../state/selectors/tooltipSelectors"
 import { SetLegendPayload } from "../state/SetLegendPayload"
@@ -1011,7 +1010,6 @@ function BarImpl(props: InternalBarProps & { children?: JSX.Element }) {
 
 	const isPanorama = useIsPanorama()
 	const ctx = useChartStore()
-	const stateCtx = useOptionalChartState()
 	/* React parity for `<Cell/>` overrides: upstream walks props.children with
 	   findAllByType(Cell) — impossible on Solid (opaque JSX). The registry is
 	   provided ABOVE this scope (in Bar() before memoizedChildren) so the
@@ -1024,36 +1022,11 @@ function BarImpl(props: InternalBarProps & { children?: JSX.Element }) {
 		return list.length === 0 ? undefined : (list as unknown as ReadonlyArray<JSX.Element>)
 	}
 
-	/* perf: cache selector result; without memo every consumer read during animation
-	   triggers a fresh selector chain (selectBarRectangles → axis recompute per frame).
-	   Solid fires signals at the DEEPEST written key — reading only the container object
-	   or .settings doesn't subscribe to nested writes like domain or maxBarSize.
-	   Use void-reads to subscribe to each mutable field without branching the selector call. */
-	const rects = createMemo(() => {
-		const xAxisEntry = stateCtx?.state.cartesianAxes.xAxis[String(props.xAxisId)]
-		const yAxisEntry = stateCtx?.state.cartesianAxes.yAxis[String(props.yAxisId)]
-		/* Subscribe to domain changes — written as setState("cartesianAxes","yAxis","0","settings","domain",...) */
-		void xAxisEntry?.settings?.domain
-		void yAxisEntry?.settings?.domain
-		const rawItem = stateCtx?.state.graphicalItems[props.id]
-		/* Subscribe to maxBarSize — written as setState("graphicalItems",id,"settings","maxBarSize",...) */
-		void (rawItem?.type === "bar" ? rawItem.settings?.maxBarSize : undefined)
-		const itemSettings =
-			rawItem != null && rawItem.type === "bar"
-				? (rawItem as import("../state/chartState").BarState).settings
-				: undefined
-		return ctx
-			? selectBarRectangles(
-					ctx.store,
-					props.id,
-					isPanorama,
-					cells(),
-					xAxisEntry?.settings,
-					yAxisEntry?.settings,
-					itemSettings,
-				)
-			: undefined
-	})
+	/* selectBarRectangles is a per-chart chartSelector memo keyed by (id, isPanorama, cells). It
+	   resolves the bar's settings and axes from the store, tracking each field it reads. */
+	const rects = createMemo(() =>
+		ctx ? selectBarRectangles(ctx.store, props.id, isPanorama, cells()) : undefined,
+	)
 
 	return (
 		<Show when={layout() === "vertical" || layout() === "horizontal"}>

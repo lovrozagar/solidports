@@ -4,7 +4,8 @@ import { useShapeElementProps } from "../util/ShapeElementProps"
 import { clsx } from "clsx"
 import type { PresentationAttributesWithProps } from "../util/types"
 import { adaptEventHandlers } from "../util/types"
-import { svgPropertiesNoEvents } from "../util/svgPropertiesNoEvents"
+import { ownStringKeys, svgPropCanonicalKey } from "../util/svgPropertiesNoEvents"
+import { isEventKey } from "../util/excludeEventProps"
 import { isNumber } from "../util/DataUtils"
 
 interface DotProps {
@@ -39,16 +40,28 @@ export function Dot(ownProps: Props) {
 	/* React-style `className` (e.g. from an activeDot object) merges into `class`. */
 	const layerClass = () =>
 		clsx("recharts-dot", props.class, (props as { className?: string }).className)
-	const svgProps = () => {
-		const { className: _className, ...rest } = svgPropertiesNoEvents(props) as Record<string, unknown>
-		return rest
+	/* One pass over the props per dot: SVG attributes (minus className, merged into class above),
+	   then event handlers only when the dot actually has one. Same result as spreading
+	   svgPropertiesNoEvents(props) and adaptEventHandlers(props). */
+	const attributes = () => {
+		const source = props as Record<string, unknown>
+		const result: Record<string, unknown> = {}
+		let hasHandler = false
+		for (const key of ownStringKeys(source)) {
+			const canonical = key === "className" ? undefined : svgPropCanonicalKey(key)
+			if (canonical !== undefined) {
+				result[canonical] = source[key]
+			} else if (!hasHandler && isEventKey(key) && typeof source[key] === "function") {
+				hasHandler = true
+			}
+		}
+		return hasHandler ? Object.assign(result, adaptEventHandlers(props)) : result
 	}
 
 	return (
 		<Show when={isNumber(props.cx) && isNumber(props.cy) && isNumber(props.r)}>
 			<circle
-				{...svgProps()}
-				{...adaptEventHandlers(props)}
+				{...attributes()}
 				/* cx/cy/r come from the spread in prop order, matching upstream's attribute order */
 				class={layerClass()}
 			/>

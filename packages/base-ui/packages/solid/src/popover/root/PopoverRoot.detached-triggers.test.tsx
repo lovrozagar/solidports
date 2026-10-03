@@ -1266,50 +1266,49 @@ describe('<Popover.Root />', () => {
       const testPopover = Popover.createHandle();
 
       function Test() {
+        const [key, setKey] = createSignal(1);
         const [showErrorDemo, setShowErrorDemo] = createSignal(true);
 
+        // Solid: a keyed `Show` remounts the subtree when `key` changes, like React's `key`.
         return (
-          <>
-            {() => {
-              return (
-                <>
-                  <button
-                    onClick={() => {
-                      setShowErrorDemo((prev) => !prev);
-                    }}
-                  >
-                    Toggle
-                  </button>
-                  <div
-                    style={{
-                      'align-items': 'flex-start',
-                      display: 'flex',
-                      'flex-direction': 'column',
-                      gap: '48px',
-                      margin: '50px',
-                    }}
-                  >
-                    <Popover.Trigger handle={testPopover} id="trigger-0">
-                      Trigger 0
-                    </Popover.Trigger>
-                    {showErrorDemo() && (
-                      <Popover.Trigger handle={testPopover} id="trigger-1">
-                        Trigger 1
-                      </Popover.Trigger>
-                    )}
-                  </div>
+          <Show when={key()} keyed>
+            <>
+              <button
+                onClick={() => {
+                  setShowErrorDemo((prev) => !prev);
+                  setKey((prev) => prev + 1);
+                }}
+              >
+                Toggle
+              </button>
+              <div
+                style={{
+                  'align-items': 'flex-start',
+                  display: 'flex',
+                  'flex-direction': 'column',
+                  gap: '48px',
+                  margin: '50px',
+                }}
+              >
+                <Popover.Trigger handle={testPopover} id="trigger-0">
+                  Trigger 0
+                </Popover.Trigger>
+                {showErrorDemo() && (
+                  <Popover.Trigger handle={testPopover} id="trigger-1">
+                    Trigger 1
+                  </Popover.Trigger>
+                )}
+              </div>
 
-                  <Popover.Root handle={testPopover} triggerId="trigger-0" open>
-                    <Popover.Portal>
-                      <Popover.Positioner data-testid="positioner" sideOffset={4} align="start">
-                        <Popover.Popup>Content</Popover.Popup>
-                      </Popover.Positioner>
-                    </Popover.Portal>
-                  </Popover.Root>
-                </>
-              );
-            }}
-          </>
+              <Popover.Root handle={testPopover} triggerId="trigger-0" open>
+                <Popover.Portal>
+                  <Popover.Positioner data-testid="positioner" sideOffset={4} align="start">
+                    <Popover.Popup>Content</Popover.Popup>
+                  </Popover.Positioner>
+                </Popover.Portal>
+              </Popover.Root>
+            </>
+          </Show>
         );
       }
 

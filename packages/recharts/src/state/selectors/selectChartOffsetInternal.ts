@@ -15,13 +15,14 @@ import { selectChartHeight, selectChartWidth, selectMargin } from "./containerSe
 import { selectAllXAxes, selectAllYAxes } from "./selectAllAxes"
 import { DEFAULT_X_AXIS_HEIGHT, DEFAULT_Y_AXIS_WIDTH } from "../../util/Constants"
 import type { ChartState } from "../store"
+import { chartSelector } from "./chartSelector"
 import { readChartState } from "../chartState"
 
-export const selectBrushHeight = (state: ChartState) => {
+export const selectBrushHeight = chartSelector((state: ChartState) => {
 	return readChartState(state).brush.height ?? 0
-}
+})
 
-function selectLeftAxesOffset(state: ChartState): number {
+const selectLeftAxesOffset = chartSelector(function selectLeftAxesOffset(state: ChartState): number {
 	const yAxes = selectAllYAxes(state)
 	return yAxes.reduce((result: number, entry: YAxisSettings): number => {
 		if (entry.orientation === "left" && !entry.mirror && !entry.hide) {
@@ -30,9 +31,9 @@ function selectLeftAxesOffset(state: ChartState): number {
 		}
 		return result
 	}, 0)
-}
+})
 
-function selectRightAxesOffset(state: ChartState): number {
+const selectRightAxesOffset = chartSelector(function selectRightAxesOffset(state: ChartState): number {
 	const yAxes = selectAllYAxes(state)
 	return yAxes.reduce((result: number, entry: YAxisSettings): number => {
 		if (entry.orientation === "right" && !entry.mirror && !entry.hide) {
@@ -41,9 +42,9 @@ function selectRightAxesOffset(state: ChartState): number {
 		}
 		return result
 	}, 0)
-}
+})
 
-function selectTopAxesOffset(state: ChartState): number {
+const selectTopAxesOffset = chartSelector(function selectTopAxesOffset(state: ChartState): number {
 	const xAxes = selectAllXAxes(state)
 	return xAxes.reduce((result: number, entry: XAxisSettings): number => {
 		if (entry.orientation === "top" && !entry.mirror && !entry.hide) {
@@ -52,9 +53,9 @@ function selectTopAxesOffset(state: ChartState): number {
 		}
 		return result
 	}, 0)
-}
+})
 
-function selectBottomAxesOffset(state: ChartState): number {
+const selectBottomAxesOffset = chartSelector(function selectBottomAxesOffset(state: ChartState): number {
 	const xAxes = selectAllXAxes(state)
 	return xAxes.reduce((result: number, entry: XAxisSettings): number => {
 		if (entry.orientation === "bottom" && !entry.mirror && !entry.hide) {
@@ -63,7 +64,7 @@ function selectBottomAxesOffset(state: ChartState): number {
 		}
 		return result
 	}, 0)
-}
+})
 
 /**
  * For internal use only.
@@ -71,7 +72,7 @@ function selectBottomAxesOffset(state: ChartState): number {
  * @param state root state
  * @return ChartOffsetInternal
  */
-export function selectChartOffsetInternal(state: ChartState): ChartOffsetInternal {
+export const selectChartOffsetInternal = chartSelector(function selectChartOffsetInternal(state: ChartState): ChartOffsetInternal {
 	const chartWidth: number = selectChartWidth(state)
 	const chartHeight: number = selectChartHeight(state)
 	const margin: Margin = selectMargin(state)
@@ -111,9 +112,9 @@ export function selectChartOffsetInternal(state: ChartState): ChartOffsetInterna
 		height: Math.max(offsetHeight, 0),
 		width: Math.max(offsetWidth, 0),
 	}
-}
+})
 
-export function selectChartViewBox(state: ChartState): CartesianViewBoxRequired {
+export const selectChartViewBox = chartSelector(function selectChartViewBox(state: ChartState): CartesianViewBoxRequired {
 	const offset = selectChartOffsetInternal(state)
 	return {
 		height: offset.height,
@@ -121,9 +122,9 @@ export function selectChartViewBox(state: ChartState): CartesianViewBoxRequired 
 		x: offset.left,
 		y: offset.top,
 	}
-}
+})
 
-export function selectAxisViewBox(state: ChartState): CartesianViewBoxRequired {
+export const selectAxisViewBox = chartSelector(function selectAxisViewBox(state: ChartState): CartesianViewBoxRequired {
 	const width = selectChartWidth(state)
 	const height = selectChartHeight(state)
 	return {
@@ -132,4 +133,4 @@ export function selectAxisViewBox(state: ChartState): CartesianViewBoxRequired {
 		x: 0,
 		y: 0,
 	}
-}
+})

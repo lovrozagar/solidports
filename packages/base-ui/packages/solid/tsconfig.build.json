@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
-  // This config is for emitting declarations (.d.ts) only.
-  // TS source files are transpiled to JS by Babel.
+  // This config emits declarations (.d.ts) only, into `types/`.
+  // The package ships `src` uncompiled; consumers compile it with the Solid compiler.
   "compilerOptions": {
     "composite": true,
     "declaration": true,
@@ -10,13 +10,18 @@
     "moduleResolution": "bundler",
     "noEmit": false,
     "rootDir": "./src",
-    "outDir": "build/esm",
+    "outDir": "types",
     "lib": ["ES2022", "DOM"],
     "jsx": "preserve",
     "jsxImportSource": "@solidjs/web",
     "types": ["@types/node"]
   },
   "include": ["src/**/*.ts*"],
-  "exclude": ["src/**/*.spec.ts*", "src/**/*.test.ts*", "../../node_modules/@types/react"],
+  "exclude": [
+    "src/**/*.spec.ts*",
+    "src/**/*.test.ts*",
+    "src/**/test-utils.ts*",
+    "../../node_modules/@types/react"
+  ],
   "references": []
 }

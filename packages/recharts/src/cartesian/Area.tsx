@@ -52,7 +52,6 @@ import type { BaseAxisWithScale } from "../state/selectors/axisSelectors"
 import type { ChartData } from "../state/chartDataSlice"
 import type { AreaPointItem, ComputedArea } from "../state/selectors/areaSelectors"
 import { selectArea } from "../state/selectors/areaSelectors"
-import { useOptionalChartState } from "../state/useChartState"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { useCartesianChartLayout, useChartLayout } from "../context/chartLayoutContext"
 import { useChartName } from "../state/selectors/selectors"
@@ -622,7 +621,6 @@ export const defaultAreaProps = {
 function AreaImpl(props: WithIdRequired<Props>) {
 	const resolved = resolveDefaultProps(props, defaultAreaProps)
 	const ctx = useChartStore()
-	const stateCtx = useOptionalChartState()
 	const layout = createMemo(() => useChartLayout())
 	const chartName = createMemo(() => (ctx ? useChartName(ctx.store) : undefined))
 	const needClipResult = createMemo(() => useNeedsClip(resolved.xAxisId, resolved.yAxisId))
@@ -632,21 +630,8 @@ function AreaImpl(props: WithIdRequired<Props>) {
 	   Axis reactivity: selectArea reads ctx.store.cartesianAxes (Solid proxy) without
 	   untrack — this memo tracks those signals.
 	   Item reactivity: explicit graphicalItems[id] read tracks item settings mutations. */
-	const areaData = createMemo(() => {
-		const rawItem = stateCtx?.state.graphicalItems[props.id]
-		const itemSettings =
-			rawItem != null && rawItem.type === "area"
-				? (rawItem as import("../state/chartState").AreaState).settings
-				: undefined
-		return ctx
-			? selectArea(
-					ctx.store,
-					props.id,
-					isPanorama,
-					itemSettings != null ? { areaSettings: itemSettings } : undefined,
-				)
-			: undefined
-	})
+	/* Per-chart chartSelector memo keyed by ids; settings are resolved from the store. */
+	const areaData = createMemo(() => (ctx ? selectArea(ctx.store, props.id, isPanorama) : undefined))
 	const plotArea = createMemo(() => usePlotArea())
 	const visibleArea = createMemo(() => {
 		if (

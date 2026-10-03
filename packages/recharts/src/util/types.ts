@@ -7,7 +7,7 @@ import { ExternalMouseEvents } from "../chart/types"
 import { SyncMethod } from "../synchronisation/types"
 import { isEventKey } from "./excludeEventProps"
 import { DotPoint } from "../component/Dots"
-import { camelizeSvgPropsForHandler, SVGPropsNoEvents } from "./svgPropertiesNoEvents"
+import { camelizeSvgPropsForHandler, ownStringKeys, SVGPropsNoEvents } from "./svgPropertiesNoEvents"
 import type { CamelCaseSVGAttrs } from "./CamelCaseSVGAttrs"
 import { BaseValue } from "../cartesian/Area"
 import { ImplicitLabelType } from "../component/Label"
@@ -1007,24 +1007,31 @@ export const adaptEventHandlers = (
 
 	const inputProps = props as RecordString<unknown>
 
-	const out: RecordString<(e: Event) => void> = {}
+	let out: RecordString<(e: Event) => void> | null = null
+	let camelProps: RecordString<unknown> | null = null
 
-	/* User handler gets camelCase payload (className, fillOpacity, strokeWidth)
-	 * to match upstream React parity. Capture values now while the runtime owner
-	 * is set — at click time the owner is gone, so getters that resolve via
-	 * `useContext` (e.g. `useChartLayout`) would return undefined. */
-	const camelProps = camelizeSvgPropsForHandler(inputProps) as RecordString<unknown>
-
-	Object.keys(inputProps).forEach((key) => {
+	for (const key of ownStringKeys(inputProps)) {
 		if (isEventKey(key) && typeof inputProps[key] === "function") {
-			out[key] =
-				newHandler ||
-				((e: Event) => (inputProps[key] as (props: RecordString<unknown>, e: Event) => void)(camelProps, e))
+			out ??= {}
+			if (newHandler) {
+				out[key] = newHandler
+			} else {
+				/* User handler gets camelCase payload (className, fillOpacity, strokeWidth)
+				 * to match upstream React parity. Capture values now while the runtime owner
+				 * is set — at click time the owner is gone, so getters that resolve via
+				 * `useContext` (e.g. `useChartLayout`) would return undefined. */
+				const payload = (camelProps ??= camelizeSvgPropsForHandler(inputProps) as RecordString<unknown>)
+				out[key] = (e: Event) =>
+					(inputProps[key] as (props: RecordString<unknown>, e: Event) => void)(payload, e)
+			}
 		}
-	})
+	}
 
-	return out
+	return out ?? NO_EVENT_HANDLERS
 }
+
+/* Shared empty result for the common no-handler case; frozen so a caller can never leak writes. */
+const NO_EVENT_HANDLERS: RecordString<(e: Event) => void> = Object.freeze({})
 
 const getEventHandlerOfChild =
 	(originalHandler: (data: unknown, index: number, e: Event) => void, data: unknown, index: number) =>

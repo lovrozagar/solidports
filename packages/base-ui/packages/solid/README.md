@@ -1,34 +1,78 @@
 <!-- markdownlint-disable MD041 -->
 
-# _(WIP)_ This project is a work in progress.
+# @solidports/base-ui
 
-- Library is compatible with **@base-ui/react@1.8.0**
-- Docs have everything copied over from the original React-based docs so **_a lot_** of discrepancies in text are present
+A Solid port of [MUI Base UI](https://github.com/mui/base-ui): headless, accessible components and
+low-level hooks for [Solid 2](https://github.com/solidjs/solid). It tracks `@base-ui/react` 1.8.0
+and ports its behavior and test suite one to one.
 
-### Please, consider supporting an awesome Base UI team directly on [OpenCollective](https://opencollective.com/mui-org). This port is a gesture of appreciation of an increadible work they've been doing.
-
-### Link to the original library: [Base UI GitHub](https://github.com/mui/base-ui)
-
-<hr />
+> Prerelease. Solid 2 is a release candidate, and so is this package.
 
 ## Installation
 
 ```bash
-npm install @solidports/base-ui
+npm install @solidports/base-ui@next solid-js @solidjs/web
 ```
 
-## Relation to upstream
+Requirements:
 
-`@solidports/base-ui` is a Solid-native port of MUI Base UI React, tracking `@base-ui/react@1.8.0`.
+- `solid-js` and `@solidjs/web` 2.0 RC (`~2.0.0-rc.13`).
+- A Solid compiler in your build, such as Vite with `@solidjs/vite-plugin`. The package ships its
+  TypeScript and JSX source (ESM only) so your build compiles it for the DOM, SSR, or hydration
+  target you use. Type declarations are prebuilt.
+- Optional: `date-fns` and `@date-fns/tz`, or `luxon`, only for the temporal adapters under
+  `@solidports/base-ui/internals/*`.
 
-Upstream: https://github.com/mui/base-ui
-Original Solid port by @msviderok: https://github.com/msviderok/base-ui-solid
+## Usage
+
+```tsx
+import { Popover } from '@solidports/base-ui/popover';
+
+export function Example() {
+  return (
+    <Popover.Root>
+      <Popover.Trigger>Open</Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner>
+          <Popover.Popup>Content</Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+```
+
+Each component has its own entry point (`@solidports/base-ui/<component>`), and the root entry
+re-exports all of them.
+
+## Versioning
+
+Versions follow upstream Base UI. Prereleases add a counter (`1.8.0-1`, `1.8.0-2`, …) and are
+published under the `next` tag. The stable port of a Base UI release uses the bare upstream version
+(`1.8.0`) under `latest`.
+
+## Content Security Policy
+
+Components that need global styles (for example, the scrollbar rule used by `ScrollArea`) add a
+`<style>` element to `<head>`. Under a nonce-based `style-src`, provide the nonce in one of these
+ways:
+
+- Wrap your app in `CSPProvider` from `@solidports/base-ui/csp-provider` and pass `nonce`.
+- Render `<meta name="csp-nonce" content="…">` (or `property="csp-nonce"`) in the document head.
+  Server-rendered styles use the render's nonce.
 
 ## Documentation
 
-### [base-ui-docs-solid.vercel.app](https://base-ui-docs-solid.vercel.app/)
+The API matches Base UI. Use the [Base UI documentation](https://base-ui.com/react/overview/quick-start)
+for component anatomy and props. The Solid docs app lives in
+[`packages/base-ui/docs/solid`](https://github.com/lovrozagar/solidports/tree/main/packages/base-ui/docs/solid).
+
+## Credits
+
+Base UI is built by the MUI team. Consider supporting them on
+[Open Collective](https://opencollective.com/mui-org). The original Solid port was started by
+[@msviderok](https://github.com/msviderok/base-ui-solid).
 
 ## License
 
-This project is licensed under the terms of the
-[MIT license](/LICENSE).
+[MIT](./LICENSE)

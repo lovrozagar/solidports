@@ -57,6 +57,13 @@ function rsyncDir(from, to) {
     '.next',
     '--exclude',
     'export',
+    // Written by `next dev` (not upstream files): leave them to Next.
+    '--exclude',
+    '/AGENTS.md',
+    '--exclude',
+    '/CLAUDE.md',
+    '--exclude',
+    '/next-env.d.ts',
     `${from}/`,
     `${to}/`,
   ]);
@@ -65,10 +72,7 @@ function rsyncDir(from, to) {
 function overlayNextConfig() {
   const file = join(DEST, 'next.config.mjs');
   let t = readFileSync(file, 'utf8');
-  t = t.replace(
-    "path.resolve(currentDirectory, '../')",
-    "path.resolve(currentDirectory, '../..')",
-  );
+  t = t.replace("path.resolve(currentDirectory, '../')", "path.resolve(currentDirectory, '../..')");
   t = t.replace(
     "fs.readFileSync(path.resolve(workspaceRoot, 'package.json'), 'utf8')",
     "fs.readFileSync(path.resolve(workspaceRoot, 'packages/react/package.json'), 'utf8')",
@@ -80,10 +84,7 @@ function overlayNextConfig() {
     );
   }
   if (!t.includes('docs: currentDirectory')) {
-    t = t.replace(
-      'turbopack: {',
-      `turbopack: {\n    resolveAlias: { docs: currentDirectory },`,
-    );
+    t = t.replace('turbopack: {', `turbopack: {\n    resolveAlias: { docs: currentDirectory },`);
     t = t.replace(
       'webpack: (config, { defaultLoaders }) => {',
       `webpack: (config, { defaultLoaders }) => {\n    config.resolve.alias = { ...config.resolve.alias, docs: currentDirectory };`,
@@ -97,6 +98,14 @@ function overlayTsconfig() {
   let t = readFileSync(file, 'utf8');
   t = t.replaceAll('"../tsconfig.base.json"', '"../../tsconfig.base.json"');
   t = t.replaceAll('"../packages/', '"../../packages/');
+  writeFileSync(file, t);
+}
+
+function overlayVitestConfig() {
+  const file = join(DEST, 'vitest.config.mts');
+  if (!existsSync(file)) return;
+  let t = readFileSync(file, 'utf8');
+  t = t.replace("from '../vitest.shared.mts'", "from '../../vitest.shared.mts'");
   writeFileSync(file, t);
 }
 
@@ -128,6 +137,7 @@ console.log(`copy ${src} → ${DEST} (full docs tree)`);
 rsyncDir(src, DEST);
 overlayNextConfig();
 overlayTsconfig();
+overlayVitestConfig();
 overlayPackageJson();
 writeFileSync(join(DEST, '.upstream-tag'), `${TAG}\n`);
 console.log(`docs/react is mui/base-ui@${TAG} docs + path overlay`);

@@ -13,6 +13,7 @@ import {
 	type ZAxisWithScale,
 } from "./axisSelectors"
 import type { ScatterSettings } from "../types/ScatterSettings"
+import { chartSelector } from "./chartSelector"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 
 /** Optional overrides — bypass the axis-settings lookup on hot animation frames. */
@@ -22,49 +23,37 @@ export type ScatterAxisOverrides = {
 	scatterSettings?: ScatterSettings
 }
 
-const selectXAxisWithScale = (
+const selectXAxisWithScale = chartSelector((
 	state: ChartState,
 	xAxisId: AxisId,
 	isPanorama: boolean,
 	override?: XAxisSettings,
-) => selectAxisWithScale(state, "xAxis", xAxisId, isPanorama, override)
+) => selectAxisWithScale(state, "xAxis", xAxisId, isPanorama, override))
 
-const selectXAxisTicks = (state: ChartState, xAxisId: AxisId, isPanorama: boolean) =>
-	selectTicksOfGraphicalItem(state, "xAxis", xAxisId, isPanorama)
+const selectXAxisTicks = chartSelector((state: ChartState, xAxisId: AxisId, isPanorama: boolean) =>
+	selectTicksOfGraphicalItem(state, "xAxis", xAxisId, isPanorama))
 
-const selectYAxisWithScale = (
+const selectYAxisWithScale = chartSelector((
 	state: ChartState,
 	yAxisId: AxisId,
 	isPanorama: boolean,
 	override?: YAxisSettings,
-) => selectAxisWithScale(state, "yAxis", yAxisId, isPanorama, override)
+) => selectAxisWithScale(state, "yAxis", yAxisId, isPanorama, override))
 
-const selectYAxisTicks = (state: ChartState, yAxisId: AxisId, isPanorama: boolean) =>
-	selectTicksOfGraphicalItem(state, "yAxis", yAxisId, isPanorama)
+const selectYAxisTicks = chartSelector((state: ChartState, yAxisId: AxisId, isPanorama: boolean) =>
+	selectTicksOfGraphicalItem(state, "yAxis", yAxisId, isPanorama))
 
-const selectZAxis = (state: ChartState, zAxisId: AxisId): ZAxisWithScale | undefined =>
-	selectZAxisWithScale(state, "zAxis", zAxisId, false)
+const selectZAxis = chartSelector((state: ChartState, zAxisId: AxisId): ZAxisWithScale | undefined =>
+	selectZAxisWithScale(state, "zAxis", zAxisId, false))
 
-function selectSynchronisedScatterSettings(
-	state: ChartState,
-	id: GraphicalItemId,
-): ScatterSettings | undefined {
+const selectSynchronisedScatterSettings = chartSelector(function selectSynchronisedScatterSettings(state: ChartState, id: GraphicalItemId): ScatterSettings | undefined {
 	const graphicalItems = selectUnfilteredCartesianItems(state)
 	return graphicalItems.filter((item) => item.type === "scatter").find((item) => item.id === id) as
 		| ScatterSettings
 		| undefined
-}
+})
 
-export function selectScatterPoints(
-	state: ChartState,
-	xAxisId: AxisId,
-	yAxisId: AxisId,
-	zAxisId: AxisId,
-	id: GraphicalItemId,
-	cells: ReadonlyArray<Record<string, unknown>> | undefined,
-	isPanorama: boolean,
-	overrides?: ScatterAxisOverrides,
-): ReadonlyArray<ScatterPointItem> | undefined {
+export const selectScatterPoints = chartSelector(function selectScatterPoints(state: ChartState, xAxisId: AxisId, yAxisId: AxisId, zAxisId: AxisId, id: GraphicalItemId, cells: ReadonlyArray<Record<string, unknown>> | undefined, isPanorama: boolean, overrides?: ScatterAxisOverrides): ReadonlyArray<ScatterPointItem> | undefined {
 	const { chartData, dataStartIndex, dataEndIndex }: ChartDataState =
 		selectChartDataWithIndexesIfNotInPanoramaPosition4(state, undefined, undefined, isPanorama)
 	const xAxis = selectXAxisWithScale(state, xAxisId, isPanorama, overrides?.xAxis)
@@ -104,4 +93,4 @@ export function selectScatterPoints(
 		yAxisTicks,
 		zAxis,
 	})
-}
+})

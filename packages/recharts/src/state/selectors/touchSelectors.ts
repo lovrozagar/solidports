@@ -3,20 +3,15 @@ import type { ChartState } from "../store"
 import type { TooltipIndex, TooltipPayloadConfiguration } from "../tooltipSlice"
 import type { Coordinate } from "../../util/types"
 import { selectTooltipState } from "./selectTooltipState"
+import { chartSelector } from "./chartSelector"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 
-function selectAllTooltipPayloadConfiguration(
-	state: ChartState,
-): ReadonlyArray<TooltipPayloadConfiguration> {
+const selectAllTooltipPayloadConfiguration = chartSelector(function selectAllTooltipPayloadConfiguration(state: ChartState): ReadonlyArray<TooltipPayloadConfiguration> {
 	const tooltipState = selectTooltipState(state)
 	return tooltipState.tooltipItemPayloads
-}
+})
 
-export function selectTooltipCoordinate(
-	state: ChartState,
-	tooltipIndex: TooltipIndex,
-	graphicalItemId: GraphicalItemId,
-): Coordinate | undefined {
+export const selectTooltipCoordinate = chartSelector(function selectTooltipCoordinate(state: ChartState, tooltipIndex: TooltipIndex, graphicalItemId: GraphicalItemId): Coordinate | undefined {
 	const allTooltipConfigurations = selectAllTooltipPayloadConfiguration(state)
 
 	if (tooltipIndex == null) {
@@ -33,4 +28,4 @@ export function selectTooltipCoordinate(
 		return undefined
 	}
 	return getPosition(tooltipIndex)
-}
+})

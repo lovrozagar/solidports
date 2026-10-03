@@ -1627,14 +1627,15 @@ describe("<LineChart /> - Pure Rendering with legend", () => {
 		</LineChart>
 	)
 
-	/* The Legend's measured size moves the plot area once after mount, so dots render for
-	   the pre- and post-measure layout. Interactions must not render anything again. */
+	/* Upstream renders the dots and ticks twice (the Legend's measured size re-renders the plot area once
+	   after mount). The shared selector memos settle to equal points, so Solid renders them once.
+	   Interactions must not render anything again. */
 	// protect against the future where someone might mess up our clean rendering
 	test("should only render Line once when the mouse enters and moves", () => {
 		const { container } = render(chart)
 
-		expect(lineDotSpy).toHaveBeenCalledTimes(PageData.length * 2)
-		expect(tickSpy).toHaveBeenCalledTimes(8)
+		expect(lineDotSpy).toHaveBeenCalledTimes(PageData.length)
+		expect(tickSpy).toHaveBeenCalledTimes(4)
 
 		fireEvent.mouseEnter(container, { bubbles: true, cancelable: true, clientX: 30, clientY: 200 })
 
@@ -1642,16 +1643,16 @@ describe("<LineChart /> - Pure Rendering with legend", () => {
 
 		fireEvent.mouseLeave(container)
 
-		expect(lineDotSpy).toHaveBeenCalledTimes(PageData.length * 2)
-		expect(tickSpy).toHaveBeenCalledTimes(8)
+		expect(lineDotSpy).toHaveBeenCalledTimes(PageData.length)
+		expect(tickSpy).toHaveBeenCalledTimes(4)
 	})
 
 	// protect against the future where someone might mess up our clean rendering
 	test("should only render Line once when the brush moves but doesn't change start/end indices", () => {
 		const { container } = render(chart)
 
-		expect(lineDotSpy).toHaveBeenCalledTimes(PageData.length * 2)
-		expect(tickSpy).toHaveBeenCalledTimes(8)
+		expect(lineDotSpy).toHaveBeenCalledTimes(PageData.length)
+		expect(tickSpy).toHaveBeenCalledTimes(4)
 
 		const leftCursor = container.querySelector(".recharts-brush-traveller")
 		assertNotNull(leftCursor)
@@ -1659,8 +1660,8 @@ describe("<LineChart /> - Pure Rendering with legend", () => {
 		fireEvent.mouseMove(window, { bubbles: true, cancelable: true, clientX: 0, clientY: 0 })
 		fireEvent.mouseUp(window)
 
-		expect(lineDotSpy).toHaveBeenCalledTimes(PageData.length * 2)
-		expect(tickSpy).toHaveBeenCalledTimes(8)
+		expect(lineDotSpy).toHaveBeenCalledTimes(PageData.length)
+		expect(tickSpy).toHaveBeenCalledTimes(4)
 	})
 })
 

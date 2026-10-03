@@ -73,6 +73,10 @@ Same semantics as React's `Store`:
 - `style` objects are read in the apply phase: build reactive styles inline in JSX, not with
   getters.
 - Context defaults are `null` (React uses `undefined`): compare with `!= null`.
+- Global stylesheet rules (React's hoisted `<style href precedence>`): `useHead` from `@solidjs/web`
+  with `{ tag: 'style', props: { href, nonce?, children } }`. A `<style href>` is a head resource:
+  deduplicated by `href`, emitted in the server-rendered head with the render's CSP nonce, adopted on
+  hydration, kept for the page's lifetime. Never append to `document.head` by hand.
 
 ## Tests
 

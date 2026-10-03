@@ -2085,7 +2085,9 @@ describe("<Legend />", () => {
 						spy(offset)
 					},
 				)()
-				expect(spy).toHaveBeenCalledTimes(2)
+				/* Upstream: 2. The legend size write leaves the offset equal, so the shared
+				   selector memo does not notify again. */
+				expect(spy).toHaveBeenCalledTimes(1)
 				expectLastCalledWith(spy, {
 					bottom: 5,
 					brushBottom: 5,

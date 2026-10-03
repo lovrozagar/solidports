@@ -4,7 +4,6 @@ import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { Select } from '@solidports/base-ui/select';
 import { screen } from '@solidjs/testing-library';
 import { expect } from 'vitest';
-import { STYLE_TAG_ID } from '../utils/styles';
 
 function queryDisableScrollbarStyle() {
   const styles = Array.from(document.querySelectorAll('style'));
@@ -15,14 +14,6 @@ function queryDisableScrollbarStyle() {
 
 describe('<CSPProvider />', () => {
   const { render } = createRenderer();
-
-  beforeEach(() => {
-    document.getElementById(STYLE_TAG_ID)?.remove();
-  });
-
-  afterEach(() => {
-    document.getElementById(STYLE_TAG_ID)?.remove();
-  });
 
   it('does not render inline style tags when disableStyleElements is true', async () => {
     render(() => (

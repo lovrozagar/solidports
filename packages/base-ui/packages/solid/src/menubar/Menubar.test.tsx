@@ -1009,7 +1009,8 @@ describe('<Menubar />', () => {
     it.skipIf(isJSDOM)(
       'correctly opens new menu on hover after clicking on its trigger and entering from hover (#2222)',
       async () => {
-        const { user } = render(() => <TestMenubar />);
+        const { userEvent: user } = await import('vitest/browser');
+        render(() => <TestMenubar />);
 
         const fileTrigger = screen.getByTestId('file-trigger');
         const editTrigger = screen.getByTestId('edit-trigger');

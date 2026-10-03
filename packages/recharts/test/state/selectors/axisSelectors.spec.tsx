@@ -1561,7 +1561,9 @@ describe("selectCartesianGraphicalItemsData", () => {
 			</BarChart>
 		))
 		expectLastCalledWith(spy, [])
-		expect(spy).toHaveBeenCalledTimes(2)
+		/* Upstream: 2. The chartSelector memo keeps the content-equal empty array when the
+		   Bars register, so the consumer is not notified a second time. */
+		expect(spy).toHaveBeenCalledTimes(1)
 	})
 
 	it("should return all data defined on graphical items", () => {

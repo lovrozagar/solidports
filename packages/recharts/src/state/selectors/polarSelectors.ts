@@ -24,7 +24,6 @@ import {
 	selectRenderableAxisSettings,
 } from "./axisSelectors"
 import type { PolarGraphicalItemSettings } from "../graphicalItemsSlice"
-import type { PolarItemState } from "../chartState"
 import { readChartState } from "../chartState"
 import type { CategoricalDomain, NumberDomain } from "../../util/types"
 import { selectChartLayout } from "../../context/chartLayoutContext"
@@ -37,16 +36,22 @@ export type PolarAxisType = "angleAxis" | "radiusAxis"
 export const selectUnfilteredPolarItems = (
 	state: ChartState,
 ): ReadonlyArray<PolarGraphicalItemSettings> => {
-	return Object.values(readChartState(state).graphicalItems)
-		.filter(
-			(item): item is PolarItemState =>
-				item != null &&
-				typeof item === "object" &&
-				"type" in item &&
-				(item.type === "pie" || item.type === "radar" || item.type === "radialBar"),
-		)
-		.filter((item) => item.settings !== null && typeof item.settings === "object")
-		.map((item) => item.settings)
+	const graphicalItems = readChartState(state).graphicalItems
+	const result: PolarGraphicalItemSettings[] = []
+	for (const id in graphicalItems) {
+		const item = graphicalItems[id]
+		if (
+			item != null &&
+			typeof item === "object" &&
+			(item.type === "pie" || item.type === "radar" || item.type === "radialBar")
+		) {
+			const settings = item.settings
+			if (settings !== null && typeof settings === "object") {
+				result.push(settings)
+			}
+		}
+	}
+	return result
 }
 
 export function selectPolarItemsSettings(

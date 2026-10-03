@@ -41,7 +41,8 @@ export function resolveDefaultProps<T, D extends Partial<T>>(
 	const realKeys: ReadonlyArray<string> = untrack(() =>
 		isNonNullObject(realProps) ? Object.keys(realProps as object) : [],
 	)
-	const defaultKeys = Object.keys(defaultProps as object).filter((k) => !realKeys.includes(k))
+	const realKeySet = new Set(realKeys)
+	const defaultKeys = Object.keys(defaultProps as object).filter((k) => !realKeySet.has(k))
 	const orderedKeys = [...realKeys, ...defaultKeys]
 
 	/* Element children (`<Label/>` lives behind a Solid getter that mints a fresh component

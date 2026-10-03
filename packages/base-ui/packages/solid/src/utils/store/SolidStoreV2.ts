@@ -3,6 +3,7 @@ import {
   createEffect,
   createMemo,
   createRenderEffect,
+  createSignal,
   createStore,
   getObserver,
   onCleanup,
@@ -11,12 +12,7 @@ import {
 } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { Store } from 'solid-js';
-import {
-  access,
-  createDepsEffect,
-  type MaybeAccessor,
-  type MaybeAccessorValue,
-} from '../../solid-helpers';
+import { access, type MaybeAccessor, type MaybeAccessorValue } from '../../solid-helpers';
 import { NOOP } from '../empty';
 import type { SetStoreFunction } from '../../solid-1-compat';
 
@@ -40,33 +36,23 @@ export function SolidStore<
     setState(statePart as any);
   }
 
+  /**
+   * Keeps `key` equal to `value`, as React's `useSyncedValue` re-syncs it on every render. The key
+   * is derived from `value` (a writable memo) rather than copied by an effect, so readers see the
+   * synced value in the same flush as its source. A `set` overrides it until `value` changes.
+   */
   function useSyncedValue<Key extends keyof State, Value extends State[Key]>(
     key: keyof State,
     value: Accessor<Value>,
   ) {
-    createEffect(value, (next) => {
-      setState(key as any, next);
-    });
+    bindStoreKey(state, setState, key, value);
   }
 
   function useSyncedValueWithCleanup<Key extends KeysAllowingUndefined<State>>(
     key: Key,
     value: Accessor<State[Key]>,
   ) {
-    useSyncedValue(key, value);
-    onCleanup(() => setState(key as any, undefined));
-  }
-
-  function readSyncedSnapshot(
-    statePart: Accessor<Partial<State>> | Partial<{ [key: string]: MaybeAccessor<unknown> }>,
-  ) {
-    const part = access(statePart) as Record<string, unknown>;
-    const snapshot: Record<string, unknown> = {};
-    // eslint-disable-next-line guard-for-in
-    for (const key in part) {
-      snapshot[key] = access(part[key]);
-    }
-    return snapshot;
+    bindStoreKey(state, setState, key, value, { clearOnCleanup: true });
   }
 
   function useSyncedValues<Keys extends keyof State>(
@@ -86,13 +72,13 @@ export function SolidStore<
       });
     }
 
-    // As React, depend on the entries rather than on the object identity.
-    createDepsEffect(
-      () => readSyncedSnapshot(statePart as any),
-      (snapshot) => {
-        setState(snapshot as any);
-      },
-    );
+    // As React, sync each entry rather than the object identity. Keys are stable (checked above).
+    const keys = Object.keys(untrack(() => access(statePart as any)) as object);
+    for (const key of keys) {
+      bindStoreKey(state, setState, key as keyof State, () =>
+        access((access(statePart as any) as Record<string, unknown>)[key]),
+      );
+    }
   }
 
   function useControlledProp<Key extends keyof State, Value extends State[Key]>(
@@ -303,8 +289,19 @@ export function createStoreState<State extends object>(
   // Latest value of every written key. Equal to the reactive value once a flush applies it.
   const written = new Map<PropertyKey, unknown>();
 
-  const latest = (key: PropertyKey) =>
-    written.has(key) ? written.get(key) : untrack(() => (reactive as any)[key]);
+  // Keys derived from a source accessor (`useSyncedValue`): a writable memo per key.
+  const bindings = new Map<PropertyKey, Binding>();
+
+  const latest = (key: PropertyKey) => {
+    if (written.has(key)) {
+      return written.get(key);
+    }
+    const binding = bindings.get(key);
+    return untrack(() => {
+      const value = binding ? binding.value() : (reactive as any)[key];
+      return isBinding(value) ? value.value() : value;
+    });
+  };
 
   const listeners = new Set<(state: State) => void>();
   // Internal state to handle recursive writes from listeners, as React's Store.
@@ -313,12 +310,13 @@ export function createStoreState<State extends object>(
   const state = new Proxy(reactive, {
     get(target, key, receiver) {
       if (getObserver() !== null) {
-        return Reflect.get(target, key, receiver);
+        // A bound key's slot holds its binding: readers subscribe to the slot (so unbinding
+        // notifies them) and to the derived value.
+        const value = Reflect.get(target, key, receiver);
+        return isBinding(value) ? value.value() : value;
       }
       // An untracked read is an imperative store read (handler, effect callback, store method).
-      return written.has(key)
-        ? written.get(key)
-        : untrack(() => Reflect.get(target, key, receiver));
+      return latest(key);
     },
     // Enumeration (spreads, `Object.keys`) sees the same latest values as untracked reads.
     has(target, key) {
@@ -340,10 +338,10 @@ export function createStoreState<State extends object>(
     },
     getOwnPropertyDescriptor(target, key) {
       const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
-      if (getObserver() !== null || !written.has(key)) {
+      if (getObserver() !== null || (!written.has(key) && !bindings.has(key))) {
         return descriptor;
       }
-      return { configurable: true, enumerable: true, writable: true, value: written.get(key) };
+      return { configurable: true, enumerable: true, writable: true, value: latest(key) };
     },
   });
 
@@ -360,17 +358,27 @@ export function createStoreState<State extends object>(
     if (changes.length === 0) {
       return;
     }
+    const plainChanges = changes.filter(([key]) => !bindings.has(key));
     // The write runs outside any owner (see above), and untracked: ingesting a value probes it
     // (store internals read symbol keys, which reach the memo behind a live `merge` view).
     runWithOwner(null, () =>
-      untrack(() =>
-        writeReactive((draft) => {
-          for (const [key, value] of changes) {
-            draft[key] = value;
-          }
-        }),
-      ),
+      untrack(() => {
+        for (const [key, value] of changes) {
+          bindings.get(key)?.setValue(value);
+        }
+        if (plainChanges.length > 0) {
+          writeReactive((draft) => {
+            for (const [key, value] of plainChanges) {
+              draft[key] = value;
+            }
+          });
+        }
+      }),
     );
+    notify();
+  }
+
+  function notify() {
     updateTick += 1;
     const currentTick = updateTick;
     for (const listener of Array.from(listeners)) {
@@ -408,8 +416,98 @@ export function createStoreState<State extends object>(
     }
   }
 
+  function writeSlot(key: PropertyKey, value: unknown) {
+    runWithOwner(null, () =>
+      untrack(() =>
+        writeReactive((draft) => {
+          draft[key] = value;
+        }),
+      ),
+    );
+  }
+
+  function bind(key: PropertyKey, source: Accessor<unknown>, clearOnCleanup: boolean) {
+    // Re-deriving from `source` drops an override written with `set` (React re-syncs on render).
+    const [value, setValue] = createSignal<unknown>(() => {
+      const next = source();
+      written.delete(key);
+      return next;
+    });
+    const binding: Binding = {
+      [BINDING]: true,
+      value,
+      setValue: (next: unknown) => setValue(() => next),
+    };
+    bindings.set(key, binding);
+    written.delete(key);
+    writeSlot(key, binding);
+
+    // Listeners (`observe`) see derived changes too, as they saw the synced writes.
+    createEffect(value, (next, prev) => {
+      if (prev !== undefined && !Object.is(next, prev)) {
+        notify();
+      }
+    });
+
+    onCleanup(() => {
+      if (bindings.get(key) !== binding) {
+        return;
+      }
+      // Unbinding keeps the latest value (or clears it), as React's store keeps the synced value.
+      const last = clearOnCleanup ? undefined : latest(key);
+      bindings.delete(key);
+      written.set(key, last);
+      writeSlot(key, last);
+      if (clearOnCleanup) {
+        notify();
+      }
+    });
+  }
+
   storeListeners.set(state, listeners);
+  storeBinders.set(state, bind);
   return [state as Store<State>, setState as unknown as SetStoreFunction<State>];
+}
+
+const BINDING = Symbol('binding');
+
+interface Binding {
+  [BINDING]: true;
+  value: Accessor<unknown>;
+  setValue: (value: unknown) => void;
+}
+
+function isBinding(value: unknown): value is Binding {
+  return typeof value === 'object' && value !== null && BINDING in value;
+}
+
+const storeBinders = new WeakMap<
+  object,
+  (key: PropertyKey, source: Accessor<unknown>, clearOnCleanup: boolean) => void
+>();
+
+/**
+ * Derives a store key from `source` for the lifetime of the current owner.
+ */
+function bindStoreKey<State extends object>(
+  state: State,
+  setState: SetStoreFunction<State>,
+  key: keyof State,
+  source: Accessor<unknown>,
+  options: { clearOnCleanup?: boolean } = {},
+) {
+  const bind = storeBinders.get(state);
+  if (bind) {
+    bind(key, source, options.clearOnCleanup ?? false);
+    return;
+  }
+  // A store created elsewhere: copy the value.
+  createEffect(source, (next) => {
+    (setState as any)(key, next);
+  });
+  if (options.clearOnCleanup) {
+    onCleanup(() => (setState as any)(key, undefined));
+  }
 }
 
 type MaybeCallable = (...args: any[]) => any;

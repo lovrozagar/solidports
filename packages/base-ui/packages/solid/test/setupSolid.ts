@@ -8,6 +8,32 @@ import { isSurfacedRenderError } from './createRenderer';
 let isCleaningUp = false;
 
 /*
+ * The shared jsdom setup replaces `requestAnimationFrame` with a `setTimeout` that returns 0, so
+ * `cancelAnimationFrame` cannot cancel it. Browsers can: keep that, so a superseded frame callback
+ * (a queued focus replaced by a newer one) does not run.
+ */
+if (typeof window !== 'undefined' && window.navigator.userAgent.includes('jsdom')) {
+  const frames = new Map<number, ReturnType<typeof setTimeout>>();
+  let lastFrameId = 0;
+  globalThis.requestAnimationFrame = (callback) => {
+    lastFrameId += 1;
+    const frameId = lastFrameId;
+    frames.set(
+      frameId,
+      setTimeout(() => {
+        frames.delete(frameId);
+        callback(0);
+      }, 0),
+    );
+    return frameId;
+  };
+  globalThis.cancelAnimationFrame = (frameId) => {
+    clearTimeout(frames.get(frameId));
+    frames.delete(frameId);
+  };
+}
+
+/*
  * React's harness wraps every testing-library event in `act()`. Solid 2 batches writes until the
  * next flush, so do the equivalent: flush after each dispatched event (fireEvent and user-event).
  * Not during teardown: a real browser fires blur/focusout synchronously while focused elements

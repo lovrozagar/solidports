@@ -12,6 +12,7 @@ import {
 import { getBandSizeOfAxis, isCategoricalAxis } from "../../util/ChartUtils"
 import type { ChartData } from "../chartDataSlice"
 import type { CartesianGraphicalItemSettings, GraphicalItemId } from "../graphicalItemsSlice"
+import { chartSelector } from "./chartSelector"
 import type { LineSettings } from "../types/LineSettings"
 
 /** Optional overrides — when supplied, bypass the axis-settings lookup on hot animation frames. */
@@ -21,43 +22,37 @@ export type LineAxisOverrides = {
 	lineSettings?: LineSettings
 }
 
-const selectXAxisWithScale = (
+const selectXAxisWithScale = chartSelector((
 	state: ChartState,
 	xAxisId: AxisId,
 	_yAxisId: AxisId,
 	isPanorama: boolean,
 	override?: XAxisSettings,
-) => selectAxisWithScale(state, "xAxis", xAxisId, isPanorama, override)
+) => selectAxisWithScale(state, "xAxis", xAxisId, isPanorama, override))
 
-const selectXAxisTicks = (
+const selectXAxisTicks = chartSelector((
 	state: ChartState,
 	xAxisId: AxisId,
 	_yAxisId: AxisId,
 	isPanorama: boolean,
-) => selectTicksOfGraphicalItem(state, "xAxis", xAxisId, isPanorama)
+) => selectTicksOfGraphicalItem(state, "xAxis", xAxisId, isPanorama))
 
-const selectYAxisWithScale = (
+const selectYAxisWithScale = chartSelector((
 	state: ChartState,
 	_xAxisId: AxisId,
 	yAxisId: AxisId,
 	isPanorama: boolean,
 	override?: YAxisSettings,
-) => selectAxisWithScale(state, "yAxis", yAxisId, isPanorama, override)
+) => selectAxisWithScale(state, "yAxis", yAxisId, isPanorama, override))
 
-const selectYAxisTicks = (
+const selectYAxisTicks = chartSelector((
 	state: ChartState,
 	_xAxisId: AxisId,
 	yAxisId: AxisId,
 	isPanorama: boolean,
-) => selectTicksOfGraphicalItem(state, "yAxis", yAxisId, isPanorama)
+) => selectTicksOfGraphicalItem(state, "yAxis", yAxisId, isPanorama))
 
-function selectBandSize(
-	state: ChartState,
-	xAxisId: AxisId,
-	yAxisId: AxisId,
-	isPanorama: boolean,
-	overrides?: LineAxisOverrides,
-) {
+const selectBandSize = chartSelector(function selectBandSize(state: ChartState, xAxisId: AxisId, yAxisId: AxisId, isPanorama: boolean, overrides?: LineAxisOverrides) {
 	const layout = selectChartLayout(state)
 	const xAxis = selectXAxisWithScale(state, xAxisId, yAxisId, isPanorama, overrides?.xAxis)
 	const yAxis = selectYAxisWithScale(state, xAxisId, yAxisId, isPanorama, overrides?.yAxis)
@@ -67,7 +62,7 @@ function selectBandSize(
 		return getBandSizeOfAxis(xAxis, xAxisTicks, false)
 	}
 	return getBandSizeOfAxis(yAxis, yAxisTicks, false)
-}
+})
 
 function isLineSettings(item: CartesianGraphicalItemSettings): item is LineSettings {
 	return item.type === "line"
@@ -81,25 +76,12 @@ function isLineSettings(item: CartesianGraphicalItemSettings): item is LineSetti
  *
  * So here instead of reading the dataKey from the props, we always read it from the state.
  */
-function selectSynchronisedLineSettings(
-	state: ChartState,
-	_xAxisId: AxisId,
-	_yAxisId: AxisId,
-	_isPanorama: boolean,
-	id: GraphicalItemId,
-): LineSettings | undefined {
+const selectSynchronisedLineSettings = chartSelector(function selectSynchronisedLineSettings(state: ChartState, _xAxisId: AxisId, _yAxisId: AxisId, _isPanorama: boolean, id: GraphicalItemId): LineSettings | undefined {
 	const graphicalItems = selectUnfilteredCartesianItems(state)
 	return graphicalItems.filter(isLineSettings).find((x) => x.id === id)
-}
+})
 
-export function selectLinePoints(
-	state: ChartState,
-	xAxisId: AxisId,
-	yAxisId: AxisId,
-	isPanorama: boolean,
-	id: GraphicalItemId,
-	overrides?: LineAxisOverrides,
-): ReadonlyArray<LinePointItem> | undefined {
+export const selectLinePoints = chartSelector(function selectLinePoints(state: ChartState, xAxisId: AxisId, yAxisId: AxisId, isPanorama: boolean, id: GraphicalItemId, overrides?: LineAxisOverrides): ReadonlyArray<LinePointItem> | undefined {
 	const layout = selectChartLayout(state)
 	const xAxis = selectXAxisWithScale(state, xAxisId, yAxisId, isPanorama, overrides?.xAxis)
 	const yAxis = selectYAxisWithScale(state, xAxisId, yAxisId, isPanorama, overrides?.yAxis)
@@ -149,4 +131,4 @@ export function selectLinePoints(
 		yAxis,
 		yAxisTicks,
 	})
-}
+})

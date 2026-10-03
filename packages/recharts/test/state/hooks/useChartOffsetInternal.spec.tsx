@@ -1,13 +1,8 @@
 /**
- * T2 — dep-tracking unit tests for provider-level shared selector hooks.
- *
- * These tests MUST FAIL until src/state/hooks/useChartSelectors.tsx is created (Step 1).
- * The import below will throw "Cannot find module" — that IS the expected RED state.
- *
- * After Step 1 lands, all tests here must go GREEN and stay GREEN through Steps 2-6.
- * They are the structural guard against the four prior failed memoization attempts.
+ * Dep-tracking unit tests for the chart-level shared selector hooks. The selectors are
+ * chartSelector memos shared per chart; these tests guard sharing and fine-grained re-firing.
  */
-import { createRoot, flush, untrack } from 'solid-js'
+import { createRoot, flush, getOwner } from 'solid-js'
 import { observe } from "../../helper/observe"
 import { render } from "../../helper/render"
 import { describe, expect, it } from "vitest"
@@ -17,12 +12,11 @@ import { RechartsStoreContext } from "../../../src/state/RechartsStoreContext"
 import { createActions } from "../../../src/state/actions"
 import { createEventHandlers } from "../../../src/state/events"
 import {
-	ChartSelectorsProvider,
-	createChartSelectors,
 	useChartOffsetInternal,
 	useAllXAxes,
 	useAllYAxes,
 } from "../../../src/state/hooks/useChartSelectors"
+import { registerChartOwner } from "../../../src/state/selectors/chartSelector"
 
 import { createStore } from '../../../src/util/solid-1-compat';
 /* ── test harness ─────────────────────────────────────────────────── */
@@ -38,12 +32,11 @@ function buildStoreCtx(preloaded?: Parameters<typeof createInitialState>[0]) {
 
 function withProvider(ctx: StoreCtx, children: () => JSX.Element): JSX.Element {
 	const { actions, events, setStore, store } = ctx
-	const chartSelectors = createChartSelectors(store)
+	/* Same registration RechartsStateProvider performs for a real chart. */
+	registerChartOwner(store, getOwner())
 	return (
 		<RechartsStoreContext value={{ actions, events, setStore, store }}>
-			<ChartSelectorsProvider value={chartSelectors}>
-				{children()}
-			</ChartSelectorsProvider>
+			{children()}
 		</RechartsStoreContext>
 	)
 }

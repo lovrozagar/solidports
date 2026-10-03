@@ -5,6 +5,7 @@ import type { ChartState } from "../store"
 import { selectChartOffsetInternal } from "./selectChartOffsetInternal"
 import { selectChartDataAndAlwaysIgnoreIndexes } from "./dataSelectors"
 import type { ChartOffsetInternal, DataKey, TooltipType } from "../../util/types"
+import { chartSelector } from "./chartSelector"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 
 export type ResolvedFunnelSettings = {
@@ -20,10 +21,7 @@ export type ResolvedFunnelSettings = {
 	id: GraphicalItemId
 }
 
-export function selectFunnelTrapezoids(
-	state: ChartState,
-	funnelSettings: ResolvedFunnelSettings,
-): ReadonlyArray<FunnelTrapezoidItem> {
+export const selectFunnelTrapezoids = chartSelector(function selectFunnelTrapezoids(state: ChartState, funnelSettings: ResolvedFunnelSettings): ReadonlyArray<FunnelTrapezoidItem> {
 	const offset: ChartOffsetInternal = selectChartOffsetInternal(state)
 	const { chartData } = selectChartDataAndAlwaysIgnoreIndexes(state)
 	const {
@@ -74,4 +72,4 @@ export function selectFunnelTrapezoids(
 		reversed,
 		tooltipType,
 	})
-}
+})

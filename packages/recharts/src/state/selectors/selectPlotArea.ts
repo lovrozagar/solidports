@@ -1,9 +1,10 @@
 /* eslint-disable import/no-cycle */
 import { selectChartOffset } from "./selectChartOffset"
 import { selectChartHeight, selectChartWidth } from "./containerSelectors"
+import { chartSelector } from "./chartSelector"
 import type { ChartState } from "../store"
 
-export function selectPlotArea(state: ChartState) {
+export const selectPlotArea = chartSelector(function selectPlotArea(state: ChartState) {
 	const offset = selectChartOffset(state)
 	const chartWidth = selectChartWidth(state)
 	const chartHeight = selectChartHeight(state)
@@ -18,4 +19,4 @@ export function selectPlotArea(state: ChartState) {
 		x: offset.left,
 		y: offset.top,
 	}
-}
+})

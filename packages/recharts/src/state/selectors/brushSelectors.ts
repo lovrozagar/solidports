@@ -4,6 +4,7 @@ import { readChartState } from "../chartState"
 import { selectChartOffsetInternal } from "./selectChartOffsetInternal"
 import { selectMargin } from "./containerSelectors"
 import { isNumber } from "../../util/DataUtils"
+import { chartSelector } from "./chartSelector"
 import type { BrushSettings } from "../brushSlice"
 
 export const selectBrushSettings = (state: ChartState): BrushSettings => {
@@ -17,7 +18,7 @@ export type BrushDimensions = {
 	height: number
 }
 
-export function selectBrushDimensions(state: ChartState): BrushDimensions {
+export const selectBrushDimensions = chartSelector(function selectBrushDimensions(state: ChartState): BrushDimensions {
 	const brushSettings = selectBrushSettings(state)
 	const offset = selectChartOffsetInternal(state)
 	const margin = selectMargin(state)
@@ -29,4 +30,4 @@ export function selectBrushDimensions(state: ChartState): BrushDimensions {
 			? brushSettings.y
 			: offset.top + offset.height + offset.brushBottom - (margin?.bottom || 0),
 	}
-}
+})

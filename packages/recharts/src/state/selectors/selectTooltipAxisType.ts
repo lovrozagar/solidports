@@ -1,5 +1,6 @@
 /* eslint-disable import/no-cycle */
 import { ChartState } from "../store"
+import { chartSelector } from "./chartSelector"
 import { selectChartLayout } from "../../context/chartLayoutContext"
 
 /**
@@ -12,7 +13,7 @@ export type AllAxisTypes = "xAxis" | "yAxis" | "zAxis" | "radiusAxis" | "angleAx
  */
 export type RenderableAxisType = "xAxis" | "yAxis" | "angleAxis" | "radiusAxis"
 
-export const selectTooltipAxisType = (state: ChartState): RenderableAxisType => {
+export const selectTooltipAxisType = chartSelector((state: ChartState): RenderableAxisType => {
 	const layout = selectChartLayout(state)
 
 	if (layout === "horizontal") {
@@ -28,4 +29,4 @@ export const selectTooltipAxisType = (state: ChartState): RenderableAxisType => 
 	}
 
 	return "radiusAxis"
-}
+})

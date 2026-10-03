@@ -976,6 +976,10 @@ describe('<Popover.Root />', () => {
           ));
 
           const comboboxInput = screen.getByTestId('combobox-input');
+          await waitFor(() => {
+            expect(comboboxInput).toHaveFocus();
+          });
+
           await user.click(comboboxInput);
           await flushMicrotasks();
 
@@ -986,7 +990,7 @@ describe('<Popover.Root />', () => {
 
           await user.tab({ shift: true });
 
-          expect(screen.getByRole('button', { name: 'Toggle' })).toHaveFocus();
+          expect(trigger).toHaveFocus();
 
           await waitFor(() => {
             expect(screen.queryByRole('listbox')).to.equal(null);
@@ -2047,6 +2051,8 @@ describe('<Popover.Root />', () => {
         }
 
         render(() => <Test />);
+        // Solid: React's `await render` flushes the parent popup's initial focus before the click.
+        await flushMicrotasks();
 
         expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
 

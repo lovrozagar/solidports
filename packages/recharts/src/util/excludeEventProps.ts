@@ -164,10 +164,8 @@ const EventKeys = [
 
 export type EventKeysType = (typeof EventKeys)[number]
 
+const EventKeySet: ReadonlySet<string> = new Set<string>(EventKeys)
+
 export function isEventKey(key: PropertyKey): key is EventKeysType {
-	if (typeof key !== "string") {
-		return false
-	}
-	const allowedEventKeys: ReadonlyArray<string> = EventKeys
-	return allowedEventKeys.includes(key)
+	return typeof key === "string" && EventKeySet.has(key)
 }

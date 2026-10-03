@@ -39,37 +39,43 @@ export function useTransitionStatus(
   const openProp = () => Boolean(access(open));
   const enableIdleStateProp = () => Boolean(access(enableIdleState));
   const deferEndingStateProp = () => Boolean(access(deferEndingState));
-  // Initial values only, like React's `useState(initial)`.
-  // Starting at `false` while open lets the entering branch below produce the `'starting'` phase.
-  const [mounted, setMounted] = createSignal(
-    untrack(() => openProp() && !access(animateInitialOpen)),
-  );
-  const [transitionStatus, setTransitionStatus] = createSignal<TransitionStatus>(
-    untrack(() => (openProp() && enableIdleStateProp() ? 'idle' : undefined)),
-  );
 
-  // React applies these as setState-during-render. Solid 2 forbids owned writes, so they live
-  // in the effect callback. `createTrackedEffect` cannot be used here: it reads stale values and
-  // would never see `open` flip to true, leaving `data-starting-style` (opacity: 0) stuck.
-  createEffect(
-    () => [openProp(), mounted(), transitionStatus(), deferEndingStateProp()] as const,
-    ([isOpen, isMounted, status, deferEnding]) => {
-      if (isOpen && !isMounted) {
-        setMounted(true);
-        setTransitionStatus('starting');
-        return;
-      }
+  // React updates `mounted` and `transitionStatus` during render when `open` flips. Solid derives
+  // them in the same flush instead: writable memos re-derive whenever their inputs change, and keep
+  // what the frame callbacks and `setMounted` write until the next change. Copying them from an
+  // effect would render one flush with the new `open` and the stale status.
+  const [mounted, setMounted] = createSignal<boolean>((prev) => openProp() || (prev ?? false));
 
-      if (!isOpen && isMounted && status !== 'ending' && !deferEnding) {
-        setTransitionStatus('ending');
-        return;
-      }
+  let previouslyOpen: boolean | undefined;
+  const [transitionStatus, setTransitionStatus] = createSignal<TransitionStatus>((prev) => {
+    const isOpen = openProp();
+    const isMounted = mounted();
+    const deferEnding = deferEndingStateProp();
+    const wasOpen = previouslyOpen;
+    previouslyOpen = isOpen;
 
-      if (!isOpen && !isMounted && status === 'ending') {
-        setTransitionStatus(undefined);
+    if (wasOpen === undefined) {
+      // Initial values, like React's `useState(initial)`. Content that mounts already open skips
+      // `'starting'` unless `animateInitialOpen` asks for it.
+      if (!isOpen) {
+        return undefined;
       }
-    },
-  );
+      if (untrack(() => access(animateInitialOpen))) {
+        return 'starting';
+      }
+      return untrack(enableIdleStateProp) ? 'idle' : undefined;
+    }
+
+    if (isOpen) {
+      return wasOpen ? prev : 'starting';
+    }
+
+    if (isMounted) {
+      return prev !== 'ending' && !deferEnding ? 'ending' : prev;
+    }
+
+    return prev === 'ending' ? undefined : prev;
+  });
 
   createEffect(
     () => [openProp(), mounted(), transitionStatus(), deferEndingStateProp()] as const,
@@ -85,53 +91,17 @@ export function useTransitionStatus(
   createEffect(
     () => [openProp(), enableIdleStateProp()] as const,
     ([isOpen, idleEnabled]) => {
-      if (!isOpen || idleEnabled) {
+      if (!isOpen) {
         return undefined;
       }
 
-      return requestAfterPaint(() => setTransitionStatus(undefined));
+      return requestAfterPaint(() => setTransitionStatus(idleEnabled ? 'idle' : undefined));
     },
   );
-
-  createEffect(
-    () => [openProp(), enableIdleStateProp(), mounted(), transitionStatus()] as const,
-    ([isOpen, idleEnabled, isMounted, status]) => {
-      if (!isOpen || !idleEnabled) {
-        return undefined;
-      }
-
-      if (isOpen && isMounted && status !== 'idle') {
-        setTransitionStatus('starting');
-      }
-
-      return requestAfterPaint(() => setTransitionStatus('idle'));
-    },
-  );
-
-  // The effect above commits `mounted`/`'starting'` one flush after `open` flips, but React's
-  // render-phase update makes the very first render carry them. Derive that render so an element
-  // that mounts on open is inserted with `[data-starting-style]` instead of gaining it after its
-  // first style recalc, which would start the enter transition from the visible state.
-  const isEntering = () => openProp() && !mounted();
-  // Likewise for closing: React's render-phase update makes the first closed render carry
-  // `'ending'`, so an element removed right after closing still exits with `[data-ending-style]`.
-  const isExiting = () =>
-    !openProp() && mounted() && transitionStatus() !== 'ending' && !deferEndingStateProp();
-  // And once unmounted: React's render-phase update clears `'ending'` in the same render that
-  // sets `mounted` to `false`, so no effect observes an unmounted element still `'ending'`.
-  const hasExited = () => !openProp() && !mounted() && transitionStatus() === 'ending';
 
   return {
-    mounted: () => mounted() || isEntering(),
+    mounted,
     setMounted,
-    transitionStatus: (): TransitionStatus => {
-      if (isEntering()) {
-        return 'starting';
-      }
-      if (isExiting()) {
-        return 'ending';
-      }
-      return hasExited() ? undefined : transitionStatus();
-    },
+    transitionStatus,
   };
 }

@@ -2,6 +2,7 @@
 import { ChartState } from "../store"
 import { TooltipEventType } from "../../util/types"
 import { useChartStore } from "../RechartsStoreContext"
+import { chartSelector } from "./chartSelector"
 import { SharedTooltipSettings } from "../tooltipSlice"
 
 export const selectDefaultTooltipEventType = (state: ChartState): TooltipEventType =>
@@ -26,14 +27,11 @@ export function combineTooltipEventType(
 	return validateTooltipEventTypes.includes(eventType) ? eventType : defaultTooltipEventType
 }
 
-export function selectTooltipEventType(
-	state: ChartState,
-	shared: SharedTooltipSettings,
-): TooltipEventType {
+export const selectTooltipEventType = chartSelector(function selectTooltipEventType(state: ChartState, shared: SharedTooltipSettings): TooltipEventType {
 	const defaultTooltipEventType = selectDefaultTooltipEventType(state)
 	const validateTooltipEventTypes = selectValidateTooltipEventTypes(state)
 	return combineTooltipEventType(shared, defaultTooltipEventType, validateTooltipEventTypes)
-}
+})
 
 /* 1:1 port of upstream useTooltipEventType. Returns bare T per GOTCHA-011;
    reads via useChartStore so panorama/standalone usage returns undefined

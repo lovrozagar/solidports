@@ -60,7 +60,6 @@ import type {
 	CartesianGraphicalItemSettings,
 	GraphicalItemSettings,
 } from "../graphicalItemsSlice"
-import type { CartesianItemState } from "../chartState"
 import { readChartState } from "../chartState"
 import { isWellBehavedNumber } from "../../util/isWellBehavedNumber"
 import { getNiceTickValues, getTickValuesFixedDomain } from "../../util/scale"
@@ -108,6 +107,7 @@ import { combineConfiguredScale } from "./combiners/combineConfiguredScale"
 import { combineRealScaleType } from "./combiners/combineRealScaleType"
 import type { InverseScaleFunction } from "../../hooks"
 import { createCategoricalInverse } from "../../util/scale/createCategoricalInverse"
+import { chartSelector } from "./chartSelector"
 import { combineInverseScaleFunction } from "./combiners/combineInverseScaleFunction"
 
 export const defaultNumericDomain: AxisDomain = [0, "auto"]
@@ -158,16 +158,16 @@ export const implicitXAxis: XAxisSettings = {
 	unit: undefined,
 }
 
-export const selectXAxisSettingsNoDefaults = (
+export const selectXAxisSettingsNoDefaults = chartSelector((
 	state: ChartState,
 	axisId: AxisId,
 	override?: XAxisSettings,
 ): XAxisSettings | undefined => {
 	if (override !== undefined) return override
 	return readChartState(state).cartesianAxes.xAxis?.[String(axisId)]?.settings
-}
+})
 
-export const selectXAxisSettings = (
+export const selectXAxisSettings = chartSelector((
 	state: ChartState,
 	axisId: AxisId,
 	override?: XAxisSettings,
@@ -177,7 +177,7 @@ export const selectXAxisSettings = (
 		return implicitXAxis
 	}
 	return axis
-}
+})
 
 /**
  * If an axis is not explicitly defined as an element,
@@ -212,16 +212,16 @@ export const implicitYAxis: YAxisSettings = {
 	width: DEFAULT_Y_AXIS_WIDTH,
 }
 
-export const selectYAxisSettingsNoDefaults = (
+export const selectYAxisSettingsNoDefaults = chartSelector((
 	state: ChartState,
 	axisId: AxisId,
 	override?: YAxisSettings,
 ): YAxisSettings | undefined => {
 	if (override !== undefined) return override
 	return readChartState(state).cartesianAxes.yAxis?.[String(axisId)]?.settings
-}
+})
 
-export const selectYAxisSettings = (
+export const selectYAxisSettings = chartSelector((
 	state: ChartState,
 	axisId: AxisId,
 	override?: YAxisSettings,
@@ -231,7 +231,7 @@ export const selectYAxisSettings = (
 		return implicitYAxis
 	}
 	return axis
-}
+})
 
 export const implicitZAxis: ZAxisSettings = {
 	allowDataOverflow: false,
@@ -248,7 +248,7 @@ export const implicitZAxis: ZAxisSettings = {
 	unit: "",
 }
 
-export const selectZAxisSettings = (
+export const selectZAxisSettings = chartSelector((
 	state: ChartState,
 	axisId: AxisId,
 	override?: ZAxisSettings,
@@ -257,9 +257,9 @@ export const selectZAxisSettings = (
 	const solidEntry = readChartState(state).cartesianAxes.zAxis?.[String(axisId)]?.settings
 	if (solidEntry != null) return solidEntry
 	return implicitZAxis
-}
+})
 
-export const selectBaseAxis = (
+export const selectBaseAxis = chartSelector((
 	state: ChartState,
 	axisType: AllAxisTypes,
 	axisId: AxisId,
@@ -283,9 +283,9 @@ export const selectBaseAxis = (
 		default:
 			throw new Error(`Unexpected axis type: ${axisType}`)
 	}
-}
+})
 
-const selectCartesianAxisSettings = (
+const selectCartesianAxisSettings = chartSelector((
 	state: ChartState,
 	axisType: "xAxis" | "yAxis",
 	axisId: AxisId,
@@ -300,7 +300,7 @@ const selectCartesianAxisSettings = (
 		default:
 			throw new Error(`Unexpected axis type: ${axisType}`)
 	}
-}
+})
 
 /**
  * Selects either an X or Y axis. Doesn't work with Z axis - for that, instead use selectBaseAxis.
@@ -309,7 +309,7 @@ const selectCartesianAxisSettings = (
  * @param axisId xAxisId | yAxisId
  * @returns axis settings object
  */
-export const selectRenderableAxisSettings = (
+export const selectRenderableAxisSettings = chartSelector((
 	state: ChartState,
 	axisType: RenderableAxisType,
 	axisId: AxisId,
@@ -330,13 +330,13 @@ export const selectRenderableAxisSettings = (
 		default:
 			throw new Error(`Unexpected axis type: ${axisType}`)
 	}
-}
+})
 
 /**
  * @param state ChartState
  * @return boolean true if there is at least one Bar or RadialBar
  */
-export const selectHasBar = (state: ChartState): boolean => {
+export const selectHasBar = chartSelector((state: ChartState): boolean => {
 	return Object.values(readChartState(state).graphicalItems).some(
 		(item) =>
 			item != null &&
@@ -344,7 +344,7 @@ export const selectHasBar = (state: ChartState): boolean => {
 			"type" in item &&
 			(item.type === "bar" || item.type === "radialBar"),
 	)
-}
+})
 
 /**
  * Filters CartesianGraphicalItemSettings by the relevant axis ID
@@ -372,22 +372,23 @@ export function itemAxisPredicate(axisType: AllAxisTypes, axisId: AxisId) {
 	}
 }
 
-export const selectUnfilteredCartesianItems = (
+export const selectUnfilteredCartesianItems = chartSelector((
 	state: ChartState,
 ): ReadonlyArray<CartesianGraphicalItemSettings> => {
-	return Object.values(readChartState(state).graphicalItems)
-		.filter(
-			(item): item is CartesianItemState =>
-				item != null &&
-				typeof item === "object" &&
-				"type" in item &&
-				(item.type === "line" ||
-					item.type === "area" ||
-					item.type === "bar" ||
-					item.type === "scatter"),
-		)
-		.map((item) => item.settings)
-}
+	const graphicalItems = readChartState(state).graphicalItems
+	const result: CartesianGraphicalItemSettings[] = []
+	for (const id in graphicalItems) {
+		const item = graphicalItems[id]
+		if (
+			item != null &&
+			typeof item === "object" &&
+			(item.type === "line" || item.type === "area" || item.type === "bar" || item.type === "scatter")
+		) {
+			result.push(item.settings)
+		}
+	}
+	return result
+})
 
 export const combineGraphicalItemsSettings = <T extends GraphicalItemSettings>(
 	graphicalItems: ReadonlyArray<T>,
@@ -401,40 +402,28 @@ export const combineGraphicalItemsSettings = <T extends GraphicalItemSettings>(
 		return !item.hide
 	})
 
-export function selectCartesianItemsSettings(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): ReadonlyArray<CartesianGraphicalItemSettings> {
+export const selectCartesianItemsSettings = chartSelector(function selectCartesianItemsSettings(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): ReadonlyArray<CartesianGraphicalItemSettings> {
 	const graphicalItems = selectUnfilteredCartesianItems(state)
 	const axisSettings = selectBaseAxis(state, axisType, axisId)
 	const axisPredicate = itemAxisPredicate(axisType, axisId)
 	return combineGraphicalItemsSettings(graphicalItems, axisSettings, axisPredicate)
-}
+})
 
-export function selectStackedCartesianItemsSettings(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): ReadonlyArray<DefinitelyStackedGraphicalItem> {
+export const selectStackedCartesianItemsSettings = chartSelector(function selectStackedCartesianItemsSettings(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): ReadonlyArray<DefinitelyStackedGraphicalItem> {
 	const cartesianItems = selectCartesianItemsSettings(state, axisType, axisId)
 	return cartesianItems
 		.filter((item) => item.type === "area" || item.type === "bar")
 		.filter(isStacked)
-}
+})
 
 export const filterGraphicalNotStackedItems = (
 	cartesianItems: ReadonlyArray<GraphicalItemSettings>,
 ): ReadonlyArray<GraphicalItemSettings> =>
 	cartesianItems.filter((item) => !("stackId" in item) || item.stackId === undefined)
 
-function selectCartesianItemsSettingsExceptStacked(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): ReadonlyArray<GraphicalItemSettings> {
+const selectCartesianItemsSettingsExceptStacked = chartSelector(function selectCartesianItemsSettingsExceptStacked(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): ReadonlyArray<GraphicalItemSettings> {
 	return filterGraphicalNotStackedItems(selectCartesianItemsSettings(state, axisType, axisId))
-}
+})
 
 export const combineGraphicalItemsData = (cartesianItems: ReadonlyArray<GraphicalItemSettings>) =>
 	cartesianItems
@@ -448,13 +437,9 @@ export const combineGraphicalItemsData = (cartesianItems: ReadonlyArray<Graphica
  * @param state ChartState
  * @returns data defined on the chart graphical items, such as Line or Scatter or Pie, and filtered with appropriate dataKey
  */
-export function selectCartesianGraphicalItemsData(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): ChartData {
+export const selectCartesianGraphicalItemsData = chartSelector(function selectCartesianGraphicalItemsData(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): ChartData {
 	return combineGraphicalItemsData(selectCartesianItemsSettings(state, axisType, axisId))
-}
+})
 
 export const combineDisplayedData = (
 	graphicalItemsData: ChartData,
@@ -473,17 +458,12 @@ export const combineDisplayedData = (
  *
  * This function will discard the original indexes, so it is also not useful for anything that depends on ordering.
  */
-export function selectDisplayedData(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): ChartData {
+export const selectDisplayedData = chartSelector(function selectDisplayedData(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): ChartData {
 	return combineDisplayedData(
 		selectCartesianGraphicalItemsData(state, axisType, axisId),
 		selectChartDataWithIndexesIfNotInPanoramaPosition4(state, undefined, undefined, isPanorama),
 	)
-}
+})
 
 export const combineAppliedValues = (
 	data: ChartData,
@@ -537,22 +517,13 @@ export const combineAllAppliedValues = (
 	return appliedValues
 }
 
-export function selectAnyCartesianItemsUsesChartData(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): boolean {
+export const selectAnyCartesianItemsUsesChartData = chartSelector(function selectAnyCartesianItemsUsesChartData(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): boolean {
 	return selectCartesianItemsSettings(state, axisType, axisId).some(
 		(item) => !(item as { data?: unknown }).data,
 	)
-}
+})
 
-export function selectAllAppliedValues(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): AppliedChartData {
+export const selectAllAppliedValues = chartSelector(function selectAllAppliedValues(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): AppliedChartData {
 	return combineAllAppliedValues(
 		selectDisplayedData(state, axisType, axisId, isPanorama),
 		selectBaseAxis(state, axisType, axisId),
@@ -561,7 +532,7 @@ export function selectAllAppliedValues(
 		selectAnyCartesianItemsUsesChartData(state, axisType, axisId),
 		selectCartesianGraphicalItemsData(state, axisType, axisId),
 	)
-}
+})
 
 function makeNumber(val: unknown): number | undefined {
 	if (isNumOrStr(val) || val instanceof Date) {
@@ -607,15 +578,10 @@ function sortBy(a: unknown, b: unknown): number {
 	return aNum - bNum
 }
 
-export function selectSortedDataPoints(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): ReadonlyArray<unknown> | undefined {
+export const selectSortedDataPoints = chartSelector(function selectSortedDataPoints(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): ReadonlyArray<unknown> | undefined {
 	const appliedData = selectAllAppliedValues(state, axisType, axisId, isPanorama)
 	return appliedData?.map((item) => item.value).sort(sortBy)
-}
+})
 
 export function isErrorBarRelevantForAxisType(
 	axisType: AllAxisTypes,
@@ -700,29 +666,24 @@ export function getErrorDomainByDataKey(
 	)
 }
 
-export const selectTooltipAxis = (state: ChartState): RenderableAxisSettings => {
+export const selectTooltipAxis = chartSelector((state: ChartState): RenderableAxisSettings => {
 	const axisType = selectTooltipAxisType(state)
 	const axisId = selectTooltipAxisId(state)
 	return selectRenderableAxisSettings(state, axisType, axisId)
-}
+})
 
-export function selectTooltipAxisDataKey(state: ChartState): DataKey<unknown> | undefined {
+export const selectTooltipAxisDataKey = chartSelector(function selectTooltipAxisDataKey(state: ChartState): DataKey<unknown> | undefined {
 	const axis = selectTooltipAxis(state)
 	return axis?.dataKey
-}
+})
 
-export function selectDisplayedStackedData(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): DisplayedStackedData {
+export const selectDisplayedStackedData = chartSelector(function selectDisplayedStackedData(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): DisplayedStackedData {
 	return combineDisplayedStackedData(
 		selectStackedCartesianItemsSettings(state, axisType, axisId),
 		selectChartDataWithIndexesIfNotInPanoramaPosition4(state, undefined, undefined, isPanorama),
 		selectTooltipAxis(state),
 	)
-}
+})
 
 export const combineStackGroups = (
 	displayedData: DisplayedStackedData,
@@ -778,19 +739,14 @@ export const combineStackGroups = (
  * Stack is a function of axis type (X, Y), axis ID, and stack ID.
  * Graphical items that do not have a stack ID are not going to be present in stack groups.
  */
-export function selectStackGroups(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): AllStackGroups | undefined {
+export const selectStackGroups = chartSelector(function selectStackGroups(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): AllStackGroups | undefined {
 	return combineStackGroups(
 		selectDisplayedStackedData(state, axisType, axisId, isPanorama),
 		selectStackedCartesianItemsSettings(state, axisType, axisId),
 		selectStackOffsetType(state),
 		selectReverseStackOrder(state),
 	)
-}
+})
 
 export const combineDomainOfStackGroups = (
 	stackGroups: AllStackGroups | undefined,
@@ -835,13 +791,9 @@ export const getDomainDefinition = (axisSettings: AllAxisSettings): AxisDomain =
 	return axisSettings?.domain ?? defaultNumericDomain
 }
 
-export function selectDomainDefinition(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): AxisDomain {
+export const selectDomainDefinition = chartSelector(function selectDomainDefinition(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): AxisDomain {
 	return getDomainDefinition(selectBaseAxis(state, axisType, axisId))
-}
+})
 
 /**
  * Under certain circumstances, we can determine the domain without looking at the data at all.
@@ -852,30 +804,21 @@ export function selectDomainDefinition(
  *
  * This is an optimization to avoid unnecessary data processing.
  */
-export function selectDomainFromUserPreference(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): NumberDomain | undefined {
+export const selectDomainFromUserPreference = chartSelector(function selectDomainFromUserPreference(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): NumberDomain | undefined {
 	return numericalDomainSpecifiedWithoutRequiringData(
 		selectDomainDefinition(state, axisType, axisId),
 		selectAllowsDataOverflow(state, axisType, axisId),
 	)
-}
+})
 
-export function selectDomainOfStackGroups(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): NumberDomain | undefined {
+export const selectDomainOfStackGroups = chartSelector(function selectDomainOfStackGroups(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): NumberDomain | undefined {
 	return combineDomainOfStackGroups(
 		selectStackGroups(state, axisType, axisId, isPanorama),
 		selectChartDataWithIndexes(state),
 		axisType,
 		selectDomainFromUserPreference(state, axisType, axisId),
 	)
-}
+})
 
 export const selectAllErrorBarSettings = (state: ChartState): ErrorBarsState =>
 	state.errorBars
@@ -972,12 +915,7 @@ export const combineDomainOfAllAppliedNumericalValuesIncludingErrorValues = (
 	return undefined
 }
 
-function selectDomainOfAllAppliedNumericalValuesIncludingErrorValues(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): NumberDomain | undefined {
+const selectDomainOfAllAppliedNumericalValuesIncludingErrorValues = chartSelector(function selectDomainOfAllAppliedNumericalValuesIncludingErrorValues(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): NumberDomain | undefined {
 	return combineDomainOfAllAppliedNumericalValuesIncludingErrorValues(
 		selectDisplayedData(state, axisType, axisId, isPanorama),
 		selectBaseAxis(state, axisType, axisId),
@@ -986,7 +924,7 @@ function selectDomainOfAllAppliedNumericalValuesIncludingErrorValues(
 		axisType,
 		selectChartDataSliceIfNotInPanorama(state, undefined, undefined, isPanorama),
 	)
-}
+})
 
 function onlyAllowNumbersAndStringsAndDates(item: {
 	value: unknown
@@ -1038,37 +976,25 @@ export const filterReferenceElements = <T extends ReferenceElementSettings>(
 		})
 }
 
-export function selectReferenceDotsByAxis(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): ReadonlyArray<ReferenceDotSettings> {
+export const selectReferenceDotsByAxis = chartSelector(function selectReferenceDotsByAxis(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): ReadonlyArray<ReferenceDotSettings> {
 	return filterReferenceElements(selectReferenceDots(state), axisType, axisId)
-}
+})
 
 export const selectReferenceAreas = (
 	state: ChartState,
 ): ReadonlyArray<ReferenceAreaSettings> => state.referenceElements.areas
 
-export function selectReferenceAreasByAxis(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): ReadonlyArray<ReferenceAreaSettings> {
+export const selectReferenceAreasByAxis = chartSelector(function selectReferenceAreasByAxis(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): ReadonlyArray<ReferenceAreaSettings> {
 	return filterReferenceElements(selectReferenceAreas(state), axisType, axisId)
-}
+})
 
 export const selectReferenceLines = (
 	state: ChartState,
 ): ReadonlyArray<ReferenceLineSettings> => state.referenceElements.lines
 
-export function selectReferenceLinesByAxis(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): ReadonlyArray<ReferenceLineSettings> {
+export const selectReferenceLinesByAxis = chartSelector(function selectReferenceLinesByAxis(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): ReadonlyArray<ReferenceLineSettings> {
 	return filterReferenceElements(selectReferenceLines(state), axisType, axisId)
-}
+})
 
 export const combineDotsDomain = (
 	dots: ReadonlyArray<ReferenceDotSettings> | undefined,
@@ -1084,16 +1010,12 @@ export const combineDotsDomain = (
 	return [Math.min(...allCoords), Math.max(...allCoords)]
 }
 
-function selectReferenceDotsDomain(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): NumberDomain | undefined {
+const selectReferenceDotsDomain = chartSelector(function selectReferenceDotsDomain(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): NumberDomain | undefined {
 	return combineDotsDomain(
 		selectReferenceDotsByAxis(state, axisType, axisId),
 		axisType as RenderableAxisType,
 	)
-}
+})
 
 export const combineAreasDomain = (
 	areas: ReadonlyArray<ReferenceAreaSettings> | undefined,
@@ -1114,16 +1036,12 @@ export const combineAreasDomain = (
 	return [Math.min(...allCoords), Math.max(...allCoords)]
 }
 
-function selectReferenceAreasDomain(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): NumberDomain | undefined {
+const selectReferenceAreasDomain = chartSelector(function selectReferenceAreasDomain(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): NumberDomain | undefined {
 	return combineAreasDomain(
 		selectReferenceAreasByAxis(state, axisType, axisId),
 		axisType as RenderableAxisType,
 	)
-}
+})
 
 function extractXCoordinates(line: ReferenceLineSettings): ReadonlyArray<number> {
 	if (line.x != null) {
@@ -1165,27 +1083,19 @@ export const combineLinesDomain = (
 	return [Math.min(...allCoords), Math.max(...allCoords)]
 }
 
-function selectReferenceLinesDomain(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): NumberDomain | undefined {
+const selectReferenceLinesDomain = chartSelector(function selectReferenceLinesDomain(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): NumberDomain | undefined {
 	return combineLinesDomain(
 		selectReferenceLinesByAxis(state, axisType, axisId),
 		axisType as RenderableAxisType,
 	)
-}
+})
 
-function selectReferenceElementsDomain(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): NumberDomain | undefined {
+const selectReferenceElementsDomain = chartSelector(function selectReferenceElementsDomain(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): NumberDomain | undefined {
 	const dotsDomain = selectReferenceDotsDomain(state, axisType, axisId)
 	const linesDomain = selectReferenceLinesDomain(state, axisType, axisId)
 	const areasDomain = selectReferenceAreasDomain(state, axisType, axisId)
 	return mergeDomains(dotsDomain, areasDomain, linesDomain)
-}
+})
 
 export const combineNumericalDomain = (
 	axisSettings: BaseCartesianAxis,
@@ -1255,20 +1165,11 @@ export const combineNumericTicksDomain = (
 	return [Math.min(...numericTicks), Math.max(...numericTicks)]
 }
 
-export function selectNumericTicksDomain(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): NumberDomain | undefined {
+export const selectNumericTicksDomain = chartSelector(function selectNumericTicksDomain(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): NumberDomain | undefined {
 	return combineNumericTicksDomain(selectBaseAxis(state, axisType, axisId))
-}
+})
 
-export function selectNumericalDomain(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): NumberDomain | undefined {
+export const selectNumericalDomain = chartSelector(function selectNumericalDomain(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): NumberDomain | undefined {
 	return combineNumericalDomain(
 		selectBaseAxis(state, axisType, axisId),
 		selectDomainDefinition(state, axisType, axisId),
@@ -1285,7 +1186,7 @@ export function selectNumericalDomain(
 		axisType,
 		selectNumericTicksDomain(state, axisType, axisId),
 	)
-}
+})
 
 /**
  * Expand by design maps everything between 0 and 1,
@@ -1326,12 +1227,7 @@ export const combineAxisDomain = (
 	return numericalDomain
 }
 
-export function selectAxisDomain(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): NumberDomain | CategoricalDomain | undefined {
+export const selectAxisDomain = chartSelector(function selectAxisDomain(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): NumberDomain | CategoricalDomain | undefined {
 	return combineAxisDomain(
 		selectBaseAxis(state, axisType, axisId),
 		selectChartLayout(state),
@@ -1341,19 +1237,15 @@ export function selectAxisDomain(
 		axisType,
 		selectNumericalDomain(state, axisType, axisId, isPanorama),
 	)
-}
+})
 
-export function selectRealScaleType(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): D3ScaleType | undefined {
+export const selectRealScaleType = chartSelector(function selectRealScaleType(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): D3ScaleType | undefined {
 	return combineRealScaleType(
 		selectBaseAxis(state, axisType, axisId),
 		selectHasBar(state),
 		selectChartName(state),
 	)
-}
+})
 
 export const combineNiceTicks = (
 	axisDomain: NumberDomain | CategoricalDomain | undefined,
@@ -1409,18 +1301,13 @@ export const combineNiceTicks = (
 	return undefined
 }
 
-export function selectNiceTicks(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): ReadonlyArray<number> | undefined {
+export const selectNiceTicks = chartSelector(function selectNiceTicks(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): ReadonlyArray<number> | undefined {
 	return combineNiceTicks(
 		selectAxisDomain(state, axisType, axisId, isPanorama),
 		selectRenderableAxisSettings(state, axisType, axisId),
 		selectRealScaleType(state, axisType, axisId),
 	)
-}
+})
 
 export const combineAxisDomainWithNiceTicks = (
 	axisSettings: BaseCartesianAxis,
@@ -1444,19 +1331,14 @@ export const combineAxisDomainWithNiceTicks = (
 	return domain
 }
 
-export function selectAxisDomainIncludingNiceTicks(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): NumberDomain | CategoricalDomain | undefined {
+export const selectAxisDomainIncludingNiceTicks = chartSelector(function selectAxisDomainIncludingNiceTicks(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): NumberDomain | CategoricalDomain | undefined {
 	return combineAxisDomainWithNiceTicks(
 		selectBaseAxis(state, axisType, axisId),
 		selectAxisDomain(state, axisType, axisId, isPanorama),
 		selectNiceTicks(state, axisType, axisId, isPanorama),
 		axisType,
 	)
-}
+})
 
 /**
  * Returns the smallest gap, between two numbers in the data, as a ratio of the whole range (max - min).
@@ -1464,12 +1346,7 @@ export function selectAxisDomainIncludingNiceTicks(
  *
  * The result is a number between 0 and 1.
  */
-export function selectSmallestDistanceBetweenValues(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): number | undefined {
+export const selectSmallestDistanceBetweenValues = chartSelector(function selectSmallestDistanceBetweenValues(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): number | undefined {
 	const allDataSquished = selectAllAppliedValues(state, axisType, axisId, isPanorama)
 	const axisSettings = selectBaseAxis(state, axisType, axisId)
 	if (!axisSettings || axisSettings.type !== "number") {
@@ -1498,15 +1375,9 @@ export function selectSmallestDistanceBetweenValues(
 		smallestDistanceBetweenValues = Math.min(smallestDistanceBetweenValues, distance)
 	}
 	return smallestDistanceBetweenValues / diff
-}
+})
 
-function selectCalculatedPadding(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-	padding: string,
-): number {
+const selectCalculatedPadding = chartSelector(function selectCalculatedPadding(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean, padding: string): number {
 	const smallestDistanceInPercent = selectSmallestDistanceBetweenValues(
 		state,
 		axisType,
@@ -1533,9 +1404,9 @@ function selectCalculatedPadding(
 	}
 
 	return 0
-}
+})
 
-export const selectCalculatedXAxisPadding = (
+export const selectCalculatedXAxisPadding = chartSelector((
 	state: ChartState,
 	axisId: AxisId,
 	isPanorama: boolean,
@@ -1545,9 +1416,9 @@ export const selectCalculatedXAxisPadding = (
 		return 0
 	}
 	return selectCalculatedPadding(state, "xAxis", axisId, isPanorama, xAxisSettings.padding)
-}
+})
 
-export const selectCalculatedYAxisPadding = (
+export const selectCalculatedYAxisPadding = chartSelector((
 	state: ChartState,
 	axisId: AxisId,
 	isPanorama: boolean,
@@ -1557,13 +1428,9 @@ export const selectCalculatedYAxisPadding = (
 		return 0
 	}
 	return selectCalculatedPadding(state, "yAxis", axisId, isPanorama, yAxisSettings.padding)
-}
+})
 
-function selectXAxisPadding(
-	state: ChartState,
-	axisId: AxisId,
-	isPanorama: boolean,
-): { left: number; right: number } {
+const selectXAxisPadding = chartSelector(function selectXAxisPadding(state: ChartState, axisId: AxisId, isPanorama: boolean): { left: number; right: number } {
 	const xAxisSettings = selectXAxisSettings(state, axisId)
 	const calculated = selectCalculatedXAxisPadding(state, axisId, isPanorama)
 	if (xAxisSettings == null) {
@@ -1577,13 +1444,9 @@ function selectXAxisPadding(
 		left: (padding.left ?? 0) + calculated,
 		right: (padding.right ?? 0) + calculated,
 	}
-}
+})
 
-function selectYAxisPadding(
-	state: ChartState,
-	axisId: AxisId,
-	isPanorama: boolean,
-): { top: number; bottom: number } {
+const selectYAxisPadding = chartSelector(function selectYAxisPadding(state: ChartState, axisId: AxisId, isPanorama: boolean): { top: number; bottom: number } {
 	const yAxisSettings = selectYAxisSettings(state, axisId)
 	const calculated = selectCalculatedYAxisPadding(state, axisId, isPanorama)
 	if (yAxisSettings == null) {
@@ -1597,15 +1460,11 @@ function selectYAxisPadding(
 		bottom: (padding.bottom ?? 0) + calculated,
 		top: (padding.top ?? 0) + calculated,
 	}
-}
+})
 
 export type AxisRange = readonly [number, number]
 
-export function selectXAxisRange(
-	state: ChartState,
-	axisId: AxisId,
-	isPanorama: boolean,
-): AxisRange | undefined {
+export const selectXAxisRange = chartSelector(function selectXAxisRange(state: ChartState, axisId: AxisId, isPanorama: boolean): AxisRange | undefined {
 	const offset = selectChartOffsetInternal(state)
 	const padding = selectXAxisPadding(state, axisId, isPanorama)
 	const brushDimensions = selectBrushDimensions(state)
@@ -1614,13 +1473,9 @@ export function selectXAxisRange(
 		return [brushPadding.left, brushDimensions.width - brushPadding.right]
 	}
 	return [offset.left + padding.left, offset.left + offset.width - padding.right]
-}
+})
 
-export function selectYAxisRange(
-	state: ChartState,
-	axisId: AxisId,
-	isPanorama: boolean,
-): AxisRange | undefined {
+export const selectYAxisRange = chartSelector(function selectYAxisRange(state: ChartState, axisId: AxisId, isPanorama: boolean): AxisRange | undefined {
 	const offset = selectChartOffsetInternal(state)
 	const layout = selectChartLayout(state)
 	const padding = selectYAxisPadding(state, axisId, isPanorama)
@@ -1633,9 +1488,9 @@ export function selectYAxisRange(
 		return [offset.top + offset.height - padding.bottom, offset.top + padding.top]
 	}
 	return [offset.top + padding.top, offset.top + offset.height - padding.bottom]
-}
+})
 
-export const selectAxisRange = (
+export const selectAxisRange = chartSelector((
 	state: ChartState,
 	axisType: AllAxisTypes,
 	axisId: AxisId,
@@ -1655,45 +1510,30 @@ export const selectAxisRange = (
 		default:
 			return undefined
 	}
-}
+})
 
-export function selectAxisRangeWithReverse(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): AxisRange | undefined {
+export const selectAxisRangeWithReverse = chartSelector(function selectAxisRangeWithReverse(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): AxisRange | undefined {
 	return combineAxisRangeWithReverse(
 		selectBaseAxis(state, axisType, axisId),
 		selectAxisRange(state, axisType, axisId, isPanorama),
 	)
-}
+})
 
-export function selectCheckedAxisDomain(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): NumberDomain | CategoricalDomain | undefined {
+export const selectCheckedAxisDomain = chartSelector(function selectCheckedAxisDomain(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): NumberDomain | CategoricalDomain | undefined {
 	return combineCheckedDomain(
 		selectRealScaleType(state, axisType, axisId),
 		selectAxisDomainIncludingNiceTicks(state, axisType, axisId, isPanorama),
 	)
-}
+})
 
-function selectConfiguredScale(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): CustomScaleDefinition | undefined {
+const selectConfiguredScale = chartSelector(function selectConfiguredScale(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): CustomScaleDefinition | undefined {
 	return combineConfiguredScale(
 		selectBaseAxis(state, axisType, axisId),
 		selectRealScaleType(state, axisType, axisId),
 		selectCheckedAxisDomain(state, axisType, axisId, isPanorama),
 		selectAxisRangeWithReverse(state, axisType, axisId, isPanorama),
 	)
-}
+})
 
 export const combineCategoricalDomain = (
 	layout: LayoutType,
@@ -1712,61 +1552,37 @@ export const combineCategoricalDomain = (
 	return undefined
 }
 
-export function selectCategoricalDomain(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): ReadonlyArray<unknown> | undefined {
+export const selectCategoricalDomain = chartSelector(function selectCategoricalDomain(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): ReadonlyArray<unknown> | undefined {
 	return combineCategoricalDomain(
 		selectChartLayout(state),
 		selectAllAppliedValues(state, axisType, axisId, isPanorama),
 		selectRenderableAxisSettings(state, axisType, axisId),
 		axisType,
 	)
-}
+})
 
-export function selectAxisScale(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): RechartsScale | undefined {
+export const selectAxisScale = chartSelector(function selectAxisScale(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): RechartsScale | undefined {
 	return rechartsScaleFactory(selectConfiguredScale(state, axisType, axisId, isPanorama))
-}
+})
 
-export function selectAxisInverseScale(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): InverseScaleFunction | undefined {
+export const selectAxisInverseScale = chartSelector(function selectAxisInverseScale(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): InverseScaleFunction | undefined {
 	return combineInverseScaleFunction(selectConfiguredScale(state, axisType, axisId, isPanorama))
-}
+})
 
-export function selectAxisInverseDataSnapScale(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): InverseScaleFunction | undefined {
+export const selectAxisInverseDataSnapScale = chartSelector(function selectAxisInverseDataSnapScale(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): InverseScaleFunction | undefined {
 	return createCategoricalInverse(
 		selectConfiguredScale(state, axisType, axisId, isPanorama),
 		selectSortedDataPoints(state, axisType, axisId, isPanorama),
 	)
-}
+})
 
-export function selectErrorBarsSettings(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-): ReadonlyArray<ErrorBarsSettings> {
+export const selectErrorBarsSettings = chartSelector(function selectErrorBarsSettings(state: ChartState, axisType: AllAxisTypes, axisId: AxisId): ReadonlyArray<ErrorBarsSettings> {
 	return combineRelevantErrorBarSettings(
 		selectCartesianItemsSettings(state, axisType, axisId),
 		selectAllErrorBarSettings(state),
 		axisType as RenderableAxisType,
 	)
-}
+})
 
 function compareIds(a: CartesianAxisSettings, b: CartesianAxisSettings) {
 	if (a.id < b.id) {
@@ -1778,27 +1594,19 @@ function compareIds(a: CartesianAxisSettings, b: CartesianAxisSettings) {
 	return 0
 }
 
-function selectAllXAxesWithOffsetType(
-	state: ChartState,
-	orientation: XAxisOrientation,
-	mirror: boolean,
-): ReadonlyArray<XAxisSettings> {
+const selectAllXAxesWithOffsetType = chartSelector(function selectAllXAxesWithOffsetType(state: ChartState, orientation: XAxisOrientation, mirror: boolean): ReadonlyArray<XAxisSettings> {
 	return selectAllXAxes(state)
 		.filter((axis) => axis.orientation === orientation)
 		.filter((axis) => axis.mirror === mirror)
 		.sort(compareIds)
-}
+})
 
-function selectAllYAxesWithOffsetType(
-	state: ChartState,
-	orientation: YAxisOrientation,
-	mirror: boolean,
-): ReadonlyArray<YAxisSettings> {
+const selectAllYAxesWithOffsetType = chartSelector(function selectAllYAxesWithOffsetType(state: ChartState, orientation: YAxisOrientation, mirror: boolean): ReadonlyArray<YAxisSettings> {
 	return selectAllYAxes(state)
 		.filter((axis) => axis.orientation === orientation)
 		.filter((axis) => axis.mirror === mirror)
 		.sort(compareIds)
-}
+})
 
 const getXAxisSize = (offset: ChartOffsetInternal, axisSettings: XAxisSettings): Size => {
 	const height = typeof axisSettings.height === "number" ? axisSettings.height : DEFAULT_X_AXIS_HEIGHT
@@ -1816,9 +1624,9 @@ const getYAxisSize = (offset: ChartOffsetInternal, axisSettings: YAxisSettings):
 	}
 }
 
-export function selectXAxisSize(state: ChartState, xAxisId: AxisId): Size {
+export const selectXAxisSize = chartSelector(function selectXAxisSize(state: ChartState, xAxisId: AxisId): Size {
 	return getXAxisSize(selectChartOffsetInternal(state), selectXAxisSettings(state, xAxisId))
-}
+})
 
 type AxisOffsetSteps = Record<AxisId, number>
 
@@ -1852,11 +1660,7 @@ const combineYAxisPositionStartingPoint = (
 	}
 }
 
-export function selectAllXAxesOffsetSteps(
-	state: ChartState,
-	orientation: XAxisOrientation,
-	mirror: boolean,
-): AxisOffsetSteps {
+export const selectAllXAxesOffsetSteps = chartSelector(function selectAllXAxesOffsetSteps(state: ChartState, orientation: XAxisOrientation, mirror: boolean): AxisOffsetSteps {
 	const chartHeight = selectChartHeight(state)
 	const offset = selectChartOffsetInternal(state)
 	const allAxesWithSameOffsetType = selectAllXAxesWithOffsetType(state, orientation, mirror)
@@ -1873,13 +1677,9 @@ export function selectAllXAxesOffsetSteps(
 		position += (needSpace ? -1 : 1) * axisSize.height
 	})
 	return steps
-}
+})
 
-export function selectAllYAxesOffsetSteps(
-	state: ChartState,
-	orientation: YAxisOrientation,
-	mirror: boolean,
-): AxisOffsetSteps {
+export const selectAllYAxesOffsetSteps = chartSelector(function selectAllYAxesOffsetSteps(state: ChartState, orientation: YAxisOrientation, mirror: boolean): AxisOffsetSteps {
 	const chartWidth = selectChartWidth(state)
 	const offset = selectChartOffsetInternal(state)
 	const allAxesWithSameOffsetType = selectAllYAxesWithOffsetType(state, orientation, mirror)
@@ -1896,20 +1696,17 @@ export function selectAllYAxesOffsetSteps(
 		position += (needSpace ? -1 : 1) * axisSize.width
 	})
 	return steps
-}
+})
 
-const selectXAxisOffsetSteps = (state: ChartState, axisId: AxisId) => {
+const selectXAxisOffsetSteps = chartSelector((state: ChartState, axisId: AxisId) => {
 	const axisSettings = selectXAxisSettings(state, axisId)
 	if (axisSettings == null) {
 		return undefined
 	}
 	return selectAllXAxesOffsetSteps(state, axisSettings.orientation, axisSettings.mirror)
-}
+})
 
-export function selectXAxisPosition(
-	state: ChartState,
-	axisId: AxisId,
-): Coordinate | undefined {
+export const selectXAxisPosition = chartSelector(function selectXAxisPosition(state: ChartState, axisId: AxisId): Coordinate | undefined {
 	const offset = selectChartOffsetInternal(state)
 	const axisSettings = selectXAxisSettings(state, axisId)
 	const allSteps = selectXAxisOffsetSteps(state, axisId)
@@ -1921,20 +1718,17 @@ export function selectXAxisPosition(
 		return { x: offset.left, y: 0 }
 	}
 	return { x: offset.left, y: stepOfThisAxis }
-}
+})
 
-const selectYAxisOffsetSteps = (state: ChartState, axisId: AxisId) => {
+const selectYAxisOffsetSteps = chartSelector((state: ChartState, axisId: AxisId) => {
 	const axisSettings = selectYAxisSettings(state, axisId)
 	if (axisSettings == null) {
 		return undefined
 	}
 	return selectAllYAxesOffsetSteps(state, axisSettings.orientation, axisSettings.mirror)
-}
+})
 
-export function selectYAxisPosition(
-	state: ChartState,
-	axisId: AxisId,
-): Coordinate | undefined {
+export const selectYAxisPosition = chartSelector(function selectYAxisPosition(state: ChartState, axisId: AxisId): Coordinate | undefined {
 	const offset = selectChartOffsetInternal(state)
 	const axisSettings = selectYAxisSettings(state, axisId)
 	const allSteps = selectYAxisOffsetSteps(state, axisId)
@@ -1946,9 +1740,9 @@ export function selectYAxisPosition(
 		return { x: 0, y: offset.top }
 	}
 	return { x: stepOfThisAxis, y: offset.top }
-}
+})
 
-export function selectYAxisSize(state: ChartState, yAxisId: AxisId): Size {
+export const selectYAxisSize = chartSelector(function selectYAxisSize(state: ChartState, yAxisId: AxisId): Size {
 	const offset = selectChartOffsetInternal(state)
 	const axisSettings = selectYAxisSettings(state, yAxisId)
 	const width = typeof axisSettings.width === "number" ? axisSettings.width : DEFAULT_Y_AXIS_WIDTH
@@ -1956,9 +1750,9 @@ export function selectYAxisSize(state: ChartState, yAxisId: AxisId): Size {
 		height: offset.height,
 		width,
 	}
-}
+})
 
-export const selectCartesianAxisSize = (
+export const selectCartesianAxisSize = chartSelector((
 	state: ChartState,
 	axisType: RenderableAxisType,
 	axisId: AxisId,
@@ -1974,7 +1768,7 @@ export const selectCartesianAxisSize = (
 			return undefined
 		}
 	}
-}
+})
 
 export const combineDuplicateDomain = (
 	chartLayout: LayoutType,
@@ -2000,26 +1794,16 @@ export const combineDuplicateDomain = (
 	return undefined
 }
 
-export function selectDuplicateDomain(
-	state: ChartState,
-	axisType: AllAxisTypes,
-	axisId: AxisId,
-	isPanorama: boolean,
-): ReadonlyArray<unknown> | undefined {
+export const selectDuplicateDomain = chartSelector(function selectDuplicateDomain(state: ChartState, axisType: AllAxisTypes, axisId: AxisId, isPanorama: boolean): ReadonlyArray<unknown> | undefined {
 	return combineDuplicateDomain(
 		selectChartLayout(state),
 		selectAllAppliedValues(state, axisType, axisId, isPanorama),
 		selectBaseAxis(state, axisType, axisId),
 		axisType,
 	)
-}
+})
 
-export function selectAxisPropsNeededForCartesianGridTicksGenerator(
-	state: ChartState,
-	axisType: "xAxis" | "yAxis",
-	axisId: AxisId,
-	isPanorama: boolean,
-): AxisPropsForCartesianGridTicksGeneration | undefined {
+export const selectAxisPropsNeededForCartesianGridTicksGenerator = chartSelector(function selectAxisPropsNeededForCartesianGridTicksGenerator(state: ChartState, axisType: "xAxis" | "yAxis", axisId: AxisId, isPanorama: boolean): AxisPropsForCartesianGridTicksGeneration | undefined {
 	const layout = selectChartLayout(state)
 	const axis = selectCartesianAxisSettings(state, axisType, axisId)
 	const realScaleType = selectRealScaleType(state, axisType, axisId)
@@ -2053,7 +1837,7 @@ export function selectAxisPropsNeededForCartesianGridTicksGenerator(
 		type: axis.type,
 		unit: axis.unit,
 	}
-}
+})
 
 /**
  * Of on four almost identical implementations of tick generation.
@@ -2167,12 +1951,7 @@ export const combineAxisTicks = (
 		.filter(isNotNil)
 }
 
-export function selectTicksOfAxis(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): ReadonlyArray<CartesianTickItem> | undefined {
+export const selectTicksOfAxis = chartSelector(function selectTicksOfAxis(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): ReadonlyArray<CartesianTickItem> | undefined {
 	return combineAxisTicks(
 		selectChartLayout(state),
 		selectRenderableAxisSettings(state, axisType, axisId),
@@ -2184,7 +1963,7 @@ export function selectTicksOfAxis(
 		selectCategoricalDomain(state, axisType, axisId, isPanorama),
 		axisType,
 	)
-}
+})
 
 /**
  * Of on four almost identical implementations of tick generation.
@@ -2264,12 +2043,7 @@ export const combineGraphicalItemTicks = (
 		.filter(isNotNil)
 }
 
-export function selectTicksOfGraphicalItem(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): TickItem[] | undefined {
+export const selectTicksOfGraphicalItem = chartSelector(function selectTicksOfGraphicalItem(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): TickItem[] | undefined {
 	return combineGraphicalItemTicks(
 		selectChartLayout(state),
 		selectRenderableAxisSettings(state, axisType, axisId),
@@ -2279,7 +2053,7 @@ export function selectTicksOfGraphicalItem(
 		selectCategoricalDomain(state, axisType, axisId, isPanorama),
 		axisType,
 	)
-}
+})
 
 /**
  * This is the internal representation of an axis along with its scale function.
@@ -2288,13 +2062,7 @@ export function selectTicksOfGraphicalItem(
  */
 export type BaseAxisWithScale = Omit<BaseCartesianAxis, "scale"> & { scale: RechartsScale }
 
-export function selectAxisWithScale(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-	override?: XAxisSettings | YAxisSettings,
-): BaseAxisWithScale | undefined {
+export const selectAxisWithScale = chartSelector(function selectAxisWithScale(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean, override?: XAxisSettings | YAxisSettings): BaseAxisWithScale | undefined {
 	const axis = override !== undefined ? override : selectBaseAxis(state, axisType, axisId)
 	const scale = selectAxisScale(state, axisType, axisId, isPanorama)
 	if (axis == null || scale == null) {
@@ -2304,39 +2072,24 @@ export function selectAxisWithScale(
 		...axis,
 		scale,
 	}
-}
+})
 
-function selectZAxisConfiguredScale(
-	state: ChartState,
-	axisType: "zAxis",
-	axisId: AxisId,
-	isPanorama: false,
-): CustomScaleDefinition | undefined {
+const selectZAxisConfiguredScale = chartSelector(function selectZAxisConfiguredScale(state: ChartState, axisType: "zAxis", axisId: AxisId, isPanorama: false): CustomScaleDefinition | undefined {
 	return combineConfiguredScale(
 		selectBaseAxis(state, axisType, axisId),
 		selectRealScaleType(state, axisType, axisId),
 		selectAxisDomain(state, axisType, axisId, isPanorama),
 		selectAxisRangeWithReverse(state, axisType, axisId, isPanorama),
 	)
-}
+})
 
-function selectZAxisScale(
-	state: ChartState,
-	axisType: "zAxis",
-	axisId: AxisId,
-	isPanorama: false,
-): RechartsScale | undefined {
+const selectZAxisScale = chartSelector(function selectZAxisScale(state: ChartState, axisType: "zAxis", axisId: AxisId, isPanorama: false): RechartsScale | undefined {
 	return rechartsScaleFactory(selectZAxisConfiguredScale(state, axisType, axisId, isPanorama))
-}
+})
 
 export type ZAxisWithScale = Omit<ZAxisSettings, "scale"> & { scale: RechartsScale }
 
-export function selectZAxisWithScale(
-	state: ChartState,
-	_axisType: "zAxis",
-	axisId: AxisId,
-	isPanorama: false,
-): ZAxisWithScale | undefined {
+export const selectZAxisWithScale = chartSelector(function selectZAxisWithScale(state: ChartState, _axisType: "zAxis", axisId: AxisId, isPanorama: false): ZAxisWithScale | undefined {
 	const axis = selectZAxisSettings(state, axisId)
 	const scale = selectZAxisScale(state, "zAxis", axisId, isPanorama)
 	if (axis == null || scale == null) {
@@ -2346,14 +2099,14 @@ export function selectZAxisWithScale(
 		...axis,
 		scale,
 	}
-}
+})
 
 /**
  * We are also going to need to implement polar chart directions if we want to support keyboard controls for those.
  */
 export type AxisDirection = "left-to-right" | "right-to-left" | "top-to-bottom" | "bottom-to-top"
 
-export function selectChartDirection(state: ChartState): AxisDirection | undefined {
+export const selectChartDirection = chartSelector(function selectChartDirection(state: ChartState): AxisDirection | undefined {
 	const layout = selectChartLayout(state)
 	const allXAxes = selectAllXAxes(state)
 	const allYAxes = selectAllYAxes(state)
@@ -2373,14 +2126,9 @@ export function selectChartDirection(state: ChartState): AxisDirection | undefin
 			return undefined
 		}
 	}
-}
+})
 
-export function selectAxisInverseTickSnapScale(
-	state: ChartState,
-	axisType: RenderableAxisType,
-	axisId: AxisId,
-	isPanorama: boolean,
-): InverseScaleFunction | undefined {
+export const selectAxisInverseTickSnapScale = chartSelector(function selectAxisInverseTickSnapScale(state: ChartState, axisType: RenderableAxisType, axisId: AxisId, isPanorama: boolean): InverseScaleFunction | undefined {
 	const ticks = selectTicksOfAxis(state, axisType, axisId, isPanorama)
 	if (!ticks || ticks.length === 0) {
 		return undefined
@@ -2399,12 +2147,8 @@ export function selectAxisInverseTickSnapScale(
 		}
 		return closestTick?.value
 	}
-}
+})
 
-export function selectRenderedTicksOfAxis(
-	state: ChartState,
-	axisType: "xAxis" | "yAxis",
-	axisId: AxisId,
-): ReadonlyArray<TickItem> | undefined {
+export const selectRenderedTicksOfAxis = chartSelector(function selectRenderedTicksOfAxis(state: ChartState, axisType: "xAxis" | "yAxis", axisId: AxisId): ReadonlyArray<TickItem> | undefined {
 	return readChartState(state).renderedTicks[axisType]?.[String(axisId)]
-}
+})

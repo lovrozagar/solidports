@@ -312,26 +312,8 @@ const SVGElementPropKeys = [
 
 export type SVGElementPropKeysType = (typeof SVGElementPropKeys)[number]
 
-const SVGElementPropKeySet = new Set<string>(SVGElementPropKeys)
-
-/* Kebab-case forms also accepted at the boundary so callers can write
- * `clip-path` directly in JSX without losing the attr through the
- * svgPropertiesAndEvents filter. Filled lazily from SVG_CAMEL_TO_KEBAB. */
-let SVGElementKebabKeySet: Set<string> | null = null
-function getKebabKeySet(): Set<string> {
-	if (SVGElementKebabKeySet === null) {
-		SVGElementKebabKeySet = new Set<string>()
-		for (const v of SVG_CAMEL_TO_KEBAB.values()) SVGElementKebabKeySet.add(v)
-	}
-	return SVGElementKebabKeySet
-}
-
 export function isSvgElementPropKey(key: PropertyKey): boolean {
-	if (typeof key !== "string") {
-		return false
-	}
-	if (SVGElementPropKeySet.has(key)) return true
-	return getKebabKeySet().has(key)
+	return typeof key === "string" && SVG_KEY_TO_CANONICAL.has(key)
 }
 
 export type DataAttributeKeyType = `data-${string}`
@@ -444,37 +426,66 @@ const SVG_CAMEL_TO_KEBAB = new Map<string, string>([
 	["autoFocus", "autofocus"],
 ])
 
-export function canonicalSvgKey(key: string): string {
+function canonicalSvgKey(key: string): string {
 	return SVG_CAMEL_TO_KEBAB.get(key) ?? key
+}
+
+/* Raw prop key -> canonical DOM key for every accepted SVG element key: the camelCase list
+ * plus the kebab-case forms callers may write directly (`clip-path`). One lookup per key. */
+const SVG_KEY_TO_CANONICAL: ReadonlyMap<string, string> = (() => {
+	const map = new Map<string, string>()
+	for (const key of SVGElementPropKeys) map.set(key, canonicalSvgKey(key))
+	for (const kebab of SVG_CAMEL_TO_KEBAB.values()) map.set(kebab, canonicalSvgKey(kebab))
+	return map
+})()
+
+/**
+ * Canonical DOM key for an accepted SVG element prop or `data-*` attribute; undefined otherwise.
+ */
+export function svgPropCanonicalKey(key: string): string | undefined {
+	const canonical = SVG_KEY_TO_CANONICAL.get(key)
+	if (canonical !== undefined) {
+		return canonical
+	}
+	return key.startsWith("data-") ? key : undefined
+}
+
+/*
+ * Own string keys without enumerability checks. Props objects are plain objects or Solid merge
+ * views; `Object.keys` asks a merge view for a property descriptor per key, which dominates the
+ * per-element cost of these filters. Props never carry non-enumerable own keys.
+ */
+export function ownStringKeys(obj: object): string[] {
+	const keys = Reflect.ownKeys(obj)
+	const result: string[] = []
+	for (const key of keys) {
+		if (typeof key === "string") {
+			result.push(key)
+		}
+	}
+	return result
 }
 
 /* Reverse map of SVG_CAMEL_TO_KEBAB, plus `class` -> `className`. Used to
  * present user-facing handler payloads (onClick(props,...)) in the camelCase
  * shape upstream React tests expect. The DOM attribute name stays kebab — only
  * the in-memory object passed to the user handler is normalized. */
-let SVG_KEBAB_TO_CAMEL: Map<string, string> | null = null
-function getKebabToCamelMap(): Map<string, string> {
-	if (SVG_KEBAB_TO_CAMEL === null) {
-		SVG_KEBAB_TO_CAMEL = new Map<string, string>()
-		for (const [camel, kebab] of SVG_CAMEL_TO_KEBAB.entries()) {
-			if (camel !== kebab) SVG_KEBAB_TO_CAMEL.set(kebab, camel)
-		}
-		SVG_KEBAB_TO_CAMEL.set("class", "className")
+const SVG_KEBAB_TO_CAMEL: ReadonlyMap<string, string> = (() => {
+	const map = new Map<string, string>()
+	for (const [camel, kebab] of SVG_CAMEL_TO_KEBAB) {
+		if (camel !== kebab) map.set(kebab, camel)
 	}
-	return SVG_KEBAB_TO_CAMEL
-}
+	map.set("class", "className")
+	return map
+})()
 
 /* Renames kebab SVG attrs (and `class`) to upstream React camelCase before the
  * payload is handed to user-supplied handlers. Keeps non-mapped keys verbatim
  * (data-*, event keys, points/baseLine/etc. that are pass-through camel). */
 export function camelizeSvgPropsForHandler<T extends object>(obj: T): T {
-	const map = getKebabToCamelMap()
 	const out: Record<string, unknown> = {}
-	for (const key in obj) {
-		if (Object.prototype.hasOwnProperty.call(obj, key)) {
-			const renamed = map.get(key) ?? key
-			out[renamed] = (obj as Record<string, unknown>)[key]
-		}
+	for (const key of ownStringKeys(obj)) {
+		out[SVG_KEBAB_TO_CAMEL.get(key) ?? key] = (obj as Record<string, unknown>)[key]
 	}
 	return out as T
 }
@@ -482,19 +493,21 @@ export function camelizeSvgPropsForHandler<T extends object>(obj: T): T {
 /**
  * Filters an object to only include SVG properties. Removes all event handlers too.
  * @param obj - The object to filter
+ * @param omitKey - Optional raw key to drop (saves a rest-spread copy at call sites).
  * @returns A new object containing only valid SVG properties, excluding event handlers.
  */
-export function svgPropertiesNoEvents<T extends object>(obj: T | boolean): SVGPropsNoEvents<T> {
+export function svgPropertiesNoEvents<T extends object>(
+	obj: T | boolean,
+	omitKey?: string,
+): SVGPropsNoEvents<T> {
 	if (typeof obj !== "object" || obj === null) {
 		return {} as SVGPropsNoEvents<T>
 	}
 	const result: Record<PropertyKey, unknown> = {}
-
-	for (const key in obj) {
-		if (Object.prototype.hasOwnProperty.call(obj, key)) {
-			if (isSvgElementPropKey(key) || isDataAttribute(key)) {
-				result[canonicalSvgKey(key)] = obj[key]
-			}
+	for (const key of ownStringKeys(obj)) {
+		const canonical = key === omitKey ? undefined : svgPropCanonicalKey(key)
+		if (canonical !== undefined) {
+			result[canonical] = (obj as Record<string, unknown>)[key]
 		}
 	}
 	return result as SVGPropsNoEvents<T>

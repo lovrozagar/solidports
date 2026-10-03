@@ -1,16 +1,16 @@
 {
-  "author": "MUI Team",
+  "author": "Lovro Žagar",
   "bugs": {
     "url": "https://github.com/lovrozagar/solidports/issues"
   },
   "dependencies": {
-    "@babel/runtime": "catalog:",
     "@floating-ui/dom": "catalog:",
     "@floating-ui/utils": "catalog:",
     "tabbable": "catalog:"
   },
-  "description": "Base UI is a library of headless ('unstyled') Solid components and low-level hooks. You gain complete control over your app's CSS and accessibility features.",
+  "description": "Headless, accessible Solid 2 components and hooks: a port of MUI Base UI.",
   "devDependencies": {
+    "@date-fns/tz": "catalog:",
     "@solidjs/router": "catalog:",
     "@solidjs/signals": "catalog:",
     "@solidjs/testing-library": "catalog:",
@@ -19,12 +19,13 @@
     "@testing-library/user-event": "catalog:",
     "@types/chai": "catalog:",
     "@types/chai-dom": "catalog:",
+    "@types/luxon": "catalog:",
     "@types/sinon": "catalog:",
-    "babel-plugin-macros": "catalog:",
-    "babel-preset-solid": "catalog:",
     "chai": "catalog:",
     "clsx": "catalog:",
+    "date-fns": "catalog:",
     "eslint-plugin-solid": "catalog:",
+    "luxon": "catalog:",
     "sinon": "catalog:",
     "solid-js": "catalog:",
     "typescript": "catalog:"
@@ -33,92 +34,408 @@
     "node": ">=14.0.0"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./accordion": "./src/accordion/index.ts",
-    "./alert-dialog": "./src/alert-dialog/index.ts",
-    "./autocomplete": "./src/autocomplete/index.ts",
-    "./avatar": "./src/avatar/index.ts",
-    "./button": "./src/button/index.ts",
-    "./checkbox": "./src/checkbox/index.ts",
-    "./checkbox-group": "./src/checkbox-group/index.ts",
-    "./collapsible": "./src/collapsible/index.ts",
-    "./combobox": "./src/combobox/index.ts",
-    "./context-menu": "./src/context-menu/index.ts",
-    "./csp-provider": "./src/csp-provider/index.ts",
-    "./dialog": "./src/dialog/index.ts",
-    "./direction-provider": "./src/direction-provider/index.ts",
-    "./drawer": "./src/drawer/index.ts",
-    "./field": "./src/field/index.ts",
-    "./fieldset": "./src/fieldset/index.ts",
-    "./form": "./src/form/index.ts",
-    "./input": "./src/input/index.ts",
-    "./menu": "./src/menu/index.ts",
-    "./menubar": "./src/menubar/index.ts",
-    "./merge-props": "./src/merge-props/index.ts",
-    "./meter": "./src/meter/index.ts",
-    "./navigation-menu": "./src/navigation-menu/index.ts",
-    "./number-field": "./src/number-field/index.ts",
-    "./otp-field": "./src/otp-field/index.ts",
-    "./popover": "./src/popover/index.ts",
-    "./preview-card": "./src/preview-card/index.ts",
-    "./progress": "./src/progress/index.ts",
-    "./radio": "./src/radio/index.ts",
-    "./radio-group": "./src/radio-group/index.ts",
-    "./scroll-area": "./src/scroll-area/index.ts",
-    "./select": "./src/select/index.ts",
-    "./separator": "./src/separator/index.ts",
-    "./slider": "./src/slider/index.ts",
-    "./switch": "./src/switch/index.ts",
-    "./tabs": "./src/tabs/index.ts",
-    "./toast": "./src/toast/index.ts",
-    "./toggle": "./src/toggle/index.ts",
-    "./toggle-group": "./src/toggle-group/index.ts",
-    "./toolbar": "./src/toolbar/index.ts",
-    "./tooltip": "./src/tooltip/index.ts",
-    "./types": "./src/types/index.ts",
-    "./unstable-use-media-query": "./src/unstable-use-media-query/index.ts",
-    "./use-render": "./src/use-render/index.ts",
-    "./utils": "./src/utils/index.ts",
-    "./internals/composite": "./src/internals/composite/index.ts",
-    "./internals/constants": "./src/internals/constants.ts",
-    "./internals/createBaseUIEventDetails": "./src/internals/createBaseUIEventDetails.ts",
-    "./internals/csp-context": "./src/internals/csp-context/index.ts",
-    "./internals/direction-context": "./src/internals/direction-context/index.ts",
-    "./internals/field-constants": "./src/internals/field-constants/index.ts",
-    "./internals/field-register-control": "./src/internals/field-register-control/index.ts",
-    "./internals/field-root-context": "./src/internals/field-root-context/index.ts",
-    "./internals/filter": "./src/internals/filter.ts",
-    "./internals/itemEquality": "./src/internals/itemEquality.ts",
-    "./internals/form-context": "./src/internals/form-context/index.ts",
-    "./internals/getDisabledMountTransitionStyles": "./src/internals/getDisabledMountTransitionStyles.ts",
-    "./internals/getStateAttributesProps": "./src/internals/getStateAttributesProps.ts",
-    "./internals/labelable-provider": "./src/internals/labelable-provider/index.ts",
-    "./internals/noop": "./src/internals/noop.ts",
-    "./internals/reasons": "./src/internals/reasons.ts",
-    "./internals/resolveValueLabel": "./src/internals/resolveValueLabel.tsx",
-    "./internals/RequestQueue": "./src/internals/RequestQueue.ts",
-    "./internals/serializeValue": "./src/internals/serializeValue.ts",
-    "./internals/stateAttributesMapping": "./src/internals/stateAttributesMapping.ts",
-    "./internals/temporal": "./src/internals/temporal/index.ts",
-    "./internals/temporal-adapter-date-fns": "./src/internals/temporal-adapter-date-fns/index.ts",
-    "./internals/temporal-adapter-luxon": "./src/internals/temporal-adapter-luxon/index.ts",
-    "./internals/TimeoutManager": "./src/internals/TimeoutManager.ts",
-    "./internals/types": "./src/internals/types.ts",
-    "./internals/use-button": "./src/internals/use-button/index.ts",
-    "./internals/useBaseUiId": "./src/internals/useBaseUiId.ts",
-    "./internals/useAnchorPositioning": "./src/internals/useAnchorPositioning.ts",
-    "./internals/useAnimationsFinished": "./src/internals/useAnimationsFinished.ts",
-    "./internals/useOpenChangeComplete": "./src/internals/useOpenChangeComplete.tsx",
-    "./internals/usePressAndHold": "./src/internals/usePressAndHold.ts",
-    "./internals/useRenderElement": "./src/internals/useRenderElement.tsx",
-    "./internals/useValueChanged": "./src/internals/useValueChanged.ts",
-    "./internals/useTransitionStatus": "./src/internals/useTransitionStatus.ts"
+    ".": {
+      "types": "./types/index.d.ts",
+      "solid": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./accordion": {
+      "types": "./types/accordion/index.d.ts",
+      "solid": "./src/accordion/index.ts",
+      "default": "./src/accordion/index.ts"
+    },
+    "./alert-dialog": {
+      "types": "./types/alert-dialog/index.d.ts",
+      "solid": "./src/alert-dialog/index.ts",
+      "default": "./src/alert-dialog/index.ts"
+    },
+    "./autocomplete": {
+      "types": "./types/autocomplete/index.d.ts",
+      "solid": "./src/autocomplete/index.ts",
+      "default": "./src/autocomplete/index.ts"
+    },
+    "./avatar": {
+      "types": "./types/avatar/index.d.ts",
+      "solid": "./src/avatar/index.ts",
+      "default": "./src/avatar/index.ts"
+    },
+    "./button": {
+      "types": "./types/button/index.d.ts",
+      "solid": "./src/button/index.ts",
+      "default": "./src/button/index.ts"
+    },
+    "./checkbox": {
+      "types": "./types/checkbox/index.d.ts",
+      "solid": "./src/checkbox/index.ts",
+      "default": "./src/checkbox/index.ts"
+    },
+    "./checkbox-group": {
+      "types": "./types/checkbox-group/index.d.ts",
+      "solid": "./src/checkbox-group/index.ts",
+      "default": "./src/checkbox-group/index.ts"
+    },
+    "./collapsible": {
+      "types": "./types/collapsible/index.d.ts",
+      "solid": "./src/collapsible/index.ts",
+      "default": "./src/collapsible/index.ts"
+    },
+    "./combobox": {
+      "types": "./types/combobox/index.d.ts",
+      "solid": "./src/combobox/index.ts",
+      "default": "./src/combobox/index.ts"
+    },
+    "./context-menu": {
+      "types": "./types/context-menu/index.d.ts",
+      "solid": "./src/context-menu/index.ts",
+      "default": "./src/context-menu/index.ts"
+    },
+    "./csp-provider": {
+      "types": "./types/csp-provider/index.d.ts",
+      "solid": "./src/csp-provider/index.ts",
+      "default": "./src/csp-provider/index.ts"
+    },
+    "./dialog": {
+      "types": "./types/dialog/index.d.ts",
+      "solid": "./src/dialog/index.ts",
+      "default": "./src/dialog/index.ts"
+    },
+    "./direction-provider": {
+      "types": "./types/direction-provider/index.d.ts",
+      "solid": "./src/direction-provider/index.ts",
+      "default": "./src/direction-provider/index.ts"
+    },
+    "./drawer": {
+      "types": "./types/drawer/index.d.ts",
+      "solid": "./src/drawer/index.ts",
+      "default": "./src/drawer/index.ts"
+    },
+    "./field": {
+      "types": "./types/field/index.d.ts",
+      "solid": "./src/field/index.ts",
+      "default": "./src/field/index.ts"
+    },
+    "./fieldset": {
+      "types": "./types/fieldset/index.d.ts",
+      "solid": "./src/fieldset/index.ts",
+      "default": "./src/fieldset/index.ts"
+    },
+    "./form": {
+      "types": "./types/form/index.d.ts",
+      "solid": "./src/form/index.ts",
+      "default": "./src/form/index.ts"
+    },
+    "./input": {
+      "types": "./types/input/index.d.ts",
+      "solid": "./src/input/index.ts",
+      "default": "./src/input/index.ts"
+    },
+    "./menu": {
+      "types": "./types/menu/index.d.ts",
+      "solid": "./src/menu/index.ts",
+      "default": "./src/menu/index.ts"
+    },
+    "./menubar": {
+      "types": "./types/menubar/index.d.ts",
+      "solid": "./src/menubar/index.ts",
+      "default": "./src/menubar/index.ts"
+    },
+    "./merge-props": {
+      "types": "./types/merge-props/index.d.ts",
+      "solid": "./src/merge-props/index.ts",
+      "default": "./src/merge-props/index.ts"
+    },
+    "./meter": {
+      "types": "./types/meter/index.d.ts",
+      "solid": "./src/meter/index.ts",
+      "default": "./src/meter/index.ts"
+    },
+    "./navigation-menu": {
+      "types": "./types/navigation-menu/index.d.ts",
+      "solid": "./src/navigation-menu/index.ts",
+      "default": "./src/navigation-menu/index.ts"
+    },
+    "./number-field": {
+      "types": "./types/number-field/index.d.ts",
+      "solid": "./src/number-field/index.ts",
+      "default": "./src/number-field/index.ts"
+    },
+    "./otp-field": {
+      "types": "./types/otp-field/index.d.ts",
+      "solid": "./src/otp-field/index.ts",
+      "default": "./src/otp-field/index.ts"
+    },
+    "./popover": {
+      "types": "./types/popover/index.d.ts",
+      "solid": "./src/popover/index.ts",
+      "default": "./src/popover/index.ts"
+    },
+    "./preview-card": {
+      "types": "./types/preview-card/index.d.ts",
+      "solid": "./src/preview-card/index.ts",
+      "default": "./src/preview-card/index.ts"
+    },
+    "./progress": {
+      "types": "./types/progress/index.d.ts",
+      "solid": "./src/progress/index.ts",
+      "default": "./src/progress/index.ts"
+    },
+    "./radio": {
+      "types": "./types/radio/index.d.ts",
+      "solid": "./src/radio/index.ts",
+      "default": "./src/radio/index.ts"
+    },
+    "./radio-group": {
+      "types": "./types/radio-group/index.d.ts",
+      "solid": "./src/radio-group/index.ts",
+      "default": "./src/radio-group/index.ts"
+    },
+    "./scroll-area": {
+      "types": "./types/scroll-area/index.d.ts",
+      "solid": "./src/scroll-area/index.ts",
+      "default": "./src/scroll-area/index.ts"
+    },
+    "./select": {
+      "types": "./types/select/index.d.ts",
+      "solid": "./src/select/index.ts",
+      "default": "./src/select/index.ts"
+    },
+    "./separator": {
+      "types": "./types/separator/index.d.ts",
+      "solid": "./src/separator/index.ts",
+      "default": "./src/separator/index.ts"
+    },
+    "./slider": {
+      "types": "./types/slider/index.d.ts",
+      "solid": "./src/slider/index.ts",
+      "default": "./src/slider/index.ts"
+    },
+    "./switch": {
+      "types": "./types/switch/index.d.ts",
+      "solid": "./src/switch/index.ts",
+      "default": "./src/switch/index.ts"
+    },
+    "./tabs": {
+      "types": "./types/tabs/index.d.ts",
+      "solid": "./src/tabs/index.ts",
+      "default": "./src/tabs/index.ts"
+    },
+    "./toast": {
+      "types": "./types/toast/index.d.ts",
+      "solid": "./src/toast/index.ts",
+      "default": "./src/toast/index.ts"
+    },
+    "./toggle": {
+      "types": "./types/toggle/index.d.ts",
+      "solid": "./src/toggle/index.ts",
+      "default": "./src/toggle/index.ts"
+    },
+    "./toggle-group": {
+      "types": "./types/toggle-group/index.d.ts",
+      "solid": "./src/toggle-group/index.ts",
+      "default": "./src/toggle-group/index.ts"
+    },
+    "./toolbar": {
+      "types": "./types/toolbar/index.d.ts",
+      "solid": "./src/toolbar/index.ts",
+      "default": "./src/toolbar/index.ts"
+    },
+    "./tooltip": {
+      "types": "./types/tooltip/index.d.ts",
+      "solid": "./src/tooltip/index.ts",
+      "default": "./src/tooltip/index.ts"
+    },
+    "./types": {
+      "types": "./types/types/index.d.ts",
+      "solid": "./src/types/index.ts",
+      "default": "./src/types/index.ts"
+    },
+    "./unstable-use-media-query": {
+      "types": "./types/unstable-use-media-query/index.d.ts",
+      "solid": "./src/unstable-use-media-query/index.ts",
+      "default": "./src/unstable-use-media-query/index.ts"
+    },
+    "./use-render": {
+      "types": "./types/use-render/index.d.ts",
+      "solid": "./src/use-render/index.ts",
+      "default": "./src/use-render/index.ts"
+    },
+    "./utils": {
+      "types": "./types/utils/index.d.ts",
+      "solid": "./src/utils/index.ts",
+      "default": "./src/utils/index.ts"
+    },
+    "./internals/composite": {
+      "types": "./types/internals/composite/index.d.ts",
+      "solid": "./src/internals/composite/index.ts",
+      "default": "./src/internals/composite/index.ts"
+    },
+    "./internals/constants": {
+      "types": "./types/internals/constants.d.ts",
+      "solid": "./src/internals/constants.ts",
+      "default": "./src/internals/constants.ts"
+    },
+    "./internals/createBaseUIEventDetails": {
+      "types": "./types/internals/createBaseUIEventDetails.d.ts",
+      "solid": "./src/internals/createBaseUIEventDetails.ts",
+      "default": "./src/internals/createBaseUIEventDetails.ts"
+    },
+    "./internals/csp-context": {
+      "types": "./types/internals/csp-context/index.d.ts",
+      "solid": "./src/internals/csp-context/index.ts",
+      "default": "./src/internals/csp-context/index.ts"
+    },
+    "./internals/direction-context": {
+      "types": "./types/internals/direction-context/index.d.ts",
+      "solid": "./src/internals/direction-context/index.ts",
+      "default": "./src/internals/direction-context/index.ts"
+    },
+    "./internals/field-constants": {
+      "types": "./types/internals/field-constants/index.d.ts",
+      "solid": "./src/internals/field-constants/index.ts",
+      "default": "./src/internals/field-constants/index.ts"
+    },
+    "./internals/field-register-control": {
+      "types": "./types/internals/field-register-control/index.d.ts",
+      "solid": "./src/internals/field-register-control/index.ts",
+      "default": "./src/internals/field-register-control/index.ts"
+    },
+    "./internals/field-root-context": {
+      "types": "./types/internals/field-root-context/index.d.ts",
+      "solid": "./src/internals/field-root-context/index.ts",
+      "default": "./src/internals/field-root-context/index.ts"
+    },
+    "./internals/filter": {
+      "types": "./types/internals/filter.d.ts",
+      "solid": "./src/internals/filter.ts",
+      "default": "./src/internals/filter.ts"
+    },
+    "./internals/itemEquality": {
+      "types": "./types/internals/itemEquality.d.ts",
+      "solid": "./src/internals/itemEquality.ts",
+      "default": "./src/internals/itemEquality.ts"
+    },
+    "./internals/form-context": {
+      "types": "./types/internals/form-context/index.d.ts",
+      "solid": "./src/internals/form-context/index.ts",
+      "default": "./src/internals/form-context/index.ts"
+    },
+    "./internals/getDisabledMountTransitionStyles": {
+      "types": "./types/internals/getDisabledMountTransitionStyles.d.ts",
+      "solid": "./src/internals/getDisabledMountTransitionStyles.ts",
+      "default": "./src/internals/getDisabledMountTransitionStyles.ts"
+    },
+    "./internals/getStateAttributesProps": {
+      "types": "./types/internals/getStateAttributesProps.d.ts",
+      "solid": "./src/internals/getStateAttributesProps.ts",
+      "default": "./src/internals/getStateAttributesProps.ts"
+    },
+    "./internals/labelable-provider": {
+      "types": "./types/internals/labelable-provider/index.d.ts",
+      "solid": "./src/internals/labelable-provider/index.ts",
+      "default": "./src/internals/labelable-provider/index.ts"
+    },
+    "./internals/noop": {
+      "types": "./types/internals/noop.d.ts",
+      "solid": "./src/internals/noop.ts",
+      "default": "./src/internals/noop.ts"
+    },
+    "./internals/reasons": {
+      "types": "./types/internals/reasons.d.ts",
+      "solid": "./src/internals/reasons.ts",
+      "default": "./src/internals/reasons.ts"
+    },
+    "./internals/resolveValueLabel": {
+      "types": "./types/internals/resolveValueLabel.d.ts",
+      "solid": "./src/internals/resolveValueLabel.tsx",
+      "default": "./src/internals/resolveValueLabel.tsx"
+    },
+    "./internals/RequestQueue": {
+      "types": "./types/internals/RequestQueue.d.ts",
+      "solid": "./src/internals/RequestQueue.ts",
+      "default": "./src/internals/RequestQueue.ts"
+    },
+    "./internals/serializeValue": {
+      "types": "./types/internals/serializeValue.d.ts",
+      "solid": "./src/internals/serializeValue.ts",
+      "default": "./src/internals/serializeValue.ts"
+    },
+    "./internals/stateAttributesMapping": {
+      "types": "./types/internals/stateAttributesMapping.d.ts",
+      "solid": "./src/internals/stateAttributesMapping.ts",
+      "default": "./src/internals/stateAttributesMapping.ts"
+    },
+    "./internals/temporal": {
+      "types": "./types/internals/temporal/index.d.ts",
+      "solid": "./src/internals/temporal/index.ts",
+      "default": "./src/internals/temporal/index.ts"
+    },
+    "./internals/temporal-adapter-date-fns": {
+      "types": "./types/internals/temporal-adapter-date-fns/index.d.ts",
+      "solid": "./src/internals/temporal-adapter-date-fns/index.ts",
+      "default": "./src/internals/temporal-adapter-date-fns/index.ts"
+    },
+    "./internals/temporal-adapter-luxon": {
+      "types": "./types/internals/temporal-adapter-luxon/index.d.ts",
+      "solid": "./src/internals/temporal-adapter-luxon/index.ts",
+      "default": "./src/internals/temporal-adapter-luxon/index.ts"
+    },
+    "./internals/TimeoutManager": {
+      "types": "./types/internals/TimeoutManager.d.ts",
+      "solid": "./src/internals/TimeoutManager.ts",
+      "default": "./src/internals/TimeoutManager.ts"
+    },
+    "./internals/types": {
+      "types": "./types/internals/types.d.ts",
+      "solid": "./src/internals/types.ts",
+      "default": "./src/internals/types.ts"
+    },
+    "./internals/use-button": {
+      "types": "./types/internals/use-button/index.d.ts",
+      "solid": "./src/internals/use-button/index.ts",
+      "default": "./src/internals/use-button/index.ts"
+    },
+    "./internals/useBaseUiId": {
+      "types": "./types/internals/useBaseUiId.d.ts",
+      "solid": "./src/internals/useBaseUiId.ts",
+      "default": "./src/internals/useBaseUiId.ts"
+    },
+    "./internals/useAnchorPositioning": {
+      "types": "./types/internals/useAnchorPositioning.d.ts",
+      "solid": "./src/internals/useAnchorPositioning.ts",
+      "default": "./src/internals/useAnchorPositioning.ts"
+    },
+    "./internals/useAnimationsFinished": {
+      "types": "./types/internals/useAnimationsFinished.d.ts",
+      "solid": "./src/internals/useAnimationsFinished.ts",
+      "default": "./src/internals/useAnimationsFinished.ts"
+    },
+    "./internals/useOpenChangeComplete": {
+      "types": "./types/internals/useOpenChangeComplete.d.ts",
+      "solid": "./src/internals/useOpenChangeComplete.tsx",
+      "default": "./src/internals/useOpenChangeComplete.tsx"
+    },
+    "./internals/usePressAndHold": {
+      "types": "./types/internals/usePressAndHold.d.ts",
+      "solid": "./src/internals/usePressAndHold.ts",
+      "default": "./src/internals/usePressAndHold.ts"
+    },
+    "./internals/useRenderElement": {
+      "types": "./types/internals/useRenderElement.d.ts",
+      "solid": "./src/internals/useRenderElement.tsx",
+      "default": "./src/internals/useRenderElement.tsx"
+    },
+    "./internals/useValueChanged": {
+      "types": "./types/internals/useValueChanged.d.ts",
+      "solid": "./src/internals/useValueChanged.ts",
+      "default": "./src/internals/useValueChanged.ts"
+    },
+    "./internals/useTransitionStatus": {
+      "types": "./types/internals/useTransitionStatus.d.ts",
+      "solid": "./src/internals/useTransitionStatus.ts",
+      "default": "./src/internals/useTransitionStatus.ts"
+    }
   },
-  "funding": {
-    "type": "opencollective",
-    "url": "https://opencollective.com/mui-org"
-  },
-  "homepage": "https://base-ui.com",
+  "homepage": "https://github.com/lovrozagar/solidports/tree/main/packages/base-ui/packages/solid#readme",
   "imports": {
     "#formatErrorMessage": "./src/utils/formatErrorMessage.ts",
     "#test-utils": "./test/index.ts",
@@ -132,16 +449,18 @@
     "a11y"
   ],
   "license": "MIT",
-  "main": "index.js",
   "name": "@solidports/base-ui",
   "peerDependencies": {
-    "@solidjs/web": ">=2.0.0-rc.13",
-    "solid-js": ">=2.0.0-rc.13"
+    "@date-fns/tz": "^1.2.0",
+    "@solidjs/signals": "~2.0.0-rc.13",
+    "@solidjs/web": "~2.0.0-rc.13",
+    "date-fns": "^4.0.0",
+    "luxon": "^3.0.0",
+    "solid-js": "~2.0.0-rc.13"
   },
   "private": false,
   "publishConfig": {
-    "access": "public",
-    "directory": "build"
+    "access": "public"
   },
   "repository": {
     "directory": "packages/base-ui/packages/solid",
@@ -149,16 +468,36 @@
     "url": "git+https://github.com/lovrozagar/solidports.git"
   },
   "scripts": {
-    "build": "node ./scripts-new/cli/index.mjs build --ignore \"**/*.template.js\" --copy .npmignore --noCheck",
-    "prebuild": "rimraf --glob build build-tests \"*.tsbuildinfo\"",
-    "release": "bun build && bun publish",
+    "prepack": "bun run types",
     "test": "cross-env VITEST_ENV=jsdom vitest",
-    "test:package": "publint ./build && cross-env NPM_CONFIG_CACHE=/tmp/base-ui-npm-cache attw --pack ./build --exclude-entrypoints package.json --exclude-entrypoints esm --exclude-entrypoints cjs",
+    "test:package": "publint . && cross-env NPM_CONFIG_CACHE=/tmp/base-ui-npm-cache attw --pack . --profile esm-only",
     "ts:specific": "bun --filter \"@solidports/base-ui\" exec tsc -p tsconfig.build.json --noEmit --skipLibCheck",
     "type:check": "tsc --noEmit -p tsconfig.build.json --skipLibCheck",
+    "types": "tsc -p tsconfig.build.json",
     "typescript": "tsc -b tsconfig.json"
   },
   "sideEffects": false,
-  "type": "commonjs",
-  "version": "1.8.0-sp.1"
+  "type": "module",
+  "version": "1.8.0-1",
+  "files": [
+    "src",
+    "types",
+    "README.md",
+    "LICENSE",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/test-utils.*",
+    "!src/**/*.d.ts"
+  ],
+  "peerDependenciesMeta": {
+    "@date-fns/tz": {
+      "optional": true
+    },
+    "date-fns": {
+      "optional": true
+    },
+    "luxon": {
+      "optional": true
+    }
+  }
 }

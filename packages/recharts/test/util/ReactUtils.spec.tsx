@@ -51,6 +51,24 @@ describe("ReactUtils", () => {
 			})
 			expect(Object.keys(result ?? {})).toEqual(["onClick"])
 		})
+
+		test("adaptEventHandlers returns an empty result when no handler exists", () => {
+			const result = adaptEventHandlers({ fill: "red", "data-x": 1, onClick: undefined })
+			expect(result).toEqual({})
+			expect(adaptEventHandlers({})).toEqual({})
+		})
+
+		test("adaptEventHandlers passes the camelCase payload and reads the handler live", () => {
+			const first = vi.fn()
+			const second = vi.fn()
+			const props: Record<string, unknown> = { "stroke-width": 2, class: "c", onClick: first }
+			const result = adaptEventHandlers(props)
+			props.onClick = second
+			const event = new Event("click")
+			result?.onClick?.(event)
+			expect(first).not.toHaveBeenCalled()
+			expect(second).toHaveBeenCalledWith({ strokeWidth: 2, className: "c", onClick: first }, event)
+		})
 	})
 
 	describe("adaptEventsOfChild", () => {

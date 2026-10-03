@@ -3,14 +3,7 @@ import { createMemo } from "solid-js"
 import { splitProps } from "../util/solid-1-compat"
 import { Curve, type Props as CurveProps } from "../shape/Curve"
 import type { ShapeAnimationProps } from "../util/types"
-
-function getTotalLength(path: SVGPathElement | null): number {
-	try {
-		return (path && path.getTotalLength && path.getTotalLength()) || 0
-	} catch {
-		return 0
-	}
-}
+import { pathTotalLength } from "../util/pathTotalLength"
 
 function generateSimpleStrokeDasharray(totalLength: number, length: number): string {
 	return `${length}px ${totalLength}px`
@@ -86,7 +79,7 @@ export function LineDrawShape(props: LineDrawShapeProps): JSX.Element {
 
 	const strokeDasharray = createMemo((): string | undefined => {
 		if (local.visibleLength != null) {
-			const totalLength = getTotalLength(curveProps.pathRef?.current ?? null)
+			const totalLength = pathTotalLength(curveProps.pathRef?.current)
 			return computeAnimatedStrokeDasharray(local.strokeDasharray, totalLength, local.visibleLength)
 		}
 		return local.strokeDasharray == null ? undefined : String(local.strokeDasharray)

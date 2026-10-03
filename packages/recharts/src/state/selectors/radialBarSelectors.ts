@@ -61,6 +61,7 @@ import { combineBarSizeList } from "./combiners/combineBarSizeList"
 import { combineAllBarPositions } from "./combiners/combineAllBarPositions"
 import { combineStackedData } from "./combiners/combineStackedData"
 import type { RechartsScale } from "../../util/scale/RechartsScale"
+import { chartSelector } from "./chartSelector"
 import { combineBarPosition } from "./combiners/combineBarPosition"
 
 const selectRadiusAxisForRadialBar = (
@@ -68,29 +69,26 @@ const selectRadiusAxisForRadialBar = (
 	radiusAxisId: AxisId,
 ): RadiusAxisSettings => selectRadiusAxis(state, radiusAxisId)
 
-const selectRadiusAxisScaleForRadar = (
+const selectRadiusAxisScaleForRadar = chartSelector((
 	state: ChartState,
 	radiusAxisId: AxisId,
-): RechartsScale | undefined => selectPolarAxisScale(state, "radiusAxis", radiusAxisId)
+): RechartsScale | undefined => selectPolarAxisScale(state, "radiusAxis", radiusAxisId))
 
-export function selectRadiusAxisWithScale(
-	state: ChartState,
-	radiusAxisId: AxisId,
-): BaseAxisWithScale | undefined {
+export const selectRadiusAxisWithScale = chartSelector(function selectRadiusAxisWithScale(state: ChartState, radiusAxisId: AxisId): BaseAxisWithScale | undefined {
 	const axis = selectRadiusAxisForRadialBar(state, radiusAxisId)
 	const scale = selectRadiusAxisScaleForRadar(state, radiusAxisId)
 	if (axis == null || scale == null) {
 		return undefined
 	}
 	return { ...axis, scale }
-}
+})
 
-export const selectRadiusAxisTicks = (
+export const selectRadiusAxisTicks = chartSelector((
 	state: ChartState,
 	radiusAxisId: AxisId,
 ): ReadonlyArray<TickItem> | undefined => {
 	return selectPolarGraphicalItemAxisTicks(state, "radiusAxis", radiusAxisId, false)
-}
+})
 
 const selectAngleAxisForRadialBar = (
 	state: ChartState,
@@ -98,37 +96,30 @@ const selectAngleAxisForRadialBar = (
 	angleAxisId: AxisId,
 ): AngleAxisSettings => selectAngleAxis(state, angleAxisId)
 
-const selectAngleAxisScaleForRadialBar = (
+const selectAngleAxisScaleForRadialBar = chartSelector((
 	state: ChartState,
 	_radiusAxisId: AxisId,
 	angleAxisId: AxisId,
-): RechartsScale | undefined => selectPolarAxisScale(state, "angleAxis", angleAxisId)
+): RechartsScale | undefined => selectPolarAxisScale(state, "angleAxis", angleAxisId))
 
-export function selectAngleAxisWithScale(
-	state: ChartState,
-	_radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-): BaseAxisWithScale | undefined {
+export const selectAngleAxisWithScale = chartSelector(function selectAngleAxisWithScale(state: ChartState, _radiusAxisId: AxisId, angleAxisId: AxisId): BaseAxisWithScale | undefined {
 	const axis = selectAngleAxisForRadialBar(state, _radiusAxisId, angleAxisId)
 	const scale = selectAngleAxisScaleForRadialBar(state, _radiusAxisId, angleAxisId)
 	if (axis == null || scale == null) {
 		return undefined
 	}
 	return { ...axis, scale }
-}
+})
 
-const selectAngleAxisTicks = (
+const selectAngleAxisTicks = chartSelector((
 	state: ChartState,
 	_radiusAxisId: AxisId,
 	angleAxisId: AxisId,
 ): ReadonlyArray<TickItem> | undefined => {
 	return selectPolarAxisTicks(state, "angleAxis", angleAxisId, false)
-}
+})
 
-function selectSynchronisedRadialBarSettings(
-	state: ChartState,
-	radialBarSettings: RadialBarSettings,
-): RadialBarSettings | undefined {
+const selectSynchronisedRadialBarSettings = chartSelector(function selectSynchronisedRadialBarSettings(state: ChartState, radialBarSettings: RadialBarSettings): RadialBarSettings | undefined {
 	const graphicalItems = selectUnfilteredPolarItems(state)
 	if (
 		graphicalItems.some(
@@ -141,13 +132,9 @@ function selectSynchronisedRadialBarSettings(
 		return radialBarSettings
 	}
 	return undefined
-}
+})
 
-export function selectBandSizeOfPolarAxis(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-): number | undefined {
+export const selectBandSizeOfPolarAxis = chartSelector(function selectBandSizeOfPolarAxis(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId): number | undefined {
 	const layout: LayoutType = selectChartLayout(state)
 	const radiusAxis = selectRadiusAxisWithScale(state, radiusAxisId)
 	const radiusAxisTicks = selectRadiusAxisTicks(state, radiusAxisId)
@@ -158,13 +145,9 @@ export function selectBandSizeOfPolarAxis(
 		return getBandSizeOfAxis(radiusAxis, radiusAxisTicks, false)
 	}
 	return getBandSizeOfAxis(angleAxis, angleAxisTicks, false)
-}
+})
 
-export function selectBaseValue(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-): number | unknown {
+export const selectBaseValue = chartSelector(function selectBaseValue(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId): number | unknown {
 	const angleAxis = selectAngleAxisWithScale(state, radiusAxisId, angleAxisId)
 	const radiusAxis = selectRadiusAxisWithScale(state, radiusAxisId)
 	const layout = selectChartLayout(state)
@@ -173,17 +156,12 @@ export function selectBaseValue(
 		return undefined
 	}
 	return getBaseValueOfBar({ numericAxis })
-}
+})
 
 const isRadialBar = (item: PolarGraphicalItemSettings): item is RadialBarSettings =>
 	item.type === "radialBar"
 
-function selectAllVisibleRadialBars(
-	state: ChartState,
-	layout: LayoutType,
-	angleAxisId: AxisId,
-	radiusAxisId: AxisId,
-): ReadonlyArray<RadialBarSettings> {
+const selectAllVisibleRadialBars = chartSelector(function selectAllVisibleRadialBars(state: ChartState, layout: LayoutType, angleAxisId: AxisId, radiusAxisId: AxisId): ReadonlyArray<RadialBarSettings> {
 	const allItems = selectUnfilteredPolarItems(state)
 	return allItems
 		.filter((i) => {
@@ -194,28 +172,18 @@ function selectAllVisibleRadialBars(
 		})
 		.filter((i) => i.hide === false)
 		.filter(isRadialBar)
-}
+})
 
-export function selectPolarBarSizeList(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-	_radialBarSettings: RadialBarSettings,
-): SizeList {
+export const selectPolarBarSizeList = chartSelector(function selectPolarBarSizeList(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId, _radialBarSettings: RadialBarSettings): SizeList {
 	const layout = selectChartLayout(state)
 	return combineBarSizeList(
 		selectAllVisibleRadialBars(state, layout, angleAxisId, radiusAxisId),
 		selectRootBarSize(state),
 		undefined,
 	)
-}
+})
 
-export function selectPolarBarBandSize(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-	childMaxBarSize: number | undefined,
-): number {
+export const selectPolarBarBandSize = chartSelector(function selectPolarBarBandSize(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId, childMaxBarSize: number | undefined): number {
 	const layout: LayoutType = selectChartLayout(state)
 	const globalMaxBarSize = selectRootMaxBarSize(state)
 	const angleAxis = selectAngleAxisWithScale(state, radiusAxisId, angleAxisId)
@@ -230,14 +198,9 @@ export function selectPolarBarBandSize(
 		return getBandSizeOfAxis(angleAxis, angleAxisTicks, true) ?? maxBarSize ?? 0
 	}
 	return getBandSizeOfAxis(radiusAxis, radiusAxisTicks, true) ?? maxBarSize ?? 0
-}
+})
 
-export function selectAllPolarBarPositions(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-	radialBarSettings: RadialBarSettings,
-): ReadonlyArray<BarWithPosition> | undefined {
+export const selectAllPolarBarPositions = chartSelector(function selectAllPolarBarPositions(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId, radialBarSettings: RadialBarSettings): ReadonlyArray<BarWithPosition> | undefined {
 	return combineAllBarPositions(
 		selectPolarBarSizeList(state, radiusAxisId, angleAxisId, radialBarSettings),
 		selectRootMaxBarSize(state),
@@ -247,84 +210,54 @@ export function selectAllPolarBarPositions(
 		selectBandSizeOfPolarAxis(state, radiusAxisId, angleAxisId),
 		radialBarSettings.maxBarSize,
 	)
-}
+})
 
-export function selectPolarBarPosition(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-	radialBarSettings: RadialBarSettings,
-): BarPositionPosition | undefined {
+export const selectPolarBarPosition = chartSelector(function selectPolarBarPosition(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId, radialBarSettings: RadialBarSettings): BarPositionPosition | undefined {
 	return combineBarPosition(
 		selectAllPolarBarPositions(state, radiusAxisId, angleAxisId, radialBarSettings),
 		selectSynchronisedRadialBarSettings(state, radialBarSettings),
 	)
-}
+})
 
-function selectStackedRadialBars(
-	state: ChartState,
-	axisType: PolarAxisType,
-	polarAxisId: AxisId,
-): ReadonlyArray<DefinitelyStackedGraphicalItem> {
+const selectStackedRadialBars = chartSelector(function selectStackedRadialBars(state: ChartState, axisType: PolarAxisType, polarAxisId: AxisId): ReadonlyArray<DefinitelyStackedGraphicalItem> {
 	return selectPolarItemsSettings(state, axisType, polarAxisId)
 		.filter(isRadialBar)
 		.filter(isStacked)
-}
+})
 
-function selectPolarCombinedStackedData(
-	state: ChartState,
-	axisType: PolarAxisType,
-	polarAxisId: AxisId,
-): DisplayedStackedData {
+const selectPolarCombinedStackedData = chartSelector(function selectPolarCombinedStackedData(state: ChartState, axisType: PolarAxisType, polarAxisId: AxisId): DisplayedStackedData {
 	return combineDisplayedStackedData(
 		selectStackedRadialBars(state, axisType, polarAxisId),
 		selectChartDataAndAlwaysIgnoreIndexes(state),
 		selectTooltipAxis(state),
 	)
-}
+})
 
-function selectRadialBarStackGroups(
-	state: ChartState,
-	axisType: PolarAxisType,
-	polarAxisId: AxisId,
-): AllStackGroups | undefined {
+const selectRadialBarStackGroups = chartSelector(function selectRadialBarStackGroups(state: ChartState, axisType: PolarAxisType, polarAxisId: AxisId): AllStackGroups | undefined {
 	return combineStackGroups(
 		selectPolarCombinedStackedData(state, axisType, polarAxisId),
 		selectStackedRadialBars(state, axisType, polarAxisId),
 		selectStackOffsetType(state),
 		selectReverseStackOrder(state),
 	)
-}
+})
 
-function selectRadialBarStackGroupsByLayout(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-): AllStackGroups | undefined {
+const selectRadialBarStackGroupsByLayout = chartSelector(function selectRadialBarStackGroupsByLayout(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId): AllStackGroups | undefined {
 	const layout = selectChartLayout(state)
 	if (layout === "centric") {
 		return selectRadialBarStackGroups(state, "radiusAxis", radiusAxisId)
 	}
 	return selectRadialBarStackGroups(state, "angleAxis", angleAxisId)
-}
+})
 
-function selectPolarStackedData(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-	radialBarSettings: RadialBarSettings,
-): StackSeries | undefined {
+const selectPolarStackedData = chartSelector(function selectPolarStackedData(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId, radialBarSettings: RadialBarSettings): StackSeries | undefined {
 	return combineStackedData(
 		selectRadialBarStackGroupsByLayout(state, radiusAxisId, angleAxisId),
 		selectSynchronisedRadialBarSettings(state, radialBarSettings),
 	)
-}
+})
 
-function selectRadiusAxisWithScaleWithOverride(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	override: RadiusAxisSettings,
-): BaseAxisWithScale | undefined {
+const selectRadiusAxisWithScaleWithOverride = chartSelector(function selectRadiusAxisWithScaleWithOverride(state: ChartState, radiusAxisId: AxisId, override: RadiusAxisSettings): BaseAxisWithScale | undefined {
 	const axisRange = selectRadiusAxisRangeWithReversed(state, radiusAxisId)
 	if (axisRange == null) {
 		return undefined
@@ -345,14 +278,9 @@ function selectRadiusAxisWithScaleWithOverride(
 		return undefined
 	}
 	return { ...override, scale }
-}
+})
 
-function selectAngleAxisWithScaleWithOverride(
-	state: ChartState,
-	_radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-	override: AngleAxisSettings,
-): BaseAxisWithScale | undefined {
+const selectAngleAxisWithScaleWithOverride = chartSelector(function selectAngleAxisWithScaleWithOverride(state: ChartState, _radiusAxisId: AxisId, angleAxisId: AxisId, override: AngleAxisSettings): BaseAxisWithScale | undefined {
 	const axisRange = selectAngleAxisRangeWithReversed(state, angleAxisId)
 	if (axisRange == null) {
 		return undefined
@@ -372,7 +300,7 @@ function selectAngleAxisWithScaleWithOverride(
 		return undefined
 	}
 	return { ...override, scale }
-}
+})
 
 export const pickMaxBarSize = (
 	_state: ChartState,
@@ -382,15 +310,7 @@ export const pickMaxBarSize = (
 	_cells: ReadonlyArray<Record<string, unknown>> | undefined,
 ): number | undefined => radialBarSettings.maxBarSize
 
-export function selectRadialBarSectors(
-	state: ChartState,
-	radiusAxisId: AxisId,
-	angleAxisId: AxisId,
-	radialBarSettings: RadialBarSettings,
-	cells: ReadonlyArray<Record<string, unknown>> | undefined,
-	radiusAxisOverride?: RadiusAxisSettings,
-	angleAxisOverride?: AngleAxisSettings,
-): ReadonlyArray<RadialBarDataItem> {
+export const selectRadialBarSectors = chartSelector(function selectRadialBarSectors(state: ChartState, radiusAxisId: AxisId, angleAxisId: AxisId, radialBarSettings: RadialBarSettings, cells: ReadonlyArray<Record<string, unknown>> | undefined, radiusAxisOverride?: RadiusAxisSettings, angleAxisOverride?: AngleAxisSettings): ReadonlyArray<RadialBarDataItem> {
 	const angleAxis = angleAxisOverride != null
 		? selectAngleAxisWithScaleWithOverride(state, radiusAxisId, angleAxisId, angleAxisOverride)
 		: selectAngleAxisWithScale(state, radiusAxisId, angleAxisId)
@@ -489,12 +409,9 @@ export function selectRadialBarSectors(
 		stackedDomain,
 		startAngle,
 	})
-}
+})
 
-export function selectRadialBarLegendPayload(
-	state: ChartState,
-	legendType: LegendType | undefined,
-): ReadonlyArray<LegendPayload> {
+export const selectRadialBarLegendPayload = chartSelector(function selectRadialBarLegendPayload(state: ChartState, legendType: LegendType | undefined): ReadonlyArray<LegendPayload> {
 	const { chartData, dataStartIndex, dataEndIndex }: ChartDataState =
 		selectChartDataAndAlwaysIgnoreIndexes(state)
 
@@ -515,4 +432,4 @@ export function selectRadialBarLegendPayload(
 			value: (entry as Record<string, unknown>).name as string,
 		}
 	})
-}
+})

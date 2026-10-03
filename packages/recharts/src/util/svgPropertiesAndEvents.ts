@@ -1,11 +1,6 @@
 import { isEventKey } from "./excludeEventProps"
-import {
-	canonicalSvgKey,
-	DataAttributeKeyType,
-	isDataAttribute,
-	isSvgElementPropKey,
-	SVGElementPropKeysType,
-} from "./svgPropertiesNoEvents"
+import { ownStringKeys, svgPropCanonicalKey } from "./svgPropertiesNoEvents"
+import type { DataAttributeKeyType, SVGElementPropKeysType } from "./svgPropertiesNoEvents"
 import type { EventKeysType } from "./excludeEventProps"
 
 type SVGElementPropsAndEventsType = SVGElementPropKeysType | EventKeysType | DataAttributeKeyType
@@ -19,17 +14,14 @@ export type SVGPropsAndEvents<T> = Pick<T, Extract<keyof T, SVGElementPropsAndEv
  */
 export function svgPropertiesAndEvents<T extends object>(obj: T): SVGPropsAndEvents<T> {
 	const result: Record<PropertyKey, unknown> = {}
-	/* for ... in loop is 10x faster than Object.entries + filter + Object.fromEntries in Chrome */
-
-	for (const key in obj) {
-		if (Object.prototype.hasOwnProperty.call(obj, key)) {
-			if (isSvgElementPropKey(key) || isDataAttribute(key)) {
-				result[canonicalSvgKey(key)] = obj[key]
-			} else if (isEventKey(key)) {
-				/* Event handler keys (onClick etc.) keep their camelCase — Solid uses
-				 * delegation via the original prop name. */
-				result[key] = obj[key]
-			}
+	for (const key of ownStringKeys(obj)) {
+		const canonical = svgPropCanonicalKey(key)
+		if (canonical !== undefined) {
+			result[canonical] = (obj as Record<string, unknown>)[key]
+		} else if (isEventKey(key)) {
+			/* Event handler keys (onClick etc.) keep their camelCase — Solid uses
+			 * delegation via the original prop name. */
+			result[key] = (obj as Record<string, unknown>)[key]
 		}
 	}
 	return result as SVGPropsAndEvents<T>

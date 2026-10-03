@@ -4,6 +4,7 @@ import type { ChartState } from "../store"
 import type { LegendSettings } from "../legendSlice"
 import type { LegendPayload } from "../../component/DefaultLegendContent"
 import type { Size } from "../../util/types"
+import { chartSelector } from "./chartSelector"
 import { readChartState } from "../chartState"
 
 export const selectLegendSettings = (state: ChartState): LegendSettings => {
@@ -20,9 +21,9 @@ const selectAllLegendPayload2DArray = (
 	return readChartState(state).legend.payload
 }
 
-export function selectLegendPayload(state: ChartState): ReadonlyArray<LegendPayload> {
+export const selectLegendPayload = chartSelector(function selectLegendPayload(state: ChartState): ReadonlyArray<LegendPayload> {
 	const payloads = selectAllLegendPayload2DArray(state)
 	const { itemSorter } = selectLegendSettings(state)
 	const flat = payloads.flat(1)
 	return itemSorter ? sortBy(flat, itemSorter) : flat
-}
+})

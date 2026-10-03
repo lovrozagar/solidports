@@ -24,6 +24,7 @@ import type {
 import type { AreaSettings } from "../types/AreaSettings"
 import type { GraphicalItemId } from "../graphicalItemsSlice"
 import { selectChartBaseValue } from "./rootPropsSelectors"
+import { chartSelector } from "./chartSelector"
 import {
 	selectXAxisIdFromGraphicalItemId,
 	selectYAxisIdFromGraphicalItemId,
@@ -49,7 +50,7 @@ export type ComputedArea = {
 	isRange: boolean
 }
 
-const selectXAxisWithScale = (
+const selectXAxisWithScale = chartSelector((
 	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
@@ -61,9 +62,9 @@ const selectXAxisWithScale = (
 		selectXAxisIdFromGraphicalItemId(state, graphicalItemId),
 		isPanorama,
 		override,
-	)
+	))
 
-const selectXAxisTicks = (
+const selectXAxisTicks = chartSelector((
 	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
@@ -73,9 +74,9 @@ const selectXAxisTicks = (
 		"xAxis",
 		selectXAxisIdFromGraphicalItemId(state, graphicalItemId),
 		isPanorama,
-	)
+	))
 
-const selectYAxisWithScale = (
+const selectYAxisWithScale = chartSelector((
 	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
@@ -87,9 +88,9 @@ const selectYAxisWithScale = (
 		selectYAxisIdFromGraphicalItemId(state, graphicalItemId),
 		isPanorama,
 		override,
-	)
+	))
 
-const selectYAxisTicks = (
+const selectYAxisTicks = chartSelector((
 	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
@@ -99,14 +100,9 @@ const selectYAxisTicks = (
 		"yAxis",
 		selectYAxisIdFromGraphicalItemId(state, graphicalItemId),
 		isPanorama,
-	)
+	))
 
-function selectBandSize(
-	state: ChartState,
-	graphicalItemId: GraphicalItemId,
-	isPanorama: boolean,
-	overrides?: AreaAxisOverrides,
-) {
+const selectBandSize = chartSelector(function selectBandSize(state: ChartState, graphicalItemId: GraphicalItemId, isPanorama: boolean, overrides?: AreaAxisOverrides) {
 	const layout = selectChartLayout(state)
 	const xAxis = selectXAxisWithScale(state, graphicalItemId, isPanorama, overrides?.xAxis)
 	const yAxis = selectYAxisWithScale(state, graphicalItemId, isPanorama, overrides?.yAxis)
@@ -116,25 +112,22 @@ function selectBandSize(
 		return getBandSizeOfAxis(xAxis, xAxisTicks, false)
 	}
 	return getBandSizeOfAxis(yAxis, yAxisTicks, false)
-}
+})
 
-function selectSynchronisedAreaSettings(
-	state: ChartState,
-	id: GraphicalItemId,
-): AreaSettings | undefined {
+const selectSynchronisedAreaSettings = chartSelector(function selectSynchronisedAreaSettings(state: ChartState, id: GraphicalItemId): AreaSettings | undefined {
 	const graphicalItems = selectUnfilteredCartesianItems(state)
 	return graphicalItems.filter((item) => item.type === "area").find((item) => item.id === id) as
 		| AreaSettings
 		| undefined
-}
+})
 
-const selectNumericalAxisType = (state: ChartState): "xAxis" | "yAxis" => {
+const selectNumericalAxisType = chartSelector((state: ChartState): "xAxis" | "yAxis" => {
 	const layout = selectChartLayout(state)
 	const isXAxisCategorical = isCategoricalAxis(layout, "xAxis")
 	return isXAxisCategorical ? "yAxis" : "xAxis"
-}
+})
 
-const selectNumericalAxisIdFromGraphicalItemId = (
+const selectNumericalAxisIdFromGraphicalItemId = chartSelector((
 	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 ): AxisId => {
@@ -143,9 +136,9 @@ const selectNumericalAxisIdFromGraphicalItemId = (
 		return selectYAxisIdFromGraphicalItemId(state, graphicalItemId)
 	}
 	return selectXAxisIdFromGraphicalItemId(state, graphicalItemId)
-}
+})
 
-const selectNumericalAxisStackGroups = (
+const selectNumericalAxisStackGroups = chartSelector((
 	state: ChartState,
 	graphicalItemId: GraphicalItemId,
 	isPanorama: boolean,
@@ -155,13 +148,9 @@ const selectNumericalAxisStackGroups = (
 		selectNumericalAxisType(state),
 		selectNumericalAxisIdFromGraphicalItemId(state, graphicalItemId),
 		isPanorama,
-	)
+	))
 
-export function selectGraphicalItemStackedData(
-	state: ChartState,
-	id: GraphicalItemId,
-	isPanorama: boolean,
-): ReadonlyArray<StackDataPoint> | undefined {
+export const selectGraphicalItemStackedData = chartSelector(function selectGraphicalItemStackedData(state: ChartState, id: GraphicalItemId, isPanorama: boolean): ReadonlyArray<StackDataPoint> | undefined {
 	const areaSettings = selectSynchronisedAreaSettings(state, id)
 	const stackGroups = selectNumericalAxisStackGroups(state, id, isPanorama)
 	if (areaSettings == null || stackGroups == null) {
@@ -179,13 +168,9 @@ export function selectGraphicalItemStackedData(
 		return undefined
 	}
 	return found.map((item): StackDataPoint => [item[0], item[1]])
-}
+})
 
-function selectStackDataKeys(
-	state: ChartState,
-	id: GraphicalItemId,
-	isPanorama: boolean,
-): ReadonlyArray<DataKey<unknown>> | undefined {
+const selectStackDataKeys = chartSelector(function selectStackDataKeys(state: ChartState, id: GraphicalItemId, isPanorama: boolean): ReadonlyArray<DataKey<unknown>> | undefined {
 	const areaSettings = selectSynchronisedAreaSettings(state, id)
 	const stackGroups = selectNumericalAxisStackGroups(state, id, isPanorama)
 	if (areaSettings == null || areaSettings.stackId == null || stackGroups == null) {
@@ -196,14 +181,9 @@ function selectStackDataKeys(
 		return undefined
 	}
 	return group.graphicalItems.map((item) => item.dataKey).filter(isNotNil)
-}
+})
 
-export function selectArea(
-	state: ChartState,
-	id: GraphicalItemId,
-	isPanorama: boolean,
-	overrides?: AreaAxisOverrides,
-): ComputedArea | undefined {
+export const selectArea = chartSelector(function selectArea(state: ChartState, id: GraphicalItemId, isPanorama: boolean, overrides?: AreaAxisOverrides): ComputedArea | undefined {
 	const layout = selectChartLayout(state)
 	const xAxis = selectXAxisWithScale(state, id, isPanorama, overrides?.xAxis)
 	const yAxis = selectYAxisWithScale(state, id, isPanorama, overrides?.yAxis)
@@ -257,4 +237,4 @@ export function selectArea(
 		yAxis,
 		yAxisTicks,
 	})
-}
+})

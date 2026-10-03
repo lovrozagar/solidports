@@ -73,9 +73,11 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 	 * GREEN (after Step 2-3): hook subscribes to new state → spy fires → calls.length++ → PASS ✓
 	 *
 	 * Mutation target: a settings field that is NOT dual-written to the legacy store
-	 * after initial mount. `settings.hide` on the axis is set once at mount via
-	 * XAxis/YAxis props; subsequent `capturedSetState` writes go to new chartState only.
-	 * Legacy axis selectors never re-read `hide` from new state → zero legacy re-runs.
+	 * after initial mount, and that changes the hook's output. Per-axis hooks write the
+	 * axis `domain`: the shared selector memos stop propagation when a write leaves the
+	 * output equal (an x-axis `hide` only moves the vertical offset, so the x scale is
+	 * unchanged and its readers are rightly not re-run). useCartesianScale reads both
+	 * axes, so the x-axis `hide` (which resizes the y range) still drives it.
 	 */
 
 	it("useIsTooltipActive NOT reactive to new-state-only tooltip.settings.active mutation", () => {
@@ -135,7 +137,7 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 		/* Write to new chartState only — legacy store xAxis entry unchanged after initial mount.
 		   After Phase 6 Step 3: hook adds `void newCtx.state.cartesianAxes.xAxis["0"]?.settings`
 		   → memo re-runs → spy fires → GREEN. Before: spy silent → RED. */
-		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "hide" as never, true as never)
+		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "domain" as never, [0, 4] as never)
 		flush()
 
 		expect(calls.length).toBeGreaterThan(countBefore)
@@ -154,7 +156,7 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 		expect(countBefore).toBeGreaterThan(0)
 		expect(calls.at(-1)).toBeDefined()
 
-		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "hide" as never, true as never)
+		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "domain" as never, [0, 60] as never)
 		flush()
 
 		/* RED: legacy yAxis selector does not read hide flag on new state */
@@ -193,7 +195,7 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 		expect(countBefore).toBeGreaterThan(0)
 		expect(calls.at(-1)).toBeDefined()
 
-		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "hide" as never, true as never)
+		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "domain" as never, [0, 4] as never)
 		flush()
 
 		/* RED: inverse fn derived from legacy scale; new-state mutation not tracked */
@@ -213,7 +215,7 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 		expect(countBefore).toBeGreaterThan(0)
 		expect(calls.at(-1)).toBeDefined()
 
-		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "hide" as never, true as never)
+		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "domain" as never, [0, 60] as never)
 		flush()
 
 		/* RED: legacy inverse fn unaffected by new-state hide flag */
@@ -233,7 +235,7 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 		expect(countBefore).toBeGreaterThan(0)
 		expect(calls.at(-1)).toBeDefined()
 
-		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "hide" as never, true as never)
+		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "domain" as never, [0, 4] as never)
 		flush()
 
 		/* RED: snap fn derived from legacy ticks; new-state hide flag not tracked */
@@ -253,7 +255,7 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 		expect(countBefore).toBeGreaterThan(0)
 		expect(calls.at(-1)).toBeDefined()
 
-		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "hide" as never, true as never)
+		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "domain" as never, [0, 60] as never)
 		flush()
 
 		/* RED: snap fn from legacy ticks; new-state hide flag not tracked */
@@ -274,7 +276,7 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 		expect(calls.at(-1)).toBeDefined()
 		expect(calls.at(-1)!.length).toBeGreaterThan(0)
 
-		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "hide" as never, true as never)
+		capturedSetState!("cartesianAxes", "xAxis", "0", "settings" as never, "domain" as never, [0, 4] as never)
 		flush()
 
 		/* RED: hook reads legacy ticks; new-state hide flag not tracked → spy silent */
@@ -295,7 +297,7 @@ describe("Phase 6 RED — public hooks reactive to new chartState mutations", ()
 		expect(calls.at(-1)).toBeDefined()
 		expect(calls.at(-1)!.length).toBeGreaterThan(0)
 
-		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "hide" as never, true as never)
+		capturedSetState!("cartesianAxes", "yAxis", "0", "settings" as never, "domain" as never, [0, 60] as never)
 		flush()
 
 		/* RED: hook reads legacy ticks; new-state hide flag not tracked → spy silent */

@@ -1,6 +1,6 @@
 /* @jsxImportSource @solidjs/web */
 import type { JSX } from '@solidjs/web';
-import { untrack } from 'solid-js';
+import { getOwner, untrack } from 'solid-js';
 import { RechartsStateContext } from "./RechartsStateContext"
 import type { RechartsStateContextValue } from "./RechartsStateContext"
 import type { ChartState } from "./chartState"
@@ -8,6 +8,7 @@ import { createInitialChartState } from "./chartState"
 import { useIsPanorama } from "../context/PanoramaContext"
 import { RechartsStoreContext } from "./RechartsStoreContext"
 import { createEventHandlers } from "./events"
+import { registerChartOwner } from "./selectors/chartSelector"
 
 import { createStore, type SetStoreFunction } from '../util/solid-1-compat';
 type RechartsStateProviderProps = {
@@ -65,6 +66,8 @@ export function RechartsStateProvider(props: RechartsStateProviderProps): JSX.El
 	const [state, setStore] = createStore<ChartState>(
 		untrack(() => createInitialChartState(props.preloadedState)),
 	)
+	/* Selector memos for this chart live under the provider owner and die with it. */
+	registerChartOwner(state, getOwner())
 	const setState = makeAutoInitsetState(state, setStore)
 	const value: RechartsStateContextValue = { setState, state }
 	const events = createEventHandlers(state, setState)

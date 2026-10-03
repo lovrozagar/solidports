@@ -48,6 +48,7 @@ import { combineTooltipPayloadConfigurations } from "./combiners/combineTooltipP
 import { selectTooltipPayloadSearcher } from "./selectTooltipPayloadSearcher"
 import { selectTooltipState } from "./selectTooltipState"
 import { combineTooltipPayload } from "./combiners/combineTooltipPayload"
+import { chartSelector } from "./chartSelector"
 import {
 	calculateActiveTickIndex,
 	getActiveCartesianCoordinate,
@@ -56,44 +57,30 @@ import {
 } from "../../util/getActiveCoordinate"
 import { inRangeOfSector } from "../../util/PolarUtils"
 
-export function selectOrderedTooltipTicks(state: ChartState) {
+export const selectOrderedTooltipTicks = chartSelector(function selectOrderedTooltipTicks(state: ChartState) {
 	const ticks = selectTooltipAxisTicks(state)
 	return sortBy(ticks, (o) => o.coordinate)
-}
+})
 
-export function selectTooltipInteractionState(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-	defaultIndex: TooltipIndex | undefined,
-): TooltipInteractionState {
+export const selectTooltipInteractionState = chartSelector(function selectTooltipInteractionState(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger, defaultIndex: TooltipIndex | undefined): TooltipInteractionState {
 	return combineTooltipInteractionState(
 		selectTooltipState(state),
 		tooltipEventType,
 		trigger,
 		defaultIndex,
 	)
-}
+})
 
-export function selectActiveIndex(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-	defaultIndex: TooltipIndex | undefined,
-): TooltipIndex | null {
+export const selectActiveIndex = chartSelector(function selectActiveIndex(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger, defaultIndex: TooltipIndex | undefined): TooltipIndex | null {
 	return combineActiveTooltipIndex(
 		selectTooltipInteractionState(state, tooltipEventType, trigger, defaultIndex),
 		selectTooltipDisplayedData(state),
 		selectTooltipAxisDataKey(state),
 		selectTooltipAxisDomain(state),
 	)
-}
+})
 
-export function selectTooltipDataKey(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-): DataKey<unknown> | undefined {
+export const selectTooltipDataKey = chartSelector(function selectTooltipDataKey(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger): DataKey<unknown> | undefined {
 	if (tooltipEventType == null) {
 		return undefined
 	}
@@ -108,28 +95,18 @@ export function selectTooltipDataKey(
 		return tooltipState.itemInteraction.hover.dataKey
 	}
 	return tooltipState.itemInteraction.click.dataKey
-}
+})
 
-export function selectTooltipPayloadConfigurations(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-	defaultIndex: TooltipIndex | undefined,
-): ReadonlyArray<TooltipPayloadConfiguration> {
+export const selectTooltipPayloadConfigurations = chartSelector(function selectTooltipPayloadConfigurations(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger, defaultIndex: TooltipIndex | undefined): ReadonlyArray<TooltipPayloadConfiguration> {
 	return combineTooltipPayloadConfigurations(
 		selectTooltipState(state),
 		tooltipEventType,
 		trigger,
 		defaultIndex,
 	)
-}
+})
 
-export function selectCoordinateForDefaultIndex(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-	defaultIndex: TooltipIndex | undefined,
-): Coordinate | undefined {
+export const selectCoordinateForDefaultIndex = chartSelector(function selectCoordinateForDefaultIndex(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger, defaultIndex: TooltipIndex | undefined): Coordinate | undefined {
 	return combineCoordinateForDefaultIndex(
 		selectChartWidth(state),
 		selectChartHeight(state),
@@ -139,14 +116,9 @@ export function selectCoordinateForDefaultIndex(
 		defaultIndex,
 		selectTooltipPayloadConfigurations(state, tooltipEventType, trigger, defaultIndex),
 	)
-}
+})
 
-export function selectActiveCoordinate(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-	defaultIndex: TooltipIndex | undefined,
-): Coordinate | undefined {
+export const selectActiveCoordinate = chartSelector(function selectActiveCoordinate(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger, defaultIndex: TooltipIndex | undefined): Coordinate | undefined {
 	const tooltipInteractionState = selectTooltipInteractionState(
 		state,
 		tooltipEventType,
@@ -160,26 +132,16 @@ export function selectActiveCoordinate(
 		defaultIndex,
 	)
 	return tooltipInteractionState.coordinate ?? defaultIndexCoordinate
-}
+})
 
-export function selectActiveLabel(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-	defaultIndex: TooltipIndex | undefined,
-): string | number | undefined {
+export const selectActiveLabel = chartSelector(function selectActiveLabel(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger, defaultIndex: TooltipIndex | undefined): string | number | undefined {
 	return combineActiveLabel(
 		selectTooltipAxisTicks(state),
 		selectActiveIndex(state, tooltipEventType, trigger, defaultIndex),
 	)
-}
+})
 
-export function selectTooltipPayload(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-	defaultIndex: TooltipIndex | undefined,
-): TooltipPayload | undefined {
+export const selectTooltipPayload = chartSelector(function selectTooltipPayload(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger, defaultIndex: TooltipIndex | undefined): TooltipPayload | undefined {
 	return combineTooltipPayload(
 		selectTooltipPayloadConfigurations(state, tooltipEventType, trigger, defaultIndex),
 		selectActiveIndex(state, tooltipEventType, trigger, defaultIndex),
@@ -189,14 +151,9 @@ export function selectTooltipPayload(
 		selectTooltipPayloadSearcher(state),
 		tooltipEventType,
 	)
-}
+})
 
-export function selectIsTooltipActive(
-	state: ChartState,
-	tooltipEventType: TooltipEventType | undefined,
-	trigger: TooltipTrigger,
-	defaultIndex: TooltipIndex | undefined,
-): { isActive: boolean; activeIndex: TooltipIndex | null } {
+export const selectIsTooltipActive = chartSelector(function selectIsTooltipActive(state: ChartState, tooltipEventType: TooltipEventType | undefined, trigger: TooltipTrigger, defaultIndex: TooltipIndex | undefined): { isActive: boolean; activeIndex: TooltipIndex | null } {
 	const tooltipInteractionState = selectTooltipInteractionState(
 		state,
 		tooltipEventType,
@@ -205,7 +162,7 @@ export function selectIsTooltipActive(
 	)
 	const activeIndex = selectActiveIndex(state, tooltipEventType, trigger, defaultIndex)
 	return { activeIndex, isActive: tooltipInteractionState.active && activeIndex != null }
-}
+})
 
 const combineActiveCartesianProps = (
 	chartEvent: RelativePointer | undefined,

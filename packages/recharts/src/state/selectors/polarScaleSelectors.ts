@@ -24,9 +24,10 @@ import {
 } from "./polarSelectors"
 import { type RechartsScale, rechartsScaleFactory } from "../../util/scale/RechartsScale"
 import type { CustomScaleDefinition } from "../../util/scale/CustomScaleDefinition"
+import { chartSelector } from "./chartSelector"
 import { combineConfiguredScale } from "./combiners/combineConfiguredScale"
 
-export const selectPolarAxis = (
+export const selectPolarAxis = chartSelector((
 	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	axisId: AxisId,
@@ -42,9 +43,9 @@ export const selectPolarAxis = (
 			throw new Error(`Unexpected axis type: ${axisType}`)
 		}
 	}
-}
+})
 
-const selectPolarAxisRangeWithReversed = (
+const selectPolarAxisRangeWithReversed = chartSelector((
 	state: ChartState,
 	axisType: "angleAxis" | "radiusAxis",
 	axisId: AxisId,
@@ -60,48 +61,31 @@ const selectPolarAxisRangeWithReversed = (
 			throw new Error(`Unexpected axis type: ${axisType}`)
 		}
 	}
-}
+})
 
-function selectPolarConfiguredScale(
-	state: ChartState,
-	axisType: "angleAxis" | "radiusAxis",
-	polarAxisId: AxisId,
-): CustomScaleDefinition | undefined {
+const selectPolarConfiguredScale = chartSelector(function selectPolarConfiguredScale(state: ChartState, axisType: "angleAxis" | "radiusAxis", polarAxisId: AxisId): CustomScaleDefinition | undefined {
 	return combineConfiguredScale(
 		selectPolarAxis(state, axisType, polarAxisId),
 		selectRealScaleType(state, axisType, polarAxisId),
 		selectPolarAxisCheckedDomain(state, axisType, polarAxisId),
 		selectPolarAxisRangeWithReversed(state, axisType, polarAxisId),
 	)
-}
+})
 
-export function selectPolarAxisScale(
-	state: ChartState,
-	axisType: "angleAxis" | "radiusAxis",
-	polarAxisId: AxisId,
-): RechartsScale | undefined {
+export const selectPolarAxisScale = chartSelector(function selectPolarAxisScale(state: ChartState, axisType: "angleAxis" | "radiusAxis", polarAxisId: AxisId): RechartsScale | undefined {
 	return rechartsScaleFactory(selectPolarConfiguredScale(state, axisType, polarAxisId))
-}
+})
 
-export function selectPolarCategoricalDomain(
-	state: ChartState,
-	axisType: "angleAxis" | "radiusAxis",
-	polarAxisId: AxisId,
-): ReadonlyArray<unknown> | undefined {
+export const selectPolarCategoricalDomain = chartSelector(function selectPolarCategoricalDomain(state: ChartState, axisType: "angleAxis" | "radiusAxis", polarAxisId: AxisId): ReadonlyArray<unknown> | undefined {
 	return combineCategoricalDomain(
 		selectChartLayout(state),
 		selectPolarAppliedValues(state, axisType, polarAxisId),
 		selectRenderableAxisSettings(state, axisType, polarAxisId),
 		axisType,
 	)
-}
+})
 
-export function selectPolarAxisTicks(
-	state: ChartState,
-	axisType: "angleAxis" | "radiusAxis",
-	polarAxisId: AxisId,
-	isPanorama: boolean,
-): ReadonlyArray<CartesianTickItem> | undefined {
+export const selectPolarAxisTicks = chartSelector(function selectPolarAxisTicks(state: ChartState, axisType: "angleAxis" | "radiusAxis", polarAxisId: AxisId, isPanorama: boolean): ReadonlyArray<CartesianTickItem> | undefined {
 	return combineAxisTicks(
 		selectChartLayout(state),
 		selectPolarAxis(state, axisType, polarAxisId),
@@ -113,14 +97,9 @@ export function selectPolarAxisTicks(
 		selectPolarCategoricalDomain(state, axisType, polarAxisId),
 		axisType,
 	)
-}
+})
 
-export function selectPolarAngleAxisTicks(
-	state: ChartState,
-	axisType: "angleAxis",
-	polarAxisId: AxisId,
-	isPanorama: boolean,
-): ReadonlyArray<CartesianTickItem> | undefined {
+export const selectPolarAngleAxisTicks = chartSelector(function selectPolarAngleAxisTicks(state: ChartState, axisType: "angleAxis", polarAxisId: AxisId, isPanorama: boolean): ReadonlyArray<CartesianTickItem> | undefined {
 	const ticks = selectPolarAxisTicks(state, axisType, polarAxisId, isPanorama)
 	/*
 	 * Angle axis is circular; so here we need to look for ticks that overlap (i.e., 0 and 360 degrees)
@@ -139,14 +118,9 @@ export function selectPolarAngleAxisTicks(
 	})
 
 	return Array.from(uniqueTicksMap.values())
-}
+})
 
-export function selectPolarGraphicalItemAxisTicks(
-	state: ChartState,
-	axisType: "angleAxis" | "radiusAxis",
-	polarAxisId: AxisId,
-	isPanorama: boolean,
-): ReadonlyArray<CartesianTickItem> | undefined {
+export const selectPolarGraphicalItemAxisTicks = chartSelector(function selectPolarGraphicalItemAxisTicks(state: ChartState, axisType: "angleAxis" | "radiusAxis", polarAxisId: AxisId, isPanorama: boolean): ReadonlyArray<CartesianTickItem> | undefined {
 	return combineGraphicalItemTicks(
 		selectChartLayout(state),
 		selectPolarAxis(state, axisType, polarAxisId),
@@ -156,4 +130,4 @@ export function selectPolarGraphicalItemAxisTicks(
 		selectPolarCategoricalDomain(state, axisType, polarAxisId),
 		axisType,
 	)
-}
+})
