@@ -1,7 +1,10 @@
-## 1.8.0-sp.1 — 2026-10-01
+## 1.8.0-1 — 2026-10-04
 
-Solid port of `@base-ui/react@1.8.0` (1.4.1 → 1.8.0).
+Solid port of `@base-ui/react@1.8.0` (1.4.1 → 1.8.0). First npm release, on the `next` dist-tag.
 
+- **Packaging**: ships TypeScript/JSX source (`solid` export condition) plus prebuilt declarations; no dependencies of its own. Peers: `solid-js` and `@solidjs/web` `~2.0.0-rc.13`, `@floating-ui/dom`, `@floating-ui/utils`; optional `date-fns`, `@date-fns/tz`, `luxon` for the temporal adapters.
+- **Reactivity**: per-key prop merging in `useRenderElement` (no whole-props memo); derived state replaces effect relays, so Solid dev diagnostics stay quiet.
+- **Verification**: Base UI's own e2e specs and visual regression suite run against the Solid port.
 - **OTP Field**: public `sanitizeValue` renamed to `normalizeValue`. Normalization now runs after whitespace and `validationType` filtering, then clamps to `length`.
 - **Combobox**: `Combobox.createItems()` collection API for derived values and labels.
 - **Autocomplete**: dedicated `Trigger`, `InputGroup`, and `Separator` parts (same shape as `@base-ui/react@1.8.0`).
