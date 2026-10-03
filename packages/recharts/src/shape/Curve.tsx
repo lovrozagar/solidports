@@ -12,7 +12,6 @@ import {
 	curveBasisOpen,
 	curveBumpX,
 	curveBumpY,
-	type CurveFactory,
 	curveLinear,
 	curveLinearClosed,
 	curveMonotoneX,
@@ -24,6 +23,7 @@ import {
 	line as shapeLine,
 	type Line as D3LineCurve,
 } from "victory-vendor/d3-shape"
+import type { CurveFactory } from "../util/d3ShapeTypes"
 
 import { clsx } from "clsx"
 import type {

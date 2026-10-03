@@ -1,16 +1,11 @@
 {
 	"author": "Lovro Žagar",
 	"bugs": "https://github.com/lovrozagar/solidports/issues",
-	"dependencies": {
-		"clsx": "2.1.1",
-		"decimal.js-light": "2.5.1",
-		"es-toolkit": "1.49.0",
-		"eventemitter3": "5.0.4",
-		"tiny-invariant": "1.3.3",
-		"victory-vendor": "37.3.6"
-	},
 	"description": "SolidJS 1:1 port of Recharts charting library",
 	"devDependencies": {
+		"@babel/core": "7.29.7",
+		"@babel/preset-typescript": "7.29.7",
+		"@solidjs/babel-plugin": "2.0.0-rc.13",
 		"@solidjs/signals": "catalog:",
 		"@solidjs/testing-library": "catalog:",
 		"@solidjs/vite-plugin": "catalog:",
@@ -19,12 +14,18 @@
 		"@testing-library/jest-dom": "6.9.1",
 		"@types/bun": "latest",
 		"@types/node": "26.1.1",
+		"clsx": "2.1.1",
+		"decimal.js-light": "2.5.1",
+		"es-toolkit": "1.49.0",
+		"esbuild": "0.28.2",
+		"eventemitter3": "5.0.4",
 		"jsdom": "29.1.1",
 		"solid-js": "catalog:",
+		"tiny-invariant": "1.3.3",
 		"ts-morph": "28.0.0",
 		"tsup": "8.5.1",
-		"tsup-preset-solid": "2.2.0",
 		"typescript": "7.0.2",
+		"victory-vendor": "37.3.6",
 		"vitest": "4.1.10",
 		"vitest-axe": "0.1.0"
 	},
@@ -34,13 +35,29 @@
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
-			"solid": "./src/index.ts",
-			"import": "./dist/index.js"
-		}
+			"solid": "./dist/index.jsx",
+			"worker": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/server.js"
+			},
+			"deno": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/server.js"
+			},
+			"node": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/server.js"
+			},
+			"browser": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"default": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
 	},
 	"files": [
 		"dist",
-		"src",
 		"README.md",
 		"LICENSE",
 		"NOTICE"
@@ -56,12 +73,13 @@
 		"data-visualization"
 	],
 	"license": "MIT",
-	"main": "./dist/index.js",
+	"main": "./dist/server.js",
 	"module": "./dist/index.js",
 	"name": "@solidports/recharts",
 	"peerDependencies": {
-		"@solidjs/web": ">=2.0.0-rc.13",
-		"solid-js": ">=2.0.0-rc.13"
+		"@solidjs/signals": "^2.0.0-rc.13",
+		"@solidjs/web": "^2.0.0-rc.13",
+		"solid-js": "^2.0.0-rc.13"
 	},
 	"publishConfig": {
 		"access": "public"
@@ -72,9 +90,8 @@
 		"directory": "packages/recharts"
 	},
 	"scripts": {
-		"build": "tsup",
+		"build": "node scripts/build.mjs",
 		"check": "bun run typecheck && bun run lint && bun run test",
-		"dev": "tsup --watch",
 		"lint": "oxlint src test",
 		"lint:fix": "oxlint --fix src test",
 		"parity": "bun scripts/parity-audit.ts",
@@ -94,5 +111,5 @@
 	"sideEffects": false,
 	"type": "module",
 	"types": "./dist/index.d.ts",
-	"version": "0.1.0"
+	"version": "0.1.1"
 }

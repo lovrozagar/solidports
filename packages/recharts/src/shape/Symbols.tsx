@@ -11,8 +11,8 @@ import {
 	symbolStar,
 	symbolTriangle,
 	symbolWye,
-	type SymbolType as D3SymbolType,
 } from "victory-vendor/d3-shape"
+import type { D3SymbolType } from "../util/d3ShapeTypes"
 import { clsx } from "clsx"
 import type { SymbolType } from "../util/types"
 import { isNumber, upperFirst } from "../util/DataUtils"
