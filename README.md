@@ -19,11 +19,11 @@ If you are an agent: read this file end to end. Import only from the package exp
 
 ## Packages
 
-| Package                                                  | Upstream                                                | Status                                                                                      |
-| -------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [`@solidports/base-ui`](packages/base-ui/packages/solid) | [MUI Base UI](https://github.com/mui/base-ui) v1.8.0    | Solid port of the headless component library. Docs at `packages/base-ui/docs/solid`.        |
+| Package                                                  | Upstream                                                 | Status                                                                                           |
+| -------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [`@solidports/base-ui`](packages/base-ui/packages/solid) | [MUI Base UI](https://github.com/mui/base-ui) v1.8.0     | Solid port of the headless component library. Docs at `packages/base-ui/docs/solid`.             |
 | [`@solidports/recharts`](packages/recharts)              | [recharts](https://github.com/recharts/recharts) v3.10.1 | Solid port of the charting library. Single Solid store per chart; 6202 tests passing, 0 failing. |
-| [`@solidports/flare-ui`](packages/flare-ui)              | Flare UI snapshot `b622cc453`                           | ShadCN-shaped Solid components wrapping `@solidports/base-ui` 1.8.0-sp.1.                   |
+| [`@solidports/flare-ui`](packages/flare-ui)              | Flare UI snapshot `b622cc453`                            | ShadCN-shaped Solid components wrapping `@solidports/base-ui` 1.8.0-sp.1.                        |
 
 Both trees last lived in the private monorepo and were removed on 19 Aug 2026. This repo restores the 18 Aug 2026 snapshot (`b622cc453`) and continues the ports here.
 
