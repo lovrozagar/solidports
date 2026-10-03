@@ -59,6 +59,10 @@ Entry points mirror upstream: `.`, `./flex-render`, `./static-functions`, `./exp
 
 `@tanstack/solid-virtual` is Solid 1 only. Drive `@tanstack/virtual-core` directly; `tests/fixture/src/VirtualDemo.tsx` shows a 10k-row table.
 
+## Development
+
+`bun run build` writes `dist/` (Solid-preserved JSX, browser, server, types). Workspace apps such as `tests/fixture` and `examples/upstream` resolve the package through `dist`, so build before running them.
+
 ## Testing
 
 - `bun run test`: jsdom suite on the Solid dev build, plus server rendering. Solid dev diagnostics fail the run.

@@ -7,15 +7,15 @@
 		"dev": "vite --port 4110"
 	},
 	"dependencies": {
-		"@solidjs/web": "catalog:",
-		"@solidports/solid-table": "workspace:*",
+		"@solidjs/web": "2.0.0-rc.13",
+		"@solidports/solid-table": "0.1.0",
 		"@tanstack/table-core": "9.2.4",
 		"@tanstack/virtual-core": "3.17.3",
-		"solid-js": "catalog:"
+		"solid-js": "2.0.0-rc.13"
 	},
 	"devDependencies": {
-		"@solidjs/vite-plugin": "catalog:",
-		"typescript": "catalog:",
-		"vite": "catalog:"
+		"@solidjs/vite-plugin": "3.0.0-next.47",
+		"typescript": "5.9.2",
+		"vite": "8.1.4"
 	}
 }

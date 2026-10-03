@@ -1,0 +1,14 @@
+@solidports/solid-table — NOTICE
+
+This package is a Solid 2 port of the TanStack Table Solid adapter (@tanstack/solid-table).
+It depends on @tanstack/table-core as a peer dependency and does not bundle it.
+
+Upstream project:  TanStack Table
+Upstream license:  MIT
+Upstream source:   https://github.com/TanStack/table/tree/main/packages/solid-table
+Upstream authors:  Tanner Linsley and TanStack Table contributors (https://github.com/TanStack/table/graphs/contributors)
+
+Ported from:       @tanstack/solid-table 9.2.4
+Compatible with:   @tanstack/table-core ^9.2.4, solid-js ^2.0.0-rc.13
+
+Temporary package: deprecated in favor of @tanstack/solid-table once it supports Solid 2.

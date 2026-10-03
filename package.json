@@ -13,7 +13,6 @@
 			"packages/recharts",
 			"packages/recharts/examples/*",
 			"packages/solid-table",
-			"packages/solid-table/tests/fixture",
 			"packages/flare-ui",
 			"packages/flare-ui/tests/fixture",
 			"packages/flare-ui-consumer"
@@ -177,7 +176,8 @@
 		"lint:fix": "oxlint --config .oxlintrc.json --fix scripts",
 		"fmt": "oxfmt",
 		"fmt:check": "oxfmt --check",
-		"test:solid-table": "bun run --filter @solidports/solid-table test"
+		"test:solid-table": "bun run --filter @solidports/solid-table test",
+		"dev:solid-table-examples": "bun install --cwd packages/solid-table/examples/upstream && bun run --cwd packages/solid-table/examples/upstream dev"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "21.2.1",

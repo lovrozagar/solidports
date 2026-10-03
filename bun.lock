@@ -504,41 +504,28 @@
     },
     "packages/solid-table": {
       "name": "@solidports/solid-table",
-      "version": "0.0.1",
-      "dependencies": {
-        "@tanstack/store": "^0.11.1",
-      },
+      "version": "0.1.0",
       "devDependencies": {
+        "@babel/core": "7.29.7",
+        "@babel/preset-typescript": "7.29.7",
         "@playwright/test": "catalog:",
+        "@solidjs/babel-plugin": "2.0.0-rc.13",
         "@solidjs/testing-library": "catalog:",
         "@solidjs/vite-plugin": "catalog:",
         "@solidjs/web": "catalog:",
+        "@tanstack/store": "0.11.2",
         "@tanstack/table-core": "9.2.4",
         "@types/node": "catalog:",
+        "esbuild": "0.28.2",
         "jsdom": "29.1.1",
         "solid-js": "catalog:",
         "typescript": "catalog:",
         "vitest": "catalog:",
       },
       "peerDependencies": {
-        "@solidjs/web": ">=2.0.0-rc.13",
+        "@solidjs/web": "^2.0.0-rc.13",
         "@tanstack/table-core": "^9.2.4",
-        "solid-js": ">=2.0.0-rc.13",
-      },
-    },
-    "packages/solid-table/tests/fixture": {
-      "name": "@solidports/solid-table-fixture",
-      "dependencies": {
-        "@solidjs/web": "catalog:",
-        "@solidports/solid-table": "workspace:*",
-        "@tanstack/table-core": "9.2.4",
-        "@tanstack/virtual-core": "3.17.3",
-        "solid-js": "catalog:",
-      },
-      "devDependencies": {
-        "@solidjs/vite-plugin": "catalog:",
-        "typescript": "catalog:",
-        "vite": "catalog:",
+        "solid-js": "^2.0.0-rc.13",
       },
     },
   },
@@ -1961,8 +1948,6 @@
     "@solidports/recharts-examples-visual": ["@solidports/recharts-examples-visual@workspace:packages/recharts/examples/visual"],
 
     "@solidports/solid-table": ["@solidports/solid-table@workspace:packages/solid-table"],
-
-    "@solidports/solid-table-fixture": ["@solidports/solid-table-fixture@workspace:packages/solid-table/tests/fixture"],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 

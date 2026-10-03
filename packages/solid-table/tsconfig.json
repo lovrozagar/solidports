@@ -6,5 +6,6 @@
 		"noUncheckedIndexedAccess": true,
 		"types": ["node"]
 	},
-	"include": ["src/**/*", "tests/**/*", "vitest.config.ts", "vitest.ssr.config.ts"]
+	"include": ["src/**/*", "tests/**/*", "vitest.config.ts", "vitest.ssr.config.ts"],
+	"exclude": ["tests/fixture"]
 }

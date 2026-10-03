@@ -1,0 +1,10 @@
+{
+	"extends": "../../../../tsconfig.base.json",
+	"compilerOptions": {
+		"jsx": "preserve",
+		"jsxImportSource": "@solidjs/web",
+		"types": ["vite/client"],
+		"paths": { "@tanstack/solid-table": ["./node_modules/@solidports/solid-table"] }
+	},
+	"include": ["examples/**/*", "index.ts", "env.d.ts", "vite.config.ts"]
+}

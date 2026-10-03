@@ -15,6 +15,7 @@
 		"**/playwright-report/**",
 		"packages/base-ui/**",
 		"packages/recharts/**",
+		"packages/solid-table/examples/upstream/examples/**",
 		"*.lock",
 	],
 }
