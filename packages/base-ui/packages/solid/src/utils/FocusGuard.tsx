@@ -1,4 +1,4 @@
-import { createSignal, onSettled } from 'solid-js';
+import { createSignal, omit, onSettled } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';
 import { isSafari } from './detectBrowser';
 import { visuallyHidden } from './visuallyHidden';
@@ -6,7 +6,16 @@ import { visuallyHidden } from './visuallyHidden';
 /**
  * @internal
  */
-export function FocusGuard(props: ComponentProps<'span'>) {
+export function FocusGuard(
+  props: ComponentProps<'span'> & {
+    /**
+     * Whether the guard takes focus. An inactive guard is an inert hidden span that holds the
+     * guard's place in the DOM.
+     * @default true
+     */
+    active?: boolean | undefined;
+  },
+) {
   const [role, setRole] = createSignal<'button' | undefined>();
 
   onSettled(() => {
@@ -18,15 +27,17 @@ export function FocusGuard(props: ComponentProps<'span'>) {
     }
   });
 
+  const spanProps = omit(props, 'active');
+
   return (
     <span
-      {...props}
+      {...spanProps}
       ref={props.ref}
-      role={role()}
-      aria-hidden={role() ? undefined : 'true'}
+      role={props.active === false ? undefined : role()}
+      aria-hidden={props.active !== false && role() ? undefined : 'true'}
       style={visuallyHidden}
-      tabindex={0}
-      data-base-ui-focus-guard=""
+      tabindex={props.active === false ? undefined : 0}
+      data-base-ui-focus-guard={props.active === false ? undefined : ''}
     />
   );
 }

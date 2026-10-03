@@ -1,6 +1,7 @@
 import type { JSX } from '@solidjs/web';
 import { untrack } from 'solid-js';
 import { mergeProps } from './solid-1-compat';
+import { ownStringKeys } from './svgPropertiesNoEvents';
 /**
  * Solid-aware analogue of upstream React's defaultProps + spread pattern.
  *
@@ -39,7 +40,8 @@ export function resolveDefaultProps<T, D extends Partial<T>>(
 	   Object.keys / `in` on a props or store proxy as a reactive read, and this
 	   helper runs in the component body. Snapshot once; value getters stay live. */
 	const realKeys: ReadonlyArray<string> = untrack(() =>
-		isNonNullObject(realProps) ? Object.keys(realProps as object) : [],
+		/* ownStringKeys: Object.keys on a props proxy pays a descriptor trap per key. */
+		isNonNullObject(realProps) ? ownStringKeys(realProps as object) : [],
 	)
 	const realKeySet = new Set(realKeys)
 	const defaultKeys = Object.keys(defaultProps as object).filter((k) => !realKeySet.has(k))

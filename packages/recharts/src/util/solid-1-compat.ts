@@ -66,7 +66,12 @@ export function mergeProps<T extends (object | null | undefined)[]>(
 	untrack(() => {
 		for (const source of sources) {
 			if (!source) continue
-			for (const key of Object.keys(source)) keys.add(key)
+			/* Reflect.ownKeys: Object.keys on a props/merge proxy pays a descriptor trap per
+			   key, and this runs per element for every shape. Props views expose only
+			   enumerable string keys, so the key set is the same. */
+			for (const key of Reflect.ownKeys(source)) {
+				if (typeof key === "string") keys.add(key)
+			}
 		}
 	})
 	const overrides: Record<PropertyKey, unknown> = {}

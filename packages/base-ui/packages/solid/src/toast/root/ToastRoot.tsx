@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Data type erased at root */
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
-import { splitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
+import { splitComponentProps, useRef } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { BASE_UI_SWIPE_IGNORE_SELECTOR, LEGACY_SWIPE_IGNORE_SELECTOR } from '../../utils/constants';
 import { flushSync as flushSyncUpdate } from '../../utils/flushSync';
@@ -75,11 +75,7 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     null,
   );
 
-  // Solid: a root rendered again for the same toast (a list that recreates its items, such as
-  // `toasts().map(...)`) reuses the toast's ref, so measuring it again writes the same values and
-  // the update settles. React keeps the instance (and its ref) through the list's keys.
-  const rootRef = (untrack(() => local.toast.ref) ??
-    useRef<HTMLDivElement | null>(null)) as ReactLikeRef<HTMLDivElement | null>;
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const lastToastIdRef = useRef<string | undefined>(undefined);
   const dragStartPosRef = useRef({ x: 0, y: 0 });
   const initialTransformRef = useRef({ x: 0, y: 0, scale: 1 });
@@ -151,17 +147,17 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
   // Initialize the toast on mount, and reinitialize when it begins a new lifecycle:
   // re-adding an ending toast retains the same root instance (keyed by id), and
   // index-keyed lists can hand an existing instance a different toast.
+  // Solid: the lifecycle is the toast id plus a count of entries into `starting`, so the
+  // measurement's own write (which clears `starting`) does not re-run it.
+  const toastId = createMemo(() => local.toast.id);
+  const starting = createMemo(() => local.toast.transitionStatus === 'starting');
+  const startCount = createMemo<number>((prev = 0) => (starting() ? prev + 1 : prev));
+
   // Solid: a user effect, so the root element is attached before it is measured.
   createEffect(
-    () => ({ id: local.toast.id, transitionStatus: local.toast.transitionStatus }),
-    ({ id, transitionStatus }) => {
+    () => ({ id: toastId(), startCount: startCount() }),
+    ({ id }) => {
       const previousToastId = lastToastIdRef.current;
-      // `recalculateHeight` clears the `starting` status itself, so bail out on the
-      // resulting re-run and on the later `ending` one, which the store discards anyway.
-      if (transitionStatus !== 'starting' && previousToastId === id) {
-        return;
-      }
-
       if (previousToastId !== undefined) {
         // A retained root keeps component-local swipe state from its previous lifecycle;
         // clear it so the toast doesn't stay offset or exit in the swiped direction.

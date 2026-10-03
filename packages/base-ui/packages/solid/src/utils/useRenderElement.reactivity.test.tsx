@@ -1,6 +1,14 @@
 import { createRenderer } from '#test-utils';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { createMemo, createSignal, flush, onSettled, type Accessor } from 'solid-js';
+import {
+  createMemo,
+  createRenderEffect,
+  createSignal,
+  flush,
+  onSettled,
+  type Accessor,
+} from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { expect } from 'vitest';
 import type { BaseUIEvent } from './types';
 import { useRenderElement } from './useRenderElement';
@@ -22,16 +30,23 @@ describe('useRenderElement per-key reactivity', () => {
       const element = useRenderElement(
         'div',
         {
-          render: (props: Record<string, unknown>) => (
-            <span
-              data-testid="part"
-              data-a={(() => {
+          // The read in its own computation: the compiler groups a template's attributes into
+          // one effect, which would count unrelated attribute updates.
+          render: (props: Record<string, unknown>) => {
+            createRenderEffect(
+              () => props['data-a'],
+              () => {
                 aReads += 1;
-                return props['data-a'] as string;
-              })()}
-              data-b={props['data-b'] as string}
-            />
-          ),
+              },
+            );
+            return (
+              <span
+                data-testid="part"
+                data-a={props['data-a'] as string}
+                data-b={props['data-b'] as string}
+              />
+            );
+          },
         },
         {
           state: {
@@ -205,7 +220,8 @@ describe('useRenderElement per-key reactivity', () => {
             },
           },
           stateAttributesMapping: {
-            open: (value: boolean) => (value ? { 'data-open': '' } : { 'data-closed': '' }),
+            open: (value: boolean): Record<string, string> =>
+              value ? { 'data-open': '' } : { 'data-closed': '' },
           },
           props: [{ 'data-testid': 'part' }],
         },
@@ -328,5 +344,47 @@ describe('useRenderElement per-key reactivity', () => {
     flush();
     expect(filled()).toBe(true);
     expect(screen.getByTestId('child')).toHaveValue('France');
+  });
+  it('keeps the children of a render function that spreads its props when state changes', () => {
+    const [open, setOpen] = createSignal(false);
+
+    function Part(props: { children?: JSX.Element }) {
+      const element = useRenderElement(
+        'div',
+        {
+          get children() {
+            return props.children;
+          },
+          render: (renderProps: Record<string, unknown>) => (
+            <div {...renderProps} data-testid="part" />
+          ),
+        },
+        {
+          state: {
+            get open() {
+              return open();
+            },
+          },
+          stateAttributesMapping: {
+            open: (value: boolean): Record<string, string> =>
+              value ? { 'data-open': '' } : { 'data-closed': '' },
+          },
+          props: [{ role: 'list' }],
+        },
+      );
+      return <>{element()}</>;
+    }
+
+    render(() => (
+      <Part>
+        <span data-testid="child" />
+      </Part>
+    ));
+    const child = screen.getByTestId('child');
+
+    setOpen(true);
+    flush();
+    expect(screen.getByTestId('part')).toHaveAttribute('data-open', '');
+    expect(screen.getByTestId('child')).toBe(child);
   });
 });

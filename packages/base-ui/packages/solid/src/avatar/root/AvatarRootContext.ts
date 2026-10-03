@@ -4,7 +4,8 @@ import type { ImageLoadingStatus } from './AvatarRoot';
 
 export interface AvatarRootContext {
   imageLoadingStatus: Accessor<ImageLoadingStatus>;
-  setImageLoadingStatus: (status: ImageLoadingStatus) => void;
+  /** Makes `source` the image's status for the root (once mounted, until unmounted). */
+  registerImageLoadingStatus: (source: Accessor<ImageLoadingStatus>) => void;
 }
 
 export const AvatarRootContext = createContext<AvatarRootContext | null>(null);

@@ -34,18 +34,25 @@ export function usePositioner<State extends Record<string, MaybeAccessor<any>>>(
     get ref() {
       return options.refs as never;
     },
-    // Read inside the render memo, so the props rebuild when the styles or flags change.
-    get props() {
-      const style: JSX.CSSProperties = { ...options.styles };
-      if (options.inert) {
-        style['pointer-events'] = 'none';
-      }
-      return [
-        { role: 'presentation', hidden: options.hidden, style },
-        getDisabledMountTransitionStyles(options.transitionStatus),
-        ...(Array.isArray(options.props) ? options.props : [options.props]),
-      ];
-    },
+    props: [
+      {
+        role: 'presentation',
+        get hidden() {
+          return options.hidden;
+        },
+        get style() {
+          const style: JSX.CSSProperties = {
+            ...options.styles,
+            ...getDisabledMountTransitionStyles(options.transitionStatus).style,
+          };
+          if (options.inert) {
+            style['pointer-events'] = 'none';
+          }
+          return style;
+        },
+      },
+      ...(Array.isArray(options.props) ? options.props : [options.props]),
+    ],
     stateAttributesMapping: popupStateMapping,
   });
 }

@@ -3,13 +3,12 @@ import {
   createEffect,
   createMemo,
   createSignal,
-  createStore,
   getObserver,
   onCleanup,
   runWithOwner,
   untrack,
 } from 'solid-js';
-import type { Accessor } from 'solid-js';
+import type { Accessor, Signal } from 'solid-js';
 import type { Store } from 'solid-js';
 import {
   access,
@@ -290,33 +289,71 @@ function subscribeToStore<State extends object>(state: State, listener: (state: 
 /**
  * Creates the backing state of a Base UI store, with the semantics of React's Store:
  *
- * - Shallow: keys are reactive and values are held by reference. Values are prop bags, elements
- *   and records replaced wholesale, so deep-wrapping them only adds proxies.
+ * - Per key: each key is one signal holding its value by reference. Values are prop bags,
+ *   elements and records replaced wholesale, as React stores them; a tracked read subscribes to
+ *   the keys it reads and nothing below them.
  * - Synchronous: Solid batches writes until the next flush, while Base UI reads its store right
  *   after writing it (`set` then `select` in one handler). Untracked reads (handlers, effect
- *   callbacks, store methods) see the latest written value at once. Tracked reads subscribe
- *   through the Solid store, so rendering stays consistent within a flush.
+ *   callbacks, store methods) see the latest written value at once. Tracked reads see the
+ *   committed value, so rendering stays consistent within a flush.
  * - External: `set` is valid anywhere, including unmount cleanups that Solid runs while a parent
  *   computation disposes its children.
  *
- * Getter fields stay live as store computeds and are never written.
+ * Getter fields stay live (called on the state) and are never written.
  */
 export function createStoreState<State extends object>(
   initialState: State,
 ): [Store<State>, SetStoreFunction<State>] {
-  const [reactive, writeReactive] = untrack(() =>
-    createStore(initialState as any, { shallow: true }),
-  ) as unknown as [State, (fn: (draft: any) => void) => void];
-
-  const computedKeys = new Set<PropertyKey>();
+  const computedGetters = new Map<PropertyKey, () => unknown>();
   const descriptors = Object.getOwnPropertyDescriptors(initialState);
   for (const key of Reflect.ownKeys(descriptors)) {
-    if (descriptors[key as keyof typeof descriptors]?.get) {
-      computedKeys.add(key);
+    const getter = descriptors[key as keyof typeof descriptors]?.get;
+    if (getter) {
+      computedGetters.set(key, getter);
     }
   }
+  const computedKeys = new Set(computedGetters.keys());
 
-  // Latest value of every written key. Equal to the reactive value once a flush applies it.
+  // The committed value of each key, one signal per key created on first use. A box, so a function
+  // value is held rather than called. Ownerless: the store outlives the owner that first reads it.
+  const slots = new Map<PropertyKey, Signal<{ value: unknown }>>();
+  // Plain keys (and their insertion order), and a signal for readers of the key set.
+  const committedKeys = new Set<PropertyKey>(
+    Reflect.ownKeys(initialState).filter((key) => !computedKeys.has(key)),
+  );
+  const [keySet, setKeySet] = runWithOwner(null, () =>
+    createSignal(0, { ownedWrite: true }),
+  ) as Signal<number>;
+
+  function slot(key: PropertyKey) {
+    let current = slots.get(key);
+    if (!current) {
+      const initial = Object.hasOwn(initialState, key)
+        ? (initialState as Record<PropertyKey, unknown>)[key]
+        : undefined;
+      current = runWithOwner(null, () =>
+        createSignal({ value: initial }, { equals: false, ownedWrite: true }),
+      ) as Signal<{ value: unknown }>;
+      slots.set(key, current);
+    }
+    return current;
+  }
+
+  const readSlot = (key: PropertyKey) => slot(key)[0]().value;
+
+  function writeSlot(key: PropertyKey, value: unknown) {
+    runWithOwner(null, () =>
+      untrack(() => {
+        slot(key)[1]({ value });
+        if (!committedKeys.has(key)) {
+          committedKeys.add(key);
+          setKeySet((version) => version + 1);
+        }
+      }),
+    );
+  }
+
+  // Latest value of every written key. Equal to the committed value once a flush applies it.
   const written = new Map<PropertyKey, unknown>();
 
   // Keys derived from a source accessor (`useSyncedValue`): a writable memo per key.
@@ -326,9 +363,13 @@ export function createStoreState<State extends object>(
     if (written.has(key)) {
       return written.get(key);
     }
-    const binding = bindings.get(key);
     return untrack(() => {
-      const value = binding ? binding.value() : (reactive as any)[key];
+      const getter = computedGetters.get(key);
+      if (getter) {
+        return getter.call(state);
+      }
+      const binding = bindings.get(key);
+      const value = binding ? binding.value() : readSlot(key);
       return isBinding(value) ? value.value() : value;
     });
   };
@@ -337,41 +378,73 @@ export function createStoreState<State extends object>(
   // Internal state to handle recursive writes from listeners, as React's Store.
   let updateTick = 0;
 
-  const state = new Proxy(reactive, {
-    get(target, key, receiver) {
+  const descriptorFor = (value: unknown): PropertyDescriptor => ({
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value,
+  });
+
+  const state: State = new Proxy({} as State, {
+    get(_, key) {
       if (getObserver() !== null) {
+        const getter = computedGetters.get(key);
+        if (getter) {
+          return getter.call(state);
+        }
         // A bound key's slot holds its binding: readers subscribe to the slot (so unbinding
         // notifies them) and to the derived value.
-        const value = Reflect.get(target, key, receiver);
+        const value = readSlot(key);
         return isBinding(value) ? value.value() : value;
       }
       // An untracked read is an imperative store read (handler, effect callback, store method).
       return latest(key);
     },
     // Enumeration (spreads, `Object.keys`) sees the same latest values as untracked reads.
-    has(target, key) {
-      return (getObserver() === null && written.has(key)) || Reflect.has(target, key);
+    has(_, key) {
+      if (computedKeys.has(key)) {
+        return true;
+      }
+      if (getObserver() === null) {
+        return written.has(key) || committedKeys.has(key);
+      }
+      keySet();
+      return committedKeys.has(key);
     },
-    ownKeys(target) {
-      const keys = Reflect.ownKeys(target);
+    ownKeys() {
       if (getObserver() !== null) {
-        return keys;
+        keySet();
       }
-      written.forEach((_, key) => {
-        // Numeric keys are stored as strings, as property keys.
-        const ownKey = typeof key === 'number' ? String(key) : key;
-        if (!keys.includes(ownKey)) {
-          keys.push(ownKey);
-        }
-      });
-      return keys;
+      const keys: PropertyKey[] = [...committedKeys, ...computedKeys];
+      if (getObserver() === null) {
+        written.forEach((_, key) => {
+          if (!committedKeys.has(key)) {
+            keys.push(key);
+          }
+        });
+      }
+      // Numeric keys are reported as strings, as property keys.
+      return keys.map((key) => (typeof key === 'number' ? String(key) : key)) as (
+        string | symbol
+      )[];
     },
-    getOwnPropertyDescriptor(target, key) {
-      const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
-      if (getObserver() !== null || (!written.has(key) && !bindings.has(key))) {
-        return descriptor;
+    getOwnPropertyDescriptor(_, key) {
+      const getter = computedGetters.get(key);
+      if (getter) {
+        return { configurable: true, enumerable: true, get: () => getter.call(state) };
       }
-      return { configurable: true, enumerable: true, writable: true, value: latest(key) };
+      if (getObserver() !== null) {
+        keySet();
+        if (!committedKeys.has(key)) {
+          return undefined;
+        }
+        const value = readSlot(key);
+        return descriptorFor(isBinding(value) ? value.value() : value);
+      }
+      if (!written.has(key) && !committedKeys.has(key)) {
+        return undefined;
+      }
+      return descriptorFor(latest(key));
     },
   });
 
@@ -389,19 +462,14 @@ export function createStoreState<State extends object>(
       return;
     }
     const plainChanges = changes.filter(([key]) => !bindings.has(key));
-    // The write runs outside any owner (see above), and untracked: ingesting a value probes it
-    // (store internals read symbol keys, which reach the memo behind a live `merge` view).
+    // The write runs outside any owner (see above), and untracked.
     runWithOwner(null, () =>
       untrack(() => {
         for (const [key, value] of changes) {
           bindings.get(key)?.setValue(value);
         }
-        if (plainChanges.length > 0) {
-          writeReactive((draft) => {
-            for (const [key, value] of plainChanges) {
-              draft[key] = value;
-            }
-          });
+        for (const [key, value] of plainChanges) {
+          writeSlot(key, value);
         }
       }),
     );
@@ -444,16 +512,6 @@ export function createStoreState<State extends object>(
     if (arg != null && typeof arg === 'object') {
       commit(arg as Record<PropertyKey, unknown>);
     }
-  }
-
-  function writeSlot(key: PropertyKey, value: unknown) {
-    runWithOwner(null, () =>
-      untrack(() =>
-        writeReactive((draft) => {
-          draft[key] = value;
-        }),
-      ),
-    );
   }
 
   function bind(key: PropertyKey, source: BindingSource, clearOnCleanup: boolean) {

@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup, Show, untrack } from 'solid-js';
+import { createEffect, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -38,7 +38,7 @@ export function AvatarImage(componentProps: AvatarImage.Props): JSX.Element {
   const srcSet = () => (typeof local.srcset === 'string' ? local.srcset : undefined);
   const sizes = () => (typeof local.sizes === 'string' ? local.sizes : undefined);
 
-  const { setImageLoadingStatus: setRootImageLoadingStatus } = useAvatarRootContext();
+  const { registerImageLoadingStatus } = useAvatarRootContext();
   const [imageLoadingStatus, setImageLoadingStatus] = useImageLoadingStatus(
     src,
     {
@@ -149,20 +149,14 @@ export function AvatarImage(componentProps: AvatarImage.Props): JSX.Element {
         }
       : undefined;
 
-  // Solid: a handler reading the latest props is React's stable callback.
-  const handleLoadingStatusChange = (status: ImageLoadingStatus) => {
-    local.onLoadingStatusChange?.(status);
-    setRootImageLoadingStatus(status);
-  };
+  registerImageLoadingStatus(imageLoadingStatus);
 
-  // Solid: a user effect, since a render effect's mount-time apply may not write signals.
+  // The callback reads the latest props, as React's stable callback.
   createDepsEffect(imageLoadingStatus, (status) => {
     if (status !== 'idle') {
-      handleLoadingStatusChange(status);
+      local.onLoadingStatusChange?.(status);
     }
   });
-
-  onCleanup(() => setRootImageLoadingStatus('idle'));
 
   useOpenChangeComplete({
     enabled: () => !isVisible(),

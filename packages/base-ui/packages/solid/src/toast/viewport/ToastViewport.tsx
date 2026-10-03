@@ -1,6 +1,6 @@
 import { createEffect, createMemo, For, Show, untrack } from 'solid-js';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
-import { splitComponentProps } from '../../solid-helpers';
+import { shallowEqual, splitComponentProps } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { FocusGuard } from '../../utils/FocusGuard';
 import { mergeCleanups } from '../../utils/mergeCleanups';
@@ -275,9 +275,11 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     state,
   });
 
-  const highPriorityToasts = createMemo(() => {
-    return toasts().filter((toast: ToastObject<any>) => toast.priority === 'high');
-  });
+  // Toast records keep their identity, so an unchanged selection keeps the same array.
+  const highPriorityToasts = createMemo(
+    () => toasts().filter((toast: ToastObject<any>) => toast.priority === 'high'),
+    { equals: shallowEqual },
+  );
 
   return (
     <>

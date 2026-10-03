@@ -1641,20 +1641,9 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   })();
 
   // The prop bags must be in the store before the parts render: they read them with `useState`.
-  store.update({
-    popupProps: untrack(popupProps),
-    listProps,
-    inputProps: untrack(inputProps),
-    triggerProps,
-    itemProps,
-  });
-
-  createRenderEffect(
-    () => ({ popupProps: popupProps(), inputProps: inputProps() }),
-    (bags) => {
-      store.update(bags);
-    },
-  );
+  store.update({ listProps, triggerProps, itemProps });
+  store.useSyncedValue('popupProps', popupProps);
+  store.useSyncedValue('inputProps', inputProps);
 
   store.useContextCallback('setOpen', setOpen);
   store.useContextCallback('setInputValue', setInputValue);

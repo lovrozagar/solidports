@@ -1,0 +1,275 @@
+{
+  "bundleBytes": {
+    "react": 723211,
+    "solid": 520993
+  },
+  "measuredAt": "2026-10-03T16:37:39.992Z",
+  "passes": 5,
+  "rechartsVersion": "3.10.1",
+  "routes": [
+    {
+      "id": "line",
+      "react": {
+        "avgRafMs": 0.0089,
+        "maxRafMs": 0.14,
+        "p95RafMs": 0.1,
+        "rafCount": 473,
+        "scriptMs": 131.5424,
+        "tFirstPaint": 96.4,
+        "totalRafMs": 4.22
+      },
+      "selector": ".recharts-line .recharts-curve",
+      "solid": {
+        "avgRafMs": 0.0121,
+        "maxRafMs": 0.16,
+        "p95RafMs": 0.1,
+        "rafCount": 471,
+        "scriptMs": 141.6126,
+        "tFirstPaint": 89.8,
+        "totalRafMs": 5.72
+      }
+    },
+    {
+      "id": "bar",
+      "react": {
+        "avgRafMs": 0.0148,
+        "maxRafMs": 0.12,
+        "p95RafMs": 0.1,
+        "rafCount": 116,
+        "scriptMs": 95.6226,
+        "tFirstPaint": 169.2,
+        "totalRafMs": 1.72
+      },
+      "selector": ".recharts-bar-rectangle",
+      "solid": {
+        "avgRafMs": 0.0115,
+        "maxRafMs": 0.16,
+        "p95RafMs": 0.1,
+        "rafCount": 114.4,
+        "scriptMs": 60.675,
+        "tFirstPaint": 156.4,
+        "totalRafMs": 1.32
+      }
+    },
+    {
+      "id": "area",
+      "react": {
+        "avgRafMs": 0.0111,
+        "maxRafMs": 0.18,
+        "p95RafMs": 0.1,
+        "rafCount": 380.8,
+        "scriptMs": 109.0948,
+        "tFirstPaint": 92.8,
+        "totalRafMs": 4.22
+      },
+      "selector": ".recharts-area .recharts-curve",
+      "solid": {
+        "avgRafMs": 0.0119,
+        "maxRafMs": 0.2,
+        "p95RafMs": 0.1,
+        "rafCount": 379.2,
+        "scriptMs": 89.8722,
+        "tFirstPaint": 87.6,
+        "totalRafMs": 4.52
+      }
+    },
+    {
+      "id": "composed",
+      "react": {
+        "avgRafMs": 0.0171,
+        "maxRafMs": 0.16,
+        "p95RafMs": 0.1,
+        "rafCount": 219.8,
+        "scriptMs": 111.6348,
+        "tFirstPaint": 87,
+        "totalRafMs": 3.76
+      },
+      "selector": ".recharts-line .recharts-curve",
+      "solid": {
+        "avgRafMs": 0.017,
+        "maxRafMs": 0.12,
+        "p95RafMs": 0.1,
+        "rafCount": 217.2,
+        "scriptMs": 91.9116,
+        "tFirstPaint": 80.8,
+        "totalRafMs": 3.7
+      }
+    },
+    {
+      "id": "pie",
+      "react": {
+        "avgRafMs": 0.019,
+        "maxRafMs": 0.22,
+        "p95RafMs": 0.1,
+        "rafCount": 243.2,
+        "scriptMs": 109.8334,
+        "tFirstPaint": 850.6,
+        "totalRafMs": 4.62
+      },
+      "selector": ".recharts-pie-sector",
+      "solid": {
+        "avgRafMs": 0.0149,
+        "maxRafMs": 0.26,
+        "p95RafMs": 0.1,
+        "rafCount": 236.8,
+        "scriptMs": 142.584,
+        "tFirstPaint": 844.4,
+        "totalRafMs": 3.54
+      }
+    },
+    {
+      "id": "radar",
+      "react": {
+        "avgRafMs": 0.0191,
+        "maxRafMs": 0.16,
+        "p95RafMs": 0.1,
+        "rafCount": 190,
+        "scriptMs": 65.5204,
+        "tFirstPaint": 145,
+        "totalRafMs": 3.62
+      },
+      "selector": ".recharts-radar-polygon",
+      "solid": {
+        "avgRafMs": 0.0173,
+        "maxRafMs": 0.18,
+        "p95RafMs": 0.1,
+        "rafCount": 190,
+        "scriptMs": 70.672,
+        "tFirstPaint": 140.6,
+        "totalRafMs": 3.28
+      }
+    },
+    {
+      "id": "radial",
+      "react": {
+        "avgRafMs": 0.0263,
+        "maxRafMs": 0.16,
+        "p95RafMs": 0.1,
+        "rafCount": 96,
+        "scriptMs": 81.1126,
+        "tFirstPaint": 141.4,
+        "totalRafMs": 2.52
+      },
+      "selector": ".recharts-radial-bar-sector",
+      "solid": {
+        "avgRafMs": 0.0269,
+        "maxRafMs": 0.16,
+        "p95RafMs": 0.1,
+        "rafCount": 94.4,
+        "scriptMs": 91.534,
+        "tFirstPaint": 134.2,
+        "totalRafMs": 2.54
+      }
+    },
+    {
+      "id": "scatter",
+      "react": {
+        "avgRafMs": 0.0227,
+        "maxRafMs": 0.12,
+        "p95RafMs": 0.1,
+        "rafCount": 57.2,
+        "scriptMs": 72.1062,
+        "tFirstPaint": 156.8,
+        "totalRafMs": 1.3
+      },
+      "selector": ".recharts-scatter-symbol",
+      "solid": {
+        "avgRafMs": 0.0214,
+        "maxRafMs": 0.2,
+        "p95RafMs": 0.1,
+        "rafCount": 56,
+        "scriptMs": 77.773,
+        "tFirstPaint": 152.8,
+        "totalRafMs": 1.2
+      }
+    },
+    {
+      "id": "funnel",
+      "react": {
+        "avgRafMs": 0.0267,
+        "maxRafMs": 0.22,
+        "p95RafMs": 0.1,
+        "rafCount": 122,
+        "scriptMs": 82.9948,
+        "tFirstPaint": 841,
+        "totalRafMs": 3.26
+      },
+      "selector": ".recharts-funnel-trapezoid",
+      "solid": {
+        "avgRafMs": 0.0282,
+        "maxRafMs": 0.2,
+        "p95RafMs": 0.1,
+        "rafCount": 118.6,
+        "scriptMs": 100.801,
+        "tFirstPaint": 837.2,
+        "totalRafMs": 3.34
+      }
+    },
+    {
+      "id": "sankey",
+      "react": {
+        "avgRafMs": 0,
+        "maxRafMs": 0,
+        "p95RafMs": 0,
+        "rafCount": 2,
+        "scriptMs": 35.5264,
+        "tFirstPaint": 67.6,
+        "totalRafMs": 0
+      },
+      "selector": ".recharts-sankey-node",
+      "solid": {
+        "avgRafMs": 0,
+        "maxRafMs": 0,
+        "p95RafMs": 0,
+        "rafCount": 0,
+        "scriptMs": 27.4336,
+        "tFirstPaint": 58.2,
+        "totalRafMs": 0
+      }
+    },
+    {
+      "id": "treemap",
+      "react": {
+        "avgRafMs": 0.0004,
+        "maxRafMs": 0.14,
+        "p95RafMs": 0,
+        "rafCount": 7870,
+        "scriptMs": 56.0444,
+        "tFirstPaint": 78,
+        "totalRafMs": 3.42
+      },
+      "selector": ".recharts-treemap-depth-1 .recharts-rectangle",
+      "solid": {
+        "avgRafMs": 0.0005,
+        "maxRafMs": 0.1,
+        "p95RafMs": 0,
+        "rafCount": 7885,
+        "scriptMs": 46.1174,
+        "tFirstPaint": 73.4,
+        "totalRafMs": 3.78
+      }
+    },
+    {
+      "id": "sunburst",
+      "react": {
+        "avgRafMs": 0.02,
+        "maxRafMs": 0.04,
+        "p95RafMs": 0.04,
+        "rafCount": 2,
+        "scriptMs": 35.039,
+        "tFirstPaint": 67.4,
+        "totalRafMs": 0.04
+      },
+      "selector": ".recharts-sunburst .recharts-sector",
+      "solid": {
+        "avgRafMs": 0,
+        "maxRafMs": 0,
+        "p95RafMs": 0,
+        "rafCount": 0,
+        "scriptMs": 31.3472,
+        "tFirstPaint": 64.6,
+        "totalRafMs": 0
+      }
+    }
+  ]
+}

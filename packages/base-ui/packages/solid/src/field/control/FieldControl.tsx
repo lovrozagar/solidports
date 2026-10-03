@@ -1,4 +1,4 @@
-import { createEffect, untrack } from 'solid-js';
+import { createEffect, createSignal, onSettled, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { activeElement } from '../../floating-ui-solid/utils';
 import { useFormContext } from '../../form/FormContext';
@@ -55,7 +55,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
     setDirty,
     validityData,
     setFocused,
-    setFilled,
+    registerFilledSource,
     validationMode,
     validation,
   } = useFieldRootContext();
@@ -100,13 +100,17 @@ export function FieldControl(componentProps: FieldControl.Props) {
     nameProp,
   );
 
-  // Solid: an effect, as React's layout effect. Registering a derived source (as other controls
-  // do) would read the value through a parent render function's props, which also carry this
-  // field's state, so `filled` would depend on itself.
-  createEffect(serializedValue, (nextSerializedValue) => {
-    const currentValue = nextSerializedValue ?? validation.inputRef.current?.value;
-    if (currentValue !== undefined) {
-      setFilled(currentValue !== '');
+  // A controlled value derives `filled`; an uncontrolled input reports its DOM value at mount and
+  // on input.
+  const [inputFilled, setInputFilled] = createSignal(false, { ownedWrite: true });
+  registerFilledSource(() => {
+    const currentValue = serializedValue();
+    return currentValue !== undefined ? currentValue !== '' : inputFilled();
+  });
+  onSettled(() => {
+    const inputValue = validation.inputRef.current?.value;
+    if (inputValue !== undefined) {
+      setInputFilled(inputValue !== '');
     }
   });
 
@@ -178,7 +182,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
 
             // `validation.change` reads `markedDirtyRef`, so update dirty before validating.
             setDirty(inputValue !== (validityData.initialValue ?? ''));
-            setFilled(inputValue !== '');
+            setInputFilled(inputValue !== '');
 
             // Workaround for https://github.com/facebook/react/issues/9023
             if (!event.defaultPrevented && !details.isCanceled) {

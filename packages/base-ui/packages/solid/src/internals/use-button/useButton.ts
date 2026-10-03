@@ -240,19 +240,10 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
           callEventHandler(externalOnPointerDown, event);
         },
       },
-      // Read when the props are resolved, as React does per render; `role` is resolved last below
-      // because a later `undefined` overrides an earlier value in Solid.
-      untrack(isNativeButton) ? { type: 'button' } : {},
+      // Read when the props are resolved, as React does per render.
+      untrack(isNativeButton) ? { type: 'button' } : { role: 'button' },
       focusableWhenDisabledProps(),
       otherExternalProps,
-      {
-        get role() {
-          if (otherExternalProps.role) {
-            return otherExternalProps.role;
-          }
-          return !isNativeButton() ? 'button' : undefined;
-        },
-      },
     );
   }
 

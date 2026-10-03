@@ -841,6 +841,19 @@ function TreemapItem(itemProps: {
 		}
 	}
 
+	/* One object per item: an inline JSX object literal is a getter that re-spreads on every
+	   `props.nodeProps` read downstream. ContentItem snapshots node props at setup, and
+	   x/y/width/height above are setup constants, so a setup snapshot reads the same. */
+	const contentNodeProps = untrack(() => ({
+		...itemProps.nodeProps,
+		height,
+		isAnimationActive: itemProps.treemapProps.isAnimationActive,
+		isUpdateAnimationActive: !itemProps.treemapProps.isUpdateAnimationActive,
+		width,
+		x,
+		y,
+	}))
+
 	function handleAnimationEnd() {
 		if (typeof itemProps.treemapProps.onAnimationEnd === "function") {
 			itemProps.treemapProps.onAnimationEnd()
@@ -877,15 +890,7 @@ function TreemapItem(itemProps: {
 						id={itemProps.treemapProps.id}
 						content={itemProps.content}
 						dataKey={itemProps.treemapProps.dataKey as DataKey<unknown>}
-						nodeProps={{
-							...itemProps.nodeProps,
-							height,
-							isAnimationActive: itemProps.treemapProps.isAnimationActive,
-							isUpdateAnimationActive: !itemProps.treemapProps.isUpdateAnimationActive,
-							width,
-							x,
-							y,
-						}}
+						nodeProps={contentNodeProps}
 						type={itemProps.treemapProps.type}
 						colorPanel={itemProps.treemapProps.colorPanel}
 					/>
@@ -993,8 +998,11 @@ function TreemapWithState(props: InternalTreemapProps): JSX.Element {
 		})
 	}
 
+	/* The chart's SVG props are the same for every node; filter the props view once. */
+	const chartSvgProps = createMemo(() => svgPropertiesNoEvents(props))
+
 	function renderNode(root: TreemapNode, node: TreemapNode): JSX.Element | null {
-		const nodeProps = untrack(() => ({ ...svgPropertiesNoEvents(props), ...node, root }))
+		const nodeProps = untrack(() => ({ ...chartSvgProps(), ...node, root }))
 		const isLeaf = node.children == null || node.children.length === 0
 
 		const curRoot = untrack(() => currentRoot())

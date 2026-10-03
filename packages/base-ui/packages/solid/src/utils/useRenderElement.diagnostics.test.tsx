@@ -1,8 +1,9 @@
-import { createRenderer, flushMicrotasks } from '#test-utils';
+import { act, createRenderer, flushMicrotasks } from '#test-utils';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { flush } from 'solid-js';
+import { For, flush } from 'solid-js';
 import { attribution } from 'solid-js/attribution';
 import { afterAll, beforeAll, beforeEach, expect, vi } from 'vitest';
+import { Avatar } from '@solidports/base-ui/avatar';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { Field } from '@solidports/base-ui/field';
 import { Input } from '@solidports/base-ui/input';
@@ -10,6 +11,7 @@ import { Menu } from '@solidports/base-ui/menu';
 import { OTPField } from '@solidports/base-ui/otp-field';
 import { Popover } from '@solidports/base-ui/popover';
 import { Select } from '@solidports/base-ui/select';
+import { Toast } from '@solidports/base-ui/toast';
 
 /**
  * Solid's dev diagnostics (the attribution engine `vite dev` enables) must stay silent while the
@@ -19,12 +21,31 @@ describe('Solid dev diagnostics', () => {
   const { render } = createRenderer();
   const warnings: string[] = [];
 
+  // Browsers report finished animations through `getAnimations()` promises, so open-change
+  // completions land after the effect. The test setup disables animations and jsdom has no
+  // `getAnimations`, so Base UI would complete synchronously inside the effect, a relay a
+  // browser never runs; model the browser instead.
+  const hadGetAnimations = 'getAnimations' in Element.prototype;
+  let animationsDisabled: boolean;
+
   beforeAll(() => {
     attribution.enable();
+    animationsDisabled = globalThis.BASE_UI_ANIMATIONS_DISABLED;
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+    if (!hadGetAnimations) {
+      Object.defineProperty(Element.prototype, 'getAnimations', {
+        configurable: true,
+        value: () => [],
+      });
+    }
   });
 
   afterAll(() => {
     attribution.disable();
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = animationsDisabled;
+    if (!hadGetAnimations) {
+      delete (Element.prototype as { getAnimations?: unknown }).getAnimations;
+    }
   });
 
   // Per test: the shared setup resets every mock after each test.
@@ -174,6 +195,50 @@ describe('Solid dev diagnostics', () => {
     ));
     fireEvent.click(screen.getByTestId('trigger'));
     await user.click(await screen.findByRole('option', { name: 'Banana' }));
+    await settle();
+    expect(warnings).toEqual([]);
+  });
+  it('an Avatar stays silent while its image loads', async () => {
+    render(() => (
+      <Avatar.Root>
+        <Avatar.Image src="https://example.com/avatar.png" />
+        <Avatar.Fallback>LZ</Avatar.Fallback>
+      </Avatar.Root>
+    ));
+    await settle();
+    expect(warnings).toEqual([]);
+  });
+
+  it('a Toast stays silent while toasts are added and closed', async () => {
+    const manager = Toast.createToastManager();
+
+    function List() {
+      return (
+        <For each={Toast.useToastManager().toasts()}>
+          {(toast) => (
+            <Toast.Root toast={toast}>
+              <Toast.Title />
+            </Toast.Root>
+          )}
+        </For>
+      );
+    }
+
+    render(() => (
+      <Toast.Provider toastManager={manager}>
+        <Toast.Viewport>
+          <List />
+        </Toast.Viewport>
+      </Toast.Provider>
+    ));
+    await act(async () => {
+      manager.add({ id: 'one', title: 'One', priority: 'high' });
+    });
+    await act(async () => {
+      manager.add({ id: 'two', title: 'Two' });
+    });
+    await settle();
+    await act(async () => manager.close('one'));
     await settle();
     expect(warnings).toEqual([]);
   });

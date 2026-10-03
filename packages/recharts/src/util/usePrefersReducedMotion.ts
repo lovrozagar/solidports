@@ -1,7 +1,11 @@
-import { createSignal, untrack, onSettled } from 'solid-js';
 import { Global } from "./Global"
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
+
+/* One live MediaQueryList for the page (re-queried only if `matchMedia` itself is replaced).
+   Every animated shape reads it on mount, so a query per instance shows up on chart switch. */
+let queriedWith: typeof window.matchMedia | undefined
+let mediaQuery: MediaQueryList | undefined
 
 function readPrefersReducedMotion(): boolean {
 	if (Global.isSsr) {
@@ -10,34 +14,24 @@ function readPrefersReducedMotion(): boolean {
 	if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
 		return false
 	}
-	return window.matchMedia(REDUCED_MOTION_QUERY).matches
+	if (mediaQuery === undefined || queriedWith !== window.matchMedia) {
+		queriedWith = window.matchMedia
+		mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY)
+	}
+	return mediaQuery.matches
 }
 
 /**
- * Detects and subscribes to the user's `prefers-reduced-motion` system preference.
+ * Reads the user's `prefers-reduced-motion` system preference.
  * Returns `true` when the user prefers reduced motion, `false` otherwise.
  * SSR-safe: always returns `false` during server-side rendering.
+ *
+ * Components run once in Solid, so the value is read at mount, as upstream's first render
+ * does. Upstream re-renders on a preference change; a snapshot here never would, so no
+ * change listener is kept per instance.
  */
 export function usePrefersReducedMotion(): boolean {
-	const [prefersReducedMotion, setPrefersReducedMotion] = createSignal(readPrefersReducedMotion())
-
-	onSettled(() => {
-		if (Global.isSsr || typeof window === "undefined" || typeof window.matchMedia !== "function") {
-			return undefined
-		}
-		const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY)
-		const handleChange = () => {
-			setPrefersReducedMotion(mediaQuery.matches)
-		}
-		mediaQuery.addEventListener("change", handleChange)
-		return () => {
-			mediaQuery.removeEventListener("change", handleChange)
-		}
-	})
-
-	/* Component bodies are untracked in Solid 2; reading the signal here is a
-	   snapshot (components run once). untrack keeps STRICT_READ quiet. */
-	return untrack(prefersReducedMotion)
+	return readPrefersReducedMotion()
 }
 
 /**

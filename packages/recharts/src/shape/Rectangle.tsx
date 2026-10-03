@@ -16,7 +16,7 @@ import { getTransitionVal } from "../animation/util"
 import { svgPropertiesAndEvents } from "../util/svgPropertiesAndEvents"
 import { round, roundTemplateLiteral } from "../util/round"
 
-import { mergeProps, splitProps } from '../util/solid-1-compat';
+import { mergeProps } from '../util/solid-1-compat';
 /**
  * @inline
  */
@@ -210,6 +210,8 @@ type ResolvedRectangleProps = Props & {
  * Solid component so each prop binding (x/y/width/height/d) is a separate
  * accessor that re-runs on prop changes — replacing the IIFE that snapshotted
  * everything on first mount. */
+const RECT_GEOMETRY_KEYS: ReadonlySet<string> = new Set(["x", "y", "width", "height", "radius"])
+
 function RectanglePath(rpProps: { props: ResolvedRectangleProps; layerClass: () => string }) {
 	/* perf: snapshot non-geometry props ONCE at mount via untrack. Bar entry
 	   animation re-allocates `entry()` per frame; the upstream mergeProps
@@ -221,14 +223,16 @@ function RectanglePath(rpProps: { props: ResolvedRectangleProps; layerClass: () 
 	   x/y/width/height/d/radius are bound individually below so they stay
 	   reactive — the path's geometry still updates per frame. */
 	const otherPathProps = untrack(() => {
-		const [, restProps] = splitProps(rpProps.props, [
-			"x",
-			"y",
-			"width",
-			"height",
-			"radius",
-		])
-		return svgPropertiesAndEvents(restProps)
+		/* One filter pass over the props view; a splitProps view first would add a getter
+		   layer per key that the filter then walks again. */
+		const all = svgPropertiesAndEvents(rpProps.props) as Record<string, unknown>
+		const rest: Record<string, unknown> = {}
+		for (const key in all) {
+			if (!RECT_GEOMETRY_KEYS.has(key)) {
+				rest[key] = all[key]
+			}
+		}
+		return rest
 	})
 	/* perf: collapse all geometry attribute writes into ONE createEffect using
 	   a captured node ref. Per-frame work goes from 6 reactive render effects

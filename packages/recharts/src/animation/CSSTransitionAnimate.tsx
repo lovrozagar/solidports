@@ -9,7 +9,6 @@ import { RequestAnimationFrameTimeoutController } from "./timeoutController"
 import type { EasingInput, NamedBezier } from "./easing"
 import type { AnimationController } from "./AnimationController"
 
-import { mergeProps } from "../util/solid-1-compat"
 type CSSTransitionAnimateProps = {
 	animationController?: AnimationController
 	animationId: string
@@ -47,9 +46,50 @@ export function extractCssEasing(easingInput: EasingInput): NamedBezier | undefi
 }
 
 export function CSSTransitionAnimate(outsideProps: CSSTransitionAnimateProps) {
-	/* mergeProps keeps from/to/canBegin/isActive/children as live getters.
-	 * resolveDefaultProps would freeze them at setup — see GOTCHA-005-C. */
-	const props = mergeProps(defaultProps, outsideProps)
+	/* Live getters with defaults (resolveDefaultProps would freeze them at setup — see
+	 * GOTCHA-005-C). A literal view skips mergeProps' per-key defineProperty and key scan;
+	 * this runs once per animated shape. `??` matches mergeProps: no prop here admits null. */
+	const props = {
+		get animationController() {
+			return outsideProps.animationController
+		},
+		get animationId() {
+			return outsideProps.animationId
+		},
+		get attributeName() {
+			return outsideProps.attributeName
+		},
+		get begin() {
+			return outsideProps.begin ?? defaultProps.begin
+		},
+		get canBegin() {
+			return outsideProps.canBegin ?? defaultProps.canBegin
+		},
+		get children() {
+			return outsideProps.children
+		},
+		get duration() {
+			return outsideProps.duration ?? defaultProps.duration
+		},
+		get easing() {
+			return outsideProps.easing ?? defaultProps.easing
+		},
+		get from() {
+			return outsideProps.from
+		},
+		get isActive() {
+			return outsideProps.isActive ?? defaultProps.isActive
+		},
+		get onAnimationEnd() {
+			return outsideProps.onAnimationEnd ?? defaultProps.onAnimationEnd
+		},
+		get onAnimationStart() {
+			return outsideProps.onAnimationStart ?? defaultProps.onAnimationStart
+		},
+		get to() {
+			return outsideProps.to
+		},
+	}
 
 	const prefersReducedMotion = usePrefersReducedMotion()
 	const isActive = createMemo(() => resolveIsAnimationActive(props.isActive, prefersReducedMotion))

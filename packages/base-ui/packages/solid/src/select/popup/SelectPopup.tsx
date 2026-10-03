@@ -241,7 +241,6 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
       open: open(),
       positionerElement: positionerElement(),
       triggerElement: triggerElement(),
-      alignItemWithTriggerActive: alignItemWithTriggerActive(),
       listElement: listElement(),
       highlightItemOnHover: highlightItemOnHover(),
       direction: direction(),
@@ -252,6 +251,17 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
       const positionerEl = deps.positionerElement;
       const triggerEl = deps.triggerElement;
       const listEl = deps.listElement;
+      // Not a dependency: it changes with the open cycle (tracked through `open` and the positioner)
+      // and when this effect falls back below, which then finishes the unaligned path itself.
+      const alignActive = untrack(alignItemWithTriggerActive);
+
+      const updateScrollArrows = () => {
+        // The wrapper supplies the scroller: the list owns scrolling once it has mounted, and
+        // this effect re-runs (cancelling the stale frame) when that happens.
+        scrollArrowFrame.request(() =>
+          rootContext.handleScrollArrowVisibility(listEl || popupElement!),
+        );
+      };
 
       // Wait for Floating UI's first positioning pass before reading DOM geometry.
       // We replace the final coordinates for aligned selects, but still need middleware
@@ -261,7 +271,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
         !triggerEl ||
         !positionerEl ||
         !popupElement ||
-        (deps.alignItemWithTriggerActive && !deps.isPositioned) ||
+        (alignActive && !deps.isPositioned) ||
         store.state.transitionStatus === 'ending'
       ) {
         return;
@@ -270,12 +280,8 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
       initialPlacedRef = true;
       popupElement.style.removeProperty(SelectPositionerCssVars.transformOrigin);
 
-      if (!deps.alignItemWithTriggerActive) {
-        // The wrapper supplies the scroller: the list owns scrolling once it has mounted, and
-        // this effect re-runs (cancelling the stale frame) when that happens.
-        scrollArrowFrame.request(() =>
-          rootContext.handleScrollArrowVisibility(listEl || popupElement),
-        );
+      if (!alignActive) {
+        updateScrollArrows();
         return;
       }
 
@@ -387,6 +393,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
         if (fallbackToAlignPopupToTrigger || isPinchZoomed) {
           clearStyles(positionerEl, originalPositionerStylesRef);
           setControlledAlignItemWithTrigger(false);
+          updateScrollArrows();
           return;
         }
 

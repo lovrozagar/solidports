@@ -1,9 +1,9 @@
-import { Show, createMemo, createSignal, onCleanup, onSettled, untrack } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
 import { safePolygon, useClick, useHoverReferenceInteraction } from '../../floating-ui-solid';
 import { live, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
-import { FocusGuard } from '../../utils/FocusGuard';
+import { TriggerFocusGuards } from '../../utils/popups/TriggerFocusGuards';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { usePopupHandleStore, useTriggerDataForwarding } from '../../utils/popups';
 import { useTriggerFocusGuards } from '../../utils/popups/useTriggerFocusGuards';
@@ -207,60 +207,16 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
 
   const guardsActive = () => isMountedByThisTrigger() && !focusManagerModal();
 
-  // Solid-only: React keys the element so it stays the same DOM node when the guards mount. Solid's
-  // list diff instead replaces the trigger node when guards appear on both sides in one update,
-  // which blurs a focused trigger. The leading guard mounts once the trailing guard is in the DOM,
-  // so each mount is a plain insertion.
-  const [trailingGuardAttached, setTrailingGuardAttached] = createSignal(false, {
-    ownedWrite: true,
-  });
-
   return (
-    <>
-      <Show when={guardsActive() && trailingGuardAttached()}>
-        <TriggerFocusGuard guardRef={preFocusGuardRef} onFocus={handlePreFocusGuardFocus} />
-      </Show>
+    <TriggerFocusGuards
+      active={guardsActive()}
+      leadingGuardRef={preFocusGuardRef}
+      onLeadingFocus={handlePreFocusGuardFocus}
+      trailingGuardRef={currentStore().context.triggerFocusTargetRef}
+      onTrailingFocus={handleFocusTargetFocus}
+    >
       {element()}
-      <Show when={guardsActive()}>
-        <TriggerFocusGuard
-          guardRef={currentStore().context.triggerFocusTargetRef}
-          onFocus={handleFocusTargetFocus}
-          onAttach={setTrailingGuardAttached}
-        />
-      </Show>
-    </>
-  );
-}
-
-/**
- * A focus guard that clears its ref on unmount, as React does: Solid never calls refs with `null`,
- * and the focus guard handlers fall back to the trigger once the guard is gone.
- */
-function TriggerFocusGuard(props: {
-  guardRef: ReactLikeRef<HTMLElement | null | undefined>;
-  onFocus: (event: FocusEvent) => void;
-  onAttach?: ((attached: boolean) => void) | undefined;
-}) {
-  let guard: HTMLElement | null = null;
-  // After the guard is in the DOM, not when its ref runs (that is still the same update).
-  onSettled(() => {
-    props.onAttach?.(true);
-  });
-  onCleanup(() => {
-    if (props.guardRef.current === guard) {
-      props.guardRef.current = null;
-    }
-    props.onAttach?.(false);
-  });
-
-  return (
-    <FocusGuard
-      ref={(el) => {
-        guard = el;
-        props.guardRef.current = el;
-      }}
-      onFocus={props.onFocus}
-    />
+    </TriggerFocusGuards>
   );
 }
 

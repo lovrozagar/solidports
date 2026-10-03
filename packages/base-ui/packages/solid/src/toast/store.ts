@@ -586,10 +586,17 @@ export function ToastStore(initialState: InitialState) {
       return;
     }
 
+    // The records update in place, so the list itself changes only when its items or their order
+    // do; lists that recreate their items (`toasts().map(...)`) keep them on a field update.
+    const sameItems =
+      reconciledToasts.length === currentToasts.length &&
+      reconciledToasts.every((toast, index) => toast === currentToasts[index]);
     const updates = {
-      toasts: reconciledToasts,
       toastMetadata: createToastMetadata(reconciledToasts),
     } as Pick<State, 'toasts' | 'toastMetadata' | 'hovering' | 'focused'>;
+    if (!sameItems) {
+      updates.toasts = reconciledToasts;
+    }
 
     if (clearInteraction) {
       updates.hovering = false;

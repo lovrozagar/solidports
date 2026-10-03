@@ -3,20 +3,22 @@ import {
   Show,
   createMemo,
   createRenderEffect,
+  createRoot,
   getObserver,
-  merge,
-  omit,
+  mapArray,
   onCleanup,
   runWithOwner,
   untrack,
+  type Accessor,
 } from 'solid-js';
 import type { JSX, ValidComponent } from '@solidjs/web';
-import { Dynamic } from '@solidjs/web';
+import { assign, Dynamic, isServer, spread } from '@solidjs/web';
 import type { DynamicProps } from '@solidjs/web';
-import { MERGED_REFS, mergeProps } from '../merge-props/mergeProps';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { MERGED_REFS } from '../merge-props/mergeProps';
+import { access, shallowEqual, type MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
-import { getStateAttributesProps, type StateAttributesMapping } from './getStateAttributesProps';
+import { type StateAttributesMapping } from './getStateAttributesProps';
+import { createPropsView, createStateAttributesSource, propsSourceAccessor } from './propsView';
 import { resolveClassName } from './resolveClassName';
 import { resolveStyle } from './resolveStyle';
 import type {
@@ -64,7 +66,7 @@ export function useRenderElement<
     const renderProp = createMemo(() => componentProps.render);
     // React semantics for the element's refs: each distinct ref callback is called once with the
     // element, and a replacement callback (a part rebuilt its props) is called with it too. A
-    // replaced callback is not called with `null`: Solid refs never receive `null`. The consumer's ref usually also reaches the merged props
+    // replaced callback is not called with `null`: Solid refs never receive `null`. The consumer's ref usually also reaches the element props
     // through the part's forwarded element props, so callbacks are deduplicated.
     let attachedElement: unknown = null;
     let appliedRefs = new Set<Function>();
@@ -87,8 +89,8 @@ export function useRenderElement<
         objects.add(ref as { current: unknown });
       }
     };
-    // Reads only the `ref` of each props source (the sources `merged` combines), so a change to any
-    // other prop does not re-run the ref sync. Tracking the whole merged props would make a ref
+    // Reads only the `ref` of each props source (the sources the element props combine), so a change to any
+    // other prop does not re-run the ref sync. Tracking every prop would make a ref
     // that writes state those props read (a part registering its element) re-run its own sync.
     const readRefs = () => {
       const callbacks = new Set<Function>();
@@ -168,32 +170,66 @@ export function useRenderElement<
       }
     });
 
+    // The element's props, lowest priority first, as one lazy per-key view (`createPropsView`): a
+    // read of one prop tracks only that prop's sources, and the key set only which keys exist.
     // `component` (from a `render={{ component }}` config) is dropped, not set to `undefined`:
     // a render function spreading these props onto `<Dynamic component={X}>` would otherwise
     // have its own `component` overwritten.
-    const merged = createMemo(() =>
-      omit(
-        mergeProps([
-          renderProps,
-
-          typeof renderProp() === 'object' ? (renderProp() as object) : {},
-
-          getStateAttributesProps(state(), params.stateAttributesMapping),
-
-          mergeProps(Array.isArray(params.props) ? params.props.flat() : params.props),
-
-          {
-            get class() {
-              return resolveClassName(componentProps.class, state());
-            },
-            get style() {
-              return resolveStyle(componentProps.style, state());
-            },
-          },
-        ]),
-        'component' as never,
-      ),
+    const stateAttributesSource = createStateAttributesSource(
+      state,
+      () => params.stateAttributesMapping as Record<string, (value: any) => any> | undefined,
     );
+    // Part props. As React's `mergeProps`, a function entry receives the part props before it and
+    // its result replaces them (the function merges them into what it returns).
+    const partSources = createMemo(
+      () => {
+        const entries = Array.isArray(params.props) ? params.props.flat() : [params.props];
+        let result: unknown[] = [];
+        for (const entry of entries) {
+          if (typeof entry === 'function') {
+            const previous = createPropsView(result);
+            const callback = entry as (props: Record<string, any>) => object | null | undefined;
+            result = [propsSourceAccessor(createMemo(() => callback(previous)))];
+          } else {
+            result.push(entry);
+          }
+        }
+        return result;
+      },
+      { equals: shallowEqual },
+    );
+    const classStyleSource = {
+      get class() {
+        return resolveClassName(componentProps.class, state());
+      },
+      get style() {
+        return resolveStyle(componentProps.style, state());
+      },
+    };
+    // The render object and React's `renderTag` defaults (`type="button"` / `alt=""` at the lowest
+    // priority) are read here, so a prop read subscribes to one memo for them.
+    const sources = createMemo(
+      () => {
+        const intrinsicTag = access(element);
+        const render = renderProp();
+        return [
+          intrinsicTag === 'button'
+            ? BUTTON_DEFAULTS
+            : intrinsicTag === 'img'
+              ? IMG_DEFAULTS
+              : undefined,
+          renderProps,
+          render != null && typeof render === 'object' && !(render instanceof Node)
+            ? render
+            : undefined,
+          stateAttributesSource,
+          ...partSources(),
+          classStyleSource,
+        ];
+      },
+      { equals: shallowEqual },
+    );
+    const elementProps = createPropsView(sources, { omit: ['component'] });
 
     // A part that rebuilds its props (e.g. a new inline ref) re-syncs the attached element's refs.
     createRenderEffect(readRefs, (refs) => {
@@ -202,7 +238,7 @@ export function useRenderElement<
       }
     });
 
-    const resolvedChildren = () => {
+    const resolveChildren = () => {
       // A part that supplies `children` owns them, even when they resolve to nothing.
       if ('children' in params) return params.children;
       const render = renderProp();
@@ -217,9 +253,9 @@ export function useRenderElement<
         return (render as { children?: JSX.Element }).children;
       }
       // Parts that forward children through `params.props` (e.g. NavigationMenu.Link via
-      // CompositeItem) only carry them in the merged props. The JSX child below overrides the
-      // spread, and Solid 2 lets an `undefined` override win, so fall back to the merged value.
-      return componentProps.children ?? (merged() as { children?: JSX.Element }).children;
+      // CompositeItem) only carry them in the element props. The JSX child below overrides the
+      // spread, and Solid 2 lets an `undefined` override win, so fall back to the element props.
+      return componentProps.children ?? (elementProps.children as JSX.Element);
     };
 
     const tag = () => {
@@ -233,29 +269,24 @@ export function useRenderElement<
       return access(element);
     };
 
-    // React's `renderTag`: the default element gets `type="button"` / `alt=""` at the lowest
-    // priority. Both sources are accessors, so `merge` reads them lazily in tracking scopes.
-    const intrinsicDefaults = () => {
-      const intrinsicTag = access(element);
-      if (intrinsicTag === 'button') {
-        return BUTTON_DEFAULTS;
-      }
-      return intrinsicTag === 'img' ? IMG_DEFAULTS : EMPTY_OBJECT;
-    };
-    // The element gets a single ref, `applyRef`, which applies every merged ref once per element.
+    // The element gets a single ref, `applyRef`, which applies every element ref once per element.
     const elementRef = { ref: applyRef };
-    const dynamicProps = merge(intrinsicDefaults, merged, elementRef);
-
-    // Render functions receive a live view of the props (the memo as a `merge` source) plus the
-    // part's children, as `<Dynamic>` passed them before the Solid 2 port. The function runs in
-    // a tracking scope, so it re-runs only for state its own body reads (e.g. `state.pressed`);
-    // prop changes reach the element through its spread. Passing a `merged()` snapshot instead
-    // re-created the element on every prop change, and a ref that writes state then looped.
-    const renderFnPropsView = merge(merged, elementRef, {
-      get children() {
-        return resolvedChildren();
-      },
+    // Render functions and component tags receive these: the element props with `applyRef`, plus
+    // the part's children for render functions (as `<Dynamic>` passed them before the Solid 2
+    // port). A render function runs in a tracking scope and re-runs only for state its own body
+    // reads (e.g. `state.pressed`); a prop it reads in its JSX updates only that prop.
+    const componentTagProps = createPropsView(() => [...sources(), elementRef], {
+      omit: ['component'],
     });
+    const renderFnPropsView = createPropsView(
+      () => [
+        ...sources(),
+        elementRef,
+        // `children` is answered by `renderFnProps` below; this only declares the key.
+        { children: undefined },
+      ],
+      { omit: ['component'] },
+    );
     // Render functions treat these as plain props: handlers and ref callbacks read them
     // imperatively, so reads outside a tracking scope are untracked (no stale-read diagnostics).
     // The proxy target is an empty object so property-invariant checks never read the view.
@@ -272,16 +303,75 @@ export function useRenderElement<
           return descriptor && { ...descriptor, configurable: true };
         }),
     });
-    const renderFnProps = new Proxy({} as typeof renderFnPropsView, {
-      get: (_, key) => read(() => Reflect.get(renderFnPropsView, key)),
-      has: (_, key) => read(() => Reflect.has(renderFnPropsView, key)),
+    // `children` bypasses the view: it depends only on what resolves it, so an element spreading
+    // these props creates the children once (inside its own context providers), as in Solid.
+    const childrenDescriptor = {
+      configurable: true,
+      enumerable: true,
+      get: () => read(resolveChildren),
+    };
+    const renderFnProps = new Proxy({} as Record<string, any>, {
+      get: (_, key) =>
+        key === 'children'
+          ? read(resolveChildren)
+          : read(() => Reflect.get(renderFnPropsView, key)),
+      has: (_, key) => key === 'children' || read(() => Reflect.has(renderFnPropsView, key)),
       ownKeys: () => read(() => Reflect.ownKeys(renderFnPropsView)),
       getOwnPropertyDescriptor: (_, key) =>
-        read(() => {
-          const descriptor = Reflect.getOwnPropertyDescriptor(renderFnPropsView, key);
-          return descriptor && { ...descriptor, configurable: true };
-        }),
+        key === 'children'
+          ? childrenDescriptor
+          : read(() => {
+              const descriptor = Reflect.getOwnPropertyDescriptor(renderFnPropsView, key);
+              return descriptor && { ...descriptor, configurable: true };
+            }),
     });
+
+    // An intrinsic element on the client gets one small effect per attribute (Solid's own `spread`
+    // for that key), so a change applies only that attribute and no computation subscribes to
+    // every prop. Keys that appear later get their effect then; a key that goes away is removed
+    // from the element. Detaching (unmount or a new element) leaves the old element as it was, as
+    // React does. The server renders the element props as one spread.
+    // The attribute root is unowned so the component's cleanup marks it detached before it
+    // disposes (an owned child root would dispose first and strip the detached element).
+    let disposeAttributes: (() => void) | undefined;
+    onCleanup(() => disposeAttributes?.());
+    const attributeKeys = createMemo(
+      () =>
+        (Reflect.ownKeys(elementProps) as string[]).filter(
+          (key) => key !== 'ref' && key !== 'children',
+        ),
+      { equals: (a, b) => a.length === b.length && a.every((key, index) => key === b[index]) },
+    );
+    const attachAttributes = (el: Element) => {
+      disposeAttributes?.();
+      runWithOwner(null, () =>
+        createRoot((dispose) => {
+          let attached = true;
+          disposeAttributes = () => {
+            attached = false;
+            dispose();
+          };
+          const applied = mapArray(attributeKeys, (key) => {
+            // `spread` returns the props it applied; a key that goes away is removed with them.
+            const appliedProps = spread(
+              el,
+              () => ({ [key]: elementProps[key] }),
+              true,
+            ) as unknown as Record<string, unknown>;
+            onCleanup(() => {
+              if (attached) {
+                assign(el, {}, true, appliedProps, true);
+              }
+            });
+          });
+          createMemo(applied);
+        }),
+      );
+    };
+    const hostRef = (el: Element) => {
+      attachAttributes(el);
+      applyRef(el);
+    };
 
     // The branch follows the `render` prop, as React re-evaluates it every render. A render
     // function re-runs (re-creating its element) only for state read at its top level, as React
@@ -293,8 +383,19 @@ export function useRenderElement<
           if (typeof render === 'function') {
             return render(renderFnProps, renderFnState);
           }
+          // Reading JSX children creates them: resolve them once per branch, as Solid's `children`
+          // helper, here inside the part's context providers.
+          const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
+          const component = tag();
+          if (isServer || typeof component !== 'string') {
+            return (
+              <Dynamic {...componentTagProps} component={component}>
+                {resolvedChildren()}
+              </Dynamic>
+            );
+          }
           return (
-            <Dynamic {...dynamicProps} component={tag()}>
+            <Dynamic component={component} ref={hostRef}>
               {resolvedChildren()}
             </Dynamic>
           );
