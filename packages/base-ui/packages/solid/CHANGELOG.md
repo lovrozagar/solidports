@@ -1,3 +1,10 @@
+## 1.8.0-3 — 2026-10-05
+
+(1.8.0-2 was tagged on the wrong commit and not published.)
+
+- **Portals render on the server**: a portal that renders on the first pass (an app-root `Toast.Portal`) crashed server rendering with `document is not defined`, because the container defaulted to `document.body` during render. The container now resolves only on the client after hydration settles, as React sets its portal node in an effect: the server renders nothing there and hydration has nothing to mismatch.
+- **Server rendering tests**: a new `@solidports/base-ui:ssr` Vitest project (`test/ssr`) compiles fixtures with Solid's SSR transform through Vite; it runs with `test:solid:*`.
+
 ## 1.8.0-1 — 2026-10-04
 
 Solid port of `@base-ui/react@1.8.0` (1.4.1 → 1.8.0). First npm release, on the `next` dist-tag.

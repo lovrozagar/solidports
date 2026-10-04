@@ -27,6 +27,8 @@ export default mergeConfig(
       },
     },
     test: {
+      // Server rendering runs in its own Node project (vitest.ssr.config.mts).
+      exclude: ['test/ssr/**'],
       setupFiles: [
         resolve(__dirname, 'test/disableAutoCleanup.ts'),
         resolve(__dirname, 'test/setupSolid.ts'),

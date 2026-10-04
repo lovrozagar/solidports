@@ -122,7 +122,7 @@
     "test:regressions:solid": "node test/regressions-solid/run.mjs",
     "test:regressions:solid:build": "cross-env NODE_ENV=production vite build --config test/regressions-solid/react.vite.config.mjs && cross-env NODE_ENV=production vite build --config test/regressions-solid/solid.vite.config.mjs",
     "test:regressions:solid:server": "serve test/regressions-solid/solid -p 5173",
-    "test:solid:_unit": "cross-env vitest --hideSkippedTests --retry=0 --project @solidports/base-ui",
+    "test:solid:_unit": "cross-env vitest --hideSkippedTests --retry=0 --project @solidports/base-ui --project @solidports/base-ui:ssr",
     "test:solid:browsers": "cross-env VITEST_ENV=all-browsers bun test:solid:_unit",
     "test:solid:chromium": "cross-env VITEST_ENV=chromium bun test:solid:_unit",
     "test:solid:chromium:ui": "bun test:solid:chromium --browser.headless=false",

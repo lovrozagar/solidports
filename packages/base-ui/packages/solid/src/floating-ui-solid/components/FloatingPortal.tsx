@@ -12,7 +12,7 @@ import {
 import type { Accessor } from 'solid-js';
 import { isNode } from '@floating-ui/utils/dom';
 import type { JSX } from '@solidjs/web';
-import { Portal } from '@solidjs/web';
+import { isServer, Portal } from '@solidjs/web';
 import { ownerVisuallyHidden } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { EMPTY_OBJECT } from '../../utils/empty';
@@ -20,6 +20,7 @@ import { FocusGuard } from '../../utils/FocusGuard';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useId } from '../../utils/useId';
+import { useIsHydrating } from '../../utils/useIsHydrating';
 import { useRenderElement } from '../../utils/useRenderElement';
 import {
   disableFocusInside,
@@ -89,7 +90,14 @@ export function useFloatingPortalNode(
   // the parent computation that swaps the subtree, so the write is an intentional owned write.
   const [portalNode, setPortalNode] = createSignal<HTMLElement | null>(null, { ownedWrite: true });
 
+  const hydrating = useIsHydrating();
+
+  // No container on the server (there is no `document`) or while hydrating (the server rendered
+  // none): the portal mounts once hydration settles, as React sets its portal node in an effect.
   const containerElement = createMemo<HTMLElement | ShadowRoot | null>(() => {
+    if (isServer || hydrating()) {
+      return null;
+    }
     const containerProp = props.container;
     // Wait for the container to be resolved if explicitly `null`.
     if (containerProp === null) {
