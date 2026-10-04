@@ -827,12 +827,19 @@ describe('<PreviewCard.Root />', () => {
       }
 
       const { user } = render(() => <Test />);
+      // The payload follows the active trigger after Solid flushes, not synchronously with the click.
       await user.click(screen.getByRole('button', { name: 'Open Trigger 1' }));
-      expect(screen.getByTestId('content').textContent).to.equal('1');
+      await waitFor(() => {
+        expect(screen.getByTestId('content').textContent).to.equal('1');
+      });
       await user.click(screen.getByRole('button', { name: 'Open Trigger 2' }));
-      expect(screen.getByTestId('content').textContent).to.equal('2');
+      await waitFor(() => {
+        expect(screen.getByTestId('content').textContent).to.equal('2');
+      });
       await user.click(screen.getByRole('button', { name: 'Close' }));
-      expect(screen.queryByTestId('content')).to.equal(null);
+      await waitFor(() => {
+        expect(screen.queryByTestId('content')).to.equal(null);
+      });
     });
 
     it('allows setting an initially open preview card', async () => {
@@ -1255,7 +1262,9 @@ describe('<PreviewCard.Root />', () => {
       const trigger2 = screen.getByRole('link', { name: 'Trigger 2' });
 
       await user.click(screen.getByRole('button', { name: 'Open Trigger 1' }));
-      expect(screen.getByTestId('content').textContent).to.equal('1');
+      await waitFor(() => {
+        expect(screen.getByTestId('content').textContent).to.equal('1');
+      });
 
       await waitFor(() => {
         expect(screen.getByTestId('positioner').getBoundingClientRect().left).to.be.approximately(
@@ -1265,7 +1274,9 @@ describe('<PreviewCard.Root />', () => {
       });
 
       await user.click(screen.getByRole('button', { name: 'Open Trigger 2' }));
-      expect(screen.getByTestId('content').textContent).to.equal('2');
+      await waitFor(() => {
+        expect(screen.getByTestId('content').textContent).to.equal('2');
+      });
       await waitFor(() => {
         expect(screen.getByTestId('positioner').getBoundingClientRect().left).to.be.approximately(
           trigger2.getBoundingClientRect().left,
@@ -1274,7 +1285,9 @@ describe('<PreviewCard.Root />', () => {
       });
 
       await user.click(screen.getByRole('button', { name: 'Close' }));
-      expect(screen.queryByTestId('content')).to.equal(null);
+      await waitFor(() => {
+        expect(screen.queryByTestId('content')).to.equal(null);
+      });
     });
 
     it('allows setting an initially open preview card', async () => {
