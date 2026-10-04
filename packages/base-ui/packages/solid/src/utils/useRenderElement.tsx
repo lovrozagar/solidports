@@ -395,6 +395,24 @@ export function useRenderElement<
             });
           });
           createMemo(applied);
+          // Solid skips attribute writes for the whole synchronous `hydrate()` call (it trusts
+          // the server markup), so a value that changes inside that call is lost: an id another
+          // part registers in an effect, like a tab's `aria-controls`. A microtask runs once
+          // `hydrate()` has returned; re-apply the current attributes then.
+          if (isHydrating()) {
+            queueMicrotask(() => {
+              if (!attached) {
+                return;
+              }
+              const current: Record<string, unknown> = {};
+              for (const key of untrack(attributeKeys)) {
+                if (!(key.length > 2 && key[0] === 'o' && key[1] === 'n')) {
+                  current[key] = untrack(() => elementProps[key]);
+                }
+              }
+              assign(el, current, true, {}, true);
+            });
+          }
         }),
       );
     };
