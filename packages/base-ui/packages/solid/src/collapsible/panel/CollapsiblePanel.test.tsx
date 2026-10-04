@@ -389,7 +389,7 @@ describe('<Collapsible.Panel />', () => {
             .interruptible-panel {
               overflow: hidden;
               height: var(--collapsible-panel-height);
-              transition: height 100ms linear;
+              transition: height 1s linear;
             }
 
             .interruptible-panel[data-starting-style],
