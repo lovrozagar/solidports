@@ -1,4 +1,5 @@
-import { dirname, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import solidPlugin from '@solidjs/vite-plugin';
 import { createServer } from 'vite';
@@ -10,8 +11,12 @@ const pkg = resolve(here, '../..');
 export async function serverRender(entry: string): Promise<string> {
   const server = await createServer({
     appType: 'custom',
+    // Its own cache and no client dep discovery: a shared Vite cache would re-optimize the
+    // browser test server's deps mid-run.
+    cacheDir: join(tmpdir(), 'solidports-ssr-fixtures'),
     configFile: false,
     logLevel: 'silent',
+    optimizeDeps: { noDiscovery: true },
     plugins: [solidPlugin({ ssr: true }) as never],
     resolve: { alias: { '@solidports/base-ui': resolve(pkg, 'src') } },
     root: pkg,

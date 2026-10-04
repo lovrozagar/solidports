@@ -29,6 +29,8 @@ export default mergeConfig(
     test: {
       // Server rendering runs in its own Node project (vitest.ssr.config.mts).
       exclude: ['test/ssr/**'],
+      // Hydration fixtures are server-rendered in Node up front (browser mode has no SSR loader).
+      globalSetup: [resolve(__dirname, 'test/hydration/globalSetup.ts')],
       setupFiles: [
         resolve(__dirname, 'test/disableAutoCleanup.ts'),
         resolve(__dirname, 'test/setupSolid.ts'),

@@ -4,8 +4,7 @@
  */
 import { flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { afterEach, describe, expect, it } from 'vitest';
-import { serverRender } from './serverRender';
+import { afterEach, describe, expect, inject, it } from 'vitest';
 import { TabsFixture } from './tabs.fixture';
 
 let dispose: (() => void) | undefined;
@@ -16,8 +15,10 @@ afterEach(() => {
 
 describe('hydrated Tabs', () => {
   it('wires each tab to its panel', async () => {
+    const html = inject('serverHtml')['tabs.server.tsx'];
+    if (!html) throw new Error('globalSetup did not server-render tabs.server.tsx');
     const container = document.createElement('div');
-    container.innerHTML = await serverRender('tabs.server.tsx');
+    container.innerHTML = html;
     document.body.append(container);
     (window as unknown as { _$HY: object })._$HY = {
       completed: new WeakSet(),
@@ -36,5 +37,5 @@ describe('hydrated Tabs', () => {
     expect(panel).not.toBeNull();
     expect(tabs[0]).toHaveAttribute('aria-controls', panel?.id);
     expect(panel).toHaveAttribute('aria-labelledby', tabs[0]?.id);
-  }, 60_000);
+  });
 });

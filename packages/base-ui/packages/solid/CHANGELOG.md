@@ -1,10 +1,10 @@
-## 1.8.0-4 — 2026-10-05
+## 1.8.0-5 — 2026-10-05
 
-(1.8.0-2 was tagged on the wrong commit and 1.8.0-3 failed CI; neither was published.)
+(1.8.0-2 was tagged on the wrong commit; 1.8.0-3 and 1.8.0-4 failed CI. None was published.)
 
 - **Portals render on the server**: a portal that renders on the first pass (an app-root `Toast.Portal`) crashed server rendering with `document is not defined`, because the container defaulted to `document.body` during render. The container now resolves only on the client after hydration settles, as React sets its portal node in an effect: the server renders nothing there and hydration has nothing to mismatch.
 - **Hydration keeps client-only attributes**: Solid skips attribute writes for the whole synchronous `hydrate()` call, so a value that changed inside it was lost, such as a hydrated tab's `aria-controls` and its panel's `aria-labelledby` (registered in effects). Parts attached while hydrating re-apply their attributes once `hydrate()` returns.
-- **Server rendering and hydration tests**: an `@solidports/base-ui:ssr` Vitest project (`test/ssr`) renders fixtures with Solid's SSR transform, and `test/hydration` hydrates server HTML in jsdom; both run with `test:solid:*`.
+- **Server rendering and hydration tests**: an `@solidports/base-ui:ssr` Vitest project (`test/ssr`) renders fixtures with Solid's SSR transform, and `test/hydration` hydrates server HTML rendered in Node by a global setup, in jsdom and in browsers; both run with `test:solid:*`.
 - **Diagnostics suite**: ignores `HOT_SCOPE_TIME`, a CPU-time budget that slower CI runners tripped; the suite guards the reactive graph.
 
 ## 1.8.0-1 — 2026-10-04
