@@ -5,6 +5,8 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal, Show, untrack } from 'solid-js';
 import { expect, vi } from 'vitest';
 import { autofocus } from '../../solid-helpers';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures from './FieldControl.ssr-fixtures';
 
 // do not treeshake autofocus
 // eslint-disable-next-line @typescript-eslint/no-unused-expressions
@@ -537,24 +539,16 @@ describe('<Field.Control />', () => {
       .mockName('console.error')
       .mockImplementation(() => {});
 
-    function App() {
-      return (
-        <Field.Root data-testid="root">
-          <Field.Label data-testid="label">Name</Field.Label>
-          <Field.Control autofocus ref={autofocus} />
-        </Field.Root>
-      );
-    }
-
-    render(() => <App />);
+    const { hydrate } = renderServer(fixtures, 'autoFocus');
 
     const control = screen.getByRole('textbox');
     expect(control).to.have.attribute('autofocus');
 
     // Simulate focused by browser before hydration
-    // Solid: no hydration path; `act` applies the focus write the control queued.
-    act(() => control.focus());
+    control.focus();
     expect(control).to.equal(document.activeElement);
+
+    hydrate();
 
     expect(screen.getByTestId('root')).to.have.attribute('data-focused', '');
     expect(control).to.have.attribute('data-focused', '');

@@ -1,4 +1,5 @@
-import { createContext, createRenderEffect, createSignal, useContext } from 'solid-js';
+import { createContext, createSignal, useContext } from 'solid-js';
+import { createLayoutEffect } from '../solid-helpers';
 
 interface ClosePartContextValue {
   register: () => () => void;
@@ -31,7 +32,7 @@ export function useClosePartRegistration() {
   const context = useContext(ClosePartContext);
 
   // Layout-effect timing, as React's `useIsoLayoutEffect`.
-  createRenderEffect(
+  createLayoutEffect(
     () => context,
     (currentContext) => currentContext?.register(),
   );

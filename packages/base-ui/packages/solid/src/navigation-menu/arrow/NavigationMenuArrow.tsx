@@ -3,6 +3,7 @@ import { popupStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useNavigationMenuPositionerContext } from '../positioner/NavigationMenuPositionerContext';
 import { useNavigationMenuRootContext } from '../root/NavigationMenuRootContext';
@@ -35,19 +36,21 @@ export function NavigationMenuArrow(componentProps: NavigationMenuArrow.Props) {
     },
   };
 
+  // Read per key by the element props: a change does not rebuild the props chain.
+  const transitionStyles = propsSourceAccessor(() =>
+    getDisabledMountTransitionStyles(transitionStatus()),
+  );
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [
-        {
-          get style() {
-            return arrowStyles();
-          },
-          'aria-hidden': 'true',
+    props: [
+      {
+        get style() {
+          return arrowStyles();
         },
-        getDisabledMountTransitionStyles(transitionStatus()),
-        elementProps,
-      ];
-    },
+        'aria-hidden': 'true',
+      },
+      transitionStyles,
+      elementProps,
+    ],
     ref: (el) => {
       arrowRef.current = el;
     },

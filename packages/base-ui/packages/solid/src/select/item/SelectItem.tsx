@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createEffect, createMemo, untrack } from 'solid-js';
+import { createEffect, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   IndexGuessBehavior,
@@ -164,14 +164,9 @@ export function SelectItem(componentProps: SelectItem.Props) {
     },
   };
 
-  const rootProps = createMemo(() => {
-    const props = getItemProps({ active: highlighted(), selected: selected() });
-    // With our custom `focusItemOnHover` implementation, this interferes with the logic and can
-    // cause the index state to be stuck when leaving the select popup.
-    props.onFocus = undefined;
-    props.id = undefined;
-    return props;
-  });
+  // React spreads list navigation's item props (focus/hover sync, `onFocus` included) without the
+  // item states; the getter returns a live view, so it is built once rather than per highlight.
+  const rootProps = getItemProps();
 
   let pointerTypeRef = 'mouse' as 'mouse' | 'touch' | 'pen';
   let allowMouseSelectionRef = false;
@@ -325,7 +320,7 @@ export function SelectItem(componentProps: SelectItem.Props) {
 
   const element = useRenderElement('div', componentProps, {
     get props() {
-      return [rootProps(), defaultProps, elementProps, getButtonProps];
+      return [rootProps, defaultProps, elementProps, getButtonProps];
     },
     ref: (el) => {
       buttonRef(el);

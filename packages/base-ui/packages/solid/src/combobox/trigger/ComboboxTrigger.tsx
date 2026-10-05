@@ -1,4 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
+import { createMemo } from 'solid-js';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useClick, useTypeahead } from '../../floating-ui-solid';
@@ -14,6 +15,7 @@ import { REASONS } from '../../utils/reasons';
 import { resolveAriaLabelledBy } from '../../utils/resolveAriaLabelledBy';
 import { BaseUIComponentProps, NativeButtonProps, type HTMLProps } from '../../utils/types';
 import type { Side } from '../../utils/useAnchorPositioning';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import {
@@ -172,124 +174,142 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
     store.set('triggerElement', element);
   };
 
+  // Read per key by the element props: a change does not rebuild the props chain.
+  const triggerPropsSource = propsSourceAccessor(() => triggerProps());
+  const validationPropsSource = propsSourceAccessor(
+    createMemo(() => validation.getValidationProps(disabled(), elementProps as HTMLProps)),
+  );
   const element = useRenderElement('button', componentProps, {
     ref: (el) => {
       buttonRef(el);
       setTriggerElement(el);
     },
     state,
-    get props() {
-      return [
-        triggerProps(),
-        triggerClick.reference,
-        triggerTypeahead.reference,
-        {
-          id: id(),
-          tabindex: inputInsidePopup() ? 0 : -1,
-          role: inputInsidePopup() ? 'combobox' : undefined,
-          'aria-expanded': open() ? 'true' : 'false',
-          'aria-haspopup': inputInsidePopup() ? 'dialog' : 'listbox',
-          'aria-controls': ariaControls(),
-          'aria-required': inputInsidePopup() && required() ? 'true' : undefined,
-          // Only valid alongside the `combobox` role; without it the trigger is a plain button, and
-          // the `Combobox.Input` outside the popup already carries `aria-readonly`.
-          'aria-readonly': inputInsidePopup() && readOnly() ? 'true' : undefined,
-          'aria-labelledby': ariaLabelledBy(),
-          onPointerDown: trackPointerType,
-          onPointerEnter: trackPointerType,
-          onFocus() {
-            setFocused(true);
+    props: [
+      triggerPropsSource,
+      propsSourceAccessor(() => triggerClick.reference),
+      propsSourceAccessor(() => triggerTypeahead.reference),
+      {
+        get id() {
+          return id();
+        },
+        get tabindex() {
+          return inputInsidePopup() ? 0 : -1;
+        },
+        get role() {
+          return inputInsidePopup() ? 'combobox' : undefined;
+        },
+        get 'aria-expanded'() {
+          return open() ? 'true' : 'false';
+        },
+        get 'aria-haspopup'() {
+          return inputInsidePopup() ? 'dialog' : 'listbox';
+        },
+        get 'aria-controls'() {
+          return ariaControls();
+        },
+        get 'aria-required'() {
+          return inputInsidePopup() && required() ? 'true' : undefined;
+        },
+        // Only valid alongside the `combobox` role; without it the trigger is a plain button, and
+        // the `Combobox.Input` outside the popup already carries `aria-readonly`.
+        get 'aria-readonly'() {
+          return inputInsidePopup() && readOnly() ? 'true' : undefined;
+        },
+        get 'aria-labelledby'() {
+          return ariaLabelledBy();
+        },
+        onPointerDown: trackPointerType,
+        onPointerEnter: trackPointerType,
+        onFocus() {
+          setFocused(true);
 
-            if (disabled()) {
-              return;
-            }
+          if (disabled()) {
+            return;
+          }
 
-            focusTimeout.start(0, store.context.forceMount);
-          },
-          onBlur(event: FocusEvent) {
-            // If focus is moving into the popup, don't count it as a blur.
-            if (contains(positionerElement(), event.relatedTarget as Element | null)) {
-              return;
-            }
+          focusTimeout.start(0, store.context.forceMount);
+        },
+        onBlur(event: FocusEvent) {
+          // If focus is moving into the popup, don't count it as a blur.
+          if (contains(positionerElement(), event.relatedTarget as Element | null)) {
+            return;
+          }
 
-            setTouched(true);
-            setFocused(false);
+          setTouched(true);
+          setFocused(false);
 
-            if (validationMode() === 'onBlur') {
-              const valueToValidate = selectionMode() === 'none' ? inputValue() : selectedValue();
-              validation.commit(valueToValidate);
-            }
-          },
-          onMouseDown(event: MouseEvent) {
-            if (disabled()) {
-              return;
-            }
+          if (validationMode() === 'onBlur') {
+            const valueToValidate = selectionMode() === 'none' ? inputValue() : selectedValue();
+            validation.commit(valueToValidate);
+          }
+        },
+        onMouseDown(event: MouseEvent) {
+          if (disabled()) {
+            return;
+          }
+
+          if (!inputInsidePopup()) {
+            floatingRootContext.set('domReferenceElement', event.currentTarget as Element);
+          }
+
+          // Ensure items are registered for initial selection highlight.
+          store.context.forceMount();
+
+          if (currentPointerTypeRef !== 'touch') {
+            store.context.inputRef.current?.focus();
 
             if (!inputInsidePopup()) {
-              floatingRootContext.set('domReferenceElement', event.currentTarget as Element);
+              event.preventDefault();
             }
+          }
 
-            // Ensure items are registered for initial selection highlight.
-            store.context.forceMount();
+          if (open()) {
+            return;
+          }
 
-            if (currentPointerTypeRef !== 'touch') {
-              store.context.inputRef.current?.focus();
+          const doc = ownerDocument(event.currentTarget as Element | null);
 
-              if (!inputInsidePopup()) {
-                event.preventDefault();
-              }
-            }
-
-            if (open()) {
+          function handleMouseUp(mouseEvent: MouseEvent) {
+            const currentTriggerElement = store.state.triggerElement;
+            if (!currentTriggerElement) {
               return;
             }
 
-            const doc = ownerDocument(event.currentTarget as Element | null);
+            const mouseUpTarget = getTarget(mouseEvent) as Element | null;
+            const positioner = store.state.positionerElement;
+            const list = store.state.listElement;
 
-            function handleMouseUp(mouseEvent: MouseEvent) {
-              const currentTriggerElement = store.state.triggerElement;
-              if (!currentTriggerElement) {
-                return;
-              }
-
-              const mouseUpTarget = getTarget(mouseEvent) as Element | null;
-              const positioner = store.state.positionerElement;
-              const list = store.state.listElement;
-
-              if (
-                contains(currentTriggerElement, mouseUpTarget) ||
-                contains(positioner, mouseUpTarget) ||
-                contains(list, mouseUpTarget)
-              ) {
-                return;
-              }
-
-              if (isMouseWithinBounds(mouseEvent, currentTriggerElement)) {
-                return;
-              }
-
-              store.context.setOpen(
-                false,
-                createChangeEventDetails(REASONS.cancelOpen, mouseEvent),
-              );
+            if (
+              contains(currentTriggerElement, mouseUpTarget) ||
+              contains(positioner, mouseUpTarget) ||
+              contains(list, mouseUpTarget)
+            ) {
+              return;
             }
 
-            if (inputInsidePopup()) {
-              doc.addEventListener('mouseup', handleMouseUp, { once: true });
+            if (isMouseWithinBounds(mouseEvent, currentTriggerElement)) {
+              return;
             }
-          },
-          onKeyDown(event: KeyboardEvent) {
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-              stopEvent(event);
-              store.context.setOpen(true, createChangeEventDetails(REASONS.listNavigation, event));
-              store.context.inputRef.current?.focus();
-            }
-          },
+
+            store.context.setOpen(false, createChangeEventDetails(REASONS.cancelOpen, mouseEvent));
+          }
+
+          if (inputInsidePopup()) {
+            doc.addEventListener('mouseup', handleMouseUp, { once: true });
+          }
         },
-        validation.getValidationProps(disabled(), elementProps as HTMLProps),
-        getButtonProps,
-      ];
-    },
+        onKeyDown(event: KeyboardEvent) {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            stopEvent(event);
+            store.context.setOpen(true, createChangeEventDetails(REASONS.listNavigation, event));
+            store.context.inputRef.current?.focus();
+          }
+        },
+      },
+      validationPropsSource,
+      getButtonProps,
+    ],
     stateAttributesMapping: triggerStateAttributesMapping,
   });
 

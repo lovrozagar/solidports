@@ -4,6 +4,8 @@ import type { JSX } from '@solidjs/web';
 import { Avatar } from '@solidports/base-ui/avatar';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { act, describeConformance, createRenderer, isJSDOM } from '#test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures from './AvatarImage.ssr-fixtures';
 
 type MockImage = {
   complete: boolean;
@@ -424,8 +426,46 @@ describe('<Avatar.Image />', () => {
       expect(screen.getByText('JD')).not.toBe(null);
     });
 
-    // Solid: the test renderer has no server render + hydrate path (`renderToString`).
-    it.skip('renders the image in the server HTML and resolves cached images on hydration', () => {});
+    it.skipIf(isJSDOM)(
+      'renders the image in the server HTML and resolves cached images on hydration',
+      async () => {
+        // Restore real Image so this test exercises actual browser caching
+        restoreImage();
+        restoreImage = () => {};
+
+        // Pre-load so the browser cache has the decoded image
+        await new Promise<void>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error('Failed to preload test image'));
+          img.src = TRANSPARENT_IMAGE_DATA_URI;
+        });
+
+        const { hydrate } = renderServer(fixtures, 'keepMounted');
+
+        // Unlike the default mode, the image is part of the server HTML, so the
+        // browser loads it before hydration. Until hydration resolves the status,
+        // the fallback owns the accessible name and the image is aria-hidden.
+        expect(screen.getByTestId('image')).toHaveAttribute('src', TRANSPARENT_IMAGE_DATA_URI);
+        expect(screen.getByTestId('image')).toHaveAttribute('aria-hidden', 'true');
+        expect(screen.queryByRole('img')).toBe(null);
+        expect(screen.getByText('JD')).toBeVisible();
+        await waitFor(() => {
+          expect((screen.getByTestId('image') as HTMLImageElement).complete).toBe(true);
+        });
+
+        hydrate();
+
+        // The hydration layout effect sees `image.complete` and resolves the
+        // status before paint, so the fallback is removed without a flash.
+        expect(screen.getByRole('img', { name: 'Jane Doe' })).toHaveAttribute(
+          'src',
+          TRANSPARENT_IMAGE_DATA_URI,
+        );
+        expect(screen.getByTestId('image')).not.toHaveAttribute('aria-hidden');
+        expect(screen.queryByText('JD')).toBe(null);
+      },
+    );
 
     it.skipIf(isJSDOM)('loads the image without a detached preload', async () => {
       // Fail the test if the detached preload is used
@@ -995,13 +1035,61 @@ describe('<Avatar.Image />', () => {
       expect(screen.getByTestId('image')).toHaveAttribute('data-loading');
     });
 
-    // Solid: the test renderer has no server render + hydrate path (`renderToString`).
-    it.skip('does not replay the enter animation for a cached image on hydration', () => {});
+    it('does not replay the enter animation for a cached image on hydration', async () => {
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+      restoreImage();
+      restoreImage = () => {};
+
+      await new Promise<void>((resolve, reject) => {
+        const img = new window.Image();
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to preload test image'));
+        img.src = TRANSPARENT_IMAGE_DATA_URI;
+      });
+
+      const { hydrate } = renderServer(fixtures, 'keepMountedNoAlt');
+
+      await waitFor(() => {
+        expect((screen.getByTestId('image') as HTMLImageElement).complete).toBe(true);
+      });
+
+      hydrate();
+
+      // The browser painted the image before hydration, so animating it in would flash.
+      expect(screen.getByTestId('image')).not.toHaveAttribute('data-starting-style');
+    });
   });
 
   describe.skipIf(isJSDOM)('cached images', () => {
-    // Solid: the test renderer has no server render + hydrate path (`renderToString`).
-    it.skip('does not flash fallback for a cached image during SSR hydration', () => {});
+    it('does not flash fallback for a cached image during SSR hydration', async () => {
+      // Restore real Image so this test exercises actual browser caching
+      restoreImage();
+
+      // Pre-load so the browser cache has the decoded image
+      await new Promise<void>((resolve, reject) => {
+        const img = new window.Image();
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to preload test image'));
+        img.src = TRANSPARENT_IMAGE_DATA_URI;
+      });
+
+      // Server render: layout effects don't run, so fallback is in the HTML
+      const { hydrate } = renderServer(fixtures, 'cached');
+
+      expect(screen.getByText('JD')).toBeVisible();
+      expect(screen.queryByRole('img')).toBe(null);
+
+      // After hydration, the layout effect fires synchronously before paint.
+      // For cached images, image.complete is true so status resolves to 'loaded'
+      // immediately — no fallback flash.
+      //
+      // Assert synchronously (no waitFor) to verify the image is available on
+      // the first post-hydration render, not after a delayed onload callback.
+      hydrate();
+
+      expect(screen.getByRole('img')).toHaveAttribute('src', TRANSPARENT_IMAGE_DATA_URI);
+      expect(screen.queryByText('JD')).toBe(null);
+    });
   });
 
   it.skipIf(!isJSDOM)('shows the image immediately for a cached src', async () => {

@@ -2,6 +2,8 @@ import { expect, vi, describe, it } from 'vitest';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures from './AccordionPanel.ssr-fixtures';
 
 const PANEL_CONTENT = 'This is panel content';
 
@@ -45,42 +47,8 @@ describe('<Accordion.Panel />', () => {
   });
 
   describe('server-side rendering', () => {
-    // Solid: the test harness has no string renderer; the client render covers the same
-    // first-paint suppression of the initial keyframe animation.
     it('suppresses the initial keyframe animation from inline styles when rendered open', async () => {
-      await render(() => (
-        <>
-          <style>{`
-            @keyframes panel-slide-down {
-              from {
-                height: 0;
-              }
-
-              to {
-                height: var(--accordion-panel-height);
-              }
-            }
-          `}</style>
-
-          <Accordion.Root defaultValue={[0]}>
-            <Accordion.Item value={0}>
-              <Accordion.Header>
-                <Accordion.Trigger>Trigger</Accordion.Trigger>
-              </Accordion.Header>
-              <Accordion.Panel
-                data-testid="panel"
-                style={{
-                  'animation-duration': '100ms',
-                  'animation-name': 'panel-slide-down',
-                  'animation-timing-function': 'linear',
-                }}
-              >
-                {PANEL_CONTENT}
-              </Accordion.Panel>
-            </Accordion.Item>
-          </Accordion.Root>
-        </>
-      ));
+      renderServer(fixtures, 'inlineKeyframes');
 
       const panel = screen.getByTestId('panel');
 

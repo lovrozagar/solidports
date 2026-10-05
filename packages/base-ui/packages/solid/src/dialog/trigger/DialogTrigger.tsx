@@ -8,6 +8,7 @@ import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useOpenMethodTriggerProps } from '../../utils/useOpenInteractionType';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useDialogRootContext } from '../root/DialogRootContext';
 import { DialogHandle } from '../store/DialogHandle';
@@ -86,7 +87,28 @@ export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Paylo
     },
   };
 
-  const rootTriggerProps = createMemo(() => store().select('triggerProps', isMountedByThisTrigger));
+  // Sources the element props read per key: a state change updates its attribute without
+  // rebuilding the element's props chain.
+  const rootTriggerProps = propsSourceAccessor(
+    createMemo(() => store().select('triggerProps', isMountedByThisTrigger)),
+  );
+  const interactionProps = {
+    onClick: interactionTypeProps.onClick,
+    onPointerDown: interactionTypeProps.onPointerDown,
+  };
+  const triggerProps = {
+    [CLICK_TRIGGER_IDENTIFIER as string]: '',
+    get id() {
+      return thisTriggerId();
+    },
+    'aria-haspopup': 'dialog' as const,
+    get 'aria-expanded'() {
+      return isOpenedByThisTrigger() ? 'true' : 'false';
+    },
+    get 'aria-controls'() {
+      return popupId();
+    },
+  };
 
   const element = useRenderElement('button', componentProps, {
     state,
@@ -97,25 +119,14 @@ export function DialogTrigger<Payload>(componentProps: DialogTrigger.Props<Paylo
         triggerElementRef.current = el;
       },
     ],
-    get props() {
-      return [
-        click.reference,
-        rootTriggerProps(),
-        {
-          onClick: interactionTypeProps.onClick,
-          onPointerDown: interactionTypeProps.onPointerDown,
-        },
-        {
-          [CLICK_TRIGGER_IDENTIFIER as string]: '',
-          id: thisTriggerId(),
-          'aria-haspopup': 'dialog' as const,
-          'aria-expanded': isOpenedByThisTrigger() ? 'true' : 'false',
-          'aria-controls': popupId(),
-        },
-        elementProps,
-        getButtonProps,
-      ];
-    },
+    props: [
+      propsSourceAccessor(() => click.reference),
+      rootTriggerProps,
+      interactionProps,
+      triggerProps,
+      elementProps,
+      getButtonProps,
+    ],
     stateAttributesMapping: triggerOpenStateMapping,
   });
 

@@ -1,5 +1,6 @@
 /* eslint-disable no-bitwise */
-import { createEffect, createRenderEffect, createSignal, onCleanup, untrack } from 'solid-js';
+import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
+import { createLayoutEffect } from '../../../solid-helpers';
 import type { JSX } from '@solidjs/web';
 import { CompositeListContext, type CompositeListRegistration } from './CompositeListContext';
 
@@ -204,7 +205,7 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
   });
 
   // Layout-effect timing, as React's `useIsoLayoutEffect` keyed on the ref objects.
-  createRenderEffect(
+  createLayoutEffect(
     () => props.refs,
     (refs) => {
       // Re-copy the last committed snapshot when the ref objects change.

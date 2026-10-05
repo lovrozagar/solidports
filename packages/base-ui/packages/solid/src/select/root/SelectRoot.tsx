@@ -13,7 +13,6 @@ import {
 } from '../../floating-ui-solid';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
-import { mergeProps } from '../../merge-props';
 import { createDepsEffect, createDepsMemo, useRef, type ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
 import {
@@ -40,6 +39,7 @@ import { selectors, type State as StoreState } from '../store';
 import { SelectFloatingContext, SelectRootContext } from './SelectRootContext';
 import { on } from '../../solid-1-compat';
 import type { HTMLProps } from '../../utils/types';
+import { createPropsView, propsSourceAccessor } from '../../utils/propsView';
 
 /**
  * Groups all parts of the select.
@@ -234,6 +234,10 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
   // React sets `filled` from a layout effect; the field derives it from this source.
   registerFilledSource(hasSelectedValue);
+  // React sets `dirty` when the value changes; the field derives it from this source.
+  registerDirtySource(() =>
+    isSelectedValueDirty(value(), validityData.initialValue, isItemEqualToValue),
+  );
 
   // The selected index follows the value while closed (React syncs it from a layout effect).
   // While open, items and list navigation set it, and an empty single value clears it.
@@ -517,13 +521,13 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   const referenceProps = getReferenceProps();
   const popupProps = getFloatingProps();
 
-  const mergedTriggerProps = createMemo(() =>
-    mergeProps(
-      referenceProps,
-      interactionTypeProps,
-      generatedId() ? { id: generatedId() } : EMPTY_OBJECT,
-    ),
-  );
+  // One lazy view, built once: a `mergeProps` memo would enumerate the live reference props on
+  // every key-set change (e.g. on open) and hand the trigger a new object, rebuilding its props.
+  const mergedTriggerProps = createPropsView([
+    referenceProps,
+    interactionTypeProps,
+    propsSourceAccessor(() => (generatedId() ? { id: generatedId() } : EMPTY_OBJECT)),
+  ]);
 
   // React writes these into the store together in a layout effect whenever any of them changes.
   // The store's getters keep most keys live; the plain keys are derived from the same snapshot, so a
@@ -541,7 +545,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     openMethod: renderedOpenMethod(),
     popupProps,
     transitionStatus: transitionStatus(),
-    triggerProps: mergedTriggerProps(),
+    triggerProps: mergedTriggerProps,
     value: value(),
   }));
   store.useSyncedValue('isItemEqualToValue', () => synced().isItemEqualToValue);

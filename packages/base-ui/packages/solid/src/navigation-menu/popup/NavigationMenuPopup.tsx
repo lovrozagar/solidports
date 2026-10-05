@@ -9,6 +9,7 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import { Align, Side } from '../../utils/useAnchorPositioning';
 import { useBaseUiId } from '../../utils/useBaseUiId';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useNavigationMenuPositionerContext } from '../positioner/NavigationMenuPositionerContext';
@@ -67,25 +68,27 @@ export function NavigationMenuPopup(componentProps: NavigationMenuPopup.Props) {
   const isOriginSide = () => positioning.side() === 'top' || isPhysicalLeft();
 
   const element = useRenderElement('nav', componentProps, {
-    get props() {
-      return [
-        {
-          get id() {
-            return id();
-          },
-          tabindex: -1,
-          style: (isOriginSide()
-            ? {
-                position: 'absolute',
-                [positioning.side() === 'top' ? 'bottom' : 'top']: '0',
-                [isPhysicalLeft() ? 'right' : 'left']: '0',
-              }
-            : {}) as JSX.CSSProperties,
+    props: [
+      {
+        get id() {
+          return id();
         },
-        getDisabledMountTransitionStyles(transitionStatus()),
-        elementProps,
-      ];
-    },
+        tabindex: -1,
+        get style() {
+          return (
+            isOriginSide()
+              ? {
+                  position: 'absolute',
+                  [positioning.side() === 'top' ? 'bottom' : 'top']: '0',
+                  [isPhysicalLeft() ? 'right' : 'left']: '0',
+                }
+              : {}
+          ) as JSX.CSSProperties;
+        },
+      },
+      propsSourceAccessor(() => getDisabledMountTransitionStyles(transitionStatus())),
+      elementProps,
+    ],
     ref: setPopupElement,
     state,
     stateAttributesMapping,

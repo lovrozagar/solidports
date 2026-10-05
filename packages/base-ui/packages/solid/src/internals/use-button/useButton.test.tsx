@@ -4,7 +4,9 @@ import type { JSX } from '@solidjs/web';
 import { createSignal, Show, untrack } from 'solid-js';
 import { act, createRenderer, isJSDOM } from '#test-utils';
 import { splitProps } from '../../solid-1-compat';
+import { renderServer } from '../../../test/ssrFixtures';
 import { useButton } from './useButton';
+import fixtures from './useButton.ssr-fixtures';
 import { CompositeRoot } from '../composite/root/CompositeRoot';
 
 describe('useButton', () => {
@@ -797,11 +799,17 @@ describe('useButton', () => {
     });
   });
 
-  // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-  describe.skip('server-side rendering', () => {
-    it('should server-side render', () => {});
+  describe.skipIf(isJSDOM)('server-side rendering', () => {
+    it('should server-side render', async () => {
+      const { container } = renderServer(fixtures, 'nonNativeDisabled');
 
-    it('adds disabled attribute', () => {});
+      expect(container.firstChild).toHaveProperty('role', 'button');
+    });
+
+    it('adds disabled attribute', async () => {
+      renderServer(fixtures, 'nativeDisabled');
+      expect(screen.getByRole('button')).toHaveProperty('disabled');
+    });
   });
 
   describe('dev warnings', () => {

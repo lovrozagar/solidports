@@ -1,8 +1,10 @@
 import { createSignal, Show } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
-import { fireEvent, screen } from '@solidjs/testing-library';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Fieldset } from '@solidports/base-ui/fieldset';
-import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
+import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './FieldsetLegend.ssr-fixtures';
 
 describe('<Fieldset.Legend />', () => {
   const { render } = createRenderer();
@@ -82,9 +84,28 @@ describe('<Fieldset.Legend />', () => {
     }
   });
 
-  // Solid: the test renderer has no server render + hydrate path (`renderToString`).
-  it.skip('does not set `aria-labelledby` during SSR when legend is absent', () => {});
+  it.skipIf(isJSDOM)('does not set `aria-labelledby` during SSR when legend is absent', () => {
+    renderServer(ssrFixtures, 'noLegend');
 
-  // Solid: the test renderer has no server render + hydrate path (`renderToString`).
-  it.skip('sets `aria-labelledby` after hydration without a custom legend id', () => {});
+    expect(screen.getByTestId('fieldset')).not.toHaveAttribute('aria-labelledby');
+  });
+
+  it.skipIf(isJSDOM)(
+    'sets `aria-labelledby` after hydration without a custom legend id',
+    async () => {
+      const { hydrate } = renderServer(ssrFixtures, 'withLegend');
+
+      const fieldset = screen.getByTestId('fieldset');
+      const legend = screen.getByTestId('legend');
+
+      expect(legend.id).not.toBe('');
+      expect(fieldset).not.toHaveAttribute('aria-labelledby');
+
+      hydrate();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('fieldset')).toHaveAttribute('aria-labelledby', legend.id);
+      });
+    },
+  );
 });

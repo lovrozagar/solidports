@@ -2,7 +2,6 @@
 import {
   Show,
   createMemo,
-  createRenderEffect,
   createRoot,
   getObserver,
   isHydrating,
@@ -17,7 +16,7 @@ import type { JSX, ValidComponent } from '@solidjs/web';
 import { assign, Dynamic, dynamic, isServer, spread } from '@solidjs/web';
 import type { DynamicProps } from '@solidjs/web';
 import { MERGED_REFS } from '../merge-props/mergeProps';
-import { access, shallowEqual, type MaybeAccessor } from '../solid-helpers';
+import { access, shallowEqual, type MaybeAccessor, createLayoutEffect } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
 import { type StateAttributesMapping } from './getStateAttributesProps';
 import {
@@ -45,6 +44,9 @@ import type {
  * @param params Additional parameters for rendering the element.
  */
 const BUTTON_DEFAULTS = { type: 'button' } as const;
+/** A previous value no prop equals, so `assign` removes or rewrites a server attribute. */
+const SERVER_ATTRIBUTE = {};
+const ATTRIBUTE_ALIASES: Record<string, string> = { className: 'class', htmlFor: 'for' };
 const IMG_DEFAULTS = { alt: '' } as const;
 
 export function useRenderElement<
@@ -110,8 +112,10 @@ export function useRenderElement<
       }
       const partProps = Array.isArray(params.props) ? params.props.flat() : [params.props];
       partProps.forEach((partProp) => {
-        if (partProp != null && typeof partProp === 'object') {
-          collectRefs((partProp as { ref?: unknown }).ref, callbacks, objects);
+        // An accessor source (`propsSourceAccessor`) contributes the refs of the props it resolves to.
+        const props = isPropsSourceAccessor(partProp) ? partProp() : partProp;
+        if (props != null && typeof props === 'object') {
+          collectRefs((props as { ref?: unknown }).ref, callbacks, objects);
         }
       });
       collectRefs(params.ref, callbacks, objects);
@@ -250,7 +254,7 @@ export function useRenderElement<
     const elementProps = createPropsView(sources, { omit: ['component'] });
 
     // A part that rebuilds its props (e.g. a new inline ref) re-syncs the attached element's refs.
-    createRenderEffect(readRefs, (refs) => {
+    createLayoutEffect(readRefs, (refs) => {
       if (attachedElement != null) {
         syncRefs(refs);
       }
@@ -400,17 +404,41 @@ export function useRenderElement<
           // part registers in an effect, like a tab's `aria-controls`. A microtask runs once
           // `hydrate()` has returned; re-apply the current attributes then.
           if (isHydrating()) {
+            // The server markup's attributes as claimed: after hydration, one the client no longer
+            // renders (its key went away or became `undefined`, as `Field.Label`'s `for` once the
+            // control registers) is removed, as React's hydration does. Only an attribute still
+            // holding its server value is removed, so DOM work done during hydration stays.
+            const serverAttributes = new Map<string, string>();
+            for (const name of el.getAttributeNames()) {
+              if (name !== '_hk' && name !== 'data-hk') {
+                serverAttributes.set(name, el.getAttribute(name)!);
+              }
+            }
             queueMicrotask(() => {
               if (!attached) {
                 return;
               }
               const current: Record<string, unknown> = {};
+              const previous: Record<string, unknown> = {};
               for (const key of untrack(attributeKeys)) {
                 if (!(key.length > 2 && key[0] === 'o' && key[1] === 'n')) {
                   current[key] = untrack(() => elementProps[key]);
+                  if (current[key] == null && serverAttributes.get(key) === el.getAttribute(key)) {
+                    previous[key] = SERVER_ATTRIBUTE;
+                  }
                 }
               }
-              assign(el, current, true, {}, true);
+              // Attribute names are case-insensitive (`tabIndex` renders `tabindex`), and React-style
+              // aliases render their attribute (`className` → `class`, `htmlFor` → `for`).
+              const renderedNames = new Set(
+                Object.keys(current).map((key) => ATTRIBUTE_ALIASES[key] ?? key.toLowerCase()),
+              );
+              for (const [name, value] of serverAttributes) {
+                if (!renderedNames.has(name) && el.getAttribute(name) === value) {
+                  previous[name] = SERVER_ATTRIBUTE;
+                }
+              }
+              assign(el, current, true, previous, true);
             });
           }
         }),

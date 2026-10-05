@@ -5,6 +5,8 @@ import { screen, waitFor } from '@solidjs/testing-library';
 import { act, createRenderer } from '#test-utils';
 import { CompositeList } from './CompositeList';
 import { IndexGuessBehavior, useCompositeListItem } from './useCompositeListItem';
+import { renderServer } from '../../../../test/ssrFixtures';
+import fixtures, { hydratedRefs } from './CompositeList.ssr-fixtures';
 
 // Solid: `CompositeList` fills a `refs: { elements, labels }` object in place (React's
 // `elementsRef`/`labelsRef`), and publishes the sorted items as an array instead of a Map.
@@ -908,9 +910,19 @@ describe('<CompositeList />', () => {
     it('does not publish an empty registry when an outer boundary repeatedly suspends', () => {});
   });
 
-  // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-  describe.skip('server-side rendering', () => {
-    it('hydrates a server-rendered list without a mismatch under Strict Mode', () => {});
+  describe('server-side rendering', () => {
+    // Solid: no Strict Mode; the hydration itself must not mismatch.
+    it('hydrates a server-rendered list without a mismatch under Strict Mode', () => {
+      const { hydrate } = renderServer(fixtures, 'list');
+      expect(screen.getByTestId('a')).toHaveAttribute('data-index', '-1');
+      expect(screen.getByTestId('b')).toHaveAttribute('data-index', '-1');
+
+      hydrate();
+
+      expect(screen.getByTestId('a')).toHaveAttribute('data-index', '0');
+      expect(screen.getByTestId('b')).toHaveAttribute('data-index', '1');
+      expect(hydratedRefs.elements).toEqual([screen.getByTestId('a'), screen.getByTestId('b')]);
+    });
   });
 
   describe('without a parent list', () => {

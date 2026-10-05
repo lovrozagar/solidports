@@ -1,6 +1,7 @@
 import { createSignal, onSettled } from 'solid-js';
 import { ownerDocument } from '../../utils/owner';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { BaseUIComponentProps } from '../../utils/types';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -473,50 +474,50 @@ export function DrawerSwipeArea(componentProps: DrawerSwipeArea.Props) {
     state,
     ref: [swipeAreaRef, registerTrigger],
     stateAttributesMapping,
-    get props() {
-      return [
-        {
-          role: 'presentation' as const,
-          'aria-hidden': 'true' as const,
-          style: {
+    props: [
+      {
+        role: 'presentation' as const,
+        'aria-hidden': 'true' as const,
+        get style() {
+          return {
             'pointer-events': !enabled() ? 'none' : undefined,
             'touch-action': resolveTouchAction(resolvedSwipeDirection()),
-          },
-          onPointerDown(event: PointerEvent) {
-            if (event.pointerType === 'touch') {
-              return;
-            }
-            swipePointerProps.onPointerDown?.(event);
-
-            // Prevent native text selection/drag gestures from competing with swipe-open dragging.
-            if (event.cancelable) {
-              event.preventDefault();
-            }
-          },
-          onPointerMove(event: PointerEvent) {
-            if (event.pointerType === 'touch') {
-              return;
-            }
-            swipePointerProps.onPointerMove?.(event);
-          },
-          onPointerUp(event: PointerEvent) {
-            if (event.pointerType === 'touch') {
-              return;
-            }
-            swipePointerProps.onPointerUp?.(event);
-          },
-          onPointerCancel(event: PointerEvent) {
-            if (event.pointerType === 'touch') {
-              return;
-            }
-            swipePointerProps.onPointerCancel?.(event);
-          },
+          };
         },
-        swipeTouchProps,
-        swipeAreaId() ? { id: swipeAreaId() } : undefined,
-        elementProps,
-      ];
-    },
+        onPointerDown(event: PointerEvent) {
+          if (event.pointerType === 'touch') {
+            return;
+          }
+          swipePointerProps.onPointerDown?.(event);
+
+          // Prevent native text selection/drag gestures from competing with swipe-open dragging.
+          if (event.cancelable) {
+            event.preventDefault();
+          }
+        },
+        onPointerMove(event: PointerEvent) {
+          if (event.pointerType === 'touch') {
+            return;
+          }
+          swipePointerProps.onPointerMove?.(event);
+        },
+        onPointerUp(event: PointerEvent) {
+          if (event.pointerType === 'touch') {
+            return;
+          }
+          swipePointerProps.onPointerUp?.(event);
+        },
+        onPointerCancel(event: PointerEvent) {
+          if (event.pointerType === 'touch') {
+            return;
+          }
+          swipePointerProps.onPointerCancel?.(event);
+        },
+      },
+      swipeTouchProps,
+      propsSourceAccessor(() => (swipeAreaId() ? { id: swipeAreaId() } : undefined)),
+      elementProps,
+    ],
   });
 
   return <>{element()}</>;

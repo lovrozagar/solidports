@@ -1,4 +1,3 @@
-import { createEffect } from 'solid-js';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { splitComponentProps } from '../../solid-helpers';
@@ -23,7 +22,7 @@ export function FieldDescription(componentProps: FieldDescription.Props) {
 
   const fieldRootContext = useFieldRootContext(false);
   const fieldItemContext = useFieldItemContext();
-  const { setMessageIds } = useLabelableContext();
+  const { registerMessageId } = useLabelableContext();
 
   const state: FieldDescriptionState = solidMergeProps(fieldRootContext.state, {
     get disabled() {
@@ -31,17 +30,7 @@ export function FieldDescription(componentProps: FieldDescription.Props) {
     },
   });
 
-  createEffect(id, (idValue) => {
-    if (!idValue) {
-      return undefined;
-    }
-
-    setMessageIds((v) => v.concat(idValue));
-
-    return () => {
-      setMessageIds((v) => v.filter((item) => item !== idValue));
-    };
-  });
+  registerMessageId(id);
 
   const element = useRenderElement('p', componentProps, {
     props: [

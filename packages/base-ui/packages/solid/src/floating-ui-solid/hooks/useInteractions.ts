@@ -80,7 +80,14 @@ export function useInteractions(propsList: Array<ElementProps> = []): UseInterac
         // `active`/`selected` are item states for the consumer, not DOM props: omit them (React
         // skips these keys). Set to `undefined`, they would override an explicit prop when spread.
         mergeProps(
-          [...lists().item, userProps ? omit(userProps, ACTIVE_KEY, SELECTED_KEY) : undefined],
+          [
+            // A function item entry receives the item states, as floating-ui calls it with the
+            // user props (`active`, `selected`); `mergeProps` would hand it the merged props.
+            ...lists().item.map((item) =>
+              typeof item === 'function' ? item((userProps ?? {}) as ExtendedUserProps) : item,
+            ),
+            userProps ? omit(userProps, ACTIVE_KEY, SELECTED_KEY) : undefined,
+          ],
           {
             callAllHandlers: true,
           },

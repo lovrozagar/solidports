@@ -1,6 +1,6 @@
-import { createEffect, createRenderEffect, createSignal, onCleanup, untrack } from 'solid-js';
+import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { access, type MaybeAccessor } from '../../../solid-helpers';
+import { access, type MaybeAccessor, createLayoutEffect } from '../../../solid-helpers';
 import type { CompositeMetadata } from './CompositeList';
 import { useCompositeListContext, type CompositeListRegistration } from './CompositeListContext';
 
@@ -130,7 +130,7 @@ export function useCompositeListItem<Metadata>(
 
   // Render-effect timing: subscribed before the list's first flush, as React's child layout
   // effects run before the parent's.
-  createRenderEffect(externalIndex, (currentExternalIndex) => {
+  createLayoutEffect(externalIndex, (currentExternalIndex) => {
     if (currentExternalIndex != null) {
       return undefined;
     }

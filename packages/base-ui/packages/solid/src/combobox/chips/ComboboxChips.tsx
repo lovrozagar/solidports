@@ -3,6 +3,7 @@ import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
 import { BaseUIComponentProps } from '../../utils/types';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useComboboxRootContext } from '../root/ComboboxRootContext';
 import { handleInputPress } from '../utils/handleInputPress';
@@ -12,6 +13,8 @@ import { ComboboxChipsContext } from './ComboboxChipsContext';
  * A container for the chips in a multiselectable input.
  * Renders a `<div>` element.
  */
+const TOOLBAR_ROLE = { role: 'toolbar' } as const;
+
 export function ComboboxChips(componentProps: ComboboxChips.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
@@ -41,17 +44,15 @@ export function ComboboxChips(componentProps: ComboboxChips.Props) {
     },
     // NVDA enters browse mode instead of staying in focus mode when navigating with
     // arrow keys inside a container unless it has a toolbar role.
-    get props() {
-      return [
-        hasSelectionChips() ? { role: 'toolbar' } : EMPTY_OBJECT,
-        {
-          onMouseDown(event: MouseEvent) {
-            handleInputPress(event, store, store.state.disabled);
-          },
+    props: [
+      propsSourceAccessor(() => (hasSelectionChips() ? TOOLBAR_ROLE : EMPTY_OBJECT)),
+      {
+        onMouseDown(event: MouseEvent) {
+          handleInputPress(event, store, store.state.disabled);
         },
-        elementProps,
-      ];
-    },
+      },
+      elementProps,
+    ],
   });
 
   const contextValue: ComboboxChipsContext = {

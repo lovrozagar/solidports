@@ -337,7 +337,9 @@ describe('<Drawer.Popup />', () => {
     },
   );
 
-  // Solid: asserts React's commit phases (a chain of layout effects completing before passive effects); in Solid 2 a render effect re-triggered by another render effect's write runs after the flush's user effects.
+  // Solid: React-internal order only. The parent's `--nested-drawers` and `--drawer-frontmost-height`
+  // are set within the same synchronous flush (no frame shows them stale); Solid runs the re-triggered
+  // render effect after that flush's user effects, React before its passive effects.
   it.skip('reports nested presence and frontmost height before passive effects', async () => {
     let passiveEffectFlushed = false;
     let heightReportedBeforePassiveEffect: boolean | null = null;

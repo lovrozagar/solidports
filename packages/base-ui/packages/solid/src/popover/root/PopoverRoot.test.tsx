@@ -391,8 +391,7 @@ describe('<Popover.Root />', () => {
         expect(screen.getByTestId('popover-popup')).not.to.equal(null);
       });
 
-      // Solid: blocked on menu/ (clicking a nested Menu.Item fires outside-press on the parent popover).
-      it.skip('keeps the popover open when a nested menu opens via pointer using a shared container', async () => {
+      it('keeps the popover open when a nested menu opens via pointer using a shared container', async () => {
         vi.spyOn(console, 'error').mockImplementation((...args) => {
           if (args[0] === 'null') {
             // a bug in vitest prints specific browser errors as "null"

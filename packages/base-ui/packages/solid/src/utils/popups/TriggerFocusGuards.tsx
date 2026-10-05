@@ -1,4 +1,5 @@
-import { Show, createRenderEffect, onCleanup } from 'solid-js';
+import { Show, onCleanup } from 'solid-js';
+import { createLayoutEffect } from '../../solid-helpers';
 import type { JSX } from '@solidjs/web';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { FocusGuard } from '../FocusGuard';
@@ -30,7 +31,7 @@ export function TriggerFocusGuards(props: {
       props.trailingGuardRef.current = null;
     }
   };
-  createRenderEffect(() => props.active, syncTrailingGuardRef);
+  createLayoutEffect(() => props.active, syncTrailingGuardRef);
   onCleanup(() => syncTrailingGuardRef(false));
 
   return (

@@ -21,24 +21,38 @@ export interface LabelableContext {
    * An array of `id`s of elements that provide an accessible description.
    */
   messageIds: Accessor<string[]>;
-  setMessageIds: Setter<string[]>;
+  /**
+   * Registers an accessor for a description element's `id` (`undefined` while it describes
+   * nothing). Solid: the provider derives `messageIds` from the registered accessors, so the
+   * control's `aria-describedby` updates in the same flush as the description.
+   */
+  registerMessageId: (source: Accessor<string | undefined>) => void;
   getDescriptionProps: (externalProps: HTMLProps | BaseUIHTMLProps) => BaseUIHTMLProps;
+  /**
+   * The control's `aria-describedby`: `external` (the control's own value) followed by the
+   * description ids, as `getDescriptionProps` merges it. Tracks only the ids it reads.
+   */
+  describedBy: (external: unknown) => string | undefined;
 }
 
-/**
- * A context for providing [labelable elements](https://html.spec.whatwg.org/multipage/forms.html#category-label)\
- * with an accessible name (label) and description.
- */
-export const LabelableContext = createContext<LabelableContext>({
+/** The context outside any `LabelableProvider`: no label or description to wire. */
+export const DEFAULT_LABELABLE_CONTEXT: LabelableContext = {
   controlId: () => undefined,
   getDescriptionProps: (externalProps) => externalProps,
+  describedBy: (external) => (typeof external === 'string' ? external : undefined),
   labelId: () => undefined,
   messageIds: () => [],
   registerControlId: NOOP,
   resetControlId: NOOP,
   setLabelId: NOOP as Setter<string | undefined>,
-  setMessageIds: NOOP as Setter<string[]>,
-});
+  registerMessageId: NOOP,
+};
+
+/**
+ * A context for providing [labelable elements](https://html.spec.whatwg.org/multipage/forms.html#category-label)\
+ * with an accessible name (label) and description.
+ */
+export const LabelableContext = createContext<LabelableContext>(DEFAULT_LABELABLE_CONTEXT);
 
 export function useLabelableContext() {
   return useContext(LabelableContext);

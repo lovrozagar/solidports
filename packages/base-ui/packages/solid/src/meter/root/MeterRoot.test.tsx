@@ -300,4 +300,19 @@ describe('<Meter.Root />', () => {
       expect(screen.getByTestId('value').textContent).toBe(expectedValue);
     });
   });
+
+  it('renders the visually hidden presentation span after its children (NVDA reads the label)', () => {
+    render(() => (
+      <Meter.Root value={30} data-testid="root">
+        <Meter.Track>
+          <Meter.Indicator />
+        </Meter.Track>
+      </Meter.Root>
+    ));
+
+    const root = screen.getByTestId('root');
+    const span = root.lastElementChild;
+    expect(span).toHaveAttribute('role', 'presentation');
+    expect(span).toHaveTextContent('x');
+  });
 });

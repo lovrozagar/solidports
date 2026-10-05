@@ -91,4 +91,34 @@ describe('useInteractions', () => {
 
     render(() => <App />);
   });
+
+  it('passes the item states (`active`, `selected`) to function item props', () => {
+    let props: Record<string, unknown> = {};
+    let calledWith: unknown;
+    function App() {
+      const { getItemProps } = useInteractions([
+        {
+          item: (params) => {
+            calledWith = params;
+            return {
+              role: 'option',
+              'aria-selected': params.selected ? 'true' : undefined,
+              'data-active': params.active ? '' : undefined,
+            };
+          },
+        },
+      ]);
+      props = getItemProps({ active: true, selected: true });
+      return null;
+    }
+    render(() => <App />);
+
+    expect(untrack(() => props.role)).toBe('option');
+    expect(untrack(() => props['aria-selected'])).toBe('true');
+    expect(untrack(() => props['data-active'])).toBe('');
+    expect(calledWith).toMatchObject({ active: true, selected: true });
+    // The item states are not DOM props.
+    expect('active' in props).toBe(false);
+    expect('selected' in props).toBe(false);
+  });
 });

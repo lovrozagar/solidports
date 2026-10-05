@@ -1,4 +1,5 @@
-import { createEffect, untrack } from 'solid-js';
+import { DEFAULT_LABELABLE_CONTEXT } from '../internals/labelable-provider/LabelableContext';
+import { untrack } from 'solid-js';
 import { useControlled } from '../utils/useControlled';
 import { EMPTY_ARRAY } from '../utils/empty';
 import { areArraysEqual } from '../utils/areArraysEqual';
@@ -43,12 +44,13 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     name: fieldName,
     state: fieldState,
     validation,
-    setFilled,
+    registerFilledSource,
     registerDirtySource,
     setDirty,
     validityData,
   } = useFieldRootContext();
-  const { labelId, registerControlId, getDescriptionProps } = useLabelableContext();
+  const labelableContext = useLabelableContext();
+  const { labelId, registerControlId, getDescriptionProps } = labelableContext;
   const { clearErrors, elementRef } = useFormContext();
 
   const disabled = () => Boolean(fieldDisabled() || disabledProp());
@@ -122,12 +124,8 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     fieldName,
   );
 
-  createEffect(
-    () => value().length > 0,
-    (filled) => {
-      setFilled(filled);
-    },
-  );
+  // React sets `filled` from an effect when the value changes; the field derives it.
+  registerFilledSource(() => value().length > 0);
 
   // React sets `dirty` from a layout effect when the value changes; the field derives it.
   registerDirtySource(
@@ -185,7 +183,8 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
         },
       },
       elementProps,
-      getDescriptionProps,
+      // Outside a LabelableProvider the description props only return their input.
+      ...(labelableContext === DEFAULT_LABELABLE_CONTEXT ? [] : [getDescriptionProps]),
     ],
     stateAttributesMapping: fieldValidityMapping,
   });

@@ -15,7 +15,7 @@ import {
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { PrehydrationScript } from '../../internals/PrehydrationScript';
 import { useDirection } from '../../direction-provider/DirectionContext';
-import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useFieldRootContext, DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
 import { contains } from '../../floating-ui-solid/utils';
 import { matchesFocusVisible } from '../../floating-ui-solid/utils/element';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
@@ -141,7 +141,8 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
   const vertical = () => orientation() === 'vertical';
   const rtl = () => direction() === 'rtl';
 
-  const { setTouched, setFocused, validationMode } = useFieldRootContext();
+  const fieldRootContext = useFieldRootContext();
+  const { setTouched, setFocused, validationMode } = fieldRootContext;
 
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -515,11 +516,16 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
           return thumbValue() ?? '';
         },
       } as any,
-      ((props) =>
-        validation.getValidationProps(
-          disabled(),
-          props as HTMLProps,
-        )) as MergablePropsCallback<'input'>,
+      // Outside a Field the validation props only return their input.
+      ...(fieldRootContext === DEFAULT_FIELD_ROOT_CONTEXT
+        ? []
+        : [
+            ((props) =>
+              validation.getValidationProps(
+                disabled(),
+                props as HTMLProps,
+              )) as MergablePropsCallback<'input'>,
+          ]),
       {
         onFocus: handleFocusProp,
         onBlur: handleBlurProp,

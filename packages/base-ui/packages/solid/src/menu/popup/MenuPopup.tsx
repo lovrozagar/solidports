@@ -14,6 +14,7 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
 import type { InteractionType } from '../../utils/useEnhancedClickHandler';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
@@ -118,26 +119,29 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
     },
   };
 
+  // Read per key by the element props: a change does not rebuild the props chain.
+  const popupPropsSource = propsSourceAccessor(() => popupProps());
+  const transitionStyles = propsSourceAccessor(() =>
+    getDisabledMountTransitionStyles(transitionStatus()),
+  );
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [
-        popupProps(),
-        {
-          onKeyDown(event: KeyboardEvent) {
-            if (insideToolbar() && COMPOSITE_KEYS.has(event.key)) {
-              event.stopPropagation();
-            }
-          },
+    props: [
+      popupPropsSource,
+      {
+        onKeyDown(event: KeyboardEvent) {
+          if (insideToolbar() && COMPOSITE_KEYS.has(event.key)) {
+            event.stopPropagation();
+          }
         },
-        getDisabledMountTransitionStyles(transitionStatus()),
-        elementProps,
-        {
-          get ['data-rootownerid' as string]() {
-            return rootId();
-          },
+      },
+      transitionStyles,
+      elementProps,
+      {
+        get ['data-rootownerid' as string]() {
+          return rootId();
         },
-      ];
-    },
+      },
+    ],
     ref: [store.context.popupRef, setPopupElement],
     state,
     stateAttributesMapping,

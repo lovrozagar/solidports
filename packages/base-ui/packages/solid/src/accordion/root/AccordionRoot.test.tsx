@@ -4,6 +4,8 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { REASONS } from '../../utils/reasons';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './AccordionRoot.ssr-fixtures';
 
 const PANEL_CONTENT_1 = 'Panel contents 1';
 const PANEL_CONTENT_2 = 'Panel contents 2';
@@ -216,8 +218,25 @@ describe('<Accordion.Root />', () => {
       expect(trigger).toHaveAttribute('aria-controls', panel.id);
     });
 
-    // Solid: the test harness has no `renderToString`/`hydrate` renderer.
-    it.skip('preserves generated part associations during hydration', () => {});
+    it.skipIf(isJSDOM)('preserves generated part associations during hydration', async () => {
+      const { hydrate } = renderServer(ssrFixtures, 'defaultOpen');
+
+      let trigger = screen.getByRole('button', { name: 'Trigger 1' });
+      let panel = screen.getByText(PANEL_CONTENT_1);
+      expect(trigger).toHaveAttribute('aria-controls', panel.id);
+      expect(panel).toHaveAttribute('aria-labelledby', trigger.id);
+
+      hydrate();
+
+      await waitFor(() => {
+        trigger = screen.getByRole('button', { name: 'Trigger 1' });
+        panel = screen.getByText(PANEL_CONTENT_1);
+        expect(trigger).toHaveAttribute('aria-controls', panel.id);
+      });
+      await waitFor(() => {
+        expect(panel).toHaveAttribute('aria-labelledby', trigger.id);
+      });
+    });
   });
 
   describe('uncontrolled', () => {

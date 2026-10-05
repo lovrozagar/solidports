@@ -4,6 +4,8 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Collapsible } from '@solidports/base-ui/collapsible';
 import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { REASONS } from '../../utils/reasons';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures from './CollapsiblePanel.ssr-fixtures';
 
 const PANEL_CONTENT = 'This is panel content';
 
@@ -761,70 +763,15 @@ describe('<Collapsible.Panel />', () => {
     });
   });
 
-  // Solid: the test harness has no string renderer; the client render covers the same
-  // first-paint suppression of the initial keyframe animation.
   describe('server-side rendering', () => {
     it('suppresses the initial keyframe animation when rendered open', async () => {
-      await render(() => (
-        <>
-          <style>{`
-            @keyframes panel-slide-down {
-              from {
-                height: 0;
-              }
-
-              to {
-                height: var(--collapsible-panel-height);
-              }
-            }
-
-            .animation-test-panel[data-open] {
-              animation: panel-slide-down 100ms linear;
-            }
-          `}</style>
-
-          <Collapsible.Root defaultOpen>
-            <Collapsible.Trigger>Trigger</Collapsible.Trigger>
-            <Collapsible.Panel class="animation-test-panel" data-testid="panel">
-              {PANEL_CONTENT}
-            </Collapsible.Panel>
-          </Collapsible.Root>
-        </>
-      ));
+      renderServer(fixtures, 'keyframes');
 
       expect(screen.getByTestId('panel').style.animationName).toBe('none');
     });
 
     it('suppresses the initial keyframe animation from inline styles when rendered open', async () => {
-      await render(() => (
-        <>
-          <style>{`
-            @keyframes panel-slide-down {
-              from {
-                height: 0;
-              }
-
-              to {
-                height: var(--collapsible-panel-height);
-              }
-            }
-          `}</style>
-
-          <Collapsible.Root defaultOpen>
-            <Collapsible.Trigger>Trigger</Collapsible.Trigger>
-            <Collapsible.Panel
-              data-testid="panel"
-              style={{
-                'animation-duration': '100ms',
-                'animation-name': 'panel-slide-down',
-                'animation-timing-function': 'linear',
-              }}
-            >
-              {PANEL_CONTENT}
-            </Collapsible.Panel>
-          </Collapsible.Root>
-        </>
-      ));
+      renderServer(fixtures, 'inlineKeyframes');
 
       const panel = screen.getByTestId('panel');
 

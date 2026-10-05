@@ -1,16 +1,9 @@
-import {
-  createMemo,
-  createRenderEffect,
-  createSignal,
-  Match,
-  Switch,
-  untrack,
-} from 'solid-js';
+import { createMemo, createSignal, Match, Switch, untrack } from 'solid-js';
 import { Portal } from '@solidjs/web';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { FloatingNode } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
-import { splitComponentProps, useRef } from '../../solid-helpers';
+import { splitComponentProps, useRef, createLayoutEffect } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/empty';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { popupStateMapping } from '../../utils/popupStateMapping';
@@ -94,7 +87,7 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
   // back before the exit animation completes), the DOM element hasn't changed so the
   // callback ref won't fire again. Ensure the shared ref is updated so the
   // MutationObserver in the trigger watches the correct content element.
-  createRenderEffect(open, (isOpen) => {
+  createLayoutEffect(open, (isOpen) => {
     if (isOpen && ref.current) {
       currentContentRef.current = ref.current;
     }

@@ -1,12 +1,12 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createMemo, createRenderEffect, createSignal } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
 import { useDirection } from '../../internals/direction-context/DirectionContext';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { FieldRootContext, useFieldRootContext } from '../../field/root/FieldRootContext';
 import { DEFAULT_FIELD_STATE_ATTRIBUTES } from '../../field/utils/constants';
 import { stopEvent } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isAndroid, isFirefox } from '../../utils/detectBrowser';
 import { REASONS } from '../../utils/reasons';
@@ -488,7 +488,7 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
 
   // Solid: avoid redundant DOM value writes so the browser can preserve the current
   // selection while a controlled input is being edited in the middle.
-  createRenderEffect(
+  createLayoutEffect(
     () => {
       inputEventCount();
       const input = inputElement();

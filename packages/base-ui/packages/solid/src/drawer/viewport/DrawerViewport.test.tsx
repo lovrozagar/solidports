@@ -4480,9 +4480,11 @@ describe('<Drawer.Viewport />', () => {
     }
   });
 
-  // Solid: delegated handlers are dispatched along `event.composedPath()`, so a path of `[window]`
-  // never reaches the viewport's `onTouchStart`.
-  it.skip('falls back to the viewport when a touch event has no element target', async () => {
+  // Solid: delegated handlers follow `event.composedPath()`, which a real touch always fills with
+  // the target's ancestors, so React's synthetic `[window]` path never reaches `onTouchStart`. The
+  // touch is dispatched from the popup's text node instead: its path still has no element first,
+  // which is the case the fallback handles.
+  it('falls back to the viewport when a touch event has no element target', async () => {
     render(() => (
       <Drawer.Root open>
         <Drawer.Portal>
@@ -4502,11 +4504,12 @@ describe('<Drawer.Viewport />', () => {
       configurable: true,
       value: [createTouch(popup, { clientX: 0, clientY: 100 })],
     });
-    touchStart.composedPath = () => [window];
+    const textNode = popup.firstChild!;
+    expect(textNode.nodeType).toBe(Node.TEXT_NODE);
 
     try {
       await act(async () => {
-        popup.dispatchEvent(touchStart);
+        textNode.dispatchEvent(touchStart);
         await flushMicrotasks();
       });
       fireEvent.touchMove(popup, {
@@ -4791,8 +4794,7 @@ describe('<Drawer.Viewport />', () => {
     }
   });
 
-  // Solid: asserts React's commit phases (a chain of layout effects completing before passive effects); in Solid 2 a render effect re-triggered by another render effect's write runs after the flush's user effects.
-  it.skip('clears nested progress before descendant layout effects when the child closes', async () => {
+  it('clears nested progress before descendant layout effects when the child closes', async () => {
     let closePassiveEffectFlushed = false;
     let clearedBeforePassiveEffect: boolean | null = null;
 

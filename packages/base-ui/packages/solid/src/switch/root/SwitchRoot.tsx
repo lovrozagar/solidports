@@ -1,7 +1,7 @@
 import { createMemo, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { FieldRootState } from '../../field/root/FieldRoot';
-import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useFieldRootContext, DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
 import { useFormContext } from '../../form/FormContext';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -59,6 +59,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
   const disabledProp = () => local.disabled ?? false;
 
   const { clearErrors } = useFormContext();
+  const fieldRootContext = useFieldRootContext();
   const {
     state: fieldState,
     setTouched,
@@ -71,7 +72,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     disabled: fieldDisabled,
     name: fieldName,
     validation,
-  } = useFieldRootContext();
+  } = fieldRootContext;
   const { labelId } = useLabelableContext();
 
   const disabled = () => Boolean(fieldDisabled() || disabledProp());
@@ -273,7 +274,10 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
         rootProps,
         elementProps,
         getButtonProps,
-        (props: HTMLProps) => validation.getValidationProps(disabled(), props),
+        // Outside a Field the validation props only return their input.
+        ...(fieldRootContext === DEFAULT_FIELD_ROOT_CONTEXT
+          ? []
+          : [(props: HTMLProps) => validation.getValidationProps(disabled(), props)]),
       ];
     },
     stateAttributesMapping,

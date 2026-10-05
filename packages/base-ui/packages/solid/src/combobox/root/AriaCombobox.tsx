@@ -1,13 +1,6 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any` to mirror upstream React combobox API; tightening to `unknown` breaks consumer ergonomics for unspecified-Value usage */
-import {
-  createEffect,
-  createMemo,
-  createRenderEffect,
-  createSignal,
-  onSettled,
-  untrack,
-} from 'solid-js';
+import { createEffect, createMemo, createSignal, onSettled, untrack } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -27,7 +20,7 @@ import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useDirection } from '../../internals/direction-context/DirectionContext';
 import { mergeProps } from '../../merge-props';
-import { type ReactLikeRef, shallowEqual, useRef } from '../../solid-helpers';
+import { type ReactLikeRef, shallowEqual, useRef, createLayoutEffect } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
 import {
   createChangeEventDetails,
@@ -58,6 +51,7 @@ import { isScrollableY } from '../../utils/scrollable';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import type { BaseUIEvent, HTMLProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
+import { useIsHydrating } from '../../utils/useIsHydrating';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
 import { useTransitionStatus } from '../../utils/useTransitionStatus';
@@ -502,6 +496,10 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
 
   // Solid: values React synchronizes into the store from a layout effect are live getters, so
   // the parts never observe a stale snapshot. Writes to getter keys are ignored by the store.
+  // React derives `inputOwnsFormValue` in a layout effect, so the server render and hydration keep
+  // the initial `selectionMode === 'none'` and the hidden input has no form name until mount.
+  const isHydrating = useIsHydrating();
+
   const store = SolidStore<StoreState, ComboboxStoreContext, typeof selectors>(
     {
       get id() {
@@ -594,6 +592,9 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
       // `ComboboxInput` writes `inputInsidePopup` from its ref; ownership is derived from it in
       // the same read, so subscribers never observe an intermediate snapshot.
       get inputOwnsFormValue(): boolean {
+        if (isHydrating()) {
+          return selectionMode() === 'none';
+        }
         return (
           selectionMode() === 'none' && (inlineProp() || !(this as StoreState).inputInsidePopup)
         );
@@ -1085,7 +1086,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     }
   });
 
-  createRenderEffect(
+  createLayoutEffect(
     ...on(
       [
         open,
@@ -1140,7 +1141,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     ),
   );
 
-  createRenderEffect(
+  createLayoutEffect(
     ...on([items, flatFilteredValues], () => {
       if (items()) {
         valuesRef.current = flatFilteredValues();
@@ -1351,7 +1352,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
 
   // Solid: React scopes the flag to a render; a render effect on the same triggers resets it at
   // the start of each flush, before the user effects below that run the syncs.
-  createRenderEffect(
+  createLayoutEffect(
     () => [selectedValue(), selectedLabelString(), items()],
     () => {
       syncedSelectedLabel = false;
@@ -1423,7 +1424,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   // order (query handler first) when a reopen changes both in the same flush.
   let previousQuery = untrack(query);
   let previousOpen = untrack(open);
-  createRenderEffect(
+  createLayoutEffect(
     () => [query(), open()] as const,
     ([currentQuery, currentOpen]) => {
       const queryChanged = currentQuery !== previousQuery;

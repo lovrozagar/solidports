@@ -2,6 +2,7 @@ import { Show } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useToastRootContext } from '../root/ToastRootContext';
 import { getRenderContent, useRenderableElement } from '../utils/useRenderableElement';
@@ -36,9 +37,7 @@ export function ToastAction(componentProps: ToastAction.Props) {
     get children() {
       return content();
     },
-    get props() {
-      return [elementProps, toast().actionProps, getButtonProps];
-    },
+    props: [elementProps, propsSourceAccessor(() => toast().actionProps), getButtonProps],
     ref: buttonRef,
     state,
   });

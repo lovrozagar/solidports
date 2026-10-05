@@ -1,4 +1,5 @@
-import { createEffect, createRenderEffect, onSettled, untrack } from 'solid-js';
+import { createEffect, onSettled, untrack } from 'solid-js';
+import { createLayoutEffect } from '../../solid-helpers';
 import type { JSX } from '@solidjs/web';
 import type { ToastManager, ToastManagerEvent } from '../createToastManager';
 import { ToastStore } from '../store';
@@ -68,7 +69,7 @@ function ToastProviderPropsSynchronizer(props: {
 }) {
   // `limit` needs custom syncing because changing it must also recompute each
   // toast's `limited` flag; `useSyncedValues` would only update the raw value.
-  createRenderEffect(
+  createLayoutEffect(
     () => [props.timeout, props.limit] as const,
     ([timeout, limit]) => {
       props.store.syncProviderProps(timeout, limit);

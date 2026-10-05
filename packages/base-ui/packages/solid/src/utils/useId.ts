@@ -17,6 +17,11 @@ export function useId(
 ): Accessor<string> {
   // Generated once, as React's `useId`; an explicit string override (even `''`) wins, as `??`.
   const generatedId = `${prefix}-${createUniqueId()}`;
+  // No override, or a static one: a constant accessor (no memo per part).
+  if (typeof idOverride !== 'function') {
+    const id = typeof idOverride === 'string' ? idOverride : generatedId;
+    return () => id;
+  }
   return createMemo(() => {
     const override = access(idOverride);
     return typeof override === 'string' ? override : generatedId;

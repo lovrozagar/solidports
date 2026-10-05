@@ -1,13 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic store across all popup variants */
-import {
-  createEffect,
-  createMemo,
-  createRenderEffect,
-  createSignal,
-  onSettled,
-  Show,
-  untrack,
-} from 'solid-js';
+import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from 'solid-js';
 import type { Accessor, ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider';
@@ -21,7 +13,7 @@ import { usePopupAutoResize } from './usePopupAutoResize';
 import { usePreviousValue } from './usePreviousValue';
 import { adaptiveOrigin } from './adaptiveOriginMiddleware';
 import { on } from '../solid-1-compat';
-import { createDepsEffect } from '../solid-helpers';
+import { createDepsEffect, createLayoutEffect } from '../solid-helpers';
 
 export type PopupViewportCssVars = {
   /**
@@ -118,7 +110,7 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
 
   const [showStartingStyleAttribute, setShowStartingStyleAttribute] = createSignal(false);
 
-  createRenderEffect(
+  createLayoutEffect(
     () => parameters.store,
     (store) => {
       store.set('adaptiveOrigin', adaptiveOrigin);

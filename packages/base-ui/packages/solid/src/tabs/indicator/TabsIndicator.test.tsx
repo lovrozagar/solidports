@@ -6,6 +6,8 @@ import { waitFor, screen } from '@solidjs/testing-library';
 import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { getCssDimensions } from '../../utils/getCssDimensions';
 import { script as generatedPrehydrationScript } from './prehydrationScript.min';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './TabsIndicator.ssr-fixtures';
 
 describe('<Tabs.Indicator />', () => {
   const { render } = createRenderer();
@@ -802,17 +804,44 @@ describe('<Tabs.Indicator />', () => {
   });
 
   describe('pre-hydration rendering', () => {
-    // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-    it.skip('renders the inline pre-hydration script during server-side rendering', () => {});
+    it('renders the inline pre-hydration script during server-side rendering', async () => {
+      const { container } = renderServer(ssrFixtures, 'indicator');
 
-    // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-    it.skip('inlines the script contents during server-side rendering', () => {});
+      // eslint-disable-next-line testing-library/no-container -- script elements have no accessible role
+      expect(container.querySelector('script')).not.toBe(null);
+    });
 
-    // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-    it.skip('applies the CSP nonce to the pre-hydration script', () => {});
+    it('inlines the script contents during server-side rendering', async () => {
+      const { container } = renderServer(ssrFixtures, 'indicator');
 
-    // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-    it.skip('keeps the script during hydration and removes it afterwards', () => {});
+      // eslint-disable-next-line testing-library/no-container -- script elements have no accessible role
+      const script = container.querySelector('script');
+      expect(script).not.toBe(null);
+      expect(script?.innerHTML).not.toBe('');
+    });
+
+    it('applies the CSP nonce to the pre-hydration script', async () => {
+      const { container } = renderServer(ssrFixtures, 'nonce');
+
+      // eslint-disable-next-line testing-library/no-container -- script elements have no accessible role
+      expect(container.querySelector('script')).toHaveAttribute('nonce', 'test-nonce');
+    });
+
+    // The server-emitted script element must survive hydration (only its body is stubbed on
+    // the client) and then unmount once hydration completes.
+    it('keeps the script during hydration and removes it afterwards', async () => {
+      const { container, hydrate } = renderServer(ssrFixtures, 'indicator');
+
+      // eslint-disable-next-line testing-library/no-container -- script elements have no accessible role
+      expect(container.querySelector('script')).not.toBe(null);
+
+      hydrate();
+
+      await waitFor(() => {
+        // eslint-disable-next-line testing-library/no-container -- script elements have no accessible role
+        expect(container.querySelector('script')).toBe(null);
+      });
+    });
   });
 
   describe.skipIf(isJSDOM)('pre-hydration script execution', () => {

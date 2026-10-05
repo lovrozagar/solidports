@@ -15,8 +15,21 @@ import { useSelectItemContext } from '../item/SelectItemContext';
  * Documentation: [Base UI Select](https://base-ui.com/react/components/select)
  */
 export function SelectItemIndicator(componentProps: SelectItemIndicator.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['keepMounted']);
-  const keepMounted = () => local.keepMounted ?? false;
+  const { selected } = useSelectItemContext();
+
+  const shouldRender = () => (componentProps.keepMounted ?? false) || selected();
+
+  return (
+    <Show when={shouldRender()}>
+      <Inner {...componentProps} />
+    </Show>
+  );
+}
+
+/** The core implementation is split here to avoid paying the hooks' costs unless the element needs
+ * to mount, as React's `Inner`: an unselected item's indicator creates nothing. */
+function Inner(componentProps: SelectItemIndicator.Props) {
+  const [, , elementProps] = splitComponentProps(componentProps, ['keepMounted']);
 
   const { selected } = useSelectItemContext();
 
@@ -45,8 +58,6 @@ export function SelectItemIndicator(componentProps: SelectItemIndicator.Props) {
     ref: () => indicatorRef,
   });
 
-  const shouldRender = () => keepMounted() || selected();
-
   const element = useRenderElement('span', componentProps, {
     get children() {
       return <>{componentProps.children ?? '✔️'}</>;
@@ -59,7 +70,7 @@ export function SelectItemIndicator(componentProps: SelectItemIndicator.Props) {
     stateAttributesMapping: transitionStatusMapping,
   });
 
-  return <Show when={shouldRender()}>{element()}</Show>;
+  return <>{element()}</>;
 }
 
 export interface SelectItemIndicatorState {

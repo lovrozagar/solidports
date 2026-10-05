@@ -156,123 +156,135 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
     },
   });
 
+  const stableTriggerProps = createMemo(() => triggerProps());
+  // `aria-describedby`/`aria-invalid` as getters over the consumer's props (what
+  // `getValidationProps(disabled, elementProps)` merges), read lazily per key.
+  const validationSource = validation.getValidationSource(
+    disabled,
+    elementProps as Record<string, unknown>,
+  );
+  const triggerOwnProps = {
+    get 'aria-controls'() {
+      return open() ? ariaControlsId() : undefined;
+    },
+    get 'aria-expanded'() {
+      return open() ? 'true' : 'false';
+    },
+    'aria-haspopup': 'listbox' as const,
+    get 'aria-labelledby'() {
+      return resolveAriaLabelledBy(labelId(), store.state.labelId);
+    },
+    get 'aria-readonly'() {
+      return readOnly() ? 'true' : undefined;
+    },
+    get 'aria-required'() {
+      return required() ? 'true' : undefined;
+    },
+    get id() {
+      return id();
+    },
+    onBlur(event: FocusEvent) {
+      // If focus is moving into the popup, don't count it as a blur.
+      if (contains(positionerElement(), event.relatedTarget as Element | null)) {
+        return;
+      }
+
+      setTouched(true);
+      setFocused(false);
+
+      if (validationMode() === 'onBlur') {
+        validation.commit(fieldRawValue());
+      }
+    },
+    onFocus(event: FocusEvent) {
+      setFocused(true);
+
+      // The popup element shouldn't obscure the focused trigger.
+      if (open() && alignItemWithTriggerActiveRef.current) {
+        setOpen(false, createChangeEventDetails(REASONS.none, event));
+      }
+
+      // Saves a re-render on initial click: `forceMount === true` mounts
+      // the items before `open === true`. We could sync those cycles better
+      // without a timeout, but this is enough for now.
+      //
+      // XXX: might be causing `act()` warnings.
+      timeoutFocus.start(0, () => {
+        store.set('forceMount', true);
+      });
+    },
+    onKeyDown() {
+      keyboardActiveRef.current = true;
+    },
+    onMouseDown(event: MouseEvent) {
+      /* short-lived flag so popup/item logic can tell an immediate open came from the trigger, not a stray click inside the list */
+      triggerPressedRef.current = true;
+      requestAnimationFrame(() => {
+        triggerPressedRef.current = false;
+      });
+
+      if (open()) {
+        return;
+      }
+
+      const doc = ownerDocument(event.currentTarget as Element | null);
+
+      function handleMouseUp(mouseEvent: MouseEvent) {
+        if (!triggerRef) {
+          return;
+        }
+
+        const mouseUpTarget = mouseEvent.target as Element | null;
+
+        // Early return if clicked on trigger element or its children
+        if (
+          contains(triggerRef, mouseUpTarget) ||
+          contains(store.state.positionerElement, mouseUpTarget) ||
+          mouseUpTarget === triggerRef
+        ) {
+          return;
+        }
+
+        const bounds = getPseudoElementBounds(triggerRef);
+
+        if (
+          mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET &&
+          mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET &&
+          mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET &&
+          mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET
+        ) {
+          return;
+        }
+
+        setOpen(false, createChangeEventDetails(REASONS.cancelOpen, mouseEvent));
+      }
+
+      // Firefox can fire this upon mousedown
+      timeoutMouseDown.start(0, () => {
+        doc.addEventListener('mouseup', handleMouseUp, { once: true });
+      });
+    },
+    onPointerMove() {
+      keyboardActiveRef.current = false;
+    },
+    role: 'combobox' as const,
+    get tabindex() {
+      return disabled() ? -1 : 0;
+    },
+  };
+
   const element = useRenderElement('button', componentProps, {
+    // Built once: the store's trigger props go through an identity memo (the store's binding
+    // re-runs with every synced key) and the validation props are lazy getters, so opening,
+    // closing and selecting do not rebuild the trigger's props.
     get props() {
       return [
-        triggerProps(),
-        {
-          get 'aria-controls'() {
-            return open() ? ariaControlsId() : undefined;
-          },
-          get 'aria-expanded'() {
-            return open() ? 'true' : 'false';
-          },
-          'aria-haspopup': 'listbox' as const,
-          get 'aria-labelledby'() {
-            return resolveAriaLabelledBy(labelId(), store.state.labelId);
-          },
-          get 'aria-readonly'() {
-            return readOnly() ? 'true' : undefined;
-          },
-          get 'aria-required'() {
-            return required() ? 'true' : undefined;
-          },
-          get id() {
-            return id();
-          },
-          onBlur(event: FocusEvent) {
-            // If focus is moving into the popup, don't count it as a blur.
-            if (contains(positionerElement(), event.relatedTarget as Element | null)) {
-              return;
-            }
-
-            setTouched(true);
-            setFocused(false);
-
-            if (validationMode() === 'onBlur') {
-              validation.commit(fieldRawValue());
-            }
-          },
-          onFocus(event: FocusEvent) {
-            setFocused(true);
-
-            // The popup element shouldn't obscure the focused trigger.
-            if (open() && alignItemWithTriggerActiveRef.current) {
-              setOpen(false, createChangeEventDetails(REASONS.none, event));
-            }
-
-            // Saves a re-render on initial click: `forceMount === true` mounts
-            // the items before `open === true`. We could sync those cycles better
-            // without a timeout, but this is enough for now.
-            //
-            // XXX: might be causing `act()` warnings.
-            timeoutFocus.start(0, () => {
-              store.set('forceMount', true);
-            });
-          },
-          onKeyDown() {
-            keyboardActiveRef.current = true;
-          },
-          onMouseDown(event: MouseEvent) {
-            /* short-lived flag so popup/item logic can tell an immediate open came from the trigger, not a stray click inside the list */
-            triggerPressedRef.current = true;
-            requestAnimationFrame(() => {
-              triggerPressedRef.current = false;
-            });
-
-            if (open()) {
-              return;
-            }
-
-            const doc = ownerDocument(event.currentTarget as Element | null);
-
-            function handleMouseUp(mouseEvent: MouseEvent) {
-              if (!triggerRef) {
-                return;
-              }
-
-              const mouseUpTarget = mouseEvent.target as Element | null;
-
-              // Early return if clicked on trigger element or its children
-              if (
-                contains(triggerRef, mouseUpTarget) ||
-                contains(store.state.positionerElement, mouseUpTarget) ||
-                mouseUpTarget === triggerRef
-              ) {
-                return;
-              }
-
-              const bounds = getPseudoElementBounds(triggerRef);
-
-              if (
-                mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET &&
-                mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET &&
-                mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET &&
-                mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET
-              ) {
-                return;
-              }
-
-              setOpen(false, createChangeEventDetails(REASONS.cancelOpen, mouseEvent));
-            }
-
-            // Firefox can fire this upon mousedown
-            timeoutMouseDown.start(0, () => {
-              doc.addEventListener('mouseup', handleMouseUp, { once: true });
-            });
-          },
-          onPointerMove() {
-            keyboardActiveRef.current = false;
-          },
-          role: 'combobox' as const,
-          get tabindex() {
-            return disabled() ? -1 : 0;
-          },
-        },
+        stableTriggerProps(),
+        triggerOwnProps,
         getButtonProps,
-        validation.getValidationProps(disabled(), elementProps as HTMLProps),
-        /* prevent nested useButton from overwriting the combobox role, e.g. <Toolbar.Button render={<Select.Trigger />} /> */
-        { role: 'combobox' as const },
+        elementProps,
+        validationSource,
+        COMBOBOX_ROLE,
       ];
     },
     ref: (el) => {
@@ -321,3 +333,6 @@ export namespace SelectTrigger {
   export type State = SelectTriggerState;
   export type Props = SelectTriggerProps;
 }
+
+/* prevent nested useButton from overwriting the combobox role, e.g. <Toolbar.Button render={<Select.Trigger />} /> */
+const COMBOBOX_ROLE = { role: 'combobox' as const };

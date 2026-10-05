@@ -1177,4 +1177,41 @@ describe('<Form />', () => {
       expect(replacementValidate).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('fields rendered by a list', () => {
+    it('labels each control, marks it touched on blur, and reports errors on submit', async () => {
+      render(() => (
+        <Form onSubmit={(event) => event.preventDefault()}>
+          <For each={[0, 1, 2]}>
+            {(i) => (
+              <Field.Root name={`f${i}`}>
+                <Field.Label>Field {i}</Field.Label>
+                <Field.Control data-testid={`control-${i}`} required />
+                <Field.Error data-testid="error" />
+              </Field.Root>
+            )}
+          </For>
+          <button type="submit">Submit</button>
+        </Form>
+      ));
+
+      const control = screen.getByTestId('control-1');
+      expect(control).toHaveAttribute(
+        'aria-labelledby',
+        screen.getByText('Field 1').getAttribute('id')!,
+      );
+
+      fireEvent.focus(control);
+      fireEvent.blur(control);
+      await flushMicrotasks();
+      expect(control).toHaveAttribute('data-touched');
+
+      fireEvent.click(screen.getByText('Submit'));
+      await waitFor(() => {
+        expect(screen.getAllByTestId('error')).toHaveLength(3);
+      });
+      expect(control).toHaveAttribute('data-invalid');
+      expect(control).toHaveAttribute('aria-invalid', 'true');
+    });
+  });
 });

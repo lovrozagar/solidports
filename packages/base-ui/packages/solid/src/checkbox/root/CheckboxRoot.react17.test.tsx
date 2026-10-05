@@ -78,7 +78,9 @@ describe('<Checkbox.Root /> with the React 17 id fallback', () => {
     },
   );
 
-  // Solid: the test renderer has no server render path (`renderToString`/`hydrate`).
+  // Solid: asserts the server markup has no ids because React 17 has no `useId` and assigns ids only
+  // on the client; Solid generates ids during the server render, so that markup cannot exist (the
+  // hydrated label association is covered by CheckboxGroup's "during SSR" tests).
   it.skip.each([false, true])(
     'assigns the label association once the fallback ids arrive (nativeButton=%s)',
     () => {},

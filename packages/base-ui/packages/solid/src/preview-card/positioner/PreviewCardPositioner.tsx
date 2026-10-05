@@ -1,7 +1,7 @@
 import { usePositioner } from '../../utils/usePositioner';
-import { createRenderEffect } from 'solid-js';
+
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { type Align, type Side, useAnchorPositioning } from '../../utils/useAnchorPositioning';
@@ -82,7 +82,7 @@ export function PreviewCardPositioner(componentProps: PreviewCardPositioner.Prop
 
   const updatePosition = positioning.update;
 
-  createRenderEffect(
+  createLayoutEffect(
     () => open() && mounted(),
     (shouldUpdate) => {
       if (shouldUpdate) {

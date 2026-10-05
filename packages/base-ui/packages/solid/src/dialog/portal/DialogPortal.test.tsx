@@ -35,7 +35,7 @@ describe('<Dialog.Portal />', () => {
 
   describe('Suspense integration', () => {
     // Issue #3695
-    // Solid: `@solidjs/web` `Portal` mounts children in a detached root, so an outer `<Loading>` never sees their pending reads.
+    // Solid: portal content mounts after the host's ref write, a write after the `Loading` boundary's first pass, so its pending reads are outside the boundary; creating portal content in the first pass would break the `let ref` + `anchor={ref}` idiom (user decision 2026-10-05).
     it.skip('should not throw "Maximum update depth exceeded" when Suspense boundary is outside Portal', async () => {
       function createLazyComponent() {
         let resolvePromise: ((value: { default: Component }) => void) | null = null;

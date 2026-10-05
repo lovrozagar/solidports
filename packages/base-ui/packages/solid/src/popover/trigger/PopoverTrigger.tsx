@@ -15,6 +15,7 @@ import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useOpenMethodTriggerProps } from '../../utils/useOpenInteractionType';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
 import { PopoverHandle } from '../store/PopoverHandle';
@@ -142,7 +143,10 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     },
   );
 
-  const rootTriggerProps = () => currentStore().select('triggerProps', isMountedByThisTrigger);
+  // Read per key by the element props, so a change does not rebuild the props chain.
+  const rootTriggerProps = propsSourceAccessor(() =>
+    currentStore().select('triggerProps', isMountedByThisTrigger),
+  );
 
   const { getButtonProps, buttonRef } = useButton({
     disabled,
@@ -179,29 +183,27 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
       registerTrigger(el);
       setTriggerElement(el);
     },
-    get props() {
-      return [
-        click.reference,
-        hoverProps,
-        rootTriggerProps(),
-        interactionTypeProps,
-        {
-          [CLICK_TRIGGER_IDENTIFIER as string]: '',
-          get id() {
-            return thisTriggerId();
-          },
-          'aria-haspopup': 'dialog' as const,
-          get 'aria-expanded'() {
-            return isOpenedByThisTrigger() ? 'true' : 'false';
-          },
-          get 'aria-controls'() {
-            return popupId();
-          },
+    props: [
+      propsSourceAccessor(() => click.reference),
+      hoverProps,
+      rootTriggerProps,
+      interactionTypeProps,
+      {
+        [CLICK_TRIGGER_IDENTIFIER as string]: '',
+        get id() {
+          return thisTriggerId();
         },
-        elementProps,
-        getButtonProps,
-      ];
-    },
+        'aria-haspopup': 'dialog' as const,
+        get 'aria-expanded'() {
+          return isOpenedByThisTrigger() ? 'true' : 'false';
+        },
+        get 'aria-controls'() {
+          return popupId();
+        },
+      },
+      elementProps,
+      getButtonProps,
+    ],
     stateAttributesMapping,
   });
 

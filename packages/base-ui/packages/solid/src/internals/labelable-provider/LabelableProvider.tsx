@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createMemo, createSignal, onSettled, type Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { mergeProps } from '../../solid-1-compat';
 import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';
@@ -16,7 +16,36 @@ export function LabelableProvider(props: LabelableProvider.Props) {
     ownedWrite: true,
   });
   const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
-  const [messageIds, setMessageIds] = createSignal<string[]>([], { ownedWrite: true });
+  // Solid: `ownedWrite` because descriptions unregister from their unmount cleanups.
+  const [messageSources, setMessageSources] = createSignal<Accessor<string | undefined>[]>([], {
+    ownedWrite: true,
+  });
+  // React's descriptions add their id from an effect when they start describing and remove it on
+  // cleanup, so an id keeps its position and a newly present one goes last. Derived here from the
+  // registered sources in the same order.
+  const messageIds = createMemo<string[]>((previous = []) => {
+    const present = messageSources()
+      .map((source) => source())
+      .filter((id): id is string => Boolean(id));
+    const next = previous.filter((id) => present.includes(id));
+    for (const id of present) {
+      if (!next.includes(id)) {
+        next.push(id);
+      }
+    }
+    return next.length === previous.length && next.every((id, index) => id === previous[index])
+      ? previous
+      : next;
+  });
+
+  const registerMessageId = (source: Accessor<string | undefined>) => {
+    onSettled(() => {
+      setMessageSources((sources) => [...sources, source]);
+      return () => {
+        setMessageSources((sources) => sources.filter((item) => item !== source));
+      };
+    });
+  };
 
   // `undefined` only survives until the first registration. Do not use `??`:
   // `null` deliberately suppresses `htmlFor`.
@@ -69,14 +98,17 @@ export function LabelableProvider(props: LabelableProvider.Props) {
     }
   };
 
+  const describedBy = (external: unknown) => {
+    const ids = typeof external === 'string' && external ? external.split(' ') : [];
+    ids.push(...parentMessageIds(), ...messageIds());
+    return Array.from(new Set(ids)).join(' ') || undefined;
+  };
+
   // Solid: the merged view keeps `aria-describedby` live as message ids register.
   const getDescriptionProps = (externalProps: HTMLProps | BaseUIHTMLProps) =>
     mergeProps(externalProps, {
       get 'aria-describedby'() {
-        const external = (externalProps as Record<string, unknown>)['aria-describedby'];
-        const ids = typeof external === 'string' && external ? external.split(' ') : [];
-        ids.push(...parentMessageIds(), ...messageIds());
-        return Array.from(new Set(ids)).join(' ') || undefined;
+        return describedBy((externalProps as Record<string, unknown>)['aria-describedby']);
       },
     }) as BaseUIHTMLProps;
 
@@ -87,8 +119,9 @@ export function LabelableProvider(props: LabelableProvider.Props) {
     labelId,
     setLabelId,
     messageIds,
-    setMessageIds,
+    registerMessageId,
     getDescriptionProps,
+    describedBy,
   };
 
   return <LabelableContext value={contextValue}>{props.children}</LabelableContext>;

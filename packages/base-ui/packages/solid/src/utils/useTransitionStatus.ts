@@ -52,12 +52,20 @@ export function useTransitionStatus(
   );
 
   let previouslyOpen: boolean | undefined;
+  // React enters `'starting'` only for `open && !mounted`: an element still mounted when it opens
+  // (reopened during its exit, or mounted through `setMounted(true)`, as a cached image is) keeps
+  // its status. `mounted` is derived from `open` here, so track whether it was mounted before.
+  let previouslyMounted = false;
+  let mountedExplicitly = false;
   const [transitionStatus, setTransitionStatus] = createSignal<TransitionStatus>((prev) => {
     const isOpen = openProp();
     const isMounted = mounted();
     const deferEnding = deferEndingStateProp();
     const wasOpen = previouslyOpen;
+    const wasMounted = previouslyMounted || mountedExplicitly;
     previouslyOpen = isOpen;
+    previouslyMounted = isMounted;
+    mountedExplicitly = false;
 
     if (wasOpen === undefined) {
       // Initial values, like React's `useState(initial)`. Content that mounts already open skips
@@ -72,7 +80,11 @@ export function useTransitionStatus(
     }
 
     if (isOpen) {
-      return wasOpen ? prev : 'starting';
+      if (wasOpen) {
+        return prev;
+      }
+      // With the idle state, React's idle effect restarts `'starting'` for a reopened element.
+      return wasMounted && !untrack(enableIdleStateProp) ? prev : 'starting';
     }
 
     if (isMounted) {
@@ -106,7 +118,12 @@ export function useTransitionStatus(
 
   return {
     mounted,
-    setMounted,
+    setMounted: ((value: Parameters<typeof setMounted>[0]) => {
+      if (value === true) {
+        mountedExplicitly = true;
+      }
+      return setMounted(value as never);
+    }) as typeof setMounted,
     transitionStatus,
   };
 }

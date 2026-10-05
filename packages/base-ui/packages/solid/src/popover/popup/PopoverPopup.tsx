@@ -15,6 +15,7 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { InteractionType } from '../../utils/useEnhancedClickHandler';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { usePopoverPositionerContext } from '../positioner/PopoverPositionerContext';
@@ -129,32 +130,35 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
 
   const setPopupElement = store.useStateSetter('popupElement');
 
+  // Read per key by the element props: a change does not rebuild the props chain.
+  const popupPropsSource = propsSourceAccessor(() => popupProps());
+  const transitionStyles = propsSourceAccessor(() =>
+    getDisabledMountTransitionStyles(transitionStatus()),
+  );
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [
-        popupProps(),
-        {
-          get id() {
-            return floatingId();
-          },
-          role: 'dialog',
-          ...FOCUSABLE_POPUP_PROPS,
-          get 'aria-labelledby'() {
-            return titleId();
-          },
-          get 'aria-describedby'() {
-            return descriptionId();
-          },
-          onKeyDown(event: KeyboardEvent) {
-            if (insideToolbar() && COMPOSITE_KEYS.has(event.key)) {
-              event.stopPropagation();
-            }
-          },
+    props: [
+      popupPropsSource,
+      {
+        get id() {
+          return floatingId();
         },
-        getDisabledMountTransitionStyles(transitionStatus()),
-        elementProps,
-      ];
-    },
+        role: 'dialog',
+        ...FOCUSABLE_POPUP_PROPS,
+        get 'aria-labelledby'() {
+          return titleId();
+        },
+        get 'aria-describedby'() {
+          return descriptionId();
+        },
+        onKeyDown(event: KeyboardEvent) {
+          if (insideToolbar() && COMPOSITE_KEYS.has(event.key)) {
+            event.stopPropagation();
+          }
+        },
+      },
+      transitionStyles,
+      elementProps,
+    ],
     ref: [store.context.popupRef, setPopupElement],
     state,
     stateAttributesMapping,

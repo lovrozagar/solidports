@@ -1,4 +1,4 @@
-import { createMemo, createRenderEffect, createSignal, untrack } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
 import { isElement } from '@floating-ui/utils/dom';
 import {
   safePolygon,
@@ -10,13 +10,19 @@ import { contains } from '../../floating-ui-solid/utils/element';
 import { isMouseLikePointerType } from '../../floating-ui-solid/utils/event';
 import { useHoverInteractionSharedState } from '../../floating-ui-solid/hooks/useHoverInteractionSharedState';
 import { getDelay } from '../../floating-ui-solid/hooks/useHoverShared';
-import { live, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
+import {
+  live,
+  splitComponentProps,
+  type ReactLikeRef,
+  createLayoutEffect,
+} from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { usePopupHandleStore, useTriggerDataForwarding } from '../../utils/popups';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, BaseUIEvent } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { useTooltipProviderContext } from '../provider/TooltipProviderContext';
@@ -140,7 +146,7 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
   });
 
   // React's `store.useSyncedValue`; also re-syncs when the handle exposes another store.
-  createRenderEffect(
+  createLayoutEffect(
     () => [currentStore(), isInstantPhase()] as const,
     ([targetStore, value]) => {
       targetStore.set('isInstantPhase', value);
@@ -298,6 +304,10 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
     },
   };
 
+  // Read per key by the element props: a change does not rebuild the props chain.
+  const rootTriggerSource = propsSourceAccessor(() =>
+    shouldApplyRootTriggerProps() ? rootTriggerProps() : undefined,
+  );
   const element = useRenderElement('button', componentProps, {
     state,
     ref: (el: Element | null) => {
@@ -305,56 +315,54 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
       registerTrigger(el);
       setTriggerElement(el);
     },
-    get props() {
-      return [
-        hoverProps,
-        focusProps.reference,
-        shouldApplyRootTriggerProps() ? rootTriggerProps() : undefined,
-        {
-          onMouseOver(event: MouseEvent) {
-            handleNestedTriggerHover(event);
-          },
-          onFocus(event: BaseUIEvent<FocusEvent>) {
-            if (isEnabledNestedTriggerTarget(getTargetElement(event))) {
-              event.preventBaseUIHandler();
-            }
-          },
-          onMouseLeave() {
-            isNestedTriggerHoveredRef = false;
-            nestedTriggerOpenTimeout.clear();
-            pointerTypeRef = undefined;
-          },
-          onPointerEnter(event: PointerEvent) {
-            pointerTypeRef = event.pointerType;
-          },
-          onPointerDown(event: PointerEvent) {
-            pointerTypeRef = event.pointerType;
-            const targetStore = currentStore();
-            const shouldCloseOnClick = untrack(closeOnClick);
-            targetStore.set('closeOnClick', shouldCloseOnClick);
-            if (shouldCloseOnClick && !targetStore.select('open')) {
-              targetStore.cancelPendingOpen(event);
-            }
-          },
-          onClick(event: MouseEvent) {
-            const targetStore = currentStore();
-            if (untrack(closeOnClick) && !targetStore.select('open')) {
-              targetStore.cancelPendingOpen(event);
-            }
-          },
-          get id() {
-            return thisTriggerId();
-          },
-          get [TooltipTriggerDataAttributes.triggerDisabled]() {
-            return disabled() ? '' : undefined;
-          },
-          get [TOOLTIP_TRIGGER_IDENTIFIER]() {
-            return disabled() ? undefined : '';
-          },
+    props: [
+      hoverProps,
+      propsSourceAccessor(() => focusProps.reference),
+      rootTriggerSource,
+      {
+        onMouseOver(event: MouseEvent) {
+          handleNestedTriggerHover(event);
         },
-        elementProps,
-      ];
-    },
+        onFocus(event: BaseUIEvent<FocusEvent>) {
+          if (isEnabledNestedTriggerTarget(getTargetElement(event))) {
+            event.preventBaseUIHandler();
+          }
+        },
+        onMouseLeave() {
+          isNestedTriggerHoveredRef = false;
+          nestedTriggerOpenTimeout.clear();
+          pointerTypeRef = undefined;
+        },
+        onPointerEnter(event: PointerEvent) {
+          pointerTypeRef = event.pointerType;
+        },
+        onPointerDown(event: PointerEvent) {
+          pointerTypeRef = event.pointerType;
+          const targetStore = currentStore();
+          const shouldCloseOnClick = untrack(closeOnClick);
+          targetStore.set('closeOnClick', shouldCloseOnClick);
+          if (shouldCloseOnClick && !targetStore.select('open')) {
+            targetStore.cancelPendingOpen(event);
+          }
+        },
+        onClick(event: MouseEvent) {
+          const targetStore = currentStore();
+          if (untrack(closeOnClick) && !targetStore.select('open')) {
+            targetStore.cancelPendingOpen(event);
+          }
+        },
+        get id() {
+          return thisTriggerId();
+        },
+        get [TooltipTriggerDataAttributes.triggerDisabled]() {
+          return disabled() ? '' : undefined;
+        },
+        get [TOOLTIP_TRIGGER_IDENTIFIER]() {
+          return disabled() ? undefined : '';
+        },
+      },
+      elementProps,
+    ],
     stateAttributesMapping: triggerOpenStateMapping,
   });
 

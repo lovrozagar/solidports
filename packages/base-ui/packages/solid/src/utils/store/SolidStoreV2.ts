@@ -4,6 +4,7 @@ import {
   createMemo,
   createSignal,
   getObserver,
+  getOwner,
   onCleanup,
   runWithOwner,
   untrack,
@@ -169,6 +170,8 @@ export function SolidStore<
       return () => (getObserver() === null ? selectors[key](state, ...args) : selected());
     }
 
+    // A memo, not a direct read: a key can hold an accessor (`access` calls it), and the memo
+    // keeps a reader subscribed to one source rather than to everything the accessor reads.
     // eslint-disable-next-line solid/reactivity
     return createMemo(() => access(state[key as unknown as keyof State]) as any);
   }
@@ -271,6 +274,8 @@ function createInitialStore<State extends object>(
 }
 
 const storeListeners = new WeakMap<object, Set<(state: any) => void>>();
+// Starts the derived-key notifiers of a store when its first listener subscribes.
+const storeActivators = new WeakMap<object, () => void>();
 
 /**
  * Subscribes to every write of a store created by `createStoreState`, as React's
@@ -280,6 +285,9 @@ function subscribeToStore<State extends object>(state: State, listener: (state: 
   const listeners = storeListeners.get(state);
   if (!listeners) {
     return NOOP;
+  }
+  if (listeners.size === 0) {
+    storeActivators.get(state)?.();
   }
   listeners.add(listener);
   return () => {
@@ -403,8 +411,14 @@ export function createStoreState<State extends object>(
           return getter.call(state);
         }
         // A bound key's slot holds its binding: readers subscribe to the slot (so unbinding
-        // notifies them) and to the derived value.
+        // notifies them) and to the derived value. The binding comes from `bindings`, not from the
+        // slot: a key bound in this pass has its slot write pending until the flush, and readers
+        // in the same pass must already see the derived value (React syncs during render).
         const value = readSlot(key);
+        const binding = bindings.get(key);
+        if (binding) {
+          return binding.value();
+        }
         return isBinding(value) ? value.value() : value;
       }
       // An untracked read is an imperative store read (handler, effect callback, store method).
@@ -554,12 +568,13 @@ export function createStoreState<State extends object>(
     written.delete(key);
     writeSlot(key, binding);
 
-    // Listeners (`observe`) see derived changes too, as they saw the synced writes.
-    createEffect(value, (next, prev) => {
-      if (prev !== undefined && !Object.is(next, prev)) {
-        notify();
-      }
-    });
+    // Listeners (`observe`) see derived changes too, as they saw the synced writes. The notifier
+    // is an effect per bound key, so it is created only once the store has a listener (most
+    // stores never have one).
+    binding.owner = getOwner();
+    if (listeners.size > 0) {
+      startNotifier(binding);
+    }
 
     onCleanup(() => {
       if (bindings.get(key) !== binding) {
@@ -576,6 +591,25 @@ export function createStoreState<State extends object>(
     });
   }
 
+  function startNotifier(binding: Binding) {
+    if (binding.notifying) {
+      return;
+    }
+    binding.notifying = true;
+    // The value at activation is the baseline, so a change before the effect's first run still
+    // notifies.
+    const initial = untrack(binding.value);
+    runWithOwner(binding.owner ?? null, () => {
+      createEffect(binding.value, (next, prev) => {
+        const before = prev === undefined ? initial : prev;
+        if (!Object.is(next, before)) {
+          notify();
+        }
+      });
+    });
+  }
+
+  storeActivators.set(state, () => bindings.forEach(startNotifier));
   storeListeners.set(state, listeners);
   storeBinders.set(state, bind);
   return [state as Store<State>, setState as unknown as SetStoreFunction<State>];
@@ -590,6 +624,9 @@ interface Binding {
   [BINDING]: true;
   value: Accessor<unknown>;
   setValue: (value: unknown) => void;
+  /** The owner the key was bound under; its notifier is created there on demand. */
+  owner?: ReturnType<typeof getOwner>;
+  notifying?: boolean;
 }
 
 function isBinding(value: unknown): value is Binding {

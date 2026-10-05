@@ -33,6 +33,7 @@ import { REASONS } from '../../utils/reasons';
 import { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useMixedToggleClickHandler } from '../../utils/useMixedToggleClickHandler';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { MenuParent } from '../root/MenuRoot';
@@ -312,14 +313,20 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     },
   ];
 
-  const props = () => [
-    localInteractionProps(),
+  // A static list whose changing parts are read per key (accessor sources and getters): a state
+  // change updates its attribute without rebuilding the trigger's props chain.
+  const props = [
+    propsSourceAccessor(localInteractionProps),
     hoverProps ?? EMPTY_OBJECT,
-    rootTriggerProps(),
+    propsSourceAccessor(rootTriggerProps),
     {
       'aria-haspopup': 'menu' as const,
-      'aria-controls': popupId(),
-      id: thisTriggerId(),
+      get 'aria-controls'() {
+        return popupId();
+      },
+      get id() {
+        return thisTriggerId();
+      },
       onMouseDown: (event: MouseEvent) => {
         const currentStore = store();
         if (currentStore.select('open')) {
@@ -336,7 +343,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
       },
     },
     isInMenubar ? { role: 'menuitem' } : {},
-    mixedToggleHandlers(),
+    propsSourceAccessor(mixedToggleHandlers),
     elementProps,
     getButtonProps,
   ];
@@ -346,9 +353,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     stateAttributesMapping: pressableTriggerOpenStateMapping,
     state,
     ref,
-    get props() {
-      return props();
-    },
+    props,
   });
 
   if (isInMenubar) {
@@ -372,7 +377,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
         class={renderProps.class}
         state={state}
         refs={[forwardUserRef, ...ref]}
-        props={props()}
+        props={props}
         stateAttributesMapping={pressableTriggerOpenStateMapping}
       />
     );

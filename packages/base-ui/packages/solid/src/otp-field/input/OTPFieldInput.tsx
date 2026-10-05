@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 
-import { createRenderEffect, createSignal, untrack } from 'solid-js';
+import { createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
 import { stopEvent } from '../../floating-ui-solid/utils';
@@ -16,7 +16,7 @@ import {
 } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { useDirection } from '../../direction-provider/DirectionContext';
-import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
+import { createDepsEffect, splitComponentProps, createLayoutEffect } from '../../solid-helpers';
 import { useOTPFieldRootContext, getOTPFieldInputState } from '../root/OTPFieldRootContext';
 import type { OTPFieldRootState } from '../root/OTPFieldRoot';
 import { inputStateAttributesMapping } from '../utils/stateAttributesMapping';
@@ -106,7 +106,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     }
   }
 
-  createRenderEffect(
+  createLayoutEffect(
     () => [inputElement(), slotValue()] as const,
     ([input, nextValue]) => {
       syncInputValue(input, nextValue);

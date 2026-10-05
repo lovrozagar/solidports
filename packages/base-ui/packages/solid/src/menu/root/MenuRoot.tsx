@@ -1,4 +1,4 @@
-import { createMemo, createRenderEffect, Show, untrack } from 'solid-js';
+import { createMemo, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
@@ -23,6 +23,7 @@ import {
   createDepsEffect,
   createDepsRenderEffect,
   type ReactLikeRef,
+  createLayoutEffect,
 } from '../../solid-helpers';
 import { TYPEAHEAD_RESET_MS } from '../../utils/constants';
 import {
@@ -269,7 +270,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     },
   );
 
-  createRenderEffect(
+  createLayoutEffect(
     () => ({
       floatingNodeId: floatingNodeIdFromContext(),
       floatingParentNodeId: floatingParentNodeIdFromContext(),
@@ -321,7 +322,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     },
   );
 
-  createRenderEffect(
+  createLayoutEffect(
     () => !open() && !hoverEnabled(),
     (shouldEnableHover) => {
       if (shouldEnableHover) {
@@ -450,7 +451,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   // Registered in a render effect (React's layout effect) so `setOpen` emits from imperative
   // `MenuHandle.open()` calls made in the same commit this root mounts are received instead of
   // being silently dropped.
-  createRenderEffect(
+  createLayoutEffect(
     () => floatingEvents,
     (events) => {
       const handleSetOpenEvent = ({
@@ -482,7 +483,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   };
 
   // React's `useImperativeHandle`.
-  createRenderEffect(
+  createLayoutEffect(
     () => props.actionsRef,
     (actionsRef) => {
       if (!actionsRef) {
@@ -501,7 +502,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     return currentParent.type === 'context-menu' ? currentParent.context : undefined;
   };
 
-  createRenderEffect(
+  createLayoutEffect(
     () => ({ ctx: contextMenuParentContext(), element: positionerElement() }),
     ({ ctx, element }) => {
       if (!ctx) {
@@ -515,7 +516,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     },
   );
 
-  createRenderEffect(contextMenuParentContext, (ctx) => {
+  createLayoutEffect(contextMenuParentContext, (ctx) => {
     if (!ctx) {
       return undefined;
     }

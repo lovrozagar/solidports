@@ -1,3 +1,4 @@
+import { DEFAULT_LABELABLE_CONTEXT } from '../../internals/labelable-provider/LabelableContext';
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at root */
 import { createEffect, createSignal, onCleanup, onSettled, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -70,7 +71,8 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     disabled: fieldDisabled,
   } = useFieldRootContext();
   const fieldItemContext = useFieldItemContext();
-  const { labelId, getDescriptionProps } = useLabelableContext();
+  const labelableContext = useLabelableContext();
+  const { labelId, getDescriptionProps } = labelableContext;
 
   const disabled = () =>
     Boolean(fieldDisabled() || fieldItemContext.disabled() || disabledGroup() || disabledProp());
@@ -301,7 +303,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     rootProps,
     elementProps,
     getButtonProps,
-    getDescriptionProps,
+    ...(labelableContext === DEFAULT_LABELABLE_CONTEXT ? [] : [getDescriptionProps]),
     validation
       ? (validationProps: HTMLProps) => validation.getValidationProps(disabled(), validationProps)
       : EMPTY_OBJECT,

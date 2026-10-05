@@ -7,6 +7,7 @@ import { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
 import { isServer } from '@solidjs/web';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { propsSourceAccessor } from '../../utils/propsView';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
 import type { AccordionItemState } from '../item/AccordionItem';
@@ -118,7 +119,8 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
     ref: panel.ref,
     get props() {
       return [
-        panel.props(),
+        // An accessor source: its keys change with the panel's state without rebuilding these props.
+        propsSourceAccessor(panel.props),
         {
           get 'aria-labelledby'() {
             return triggerId?.();

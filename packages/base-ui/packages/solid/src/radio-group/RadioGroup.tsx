@@ -61,8 +61,8 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     state: fieldState,
     validation,
     registerDirtySource,
+    registerFilledSource,
     setDirty,
-    setFilled,
     validityData,
   } = useFieldRootContext();
   const { labelId } = useLabelableContext();
@@ -184,13 +184,14 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
   // React sets `dirty` from a layout effect when the value changes; the field derives it.
   // Nullish values compare equal: an unset group starts as `undefined` against a `null` initial value.
   registerDirtySource(() => (checkedValue() ?? null) !== (validityData.initialValue ?? null));
+  // React sets `filled` when the value changes; the field derives it from this source.
+  registerFilledSource(() => checkedValue() != null);
 
   useValueChanged(checkedValue, () => {
     const value = untrack(checkedValue);
     clearErrors(untrack(name));
 
     setDirty(value !== validityData.initialValue);
-    setFilled(value != null);
 
     validation.change(value);
 

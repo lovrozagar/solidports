@@ -53,14 +53,14 @@ export function useMediaQuery(
       return () => matchMediaValue(safeQuery()).matches;
     }
 
+    // The server value is constant, so it is returned directly rather than written into `match`
+    // (a server render writes no state).
     const ssrMatch = ssrMatchMedia();
     if (ssrMatch !== null) {
       const { matches } = ssrMatch(safeQuery());
-      setMatch(matches);
       return () => matches;
     }
 
-    setMatch(defaultMatches());
     return () => defaultMatches();
   }
 

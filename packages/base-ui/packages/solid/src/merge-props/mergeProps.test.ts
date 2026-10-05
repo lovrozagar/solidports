@@ -3,7 +3,7 @@ import { createMemo, createRoot, createSignal } from 'solid-js';
 import { act } from '#test-utils';
 import { callEventHandler } from '../solid-helpers';
 import type { BaseUIEvent } from '../utils/types';
-import { mergeProps, mergePropsN } from './mergeProps';
+import { makeEventPreventable, mergeProps, mergePropsN } from './mergeProps';
 
 // Solid: titles keep React's wording (`className`, "synthetic" events); Solid uses `class`
 // and native events.
@@ -878,5 +878,22 @@ describe('mergeProps', () => {
 
       expect(log).toEqual(['last-handler', 'getter-handler']);
     });
+  });
+});
+
+describe('mergeProps stable chained ref and preventable events', () => {
+  it('returns the same chained ref on every read', () => {
+    const merged = mergeProps<'div'>({ ref: () => {} }, { ref: () => {} }) as { ref: unknown };
+    expect(merged.ref).toBe(merged.ref);
+  });
+
+  it('installs preventBaseUIHandler once per event across handler layers', () => {
+    const event = new Event('click') as BaseUIEvent<Event>;
+    makeEventPreventable(event);
+    const first = event.preventBaseUIHandler;
+    makeEventPreventable(event);
+    expect(event.preventBaseUIHandler).toBe(first);
+    event.preventBaseUIHandler();
+    expect(event.baseUIHandlerPrevented).toBe(true);
   });
 });

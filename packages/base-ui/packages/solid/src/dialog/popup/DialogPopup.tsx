@@ -5,6 +5,7 @@ import { FOCUSABLE_POPUP_PROPS, createDefaultInitialFocus } from '../../utils/po
 import { type BaseUIComponentProps } from '../../utils/types';
 import { InteractionType } from '../../utils/useEnhancedClickHandler';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { type TransitionStatus } from '../../utils/useTransitionStatus';
 import { useDialogPortalContext } from '../portal/DialogPortalContext';
@@ -81,28 +82,38 @@ export function DialogPopup(componentProps: DialogPopup.Props) {
 
   const element = useRenderElement<'div', DialogPopupState>('div', componentProps, {
     state,
-    get props() {
-      return [
-        rootPopupProps(),
-        {
-          id: floatingId(),
-          'aria-labelledby': titleElementId(),
-          'aria-describedby': descriptionElementId(),
-          role: role(),
-          ...FOCUSABLE_POPUP_PROPS,
-          hidden: !mounted(),
-          onKeyDown(event: KeyboardEvent) {
-            if (COMPOSITE_KEYS.has(event.key)) {
-              event.stopPropagation();
-            }
-          },
-          style: {
-            [DialogPopupCssVars.nestedDialogs]: nestedOpenDialogCount(),
-          },
+    props: [
+      propsSourceAccessor(() => rootPopupProps()),
+      {
+        get id() {
+          return floatingId();
         },
-        elementProps,
-      ];
-    },
+        get 'aria-labelledby'() {
+          return titleElementId();
+        },
+        get 'aria-describedby'() {
+          return descriptionElementId();
+        },
+        get role() {
+          return role();
+        },
+        ...FOCUSABLE_POPUP_PROPS,
+        get hidden() {
+          return !mounted();
+        },
+        onKeyDown(event: KeyboardEvent) {
+          if (COMPOSITE_KEYS.has(event.key)) {
+            event.stopPropagation();
+          }
+        },
+        get style() {
+          return {
+            [DialogPopupCssVars.nestedDialogs]: nestedOpenDialogCount(),
+          };
+        },
+      },
+      elementProps,
+    ],
     ref: [store.context.popupRef, setPopupElement],
     stateAttributesMapping: dialogStateAttributesMapping,
   });

@@ -1,6 +1,6 @@
-import { createRenderEffect, createSignal } from 'solid-js';
+import { createSignal } from 'solid-js';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
 import { EMPTY_ARRAY } from '../../utils/constants';
 import { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
 import { tabsStateAttributesMapping } from '../root/stateAttributesMapping';
@@ -32,7 +32,7 @@ export function TabsList(componentProps: TabsList.Props) {
   const tabResizeObserverElements = new Set<HTMLElement>();
   let resizeObserver: ResizeObserver | null = null;
 
-  createRenderEffect(tabsListElement, (listElement) => {
+  createLayoutEffect(tabsListElement, (listElement) => {
     if (typeof ResizeObserver === 'undefined') {
       return undefined;
     }

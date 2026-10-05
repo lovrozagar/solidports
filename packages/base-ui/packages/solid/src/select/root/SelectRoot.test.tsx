@@ -16,6 +16,8 @@ import { Portal } from '@solidjs/web';
 import { spy } from 'sinon';
 import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './SelectRoot.ssr-fixtures';
 
 describe('<Select.Root />', () => {
   beforeEach(() => {
@@ -49,8 +51,16 @@ describe('<Select.Root />', () => {
   });
 
   describe('server-side rendering', () => {
-    // Solid: the test harness has no `renderToString`/`hydrate` renderer.
-    it.skip('does not link Select.Label before hydration', () => {});
+    it('does not link Select.Label before hydration', () => {
+      renderServer(ssrFixtures, 'label');
+
+      const label = screen.getByTestId('label');
+      const trigger = screen.getByTestId('trigger');
+
+      expect(label.id).not.toBe('');
+      expect(trigger.id).not.toBe('');
+      expect(trigger).not.toHaveAttribute('aria-labelledby');
+    });
   });
 
   describe('prop: defaultValue', () => {
@@ -579,8 +589,7 @@ describe('<Select.Root />', () => {
     });
   });
 
-  // Solid: native capture listeners on the popup do not see events from portalled content (no React-tree propagation).
-  it.skip('does not dismiss when pressing portalled content inside the popup but outside the list', async () => {
+  it('does not dismiss when pressing portalled content inside the popup but outside the list', async () => {
     const { user } = render(() => (
       <Select.Root defaultOpen>
         <Select.Trigger>Open</Select.Trigger>
@@ -6019,6 +6028,54 @@ describe('<Select.Root />', () => {
       });
       expect(screen.getByRole('option', { name: 'plum' })).not.toHaveAttribute('data-highlighted');
     });
+
+    // Solid: React loses the consumer's `overflow` on the popup after the aligned-to-fallback switch
+    // and scrolls the document instead (plan 7.3); the port keeps the consumer's styles and scrolls
+    // the popup, so the selected item is shown without moving the page.
+    it.skipIf(isJSDOM)(
+      'shows a preselected item far down the list inside the popup without scrolling the page',
+      async () => {
+        const options = Array.from({ length: 300 }, (_, index) => `item ${index}`);
+        const { user } = render(() => (
+          <Select.Root defaultValue="item 280">
+            <Select.Trigger data-testid="trigger">
+              <Select.Value />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner>
+                <Select.Popup
+                  data-testid="popup"
+                  style={{ 'max-height': '200px', overflow: 'auto' }}
+                >
+                  <Select.List>
+                    <For each={options}>
+                      {(option) => (
+                        <Select.Item value={option}>
+                          <Select.ItemText>{option}</Select.ItemText>
+                        </Select.Item>
+                      )}
+                    </For>
+                  </Select.List>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+        ));
+
+        await user.click(screen.getByTestId('trigger'));
+
+        const popup = await screen.findByTestId('popup');
+        const selected = screen.getByRole('option', { name: 'item 280' });
+        await waitFor(() => {
+          const popupRect = popup.getBoundingClientRect();
+          const itemRect = selected.getBoundingClientRect();
+          expect(itemRect.top).toBeGreaterThanOrEqual(popupRect.top - 1);
+          expect(itemRect.bottom).toBeLessThanOrEqual(popupRect.bottom + 1);
+        });
+        expect(document.documentElement.scrollTop).toBe(0);
+        expect(getComputedStyle(popup).overflowY).toBe('auto');
+      },
+    );
 
     it.skipIf(isJSDOM)(
       'scrolls the first selected item into view on open',

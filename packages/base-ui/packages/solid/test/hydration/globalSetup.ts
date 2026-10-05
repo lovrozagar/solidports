@@ -1,8 +1,11 @@
 import { readdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { glob } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { TestProject } from 'vitest/node';
-import { serverRender } from './serverRender';
+import { renderSsrFixtures, serverRender } from './serverRender';
+// Types the provided `ssrFixtures` context.
+import type {} from '../ssrFixtures';
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -12,7 +15,7 @@ declare module 'vitest' {
 }
 
 /*
- * Server-renders the hydration fixtures in Node before the run, so hydration tests also run in
+ * Server-renders the hydration fixtures and every `*.ssr-fixtures.tsx` fixture under `src` in Node before the run, so hydration tests also run in
  * browser mode, where Vite's SSR loader isn't available.
  */
 export default async function setup(project: TestProject) {
@@ -23,4 +26,22 @@ export default async function setup(project: TestProject) {
     serverHtml[entry] = await serverRender(entry);
   }
   project.provide('serverHtml', serverHtml);
+  const fixtureFiles: string[] = [];
+  for await (const file of glob('src/**/*.ssr-fixtures.tsx', { cwd: resolve(dir, '../..') })) {
+    fixtureFiles.push(resolve(dir, '../..', file));
+  }
+  // URI-encoded: browser mode inlines provided values into the orchestrator page's `<script>`, and
+  // server HTML can hold `</script>` (pre-hydration scripts).
+  const fixtures = await renderSsrFixtures(fixtureFiles.sort());
+  project.provide(
+    'ssrFixtures',
+    Object.fromEntries(
+      Object.entries(fixtures).map(([key, value]) => [
+        key,
+        typeof value === 'string'
+          ? encodeURIComponent(value)
+          : { error: encodeURIComponent(value.error) },
+      ]),
+    ),
+  );
 }

@@ -1,14 +1,13 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import { createMemo, createRenderEffect, untrack } from 'solid-js';
+import { createMemo, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   createDepsRenderEffect,
   createDepsEffect,
   access,
   defaultProps,
-  useRef,
-} from '../../solid-helpers';
+  useRef, createLayoutEffect } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
@@ -297,7 +296,7 @@ export function useListNavigation(parameters: {
   const parentId = useFloatingParentNodeId();
   const getTree = useFloatingTreeAccessor(() => props.externalTree);
 
-  createRenderEffect(
+  createLayoutEffect(
     () => [dataRef(), props.orientation] as const,
     ([data, orientation]) => {
       data.orientation = orientation;
@@ -374,7 +373,7 @@ export function useListNavigation(parameters: {
 
   // Sync `selectedIndex` to be the `activeIndex` upon opening the floating
   // element. Also, reset `activeIndex` upon closing the floating element.
-  createRenderEffect(
+  createLayoutEffect(
     () => {
       if (!props.enabled) {
         return { enabled: false as const };

@@ -7,6 +7,7 @@ import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { usePreviewCardPositionerContext } from '../positioner/PreviewCardPositionerContext';
@@ -76,10 +77,13 @@ export function PreviewCardPopup(componentProps: PreviewCardPopup.Props) {
 
   const setPopupElement = store.useStateSetter('popupElement');
 
+  // Read per key by the element props: a change does not rebuild the props chain.
+  const popupPropsSource = propsSourceAccessor(() => popupProps());
+  const transitionStyles = propsSourceAccessor(() =>
+    getDisabledMountTransitionStyles(transitionStatus()),
+  );
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [popupProps(), getDisabledMountTransitionStyles(transitionStatus()), elementProps];
-    },
+    props: [popupPropsSource, transitionStyles, elementProps],
     ref: [store.context.popupRef, setPopupElement],
     state,
     stateAttributesMapping,

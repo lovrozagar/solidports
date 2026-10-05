@@ -13,7 +13,6 @@ import { FieldRoot } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
 import { fieldValidityMapping } from '../utils/constants';
 import { mergeProps as solidMergeProps, splitProps } from '../../solid-1-compat';
-import { createDepsEffect } from '../../solid-helpers';
 
 const stateAttributesMapping: StateAttributesMapping<FieldError.State> = {
   ...fieldValidityMapping,
@@ -33,7 +32,7 @@ export function FieldError(componentProps: FieldError.Props) {
   const id = useBaseUiId(idProp);
 
   const { validityData, state: fieldState, name } = useFieldRootContext(false);
-  const { setMessageIds } = useLabelableContext();
+  const { registerMessageId } = useLabelableContext();
 
   const { errors } = useFormContext();
 
@@ -64,20 +63,7 @@ export function FieldError(componentProps: FieldError.Props) {
 
   const { mounted, transitionStatus, setMounted } = useTransitionStatus(rendered);
 
-  createDepsEffect(
-    () => ({ rendered: rendered(), id: id() }),
-    ({ rendered: isRendered, id: idValue }) => {
-      if (!isRendered || !idValue) {
-        return undefined;
-      }
-
-      setMessageIds((v) => v.concat(idValue));
-
-      return () => {
-        setMessageIds((v) => v.filter((item) => item !== idValue));
-      };
-    },
-  );
+  registerMessageId(() => (rendered() ? id() : undefined));
 
   let errorRef = null as HTMLDivElement | null | undefined;
 

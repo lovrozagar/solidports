@@ -1,19 +1,11 @@
-import {
-  createEffect,
-  createMemo,
-  createRenderEffect,
-  createSignal,
-  onCleanup,
-  untrack,
-} from 'solid-js';
+import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   access,
   createDepsEffect,
   createDepsRenderEffect,
-  type MaybeAccessor,
-} from '../../solid-helpers';
+  type MaybeAccessor, createLayoutEffect } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerWindow } from '../../utils/owner';
@@ -120,7 +112,7 @@ export function useCollapsiblePanel(
   }
 
   // Re-apply when the inputs of the rendered size change (and once the element attaches).
-  createRenderEffect(
+  createLayoutEffect(
     () => [panelElement(), open(), mounted()] as const,
     () => applyDimensions(),
   );

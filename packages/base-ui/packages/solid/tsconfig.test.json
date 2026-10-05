@@ -26,6 +26,7 @@
     "vitest-env.d.ts",
     "src/**/*.spec.ts*",
     "src/**/*.test.ts*",
+    "src/**/*.ssr-fixtures.ts*",
     "src/index.test.ts",
     "src/**/test-utils.ts*",
     "test",

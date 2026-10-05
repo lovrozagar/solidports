@@ -11,6 +11,7 @@ import type {
   UseFloatingOptions,
 } from '../types';
 import { on, createStore } from '../../solid-1-compat';
+import { deepEqual } from '../utils/deepEqual';
 
 export type UsePositionData = ComputePositionReturn & { isPositioned: boolean };
 
@@ -122,6 +123,8 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
   const floatingEl = createMemo(() => props.elements?.floating ?? floating());
 
   let isMountedRef = false;
+  // The last position written, compared structurally before the next write.
+  let lastData: unknown = null;
 
   // Imperative (React's `update` callback): called from autoUpdate, handlers and effects.
   function update() {
@@ -147,16 +150,21 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
     }
 
     computePosition(r, f, config).then((computedData) => {
-      if (isMountedRef) {
-        setData({
-          ...computedData,
-          // The floating element's position may be recomputed while it's closed
-          // but still mounted (such as when transitioning out). To ensure
-          // `isPositioned` will be `false` initially on the next open, avoid
-          // setting it to `true` when `open === false` (must be specified).
-          isPositioned: options.open !== false,
-          session: untrack(closedCount),
-        });
+      const fullData = {
+        ...computedData,
+        // The floating element's position may be recomputed while it's closed
+        // but still mounted (such as when transitioning out). To ensure
+        // `isPositioned` will be `false` initially on the next open, avoid
+        // setting it to `true` when `open === false` (must be specified).
+        isPositioned: options.open !== false,
+        session: untrack(closedCount),
+      };
+      // As React's `@floating-ui/react-dom`, an unchanged position writes nothing: `middlewareData`
+      // is a new object on every `computePosition`, so an autoUpdate tick (scroll, resize) would
+      // otherwise re-run every reader of the position.
+      if (isMountedRef && !deepEqual(lastData, fullData)) {
+        lastData = fullData;
+        setData(fullData);
       }
     });
   }

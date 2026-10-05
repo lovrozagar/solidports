@@ -4,6 +4,8 @@ import { fireEvent, screen, waitFor, within } from '@solidjs/testing-library';
 import { createSignal, lazy, Loading, Match, onSettled, Show, Switch } from 'solid-js';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { act, createRenderer, isJSDOM } from '#test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures, { fixtureState, hydrationGate } from './DialogRoot.detached-triggers.ssr-fixtures';
 
 describe('<Dialog.Root />', () => {
   const { render, clock } = createRenderer();
@@ -15,11 +17,61 @@ describe('<Dialog.Root />', () => {
   describe('handle-backed root ownership', () => {
     type NumberPayload = { payload: number | undefined };
 
-    // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-    it.skip('hydrates a detached trigger from the stable fallback store', () => {});
+    it('hydrates a detached trigger from the stable fallback store', async () => {
+      const { hydrate } = renderServer(fixtures, 'detachedTrigger');
 
-    // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-    it.skip('keeps the server snapshot stable when the root closes before a delayed trigger hydrates', () => {});
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      expect(trigger).not.toHaveAttribute('data-popup-open');
+
+      hydrate();
+
+      await waitFor(() => {
+        expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      });
+      expect(trigger).toHaveAttribute('data-popup-open');
+    });
+
+    it('keeps the server snapshot stable when the root closes before a delayed trigger hydrates', async () => {
+      // Solid: the gate resolves after `hydrate()` has returned, so Solid mounts the trigger fresh
+      // instead of claiming its server node (and warns once about the unclaimed node); React keeps
+      // the server node. The behavior under test, the root staying closed once the trigger mounts,
+      // is the same.
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      hydrationGate.reset();
+      const { hydrate } = renderServer(fixtures, 'delayedTrigger');
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+      hydrationGate.suspend = true;
+      hydrate();
+      const handle = fixtureState.handle!;
+
+      await waitFor(() => {
+        expect(handle.isOpen).toBe(true);
+      });
+
+      act(() => handle.close());
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+      hydrationGate.suspend = false;
+      await act(async () => {
+        hydrationGate.resume?.();
+        await hydrationGate.promise;
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Trigger' })).toHaveAttribute(
+          'aria-expanded',
+          'false',
+        );
+      });
+      expect(handle.isOpen).toBe(false);
+      expect(warn.mock.calls.map((args) => String(args[0]))).toEqual([
+        expect.stringMatching(/^Hydration completed with 1 unclaimed server-rendered node/),
+      ]);
+      warn.mockRestore();
+    });
 
     it('opens from a descendant layout effect on initial mount', async () => {
       const handle = Dialog.createHandle();

@@ -1,4 +1,4 @@
-import { createMemo, createRenderEffect, createSignal, onSettled, untrack } from 'solid-js';
+import { createMemo, createSignal, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { useFieldsetRootContext } from '../../fieldset/root/FieldsetRootContext';
 import type { Form } from '../../form';
@@ -11,6 +11,7 @@ import {
   useRef,
   type ReactLikeRef,
   provideContext,
+  createLayoutEffect,
 } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -72,7 +73,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
   );
   const effectiveName = () => name() ?? registeredFieldName();
 
-  createRenderEffect(dirtyProp, (value) => {
+  createLayoutEffect(dirtyProp, (value) => {
     if (value !== undefined) {
       markedDirtyRef.current = value;
     }
@@ -203,7 +204,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
 
   // Solid: a render effect so the handle exists before descendant and sibling user effects run,
   // as React's `useImperativeHandle` does.
-  createRenderEffect(
+  createLayoutEffect(
     () => local.actionsRef,
     (actionsRef) => {
       if (!actionsRef) {

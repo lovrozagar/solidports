@@ -1,12 +1,17 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createMemo, createRenderEffect, createSignal, untrack } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   IndexGuessBehavior,
   useCompositeListItem,
 } from '../../internals/composite/list/useCompositeListItem';
-import { provideContext, splitComponentProps, useRef } from '../../solid-helpers';
+import {
+  provideContext,
+  splitComponentProps,
+  useRef,
+  createLayoutEffect,
+} from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { compareItemEquality, findItemIndex, resolveSelectedIndex } from '../../utils/itemEquality';
 import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
@@ -86,7 +91,7 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
   const id = () => (rootId() != null && hasRegistered() ? `${rootId()}-${index()}` : undefined);
   const selected = () => matchesSelectedValue() && selectable();
 
-  createRenderEffect(
+  createLayoutEffect(
     () => ({
       shouldRun: hasRegistered() && (props.virtualized() || indexProp() != null),
       index: index(),
@@ -110,7 +115,7 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
     },
   );
 
-  createRenderEffect(
+  createLayoutEffect(
     () => ({
       registered: hasRegistered(),
       hasItems: hasItems(),
@@ -135,7 +140,7 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
     },
   );
 
-  createRenderEffect(
+  createLayoutEffect(
     () => ({
       registered: hasRegistered(),
       hasItems: hasItems(),

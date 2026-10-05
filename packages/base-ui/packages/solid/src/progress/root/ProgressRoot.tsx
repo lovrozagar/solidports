@@ -90,16 +90,6 @@ export function ProgressRoot(componentProps: ProgressRoot.Props) {
         : derived().defaultAriaValueText;
     },
     role: 'progressbar',
-    get children() {
-      return (
-        <>
-          {componentProps.children}
-          <span role="presentation" style={visuallyHidden}>
-            {/* force NVDA to read the label https://github.com/mui/base-ui/issues/4184 */}x
-          </span>
-        </>
-      );
-    },
   };
 
   const contextValue: ProgressRootContext = {
@@ -114,6 +104,18 @@ export function ProgressRoot(componentProps: ProgressRoot.Props) {
     state,
     props: [defaultProps, elementProps],
     stateAttributesMapping: progressStateAttributesMapping,
+    // The part owns its children (React destructures `children` out of the element props), so the
+    // hidden span follows the consumer's children.
+    get children() {
+      return (
+        <>
+          {componentProps.children}
+          <span role="presentation" style={visuallyHidden}>
+            {/* force NVDA to read the label https://github.com/mui/base-ui/issues/4184 */}x
+          </span>
+        </>
+      );
+    },
   });
 
   return provideContext(ProgressRootContext, contextValue, element);

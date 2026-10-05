@@ -8,7 +8,6 @@ import type { ContextData, FloatingEvents, ReferenceType } from '../types';
 import { createEventEmitter } from '../utils/createEventEmitter';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { isClickLikeEvent } from '../utils/event';
-import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export interface FloatingRootState {
   open: boolean;
@@ -145,8 +144,9 @@ export function FloatingRootStore(options: FloatingRootStoreOptions) {
     store.context.onOpenChange?.(newOpen, eventDetails);
   }
 
-  const merged = solidMergeProps(store, { dispatchOpenChange, setOpen, syncOpenEvent });
-  return merged;
+  // The store's fields are plain values (methods, context, the state proxy), so the methods are
+  // added in place: no per-key getter layer between every `.select(...)` and the store.
+  return Object.assign(store, { dispatchOpenChange, setOpen, syncOpenEvent });
 }
 
 export type FloatingRootStore = ReturnType<typeof FloatingRootStore>;

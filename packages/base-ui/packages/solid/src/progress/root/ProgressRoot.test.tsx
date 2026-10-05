@@ -357,4 +357,19 @@ describe('<Progress.Root />', () => {
       expect(screen.getByTestId('value')).toHaveTextContent(expectedValue);
     });
   });
+
+  it('renders the visually hidden presentation span after its children (NVDA reads the label)', () => {
+    render(() => (
+      <Progress.Root value={30} data-testid="root">
+        <Progress.Track>
+          <Progress.Indicator />
+        </Progress.Track>
+      </Progress.Root>
+    ));
+
+    const root = screen.getByTestId('root');
+    const span = root.lastElementChild;
+    expect(span).toHaveAttribute('role', 'presentation');
+    expect(span).toHaveTextContent('x');
+  });
 });

@@ -1,4 +1,4 @@
-import { createEffect, untrack } from 'solid-js';
+import { createEffect, createMemo, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { rectToClientRect } from '@floating-ui/utils';
 import { COMPOSITE_KEYS } from '../../internals/composite/composite';
@@ -524,19 +524,24 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
     },
   };
 
+  const stablePopupProps = createMemo(() => popupProps());
+  const transitionStyleProps = {
+    get style() {
+      return getDisabledMountTransitionStyles(transitionStatus()).style;
+    },
+  };
+
   const element = useRenderElement('div', componentProps, {
     ref: (el) => {
       popupRef.current = el;
     },
     state,
     stateAttributesMapping,
+    // Built once: the popup props are read through an identity memo (the store's binding re-runs
+    // with every synced key) and the transition style is a getter, so an open/close does not
+    // rebuild the part's props.
     get props() {
-      return [
-        popupProps(),
-        defaultProps,
-        getDisabledMountTransitionStyles(transitionStatus()),
-        elementProps,
-      ];
+      return [stablePopupProps(), defaultProps, transitionStyleProps, elementProps];
     },
   });
 

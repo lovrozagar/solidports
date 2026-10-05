@@ -1,7 +1,7 @@
-import { createContext, createRenderEffect, useContext, untrack } from 'solid-js';
+import { createContext, useContext, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access, live, type MaybeAccessor } from '../../solid-helpers';
+import { access, live, type MaybeAccessor, createLayoutEffect } from '../../solid-helpers';
 import { useId } from '../../utils/useId';
 import type { FloatingContext, FloatingNodeType, FloatingTreeType } from '../types';
 import { FloatingTreeStore } from './FloatingTreeStore';
@@ -70,7 +70,7 @@ export function useFloatingNodeId(
   // here a node re-created for a new parent carries the context over instead.
   let nodeContext: FloatingNodeType['context'];
 
-  createRenderEffect(
+  createLayoutEffect(
     () => {
       const nodeId = id();
       const parentId = access(parentContext?.id) || null;

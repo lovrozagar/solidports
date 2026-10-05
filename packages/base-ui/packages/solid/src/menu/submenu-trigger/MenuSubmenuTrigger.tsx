@@ -10,6 +10,7 @@ import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { warn } from '../../utils/warn';
 import { useMenuItem } from '../item/useMenuItem';
@@ -218,32 +219,40 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
   const element = useRenderElement('div', componentProps, {
     state,
     stateAttributesMapping: triggerOpenStateMapping,
-    get props() {
-      const expandedProps = rootTriggerProps();
-      return [
-        localInteractionProps(),
-        hoverProps,
-        // Opening a submenu changes the trigger's expanded state while the trigger still holds
-        // focus, and VoiceOver announces that state change instead of the submenu item that focus
-        // moves to a moment later, so the first item is never announced. Dropping the state while
-        // the submenu is open avoids the announcement without claiming the submenu is collapsed;
-        // `aria-haspopup` still conveys that the item opens a submenu.
-        // Solid: a later `undefined` would not remove the key, so it is omitted instead.
-        shouldOmitExpanded() ? omitExpanded(expandedProps) : expandedProps,
-        itemProps(),
-        {
-          'aria-controls': popupId(),
-          tabindex: open() || highlighted() ? 0 : -1,
-          onBlur() {
-            if (highlighted()) {
-              parentMenuStore.set('activeIndex', null);
-            }
-          },
+    // A static list whose changing parts are read per key: highlighting the trigger or opening the
+    // submenu updates its attributes without rebuilding the trigger's props chain.
+    props: [
+      propsSourceAccessor(localInteractionProps),
+      hoverProps,
+      // Opening a submenu changes the trigger's expanded state while the trigger still holds
+      // focus, and VoiceOver announces that state change instead of the submenu item that focus
+      // moves to a moment later, so the first item is never announced. Dropping the state while
+      // the submenu is open avoids the announcement without claiming the submenu is collapsed;
+      // `aria-haspopup` still conveys that the item opens a submenu.
+      // Solid: a later `undefined` would not remove the key, so it is omitted instead.
+      propsSourceAccessor(
+        createMemo(() => {
+          const expandedProps = rootTriggerProps();
+          return shouldOmitExpanded() ? omitExpanded(expandedProps) : expandedProps;
+        }),
+      ),
+      propsSourceAccessor(itemProps),
+      {
+        get 'aria-controls'() {
+          return popupId();
         },
-        elementProps,
-        getItemProps,
-      ];
-    },
+        get tabindex() {
+          return open() || highlighted() ? 0 : -1;
+        },
+        onBlur() {
+          if (highlighted()) {
+            parentMenuStore.set('activeIndex', null);
+          }
+        },
+      },
+      elementProps,
+      getItemProps,
+    ],
     ref: [listItem.setRef, setItemRef, registerTrigger, handleTriggerElementRef],
   });
 

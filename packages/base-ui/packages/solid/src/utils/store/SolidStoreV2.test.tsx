@@ -1,5 +1,5 @@
 import { act, createRenderer } from '#test-utils';
-import { createRoot, createSignal, untrack } from 'solid-js';
+import { createRoot, createSignal, flush, untrack } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { SolidStore } from './SolidStoreV2';
 
@@ -118,4 +118,33 @@ describe('SolidStore.useContextCallback', () => {
 
     expect(calls).toContain('initial');
   });
+});
+
+describe('SolidStore lazy observe notifiers', () => {
+  it('notifies a listener that subscribes after a key was bound when the derived value changes', () => {
+    const seen: number[] = [];
+    const { dispose, setSource, store } = createRoot((d) => {
+      const rootStore = SolidStore<TestState, TestContext>({ value: 0 }, { onChange: undefined });
+      const [source, setSourceSignal] = createSignal(1);
+      rootStore.useSyncedValue('value', source);
+      return { dispose: d, setSource: setSourceSignal, store: rootStore };
+    });
+    flush();
+
+    const unsubscribe = store.observe(
+      (state) => state.value,
+      (next) => {
+        seen.push(next);
+      },
+    );
+    setSource(2);
+    flush();
+    setSource(3);
+    flush();
+
+    expect(seen).toEqual([1, 2, 3]);
+    unsubscribe();
+    dispose();
+  });
+
 });

@@ -1,4 +1,4 @@
-import { createEffect, createSignal, Show, untrack } from 'solid-js';
+import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -6,6 +6,7 @@ import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { type TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
 import type { AvatarRootState, ImageLoadingStatus } from '../root/AvatarRoot';
 import { useAvatarRootContext } from '../root/AvatarRootContext';
@@ -193,9 +194,13 @@ export function AvatarImage(componentProps: AvatarImage.Props): JSX.Element {
   const element = useRenderElement('img', componentProps, {
     state,
     ref: setImageElement,
-    get props() {
-      return [renderedStatusProps(), elementProps, sourceProps()];
-    },
+    // Accessor sources: their keys follow the loading status and source props without rebuilding
+    // these props.
+    props: [
+      propsSourceAccessor(createMemo(renderedStatusProps)),
+      elementProps,
+      propsSourceAccessor(createMemo(sourceProps)),
+    ],
     stateAttributesMapping,
     enabled: shouldRender,
   });

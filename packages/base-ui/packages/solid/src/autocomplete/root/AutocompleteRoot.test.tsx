@@ -8,6 +8,8 @@ import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
 import { Input } from '@solidports/base-ui/input';
 import { Switch } from '@solidports/base-ui/switch';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './AutocompleteRoot.ssr-fixtures';
 
 describe('<Autocomplete.Root />', () => {
   beforeEach(() => {
@@ -1759,33 +1761,8 @@ describe('<Autocomplete.Root />', () => {
       expect(submitted).toBe('alpha');
     });
 
-    // Solid: the harness has no renderToString/hydrate renderer, and after mount the hidden input owns the name (as in React), so the pre-hydration markup cannot be asserted
-    it.skip('server-renders the default popup input value without a form name before hydration', () => {
-      // Solid: the test harness has no renderToString/hydrate renderer; assert the client-rendered markup.
-      render(() => (
-        <Form>
-          <Field.Root name="search">
-            <Autocomplete.Root items={['alpha', 'alpine']} defaultValue="alpha">
-              <Autocomplete.Trigger>
-                <Autocomplete.Value />
-              </Autocomplete.Trigger>
-              <Autocomplete.Portal>
-                <Autocomplete.Positioner>
-                  <Autocomplete.Popup>
-                    <Autocomplete.Input
-                      render={(props) => <Input {...props} data-testid="input" />}
-                    />
-                    <Autocomplete.List>
-                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
-                    </Autocomplete.List>
-                  </Autocomplete.Popup>
-                </Autocomplete.Positioner>
-              </Autocomplete.Portal>
-            </Autocomplete.Root>
-          </Field.Root>
-          <button type="submit">Submit</button>
-        </Form>
-      ));
+    it('server-renders the default popup input value without a form name before hydration', () => {
+      renderServer(ssrFixtures, 'formDefaultValue');
 
       const namedInputs = screen
         .getAllByDisplayValue('alpha')

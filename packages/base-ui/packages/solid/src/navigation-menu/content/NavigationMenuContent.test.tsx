@@ -2,6 +2,8 @@ import { createRenderer, describeConformance, flushMicrotasks } from '#test-util
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'vitest';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures from './NavigationMenuContent.ssr-fixtures';
 
 describe('<NavigationMenu.Content />', () => {
   const { render } = createRenderer();
@@ -25,50 +27,14 @@ describe('<NavigationMenu.Content />', () => {
 
   describe('server-side rendering', () => {
     it('keeps the content mounted (hidden) in the DOM when keepMounted is true', async () => {
-      render(() => (
-        <NavigationMenu.Root>
-          <NavigationMenu.List>
-            <NavigationMenu.Item>
-              <NavigationMenu.Trigger>Item 1</NavigationMenu.Trigger>
-              <NavigationMenu.Content keepMounted data-testid="content-1">
-                <NavigationMenu.Link href="#link-1">Link 1</NavigationMenu.Link>
-              </NavigationMenu.Content>
-            </NavigationMenu.Item>
-          </NavigationMenu.List>
-          <NavigationMenu.Portal>
-            <NavigationMenu.Positioner>
-              <NavigationMenu.Popup>
-                <NavigationMenu.Viewport />
-              </NavigationMenu.Popup>
-            </NavigationMenu.Positioner>
-          </NavigationMenu.Portal>
-        </NavigationMenu.Root>
-      ));
+      renderServer(fixtures, 'keepMounted');
 
       const contents = screen.queryAllByTestId('content-1');
       expect(contents.length).to.equal(1);
     });
 
     it('does not keep the content mounted in the DOM when keepMounted is false', async () => {
-      render(() => (
-        <NavigationMenu.Root>
-          <NavigationMenu.List>
-            <NavigationMenu.Item>
-              <NavigationMenu.Trigger>Item 1</NavigationMenu.Trigger>
-              <NavigationMenu.Content data-testid="content-1">
-                <NavigationMenu.Link href="#link-1">Link 1</NavigationMenu.Link>
-              </NavigationMenu.Content>
-            </NavigationMenu.Item>
-          </NavigationMenu.List>
-          <NavigationMenu.Portal>
-            <NavigationMenu.Positioner>
-              <NavigationMenu.Popup>
-                <NavigationMenu.Viewport />
-              </NavigationMenu.Popup>
-            </NavigationMenu.Positioner>
-          </NavigationMenu.Portal>
-        </NavigationMenu.Root>
-      ));
+      renderServer(fixtures, 'notKeepMounted');
 
       const contents = screen.queryAllByTestId('content-1');
       expect(contents.length).to.equal(0);

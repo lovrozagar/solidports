@@ -1,17 +1,22 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createMemo, createRenderEffect, createSignal, untrack } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
 import {
   CompositeList,
   type CompositeMetadata,
 } from '../../internals/composite/list/CompositeList';
 import type { FieldRootState } from '../../field/root/FieldRoot';
-import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useFieldRootContext, DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
 import { activeElement, contains } from '../../floating-ui-solid/utils';
 import { useFormContext } from '../../form/FormContext';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useValueChanged } from '../../internals/useValueChanged';
-import { createDepsEffect, splitComponentProps, useRef } from '../../solid-helpers';
+import {
+  createDepsEffect,
+  splitComponentProps,
+  useRef,
+  createLayoutEffect,
+} from '../../solid-helpers';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 import { areArraysEqual } from '../../utils/areArraysEqual';
 import { clamp } from '../../utils/clamp';
@@ -98,6 +103,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
   ) => local.onValueCommitted?.(value as any, eventDetails);
 
   const { clearErrors } = useFormContext();
+  const fieldRootContext = useFieldRootContext();
   const {
     state: fieldState,
     disabled: fieldDisabled,
@@ -107,7 +113,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
     setDirty,
     validityData,
     validation,
-  } = useFieldRootContext();
+  } = fieldRootContext;
   const { labelId: fieldLabelId } = useLabelableContext();
   // Solid: the label clears its registration from an unmount cleanup, so the signal allows owned writes.
   const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
@@ -297,7 +303,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
   /* istanbul ignore else -- `process.env.NODE_ENV` is a build-time constant under test */
   if (process.env.NODE_ENV !== 'production') {
     // Solid: React checks on every render; this re-checks whenever the bounds change.
-    createRenderEffect(
+    createLayoutEffect(
       () => min() >= max(),
       (invalidRange) => {
         if (invalidRange) {
@@ -414,7 +420,10 @@ export function SliderRoot<Value extends number | readonly number[]>(
         role: 'group',
       },
       elementProps,
-      (props: HTMLProps) => validation.getValidationProps(disabled(), props),
+      // Outside a Field the validation props only return their input.
+      ...(fieldRootContext === DEFAULT_FIELD_ROOT_CONTEXT
+        ? []
+        : [(props: HTMLProps) => validation.getValidationProps(disabled(), props)]),
     ],
     stateAttributesMapping: sliderStateAttributesMapping,
   });

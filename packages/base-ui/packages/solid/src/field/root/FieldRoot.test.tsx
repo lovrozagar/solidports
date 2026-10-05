@@ -17,6 +17,8 @@ import { createSignal, For, Show, untrack } from 'solid-js';
 import { expect, vi } from 'vitest';
 import { useFieldRootContext } from '../../internals/field-root-context/FieldRootContext';
 import { splitProps } from '../../solid-1-compat';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures from './FieldRoot.ssr-fixtures';
 
 describe('<Field.Root />', () => {
   const { render } = createRenderer();
@@ -194,18 +196,8 @@ describe('<Field.Root />', () => {
     });
   });
 
-  // Solid: the test renderer has no server render path (`renderToString`), so the SSR cases
-  // assert the client-rendered markup.
   it.skipIf(isJSDOM)('does not set `aria-labelledby` during SSR when Field.Label is absent', () => {
-    render(() => (
-      <Field.Root>
-        <Select.Root>
-          <Select.Trigger data-testid="trigger">
-            <Select.Value placeholder="Pick one" />
-          </Select.Trigger>
-        </Select.Root>
-      </Field.Root>
-    ));
+    renderServer(fixtures, 'noLabel');
 
     expect(screen.getByTestId('trigger')).not.toHaveAttribute('aria-labelledby');
   });
@@ -213,39 +205,14 @@ describe('<Field.Root />', () => {
   it.skipIf(isJSDOM)(
     'keeps `aria-labelledby` valid when toggling from Checkbox.Root to Select.Root after hydration',
     async () => {
-      function TestCase() {
-        const [showSelect, setShowSelect] = createSignal(false);
-
-        return (
-          <>
-            <Field.Root>
-              <Field.Label
-                nativeLabel={false}
-                render={(props) => <div {...props} />}
-                data-testid="label"
-              >
-                Label
-              </Field.Label>
-              <Show when={showSelect()} fallback={<Checkbox.Root data-testid="checkbox" />}>
-                <Select.Root>
-                  <Select.Trigger data-testid="trigger">
-                    <Select.Value placeholder="Pick one" />
-                  </Select.Trigger>
-                </Select.Root>
-              </Show>
-            </Field.Root>
-            <button type="button" onClick={() => setShowSelect((prev) => !prev)}>
-              Toggle
-            </button>
-          </>
-        );
-      }
-
-      render(() => <TestCase />);
+      const { hydrate } = renderServer(fixtures, 'toggleControl');
       const label = screen.getByTestId('label');
+      const checkbox = screen.getByTestId('checkbox');
 
       expect(label.id).not.toBe('');
+      expect(checkbox).not.toHaveAttribute('aria-labelledby');
 
+      hydrate();
       await waitFor(() => {
         expect(screen.getByTestId('checkbox')).toHaveAttribute('aria-labelledby', label.id);
       });
@@ -264,37 +231,13 @@ describe('<Field.Root />', () => {
   it.skipIf(isJSDOM)(
     'removes `aria-labelledby` when Field.Label is removed after hydration',
     async () => {
-      function TestCase() {
-        const [showLabel, setShowLabel] = createSignal(true);
-
-        return (
-          <>
-            <Field.Root>
-              <Show when={showLabel()}>
-                <Field.Label
-                  nativeLabel={false}
-                  render={(props) => <div {...props} />}
-                  data-testid="label"
-                >
-                  Label
-                </Field.Label>
-              </Show>
-              <Select.Root>
-                <Select.Trigger data-testid="trigger">
-                  <Select.Value placeholder="Pick one" />
-                </Select.Trigger>
-              </Select.Root>
-            </Field.Root>
-            <button type="button" onClick={() => setShowLabel(false)}>
-              Remove Label
-            </button>
-          </>
-        );
-      }
-
-      render(() => <TestCase />);
+      const { hydrate } = renderServer(fixtures, 'removeLabel');
       const label = screen.getByTestId('label');
+      const trigger = screen.getByTestId('trigger');
 
+      expect(trigger).not.toHaveAttribute('aria-labelledby');
+
+      hydrate();
       await waitFor(() => {
         expect(screen.getByTestId('trigger')).toHaveAttribute('aria-labelledby', label.id);
       });

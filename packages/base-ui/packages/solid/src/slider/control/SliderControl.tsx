@@ -1,9 +1,9 @@
-import { createEffect, createRenderEffect, onSettled, untrack } from 'solid-js';
+import { createEffect, onSettled, untrack } from 'solid-js';
 import { isElement } from '@floating-ui/utils/dom';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import type { Coords } from '../../floating-ui-solid/types';
-import { splitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
+import { splitComponentProps, useRef, type ReactLikeRef, createLayoutEffect } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { clamp } from '../../utils/clamp';
 import {
@@ -131,7 +131,7 @@ export function SliderControl(componentProps: SliderControl.Props) {
   const currentInteractionValueRef = useRef<number | number[] | null>(null);
   // Solid: React's `useValueAsRef`, synced at layout-effect timing.
   const latestValuesRef = useRef<readonly number[]>(untrack(values));
-  createRenderEffect(values, (nextValues) => {
+  createLayoutEffect(values, (nextValues) => {
     latestValuesRef.current = nextValues;
   });
 

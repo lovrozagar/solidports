@@ -19,6 +19,8 @@ import {
 import type { Orientation } from '../../utils/types';
 import type { SliderRoot } from './SliderRoot';
 import { createTouches, getHorizontalSliderRect } from '../utils/test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './SliderRoot.ssr-fixtures';
 
 const USD_NUMBER_FORMAT: Intl.NumberFormatOptions = {
   style: 'currency',
@@ -96,8 +98,18 @@ describe('<Slider.Root />', () => {
   });
 
   describe('server-side rendering', () => {
-    // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-    it.skip('does not link Slider.Label before hydration', () => {});
+    it('does not link Slider.Label before hydration', () => {
+      renderServer(ssrFixtures, 'label');
+
+      const root = screen.getByTestId('root');
+      const label = screen.getByTestId('label');
+      const slider = screen.getByRole('slider');
+
+      expect(label.id).not.toBe('');
+      expect(root.id).not.toBe('');
+      expect(root).not.toHaveAttribute('aria-labelledby');
+      expect(slider).not.toHaveAttribute('aria-labelledby');
+    });
   });
 
   it.skipIf(isJSDOM || isWebKit)(

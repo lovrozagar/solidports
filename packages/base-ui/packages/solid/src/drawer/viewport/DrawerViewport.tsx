@@ -1,19 +1,11 @@
 import { isElement } from '@floating-ui/utils/dom';
-import {
-  createEffect,
-  createMemo,
-  createRenderEffect,
-  createSignal,
-  omit,
-  onSettled,
-  untrack,
-} from 'solid-js';
+import { createEffect, createMemo, createSignal, omit, onSettled, untrack } from 'solid-js';
 import { addEventListener } from '../../utils/addEventListener';
 import { ownerDocument, ownerWindow } from '../../utils/owner';
 import { useAnimationFrame } from '../../utils/useAnimationFrame';
 import { clamp } from '../../utils/clamp';
 import { flushSync } from '../../utils/flushSync';
-import { createDepsEffect, createDepsRenderEffect } from '../../solid-helpers';
+import { createDepsEffect, createDepsRenderEffect, createLayoutEffect } from '../../solid-helpers';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { DialogViewport } from '../../dialog/viewport/DialogViewport';
 import { DialogViewportDataAttributes } from '../../dialog/viewport/DialogViewportDataAttributes';
@@ -846,7 +838,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
     },
   );
 
-  createRenderEffect(open, (isOpen) => {
+  createLayoutEffect(open, (isOpen) => {
     if (!notifyParentSwipeProgressChange) {
       return undefined;
     }

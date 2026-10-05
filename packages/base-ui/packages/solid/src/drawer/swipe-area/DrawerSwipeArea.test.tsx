@@ -610,7 +610,10 @@ describe('<Drawer.SwipeArea />', () => {
     );
   });
 
-  // Solid: asserts React's commit phases (a chain of layout effects completing before passive effects); in Solid 2 a render effect re-triggered by another render effect's write runs after the flush's user effects.
+  // Solid: React-internal order only. Disabling clears the swipe (progress reset, `data-swiping`
+  // removed) before user effects, within one synchronous flush; the layout effect's re-run after
+  // `swipeActive` flips (React re-runs it too) repeats the same reset after the user effects here,
+  // and the test's last-entry check reads that repeat.
   it.skip('cancels an active opening gesture when the swipe area becomes disabled', async () => {
     let disabledPassiveEffectFlushed = false;
     let providerContext: DrawerProviderContext | undefined;

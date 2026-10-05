@@ -241,6 +241,31 @@ describe('<Select.Item />', () => {
     });
   });
 
+  it('highlights an item when it receives focus (list navigation item focus handler)', async () => {
+    render(() => (
+      <Select.Root open>
+        <Select.Trigger data-testid="trigger">
+          <Select.Value data-testid="value" />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner>
+            <Select.Popup>
+              <Select.Item value="one">one</Select.Item>
+              <Select.Item value="two">two</Select.Item>
+              <Select.Item value="three">three</Select.Item>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    ));
+
+    const item = screen.getByText('three');
+    item.focus();
+    await waitFor(() => {
+      expect(item).toHaveAttribute('data-highlighted');
+    });
+  });
+
   it('should not select disabled item', async () => {
     render(() => (
       <Select.Root>

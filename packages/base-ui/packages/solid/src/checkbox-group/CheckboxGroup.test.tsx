@@ -7,6 +7,8 @@ import { Form } from '@solidports/base-ui/form';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Portal } from '@solidjs/web';
 import { createRenderEffect, createSignal, Show } from 'solid-js';
+import { renderServer } from '../../test/ssrFixtures';
+import ssrFixtures from './CheckboxGroup.ssr-fixtures';
 
 describe('<CheckboxGroup />', () => {
   const { render } = createRenderer();
@@ -915,10 +917,12 @@ describe('<CheckboxGroup />', () => {
       },
     );
 
-    // Solid: the test renderer has no server render path (`renderToString`).
-    it.skip.each([false, true])(
+    it.each([false, true])(
       'keeps checkbox ids unique in a shared Field.Root during SSR (nativeButton=%s)',
-      () => {},
+      (nativeButton) => {
+        renderServer(ssrFixtures, `shared-nativeButton=${nativeButton}`);
+        expectUniqueIds(nativeButton ? 4 : 7);
+      },
     );
 
     it.each([false, true])(
@@ -943,10 +947,12 @@ describe('<CheckboxGroup />', () => {
       },
     );
 
-    // Solid: the test renderer has no server render path, so only the client association is
-    // checked (React also asserts the server markup's `htmlFor` before hydration).
     it('labels the group rather than pointing Field.Label at one checkbox inside it', async () => {
-      render(() => <SharedFieldRootGroup nativeButton={false} />);
+      const { hydrate } = renderServer(ssrFixtures, 'shared-nativeButton=false');
+
+      expect(screen.getByText('Apples')).toHaveAttribute('for');
+
+      hydrate();
 
       const label = screen.getByText('Apples');
       await waitFor(() => {
@@ -982,21 +988,54 @@ describe('<CheckboxGroup />', () => {
       });
     });
 
-    // Solid: the test renderer has no server render path (`renderToString`/`hydrate`).
-    it.skip.each([
+    it.each([
       { nativeButton: false, parent: false },
       { nativeButton: true, parent: false },
       { nativeButton: false, parent: true },
       { nativeButton: true, parent: true },
     ])(
       'associates Field.Label with a grouped Checkbox during SSR (nativeButton=$nativeButton, parent=$parent)',
-      () => {},
+      ({ nativeButton, parent }) => {
+        renderServer(ssrFixtures, `grouped-nativeButton=${nativeButton}-parent=${parent}`);
+
+        const control = nativeButton
+          ? screen.getByRole('checkbox')
+          : document.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+        expect(control.id).not.toBe('');
+        expect(screen.getByTestId('label')).toHaveAttribute('for', control.id);
+      },
     );
 
-    // Solid: the test renderer has no server render path (`renderToString`/`hydrate`).
-    it.skip.each([false, true])(
+    it.each([false, true])(
       'points parent aria-controls at the children once they register (nativeButton=%s)',
-      () => {},
+      async (nativeButton) => {
+        const { hydrate } = renderServer(
+          ssrFixtures,
+          `parentControls-nativeButton=${nativeButton}`,
+        );
+
+        // Server markup claims nothing: the parent can't control a child that hasn't mounted.
+        expect(screen.getByTestId('parent')).not.toHaveAttribute('aria-controls');
+
+        // Each label must reach its own item's labelable element: the button itself with
+        // `nativeButton`, the hidden input rendered next to it otherwise.
+        [screen.getByTestId('parent'), screen.getByTestId('fuji')].forEach((control, index) => {
+          const labelable = nativeButton ? control : control.nextElementSibling;
+          expect(labelable).not.toBe(null);
+          expect(screen.getAllByTestId('label')[index]).toHaveAttribute('for', labelable!.id);
+        });
+
+        hydrate();
+
+        // Queried without `hidden`, so the relationship has to reach the exposed checkbox
+        // rather than the hidden input behind it.
+        await waitFor(() => {
+          expect(screen.getByTestId('parent')).toHaveAttribute(
+            'aria-controls',
+            screen.getByTestId('fuji').id,
+          );
+        });
+      },
     );
 
     it('implicit association', async () => {

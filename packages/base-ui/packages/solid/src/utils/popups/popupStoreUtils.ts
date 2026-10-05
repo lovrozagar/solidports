@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- popup utils accept arbitrary State extends PopupStoreState; carrying generic Payload through every helper would balloon signatures */
-import { createMemo, createRenderEffect, onCleanup, untrack } from 'solid-js';
+import { createMemo, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useFloatingParentNodeId } from '../../floating-ui-solid/components/FloatingTree';
@@ -28,8 +28,7 @@ import {
   access,
   createDepsRenderEffect,
   type MaybeAccessor,
-  type ReactLikeRef,
-} from '../../solid-helpers';
+  type ReactLikeRef, createLayoutEffect } from '../../solid-helpers';
 import type { FloatingRootStore } from '../../floating-ui-solid/components/FloatingRootStoreV2';
 
 export const FOCUSABLE_POPUP_PROPS = {
@@ -604,7 +603,7 @@ export function useOpenStateTransitions<State extends PopupStoreState<any>>(
   store.useSyncedValues({ mounted, transitionStatus });
 
   // Reset only when opening, so the effect never writes back the value it read.
-  createRenderEffect(open, (isOpen) => {
+  createLayoutEffect(open, (isOpen) => {
     if (isOpen && store.state.preventUnmountingOnClose) {
       store.set('preventUnmountingOnClose', false as State['preventUnmountingOnClose']);
     }

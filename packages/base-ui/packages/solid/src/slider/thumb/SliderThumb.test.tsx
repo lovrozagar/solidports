@@ -8,6 +8,8 @@ import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { isWebKit } from '#utils/detectBrowser';
 import { useRef } from '@solidports/base-ui/solid-helpers';
 import { createTouches, getHorizontalSliderRect } from '../utils/test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './SliderThumb.ssr-fixtures';
 
 function UnstableRefThumb(props: JSX.HTMLAttributes<HTMLDivElement>) {
   const internalRef: { current: HTMLDivElement | null } = { current: null };
@@ -1195,11 +1197,23 @@ describe('<Slider.Thumb />', () => {
       expect(getComputedStyle(screen.getByTestId('thumb')).getPropertyValue('left')).toBe('30px');
     });
 
-    // Solid: the browser build of `@solidjs/web` has no `renderToString`.
-    it.skip('renders the inline pre-hydration script for edge-aligned thumbs', () => {});
+    it('renders the inline pre-hydration script for edge-aligned thumbs', async () => {
+      renderServer(ssrFixtures, 'edgeAligned');
 
-    // Solid: the browser build of `@solidjs/web` has no `renderToString`.
-    it.skip('renders a single pre-hydration script with the last thumb', () => {});
+      expect(document.querySelector('script')).not.toBe(null);
+    });
+
+    it('renders a single pre-hydration script with the last thumb', async () => {
+      const { container } = renderServer(ssrFixtures, 'edgeAlignedRange');
+
+      // eslint-disable-next-line testing-library/no-container -- script elements have no accessible role
+      const scripts = container.querySelectorAll('script');
+      expect(scripts).toHaveLength(1);
+
+      // The script must render with the last thumb so all preceding thumbs are already in the DOM.
+      const thumbs = await screen.findAllByTestId('thumb');
+      expect(thumbs[thumbs.length - 1].contains(scripts[0])).toBe(true);
+    });
 
     // Solid: positions come from the client render; there is no `renderToString` in the browser build.
     it('multiple thumbs', async () => {

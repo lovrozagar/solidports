@@ -483,6 +483,7 @@
     "LICENSE",
     "!src/**/*.test.*",
     "!src/**/*.spec.*",
+    "!src/**/*.ssr-fixtures.*",
     "!src/**/test-utils.*",
     "!src/**/*.d.ts"
   ],

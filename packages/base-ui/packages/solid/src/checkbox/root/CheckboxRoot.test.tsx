@@ -8,6 +8,8 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal, Show } from 'solid-js';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './CheckboxRoot.ssr-fixtures';
 
 describe('<Checkbox.Root />', () => {
   const { render } = createRenderer();
@@ -114,10 +116,29 @@ describe('<Checkbox.Root />', () => {
       },
     );
 
-    // Solid: the test renderer has no server render path (`renderToString`/`hydrate`).
-    it.skip.each([false, true])(
+    // An explicit `id` only reaches the DOM once registration runs, so the server markup carries
+    // the provider's generated id on both the label and the control. Rendering `id` right away
+    // would instead leave `Field.Label`'s `for` pointing at nothing until hydration.
+    it.each([false, true])(
       'defers an explicit id until hydration but keeps Field.Label associated during SSR (nativeButton=%s)',
-      () => {},
+      async (nativeButton) => {
+        const { hydrate } = renderServer(
+          ssrFixtures,
+          nativeButton ? 'explicitId-nativeButton=true' : 'explicitId-nativeButton=false',
+        );
+
+        const control = getLabelControl(nativeButton);
+        expect(control.id).not.to.equal('');
+        expect(control).not.to.have.attribute('id', 'explicit');
+        expect(screen.getByTestId('label')).to.have.attribute('for', control.id);
+
+        hydrate();
+
+        await waitFor(() => {
+          expect(getLabelControl(nativeButton)).to.have.attribute('id', 'explicit');
+        });
+        expect(screen.getByTestId('label')).to.have.attribute('for', 'explicit');
+      },
     );
   });
 

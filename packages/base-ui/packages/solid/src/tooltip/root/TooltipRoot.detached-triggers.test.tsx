@@ -1,6 +1,9 @@
 import { createRenderer, flushMicrotasks, isJSDOM, randomStringValue, act } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';
-import { screen, waitFor } from '@solidjs/testing-library';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { vi } from 'vitest';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures, { fixtureState } from './TooltipRoot.detached-triggers.ssr-fixtures';
 import { createSignal, onSettled, Show } from 'solid-js';
 import { render as renderSolid } from '@solidjs/web';
 import { autofocus } from '../../solid-helpers';
@@ -23,11 +26,76 @@ describe('<Tooltip.Root />', () => {
 
   const { render, clock } = createRenderer();
 
-  // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-  it.skip('keeps a default-open root open until its detached trigger hydrates', () => {});
+  it.skipIf(!isJSDOM)(
+    'keeps a default-open root open until its detached trigger hydrates',
+    async () => {
+      fixtureState.reset();
+      // Solid: the gate resolves after `hydrate()` has returned, so Solid mounts the trigger fresh
+      // instead of claiming its server node (and warns once about the unclaimed node); React keeps
+      // the server node. The behavior under test, the root staying open until the trigger mounts,
+      // is the same.
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { hydrate } = renderServer(fixtures, 'delayedTrigger');
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      expect(trigger).not.toHaveAttribute('data-popup-open');
 
-  // Solid: jsdom resolves the client build of `@solidjs/web`, which has no `renderToString`.
-  it.skip('keeps an open root open when ownership moves to a trigger that has not hydrated', () => {});
+      fixtureState.suspend = true;
+      hydrate();
+      const handle = fixtureState.handle;
+
+      try {
+        await waitFor(() => {
+          expect(handle.isOpen).toBe(true);
+        });
+        await flushMicrotasks();
+        expect(handle.isOpen).toBe(true);
+      } finally {
+        fixtureState.suspend = false;
+        await act(async () => {
+          fixtureState.resume?.();
+          await fixtureState.gate;
+        });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Trigger' })).toHaveAttribute('data-popup-open');
+      });
+      expect(warn.mock.calls.map((args) => String(args[0]))).toEqual([
+        expect.stringMatching(/^Hydration completed with 1 unclaimed server-rendered node/),
+      ]);
+      warn.mockRestore();
+    },
+  );
+
+  it('keeps an open root open when ownership moves to a trigger that has not hydrated', async () => {
+    fixtureState.reset();
+    const onOpenChange = vi.fn();
+    fixtureState.onOpenChange = onOpenChange;
+    const handle = fixtureState.handle;
+
+    const { hydrate } = renderServer(fixtures, 'switchingApp');
+    const triggerB = renderServer(fixtures, 'triggerB');
+
+    hydrate();
+
+    await waitFor(() => {
+      expect(handle.isOpen).toBe(true);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to B' }));
+    await flushMicrotasks();
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(handle.isOpen).toBe(true);
+
+    await act(async () => {
+      triggerB.hydrate();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Trigger B' })).toHaveAttribute('data-popup-open');
+    });
+  });
 
   describe.skipIf(isJSDOM)('handle-backed root ownership', () => {
     type NumberPayload = { payload: number | undefined };

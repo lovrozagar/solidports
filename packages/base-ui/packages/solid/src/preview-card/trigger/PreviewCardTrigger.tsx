@@ -10,6 +10,7 @@ import {
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { usePreviewCardRootContext } from '../root/PreviewCardContext';
 import { PreviewCardHandle } from '../store/PreviewCardHandle';
@@ -114,6 +115,9 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
     () => getInlineRectTriggerProps(inlineRectCoordsRef(), isOpenedByThisTrigger()) as HTMLProps,
   );
 
+  // Read per key by the element props: a change does not rebuild the props chain.
+  const rootTriggerSource = propsSourceAccessor(() => rootTriggerProps());
+  const inlineRectSource = propsSourceAccessor(() => inlineRectTriggerProps());
   const element = useRenderElement('a', componentProps, {
     state,
     ref: (el: Element | null) => {
@@ -121,20 +125,18 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
       registerTrigger(el);
       setTriggerElement(el);
     },
-    get props() {
-      return [
-        hoverProps,
-        focusProps.reference as HTMLProps,
-        rootTriggerProps(),
-        inlineRectTriggerProps(),
-        {
-          get id() {
-            return thisTriggerId();
-          },
+    props: [
+      hoverProps,
+      propsSourceAccessor(() => focusProps.reference as HTMLProps),
+      rootTriggerSource,
+      inlineRectSource,
+      {
+        get id() {
+          return thisTriggerId();
         },
-        elementProps,
-      ];
-    },
+      },
+      elementProps,
+    ],
     stateAttributesMapping: triggerOpenStateMapping,
   });
 

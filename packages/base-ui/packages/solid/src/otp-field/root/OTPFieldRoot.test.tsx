@@ -6,6 +6,8 @@ import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
 import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { REASONS } from '../../utils/reasons';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './OTPFieldRoot.ssr-fixtures';
 
 describe('<OTPField.Root />', () => {
   const { render } = createRenderer();
@@ -169,8 +171,14 @@ describe('<OTPField.Root />', () => {
       });
 
       describe('hidden validation input', () => {
-        // Solid: the test renderer has no server render path (`renderToString`).
-        it.skip('renders the hidden validation input with an alphanumeric pattern during SSR', () => {});
+        it('renders the hidden validation input with an alphanumeric pattern during SSR', () => {
+          renderServer(ssrFixtures, 'alphanumeric');
+
+          const hiddenInput = document.querySelector<HTMLInputElement>('input[name="otp"]');
+
+          expect(hiddenInput).not.toBeNull();
+          expect(hiddenInput).toHaveAttribute('pattern', '[a-zA-Z0-9]{6}');
+        });
 
         it('omits the hidden validation pattern when set to `none`', async () => {
           await render(() => <OTPField name="otp" validationType="none" />);
@@ -1425,11 +1433,31 @@ describe('<OTPField.Root />', () => {
     });
 
     describe('server-side rendering', () => {
-      // Solid: the test renderer has no server render path (`renderToString`).
-      it.skip('renders visible inputs with unique IDs', () => {});
+      it('renders visible inputs with unique IDs', () => {
+        renderServer(ssrFixtures, 'uniqueIds');
 
-      // Solid: the test renderer has no server render path (`renderToString`).
-      it.skip('renders a hidden validation input with the provided length', () => {});
+        const inputs = screen.getByTestId('root').querySelectorAll('input');
+
+        expect(Array.from(inputs, (input) => input.id)).toEqual([
+          'verification-code',
+          'verification-code-2',
+          'verification-code-3',
+          'verification-code-4',
+          'verification-code-5',
+          'verification-code-6',
+        ]);
+      });
+
+      it('renders a hidden validation input with the provided length', () => {
+        renderServer(ssrFixtures, 'hiddenInput');
+
+        const hiddenInput = document.querySelector<HTMLInputElement>('input[name="otp"]');
+
+        expect(hiddenInput).not.toBeNull();
+        expect(hiddenInput).toHaveAttribute('minlength', '6');
+        expect(hiddenInput).toHaveAttribute('maxlength', '6');
+        expect(hiddenInput).toHaveAttribute('pattern', '\\d{6}');
+      });
     });
   });
 

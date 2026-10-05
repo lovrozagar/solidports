@@ -1,0 +1,101 @@
+{
+  "_doc": "Intentional DOM differences between the React and Solid builds, by scenario id and step. An entry allows either a node delta (`nodesDelta`, Solid minus React) or named summary fields to differ (`fields`); everything else in the step's summary must still match. Every entry needs a reason.",
+  "menu/500": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "Solid keeps Menu.Trigger's trailing focus guard mounted (inert) while closed, so opening does not insert a node next to the focused trigger (utils/popups/TriggerFocusGuards.tsx); React mounts it on open."
+    }
+  },
+  "menu/many-roots-500": {
+    "mount": {
+      "nodesDelta": 500,
+      "reason": "One inert trailing focus guard per closed Menu.Trigger (see menu/500)."
+    }
+  },
+  "combobox/1000": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "Solid keeps ComboboxInternalDismissButton mounted: inserting it next to the focused input would re-insert and blur the input (combobox/input/ComboboxInput.tsx:514)."
+    }
+  },
+  "combobox/full-1000": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "Hidden dismiss button kept mounted (see combobox/1000)."
+    }
+  },
+  "combobox/5000": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "Hidden dismiss button kept mounted (see combobox/1000)."
+    }
+  },
+  "combobox/multiple-1000": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "Hidden dismiss button kept mounted (see combobox/1000)."
+    }
+  },
+  "autocomplete/1000": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "Hidden dismiss button kept mounted (see combobox/1000)."
+    }
+  },
+  "autocomplete/both-1000": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "Hidden dismiss button kept mounted (see combobox/1000)."
+    }
+  },
+  "popover/roots-500": {
+    "mount": {
+      "nodesDelta": 500,
+      "reason": "Solid keeps Popover.Trigger's trailing focus guard mounted (inert) while closed (utils/popups/TriggerFocusGuards.tsx), as Menu.Trigger; React mounts it on open."
+    }
+  },
+  "popover/handle-20": {
+    "mount": {
+      "nodesDelta": 20,
+      "reason": "Solid keeps Popover.Trigger's trailing focus guard mounted (inert) while closed (utils/popups/TriggerFocusGuards.tsx), as Menu.Trigger; React mounts it on open."
+    }
+  },
+  "popover/content-200": {
+    "mount": {
+      "nodesDelta": 2,
+      "reason": "Solid keeps Popover.Trigger's trailing focus guard mounted (inert) while closed (utils/popups/TriggerFocusGuards.tsx), as Menu.Trigger; React mounts it on open. (2 triggers)"
+    }
+  },
+  "toolbar/200": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "The Toolbar's Menu.Trigger keeps Solid's inert trailing focus guard mounted while closed (utils/popups/TriggerFocusGuards.tsx), as menu/500; React mounts it on open."
+    }
+  },
+  "composition/nested-portals": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "The outer Popover.Trigger keeps Solid's inert trailing focus guard mounted while closed (utils/popups/TriggerFocusGuards.tsx), as popover/roots-500; React mounts it on open."
+    }
+  },
+  "menu/checkbox-radio": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "One inert trailing focus guard kept mounted after the closed Menu.Trigger (see menu/500)."
+    }
+  },
+  "menu/submenus": {
+    "mount": {
+      "nodesDelta": 1,
+      "reason": "One inert trailing focus guard kept mounted after the closed Menu.Trigger (see menu/500)."
+    }
+  },
+  "select/preselected-800": {
+    "open (scroll selected into view)": {
+      "fields": [
+        "scrolled"
+      ],
+      "reason": "React bug, not copied: after the aligned-to-fallback switch (alignItemWithTrigger with an item far down), React's Select.Popup loses the consumer's `overflow: auto` (inline style becomes `max-height; transition: none`), so the popup cannot scroll and React scrolls the whole document ~10.5k px to reach the selected item. Solid keeps the consumer's style and scrolls the popup; the selected item is visible in both (plan 7.3, 2026-10-05)."
+    }
+  }
+}

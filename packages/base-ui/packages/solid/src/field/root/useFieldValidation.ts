@@ -93,7 +93,7 @@ export function useFieldValidation(
     registeredFieldIdRef,
   } = params;
 
-  const { controlId, getDescriptionProps } = useLabelableContext();
+  const { controlId, getDescriptionProps, describedBy } = useLabelableContext();
 
   const timeout = useTimeout();
   const inputRef = useRef<HTMLInputElement | null | undefined>(null);
@@ -380,6 +380,24 @@ export function useFieldValidation(
     );
   }
 
+  /**
+   * `getValidationProps` as a props source placed after `previous` (the props before it): getters
+   * for the only keys it changes, so a reader tracks just those keys instead of every key the
+   * merged props have.
+   */
+  function getValidationSource(disabled: () => boolean, previous: Record<string, unknown>) {
+    return {
+      get 'aria-describedby'() {
+        return describedBy(previous['aria-describedby']);
+      },
+      get 'aria-invalid'() {
+        return state.valid === false && !state.disabled && !disabled()
+          ? ('true' as const)
+          : previous['aria-invalid'];
+      },
+    };
+  }
+
   // Solid: the 1.0 input helper, kept for parts not yet ported to 1.8.0 (they validate through
   // this `onInput` instead of calling `validation.change`).
   const getInputValidationProps = (externalProps: HTMLProps | BaseUIHTMLProps = {}) =>
@@ -399,6 +417,7 @@ export function useFieldValidation(
 
   return {
     getValidationProps,
+    getValidationSource,
     getInputValidationProps,
     inputRef,
     registeredInputs,
@@ -437,6 +456,14 @@ export interface UseFieldValidationReturnValue {
      */
     (props?: HTMLProps | BaseUIHTMLProps): BaseUIHTMLProps;
   };
+  /**
+   * Solid: `getValidationProps` as a props source after `previous`: getters for
+   * `aria-describedby` and `aria-invalid` only.
+   */
+  getValidationSource: (
+    disabled: () => boolean,
+    previous: Record<string, unknown>,
+  ) => { 'aria-describedby'?: string | undefined; 'aria-invalid'?: unknown };
   /**
    * @deprecated Solid: 1.0 helper for parts not yet ported to 1.8.0. Call `change` instead.
    */

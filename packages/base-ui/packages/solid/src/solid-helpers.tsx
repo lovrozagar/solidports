@@ -97,9 +97,24 @@ export function createDepsMemo<T>(deps: () => T) {
   return createMemo(deps, { equals: shallowEqual });
 }
 
+/**
+ * React's `useLayoutEffect` / `useIsoLayoutEffect`: `createRenderEffect` timing on the client. On
+ * the server the computation is still created (hydration ids stay aligned) and its compute runs, but
+ * the apply does not: React never runs layout effects on the server, and Solid's server runs a
+ * render effect's apply, so ported registrations and DOM work would write or touch the DOM there.
+ */
+export function createLayoutEffect<T>(
+  compute: Parameters<typeof createRenderEffect<T>>[0],
+  effect: Parameters<typeof createRenderEffect<T>>[1],
+  options?: Parameters<typeof createRenderEffect<T>>[2],
+): void {
+  // On the server, no apply: the computation exists (ids stay aligned) and its compute runs.
+  createRenderEffect<T>(compute, isServer ? (undefined as never) : effect, options);
+}
+
 /** `createDepsEffect` with render-effect timing (React's `useIsoLayoutEffect`). */
 export function createDepsRenderEffect<T>(deps: () => T, effect: DepsEffectFn<T>) {
-  createRenderEffect(createMemo(deps, { equals: shallowEqual }), effect);
+  createLayoutEffect(createMemo(deps, { equals: shallowEqual }), effect);
 }
 
 /**
@@ -222,13 +237,27 @@ export function provideContext<T>(
     return <Provider value={value}>{render()}</Provider>;
   }
   let result: JSX.Element;
+  let rendered = false;
   const resolveChildren = Provider({
     value,
     get children() {
+      rendered = true;
       result = untrack(render);
       return undefined;
     },
   }) as unknown as () => unknown;
-  untrack(resolveChildren);
+  // Once Solid's hydration runtime is enabled (any `hydrate()` on the page), the provider can hand
+  // back its lazy children memo instead of that memo's value; read through it until the children
+  // getter has run, or parts mounted after hydration render nothing.
+  let next: unknown = resolveChildren;
+  for (let depth = 0; !rendered && typeof next === 'function' && depth < 3; depth += 1) {
+    next = untrack(next as () => unknown);
+  }
+  // `render` built its reactive graph inside the provider's lazy children memo. The production
+  // runtime disposes an unobserved lazy memo, and every effect `render` created with it (the part
+  // would freeze after its first paint), so keep the memo observed for the part's lifetime.
+  createRenderEffect(resolveChildren, NOOP_APPLY);
   return result;
 }
+
+const NOOP_APPLY = () => {};

@@ -1,7 +1,7 @@
-import { createRenderEffect, createSignal } from 'solid-js';
+import { createSignal } from 'solid-js';
 import { FloatingFocusManager } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
-import { splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
 import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { popupStateMapping } from '../../utils/popupStateMapping';
@@ -10,6 +10,7 @@ import { BaseUIComponentProps } from '../../utils/types';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { InteractionType } from '../../utils/useEnhancedClickHandler';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
+import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useComboboxPositionerContext } from '../positioner/ComboboxPositionerContext';
@@ -58,7 +59,7 @@ export function ComboboxPopup(componentProps: ComboboxPopup.Props) {
     ownedWrite: true,
   });
 
-  createRenderEffect(
+  createLayoutEffect(
     () => ({ id: popupId(), element: popupElement() }),
     ({ id, element }) => {
       // Prefer the rendered DOM id, which a `render` prop element or function may override.
@@ -100,34 +101,41 @@ export function ComboboxPopup(componentProps: ComboboxPopup.Props) {
     },
   };
 
+  // Read per key by the element props: a change does not rebuild the props chain.
+  const popupPropsSource = propsSourceAccessor(() => popupProps());
+  const transitionStyles = propsSourceAccessor(() =>
+    getDisabledMountTransitionStyles(transitionStatus()),
+  );
   const element = useRenderElement('div', componentProps, {
     state,
     ref: (el) => {
       store.context.popupRef.current = el;
       setPopupElement(el);
     },
-    get props() {
-      return [
-        popupProps(),
-        {
-          id: popupId(),
-          role: inputInsidePopup() ? 'dialog' : 'presentation',
-          // Solid: React's `onFocus` bubbles, so focusing the list re-enters this handler and
-          // hands focus back to the input; `focusin` observes that descendant focus.
-          onFocusIn(event: FocusEvent) {
-            const target = getTarget(event) as Element | null;
-            if (
-              openMethod() !== 'touch' &&
-              (contains(store.state.listElement, target) || target === event.currentTarget)
-            ) {
-              store.context.inputRef.current?.focus();
-            }
-          },
+    props: [
+      popupPropsSource,
+      {
+        get id() {
+          return popupId();
         },
-        getDisabledMountTransitionStyles(transitionStatus()),
-        elementProps,
-      ];
-    },
+        get role() {
+          return inputInsidePopup() ? 'dialog' : 'presentation';
+        },
+        // Solid: React's `onFocus` bubbles, so focusing the list re-enters this handler and
+        // hands focus back to the input; `focusin` observes that descendant focus.
+        onFocusIn(event: FocusEvent) {
+          const target = getTarget(event) as Element | null;
+          if (
+            openMethod() !== 'touch' &&
+            (contains(store.state.listElement, target) || target === event.currentTarget)
+          ) {
+            store.context.inputRef.current?.focus();
+          }
+        },
+      },
+      transitionStyles,
+      elementProps,
+    ],
     stateAttributesMapping,
   });
 

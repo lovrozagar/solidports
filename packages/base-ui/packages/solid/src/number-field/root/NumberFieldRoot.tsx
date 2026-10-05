@@ -1,4 +1,4 @@
-import { createEffect, createRenderEffect, createSignal, untrack } from 'solid-js';
+import { createEffect, createSignal, untrack } from 'solid-js';
 import { isServer, type JSX } from '@solidjs/web';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -10,8 +10,7 @@ import {
   createDepsEffect,
   splitComponentProps,
   useRef,
-  type ReactLikeRef,
-} from '../../solid-helpers';
+  type ReactLikeRef, createLayoutEffect } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import {
   createChangeEventDetails,
@@ -128,7 +127,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
 
   // Solid: React's `useValueAsRef`, refreshed with layout-effect timing.
   const valueRef = useRef<number | null>(untrack(value));
-  createRenderEffect(value, (nextValue) => {
+  createLayoutEffect(value, (nextValue) => {
     valueRef.current = nextValue;
   });
 
@@ -138,7 +137,7 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
   const formatOptionsRef = useRef<Intl.NumberFormatOptions | undefined>(
     untrack(() => local.format),
   );
-  createRenderEffect(
+  createLayoutEffect(
     () => local.format,
     (format) => {
       formatOptionsRef.current = format;

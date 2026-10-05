@@ -28,6 +28,8 @@ import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { REASONS } from '../../utils/reasons';
 import { useComboboxRootContext } from './ComboboxRootContext';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './ComboboxRoot.ssr-fixtures';
 
 function AsyncItemsCombobox() {
   const [items, setItems] = createSignal(['Apple', 'Banana', 'Cherry']);
@@ -204,15 +206,8 @@ describe('<Combobox.Root />', () => {
       expect(trigger).toHaveAttribute('aria-haspopup', 'dialog');
     });
 
-    // Solid: asserts the pre-hydration server markup, which needs a renderToString renderer.
-    it.skip('does not link Combobox.Label to trigger before hydration', () => {
-      render(() => (
-        <Combobox.Root inline>
-          <Combobox.Label data-testid="label">Food</Combobox.Label>
-          <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
-          <Combobox.Input data-testid="input" />
-        </Combobox.Root>
-      ));
+    it('does not link Combobox.Label to trigger before hydration', () => {
+      renderServer(ssrFixtures, 'label');
 
       const label = screen.getByTestId('label');
       const trigger = screen.getByTestId('trigger');
@@ -573,8 +568,7 @@ describe('<Combobox.Root />', () => {
     });
   });
 
-  // Solid: native capture listeners on the popup do not see events from portalled content (no React-tree propagation).
-  it.skip('does not dismiss when pressing portalled content inside the popup but outside the list', async () => {
+  it('does not dismiss when pressing portalled content inside the popup but outside the list', async () => {
     const { user } = render(() => (
       <Combobox.Root defaultOpen>
         <Combobox.Trigger>Open</Combobox.Trigger>
@@ -627,8 +621,7 @@ describe('<Combobox.Root />', () => {
     expect(screen.getByTestId('active-index')).toHaveTextContent('null');
   });
 
-  // Solid: native capture listeners on the popup do not see events from portalled content (no React-tree propagation).
-  it.skip('does not dismiss when pressing content inside a nested popover', async () => {
+  it('does not dismiss when pressing content inside a nested popover', async () => {
     const { user } = render(() => (
       <Combobox.Root defaultOpen>
         <Combobox.Trigger>Open</Combobox.Trigger>

@@ -1,10 +1,15 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { createMemo, createRenderEffect, createSignal, onCleanup, untrack } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { RenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
 import type { DrawerHandle } from '../handle';
-import { createDepsEffect, ComponentWithPayload, type ReactLikeRef } from '../../solid-helpers';
+import {
+  createDepsEffect,
+  ComponentWithPayload,
+  type ReactLikeRef,
+  createLayoutEffect,
+} from '../../solid-helpers';
 import {
   createChangeEventDetails,
   type BaseUIChangeEventDetails,
@@ -386,12 +391,16 @@ function DrawerProviderReporter() {
 
   const isTopmost = () => nestedOpenDialogCount() === 0;
 
-  // The provider and store are fixed for the reporter's lifetime.
-  onCleanup(() => {
-    removeDrawer?.(store);
-  });
+  // The provider and store are fixed for the reporter's lifetime. A layout effect's cleanup, as
+  // React's: it never runs on the server, where the reporter registered nothing.
+  createLayoutEffect(
+    () => undefined,
+    () => () => {
+      removeDrawer?.(store);
+    },
+  );
 
-  createRenderEffect(open, (isOpen) => {
+  createLayoutEffect(open, (isOpen) => {
     setDrawerOpen?.(store, isOpen);
   });
 

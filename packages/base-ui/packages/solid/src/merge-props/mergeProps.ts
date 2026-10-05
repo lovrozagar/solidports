@@ -224,6 +224,7 @@ export function mergeProps<
       const mergedRefs = Object.assign([], cacheRefs);
       const mergedClasses = Object.assign([], cacheClasses);
       const mergedClassList = Object.assign([], cacheClassList);
+      let mergedRefChain: ReturnType<typeof chainRefs> | undefined;
 
       const localMerged = {
         get class() {
@@ -233,7 +234,8 @@ export function mergeProps<
           return reduce(mergedClassList, 'classList', (a, b) => ({ ...a, ...b }));
         },
         get ref() {
-          return chainRefs(mergedRefs);
+          // The refs are fixed once collected: one chained callback, a stable identity.
+          return (mergedRefChain ??= chainRefs(mergedRefs));
         },
         get style() {
           return reduce(mergedStyles, 'style', combineStyle as any);
@@ -329,6 +331,7 @@ export function mergeProps<
   const mergedListeners = callAll
     ? buildCallAllListeners(cachedListenerArrays)
     : { ...cachedListeners };
+  let refChain: ReturnType<typeof chainRefs> | undefined;
   const localMerged = {
     get class() {
       return reduce(cacheClasses, 'class', (a, b) => `${b} ${a}`);
@@ -337,7 +340,8 @@ export function mergeProps<
       return reduce(cacheClassList, 'classList', (a, b) => ({ ...a, ...b }));
     },
     get ref() {
-      return chainRefs(cacheRefs);
+      // `cacheRefs` is fixed after construction: one chained callback, a stable identity.
+      return (refChain ??= chainRefs(cacheRefs));
     },
     get style() {
       return reduce(cacheStyles, 'style', combineStyle as any);
@@ -490,9 +494,12 @@ function untrackedHandler<H extends EventHandler | undefined>(handler: H): H {
 }
 
 export function makeEventPreventable<T extends Event>(event: BaseUIEvent<T>) {
-  event.preventBaseUIHandler = () => {
-    (event.baseUIHandlerPrevented as boolean) = true;
-  };
+  // Every handler layer calls this for the same event: install the method once per event.
+  if (!event.preventBaseUIHandler) {
+    event.preventBaseUIHandler = () => {
+      (event.baseUIHandlerPrevented as boolean) = true;
+    };
+  }
 
   return event;
 }
