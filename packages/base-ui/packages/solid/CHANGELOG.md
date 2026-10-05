@@ -1,6 +1,8 @@
-## 1.8.0-8 — 2026-10-05
+## 1.8.0-9 — 2026-10-05
 
-(1.8.0-2 was tagged on the wrong commit; 1.8.0-3 to 1.8.0-7 failed CI. None was published.)
+(1.8.0-2 was tagged on the wrong commit; 1.8.0-3 to 1.8.0-7 failed CI; 1.8.0-8 passed CI but npm rejected the publish (no Trusted Publisher). None was published.)
+
+- **Server-rendered default values**: an uncontrolled `Field.Control` / `Input` rendered `defaultValue` as an unknown `defaultvalue` attribute on the server, so the input was empty until hydration (and stayed empty without JavaScript). The server renders it as `value`, as React does; NumberField no longer prints the stray attribute either.
 
 - **Portals render on the server**: a portal that renders on the first pass (an app-root `Toast.Portal`) crashed server rendering with `document is not defined`, because the container defaulted to `document.body` during render. The container now resolves only on the client after hydration settles, as React sets its portal node in an effect: the server renders nothing there and hydration has nothing to mismatch.
 - **Hydration keeps client-only attributes**: Solid skips attribute writes for the whole synchronous `hydrate()` call, so a value that changed inside it was lost, such as a hydrated tab's `aria-controls` and its panel's `aria-labelledby` (registered in effects). Parts attached while hydrating re-apply their attributes once `hydrate()` returns.

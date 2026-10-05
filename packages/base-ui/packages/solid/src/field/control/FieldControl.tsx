@@ -1,5 +1,5 @@
 import { createEffect, createSignal, onSettled, untrack } from 'solid-js';
-import type { JSX } from '@solidjs/web';
+import { isServer, type JSX } from '@solidjs/web';
 import { activeElement } from '../../floating-ui-solid/utils';
 import { useFormContext } from '../../form/FormContext';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
@@ -251,8 +251,13 @@ export function FieldControl(componentProps: FieldControl.Props) {
           },
         },
         // Solid re-applies an input's `value` property on every spread update (like a React
-        // controlled input), so uncontrolled inputs must only pass `defaultValue`.
-        isControlled() ? { value: value() } : { defaultValue: local.defaultValue },
+        // controlled input), so uncontrolled inputs must only pass `defaultValue`. The server
+        // renders it as the `value` attribute, as React does (a `defaultValue` prop has none).
+        isControlled()
+          ? { value: value() }
+          : isServer
+            ? { value: local.defaultValue }
+            : { defaultValue: local.defaultValue },
         elementProps,
         (props: HTMLProps) => validation.getValidationProps(disabled(), props),
       ];

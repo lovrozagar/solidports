@@ -36,4 +36,14 @@ describe('server rendering', () => {
     };
     expect(fixture.render()).toContain('page');
   }, 60_000);
+
+  it('renders uncontrolled defaults as the value attribute', async () => {
+    const fixture = (await server.ssrLoadModule(resolve(here, 'default-value.fixture.tsx'))) as {
+      render: () => string;
+    };
+    const html = fixture.render();
+    expect(html).toMatch(/<input[^>]*value="ada@acme\.dev"/);
+    expect(html).toMatch(/<input[^>]*value="3"/);
+    expect(html.toLowerCase()).not.toContain('defaultvalue');
+  }, 60_000);
 });

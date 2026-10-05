@@ -1,5 +1,5 @@
 import { createEffect, createRenderEffect, createSignal, untrack } from 'solid-js';
-import type { JSX } from '@solidjs/web';
+import { isServer, type JSX } from '@solidjs/web';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { activeElement } from '../../floating-ui-solid/utils';
@@ -537,8 +537,9 @@ export function NumberFieldRoot(componentProps: NumberFieldRoot.Props) {
         name={name()}
         value={value() ?? ''}
         // Solid: React syncs the `value` attribute too; native step validation uses it as the
-        // step base when `min` is absent.
-        defaultValue={value() ?? ''}
+        // step base when `min` is absent. The server renders `value` itself, and a `defaultValue`
+        // prop would print as an unknown attribute there.
+        defaultValue={isServer ? undefined : (value() ?? '')}
         min={local.min}
         max={local.max}
         // stepMismatch validation is broken unless an explicit `min` is added.
