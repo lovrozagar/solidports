@@ -402,6 +402,47 @@ describe('mergeProps', () => {
     });
   });
 
+  it('lets an explicit undefined in a later source override an earlier value', () => {
+    const mergedProps = mergeProps<'button'>({ title: 'ours' }, { title: undefined });
+
+    expect(mergedProps.title).toBe(undefined);
+  });
+
+  // Solid: reading JSX `children` creates them, so a second read creates a second copy (and on the
+  // server takes another hydration key, which the client then misses).
+  it('reads the winning source once per merged read', () => {
+    let reads = 0;
+    const theirProps = {
+      get children() {
+        reads += 1;
+        return 'label';
+      },
+    };
+    const mergedProps = mergeProps<'button'>({ type: 'button' }, theirProps);
+
+    expect(mergedProps.children).toBe('label');
+    expect(reads).toBe(1);
+  });
+
+  it('reads a props getter result once per merged read', () => {
+    let reads = 0;
+    const theirProps = {
+      get children() {
+        reads += 1;
+        return 'label';
+      },
+    };
+    const mergedProps = mergeProps<'button'>(theirProps, (props) => ({
+      type: 'button' as const,
+      get children() {
+        return props.children;
+      },
+    }));
+
+    expect(mergedProps.children).toBe('label');
+    expect(reads).toBe(1);
+  });
+
   it('merges internal props so that the ones defined first override the ones defined later', () => {
     const mergedProps = mergeProps<'button'>(
       {

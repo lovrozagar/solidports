@@ -17,7 +17,7 @@ export default mergeConfig(
     define: {
       'process.env.NODE_ENV': JSON.stringify('test'),
     },
-    plugins: [solidPlugin() as any],
+    plugins: [solidPlugin({ solid: { hydratable: true } }) as any],
     resolve: {
       alias: {
         '@solidports/base-ui': resolve(__dirname, 'src'),

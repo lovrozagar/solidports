@@ -356,16 +356,12 @@ export function mergeProps<
         }
 
         /*
-         * Check if the last descriptor for this key resolves to undefined.
-         * This handles the case where explicit undefined should overwrite previous values,
-         * matching React's mergeProps behavior.
+         * The last source that has the key wins, even with an explicit undefined (React's
+         * mergeProps). Its value is read once: reading JSX `children` creates them.
          */
         const desc = lastDescriptor[key];
         if (desc) {
-          const value = desc.get ? desc.get() : desc.value;
-          if (value === undefined) {
-            return undefined;
-          }
+          return desc.get ? desc.get() : desc.value;
         }
 
         return Reflect.get(merge, key);

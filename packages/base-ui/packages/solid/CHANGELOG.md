@@ -1,3 +1,8 @@
+## 1.8.0-10 — 2026-10-05
+
+- **Element children hydrate through merged props**: `mergeProps` read the winning source twice per merged read (once to honor an explicit `undefined`, once for the value). Reading JSX `children` creates them, so a part whose children pass through a props getter (a `NavigationMenu.Trigger` with an icon next to its text) created them twice: the server printed the second copy's hydration key and the client missed it. The merged read now reads once.
+- **Hydration tests compile hydratable**: the jsdom and browser test project compiles JSX hydratable, as an SSR app's client does, so hydration fixtures can hold plain elements.
+
 ## 1.8.0-9 — 2026-10-05
 
 (1.8.0-2 was tagged on the wrong commit; 1.8.0-3 to 1.8.0-7 failed CI; 1.8.0-8 passed CI but npm rejected the publish (no Trusted Publisher). None was published.)
