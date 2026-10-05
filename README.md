@@ -166,9 +166,27 @@ bun run --filter @solidports/recharts typecheck
 bun run --filter @base-ui/monorepo test:solid:jsdom
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs install, fmt, lint, typecheck and the solid-table tests.
+GitHub Actions (`.github/workflows/ci.yml`) runs install, fmt, lint, typecheck, the release-script tests and the solid-table tests.
 
 Do not weaken `strict` or add `as any` to make typecheck pass.
+
+## Release
+
+CI publishes. Bump the package's `package.json` version, commit, then push a tag that names the package:
+
+| Package                   | Tag                      |
+| ------------------------- | ------------------------ |
+| `@solidports/base-ui`     | `base-ui-v<version>`     |
+| `@solidports/recharts`    | `recharts-v<version>`    |
+| `@solidports/solid-table` | `solid-table-v<version>` |
+
+```bash
+git tag solid-table-v0.1.2 && git push origin solid-table-v0.1.2
+```
+
+`.github/workflows/release.yml` resolves the package from the tag (`scripts/release-target.ts`; prefixes in `scripts/packages.ts`), fails if the version isn't the one in `package.json`, runs that package's tests, packs it with `bun pm pack` (its `prepack` builds it; `catalog:` specs resolve) and publishes to npm with provenance through Trusted Publishing, then creates the GitHub release. Prereleases (`1.8.0-9`) go to the `next` dist-tag. To retry an existing tag, run the workflow by hand with that tag.
+
+Each package's npm settings need one Trusted Publisher: GitHub Actions, `lovrozagar` / `solidports`, workflow `release.yml`, no environment.
 
 ## License
 

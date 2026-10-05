@@ -172,7 +172,8 @@
 		"fmt": "oxfmt",
 		"fmt:check": "oxfmt --check",
 		"test:solid-table": "bun run --filter @solidports/solid-table test",
-		"dev:solid-table-examples": "bun install --cwd packages/solid-table/examples/upstream && bun run --cwd packages/solid-table/examples/upstream dev"
+		"dev:solid-table-examples": "bun install --cwd packages/solid-table/examples/upstream && bun run --cwd packages/solid-table/examples/upstream dev",
+		"test:scripts": "bun test ./scripts"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "21.2.1",

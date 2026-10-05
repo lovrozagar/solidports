@@ -1,0 +1,218 @@
+name: Release
+
+# A tag `<package>-v<version>` publishes that package: base-ui-v1.8.0-9, recharts-v0.1.2,
+# solid-table-v0.1.1 (prefixes in scripts/packages.ts). The version must equal the package's
+# package.json version; prereleases go to the `next` dist-tag.
+on:
+  push:
+    tags:
+      - "base-ui-v*"
+      - "recharts-v*"
+      - "solid-table-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish (e.g. solid-table-v0.1.1). Empty = this ref."
+        required: false
+        default: ""
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  BUN_VERSION: "1.3.11"
+
+jobs:
+  resolve:
+    name: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      name: ${{ steps.target.outputs.name }}
+      dir: ${{ steps.target.outputs.dir }}
+      id: ${{ steps.target.outputs.id }}
+      version: ${{ steps.target.outputs.version }}
+      dist_tag: ${{ steps.target.outputs.dist_tag }}
+      tag: ${{ steps.target.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - id: target
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          bun scripts/release-target.ts "$tag" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: test ${{ needs.resolve.outputs.id }}
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bun run fmt:check
+      - run: bun run lint
+
+      - name: base-ui typecheck (emits declarations into types/)
+        if: needs.resolve.outputs.id == 'base-ui'
+        working-directory: packages/base-ui/packages/solid
+        run: |
+          bun run types
+          bunx tsc -p tsconfig.test.json --noEmit
+      - name: base-ui tests (jsdom)
+        if: needs.resolve.outputs.id == 'base-ui'
+        working-directory: packages/base-ui
+        run: bun run test:solid:jsdom --maxWorkers=2
+      - name: base-ui tests (Chromium)
+        if: needs.resolve.outputs.id == 'base-ui'
+        working-directory: packages/base-ui
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run test:solid:chromium --maxWorkers=2
+
+      - name: recharts typecheck, lint and tests
+        if: needs.resolve.outputs.id == 'recharts'
+        working-directory: packages/recharts
+        run: |
+          bun run typecheck
+          bun run lint
+          bun run test
+
+      - name: solid-table typecheck and tests (unit, server, hydration, production)
+        if: needs.resolve.outputs.id == 'solid-table'
+        working-directory: packages/solid-table
+        run: |
+          bun run type:check
+          bun run test
+          bun run test:prod
+
+  npmjs:
+    name: npmjs.com
+    needs: [resolve, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PACKAGE_NAME: ${{ needs.resolve.outputs.name }}
+      PACKAGE_DIR: ${{ needs.resolve.outputs.dir }}
+      VERSION: ${{ needs.resolve.outputs.version }}
+      DIST_TAG: ${{ needs.resolve.outputs.dist_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: npm install -g npm@latest
+      - run: bun install --frozen-lockfile
+      - name: Publish to registry.npmjs.org
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: |
+          set -euo pipefail
+          name="$PACKAGE_NAME"
+          encoded="$(node -p 'encodeURIComponent(process.argv[1])' "$name")"
+
+          if npm view "${name}@${VERSION}" version >/dev/null 2>&1; then
+            echo "npm already has ${name}@${VERSION} — skipping"
+            exit 0
+          fi
+
+          # `bun pm pack` runs prepack (each package builds or emits declarations there) and
+          # resolves `catalog:`/`workspace:` specs; `npm pack` would publish them as-is.
+          bun pm pack --destination "$RUNNER_TEMP"
+          tarball="$(ls "$RUNNER_TEMP"/*.tgz)"
+          if tar -xOzf "$tarball" package/package.json | grep -qE '"(catalog|workspace):'; then
+            echo "packed package.json still has catalog:/workspace: specs"
+            exit 1
+          fi
+
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "OIDC request URL/token missing — id-token: write is not in effect"
+            exit 1
+          fi
+          audience="$(node -p 'encodeURIComponent("npm:registry.npmjs.org")')"
+          curl -fsSL \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience}" \
+            -o /tmp/oidc.json
+          node -e 'const j=require("/tmp/oidc.json"); if(!j.value) process.exit(2)'
+
+          oidc_jwt="$(node -e 'process.stdout.write(require("/tmp/oidc.json").value)')"
+          code=$(curl -sS -o /tmp/npm-ex.json -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${oidc_jwt}" \
+            -H "Content-Type: application/json" \
+            "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${encoded}")
+          echo "oidc exchange HTTP $code"
+          node -e 'const j=require("/tmp/npm-ex.json"); console.log(JSON.stringify({error:j.error,message:j.message,token_type:j.token_type,expires:j.expires}))'
+          if [ "$code" != "201" ]; then
+            echo "npm rejected the GitHub OIDC token."
+            echo "On https://www.npmjs.com/package/${name} → Settings → Trusted Publisher"
+            echo "the saved connection must be exactly:"
+            echo "  GitHub Actions / lovrozagar / solidports / release.yml / environment empty / allow npm publish"
+            exit 1
+          fi
+          NODE_AUTH_TOKEN="$(node -e 'process.stdout.write(require("/tmp/npm-ex.json").token || "")')"
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "exchange succeeded but returned no token"
+            exit 1
+          fi
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > "${HOME}/.npmrc"
+          set +e
+          npm publish "$tarball" --access public --provenance --tag "$DIST_TAG"
+          pub=$?
+          set -e
+          if [ "$pub" -eq 0 ]; then
+            exit 0
+          fi
+          if npm view "${name}@${VERSION}" version >/dev/null 2>&1; then
+            echo "publish raced; ${name}@${VERSION} is now on npm — treating as success"
+            exit 0
+          fi
+          exit "$pub"
+
+  github-release:
+    name: GitHub Release
+    needs: [resolve, npmjs]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          TITLE: ${{ needs.resolve.outputs.name }} ${{ needs.resolve.outputs.version }}
+          PRERELEASE: ${{ needs.resolve.outputs.dist_tag == 'next' }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub release $TAG already exists"
+            exit 0
+          fi
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" --generate-notes --title "$TITLE" "${flags[@]}"

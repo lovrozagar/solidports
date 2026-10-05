@@ -91,6 +91,7 @@
 	},
 	"scripts": {
 		"build": "node scripts/build.mjs",
+		"prepack": "bun run build",
 		"check": "bun run typecheck && bun run lint && bun run test",
 		"lint": "oxlint src test",
 		"lint:fix": "oxlint --fix src test",
