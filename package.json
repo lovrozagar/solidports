@@ -12,10 +12,7 @@
 			"packages/base-ui/scripts/*",
 			"packages/recharts",
 			"packages/recharts/examples/*",
-			"packages/solid-table",
-			"packages/flare-ui",
-			"packages/flare-ui/tests/fixture",
-			"packages/flare-ui-consumer"
+			"packages/solid-table"
 		],
 		"catalog": {
 			"@arethetypeswrong/cli": "0.18.5",
@@ -169,9 +166,7 @@
 		"test": "bun run --filter @solidports/recharts test",
 		"test:base-ui": "bun run --filter @base-ui/monorepo test:solid:jsdom",
 		"test:recharts": "bun run --filter @solidports/recharts test",
-		"test:flare-ui": "bun run --filter @solidports/flare-ui test",
-		"dev:flare-ui": "bun run --filter @solidports/flare-ui-consumer dev",
-		"typecheck": "bun run --filter @solidports/base-ui type:check && bun run --filter @solidports/recharts type:check && bun run --filter @solidports/flare-ui type:check && bun run --filter @solidports/flare-ui-consumer type:check && bun run --filter @solidports/solid-table type:check",
+		"typecheck": "bun run --filter @solidports/base-ui type:check && bun run --filter @solidports/recharts type:check && bun run --filter @solidports/solid-table type:check",
 		"lint": "oxlint --config .oxlintrc.json scripts",
 		"lint:fix": "oxlint --config .oxlintrc.json --fix scripts",
 		"fmt": "oxfmt",

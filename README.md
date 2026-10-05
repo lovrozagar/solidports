@@ -2,9 +2,9 @@
 
 1:1 Solid ports of React libraries. Same public API, Solid reactivity underneath.
 
-This repo is the source of [`@solidports/base-ui`](https://www.npmjs.com/package/@solidports/base-ui), [`@solidports/recharts`](https://www.npmjs.com/package/@solidports/recharts), and [`@solidports/flare-ui`](packages/flare-ui).
+This repo is the source of [`@solidports/base-ui`](https://www.npmjs.com/package/@solidports/base-ui), [`@solidports/recharts`](https://www.npmjs.com/package/@solidports/recharts), and [`@solidports/solid-table`](https://www.npmjs.com/package/@solidports/solid-table).
 
-If you are an agent: read this file end to end. Import only from the package exports. Work in `packages/base-ui/packages/solid`, `packages/recharts`, `packages/flare-ui`, or `packages/flare-ui-consumer` unless the request says otherwise.
+If you are an agent: read this file end to end. Import only from the package exports. Work in `packages/base-ui/packages/solid`, `packages/recharts`, or `packages/solid-table` unless the request says otherwise.
 
 ## Table of contents
 
@@ -12,18 +12,18 @@ If you are an agent: read this file end to end. Import only from the package exp
 - [Install](#install)
 - [Base UI](#base-ui)
 - [Recharts](#recharts)
-- [Flare UI](#flare-ui)
+- [Solid Table](#solid-table)
 - [Repository layout](#repository-layout)
 - [Develop](#develop)
 - [License](#license)
 
 ## Packages
 
-| Package                                                  | Upstream                                                 | Status                                                                                           |
-| -------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| [`@solidports/base-ui`](packages/base-ui/packages/solid) | [MUI Base UI](https://github.com/mui/base-ui) v1.8.0     | Solid port of the headless component library. Docs at `packages/base-ui/docs/solid`.             |
-| [`@solidports/recharts`](packages/recharts)              | [recharts](https://github.com/recharts/recharts) v3.10.1 | Solid port of the charting library. Single Solid store per chart; 6202 tests passing, 0 failing. |
-| [`@solidports/flare-ui`](packages/flare-ui)              | Flare UI snapshot `b622cc453`                            | ShadCN-shaped Solid components wrapping `@solidports/base-ui` 1.8.0-sp.1.                        |
+| Package                                                  | Upstream                                                 | Status                                                                                            |
+| -------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [`@solidports/base-ui`](packages/base-ui/packages/solid) | [MUI Base UI](https://github.com/mui/base-ui) v1.8.0     | Solid port of the headless component library. Docs at `packages/base-ui/docs/solid`.              |
+| [`@solidports/recharts`](packages/recharts)              | [recharts](https://github.com/recharts/recharts) v3.10.1 | Solid port of the charting library. Single Solid store per chart; 6202 tests passing, 0 failing.  |
+| [`@solidports/solid-table`](packages/solid-table)        | [TanStack Table](https://github.com/TanStack/table) v9   | Solid 2 adapter for `@tanstack/table-core`: signal-backed state, `FlexRender`, `createTableHook`. |
 
 Both trees last lived in the private monorepo and were removed on 19 Aug 2026. This repo restores the 18 Aug 2026 snapshot (`b622cc453`) and continues the ports here.
 
@@ -34,19 +34,19 @@ Consumers need Solid 2.0 (`solid-js` and `@solidjs/web`). This repo develops on 
 ```bash
 bun add @solidports/base-ui solid-js @solidjs/web
 bun add @solidports/recharts solid-js @solidjs/web
-bun add @solidports/flare-ui solid-js @solidjs/web @solidports/base-ui tailwindcss
+bun add @solidports/solid-table @tanstack/table-core solid-js @solidjs/web
 ```
 
 ```bash
 npm install @solidports/base-ui solid-js @solidjs/web
 npm install @solidports/recharts solid-js @solidjs/web
-npm install @solidports/flare-ui solid-js @solidjs/web @solidports/base-ui tailwindcss
+npm install @solidports/solid-table @tanstack/table-core solid-js @solidjs/web
 ```
 
 ```bash
 pnpm add @solidports/base-ui solid-js @solidjs/web
 pnpm add @solidports/recharts solid-js @solidjs/web
-pnpm add @solidports/flare-ui solid-js @solidjs/web @solidports/base-ui tailwindcss
+pnpm add @solidports/solid-table @tanstack/table-core solid-js @solidjs/web
 ```
 
 ## Base UI
@@ -113,15 +113,21 @@ cd packages/recharts/examples/basic
 bun run dev
 ```
 
-## Flare UI
+## Solid Table
 
-ShadCN-shaped Solid components wrapping `@solidports/base-ui`. The design-system gallery lives in [`packages/flare-ui-consumer`](packages/flare-ui-consumer): all 42 components on one page, with Dark and RTL switches.
+The TanStack Table v9 adapter for Solid 2: table state lives in Solid signals and memos, so a
+component re-renders only the cells whose data it reads. Construction writes no signal, so a
+server-rendered table hydrates in place.
 
-```bash
-bun run dev:flare-ui
+```tsx
+import { createTable, FlexRender, stockFeatures } from "@solidports/solid-table";
+
+const table = createTable({ columns, data, features: stockFeatures });
+// <FlexRender header={header} /> and <FlexRender cell={cell} /> render the column templates.
 ```
 
-Open [http://localhost:4100](http://localhost:4100). Playwright still uses the isolated fixture on port 4099.
+`createTableHook` binds features and app components once (`createAppTable`, `AppHeader`,
+`AppCell`). Upstream examples run in [`packages/solid-table/examples/upstream`](packages/solid-table/examples/upstream).
 
 ## Repository layout
 
@@ -133,8 +139,7 @@ packages/base-ui/docs/react       upstream docs snapshot
 packages/base-ui/docs/solid       Solid docs app
 packages/recharts/                published `@solidports/recharts`
 packages/recharts/examples/       basic / react / shadcn / visual harnesses
-packages/flare-ui/                published `@solidports/flare-ui`
-packages/flare-ui-consumer/       private gallery — all 42 components, Dark + RTL, port 4100
+packages/solid-table/             published `@solidports/solid-table`
 ```
 
 Porting notes live in each package's `.kb/`.
@@ -148,8 +153,7 @@ bun install
 bun run typecheck
 bun run test                 # @solidports/recharts unit
 bun run test:base-ui         # @solidports/base-ui jsdom
-bun run test:flare-ui        # @solidports/flare-ui Playwright chromium-ltr
-bun run dev:flare-ui         # gallery at http://localhost:4100
+bun run test:solid-table     # @solidports/solid-table unit, server and hydration
 bun run lint
 bun run fmt:check
 ```
@@ -162,7 +166,7 @@ bun run --filter @solidports/recharts typecheck
 bun run --filter @base-ui/monorepo test:solid:jsdom
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs install, fmt, lint, and typecheck.
+GitHub Actions (`.github/workflows/ci.yml`) runs install, fmt, lint, typecheck and the solid-table tests.
 
 Do not weaken `strict` or add `as any` to make typecheck pass.
 
