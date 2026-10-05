@@ -1,9 +1,11 @@
 #!/usr/bin/env bun
 /*
- * release-target <tag>: the package a release tag publishes, as GitHub Actions outputs
+ * release-target <tag> [root]: the package a release tag publishes, as GitHub Actions outputs
  * (`name=`, `dir=`, `id=`, `version=`, `dist_tag=`). The tag is `<prefix><version>` from
  * scripts/packages.ts and must match that package's package.json version. Prereleases
- * (`1.8.0-9`) go to the `next` dist-tag, the rest to `latest`.
+ * (`1.8.0-9`) go to the `next` dist-tag, the rest to `latest`. `root` is the checkout whose
+ * package.json versions count (default: this repo), so the workflow's own copy of this script can
+ * resolve a tag cut before it existed.
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -36,10 +38,10 @@ export function releaseTarget(ref: string, readVersion: (dir: string) => string)
 if (import.meta.main) {
 	const ref = process.argv[2];
 	if (!ref) {
-		console.error("usage: release-target <tag>");
+		console.error("usage: release-target <tag> [root]");
 		process.exit(1);
 	}
-	const root = join(import.meta.dir, "..");
+	const root = process.argv[3] ?? join(import.meta.dir, "..");
 	const readVersion = (dir: string) =>
 		(JSON.parse(readFileSync(join(root, dir, "package.json"), "utf8")) as { version: string }).version;
 	try {
