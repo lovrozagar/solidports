@@ -46,11 +46,20 @@ export type SolidTable<TFeatures extends TableFeatures, TData extends RowData> =
 export function createTable<TFeatures extends TableFeatures, TData extends RowData>(
 	tableOptions: TableOptions<TFeatures, TData>,
 ): SolidTable<TFeatures, TData> {
-	const reactivity = solidReactivity(getOwner(), () => tableOptions.state as Record<string, unknown> | undefined);
+	/* The reactive options: the caller's getters (data, columns, callbacks, state) plus this adapter's
+	   reactivity feature. Assigned before construction reads them through `seedOptions`. */
+	let liveOptions: TableOptions<TFeatures, TData>;
+	const reactivity = solidReactivity(getOwner(), () => tableOptions.state as Record<string, unknown> | undefined, {
+		/* constructTable spreads the options into the options store, freezing getter values. Seed
+		   the store with a lazy merge instead of writing one after construction: a construction
+		   write lands on the next flush and re-runs every first read, which under hydration
+		   re-renders and discards the claimed server DOM. */
+		seedOptions: (constructed) => merge(constructed, liveOptions),
+	});
 
 	/* Construction reads options and atoms once by design; keep those reads out of the caller's scope. */
-	const { table, mergedOptions } = untrack(() => {
-		const mergedOptions = merge(tableOptions, {
+	const table = untrack(() => {
+		liveOptions = merge(tableOptions, {
 			features: {
 				coreReactivityFeature: reactivity,
 				...tableOptions.features,
@@ -62,16 +71,10 @@ export function createTable<TFeatures extends TableFeatures, TData extends RowDa
 				mergeOptions: (defaultOptions: TableOptions<TFeatures, TData>, options: TableOptions<TFeatures, TData>) =>
 					merge(defaultOptions, options),
 			},
-			mergedOptions,
+			liveOptions,
 		) as TableOptions<TFeatures, TData>;
 
-		const table = constructTable(resolvedOptions) as unknown as SolidTable<TFeatures, TData>;
-
-		/* constructTable spreads the options, freezing getter values. Swap in a lazy
-		   merge so option getters (data, columns, callbacks, state) stay reactive. */
-		table.setOptions((prev) => merge(prev, mergedOptions) as TableOptions<TFeatures, TData>);
-
-		return { table, mergedOptions };
+		return constructTable(resolvedOptions) as unknown as SolidTable<TFeatures, TData>;
 	});
 
 	onCleanup(() => reactivity.unmount?.());

@@ -50,3 +50,17 @@ jobs:
       - run: bun run fmt:check
       - run: bun run lint
       - run: bun run typecheck
+
+  solid-table:
+    name: solid-table tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      # Unit (jsdom), server rendering (node) and hydration (server HTML claimed in jsdom).
+      - run: bun run test:solid-table
+      - run: bun run --filter @solidports/solid-table test:prod

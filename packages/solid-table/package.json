@@ -1,6 +1,6 @@
 {
 	"name": "@solidports/solid-table",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Solid 2 adapter for TanStack Table v9. Drop-in stand-in for @tanstack/solid-table until upstream supports Solid 2.",
 	"keywords": [
 		"datagrid",
@@ -125,7 +125,7 @@
 	"scripts": {
 		"build": "node scripts/build.mjs",
 		"prepack": "bun run build",
-		"test": "vitest run && vitest run -c vitest.ssr.config.ts",
+		"test": "vitest run && vitest run -c vitest.ssr.config.ts && vitest run -c vitest.hydration.config.ts",
 		"test:e2e": "bun install --cwd tests/fixture && tsc --noEmit -p tests/fixture && playwright test",
 		"test:prod": "NODE_ENV=production vitest run",
 		"test:watch": "vitest",

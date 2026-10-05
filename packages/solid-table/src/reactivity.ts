@@ -54,6 +54,12 @@ function signalToWritableAtom<T>(
 }
 
 const BASE_ATOM_PREFIX = "table/baseAtoms/";
+const OPTIONS_STORE = "table/optionsStore";
+
+export interface SolidReactivityOptions {
+	/** The options store's initial value from the options table-core constructed. */
+	seedOptions?: (constructed: object) => object;
+}
 
 /**
  * Creates the table-core reactivity bindings used by the Solid adapter.
@@ -70,6 +76,7 @@ const BASE_ATOM_PREFIX = "table/baseAtoms/";
 export function solidReactivity(
 	owner: Owner | null,
 	getControlledState?: () => Record<string, unknown> | undefined,
+	reactivityOptions: SolidReactivityOptions = {},
 ): TableReactivityBindings {
 	const subscriptions = new Set<Subscription>();
 
@@ -90,7 +97,11 @@ export function solidReactivity(
 			);
 			return signalToReadonlyAtom(memo, owner);
 		},
-		createWritableAtom: <T>(value: T, options?: TableAtomOptions<T>): Atom<T> => {
+		createWritableAtom: <T>(initial: T, options?: TableAtomOptions<T>): Atom<T> => {
+			const value =
+				options?.debugName === OPTIONS_STORE && reactivityOptions.seedOptions
+					? (reactivityOptions.seedOptions(initial as object) as T)
+					: initial;
 			const signalOptions = { equals: options?.compare, name: options?.debugName, ownedWrite: true };
 			const stateKey = options?.debugName?.startsWith(BASE_ATOM_PREFIX)
 				? options.debugName.slice(BASE_ATOM_PREFIX.length)

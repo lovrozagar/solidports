@@ -12,7 +12,7 @@ export default defineConfig({
 	test: {
 		environment: "jsdom",
 		include: ["tests/**/*.test.ts?(x)"],
-		exclude: ["tests/ssr/**"],
+		exclude: ["tests/ssr/**", "tests/hydration/**"],
 		setupFiles: ["tests/setup.ts"],
 	},
 });
