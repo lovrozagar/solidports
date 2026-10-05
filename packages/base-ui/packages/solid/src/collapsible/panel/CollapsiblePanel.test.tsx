@@ -1046,7 +1046,18 @@ describe('<Collapsible.Panel />', () => {
     // Solid: no React.Activity equivalent to interrupt the instant open.
     it.skip('restores the inline transition duration when an instant open is interrupted', () => {});
 
-    it('does not keep a hidden transition running after a hiddenUntilFound panel closes', async () => {
+    it('does not keep a hidden transition running after a hiddenUntilFound panel closes', async ({
+      onTestFinished,
+    }) => {
+      // With animations disabled the close completes without waiting for transitions, so a
+      // transition left over depended on whether the open had a frame to start one. Enabled, the
+      // panel hides only after its close transition finishes, which is what this asserts.
+      const animationsDisabled = globalThis.BASE_UI_ANIMATIONS_DISABLED;
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+      onTestFinished(() => {
+        globalThis.BASE_UI_ANIMATIONS_DISABLED = animationsDisabled;
+      });
+
       const { user } = await render(() => (
         <>
           <style>{`
@@ -1086,9 +1097,12 @@ describe('<Collapsible.Panel />', () => {
 
       await user.click(trigger);
 
-      await waitFor(() => {
-        expect(panel).toHaveAttribute('hidden', 'until-found');
-      });
+      await waitFor(
+        () => {
+          expect(panel).toHaveAttribute('hidden', 'until-found');
+        },
+        { timeout: 3000 },
+      );
 
       await act(async () => {
         await waitForAnimationFrame();
