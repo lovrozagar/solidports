@@ -37,7 +37,7 @@ import { REASONS } from '../../utils/reasons';
 import { useValueChanged } from '../../internals/useValueChanged';
 import {
   createDepsEffect,
-  splitComponentProps,
+  omitComponentProps,
   useRef,
   type ReactLikeRef,
 } from '../../solid-helpers';
@@ -52,7 +52,7 @@ export const PARENT_CHECKBOX = 'data-parent';
  * Documentation: [Base UI Checkbox](https://base-ui.com/react/components/checkbox)
  */
 export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'checked',
     'defaultChecked',
     'aria-labelledby',
@@ -69,20 +69,20 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     'uncheckedValue',
     'value',
     'nativeButton',
-  ]);
-  const checkedProp = () => local.checked;
-  const defaultChecked = () => local.defaultChecked ?? false;
-  const ariaLabelledByProp = () => local['aria-labelledby'];
-  const disabledProp = () => local.disabled ?? false;
-  const form = () => local.form;
-  const idProp = () => local.id;
-  const indeterminate = () => local.indeterminate ?? false;
-  const nameProp = () => local.name;
-  const parent = () => local.parent ?? false;
-  const readOnly = () => local.readOnly ?? false;
-  const required = () => local.required ?? false;
-  const valueProp = () => local.value;
-  const nativeButton = () => local.nativeButton ?? false;
+  ] as const);
+  const checkedProp = () => componentProps.checked;
+  const defaultChecked = () => componentProps.defaultChecked ?? false;
+  const ariaLabelledByProp = () => componentProps['aria-labelledby'];
+  const disabledProp = () => componentProps.disabled ?? false;
+  const form = () => componentProps.form;
+  const idProp = () => componentProps.id;
+  const indeterminate = () => componentProps.indeterminate ?? false;
+  const nameProp = () => componentProps.name;
+  const parent = () => componentProps.parent ?? false;
+  const readOnly = () => componentProps.readOnly ?? false;
+  const required = () => componentProps.required ?? false;
+  const valueProp = () => componentProps.value;
+  const nativeButton = () => componentProps.nativeButton ?? false;
 
   const { clearErrors } = useFormContext();
   const fieldRootContext = useFieldRootContext();
@@ -166,7 +166,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     ownedWrite: true,
   });
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -221,7 +221,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const setInputRef = (element: HTMLInputElement | null | undefined) => {
     inputRef.current = element;
     setInputElement(element);
-    const inputRefProp = untrack(() => local.inputRef);
+    const inputRefProp = untrack(() => componentProps.inputRef);
     if (typeof inputRefProp === 'function') {
       inputRefProp(element ?? null);
     } else if (inputRefProp) {
@@ -327,7 +327,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
           const details = createChangeEventDetails(REASONS.none, lastClickEventRef ?? event);
           lastClickEventRef = undefined;
 
-          local.onCheckedChange?.(nextChecked, details);
+          componentProps.onCheckedChange?.(nextChecked, details);
 
           if (!details.isCanceled) {
             untrack(groupProps).onCheckedChange?.(nextChecked, details);
@@ -520,15 +520,16 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const element = useRenderElement('span', componentProps, {
     state,
     ref: [buttonRef, controlRef, setRootElement],
-    get props() {
-      return [
-        rootProps,
-        elementProps,
-        propsSourceAccessor(otherGroupProps),
-        getButtonProps,
-        ...fieldSources((props: HTMLProps) => validation.getValidationProps(disabled(), props)),
-      ];
-    },
+    // Built once (plan 7 step 3.4): the button's attributes below the part's props, its handlers
+    // above them (wrapping the part's and the consumer's handlers, as `getButtonProps` did).
+    props: [
+      ...buttonSources.attributes,
+      rootProps,
+      elementProps,
+      propsSourceAccessor(otherGroupProps),
+      buttonSources.handlers,
+      ...fieldSources((props: HTMLProps) => validation.getValidationProps(disabled(), props)),
+    ],
     stateAttributesMapping,
   });
 
@@ -565,14 +566,18 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
       {element()}
       <Show
         when={
-          !checked() && !groupContext && name() && !parent() && local.uncheckedValue !== undefined
+          !checked() &&
+          !groupContext &&
+          name() &&
+          !parent() &&
+          componentProps.uncheckedValue !== undefined
         }
       >
         <input
           type="hidden"
           form={form()}
           name={name()}
-          value={local.uncheckedValue}
+          value={componentProps.uncheckedValue}
           disabled={disabled()}
         />
       </Show>

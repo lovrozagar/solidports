@@ -138,7 +138,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
       disabledProp() || rootDisabled() || (parent.type === 'menubar' && parent.context.disabled()),
   );
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -316,6 +316,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
   // A static list whose changing parts are read per key (accessor sources and getters): a state
   // change updates its attribute without rebuilding the trigger's props chain.
   const props = [
+    ...buttonSources.attributes,
     propsSourceAccessor(localInteractionProps),
     hoverProps ?? EMPTY_OBJECT,
     propsSourceAccessor(rootTriggerProps),
@@ -345,7 +346,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     isInMenubar ? { role: 'menuitem' } : {},
     propsSourceAccessor(mixedToggleHandlers),
     elementProps,
-    getButtonProps,
+    buttonSources.handlers,
   ];
 
   const element = useRenderElement('button', componentProps, {

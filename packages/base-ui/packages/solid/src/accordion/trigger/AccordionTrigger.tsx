@@ -27,7 +27,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
 
   const disabled = () => (local.disabled ?? false) || contextDisabled();
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: true,
     native: nativeButton,
@@ -62,7 +62,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
   const element = useRenderElement('button', componentProps, {
     state,
     ref: buttonRef,
-    props: [props, elementProps, getButtonProps],
+    props: [...buttonSources.attributes, props, elementProps, buttonSources.handlers],
     stateAttributesMapping: triggerOpenStateMapping,
   });
 

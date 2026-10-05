@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
+import { createEffect, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -197,9 +197,9 @@ export function AvatarImage(componentProps: AvatarImage.Props): JSX.Element {
     // Accessor sources: their keys follow the loading status and source props without rebuilding
     // these props.
     props: [
-      propsSourceAccessor(createMemo(renderedStatusProps)),
+      propsSourceAccessor(renderedStatusProps),
       elementProps,
-      propsSourceAccessor(createMemo(sourceProps)),
+      propsSourceAccessor(sourceProps),
     ],
     stateAttributesMapping,
     enabled: shouldRender,

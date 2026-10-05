@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 
-import { createSignal, untrack } from 'solid-js';
+import { createMemo, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
 import { stopEvent } from '../../floating-ui-solid/utils';
@@ -74,7 +74,8 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
   const direction = useDirection();
 
   const slotValue = () => value()[index()] ?? '';
-  const inputState = () => getOTPFieldInputState(state, slotValue(), index());
+  // One memo: each state getter below reads it, rather than re-deriving the whole state.
+  const inputState = createMemo(() => getOTPFieldInputState(state, slotValue(), index()));
   const slotAriaLabel = () => externalAriaLabel();
   const inheritedLabel = () => externalAriaLabelledBy() ?? inputAriaLabelledBy();
   const ariaLabel = () => (index() === 0 ? undefined : slotAriaLabel());

@@ -36,7 +36,7 @@ export function ToolbarButton(componentProps: ToolbarButton.Props) {
     focusableWhenDisabled: focusableWhenDisabled(),
   }));
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled,
     native: nativeButton,
@@ -64,6 +64,7 @@ export function ToolbarButton(componentProps: ToolbarButton.Props) {
       ref={componentProps.ref}
       refs={[buttonRef]}
       props={[
+        ...buttonSources.attributes,
         elementProps,
         // When a render prop is provided (typically another Base UI component
         // like Menu.Trigger), forward `disabled` so the rendered component can
@@ -72,7 +73,7 @@ export function ToolbarButton(componentProps: ToolbarButton.Props) {
         // hoverable for interactions like tooltips.
         // TODO: follow up after https://github.com/mui/base-ui/issues/1976#issuecomment-2916905663
         // Solid: `render` is read once; a `disabled` key holding `undefined` would override
-        // the native `disabled` from `getButtonProps`, so the key must be absent without `render`.
+        // the native `disabled` from the button attributes, so the key must be absent without `render`.
         untrack(() => renderProps.render)
           ? {
               get disabled() {
@@ -80,7 +81,7 @@ export function ToolbarButton(componentProps: ToolbarButton.Props) {
               },
             }
           : EMPTY_OBJECT,
-        getButtonProps,
+        buttonSources.handlers,
       ]}
     >
       {local.children}

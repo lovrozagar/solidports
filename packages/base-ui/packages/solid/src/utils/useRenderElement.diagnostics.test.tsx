@@ -18,6 +18,9 @@ import { Popover } from '@solidports/base-ui/popover';
 import { Select } from '@solidports/base-ui/select';
 import { Tabs } from '@solidports/base-ui/tabs';
 import { Toast } from '@solidports/base-ui/toast';
+import { Tooltip } from '@solidports/base-ui/tooltip';
+import { Button } from '@solidports/base-ui/button';
+import { createSignal } from 'solid-js';
 
 /**
  * Solid's dev diagnostics (the attribution engine `vite dev` enables) must stay silent while the
@@ -438,6 +441,47 @@ describe('Solid dev diagnostics', () => {
     await settle();
     await user.click(screen.getByRole('button', { name: 'Close' }));
     await settle();
+    expect(warnings).toEqual([]);
+  });
+
+  // The docs' copy button (Tooltip.Trigger rendering Button with its props): reading a key the
+  // spread props lack must not subscribe Button's computations to every source behind them.
+  it('a Tooltip.Trigger rendering a Button stays silent', async () => {
+    const [copied, setCopied] = createSignal(false);
+    render(() => (
+      <Tooltip.Provider delay={0}>
+        <Tooltip.Root disabled={copied()}>
+          <Tooltip.Trigger
+            closeOnClick={false}
+            class="copy"
+            onClick={() => setCopied(true)}
+            aria-label="Copy to clipboard"
+            render={(props) => <Button {...props} disabled={copied()} focusableWhenDisabled />}
+          >
+            {copied() ? 'done' : 'copy'}
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Positioner sideOffset={10}>
+              <Tooltip.Popup>Copy</Tooltip.Popup>
+            </Tooltip.Positioner>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    ));
+    const trigger = screen.getByRole('button', { name: 'Copy to clipboard' });
+    fireEvent.pointerEnter(trigger, { pointerType: 'mouse' });
+    fireEvent.mouseEnter(trigger);
+    fireEvent.mouseMove(trigger);
+    await flushMicrotasks();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(screen.queryByText('Copy')).not.toBe(null);
+    fireEvent.pointerLeave(trigger, { pointerType: 'mouse' });
+    fireEvent.mouseLeave(trigger);
+    await flushMicrotasks();
+    flush();
+
     expect(warnings).toEqual([]);
   });
 });

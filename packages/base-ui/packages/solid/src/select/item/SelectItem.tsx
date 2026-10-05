@@ -7,7 +7,7 @@ import {
 } from '../../internals/composite/list/useCompositeListItem';
 import {
   createDepsRenderEffect,
-  splitComponentProps,
+  omitComponentProps,
   useRef,
   provideContext,
 } from '../../solid-helpers';
@@ -30,20 +30,20 @@ import { SelectItemContext } from './SelectItemContext';
  * Documentation: [Base UI Select](https://base-ui.com/react/components/select)
  */
 export function SelectItem(componentProps: SelectItem.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'value',
     'label',
     'disabled',
     'nativeButton',
-  ]);
-  const itemValue = () => local.value ?? null;
-  const disabledProp = () => Boolean(local.disabled);
-  const nativeButton = () => Boolean(local.nativeButton);
+  ] as const);
+  const itemValue = () => componentProps.value ?? null;
+  const disabledProp = () => Boolean(componentProps.disabled);
+  const nativeButton = () => Boolean(componentProps.nativeButton);
 
   const textRef = useRef<HTMLDivElement | null | undefined>(null);
   const listItem = useCompositeListItem({
     indexGuessBehavior: IndexGuessBehavior.GuessFromOrder,
-    label: () => local.label,
+    label: () => componentProps.label,
     textRef: () => textRef.current,
   });
 
@@ -172,7 +172,7 @@ export function SelectItem(componentProps: SelectItem.Props) {
   let allowMouseSelectionRef = false;
   let itemRef = null as HTMLDivElement | null | undefined;
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: true,
     native: nativeButton,
@@ -319,9 +319,14 @@ export function SelectItem(componentProps: SelectItem.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [rootProps, defaultProps, elementProps, getButtonProps];
-    },
+    // Built once (plan 7 step 3.4): the button's attributes below, its handlers above (wrapping).
+    props: [
+      ...buttonSources.attributes,
+      rootProps,
+      defaultProps,
+      elementProps,
+      buttonSources.handlers,
+    ],
     ref: (el) => {
       buttonRef(el);
       listItem.setRef(el);

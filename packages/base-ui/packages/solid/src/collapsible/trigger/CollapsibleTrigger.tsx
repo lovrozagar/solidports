@@ -33,7 +33,7 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
   const disabled = () => local.disabled ?? contextDisabled();
   const nativeButton = () => local.nativeButton ?? true;
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: true,
     native: nativeButton,
@@ -52,7 +52,7 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
   const element = useRenderElement('button', componentProps, {
     state,
     ref: buttonRef,
-    props: [props, elementProps, getButtonProps],
+    props: [...buttonSources.attributes, props, elementProps, buttonSources.handlers],
     stateAttributesMapping,
   });
 

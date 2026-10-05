@@ -22,29 +22,35 @@ type MergePropsResult<T extends unknown[]> = UnionToIntersection<
 export function mergeProps<T extends (object | null | undefined)[]>(
   ...sources: T
 ): MergePropsResult<T> {
+  // Keys are fixed at call time, as before. One proxy instead of an accessor per key: a part
+  // merges its state on every mount, and defining each accessor costs more than the reads.
   const keys = new Set<string>();
   for (const source of sources) {
     if (!source) continue;
     for (const key of Object.keys(source)) keys.add(key);
   }
-  const target: Record<string, unknown> = {};
-  for (const key of keys) {
-    Object.defineProperty(target, key, {
-      enumerable: true,
-      configurable: true,
-      get() {
-        for (let i = sources.length - 1; i >= 0; i--) {
-          const source = sources[i];
-          if (!source) continue;
-          const value = (source as Record<string, unknown>)[key];
-          if (value !== undefined) return value;
-        }
-      },
-      // Solid 1 mergeProps used a proxy `set` trap that no-ops. Without a
-      // setter, assignment throws "which has only a getter" in Solid 2.
-      set() {},
-    });
-  }
+  const read = (key: string) => {
+    for (let i = sources.length - 1; i >= 0; i--) {
+      const source = sources[i];
+      if (!source) continue;
+      const value = (source as Record<string, unknown>)[key];
+      if (value !== undefined) return value;
+    }
+    return undefined;
+  };
+  const target = new Proxy({} as Record<string, unknown>, {
+    get: (_, key) => (typeof key === 'string' && keys.has(key) ? read(key) : undefined),
+    has: (_, key) => typeof key === 'string' && keys.has(key),
+    ownKeys: () => [...keys],
+    getOwnPropertyDescriptor: (_, key) =>
+      typeof key === 'string' && keys.has(key)
+        ? { configurable: true, enumerable: true, get: () => read(key), set() {} }
+        : undefined,
+    // Solid 1 mergeProps used a proxy `set` trap that no-ops.
+    set: () => true,
+    defineProperty: () => true,
+    deleteProperty: () => true,
+  });
   return target as MergePropsResult<T>;
 }
 

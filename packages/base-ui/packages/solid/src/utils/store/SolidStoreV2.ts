@@ -163,17 +163,22 @@ export function SolidStore<
     key: Key,
     ...args: SelectorArgs<Selectors[Key]>
   ): Accessor<MaybeAccessorValue<ReturnType<Selectors[Key]>>> {
-    if (selectors && key in selectors) {
-      // Tracked reads go through a memo, so dependents re-run only when the selected value changes
-      // (React's selector equality). Untracked reads compute directly and see the latest write.
-      const selected = createMemo(() => selectors[key](state, ...args));
-      return () => (getObserver() === null ? selectors[key](state, ...args) : selected());
-    }
-
-    // A memo, not a direct read: a key can hold an accessor (`access` calls it), and the memo
-    // keeps a reader subscribed to one source rather than to everything the accessor reads.
-    // eslint-disable-next-line solid/reactivity
-    return createMemo(() => access(state[key as unknown as keyof State]) as any);
+    // Tracked reads go through a memo: dependents re-run only when the selected value changes
+    // (React's selector equality), and a key holding an accessor (`access` calls it) keeps its
+    // reader subscribed to one source rather than to everything the accessor reads. The memo is
+    // created on the first tracked read, under this call's owner, so a value read only by
+    // handlers (or by parts that are not mounted yet) costs no computation. Untracked reads
+    // compute directly and see the latest write.
+    const compute =
+      selectors && key in selectors
+        ? () => selectors[key](state, ...args)
+        : () => access(state[key as unknown as keyof State]) as any;
+    const owner = getOwner();
+    let selected: Accessor<any> | undefined;
+    return () =>
+      getObserver() === null
+        ? untrack(compute)
+        : (selected ??= runWithOwner(owner, () => createMemo(compute)) as Accessor<any>)();
   }
 
   function useContextCallback<Key extends ContextFunctionKeys<Context>>(
@@ -232,11 +237,42 @@ export function SolidStore<
 
     // As React's Store: called once with the current value, then synchronously after every
     // write that changes the selected value. Selection is untracked; this is not a computation.
-    let prevValue = untrack(() => selectFn(state));
+    // The keys a selection reads are recorded, so only their derived values (`useSyncedValue`)
+    // notify: a store observed for one key does not watch every bound key.
+    const watchKeys = storeActivators.get(state);
+    const selectValue = (current: State) => {
+      if (!watchKeys) {
+        return untrack(() => selectFn(current));
+      }
+      const keys = new Set<PropertyKey>();
+      let everyKey = false;
+      const recorder = new Proxy(current, {
+        get: (target, key) => {
+          keys.add(key);
+          return Reflect.get(target, key);
+        },
+        has: (target, key) => {
+          keys.add(key);
+          return Reflect.has(target, key);
+        },
+        ownKeys: (target) => {
+          everyKey = true;
+          return Reflect.ownKeys(target);
+        },
+        getOwnPropertyDescriptor: (target, key) => {
+          everyKey = true;
+          return Reflect.getOwnPropertyDescriptor(target, key);
+        },
+      });
+      const value = untrack(() => selectFn(recorder));
+      watchKeys(everyKey ? true : keys);
+      return value;
+    };
+    let prevValue = selectValue(state);
     listener(prevValue, prevValue, store);
 
     return subscribeToStore(state, (nextState) => {
-      const nextValue = untrack(() => selectFn(nextState));
+      const nextValue = selectValue(nextState);
       if (!Object.is(prevValue, nextValue)) {
         const oldValue = prevValue;
         prevValue = nextValue;
@@ -274,8 +310,8 @@ function createInitialStore<State extends object>(
 }
 
 const storeListeners = new WeakMap<object, Set<(state: any) => void>>();
-// Starts the derived-key notifiers of a store when its first listener subscribes.
-const storeActivators = new WeakMap<object, () => void>();
+// Starts the derived-key notifiers of a store for the given keys (`true`: every key).
+const storeActivators = new WeakMap<object, (keys: Iterable<PropertyKey> | true) => void>();
 
 /**
  * Subscribes to every write of a store created by `createStoreState`, as React's
@@ -285,9 +321,6 @@ function subscribeToStore<State extends object>(state: State, listener: (state: 
   const listeners = storeListeners.get(state);
   if (!listeners) {
     return NOOP;
-  }
-  if (listeners.size === 0) {
-    storeActivators.get(state)?.();
   }
   listeners.add(listener);
   return () => {
@@ -337,9 +370,12 @@ export function createStoreState<State extends object>(
   function slot(key: PropertyKey) {
     let current = slots.get(key);
     if (!current) {
-      const initial = Object.hasOwn(initialState, key)
-        ? (initialState as Record<PropertyKey, unknown>)[key]
-        : undefined;
+      // A key bound before its first read starts out holding its binding.
+      const initial =
+        bindings.get(key) ??
+        (Object.hasOwn(initialState, key)
+          ? (initialState as Record<PropertyKey, unknown>)[key]
+          : undefined);
       current = runWithOwner(null, () =>
         createSignal(
           { value: initial },
@@ -375,6 +411,8 @@ export function createStoreState<State extends object>(
 
   // Keys derived from a source accessor (`useSyncedValue`): a writable memo per key.
   const bindings = new Map<PropertyKey, Binding>();
+  // Bound keys whose derived changes notify listeners; `true` once a listener reads every key.
+  let watched: Set<PropertyKey> | true | undefined;
 
   const latest = (key: PropertyKey) => {
     if (written.has(key)) {
@@ -550,29 +588,46 @@ export function createStoreState<State extends object>(
     // Re-deriving from `source` drops an override written with `set` (React re-syncs on render).
     // The first derivation sees the key's value from before binding as `prev`.
     let unbound: { value: unknown } | null = { value: latest(key) };
-    const [value, setValue] = createSignal<unknown>(
-      (prev: unknown) => {
-        const next = source(unbound ? unbound.value : prev);
-        unbound = null;
-        written.delete(key);
-        return next;
-      },
-      { name: `store.${String(key)}` },
-    );
+    // The derived signal is created on first access, under the owner the key is bound under: a
+    // key nobody reads (most popup keys while the popup is closed) costs no computation.
+    const owner = getOwner();
+    let derived: Signal<unknown> | undefined;
+    const signal = () =>
+      (derived ??= runWithOwner(owner, () =>
+        createSignal<unknown>(
+          (prev: unknown) => {
+            const next = source(unbound ? unbound.value : prev);
+            unbound = null;
+            written.delete(key);
+            return next;
+          },
+          { name: `store.${String(key)}` },
+        ),
+      ) as Signal<unknown>);
     const binding: Binding = {
       [BINDING]: true,
-      value,
-      setValue: (next: unknown) => setValue(() => next),
+      value: () => signal()[0](),
+      setValue: (next: unknown) => signal()[1](() => next),
+      peek: () =>
+        derived ? untrack(derived[0]) : untrack(() => source(unbound ? unbound.value : undefined)),
     };
     bindings.set(key, binding);
     written.delete(key);
-    writeSlot(key, binding);
+    if (slots.has(key)) {
+      writeSlot(key, binding);
+    } else if (!committedKeys.has(key)) {
+      // No reader yet: the slot is created holding the binding on first read.
+      committedKeys.add(key);
+      if (!isServer) {
+        runWithOwner(null, () => untrack(() => setKeySet((version) => version + 1)));
+      }
+    }
 
     // Listeners (`observe`) see derived changes too, as they saw the synced writes. The notifier
-    // is an effect per bound key, so it is created only once the store has a listener (most
+    // is an effect per bound key, so it is created only once a listener reads the key (most
     // stores never have one).
     binding.owner = getOwner();
-    if (listeners.size > 0) {
+    if (watched === true || watched?.has(key)) {
       startNotifier(binding);
     }
 
@@ -581,7 +636,8 @@ export function createStoreState<State extends object>(
         return;
       }
       // Unbinding keeps the latest value (or clears it), as React's store keeps the synced value.
-      const last = clearOnCleanup ? undefined : latest(key);
+      // A binding never read is computed directly: nothing is created while its owner disposes.
+      const last = clearOnCleanup ? undefined : written.has(key) ? written.get(key) : binding.peek();
       bindings.delete(key);
       written.set(key, last);
       writeSlot(key, last);
@@ -609,7 +665,27 @@ export function createStoreState<State extends object>(
     });
   }
 
-  storeActivators.set(state, () => bindings.forEach(startNotifier));
+  storeActivators.set(state, (keys) => {
+    if (watched === true) {
+      return;
+    }
+    // A getter field reads other keys through the store itself: watch every key.
+    if (keys === true || [...keys].some((key) => computedKeys.has(key))) {
+      watched = true;
+      bindings.forEach(startNotifier);
+      return;
+    }
+    watched ??= new Set();
+    for (const key of keys) {
+      if (!watched.has(key)) {
+        watched.add(key);
+        const binding = bindings.get(key);
+        if (binding) {
+          startNotifier(binding);
+        }
+      }
+    }
+  });
   storeListeners.set(state, listeners);
   storeBinders.set(state, bind);
   return [state as Store<State>, setState as unknown as SetStoreFunction<State>];
@@ -624,6 +700,8 @@ interface Binding {
   [BINDING]: true;
   value: Accessor<unknown>;
   setValue: (value: unknown) => void;
+  /** The current value, untracked, without creating the derived signal. */
+  peek: () => unknown;
   /** The owner the key was bound under; its notifier is created there on demand. */
   owner?: ReturnType<typeof getOwner>;
   notifying?: boolean;

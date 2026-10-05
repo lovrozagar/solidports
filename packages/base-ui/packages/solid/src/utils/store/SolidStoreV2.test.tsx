@@ -146,5 +146,4 @@ describe('SolidStore lazy observe notifiers', () => {
     unsubscribe();
     dispose();
   });
-
 });

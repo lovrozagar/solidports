@@ -118,7 +118,7 @@ export function TabsTab(componentProps: TabsTab.Props) {
     },
   );
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
     focusableWhenDisabled: true,
@@ -211,6 +211,7 @@ export function TabsTab(componentProps: TabsTab.Props) {
     state,
     ref: [buttonRef, setCompositeRef, observeTabElement],
     props: [
+      ...buttonSources.attributes,
       compositeProps,
       {
         role: 'tab',
@@ -237,7 +238,7 @@ export function TabsTab(componentProps: TabsTab.Props) {
         }),
       },
       elementProps,
-      getButtonProps,
+      buttonSources.handlers,
     ],
     stateAttributesMapping: tabsStateAttributesMapping,
   });

@@ -123,7 +123,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     validation.change(value);
   });
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -271,9 +271,10 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     ref: [switchRef, buttonRef],
     get props() {
       return [
+        ...buttonSources.attributes,
         rootProps,
         elementProps,
-        getButtonProps,
+        buttonSources.handlers,
         // Outside a Field the validation props only return their input.
         ...(fieldRootContext === DEFAULT_FIELD_ROOT_CONTEXT
           ? []

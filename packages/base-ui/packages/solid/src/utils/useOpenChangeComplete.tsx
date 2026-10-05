@@ -21,10 +21,16 @@ export function useOpenChangeComplete(parameters: useOpenChangeComplete.Paramete
         return;
       }
 
-      const abortController = new AbortController();
-
       // `onComplete` is a callback: it reads the latest state, it does not subscribe.
-      runOnceAnimationsFinish(() => untrack(parameters.onComplete), abortController.signal);
+      const onComplete = () => untrack(parameters.onComplete);
+      // Without an element there is nothing to wait for or abort (a part that is not rendered).
+      if (access(parameters.ref) == null) {
+        runOnceAnimationsFinish(onComplete);
+        return undefined;
+      }
+
+      const abortController = new AbortController();
+      runOnceAnimationsFinish(onComplete, abortController.signal);
 
       return () => abortController.abort();
     }),

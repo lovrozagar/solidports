@@ -1,6 +1,6 @@
 import { createMemo } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access, shallowEqual, type MaybeAccessor } from '../solid-helpers';
 
 export function useFocusableWhenDisabled(
   parameters: UseFocusableWhenDisabledParameters,
@@ -16,47 +16,55 @@ export function useFocusableWhenDisabled(
 
   // we can't explicitly assign `undefined` to any of these props because it
   // would otherwise prevent subsequently merged props from setting them
-  const props = createMemo(() => {
-    const additionalProps = {
-      // allow Tabbing away from focusableWhenDisabled elements
-      onKeyDown(event: KeyboardEvent) {
-        if (disabled() && focusableWhenDisabled() && event.key !== 'Tab') {
-          event.preventDefault();
+  // allow Tabbing away from focusableWhenDisabled elements
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (disabled() && focusableWhenDisabled() && event.key !== 'Tab') {
+      event.preventDefault();
+    }
+  };
+
+  const props = createMemo(
+    () => {
+      // `separateKeyDown`: the caller runs `onKeyDown` itself, so the props carry attributes only.
+      const additionalProps = (
+        parameters.separateKeyDown ? {} : { onKeyDown }
+      ) as FocusableWhenDisabledProps;
+
+      if (!composite()) {
+        const tabIndex = tabIndexProp();
+        additionalProps.tabindex = tabIndex;
+
+        if (!isNativeButton() && disabled()) {
+          additionalProps.tabindex = focusableWhenDisabled() ? (tabIndex ?? -1) : -1;
         }
-      },
-    } as FocusableWhenDisabledProps;
-
-    if (!composite()) {
-      const tabIndex = tabIndexProp();
-      additionalProps.tabindex = tabIndex;
-
-      if (!isNativeButton() && disabled()) {
-        additionalProps.tabindex = focusableWhenDisabled() ? (tabIndex ?? -1) : -1;
       }
-    }
 
-    if (
-      (isNativeButton() && (focusableWhenDisabled() || isFocusableComposite())) ||
-      (!isNativeButton() && disabled())
-    ) {
-      // React renders the boolean as a string; Solid 2 needs the string itself.
-      additionalProps['aria-disabled'] = disabled() ? 'true' : 'false';
-    }
+      if (
+        (isNativeButton() && (focusableWhenDisabled() || isFocusableComposite())) ||
+        (!isNativeButton() && disabled())
+      ) {
+        // React renders the boolean as a string; Solid 2 needs the string itself.
+        additionalProps['aria-disabled'] = disabled() ? 'true' : 'false';
+      }
 
-    if (isNativeButton() && (!focusableWhenDisabled() || isNonFocusableComposite())) {
-      additionalProps.disabled = disabled();
-    }
+      if (isNativeButton() && (!focusableWhenDisabled() || isNonFocusableComposite())) {
+        additionalProps.disabled = disabled();
+      }
 
-    return additionalProps;
-  });
+      return additionalProps;
+      // Equal attributes (and the stable `onKeyDown`) keep the previous object: readers re-run only
+      // when an attribute changes.
+    },
+    { equals: shallowEqual },
+  );
 
-  return { props };
+  return { props, onKeyDown };
 }
 
 interface FocusableWhenDisabledProps {
   'aria-disabled'?: 'true' | 'false' | undefined;
   disabled?: boolean | undefined;
-  onKeyDown: (event: KeyboardEvent) => void;
+  onKeyDown?: (event: KeyboardEvent) => void;
   tabindex: string | number;
 }
 
@@ -83,10 +91,17 @@ export interface UseFocusableWhenDisabledParameters {
    * @default true
    */
   isNativeButton: MaybeAccessor<boolean>;
+  /**
+   * Solid: the props omit `onKeyDown`; the caller runs the returned `onKeyDown` itself.
+   * @default false
+   */
+  separateKeyDown?: boolean | undefined;
 }
 
 export interface UseFocusableWhenDisabledReturnValue {
   props: Accessor<FocusableWhenDisabledProps>;
+  /** Prevents keys other than Tab while disabled and focusable (`props.onKeyDown`). */
+  onKeyDown: (event: KeyboardEvent) => void;
 }
 
 export interface UseFocusableWhenDisabledState {}

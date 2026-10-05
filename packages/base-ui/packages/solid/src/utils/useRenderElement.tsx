@@ -1,19 +1,21 @@
 /* eslint-disable typescript/no-explicit-any -- generic render-element handles arbitrary State and tag types; tightening to unknown forces consumers to assert at every state-attribute mapping */
 import {
+  $PROXY,
   Show,
   createMemo,
+  createRenderEffect,
   createRoot,
   getObserver,
+  getOwner,
   isHydrating,
   isStatic,
-  mapArray,
   onCleanup,
   runWithOwner,
   untrack,
   type Accessor,
 } from 'solid-js';
 import type { JSX, ValidComponent } from '@solidjs/web';
-import { assign, Dynamic, dynamic, isServer, spread } from '@solidjs/web';
+import { assign, Dynamic, dynamic, isServer } from '@solidjs/web';
 import type { DynamicProps } from '@solidjs/web';
 import { MERGED_REFS } from '../merge-props/mergeProps';
 import { access, shallowEqual, type MaybeAccessor, createLayoutEffect } from '../solid-helpers';
@@ -23,6 +25,8 @@ import {
   createPropsView,
   createStateAttributesSource,
   isPropsSourceAccessor,
+  isStaticPropsViewKey,
+  propsViewKeys,
   propsSourceAccessor,
 } from './propsView';
 import { resolveClassName } from './resolveClassName';
@@ -44,10 +48,13 @@ import type {
  * @param params Additional parameters for rendering the element.
  */
 const BUTTON_DEFAULTS = { type: 'button' } as const;
+/** The views drop a `render={{ component }}` config's `component` (one shared `omit` array). */
+const OMIT_COMPONENT = ['component'] as const;
 /** A previous value no prop equals, so `assign` removes or rewrites a server attribute. */
 const SERVER_ATTRIBUTE = {};
 const ATTRIBUTE_ALIASES: Record<string, string> = { className: 'class', htmlFor: 'for' };
 const IMG_DEFAULTS = { alt: '' } as const;
+const isHandlerKey = (key: string) => key.length > 2 && key[0] === 'o' && key[1] === 'n';
 
 export function useRenderElement<
   TagName extends keyof JSX.IntrinsicElements | undefined,
@@ -72,7 +79,18 @@ export function useRenderElement<
     // the chain (user ref, part refs, trigger registration) runs untracked.
     // Read the `render` prop once per change: a JSX-valued prop is a getter that re-creates its
     // element on every read, and the branch below must not re-run for unrelated prop changes.
-    const renderProp = createMemo(() => componentProps.render);
+    // No `render` prop, or one that can never change: read it once, no memo (plan 7 step 3.7).
+    // Server and hydration renders always take the memo paths below: the server and the client
+    // compile can disagree on which props are static, and both renders must create the same owners
+    // (hydration keys).
+    const serverOrHydrating = isServer || isHydrating();
+    const staticRenderProp =
+      !serverOrHydrating &&
+      untrack(() => !('render' in componentProps) || isStatic(componentProps, 'render'));
+    const renderValue = staticRenderProp ? untrack(() => componentProps.render) : undefined;
+    const renderProp = staticRenderProp
+      ? () => renderValue
+      : createMemo(() => componentProps.render);
     // React semantics for the element's refs: each distinct ref callback is called once with the
     // element, and a replacement callback (a part rebuilt its props) is called with it too. A
     // replaced callback is not called with `null`: Solid refs never receive `null`. The consumer's ref usually also reaches the element props
@@ -110,7 +128,9 @@ export function useRenderElement<
       if (render != null && typeof render === 'object') {
         collectRefs((render as { ref?: unknown }).ref, callbacks, objects);
       }
-      const partProps = Array.isArray(params.props) ? params.props.flat() : [params.props];
+      // A fixed props list is read from its one build, not from the `props` parameter again.
+      const partProps =
+        staticPartSources ?? (Array.isArray(params.props) ? params.props.flat() : [params.props]);
       partProps.forEach((partProp) => {
         // An accessor source (`propsSourceAccessor`) contributes the refs of the props it resolves to.
         const props = isPropsSourceAccessor(partProp) ? partProp() : partProp;
@@ -186,29 +206,54 @@ export function useRenderElement<
     // `component` (from a `render={{ component }}` config) is dropped, not set to `undefined`:
     // a render function spreading these props onto `<Dynamic component={X}>` would otherwise
     // have its own `component` overwritten.
+    // A plain `state` object (not a getter, not a store) and a plain mapping keep their key sets.
+    const fixedStateLayout = untrack(() => {
+      if (serverOrHydrating) {
+        return false;
+      }
+      const stateDescriptor = Object.getOwnPropertyDescriptor(params, 'state');
+      const mappingDescriptor = Object.getOwnPropertyDescriptor(params, 'stateAttributesMapping');
+      const value = stateDescriptor?.value as Record<PropertyKey, unknown> | undefined;
+      return (
+        !stateDescriptor?.get &&
+        !mappingDescriptor?.get &&
+        (value == null || (typeof value === 'object' && !value[$PROXY]))
+      );
+    });
     const stateAttributesSource = createStateAttributesSource(
       state,
       () => params.stateAttributesMapping as Record<string, (value: any) => any> | undefined,
+      fixedStateLayout,
     );
     // Part props. As React's `mergeProps`, a function entry receives the part props before it and
     // its result replaces them (the function merges them into what it returns).
-    const partSources = createMemo(
-      () => {
-        const entries = Array.isArray(params.props) ? params.props.flat() : [params.props];
-        let result: unknown[] = [];
-        for (const entry of entries) {
-          if (typeof entry === 'function' && !isPropsSourceAccessor(entry)) {
-            const previous = createPropsView(result);
-            const callback = entry as (props: Record<string, any>) => object | null | undefined;
-            result = [propsSourceAccessor(createMemo(() => callback(previous)))];
-          } else {
-            result.push(entry);
-          }
+    const computePartSources = () => {
+      const entries = Array.isArray(params.props) ? params.props.flat() : [params.props];
+      let result: unknown[] = [];
+      for (const entry of entries) {
+        if (typeof entry === 'function' && !isPropsSourceAccessor(entry)) {
+          const previous = createPropsView(result);
+          const callback = entry as (props: Record<string, any>) => object | null | undefined;
+          result = [propsSourceAccessor(() => callback(previous))];
+        } else {
+          result.push(entry);
         }
-        return result;
-      },
-      { equals: shallowEqual },
-    );
+      }
+      return result;
+    };
+    // A plain props list without function entries never changes: build it once, no memo.
+    const staticPartSources = untrack(() => {
+      if (serverOrHydrating || Object.getOwnPropertyDescriptor(params, 'props')?.get) {
+        return undefined;
+      }
+      const entries = Array.isArray(params.props) ? params.props.flat() : [params.props];
+      return entries.some((entry) => typeof entry === 'function' && !isPropsSourceAccessor(entry))
+        ? undefined
+        : (entries as unknown[]);
+    });
+    const partSources = staticPartSources
+      ? () => staticPartSources
+      : createMemo(computePartSources, { equals: shallowEqual });
     // `class` and `style` exist only when the part's props have them, so an element without them
     // gets no attribute work for either.
     const resolveClassStyle = (key: string | symbol) =>
@@ -230,35 +275,87 @@ export function useRenderElement<
     });
     // The render object and React's `renderTag` defaults (`type="button"` / `alt=""` at the lowest
     // priority) are read here, so a prop read subscribes to one memo for them.
-    const sources = createMemo(
-      () => {
-        const intrinsicTag = access(element);
-        const render = renderProp();
-        return [
-          intrinsicTag === 'button'
-            ? BUTTON_DEFAULTS
-            : intrinsicTag === 'img'
-              ? IMG_DEFAULTS
-              : undefined,
-          renderProps,
-          render != null && typeof render === 'object' && !(render instanceof Node)
-            ? render
+    const computeSources = () => {
+      const intrinsicTag = access(element);
+      const render = renderProp();
+      return [
+        intrinsicTag === 'button'
+          ? BUTTON_DEFAULTS
+          : intrinsicTag === 'img'
+            ? IMG_DEFAULTS
             : undefined,
-          stateAttributesSource,
-          ...partSources(),
-          classStyleSource,
-        ];
-      },
-      { equals: shallowEqual },
-    );
-    const elementProps = createPropsView(sources, { omit: ['component'] });
+        renderProps,
+        render != null && typeof render === 'object' && !(render instanceof Node)
+          ? render
+          : undefined,
+        stateAttributesSource,
+        ...partSources(),
+        classStyleSource,
+      ];
+    };
+    // Static tag, `render` and part props: the source list never changes, so no memo.
+    const sources =
+      typeof element !== 'function' && staticRenderProp && staticPartSources
+        ? (() => {
+            const list = untrack(computeSources);
+            return () => list;
+          })()
+        : createMemo(computeSources, { equals: shallowEqual });
+    const elementProps = createPropsView(sources, { omit: OMIT_COMPONENT });
+
+    const tag = () => {
+      const render = renderProp();
+      if (typeof render === 'string') {
+        return render;
+      }
+      if (render && typeof render === 'object' && 'component' in render) {
+        return (render as { component: ValidComponent }).component;
+      }
+      return access(element);
+    };
+
+    // A part whose tag and `render` prop never change (no `render`, a string, or a config object)
+    // renders its element directly: no branch memo, so a list of parts gives its parent nothing
+    // to track per row. Render functions keep the branch: their top-level reads re-run them.
+    const staticRender = untrack(() => {
+      // The server and hydration render through `<Dynamic>`, so both create the same owners.
+      if (
+        isServer ||
+        isHydrating() ||
+        typeof element === 'function' ||
+        ('render' in componentProps && !isStatic(componentProps, 'render'))
+      ) {
+        return false;
+      }
+      const render = componentProps.render;
+      return typeof render !== 'function' && !(render instanceof Node);
+    });
+    const staticComponent = staticRender ? untrack(tag) : undefined;
 
     // A part that rebuilds its props (e.g. a new inline ref) re-syncs the attached element's refs.
-    createLayoutEffect(readRefs, (refs) => {
-      if (attachedElement != null) {
-        syncRefs(refs);
-      }
-    });
+    // When no ref source can change (fixed render prop and part props, a literal or absent `ref`
+    // prop, no `ref` getter on the params), the refs are applied once on attach and need no effect.
+    // A static intrinsic element whose only changing ref sources are accessor sources re-syncs from
+    // its attribute effect, which already follows them.
+    // Server and hydration renders keep the effect, so both create the same owners (hydration keys).
+    const refsCanChange = untrack(
+      () =>
+        serverOrHydrating ||
+        !staticRenderProp ||
+        !staticPartSources ||
+        ('ref' in componentProps && !isStatic(componentProps, 'ref')) ||
+        Boolean(Object.getOwnPropertyDescriptor(params, 'ref')?.get),
+    );
+    const accessorRefs =
+      !refsCanChange && staticPartSources!.some((entry) => isPropsSourceAccessor(entry));
+    const refsFollowAttributes = accessorRefs && typeof staticComponent === 'string';
+    if (refsCanChange || (accessorRefs && !refsFollowAttributes)) {
+      createLayoutEffect(readRefs, (refs) => {
+        if (attachedElement != null) {
+          syncRefs(refs);
+        }
+      });
+    }
 
     const resolveChildren = () => {
       // A part that supplies `children` owns them, even when they resolve to nothing.
@@ -280,34 +377,45 @@ export function useRenderElement<
       return componentProps.children ?? (elementProps.children as JSX.Element);
     };
 
-    const tag = () => {
-      const render = renderProp();
-      if (typeof render === 'string') {
-        return render;
-      }
-      if (render && typeof render === 'object' && 'component' in render) {
-        return (render as { component: ValidComponent }).component;
-      }
-      return access(element);
-    };
-
     // The element gets a single ref, `applyRef`, which applies every element ref once per element.
     const elementRef = { ref: applyRef };
     // Render functions and component tags receive these: the element props with `applyRef`, plus
     // the part's children for render functions (as `<Dynamic>` passed them before the Solid 2
     // port). A render function runs in a tracking scope and re-runs only for state its own body
     // reads (e.g. `state.pressed`); a prop it reads in its JSX updates only that prop.
-    const componentTagProps = createPropsView(() => [...sources(), elementRef], {
-      omit: ['component'],
-    });
-    const renderFnPropsView = createPropsView(
-      () => [
-        ...sources(),
-        elementRef,
-        // `children` is answered by `renderFnProps` below; this only declares the key.
-        { children: undefined },
-      ],
-      { omit: ['component'] },
+    // Component tags and render functions read these; an intrinsic element never does, so they
+    // are created on first use, owned by the part (not by the computation that first asks).
+    const partOwner = getOwner();
+    // Server and hydration renders create them up front, in place: creating them later through
+    // the part's owner shifts hydration keys.
+    const lazyOwned = <T,>(create: () => T) => {
+      if (serverOrHydrating) {
+        const value = create();
+        return () => value;
+      }
+      let value: T | undefined;
+      let created = false;
+      return () => {
+        if (!created) {
+          created = true;
+          value = runWithOwner(partOwner, create) as T;
+        }
+        return value as T;
+      };
+    };
+    const componentTagProps = lazyOwned(() =>
+      createPropsView(() => [...sources(), elementRef], { omit: OMIT_COMPONENT }),
+    );
+    const renderFnPropsView = lazyOwned(() =>
+      createPropsView(
+        () => [
+          ...sources(),
+          elementRef,
+          // `children` is answered by `renderFnProps` below; this only declares the key.
+          { children: undefined },
+        ],
+        { omit: OMIT_COMPONENT },
+      ),
     );
     // Render functions treat these as plain props: handlers and ref callbacks read them
     // imperatively, so reads outside a tracking scope are untracked (no stale-read diagnostics).
@@ -315,37 +423,42 @@ export function useRenderElement<
     const read = <R,>(fn: () => R) => (getObserver() === null ? untrack(fn) : fn());
     // A stable view of the current state for render functions: the function itself tracks only
     // the state keys it reads, not the identity of the part's state object.
-    const renderFnState = new Proxy({} as State, {
-      get: (_, key) => read(() => Reflect.get(state(), key)),
-      has: (_, key) => read(() => Reflect.has(state(), key)),
-      ownKeys: () => read(() => Reflect.ownKeys(state())),
-      getOwnPropertyDescriptor: (_, key) =>
-        read(() => {
-          const descriptor = Reflect.getOwnPropertyDescriptor(state(), key);
-          return descriptor && { ...descriptor, configurable: true };
-        }),
-    });
-    // `children` bypasses the view: it depends only on what resolves it, so an element spreading
-    // these props creates the children once (inside its own context providers), as in Solid.
-    const childrenDescriptor = {
-      configurable: true,
-      enumerable: true,
-      get: () => read(resolveChildren),
-    };
-    const renderFnProps = new Proxy({} as Record<string, any>, {
-      get: (_, key) =>
-        key === 'children'
-          ? read(resolveChildren)
-          : read(() => Reflect.get(renderFnPropsView, key)),
-      has: (_, key) => key === 'children' || read(() => Reflect.has(renderFnPropsView, key)),
-      ownKeys: () => read(() => Reflect.ownKeys(renderFnPropsView)),
-      getOwnPropertyDescriptor: (_, key) =>
-        key === 'children'
-          ? childrenDescriptor
-          : read(() => {
-              const descriptor = Reflect.getOwnPropertyDescriptor(renderFnPropsView, key);
+    const renderFnState = lazyOwned(
+      () =>
+        new Proxy({} as State, {
+          get: (_, key) => read(() => Reflect.get(state(), key)),
+          has: (_, key) => read(() => Reflect.has(state(), key)),
+          ownKeys: () => read(() => Reflect.ownKeys(state())),
+          getOwnPropertyDescriptor: (_, key) =>
+            read(() => {
+              const descriptor = Reflect.getOwnPropertyDescriptor(state(), key);
               return descriptor && { ...descriptor, configurable: true };
             }),
+        }),
+    );
+    // `children` bypasses the view: it depends only on what resolves it, so an element spreading
+    // these props creates the children once (inside its own context providers), as in Solid.
+    const renderFnProps = lazyOwned(() => {
+      const childrenDescriptor = {
+        configurable: true,
+        enumerable: true,
+        get: () => read(resolveChildren),
+      };
+      return new Proxy({} as Record<string, any>, {
+        get: (_, key) =>
+          key === 'children'
+            ? read(resolveChildren)
+            : read(() => Reflect.get(renderFnPropsView(), key)),
+        has: (_, key) => key === 'children' || read(() => Reflect.has(renderFnPropsView(), key)),
+        ownKeys: () => read(() => Reflect.ownKeys(renderFnPropsView())),
+        getOwnPropertyDescriptor: (_, key) =>
+          key === 'children'
+            ? childrenDescriptor
+            : read(() => {
+                const descriptor = Reflect.getOwnPropertyDescriptor(renderFnPropsView(), key);
+                return descriptor && { ...descriptor, configurable: true };
+              }),
+      });
     });
 
     // An intrinsic element on the client gets one small effect per attribute (Solid's own `spread`
@@ -368,37 +481,91 @@ export function useRenderElement<
             attached = false;
             dispose();
           };
-          const attributeKeys = createMemo(
-            () =>
-              (Reflect.ownKeys(elementProps) as string[]).filter(
-                (key) => key !== 'ref' && key !== 'children',
-              ),
-            { equals: shallowEqual },
-          );
-          const applied = mapArray(attributeKeys, (key) => {
-            let appliedProps: Record<string, unknown>;
-            if (key.length > 2 && key[0] === 'o' && key[1] === 'n') {
-              const dispatch = (...args: unknown[]) =>
+          const attributeKeys = () =>
+            propsViewKeys(elementProps).filter((key) => key !== 'ref' && key !== 'children');
+          // One structure effect follows the key set (the view memoizes it) and the props sources.
+          // Per key:
+          // - an event handler gets one stable dispatcher that reads the current chain when the
+          //   event fires (handlers never subscribe), assigned with no computation;
+          // - a value whose answering source holds it as a literal (Solid's `isStatic`, through
+          //   the props views) is assigned once, with no computation;
+          // - any other value gets one render effect of its own, so a change re-reads and writes
+          //   only that key. A key that goes away reads `undefined` and its attribute is removed.
+          const attributeOwner = getOwner();
+          const reactiveKeys = new Set<string>();
+          const staticApplied: Record<string, unknown> = {};
+          let accessorProps: unknown[] = [];
+          let refsStale = false;
+          const dispatchers = new Map<string, (...args: unknown[]) => unknown>();
+          const dispatcherFor = (key: string) => {
+            let dispatch = dispatchers.get(key);
+            if (!dispatch) {
+              dispatch = (...args: unknown[]) =>
                 (untrack(() => elementProps[key]) as ((...a: unknown[]) => unknown) | undefined)?.(
                   ...args,
                 );
-              appliedProps = { [key]: dispatch };
-              assign(el, appliedProps, true, {}, true);
-            } else {
-              // `spread` returns the props it applied; a key that goes away is removed with them.
-              appliedProps = spread(
-                el,
-                () => ({ [key]: elementProps[key] }),
-                true,
-              ) as unknown as Record<string, unknown>;
+              dispatchers.set(key, dispatch);
             }
-            onCleanup(() => {
-              if (attached) {
-                assign(el, {}, true, appliedProps, true);
+            return dispatch;
+          };
+          createRenderEffect(
+            () => {
+              // An accessor source that resolves to new props re-evaluates which keys are static
+              // (and, when the element's refs follow this effect, which refs it has).
+              const next: unknown[] = [];
+              for (const source of sources()) {
+                if (isPropsSourceAccessor(source)) {
+                  next.push(source());
+                }
               }
-            });
-          });
-          createMemo(applied);
+              if (
+                refsFollowAttributes &&
+                (next.length !== accessorProps.length ||
+                  next.some((props, index) => props !== accessorProps[index]))
+              ) {
+                refsStale = true;
+              }
+              accessorProps = next;
+              return attributeKeys();
+            },
+            (keys) => {
+              if (!attached) {
+                return;
+              }
+              if (refsStale) {
+                refsStale = false;
+                if (attachedElement === el) {
+                  syncRefs(untrack(readRefs));
+                }
+              }
+              const staticProps: Record<string, unknown> = {};
+              for (const key of keys) {
+                if (reactiveKeys.has(key)) {
+                  continue;
+                }
+                if (isHandlerKey(key)) {
+                  staticProps[key] = dispatcherFor(key);
+                } else if (isStaticPropsViewKey(elementProps, key)) {
+                  staticProps[key] = untrack(() => elementProps[key]);
+                } else {
+                  reactiveKeys.add(key);
+                  delete staticApplied[key];
+                  const applied: Record<string, unknown> = {};
+                  runWithOwner(attributeOwner, () =>
+                    createRenderEffect(
+                      () => elementProps[key],
+                      (value) => {
+                        if (attached) {
+                          assign(el, { [key]: value }, true, applied, true);
+                        }
+                      },
+                    ),
+                  );
+                }
+              }
+              assign(el, staticProps, true, staticApplied, true);
+            },
+          );
           // Solid skips attribute writes for the whole synchronous `hydrate()` call (it trusts
           // the server markup), so a value that changes inside that call is lost: an id another
           // part registers in an effect, like a tab's `aria-controls`. A microtask runs once
@@ -449,31 +616,36 @@ export function useRenderElement<
       applyRef(el);
     };
 
-    // A part whose tag and `render` prop never change (no `render`, a string, or a config object)
-    // renders its element directly: no branch memo, so a list of parts gives its parent nothing
-    // to track per row. Render functions keep the branch: their top-level reads re-run them.
-    const staticRender = untrack(() => {
-      // The server and hydration render through `<Dynamic>`, so both create the same owners.
-      if (
-        isServer ||
-        isHydrating() ||
-        typeof element === 'function' ||
-        ('render' in componentProps && !isStatic(componentProps, 'render'))
-      ) {
-        return false;
-      }
-      const render = componentProps.render;
-      return typeof render !== 'function' && !(render instanceof Node);
-    });
     if (staticRender) {
-      const component = untrack(tag);
+      const component = staticComponent;
       const Tag = dynamic(() => component, { static: true }) as (props: any) => JSX.Element;
+      if (typeof component === 'string') {
+        // Literal text children (a string or number the consumer wrote, not JSX) are inserted
+        // as they are: no memo, no insert effect.
+        const literalChildren = untrack(() => {
+          if ('children' in params || !isStatic(componentProps, 'children')) {
+            return undefined;
+          }
+          const render = componentProps.render;
+          if (render != null && typeof render === 'object' && 'children' in render) {
+            return undefined;
+          }
+          const children = componentProps.children;
+          return typeof children === 'string' || typeof children === 'number'
+            ? { children }
+            : undefined;
+        });
+        if (literalChildren) {
+          const children = literalChildren.children;
+          return <Tag ref={hostRef}>{children}</Tag>;
+        }
+        const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
+        return <Tag ref={hostRef}>{resolvedChildren()}</Tag>;
+      }
       const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
-      return typeof component === 'string' ? (
-        <Tag ref={hostRef}>{resolvedChildren()}</Tag>
-      ) : (
-        <Tag {...componentTagProps}>{resolvedChildren()}</Tag>
-      );
+      // A plain value, not a call in the spread: the compiler wraps a call in a reactive spread.
+      const tagProps = componentTagProps();
+      return <Tag {...tagProps}>{resolvedChildren()}</Tag>;
     }
 
     // The branch follows the `render` prop, as React re-evaluates it every render. A render
@@ -484,15 +656,18 @@ export function useRenderElement<
         {(() => {
           const render = renderProp();
           if (typeof render === 'function') {
-            return render(renderFnProps, renderFnState);
+            const fnProps = renderFnProps();
+            const fnState = renderFnState();
+            return render(fnProps, fnState);
           }
           // Reading JSX children creates them: resolve them once per branch, as Solid's `children`
           // helper, here inside the part's context providers.
           const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
           const component = tag();
           if (isServer || typeof component !== 'string') {
+            const tagProps = componentTagProps();
             return (
-              <Dynamic {...componentTagProps} component={component}>
+              <Dynamic {...tagProps} component={component}>
                 {resolvedChildren()}
               </Dynamic>
             );

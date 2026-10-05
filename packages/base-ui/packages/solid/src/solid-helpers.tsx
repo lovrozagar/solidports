@@ -6,6 +6,7 @@ import {
   createRoot,
   getObserver,
   isHydrating,
+  omit,
   Show,
   untrack,
 } from 'solid-js';
@@ -135,6 +136,21 @@ export function access<V extends MaybeAccessor<unknown>>(
 export type Args<T extends ((...args: any[]) => any) | undefined | null> = Parameters<
   Exclude<T, undefined | null>
 >;
+
+/**
+ * The element props of a part (plan 7 step 3.6): `props` without `class`, `render` and the part's
+ * own `keys`, as one Solid `omit` view. Replaces `splitComponentProps`: the part reads its own
+ * props directly (`componentProps.disabled`), so no getter is defined per picked key.
+ */
+export function omitComponentProps<T extends Record<any, any>, K extends readonly (keyof T)[]>(
+  props: T,
+  keys: K,
+): Omit<T, K[number] | 'class' | 'render'> {
+  return omit(props, 'class', 'render', ...keys) as unknown as Omit<
+    T,
+    K[number] | 'class' | 'render'
+  >;
+}
 
 export function splitComponentProps<
   T extends Record<any, any>,

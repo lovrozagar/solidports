@@ -1,4 +1,4 @@
-import { splitComponentProps } from '../solid-helpers';
+import { omitComponentProps } from '../solid-helpers';
 import { useButton } from '../internals/use-button/useButton';
 import type { BaseUIComponentProps, NativeButtonProps } from '../utils/types';
 import { useRenderElement } from '../utils/useRenderElement';
@@ -10,16 +10,16 @@ import { useRenderElement } from '../utils/useRenderElement';
  * Documentation: [Base UI Button](https://base-ui.com/react/components/button)
  */
 export function Button(componentProps: Button.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'disabled',
     'focusableWhenDisabled',
     'nativeButton',
-  ]);
-  const disabled = () => Boolean(local.disabled);
-  const focusableWhenDisabled = () => local.focusableWhenDisabled ?? false;
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  ] as const);
+  const disabled = () => Boolean(componentProps.disabled);
+  const focusableWhenDisabled = () => componentProps.focusableWhenDisabled ?? false;
+  const nativeButton = () => Boolean(componentProps.nativeButton ?? true);
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled,
     native: nativeButton,
@@ -32,12 +32,12 @@ export function Button(componentProps: Button.Props) {
   };
 
   const element = useRenderElement('button', componentProps, {
-    props: [elementProps, getButtonProps],
+    props: [...buttonSources.attributes, elementProps, buttonSources.handlers],
     ref: buttonRef,
     state,
   });
 
-  return <>{element()}</>;
+  return element();
 }
 
 export interface ButtonState {

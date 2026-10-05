@@ -75,7 +75,7 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
     state: 'pressed',
   });
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -90,6 +90,7 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
   };
 
   const props = [
+    ...buttonSources.attributes,
     {
       get 'aria-pressed'() {
         return pressed() ? 'true' : 'false';
@@ -119,7 +120,7 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
       },
     },
     elementProps,
-    getButtonProps,
+    buttonSources.handlers,
   ];
 
   const element = useRenderElement('button', componentProps, {

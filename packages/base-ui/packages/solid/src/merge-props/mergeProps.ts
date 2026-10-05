@@ -213,7 +213,13 @@ export function mergeProps<
    * We need to match React's behavior where explicit undefined should overwrite.
    */
 
-  let merge = {} as Record<string, unknown>;
+  // The sources merged so far, combined once (`solidMergeProps` over all of them) when needed: a
+  // merge per source would enumerate the previous merge again for every source.
+  let mergeSources: object[] = [];
+  const combine = () =>
+    mergeSources.length === 1
+      ? (mergeSources[0] as Record<string, unknown>)
+      : (solidMergeProps(...mergeSources) as Record<string, unknown>);
   for (let props of sources) {
     let propsOverride = false;
     if (typeof props === 'function') {
@@ -242,7 +248,7 @@ export function mergeProps<
         },
       };
 
-      const mergedForGetter = new Proxy(merge, {
+      const mergedForGetter = new Proxy(combine(), {
         get(target, key, receiver) {
           if (typeof key !== 'string') return Reflect.get(target, key, receiver);
           if (key in localMerged) return localMerged[key as keyof typeof localMerged];
@@ -324,9 +330,13 @@ export function mergeProps<
       }
     }
 
-    // eslint-disable-next-line solid/reactivity
-    merge = propsOverride ? (props ?? {}) : solidMergeProps(merge, props);
+    if (propsOverride) {
+      mergeSources = [props ?? {}];
+    } else if (props) {
+      mergeSources.push(props);
+    }
   }
+  const merge = combine();
 
   const mergedListeners = callAll
     ? buildCallAllListeners(cachedListenerArrays)
