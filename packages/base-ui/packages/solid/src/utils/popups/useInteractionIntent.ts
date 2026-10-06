@@ -1,8 +1,6 @@
 import { createOwner, createSignal, flush, getOwner, runWithOwner, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { createLayoutEffect } from '../../solid-helpers';
-import { addEventListener } from '../addEventListener';
-import { mergeCleanups } from '../mergeCleanups';
 import type { PopupStoreContext } from './store';
 
 // Every event a popup's interactions handle on a trigger.
@@ -21,10 +19,50 @@ const INTENT_EVENTS = [
 ] as const;
 const INTENT_OPTIONS = { capture: true, passive: true };
 
+// One capture listener per event type and document, shared by every trigger waiting for its first
+// intent: a trigger registers a callback instead of adding 11 listeners of its own. The document's
+// capture phase runs before the trigger's own listeners, so the interactions an intent creates
+// still receive the event that created them.
+const intentCallbacks = new WeakMap<EventTarget, Set<() => void>>();
+const listeningDocuments = new WeakSet<Document>();
+let pendingTargets = 0;
+
+function onDocumentIntent(event: Event) {
+  if (pendingTargets === 0) {
+    return;
+  }
+  for (const node of event.composedPath()) {
+    const callbacks = intentCallbacks.get(node);
+    if (callbacks) {
+      for (const callback of [...callbacks]) {
+        callback();
+      }
+    }
+  }
+}
+
 function listenForIntent(target: Element, onIntent: () => void) {
-  return mergeCleanups(
-    ...INTENT_EVENTS.map((type) => addEventListener(target, type, onIntent, INTENT_OPTIONS)),
-  );
+  const doc = target.ownerDocument;
+  if (!listeningDocuments.has(doc)) {
+    listeningDocuments.add(doc);
+    for (const type of INTENT_EVENTS) {
+      doc.addEventListener(type, onDocumentIntent, INTENT_OPTIONS);
+    }
+  }
+  let callbacks = intentCallbacks.get(target);
+  if (!callbacks) {
+    callbacks = new Set();
+    intentCallbacks.set(target, callbacks);
+    pendingTargets += 1;
+  }
+  callbacks.add(onIntent);
+  return () => {
+    const current = intentCallbacks.get(target);
+    if (current?.delete(onIntent) && current.size === 0) {
+      intentCallbacks.delete(target);
+      pendingTargets -= 1;
+    }
+  };
 }
 
 /**

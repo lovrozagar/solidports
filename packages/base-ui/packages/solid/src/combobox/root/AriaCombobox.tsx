@@ -38,7 +38,7 @@ import {
   selectedValueIncludes,
 } from '../../utils/itemEquality';
 import { NOOP } from '../../utils/noop';
-import { FOCUSABLE_POPUP_PROPS } from '../../utils/popups';
+import { FOCUSABLE_POPUP_PROPS, useTriggerInteractions } from '../../utils/popups';
 import { REASONS } from '../../utils/reasons';
 import {
   flattenLeafItems,
@@ -1513,123 +1513,144 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   // `readOnly` locks the value, not the interaction: the popup opens and can be browsed.
   // Value changes stay blocked in `ComboboxItem`, `ComboboxInput`'s keydown, `ComboboxTrigger`'s
   // typeahead, the clear/remove parts, and the hidden input's autofill handler.
-  const click = useClick({
-    get context() {
-      return floatingRootContext;
+  // A closed combobox renders only its input: click, dismissal and list navigation are created on
+  // the reference's first intent, or when the popup opens, mounts or is inline, and are kept
+  // afterwards. React mounts these hooks up front; their closed-state output is handlers only.
+  const interactions = useTriggerInteractions(
+    () => {
+      const click = useClick({
+        get context() {
+          return floatingRootContext;
+        },
+        props: {
+          get enabled() {
+            return !disabled() && openOnInputClick();
+          },
+          event: 'mousedown-only',
+          toggle: false,
+          // Apply a small delay for touch to let mobile viewport/keyboard positioning settle.
+          // This avoids top-bottom flip flickers if the preferred position is "top" when first tapping.
+          get touchOpenDelay() {
+            return inputInsidePopup() ? 0 : 100;
+          },
+          reason: REASONS.inputPress,
+        },
+      });
+
+      const dismiss = useDismiss({
+        get context() {
+          return floatingRootContext;
+        },
+        props: {
+          get enabled() {
+            return !disabled() && !inline();
+          },
+          outsidePressEvent: {
+            mouse: 'sloppy',
+            // The visual viewport (affected by the mobile software keyboard) can be
+            // somewhat small. The user may want to scroll the screen to see more of
+            // the popup.
+            touch: 'intentional',
+          },
+          // Without a popup, let the Escape key bubble the event up to other popups' handlers.
+          get bubbles() {
+            return inline() ? true : undefined;
+          },
+          outsidePress(event) {
+            const target = getTarget(event) as Element | null;
+            return (
+              !contains(triggerElement(), target) &&
+              !contains(clearRef.current, target) &&
+              !contains(chipsContainerRef.current, target) &&
+              !contains(inputGroupElement(), target)
+            );
+          },
+        },
+      });
+
+      const listNavigation = useListNavigation({
+        get context() {
+          return floatingRootContext;
+        },
+        props: {
+          get enabled() {
+            return !disabled();
+          },
+          get id() {
+            return id();
+          },
+          get listRef() {
+            return listRef.current;
+          },
+          get activeIndex() {
+            return activeIndex();
+          },
+          get selectedIndex() {
+            return selectedIndex();
+          },
+          virtual: true,
+          get loopFocus() {
+            return loopFocus();
+          },
+          get allowEscape() {
+            return loopFocus() && !autoHighlightMode();
+          },
+          get focusItemOnOpen() {
+            return queryChangedAfterOpen() || (selectionMode() === 'none' && !autoHighlightMode())
+              ? false
+              : 'auto';
+          },
+          get focusItemOnHover() {
+            return highlightItemOnHover();
+          },
+          get resetOnPointerLeave() {
+            return !keepHighlight();
+          },
+          get orientation() {
+            return grid() ? 'horizontal' : undefined;
+          },
+          get rtl() {
+            return direction() === 'rtl';
+          },
+          disabledIndices: EMPTY_ARRAY as number[],
+          get grid() {
+            return grid() ? gridNavigation : undefined;
+          },
+          onNavigate(nextActiveIndex, event) {
+            // Retain the highlight only while actually transitioning out or closed.
+            if ((!event && !open()) || transitionStatus() === 'ending') {
+              return;
+            }
+
+            if (!event) {
+              setIndices({
+                activeIndex: nextActiveIndex,
+              });
+            } else {
+              setIndices({
+                activeIndex: nextActiveIndex,
+                type: keyboardActiveRef.current ? REASONS.keyboard : REASONS.pointer,
+              });
+            }
+          },
+        },
+      });
+      return { click, dismiss, listNavigation };
     },
-    props: {
-      get enabled() {
-        return !disabled() && openOnInputClick();
-      },
-      event: 'mousedown-only',
-      toggle: false,
-      // Apply a small delay for touch to let mobile viewport/keyboard positioning settle.
-      // This avoids top-bottom flip flickers if the preferred position is "top" when first tapping.
-      get touchOpenDelay() {
-        return inputInsidePopup() ? 0 : 100;
-      },
-      reason: REASONS.inputPress,
+    () => (inputInsidePopup() ? triggerElement() : inputElement()),
+    () => open() || mounted() || inline(),
+  );
+  const deferred = (key: 'click' | 'dismiss' | 'listNavigation'): ElementProps => ({
+    get reference() {
+      return interactions()?.[key].reference;
+    },
+    get floating() {
+      return interactions()?.[key].floating;
     },
   });
-
-  const dismiss = useDismiss({
-    get context() {
-      return floatingRootContext;
-    },
-    props: {
-      get enabled() {
-        return !disabled() && !inline();
-      },
-      outsidePressEvent: {
-        mouse: 'sloppy',
-        // The visual viewport (affected by the mobile software keyboard) can be
-        // somewhat small. The user may want to scroll the screen to see more of
-        // the popup.
-        touch: 'intentional',
-      },
-      // Without a popup, let the Escape key bubble the event up to other popups' handlers.
-      get bubbles() {
-        return inline() ? true : undefined;
-      },
-      outsidePress(event) {
-        const target = getTarget(event) as Element | null;
-        return (
-          !contains(triggerElement(), target) &&
-          !contains(clearRef.current, target) &&
-          !contains(chipsContainerRef.current, target) &&
-          !contains(inputGroupElement(), target)
-        );
-      },
-    },
-  });
-
-  const listNavigation = useListNavigation({
-    get context() {
-      return floatingRootContext;
-    },
-    props: {
-      get enabled() {
-        return !disabled();
-      },
-      get id() {
-        return id();
-      },
-      get listRef() {
-        return listRef.current;
-      },
-      get activeIndex() {
-        return activeIndex();
-      },
-      get selectedIndex() {
-        return selectedIndex();
-      },
-      virtual: true,
-      get loopFocus() {
-        return loopFocus();
-      },
-      get allowEscape() {
-        return loopFocus() && !autoHighlightMode();
-      },
-      get focusItemOnOpen() {
-        return queryChangedAfterOpen() || (selectionMode() === 'none' && !autoHighlightMode())
-          ? false
-          : 'auto';
-      },
-      get focusItemOnHover() {
-        return highlightItemOnHover();
-      },
-      get resetOnPointerLeave() {
-        return !keepHighlight();
-      },
-      get orientation() {
-        return grid() ? 'horizontal' : undefined;
-      },
-      get rtl() {
-        return direction() === 'rtl';
-      },
-      disabledIndices: EMPTY_ARRAY as number[],
-      get grid() {
-        return grid() ? gridNavigation : undefined;
-      },
-      onNavigate(nextActiveIndex, event) {
-        // Retain the highlight only while actually transitioning out or closed.
-        if ((!event && !open()) || transitionStatus() === 'ending') {
-          return;
-        }
-
-        if (!event) {
-          setIndices({
-            activeIndex: nextActiveIndex,
-          });
-        } else {
-          setIndices({
-            activeIndex: nextActiveIndex,
-            type: keyboardActiveRef.current ? REASONS.keyboard : REASONS.pointer,
-          });
-        }
-      },
-    },
-  });
+  const click = deferred('click');
+  const dismiss = deferred('dismiss');
+  const listNavigation = deferred('listNavigation');
 
   // Solid: the interaction getters return live views, so each is created once. The hooks are
   // merged in the order React's `mergeProps` runs their handlers (rightmost first).
@@ -1667,19 +1688,20 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
 
   // Combobox keeps focus on the input; item focus would incorrectly sync
   // list navigation state from DOM focus.
-  const itemProps: HTMLProps = (() => {
-    const listNavigationItemProps = listNavigation.item as HTMLProps | undefined;
+  const itemProps = createMemo(() => {
+    const listNavigationItemProps = interactions()?.listNavigation.item as HTMLProps | undefined;
     if (!listNavigationItemProps) {
       return EMPTY_OBJECT as HTMLProps;
     }
     const { onFocus: _onFocus, ...rest } = listNavigationItemProps as HTMLProps & {
       onFocus?: unknown;
     };
-    return rest;
-  })();
+    return rest as HTMLProps;
+  });
 
   // The prop bags must be in the store before the parts render: they read them with `useState`.
-  store.update({ listProps, triggerProps, itemProps });
+  store.update({ listProps, triggerProps });
+  store.useSyncedValue('itemProps', itemProps);
   store.useSyncedValue('popupProps', popupProps);
   store.useSyncedValue('inputProps', inputProps);
 

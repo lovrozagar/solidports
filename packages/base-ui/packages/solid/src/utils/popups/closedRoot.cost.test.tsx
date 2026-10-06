@@ -12,6 +12,7 @@ import { ContextMenu } from '@solidports/base-ui/context-menu';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { Drawer } from '@solidports/base-ui/drawer';
 import { Menu } from '@solidports/base-ui/menu';
+import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
 import { Popover } from '@solidports/base-ui/popover';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { Select } from '@solidports/base-ui/select';
@@ -91,7 +92,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'ContextMenu', // before: 153
-      120,
+      119,
       () => (
         <ContextMenu.Root>
           <ContextMenu.Trigger>Area</ContextMenu.Trigger>
@@ -171,7 +172,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Select', // before: 188
-      188,
+      153,
       () => (
         <Select.Root>
           <Select.Trigger>
@@ -189,7 +190,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Combobox', // before: 210
-      210,
+      181,
       () => (
         <Combobox.Root items={['a']}>
           <Combobox.Input />
@@ -203,6 +204,28 @@ describe('closed popup root cost', () => {
             </Combobox.Positioner>
           </Combobox.Portal>
         </Combobox.Root>
+      ),
+    ],
+    [
+      // Not deferred: its trigger's hover and click hooks cost one node each.
+      'NavigationMenu',
+      236,
+      () => (
+        <NavigationMenu.Root>
+          <NavigationMenu.List>
+            <NavigationMenu.Item>
+              <NavigationMenu.Trigger>Trigger</NavigationMenu.Trigger>
+              <NavigationMenu.Content>Content</NavigationMenu.Content>
+            </NavigationMenu.Item>
+          </NavigationMenu.List>
+          <NavigationMenu.Portal>
+            <NavigationMenu.Positioner>
+              <NavigationMenu.Popup>
+                <NavigationMenu.Viewport />
+              </NavigationMenu.Popup>
+            </NavigationMenu.Positioner>
+          </NavigationMenu.Portal>
+        </NavigationMenu.Root>
       ),
     ],
   ];
