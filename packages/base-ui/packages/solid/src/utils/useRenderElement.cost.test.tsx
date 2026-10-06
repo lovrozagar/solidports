@@ -77,7 +77,8 @@ describe('render core cost', () => {
   // omit their own props (3.6); what remains is per element (owners, children and ref machinery,
   // attribute root, state attribute memos) and per part (hooks), for 3.9. `it.fails` flips when a
   // budget is met.
-  it.fails('Button costs at most 3 reactive nodes', () => {
+  // Met by the Solid-native Button (plan 8): the parent's insert plus the dev component root.
+  it('Button costs at most 3 reactive nodes', () => {
     const cost = perPart(() => <Button>Button</Button>);
     expect(cost, `Button: ${cost} nodes`).toBeLessThanOrEqual(3);
   });

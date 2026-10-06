@@ -37,11 +37,13 @@ Flat, grep-friendly list of every KB file. Routing logic lives in
 - [`./solid/props-and-context.md`](./solid/props-and-context.md) — populated (from SolidStuff).
 - [`./solid/testing-quirks.md`](./solid/testing-quirks.md) — populated (from SolidStuff).
 - [`./solid/gotchas.md`](./solid/gotchas.md) — append-only registry (GOTCHA-NNN).
+- [`./solid/native-parts.md`](./solid/native-parts.md) — fast-path contract for Solid-native parts (plan 8).
 
 ## Components
 
 - [`./components/_template.md`](./components/_template.md) — schema.
 - [`./components/collapsible.md`](./components/collapsible.md) — full worked example.
+- [`./components/button.md`](./components/button.md) — Solid-native fast path parity note (plan 8).
 - [`./components/popover.md`](./components/popover.md) — known TODO.
 - [`./components/select.md`](./components/select.md) — known TODO.
 - [`./components/tooltip.md`](./components/tooltip.md) — known TODO.
