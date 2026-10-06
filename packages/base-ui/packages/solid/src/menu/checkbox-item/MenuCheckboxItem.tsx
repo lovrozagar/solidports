@@ -7,6 +7,7 @@ import type { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/typ
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import type { MenuRoot } from '../root/MenuRoot';
@@ -55,7 +56,7 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     state: 'checked',
   });
 
-  const { getItemProps, setItemRef } = useMenuItem({
+  const { itemSources, setItemRef } = useMenuItem({
     closeOnClick,
     disabled,
     highlighted,
@@ -99,20 +100,19 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [
-        itemProps(),
-        {
-          role: 'menuitemcheckbox' as const,
-          get 'aria-checked'() {
-            return checked() ? 'true' : 'false';
-          },
-          onClick: handleClick,
+    props: [
+      ...itemSources.attributes,
+      propsSourceMemo(itemProps),
+      {
+        role: 'menuitemcheckbox' as const,
+        get 'aria-checked'() {
+          return checked() ? 'true' : 'false';
         },
-        elementProps,
-        getItemProps,
-      ];
-    },
+        onClick: handleClick,
+      },
+      elementProps,
+      itemSources.handlers,
+    ],
     ref: (el) => {
       setItemRef(el);
       listItem.setRef(el);

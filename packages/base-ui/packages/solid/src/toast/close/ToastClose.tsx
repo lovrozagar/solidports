@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -13,8 +13,8 @@ import { useToastRootContext } from '../root/ToastRootContext';
  * Documentation: [Base UI Toast](https://base-ui.com/react/components/toast)
  */
 export function ToastClose(componentProps: ToastClose.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  const elementProps = omitComponentProps(componentProps, ['disabled', 'nativeButton'] as const);
+  const nativeButton = () => Boolean(componentProps.nativeButton ?? true);
 
   const store = useToastProviderContext();
   const { toast } = useToastRootContext();
@@ -22,8 +22,8 @@ export function ToastClose(componentProps: ToastClose.Props) {
 
   const [hasFocus, setHasFocus] = createSignal(false);
 
-  const { getButtonProps, buttonRef } = useButton({
-    disabled: () => local.disabled,
+  const { buttonSources, buttonRef } = useButton({
+    disabled: () => componentProps.disabled,
     native: nativeButton,
   });
 
@@ -35,6 +35,7 @@ export function ToastClose(componentProps: ToastClose.Props) {
 
   const element = useRenderElement('button', componentProps, {
     props: [
+      ...buttonSources.attributes,
       {
         get 'aria-hidden'() {
           return !expanded() && !hasFocus() ? 'true' : undefined;
@@ -50,7 +51,7 @@ export function ToastClose(componentProps: ToastClose.Props) {
         },
       },
       elementProps,
-      getButtonProps,
+      buttonSources.handlers,
     ],
     ref: buttonRef,
     state,

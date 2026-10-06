@@ -24,6 +24,7 @@ import {
   createDepsRenderEffect,
   type ReactLikeRef,
   createLayoutEffect,
+  isAbsentProp,
 } from '../../solid-helpers';
 import { TYPEAHEAD_RESET_MS } from '../../utils/constants';
 import {
@@ -475,29 +476,33 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   // Solid: React renders `<PopupHandleAttachment>` as the first child so its layout effect attaches
   // the store before later siblings' effects run. Solid inserts the root's children lazily, so a
   // sibling's render effect would run first; attaching from the root's own body keeps React's order.
-  createDepsRenderEffect(
-    () => props.handle,
-    (handle) => handle?.attachStore(store),
-  );
+  if (!isAbsentProp(props, 'handle')) {
+    createDepsRenderEffect(
+      () => props.handle,
+      (handle) => handle?.attachStore(store),
+    );
+  }
 
   const handleImperativeClose = () => {
     store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction));
   };
 
   // React's `useImperativeHandle`.
-  createLayoutEffect(
-    () => props.actionsRef,
-    (actionsRef) => {
-      if (!actionsRef) {
-        return undefined;
-      }
+  if (!isAbsentProp(props, 'actionsRef')) {
+    createLayoutEffect(
+      () => props.actionsRef,
+      (actionsRef) => {
+        if (!actionsRef) {
+          return undefined;
+        }
 
-      actionsRef.current = { unmount: forceUnmount, close: handleImperativeClose };
-      return () => {
-        actionsRef.current = null;
-      };
-    },
-  );
+        actionsRef.current = { unmount: forceUnmount, close: handleImperativeClose };
+        return () => {
+          actionsRef.current = null;
+        };
+      },
+    );
+  }
 
   const contextMenuParentContext = () => {
     const currentParent = parent();

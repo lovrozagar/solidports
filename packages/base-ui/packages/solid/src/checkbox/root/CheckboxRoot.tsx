@@ -1,4 +1,5 @@
 import { createMemo, createSignal, Show, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useControlled } from '../../utils/useControlled';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
@@ -130,20 +131,23 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
 
   const rootId = () => (nativeButton() ? controlId() : id());
 
-  // Solid: a memo, as React derives the group props once per render.
-  const groupProps = createMemo((): Partial<GroupProps> => {
-    const context = parentContext();
-    if (context !== undefined) {
-      if (parent()) {
-        return context.getParentProps();
-      }
-      const childValue = value();
-      if (childValue !== undefined) {
-        return context.getChildProps(childValue);
-      }
-    }
-    return {};
-  });
+  // Solid: a memo, as React derives the group props once per render. Outside a group there are
+  // none (the group context is fixed for the checkbox's lifetime).
+  const groupProps: Accessor<Partial<GroupProps>> = !groupContext
+    ? () => NO_GROUP_PROPS
+    : createMemo((): Partial<GroupProps> => {
+        const context = parentContext();
+        if (context !== undefined) {
+          if (parent()) {
+            return context.getParentProps();
+          }
+          const childValue = value();
+          if (childValue !== undefined) {
+            return context.getChildProps(childValue);
+          }
+        }
+        return {};
+      });
 
   const groupChecked = () => {
     const checked = groupProps().checked;
@@ -389,22 +393,25 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     );
   });
 
-  createDepsEffect(
-    () => ({ parentContext: parentContext(), disabled: disabled(), value: value() }),
-    (deps) => {
-      if (!deps.parentContext || deps.value === undefined) {
-        return undefined;
-      }
+  // Group-only registrations: outside a group there is no parent to register with.
+  if (groupContext) {
+    createDepsEffect(
+      () => ({ parentContext: parentContext(), disabled: disabled(), value: value() }),
+      (deps) => {
+        if (!deps.parentContext || deps.value === undefined) {
+          return undefined;
+        }
 
-      const disabledStates = deps.parentContext.disabledStatesRef.current;
-      const childValue = deps.value;
-      disabledStates.set(childValue, deps.disabled);
+        const disabledStates = deps.parentContext.disabledStatesRef.current;
+        const childValue = deps.value;
+        disabledStates.set(childValue, deps.disabled);
 
-      return () => {
-        disabledStates.delete(childValue);
-      };
-    },
-  );
+        return () => {
+          disabledStates.delete(childValue);
+        };
+      },
+    );
+  }
 
   const state: CheckboxRootState = solidMergeProps(fieldState, {
     get checked() {
@@ -526,7 +533,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
       ...buttonSources.attributes,
       rootProps,
       elementProps,
-      propsSourceAccessor(otherGroupProps),
+      ...(groupContext ? [propsSourceAccessor(otherGroupProps)] : []),
       buttonSources.handlers,
       ...fieldSources((props: HTMLProps) => validation.getValidationProps(disabled(), props)),
     ],
@@ -535,31 +542,33 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
 
   // Solid: React reads the id from the rendered element's props; a `render` function can set its
   // own, so read it from the mounted element (DOM attributes apply before user effects).
-  createDepsEffect(
-    () => ({
-      registerChildId: registerChildId(),
-      parent: parent(),
-      value: value(),
-      element: rootElement(),
-      rootId: rootId(),
-    }),
-    (rawDeps) => {
-      const deps = {
-        ...rawDeps,
-        renderedId: rawDeps.element ? rawDeps.element.id || undefined : rawDeps.rootId,
-      };
-      if (
-        !deps.registerChildId ||
-        deps.parent ||
-        deps.value === undefined ||
-        deps.renderedId === undefined
-      ) {
-        return undefined;
-      }
+  if (groupContext) {
+    createDepsEffect(
+      () => ({
+        registerChildId: registerChildId(),
+        parent: parent(),
+        value: value(),
+        element: rootElement(),
+        rootId: rootId(),
+      }),
+      (rawDeps) => {
+        const deps = {
+          ...rawDeps,
+          renderedId: rawDeps.element ? rawDeps.element.id || undefined : rawDeps.rootId,
+        };
+        if (
+          !deps.registerChildId ||
+          deps.parent ||
+          deps.value === undefined ||
+          deps.renderedId === undefined
+        ) {
+          return undefined;
+        }
 
-      return deps.registerChildId(deps.value, deps.renderedId);
-    },
-  );
+        return deps.registerChildId(deps.value, deps.renderedId);
+      },
+    );
+  }
 
   return (
     <CheckboxRootContext value={state}>
@@ -585,6 +594,8 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     </CheckboxRootContext>
   );
 }
+
+const NO_GROUP_PROPS: Partial<GroupProps> = {};
 
 type GroupProps = {
   checked: boolean;

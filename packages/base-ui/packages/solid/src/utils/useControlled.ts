@@ -24,18 +24,22 @@ export interface UseControlledProps<T = unknown> {
 }
 
 export function useControlled<T = unknown>(props: UseControlledProps<T>) {
-  const controlledProp = createMemo(() => access(props.controlled));
-  const defaultProp = createMemo(() => access(props.default));
+  const controlledProp = () => access(props.controlled);
+  const defaultProp = () => access(props.default);
   const state = () => props.state ?? 'value';
 
   // The mode and the initial value are fixed by the first render, as in React.
   const isControlled = untrack(() => controlledProp() !== undefined);
   const [valueState, setValue] = createSignal(untrack(defaultProp) as Exclude<T, Function>);
-  // Keep the initial mode, but use the initial default if a controlled value disappears.
-  const committedValue = createMemo(() => {
-    const controlled = controlledProp();
-    return isControlled && controlled !== undefined ? controlled : valueState();
-  });
+  // Keep the initial mode, but use the initial default if a controlled value disappears. A
+  // controlled value goes through one memo (a derived value, such as a group's membership, then
+  // reaches readers only when it changes); an uncontrolled one is the signal itself.
+  const committedValue: Accessor<T> = isControlled
+    ? (createMemo(() => {
+        const controlled = controlledProp();
+        return controlled !== undefined ? controlled : valueState();
+      }) as Accessor<T>)
+    : (valueState as Accessor<T>);
 
   // Solid applies writes at the next flush. Untracked reads (event handlers, effect callbacks)
   // see the latest uncontrolled write at once, as React's stable callbacks read the latest state;

@@ -7,6 +7,7 @@ import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
@@ -52,7 +53,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
   const disabled = () => disabledProp() || groupDisabled() || rootDisabled();
   const checked = () => selectedValue() === local.value;
 
-  const { getItemProps, setItemRef } = useMenuItem({
+  const { itemSources, setItemRef } = useMenuItem({
     closeOnClick,
     disabled,
     highlighted,
@@ -89,20 +90,19 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [
-        itemProps(),
-        {
-          role: 'menuitemradio' as const,
-          get 'aria-checked'() {
-            return checked() ? 'true' : 'false';
-          },
-          onClick: handleClick,
+    props: [
+      ...itemSources.attributes,
+      propsSourceMemo(itemProps),
+      {
+        role: 'menuitemradio' as const,
+        get 'aria-checked'() {
+          return checked() ? 'true' : 'false';
         },
-        elementProps,
-        getItemProps,
-      ];
-    },
+        onClick: handleClick,
+      },
+      elementProps,
+      itemSources.handlers,
+    ],
     ref: (el) => {
       setItemRef(el);
       listItem.setRef(el);

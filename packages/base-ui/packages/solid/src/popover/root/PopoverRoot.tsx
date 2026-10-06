@@ -6,6 +6,7 @@ import {
   ComponentWithPayload,
   createDepsRenderEffect,
   type ReactLikeRef,
+  isAbsentProp,
 } from '../../solid-helpers';
 import {
   createChangeEventDetails,
@@ -99,10 +100,12 @@ function PopoverRootComponent<Payload>(
   // Solid: React renders `<PopupHandleAttachment>` as the first child so its layout effect attaches
   // the store before later siblings' effects run. Solid inserts the root's children lazily, so a
   // sibling's render effect would run first; attaching from the root's own body keeps React's order.
-  createDepsRenderEffect(
-    () => props.handle,
-    (handle) => handle?.attachStore(store),
-  );
+  if (!isAbsentProp(props, 'handle')) {
+    createDepsRenderEffect(
+      () => props.handle,
+      (handle) => handle?.attachStore(store),
+    );
+  }
 
   const renderContent = () => (
     <PopoverRootContext value={{ store } as PopoverRootContext<unknown>}>

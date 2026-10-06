@@ -6,6 +6,7 @@ import {
   createRoot,
   getObserver,
   isHydrating,
+  isStatic,
   omit,
   Show,
   untrack,
@@ -32,6 +33,14 @@ export function callEventHandler<T, E extends Event>(
   }
 
   return event.defaultPrevented;
+}
+
+/**
+ * Whether `props[key]` is undefined now and can never change (unset, or a literal `undefined`):
+ * a part can then skip the computation that would follow it.
+ */
+export function isAbsentProp<T extends object>(props: T, key: keyof T & string): boolean {
+  return untrack(() => !(key in props) || (isStatic(props, key) && props[key] === undefined));
 }
 
 export type Accessify<T, AccessorKeys extends keyof T> = {

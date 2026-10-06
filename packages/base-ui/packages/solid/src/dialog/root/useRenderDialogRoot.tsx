@@ -1,6 +1,6 @@
 import { Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { ComponentWithPayload, createDepsRenderEffect } from '../../solid-helpers';
+import { ComponentWithPayload, createDepsRenderEffect, isAbsentProp } from '../../solid-helpers';
 import { DialogInteractions } from './useDialogRoot';
 import { DialogRootContext, useDialogRootContext } from './DialogRootContext';
 import { DialogStore } from '../store/DialogStore';
@@ -24,7 +24,10 @@ export function RenderDialogRoot<Payload>(
   props: DialogRootProps<Payload> & { mode: DialogRootMode },
 ) {
   const [local, rest] = splitProps(props, ['mode']);
-  return useRenderDialogRoot(untrack(() => local.mode), rest);
+  return useRenderDialogRoot(
+    untrack(() => local.mode),
+    rest,
+  );
 }
 
 export function useRenderDialogRoot<Payload>(
@@ -95,27 +98,34 @@ export function useRenderDialogRoot<Payload>(
   const { forceUnmount } = useOpenStateTransitions(open, store);
 
   // React's `useImperativeHandle`.
-  createDepsRenderEffect(
-    () => props.actionsRef,
-    (actionsRef) => {
-      if (!actionsRef) {
-        return undefined;
-      }
-      actionsRef.current = {
-        unmount: forceUnmount,
-        close: () => store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction)),
-      };
-      return () => {
-        actionsRef.current = null;
-      };
-    },
-  );
+  if (!isAbsentProp(props, 'actionsRef')) {
+    createDepsRenderEffect(
+      () => props.actionsRef,
+      (actionsRef) => {
+        if (!actionsRef) {
+          return undefined;
+        }
+        actionsRef.current = {
+          unmount: forceUnmount,
+          close: () => store.setOpen(false, createChangeEventDetails(REASONS.imperativeAction)),
+        };
+        return () => {
+          actionsRef.current = null;
+        };
+      },
+    );
+  }
 
   const shouldRenderInteractions = () => open() || mounted();
 
+  // No `handle` prop: nothing to attach, so no insert for it.
+  const handleAttachment = isAbsentProp(props, 'handle')
+    ? null
+    : () => props.handle && <PopupHandleAttachment handle={props.handle} store={store} />;
+
   return (
     <DialogRootContext value={store as DialogStore<unknown>}>
-      {props.handle && <PopupHandleAttachment handle={props.handle} store={store} />}
+      {handleAttachment}
       <Show when={shouldRenderInteractions()}>
         <DialogInteractions
           store={store}

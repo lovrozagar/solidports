@@ -31,41 +31,44 @@ export function useLabelableId(params: UseLabelableIdParameters = {}) {
     registerControlId(controlSourceRef, undefined);
   };
 
-  createDepsEffect(
-    () => ({ id: id(), enabled: enabled(), defaultId: defaultId() }),
-    (deps) => {
-      if (!deps.enabled || registerControlId === NOOP) {
-        unregisterControlId();
-        return;
-      }
+  // Outside a labelable provider there is nothing to register with.
+  if (registerControlId !== NOOP) {
+    createDepsEffect(
+      () => ({ id: id(), enabled: enabled(), defaultId: defaultId() }),
+      (deps) => {
+        if (!deps.enabled) {
+          unregisterControlId();
+          return;
+        }
 
-      let nextId: string | null | undefined;
+        let nextId: string | null | undefined;
 
-      if (deps.id !== undefined) {
-        hadExplicitIdRef = true;
-        nextId = deps.id;
-      } else if (hadExplicitIdRef) {
-        nextId = deps.defaultId;
-      } else {
-        // An id-less replacement must claim the provider's fallback so a previously registered
-        // explicit id is not retained after its control unmounts.
-        resetControlId();
-        return;
-      }
+        if (deps.id !== undefined) {
+          hadExplicitIdRef = true;
+          nextId = deps.id;
+        } else if (hadExplicitIdRef) {
+          nextId = deps.defaultId;
+        } else {
+          // An id-less replacement must claim the provider's fallback so a previously registered
+          // explicit id is not retained after its control unmounts.
+          resetControlId();
+          return;
+        }
 
-      if (nextId === undefined) {
-        unregisterControlId();
-        return;
-      }
+        if (nextId === undefined) {
+          unregisterControlId();
+          return;
+        }
 
-      hasRegisteredRef = true;
-      registerControlId(controlSourceRef, nextId);
-    },
-  );
+        hasRegisteredRef = true;
+        registerControlId(controlSourceRef, nextId);
+      },
+    );
 
-  // Unregister on unmount so a replacement control does not still see the outgoing
-  // control's registration.
-  onCleanup(unregisterControlId);
+    // Unregister on unmount so a replacement control does not still see the outgoing
+    // control's registration.
+    onCleanup(unregisterControlId);
+  }
 
   // The provider's id wins until registration runs: the label renders `for` from the
   // provider's pre-registration state, so preempting it with an explicit `id` here would

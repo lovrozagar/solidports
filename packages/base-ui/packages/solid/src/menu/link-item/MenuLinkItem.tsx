@@ -1,11 +1,11 @@
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { useButton } from '../../internals/use-button';
-import { mergeProps } from '../../merge-props';
-import { splitComponentProps, useRef } from '../../solid-helpers';
-import type { BaseUIComponentProps, BaseUIHTMLProps, HTMLProps } from '../../utils/types';
+import { omitComponentProps, useRef } from '../../solid-helpers';
+import type { BaseUIComponentProps } from '../../utils/types';
 import type { JSX } from '@solidjs/web';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM } from '../item/useMenuItem';
 import { useMenuItemCommonProps } from '../item/useMenuItemCommonProps';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
@@ -18,17 +18,13 @@ import { useMenuRootContext } from '../root/MenuRootContext';
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
-    'id',
-    'label',
-    'closeOnClick',
-  ]);
-  const idProp = () => local.id;
-  const closeOnClick = () => local.closeOnClick ?? false;
+  const elementProps = omitComponentProps(componentProps, ['id', 'label', 'closeOnClick'] as const);
+  const idProp = () => componentProps.id;
+  const closeOnClick = () => componentProps.closeOnClick ?? false;
 
   const linkRef = useRef<HTMLAnchorElement | null | undefined>(null);
 
-  const listItem = useCompositeListItem({ label: () => local.label });
+  const listItem = useCompositeListItem({ label: () => componentProps.label });
   const menuPositionerContext = useMenuPositionerContext(true);
   const nodeId = () => menuPositionerContext?.context.nodeId();
 
@@ -39,7 +35,7 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
   const itemProps = store.useState('itemProps');
   const typingRef = store.context.typingRef;
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     native: false,
     composite: true,
   });
@@ -63,10 +59,6 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
     itemMetadata: REGULAR_ITEM,
   });
 
-  function getItemProps(externalProps?: HTMLProps | BaseUIHTMLProps) {
-    return mergeProps<'a'>([commonProps, externalProps, getButtonProps]);
-  }
-
   const state: MenuLinkItem.State = {
     get highlighted() {
       return highlighted();
@@ -74,9 +66,15 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
   };
 
   const element = useRenderElement('a', componentProps, {
-    get props() {
-      return [itemProps(), elementProps, getItemProps];
-    },
+    // Built once (plan 7 step 3.4): the button's attributes and the item's common props below the
+    // part's props, the button's handlers above them (wrapping, as `getButtonProps` did).
+    props: [
+      ...buttonSources.attributes,
+      commonProps,
+      propsSourceMemo(itemProps),
+      elementProps,
+      buttonSources.handlers,
+    ],
     ref: (el) => {
       linkRef.current = el;
       buttonRef(el);

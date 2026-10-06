@@ -6,6 +6,7 @@ import {
   ComponentWithPayload,
   createDepsRenderEffect,
   type ReactLikeRef,
+  isAbsentProp,
 } from '../../solid-helpers';
 import {
   createChangeEventDetails,
@@ -97,11 +98,16 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
 
   const shouldRenderInteractions = () => open() || mounted();
 
+  // No `handle` prop: nothing to attach, so no `Show` for it.
+  const handleAttachment = isAbsentProp(props, 'handle') ? null : (
+    <Show when={props.handle}>
+      {(handle) => <PopupHandleAttachment handle={handle()} store={store} />}
+    </Show>
+  );
+
   return (
     <PreviewCardRootContext value={{ store } as PreviewCardRootContext}>
-      <Show when={props.handle}>
-        {(handle) => <PopupHandleAttachment handle={handle()} store={store} />}
-      </Show>
+      {handleAttachment}
       <Show when={shouldRenderInteractions()}>
         <PreviewCardInteractions store={store} />
       </Show>

@@ -66,11 +66,11 @@ describe('render core cost', () => {
       </Select.Root>
     );
     const button = perPart(() => <Button>Button</Button>);
-    expect(button, `Button ${button}`).toBeLessThanOrEqual(18);
+    expect(button, `Button ${button}`).toBeLessThanOrEqual(11);
     const checkbox = perPart(() => <Checkbox.Root />);
-    expect(checkbox, `Checkbox.Root ${checkbox}`).toBeLessThanOrEqual(71);
+    expect(checkbox, `Checkbox.Root ${checkbox}`).toBeLessThanOrEqual(47);
     const item = nodes(select(['a', 'b'])) - nodes(select(['a']));
-    expect(item, `Select.Item ${item}`).toBeLessThanOrEqual(37);
+    expect(item, `Select.Item ${item}`).toBeLessThanOrEqual(27);
   });
 
   // Plan 7 budgets. Button, Checkbox.Root and Select.Item already pass plain sources (3.4) and

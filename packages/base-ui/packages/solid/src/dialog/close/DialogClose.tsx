@@ -1,4 +1,4 @@
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
@@ -13,14 +13,14 @@ import { useDialogRootContext } from '../root/DialogRootContext';
  * Documentation: [Base UI Dialog](https://base-ui.com/react/components/dialog)
  */
 export function DialogClose(componentProps: DialogClose.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
-  const disabled = () => Boolean(local.disabled);
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  const elementProps = omitComponentProps(componentProps, ['disabled', 'nativeButton'] as const);
+  const disabled = () => Boolean(componentProps.disabled);
+  const nativeButton = () => Boolean(componentProps.nativeButton ?? true);
 
   const store = useDialogRootContext();
   const open = store.useState('open');
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -40,7 +40,12 @@ export function DialogClose(componentProps: DialogClose.Props) {
   const element = useRenderElement('button', componentProps, {
     state,
     ref: buttonRef,
-    props: [{ onClick: handleClick }, elementProps, getButtonProps],
+    props: [
+      ...buttonSources.attributes,
+      { onClick: handleClick },
+      elementProps,
+      buttonSources.handlers,
+    ],
   });
 
   return <>{element()}</>;

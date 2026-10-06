@@ -1,8 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { mergeProps } from '../../merge-props';
 import { access, MaybeAccessor, useRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
-import { type BaseUIHTMLProps, type HTMLProps } from '../../utils/types';
+import type { UseButtonSources } from '../../internals/use-button/useButton';
 import { MenuStore } from '../store/MenuStore';
 import { useMenuItemCommonProps } from './useMenuItemCommonProps';
 
@@ -22,7 +21,7 @@ export function useMenuItem(params: useMenuItem.Parameters): useMenuItem.ReturnV
 
   const itemRef = useRef<HTMLElement | null | undefined>(null);
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: true,
     native: nativeButton,
@@ -56,8 +55,11 @@ export function useMenuItem(params: useMenuItem.Parameters): useMenuItem.ReturnV
     },
   });
 
-  const getItemProps = (externalProps: HTMLProps | BaseUIHTMLProps = {}) => {
-    return mergeProps<'div'>([
+  // Plain sources (plan 7 step 3.4): the button's attributes and the item's common props below the
+  // part's props, the button's handlers above them (wrapping, as `getButtonProps` did).
+  const itemSources: useMenuItem.Sources = {
+    attributes: [
+      ...buttonSources.attributes,
       commonProps,
       {
         onMouseEnter() {
@@ -69,13 +71,12 @@ export function useMenuItem(params: useMenuItem.Parameters): useMenuItem.ReturnV
           metadata.setActive();
         },
       },
-      externalProps,
-      getButtonProps,
-    ]);
+    ],
+    handlers: buttonSources.handlers,
   };
 
   return {
-    getItemProps,
+    itemSources,
     setItemRef: (el) => {
       itemRef.current = el;
       buttonRef(el);
@@ -133,13 +134,18 @@ export type UseMenuItemMetadata =
       setActive: () => void;
     };
 
+export interface UseMenuItemSources {
+  /** Sources below the part's own props. */
+  attributes: readonly object[];
+  /** The button's handlers, above the part's props (they wrap the lower-priority handlers). */
+  handlers: UseButtonSources['handlers'];
+}
+
 export interface UseMenuItemReturnValue {
   /**
-   * Resolver for the root slot's props.
-   * @param externalProps event handlers for the root slot
-   * @returns props that should be spread on the root slot
+   * The root slot's props as sources: `attributes` first, then the part's props, then `handlers`.
    */
-  getItemProps: (externalProps?: HTMLProps | BaseUIHTMLProps) => BaseUIHTMLProps;
+  itemSources: UseMenuItemSources;
   /**
    * The ref to the component's root DOM element.
    */
@@ -150,4 +156,5 @@ export namespace useMenuItem {
   export type Parameters = UseMenuItemParameters;
   export type Metadata = UseMenuItemMetadata;
   export type ReturnValue = UseMenuItemReturnValue;
+  export type Sources = UseMenuItemSources;
 }

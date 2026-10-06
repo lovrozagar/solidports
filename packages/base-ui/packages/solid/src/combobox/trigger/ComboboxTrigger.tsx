@@ -6,7 +6,7 @@ import { useClick, useTypeahead } from '../../floating-ui-solid';
 import { contains, getTarget, stopEvent } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isMouseWithinBounds } from '../../utils/getPseudoElementBounds';
@@ -35,14 +35,14 @@ import { mergeProps as solidMergeProps } from '../../solid-1-compat';
  * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'nativeButton',
     'disabled',
     'id',
-  ]);
-  const nativeButton = () => local.nativeButton ?? true;
-  const disabledProp = () => local.disabled ?? false;
-  const idProp = () => local.id;
+  ] as const);
+  const nativeButton = () => componentProps.nativeButton ?? true;
+  const disabledProp = () => componentProps.disabled ?? false;
+  const idProp = () => componentProps.id;
 
   const {
     state: fieldState,
@@ -144,7 +144,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
     },
   });
 
-  const { buttonRef, getButtonProps } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     native: nativeButton,
     disabled,
   });
@@ -186,6 +186,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
     },
     state,
     props: [
+      ...buttonSources.attributes,
       triggerPropsSource,
       propsSourceAccessor(() => triggerClick.reference),
       propsSourceAccessor(() => triggerTypeahead.reference),
@@ -308,7 +309,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
         },
       },
       validationPropsSource,
-      getButtonProps,
+      buttonSources.handlers,
     ],
     stateAttributesMapping: triggerStateAttributesMapping,
   });

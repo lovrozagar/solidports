@@ -6,7 +6,7 @@ import { fieldValidityMapping } from '../../field/utils/constants';
 import { contains, getFloatingFocusElement } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { getPseudoElementBounds } from '../../utils/getPseudoElementBounds';
@@ -41,14 +41,14 @@ const stateAttributesMapping: StateAttributesMapping<SelectTrigger.State> = {
  * Documentation: [Base UI Select](https://base-ui.com/react/components/select)
  */
 export function SelectTrigger(componentProps: SelectTrigger.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'id',
     'disabled',
     'nativeButton',
-  ]);
-  const idProp = () => local.id;
-  const disabledProp = () => Boolean(local.disabled);
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  ] as const);
+  const idProp = () => componentProps.id;
+  const disabledProp = () => Boolean(componentProps.disabled);
+  const nativeButton = () => Boolean(componentProps.nativeButton ?? true);
 
   const {
     setTouched,
@@ -90,7 +90,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
 
   let triggerRef = null as HTMLElement | null | undefined;
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -279,9 +279,10 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
     // closing and selecting do not rebuild the trigger's props.
     get props() {
       return [
+        ...buttonSources.attributes,
         stableTriggerProps(),
         triggerOwnProps,
-        getButtonProps,
+        buttonSources.handlers,
         elementProps,
         validationSource,
         COMBOBOX_ROLE,

@@ -7,6 +7,7 @@ import {
   ComponentWithPayload,
   createDepsRenderEffect,
   type ReactLikeRef,
+  isAbsentProp,
 } from '../../solid-helpers';
 import {
   type BaseUIChangeEventDetails,
@@ -160,11 +161,16 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   const shouldRenderInteractions = () =>
     open() || mounted() || (!disabled() && trackCursorAxis() !== 'none');
 
+  // No `handle` prop: nothing to attach, so no `Show` for it.
+  const handleAttachment = isAbsentProp(props, 'handle') ? null : (
+    <Show when={props.handle}>
+      {(handle) => <PopupHandleAttachment handle={handle()} store={store} />}
+    </Show>
+  );
+
   return (
     <TooltipRootContext value={{ store } as TooltipRootContext}>
-      <Show when={props.handle}>
-        {(handle) => <PopupHandleAttachment handle={handle()} store={store} />}
-      </Show>
+      {handleAttachment}
       <Show when={shouldRenderInteractions()}>
         <TooltipInteractions
           store={store}

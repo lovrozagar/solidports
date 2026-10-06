@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { stopEvent } from '../../floating-ui-solid/utils';
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { findItemIndex } from '../../utils/itemEquality';
@@ -15,9 +15,9 @@ import { useComboboxRootContext } from '../root/ComboboxRootContext';
  * Renders a `<button>` element.
  */
 export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
-  const disabledProp = () => Boolean(local.disabled);
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  const elementProps = omitComponentProps(componentProps, ['disabled', 'nativeButton'] as const);
+  const disabledProp = () => Boolean(componentProps.disabled);
+  const nativeButton = () => Boolean(componentProps.nativeButton ?? true);
 
   const store = useComboboxRootContext();
   const { index } = useComboboxChipContext();
@@ -28,7 +28,7 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
 
   const disabled = () => comboboxDisabled() || disabledProp();
 
-  const { buttonRef, getButtonProps } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled: () => disabled() || readOnly(),
     focusableWhenDisabled: true,
     native: nativeButton,
@@ -81,6 +81,7 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
 
   const element = useRenderElement('button', componentProps, {
     props: [
+      ...buttonSources.attributes,
       {
         tabindex: -1,
         onMouseDown(event: MouseEvent) {
@@ -110,7 +111,7 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
         },
       },
       elementProps,
-      getButtonProps,
+      buttonSources.handlers,
     ],
     ref: buttonRef,
     state,

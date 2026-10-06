@@ -8,7 +8,7 @@ import {
 } from '../../internals/composite/list/useCompositeListItem';
 import {
   provideContext,
-  splitComponentProps,
+  omitComponentProps,
   useRef,
   createLayoutEffect,
 } from '../../solid-helpers';
@@ -16,6 +16,7 @@ import { useButton } from '../../internals/use-button';
 import { compareItemEquality, findItemIndex, resolveSelectedIndex } from '../../utils/itemEquality';
 import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { propsSourceMemo } from '../../utils/propsView';
 import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { flushSync } from '../../utils/flushSync';
 import {
@@ -43,17 +44,17 @@ interface ComboboxItemInnerProps {
 
 function ComboboxItemInner(props: ComboboxItemInnerProps) {
   const componentProps = props.componentProps;
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'value',
     'index',
     'disabled',
     'nativeButton',
-  ]);
+  ] as const);
 
-  const itemValue = () => local.value ?? null;
-  const indexProp = () => local.index;
-  const disabledProp = () => local.disabled ?? false;
-  const nativeButton = () => local.nativeButton ?? false;
+  const itemValue = () => componentProps.value ?? null;
+  const indexProp = () => componentProps.index;
+  const disabledProp = () => componentProps.disabled ?? false;
+  const nativeButton = () => componentProps.nativeButton ?? false;
 
   const textRef = useRef<HTMLElement | null | undefined>(null);
   const listItem = useCompositeListItem({
@@ -175,7 +176,7 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
     },
   );
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: true,
     native: nativeButton,
@@ -268,9 +269,16 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
       setItemElement(el as HTMLDivElement | null | undefined);
     },
     state,
-    get props() {
-      return [itemProps(), defaultProps, elementProps, getButtonProps];
-    },
+    // Built once (plan 7 step 3.4): the root's item props as an accessor source, the button's
+    // attributes below the part's props and its handlers above them (wrapping, as
+    // `getButtonProps` did).
+    props: [
+      ...buttonSources.attributes,
+      propsSourceMemo(itemProps),
+      defaultProps,
+      elementProps,
+      buttonSources.handlers,
+    ],
   });
 
   const contextValue: ComboboxItemContext = {

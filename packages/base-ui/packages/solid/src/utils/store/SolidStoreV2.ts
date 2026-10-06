@@ -66,17 +66,19 @@ export function SolidStore<
     statePart: Accessor<Partial<State>> | Partial<{ [Key in Keys]: MaybeAccessor<State[Key]> }>,
   ) {
     if (process.env.NODE_ENV !== 'production') {
-      const keys = createMemo(() => Object.keys(access(statePart) as object));
-      createEffect(keys, (next, prev) => {
-        if (
-          prev !== undefined &&
-          (prev.length !== next.length || prev.some((key, index) => key !== next[index]))
-        ) {
-          console.error(
-            'SolidStore.useSyncedValues expects the same prop keys on every render. Keys should be stable.',
-          );
-        }
-      });
+      createEffect(
+        () => Object.keys(access(statePart) as object),
+        (next, prev) => {
+          if (
+            prev !== undefined &&
+            (prev.length !== next.length || prev.some((key, index) => key !== next[index]))
+          ) {
+            console.error(
+              'SolidStore.useSyncedValues expects the same prop keys on every render. Keys should be stable.',
+            );
+          }
+        },
+      );
     }
 
     if (!storeBinders.has(state)) {
@@ -116,7 +118,8 @@ export function SolidStore<
     key: keyof State,
     controlledProp: Value | Accessor<Value | undefined> | undefined,
   ): void {
-    const controlled = createMemo(() => access(controlledProp));
+    // The binding below is the key's only derivation, so the prop is read there directly.
+    const controlled = () => access(controlledProp);
 
     // React writes a defined controlled value into the store in a layout effect. Solid derives it:
     // the key follows the controlled value while there is one, and keeps the store's own value
@@ -127,26 +130,28 @@ export function SolidStore<
     });
 
     if (process.env.NODE_ENV !== 'production') {
-      const isControlled = createMemo(() => controlled() !== undefined);
-      createEffect(isControlled, (currentlyControlled, previouslyControlled) => {
-        const cache = (controlledValues ??= new Map<keyof State, boolean>());
-        if (!cache.has(key)) {
-          cache.set(key, currentlyControlled);
-        }
+      createEffect(
+        () => controlled() !== undefined,
+        (currentlyControlled, previouslyControlled) => {
+          const cache = (controlledValues ??= new Map<keyof State, boolean>());
+          if (!cache.has(key)) {
+            cache.set(key, currentlyControlled);
+          }
 
-        const cached = cache.get(key);
-        if (
-          previouslyControlled !== undefined &&
-          cached !== undefined &&
-          cached !== currentlyControlled
-        ) {
-          console.error(
-            `A component is changing the ${
-              currentlyControlled ? '' : 'un'
-            }controlled state of ${key.toString()} to be ${currentlyControlled ? 'un' : ''}controlled. Elements should not switch from uncontrolled to controlled (or vice versa).`,
-          );
-        }
-      });
+          const cached = cache.get(key);
+          if (
+            previouslyControlled !== undefined &&
+            cached !== undefined &&
+            cached !== currentlyControlled
+          ) {
+            console.error(
+              `A component is changing the ${
+                currentlyControlled ? '' : 'un'
+              }controlled state of ${key.toString()} to be ${currentlyControlled ? 'un' : ''}controlled. Elements should not switch from uncontrolled to controlled (or vice versa).`,
+            );
+          }
+        },
+      );
     }
   }
 
@@ -164,16 +169,22 @@ export function SolidStore<
     key: Key,
     ...args: SelectorArgs<Selectors[Key]>
   ): Accessor<MaybeAccessorValue<ReturnType<Selectors[Key]>>> {
-    // Tracked reads go through a memo: dependents re-run only when the selected value changes
-    // (React's selector equality), and a key holding an accessor (`access` calls it) keeps its
-    // reader subscribed to one source rather than to everything the accessor reads. The memo is
-    // created on the first tracked read, under this call's owner, so a value read only by
-    // handlers (or by parts that are not mounted yet) costs no computation. Untracked reads
-    // compute directly and see the latest write.
-    const compute =
-      selectors && key in selectors
-        ? () => selectors[key](state, ...args)
-        : () => access(state[key as unknown as keyof State]) as any;
+    // A tracked read of a key, or of a selector that returns one key as is, subscribes the reader
+    // to that key directly: the key's signal already notifies only on change, so a memo would only
+    // add a node. A derived selector reads through a memo created on the first tracked read, under
+    // this call's owner: dependents re-run only when the selected value changes (React's selector
+    // equality), and a value read only by handlers costs no computation. Untracked reads compute
+    // directly and see the latest write.
+    const selector = selectors && key in selectors ? selectors[key] : undefined;
+    const directKey = selector ? directSelectorKey(selector) : key;
+    if (directKey !== undefined) {
+      const read =
+        selector === undefined
+          ? () => access(state[directKey as keyof State]) as any
+          : () => state[directKey as keyof State] as any;
+      return () => (getObserver() === null ? untrack(read) : read());
+    }
+    const compute = () => selector!(state, ...args);
     const owner = getOwner();
     let selected: Accessor<any> | undefined;
     return () =>
@@ -299,6 +310,49 @@ export function SolidStore<
     useSyncedValues,
   };
   return store;
+}
+
+const directSelectorKeys = new WeakMap<Function, PropertyKey | null>();
+const NO_KEY = Symbol('no key');
+
+/**
+ * The key a selector returns as is (`(state) => state.mounted`), or `undefined` for a selector that
+ * derives its value. Found once per selector by running it over a recording state twice, with every
+ * key holding a unique marker and then `undefined`: a direct selector reads exactly one key and
+ * returns its value both times, so fallbacks (`state.a ?? state.b`) and derivations are excluded.
+ */
+function directSelectorKey(selector: Function): PropertyKey | undefined {
+  let key = directSelectorKeys.get(selector);
+  if (key === undefined) {
+    key = selector.length === 1 ? probeSelector(selector, true) : null;
+    if (key !== null && probeSelector(selector, false) !== key) {
+      key = null;
+    }
+    directSelectorKeys.set(selector, key);
+  }
+  return key === null ? undefined : key;
+}
+
+function probeSelector(selector: Function, marked: boolean): PropertyKey | null {
+  let read: PropertyKey = NO_KEY;
+  let reads = 0;
+  const marker = {};
+  const probe = new Proxy(
+    {},
+    {
+      get(_, key) {
+        reads += 1;
+        read = key;
+        return marked ? marker : undefined;
+      },
+    },
+  );
+  try {
+    const result = selector(probe);
+    return reads === 1 && result === (marked ? marker : undefined) ? read : null;
+  } catch {
+    return null;
+  }
 }
 
 function createInitialStore<State extends object>(
@@ -646,7 +700,11 @@ export function createStoreState<State extends object>(
       }
       // Unbinding keeps the latest value (or clears it), as React's store keeps the synced value.
       // A binding never read is computed directly: nothing is created while its owner disposes.
-      const last = clearOnCleanup ? undefined : written.has(key) ? written.get(key) : binding.peek();
+      const last = clearOnCleanup
+        ? undefined
+        : written.has(key)
+          ? written.get(key)
+          : binding.peek();
       bindings.delete(key);
       written.set(key, last);
       writeSlot(key, last);

@@ -1,4 +1,4 @@
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
@@ -14,11 +14,11 @@ import { usePopoverRootContext } from '../root/PopoverRootContext';
  * Documentation: [Base UI Popover](https://base-ui.com/react/components/popover)
  */
 export function PopoverClose(props: PopoverClose.Props) {
-  const [, local, elementProps] = splitComponentProps(props, ['disabled', 'nativeButton']);
-  const disabled = () => Boolean(local.disabled);
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  const elementProps = omitComponentProps(props, ['disabled', 'nativeButton'] as const);
+  const disabled = () => Boolean(props.disabled);
+  const nativeButton = () => Boolean(props.nativeButton ?? true);
 
-  const { buttonRef, getButtonProps } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: false,
     native: nativeButton,
@@ -29,13 +29,14 @@ export function PopoverClose(props: PopoverClose.Props) {
 
   const element = useRenderElement('button', props, {
     props: [
+      ...buttonSources.attributes,
       {
         onClick(event: MouseEvent) {
           store.setOpen(false, createChangeEventDetails(REASONS.closePress, event));
         },
       },
       elementProps,
-      getButtonProps,
+      buttonSources.handlers,
     ],
     ref: buttonRef,
   });

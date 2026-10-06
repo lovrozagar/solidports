@@ -1,5 +1,5 @@
 import { Show } from 'solid-js';
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { propsSourceAccessor } from '../../utils/propsView';
@@ -14,13 +14,13 @@ import { getRenderContent, useRenderableElement } from '../utils/useRenderableEl
  * Documentation: [Base UI Toast](https://base-ui.com/react/components/toast)
  */
 export function ToastAction(componentProps: ToastAction.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
+  const elementProps = omitComponentProps(componentProps, ['disabled', 'nativeButton'] as const);
+  const nativeButton = () => Boolean(componentProps.nativeButton ?? true);
 
   const { toast } = useToastRootContext();
 
-  const { getButtonProps, buttonRef } = useButton({
-    disabled: () => local.disabled,
+  const { buttonSources, buttonRef } = useButton({
+    disabled: () => componentProps.disabled,
     native: nativeButton,
   });
 
@@ -37,7 +37,12 @@ export function ToastAction(componentProps: ToastAction.Props) {
     get children() {
       return content();
     },
-    props: [elementProps, propsSourceAccessor(() => toast().actionProps), getButtonProps],
+    props: [
+      ...buttonSources.attributes,
+      elementProps,
+      propsSourceAccessor(() => toast().actionProps),
+      buttonSources.handlers,
+    ],
     ref: buttonRef,
     state,
   });

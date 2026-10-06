@@ -785,7 +785,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
     },
   };
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     focusableWhenDisabled: true,
     native: nativeButton,
@@ -803,12 +803,13 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
         state={state}
         stateAttributesMapping={pressableTriggerOpenStateMapping}
         refs={[local.ref as UseRenderElementRef<HTMLElement>, handleTriggerElement, buttonRef]}
+        baseProps={buttonSources.attributes}
         props={[
           getReferenceProps,
           dismissProps?.()?.reference || EMPTY_ARRAY,
           defaultProps,
           elementProps,
-          getButtonProps,
+          buttonSources.handlers,
         ]}
       />
       <Show when={isActiveItem()}>

@@ -1,6 +1,6 @@
 import { createMemo, Show } from 'solid-js';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -23,14 +23,14 @@ const stateAttributesMapping: StateAttributesMapping<ComboboxClear.State> = {
  * Renders a `<button>` element.
  */
 export function ComboboxClear(componentProps: ComboboxClear.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'disabled',
     'nativeButton',
     'keepMounted',
-  ]);
-  const disabledProp = () => Boolean(local.disabled);
-  const nativeButton = () => Boolean(local.nativeButton ?? true);
-  const keepMounted = () => local.keepMounted ?? false;
+  ] as const);
+  const disabledProp = () => Boolean(componentProps.disabled);
+  const nativeButton = () => Boolean(componentProps.nativeButton ?? true);
+  const keepMounted = () => componentProps.keepMounted ?? false;
 
   const { disabled: fieldDisabled } = useFieldRootContext();
   const store = useComboboxRootContext();
@@ -56,7 +56,7 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
 
   const disabled = () => fieldDisabled() || comboboxDisabled() || disabledProp();
 
-  const { buttonRef, getButtonProps } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -90,6 +90,7 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
 
   const element = useRenderElement('button', componentProps, {
     props: [
+      ...buttonSources.attributes,
       {
         tabindex: -1,
         children: 'x',
@@ -120,7 +121,7 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
         },
       },
       elementProps,
-      getButtonProps,
+      buttonSources.handlers,
     ],
     ref: (el) => {
       buttonRef(el);

@@ -1,6 +1,6 @@
 import { createMemo, createSignal, untrack } from 'solid-js';
 import { safePolygon, useClick, useHoverReferenceInteraction } from '../../floating-ui-solid';
-import { live, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
+import { live, omitComponentProps, type ReactLikeRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
 import { TriggerFocusGuards } from '../../utils/popups/TriggerFocusGuards';
@@ -29,7 +29,7 @@ import { OPEN_DELAY } from '../utils/constants';
  * Documentation: [Base UI Popover](https://base-ui.com/react/components/popover)
  */
 export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Payload>) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'disabled',
     'nativeButton',
     'handle',
@@ -38,17 +38,17 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     'delay',
     'closeDelay',
     'id',
-  ]);
+  ] as const);
 
-  const disabled = () => Boolean(local.disabled ?? false);
-  const nativeButton = () => local.nativeButton ?? true;
-  const openOnHover = () => local.openOnHover ?? false;
-  const delay = () => local.delay ?? OPEN_DELAY;
-  const closeDelay = () => local.closeDelay ?? 0;
-  const idProp = () => local.id;
+  const disabled = () => Boolean(componentProps.disabled ?? false);
+  const nativeButton = () => componentProps.nativeButton ?? true;
+  const openOnHover = () => componentProps.openOnHover ?? false;
+  const delay = () => componentProps.delay ?? OPEN_DELAY;
+  const closeDelay = () => componentProps.closeDelay ?? 0;
+  const idProp = () => componentProps.id;
 
   const rootStore = usePopoverRootContext(true)?.store;
-  const handleStore = usePopupHandleStore(() => local.handle);
+  const handleStore = usePopupHandleStore(() => componentProps.handle);
   const store = createMemo(
     () => (handleStore() ?? rootStore) as PopoverHandleStore<unknown> | undefined,
   );
@@ -76,7 +76,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     currentStore,
     {
       get payload() {
-        return local.payload;
+        return componentProps.payload;
       },
       get disabled() {
         return disabled();
@@ -148,7 +148,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     currentStore().select('triggerProps', isMountedByThisTrigger),
   );
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -184,6 +184,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
       setTriggerElement(el);
     },
     props: [
+      ...buttonSources.attributes,
       propsSourceAccessor(() => click.reference),
       hoverProps,
       rootTriggerProps,
@@ -202,7 +203,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
         },
       },
       elementProps,
-      getButtonProps,
+      buttonSources.handlers,
     ],
     stateAttributesMapping,
   });

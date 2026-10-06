@@ -16,6 +16,7 @@ export function CompositeItem<Metadata, State extends Record<string, any>>(
 ) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'state',
+    'baseProps',
     'props',
     'refs',
     'metadata',
@@ -25,6 +26,7 @@ export function CompositeItem<Metadata, State extends Record<string, any>>(
   ]);
   const mergedProps = solidMergeProps(
     {
+      baseProps: EMPTY_ARRAY,
       props: EMPTY_ARRAY,
       refs: EMPTY_ARRAY,
       state: EMPTY_OBJECT as State,
@@ -40,7 +42,7 @@ export function CompositeItem<Metadata, State extends Record<string, any>>(
 
   const element = useRenderElement(() => mergedProps.tag, componentProps, {
     get props() {
-      return [compositeProps, mergedProps.props, elementProps];
+      return [mergedProps.baseProps, compositeProps, mergedProps.props, elementProps];
     },
     get ref() {
       return [mergedProps.refs, setCompositeRef];
@@ -63,6 +65,8 @@ export interface CompositeItemProps<Metadata, State extends Record<string, any>>
   children?: JSX.Element;
   metadata?: MaybeAccessor<Metadata | undefined>;
   refs?: UseRenderElementRef<HTMLElement> | UseRenderElementRef<HTMLElement>[];
+  /** Sources below the composite item's own props (a button's default attributes). */
+  baseProps?: ReadonlyArray<Record<string, any> | (() => Record<string, any>)> | undefined;
   props?: Array<Record<string, any> | (() => Record<string, any>)> | undefined;
   state?: State | undefined;
   stateAttributesMapping?: StateAttributesMapping<State> | undefined;

@@ -12,10 +12,9 @@ import { useAriaLabelledBy } from '../../internals/labelable-provider/useAriaLab
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useButton } from '../../internals/use-button';
 import { useRadioGroupContext } from '../../radio-group/RadioGroupContext';
-import { splitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
+import { omitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
-import { EMPTY_OBJECT } from '../../utils/empty';
 import { NOOP } from '../../utils/noop';
 import { REASONS } from '../../utils/reasons';
 import { serializeValue } from '../../utils/serializeValue';
@@ -34,7 +33,7 @@ import { mergeProps as solidMergeProps } from '../../solid-1-compat';
  * Documentation: [Base UI Radio](https://base-ui.com/react/components/radio)
  */
 export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
-  const [renderProps, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'disabled',
     'readOnly',
     'required',
@@ -44,7 +43,8 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     'nativeButton',
     'id',
     'children',
-  ]);
+  ] as const);
+  const local = componentProps;
   const disabledProp = () => local.disabled ?? false;
   const readOnlyProp = () => local.readOnly ?? false;
   const requiredProp = () => local.required ?? false;
@@ -197,7 +197,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     },
   };
 
-  const { getButtonProps, buttonRef } = useButton({
+  const { buttonSources, buttonRef } = useButton({
     disabled,
     native: nativeButton,
     composite: false,
@@ -299,23 +299,24 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
   };
 
   const refs = [radioRef, buttonRef];
-  const props = () => [
+  // Built once (plan 7 step 3.4): the button's handlers above the part's props (wrapping them, as
+  // `getButtonProps` did). Its attributes go below every other source, the composite item's
+  // roving `tabindex` included, as the consumer-side props overrode them in `getButtonProps`.
+  const props = [
     rootProps,
     elementProps,
-    getButtonProps,
+    buttonSources.handlers,
     ...(labelableContext === DEFAULT_LABELABLE_CONTEXT ? [] : [getDescriptionProps]),
-    validation
-      ? (validationProps: HTMLProps) => validation.getValidationProps(disabled(), validationProps)
-      : EMPTY_OBJECT,
+    ...(validation
+      ? [(validationProps: HTMLProps) => validation.getValidationProps(disabled(), validationProps)]
+      : []),
   ];
 
   const element = useRenderElement('span', componentProps, {
     enabled: !isRadioGroup,
     state,
     ref: refs,
-    get props() {
-      return props();
-    },
+    props: [...buttonSources.attributes, ...props],
     stateAttributesMapping,
   });
 
@@ -324,11 +325,12 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
       <Show when={isRadioGroup} fallback={element()}>
         <CompositeItem
           tag="span"
-          render={renderProps.render}
-          class={renderProps.class}
+          render={componentProps.render}
+          class={componentProps.class}
           state={state}
           refs={[forwardedRef, ...refs]}
-          props={props()}
+          baseProps={buttonSources.attributes}
+          props={props}
           stateAttributesMapping={stateAttributesMapping}
         >
           {local.children}

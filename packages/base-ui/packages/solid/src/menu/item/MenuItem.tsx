@@ -1,8 +1,9 @@
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
-import { splitComponentProps } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { propsSourceMemo } from '../../utils/propsView';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { REGULAR_ITEM, useMenuItem } from './useMenuItem';
@@ -14,21 +15,21 @@ import { REGULAR_ITEM, useMenuItem } from './useMenuItem';
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuItem(componentProps: MenuItem.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, [
+  const elementProps = omitComponentProps(componentProps, [
     'id',
     'label',
     'nativeButton',
     'disabled',
     'closeOnClick',
-  ]);
-  const idProp = () => local.id;
-  const nativeButton = () => Boolean(local.nativeButton);
-  const disabledProp = () => Boolean(local.disabled);
-  const closeOnClick = () => local.closeOnClick ?? true;
+  ] as const);
+  const idProp = () => componentProps.id;
+  const nativeButton = () => Boolean(componentProps.nativeButton);
+  const disabledProp = () => Boolean(componentProps.disabled);
+  const closeOnClick = () => componentProps.closeOnClick ?? true;
 
   const listItem = useCompositeListItem({
     get label() {
-      return local.label;
+      return componentProps.label;
     },
   });
   const menuPositionerContext = useMenuPositionerContext(true);
@@ -40,7 +41,7 @@ export function MenuItem(componentProps: MenuItem.Props) {
   const highlighted = store.useState('isActive', listItem.index);
   const itemProps = store.useState('itemProps');
 
-  const { getItemProps, setItemRef } = useMenuItem({
+  const { itemSources, setItemRef } = useMenuItem({
     closeOnClick,
     disabled,
     highlighted,
@@ -61,9 +62,13 @@ export function MenuItem(componentProps: MenuItem.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    get props() {
-      return [itemProps(), elementProps, getItemProps];
-    },
+    // Built once: the root's item props as an accessor source between the item's own sources.
+    props: [
+      ...itemSources.attributes,
+      propsSourceMemo(itemProps),
+      elementProps,
+      itemSources.handlers,
+    ],
     ref: (el) => {
       setItemRef(el);
       listItem.setRef(el);

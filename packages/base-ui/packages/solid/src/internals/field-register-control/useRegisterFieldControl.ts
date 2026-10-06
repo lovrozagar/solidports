@@ -2,6 +2,7 @@ import { createEffect, onCleanup } from 'solid-js';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { access, type MaybeAccessor } from '../../solid-helpers';
 import type { FieldControlRegistration } from './useFieldControlRegistration';
+import { NOOP } from '../../utils/noop';
 
 export function useRegisterFieldControl(
   controlRef: FieldControlRegistration['controlRef'],
@@ -12,6 +13,10 @@ export function useRegisterFieldControl(
   name?: MaybeAccessor<FieldControlRegistration['name']>,
 ) {
   const { registerFieldControl } = useFieldRootContext();
+  if (registerFieldControl === NOOP) {
+    // Outside a `Field.Root` there is no form registry.
+    return;
+  }
   const source = Symbol('field-control');
 
   // Re-register without unregistering first: re-registration with the same id updates the

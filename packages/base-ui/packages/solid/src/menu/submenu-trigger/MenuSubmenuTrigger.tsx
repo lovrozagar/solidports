@@ -127,7 +127,7 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     },
   });
 
-  const { getItemProps, setItemRef } = useMenuItem({
+  const { itemSources, setItemRef } = useMenuItem({
     closeOnClick: false,
     disabled,
     highlighted,
@@ -222,6 +222,7 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     // A static list whose changing parts are read per key: highlighting the trigger or opening the
     // submenu updates its attributes without rebuilding the trigger's props chain.
     props: [
+      ...itemSources.attributes,
       propsSourceAccessor(localInteractionProps),
       hoverProps,
       // Opening a submenu changes the trigger's expanded state while the trigger still holds
@@ -251,7 +252,7 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
         },
       },
       elementProps,
-      getItemProps,
+      itemSources.handlers,
     ],
     ref: [listItem.setRef, setItemRef, registerTrigger, handleTriggerElementRef],
   });
