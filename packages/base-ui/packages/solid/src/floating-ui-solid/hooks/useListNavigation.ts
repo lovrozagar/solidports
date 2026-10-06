@@ -7,7 +7,9 @@ import {
   createDepsEffect,
   access,
   defaultProps,
-  useRef, createLayoutEffect } from '../../solid-helpers';
+  useRef,
+  createLayoutEffect,
+} from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
@@ -30,6 +32,7 @@ import {
 } from '../utils';
 import { ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, ARROW_UP } from '../utils/constants';
 import { enqueueFocus } from '../utils/enqueueFocus';
+import { useAnimationFrame } from '../../utils/useAnimationFrame';
 import { platform } from '../../utils/platform';
 import type { gridNavigation } from './gridNavigation';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
@@ -328,6 +331,10 @@ export function useListNavigation(parameters: {
   const selectedIndexRef = useRef(untrack(() => props.selectedIndex));
   const resetOnPointerLeaveRef = useRef(untrack(() => props.resetOnPointerLeave));
   const cancelQueuedFocusRef = useRef<(() => void) | null>(null);
+  // React's `useAnimationFrame()` pair: a pending frame is cancelled when a new one is requested
+  // and when the list's owner is disposed, so a queued scroll never reaches a detached item.
+  const focusFrame = useAnimationFrame();
+  const waitForListPopulatedFrame = useAnimationFrame();
 
   function runFocus(item: HTMLElement) {
     if (props.virtual) {
@@ -347,7 +354,9 @@ export function useListNavigation(parameters: {
       runFocus(initialItem);
     }
 
-    const scheduler = forceSyncFocusRef.current ? (v: () => void) => v() : requestAnimationFrame;
+    const scheduler = forceSyncFocusRef.current
+      ? (callback: () => void) => callback()
+      : (callback: () => void) => focusFrame.request(callback);
 
     scheduler(() => {
       const waitedItem = props.listRef[indexRef.current] || initialItem;
@@ -478,7 +487,9 @@ export function useListNavigation(parameters: {
               // Avoid letting the browser paint if possible on the first try,
               // otherwise use rAF.
               if (runs < maxRuns) {
-                const scheduler = runs ? requestAnimationFrame : queueMicrotask;
+                const scheduler = runs
+                  ? (callback: () => void) => waitForListPopulatedFrame.request(callback)
+                  : queueMicrotask;
                 scheduler(waitForListPopulated);
               }
               runs += 1;
