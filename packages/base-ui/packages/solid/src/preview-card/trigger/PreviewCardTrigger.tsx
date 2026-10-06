@@ -6,6 +6,7 @@ import {
   getInlineRectTriggerProps,
   usePopupHandleStore,
   useTriggerDataForwarding,
+  useTriggerInteractions,
 } from '../../utils/popups';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
@@ -73,35 +74,45 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
     },
   );
 
-  const hoverProps = useHoverReferenceInteraction({
-    get context() {
-      return floatingRootContext();
-    },
-    props: {
-      mouseOnly: true,
-      move: false,
-      handleClose: safePolygon(),
-      delay: () => ({ open: untrack(delayWithDefault), close: untrack(closeDelayWithDefault) }),
-      get triggerElementRef() {
-        return triggerElement();
-      },
-      get isActiveTrigger() {
-        return isTriggerActive();
-      },
-      isClosing: () => currentStore().select('transitionStatus') === 'ending',
-    },
-  });
+  // A closed trigger renders only its element: the hover and focus interactions are created on the
+  // first intent, or when this trigger's card opens or mounts by other means, and are kept
+  // afterwards. React mounts these hooks up front; their closed-state output is handlers only.
+  const interactions = useTriggerInteractions(
+    () => {
+      const hoverProps = useHoverReferenceInteraction({
+        get context() {
+          return floatingRootContext();
+        },
+        props: {
+          mouseOnly: true,
+          move: false,
+          handleClose: safePolygon(),
+          delay: () => ({ open: untrack(delayWithDefault), close: untrack(closeDelayWithDefault) }),
+          get triggerElementRef() {
+            return triggerElement();
+          },
+          get isActiveTrigger() {
+            return isTriggerActive();
+          },
+          isClosing: () => currentStore().select('transitionStatus') === 'ending',
+        },
+      });
 
-  const focusProps = useFocus({
-    get context() {
-      return floatingRootContext();
+      const focusProps = useFocus({
+        get context() {
+          return floatingRootContext();
+        },
+        props: {
+          get delay() {
+            return delayWithDefault();
+          },
+        },
+      });
+      return { hoverProps, focusProps };
     },
-    props: {
-      get delay() {
-        return delayWithDefault();
-      },
-    },
-  });
+    triggerElement,
+    () => isOpenedByThisTrigger() || isMountedByThisTrigger(),
+  );
 
   const state: PreviewCardTrigger.State = {
     get open() {
@@ -126,8 +137,8 @@ export function PreviewCardTrigger<Payload>(componentProps: PreviewCardTrigger.P
       setTriggerElement(el);
     },
     props: [
-      hoverProps,
-      propsSourceAccessor(() => focusProps.reference as HTMLProps),
+      propsSourceAccessor(() => interactions()?.hoverProps),
+      propsSourceAccessor(() => interactions()?.focusProps.reference as HTMLProps | undefined),
       rootTriggerSource,
       inlineRectSource,
       {

@@ -122,6 +122,11 @@ export interface ContextData {
   floatingContext?: FloatingContext | undefined;
   /** @deprecated use `onTyping` prop in `useTypeahead` */
   typing?: boolean | undefined;
+  /**
+   * The last `openchange` the root emitted, so interactions created after it (deferred on a closed
+   * root) start from the state that listening to it would have left.
+   */
+  lastOpenChange?: { open: boolean; reason: string } | undefined;
   [key: string]: any;
 }
 

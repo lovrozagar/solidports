@@ -131,6 +131,11 @@ export type PopupStoreContext<ChangeEventDetails> = {
    * Callback fired when the open state change animation completes.
    */
   onOpenChangeComplete: ((open: boolean) => void) | undefined;
+  /**
+   * Creates the root's interactions, which a closed root defers. Triggers call it on the first
+   * intent; it is cleared once they exist.
+   */
+  activateInteractions?: (() => void) | undefined;
 };
 
 type S = PopupStoreState<unknown>;

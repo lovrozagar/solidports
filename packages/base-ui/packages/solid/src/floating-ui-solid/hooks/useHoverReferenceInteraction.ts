@@ -99,7 +99,10 @@ export function useHoverReferenceInteraction(parameters: {
     },
   });
   const [instance, setInstanceState] = hoverState;
-  let isHoverCloseActiveRef = false;
+  // Created after a hover close (a deferred trigger's first intent), it starts as if it had seen it.
+  const lastOpenChange = untrack(dataRef).lastOpenChange;
+  let isHoverCloseActiveRef =
+    lastOpenChange?.open === false && lastOpenChange.reason === REASONS.triggerHover;
 
   // React reads these through refs, so handlers see the latest prop values.
   const handleCloseRef = () => untrack(() => props.handleClose);

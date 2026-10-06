@@ -1,0 +1,101 @@
+import { createOwner, createSignal, flush, getOwner, runWithOwner, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import { createLayoutEffect } from '../../solid-helpers';
+import { addEventListener } from '../addEventListener';
+import { mergeCleanups } from '../mergeCleanups';
+import type { PopupStoreContext } from './store';
+
+// Every event a popup's interactions handle on a trigger.
+const INTENT_EVENTS = [
+  'pointerenter',
+  'pointerdown',
+  'mouseenter',
+  'mousedown',
+  'mousemove',
+  'mouseleave',
+  'click',
+  'keydown',
+  'focus',
+  'blur',
+  'touchstart',
+] as const;
+const INTENT_OPTIONS = { capture: true, passive: true };
+
+function listenForIntent(target: Element, onIntent: () => void) {
+  return mergeCleanups(
+    ...INTENT_EVENTS.map((type) => addEventListener(target, type, onIntent, INTENT_OPTIONS)),
+  );
+}
+
+/**
+ * Defers a closed popup's interactions (hooks whose closed-state output is handlers and
+ * listeners): `create` runs once, when `needed` turns true or on the first intent that
+ * `activate` is called for, and its result is kept afterwards. React mounts these hooks up front.
+ */
+export function useDeferredInteractions<T>(create: () => T, needed: Accessor<boolean>) {
+  const owner = getOwner();
+  const [interactions, setInteractions] = createSignal<T | undefined>(undefined, {
+    ownedWrite: true,
+  });
+
+  function activate() {
+    if (untrack(interactions) !== undefined) {
+      return;
+    }
+    // The server never creates these, so they live in a scope with its own id: the owner's other
+    // children keep the hydration ids the server assigned.
+    const scope = runWithOwner(owner, () =>
+      createOwner({ id: owner?.id == null ? undefined : `${owner.id}-interactions` }),
+    );
+    const created = runWithOwner(scope, create);
+    setInteractions(() => created);
+  }
+
+  createLayoutEffect(needed, (isNeeded) => {
+    if (isNeeded) {
+      activate();
+    }
+  });
+
+  return {
+    interactions,
+    /** Creates the interactions for an intent event and applies them before the event continues. */
+    activateOnIntent() {
+      activate();
+      if (getOwner() === null) {
+        flush();
+      }
+    },
+  };
+}
+
+/**
+ * Creates a trigger's deferred interactions on its first intent. The listeners run in the capture
+ * phase at the trigger, before its own listeners, so the handlers and listeners the interactions
+ * add still receive the event that created them. They are removed once the interactions exist.
+ */
+export function useTriggerInteractions<T>(
+  create: () => T,
+  element: Accessor<Element | null | undefined>,
+  needed: Accessor<boolean>,
+): Accessor<T | undefined> {
+  const { interactions, activateOnIntent } = useDeferredInteractions(create, needed);
+  createLayoutEffect(
+    () => (interactions() === undefined ? element() : null),
+    (target) => (target ? listenForIntent(target, activateOnIntent) : undefined),
+  );
+  return interactions;
+}
+
+/**
+ * The trigger side of a root's deferred interactions: the trigger's first intent creates them
+ * through `store.context.activateInteractions`.
+ */
+export function useInteractionIntent(
+  store: () => { context: PopupStoreContext<any> },
+  element: Accessor<Element | null | undefined>,
+) {
+  createLayoutEffect(element, (target) =>
+    target ? listenForIntent(target, () => store().context.activateInteractions?.()) : undefined,
+  );
+}

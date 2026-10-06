@@ -148,6 +148,11 @@ interface UseDelayGroupReturn {
  * @see https://floating-ui.com/docs/FloatingDelayGroup
  * @internal
  */
+/** The enclosing delay group's shared refs (a default, provider-less group outside a provider). */
+export function useFloatingDelayGroupContext() {
+  return useContext(FloatingDelayGroupContext);
+}
+
 export function useDelayGroup(parameters: {
   context: FloatingRootContext | FloatingContext;
   options: UseDelayGroupOptions;

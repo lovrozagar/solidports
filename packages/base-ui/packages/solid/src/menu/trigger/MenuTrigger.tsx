@@ -24,6 +24,7 @@ import { TriggerFocusGuards } from '../../utils/popups/TriggerFocusGuards';
 import { isMouseWithinBounds } from '../../utils/getPseudoElementBounds';
 import { ownerDocument } from '../../utils/owner';
 import {
+  useInteractionIntent,
   usePopupHandleStore,
   useTriggerDataForwarding,
   useTriggerFocusGuards,
@@ -90,6 +91,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
   // Solid: a signal mirror of `triggerElementRef` so the hover hook re-attaches its listeners once
   // the element exists (React re-renders on the ref assignment's commit).
   const [triggerElement, setTriggerElement] = createSignal<HTMLElement | null | undefined>(null);
+  useInteractionIntent(store, triggerElement);
 
   const parent = useMenuParent();
   // A trigger in a menubar reports the menu it opens, so the menubar derives `hasSubmenuOpen`.

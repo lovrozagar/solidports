@@ -28,7 +28,9 @@ import {
   access,
   createDepsRenderEffect,
   type MaybeAccessor,
-  type ReactLikeRef, createLayoutEffect } from '../../solid-helpers';
+  type ReactLikeRef,
+  createLayoutEffect,
+} from '../../solid-helpers';
 import type { FloatingRootStore } from '../../floating-ui-solid/components/FloatingRootStoreV2';
 
 export const FOCUSABLE_POPUP_PROPS = {
@@ -479,16 +481,21 @@ export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(
   );
 
   createDepsRenderEffect(
-    () => ({
-      open: store.select('open'),
-      // Rerun when the registry size changes, when ownership moves to another trigger while the
-      // popup stays open, and when a pending active trigger registers in a commit where the
-      // trigger count nets out unchanged.
-      triggerCount: store.context.triggerElements.trackedSize(),
-      activeTriggerId: store.select('activeTriggerId'),
-      activeTriggerElement: store.select('activeTriggerElement'),
-      closeOnActiveTriggerUnmount: Boolean(access(options.closeOnActiveTriggerUnmount)),
-    }),
+    () =>
+      // A closed popup has nothing to reconcile, so it subscribes to `open` only (triggers
+      // registering at mount would otherwise rerun this once each).
+      store.select('open')
+        ? {
+            open: true,
+            // Rerun when the registry size changes, when ownership moves to another trigger while
+            // the popup stays open, and when a pending active trigger registers in a commit where
+            // the trigger count nets out unchanged.
+            triggerCount: store.context.triggerElements.trackedSize(),
+            activeTriggerId: store.select('activeTriggerId'),
+            activeTriggerElement: store.select('activeTriggerElement'),
+            closeOnActiveTriggerUnmount: Boolean(access(options.closeOnActiveTriggerUnmount)),
+          }
+        : { open: false, closeOnActiveTriggerUnmount: false },
     ({ open, closeOnActiveTriggerUnmount }) => {
       if (!open) {
         resolvedActiveTriggerId = null;

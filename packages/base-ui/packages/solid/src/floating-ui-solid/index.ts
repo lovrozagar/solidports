@@ -1,4 +1,8 @@
-export { FloatingDelayGroup, useDelayGroup } from './components/FloatingDelayGroup';
+export {
+  FloatingDelayGroup,
+  useDelayGroup,
+  useFloatingDelayGroupContext,
+} from './components/FloatingDelayGroup';
 export { FloatingFocusManager } from './components/FloatingFocusManager';
 export { FloatingPortal, useFloatingPortalNode } from './components/FloatingPortal';
 export {

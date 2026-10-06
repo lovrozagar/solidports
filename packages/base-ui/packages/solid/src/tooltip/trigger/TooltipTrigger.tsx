@@ -3,6 +3,7 @@ import { isElement } from '@floating-ui/utils/dom';
 import {
   safePolygon,
   useDelayGroup,
+  useFloatingDelayGroupContext,
   useFocus,
   useHoverReferenceInteraction,
 } from '../../floating-ui-solid';
@@ -17,7 +18,11 @@ import {
   createLayoutEffect,
 } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { usePopupHandleStore, useTriggerDataForwarding } from '../../utils/popups';
+import {
+  usePopupHandleStore,
+  useTriggerDataForwarding,
+  useTriggerInteractions,
+} from '../../utils/popups';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, BaseUIEvent } from '../../utils/types';
@@ -129,29 +134,14 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
   );
 
   const providerDelay = useTooltipProviderContext();
-  const { activeIdRef, delayRef, isInstantPhase, hasProvider } = useDelayGroup({
-    get context() {
-      return floatingRootContext();
-    },
-    options: {
-      get open() {
-        return isOpenedByThisTrigger();
-      },
-    },
-  });
+  // The group's shared refs are read from context at setup; the group's open/close effects are
+  // created with the other interactions on first intent (see `createInteractions`).
+  const { currentIdRef: activeIdRef, delayRef, hasProvider } = useFloatingDelayGroupContext();
   const [hoverInteraction, setHoverInteraction] = useHoverInteractionSharedState({
     get store() {
       return floatingRootContext();
     },
   });
-
-  // React's `store.useSyncedValue`; also re-syncs when the handle exposes another store.
-  createLayoutEffect(
-    () => [currentStore(), isInstantPhase()] as const,
-    ([targetStore, value]) => {
-      targetStore.set('isInstantPhase', value);
-    },
-  );
 
   const rootDisabled = () => currentStore().select('disabled');
   const disabled = () => local.disabled ?? rootDisabled();
@@ -197,49 +187,79 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
     return nestedTriggerHovered;
   }
 
-  const hoverProps = useHoverReferenceInteraction({
-    get context() {
-      return floatingRootContext();
-    },
-    props: {
-      get enabled() {
-        return !disabled();
+  // A closed trigger renders only its element: the hover, focus and delay-group interactions are
+  // created on the first intent, or when this trigger's tooltip opens or mounts by other means, and
+  // are kept afterwards. React mounts these hooks up front; their closed-state output is handlers only.
+  function createInteractions() {
+    const { isInstantPhase } = useDelayGroup({
+      get context() {
+        return floatingRootContext();
       },
-      mouseOnly: true,
-      move: false,
-      get handleClose() {
-        return !disableHoverablePopup() && trackCursorAxis() !== 'both' ? safePolygon() : null;
+      options: {
+        get open() {
+          return isOpenedByThisTrigger();
+        },
       },
-      restMs: getOpenDelay,
-      delay() {
-        if (untrack(() => local.closeDelay) == null && hasProvider) {
-          return { close: getDelay(delayRef.current, 'close') };
-        }
-        return { close: untrack(closeDelayWithDefault) };
+    });
+    // React's `store.useSyncedValue`; also re-syncs when the handle exposes another store.
+    createLayoutEffect(
+      () => [currentStore(), isInstantPhase()] as const,
+      ([targetStore, value]) => {
+        targetStore.set('isInstantPhase', value);
       },
-      get triggerElementRef() {
-        return triggerElement();
-      },
-      get isActiveTrigger() {
-        return isTriggerActive();
-      },
-      isClosing: () => currentStore().select('transitionStatus') === 'ending',
-      shouldOpen() {
-        return !isNestedTriggerHoveredRef;
-      },
-    },
-  });
+    );
 
-  const focusProps = useFocus({
-    get context() {
-      return floatingRootContext();
-    },
-    props: {
-      get enabled() {
-        return !disabled();
+    const hover = useHoverReferenceInteraction({
+      get context() {
+        return floatingRootContext();
       },
-    },
-  });
+      props: {
+        get enabled() {
+          return !disabled();
+        },
+        mouseOnly: true,
+        move: false,
+        get handleClose() {
+          return !disableHoverablePopup() && trackCursorAxis() !== 'both' ? safePolygon() : null;
+        },
+        restMs: getOpenDelay,
+        delay() {
+          if (untrack(() => local.closeDelay) == null && hasProvider) {
+            return { close: getDelay(delayRef.current, 'close') };
+          }
+          return { close: untrack(closeDelayWithDefault) };
+        },
+        get triggerElementRef() {
+          return triggerElement();
+        },
+        get isActiveTrigger() {
+          return isTriggerActive();
+        },
+        isClosing: () => currentStore().select('transitionStatus') === 'ending',
+        shouldOpen() {
+          return !isNestedTriggerHoveredRef;
+        },
+      },
+    });
+
+    const focus = useFocus({
+      get context() {
+        return floatingRootContext();
+      },
+      props: {
+        get enabled() {
+          return !disabled();
+        },
+      },
+    });
+
+    return { hover, focus };
+  }
+  const interactions = useTriggerInteractions(
+    createInteractions,
+    triggerElement,
+    () => isOpenedByThisTrigger() || isMountedByThisTrigger() || trackCursorAxis() !== 'none',
+  );
 
   const handleNestedTriggerHover = (event: MouseEvent) => {
     const targetStore = currentStore();
@@ -316,8 +336,8 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
       setTriggerElement(el);
     },
     props: [
-      hoverProps,
-      propsSourceAccessor(() => focusProps.reference),
+      propsSourceAccessor(() => interactions()?.hover),
+      propsSourceAccessor(() => interactions()?.focus.reference),
       rootTriggerSource,
       {
         onMouseOver(event: MouseEvent) {

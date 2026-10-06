@@ -123,6 +123,7 @@ export function FloatingRootStore(options: FloatingRootStoreOptions) {
       triggerElement: eventDetails.trigger,
     };
 
+    store.context.dataRef.lastOpenChange = { open: newOpen, reason: eventDetails.reason };
     store.context.events.emit('openchange', details);
   }
 

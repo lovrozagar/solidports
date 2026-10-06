@@ -37,6 +37,7 @@ import {
   FOCUSABLE_POPUP_PROPS,
   PayloadChildRenderFunction,
   useImplicitActiveTrigger,
+  useDeferredInteractions,
   useOpenStateTransitions,
   usePopupInteractionProps,
 } from '../../utils/popups';
@@ -164,6 +165,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   const open = store.useState('open');
   const activeTriggerElement = store.useState('activeTriggerElement');
   const positionerElement = store.useState('positionerElement');
+  const mounted = store.useState('mounted');
   const hoverEnabled = store.useState('hoverEnabled');
   const disabled = store.useState('disabled');
   const lastOpenChangeReason = store.useState('lastOpenChangeReason');
@@ -527,28 +529,6 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     };
   });
 
-  const dismiss = useDismiss({
-    context: floatingRootContext,
-    props: {
-      get enabled() {
-        return !disabled();
-      },
-      get bubbles() {
-        return { escapeKey: closeParentOnEsc() && parent().type === 'menu' };
-      },
-      outsidePress() {
-        if (parent().type !== 'context-menu' || openEventRef.current?.type === 'contextmenu') {
-          return true;
-        }
-
-        return allowOutsidePressDismissalRef.current;
-      },
-      get externalTree() {
-        return nested() ? floatingTreeRoot() : undefined;
-      },
-    },
-  });
-
   const direction = useDirection();
 
   // List navigation resets the highlight from an effect once the menu closes. Solid derives the
@@ -561,48 +541,6 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     }
     store.set('activeIndex', index);
   };
-
-  const listNavigation = useListNavigation({
-    context: floatingRootContext,
-    props: {
-      get enabled() {
-        return !disabled();
-      },
-      get listRef() {
-        return store.context.itemDomElements.current;
-      },
-      get activeIndex() {
-        return activeIndex();
-      },
-      get nested() {
-        return parent().type !== undefined;
-      },
-      get loopFocus() {
-        return loopFocus();
-      },
-      get orientation() {
-        return orientation();
-      },
-      get parentOrientation() {
-        const currentParent = parent();
-        return currentParent.type === 'menubar' ? currentParent.context.orientation() : undefined;
-      },
-      get rtl() {
-        return direction() === 'rtl';
-      },
-      disabledIndices: EMPTY_ARRAY,
-      onNavigate: setActiveIndex,
-      get openOnArrowKeyDown() {
-        return parent().type !== 'context-menu';
-      },
-      get externalTree() {
-        return nested() ? floatingTreeRoot() : undefined;
-      },
-      get focusItemOnHover() {
-        return highlightItemOnHover();
-      },
-    },
-  });
 
   const onTyping = (nextTyping: boolean) => {
     store.context.typingRef.current = nextTyping;
@@ -633,14 +571,117 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     },
   });
 
+  // A closed menu renders only its triggers: dismissal, list navigation and typeahead are created
+  // on a trigger's first intent, or when the menu opens or mounts by other means, and are kept
+  // afterwards. React mounts these hooks up front; their closed-state output is handlers only.
+  function createInteractions() {
+    store.context.activateInteractions = undefined;
+    const dismiss = useDismiss({
+      context: floatingRootContext,
+      props: {
+        get enabled() {
+          return !disabled();
+        },
+        get bubbles() {
+          return { escapeKey: closeParentOnEsc() && parent().type === 'menu' };
+        },
+        outsidePress() {
+          if (parent().type !== 'context-menu' || openEventRef.current?.type === 'contextmenu') {
+            return true;
+          }
+
+          return allowOutsidePressDismissalRef.current;
+        },
+        get externalTree() {
+          return nested() ? floatingTreeRoot() : undefined;
+        },
+      },
+    });
+
+    const listNavigation = useListNavigation({
+      context: floatingRootContext,
+      props: {
+        get enabled() {
+          return !disabled();
+        },
+        get listRef() {
+          return store.context.itemDomElements.current;
+        },
+        get activeIndex() {
+          return activeIndex();
+        },
+        get nested() {
+          return parent().type !== undefined;
+        },
+        get loopFocus() {
+          return loopFocus();
+        },
+        get orientation() {
+          return orientation();
+        },
+        get parentOrientation() {
+          const currentParent = parent();
+          return currentParent.type === 'menubar' ? currentParent.context.orientation() : undefined;
+        },
+        get rtl() {
+          return direction() === 'rtl';
+        },
+        disabledIndices: EMPTY_ARRAY,
+        onNavigate: setActiveIndex,
+        get openOnArrowKeyDown() {
+          return parent().type !== 'context-menu';
+        },
+        get externalTree() {
+          return nested() ? floatingTreeRoot() : undefined;
+        },
+        get focusItemOnHover() {
+          return highlightItemOnHover();
+        },
+      },
+    });
+
+    const typeahead = useTypeahead({
+      context: floatingRootContext,
+      props: {
+        get enabled() {
+          return !disabled();
+        },
+        get listRef() {
+          return store.context.itemLabels.current;
+        },
+        get elementsRef() {
+          return store.context.itemDomElements.current;
+        },
+        get activeIndex() {
+          return activeIndex();
+        },
+        resetMs: TYPEAHEAD_RESET_MS,
+        onMatch: (index) => {
+          if (store.select('open') && index !== store.select('activeIndex')) {
+            store.set('activeIndex', index);
+          }
+        },
+        onTyping,
+      },
+    });
+
+    return { dismiss, listNavigation, typeahead };
+  }
+  const { interactions, activateOnIntent } = useDeferredInteractions(
+    createInteractions,
+    // A submenu renders inside its open parent, so it builds them up front, as React does.
+    () => parent().type === 'menu' || open() || mounted() || positionerElement() != null,
+  );
+  store.context.activateInteractions = activateOnIntent;
+
   // Solid: `mergeProps` returns a read-through view, so the ARIA keys React assigns afterwards are
   // merged in last instead.
   const activeTriggerProps = createMemo(
     () =>
       mergeProps(
-        typeahead.reference,
-        listNavigation.reference,
-        dismiss.reference,
+        interactions()?.typeahead.reference,
+        interactions()?.listNavigation.reference,
+        interactions()?.dismiss.reference,
         {
           onMouseMove() {
             store.set('allowMouseEnter', true);
@@ -657,10 +698,15 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
 
   const inactiveTriggerProps = createMemo(
     () =>
-      mergeProps(listNavigation.trigger, dismiss.trigger, interactionTypeProps, {
-        'aria-haspopup': 'menu' as const,
-        'aria-expanded': 'false',
-      }) as HTMLProps,
+      mergeProps(
+        interactions()?.listNavigation.trigger,
+        interactions()?.dismiss.trigger,
+        interactionTypeProps,
+        {
+          'aria-haspopup': 'menu' as const,
+          'aria-expanded': 'false',
+        },
+      ) as HTMLProps,
   );
 
   // The initial render has no store subscribers yet. Seed these props before triggers render so
@@ -699,13 +745,13 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
             }
           },
         },
-        typeahead.floating,
-        listNavigation.floating,
-        dismiss.floating,
+        interactions()?.typeahead.floating,
+        interactions()?.listNavigation.floating,
+        interactions()?.dismiss.floating,
       ) as HTMLProps,
   );
 
-  const itemProps = () => (listNavigation.item ?? EMPTY_OBJECT) as HTMLProps;
+  const itemProps = () => (interactions()?.listNavigation.item ?? EMPTY_OBJECT) as HTMLProps;
 
   usePopupInteractionProps(store, {
     get activeTriggerProps() {

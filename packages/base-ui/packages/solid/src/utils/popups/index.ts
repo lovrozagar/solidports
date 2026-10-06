@@ -6,3 +6,4 @@ export * from './store';
 export * from './usePopupHandleStore';
 export * from './createPopupFloatingRootContext';
 export * from './useTriggerFocusGuards';
+export * from './useInteractionIntent';

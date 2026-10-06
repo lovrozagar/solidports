@@ -11,6 +11,8 @@ import {
   useListNavigation,
   useTypeahead,
 } from '../../floating-ui-solid';
+import type { ElementProps } from '../../floating-ui-solid/types';
+import { useTriggerInteractions } from '../../utils/popups';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { createDepsEffect, createDepsMemo, useRef, type ReactLikeRef } from '../../solid-helpers';
@@ -418,103 +420,127 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   // `readOnly` locks the value, not the interaction: the popup can be opened and browsed so the
   // user can see the available options and which one is selected. Committing a value is blocked
   // separately in `SelectItem` and in the hidden input's autofill handler.
-  const click = useClick({
-    get context() {
-      return floatingContext;
-    },
-    props: {
-      get enabled() {
-        return !disabled();
-      },
-      event: 'mousedown',
-    },
-  });
+  // A closed select renders only its trigger: click, dismissal, list navigation and typeahead are
+  // created on the trigger's first intent, or when the popup opens or mounts, and are kept
+  // afterwards. React mounts these hooks up front; their closed-state output is handlers only.
+  const interactions = useTriggerInteractions(
+    () => {
+      const click = useClick({
+        get context() {
+          return floatingContext;
+        },
+        props: {
+          get enabled() {
+            return !disabled();
+          },
+          event: 'mousedown',
+        },
+      });
 
-  const dismiss = useDismiss({
-    get context() {
-      return floatingContext;
-    },
-  });
+      const dismiss = useDismiss({
+        get context() {
+          return floatingContext;
+        },
+      });
 
-  const listNavigation = useListNavigation({
-    get context() {
-      return floatingContext;
-    },
-    props: {
-      get enabled() {
-        return !disabled();
-      },
-      get listRef() {
-        return listRef.current;
-      },
-      get activeIndex() {
-        return activeIndex();
-      },
-      get selectedIndex() {
-        return selectedIndex();
-      },
-      disabledIndices: EMPTY_ARRAY as number[],
-      onNavigate(nextActiveIndex) {
-        // Retain the highlight while transitioning out.
-        if (nextActiveIndex === null && !open()) {
-          return;
-        }
+      const listNavigation = useListNavigation({
+        get context() {
+          return floatingContext;
+        },
+        props: {
+          get enabled() {
+            return !disabled();
+          },
+          get listRef() {
+            return listRef.current;
+          },
+          get activeIndex() {
+            return activeIndex();
+          },
+          get selectedIndex() {
+            return selectedIndex();
+          },
+          disabledIndices: EMPTY_ARRAY as number[],
+          onNavigate(nextActiveIndex) {
+            // Retain the highlight while transitioning out.
+            if (nextActiveIndex === null && !open()) {
+              return;
+            }
 
-        store.set('activeIndex', nextActiveIndex);
-      },
-      // Implement our own listeners since `onPointerLeave` on each option fires while scrolling with
-      // the `alignItemWithTrigger=true`, causing a performance issue on Chrome.
-      get focusItemOnHover() {
-        return highlightItemOnHover();
-      },
-    },
-  });
+            store.set('activeIndex', nextActiveIndex);
+          },
+          // Implement our own listeners since `onPointerLeave` on each option fires while scrolling with
+          // the `alignItemWithTrigger=true`, causing a performance issue on Chrome.
+          get focusItemOnHover() {
+            return highlightItemOnHover();
+          },
+        },
+      });
 
-  const typeahead = useTypeahead({
-    get context() {
-      return floatingContext;
+      const typeahead = useTypeahead({
+        get context() {
+          return floatingContext;
+        },
+        props: {
+          get activeIndex() {
+            return activeIndex();
+          },
+          // Typeahead on an open popup only moves the highlight, so it remains available while
+          // `readOnly`. The closed-trigger variant commits a value instead, so it doesn't.
+          get enabled() {
+            return !disabled() && (open() || (!readOnly() && !multiple()));
+          },
+          // Skip disabled items while matching so typeahead advances to the next selectable item
+          // (a click can never select a disabled item and native `<select>` skips them too). Resolve
+          // the disabled state from the element via the attribute-only `isElementDisabled` so the
+          // hidden, force-mounted items used for closed-trigger typeahead aren't dropped by the
+          // `elementsRef`/visibility filter that `disabledIndices` deliberately sidesteps.
+          disabledIndices: (index: number) => isElementDisabled(listRef.current[index]),
+          get listRef() {
+            return labelsRef.current;
+          },
+          onMatch(index) {
+            if (open()) {
+              store.set('activeIndex', index);
+            } else {
+              setValue(valuesRef.current[index], createChangeEventDetails('none'));
+            }
+          },
+          onTyping(typing) {
+            // FIXME: Floating UI doesn't support allowing space to select an item while the popup is
+            // closed and the trigger isn't a native <button>.
+            typingRef.current = typing;
+          },
+          get selectedIndex() {
+            return selectedIndex();
+          },
+        },
+      });
+      return { click, dismiss, listNavigation, typeahead };
     },
-    props: {
-      get activeIndex() {
-        return activeIndex();
-      },
-      // Typeahead on an open popup only moves the highlight, so it remains available while
-      // `readOnly`. The closed-trigger variant commits a value instead, so it doesn't.
-      get enabled() {
-        return !disabled() && (open() || (!readOnly() && !multiple()));
-      },
-      // Skip disabled items while matching so typeahead advances to the next selectable item
-      // (a click can never select a disabled item and native `<select>` skips them too). Resolve
-      // the disabled state from the element via the attribute-only `isElementDisabled` so the
-      // hidden, force-mounted items used for closed-trigger typeahead aren't dropped by the
-      // `elementsRef`/visibility filter that `disabledIndices` deliberately sidesteps.
-      disabledIndices: (index: number) => isElementDisabled(listRef.current[index]),
-      get listRef() {
-        return labelsRef.current;
-      },
-      onMatch(index) {
-        if (open()) {
-          store.set('activeIndex', index);
-        } else {
-          setValue(valuesRef.current[index], createChangeEventDetails('none'));
-        }
-      },
-      onTyping(typing) {
-        // FIXME: Floating UI doesn't support allowing space to select an item while the popup is
-        // closed and the trigger isn't a native <button>.
-        typingRef.current = typing;
-      },
-      get selectedIndex() {
-        return selectedIndex();
-      },
+    triggerElement,
+    () => open() || mounted(),
+  );
+  const deferred = (key: 'click' | 'dismiss' | 'listNavigation' | 'typeahead'): ElementProps => ({
+    get reference() {
+      return interactions()?.[key].reference;
+    },
+    get floating() {
+      return interactions()?.[key].floating;
+    },
+    get item() {
+      return interactions()?.[key].item;
+    },
+    get trigger() {
+      return interactions()?.[key].trigger;
     },
   });
 
   const { getReferenceProps, getFloatingProps, getItemProps } = useInteractions([
-    click,
-    dismiss,
-    listNavigation,
-    typeahead,
+    deferred('click'),
+    deferred('dismiss'),
+    deferred('listNavigation'),
+    deferred('typeahead'),
   ]);
 
   // The interaction getters return live views, so each is created once.
