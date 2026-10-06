@@ -2,7 +2,8 @@ import { Show, onCleanup } from 'solid-js';
 import { createLayoutEffect } from '../../solid-helpers';
 import type { JSX } from '@solidjs/web';
 import type { ReactLikeRef } from '../../solid-helpers';
-import { FocusGuard } from '../FocusGuard';
+import { FocusGuard, useSafariGuardRole } from '../FocusGuard';
+import { visuallyHidden } from '../visuallyHidden';
 
 /**
  * The focus guards around a popup trigger, which React renders as keyed siblings of the trigger.
@@ -22,6 +23,7 @@ export function TriggerFocusGuards(props: {
   children: JSX.Element;
 }) {
   let trailingGuard: HTMLElement | null = null;
+  const role = useSafariGuardRole();
   // The ref holds the guard only while it is active; handlers fall back to the trigger otherwise,
   // as when React unmounts the guard.
   const syncTrailingGuardRef = (active: boolean) => {
@@ -40,11 +42,17 @@ export function TriggerFocusGuards(props: {
         <TriggerFocusGuard guardRef={props.leadingGuardRef} onFocus={props.onLeadingFocus} />
       </Show>
       {props.children}
-      <FocusGuard
-        active={props.active}
+      {/* A plain span (the `FocusGuard` markup) rather than the generic component: one sits after
+          every closed trigger, so it carries no props spread. */}
+      <span
         ref={(el) => {
           trailingGuard = el;
         }}
+        role={props.active ? role() : undefined}
+        aria-hidden={props.active && role() ? undefined : 'true'}
+        style={visuallyHidden}
+        tabindex={props.active ? 0 : undefined}
+        data-base-ui-focus-guard={props.active ? '' : undefined}
         onFocus={(event) => {
           if (props.active) {
             props.onTrailingFocus(event);

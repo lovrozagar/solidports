@@ -124,6 +124,8 @@ scenarios.push(
             await yieldTask();
           }
         },
+        // Positioning and scroll-into-view settle before the next step scrolls the popup.
+        settle: true,
         verify: highlightedText,
       },
       {

@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic store accepts arbitrary state/context/selector shapes; `unknown` would force casts at every internal write */
 import {
+  isDisposed,
   createEffect,
   createMemo,
   createSignal,
@@ -604,12 +605,20 @@ export function createStoreState<State extends object>(
           { name: `store.${String(key)}` },
         ),
       ) as Signal<unknown>);
+    const peek = () =>
+      derived ? untrack(derived[0]) : untrack(() => source(unbound ? unbound.value : undefined));
+    // Read for the first time after its owner disposed (another part's teardown reading the key
+    // before this binding's cleanup runs): computed directly, nothing is created under it.
+    const ownerGone = () => owner !== null && isDisposed(owner);
     const binding: Binding = {
       [BINDING]: true,
-      value: () => signal()[0](),
-      setValue: (next: unknown) => signal()[1](() => next),
-      peek: () =>
-        derived ? untrack(derived[0]) : untrack(() => source(unbound ? unbound.value : undefined)),
+      value: () => (derived || !ownerGone() ? signal()[0]() : peek()),
+      setValue: (next: unknown) => {
+        if (derived || !ownerGone()) {
+          signal()[1](() => next);
+        }
+      },
+      peek,
     };
     bindings.set(key, binding);
     written.delete(key);
