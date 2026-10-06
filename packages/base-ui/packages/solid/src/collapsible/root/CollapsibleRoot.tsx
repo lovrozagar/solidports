@@ -1,4 +1,8 @@
+import type { JSX } from '@solidjs/web';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
+import { canRenderNative } from '../../utils/native';
+import { provideNativeContext } from '../../utils/native/context';
+import { renderNativeElement } from '../../utils/native/element';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { BaseUIComponentProps } from '../../utils/types';
@@ -15,6 +19,13 @@ import { collapsibleStateAttributesMapping } from './stateAttributesMapping';
  * Documentation: [Base UI Collapsible](https://base-ui.com/solid/components/collapsible)
  */
 export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
+  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // JSX and its context on one owner. A `render` prop, spread props, the server and hydration
+  // keep `useRenderElement`.
+  if (canRenderNative(componentProps)) {
+    return NativeCollapsibleRoot(componentProps);
+  }
+
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'defaultOpen',
     'disabled',
@@ -58,6 +69,48 @@ export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
   });
 
   return provideContext(CollapsibleRootContext, contextValue, element);
+}
+
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set(['defaultOpen', 'disabled', 'onOpenChange', 'open']);
+
+function NativeCollapsibleRoot(props: CollapsibleRoot.Props) {
+  const onOpenChange = (open: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) =>
+    props.onOpenChange?.(open, eventDetails);
+
+  const collapsible = useCollapsibleRoot({
+    open: () => props.open,
+    defaultOpen: () => props.defaultOpen ?? false,
+    onOpenChange,
+    disabled: () => props.disabled ?? false,
+  });
+
+  const state: CollapsibleRootState = {
+    get open() {
+      return collapsible.open();
+    },
+    get disabled() {
+      return collapsible.disabled();
+    },
+    get transitionStatus() {
+      return collapsible.transitionStatus();
+    },
+  };
+
+  const contextValue: CollapsibleRootContext = {
+    ...collapsible,
+    onOpenChange,
+    state,
+  };
+
+  return provideNativeContext(CollapsibleRootContext, contextValue, () =>
+    renderNativeElement((<div />) as unknown as Element, props, {
+      own: OWN_KEYS,
+      state,
+      mapping: collapsibleStateAttributesMapping,
+      reactive: true,
+    }),
+  ) as unknown as JSX.Element;
 }
 
 // Solid: React picks these from the hook's return value; here the hook returns accessors.

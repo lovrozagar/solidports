@@ -5,7 +5,10 @@ export interface FieldItemContext {
   disabled: Accessor<boolean>;
 }
 
-export const FieldItemContext = createContext<FieldItemContext>({ disabled: () => false });
+/** The context outside any `Field.Item`: never disabled by an item. */
+export const DEFAULT_FIELD_ITEM_CONTEXT: FieldItemContext = { disabled: () => false };
+
+export const FieldItemContext = createContext<FieldItemContext>(DEFAULT_FIELD_ITEM_CONTEXT);
 
 export function useFieldItemContext() {
   const context = useContext(FieldItemContext);

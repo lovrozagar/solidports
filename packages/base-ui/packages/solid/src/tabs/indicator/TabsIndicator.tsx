@@ -7,6 +7,8 @@ import { getCssDimensions } from '../../utils/getCssDimensions';
 import { getElementTransform } from '../../utils/getElementTransform';
 import { ownerWindow } from '../../utils/owner';
 import type { BaseUIComponentProps } from '../../utils/types';
+import { canRenderNative } from '../../utils/native';
+import { renderNativeElement } from '../../utils/native/element';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTabsListContext } from '../list/TabsListContext';
 import { tabsStateAttributesMapping } from '../root/stateAttributesMapping';
@@ -21,6 +23,10 @@ const stateAttributesMapping = {
   activeTabPosition: () => null,
   activeTabSize: () => null,
 };
+
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set(['renderBeforeHydration']);
+const PRESENTATION: Record<string, unknown> = { role: 'presentation' };
 
 // `offsetLeft`/`offsetTop` are rounded to whole pixels and the error can compound
 // across the offset parent chain.
@@ -164,22 +170,36 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
     },
   };
 
-  const element = useRenderElement('span', componentProps, {
-    state,
-    props: [
-      {
-        role: 'presentation',
-        get style() {
-          return style();
-        },
-        get hidden() {
-          return !displayIndicator(); // do not display the indicator before the layout is settled
-        },
-      },
-      elementProps,
-    ],
-    stateAttributesMapping,
-  });
+  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<span>` rendered with direct
+  // JSX; the measurement memos above are the same in both paths.
+  const element = canRenderNative(componentProps)
+    ? () =>
+        renderNativeElement((<span />) as unknown as Element, componentProps, {
+          own: OWN_KEYS,
+          state,
+          mapping: stateAttributesMapping,
+          reactive: true,
+          literal: PRESENTATION,
+          // Hidden until the layout is settled.
+          attributes: (set) => set('hidden', !displayIndicator()),
+          partStyle: style,
+        }) as unknown as JSX.Element
+    : useRenderElement('span', componentProps, {
+        state,
+        props: [
+          {
+            role: 'presentation',
+            get style() {
+              return style();
+            },
+            get hidden() {
+              return !displayIndicator(); // do not display the indicator before the layout is settled
+            },
+          },
+          elementProps,
+        ],
+        stateAttributesMapping,
+      });
 
   return (
     <Show when={value() != null}>

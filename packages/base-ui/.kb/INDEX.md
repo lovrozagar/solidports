@@ -44,6 +44,8 @@ Flat, grep-friendly list of every KB file. Routing logic lives in
 - [`./components/_template.md`](./components/_template.md) — schema.
 - [`./components/collapsible.md`](./components/collapsible.md) — full worked example.
 - [`./components/button.md`](./components/button.md) — Solid-native fast path parity note (plan 8).
+- [`./components/accordion.md`](./components/accordion.md) — Solid-native fast path parity note (plan 8, 3.2).
+- [`./components/tabs.md`](./components/tabs.md) — Solid-native fast path parity note (plan 8, 3.2).
 - [`./components/popover.md`](./components/popover.md) — known TODO.
 - [`./components/select.md`](./components/select.md) — known TODO.
 - [`./components/tooltip.md`](./components/tooltip.md) — known TODO.

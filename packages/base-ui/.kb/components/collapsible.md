@@ -26,6 +26,20 @@
 - Docs (target):     `docs/solid/src/routes/(docs)/solid/components/collapsible.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/collapsible/`
 
+## Parity note (plan 8, native fast path)
+
+What React does (`packages/react/src/collapsible/`): `useCollapsibleRoot` (controlled/uncontrolled
+`open`, `useTransitionStatus`, panel id registration), the trigger through `useButton`
+(focusable when disabled) with `aria-controls`/`aria-expanded`, the panel through
+`useCollapsiblePanel` (animation type detection, measured sizes as CSS variables rendered from
+state, `hidden`/`hidden="until-found"`, `beforematch`).
+
+How the Solid-native version matches it: the same hooks; only the element rendering is native
+(`../solid/native-parts.md`, "Disclosure batch"). The panel's measurement machinery is created on
+first render and its CSS variables are written once the flush settles (one layout for many panels,
+as React's batched state). The `render` prop, spread props, the server and hydration keep
+`useRenderElement`. Parity test: `packages/solid/src/collapsible/Collapsible.parity.test.tsx`.
+
 ## Open issues
 
 None recorded specifically for collapsible. Cross-cutting Solid gotchas

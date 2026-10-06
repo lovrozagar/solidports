@@ -1,4 +1,6 @@
-import { omit, Show } from 'solid-js';
+import { getOwner, omit, runWithOwner, Show, untrack } from 'solid-js';
+import { createNativeConditional } from '../../utils/native/conditional';
+import type { JSX } from '@solidjs/web';
 import { createDepsEffect, createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
@@ -10,8 +12,13 @@ import { warn } from '../../utils/warn';
 import { useCollapsibleRootContext } from '../root/CollapsibleRootContext';
 import type { CollapsibleRootState } from '../root/CollapsibleRoot';
 import { collapsibleStateAttributesMapping } from '../root/stateAttributesMapping';
+import { canRenderNative } from '../../utils/native';
+import { renderNativeElement, type SetAttribute } from '../../utils/native/element';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import { createIdRegistration } from '../../utils/native/registration';
 import { useCollapsiblePanel } from './useCollapsiblePanel';
 import { CollapsiblePanelCssVars } from './CollapsiblePanelCssVars';
+import { CollapsiblePanelDataAttributes } from './CollapsiblePanelDataAttributes';
 
 /**
  * A panel with the collapsible contents.
@@ -20,6 +27,12 @@ import { CollapsiblePanelCssVars } from './CollapsiblePanelCssVars';
  * Documentation: [Base UI Collapsible](https://base-ui.com/react/components/collapsible)
  */
 export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
+  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // JSX; the panel's measurement machinery is created when the panel first renders.
+  if (canRenderNative(componentProps)) {
+    return NativeCollapsiblePanel(componentProps);
+  }
+
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'hiddenUntilFound',
     'keepMounted',
@@ -28,15 +41,10 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   ]);
 
   if (process.env.NODE_ENV !== 'production') {
-    createDepsEffect(
-      () => ({ hiddenUntilFound: local.hiddenUntilFound, keepMounted: local.keepMounted }),
-      (deps) => {
-        if (deps.hiddenUntilFound && deps.keepMounted === false) {
-          warn(
-            'The `keepMounted={false}` prop on `Collapsible.Panel` is ignored when `hiddenUntilFound` is enabled, since the panel must remain mounted while closed.',
-          );
-        }
-      },
+    warnKeepMountedIgnored(
+      () => local.hiddenUntilFound,
+      () => local.keepMounted,
+      'The `keepMounted={false}` prop on `Collapsible.Panel` is ignored when `hiddenUntilFound` is enabled, since the panel must remain mounted while closed.',
     );
   }
 
@@ -132,6 +140,149 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   });
 
   return <Show when={panel.shouldRender()}>{element()}</Show>;
+}
+
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set(['hiddenUntilFound', 'keepMounted', 'id']);
+/** The temporary style that neutralizes an author-defined open animation. */
+const ANIMATION_NONE: JSX.CSSProperties = { 'animation-name': 'none' };
+
+/**
+ * Warns in development when `keepMounted={false}` is ignored because `hiddenUntilFound` is set
+ * (both read reactively, as the slow path's effect).
+ */
+export function warnKeepMountedIgnored(
+  hiddenUntilFound: () => boolean | undefined,
+  keepMounted: () => boolean | undefined,
+  message: string,
+) {
+  createDepsEffect(
+    () => ({ hiddenUntilFound: hiddenUntilFound(), keepMounted: keepMounted() }),
+    (deps) => {
+      if (deps.hiddenUntilFound && deps.keepMounted === false) {
+        warn(message);
+      }
+    },
+  );
+}
+
+function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
+  const owner = getOwner();
+
+  if (process.env.NODE_ENV !== 'production') {
+    warnKeepMountedIgnored(
+      () => props.hiddenUntilFound,
+      () => props.keepMounted,
+      'The `keepMounted={false}` prop on `Collapsible.Panel` is ignored when `hiddenUntilFound` is enabled, since the panel must remain mounted while closed.',
+    );
+  }
+
+  const {
+    defaultPanelId,
+    mounted,
+    onOpenChange,
+    open,
+    setMounted,
+    owner: rootOwner,
+    setPanelIdState,
+    setOpen,
+    state,
+    transitionStatus,
+  } = useCollapsibleRootContext();
+
+  const hiddenUntilFound = () => props.hiddenUntilFound ?? false;
+  const keepMounted = () => props.keepMounted ?? false;
+  const id = () => (props.id || undefined) ?? defaultPanelId();
+
+  const registerId = createIdRegistration(props, 'id', setPanelIdState, rootOwner);
+
+  // The measurement and transition machinery is created when the panel first renders (a closed
+  // panel without `keepMounted` never does) and kept for the part's lifetime, owned by the part.
+  const initialOpen = untrack(open);
+  let panel: ReturnType<typeof useCollapsiblePanel> | undefined;
+  const getPanel = () =>
+    (panel ??= runWithOwner(owner, () =>
+      untrack(() =>
+        useCollapsiblePanel({
+          dimensionCssVars: {
+            height: CollapsiblePanelCssVars.collapsiblePanelHeight,
+            width: CollapsiblePanelCssVars.collapsiblePanelWidth,
+          },
+          hiddenUntilFound,
+          id,
+          initialOpen,
+          keepMounted,
+          mounted,
+          native: true,
+          onOpenChange,
+          open,
+          setMounted,
+          setOpen,
+          transitionStatus,
+        }),
+      ),
+    )!);
+
+  const panelState: CollapsiblePanelState = {
+    get open() {
+      return state.open;
+    },
+    get disabled() {
+      return state.disabled;
+    },
+    get transitionStatus() {
+      return getPanel().transitionStatus();
+    },
+  };
+
+  const shouldRender = () => keepMounted() || hiddenUntilFound() || mounted() || open();
+
+  return createNativeConditional(owner, shouldRender, () =>
+    renderNativePanel(
+      props,
+      panelState,
+      getPanel(),
+      id,
+      collapsibleStateAttributesMapping,
+      undefined,
+      undefined,
+      registerId,
+    ),
+  ) as unknown as JSX.Element;
+}
+
+/**
+ * The panel element of a native Collapsible or Accordion panel: the hook's attributes
+ * (`[data-starting-style]` persistence, `hidden`, `id`), the part's state attributes, the
+ * consumer's props and the temporary `animation-name: none` above the consumer's style.
+ */
+export function renderNativePanel<State extends CollapsiblePanelState>(
+  props: object,
+  panelState: State,
+  panel: ReturnType<typeof useCollapsiblePanel>,
+  id: () => JSX.HTMLAttributes<Element>['id'],
+  mapping: StateAttributesMapping<State>,
+  literal?: Record<string, unknown>,
+  attributes?: (set: SetAttribute) => void,
+  registerId?: ((element: Element | null) => void) | undefined,
+): JSX.Element {
+  return renderNativeElement((<div />) as unknown as Element, props, {
+    own: OWN_KEYS,
+    state: panelState,
+    mapping,
+    reactive: true,
+    literal,
+    attributes: (set) => {
+      if (panel.shouldPersistHiddenTransitionStyles()) {
+        set(CollapsiblePanelDataAttributes.startingStyle, '');
+      }
+      set('hidden', panel.hiddenAttribute());
+      set('id', id());
+      attributes?.(set);
+    },
+    styleOverride: () => (panel.shouldPreventOpenAnimation() ? ANIMATION_NONE : undefined),
+    refs: registerId ? [panel.ref, registerId] : [panel.ref],
+  }) as unknown as JSX.Element;
 }
 
 export interface CollapsiblePanelState extends CollapsibleRootState {

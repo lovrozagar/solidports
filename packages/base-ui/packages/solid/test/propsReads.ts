@@ -44,6 +44,32 @@ export function countPropsReads<Module extends { useRenderElement: (...args: any
   };
 }
 
+/**
+ * The native path's counterpart: a Solid-native part (plan 8) never calls `useRenderElement`; it
+ * classifies its consumer's props once at setup through `classifyConsumerProps`. Each call counts
+ * as one props build for the part's `data-testid`, so a native part that re-read its props on a
+ * state change would show up exactly as a slow-path rebuild does.
+ *
+ * @example
+ * vi.mock('./native/consumer', async (importOriginal) =>
+ *   (await import('../../test/propsReads')).countNativeReads(await importOriginal()),
+ * );
+ */
+export function countNativeReads<
+  Module extends { classifyConsumerProps: (props: object, ...rest: any[]) => unknown },
+>(module: Module): Module {
+  return {
+    ...module,
+    classifyConsumerProps: ((props: object, ...rest: unknown[]) => {
+      const testId = untrack(() => (props as Record<string, unknown>)['data-testid']);
+      if (typeof testId === 'string') {
+        propsReads.set(testId, (propsReads.get(testId) ?? 0) + 1);
+      }
+      return module.classifyConsumerProps(props, ...rest);
+    }) as Module['classifyConsumerProps'],
+  };
+}
+
 /** Calls of the public `mergeProps` (a part rebuilding a merged props object). */
 export const mergePropsCalls = { count: 0 };
 

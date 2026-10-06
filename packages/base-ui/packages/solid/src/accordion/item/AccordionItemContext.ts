@@ -1,10 +1,12 @@
 import { createContext, useContext } from 'solid-js';
-import type { Accessor, Setter } from 'solid-js';
+import type { Accessor, Owner, Setter } from 'solid-js';
 import type { AccordionItemState } from './AccordionItem';
 
 export interface AccordionItemContext {
   defaultTriggerId?: Accessor<string | undefined>;
   open: Accessor<boolean>;
+  /** Solid: the item's owner (the trigger skips its unmount registration write while the item is disposed). */
+  owner?: Owner | null;
   state: AccordionItemState;
   setTriggerId: Setter<string | null | undefined>;
   triggerId?: Accessor<string | undefined>;

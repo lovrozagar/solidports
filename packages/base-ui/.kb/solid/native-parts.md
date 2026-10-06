@@ -6,7 +6,7 @@
 
 ## Status
 
-- **Ported:** partial (plan 8). Native parts so far: `Button`.
+- **Ported:** partial (plan 8). Native parts so far: `Button`; toggles batch (3.1): `Checkbox.Root/Indicator`, `CheckboxGroup`, `Switch.Root/Thumb`, `Toggle`, `ToggleGroup`, `Radio.Root/Indicator`, `RadioGroup`.
 - **Verified:** parity test `utils/native/parity.test.tsx`, cost budget `utils/native/native.cost.test.tsx`,
   the part's own tests (both paths), the plan-7 gate (`.tmp/grunt/plan7-baseline/GATE.md`).
 - **Last reviewed:** 2026-10-06
@@ -126,7 +126,98 @@ not possible without a reactive node the part stays on the slow path for that co
   `onclick` makes the slow path's handler lookup skip the part's camel-case gate (view quirk); the
   native path keeps the gate.
 
+- **Toggles batch** (plan 8 3.1, `.kb/components/{checkbox,checkbox-group,switch,toggle,toggle-group,radio,radio-group}.md`):
+  part handlers are module-level functions bound per element with `[handler, data]` (gate →
+  consumer via `runConsumerHandler` → part → `useButton` after-consumer); attributes split into
+  literal (static prop, no context that can flip it) and one render effect; Field attributes only
+  inside a Field/LabelableProvider (`fieldAttributes`, `fieldStateAttributes`, `fieldOwnedKeys`);
+  label fallback (`getAriaLabelledBy`) from one user effect; composite items through
+  `createCompositeItemRegistration` (index guessed from render order); composite roots through
+  `renderCompositeRoot`; plain elements through `renderNativeElement`. Conditions: Checkbox/Switch/
+  Radio roots need `nativeButton` falsy (and a static `parent`/`inputRef`); Toggle needs
+  `nativeButton` true. The three roots keep no closure per attribute group: `createLayout` (the
+  classified consumer props, class/style static-ness, part flag bits) feeds module-level
+  `<part>Attributes(layout, target, once)` / `<part>Handlers(layout, literal)` functions; the
+  literal pass (`once`) writes what can never change, the same function in the render effect the
+  rest (`put`, `consumerHas`, `literalClassStyle`, `finishAttributes`). Every native element
+  classifies the consumer's props exactly once, through `classifyConsumerProps` (directly, via
+  `createLayout`, or via `renderNativeElement`).
+
+- **Disclosure batch (3.2)** — every part renders through `renderNativeElement` (`utils/native/element.ts`:
+  literal consumer keys + handler dispatchers once, one owned render effect for the state `data-*`
+  (`writeStateAttributes` = `getStateAttributesProps` incl. custom mappers), the part's attributes,
+  reactive consumer keys and `class`/`style`; `partStyle` below and `styleOverride` above the
+  consumer's style; an unchanged string `style` is not re-written, since Solid's `assign` re-sets
+  `cssText` on every run and that would wipe CSS variables a part writes directly). Contexts go on
+  one plain owner (`utils/native/context.ts`: `createOwner` + `@solidjs/signals` `setContext`)
+  instead of a `<Provider>` (root + lazy children memo + keep-alive render effect). Conditions: the
+  contract above; triggers and tabs also need a static, `true` `nativeButton`.
+  - `Collapsible.Root`: `<div>`, `useCollapsibleRoot` unchanged; `Accordion.Item`'s root uses
+    `alwaysControlled` (its `open` is always its membership in the root's value: no `useControlled`
+    memo, `setOpen` a no-op as the controlled mode is).
+  - `Collapsible.Trigger` / `Accordion.Trigger`: `useButton` for a focusable-when-disabled native
+    button outside a composite root inlined (`wrapDisclosureTriggerHandler`: `onClick` gate →
+    consumer → `handleTrigger` unless prevented; `onPointerDown` gate; `onMouseDown`/`onKeyUp`
+    dropped while disabled; `onKeyDown` Tab-only while disabled; `writeDisclosureTriggerAttributes`:
+    `aria-controls` when open, `aria-expanded`, `aria-disabled`; `type`/`tabindex` from the
+    template). The accordion trigger's static `id` is registered from its ref
+    (`createIdRegistration`), a reactive one from memo + render effect.
+  - `Collapsible.Panel` / `Accordion.Panel`: `useCollapsiblePanel` is created when the panel first
+    renders (a closed panel without `keepMounted`/`hiddenUntilFound` never does), owned by the part
+    and kept; it receives `initialOpen` (the mount-animation suppression reads the open value the
+    panel was created with) and `native: true` (no props memo; the effect reads
+    `hiddenAttribute`, `shouldPersistHiddenTransitionStyles`, `shouldPreventOpenAnimation`). The
+    measured CSS variables are written once the flush settles (ownerless `onSettled`), after every
+    panel measured, so 300 opening panels lay out once (React applies its dimension state after all
+    layout effects; measured: both libraries force exactly one layout and two style recalcs per
+    open-all). The conditional element is `createNativeConditional` (`utils/native/conditional.ts`):
+    an accessor the parent's insert tracks, the branch a root owned by the part — no node while hidden.
+    The hook's graph (iteration 6): React's three passive effects (measure, `useOpenChangeComplete`,
+    close) are one `createEffectGroup` node (`utils/native/effectGroup.ts`: each part keeps its own
+    dependency snapshot, apply condition and cleanup); `forcePanelIdle` is a plain signal the
+    measuring part clears as soon as it sees the root status leave `'starting'` (it runs on every
+    status change, always before the next `'starting'`, which needs an open flip); the element is a
+    plain box on the native path (attached synchronously while the branch renders, before any
+    effect created there runs) and the effects read it when they apply, as React reads
+    `ref.current`; the dimension re-apply of React's layout effect runs from the ref on attach and
+    at the start of every measuring pass (every `mounted` change comes with an open or status
+    change); the two animations-finished watchers are created on first use. Per rendered panel:
+    branch root, attribute effect, children insert, one signal, one effect node (plus the root's
+    transition status: 2 signals + 1 effect node, created on first open).
+  - `Accordion.Root` / `Tabs.Root`: `<div>` + context owner; the item/panel list stays
+    `CompositeList` (`createComponent`). `Accordion.Item`: two context owners, lean list
+    registration with an index guessed from creation order (`createNativeListItem`, confirmed by
+    the list's flush; no post-flush re-render of its 4 elements). `Accordion.Header`: `<h3>`.
+  - `Tabs.List`: `CompositeRoot`'s composition (useCompositeRoot, CompositeRootContext,
+    CompositeList) with the `<div>` native; `CompositeRoot` itself untouched.
+  - `Tabs.Tab`: `useButton` + `useCompositeItem` for a native composite item inlined: `tabindex`
+    from the highlight, `aria-disabled`, `aria-selected`, `aria-controls`, `id`, the active item
+    attribute; `onClick`/`onPointerDown` behind the disabled gate; `onFocus` = tab activation then
+    the composite highlight; `onKeyDown` Tab-only guard while disabled, then the consumer, then
+    `useButton`'s composite Space activation (`preventDefault` + `preventBaseUIHandler` +
+    `dispatchClickWithModifiers`); `onKeyUp` cancels Space's keyup activation regardless of
+    `preventBaseUIHandler` (as `useButton`); the capture-phase `keydown` listener sets the
+    navigation flag. Static `id`/`value`/`disabled` → one metadata object; the highlight sync is one
+    effect that compares its dependency snapshot itself.
+  - `Tabs.Panel`: a hidden panel creates its list registration when it first renders and its
+    transition status (`animateInitialOpen = !initialOpen` keeps `'starting'` on its first open)
+    with the inlined `useOpenChangeComplete` effect when it first opens (the eager hook's initial
+    run on a closed panel has no effect); a statically kept-mounted panel with a static value is
+    registered with the root from its ref and unregistered with the part (no node), otherwise the
+    registration effect is created with the list registration. `Show` only until it renders.
+  - `Tabs.Indicator`: `<span>`, measurement memos unchanged; the CSS variables are a `partStyle`.
+  - Recorded divergences from the slow path: none in DOM/handler order (parity tests
+    `collapsible/Collapsible.parity.test.tsx`, `accordion/Accordion.parity.test.tsx`,
+    `tabs/Tabs.parity.test.tsx` compare whole trees after each interaction).
+
 ## Known issues / TODOs
+
+- `utils/useRenderElement.stableProps.test.tsx` requires a part to read its slow-path `props` at
+  least once; native parts never build that view (plan 8 journal, 3.2 open issue).
+- Kit additions from 3.2 to fold into `index.ts` when the batches are consolidated:
+  `element.ts` (generic renderer), `context.ts`, `listItem.ts`, `registration.ts`,
+  `conditional.ts`, `dedupe.ts`, `effectGroup.ts`, `parityHarness.tsx` (test helper). `useTransitionStatus` creates its frame effects (one
+  `createEffectGroup` node) on first open/mount (shared util; behavior unchanged).
 
 - Spread props (`$PROXY`) and reactive `render`/`ref` keep the slow path; step 3 batches may widen
   `canRenderNative` once a case is measured to matter.
@@ -138,6 +229,8 @@ not possible without a reactive node the part stays on the slow path for that co
 - `packages/solid/src/utils/native/parity.test.tsx` — slow vs native parity harness
 - `packages/solid/src/utils/native/native.cost.test.tsx` — node budgets
 - `packages/solid/src/button/Button.tsx` — first native part
+- `packages/solid/src/utils/native/element.ts`, `context.ts`, `listItem.ts`, `registration.ts`, `conditional.ts`, `dedupe.ts`, `effectGroup.ts` — 3.2 kit additions
+- `packages/solid/src/collapsible/`, `accordion/`, `tabs/` — disclosure batch (3.2)
 
 ## Test commands
 

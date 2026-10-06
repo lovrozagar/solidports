@@ -1,5 +1,15 @@
 import { DEFAULT_LABELABLE_CONTEXT } from '../internals/labelable-provider/LabelableContext';
 import { untrack } from 'solid-js';
+import { DEFAULT_FIELD_ROOT_CONTEXT } from '../field/root/FieldRootContext';
+import {
+  canRenderNative,
+  createNativeElement,
+  fieldAttributes,
+  fieldOwnedKeys,
+  fieldStateAttributes,
+  renderNativeElement,
+  stateAttr,
+} from '../utils/native';
 import { useControlled } from '../utils/useControlled';
 import { EMPTY_ARRAY } from '../utils/empty';
 import { areArraysEqual } from '../utils/areArraysEqual';
@@ -170,6 +180,41 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     registerControlId,
   };
 
+  // Solid-native fast path (plan 8): the `<div role="group">` rendered directly.
+  if (canRenderNative(componentProps)) {
+    const fieldRootContext = useFieldRootContext();
+    const inField = fieldRootContext !== DEFAULT_FIELD_ROOT_CONTEXT;
+    const inLabelable = labelableContext !== DEFAULT_LABELABLE_CONTEXT;
+    const fieldKeys = fieldOwnedKeys(labelableContext, fieldRootContext);
+    const own = fieldKeys.length ? new Set([...OWN_KEYS, ...fieldKeys]) : OWN_KEYS_SET;
+    return provideContext(CheckboxGroupContext, contextValue, () =>
+      renderNativeElement({
+        el: createNativeElement('div', GROUP_ATTRIBUTES),
+        props: componentProps,
+        own,
+        state,
+        dynamic(target, set) {
+          set('id', idProp());
+          set('aria-labelledby', labelId());
+          set('data-disabled', stateAttr(disabled()));
+          if (inField) {
+            fieldStateAttributes(state, target);
+          }
+          if (inLabelable || inField) {
+            // Only the description ids: the group's `aria-invalid` is not part of its props.
+            fieldAttributes(
+              labelableContext,
+              DEFAULT_FIELD_ROOT_CONTEXT,
+              false,
+              componentProps as Record<string, unknown>,
+              target,
+            );
+          }
+        },
+      }),
+    );
+  }
+
   const element = useRenderElement('div', componentProps, {
     state,
     props: [
@@ -191,6 +236,18 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
 
   return provideContext(CheckboxGroupContext, contextValue, element);
 }
+
+const GROUP_ATTRIBUTES = { role: 'group' };
+
+const OWN_KEYS: readonly string[] = [
+  'allValues',
+  'defaultValue',
+  'disabled',
+  'id',
+  'onValueChange',
+  'value',
+];
+const OWN_KEYS_SET: ReadonlySet<string> = new Set(OWN_KEYS);
 
 export interface CheckboxGroupState extends FieldRootState {
   /**

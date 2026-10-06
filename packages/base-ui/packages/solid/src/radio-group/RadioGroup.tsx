@@ -1,5 +1,22 @@
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at group level */
 import { createSignal, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { useDirection } from '../direction-provider/DirectionContext';
+import { DEFAULT_FIELD_ROOT_CONTEXT } from '../field/root/FieldRootContext';
+import { DEFAULT_LABELABLE_CONTEXT } from '../internals/labelable-provider/LabelableContext';
+import { makeEventPreventable } from '../merge-props';
+import type { BaseUIEvent } from '../utils/types';
+import {
+  canRenderNative,
+  createNativeElement,
+  fieldAttributes,
+  fieldOwnedKeys,
+  fieldStateAttributes,
+  renderCompositeRoot,
+  renderNativeElement,
+  runConsumerHandler,
+  stateAttr,
+} from '../utils/native';
 import type { FieldRootState } from '../field/root/FieldRoot';
 import { useFieldRootContext } from '../field/root/FieldRootContext';
 import { isEligibleInput } from '../field/root/useFieldValidation';
@@ -52,6 +69,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
   const nameProp = () => local.name;
   const idProp = () => local.id;
 
+  const fieldRootContext = useFieldRootContext();
   const {
     setTouched: setFieldTouched,
     setFocused,
@@ -64,8 +82,9 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     registerFilledSource,
     setDirty,
     validityData,
-  } = useFieldRootContext();
-  const { labelId } = useLabelableContext();
+  } = fieldRootContext;
+  const labelableContext = useLabelableContext();
+  const { labelId } = labelableContext;
   const { clearErrors, elementRef } = useFormContext();
   const fieldsetContext = useFieldsetRootContext(true);
 
@@ -230,6 +249,22 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     touched,
   };
 
+  // Solid-native fast path (plan 8): the `<div role="radiogroup">` rendered directly as a
+  // composite root (roving focus) with the Field wiring inlined.
+  if (canRenderNative(componentProps)) {
+    const model: NativeRadioGroup = {
+      props: componentProps as RadioGroup.Props<unknown>,
+      field: fieldRootContext,
+      checkedValue,
+      setTouched,
+    };
+    return (
+      <RadioGroupContext value={contextValue}>
+        {NativeRadioGroupElement(model, state, labelableContext, ariaLabelledby, disabled, required, readOnly)}
+      </RadioGroupContext>
+    );
+  }
+
   // Solid: the consumer's ref is read when applied, as `forwardedRef` is in React.
   const forwardedRef = (element: HTMLElement | null) => {
     const ref = untrack(() => componentProps.ref) as
@@ -301,6 +336,119 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
         {local.children}
       </CompositeRoot>
     </RadioGroupContext>
+  );
+}
+
+const OWN_KEYS: readonly string[] = [
+  'disabled',
+  'readOnly',
+  'required',
+  'onValueChange',
+  'value',
+  'defaultValue',
+  'form',
+  'name',
+  'inputRef',
+  'id',
+];
+const OWN_KEYS_SET: ReadonlySet<string> = new Set(OWN_KEYS);
+
+interface NativeRadioGroup {
+  props: RadioGroup.Props<unknown>;
+  field: ReturnType<typeof useFieldRootContext>;
+  checkedValue: () => unknown;
+  setTouched: (value: boolean) => void;
+}
+
+type GroupEvent<T extends Event> = BaseUIEvent<T>;
+
+const GROUP_ATTRIBUTES = { role: 'radiogroup' };
+
+// The group's own handlers (after the consumer's, as React's `mergeProps`).
+function groupFocus(m: NativeRadioGroup, event: FocusEvent) {
+  makeEventPreventable(event as GroupEvent<FocusEvent>);
+  if (runConsumerHandler(m.props, 'onFocus', event as GroupEvent<FocusEvent>)) {
+    return;
+  }
+  m.field.setFocused(true);
+}
+function groupBlur(m: NativeRadioGroup, event: FocusEvent) {
+  makeEventPreventable(event as GroupEvent<FocusEvent>);
+  if (runConsumerHandler(m.props, 'onBlur', event as GroupEvent<FocusEvent>)) {
+    return;
+  }
+  if (!contains(event.currentTarget as Element, event.relatedTarget as Element | null)) {
+    m.field.setTouched(true);
+    m.field.setFocused(false);
+
+    if (untrack(m.field.validationMode) === 'onBlur') {
+      m.field.validation.commit(untrack(m.checkedValue));
+    }
+  }
+}
+
+function NativeRadioGroupElement(
+  m: NativeRadioGroup,
+  state: RadioGroupState,
+  labelableContext: ReturnType<typeof useLabelableContext>,
+  ariaLabelledby: () => string | undefined,
+  disabled: () => boolean | undefined,
+  required: () => boolean | undefined,
+  readOnly: () => boolean | undefined,
+): JSX.Element {
+  const { props, field } = m;
+  const inField = field !== DEFAULT_FIELD_ROOT_CONTEXT;
+  const inLabelable = labelableContext !== DEFAULT_LABELABLE_CONTEXT;
+  const fieldKeys = fieldOwnedKeys(labelableContext, field);
+  const own = fieldKeys.length ? new Set([...OWN_KEYS, ...fieldKeys]) : OWN_KEYS_SET;
+  const direction = useDirection();
+  return renderCompositeRoot(
+    { enableHomeAndEndKeys: false, modifierKeys: MODIFIER_KEYS, direction },
+    (root) => {
+      const el = createNativeElement('div', GROUP_ATTRIBUTES);
+      // Solid: capture-phase listeners attach through a ref in the slow path.
+      el.addEventListener(
+        'keydown',
+        (event) => {
+          if (event.key.startsWith('Arrow')) {
+            m.setTouched(true);
+            field.setFocused(true);
+          }
+        },
+        true,
+      );
+      return renderNativeElement({
+        el,
+        props,
+        own,
+        state,
+        dynamic(target, set) {
+          set('id', props.id);
+          const isDisabled = disabled() ?? false;
+          const isRequired = required() ?? false;
+          const isReadOnly = readOnly() ?? false;
+          set('aria-required', isRequired ? 'true' : undefined);
+          set('aria-disabled', isDisabled ? 'true' : undefined);
+          set('aria-readonly', isReadOnly ? 'true' : undefined);
+          set('aria-labelledby', ariaLabelledby());
+          set('data-disabled', stateAttr(isDisabled));
+          if (inField) {
+            fieldStateAttributes(state, target);
+          }
+          set('data-readonly', stateAttr(isReadOnly));
+          set('data-required', stateAttr(isRequired));
+          if (inField || inLabelable) {
+            fieldAttributes(labelableContext, field, isDisabled, props as Record<string, unknown>, target);
+          }
+        },
+        handlers: {
+          ...root.handlers,
+          onFocus: [groupFocus, m],
+          onBlur: [groupBlur, m],
+        },
+        partRefs: [root.setRootRef],
+      });
+    },
   );
 }
 

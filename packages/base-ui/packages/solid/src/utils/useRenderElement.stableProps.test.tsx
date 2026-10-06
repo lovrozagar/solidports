@@ -21,6 +21,12 @@ vi.mock('./useRenderElement', async (importOriginal) =>
   ),
 );
 
+vi.mock('./native/consumer', async (importOriginal) =>
+  (await import('../../test/propsReads')).countNativeReads(
+    await importOriginal<typeof import('./native/consumer')>(),
+  ),
+);
+
 vi.mock('../merge-props', async (importOriginal) =>
   (await import('../../test/propsReads')).countMergeProps(
     await importOriginal<typeof import('../merge-props')>(),

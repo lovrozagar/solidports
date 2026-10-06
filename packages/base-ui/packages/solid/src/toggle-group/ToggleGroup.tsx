@@ -1,5 +1,14 @@
 import { Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { useDirection } from '../direction-provider/DirectionContext';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
+import {
+  canRenderNative,
+  createNativeElement,
+  renderCompositeRoot,
+  renderNativeElement,
+  stateAttr,
+} from '../utils/native';
 import { splitComponentProps } from '../solid-helpers';
 import { useToolbarRootContext } from '../toolbar/root/ToolbarRootContext';
 import { useToolbarGroupContext } from '../toolbar/group/ToolbarGroupContext';
@@ -99,6 +108,22 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
     value: groupValue,
   };
 
+  // Solid-native fast path (plan 8): the `<div role="group">` rendered directly, as a
+  // `CompositeRoot` (its own roving focus) or a plain group inside a Toolbar.
+  if (canRenderNative(componentProps)) {
+    return (
+      <ToggleGroupContext value={contextValue}>
+        {NativeToggleGroup(
+          componentProps as unknown as ToggleGroup.Props<string>,
+          state,
+          Boolean(toolbarContext),
+          loopFocus,
+          orientation,
+        )}
+      </ToggleGroupContext>
+    );
+  }
+
   const defaultProps: Omit<HTMLProps, 'children'> = {
     role: 'group',
   };
@@ -126,6 +151,55 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
         </CompositeRoot>
       </Show>
     </ToggleGroupContext>
+  );
+}
+
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'defaultValue',
+  'disabled',
+  'loopFocus',
+  'onValueChange',
+  'orientation',
+  'multiple',
+  'value',
+]);
+
+const GROUP_ATTRIBUTES = { role: 'group' };
+
+function NativeToggleGroup(
+  props: ToggleGroup.Props<string>,
+  state: ToggleGroup.State,
+  inToolbar: boolean,
+  loopFocus: () => boolean,
+  orientation: () => Orientation,
+): JSX.Element {
+  const dynamic = (target: Record<string, unknown>, set: (key: string, value: unknown) => void) => {
+    set('data-disabled', stateAttr(state.disabled));
+    set('data-multiple', stateAttr(state.multiple));
+    set('data-orientation', state.orientation);
+  };
+  if (inToolbar) {
+    return renderNativeElement({
+      el: createNativeElement('div', GROUP_ATTRIBUTES),
+      props,
+      own: OWN_KEYS,
+      state,
+      dynamic,
+    });
+  }
+  const direction = useDirection();
+  return renderCompositeRoot(
+    { loopFocus, orientation, enableHomeAndEndKeys: true, direction },
+    (root) =>
+      renderNativeElement({
+        el: createNativeElement('div', GROUP_ATTRIBUTES),
+        props,
+        own: OWN_KEYS,
+        state,
+        dynamic,
+        handlers: root.handlers,
+        partRefs: [root.setRootRef],
+      }),
   );
 }
 

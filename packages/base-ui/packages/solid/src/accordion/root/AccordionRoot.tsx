@@ -1,6 +1,10 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any`, mirrors React */
+import { createComponent } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
+import { canRenderNative } from '../../utils/native';
+import { provideNativeContext } from '../../utils/native/context';
+import { renderNativeElement } from '../../utils/native/element';
 import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
 import { type BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { EMPTY_ARRAY } from '../../utils/empty';
@@ -24,6 +28,25 @@ const rootStateAttributesMapping = {
 export function AccordionRoot<Value = any>(
   componentProps: AccordionRoot.Props<Value>,
 ): JSX.Element {
+  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // JSX and the root context on one owner; the item list stays `CompositeList`.
+  if (canRenderNative(componentProps)) {
+    const root = createAccordionRoot(componentProps);
+    return provideNativeContext(AccordionRootContext, root.contextValue, () =>
+      createComponent(CompositeList, {
+        refs: { elements: root.accordionItemElements },
+        get children() {
+          return renderNativeElement((<div />) as unknown as Element, componentProps, {
+            own: OWN_KEYS,
+            state: root.state,
+            mapping: rootStateAttributesMapping,
+            reactive: true,
+          }) as unknown as JSX.Element;
+        },
+      }),
+    );
+  }
+
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'disabled',
     'hiddenUntilFound',
@@ -35,6 +58,48 @@ export function AccordionRoot<Value = any>(
     'value',
     'defaultValue',
   ]);
+  const root = createAccordionRoot(local);
+
+  const element = useRenderElement('div', componentProps, {
+    state: root.state,
+    props: elementProps,
+    stateAttributesMapping: rootStateAttributesMapping,
+  });
+
+  return (
+    <AccordionRootContext value={root.contextValue}>
+      <CompositeList refs={{ elements: root.accordionItemElements }}>{element()}</CompositeList>
+    </AccordionRootContext>
+  );
+}
+
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'disabled',
+  'hiddenUntilFound',
+  'keepMounted',
+  'loopFocus',
+  'onValueChange',
+  'multiple',
+  'orientation',
+  'value',
+  'defaultValue',
+]);
+
+/** The root's value state and context, shared by both render paths (`local` reads the props). */
+function createAccordionRoot<Value>(
+  local: Pick<
+    AccordionRoot.Props<Value>,
+    | 'disabled'
+    | 'hiddenUntilFound'
+    | 'keepMounted'
+    | 'onValueChange'
+    | 'multiple'
+    | 'orientation'
+    | 'value'
+    | 'defaultValue'
+  >,
+) {
   const disabled = () => local.disabled ?? false;
   const multiple = () => local.multiple ?? false;
   const orientation = () => local.orientation ?? 'vertical';
@@ -116,17 +181,7 @@ export function AccordionRoot<Value = any>(
     value,
   };
 
-  const element = useRenderElement('div', componentProps, {
-    state,
-    props: elementProps,
-    stateAttributesMapping: rootStateAttributesMapping,
-  });
-
-  return (
-    <AccordionRootContext value={contextValue}>
-      <CompositeList refs={{ elements: accordionItemElements }}>{element()}</CompositeList>
-    </AccordionRootContext>
-  );
+  return { accordionItemElements, contextValue, state };
 }
 
 export type AccordionValue<Value = any> = Value[];

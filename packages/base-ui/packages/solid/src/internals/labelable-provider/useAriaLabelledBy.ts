@@ -23,11 +23,20 @@ function findAssociatedLabel(labelSource?: LabelSource | null) {
     }
   }
 
+  // `labels` resolves `<label for>` across the document (a lookup per control); a document
+  // without any `<label>` has none to find (the collection is live and cached by the browser).
+  if (labelSource.ownerDocument.getElementsByTagName('label').length === 0) {
+    return undefined;
+  }
   const labels = labelSource.labels;
   return labels && labels[0];
 }
 
-function getAriaLabelledBy(labelSource?: LabelSource | null, generatedLabelId?: string) {
+/**
+ * The id of the label associated with `labelSource` (a wrapping `<label>`, a following sibling
+ * `<label for>`, or its first `labels` entry), giving the label `generatedLabelId` when it has none.
+ */
+export function getAriaLabelledBy(labelSource?: LabelSource | null, generatedLabelId?: string) {
   const label = findAssociatedLabel(labelSource);
   if (!label) {
     return undefined;

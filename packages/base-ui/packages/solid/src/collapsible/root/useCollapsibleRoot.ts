@@ -1,5 +1,5 @@
-import { createSignal } from 'solid-js';
-import type { Accessor, Setter } from 'solid-js';
+import { createSignal, getOwner, runWithOwner, untrack } from 'solid-js';
+import type { Accessor, Owner, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { access, type MaybeAccessor } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -14,14 +14,48 @@ export function useCollapsibleRoot(
 ): UseCollapsibleRootReturnValue {
   const disabled = () => Boolean(access(parameters.disabled));
 
-  const [open, setOpen] = useControlled({
-    controlled: () => access(parameters.open),
-    default: () => access(parameters.defaultOpen) ?? false,
-    name: 'Collapsible',
-    state: 'open',
-  });
+  // A root whose `open` is always supplied (an Accordion item) reads it directly: `useControlled`
+  // would add a memo per item and its uncontrolled branch could never run.
+  const [open, setOpen] = parameters.alwaysControlled
+    ? [() => Boolean(access(parameters.open)), noop]
+    : useControlled({
+        controlled: () => access(parameters.open),
+        default: () => access(parameters.defaultOpen) ?? false,
+        name: 'Collapsible',
+        state: 'open',
+      });
 
-  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open, true, true);
+  // A root that starts closed has no transition until it first opens: its status machinery (two
+  // computed signals) is created then, owned by the root, and reads before that return the closed
+  // values (`mounted` false, status `undefined`). Every reader also reads `open`, so it re-runs on
+  // the first open and creates the machinery; `animateInitialOpen` makes that open enter
+  // `'starting'`, as an eagerly created instance does when it goes from closed to open.
+  const owner = getOwner();
+  let transition: ReturnType<typeof useTransitionStatus> | undefined;
+  const createTransition = () =>
+    (transition ??= runWithOwner(owner, () =>
+      untrack(() => useTransitionStatus(open, true, true, true)),
+    )!);
+  if (untrack(open)) {
+    transition = useTransitionStatus(open, true, true);
+  }
+  const ensureTransition = () => {
+    if (transition === undefined && open()) {
+      createTransition();
+    }
+    return transition;
+  };
+  const mounted = () => ensureTransition()?.mounted() ?? false;
+  const transitionStatus = () => ensureTransition()?.transitionStatus();
+  const setMounted = (nextMounted: boolean) => {
+    if (transition === undefined) {
+      if (!nextMounted) {
+        return;
+      }
+      createTransition();
+    }
+    transition!.setMounted(nextMounted);
+  };
 
   const defaultPanelId = useBaseUiId();
   // `undefined` uses the initial generated fallback; `null` means the panel unmounted.
@@ -53,6 +87,7 @@ export function useCollapsibleRoot(
     handleTrigger,
     mounted,
     open,
+    owner,
     panelId,
     setMounted,
     setOpen,
@@ -61,7 +96,14 @@ export function useCollapsibleRoot(
   };
 }
 
+function noop() {}
+
 export interface UseCollapsibleRootParameters {
+  /**
+   * Solid: `open` is always a defined accessor (the root never switches mode), so the value is
+   * read directly and `setOpen` is a no-op, as `useControlled`'s controlled mode behaves.
+   */
+  alwaysControlled?: boolean | undefined;
   /**
    * Whether the collapsible panel is currently open.
    *
@@ -88,6 +130,8 @@ export interface UseCollapsibleRootParameters {
 
 export interface UseCollapsibleRootReturnValue {
   defaultPanelId: Accessor<JSX.HTMLAttributes<Element>['id']>;
+  /** Solid: the root's owner (a part skips its unmount registration write while the root is disposed). */
+  owner: Owner | null;
   /**
    * Whether the component should ignore user interaction.
    */

@@ -1,4 +1,9 @@
 import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
+import { createComponent } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
+import { canRenderNative } from '../../utils/native';
+import { provideNativeContext } from '../../utils/native/context';
+import { renderNativeElement } from '../../utils/native/element';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
@@ -23,13 +28,61 @@ type TabMap = Map<Node, CompositeMetadata<TabsTab.Metadata>>;
  *
  * Documentation: [Base UI Tabs](https://base-ui.com/react/components/tabs)
  */
-export function TabsRoot(componentProps: TabsRoot.Props) {
+export function TabsRoot(componentProps: TabsRoot.Props): JSX.Element {
+  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // JSX and the root context on one owner; the panel list stays `CompositeList`.
+  if (canRenderNative(componentProps)) {
+    const root = createTabsRoot(componentProps);
+    return provideNativeContext(TabsRootContext, root.tabsContextValue, () =>
+      createComponent(CompositeList<TabsPanel.Metadata>, {
+        refs: { elements: root.tabPanelRefs },
+        get children() {
+          return renderNativeElement((<div />) as unknown as Element, componentProps, {
+            own: OWN_KEYS,
+            state: root.state,
+            mapping: tabsStateAttributesMapping,
+            reactive: true,
+          }) as unknown as JSX.Element;
+        },
+      }),
+    );
+  }
+
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'defaultValue',
     'onValueChange',
     'orientation',
     'value',
   ]);
+  const root = createTabsRoot(local);
+
+  const element = useRenderElement('div', componentProps, {
+    state: root.state,
+    props: elementProps,
+    stateAttributesMapping: tabsStateAttributesMapping,
+  });
+
+  return (
+    <TabsRootContext value={root.tabsContextValue}>
+      <CompositeList<TabsPanel.Metadata> refs={{ elements: root.tabPanelRefs }}>
+        {element()}
+      </CompositeList>
+    </TabsRootContext>
+  );
+}
+
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'defaultValue',
+  'onValueChange',
+  'orientation',
+  'value',
+]);
+
+/** The root's value state, activation direction and context, shared by both render paths. */
+function createTabsRoot(
+  local: Pick<TabsRoot.Props, 'defaultValue' | 'onValueChange' | 'orientation' | 'value'>,
+) {
   const defaultValueProp = () => (local.defaultValue === undefined ? 0 : local.defaultValue);
   const orientation = () => local.orientation ?? 'horizontal';
   const valueProp = () => local.value;
@@ -39,8 +92,12 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
   const hasExplicitDefaultValueProp = untrack(() => local.defaultValue !== undefined);
 
   const tabPanelRefs: (HTMLElement | null | undefined)[] = [];
-  // Solid: panels unregister from unmount cleanups.
-  const [mountedTabPanels, setMountedTabPanels] = createSignal(new Map<TabsTab.Value, string>(), {
+  // The mounted panels' ids by value: one map mutated in place with a version signal readers
+  // track (React copies the map per registration; with 200 panels that is quadratic). Every read
+  // tracks the version, as a read of the map signal would. Solid: panels unregister from unmount
+  // cleanups, so the version allows owned writes.
+  const mountedTabPanels = new Map<TabsTab.Value, string>();
+  const [mountedTabPanelsVersion, setMountedTabPanelsVersion] = createSignal(0, {
     ownedWrite: true,
   });
 
@@ -54,6 +111,9 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
   const isControlled = () => valueProp() !== undefined;
 
   const [tabMap, setTabMapState] = createSignal<TabMap>(new Map());
+  // The first tab's id per value, rebuilt with the tab map (a per-panel scan of 200 tabs is
+  // quadratic); read through `tabMap()` so readers track the same signal.
+  let tabIdsByValue = new Map<TabsTab.Value, string | undefined>();
   let lastKnownTabElement: Node | undefined;
 
   // Solid: `CompositeList` publishes the sorted items as an array.
@@ -61,11 +121,16 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
     entries: Array<{ element: Element; metadata: CompositeMetadata<TabsTab.Metadata> | null }>,
   ) => {
     const nextTabMap: TabMap = new Map();
+    const nextIds = new Map<TabsTab.Value, string | undefined>();
     entries.forEach(({ element, metadata }) => {
       if (metadata != null) {
         nextTabMap.set(element, metadata);
+        if (!nextIds.has(metadata.value)) {
+          nextIds.set(metadata.value, metadata.id);
+        }
       }
     });
+    tabIdsByValue = nextIds;
     setTabMapState(nextTabMap);
   };
 
@@ -141,40 +206,31 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
   };
 
   const registerMountedTabPanel = (panelValue: TabsTab.Value, panelId: string) => {
-    setMountedTabPanels((prev) => {
-      const next = new Map(prev);
-      next.set(panelValue, panelId);
-      return next;
-    });
+    mountedTabPanels.set(panelValue, panelId);
+    setMountedTabPanelsVersion((version) => version + 1);
 
     return () => {
-      setMountedTabPanels((prev) => {
-        // Another panel with the same value took ownership in the meantime;
-        // leave its registration in place.
-        if (prev.get(panelValue) !== panelId) {
-          return prev;
-        }
+      // Another panel with the same value took ownership in the meantime;
+      // leave its registration in place.
+      if (mountedTabPanels.get(panelValue) !== panelId) {
+        return;
+      }
 
-        const next = new Map(prev);
-        next.delete(panelValue);
-        return next;
-      });
+      mountedTabPanels.delete(panelValue);
+      setMountedTabPanelsVersion((version) => version + 1);
     };
   };
 
   // get the `id` attribute of <Tabs.Panel> to set as the value of `aria-controls` on <Tabs.Tab>
   const getTabPanelIdByValue = (tabValue: TabsTab.Value) => {
-    return mountedTabPanels().get(tabValue);
+    mountedTabPanelsVersion();
+    return mountedTabPanels.get(tabValue);
   };
 
   // get the `id` attribute of <Tabs.Tab> to set as the value of `aria-labelledby` on <Tabs.Panel>
   const getTabIdByPanelValue = (tabPanelValue: TabsTab.Value) => {
-    for (const tabMetadata of tabMap().values()) {
-      if (tabPanelValue === tabMetadata.value) {
-        return tabMetadata.id;
-      }
-    }
-    return undefined;
+    tabMap();
+    return tabIdsByValue.get(tabPanelValue);
   };
 
   const tabsContextValue: TabsRootContext = {
@@ -323,19 +379,7 @@ export function TabsRoot(componentProps: TabsRoot.Props) {
     },
   };
 
-  const element = useRenderElement('div', componentProps, {
-    state,
-    props: elementProps,
-    stateAttributesMapping: tabsStateAttributesMapping,
-  });
-
-  return (
-    <TabsRootContext value={tabsContextValue}>
-      <CompositeList<TabsPanel.Metadata> refs={{ elements: tabPanelRefs }}>
-        {element()}
-      </CompositeList>
-    </TabsRootContext>
-  );
+  return { state, tabPanelRefs, tabsContextValue };
 }
 
 function findTabElement(tabMap: TabMap, value: TabsTab.Value): HTMLElement | null {

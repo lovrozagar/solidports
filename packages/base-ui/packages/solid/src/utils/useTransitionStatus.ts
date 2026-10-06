@@ -1,4 +1,5 @@
-import { createEffect, createSignal, untrack } from 'solid-js';
+import { createSignal, getOwner, runWithOwner, untrack } from 'solid-js';
+import { createEffectGroup } from './native/effectGroup';
 import { access, type MaybeAccessor } from '../solid-helpers';
 import { AnimationFrame } from './useAnimationFrame';
 
@@ -57,9 +58,27 @@ export function useTransitionStatus(
   // its status. `mounted` is derived from `open` here, so track whether it was mounted before.
   let previouslyMounted = false;
   let mountedExplicitly = false;
+  // The two frame-scheduling effects below only have work once the element is open or mounted:
+  // an element that starts closed (a collapsed panel, a closed popup) gets them when it first
+  // opens, owned by this hook's owner. Each keeps its own dependencies and cleanup.
+  const owner = getOwner();
+  let effectsCreated = false;
+  // The status signal is created below; its initial computation must not create the effects (they
+  // read the signal), so the creation from the computation starts after the initial one.
+  let initialized = false;
+  const ensureEffects = () => {
+    if (effectsCreated) {
+      return;
+    }
+    effectsCreated = true;
+    runWithOwner(owner, () => untrack(createEffects));
+  };
   const [transitionStatus, setTransitionStatus] = createSignal<TransitionStatus>((prev) => {
     const isOpen = openProp();
     const isMounted = mounted();
+    if (initialized && (isOpen || isMounted)) {
+      ensureEffects();
+    }
     const deferEnding = deferEndingStateProp();
     const wasOpen = previouslyOpen;
     const wasMounted = previouslyMounted || mountedExplicitly;
@@ -94,27 +113,38 @@ export function useTransitionStatus(
     return prev === 'ending' ? undefined : prev;
   });
 
-  createEffect(
-    () => [openProp(), mounted(), transitionStatus(), deferEndingStateProp()] as const,
-    ([isOpen, isMounted, status, deferEnding]) => {
-      if (!isOpen && isMounted && status !== 'ending' && deferEnding) {
-        const frame = AnimationFrame.request(() => setTransitionStatus('ending'));
-        return () => AnimationFrame.cancel(frame);
-      }
-      return undefined;
-    },
-  );
+  function createEffects() {
+    // One node for both frame-scheduling effects; each keeps its own deps and cleanup.
+    createEffectGroup([
+      {
+        deps: () => [openProp(), mounted(), transitionStatus(), deferEndingStateProp()] as const,
+        apply([isOpen, isMounted, status, deferEnding]) {
+          if (!isOpen && isMounted && status !== 'ending' && deferEnding) {
+            const frame = AnimationFrame.request(() => setTransitionStatus('ending'));
+            return () => AnimationFrame.cancel(frame);
+          }
+          return undefined;
+        },
+      },
+      {
+        deps: () => [openProp(), enableIdleStateProp()] as const,
+        apply([isOpen, idleEnabled]) {
+          if (!isOpen) {
+            return undefined;
+          }
 
-  createEffect(
-    () => [openProp(), enableIdleStateProp()] as const,
-    ([isOpen, idleEnabled]) => {
-      if (!isOpen) {
-        return undefined;
-      }
+          return requestAfterPaint(() => setTransitionStatus(idleEnabled ? 'idle' : undefined));
+        },
+      },
+    ]);
+  }
 
-      return requestAfterPaint(() => setTransitionStatus(idleEnabled ? 'idle' : undefined));
-    },
-  );
+  // The initial status is computed above; an element that starts open or mounted has its effects
+  // already. One that starts closed creates them from the status computation when it first opens.
+  initialized = true;
+  if (untrack(() => openProp() || mounted())) {
+    ensureEffects();
+  }
 
   return {
     mounted,

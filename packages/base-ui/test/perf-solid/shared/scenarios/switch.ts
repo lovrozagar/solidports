@@ -4,6 +4,7 @@ import type { Scenario } from '../types';
 const on = () => qa('[role="switch"]').filter((el) => el.getAttribute('aria-checked') === 'true').length;
 
 const scenarios: Scenario[] = [
+  { id: 'switch/raw-1000', fixture: 'switch/raw', steps: [] },
   {
     id: 'switch/1000',
     fixture: 'switch/1000',

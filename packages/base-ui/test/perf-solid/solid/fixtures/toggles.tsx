@@ -1,4 +1,4 @@
-import { For } from 'solid-js';
+import { For, createSignal } from 'solid-js';
 import { Tabs } from '@solidports/base-ui/tabs';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { Collapsible } from '@solidports/base-ui/collapsible';
@@ -187,6 +187,140 @@ function ToolbarFixture() {
   );
 }
 
+// Raw-Solid floors: the same DOM as the parts, written by hand (one signal and one attribute
+// effect per element); what a native part could cost at best.
+const HIDDEN = { border: 0, 'clip-path': 'inset(50%)', height: '1px', margin: '-1px', overflow: 'hidden', padding: 0, 'white-space': 'nowrap', width: '1px', left: 0, position: 'fixed', top: 0 } as const;
+
+function RawCheckbox() {
+  const [checked, setChecked] = createSignal(false);
+  return (
+    <>
+      <span
+        role="checkbox"
+        tabindex="0"
+        aria-checked={checked() ? 'true' : 'false'}
+        data-checked={checked() ? '' : undefined}
+        data-unchecked={checked() ? undefined : ''}
+        onClick={() => setChecked((value) => !value)}
+        onKeyDown={() => {}}
+        onKeyUp={() => {}}
+      >
+        {checked() ? <span data-checked="">✓</span> : null}
+      </span>
+      <input type="checkbox" tabindex="-1" aria-hidden="true" style={HIDDEN} checked={checked()} />
+    </>
+  );
+}
+function RawCheckboxes() {
+  return (
+    <div>
+      <For each={range(size(1000))}>{() => <RawCheckbox />}</For>
+    </div>
+  );
+}
+function RawSwitch() {
+  const [checked, setChecked] = createSignal(false);
+  return (
+    <>
+      <span
+        role="switch"
+        tabindex="0"
+        aria-checked={checked() ? 'true' : 'false'}
+        data-checked={checked() ? '' : undefined}
+        data-unchecked={checked() ? undefined : ''}
+        onClick={() => setChecked((value) => !value)}
+        onKeyDown={() => {}}
+        onKeyUp={() => {}}
+      >
+        <span data-checked={checked() ? '' : undefined} data-unchecked={checked() ? undefined : ''} />
+      </span>
+      <input type="checkbox" tabindex="-1" aria-hidden="true" style={HIDDEN} checked={checked()} />
+    </>
+  );
+}
+function RawSwitches() {
+  return (
+    <div>
+      <For each={range(size(1000))}>{() => <RawSwitch />}</For>
+    </div>
+  );
+}
+function RawToggle(props: { label: string }) {
+  const [pressed, setPressed] = createSignal(false);
+  return (
+    <button
+      type="button"
+      tabindex="0"
+      aria-pressed={pressed() ? 'true' : 'false'}
+      data-pressed={pressed() ? '' : undefined}
+      onClick={() => setPressed((value) => !value)}
+      onKeyDown={() => {}}
+    >
+      {props.label}
+    </button>
+  );
+}
+function RawToggles() {
+  return (
+    <div>
+      <For each={range(size(1000))}>{(i) => <RawToggle label={`T${i}`} />}</For>
+    </div>
+  );
+}
+function RawToggleGroup() {
+  const [value, setValue] = createSignal<string[]>([]);
+  const [highlighted, setHighlighted] = createSignal(0);
+  return (
+    <div role="group" data-orientation="horizontal" onKeyDown={() => {}}>
+      <For each={items(size(300))}>
+        {(it, index) => (
+          <button
+            type="button"
+            tabindex={highlighted() === index() ? 0 : -1}
+            aria-disabled="false"
+            aria-pressed={value().includes(it.value) ? 'true' : 'false'}
+            data-pressed={value().includes(it.value) ? '' : undefined}
+            onClick={() => setValue([it.value])}
+            onFocus={() => setHighlighted(index())}
+            onKeyDown={() => {}}
+          >
+            {it.label}
+          </button>
+        )}
+      </For>
+    </div>
+  );
+}
+function RawRadios() {
+  const [value, setValue] = createSignal('item-0');
+  const [highlighted, setHighlighted] = createSignal(0);
+  return (
+    <div role="radiogroup" onKeyDown={() => {}}>
+      <For each={items(size(300))}>
+        {(it, index) => (
+          <>
+            <span
+              role="radio"
+              tabindex={highlighted() === index() ? 0 : -1}
+              aria-checked={value() === it.value ? 'true' : 'false'}
+              data-checked={value() === it.value ? '' : undefined}
+              data-unchecked={value() === it.value ? undefined : ''}
+              data-v={it.value}
+              onClick={() => setValue(it.value)}
+              onFocus={() => setHighlighted(index())}
+              onKeyDown={() => {}}
+              onKeyUp={() => {}}
+            >
+              {value() === it.value ? <span data-checked="" /> : null}
+            </span>
+            <input type="radio" tabindex="-1" aria-hidden="true" style={HIDDEN} value={it.value} checked={value() === it.value} />
+          </>
+        )}
+      </For>
+    </div>
+  );
+}
+
 export const fixtures: Record<string, () => unknown> = {
   'tabs/200-keepmounted': () => <TabsVariant keepMounted />,
   'tabs/200-vertical': () => <TabsVariant vertical />,
@@ -200,4 +334,9 @@ export const fixtures: Record<string, () => unknown> = {
   'toggle-group/300-multiple': () => <ToggleGroupVariant multiple />,
   'radio/300': Radios,
   'toolbar/200': ToolbarFixture,
+  'checkbox/raw': RawCheckboxes,
+  'switch/raw': RawSwitches,
+  'toggle/raw': RawToggles,
+  'toggle-group/raw': RawToggleGroup,
+  'radio/raw': RawRadios,
 };

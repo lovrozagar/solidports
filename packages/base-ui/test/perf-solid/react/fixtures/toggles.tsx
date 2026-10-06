@@ -191,6 +191,124 @@ function ToolbarFixture() {
   );
 }
 
+// Raw-React floors: the same DOM as the parts, written by hand (one state per element).
+const HIDDEN: React.CSSProperties = { border: 0, clipPath: 'inset(50%)', height: 1, margin: -1, overflow: 'hidden', padding: 0, whiteSpace: 'nowrap', width: 1, left: 0, position: 'fixed', top: 0 };
+
+function RawCheckbox() {
+  const [checked, setChecked] = React.useState(false);
+  return (
+    <>
+      <span
+        role="checkbox"
+        tabIndex={0}
+        aria-checked={checked ? 'true' : 'false'}
+        data-checked={checked ? '' : undefined}
+        data-unchecked={checked ? undefined : ''}
+        onClick={() => setChecked((value) => !value)}
+        onKeyDown={() => {}}
+        onKeyUp={() => {}}
+      >
+        {checked ? <span data-checked="">✓</span> : null}
+      </span>
+      <input type="checkbox" tabIndex={-1} aria-hidden="true" style={HIDDEN} checked={checked} onChange={() => {}} />
+    </>
+  );
+}
+function RawCheckboxes() {
+  return <div>{range(size(1000)).map((i) => <RawCheckbox key={i} />)}</div>;
+}
+function RawSwitch() {
+  const [checked, setChecked] = React.useState(false);
+  return (
+    <>
+      <span
+        role="switch"
+        tabIndex={0}
+        aria-checked={checked ? 'true' : 'false'}
+        data-checked={checked ? '' : undefined}
+        data-unchecked={checked ? undefined : ''}
+        onClick={() => setChecked((value) => !value)}
+        onKeyDown={() => {}}
+        onKeyUp={() => {}}
+      >
+        <span data-checked={checked ? '' : undefined} data-unchecked={checked ? undefined : ''} />
+      </span>
+      <input type="checkbox" tabIndex={-1} aria-hidden="true" style={HIDDEN} checked={checked} onChange={() => {}} />
+    </>
+  );
+}
+function RawSwitches() {
+  return <div>{range(size(1000)).map((i) => <RawSwitch key={i} />)}</div>;
+}
+function RawToggle({ label }: { label: string }) {
+  const [pressed, setPressed] = React.useState(false);
+  return (
+    <button
+      type="button"
+      tabIndex={0}
+      aria-pressed={pressed ? 'true' : 'false'}
+      data-pressed={pressed ? '' : undefined}
+      onClick={() => setPressed((value) => !value)}
+      onKeyDown={() => {}}
+    >
+      {label}
+    </button>
+  );
+}
+function RawToggles() {
+  return <div>{range(size(1000)).map((i) => <RawToggle key={i} label={`T${i}`} />)}</div>;
+}
+function RawToggleGroup() {
+  const [value, setValue] = React.useState<string[]>([]);
+  const [highlighted, setHighlighted] = React.useState(0);
+  return (
+    <div role="group" data-orientation="horizontal" onKeyDown={() => {}}>
+      {items(size(300)).map((it, index) => (
+        <button
+          key={it.value}
+          type="button"
+          tabIndex={highlighted === index ? 0 : -1}
+          aria-disabled="false"
+          aria-pressed={value.includes(it.value) ? 'true' : 'false'}
+          data-pressed={value.includes(it.value) ? '' : undefined}
+          onClick={() => setValue([it.value])}
+          onFocus={() => setHighlighted(index)}
+          onKeyDown={() => {}}
+        >
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+function RawRadios() {
+  const [value, setValue] = React.useState('item-0');
+  const [highlighted, setHighlighted] = React.useState(0);
+  return (
+    <div role="radiogroup" onKeyDown={() => {}}>
+      {items(size(300)).map((it, index) => (
+        <React.Fragment key={it.value}>
+          <span
+            role="radio"
+            tabIndex={highlighted === index ? 0 : -1}
+            aria-checked={value === it.value ? 'true' : 'false'}
+            data-checked={value === it.value ? '' : undefined}
+            data-unchecked={value === it.value ? undefined : ''}
+            data-v={it.value}
+            onClick={() => setValue(it.value)}
+            onFocus={() => setHighlighted(index)}
+            onKeyDown={() => {}}
+            onKeyUp={() => {}}
+          >
+            {value === it.value ? <span data-checked="" /> : null}
+          </span>
+          <input type="radio" tabIndex={-1} aria-hidden="true" style={HIDDEN} value={it.value} checked={value === it.value} onChange={() => {}} />
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 export const fixtures: Record<string, React.FC> = {
   'tabs/200-keepmounted': () => <TabsVariant keepMounted />,
   'tabs/200-vertical': () => <TabsVariant vertical />,
@@ -204,4 +322,9 @@ export const fixtures: Record<string, React.FC> = {
   'toggle-group/300-multiple': () => <ToggleGroupVariant multiple />,
   'radio/300': Radios,
   'toolbar/200': ToolbarFixture,
+  'checkbox/raw': RawCheckboxes,
+  'switch/raw': RawSwitches,
+  'toggle/raw': RawToggles,
+  'toggle-group/raw': RawToggleGroup,
+  'radio/raw': RawRadios,
 };

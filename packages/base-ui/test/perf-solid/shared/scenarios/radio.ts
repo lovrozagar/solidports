@@ -7,6 +7,7 @@ const state = () => ({
 });
 
 const scenarios: Scenario[] = [
+  { id: 'radio/raw-300', fixture: 'radio/raw', steps: [] },
   {
     id: 'radio/300',
     fixture: 'radio/300',

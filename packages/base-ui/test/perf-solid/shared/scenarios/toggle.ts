@@ -42,6 +42,8 @@ const groupSteps: Step[] = [
 ];
 
 const scenarios: Scenario[] = [
+  { id: 'toggle/raw-1000', fixture: 'toggle/raw', steps: [] },
+  { id: 'toggle-group/raw-300', fixture: 'toggle-group/raw', steps: [] },
   { id: 'toggle/1000', fixture: 'toggle/1000', steps: clickSteps },
   { id: 'toggle-group/300-single', fixture: 'toggle-group/300-single', steps: groupSteps },
   { id: 'toggle-group/300-multiple', fixture: 'toggle-group/300-multiple', steps: groupSteps },

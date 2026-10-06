@@ -9,6 +9,7 @@ const parentState = () => ({
 });
 
 const scenarios: Scenario[] = [
+  { id: 'checkbox/raw-1000', fixture: 'checkbox/raw', steps: [] },
   {
     id: 'checkbox/uncontrolled-1000',
     fixture: 'checkbox/uncontrolled',
