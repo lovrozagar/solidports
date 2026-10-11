@@ -158,6 +158,30 @@ const objectValueItems: Array<{ value: Obj; label: string }> = [
   }}
 />;
 
+function ReadonlyMultipleValues() {
+  const [value, setValue] = createSignal<string[]>([]);
+  const readonlyValue: readonly string[] = value();
+  const tupleValue = ['javascript', 'typescript'] as const;
+
+  return (
+    <>
+      <Select.Root multiple value={readonlyValue} onValueChange={setValue} />
+      <Select.Root multiple defaultValue={readonlyValue} onValueChange={setValue} />
+      <Select.Root
+        multiple
+        value={tupleValue}
+        onValueChange={(newValue) => {
+          expectType<('javascript' | 'typescript')[], typeof newValue>(newValue);
+          newValue.pop();
+        }}
+      />
+      <Select.Root multiple defaultValue={tupleValue} onValueChange={setValue} />
+    </>
+  );
+}
+
+void ReadonlyMultipleValues;
+
 function App() {
   const [multiple, setMultiple] = createSignal(false);
   return (
