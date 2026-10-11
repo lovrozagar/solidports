@@ -4,10 +4,24 @@ import { fireEvent, screen } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';
 import { Field } from '@solidports/base-ui/field';
 import { act, createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
 import { REASONS } from '../../utils/reasons';
+import ssrFixtures from './NumberFieldInput.ssr-fixtures';
 
 describe('<NumberField.Input />', () => {
   const { render } = createRenderer();
+
+  it('keeps the formatted value in the server HTML through hydration', () => {
+    const { html, hydrate } = renderServer(ssrFixtures, 'defaultValue');
+    const input = document.querySelector<HTMLInputElement>('[data-testid="input"]');
+
+    expect(html).toMatch(/data-testid="input"[^>]*value="3"|value="3"[^>]*data-testid="input"/);
+    expect(input?.value).toBe('3');
+
+    hydrate();
+
+    expect(input?.value).toBe('3');
+  });
 
   function pasteWithError(target: HTMLElement, error: Error) {
     const pasteEvent = new Event('paste', { bubbles: true, cancelable: true });

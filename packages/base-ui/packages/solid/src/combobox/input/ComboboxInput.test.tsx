@@ -4,10 +4,24 @@ import { Combobox } from '@solidports/base-ui/combobox';
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Field } from '@solidports/base-ui/field';
+import { renderServer } from '../../../test/ssrFixtures';
 import { REASONS } from '../../utils/reasons';
+import ssrFixtures from './ComboboxInput.ssr-fixtures';
 
 describe('<Combobox.Input />', () => {
   const { render } = createRenderer();
+
+  it('keeps a selected value in the server HTML through hydration', () => {
+    const { html, hydrate } = renderServer(ssrFixtures, 'selectedValue');
+    const input = document.querySelector<HTMLInputElement>('[data-testid="input"]');
+
+    expect(html).toContain('value="Initech"');
+    expect(input?.value).toBe('Initech');
+
+    hydrate();
+
+    expect(input?.value).toBe('Initech');
+  });
 
   describeConformance(Combobox.Input, () => ({
     refInstanceof: window.HTMLInputElement,

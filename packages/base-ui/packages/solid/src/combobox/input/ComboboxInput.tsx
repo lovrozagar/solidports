@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo, createSignal } from 'solid-js';
+import { isServer } from '@solidjs/web';
 import { useDirection } from '../../internals/direction-context/DirectionContext';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { FieldRootContext, useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -198,6 +199,17 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
     return nextIndex;
   }
 
+  // The layout effect below keeps the caret when the DOM already matches. It does not run on the
+  // server, so the known text has to be a `value` attribute there, as React's `value` prop and
+  // Field.Control's server render do. A client `value` binding would rewrite the DOM on every pass.
+  const serverValueProps = isServer
+    ? {
+        get value() {
+          return renderedValue();
+        },
+      }
+    : {};
+
   const element = useRenderElement('input', componentProps, {
     state,
     ref: (el) => {
@@ -208,6 +220,8 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
     props: [
       propsSourceAccessor(inputProps),
       propsSourceAccessor(triggerProps),
+      // Omitted on the client: an empty source still sits in the props graph.
+      ...(isServer ? [serverValueProps] : []),
       {
         get 'aria-readonly'() {
           return readOnly() ? 'true' : undefined;
