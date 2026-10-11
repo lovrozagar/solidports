@@ -10,8 +10,7 @@ import { SolidStore } from '../store/SolidStoreV2';
 import type { HTMLProps } from '../types';
 import { useId } from '../useId';
 import type { InteractionType } from '../useEnhancedClickHandler';
-import { useOpenChangeComplete } from '../useOpenChangeComplete';
-import { useTransitionStatus } from '../useTransitionStatus';
+import { useUnmountAfterClose } from '../useUnmountAfterClose';
 import {
   createChangeEventDetails,
   type BaseUIChangeEventDetails,
@@ -29,7 +28,6 @@ import {
   createDepsRenderEffect,
   type MaybeAccessor,
   type ReactLikeRef,
-  createLayoutEffect,
 } from '../../solid-helpers';
 import type { FloatingRootStore } from '../../floating-ui-solid/components/FloatingRootStoreV2';
 
@@ -600,48 +598,28 @@ export function useOpenStateTransitions<State extends PopupStoreState<any>>(
   onUnmount?: () => void,
   animateInitialOpen?: MaybeAccessor<boolean | undefined>,
 ) {
-  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open, false, false, () =>
-    Boolean(access(animateInitialOpen)),
-  );
   const preventUnmountingOnClose = store.useState('preventUnmountingOnClose');
-  // Opening starts a new close cycle (React clears it during render).
-  const syncedPreventUnmountingOnClose = () => (open() ? false : preventUnmountingOnClose());
+  const { mounted, transitionStatus, forceUnmount } = useUnmountAfterClose({
+    open,
+    ref: () => store.context.popupRef.current,
+    preventUnmountOnClose: preventUnmountingOnClose,
+    setPreventUnmountOnClose: (preventUnmountOnClose) => {
+      store.set('preventUnmountingOnClose', preventUnmountOnClose as State['preventUnmountingOnClose']);
+    },
+    animateInitialOpen,
+    onUnmount() {
+      store.update({
+        activeTriggerId: null,
+        activeTriggerElement: null,
+        mounted: false,
+        preventUnmountingOnClose: false,
+      } as Partial<State>);
+      onUnmount?.();
+      store.context.onOpenChangeComplete?.(false);
+    },
+  });
 
   store.useSyncedValues({ mounted, transitionStatus });
-
-  // Reset only when opening, so the effect never writes back the value it read.
-  createLayoutEffect(open, (isOpen) => {
-    if (isOpen && store.state.preventUnmountingOnClose) {
-      store.set('preventUnmountingOnClose', false as State['preventUnmountingOnClose']);
-    }
-  });
-
-  const forceUnmount = () => {
-    setMounted(false);
-    store.update({
-      activeTriggerId: null,
-      activeTriggerElement: null,
-      mounted: false,
-      preventUnmountingOnClose: false,
-    } as Partial<State>);
-    onUnmount?.();
-    store.context.onOpenChangeComplete?.(false);
-  };
-
-  useOpenChangeComplete({
-    get enabled() {
-      return mounted() && !open() && !syncedPreventUnmountingOnClose();
-    },
-    open,
-    get ref() {
-      return store.context.popupRef.current;
-    },
-    onComplete() {
-      if (!untrack(open)) {
-        forceUnmount();
-      }
-    },
-  });
 
   return { forceUnmount, transitionStatus };
 }

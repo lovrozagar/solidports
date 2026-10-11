@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
+import type { ReactLikeRef } from '../../solid-helpers';
 import type { Form } from '../../form';
 import type { FieldControlRegistration } from '../../internals/field-register-control/useFieldControlRegistration';
 import { EMPTY_OBJECT } from '../../utils/constants';
@@ -28,6 +29,11 @@ export interface FieldRootContext {
   /** Derives the field's `dirty` from a control's value (once mounted, until unmounted). */
   registerDirtySource: (source: Accessor<boolean>) => void;
   setFocused: Setter<boolean>;
+  /**
+   * Identifies the control the focused state belongs to, so that disabling or unmounting a
+   * different control in the same field can't clear it. Written through `useSetFieldFocused`.
+   */
+  focusOwnerRef: ReactLikeRef<unknown>;
   validationMode: Accessor<Form.ValidationMode>;
   shouldValidateOnChange: () => boolean;
   state: FieldRootState;
@@ -63,6 +69,7 @@ export const DEFAULT_FIELD_ROOT_CONTEXT: FieldRootContext = {
   registerFilledSource: NOOP,
   registerDirtySource: NOOP,
   setFocused: NOOP as Setter<boolean>,
+  focusOwnerRef: { current: undefined },
   validationMode: () => 'onSubmit' as const,
   shouldValidateOnChange: () => false,
   state: DEFAULT_FIELD_ROOT_STATE,

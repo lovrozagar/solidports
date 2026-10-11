@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { usePositioner } from '../../utils/usePositioner';
-import { createEffect, Show } from 'solid-js';
+import { Show } from 'solid-js';
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
@@ -9,7 +9,7 @@ import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
 import { useAnchoredPopupScrollLock } from '../../utils/useAnchoredPopupScrollLock';
-import { useAnimationsFinished } from '../../utils/useAnimationsFinished';
+import { useTriggerSwitchTransition } from '../../utils/useTriggerSwitchTransition';
 import { usePopoverPortalContext } from '../portal/PopoverPortalContext';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
 import { PopoverPositionerContext } from './PopoverPositionerContext';
@@ -64,9 +64,7 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
   const transitionStatus = store.useState('transitionStatus');
   const adaptiveOrigin = store.useState('adaptiveOrigin');
 
-  let prevTriggerElementRef = null as Element | null | undefined;
 
-  const runOnceAnimationsFinish = useAnimationsFinished(positionerElement, false, false);
 
   const positioning = useAnchorPositioning({
     get adaptiveOrigin() {
@@ -92,36 +90,12 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
     sticky,
   });
 
-  // When the current trigger element changes, enable transitions on the
-  // positioner temporarily
-  createEffect(
-    () => store.context.floatingRootContext.select('domReferenceElement'),
-    (currentTriggerElement) => {
-      const prevTriggerElement = prevTriggerElementRef;
-
-      if (currentTriggerElement) {
-        prevTriggerElementRef = currentTriggerElement;
-      }
-
-      if (
-        prevTriggerElement &&
-        currentTriggerElement &&
-        currentTriggerElement !== prevTriggerElement
-      ) {
-        store.set('instantType', undefined);
-        const ac = new AbortController();
-        runOnceAnimationsFinish(() => {
-          store.set('instantType', 'trigger-change');
-        }, ac.signal);
-
-        return () => {
-          ac.abort();
-        };
-      }
-
-      return undefined;
-    },
-  );
+  useTriggerSwitchTransition({
+    store,
+    domReference: () => store.context.floatingRootContext.select('domReferenceElement'),
+    positionerElement,
+    open,
+  });
 
   const trueModalNonHover = () => modal() === true && openReason() !== REASONS.triggerHover;
 

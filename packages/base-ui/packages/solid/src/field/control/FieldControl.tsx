@@ -17,6 +17,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { type FieldRootState } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
+import { useSetFieldFocused } from '../root/useSetFieldFocused';
 import { fieldValidityMapping } from '../utils/constants';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
@@ -55,7 +56,6 @@ export function FieldControl(componentProps: FieldControl.Props) {
     registerDirtySource,
     setDirty,
     validityData,
-    setFocused,
     registerFilledSource,
     validationMode,
     validation,
@@ -136,6 +136,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
   });
 
   const inputRef = useRef<HTMLInputElement | null | undefined>(null);
+  const setFocused = useSetFieldFocused(disabled, inputRef);
   const enterValidationTimeout = useTimeout();
 
   // Solid: a replacement control can attach before the outgoing one's unmount runs, so only

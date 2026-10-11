@@ -16,6 +16,7 @@ export const decrementPress = 'decrement-press' as const;
 
 export const inputChange = 'input-change' as const;
 export const inputClear = 'input-clear' as const;
+export const popupClose = 'popup-close' as const;
 export const inputBlur = 'input-blur' as const;
 export const inputPaste = 'input-paste' as const;
 export const inputPress = 'input-press' as const;

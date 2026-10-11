@@ -61,6 +61,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
   const [filled, registerFilledSource] = createSourcedState(filledState, setFilled);
   const [sourcedDirty, registerDirtySource] = createSourcedState(dirtyState, setDirtyUnwrapped);
   const [focused, setFocused] = createSignal(false, { ownedWrite: true });
+  const focusOwnerRef = useRef<unknown>(undefined);
 
   const dirty = () => dirtyProp() ?? sourcedDirty();
   const touched = () => touchedProp() ?? touchedState();
@@ -229,6 +230,7 @@ function FieldRootInner(componentProps: FieldRoot.Props) {
     registerFilledSource,
     registerDirtySource,
     setFocused,
+    focusOwnerRef,
     validationMode,
     shouldValidateOnChange,
     state,
