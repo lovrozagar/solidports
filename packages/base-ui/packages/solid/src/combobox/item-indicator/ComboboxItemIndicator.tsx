@@ -1,11 +1,8 @@
-import { Show } from 'solid-js';
+import { createMemo, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps } from '../../solid-helpers';
-import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
-import { useRenderElement } from '../../utils/useRenderElement';
-import { useTransitionStatus, type TransitionStatus } from '../../utils/useTransitionStatus';
+import { ItemIndicator } from '../../utils/ItemIndicator';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useComboboxItemContext } from '../item/ComboboxItemContext';
 
 /**
@@ -13,67 +10,16 @@ import { useComboboxItemContext } from '../item/ComboboxItemContext';
  * Renders a `<span>` element.
  */
 export function ComboboxItemIndicator(componentProps: ComboboxItemIndicator.Props) {
-  const keepMounted = () => componentProps.keepMounted ?? false;
-
   const { selected } = useComboboxItemContext();
+  const rendered = createMemo(() => Boolean(componentProps.keepMounted) || selected());
 
-  const shouldRender = () => keepMounted() || selected();
-
+  // Mount the shared indicator only while selected or kept mounted, so an unselected item does
+  // not pay for the transition hooks.
   return (
-    <Show when={shouldRender()}>
-      <Inner {...componentProps} />
+    <Show when={rendered()}>
+      <ItemIndicator {...componentProps} selected={selected()} />
     </Show>
   );
-}
-
-/** The core implementation of the indicator is split here to avoid paying the hooks
- * costs unless the element needs to be mounted. */
-function Inner(componentProps: ComboboxItemIndicator.Props) {
-  const [, , elementProps] = splitComponentProps(componentProps, ['keepMounted']);
-
-  const { selected } = useComboboxItemContext();
-
-  let indicatorRef = null as HTMLSpanElement | null | undefined;
-
-  const { transitionStatus, setMounted } = useTransitionStatus(selected);
-
-  const state: ComboboxItemIndicator.State = {
-    get selected() {
-      return selected();
-    },
-    get transitionStatus() {
-      return transitionStatus();
-    },
-  };
-
-  const element = useRenderElement('span', componentProps, {
-    props: [
-      {
-        'aria-hidden': 'true',
-        children: '✔️',
-      },
-      elementProps,
-    ],
-    ref: (el) => {
-      indicatorRef = el;
-    },
-    state,
-    stateAttributesMapping: transitionStatusMapping,
-  });
-
-  useOpenChangeComplete({
-    batch: true,
-    enabled: () => !selected(),
-    onComplete() {
-      if (!selected()) {
-        setMounted(false);
-      }
-    },
-    open: selected,
-    ref: () => indicatorRef,
-  });
-
-  return <>{element()}</>;
 }
 
 export interface ComboboxItemIndicatorProps extends BaseUIComponentProps<

@@ -45,4 +45,35 @@ describe('<Combobox.ItemIndicator />', () => {
 
     expect(screen.getByTestId('apple-indicator')).not.toHaveAttribute('data-selected');
   });
+
+  it('renders the check for a selected item and nothing for an unselected one', () => {
+    render(() => (
+      <Combobox.Root defaultValue="apple">
+        <Combobox.Item value="apple">
+          apple
+          <Combobox.ItemIndicator data-testid="selected" />
+        </Combobox.Item>
+        <Combobox.Item value="banana">
+          banana
+          <Combobox.ItemIndicator data-testid="unselected" />
+        </Combobox.Item>
+      </Combobox.Root>
+    ));
+
+    expect(screen.getByTestId('selected').textContent).toBe('✔️');
+    expect(screen.queryByTestId('unselected')).toBeNull();
+  });
+
+  it('renders custom indicator children instead of the check', () => {
+    render(() => (
+      <Combobox.Root defaultValue="apple">
+        <Combobox.Item value="apple">
+          apple
+          <Combobox.ItemIndicator data-testid="selected">pick</Combobox.ItemIndicator>
+        </Combobox.Item>
+      </Combobox.Root>
+    ));
+
+    expect(screen.getByTestId('selected').textContent).toBe('pick');
+  });
 });

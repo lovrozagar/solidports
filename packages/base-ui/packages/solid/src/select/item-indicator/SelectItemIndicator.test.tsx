@@ -56,4 +56,45 @@ describe('<Select.ItemIndicator />', () => {
       expect(indicator).not.toHaveAttribute('data-ending-style');
     });
   });
+
+  it('renders the check for a selected item and nothing for an unselected one', () => {
+    render(() => (
+      <Select.Root open defaultValue="a">
+        <Select.Trigger>
+          <Select.Value />
+        </Select.Trigger>
+        <Select.Positioner>
+          <Select.Item value="a">
+            a
+            <Select.ItemIndicator data-testid="selected" />
+          </Select.Item>
+          <Select.Item value="b">
+            b
+            <Select.ItemIndicator data-testid="unselected" />
+          </Select.Item>
+        </Select.Positioner>
+      </Select.Root>
+    ));
+
+    expect(screen.getByTestId('selected').textContent).toBe('✔️');
+    expect(screen.queryByTestId('unselected')).toBeNull();
+  });
+
+  it('renders custom indicator children instead of the check', () => {
+    render(() => (
+      <Select.Root open defaultValue="a">
+        <Select.Trigger>
+          <Select.Value />
+        </Select.Trigger>
+        <Select.Positioner>
+          <Select.Item value="a">
+            a
+            <Select.ItemIndicator data-testid="selected">pick</Select.ItemIndicator>
+          </Select.Item>
+        </Select.Positioner>
+      </Select.Root>
+    ));
+
+    expect(screen.getByTestId('selected').textContent).toBe('pick');
+  });
 });
