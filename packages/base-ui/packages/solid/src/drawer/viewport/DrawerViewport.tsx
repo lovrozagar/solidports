@@ -720,7 +720,8 @@ export function DrawerViewport(props: DrawerViewport.Props) {
     }),
     (deps) => {
       const rootElement = deps.rootElement;
-      if (!rootElement) {
+      // A non-passive document listener makes all touch scrolling wait on the main thread.
+      if (!rootElement || !deps.open || !deps.mounted) {
         return undefined;
       }
 
