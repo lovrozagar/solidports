@@ -42,6 +42,7 @@ type Context = PopupStoreContext<PopoverRoot.ChangeEventDetails> & {
   readonly popupRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly backdropRef: ReactLikeRef<HTMLDivElement | null | undefined>;
   readonly internalBackdropRef: ReactLikeRef<HTMLDivElement | null | undefined>;
+  readonly beforeTriggerFocusGuardRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly triggerFocusTargetRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly beforeContentFocusGuardRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly stickIfOpenTimeout: Timeout;
@@ -239,6 +240,7 @@ function createInitialContext(
   return {
     backdropRef: { current: null },
     beforeContentFocusGuardRef: { current: null },
+    beforeTriggerFocusGuardRef: { current: null },
     // Solid keeps the store-owned floating root in context (React keeps it in state).
     floatingRootContext: createPopupFloatingRootContext(triggerElements, floatingId, nested),
     internalBackdropRef: { current: null },

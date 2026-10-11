@@ -138,4 +138,36 @@ describe('<Tooltip.Trigger />', () => {
       });
     },
   );
+
+  it('ignores a text-node hover target inside the trigger', async () => {
+    render(() => (
+      <Tooltip.Root>
+        <Tooltip.Trigger>Trigger</Tooltip.Trigger>
+      </Tooltip.Root>
+    ));
+
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    const text = trigger.firstChild;
+    expect(text).toBeTruthy();
+    text?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    trigger.dispatchEvent(new FocusEvent('focus'));
+    trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    expect(trigger).not.toHaveAttribute('data-popup-open');
+  });
+
+  it('treats focus inside a nested tooltip trigger as nested', async () => {
+    render(() => (
+      <Tooltip.Root>
+        <Tooltip.Trigger data-testid="outer">
+          Outer
+          <Tooltip.Root>
+            <Tooltip.Trigger data-testid="inner">Inner</Tooltip.Trigger>
+          </Tooltip.Root>
+        </Tooltip.Trigger>
+      </Tooltip.Root>
+    ));
+
+    screen.getByTestId('inner').dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+    expect(screen.getByTestId('outer')).not.toHaveAttribute('data-popup-open');
+  });
 });

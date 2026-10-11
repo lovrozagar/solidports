@@ -71,6 +71,7 @@ type Context = PopupStoreContext<MenuRoot.ChangeEventDetails> & {
   virtualFocusRef: ReactLikeRef<HTMLElement | null> | undefined;
   /** Whether a filterable menu's trigger was last pressed by a screen reader. */
   virtualPress?: boolean | undefined;
+  readonly beforeTriggerFocusGuardRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly triggerFocusTargetRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly beforeContentFocusGuardRef: ReactLikeRef<HTMLElement | null | undefined>;
 };
@@ -260,6 +261,7 @@ function createInitialContext(
     reportedItem: undefined,
     allowMouseUpTriggerRef: { current: false },
     virtualFocusRef: undefined,
+    beforeTriggerFocusGuardRef: { current: null },
     triggerFocusTargetRef: { current: null },
     beforeContentFocusGuardRef: { current: null },
     onOpenChangeComplete: undefined,

@@ -161,11 +161,18 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
   );
 
   createDepsEffect(
-    () => ({ current: activeTrigger(), previous: previousActiveTrigger() }),
-    ({ current, previous }) => {
+    () => ({
+      open: open(),
+      current: activeTrigger(),
+      previous: previousActiveTrigger(),
+    }),
+    ({ open: isOpen, current, previous }) => {
       // When a trigger changes, set the captured children HTML to state,
       // so we can render both new and old content.
+      // `previousActiveTrigger` keeps the last open trigger while closed, so a trigger that
+      // remounts while the popup is closed must not start a transition.
       if (
+        isOpen &&
         current &&
         previous &&
         current !== previous &&

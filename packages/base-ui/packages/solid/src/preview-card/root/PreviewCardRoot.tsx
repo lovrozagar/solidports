@@ -96,7 +96,10 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
     }
   });
 
-  const shouldRenderInteractions = () => open() || mounted();
+  // Detached triggers share this one root, so mounting its interactions eagerly is cheap. The
+  // trigger props they publish then stay stable, so opening and closing doesn't re-render inactive
+  // triggers.
+  const shouldRenderInteractions = () => open() || mounted() || props.handle != null;
 
   // No `handle` prop: nothing to attach, so no `Show` for it.
   const handleAttachment = isAbsentProp(props, 'handle') ? null : (

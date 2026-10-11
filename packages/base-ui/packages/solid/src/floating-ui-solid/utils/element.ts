@@ -1,6 +1,6 @@
 import { isElement, isHTMLElement } from '@floating-ui/utils/dom';
 import { isJSDOM } from '../../utils/detectBrowser';
-import { activeElement, contains, getTarget } from '../../utils/shadowDom';
+import { activeElement, closest, contains, getTarget } from '../../utils/shadowDom';
 import { type PopupTriggerMap } from '../../utils/popups';
 import { FOCUSABLE_ATTRIBUTE, TYPEABLE_SELECTOR } from './constants';
 import { createAttribute } from './createAttribute';
@@ -8,10 +8,10 @@ import { createAttribute } from './createAttribute';
 const interactiveSelector = `button,a,[role="button"],select,[tabindex]:not([tabindex="-1"]),${TYPEABLE_SELECTOR}`;
 
 export function isInteractiveElement(element: Element | null | undefined) {
-  return element ? Boolean(element.closest(interactiveSelector)) : false;
+  return closest(element, interactiveSelector) != null;
 }
 
-export { activeElement, contains, getTarget };
+export { activeElement, closest, contains, getTarget };
 
 export function isTargetInsideEnabledTrigger(
   target: EventTarget | null | undefined,

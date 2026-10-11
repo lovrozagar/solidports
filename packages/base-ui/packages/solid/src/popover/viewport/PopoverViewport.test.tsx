@@ -1,8 +1,8 @@
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'vitest';
-import { createSignal, Show } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 
 describe('<Popover.Viewport />', () => {
   const { render } = createRenderer();
@@ -490,5 +490,49 @@ describe('<Popover.Viewport />', () => {
         });
       }
     });
+  });
+
+  it('does not start a transition when the active trigger remounts while closed', async () => {
+    const [open, setOpen] = createSignal(false);
+    const [generation, setGeneration] = createSignal(0);
+
+    const { user } = render(() => (
+      <Popover.Root
+        open={open()}
+        onOpenChange={(next, details) => {
+          if (!next) {
+            details.preventUnmountOnClose();
+          }
+          setOpen(next);
+        }}
+      >
+        <For each={[generation()]}>
+          {() => (
+            <Popover.Trigger payload={generation()} data-testid="trigger">
+              Trigger
+            </Popover.Trigger>
+          )}
+        </For>
+        <Popover.Portal>
+          <Popover.Positioner>
+            <Popover.Popup>
+              <Popover.Viewport>Content {generation()}</Popover.Viewport>
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+    ));
+
+    await user.click(screen.getByTestId('trigger'));
+    await flushMicrotasks();
+    expect(screen.getByText('Content 0')).toBeTruthy();
+
+    setOpen(false);
+    await flushMicrotasks();
+    expect(document.querySelector('[data-previous]')).to.equal(null);
+
+    setGeneration(1);
+    await flushMicrotasks();
+    expect(document.querySelector('[data-previous]')).to.equal(null);
   });
 });

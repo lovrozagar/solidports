@@ -8,6 +8,7 @@ import {
   useHoverReferenceInteraction,
 } from '../../floating-ui-solid';
 import { contains } from '../../floating-ui-solid/utils/element';
+import { closest, getTarget } from '../../utils/shadowDom';
 import { isMouseLikePointerType } from '../../floating-ui-solid/utils/event';
 import { useHoverInteractionSharedState } from '../../floating-ui-solid/hooks/useHoverInteractionSharedState';
 import { getDelay } from '../../floating-ui-solid/hooks/useHoverShared';
@@ -39,38 +40,9 @@ import { TooltipTriggerDataAttributes } from './TooltipTriggerDataAttributes';
 
 const TOOLTIP_TRIGGER_IDENTIFIER = 'data-base-ui-tooltip-trigger';
 
-function getTargetElement(event: Event): Element | null {
-  if ('composedPath' in event) {
-    const path = event.composedPath();
-    for (let i = 0; i < path.length; i += 1) {
-      const element = path[i];
-      if (isElement(element)) {
-        return element;
-      }
-    }
-  }
-
-  const target = event.target;
-  if (isElement(target)) {
-    return target;
-  }
-
-  return null;
-}
-
-function closestEnabledTooltipTrigger(element: Element | null): Element | null {
-  let current = element;
-  while (current) {
-    const trigger = current.closest(`[${TOOLTIP_TRIGGER_IDENTIFIER}]`);
-    if (trigger) {
-      return trigger;
-    }
-
-    const root = current.getRootNode();
-    current = 'host' in root && isElement(root.host) ? root.host : null;
-  }
-
-  return null;
+function eventTargetElement(event: Event): Element | null {
+  const target = getTarget(event);
+  return isElement(target) ? target : null;
 }
 
 /**
@@ -168,7 +140,7 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
       return false;
     }
 
-    const nearestTrigger = closestEnabledTooltipTrigger(target);
+    const nearestTrigger = closest(target, `[${TOOLTIP_TRIGGER_IDENTIFIER}]`);
     return (
       nearestTrigger !== null && nearestTrigger !== triggerEl && contains(triggerEl, nearestTrigger)
     );
@@ -264,7 +236,7 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
   const handleNestedTriggerHover = (event: MouseEvent) => {
     const targetStore = currentStore();
     const wasNestedTriggerHovered = isNestedTriggerHoveredRef;
-    const target = getTargetElement(event);
+    const target = eventTargetElement(event);
     const nestedTriggerHovered = detectNestedTriggerHover(target);
     const triggerEl = triggerElementRef.current as HTMLElement | null;
     const targetInsideTrigger = triggerEl && target && contains(triggerEl, target);
@@ -314,10 +286,6 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
     }
   };
 
-  const rootTriggerProps = () => currentStore().select('triggerProps', isMountedByThisTrigger);
-  const shouldApplyRootTriggerProps = () =>
-    isMountedByThisTrigger() || trackCursorAxis() !== 'none';
-
   const state: TooltipTrigger.State = {
     get open() {
       return isOpenedByThisTrigger();
@@ -326,7 +294,10 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
 
   // Read per key by the element props: a change does not rebuild the props chain.
   const rootTriggerSource = propsSourceAccessor(() =>
-    shouldApplyRootTriggerProps() ? rootTriggerProps() : undefined,
+    currentStore().select(
+      'appliedTriggerProps',
+      () => isMountedByThisTrigger() || trackCursorAxis() !== 'none',
+    ),
   );
   const element = useRenderElement('button', componentProps, {
     state,
@@ -344,7 +315,7 @@ export function TooltipTrigger<Payload>(componentProps: TooltipTrigger.Props<Pay
           handleNestedTriggerHover(event);
         },
         onFocus(event: BaseUIEvent<FocusEvent>) {
-          if (isEnabledNestedTriggerTarget(getTargetElement(event))) {
+          if (isEnabledNestedTriggerTarget(eventTargetElement(event))) {
             event.preventBaseUIHandler();
           }
         },

@@ -510,4 +510,28 @@ describe('<Menu.Trigger />', () => {
     const button = screen.getByTestId('menu-trigger');
     expect(button).to.have.attribute('role', 'button');
   });
+
+  it('mounts a submenu popup without the root trigger focus guard', async () => {
+    render(() => (
+      <Menu.Root open>
+        <Menu.Trigger>Open</Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner>
+            <Menu.Popup>
+              <Menu.SubmenuRoot open>
+                <Menu.SubmenuTrigger>Sub</Menu.SubmenuTrigger>
+                <Menu.Portal>
+                  <Menu.Positioner>
+                    <Menu.Popup>Inside</Menu.Popup>
+                  </Menu.Positioner>
+                </Menu.Portal>
+              </Menu.SubmenuRoot>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    ));
+
+    expect(screen.getByText('Inside')).toBeTruthy();
+  });
 });

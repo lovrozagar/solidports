@@ -291,8 +291,10 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
 
   const rootTriggerProps = createMemo(() => store().select('triggerProps', isMountedByThisTrigger));
 
-  const { preFocusGuardRef, handlePreFocusGuardFocus, handleFocusTargetFocus } =
-    useTriggerFocusGuards(store, triggerElementRef);
+  const { handlePreFocusGuardFocus, handleFocusTargetFocus } = useTriggerFocusGuards(
+    store,
+    triggerElementRef,
+  );
 
   const state: MenuTrigger.State = {
     get disabled() {
@@ -390,7 +392,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
   return (
     <TriggerFocusGuards
       active={isOpenedByThisTrigger()}
-      leadingGuardRef={preFocusGuardRef}
+      leadingGuardRef={store().context.beforeTriggerFocusGuardRef}
       onLeadingFocus={handlePreFocusGuardFocus}
       trailingGuardRef={store().context.triggerFocusTargetRef}
       onTrailingFocus={handleFocusTargetFocus}

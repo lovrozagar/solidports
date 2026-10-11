@@ -10,7 +10,7 @@ import { mergeCleanups } from '../../utils/mergeCleanups';
 import { useTimeout } from '../../utils/useTimeout';
 import { useFloatingParentNodeId, useFloatingTree } from '../components/FloatingTree';
 import type { FloatingContext, FloatingRootContext } from '../types';
-import { contains, getTarget, isTargetInsideEnabledTrigger } from '../utils';
+import { closest, contains, getTarget, isTargetInsideEnabledTrigger } from '../utils';
 import { getNodeChildren } from '../utils/nodes';
 import {
   applySafePolygonPointerEventsMutation,
@@ -97,7 +97,7 @@ export function useHoverFloatingInteraction(parameters: {
 
   const handleInteractInside = (event: PointerEvent) => {
     const target = getTarget(event) as Element | null;
-    setInstanceState('interactedInside', target?.closest('[aria-haspopup]') != null);
+    setInstanceState('interactedInside', closest(target, '[aria-haspopup]') != null);
   };
 
   createEffect(open, (isOpen) => {
@@ -162,7 +162,7 @@ export function useHoverFloatingInteraction(parameters: {
             untrack(() => instance.handleCloseOptions?.getScope?.()) ??
             cachedScopeElement ??
             parentScopeElement ??
-            (ref.closest('[data-rootownerid]') as HTMLElement | SVGSVGElement | null) ??
+            (closest(ref, '[data-rootownerid]') as HTMLElement | SVGSVGElement | null) ??
             doc.body;
 
           // Solid: the live view follows store swaps, so pin the applied instance for cleanup.

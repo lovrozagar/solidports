@@ -163,8 +163,10 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     },
   };
 
-  const { preFocusGuardRef, handlePreFocusGuardFocus, handleFocusTargetFocus } =
-    useTriggerFocusGuards(currentStore, triggerElementRef);
+  const { handlePreFocusGuardFocus, handleFocusTargetFocus } = useTriggerFocusGuards(
+    currentStore,
+    triggerElementRef,
+  );
 
   const state: PopoverTrigger.State = {
     get disabled() {
@@ -213,7 +215,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
   return (
     <TriggerFocusGuards
       active={guardsActive()}
-      leadingGuardRef={preFocusGuardRef}
+      leadingGuardRef={currentStore().context.beforeTriggerFocusGuardRef}
       onLeadingFocus={handlePreFocusGuardFocus}
       trailingGuardRef={currentStore().context.triggerFocusTargetRef}
       onTrailingFocus={handleFocusTargetFocus}
