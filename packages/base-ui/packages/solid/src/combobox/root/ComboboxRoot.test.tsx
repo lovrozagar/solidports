@@ -8373,6 +8373,207 @@ describe('<Combobox.Root />', () => {
   });
 
   describe('prop: autoHighlight', () => {
+    describe('asynchronous items', () => {
+      it('highlights a candidate arriving after typing', async () => {
+        const onItemHighlighted = vi.fn();
+        const onValueChange = vi.fn();
+        const [items, setItems] = createSignal<string[]>([]);
+        const { user } = render(() => (
+          <Combobox.Root
+            items={items()}
+            autoHighlight
+            filter={null}
+            onItemHighlighted={onItemHighlighted}
+            onValueChange={onValueChange}
+          >
+            <Combobox.Input />
+            <Combobox.Portal>
+              <Combobox.Positioner>
+                <Combobox.Popup>
+                  <Combobox.Empty>No matches</Combobox.Empty>
+                  <Combobox.List>
+                    {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                  </Combobox.List>
+                </Combobox.Popup>
+              </Combobox.Positioner>
+            </Combobox.Portal>
+          </Combobox.Root>
+        ));
+
+        const input = screen.getByRole('combobox');
+        await user.type(input, '32');
+        onItemHighlighted.mockClear();
+        await act(async () => {
+          setItems(['32', '320']);
+        });
+
+        const option = screen.getByRole('option', { name: '32' });
+        expect(option).toHaveAttribute('data-highlighted');
+        expect(input).toHaveAttribute('aria-activedescendant', option.id);
+        expect(onItemHighlighted).toHaveBeenCalledWith(
+          '32',
+          expect.objectContaining({ index: 0, reason: 'none' }),
+        );
+
+        await user.keyboard('{Enter}');
+        expect(onValueChange).toHaveBeenCalledWith('32', expect.anything());
+      });
+
+      it('discards the request when autoHighlight is disabled', async () => {
+        const [items, setItems] = createSignal<string[]>([]);
+        const [autoHighlight, setAutoHighlight] = createSignal(true);
+        const { user } = render(() => (
+          <Combobox.Root items={items()} autoHighlight={autoHighlight()} filter={null}>
+            <Combobox.Input />
+            <Combobox.Portal>
+              <Combobox.Positioner>
+                <Combobox.Popup>
+                  <Combobox.Empty>No matches</Combobox.Empty>
+                  <Combobox.List>
+                    {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                  </Combobox.List>
+                </Combobox.Popup>
+              </Combobox.Positioner>
+            </Combobox.Portal>
+          </Combobox.Root>
+        ));
+
+        await user.type(screen.getByRole('combobox'), '32');
+        await act(async () => {
+          setAutoHighlight(false);
+        });
+        await act(async () => {
+          setAutoHighlight(true);
+          setItems(['32']);
+        });
+
+        expect(screen.getByRole('option')).not.toHaveAttribute('data-highlighted');
+      });
+
+      it('highlights once a controlled popup opens', async () => {
+        const [open, setOpen] = createSignal(false);
+        const { user } = render(() => (
+          <Combobox.Root items={['32']} open={open()} autoHighlight filter={null}>
+            <Combobox.Input />
+            <Combobox.Portal>
+              <Combobox.Positioner>
+                <Combobox.Popup>
+                  <Combobox.List>
+                    {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                  </Combobox.List>
+                </Combobox.Popup>
+              </Combobox.Positioner>
+            </Combobox.Portal>
+          </Combobox.Root>
+        ));
+
+        await user.type(screen.getByRole('combobox'), '32');
+        await act(async () => {
+          setOpen(true);
+        });
+
+        expect(screen.getByRole('option')).toHaveAttribute('data-highlighted');
+      });
+
+      it('discards the request when a typed open is canceled', async () => {
+        const [open, setOpen] = createSignal(false);
+        const { user } = render(() => (
+          <Combobox.Root
+            items={['32']}
+            open={open()}
+            autoHighlight
+            filter={null}
+            onOpenChange={(nextOpen, details) => {
+              if (nextOpen && details.reason === 'input-change') {
+                details.cancel();
+              }
+            }}
+          >
+            <Combobox.Input />
+            <Combobox.Portal>
+              <Combobox.Positioner>
+                <Combobox.Popup>
+                  <Combobox.List>
+                    {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                  </Combobox.List>
+                </Combobox.Popup>
+              </Combobox.Positioner>
+            </Combobox.Portal>
+          </Combobox.Root>
+        ));
+
+        const input = screen.getByRole('combobox');
+        await act(async () => {
+          input.focus();
+        });
+        await user.keyboard('32');
+        await act(async () => {
+          setOpen(true);
+        });
+
+        expect(screen.getByRole('option')).not.toHaveAttribute('data-highlighted');
+      });
+
+      it('drops a pending highlight when a controlled popup closes', async () => {
+        const [open, setOpen] = createSignal(true);
+        const [items, setItems] = createSignal<string[]>([]);
+        const { user } = render(() => (
+          <Combobox.Root items={items()} open={open()} autoHighlight filter={null}>
+            <Combobox.Input />
+            <Combobox.Portal>
+              <Combobox.Positioner>
+                <Combobox.Popup>
+                  <Combobox.Empty>No matches</Combobox.Empty>
+                  <Combobox.List>
+                    {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                  </Combobox.List>
+                </Combobox.Popup>
+              </Combobox.Positioner>
+            </Combobox.Portal>
+          </Combobox.Root>
+        ));
+
+        await user.type(screen.getByRole('combobox'), '32');
+        await act(async () => {
+          setOpen(false);
+        });
+        await act(async () => {
+          setItems(['32']);
+          setOpen(true);
+        });
+
+        expect(screen.getByRole('option')).not.toHaveAttribute('data-highlighted');
+      });
+
+      it('discards the request when the query is cleared before results arrive', async () => {
+        const [items, setItems] = createSignal<string[]>([]);
+        const { user } = render(() => (
+          <Combobox.Root items={items()} autoHighlight filter={null}>
+            <Combobox.Input />
+            <Combobox.Portal>
+              <Combobox.Positioner>
+                <Combobox.Popup>
+                  <Combobox.Empty>No matches</Combobox.Empty>
+                  <Combobox.List>
+                    {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                  </Combobox.List>
+                </Combobox.Popup>
+              </Combobox.Positioner>
+            </Combobox.Portal>
+          </Combobox.Root>
+        ));
+
+        const input = screen.getByRole('combobox');
+        await user.type(input, '32');
+        await user.clear(input);
+        await act(async () => {
+          setItems(['32']);
+        });
+
+        expect(screen.getByRole('option')).not.toHaveAttribute('data-highlighted');
+      });
+    });
+
     it('does not auto-highlight on initial open when no selection', async () => {
       render(() => (
         <Combobox.Root items={['apple', 'banana', 'cherry']} autoHighlight defaultOpen>
