@@ -5479,6 +5479,37 @@ describe('<Select.Root />', () => {
       expect(screen.getByRole('option', { name: 'd' })).not.toHaveAttribute('data-selected');
     });
 
+    it('does not mutate a readonly multiple value when the selection changes', async () => {
+      const initial = ['a'] as const;
+      const { user } = render(() => (
+        <Select.Root
+          multiple
+          defaultOpen
+          defaultValue={initial}
+          onValueChange={(next) => {
+            expect(next).not.toBe(initial);
+            next.pop();
+          }}
+        >
+          <Select.Trigger>
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Positioner>
+              <Select.Popup>
+                <Select.Item value="a">a</Select.Item>
+                <Select.Item value="b">b</Select.Item>
+              </Select.Popup>
+            </Select.Positioner>
+          </Select.Portal>
+        </Select.Root>
+      ));
+
+      await user.click(screen.getByRole('option', { name: 'b' }));
+
+      expect([...initial]).toEqual(['a']);
+    });
+
     it('should allow multiple selections when multiple is true', async () => {
       const handleValueChange = spy();
 

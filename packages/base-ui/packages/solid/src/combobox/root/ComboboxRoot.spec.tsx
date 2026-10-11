@@ -1,3 +1,4 @@
+import { expectType } from '#test-utils';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -265,6 +266,30 @@ function App3() {
     />
   );
 }
+
+function ReadonlyMultipleValues() {
+  const [value, setValue] = createSignal<string[]>([]);
+  const readonlyValue: readonly string[] = value();
+  const tupleValue = ['javascript', 'typescript'] as const;
+
+  return (
+    <>
+      <Combobox.Root multiple value={readonlyValue} onValueChange={setValue} />
+      <Combobox.Root multiple defaultValue={readonlyValue} onValueChange={setValue} />
+      <Combobox.Root
+        multiple
+        value={tupleValue}
+        onValueChange={(newValue) => {
+          expectType<('javascript' | 'typescript')[], typeof newValue>(newValue);
+          newValue.pop();
+        }}
+      />
+      <Combobox.Root multiple defaultValue={tupleValue} onValueChange={setValue} />
+    </>
+  );
+}
+
+void ReadonlyMultipleValues;
 
 mergeProps<typeof Combobox.Root<any>>(
   {

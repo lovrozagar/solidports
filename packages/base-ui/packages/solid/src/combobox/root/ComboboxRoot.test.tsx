@@ -2389,6 +2389,30 @@ describe('<Combobox.Root />', () => {
         expect(handleValueChange.args[1][0]).to.deep.equal(['a', 'b']);
       });
 
+      it('does not mutate a readonly multiple value when the selection changes', async () => {
+        const initial = ['a'] as const;
+        const { user } = render(() => (
+          <Combobox.Root
+            multiple
+            defaultValue={initial}
+            onValueChange={(next) => {
+              expect(next).not.toBe(initial);
+              next.pop();
+            }}
+          >
+            <Combobox.Input />
+            <Combobox.List>
+              <Combobox.Item value="a">a</Combobox.Item>
+              <Combobox.Item value="b">b</Combobox.Item>
+            </Combobox.List>
+          </Combobox.Root>
+        ));
+
+        await user.click(screen.getByRole('option', { name: 'b' }));
+
+        expect([...initial]).toEqual(['a']);
+      });
+
       it('opens with an empty input and highlights the first selected item (input inside popup)', async () => {
         const onItemHighlighted = vi.fn();
         const { user } = render(() => (

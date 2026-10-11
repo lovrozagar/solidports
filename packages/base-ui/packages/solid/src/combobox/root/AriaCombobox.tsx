@@ -1925,6 +1925,10 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
 
 type SelectionMode = 'single' | 'multiple' | 'none';
 
+type ComboboxItemInputValue<ItemValue, Mode extends SelectionMode> = Mode extends 'multiple'
+  ? readonly ItemValue[]
+  : ItemValue;
+
 type ComboboxItemValueType<ItemValue, Mode extends SelectionMode> = Mode extends 'multiple'
   ? ItemValue[]
   : ItemValue;
@@ -2177,13 +2181,13 @@ export type AriaComboboxProps<
   /**
    * The selected value of the combobox. Use when controlled.
    */
-  selectedValue?: ComboboxItemValueType<Value, Mode> | undefined;
+  selectedValue?: ComboboxItemInputValue<Value, Mode> | undefined;
   /**
    * The uncontrolled selected value of the combobox when it's initially rendered.
    *
    * To render a controlled combobox, use the `selectedValue` prop instead.
    */
-  defaultSelectedValue?: ComboboxItemValueType<Value, Mode> | null | undefined;
+  defaultSelectedValue?: ComboboxItemInputValue<Value, Mode> | null | undefined;
   /**
    * Callback fired when the selected value of the combobox changes.
    */
