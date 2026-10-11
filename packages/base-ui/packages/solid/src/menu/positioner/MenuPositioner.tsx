@@ -51,7 +51,7 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
   const sticky = () => local.sticky ?? false;
   const disableAnchorTracking = () => local.disableAnchorTracking ?? false;
 
-  const { store } = useMenuRootContext();
+  const { store, virtualFocus, syncHighlightedItem } = useMenuRootContext();
 
   const keepMounted = useMenuPortalContext();
   const contextMenuContext = useContextMenuRootContext(true);
@@ -147,6 +147,7 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
       return floatingTreeRoot();
     },
     adaptiveOrigin: adaptiveOriginState,
+    lazyFlip: () => (virtualFocus() ? 'placement' : false),
   });
 
   createDepsEffect(
@@ -373,6 +374,7 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
             elements: store.context.itemDomElements.current,
             labels: store.context.itemLabels.current,
           }}
+          onMapChange={syncHighlightedItem}
         >
           {element()}
         </CompositeList>

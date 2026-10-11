@@ -1,4 +1,4 @@
-import { createMemo, Show, untrack } from 'solid-js';
+import { createMemo, createSignal, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
@@ -25,6 +25,7 @@ import {
   type ReactLikeRef,
   createLayoutEffect,
   isAbsentProp,
+  provideContext,
 } from '../../solid-helpers';
 import { TYPEAHEAD_RESET_MS } from '../../utils/constants';
 import {
@@ -42,6 +43,7 @@ import {
   useOpenStateTransitions,
   usePopupInteractionProps,
 } from '../../utils/popups';
+import { getHighlightReason } from '../../utils/getHighlightReason';
 import { REASONS } from '../../utils/reasons';
 import type { HTMLProps } from '../../utils/types';
 import { useAnimationsFinished } from '../../utils/useAnimationsFinished';
@@ -51,6 +53,11 @@ import { useTimeout } from '../../utils/useTimeout';
 import { MenuHandle } from '../store/MenuHandle';
 import { MenuStore, type State as MenuStoreState } from '../store/MenuStore';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
+import { isKeyboardOpen } from '../utils/isKeyboardOpen';
+import {
+  MenuFilterProviderContext,
+  useMenuFilterProviderContext,
+} from '../filter-provider/MenuFilterProviderContext';
 import { MenuRootContext, useMenuRootContext } from './MenuRootContext';
 
 /**
@@ -59,8 +66,11 @@ import { MenuRootContext, useMenuRootContext } from './MenuRootContext';
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
-export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
+export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>) {
   const openProp = () => props.open;
+  const virtualFocus = () => props.virtualFocus ?? false;
+  const allowEscape = () => props.allowEscape ?? true;
+  const resetOnPointerLeave = () => props.resetOnPointerLeave ?? true;
   const defaultOpen = () => props.defaultOpen ?? false;
   const disabledProp = () => props.disabled ?? false;
   const modalProp = () => props.modal;
@@ -150,6 +160,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     untrack(floatingId),
     hasFloatingParentNode,
   );
+  store.context.virtualFocusRef = props.virtualFocusRef;
 
   store.useControlledProp('openProp', openProp);
   store.useControlledProp('triggerIdProp', triggerIdProp);
@@ -417,9 +428,11 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
       ) as ReturnType<typeof createPopupOpenState> & {
         openChangeReason: MenuRoot.ChangeEventReason;
         instantType: MenuStoreState<Payload>['instantType'];
+        keyboardOpen: boolean;
       };
 
       popupOpenState.openChangeReason = reason;
+      popupOpenState.keyboardOpen = nextOpen && isKeyboardOpen(reason, nativeEvent ?? undefined);
 
       if (
         parent().type === 'menubar' &&
@@ -540,12 +553,26 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   // reset, so a closed menu has no active item in the same flush.
   store.useSyncedValue('activeIndex', (prev) => (open() ? prev : null));
 
-  const setActiveIndex = (index: number | null) => {
-    if (store.select('activeIndex') === index) {
-      return;
-    }
-    store.set('activeIndex', index);
+  const setActiveIndex = (index: number | null, event?: Event) => {
+    store.setActiveIndex(index, getHighlightReason(event), event);
   };
+
+  const [highlightVersion, setHighlightVersion] = createSignal(0, { ownedWrite: true });
+  const syncHighlightedItem = () => {
+    setHighlightVersion((version) => version + 1);
+  };
+  store.useSyncedValue('highlightedItem', () => {
+    highlightVersion();
+    if (!virtualFocus()) {
+      return undefined;
+    }
+    const index = store.select('activeIndex');
+    if (index == null) {
+      return undefined;
+    }
+    const item = store.context.itemDomElements.current[index];
+    return item ?? undefined;
+  });
 
   const onTyping = (nextTyping: boolean) => {
     store.context.typingRef.current = nextTyping;
@@ -555,7 +582,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
     context: floatingRootContext,
     props: {
       get enabled() {
-        return !disabled();
+        return !disabled() && !virtualFocus();
       },
       get listRef() {
         return store.context.itemLabels.current;
@@ -615,11 +642,20 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
         get activeIndex() {
           return activeIndex();
         },
+        get virtual() {
+          return virtualFocus();
+        },
         get nested() {
-          return parent().type !== undefined;
+          return parent().type === 'menubar' || (!virtualFocus() && parent().type !== undefined);
         },
         get loopFocus() {
           return loopFocus();
+        },
+        get focusItemOnOpen() {
+          return virtualFocus() ? store.select('keyboardOpen') : undefined;
+        },
+        get allowEscape() {
+          return virtualFocus() && loopFocus() && allowEscape();
         },
         get orientation() {
           return orientation();
@@ -634,10 +670,13 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
         disabledIndices: EMPTY_ARRAY,
         onNavigate: setActiveIndex,
         get openOnArrowKeyDown() {
-          return parent().type !== 'context-menu';
+          return parent().type !== 'context-menu' && !(virtualFocus() && isSubmenu != null);
         },
         get externalTree() {
-          return nested() ? floatingTreeRoot() : undefined;
+          return !virtualFocus() && nested() ? floatingTreeRoot() : undefined;
+        },
+        get resetOnPointerLeave() {
+          return resetOnPointerLeave();
         },
         get focusItemOnHover() {
           return highlightItemOnHover();
@@ -649,7 +688,7 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
       context: floatingRootContext,
       props: {
         get enabled() {
-          return !disabled();
+          return !disabled() && !virtualFocus();
         },
         get listRef() {
           return store.context.itemLabels.current;
@@ -681,11 +720,29 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
 
   // Solid: `mergeProps` returns a read-through view, so the ARIA keys React assigns afterwards are
   // merged in last instead.
+  const openTriggerProps = () => {
+    const navigation = interactions()?.listNavigation;
+    if (!virtualFocus()) {
+      return navigation?.reference;
+    }
+    if (!navigation?.trigger) {
+      return EMPTY_OBJECT;
+    }
+    const { onFocus: _onFocus, ...rest } = navigation.trigger;
+    return rest;
+  };
+
+  store.useSyncedValue('inputProps', () =>
+    virtualFocus()
+      ? ((interactions()?.listNavigation.reference ?? EMPTY_OBJECT) as HTMLProps)
+      : (EMPTY_OBJECT as HTMLProps),
+  );
+
   const activeTriggerProps = createMemo(
     () =>
       mergeProps(
         interactions()?.typeahead.reference,
-        interactions()?.listNavigation.reference,
+        openTriggerProps(),
         interactions()?.dismiss.reference,
         {
           onMouseMove() {
@@ -776,6 +833,12 @@ export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   const context: MenuRootContext<Payload> = {
     store,
     parent: parentFromContext,
+    orientation,
+    loopFocus,
+    allowEscape,
+    virtualFocus,
+    parentVirtualFocus: () => parentMenuRootContext?.virtualFocus() ?? false,
+    syncHighlightedItem,
   };
 
   const content = () => (
@@ -905,6 +968,29 @@ export interface MenuRootActions {
   close: () => void;
 }
 
+export interface MenuRootInternalProps<Payload = unknown> extends MenuRoot.Props<Payload> {
+  /** Keeps real focus on an element inside the popup and navigates with `aria-activedescendant`. */
+  virtualFocus?: boolean | undefined;
+  /** The element that retains real focus while virtual list navigation is active. */
+  virtualFocusRef?: ReactLikeRef<HTMLElement | null> | undefined;
+  /** Whether virtual focus can leave the list during arrow navigation. */
+  allowEscape?: boolean | undefined;
+  /** Whether pointer leave should clear the active item. */
+  resetOnPointerLeave?: boolean | undefined;
+}
+
+export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
+  const filterProvider = useMenuFilterProviderContext(true);
+  if (filterProvider == null) {
+    return <MenuRootInternal {...props} />;
+  }
+
+  const FilterRoot = filterProvider.Root;
+  return provideContext(MenuFilterProviderContext, null, () => (
+    <FilterRoot {...filterProvider.options} {...props} />
+  ));
+}
+
 export type MenuRootChangeEventReason =
   | typeof REASONS.triggerHover
   | typeof REASONS.triggerFocus
@@ -923,6 +1009,9 @@ export type MenuRootChangeEventReason =
 export type MenuRootChangeEventDetails = BaseUIChangeEventDetails<MenuRoot.ChangeEventReason> & {
   preventUnmountOnClose(): void;
 };
+
+export type MenuRootHighlightEventReason =
+  (typeof REASONS)['keyboard'] | (typeof REASONS)['pointer'] | (typeof REASONS)['none'];
 
 export type MenuRootOrientation = 'horizontal' | 'vertical';
 
@@ -954,5 +1043,6 @@ export namespace MenuRoot {
   export type Actions = MenuRootActions;
   export type ChangeEventReason = MenuRootChangeEventReason;
   export type ChangeEventDetails = MenuRootChangeEventDetails;
+  export type HighlightEventReason = MenuRootHighlightEventReason;
   export type Orientation = MenuRootOrientation;
 }

@@ -11,7 +11,10 @@ export function isDifferentGridRow(index: number, cols: number, prevRow: number)
   return Math.floor(index / cols) !== prevRow;
 }
 
-export function isIndexOutOfListBounds(list: Array<HTMLElement | null | undefined>, index: number) {
+export function isIndexOutOfListBounds(
+  list: ReadonlyArray<HTMLElement | null | undefined>,
+  index: number,
+) {
   return index < 0 || index >= list.length;
 }
 
@@ -32,6 +35,52 @@ export function getMaxListIndex(
     startingIndex: list.length,
     disabledIndices,
   });
+}
+
+export interface ListStepOptions {
+  decrement: boolean;
+  loopFocus: boolean;
+  /** Whether stepping past either end leaves the list instead of wrapping. */
+  allowEscape: boolean;
+  disabledIndices?: DisabledIndices | undefined;
+  /** The first navigable index. */
+  minIndex: number;
+  /** The last navigable index. */
+  maxIndex: number;
+}
+
+/**
+ * The index one arrow step moves the highlight to from `currentIndex`, or `-1` when the step
+ * leaves the list. `wrapped` reports a jump from one end of the list to the other.
+ */
+export function getNextListIndex(
+  list: ReadonlyArray<HTMLElement | null | undefined>,
+  currentIndex: number,
+  options: ListStepOptions,
+): { index: number; wrapped: boolean } {
+  const { decrement, loopFocus, allowEscape, disabledIndices, minIndex, maxIndex } = options;
+  const step = () =>
+    findNonDisabledListIndex(list, { startingIndex: currentIndex, decrement, disabledIndices });
+
+  let index: number;
+  let wrapped = false;
+
+  if (!loopFocus) {
+    index = decrement ? Math.max(minIndex, step()) : Math.min(maxIndex, step());
+  } else if (decrement ? currentIndex <= minIndex : currentIndex >= maxIndex) {
+    // Escaping is only possible from inside the list: from outside it, a step enters at the far end.
+    const outside = decrement ? -1 : list.length;
+    if (allowEscape && currentIndex !== outside) {
+      index = -1;
+    } else {
+      index = decrement ? maxIndex : minIndex;
+      wrapped = true;
+    }
+  } else {
+    index = step();
+  }
+
+  return { index: isIndexOutOfListBounds(list, index) ? -1 : index, wrapped };
 }
 
 export function findNonDisabledListIndex(

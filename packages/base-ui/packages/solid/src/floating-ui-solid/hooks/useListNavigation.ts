@@ -61,13 +61,13 @@ function doSwitch(
   }
 }
 
-function isMainOrientationKey(key: string, orientation: UseListNavigationProps['orientation']) {
+export function isMainOrientationKey(key: string, orientation: UseListNavigationProps['orientation']) {
   const vertical = key === ARROW_UP || key === ARROW_DOWN;
   const horizontal = key === ARROW_LEFT || key === ARROW_RIGHT;
   return doSwitch(orientation, vertical, horizontal);
 }
 
-function isMainOrientationToEndKey(
+export function isMainOrientationToEndKey(
   key: string,
   orientation: UseListNavigationProps['orientation'],
   rtl: boolean,
@@ -79,7 +79,7 @@ function isMainOrientationToEndKey(
   );
 }
 
-function isCrossOrientationOpenKey(
+export function isCrossOrientationOpenKey(
   key: string,
   orientation: UseListNavigationProps['orientation'],
   rtl: boolean,
@@ -89,7 +89,7 @@ function isCrossOrientationOpenKey(
   return doSwitch(orientation, vertical, horizontal);
 }
 
-function isCrossOrientationCloseKey(
+export function isCrossOrientationCloseKey(
   key: string,
   orientation: UseListNavigationProps['orientation'],
   rtl: boolean,

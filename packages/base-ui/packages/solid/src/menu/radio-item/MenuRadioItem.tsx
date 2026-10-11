@@ -1,4 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
+import { Show } from 'solid-js';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -12,6 +13,7 @@ import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
+import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
 import { itemMapping } from '../utils/stateAttributesMapping';
 import { MenuRadioItemContext } from './MenuRadioItemContext';
 
@@ -35,6 +37,14 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
   const disabledProp = () => Boolean(local.disabled);
   const closeOnClick = () => local.closeOnClick ?? false;
 
+  const filterItem = useMenuFilterItem({
+    get label() {
+      return local.label;
+    },
+    get children() {
+      return componentProps.children;
+    },
+  });
   const listItem = useCompositeListItem({ label: () => local.label });
   const menuPositionerContext = useMenuPositionerContext(true);
   const id = useBaseUiId(idProp);
@@ -106,12 +116,19 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     ref: (el) => {
       setItemRef(el);
       listItem.setRef(el);
+      if (filterItem.ref) {
+        filterItem.ref.current = el ?? null;
+      }
     },
     state,
     stateAttributesMapping: itemMapping,
   });
 
-  return provideContext(MenuRadioItemContext, contextValue, element);
+  return (
+    <Show when={filterItem.visible()}>
+      {provideContext(MenuRadioItemContext, contextValue, element)}
+    </Show>
+  );
 }
 
 export type MenuRadioItemState = {

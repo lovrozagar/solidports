@@ -1,9 +1,11 @@
+import { Show } from 'solid-js';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { omitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
+import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { REGULAR_ITEM, useMenuItem } from './useMenuItem';
@@ -26,6 +28,15 @@ export function MenuItem(componentProps: MenuItem.Props) {
   const nativeButton = () => Boolean(componentProps.nativeButton);
   const disabledProp = () => Boolean(componentProps.disabled);
   const closeOnClick = () => componentProps.closeOnClick ?? true;
+
+  const filterItem = useMenuFilterItem({
+    get label() {
+      return componentProps.label;
+    },
+    get children() {
+      return componentProps.children;
+    },
+  });
 
   const listItem = useCompositeListItem({
     get label() {
@@ -72,11 +83,14 @@ export function MenuItem(componentProps: MenuItem.Props) {
     ref: (el) => {
       setItemRef(el);
       listItem.setRef(el);
+      if (filterItem.ref) {
+        filterItem.ref.current = el ?? null;
+      }
     },
     state,
   });
 
-  return <>{element()}</>;
+  return <Show when={filterItem.visible()}>{element()}</Show>;
 }
 
 export interface MenuItemState {
