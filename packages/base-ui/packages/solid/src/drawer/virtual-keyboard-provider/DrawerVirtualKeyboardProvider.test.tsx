@@ -1727,6 +1727,13 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
         };
         document.addEventListener('focusout', onFocusOut);
         const blurSpy = vi.spyOn(second, 'blur');
+        const focusSpy = vi.spyOn(second, 'focus');
+        const onFocus = vi.fn();
+        second.addEventListener('focus', onFocus);
+        let optionsDuringFocusIn: FocusOptions | undefined;
+        second.addEventListener('focusin', () => {
+          optionsDuringFocusIn = focusSpy.mock.lastCall?.[0];
+        });
 
         try {
           // Simulates the iOS keyboard's next-field arrow: focus moves with no touch events.
@@ -1738,10 +1745,16 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
           expect(second.style.transform).toBe('');
           expect(second.style.opacity).toBe('');
           expect(blurSpy).not.toHaveBeenCalled();
+          // The iOS 27 native focus request is recorded between focus and focusin.
+          // Protect it during focus without emitting another focus/blur cycle.
+          expect(optionsDuringFocusIn).toEqual({ preventScroll: true });
+          expect(focusSpy).toHaveBeenCalledTimes(2);
+          expect(onFocus).toHaveBeenCalledTimes(1);
           expect(second).toHaveFocus();
         } finally {
           document.removeEventListener('focusout', onFocusOut);
           blurSpy.mockRestore();
+          focusSpy.mockRestore();
         }
       } finally {
         visualViewport.restore();
@@ -2956,6 +2969,146 @@ describe('<Drawer.VirtualKeyboardProvider />', () => {
       expect(labelClickEvents[0].clientX).toBe(24);
       expect(labelClickEvents[0].clientY).toBe(48);
       expect(labelClickEvents[0].detail).toBe(1);
+    } finally {
+      document.elementFromPoint = originalElementFromPoint;
+      focusSpy.mockRestore();
+    }
+  });
+
+  it.skipIf(isJSDOM).each(['explicit', 'implicit'] as const)(
+    'preserves preventScroll after activating an %s label with no input focused',
+    async (association) => {
+      await render(() => (
+        <Drawer.Root open modal={false}>
+          <Drawer.VirtualKeyboardProvider>
+            <Drawer.Portal>
+              <Drawer.Viewport>
+                <Drawer.Popup initialFocus={false}>
+                  <label data-testid="label" for={association === 'explicit' ? 'note' : undefined}>
+                    <span data-testid="label-text">Note</span>
+                    {association === 'implicit' && (
+                      <input data-testid="input" id="note" type="text" />
+                    )}
+                  </label>
+                  {association === 'explicit' && (
+                    <input data-testid="input" id="note" type="text" />
+                  )}
+                </Drawer.Popup>
+              </Drawer.Viewport>
+            </Drawer.Portal>
+          </Drawer.VirtualKeyboardProvider>
+        </Drawer.Root>
+      ));
+
+      const label = screen.getByTestId('label');
+      const input = screen.getByTestId('input');
+      const labelText = screen.getByTestId('label-text');
+      expect(input).not.toHaveFocus();
+      const focusSpy = vi.spyOn(input, 'focus');
+      const onFocus = vi.fn();
+      const onBlur = vi.fn();
+      input.addEventListener('focus', onFocus);
+      input.addEventListener('blur', onBlur);
+      const inputClickEvents: MouseEvent[] = [];
+      let focusCallsDuringActivation = 0;
+      input.addEventListener('click', (clickEvent) => {
+        inputClickEvents.push(clickEvent);
+        focusCallsDuringActivation = focusSpy.mock.calls.length;
+      });
+      const labelClickEvents: MouseEvent[] = [];
+      label.addEventListener('click', (clickEvent) => {
+        if (clickEvent.target === labelText) {
+          labelClickEvents.push(clickEvent);
+        }
+      });
+      const originalElementFromPoint = document.elementFromPoint;
+      document.elementFromPoint = () => labelText;
+
+      try {
+        fireEvent.touchStart(labelText, {
+          touches: [createTouch(labelText, { clientX: 24, clientY: 48 })],
+        });
+
+        const touchEnd = createNativeTouchEnd(labelText, { clientX: 24, clientY: 48 });
+
+        await act(async () => {
+          labelText.dispatchEvent(touchEnd);
+          await flushMicrotasks();
+        });
+
+        expect(touchEnd.defaultPrevented).toBe(true);
+        expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+        expect(labelClickEvents).toHaveLength(1);
+        expect(labelClickEvents[0].clientX).toBe(24);
+        expect(labelClickEvents[0].clientY).toBe(48);
+        expect(labelClickEvents[0].detail).toBe(1);
+        expect(labelClickEvents[0].defaultPrevented).toBe(false);
+        expect(inputClickEvents).toHaveLength(1);
+        // WebKit's label default action refocuses without preventScroll after forwarding
+        // the click. Reapply it after activation without emitting a new focus/blur cycle.
+        expect(focusCallsDuringActivation).toBe(1);
+        expect(focusSpy).toHaveBeenCalledTimes(2);
+        expect(focusSpy).toHaveBeenLastCalledWith({ preventScroll: true });
+        expect(onFocus).toHaveBeenCalledTimes(1);
+        expect(onBlur).not.toHaveBeenCalled();
+        expect(input).toHaveFocus();
+      } finally {
+        document.elementFromPoint = originalElementFromPoint;
+        focusSpy.mockRestore();
+      }
+    },
+  );
+
+  it.skipIf(isJSDOM)('preserves a focus change from a label click handler', async () => {
+    let other: HTMLButtonElement | undefined;
+
+    await render(() => (
+      <Drawer.Root open modal={false}>
+        <Drawer.VirtualKeyboardProvider>
+          <Drawer.Portal>
+            <Drawer.Viewport>
+              <Drawer.Popup initialFocus={false}>
+                <label data-testid="label" for="note">
+                  Note
+                </label>
+                <input data-testid="input" id="note" type="text" />
+                <button
+                  type="button"
+                  ref={(node) => {
+                    other = node;
+                  }}
+                >
+                  Other
+                </button>
+              </Drawer.Popup>
+            </Drawer.Viewport>
+          </Drawer.Portal>
+        </Drawer.VirtualKeyboardProvider>
+      </Drawer.Root>
+    ));
+
+    const label = screen.getByTestId('label');
+    const input = screen.getByTestId('input');
+    label.addEventListener('click', (event) => {
+      event.preventDefault();
+      other?.focus();
+    });
+    const focusSpy = vi.spyOn(input, 'focus');
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => label;
+
+    try {
+      fireEvent.touchStart(label, {
+        touches: [createTouch(label, { clientX: 24, clientY: 48 })],
+      });
+      const touchEnd = createNativeTouchEnd(label, { clientX: 24, clientY: 48 });
+      await act(async () => {
+        label.dispatchEvent(touchEnd);
+        await flushMicrotasks();
+      });
+
+      expect(other).toHaveFocus();
+      expect(focusSpy).toHaveBeenCalledTimes(1);
     } finally {
       document.elementFromPoint = originalElementFromPoint;
       focusSpy.mockRestore();
