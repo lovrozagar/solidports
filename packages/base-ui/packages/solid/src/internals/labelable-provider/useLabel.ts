@@ -1,6 +1,6 @@
 import type { Setter } from 'solid-js';
-import { isHTMLElement } from '@floating-ui/utils/dom';
-import { getTarget } from '../../floating-ui-solid/utils';
+import { isHTMLElement, isShadowRoot } from '@floating-ui/utils/dom';
+import { closest, getTarget } from '../../floating-ui-solid/utils';
 import { access, type MaybeAccessor } from '../../solid-helpers';
 import { ownerDocument } from '../../utils/owner';
 import type { HTMLProps } from '../../utils/types';
@@ -39,7 +39,7 @@ export function useLabel(params: UseLabelParameters = {}): UseLabelReturnValue {
       return;
     }
 
-    const controlElement = ownerDocument(event.currentTarget as Element).getElementById(controlId);
+    const controlElement = getControlById(event.currentTarget as Element, controlId);
     if (isHTMLElement(controlElement)) {
       focusElementWithVisible(controlElement);
     }
@@ -47,7 +47,7 @@ export function useLabel(params: UseLabelParameters = {}): UseLabelReturnValue {
 
   function handleInteraction(event: MouseEvent) {
     const target = getTarget(event) as HTMLElement | null;
-    if (target?.closest('button,input,select,textarea')) {
+    if (closest(target, 'button,input,select,textarea')) {
       return;
     }
 
@@ -113,6 +113,18 @@ export interface UseLabelParameters {
 }
 
 export type UseLabelReturnValue = HTMLProps & { for?: string | undefined };
+
+export function getControlById(label: Element, id: string) {
+  let root = label.getRootNode();
+  while (isShadowRoot(root)) {
+    const element = root.getElementById(id);
+    if (element) {
+      return element;
+    }
+    root = root.host.getRootNode();
+  }
+  return ownerDocument(label).getElementById(id);
+}
 
 export function focusElementWithVisible(element: HTMLElement) {
   element.focus({
