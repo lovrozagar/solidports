@@ -5011,6 +5011,44 @@ describe('<Select.Root />', () => {
   });
 
   describe('typeahead', () => {
+    it('starts a new search after focus leaves the select', async () => {
+      const { user } = render(() => (
+        <div>
+          <Select.Root>
+            <Select.Trigger data-testid="trigger">
+              <Select.Value data-testid="value" />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner>
+                <Select.Popup>
+                  <Select.Item value="apple">apple</Select.Item>
+                  <Select.Item value="banana">banana</Select.Item>
+                  <Select.Item value="avocado">avocado</Select.Item>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+          <button data-testid="outside">outside</button>
+        </div>
+      ));
+
+      const trigger = screen.getByTestId('trigger');
+      await act(async () => {
+        trigger.focus();
+      });
+      await user.keyboard('b');
+      expect(screen.getByTestId('value').textContent).toBe('banana');
+
+      // Leaving and returning within the typeahead timeout must not continue the "b" search.
+      await act(async () => {
+        screen.getByTestId('outside').focus();
+        trigger.focus();
+      });
+      await user.keyboard('a');
+
+      expect(screen.getByTestId('value').textContent).toBe('avocado');
+    });
+
     it.skipIf(isJSDOM)(
       'does not trigger selection when Space is pressed during text navigation',
       async () => {
