@@ -1,5 +1,7 @@
 import { access, type MaybeAccessor } from '../solid-helpers';
+import { NOOP } from './empty';
 import { flushSync } from './flushSync';
+import { getFiniteAnimations } from './getFiniteAnimations';
 import * as TransitionStatusDataAttributes from '../internals/TransitionStatusDataAttributes';
 import { useAnimationFrame } from './useAnimationFrame';
 
@@ -94,7 +96,10 @@ export function useAnimationsFinished<T extends HTMLElement>(
     }
 
     function exec() {
-      Promise.all(resolvedElement.getAnimations().map((animation) => animation.finished)).then(
+      // Discard fulfilled Animation values so unfinished animations cannot retain their targets.
+      Promise.all(
+        getFiniteAnimations(resolvedElement).map((animation) => animation.finished.then(NOOP)),
+      ).then(
         () => {
           if (!signal?.aborted) {
             done();
@@ -105,7 +110,7 @@ export function useAnimationsFinished<T extends HTMLElement>(
             return;
           }
 
-          const currentAnimations = resolvedElement.getAnimations();
+          const currentAnimations = getFiniteAnimations(resolvedElement);
 
           if (
             currentAnimations.some(

@@ -2,7 +2,7 @@ import { createMemo, Show } from 'solid-js';
 import { useContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
 import { FloatingNode } from '../../floating-ui-solid';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
-import { createDepsEffect, createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
+import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
 import { DROPDOWN_COLLISION_AVOIDANCE, POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
@@ -10,7 +10,7 @@ import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnchoredPopupScrollLock } from '../../utils/useAnchoredPopupScrollLock';
 import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
-import { useAnimationsFinished } from '../../utils/useAnimationsFinished';
+import { useTriggerSwitchTransition } from '../../utils/useTriggerSwitchTransition';
 import { usePositioner } from '../../utils/usePositioner';
 import { useTimeout } from '../../utils/useTimeout';
 import { useMenuPortalContext } from '../portal/MenuPortalContext';
@@ -73,9 +73,6 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
   // Solid: the floating root lives on the store's context (React keeps it in state).
   const floatingRootContext = store.context.floatingRootContext;
   const domReference = () => floatingRootContext.select('domReferenceElement');
-
-  let previousTriggerRef: Element | null = null;
-  const runOnceAnimationsFinish = useAnimationsFinished(positionerElement);
 
   // Solid: React derives these locals during render; here they are memos over the same inputs.
   const resolved = createMemo(() => {
@@ -268,28 +265,11 @@ export function MenuPositioner(componentProps: MenuPositioner.Props) {
     },
   );
 
-  // Keep positioner transition behavior aligned with Popover when switching detached triggers.
-  createDepsRenderEffect(domReference, (currentTrigger) => {
-    const previousTrigger = previousTriggerRef;
-
-    if (currentTrigger) {
-      previousTriggerRef = currentTrigger;
-    }
-
-    if (previousTrigger && currentTrigger && currentTrigger !== previousTrigger) {
-      store.set('instantType', undefined);
-
-      const abortController = new AbortController();
-      runOnceAnimationsFinish(() => {
-        store.set('instantType', 'trigger-change');
-      }, abortController.signal);
-
-      return () => {
-        abortController.abort();
-      };
-    }
-
-    return undefined;
+  useTriggerSwitchTransition({
+    store,
+    domReference,
+    positionerElement,
+    open,
   });
 
   const state: MenuPositioner.State = {
