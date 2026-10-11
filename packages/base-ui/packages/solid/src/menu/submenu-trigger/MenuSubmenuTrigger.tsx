@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
+import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
 import { safePolygon, useClick, useHoverReferenceInteraction } from '../../floating-ui-solid';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
@@ -13,6 +13,7 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { warn } from '../../utils/warn';
+import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
 import { useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
@@ -44,6 +45,17 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
   const closeDelay = () => local.closeDelay ?? 0;
   const disabledProp = () => local.disabled ?? false;
 
+  const filterItem = useMenuFilterItem(
+    {
+      get label() {
+        return local.label;
+      },
+      get children() {
+        return componentProps.children;
+      },
+    },
+    'submenu-trigger',
+  );
   const submenuRootContext = useMenuSubmenuRootContext();
   if (!submenuRootContext?.parentMenu) {
     throw new Error('Base UI: <Menu.SubmenuTrigger> must be placed in <Menu.SubmenuRoot>.');
@@ -238,12 +250,16 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
         }),
       ),
       propsSourceAccessor(itemProps),
+      filterItem.props,
+      submenuRootContext.onTriggerKeyDown
+        ? { onKeyDown: submenuRootContext.onTriggerKeyDown }
+        : undefined,
       {
         get 'aria-controls'() {
           return popupId();
         },
         get tabindex() {
-          return open() || highlighted() ? 0 : -1;
+          return submenuRootContext.parentVirtualFocus?.() || !(open() || highlighted()) ? -1 : 0;
         },
         onBlur() {
           if (highlighted()) {
@@ -254,10 +270,20 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
       elementProps,
       itemSources.handlers,
     ],
-    ref: [listItem.setRef, setItemRef, registerTrigger, handleTriggerElementRef],
+    ref: [
+      listItem.setRef,
+      setItemRef,
+      registerTrigger,
+      handleTriggerElementRef,
+      (el: HTMLElement | null | undefined) => {
+        if (filterItem.ref) {
+          filterItem.ref.current = el ?? null;
+        }
+      },
+    ],
   });
 
-  return <>{element()}</>;
+  return <Show when={filterItem.visible()}>{element()}</Show>;
 }
 
 function omitExpanded(props: HTMLProps) {

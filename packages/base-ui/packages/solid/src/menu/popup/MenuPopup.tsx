@@ -17,9 +17,13 @@ import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
+import { resolvePopupLabel } from '../../utils/resolvePopupLabel';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import type { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
+import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
+import { useMenuFilterImpl } from '../filter-root/MenuFilterContext';
+import { useNoParentHandoff } from '../filter-root/useVirtualFocusParentHandoff';
 
 const stateAttributesMapping: StateAttributesMapping<MenuPopup.State> = {
   ...baseMapping,
@@ -32,10 +36,10 @@ const stateAttributesMapping: StateAttributesMapping<MenuPopup.State> = {
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
-export function MenuPopup(componentProps: MenuPopup.Props) {
-  const [, local, elementProps] = splitComponentProps(componentProps, ['finalFocus']);
+export function MenuPopupPlain(componentProps: MenuPopup.Props) {
+  const [, local, elementProps] = splitComponentProps(componentProps, ['finalFocus', 'initialFocus']);
 
-  const { store } = useMenuRootContext();
+  const { store, orientation, virtualFocus } = useMenuRootContext();
   const { side, align } = useMenuPositionerContext();
   const toolbarRootContext = useToolbarRootContext(true);
   const insideToolbar = () => toolbarRootContext != null;
@@ -54,6 +58,15 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
   const closeDelay = store.useState('closeDelay');
   const activeTriggerElement = store.useState('activeTriggerElement');
   const openMethod = store.useState('openMethod');
+  const listElement = store.useState('listElement');
+  const activeTriggerId = store.useState('activeTriggerId');
+  const submenuRootContext = useMenuSubmenuRootContext();
+  const handoff = (useMenuFilterImpl()?.useParentHandoff ?? useNoParentHandoff)(
+    store,
+    parent,
+    open,
+    virtualFocus,
+  );
 
   const isContextMenu = () => parent().type === 'context-menu';
 
@@ -128,10 +141,40 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
     props: [
       popupPropsSource,
       {
+        get role() {
+          return listElement() ? 'presentation' : 'menu';
+        },
+        get 'aria-orientation'() {
+          return listElement() || orientation() === 'vertical' ? undefined : 'horizontal';
+        },
+        get 'aria-labelledby'() {
+          if (listElement()) {
+            return undefined;
+          }
+          return resolvePopupLabel(
+            {
+              'aria-label':
+                typeof componentProps['aria-label'] === 'string'
+                  ? componentProps['aria-label']
+                  : undefined,
+              'aria-labelledby':
+                typeof componentProps['aria-labelledby'] === 'string'
+                  ? componentProps['aria-labelledby']
+                  : undefined,
+              render: componentProps.render,
+            },
+            activeTriggerElement() ?? null,
+            activeTriggerId(),
+          );
+        },
         onKeyDown(event: KeyboardEvent) {
+          submenuRootContext?.onPopupKeyDown?.(event);
           if (insideToolbar() && COMPOSITE_KEYS.has(event.key)) {
             event.stopPropagation();
           }
+        },
+        onFocus() {
+          handoff.handleFocus?.();
         },
       },
       transitionStyles,
@@ -157,11 +200,23 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
     return parent().type === undefined || isContextMenu();
   });
 
-  const resolvedReturnFocus = createMemo(() =>
-    local.finalFocus === undefined ? shouldReturnFocus() : local.finalFocus,
-  );
+  const resolvedReturnFocus = createMemo(() => {
+    if (local.finalFocus !== undefined) {
+      return local.finalFocus;
+    }
+    return handoff.parentVirtualFocusRef ?? shouldReturnFocus();
+  });
 
-  const initialFocus = createMemo(() => parent().type !== 'menu');
+  const initialFocus = createMemo(() => {
+    if (local.initialFocus !== undefined) {
+      return local.initialFocus;
+    }
+    const list = listElement();
+    if (list && parent().type !== 'menu') {
+      return () => (store.select('activeIndex') !== null ? false : list);
+    }
+    return parent().type !== 'menu';
+  });
 
   return (
     <FloatingFocusManager
@@ -186,6 +241,15 @@ export function MenuPopup(componentProps: MenuPopup.Props) {
   );
 }
 
+/**
+ * A container for the menu items.
+ * Renders a `<div>` element.
+ */
+export function MenuPopup(props: MenuPopup.Props) {
+  const Popup = useMenuFilterImpl()?.Popup ?? MenuPopupPlain;
+  return <Popup {...props} />;
+}
+
 export interface MenuPopupProps extends BaseUIComponentProps<'div', MenuPopup.State> {
   children?: JSX.Element;
   /**
@@ -201,6 +265,15 @@ export interface MenuPopupProps extends BaseUIComponentProps<'div', MenuPopup.St
    * - `function`: Called with the interaction type (`mouse`, `touch`, `pen`, or `keyboard`).
    *   Return an element to focus, `true` to use the default behavior, or `false`/`undefined` to do nothing.
    */
+  /**
+   * The element to focus when the menu opens. `false` leaves focus where it is.
+   */
+  initialFocus?:
+    | boolean
+    | HTMLElement
+    | null
+    | (() => boolean | HTMLElement | null | undefined)
+    | undefined;
   finalFocus?:
     | (
         | boolean

@@ -125,7 +125,7 @@ export function useAnchorPositioning(
   const positionMethod = () => access(params.positionMethod) ?? 'absolute';
   const sideParam = () => access(params.side) ?? 'bottom';
   const sideOffset = () => access(params.sideOffset) ?? 0;
-  const align = () => access(params.align) ?? 'center';
+  const alignParam = () => access(params.align) ?? 'center';
   const alignOffset = () => access(params.alignOffset) ?? 0;
   const collisionBoundary = () => access(params.collisionBoundary);
   const collisionPaddingParam = () => access(params.collisionPadding) ?? 5;
@@ -139,11 +139,16 @@ export function useAnchorPositioning(
   const shift = () => access(params.shift);
   const nodeId = () => access(params.nodeId);
   const adaptiveOrigin = () => access(params.adaptiveOrigin);
-  const lazyFlip = () => access(params.lazyFlip) ?? false;
+  const lazyFlipMode = () => access(params.lazyFlip) ?? false;
+  const lazyFlip = () => Boolean(lazyFlipMode());
+  const lockAlign = () => lazyFlipMode() === 'placement';
 
   // React resets the locked side during render once the popup unmounts. Solid derives the reset:
   // the lock written below stands while mounted.
   const [mountSide, setMountSide] = createSignal<PhysicalSide | null>((prev) =>
+    mounted() ? (prev ?? null) : null,
+  );
+  const [mountAlign, setMountAlign] = createSignal<Align | null>((prev) =>
     mounted() ? (prev ?? null) : null,
   );
 
@@ -171,6 +176,7 @@ export function useAnchorPositioning(
       )[sideParam()],
   );
   const side = createMemo(() => mountSide() || baseSide());
+  const align = () => mountAlign() || alignParam();
 
   const placement = () => (align() === 'center' ? side() : (`${side()}-${align()}` as Placement));
 
@@ -590,13 +596,23 @@ export function useAnchorPositioning(
   // and flips back lazily, not eagerly. Ideal for filtered lists that change
   // the size of the popup dynamically to avoid unwanted flipping when typing.
   createEffect(
-    () =>
-      lazyFlip() && mounted() && isPositioned() && renderedSide() !== baseSide()
-        ? renderedSide()
-        : null,
-    (sideToLock) => {
-      if (sideToLock !== null) {
-        setMountSide(sideToLock);
+    () => {
+      if (!lazyFlip() || !mounted() || !isPositioned()) {
+        return null;
+      }
+      const sideMismatch = renderedSide() !== side();
+      const alignMismatch = lockAlign() && renderedAlign() !== align();
+      if (!sideMismatch && !alignMismatch) {
+        return null;
+      }
+      return { side: renderedSide(), align: lockAlign() ? renderedAlign() : null };
+    },
+    (lock) => {
+      if (lock) {
+        setMountSide(lock.side);
+        if (lock.align === 'start' || lock.align === 'center' || lock.align === 'end') {
+          setMountAlign(lock.align);
+        }
       }
     },
   );
@@ -765,7 +781,7 @@ export interface UseAnchorPositioningParameters extends Accessorify<
   adaptiveOrigin?: MaybeAccessor<Middleware | undefined>;
   collisionAvoidance: MaybeAccessor<CollisionAvoidance>;
   shift?: MaybeAccessor<UseAnchorPositioningShiftOptions | undefined>;
-  lazyFlip?: MaybeAccessor<boolean | undefined>;
+  lazyFlip?: MaybeAccessor<boolean | 'placement' | undefined>;
   externalTree?: FloatingTreeStore | undefined;
   /**
    * Optional middleware that can replace the measured reference rect before offsets and collision

@@ -1,5 +1,5 @@
 import type { JSX } from '@solidjs/web';
-import { provideContext, type ReactLikeRef } from '../../solid-helpers';
+import { provideContext, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { getTarget } from '../../utils/shadowDom';
@@ -12,6 +12,7 @@ import { useFilterDropdownRootContext } from '../root/FilterDropdownRootContext'
  * The list whose items the query filters. Groups inside it belong to this root.
  */
 export function FilterDropdownList(componentProps: FilterDropdownList.Props) {
+  const [, , elementProps] = splitComponentProps(componentProps, ['id', 'children']);
   const context = useFilterDropdownRootContext();
   const [id, registerIdRef] = useRenderedId(
     componentProps,
@@ -50,6 +51,7 @@ export function FilterDropdownList(componentProps: FilterDropdownList.Props) {
           context.setKeyboardModality(false);
         },
       } satisfies HTMLProps,
+      elementProps,
       {
         children: groupedChildren,
       },

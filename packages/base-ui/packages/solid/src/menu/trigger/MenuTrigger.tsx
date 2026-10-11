@@ -322,10 +322,11 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     propsSourceAccessor(localInteractionProps),
     hoverProps ?? EMPTY_OBJECT,
     propsSourceAccessor(rootTriggerProps),
+    propsSourceAccessor(() => store().select('filterTriggerProps')),
     {
       'aria-haspopup': 'menu' as const,
       get 'aria-controls'() {
-        return popupId();
+        return store().select('triggerControlsId', thisTriggerId);
       },
       get id() {
         return thisTriggerId();

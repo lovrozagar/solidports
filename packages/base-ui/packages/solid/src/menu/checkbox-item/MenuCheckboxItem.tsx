@@ -1,3 +1,4 @@
+import { Show } from 'solid-js';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -12,6 +13,7 @@ import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import type { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
+import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
 import { itemMapping } from '../utils/stateAttributesMapping';
 import { MenuCheckboxItemContext } from './MenuCheckboxItemContext';
 
@@ -39,6 +41,14 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
   const checkedProp = () => local.checked;
   const defaultChecked = () => local.defaultChecked;
 
+  const filterItem = useMenuFilterItem({
+    get label() {
+      return local.label;
+    },
+    get children() {
+      return componentProps.children;
+    },
+  });
   const listItem = useCompositeListItem({ label: () => local.label });
   const menuPositionerContext = useMenuPositionerContext(true);
   const id = useBaseUiId(idProp);
@@ -116,12 +126,19 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     ref: (el) => {
       setItemRef(el);
       listItem.setRef(el);
+      if (filterItem.ref) {
+        filterItem.ref.current = el ?? null;
+      }
     },
     state,
     stateAttributesMapping: itemMapping,
   });
 
-  return provideContext(MenuCheckboxItemContext, contextValue, element);
+  return (
+    <Show when={filterItem.visible()}>
+      {provideContext(MenuCheckboxItemContext, contextValue, element)}
+    </Show>
+  );
 }
 
 export type MenuCheckboxItemState = {

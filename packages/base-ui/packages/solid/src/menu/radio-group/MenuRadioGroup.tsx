@@ -6,6 +6,7 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { MenuRoot } from '../root/MenuRoot';
+import { useMenuFilterImpl } from '../filter-root/MenuFilterContext';
 import { MenuGroupContext } from '../group/MenuGroupContext';
 import { MenuRadioGroupContext } from './MenuRadioGroupContext';
 
@@ -15,7 +16,7 @@ import { MenuRadioGroupContext } from './MenuRadioGroupContext';
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
-export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
+export function MenuRadioGroupPlain(componentProps: MenuRadioGroup.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'value',
     'defaultValue',
@@ -59,6 +60,9 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
     props: [
       {
         role: 'group',
+        get hidden() {
+          return componentProps.hidden || undefined;
+        },
         get 'aria-labelledby'() {
           return local['aria-labelledby'] ?? labelId();
         },
@@ -76,7 +80,18 @@ export function MenuRadioGroup(componentProps: MenuRadioGroup.Props) {
   );
 }
 
+/**
+ * Groups related radio items.
+ * Renders a `<div>` element.
+ */
+export function MenuRadioGroup(props: MenuRadioGroup.Props) {
+  const RadioGroup = useMenuFilterImpl()?.RadioGroup ?? MenuRadioGroupPlain;
+  return <RadioGroup {...props} />;
+}
+
 export interface MenuRadioGroupProps extends BaseUIComponentProps<'div', MenuRadioGroup.State> {
+  /** Whether the group is hidden because filtering removed every item in it. */
+  hidden?: boolean | undefined;
   /**
    * The content of the component.
    */

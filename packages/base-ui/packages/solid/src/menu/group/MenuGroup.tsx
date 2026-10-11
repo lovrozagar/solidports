@@ -3,6 +3,7 @@ import type { JSX } from '@solidjs/web';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
+import { useMenuFilterImpl } from '../filter-root/MenuFilterContext';
 import { MenuGroupContext } from './MenuGroupContext';
 
 /**
@@ -11,7 +12,7 @@ import { MenuGroupContext } from './MenuGroupContext';
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
-export function MenuGroup(componentProps: MenuGroup.Props) {
+export function MenuGroupPlain(componentProps: MenuGroup.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
   const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
@@ -23,6 +24,9 @@ export function MenuGroup(componentProps: MenuGroup.Props) {
           return labelId();
         },
         role: 'group',
+        get hidden() {
+          return componentProps.hidden || undefined;
+        },
       },
       elementProps,
     ],
@@ -31,7 +35,20 @@ export function MenuGroup(componentProps: MenuGroup.Props) {
   return provideContext(MenuGroupContext, setLabelId, element);
 }
 
+/**
+ * Groups related menu items with the corresponding label.
+ * Renders a `<div>` element.
+ */
+export function MenuGroup(props: MenuGroup.Props) {
+  const Group = useMenuFilterImpl()?.Group ?? MenuGroupPlain;
+  return <Group {...props} />;
+}
+
 export interface MenuGroupProps extends BaseUIComponentProps<'div', MenuGroup.State> {
+  /**
+   * Whether the group is hidden because filtering removed every item in it.
+   */
+  hidden?: boolean | undefined;
   /**
    * The content of the component.
    */

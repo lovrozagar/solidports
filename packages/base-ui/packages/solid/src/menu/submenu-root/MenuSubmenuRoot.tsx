@@ -1,4 +1,9 @@
 import type { JSX } from '@solidjs/web';
+import { provideContext } from '../../solid-helpers';
+import {
+  MenuFilterProviderContext,
+  useMenuFilterProviderContext,
+} from '../filter-provider/MenuFilterProviderContext';
 import { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { MenuSubmenuRootContext } from './MenuSubmenuRootContext';
@@ -13,11 +18,17 @@ export { useMenuSubmenuRootContext } from './MenuSubmenuRootContext';
  */
 export function MenuSubmenuRoot(props: MenuSubmenuRoot.Props) {
   const parentMenu = useMenuRootContext().store;
+  const filterProvider = useMenuFilterProviderContext(true);
 
-  const contextValue = { parentMenu };
+  if (filterProvider != null) {
+    const FilterSubmenuRoot = filterProvider.SubmenuRoot;
+    return provideContext(MenuFilterProviderContext, null, () => (
+      <FilterSubmenuRoot {...filterProvider.options} {...props} />
+    ));
+  }
 
   return (
-    <MenuSubmenuRootContext value={contextValue}>
+    <MenuSubmenuRootContext value={{ parentMenu }}>
       <MenuRoot {...props} />
     </MenuSubmenuRootContext>
   );
