@@ -227,6 +227,11 @@ export function MenuPopupPlain(componentProps: MenuPopup.Props) {
       returnFocus={resolvedReturnFocus()}
       initialFocus={initialFocus()}
       restoreFocus
+      getInsideElements={
+        parent().type === undefined
+          ? () => [store.context.beforeTriggerFocusGuardRef.current]
+          : undefined
+      }
       externalTree={parent().type !== 'menubar' ? floatingTreeRoot() : undefined}
       previousFocusableElement={activeTriggerElement() as HTMLElement | null}
       nextFocusableElement={

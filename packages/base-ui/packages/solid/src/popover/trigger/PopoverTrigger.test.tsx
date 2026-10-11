@@ -508,4 +508,127 @@ describe('<Popover.Trigger />', () => {
       }
     },
   );
+
+  it('records a pointer press on a nested popup trigger and on plain popup content', async () => {
+    const { user } = render(() => (
+      <Popover.Root>
+        <Popover.Trigger openOnHover delay={0}>
+          Open
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Positioner>
+            <Popover.Popup>
+              <span>Plain</span>
+              <button type="button" aria-haspopup="menu">
+                Nested
+              </button>
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+    ));
+
+    const trigger = screen.getByRole('button', { name: 'Open' });
+    await user.hover(trigger);
+    await flushMicrotasks();
+    fireEvent.pointerDown(screen.getByText('Plain'));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Nested' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('moves focus forward from the trailing guard while it is still tabbable', async () => {
+    const { user } = render(() => (
+      <div>
+        <button type="button">Before</button>
+        <Popover.Root modal={false}>
+          <Popover.Trigger>Toggle</Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Positioner>
+              <Popover.Popup finalFocus={false}>
+                <button type="button">Inside</button>
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+        <button type="button">After</button>
+      </div>
+    ));
+
+    await user.click(screen.getByRole('button', { name: 'Toggle' }));
+    await flushMicrotasks();
+    const guards = document.querySelectorAll('[data-base-ui-focus-guard]');
+    (guards[guards.length - 1] as HTMLElement).focus();
+    await flushMicrotasks();
+
+    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus();
+  });
+
+  it('moves focus past a tabindex=-1 trigger when its guard unmounts on close', async () => {
+    const { user } = render(() => (
+      <div>
+        <button type="button">Before</button>
+        <Popover.Root modal={false}>
+          <Popover.Trigger tabIndex={-1}>Toggle</Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Positioner>
+              <Popover.Popup>
+                <button type="button">Inside</button>
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+        <button type="button">After</button>
+      </div>
+    ));
+
+    await user.click(screen.getByRole('button', { name: 'Toggle' }));
+    await flushMicrotasks();
+    expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute('aria-expanded', 'true');
+
+    const guards = document.querySelectorAll('[data-base-ui-focus-guard]');
+    const trailingGuard = guards[guards.length - 1] as HTMLElement;
+    trailingGuard.focus();
+    await flushMicrotasks();
+
+    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('moves focus to the previous control when the leading guard is focused', async () => {
+    const { user } = render(() => (
+      <div>
+        <button type="button">Before</button>
+        <Popover.Root modal={false}>
+          <Popover.Trigger>Toggle</Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Positioner>
+              <Popover.Popup finalFocus={false}>
+                <button type="button">Inside</button>
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        </Popover.Root>
+        <button type="button">After</button>
+      </div>
+    ));
+
+    const trigger = screen.getByRole('button', { name: 'Toggle' });
+    await user.click(trigger);
+    await flushMicrotasks();
+
+    const leadingGuard = trigger.previousElementSibling as HTMLElement;
+    expect(leadingGuard).toHaveAttribute('data-base-ui-focus-guard');
+    leadingGuard.remove();
+    leadingGuard.dispatchEvent(new FocusEvent('focus'));
+    await flushMicrotasks();
+
+    expect(screen.getByRole('button', { name: 'Before' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
 });

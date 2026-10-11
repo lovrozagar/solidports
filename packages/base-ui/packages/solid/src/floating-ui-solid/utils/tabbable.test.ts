@@ -2,7 +2,7 @@ import { afterEach, it, expect } from 'vitest';
 import type { JSX } from '@solidjs/web';
 import { isJSDOM } from '#test-utils';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
-import { isTabbable, tabbable } from './tabbable';
+import { getTabbableNearElement, isTabbable, tabbable } from './tabbable';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -384,4 +384,33 @@ it('treats slotted elements inside inert shadow content as untabbable', () => {
   document.body.appendChild(host);
 
   expect(tabbable(document.body)).not.toContain(button);
+});
+
+it('finds the next tabbable from a tabindex=-1 anchor and skips an excluded subtree', () => {
+  const before = document.createElement('button');
+  const anchor = document.createElement('button');
+  const popup = document.createElement('div');
+  const inside = document.createElement('button');
+  const after = document.createElement('button');
+
+  anchor.tabIndex = -1;
+  document.body.append(before, anchor, popup, after);
+  popup.append(inside);
+
+  expect(getTabbableNearElement(anchor, 1, popup)).toBe(after);
+  expect(getTabbableNearElement(anchor, -1, popup)).toBe(before);
+});
+
+it('returns null when there is no anchor', () => {
+  expect(getTabbableNearElement(null, 1)).toBeNull();
+
+  const detached = document.createElement('button');
+  expect(getTabbableNearElement(detached, 1)).toBeNull();
+});
+
+it('returns the anchor when nothing else is tabbable', () => {
+  const anchor = document.createElement('button');
+  document.body.append(anchor);
+
+  expect(getTabbableNearElement(anchor, 1)).toBe(anchor);
 });

@@ -1,11 +1,4 @@
-import {
-  contains,
-  type FocusableElement,
-  getNextTabbable,
-  getTabbableAfterElement,
-  getTabbableBeforeElement,
-  isOutsideEvent,
-} from '../../floating-ui-solid/utils';
+import { getTabbableNearElement, isOutsideEvent } from '../../floating-ui-solid/utils';
 import type { ReactLikeRef } from '../../solid-helpers';
 import {
   type BaseUIChangeEventDetails,
@@ -22,6 +15,11 @@ interface TriggerFocusGuardStore {
   setOpen(open: boolean, eventDetails: BaseUIChangeEventDetails<typeof REASONS.focusOut>): void;
   select(key: 'positionerElement'): HTMLElement | null | undefined;
   context: {
+    /**
+     * Shared with the focus manager through `getInsideElements` so that blurring the trigger
+     * onto this guard does not close the popup before the guard's own focus handler runs.
+     */
+    readonly beforeTriggerFocusGuardRef: ReactLikeRef<HTMLElement | null | undefined>;
     readonly beforeContentFocusGuardRef: ReactLikeRef<HTMLElement | null | undefined>;
     readonly triggerFocusTargetRef: ReactLikeRef<HTMLElement | null | undefined>;
   };
@@ -38,20 +36,29 @@ export function useTriggerFocusGuards(
   store: () => TriggerFocusGuardStore,
   triggerElementRef: ReactLikeRef<HTMLElement | null | undefined>,
 ) {
-  const preFocusGuardRef: ReactLikeRef<HTMLElement | null> = { current: null };
+  function closeAndFocus(
+    event: FocusEvent,
+    direction: 1 | -1,
+    positionerElement: HTMLElement | null | undefined,
+  ) {
+    const guard = event.currentTarget as HTMLElement;
 
-  function handlePreFocusGuardFocus(event: FocusEvent) {
     flushSync(() => {
-      store().setOpen(
-        false,
-        createChangeEventDetails(REASONS.focusOut, event, event.currentTarget as HTMLElement),
-      );
+      store().setOpen(false, createChangeEventDetails(REASONS.focusOut, event, guard));
     });
 
-    const previousTabbable: FocusableElement | null = getTabbableBeforeElement(
-      preFocusGuardRef.current,
-    );
-    previousTabbable?.focus();
+    // The close commits before this read, so the guard may have unmounted or lost its
+    // tabindex. Anchor on the trigger, which still finds the next tab stop when its
+    // own tabIndex is -1. Solid keeps the trailing guard node mounted.
+    getTabbableNearElement(
+      triggerElementRef.current,
+      direction,
+      positionerElement,
+    )?.focus();
+  }
+
+  function handlePreFocusGuardFocus(event: FocusEvent) {
+    closeAndFocus(event, -1, store().select('positionerElement'));
   }
 
   function handleFocusTargetFocus(event: FocusEvent) {
@@ -60,28 +67,9 @@ export function useTriggerFocusGuards(
     if (positionerElement && isOutsideEvent(event, positionerElement)) {
       currentStore.context.beforeContentFocusGuardRef.current?.focus();
     } else {
-      flushSync(() => {
-        currentStore.setOpen(
-          false,
-          createChangeEventDetails(REASONS.focusOut, event, event.currentTarget as HTMLElement),
-        );
-      });
-
-      let nextTabbable = getTabbableAfterElement(
-        currentStore.context.triggerFocusTargetRef.current || triggerElementRef.current,
-      );
-
-      while (nextTabbable !== null && contains(positionerElement, nextTabbable)) {
-        const prevTabbable = nextTabbable;
-        nextTabbable = getNextTabbable(nextTabbable);
-        if (nextTabbable === prevTabbable) {
-          break;
-        }
-      }
-
-      nextTabbable?.focus();
+      closeAndFocus(event, 1, positionerElement);
     }
   }
 
-  return { preFocusGuardRef, handlePreFocusGuardFocus, handleFocusTargetFocus };
+  return { handlePreFocusGuardFocus, handleFocusTargetFocus };
 }

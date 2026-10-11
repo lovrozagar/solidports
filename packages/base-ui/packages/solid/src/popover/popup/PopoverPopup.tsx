@@ -173,6 +173,7 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
       initialFocus={resolvedInitialFocus()}
       returnFocus={local.finalFocus}
       restoreFocus="popup"
+      getInsideElements={() => [store.context.beforeTriggerFocusGuardRef.current]}
       previousFocusableElement={
         isHTMLElement(store.state.activeTriggerElement)
           ? (store.state.activeTriggerElement as HTMLElement)
