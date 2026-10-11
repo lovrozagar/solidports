@@ -330,11 +330,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       return;
     }
 
-    {
-      setFocusedIndex(index);
-      setFocusedState(true);
-      setFocused(true);
-    }
+    setFocusedIndex(index);
     event.currentTarget.select();
   }
 
@@ -418,6 +414,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
     reportValueInvalid,
     required,
     normalizeValue,
+    setFocused: setFocusedState,
     setValue,
     state,
     validationType,

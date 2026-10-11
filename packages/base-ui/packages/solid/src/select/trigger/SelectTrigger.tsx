@@ -2,6 +2,7 @@ import { createEffect, createMemo, snapshot } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { fieldValidityMapping } from '../../field/utils/constants';
 import { contains, getFloatingFocusElement } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -52,7 +53,6 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
 
   const {
     setTouched,
-    setFocused,
     validationMode,
     state: fieldState,
     disabled: fieldDisabled,
@@ -89,6 +89,15 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
   useLabelableId({ id });
 
   let triggerRef = null as HTMLElement | null | undefined;
+  const focusTargetRef = {
+    get current() {
+      return triggerRef;
+    },
+    set current(element: HTMLElement | null | undefined) {
+      triggerRef = element;
+    },
+  };
+  const setFocused = useSetFieldFocused(disabled, focusTargetRef);
 
   const { buttonSources, buttonRef } = useButton({
     disabled,
@@ -289,7 +298,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
       ];
     },
     ref: (el) => {
-      triggerRef = el;
+      focusTargetRef.current = el;
       buttonRef(el);
       setTriggerElement(el);
     },

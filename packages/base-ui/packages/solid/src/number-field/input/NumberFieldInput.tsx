@@ -1,6 +1,7 @@
 import { createEffect, untrack } from 'solid-js';
 import { isServer, type JSX } from '@solidjs/web';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useValueChanged } from '../../internals/useValueChanged';
@@ -78,8 +79,9 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
   const inputValue = () => state.inputValue;
 
   const { clearErrors } = useFormContext();
-  const { validationMode, setTouched, setFocused, invalid, shouldValidateOnChange, validation } =
+  const { validationMode, setTouched, invalid, shouldValidateOnChange, validation } =
     useFieldRootContext();
+  const setFocused = useSetFieldFocused(disabled, inputRef);
   const { labelId } = useLabelableContext();
 
   let blockRevalidationRef = false;

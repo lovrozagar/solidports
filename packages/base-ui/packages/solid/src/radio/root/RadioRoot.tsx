@@ -44,6 +44,7 @@ import {
 import { useFieldItemContext } from '../../field/item/FieldItemContext';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -133,6 +134,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     groupContext ? groupContext.checkedValue() === local.value : local.value === '';
 
   const radioRef = useRef<HTMLElement | null | undefined>(null);
+  const setFieldFocused = useSetFieldFocused(disabled, radioRef);
   const inputRef = useRef<HTMLInputElement | null | undefined>(null);
   // Solid: the label fallback below reads the input reactively, as React re-runs it every commit.
   const [inputElement, setInputElement] = createSignal<HTMLInputElement | null>(null, {
@@ -236,6 +238,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
       dispatchClickWithModifiers(input, event);
     },
     onFocus(event) {
+      setFieldFocused(true);
       if (event.defaultPrevented || disabled() || readOnly() || !touched()) {
         return;
       }
@@ -243,6 +246,13 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
       inputRef.current?.click();
 
       setTouched(false);
+    },
+    onBlur() {
+      // A grouped radio's exit is cleared by the group's blur handler, so radio-to-radio moves
+      // inside the group don't churn the focused state.
+      if (!groupContext) {
+        setFieldFocused(false);
+      }
     },
   };
 
@@ -417,6 +427,8 @@ interface NativeRadio {
   setTouched: (value: boolean) => void;
   setCheckedValue: (value: unknown, details: RadioChangeDetails) => void;
   setFieldTouched: (value: boolean) => void;
+  setFieldFocused: (focused: boolean) => void;
+  grouped: boolean;
   composite: CompositeRootContext | null;
   registration: CompositeItemRegistration | undefined;
   required: Accessor<boolean>;
@@ -459,6 +471,8 @@ function wrapRadioHandler(key: string, model: NativeRadio): unknown {
       return [rootPointerDown, model];
     case 'onfocus':
       return [rootFocus, model];
+    case 'onblur':
+      return [rootBlur, model];
     case 'onmousemove':
       return model.registration ? [rootMouseMove, model] : undefined;
     default:
@@ -543,6 +557,9 @@ function radioHandlers(l: RadioLayout, literal: Record<string, unknown>) {
   if (!consumerHas(l, 'onFocus')) {
     literal.onFocus = [rootFocus, m];
   }
+  if (!consumerHas(l, 'onBlur')) {
+    literal.onBlur = [rootBlur, m];
+  }
   if (m.registration && !consumerHas(l, 'onMouseMove')) {
     literal.onMouseMove = [rootMouseMove, m];
   }
@@ -615,6 +632,7 @@ function rootPointerDown(m: NativeRadio, event: PointerEvent) {
 }
 function rootFocus(m: NativeRadio, event: FocusEvent) {
   makeEventPreventable(event as RadioEvent<FocusEvent>);
+  m.setFieldFocused(true);
   if (runConsumerHandler(m.props, 'onFocus', event as RadioEvent<FocusEvent>)) {
     return;
   }
@@ -624,6 +642,16 @@ function rootFocus(m: NativeRadio, event: FocusEvent) {
   }
   if (m.composite && m.registration) {
     m.composite.onHighlightedIndexChange(m.registration.index());
+  }
+}
+function rootBlur(m: NativeRadio, event: FocusEvent) {
+  makeEventPreventable(event as RadioEvent<FocusEvent>);
+  if (runConsumerHandler(m.props, 'onBlur', event as RadioEvent<FocusEvent>)) {
+    return;
+  }
+  // A grouped radio's exit is cleared by the group, so radio-to-radio moves don't churn focus.
+  if (!m.grouped) {
+    m.setFieldFocused(false);
   }
 }
 function rootMouseMove(m: NativeRadio, event: MouseEvent) {
@@ -707,6 +735,7 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
   const inputId = useLabelableId({ id: () => props.id });
 
   const radioRef = useRef<HTMLElement | null | undefined>(null);
+  const setFieldFocused = useSetFieldFocused(disabled, radioRef);
 
   // The hidden input: literal attributes from the template, the rest in one render effect.
   const input = createNativeElement('input', HIDDEN_RADIO_INPUT);
@@ -817,6 +846,8 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
     setTouched: groupContext?.setTouched ?? NOOP,
     setCheckedValue: groupContext?.setCheckedValue ?? NOOP,
     setFieldTouched: fieldRootContext.setTouched,
+    setFieldFocused,
+    grouped: groupContext != null,
     composite,
     registration,
     required,
