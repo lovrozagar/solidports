@@ -222,7 +222,7 @@
     },
     "packages/base-ui/packages/solid": {
       "name": "@solidports/base-ui",
-      "version": "1.8.0-9",
+      "version": "1.8.0-10",
       "devDependencies": {
         "@date-fns/tz": "catalog:",
         "@floating-ui/dom": "catalog:",

@@ -6,9 +6,27 @@ import { OTPField } from '@solidports/base-ui/otp-field';
 import { Field } from '@solidports/base-ui/field';
 import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './OTPFieldInput.ssr-fixtures';
 
 describe('<OTPField.Input />', () => {
   const { render } = createRenderer();
+
+  it('keeps slot characters in the server HTML through hydration', () => {
+    const { html, hydrate } = renderServer(ssrFixtures, 'defaultValue');
+    const first = document.querySelector<HTMLInputElement>('[data-testid="otp-0"]');
+    const second = document.querySelector<HTMLInputElement>('[data-testid="otp-1"]');
+
+    expect(html).toContain('value="4"');
+    expect(html).toContain('value="2"');
+    expect(first?.value).toBe('4');
+    expect(second?.value).toBe('2');
+
+    hydrate();
+
+    expect(first?.value).toBe('4');
+    expect(second?.value).toBe('2');
+  });
   const OTP_LENGTH = 6;
   const modifierKeys = [
     ['Ctrl', { ctrlKey: true }],

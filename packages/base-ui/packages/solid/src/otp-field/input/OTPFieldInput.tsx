@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 
 import { createMemo, createSignal, untrack } from 'solid-js';
-import type { JSX } from '@solidjs/web';
+import { isServer, type JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
 import { stopEvent } from '../../floating-ui-solid/utils';
 import {
@@ -413,8 +413,20 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     },
   };
 
+  // The layout effect syncs the slot on the client and skips a write when the DOM already matches.
+  // It does not run on the server. React puts `value: slotValue` on the input, so the server HTML
+  // has to carry the character too. A client `value` binding would collapse the selection.
+  const serverValueProps = isServer
+    ? {
+        get value() {
+          return slotValue();
+        },
+      }
+    : {};
+
   const element = useRenderElement('input', componentProps, {
-    props: [inputProps as any, elementProps],
+    // Omitted on the client: an empty source still sits in the props graph.
+    props: [inputProps as any, ...(isServer ? [serverValueProps] : []), elementProps],
     ref: (el: HTMLInputElement | null | undefined) => {
       setRef(el ?? null);
       setInputElement(el ?? null);

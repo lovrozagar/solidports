@@ -1,5 +1,5 @@
 import { createEffect, untrack } from 'solid-js';
-import type { JSX } from '@solidjs/web';
+import { isServer, type JSX } from '@solidjs/web';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -478,14 +478,23 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
     },
   };
 
-  // Solid: `prop:value` writes `input.value` only when the text changes, as React does; a plain
-  // `value` is re-assigned on every spread update, which moves the caret. Solid's JSX types lock
-  // `prop:value` to `never`, so the entry is typed as plain props.
-  const valueProps = {
-    get 'prop:value'() {
-      return inputValue();
-    },
-  } as BaseUIHTMLProps;
+  // `prop:value` writes `input.value` only when the text changes, so a mid-string caret survives.
+  // It does not serialize into server HTML. React's `value` prop does, and an empty server input
+  // would flash blank before hydration even though `inputValue` is already formatted. Solid's JSX
+  // types lock `prop:value` to `never`, so the entry is typed as plain props.
+  const valueProps = (
+    isServer
+      ? {
+          get value() {
+            return inputValue();
+          },
+        }
+      : {
+          get 'prop:value'() {
+            return inputValue();
+          },
+        }
+  ) as unknown as BaseUIHTMLProps;
 
   const element = useRenderElement('input', componentProps, {
     ref: (el) => {
