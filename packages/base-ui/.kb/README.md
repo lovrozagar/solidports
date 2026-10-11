@@ -43,7 +43,7 @@ Inventory: [`./INDEX.md`](./INDEX.md).
 
 ## Docs pipeline
 
-`docs/react` is a clone of `mui/base-ui` `docs/` at tag `v1.8.0` (override with `DOCS_TAG`).
+`docs/react` is a clone of `mui/base-ui` `docs/` at tag `v1.9.0` (override with `DOCS_TAG`).
 `docs/solid` pages and demos are generated from that snapshot.
 
 ```bash

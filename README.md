@@ -134,7 +134,7 @@ const table = createTable({ columns, data, features: stockFeatures });
 ```
 packages/base-ui/                 MUI Base UI fork (React reference + Solid port + docs)
 packages/base-ui/packages/solid   published `@solidports/base-ui`
-packages/base-ui/packages/react   upstream React reference (v1.8.0)
+packages/base-ui/packages/react   upstream React reference (v1.9.0)
 packages/base-ui/docs/react       upstream docs snapshot
 packages/base-ui/docs/solid       Solid docs app
 packages/recharts/                published `@solidports/recharts`

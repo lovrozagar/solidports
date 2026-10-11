@@ -1,6 +1,6 @@
 # Docs pipeline (from zero)
 
-React docs are a 1:1 copy of `mui/base-ui` `docs/` at `DOCS_TAG` (default `v1.8.0`).
+React docs are a 1:1 copy of `mui/base-ui` `docs/` at `DOCS_TAG` (default `v1.9.0`).
 Solid docs are generated from that copy. Do not hand-edit generated Solid pages or demos.
 
 ```bash

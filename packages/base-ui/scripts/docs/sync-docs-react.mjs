@@ -13,11 +13,11 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FORK = join(HERE, '../..');
 const DEST = join(FORK, 'docs/react');
-const TAG = process.env.DOCS_TAG ?? 'v1.8.0';
+const TAG = process.env.DOCS_TAG ?? 'v1.9.0';
 const CACHE =
   process.env.DOCS_UPSTREAM_CACHE ??
-  (existsSync('/tmp/base-ui-v1.8.0/docs/src') && TAG === 'v1.8.0'
-    ? '/tmp/base-ui-v1.8.0'
+  (existsSync('/tmp/base-ui-v1.9.0/docs/src') && TAG === 'v1.9.0'
+    ? '/tmp/base-ui-v1.9.0'
     : `/tmp/base-ui-docs-${TAG}`);
 
 function run(cmd, args, opts = {}) {
