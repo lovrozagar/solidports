@@ -10,7 +10,7 @@ import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { useRenderElement } from '../../internals/useRenderElement';
 import { usePopupHandleStore, useTriggerDataForwarding } from '../../utils/popups';
 import { useBaseUiId } from '../../internals/useBaseUiId';
-import { TooltipHandle } from '../store/TooltipHandle';
+import type { TooltipHandle } from '../store/TooltipHandle';
 import { useTooltipProviderContext } from '../provider/TooltipProviderContext';
 import {
   safePolygon,
@@ -18,7 +18,7 @@ import {
   useFocus,
   useHoverReferenceInteraction,
 } from '../../floating-ui-react';
-import { contains } from '../../floating-ui-react/utils/element';
+import { closest, contains, getTarget } from '../../floating-ui-react/utils/element';
 import { isMouseLikePointerType } from '../../floating-ui-react/utils/event';
 import { createChangeEventDetails } from '../../internals/createBaseUIEventDetails';
 import { REASONS } from '../../internals/reasons';
@@ -31,37 +31,8 @@ import { OPEN_DELAY } from '../utils/constants';
 const TOOLTIP_TRIGGER_IDENTIFIER = 'data-base-ui-tooltip-trigger';
 
 function getTargetElement(event: Event): Element | null {
-  if ('composedPath' in event) {
-    const path = event.composedPath();
-    for (let i = 0; i < path.length; i += 1) {
-      const element = path[i];
-      if (isElement(element)) {
-        return element;
-      }
-    }
-  }
-
-  const target = event.target;
-  if (isElement(target)) {
-    return target;
-  }
-
-  return null;
-}
-
-function closestEnabledTooltipTrigger(element: Element | null): Element | null {
-  let current = element;
-  while (current) {
-    const trigger = current.closest(`[${TOOLTIP_TRIGGER_IDENTIFIER}]`);
-    if (trigger) {
-      return trigger;
-    }
-
-    const root = current.getRootNode();
-    current = 'host' in root && isElement(root.host) ? root.host : null;
-  }
-
-  return null;
+  const target = getTarget(event);
+  return isElement(target) ? target : null;
 }
 
 /**
@@ -153,7 +124,7 @@ export const TooltipTrigger = fastComponentRef(function TooltipTrigger(
       return false;
     }
 
-    const nearestTrigger = closestEnabledTooltipTrigger(target);
+    const nearestTrigger = closest(target, `[${TOOLTIP_TRIGGER_IDENTIFIER}]`);
     return (
       nearestTrigger !== null && nearestTrigger !== triggerEl && contains(triggerEl, nearestTrigger)
     );
@@ -242,8 +213,10 @@ export const TooltipTrigger = fastComponentRef(function TooltipTrigger(
     }
   };
 
-  const rootTriggerProps = store.useState('triggerProps', isMountedByThisTrigger);
-  const shouldApplyRootTriggerProps = isMountedByThisTrigger || trackCursorAxis !== 'none';
+  const rootTriggerProps = store.useState(
+    'appliedTriggerProps',
+    isMountedByThisTrigger || trackCursorAxis !== 'none',
+  );
 
   const state: TooltipTriggerState = { open: isOpenedByThisTrigger };
 
@@ -253,7 +226,7 @@ export const TooltipTrigger = fastComponentRef(function TooltipTrigger(
     props: [
       hoverProps,
       focusProps,
-      shouldApplyRootTriggerProps ? rootTriggerProps : undefined,
+      rootTriggerProps,
       {
         onMouseOver(event: React.MouseEvent) {
           handleNestedTriggerHover(event.nativeEvent);

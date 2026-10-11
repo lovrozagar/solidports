@@ -37,7 +37,7 @@ snapshot live at `docs/react/src/app/(private)/experiments/`.
 From the monorepo root:
 
 ```bash
-bun run docs:sync             # clone mui/base-ui@v1.8.0 docs → docs/react
+bun run docs:sync             # clone mui/base-ui@v1.9.0 docs → docs/react
 bun run docs:generate         # generate docs/solid pages + demos from docs/react
 bun run docs:dev              # Solid docs (Vite start mode, port 3001)
 bun run docs:react:dev        # React docs snapshot (Next, port 3005)
