@@ -38,7 +38,12 @@ import {
   selectedValueIncludes,
 } from '../../utils/itemEquality';
 import { NOOP } from '../../utils/noop';
-import { FOCUSABLE_POPUP_PROPS, useTriggerInteractions } from '../../utils/popups';
+import {
+  attachPreventUnmountOnClose,
+  FOCUSABLE_POPUP_PROPS,
+  useTriggerInteractions,
+} from '../../utils/popups';
+import { useUnmountAfterClose } from '../../utils/useUnmountAfterClose';
 import { REASONS } from '../../utils/reasons';
 import {
   flattenLeafItems,
@@ -52,9 +57,7 @@ import { SolidStore } from '../../utils/store/SolidStoreV2';
 import type { BaseUIEvent, HTMLProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useIsHydrating } from '../../utils/useIsHydrating';
-import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
-import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import { useValueChanged } from '../../internals/useValueChanged';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import { selectors, type ComboboxStoreContext, type State as StoreState } from '../store';
@@ -473,7 +476,34 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     { equals: shallowEqual },
   );
 
-  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open);
+  const [preventUnmountOnClose, setPreventUnmountOnClose] = createSignal(false, {
+    ownedWrite: true,
+  });
+  // Filled in below, once the close cleanup and the positioner state exist.
+  let finishClose!: () => void;
+  let readPositioner!: () => HTMLElement | null | undefined;
+  const {
+    mounted,
+    transitionStatus,
+    forceUnmount,
+  } = useUnmountAfterClose({
+    open,
+    // An inline list composed inside a dialog animates the dialog, not the list popup.
+    // `[role="dialog"]` works with third-party modals; the closest dialog must be the
+    // animated element.
+    ref: () => {
+      const positionerEl = readPositioner();
+      if (inlineProp() && positionerEl) {
+        return positionerEl.closest('[role="dialog"]') as HTMLElement | null;
+      }
+      return popupRef.current;
+    },
+    preventUnmountOnClose,
+    setPreventUnmountOnClose,
+    onUnmount() {
+      finishClose();
+    },
+  });
   const { openMethod, triggerProps } = useOpenInteractionType(open);
 
   // An inline list open on the first render never gets a closed pass of the closed-state
@@ -644,6 +674,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   const activeIndex = store.useState('activeIndex');
   const selectedIndex = store.useState('selectedIndex');
   const positionerElement = store.useState('positionerElement');
+  readPositioner = () => positionerElement() as HTMLElement | null | undefined;
   const listId = store.useState('listId');
   const triggerElement = store.useState('triggerElement');
   const inputElement = store.useState('inputElement');
@@ -847,10 +878,16 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
       eventDetails.allowPropagation();
     }
 
-    props.onOpenChange?.(nextOpen, eventDetails);
+    const openEventDetails = eventDetails as AriaCombobox.OpenChangeEventDetails;
+    const shouldPreventUnmountOnClose = attachPreventUnmountOnClose(openEventDetails);
+    props.onOpenChange?.(nextOpen, openEventDetails);
 
     if (eventDetails.isCanceled) {
       return;
+    }
+
+    if (!nextOpen) {
+      setPreventUnmountOnClose(shouldPreventUnmountOnClose());
     }
 
     if (nextOpen && closeQuery() !== null) {
@@ -1013,8 +1050,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     }
   };
 
-  const handleUnmount = () => {
-    setMounted(false);
+  finishClose = () => {
     props.onOpenChangeComplete?.(false);
     setQueryChangedAfterOpen(false);
     setCloseQuery(null);
@@ -1056,33 +1092,12 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     }
   };
 
-  // Support composing the Dialog component around an inline combobox.
-  // `[role="dialog"]` is more interoperable than using a context, e.g. it can work
-  // with third-party modal libraries, though the limitation is that the closest
-  // `role=dialog` part must be the animated element.
-  const resolvedPopupRef = createMemo<HTMLElement | null | undefined>(() => {
-    const positionerEl = positionerElement();
-    if (inline() && positionerEl) {
-      return positionerEl.closest('[role="dialog"]') as HTMLElement | null;
-    }
-    return popupRef.current;
-  });
-
-  useOpenChangeComplete({
-    enabled: () => !props.actionsRef,
-    open,
-    // Solid: `popupRef` is a plain ref, so it is re-read when the open state settles.
-    ref: () => (inline() ? resolvedPopupRef() : popupRef.current),
-    onComplete() {
-      if (!open()) {
-        handleUnmount();
-      }
-    },
-  });
-
   onSettled(() => {
     if (props.actionsRef) {
-      props.actionsRef.current = { unmount: handleUnmount };
+      props.actionsRef.current = {
+        unmount: forceUnmount,
+        close: () => setOpen(false, createChangeEventDetails(REASONS.imperativeAction)),
+      };
     }
   });
 
@@ -1927,7 +1942,7 @@ interface ComboboxRootProps<ItemValue, Item = ItemValue> {
    * Event handler called when the popup is opened or closed.
    */
   onOpenChange?:
-    ((open: boolean, eventDetails: AriaCombobox.ChangeEventDetails) => void) | undefined;
+    ((open: boolean, eventDetails: AriaCombobox.OpenChangeEventDetails) => void) | undefined;
   /**
    * Event handler called after any animations complete when the popup is opened or closed.
    */
@@ -1980,8 +1995,9 @@ interface ComboboxRootProps<ItemValue, Item = ItemValue> {
   defaultInputValue?: ComponentProps<'input'>['value'] | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: Manually unmounts the combobox.
-   * Call this after any externally controlled closing animation finishes.
+   * - `unmount`: Ends the closing phase after an externally controlled closing animation finishes.
+   * Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the combobox completes closing on its own.
+   * - `close`: Closes the combobox imperatively when called.
    */
   actionsRef?: ReactLikeRef<AriaCombobox.Actions | null> | undefined;
   /**
@@ -2157,6 +2173,7 @@ export namespace AriaCombobox {
 
   export interface Actions {
     unmount: () => void;
+    close: () => void;
   }
 
   export type HighlightEventReason =
@@ -2180,7 +2197,15 @@ export namespace AriaCombobox {
     | typeof REASONS.clearPress
     | typeof REASONS.chipRemovePress
     | typeof REASONS.cancelOpen
+    | typeof REASONS.imperativeAction
     | typeof REASONS.none;
+  export type OpenChangeEventDetails = ChangeEventDetails & {
+    /**
+     * Call in `onOpenChange` before the popup finishes closing, to keep it mounted until
+     * `actionsRef.unmount()`.
+     */
+    preventUnmountOnClose(): void;
+  };
   export type ChangeEventDetails = BaseUIChangeEventDetails<ChangeEventReason> & {
     /**
      * When `reason` is `input-clear` in multiple mode, indicates whether an item press caused the

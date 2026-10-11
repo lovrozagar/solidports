@@ -2014,16 +2014,25 @@ describe('<NavigationMenu.Root />', () => {
       const actionsRef: { current: NavigationMenu.Root.Actions | null } = { current: null };
 
       const [value, setValue] = createSignal<string | null>('item-1');
-      await render(() => <TestNavigationMenu value={value()} actionsRef={actionsRef} />);
+      await render(() => (
+        <TestNavigationMenu
+          value={value()}
+          actionsRef={actionsRef}
+          onValueChange={(next, details) => {
+            if (next == null) {
+              details.preventUnmountOnClose();
+            }
+            setValue(next);
+          }}
+        />
+      ));
 
       expect(actionsRef.current).not.toBe(null);
       expect(actionsRef.current?.unmount).toBeTypeOf('function');
       expect(screen.queryByTestId('popup-root')).not.toBe(null);
 
-      // Closing keeps the popup mounted because `actionsRef` disables the automatic unmount.
-      await act(() => {
-        setValue(null);
-      });
+      // A close that opts out stays mounted until `unmount()`.
+      fireEvent.keyDown(screen.getByTestId('trigger-1'), { key: 'Escape' });
       await flushMicrotasks();
       expect(screen.queryByTestId('popup-root')).not.toBe(null);
 

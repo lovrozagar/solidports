@@ -12475,16 +12475,23 @@ describe('<Combobox.Root />', () => {
     it('exposes an action that completes unmount cleanup', async () => {
       const actionsRef: { current: Combobox.Root.Actions | null } = { current: null };
       const onOpenChangeComplete = vi.fn();
-      render(() => (
+      const { user } = render(() => (
         <Combobox.Root
           defaultOpen
           actionsRef={actionsRef}
           onOpenChangeComplete={onOpenChangeComplete}
+          onOpenChange={(open, details) => {
+            if (!open) {
+              details.preventUnmountOnClose();
+            }
+          }}
         >
           <Combobox.Input />
         </Combobox.Root>
       ));
 
+      await user.keyboard('{Escape}');
+      expect(onOpenChangeComplete).not.toHaveBeenCalledWith(false);
       act(() => actionsRef.current?.unmount());
 
       expect(onOpenChangeComplete).toHaveBeenCalledWith(false);

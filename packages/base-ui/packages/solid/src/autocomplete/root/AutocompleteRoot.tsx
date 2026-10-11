@@ -129,10 +129,12 @@ export interface AutocompleteRootState extends AriaCombobox.State {}
 
 export interface AutocompleteRootActions {
   unmount: () => void;
+  close: () => void;
 }
 
 export type AutocompleteRootChangeEventReason = AriaCombobox.ChangeEventReason;
 export type AutocompleteRootChangeEventDetails = AriaCombobox.ChangeEventDetails;
+export type AutocompleteRootOpenChangeEventDetails = AriaCombobox.OpenChangeEventDetails;
 
 export type AutocompleteRootHighlightEventReason = AriaCombobox.HighlightEventReason;
 export type AutocompleteRootHighlightEventDetails = AriaCombobox.HighlightEventDetails;
@@ -254,16 +256,16 @@ export interface AutocompleteRootProps<ItemValue> extends Omit<
   itemToStringValue?: ((itemValue: ItemValue) => string) | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: When specified, the autocomplete will not be unmounted when closed.
-   * Instead, the `unmount` function must be called to unmount the autocomplete manually.
-   * Useful when the autocomplete's animation is controlled by an external library.
+   * - `unmount`: Ends the closing phase after an externally controlled closing animation finishes.
+   * Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the autocomplete completes closing on its own.
+   * - `close`: Closes the autocomplete imperatively when called.
    */
   actionsRef?: ReactLikeRef<AutocompleteRootActions | null> | undefined;
   /**
    * Event handler called when the popup is opened or closed.
    */
   onOpenChange?:
-    ((open: boolean, eventDetails: AutocompleteRootChangeEventDetails) => void) | undefined;
+    ((open: boolean, eventDetails: AutocompleteRootOpenChangeEventDetails) => void) | undefined;
   /**
    * Callback fired when an item is highlighted or unhighlighted.
    * Receives the highlighted item value (or `undefined` if no item is highlighted) and event details with a `reason` property describing why the highlight changed.
@@ -291,6 +293,7 @@ export namespace AutocompleteRoot {
   export type Actions = AutocompleteRootActions;
   export type ChangeEventReason = AutocompleteRootChangeEventReason;
   export type ChangeEventDetails = AutocompleteRootChangeEventDetails;
+  export type OpenChangeEventDetails = AutocompleteRootOpenChangeEventDetails;
   export type HighlightEventReason = AutocompleteRootHighlightEventReason;
   export type HighlightEventDetails = AutocompleteRootHighlightEventDetails;
 }

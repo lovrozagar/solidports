@@ -16,7 +16,7 @@ export interface NavigationMenuRootContext<Value = any> {
   value: Accessor<NavigationMenuRoot.Value<Value>>;
   setValue: (
     value: NavigationMenuRoot.Value<Value>,
-    eventDetails: NavigationMenuRoot.ChangeEventDetails,
+    eventDetails: Omit<NavigationMenuRoot.ChangeEventDetails, 'preventUnmountOnClose'>,
   ) => void;
   transitionStatus: Accessor<TransitionStatus>;
   mounted: Accessor<boolean>;
