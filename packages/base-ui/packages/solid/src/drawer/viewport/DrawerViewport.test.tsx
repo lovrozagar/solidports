@@ -2407,6 +2407,169 @@ describe('<Drawer.Viewport />', () => {
     );
   });
 
+  it('scrolls instead of swiping when a touch drag starts on an SVG inside scrolled content', async () => {
+    render(() => (
+      <Drawer.Root open swipeDirection="down">
+        <Drawer.Portal>
+          <Drawer.Backdrop data-testid="backdrop" />
+          <Drawer.Viewport>
+            <Drawer.Popup>
+              <div data-testid="scroll" style={{ 'overflow-y': 'auto', 'max-height': '40px' }}>
+                <svg width="20" height="20">
+                  <rect data-testid="rect" width="20" height="20" />
+                </svg>
+                <div style={{ height: '120px' }} />
+              </div>
+            </Drawer.Popup>
+          </Drawer.Viewport>
+        </Drawer.Portal>
+      </Drawer.Root>
+    ));
+
+    const scroll = screen.getByTestId('scroll');
+    const rect = screen.getByTestId('rect');
+    const backdrop = screen.getByTestId('backdrop');
+
+    Object.defineProperty(scroll, 'scrollHeight', { value: 160, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 40, configurable: true });
+    scroll.scrollTop = 40;
+
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => rect;
+
+    try {
+      fireEvent.touchStart(rect, {
+        touches: [createTouch(rect, { clientX: 0, clientY: 0 })],
+      });
+
+      const moveAllowed = fireEvent.touchMove(rect, {
+        touches: [createTouch(rect, { clientX: 0, clientY: 40 })],
+      });
+
+      await flushMicrotasks();
+
+      expect(moveAllowed).toBe(true);
+      expect(backdrop).not.toHaveAttribute('data-swiping');
+    } finally {
+      document.elementFromPoint = originalElementFromPoint;
+    }
+  });
+
+  it('does not start a mouse drag swipe from an SVG inside scrollable content', async () => {
+    render(() => (
+      <Drawer.Root open swipeDirection="down">
+        <Drawer.Portal>
+          <Drawer.Backdrop data-testid="backdrop" />
+          <Drawer.Viewport data-testid="viewport">
+            <Drawer.Popup>
+              <div data-testid="scroll" style={{ 'overflow-y': 'auto', 'max-height': '40px' }}>
+                <svg width="20" height="20">
+                  <rect data-testid="rect" width="20" height="20" />
+                </svg>
+                <div style={{ height: '120px' }} />
+              </div>
+            </Drawer.Popup>
+          </Drawer.Viewport>
+        </Drawer.Portal>
+      </Drawer.Root>
+    ));
+
+    const viewport = screen.getByTestId('viewport');
+    const scroll = screen.getByTestId('scroll');
+    const rect = screen.getByTestId('rect');
+    const backdrop = screen.getByTestId('backdrop');
+
+    Object.defineProperty(scroll, 'scrollHeight', { value: 160, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 40, configurable: true });
+
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => rect;
+
+    try {
+      fireEvent.pointerDown(rect, {
+        button: 0,
+        buttons: 1,
+        pointerId: 1,
+        clientX: 0,
+        clientY: 0,
+        pointerType: 'mouse',
+      });
+      fireEvent.pointerMove(viewport, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 0,
+        clientY: 40,
+        pointerType: 'mouse',
+      });
+
+      await flushMicrotasks();
+
+      expect(backdrop).not.toHaveAttribute('data-swiping');
+    } finally {
+      document.elementFromPoint = originalElementFromPoint;
+    }
+  });
+
+  it('dismisses with a touch swipe down that starts on an SVG inside a top-edge scroll container', async () => {
+    const handleOpenChange = vi.fn();
+
+    render(() => (
+      <Drawer.Root open onOpenChange={handleOpenChange} swipeDirection="down">
+        <Drawer.Portal>
+          <Drawer.Backdrop data-testid="backdrop" />
+          <Drawer.Viewport>
+            <Drawer.Popup data-testid="popup">
+              <div data-testid="scroll" style={{ 'overflow-y': 'auto', 'max-height': '40px' }}>
+                <svg width="20" height="20">
+                  <rect data-testid="rect" width="20" height="20" />
+                </svg>
+                <div style={{ height: '120px' }} />
+              </div>
+            </Drawer.Popup>
+          </Drawer.Viewport>
+        </Drawer.Portal>
+      </Drawer.Root>
+    ));
+
+    const scroll = screen.getByTestId('scroll');
+    const rect = screen.getByTestId('rect');
+    const backdrop = screen.getByTestId('backdrop');
+    const popup = screen.getByTestId('popup');
+    Object.defineProperty(scroll, 'scrollHeight', { value: 160, configurable: true });
+    Object.defineProperty(scroll, 'clientHeight', { value: 40, configurable: true });
+    scroll.scrollTop = 0;
+
+    Object.defineProperty(popup, 'offsetHeight', { value: 200, configurable: true });
+
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => rect;
+
+    try {
+      fireEvent.touchStart(rect, {
+        touches: [createTouch(rect, { clientX: 0, clientY: 0 })],
+      });
+
+      fireEvent.touchMove(rect, {
+        touches: [createTouch(rect, { clientX: 0, clientY: 140 })],
+      });
+
+      expect(backdrop).toHaveAttribute('data-swiping', '');
+
+      fireEvent.touchEnd(rect, {
+        changedTouches: [createTouch(rect, { clientX: 0, clientY: 140 })],
+      });
+
+      await flushMicrotasks();
+    } finally {
+      document.elementFromPoint = originalElementFromPoint;
+    }
+
+    expect(handleOpenChange).toHaveBeenCalledWith(
+      false,
+      expect.objectContaining({ reason: 'swipe' }),
+    );
+  });
+
   it('dismisses from a bottom-edge scroll container with a touch swipe up', async () => {
     const handleOpenChange = vi.fn();
 
