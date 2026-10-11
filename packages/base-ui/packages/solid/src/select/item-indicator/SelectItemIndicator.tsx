@@ -1,11 +1,8 @@
-import { Show } from 'solid-js';
+import { createMemo, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps } from '../../solid-helpers';
-import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
-import { useRenderElement } from '../../utils/useRenderElement';
-import { type TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
+import { ItemIndicator } from '../../utils/ItemIndicator';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useSelectItemContext } from '../item/SelectItemContext';
 
 /**
@@ -16,61 +13,15 @@ import { useSelectItemContext } from '../item/SelectItemContext';
  */
 export function SelectItemIndicator(componentProps: SelectItemIndicator.Props) {
   const { selected } = useSelectItemContext();
+  const rendered = createMemo(() => Boolean(componentProps.keepMounted) || selected());
 
-  const shouldRender = () => (componentProps.keepMounted ?? false) || selected();
-
+  // Mount the shared indicator only while selected or kept mounted, so an unselected item does
+  // not pay for the transition hooks.
   return (
-    <Show when={shouldRender()}>
-      <Inner {...componentProps} />
+    <Show when={rendered()}>
+      <ItemIndicator {...componentProps} selected={selected()} />
     </Show>
   );
-}
-
-/** The core implementation is split here to avoid paying the hooks' costs unless the element needs
- * to mount, as React's `Inner`: an unselected item's indicator creates nothing. */
-function Inner(componentProps: SelectItemIndicator.Props) {
-  const [, , elementProps] = splitComponentProps(componentProps, ['keepMounted']);
-
-  const { selected } = useSelectItemContext();
-
-  let indicatorRef = null as HTMLSpanElement | null | undefined;
-
-  const { transitionStatus, setMounted } = useTransitionStatus(selected);
-
-  const state: SelectItemIndicator.State = {
-    get selected() {
-      return selected();
-    },
-    get transitionStatus() {
-      return transitionStatus();
-    },
-  };
-
-  useOpenChangeComplete({
-    batch: true,
-    enabled: () => !selected(),
-    onComplete() {
-      if (!selected()) {
-        setMounted(false);
-      }
-    },
-    open: selected,
-    ref: () => indicatorRef,
-  });
-
-  const element = useRenderElement('span', componentProps, {
-    get children() {
-      return <>{componentProps.children ?? '✔️'}</>;
-    },
-    props: [{ 'aria-hidden': 'true' }, elementProps],
-    ref: (el) => {
-      indicatorRef = el;
-    },
-    state,
-    stateAttributesMapping: transitionStatusMapping,
-  });
-
-  return <>{element()}</>;
 }
 
 export interface SelectItemIndicatorState {
