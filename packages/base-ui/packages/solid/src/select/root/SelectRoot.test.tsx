@@ -1838,7 +1838,14 @@ describe('<Select.Root />', () => {
       });
 
       const { user } = render(() => (
-        <Select.Root actionsRef={actionsRef}>
+        <Select.Root
+          actionsRef={actionsRef}
+          onOpenChange={(open, details) => {
+            if (!open) {
+              details.preventUnmountOnClose();
+            }
+          }}
+        >
           <Select.Trigger data-testid="trigger">Open</Select.Trigger>
           <Select.Portal>
             <Select.Positioner>
@@ -1954,7 +1961,16 @@ describe('<Select.Root />', () => {
       const { user } = render(() => (
         <div>
           <input />
-          <Select.Root defaultValue="1" modal={false} actionsRef={actionsRef}>
+          <Select.Root
+            defaultValue="1"
+            modal={false}
+            actionsRef={actionsRef}
+            onOpenChange={(open, details) => {
+              if (!open) {
+                details.preventUnmountOnClose();
+              }
+            }}
+          >
             <Select.Trigger>Open</Select.Trigger>
             <Select.Portal>
               <Select.Positioner>

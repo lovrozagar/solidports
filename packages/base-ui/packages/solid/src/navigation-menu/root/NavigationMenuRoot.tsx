@@ -16,14 +16,18 @@ import {
   useRef,
   type ReactLikeRef,
 } from '../../solid-helpers';
-import { type BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import {
+  createChangeEventDetails,
+  type BaseUIChangeEventDetails,
+} from '../../utils/createBaseUIEventDetails';
+import { attachPreventUnmountOnClose } from '../../utils/popups';
+import { useUnmountAfterClose } from '../../utils/useUnmountAfterClose';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import { NavigationMenuPositionerCssVars } from '../positioner/NavigationMenuPositionerCssVars';
 import { setSharedFixedSize } from '../utils/setSharedFixedSize';
 import {
@@ -148,7 +152,25 @@ export function NavigationMenuRoot<Value = any>(
     owner: null,
   });
 
-  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open);
+  const [preventUnmountOnClose, setPreventUnmountOnClose] = createSignal(false, {
+    ownedWrite: true,
+  });
+  // Filled in below, once the close cleanup exists.
+  let finishClose!: () => void;
+  const {
+    mounted,
+    transitionStatus,
+    preventUnmountingOnClose,
+    forceUnmount,
+  } = useUnmountAfterClose({
+    open,
+    ref: popupElement,
+    preventUnmountOnClose,
+    setPreventUnmountOnClose,
+    onUnmount() {
+      finishClose();
+    },
+  });
 
   createDepsRenderEffect(
     () => ({ open: open(), popupElement: popupElement(), positionerElement: positionerElement() }),
@@ -186,14 +208,16 @@ export function NavigationMenuRoot<Value = any>(
   // Solid: a handler reading the latest value is React's stable callback.
   const setValue = (
     nextValue: NavigationMenuRoot.Value<Value>,
-    eventDetails: NavigationMenuRoot.ChangeEventDetails,
+    eventDetails: Omit<NavigationMenuRoot.ChangeEventDetails, 'preventUnmountOnClose'>,
   ) => {
     if (nextValue == null) {
       closeReasonRef.current = eventDetails.reason;
     }
 
+    const changeEventDetails = eventDetails as NavigationMenuRoot.ChangeEventDetails;
+    const shouldPreventUnmountOnClose = attachPreventUnmountOnClose(changeEventDetails);
     if (nextValue !== value()) {
-      local.onValueChange?.(nextValue, eventDetails);
+      local.onValueChange?.(nextValue, changeEventDetails);
     }
 
     if (eventDetails.isCanceled) {
@@ -201,6 +225,11 @@ export function NavigationMenuRoot<Value = any>(
     }
 
     if (nextValue == null) {
+      // A redundant close (for example the trigger's blur after an imperative close) skips
+      // `onValueChange`, so it can't opt out again and must not discard the recorded opt-out.
+      if (value() != null) {
+        setPreventUnmountOnClose(shouldPreventUnmountOnClose());
+      }
       setActivationDirection(null);
     }
 
@@ -235,7 +264,6 @@ export function NavigationMenuRoot<Value = any>(
       prevTriggerElementRef.current = undefined;
     }
 
-    setMounted(false);
     local.onOpenChangeComplete?.(false);
     setActivationDirection(null);
 
@@ -243,7 +271,8 @@ export function NavigationMenuRoot<Value = any>(
     closeReasonRef.current = undefined;
   };
 
-  // Providing `actionsRef` opts into manual unmounting, so close completion hooks leave it mounted.
+  finishClose = handleUnmount;
+
   // Solid: React's `useImperativeHandle`; the ref object is written while the root is mounted.
   createEffect(
     () => local.actionsRef,
@@ -251,31 +280,24 @@ export function NavigationMenuRoot<Value = any>(
       if (!actionsRef) {
         return undefined;
       }
-      actionsRef.current = { unmount: handleUnmount };
+      actionsRef.current = {
+        unmount: forceUnmount,
+        close: () => setValue(null, createChangeEventDetails(REASONS.imperativeAction)),
+      };
       return () => {
         actionsRef.current = null;
       };
     },
   );
 
+  // The viewport target may be the animated element instead of the popup.
   useOpenChangeComplete({
-    enabled: () => !local.actionsRef,
-    open,
-    ref: popupElement,
-    onComplete() {
-      if (!open()) {
-        handleUnmount();
-      }
-    },
-  });
-
-  useOpenChangeComplete({
-    enabled: () => !local.actionsRef,
+    enabled: () => mounted() && !open() && !preventUnmountingOnClose(),
     open,
     ref: viewportTargetElement,
     onComplete() {
       if (!open()) {
-        handleUnmount();
+        forceUnmount();
       }
     },
   });
@@ -384,6 +406,9 @@ export interface NavigationMenuRootProps<Value = any> extends BaseUIComponentPro
 > {
   /**
    * A ref to imperative actions.
+   * - `unmount`: Ends the closing phase after an externally controlled closing animation finishes.
+   * Call `preventUnmountOnClose()` in `onValueChange` first, otherwise the navigation menu popup completes closing on its own.
+   * - `close`: Closes the navigation menu imperatively when called.
    */
   actionsRef?: ReactLikeRef<NavigationMenuRoot.Actions | null> | undefined;
   /**
@@ -430,6 +455,7 @@ export interface NavigationMenuRootProps<Value = any> extends BaseUIComponentPro
 
 export interface NavigationMenuRootActions {
   unmount: () => void;
+  close: () => void;
 }
 
 export type NavigationMenuRootChangeEventReason =
@@ -440,10 +466,17 @@ export type NavigationMenuRootChangeEventReason =
   | typeof REASONS.focusOut
   | typeof REASONS.escapeKey
   | typeof REASONS.linkPress
+  | typeof REASONS.imperativeAction
   | typeof REASONS.none;
 
 export type NavigationMenuRootChangeEventDetails =
-  BaseUIChangeEventDetails<NavigationMenuRoot.ChangeEventReason>;
+  BaseUIChangeEventDetails<NavigationMenuRoot.ChangeEventReason> & {
+    /**
+     * Call in `onValueChange` before the popup finishes closing, to keep it mounted until
+     * `actionsRef.unmount()`.
+     */
+    preventUnmountOnClose(): void;
+  };
 
 export namespace NavigationMenuRoot {
   export type State = NavigationMenuRootState;

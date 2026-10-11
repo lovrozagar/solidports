@@ -1,5 +1,14 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value type erased at root level */
-import { createEffect, createMemo, For, onSettled, Show, snapshot, untrack } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  onSettled,
+  Show,
+  snapshot,
+  untrack,
+} from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useField } from '../../field/useField';
@@ -31,10 +40,11 @@ import { isElementDisabled } from '../../utils/isElementDisabled';
 import { type Group, stringifyAsLabel, stringifyAsValue } from '../../utils/resolveValueLabel';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { useControlled } from '../../utils/useControlled';
-import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
+import { attachPreventUnmountOnClose } from '../../utils/popups';
+import { useUnmountAfterClose } from '../../utils/useUnmountAfterClose';
 import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
 import { usePreviousValue } from '../../utils/usePreviousValue';
-import { useTransitionStatus } from '../../utils/useTransitionStatus';
+
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import { getMaxScrollOffset, normalizeScrollOffset } from '../../utils/scrollEdges';
 import { selectors, type State as StoreState } from '../store';
@@ -121,7 +131,20 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
   const triggerPressedRef = useRef(false);
   const lastCloseReasonRef = useRef<SelectRoot.ChangeEventReason | null>(null);
 
-  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open);
+  const [preventUnmountOnClose, setPreventUnmountOnClose] = createSignal(false, {
+    ownedWrite: true,
+  });
+  // Filled in below, once the close cleanup exists.
+  let finishClose!: () => void;
+  const { mounted, transitionStatus, forceUnmount } = useUnmountAfterClose({
+    open,
+    ref: () => popupRef.current,
+    preventUnmountOnClose,
+    setPreventUnmountOnClose,
+    onUnmount() {
+      finishClose();
+    },
+  });
   const { openMethod, triggerProps: interactionTypeProps } = useOpenInteractionType(open);
 
   const store = SolidStore<StoreState, Record<string, never>, typeof selectors>(
@@ -282,9 +305,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
     ),
   );
 
-  const handleUnmount = () => {
-    setOpenUnwrapped(false);
-    setMounted(false);
+  finishClose = () => {
     store.update({ activeIndex: null, openMethod: null });
     props.onOpenChangeComplete?.(false);
   };
@@ -294,10 +315,16 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       lastCloseReasonRef.current = nextOpen ? null : eventDetails.reason;
     }
 
-    props.onOpenChange?.(nextOpen, eventDetails);
+    const openEventDetails = eventDetails as SelectRoot.OpenChangeEventDetails;
+    const shouldPreventUnmountOnClose = attachPreventUnmountOnClose(openEventDetails);
+    props.onOpenChange?.(nextOpen, openEventDetails);
 
     if (eventDetails.isCanceled) {
       return;
+    }
+
+    if (!nextOpen) {
+      setPreventUnmountOnClose(shouldPreventUnmountOnClose());
     }
 
     setOpenUnwrapped(nextOpen);
@@ -328,30 +355,23 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       });
     }
 
-    if (!nextOpen && !props.actionsRef && popupRef.current == null) {
-      // ––– AI-GENERATED FIX AND EXPLANATION –––
-      // The normal close path waits for the popup element to finish its exit transition before
-      // clearing `mounted`. In this composition there is no `<Select.Popup>`, so no popup ref ever
-      // exists and the completion hook has nothing to observe. We fall back to the same unmount
-      // cleanup immediately instead of leaving the positioner mounted forever.
-      handleUnmount();
+    if (!nextOpen && popupRef.current == null && !shouldPreventUnmountOnClose()) {
+      // There is no `<Select.Popup>`, so no element can finish an exit transition. Unmount now
+      // instead of leaving the positioner mounted.
+      forceUnmount();
     }
   };
 
-  useOpenChangeComplete({
-    enabled: () => !props.actionsRef,
-    onComplete() {
-      if (!open()) {
-        handleUnmount();
-      }
-    },
-    open,
-    ref: () => popupRef.current,
-  });
-
   onSettled(() => {
     if (props.actionsRef) {
-      props.actionsRef.current = { unmount: handleUnmount };
+      props.actionsRef.current = {
+        unmount: forceUnmount,
+        close: () => {
+          if (store.state.open) {
+            setOpen(false, createChangeEventDetails(REASONS.imperativeAction));
+          }
+        },
+      };
     }
   });
 
@@ -800,7 +820,8 @@ export interface SelectRootProps<Value, Multiple extends boolean | undefined = f
   /**
    * Event handler called when the select popup is opened or closed.
    */
-  onOpenChange?: ((open: boolean, eventDetails: SelectRootChangeEventDetails) => void) | undefined;
+  onOpenChange?:
+    ((open: boolean, eventDetails: SelectRootOpenChangeEventDetails) => void) | undefined;
   /**
    * Event handler called after any animations complete when the select popup is opened or closed.
    */
@@ -818,9 +839,9 @@ export interface SelectRootProps<Value, Multiple extends boolean | undefined = f
   modal?: boolean | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: When specified, the select will not be unmounted when closed.
-   * Instead, the `unmount` function must be called to unmount the select manually.
-   * Useful when the select's animation is controlled by an external library.
+   * - `unmount`: Ends the closing phase after an externally controlled closing animation finishes.
+   * Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the select completes closing on its own.
+   * - `close`: Closes the select imperatively when called.
    */
   actionsRef?: ReactLikeRef<SelectRootActions | null> | undefined;
   /**
@@ -882,6 +903,7 @@ export interface SelectRootState {}
 
 export interface SelectRootActions {
   unmount: () => void;
+  close: () => void;
 }
 
 export type SelectRootChangeEventReason =
@@ -893,9 +915,18 @@ export type SelectRootChangeEventReason =
   | typeof REASONS.focusOut
   | typeof REASONS.listNavigation
   | typeof REASONS.cancelOpen
+  | typeof REASONS.imperativeAction
   | typeof REASONS.none;
 
 export type SelectRootChangeEventDetails = BaseUIChangeEventDetails<SelectRootChangeEventReason>;
+
+export type SelectRootOpenChangeEventDetails = SelectRootChangeEventDetails & {
+  /**
+   * Call in `onOpenChange` before the popup finishes closing, to keep it mounted until
+   * `actionsRef.unmount()`.
+   */
+  preventUnmountOnClose(): void;
+};
 
 export namespace SelectRoot {
   export type Props<Value, Multiple extends boolean | undefined = false> = SelectRootProps<
@@ -906,4 +937,5 @@ export namespace SelectRoot {
   export type Actions = SelectRootActions;
   export type ChangeEventReason = SelectRootChangeEventReason;
   export type ChangeEventDetails = SelectRootChangeEventDetails;
+  export type OpenChangeEventDetails = SelectRootOpenChangeEventDetails;
 }
