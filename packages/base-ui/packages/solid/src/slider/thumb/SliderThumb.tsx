@@ -16,6 +16,7 @@ import { useCompositeListItem } from '../../internals/composite/list/useComposit
 import { PrehydrationScript } from '../../internals/PrehydrationScript';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { useFieldRootContext, DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { contains } from '../../floating-ui-solid/utils';
 import { matchesFocusVisible } from '../../floating-ui-solid/utils/element';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
@@ -142,10 +143,11 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
   const rtl = () => direction() === 'rtl';
 
   const fieldRootContext = useFieldRootContext();
-  const { setTouched, setFocused, validationMode } = fieldRootContext;
+  const { setTouched, validationMode } = fieldRootContext;
 
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const setFocused = useSetFieldFocused(disabled, inputRef);
   const restoringFocusVisibleRef = useRef(false);
 
   // Attached to the `input` (not the thumb wrapper) so `event.currentTarget` is the

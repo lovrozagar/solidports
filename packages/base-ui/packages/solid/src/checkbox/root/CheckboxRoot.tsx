@@ -50,6 +50,7 @@ import { makeEventPreventable, mergeProps } from '../../merge-props';
 import { useButton } from '../../internals/use-button/useButton';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { createFieldPropSources } from '../../field/root/fieldPropSources';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
@@ -206,6 +207,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const groupValue = () => groupContext?.value();
 
   const controlRef = useRef<HTMLButtonElement | null | undefined>(null);
+  const setFieldFocused = useSetFieldFocused(disabled, controlRef);
   // Solid: the rendered root as a signal, so the child id registration reads the id it renders.
   const [rootElement, setRootElement] = createSignal<HTMLElement | null | undefined>(null, {
     ownedWrite: true,
@@ -458,9 +460,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
       return parent() ? '' : undefined;
     },
     onFocus() {
-      if (!untrack(disabled)) {
-        setFocused(true);
-      }
+      setFieldFocused(true);
     },
     onBlur() {
       const inputEl = inputRef.current;
@@ -469,7 +469,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
       }
 
       setTouched(true);
-      setFocused(false);
+      setFieldFocused(false);
 
       if (untrack(validationMode) === 'onBlur') {
         validation.commit(groupContext ? untrack(groupValue) : inputEl.checked);
@@ -721,6 +721,7 @@ interface NativeCheckbox {
   isGroupedWithParent: Accessor<boolean>;
   lastClick: MouseEvent | undefined;
   field: ReturnType<typeof useFieldRootContext>;
+  setFieldFocused: (focused: boolean) => void;
   labelable: ReturnType<typeof useLabelableContext>;
   labelId: Accessor<string | undefined>;
   controlId: Accessor<string | undefined>;
@@ -932,9 +933,7 @@ function rootFocus(m: NativeCheckbox, event: FocusEvent) {
   if (runConsumerHandler(m.props, 'onFocus', event as CheckboxEvent<FocusEvent>)) {
     return;
   }
-  if (!m.disabled()) {
-    m.field.setFocused(true);
-  }
+  m.setFieldFocused(true);
 }
 function rootBlur(m: NativeCheckbox, event: FocusEvent) {
   makeEventPreventable(event as CheckboxEvent<FocusEvent>);
@@ -942,7 +941,7 @@ function rootBlur(m: NativeCheckbox, event: FocusEvent) {
     return;
   }
   m.field.setTouched(true);
-  m.field.setFocused(false);
+  m.setFieldFocused(false);
   if (untrack(m.field.validationMode) === 'onBlur') {
     const validation = m.groupContext?.validation ?? m.field.validation;
     validation.commit(m.groupContext ? untrack(m.groupValue) : m.input.checked);
@@ -1058,6 +1057,7 @@ function NativeCheckboxRoot(props: CheckboxRoot.Props): JSX.Element {
     isGroupedWithParent() ? groupIndeterminate() || indeterminate() : indeterminate();
 
   const controlRef = useRef<HTMLElement | null | undefined>(null);
+  const setFieldFocused = useSetFieldFocused(disabled, controlRef);
   useRegisterFieldControl(
     controlRef,
     id,
@@ -1209,6 +1209,7 @@ function NativeCheckboxRoot(props: CheckboxRoot.Props): JSX.Element {
     isGroupedWithParent,
     lastClick: undefined,
     field: fieldRootContext,
+    setFieldFocused,
     labelable: labelableContext,
     labelId,
     controlId,

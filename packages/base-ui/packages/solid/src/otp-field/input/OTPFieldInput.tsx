@@ -17,6 +17,7 @@ import {
 import { REASONS } from '../../utils/reasons';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { createDepsEffect, splitComponentProps, createLayoutEffect } from '../../solid-helpers';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { useOTPFieldRootContext, getOTPFieldInputState } from '../root/OTPFieldRootContext';
 import type { OTPFieldRootState } from '../root/OTPFieldRoot';
 import { inputStateAttributesMapping } from '../utils/stateAttributesMapping';
@@ -57,6 +58,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     readOnly,
     required,
     normalizeValue,
+    setFocused: setRootFocused,
     setValue,
     state,
     validationType,
@@ -71,6 +73,8 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
   const [inputElement, setInputElement] = createSignal<HTMLInputElement | null>(null, {
     ownedWrite: true,
   });
+  const inputRef = { current: null as HTMLInputElement | null };
+  const setFieldFocused = useSetFieldFocused(disabled, inputRef, setRootFocused);
   const direction = useDirection();
 
   const slotValue = () => value()[index()] ?? '';
@@ -224,6 +228,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       if ((event as FocusEvent).defaultPrevented || disabled()) {
         return;
       }
+      setFieldFocused(true);
       handleInputFocus(index(), event as FocusEvent & { currentTarget: HTMLInputElement });
     },
     onBlur(event) {
@@ -428,6 +433,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
     // Omitted on the client: an empty source still sits in the props graph.
     props: [inputProps as any, ...(isServer ? [serverValueProps] : []), elementProps],
     ref: (el: HTMLInputElement | null | undefined) => {
+      inputRef.current = el ?? null;
       setRef(el ?? null);
       setInputElement(el ?? null);
     },

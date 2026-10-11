@@ -2,6 +2,7 @@
 import { createMemo } from 'solid-js';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { useClick, useTypeahead } from '../../floating-ui-solid';
 import { contains, getTarget, stopEvent } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -48,7 +49,6 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
     state: fieldState,
     disabled: fieldDisabled,
     setTouched,
-    setFocused,
     validationMode,
     validation,
   } = useFieldRootContext();
@@ -78,6 +78,8 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
   const focusTimeout = useTimeout();
 
   const disabled = () => fieldDisabled() || comboboxDisabled() || disabledProp();
+  const focusTargetRef = { current: null as HTMLElement | null | undefined };
+  const setFocused = useSetFieldFocused(disabled, focusTargetRef);
   const listEmpty = useListEmpty();
   const popupSide = usePopupSide(store);
 
@@ -181,6 +183,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
   );
   const element = useRenderElement('button', componentProps, {
     ref: (el) => {
+      focusTargetRef.current = el;
       buttonRef(el);
       setTriggerElement(el);
     },

@@ -34,6 +34,7 @@ import {
 } from '../../utils/native';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import { useFieldRootContext, DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { useFormContext } from '../../form/FormContext';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -136,6 +137,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
   };
 
   const switchRef = useRef<HTMLElement | null | undefined>(null);
+  const setFieldFocused = useSetFieldFocused(disabled, switchRef);
 
   const id = useBaseUiId();
 
@@ -195,9 +197,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
       return ariaLabelledBy();
     },
     onFocus() {
-      if (!disabled()) {
-        setFocused(true);
-      }
+      setFieldFocused(true);
     },
     onBlur() {
       const element = inputRef.current;
@@ -206,7 +206,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
       }
 
       setTouched(true);
-      setFocused(false);
+      setFieldFocused(false);
 
       if (untrack(validationMode) === 'onBlur') {
         validation.commit(element.checked);
@@ -375,6 +375,7 @@ interface NativeSwitch {
   checked: Accessor<boolean>;
   setCheckedState: (value: boolean) => void;
   field: ReturnType<typeof useFieldRootContext>;
+  setFieldFocused: (focused: boolean) => void;
   labelable: ReturnType<typeof useLabelableContext>;
   labelId: Accessor<string | undefined>;
   controlId: Accessor<string | undefined>;
@@ -571,9 +572,7 @@ function rootFocus(m: NativeSwitch, event: FocusEvent) {
   if (runConsumerHandler(m.props, 'onFocus', event as SwitchEvent<FocusEvent>)) {
     return;
   }
-  if (!m.disabled()) {
-    m.field.setFocused(true);
-  }
+  m.setFieldFocused(true);
 }
 function rootBlur(m: NativeSwitch, event: FocusEvent) {
   makeEventPreventable(event as SwitchEvent<FocusEvent>);
@@ -584,7 +583,7 @@ function rootBlur(m: NativeSwitch, event: FocusEvent) {
     return;
   }
   m.field.setTouched(true);
-  m.field.setFocused(false);
+  m.setFieldFocused(false);
   if (untrack(m.field.validationMode) === 'onBlur') {
     m.field.validation.commit(m.input.checked);
   }
@@ -649,6 +648,7 @@ function NativeSwitchRoot(props: SwitchRoot.Props): JSX.Element {
   });
 
   const switchRef = useRef<HTMLElement | null | undefined>(null);
+  const setFieldFocused = useSetFieldFocused(disabled, switchRef);
   useRegisterFieldControl(switchRef, id, checked, undefined, () => !disabled(), () => props.name);
   // React sets `filled` and `dirty` from layout effects when the value changes; the field derives them.
   fieldRootContext.registerFilledSource(checked);
@@ -735,6 +735,7 @@ function NativeSwitchRoot(props: SwitchRoot.Props): JSX.Element {
     checked,
     setCheckedState,
     field: fieldRootContext,
+    setFieldFocused,
     labelable: labelableContext,
     labelId,
     controlId,

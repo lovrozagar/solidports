@@ -4,6 +4,7 @@ import { isServer } from '@solidjs/web';
 import { useDirection } from '../../internals/direction-context/DirectionContext';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { FieldRootContext, useFieldRootContext } from '../../field/root/FieldRootContext';
+import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { DEFAULT_FIELD_STATE_ATTRIBUTES } from '../../field/utils/constants';
 import { stopEvent } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
@@ -45,7 +46,6 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
     state: fieldState,
     disabled: fieldDisabled,
     setTouched,
-    setFocused,
     validationMode,
     validation,
   } = useFieldRootContext();
@@ -79,6 +79,7 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
   const autoHighlightEnabled = () => Boolean(autoHighlightMode());
   const popupSide = usePopupSide(store);
   const disabled = () => fieldDisabled() || comboboxDisabled() || disabledProp();
+  const setFocused = useSetFieldFocused(disabled, store.context.inputRef);
   const listEmpty = useListEmpty();
 
   const isInsidePopup = () => hasPositionerParent || inline();
