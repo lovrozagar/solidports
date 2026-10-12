@@ -3,7 +3,12 @@ import { isElement } from '@floating-ui/utils/dom';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import type { Coords } from '../../floating-ui-solid/types';
-import { splitComponentProps, useRef, type ReactLikeRef, createLayoutEffect } from '../../solid-helpers';
+import {
+  splitComponentProps,
+  useRef,
+  type ReactLikeRef,
+  createLayoutEffect,
+} from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { clamp } from '../../utils/clamp';
 import {
@@ -14,6 +19,7 @@ import { ownerDocument, ownerWindow } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnimationFrame } from '../../utils/useAnimationFrame';
+import { isTouchLikePointerType } from '../../internals/usePressAndHold';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { SliderRootState } from '../root/SliderRoot';
 import { useSliderRootContext } from '../root/SliderRootContext';
@@ -123,6 +129,7 @@ export function SliderControl(componentProps: SliderControl.Props) {
 
   // A number that uniquely identifies the current finger in the touch session.
   const touchIdRef = useRef<number | null>(null);
+  const pointerGestureRef = useRef(false);
   // The number of touch/pointermove events that have fired.
   const moveCountRef = useRef(0);
   // The offset amount to each side of the control for inset sliders.
@@ -390,7 +397,22 @@ export function SliderControl(componentProps: SliderControl.Props) {
     stopListening();
   }
 
+  function handlePointerCancel(nativeEvent: PointerEvent) {
+    // The browser cancels a touch pointer once it starts panning, but the touch listeners keep
+    // tracking the finger until `touchend` or `touchcancel`.
+    if (touchIdRef.current != null) {
+      return;
+    }
+
+    handleTouchEnd(nativeEvent);
+  }
+
   function handleTouchStart(nativeEvent: TouchEvent) {
+    // Only the `touchstart` right after `pointerdown` belongs to the pointer gesture, so consume
+    // the flag here where it can't outlive a cancelled gesture.
+    const startedByPointer = pointerGestureRef.current;
+    pointerGestureRef.current = false;
+
     if (untrack(disabled)) {
       return;
     }
@@ -407,32 +429,42 @@ export function SliderControl(componentProps: SliderControl.Props) {
 
     touchIdRef.current = touch.identifier;
 
-    const fingerCoords = { x: touch.clientX, y: touch.clientY };
-    startPressing(fingerCoords);
+    // The pointer handlers already started this gesture. Keep its state and only add the touch
+    // listeners, which continue tracking the finger if the browser cancels the pointer.
+    if (!startedByPointer) {
+      const fingerCoords = { x: touch.clientX, y: touch.clientY };
+      startPressing(fingerCoords);
 
-    const finger = getFingerState(fingerCoords);
+      const finger = getFingerState(fingerCoords);
 
-    if (finger == null) {
-      return;
+      if (finger == null) {
+        return;
+      }
+
+      focusThumb(finger.thumbIndex);
+      setValueFromPointer(finger, REASONS.trackPress, nativeEvent);
+
+      moveCountRef.current = 0;
     }
 
-    focusThumb(finger.thumbIndex);
-    setValueFromPointer(finger, REASONS.trackPress, nativeEvent);
-
-    moveCountRef.current = 0;
     const doc = ownerDocument(controlRef.current);
     doc.addEventListener('touchmove', handleTouchMove, { passive: true });
     doc.addEventListener('touchend', handleTouchEnd, { passive: true });
+    doc.addEventListener('touchcancel', handleTouchEnd, { passive: true });
   }
 
   function stopListening() {
     const doc = ownerDocument(controlRef.current);
     doc.removeEventListener('pointermove', handleTouchMove);
     doc.removeEventListener('pointerup', handleTouchEnd);
+    doc.removeEventListener('pointercancel', handlePointerCancel);
     doc.removeEventListener('touchmove', handleTouchMove);
     doc.removeEventListener('touchend', handleTouchEnd);
+    doc.removeEventListener('touchcancel', handleTouchEnd);
+    touchIdRef.current = null;
     pressedValuesRef.current = null;
     currentInteractionValueRef.current = null;
+    pointerGestureRef.current = false;
   }
 
   const focusFrame = useAnimationFrame();
@@ -470,6 +502,8 @@ export function SliderControl(componentProps: SliderControl.Props) {
           return renderBeforeHydration() ? '' : undefined;
         },
         onPointerDown(event: PointerEvent) {
+          // Replace a flag left by a cancelled gesture that had no `touchstart` to consume it.
+          pointerGestureRef.current = false;
           const control = controlRef.current;
           const target = getTarget(event);
 
@@ -523,9 +557,12 @@ export function SliderControl(componentProps: SliderControl.Props) {
           }
 
           moveCountRef.current = 0;
+          // Touch and pen presses can be followed by a compatibility `touchstart`.
+          pointerGestureRef.current = isTouchLikePointerType(event.pointerType);
           const doc = ownerDocument(control);
           doc.addEventListener('pointermove', handleTouchMove, { passive: true });
           doc.addEventListener('pointerup', handleTouchEnd, { once: true });
+          doc.addEventListener('pointercancel', handlePointerCancel, { once: true });
         },
       },
       elementProps,
