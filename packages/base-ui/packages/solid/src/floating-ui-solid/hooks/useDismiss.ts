@@ -35,6 +35,34 @@ import type { FloatingUIOpenChangeDetails } from '../../utils/types';
 import { createAttribute } from '../utils/createAttribute';
 import { on } from '../../solid-1-compat';
 
+type InsideMarker = (event: Event) => void;
+
+/**
+ * Solid adaptation for React's synthetic event propagation: React runs a floating element's
+ * capture handlers for presses inside its portaled descendants because events climb the component
+ * tree. Each open floating element registers its capture handlers here, and a descendant's own
+ * element listeners (which see the real target, even inside a closed shadow root) run the
+ * handlers of every render-tree ancestor.
+ */
+const insideMarkers = new WeakMap<Element, InsideMarker>();
+
+function markRenderTreeAncestors(floating: Element, event: Event) {
+  let current: Node | null | undefined = getRenderTreeParent(floating);
+  while (current) {
+    const marker = isElement(current) ? insideMarkers.get(current) : undefined;
+    marker?.(event);
+    current = getRenderTreeParent(current);
+  }
+}
+
+function getRenderTreeParent(node: Node): Node | null | undefined {
+  return (
+    (node as Node & { _$host?: Node | null })._$host ||
+    node.parentNode ||
+    (node as Partial<ShadowRoot>).host
+  );
+}
+
 function alwaysFalse() {
   return false;
 }
@@ -285,8 +313,9 @@ export function useDismiss(parameters: {
     }
 
     // Wait until IME is settled. Pressing `Escape` while composing should
-    // close the compose menu, but not the floating element.
-    if (isComposingRef) {
+    // close the compose menu, but not the floating element. The flag covers Safari, which fires
+    // `compositionend` before `keydown`; `isComposing` covers compositions that began while closed.
+    if (isComposingRef || event.isComposing) {
       return;
     }
 
@@ -696,6 +725,9 @@ export function useDismiss(parameters: {
         // changes mid-gesture.
         if (!untrack(open)) {
           sawPressWhileOpenRef = false;
+          isComposingRef = false;
+          currentPointerTypeRef = '';
+          touchStateRef = null;
         }
         dataRef().pressStartedInside = false;
         return undefined;
@@ -715,8 +747,10 @@ export function useDismiss(parameters: {
 
       function handleCompositionEnd() {
         // Safari fires `compositionend` before `keydown`, so we need to wait
-        // until the next tick to set `isComposing` to `false`.
+        // until the next tick to set `isComposing` to `false`. Set it here too, since closing
+        // resets it while a composition can continue into the next open session.
         // https://bugs.webkit.org/show_bug.cgi?id=165004
+        isComposingRef = true;
         compositionTimeout.start(
           // 0ms or 1ms don't work in Safari. 5ms appears to consistently work.
           // Only apply to WebKit for the test to remain 0ms.
@@ -786,7 +820,8 @@ export function useDismiss(parameters: {
           cleanup();
         }
         unsubscribe();
-        compositionTimeout.clear();
+        // `compositionTimeout` outlives effect re-runs so a pending reset can't leave
+        // `isComposingRef` stuck.
         preventedPressSuppressionTimeout.clear();
         pressStartedInsideRef = false;
         pressStartPreventedRef = false;
@@ -872,6 +907,40 @@ export function useDismiss(parameters: {
     touchmove: markinsidePortal,
   };
 
+  const runFloatingCaptureListener: InsideMarker = (event) => {
+    const handler = floatingCaptureListeners[event.type as keyof typeof floatingCaptureListeners];
+    (handler as InsideMarker | undefined)?.(event);
+  };
+
+  // The floating element's own listeners also run its render-tree ancestors' handlers.
+  const ownFloatingCaptureListeners = Object.fromEntries(
+    Object.keys(floatingCaptureListeners).map((type) => [
+      type,
+      (event: Event) => {
+        runFloatingCaptureListener(event);
+        const floatingValue = untrack(floatingElement);
+        if (floatingValue) {
+          markRenderTreeAncestors(floatingValue, event);
+        }
+      },
+    ]),
+  ) as Parameters<typeof withCaptureListeners>[0];
+
+  createEffect(
+    () => ({ enabled: props.enabled, floating: floatingElement() }),
+    ({ enabled, floating: floatingValue }) => {
+      if (!enabled || !floatingValue) {
+        return undefined;
+      }
+      insideMarkers.set(floatingValue, runFloatingCaptureListener);
+      return () => {
+        if (insideMarkers.get(floatingValue) === runFloatingCaptureListener) {
+          insideMarkers.delete(floatingValue);
+        }
+      };
+    },
+  );
+
   // Solid adaptation: React's capture handlers also see events from portaled descendants (portal
   // events bubble through the React tree). The element listeners below only see DOM descendants,
   // so mark events whose target is rendered inside the floating element through a Solid portal.
@@ -913,7 +982,7 @@ export function useDismiss(parameters: {
      * See https://github.com/mui/base-ui/pull/3379 */
     onPointerDown: markInsidePressStartPrevented,
     onMouseDown: markInsidePressStartPrevented,
-    ref: withCaptureListeners(floatingCaptureListeners),
+    ref: withCaptureListeners(ownFloatingCaptureListeners),
   };
 
   return {
