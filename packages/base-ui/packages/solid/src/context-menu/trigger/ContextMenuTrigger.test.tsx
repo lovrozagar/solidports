@@ -260,7 +260,7 @@ describe('<ContextMenu.Trigger />', () => {
     });
 
     it('does not block the native context menu when disabled', async () => {
-      render(() => (
+      await render(() => (
         <ContextMenu.Root disabled>
           <ContextMenu.Trigger data-testid="trigger">Right click me</ContextMenu.Trigger>
           <ContextMenu.Portal>
@@ -272,25 +272,20 @@ describe('<ContextMenu.Trigger />', () => {
       ));
 
       const trigger = screen.getByTestId('trigger');
+      // Read `defaultPrevented` after dispatch so React's delegated handler and the
+      // document listener have both had a chance to call `preventDefault()`.
+      const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
 
-      let defaultPrevented = false;
-      trigger.addEventListener(
-        'contextmenu',
-        (event) => {
-          defaultPrevented = event.defaultPrevented;
-        },
-        { capture: false },
-      );
+      await act(async () => {
+        trigger.dispatchEvent(event);
+      });
 
-      fireEvent.contextMenu(trigger);
-      await flushMicrotasks();
-
-      expect(defaultPrevented).to.equal(false);
+      expect(event.defaultPrevented).toBe(false);
     });
   });
 
   it('blocks native context menus on both internal and external backdrops', async () => {
-    render(() => (
+    await render(() => (
       <ContextMenu.Root defaultOpen>
         <ContextMenu.Trigger>Right click me</ContextMenu.Trigger>
         <ContextMenu.Portal>
@@ -301,8 +296,6 @@ describe('<ContextMenu.Trigger />', () => {
         </ContextMenu.Portal>
       </ContextMenu.Root>
     ));
-
-    await flushMicrotasks();
 
     const internalBackdrop = document.querySelector(
       '[data-base-ui-portal] > [data-base-ui-inert][role="presentation"]',
@@ -316,9 +309,9 @@ describe('<ContextMenu.Trigger />', () => {
     externalBackdrop.dispatchEvent(externalEvent);
     document.body.dispatchEvent(outsideEvent);
 
-    expect(internalEvent.defaultPrevented).to.equal(true);
-    expect(externalEvent.defaultPrevented).to.equal(true);
-    expect(outsideEvent.defaultPrevented).to.equal(false);
+    expect(internalEvent.defaultPrevented).toBe(true);
+    expect(externalEvent.defaultPrevented).toBe(true);
+    expect(outsideEvent.defaultPrevented).toBe(false);
   });
 
   it('blocks native context menus in a portal mounted inside the trigger DOM subtree', async () => {

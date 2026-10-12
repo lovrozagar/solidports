@@ -27,7 +27,7 @@
     "src/**/*.spec.ts*",
     "src/**/*.test.ts*",
     "src/**/*.ssr-fixtures.ts*",
-    "src/index.test.ts",
+    "src/index.test.tsx",
     "src/**/test-utils.ts*",
     "test",
     "src/global.d.ts",

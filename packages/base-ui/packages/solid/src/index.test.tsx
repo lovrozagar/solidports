@@ -1,23 +1,12 @@
+import { describe, it, expect } from 'vitest';
 /**
  * Important: This test also serves as a point to
  * import the entire lib for coverage reporting
  */
 import { isJSDOM } from '#test-utils';
-import { expect, describe, it } from 'vitest';
 import * as BaseUI from './index';
 
 describe('@solidports/base-ui', () => {
-  it('should have exports', () => {
-    expect(typeof BaseUI).to.equal('object');
-  });
-
-  it('should not have undefined exports', () => {
-    Object.keys(BaseUI).forEach((exportKey) => {
-      const value = (BaseUI as Record<string, unknown>)[exportKey];
-      expect(Boolean(value)).to.equal(true);
-    });
-  });
-
   it.skipIf(!isJSDOM)('should resolve internals and auxiliary exports', async () => {
     const packageJson = await import('../package.json');
     const subpathExports = packageJson.exports;

@@ -46,7 +46,7 @@ describe('<Menu.Trigger />', () => {
     });
 
     it('should not open the menu when clicked', async () => {
-      render(() => (
+      const { user } = await render(() => (
         <Menu.Root>
           <Menu.Trigger disabled />
           <Menu.Portal>
@@ -60,7 +60,7 @@ describe('<Menu.Trigger />', () => {
       const button = screen.getByRole('button');
       await user.click(button);
 
-      expect(screen.queryByRole('menu', { hidden: false })).to.equal(null);
+      expect(screen.queryByRole('menu', { hidden: false })).toBe(null);
     });
   });
 
@@ -233,20 +233,20 @@ describe('<Menu.Trigger />', () => {
         );
       }
 
-      render(() => <TestCase />);
+      const { user } = await render(() => <TestCase />);
 
       const trigger = screen.getByRole('button', { name: 'Actions' });
       await user.click(trigger);
 
       await screen.findByRole('menu');
-      expect(trigger).to.have.attribute('data-popup-open');
-      expect(handle.isOpen).to.equal(true);
+      expect(trigger).toHaveAttribute('data-popup-open');
+      expect(handle.isOpen).toBe(true);
 
       await user.click(screen.getByRole('button', { name: 'Outside' }));
 
-      expect(screen.getByRole('menu')).to.have.attribute('data-open');
-      expect(trigger).to.have.attribute('data-popup-open');
-      expect(handle.isOpen).to.equal(true);
+      expect(screen.getByRole('menu')).toHaveAttribute('data-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
+      expect(handle.isOpen).toBe(true);
     });
   });
 
@@ -425,7 +425,7 @@ describe('<Menu.Trigger />', () => {
 
   describe('preventBaseUIHandler', () => {
     it('prevents opening the menu with a mouse when `preventBaseUIHandler` is called in onMouseDown', async () => {
-      render(() => (
+      const { user } = await render(() => (
         <Menu.Root>
           <Menu.Trigger onMouseDown={(event) => event.preventBaseUIHandler()} />
           <Menu.Portal>
@@ -439,11 +439,11 @@ describe('<Menu.Trigger />', () => {
       const button = screen.getByRole('button');
       await user.click(button);
 
-      expect(screen.queryByRole('menu', { hidden: false })).to.equal(null);
+      expect(screen.queryByRole('menu', { hidden: false })).toBe(null);
     });
 
     it('prevents opening the menu with keyboard when `preventBaseUIHandler` is called in onClick', async () => {
-      render(() => (
+      const { user } = await render(() => (
         <Menu.Root>
           <Menu.Trigger onClick={(event) => event.preventBaseUIHandler()} />
           <Menu.Portal>
@@ -455,11 +455,13 @@ describe('<Menu.Trigger />', () => {
       ));
 
       const button = screen.getByRole('button');
-      button.focus();
+      await act(async () => {
+        button.focus();
+      });
 
       await user.keyboard('[Enter]');
 
-      expect(screen.queryByRole('menu', { hidden: false })).to.equal(null);
+      expect(screen.queryByRole('menu', { hidden: false })).toBe(null);
     });
   });
 

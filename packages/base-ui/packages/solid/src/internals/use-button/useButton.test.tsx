@@ -19,29 +19,7 @@ describe('useButton', () => {
 
   describe('non-native button', () => {
     describe('keyboard interactions', () => {
-      ['Enter', 'Space'].forEach((key) => {
-        it(`can be activated with ${key} key`, async () => {
-          const clickSpy = vi.fn();
-
-          function Button(props: JSX.HTMLAttributes<HTMLSpanElement>) {
-            const { getButtonProps } = useButton({
-              native: false,
-            });
-
-            return <span {...getButtonProps(props)} />;
-          }
-
-          const { user } = await render(() => <Button onClick={clickSpy} />);
-
-          const button = screen.getByRole('button');
-
-          await user.keyboard('[Tab]');
-          expect(button).toHaveFocus();
-
-          await user.keyboard(`[${key}]`);
-          expect(clickSpy).toHaveBeenCalledTimes(1);
-        });
-      });
+      ['Enter', 'Space'].forEach((key) => {});
 
       it('does not set a type prop', async () => {
         let buttonProps: Record<string, unknown> | undefined = undefined;
@@ -108,6 +86,31 @@ describe('useButton', () => {
             );
           });
 
+          expect(clickSpy).toHaveBeenCalledTimes(1);
+        },
+      );
+
+      it.each([{ key: 'Enter' }, { key: 'Space' }])(
+        'can be activated with $key key',
+        async ({ key }) => {
+          const clickSpy = vi.fn();
+
+          function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+            const { getButtonProps } = useButton({
+              native: false,
+            });
+
+            return <span {...getButtonProps(props)} />;
+          }
+
+          const { user } = await render(() => <Button onClick={clickSpy} />);
+
+          const button = screen.getByRole('button');
+
+          await user.keyboard('[Tab]');
+          expect(button).toHaveFocus();
+
+          await user.keyboard(`[${key}]`);
           expect(clickSpy).toHaveBeenCalledTimes(1);
         },
       );

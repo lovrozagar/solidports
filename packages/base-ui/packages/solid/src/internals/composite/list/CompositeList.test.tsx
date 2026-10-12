@@ -800,6 +800,49 @@ describe('<CompositeList />', () => {
         host.remove();
       }
     });
+
+    it('keeps syncing refs after replacing items under Strict Mode', async () => {
+      const refs = createRefs();
+      let hideItem: () => void = () => {};
+
+      function HideableItem(props: { label: string }) {
+        const [hidden, setHidden] = createSignal(false);
+        hideItem = () => setHidden(true);
+        return (
+          <Show when={!hidden()}>
+            <Item label={props.label} />
+          </Show>
+        );
+      }
+
+      function App() {
+        const [labels, setLabels] = createSignal(['a', 'b']);
+        return (
+          <>
+            <button type="button" onClick={() => setLabels(['c', 'd'])}>
+              Replace
+            </button>
+            <CompositeList refs={refs}>
+              <For each={labels()}>{(label) => <HideableItem label={label} />}</For>
+            </CompositeList>
+          </>
+        );
+      }
+
+      // Solid: there is no Strict Mode replay; the list still re-renders while new items mount.
+      const { user } = await render(() => <App />);
+
+      await user.click(screen.getByRole('button', { name: 'Replace' }));
+
+      expect(refs.elements).toEqual([screen.getByTestId('c'), screen.getByTestId('d')]);
+
+      // The item hides itself without re-rendering the list.
+      await act(async () => {
+        hideItem();
+      });
+
+      expect(refs.elements).toEqual([screen.getByTestId('c')]);
+    });
   });
 
   describe('prop: labelsRef', () => {

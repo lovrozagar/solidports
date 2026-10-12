@@ -35,20 +35,43 @@ describe('<Toast.Action />', () => {
   );
 
   it('performs an action when clicked', async () => {
-    const { user } = render(() => (
+    const onClick = vi.fn();
+
+    function AddButton() {
+      const { add } = Toast.useToastManager();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            add({
+              title: 'title',
+              actionProps: {
+                children: 'action',
+                onClick,
+              },
+            })
+          }
+        >
+          add
+        </button>
+      );
+    }
+
+    const { user } = await render(() => (
       <Toast.Provider>
         <Toast.Viewport>
           <List />
         </Toast.Viewport>
-        <Button />
+        <AddButton />
       </Toast.Provider>
     ));
 
-    const button = screen.getByRole('button', { name: 'add' });
+    await user.click(screen.getByRole('button', { name: 'add' }));
+    expect(onClick).not.toHaveBeenCalled();
 
-    await user.click(button);
+    await user.click(screen.getByTestId('action'));
 
-    expect(screen.getByTestId('action').id).to.equal('action');
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it('does not render if it has no children', async () => {
@@ -132,5 +155,22 @@ describe('<Toast.Action />', () => {
     ));
 
     expect(screen.getByText('Undo')).not.toBe(null);
+  });
+
+  it('forwards actionProps to the button', async () => {
+    const { user } = await render(() => (
+      <Toast.Provider>
+        <Toast.Viewport>
+          <List />
+        </Toast.Viewport>
+        <Button />
+      </Toast.Provider>
+    ));
+
+    const button = screen.getByRole('button', { name: 'add' });
+
+    await user.click(button);
+
+    expect(screen.getByTestId('action').id).toBe('action');
   });
 });

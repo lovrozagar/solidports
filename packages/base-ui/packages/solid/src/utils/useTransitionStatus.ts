@@ -141,7 +141,8 @@ export function useTransitionStatus(
       {
         deps: () => [openProp(), enableIdleStateProp()] as const,
         apply([isOpen, idleEnabled]) {
-          if (!isOpen) {
+          // Nothing to clear when the element mounted open or reopened after its exit settled.
+          if (!isOpen || (!idleEnabled && untrack(transitionStatus) === undefined)) {
             return undefined;
           }
 

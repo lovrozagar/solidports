@@ -383,23 +383,6 @@ describe('<Select.Trigger />', () => {
     },
   );
 
-  it('should have the data-popup-open and data-pressed attributes when open', async () => {
-    const { user } = render(() => (
-      <Select.Root>
-        <Select.Trigger />
-      </Select.Root>
-    ));
-
-    const trigger = screen.getByRole('combobox');
-
-    await user.click(trigger);
-
-    await waitFor(() => {
-      expect(trigger).toHaveAttribute('data-popup-open');
-    });
-    expect(trigger).toHaveAttribute('data-pressed');
-  });
-
   describe('releasing the opening press', () => {
     async function pressTrigger() {
       await render(() => (

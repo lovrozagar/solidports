@@ -251,17 +251,18 @@ describe('native parity: Radio', () => {
     expect(stripIds(fast)).toBe(stripIds(slow));
     expect(fastEl).to.have.attribute('aria-invalid', 'true');
     expect(fastEl).to.have.attribute('data-invalid');
-    const groupOf = (container: Element) => container.querySelector('[role="radiogroup"]')!;
-    fireEvent.focus(groupOf(fast));
-    fireEvent.focus(groupOf(slow));
+    // The focused radio sets the field's focused state; focus leaving the group clears it.
+    fireEvent.focus(fastEl);
+    fireEvent.focus(slowEl);
     flush();
     expect(fastEl).to.have.attribute('data-focused');
     expect(stripIds(fast)).toBe(stripIds(slow));
     fireEvent.click(fastEl);
     fireEvent.click(slowEl);
-    fireEvent.blur(groupOf(fast));
-    fireEvent.blur(groupOf(slow));
+    fireEvent.focusOut(fastEl);
+    fireEvent.focusOut(slowEl);
     flush();
+    expect(fastEl).not.to.have.attribute('data-focused');
     expect(fastEl).to.have.attribute('data-dirty');
     expect(fastEl).to.have.attribute('data-touched');
     expect(fastEl).to.have.attribute('data-filled');
