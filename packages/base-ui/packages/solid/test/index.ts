@@ -15,3 +15,4 @@ export { resetBrowserPointer } from './resetBrowserPointer';
 export { waitForPositioned } from './waitForPositioned';
 export { positionerConformanceTests } from './positionerConformanceTests';
 export { viewportConformanceTests } from './viewportConformanceTests';
+export { detachedTriggersConformanceTests } from './detachedTriggersConformanceTests';
