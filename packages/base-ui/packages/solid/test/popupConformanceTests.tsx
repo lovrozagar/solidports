@@ -326,9 +326,7 @@ export function popupConformanceTests(config: PopupTestConfig) {
           globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
           const onOpenChangeComplete = vi.fn();
           const [open, setOpen] = createSignal(false);
-          render(() => (
-            <AnimatedPopup open={open()} onOpenChangeComplete={onOpenChangeComplete} />
-          ));
+          render(() => <AnimatedPopup open={open()} onOpenChangeComplete={onOpenChangeComplete} />);
 
           act(() => setOpen(true));
           await waitFor(() => {
@@ -347,9 +345,7 @@ export function popupConformanceTests(config: PopupTestConfig) {
           globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
           const onOpenChangeComplete = vi.fn();
           const [open, setOpen] = createSignal(true);
-          render(() => (
-            <AnimatedPopup open={open()} onOpenChangeComplete={onOpenChangeComplete} />
-          ));
+          render(() => <AnimatedPopup open={open()} onOpenChangeComplete={onOpenChangeComplete} />);
           await waitFor(() => {
             expect(onOpenChangeComplete).toHaveBeenCalled();
           });

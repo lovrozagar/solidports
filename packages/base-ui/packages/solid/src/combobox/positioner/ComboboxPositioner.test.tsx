@@ -3,7 +3,12 @@ import { createSignal, onSettled } from 'solid-js';
 import { render as renderToContainer } from '@solidjs/web';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { Combobox } from '@solidports/base-ui/combobox';
-import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import {
+  createRenderer,
+  describeConformance,
+  isJSDOM,
+  positionerConformanceTests,
+} from '#test-utils';
 
 describe('<Combobox.Positioner />', () => {
   const { render } = createRenderer();
@@ -73,6 +78,20 @@ describe('<Combobox.Positioner />', () => {
       ));
     },
   }));
+
+  positionerConformanceTests({
+    render,
+    createComponent: (props) => (
+      <Combobox.Root {...props.root}>
+        <Combobox.Input {...props.trigger} />
+        <Combobox.Portal>
+          <Combobox.Positioner {...props.positioner}>
+            <Combobox.Popup {...props.popup}>Popup</Combobox.Popup>
+          </Combobox.Positioner>
+        </Combobox.Portal>
+      </Combobox.Root>
+    ),
+  });
 
   // https://github.com/mui/base-ui/issues/5118
   it.skipIf(isJSDOM)(
@@ -153,8 +172,8 @@ describe('<Combobox.Positioner />', () => {
 
       await waitFor(() => {
         expect(anchorWidth).toBeCloseTo(inputElement!.getBoundingClientRect().width, 0);
-        expect(anchorWidth).not.toBeCloseTo(triggerWidth, 0);
       });
+      expect(anchorWidth).not.toBeCloseTo(triggerWidth, 0);
     });
 
     it('uses the input group when present', async () => {
