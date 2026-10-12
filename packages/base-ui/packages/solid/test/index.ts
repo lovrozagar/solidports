@@ -1,4 +1,5 @@
 export * from '../src/utils/testUtils';
+export { advanceClock } from './advanceClock';
 export { act } from './act';
 export { createRenderer, randomStringValue } from './createRenderer';
 export { describeConformance, type MuiRenderResult } from './describeConformance';

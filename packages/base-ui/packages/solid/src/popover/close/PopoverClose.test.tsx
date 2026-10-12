@@ -9,11 +9,7 @@ import { REASONS } from '../../utils/reasons';
 function isElementOrAncestorInert(element: HTMLElement) {
   let current: HTMLElement | null = element;
   while (current) {
-    if (
-      current.getAttribute('aria-hidden') === 'true' ||
-      current.hasAttribute('inert') ||
-      current.hasAttribute('data-base-ui-inert')
-    ) {
+    if (current.getAttribute('aria-hidden') === 'true' || current.hasAttribute('inert')) {
       return true;
     }
     current = current.parentElement;
@@ -180,47 +176,47 @@ describe('<Popover.Close />', () => {
     expect(handleOpenChange.mock.calls[0][1].trigger).to.equal(undefined);
   });
 
-  it('enables modal focus management when `modal=true` and close is rendered', async () => {
-    render(() => (
+  it.each([true, 'trap-focus'] as const)(
+    'enables modal focus management when `modal=%s` and close is rendered',
+    async (modal) => {
+      await render(() => (
+        <div>
+          <button data-testid="outside">Outside</button>
+          <Popover.Root defaultOpen modal={modal}>
+            <Popover.Trigger>Trigger</Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Positioner>
+                <Popover.Popup>
+                  <Popover.Close aria-label="Close popover" />
+                </Popover.Popup>
+              </Popover.Positioner>
+            </Popover.Portal>
+          </Popover.Root>
+        </div>
+      ));
+
+      await waitFor(() => {
+        expect(isElementOrAncestorInert(screen.getByTestId('outside'))).toBe(true);
+      });
+    },
+  );
+
+  it('does not enable modal focus management when close is not rendered', async () => {
+    await render(() => (
       <div>
         <button data-testid="outside">Outside</button>
         <Popover.Root defaultOpen modal>
           <Popover.Trigger>Trigger</Popover.Trigger>
           <Popover.Portal>
             <Popover.Positioner>
-              <Popover.Popup>
-                <Popover.Close aria-label="Close popover" />
-              </Popover.Popup>
+              <Popover.Popup>Content</Popover.Popup>
             </Popover.Positioner>
           </Popover.Portal>
         </Popover.Root>
       </div>
     ));
 
-    await waitFor(() => {
-      expect(isElementOrAncestorInert(screen.getByTestId('outside'))).to.equal(true);
-    });
-  });
-
-  it('enables modal focus management when `modal="trap-focus"` and close is rendered', async () => {
-    render(() => (
-      <div>
-        <button data-testid="outside">Outside</button>
-        <Popover.Root defaultOpen modal="trap-focus">
-          <Popover.Trigger>Trigger</Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Positioner>
-              <Popover.Popup>
-                <Popover.Close aria-label="Close popover" />
-              </Popover.Popup>
-            </Popover.Positioner>
-          </Popover.Portal>
-        </Popover.Root>
-      </div>
-    ));
-
-    await waitFor(() => {
-      expect(isElementOrAncestorInert(screen.getByTestId('outside'))).to.equal(true);
-    });
+    expect(screen.getByText('Content')).toBeVisible();
+    expect(isElementOrAncestorInert(screen.getByTestId('outside'))).toBe(false);
   });
 });
