@@ -49,6 +49,11 @@ export function getAriaLabelledBy(labelSource?: LabelSource | null, generatedLab
   return label.id || undefined;
 }
 
+/** A non-blank `aria-label` names the control itself, as it does on a native input. */
+export function ariaLabelOverridesLabel(ariaLabel: unknown): boolean {
+  return typeof ariaLabel === 'string' && ariaLabel.trim() !== '';
+}
+
 /**
  * Resolves aria-labelledby for span-role controls labelled by wrapping/sibling native label.
  * Falls back to DOM label scanning when no explicit prop or context labelId is provided.
@@ -59,6 +64,7 @@ export function useAriaLabelledBy(
   labelSourceRef: Accessor<LabelSource | null | undefined>,
   enableFallback = true,
   labelSourceId?: Accessor<string | undefined>,
+  ariaLabel?: Accessor<unknown>,
 ): Accessor<string | undefined> {
   const generatedLabelId = useBaseUiId(
     labelSourceId ? () => (labelSourceId() ? `${labelSourceId()}-label` : undefined) : undefined,
@@ -73,10 +79,11 @@ export function useAriaLabelledBy(
       label: labelId(),
       labelSource: labelSourceRef(),
       generatedLabelId: generatedLabelId(),
+      ariaLabel: ariaLabel?.(),
     }),
     (deps) => {
       setFallbackAriaLabelledBy(
-        deps.explicit || deps.label || !enableFallback
+        deps.explicit || deps.label || ariaLabelOverridesLabel(deps.ariaLabel) || !enableFallback
           ? undefined
           : getAriaLabelledBy(deps.labelSource, deps.generatedLabelId),
       );
@@ -87,8 +94,12 @@ export function useAriaLabelledBy(
   // eslint-disable-next-line solid/reactivity
   return () => {
     const explicit = explicitAriaLabelledBy();
-    return (
-      (typeof explicit === 'string' ? explicit : undefined) ?? labelId() ?? fallbackAriaLabelledBy()
-    );
+    if (typeof explicit === 'string') {
+      return explicit;
+    }
+    if (ariaLabelOverridesLabel(ariaLabel?.())) {
+      return undefined;
+    }
+    return labelId() ?? fallbackAriaLabelledBy();
   };
 }

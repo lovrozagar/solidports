@@ -136,6 +136,25 @@ describe('<Radio.Root />', () => {
     });
   });
 
+  it('prefers `aria-label` over an associated label', async () => {
+    render(() => (
+      <RadioGroup>
+        <label>
+          <Radio.Root value="a" aria-label="Apple" />
+          Apple
+        </label>
+        <span id="explicit-radio">Explicit radio</span>
+        <Radio.Root value="b" aria-label="ignored" aria-labelledby="explicit-radio" />
+      </RadioGroup>
+    ));
+
+    const [radio, explicitRadio] = screen.getAllByRole('radio');
+    expect(radio).not.toHaveAttribute('aria-labelledby');
+    expect(radio).toHaveAccessibleName('Apple');
+    expect(explicitRadio).toHaveAttribute('aria-labelledby', 'explicit-radio');
+    expect(explicitRadio).toHaveAccessibleName('Explicit radio');
+  });
+
   describe('prop: onClick', () => {
     it('propagates a single click event to ancestors per user click', async () => {
       const handleParentClick = vi.fn();

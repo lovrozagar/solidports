@@ -31,7 +31,10 @@ import {
   type UseCompositeRootParameters,
 } from '../../internals/composite/root/useCompositeRoot';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
-import { getAriaLabelledBy } from '../../internals/labelable-provider/useAriaLabelledBy';
+import {
+  ariaLabelOverridesLabel,
+  getAriaLabelledBy,
+} from '../../internals/labelable-provider/useAriaLabelledBy';
 import { resolveClassName } from '../resolveClassName';
 import { resolveStyle as resolveStyleProp } from '../resolveStyle';
 import type { BaseUIEvent } from '../types';
@@ -509,8 +512,10 @@ export function renderNativeElement<State>(spec: NativeElementSpec<State>): JSX.
   }
   const hasClass = 'class' in props;
   const hasStyle = 'style' in props;
-  const classIsStatic = !hasClass || (isStatic(props, 'class') && typeof source.class !== 'function');
-  const styleIsStatic = !hasStyle || (isStatic(props, 'style') && typeof source.style !== 'function');
+  const classIsStatic =
+    !hasClass || (isStatic(props, 'class') && typeof source.class !== 'function');
+  const styleIsStatic =
+    !hasStyle || (isStatic(props, 'style') && typeof source.style !== 'function');
   if (hasClass && classIsStatic) {
     const value = resolveClass(source.class, state);
     if (value !== undefined) {
@@ -530,13 +535,18 @@ export function renderNativeElement<State>(spec: NativeElementSpec<State>): JSX.
     ? () => {
         const target: Record<string, unknown> = {};
         if (partDynamic) {
-          partDynamic(target, hasKeys ? (key, value) => {
-            if (!keys.has(key)) {
-              target[key] = value;
-            }
-          } : (key, value) => {
-            target[key] = value;
-          });
+          partDynamic(
+            target,
+            hasKeys
+              ? (key, value) => {
+                  if (!keys.has(key)) {
+                    target[key] = value;
+                  }
+                }
+              : (key, value) => {
+                  target[key] = value;
+                },
+          );
         }
         if (consumer.reactive.length > 0) {
           readReactiveProps(props, consumer.reactive, target);
@@ -574,9 +584,7 @@ export interface NativeCompositeRoot<Metadata> {
   /** The root element's ref (a part ref). */
   setRootRef: (element: HTMLElement | null | undefined) => void;
   highlightedIndex: Accessor<number>;
-  onMapChange: (
-    map: Array<{ element: Element; metadata: Record<string, unknown> | null }>,
-  ) => void;
+  onMapChange: (map: Array<{ element: Element; metadata: Record<string, unknown> | null }>) => void;
   metadata?: Metadata;
 }
 
@@ -605,25 +613,27 @@ export function renderCompositeRoot<Metadata>(
     options.onMapChange?.(map);
     root.onMapChange(map as never);
   };
-  return createComponent(CompositeRootContext as never, {
-    value: contextValue,
-    get children() {
-      return createComponent(CompositeList as never, {
-        refs: root.refs,
-        onMapChange,
-        get children() {
-          return render({
-            handlers: root.props as Record<string, unknown>,
-            setRootRef: root.setRootRef,
-            highlightedIndex: root.highlightedIndex,
-            onMapChange,
-          });
-        },
-      });
-    },
-  } as never) as JSX.Element;
+  return createComponent(
+    CompositeRootContext as never,
+    {
+      value: contextValue,
+      get children() {
+        return createComponent(CompositeList as never, {
+          refs: root.refs,
+          onMapChange,
+          get children() {
+            return render({
+              handlers: root.props as Record<string, unknown>,
+              setRootRef: root.setRootRef,
+              highlightedIndex: root.highlightedIndex,
+              onMapChange,
+            });
+          },
+        });
+      },
+    } as never,
+  ) as JSX.Element;
 }
-
 
 /**
  * `useAriaLabelledBy`'s DOM fallback for a native part: when neither the prop nor a `Field.Label`
@@ -637,11 +647,20 @@ export function createLabelFallback(
   explicit: () => string | false | undefined,
   labelId: () => string | undefined,
   controlId: () => string | undefined,
+  ariaLabel?: () => unknown,
 ): () => void {
   let first = true;
   const apply = () => {
     const value = explicit();
-    if ((value != null && value !== false) || labelId() != null) {
+    const named = ariaLabelOverridesLabel(ariaLabel?.());
+    if (typeof value === 'string') {
+      return;
+    }
+    if (named) {
+      el.removeAttribute('aria-labelledby');
+      return;
+    }
+    if (labelId() != null) {
       return;
     }
     const control = controlId();
@@ -728,7 +747,10 @@ export function put(
 }
 
 /** The literal pass's `class`/`style` (static forms resolved once). */
-export function literalClassStyle(l: NativeLayout<unknown>, literal: Record<string, unknown>): void {
+export function literalClassStyle(
+  l: NativeLayout<unknown>,
+  literal: Record<string, unknown>,
+): void {
   const props = l.props;
   if (l.classIsStatic && 'class' in props) {
     const value = resolveClass(props.class, l.state);
@@ -745,7 +767,10 @@ export function literalClassStyle(l: NativeLayout<unknown>, literal: Record<stri
 }
 
 /** The dynamic pass's tail: the consumer's reactive keys, then `class`/`style` when they can change. */
-export function finishAttributes(l: NativeLayout<unknown>, target: Record<string, unknown>): Record<string, unknown> {
+export function finishAttributes(
+  l: NativeLayout<unknown>,
+  target: Record<string, unknown>,
+): Record<string, unknown> {
   const props = l.props;
   if (l.reactive.length > 0) {
     readReactiveProps(props, l.reactive, target);

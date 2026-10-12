@@ -1718,6 +1718,96 @@ describe('<Checkbox.Root />', () => {
     });
   });
 
+  it('prefers `aria-label` over an associated label', async () => {
+    render(() => (
+      <>
+        <label>
+          <Checkbox.Root aria-label="lease.pdf" />
+          lease.pdf
+        </label>
+        <Field.Root>
+          <Field.Label>
+            <Checkbox.Root aria-label="notes.txt" />
+            notes.txt
+          </Field.Label>
+        </Field.Root>
+        <span id="explicit-checkbox">Explicit checkbox</span>
+        <Checkbox.Root aria-label="ignored" aria-labelledby="explicit-checkbox" />
+        <label>
+          <Checkbox.Root render="button" nativeButton aria-label="Button lease" />
+          button lease
+        </label>
+        <Checkbox.Root render="button" nativeButton aria-labelledby="explicit-checkbox" />
+      </>
+    ));
+
+    const [nativeLabelled, fieldLabelled, explicitLabelled, buttonLabelled, buttonExplicit] =
+      screen.getAllByRole('checkbox');
+    expect(nativeLabelled).not.toHaveAttribute('aria-labelledby');
+    expect(nativeLabelled).toHaveAccessibleName('lease.pdf');
+    expect(fieldLabelled).not.toHaveAttribute('aria-labelledby');
+    expect(fieldLabelled).toHaveAccessibleName('notes.txt');
+    expect(explicitLabelled).toHaveAttribute('aria-labelledby', 'explicit-checkbox');
+    expect(explicitLabelled).toHaveAccessibleName('Explicit checkbox');
+    expect(buttonLabelled).not.toHaveAttribute('aria-labelledby');
+    expect(buttonLabelled).toHaveAccessibleName('Button lease');
+    expect(buttonExplicit).toHaveAttribute('aria-labelledby', 'explicit-checkbox');
+    expect(buttonExplicit).toHaveAccessibleName('Explicit checkbox');
+  });
+
+  it.each(['', ' ', '\n\t '])('ignores a blank `aria-label` (%j)', async (ariaLabel) => {
+    render(() => (
+      <>
+        <label>
+          <Checkbox.Root aria-label={ariaLabel} />
+          Native label
+        </label>
+        <Field.Root>
+          <Field.Label>
+            <Checkbox.Root aria-label={ariaLabel} />
+            Field label
+          </Field.Label>
+        </Field.Root>
+        <label for="blank-aria-label">Sibling label</label>
+        <Checkbox.Root id="blank-aria-label" aria-label={ariaLabel} />
+      </>
+    ));
+
+    const [nativeLabelled, fieldLabelled, siblingLabelled] = screen.getAllByRole('checkbox');
+    expect(nativeLabelled).toHaveAccessibleName('Native label');
+    expect(fieldLabelled).toHaveAccessibleName('Field label');
+    expect(siblingLabelled).toHaveAccessibleName('Sibling label');
+  });
+
+  it('updates the accessible name when `aria-label` is added, cleared, or removed', async () => {
+    const [ariaLabel, setAriaLabel] = createSignal<string | undefined>(undefined);
+
+    render(() => (
+      <Field.Root>
+        <label for="dynamic-label">Associated label</label>
+        <Checkbox.Root id="dynamic-label" aria-label={ariaLabel()} />
+      </Field.Root>
+    ));
+
+    const checkbox = screen.getByRole('checkbox');
+    expect(checkbox).toHaveAccessibleName('Associated label');
+
+    setAriaLabel('Custom name');
+    await waitFor(() => {
+      expect(checkbox).toHaveAccessibleName('Custom name');
+    });
+
+    setAriaLabel(' \n\t ');
+    await waitFor(() => {
+      expect(checkbox).toHaveAccessibleName('Associated label');
+    });
+
+    setAriaLabel(undefined);
+    await waitFor(() => {
+      expect(checkbox).toHaveAccessibleName('Associated label');
+    });
+  });
+
   it('can render a native button', async () => {
     const { container, user } = render(() => <Checkbox.Root render="button" nativeButton />);
 

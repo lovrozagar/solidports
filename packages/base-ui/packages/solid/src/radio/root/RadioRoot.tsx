@@ -48,7 +48,10 @@ import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
-import { useAriaLabelledBy } from '../../internals/labelable-provider/useAriaLabelledBy';
+import {
+  ariaLabelOverridesLabel,
+  useAriaLabelledBy,
+} from '../../internals/labelable-provider/useAriaLabelledBy';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useButton } from '../../internals/use-button';
 import { useRadioGroupContext } from '../../radio-group/RadioGroupContext';
@@ -200,6 +203,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     inputElement,
     !untrack(nativeButton),
     hiddenInputId,
+    () => componentProps['aria-label'],
   );
 
   const rootProps: JSX.HTMLAttributes<HTMLSpanElement> = {
@@ -490,6 +494,7 @@ function radioAttributes(l: RadioLayout, target: Record<string, unknown>, once: 
   if (!once) {
     // The label fallback (after the apply) follows these: read them here so a change re-runs it.
     void l.props['aria-labelledby'];
+    void l.props['aria-label'];
     m.labelId();
     m.inputId();
   }
@@ -503,7 +508,13 @@ function radioAttributes(l: RadioLayout, target: Record<string, unknown>, once: 
   }
   if (!once && f & IN_LIST) {
     // `useCompositeItem`'s roving tab stop wins over the button's `tabindex`.
-    put(l, target, false, 'tabindex', m.composite!.highlightedIndex() === m.registration!.index() ? 0 : -1);
+    put(
+      l,
+      target,
+      false,
+      'tabindex',
+      m.composite!.highlightedIndex() === m.registration!.index() ? 0 : -1,
+    );
   }
   const isChecked = once ? false : m.checked();
   if (!once) {
@@ -511,7 +522,13 @@ function radioAttributes(l: RadioLayout, target: Record<string, unknown>, once: 
   }
   if (once === Boolean(f & LABELLEDBY_STATIC)) {
     const explicit = l.props['aria-labelledby'];
-    put(l, target, once, 'aria-labelledby', (typeof explicit === 'string' ? explicit : undefined) ?? m.labelId());
+    const labelledBy =
+      typeof explicit === 'string'
+        ? explicit
+        : ariaLabelOverridesLabel(l.props['aria-label'])
+          ? undefined
+          : m.labelId();
+    put(l, target, once, 'aria-labelledby', labelledBy);
   }
   if (!once) {
     put(l, target, false, ACTIVE_COMPOSITE_ITEM, isChecked ? '' : undefined);
@@ -720,9 +737,9 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
   const disabled = () =>
     Boolean(
       fieldRootContext.disabled() ||
-        fieldItemContext.disabled() ||
-        groupContext?.disabled() ||
-        props.disabled,
+      fieldItemContext.disabled() ||
+      groupContext?.disabled() ||
+      props.disabled,
     );
   const readOnly = () => Boolean(groupContext?.readOnly() || props.readOnly);
   const required = () => Boolean(groupContext?.required() || props.required);
@@ -867,7 +884,9 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
     const l = createLayout(props, own, model, state, (key) => wrapRadioHandler(key, model));
     const staticProp = (key: string) => !(key in props) || isStatic(props, key);
     l.flags =
-      (staticProp('disabled') && !inField && !inFieldItem && groupContext == null ? DISABLED_STATIC : 0) |
+      (staticProp('disabled') && !inField && !inFieldItem && groupContext == null
+        ? DISABLED_STATIC
+        : 0) |
       (staticProp('readOnly') && groupContext == null ? READONLY_STATIC : 0) |
       (staticProp('required') && groupContext == null ? REQUIRED_STATIC : 0) |
       (staticProp('aria-labelledby') && !inLabelable ? LABELLEDBY_STATIC : 0) |
@@ -894,7 +913,14 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
       literal,
       dynamic,
       owner,
-      createLabelFallback(el, input, () => props['aria-labelledby'], labelId, inputId),
+      createLabelFallback(
+        el,
+        input,
+        () => props['aria-labelledby'],
+        labelId,
+        inputId,
+        () => props['aria-label'],
+      ),
       elementRefs(el, registration ? [radioRef, registration.attach] : [radioRef], props.ref),
     );
     if ('children' in props) {
