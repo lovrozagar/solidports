@@ -375,6 +375,7 @@ export function SliderRoot<Value extends number | readonly number[]>(
     handleInputChange,
     indicatorPosition,
     inset: () => thumbAlignment() !== 'center',
+    isArrayValue: range,
     labelId: ariaLabelledby,
     rootLabelId: defaultLabelId,
     largeStep,
