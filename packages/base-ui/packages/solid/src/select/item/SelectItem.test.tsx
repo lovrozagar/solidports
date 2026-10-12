@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { Select } from '@solidports/base-ui/select';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createMemo, createSignal, For } from 'solid-js';
@@ -217,14 +217,15 @@ describe('<Select.Item />', () => {
   });
 
   it('should focus disabled items', async () => {
-    render(() => (
-      <Select.Root open>
+    const { user } = await render(() => (
+      <Select.Root>
         <Select.Trigger data-testid="trigger">
           <Select.Value data-testid="value" />
         </Select.Trigger>
         <Select.Portal>
           <Select.Positioner>
             <Select.Popup>
+              <Select.Item value="one">one</Select.Item>
               <Select.Item value="two" disabled>
                 two
               </Select.Item>
@@ -234,10 +235,17 @@ describe('<Select.Item />', () => {
       </Select.Root>
     ));
 
-    const item = screen.getByText('two');
-    item.focus();
+    await act(() => screen.getByTestId('trigger').focus());
+    await user.keyboard('{ArrowDown}');
+
     await waitFor(() => {
-      expect(item).toHaveFocus();
+      expect(screen.getByRole('option', { name: 'one' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'two' })).toHaveFocus();
     });
   });
 
@@ -267,8 +275,9 @@ describe('<Select.Item />', () => {
   });
 
   it('should not select disabled item', async () => {
-    render(() => (
-      <Select.Root>
+    const handleValueChange = vi.fn();
+    const { user } = await render(() => (
+      <Select.Root onValueChange={handleValueChange}>
         <Select.Trigger data-testid="trigger">
           <Select.Value data-testid="value" />
         </Select.Trigger>
@@ -285,11 +294,12 @@ describe('<Select.Item />', () => {
       </Select.Root>
     ));
 
-    fireEvent.click(screen.getByTestId('trigger'));
-    await flushMicrotasks();
+    await user.click(screen.getByTestId('trigger'));
+    await user.click(await screen.findByRole('option', { name: 'two' }));
 
-    fireEvent.click(screen.getByText('two'));
-    expect(screen.getByTestId('value').textContent).to.equal('');
+    expect(handleValueChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId('value').textContent).toBe('');
+    expect(screen.getByRole('listbox')).toBeVisible();
   });
 
   it('inherits the disabled state from the root', async () => {
@@ -1030,6 +1040,41 @@ describe('<Select.Item />', () => {
       expect(screen.getByTestId('value').textContent).toBe('Select font');
       expect(screen.queryByRole('listbox')).not.toBe(null);
     });
+
+    it('calls onClick once for a click made after the opening delay', async () => {
+      // Past the delay, a release over an item can select it on its own, so a regular click must
+      // still only activate the item through its click event.
+      const onClick = vi.fn();
+      const { user } = await renderFakeTimers(() => (
+        <Select.Root>
+          <Select.Trigger data-testid="trigger">
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Positioner alignItemWithTrigger={false}>
+              <Select.Popup>
+                <Select.Item value="a">a</Select.Item>
+                <Select.Item value="b" onClick={onClick}>
+                  b
+                </Select.Item>
+              </Select.Popup>
+            </Select.Positioner>
+          </Select.Portal>
+        </Select.Root>
+      ));
+
+      await user.click(screen.getByTestId('trigger'));
+      const optionB = await screen.findByRole('option', { name: 'b' });
+      await act(async () => {
+        await clock.tickAsync(500);
+      });
+      await user.click(optionB);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('trigger')).toHaveAttribute('aria-expanded', 'false');
+      });
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe.skipIf(!isJSDOM)('style hooks', () => {
@@ -1088,5 +1133,44 @@ describe('<Select.Item />', () => {
       });
       expect(screen.getByRole('option', { name: 'b' })).not.to.have.attribute('data-selected');
     });
+  });
+
+  it('should not select disabled item when Enter is pressed', async () => {
+    const handleValueChange = vi.fn();
+    const { user } = await render(() => (
+      <Select.Root onValueChange={handleValueChange}>
+        <Select.Trigger data-testid="trigger">
+          <Select.Value data-testid="value" />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner>
+            <Select.Popup>
+              <Select.Item value="one">one</Select.Item>
+              <Select.Item value="two" disabled>
+                two
+              </Select.Item>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    ));
+
+    await act(() => screen.getByTestId('trigger').focus());
+    await user.keyboard('{ArrowDown}');
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'one' })).toHaveFocus();
+    });
+
+    await user.keyboard('{ArrowDown}');
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'two' })).toHaveFocus();
+    });
+
+    await user.keyboard('{Enter}');
+
+    expect(handleValueChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId('value').textContent).toBe('');
   });
 });

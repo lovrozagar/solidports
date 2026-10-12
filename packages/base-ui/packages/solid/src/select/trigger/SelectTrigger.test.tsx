@@ -1,7 +1,14 @@
-import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import {
+  createRenderer,
+  describeConformance,
+  flushMicrotasks,
+  isJSDOM,
+  act,
+  wait,
+} from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { spy } from 'sinon';
 
 describe('<Select.Trigger />', () => {
@@ -17,7 +24,7 @@ describe('<Select.Trigger />', () => {
 
   describe('disabled state', () => {
     it('cannot be focused when disabled', async () => {
-      const { user } = render(() => (
+      const { user } = await render(() => (
         <Select.Root defaultValue="b">
           <Select.Trigger data-testid="trigger" disabled>
             <Select.Value />
@@ -34,11 +41,11 @@ describe('<Select.Trigger />', () => {
       ));
 
       const trigger = screen.getByTestId('trigger');
-      expect(trigger).to.have.attribute('data-disabled');
+      expect(trigger).toHaveAttribute('data-disabled');
 
       await user.keyboard('[Tab]');
 
-      expect(expect(document.activeElement)).not.to.equal(trigger);
+      expect(trigger).not.toHaveFocus();
     });
 
     it('does not toggle the popup when disabled', async () => {
@@ -67,6 +74,18 @@ describe('<Select.Trigger />', () => {
         expect(screen.queryByRole('listbox')).to.equal(null);
       });
       expect(handleOpenChange.callCount).to.equal(0);
+    });
+
+    it('is removed from the tab order when disabled and not rendered as a button', async () => {
+      await render(() => (
+        <Select.Root disabled>
+          <Select.Trigger data-testid="trigger" nativeButton={false} render={{ component: 'div' }}>
+            <Select.Value />
+          </Select.Trigger>
+        </Select.Root>
+      ));
+
+      expect(screen.getByTestId('trigger')).toHaveAttribute('tabindex', '-1');
     });
   });
 
@@ -357,6 +376,8 @@ describe('<Select.Trigger />', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('positioner')).toHaveAttribute('data-side', 'none');
+      });
+      await waitFor(() => {
         expect(trigger).toHaveAttribute('data-popup-side', 'bottom');
       });
     },
@@ -377,5 +398,60 @@ describe('<Select.Trigger />', () => {
       expect(trigger).toHaveAttribute('data-popup-open');
     });
     expect(trigger).toHaveAttribute('data-pressed');
+  });
+
+  describe('releasing the opening press', () => {
+    async function pressTrigger() {
+      await render(() => (
+        <Select.Root>
+          <Select.Trigger data-testid="trigger">
+            <Select.Value />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Positioner alignItemWithTrigger={false}>
+              <Select.Popup>
+                <Select.Item value="a">a</Select.Item>
+              </Select.Popup>
+            </Select.Positioner>
+          </Select.Portal>
+        </Select.Root>
+      ));
+
+      const trigger = screen.getByTestId('trigger');
+      trigger.getBoundingClientRect = () =>
+        DOMRect.fromRect({ x: 100, y: 100, width: 100, height: 40 });
+
+      fireEvent.pointerDown(trigger, { pointerType: 'mouse', button: 0 });
+      fireEvent.mouseDown(trigger, { button: 0 });
+      await waitFor(() => {
+        expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      });
+      // The press is held long enough for the trigger to start watching its release.
+      await act(async () => {
+        await wait(20);
+      });
+      return trigger;
+    }
+
+    it('keeps the popup open when the press slips up to 5px off the trigger', async () => {
+      const trigger = await pressTrigger();
+
+      fireEvent.mouseUp(document.body, { button: 0, clientX: 96, clientY: 120 });
+      await act(async () => {
+        await wait(20);
+      });
+
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it('closes the popup when the press is dragged off the trigger and released', async () => {
+      const trigger = await pressTrigger();
+
+      fireEvent.mouseUp(document.body, { button: 0, clientX: 94, clientY: 120 });
+
+      await waitFor(() => {
+        expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      });
+    });
   });
 });
