@@ -4,15 +4,16 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Solid: React mocks `platform.os.mac`; the Solid port reads `isMac`.
-vi.mock('../../utils/detectBrowser', async () => {
-  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
-    '../../utils/detectBrowser',
-  );
+vi.mock('../../utils/platform', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../utils/platform')>('../../utils/platform');
 
   return {
     ...actual,
-    isMac: false,
-    isIOS: false,
+    platform: {
+      ...actual.platform,
+      os: { ...actual.platform.os, mac: false, apple: false },
+    },
   };
 });
 

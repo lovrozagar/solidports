@@ -10,7 +10,7 @@ import { stopEvent } from '../../floating-ui-solid/utils';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { isAndroid, isFirefox } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { REASONS } from '../../utils/reasons';
 import { getHighlightReason } from '../../utils/getHighlightReason';
 import { BaseUIComponentProps, type HTMLProps } from '../../utils/types';
@@ -30,6 +30,7 @@ import {
   usePopupSide,
 } from '../utils/parts';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
+import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 
 /**
  * A text input to search for items in the list.
@@ -264,7 +265,7 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
           }
         },
         onCompositionStart(event: CompositionEvent) {
-          if (isAndroid) {
+          if (platform.os.android) {
             return;
           }
           isComposingRef = true;
@@ -377,7 +378,7 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
 
           if (event.key === 'Home') {
             stopEvent(event);
-            const cursor = isFirefox && isRTL ? input.value.length : 0;
+            const cursor = platform.engine.gecko && isRTL ? input.value.length : 0;
             input.setSelectionRange(cursor, cursor);
             input.scrollLeft = 0;
             return;
@@ -385,7 +386,7 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
 
           if (event.key === 'End') {
             stopEvent(event);
-            const cursor = isFirefox && isRTL ? 0 : input.value.length;
+            const cursor = platform.engine.gecko && isRTL ? 0 : input.value.length;
             input.setSelectionRange(cursor, cursor);
             input.scrollLeft = isRTL ? -scrollAmount : scrollAmount;
             return;
@@ -439,7 +440,7 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
           }
 
           // event.isComposing
-          if (event.which === 229) {
+          if (isCompositionKeyDown(event)) {
             return;
           }
 

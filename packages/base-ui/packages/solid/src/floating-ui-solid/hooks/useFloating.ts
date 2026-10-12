@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { type VirtualElement } from '@floating-ui/dom';
 import { isElement } from '@floating-ui/utils/dom';
-import { createMemo, createSignal, untrack } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
 import { createDepsEffect, access, live } from '../../solid-helpers';
 import { FloatingRootStore } from '../components/FloatingRootStoreV2';
 import { useFloatingTreeAccessor } from '../components/FloatingTree';
@@ -13,36 +13,19 @@ import type {
   UseFloatingReturn,
 } from '../types';
 import { useFloatingOriginal as usePosition } from './useFloatingOriginal';
-import { useFloatingRootContext } from './useFloatingRootContext';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 /**
  * Provides data to position a floating element and context to add interactions.
+ * The caller supplies the root store, which owns the reference and floating elements.
  * @see https://floating-ui.com/docs/useFloating
- */
-export function useFloating(options: UseFloatingOptions = {}): UseFloatingReturn {
-  const internalStore = useFloatingRootContext(options);
-
-  return useFloatingWithStore(options, () => options.rootContext || internalStore);
-}
-
-/**
- * Base UI's private `useFloating` path. The caller must supply the root store, so this skips the
- * internal root-context hook used by the public Floating UI-compatible API.
  */
 export function useBaseUIFloating(
   options: UseFloatingOptions & { rootContext: FloatingRootStore },
 ): UseFloatingReturn {
-  return useFloatingWithStore(options, () => options.rootContext);
-}
-
-function useFloatingWithStore(
-  options: UseFloatingOptions,
-  getStore: () => FloatingRootStore,
-): UseFloatingReturn {
   // Live: the context's getters and element accessors are also read imperatively (handlers,
   // effect callbacks, tree traversals). Solid: a memo, since parts may swap the store.
-  const rootContext = live(createMemo(getStore));
+  const rootContext = live(createMemo(() => options.rootContext));
 
   const rootContextElements = {
     domReference: () => rootContext().select('domReferenceElement'),
@@ -95,80 +78,9 @@ function useFloatingWithStore(
     position.refs.setReference(computedPositionReference);
   };
 
-  const [localDomReference, setLocalDomReference] = createSignal<
-    NarrowedElement<ReferenceType> | null | undefined
-  >(undefined);
-  // `undefined` keeps the store's floating element, as in React.
-  const [localFloatingElement, setLocalFloatingElement] = createSignal<
-    HTMLElement | null | undefined
-  >(undefined);
-
-  // React's three `useSyncedValue` calls: each key is written only when its own value changes.
-  // The store is part of each value because parts like NavigationMenu swap it per active trigger.
-  // A store swapped in keeps its own reference until this hook has one: writing `null` over it
-  // only discards the reference the new store's owner synced (positioning uses the position
-  // reference), and would relay the swap a flush late.
-  createDepsEffect(
-    () => ({ store: rootContext(), local: localDomReference() }),
-    ({ store, local }, prev) => {
-      if (local === undefined && prev !== undefined && prev.store !== store) {
-        return;
-      }
-      store.set('referenceElement', local ?? null);
-    },
-  );
-
-  // With no local reference, React writes the store's own value back (a no-op). Solid would write
-  // the value committed when the effect computed, over a newer one written in the same flush.
-  createDepsEffect(
-    () => ({ store: rootContext(), local: localDomReference() }),
-    ({ store, local }) => {
-      if (local !== undefined) {
-        store.set('domReferenceElement', isElement(local) ? (local as Element) : null);
-      }
-    },
-  );
-
-  createDepsEffect(
-    () => ({ store: rootContext(), value: localFloatingElement() }),
-    ({ store, value }) => {
-      if (value !== undefined) {
-        store.set('floatingElement', value);
-      }
-    },
-  );
-
-  const setReference = (node: ReferenceType | null | undefined) => {
-    if (isElement(node) || node == null) {
-      setLocalDomReference(node as NarrowedElement<ReferenceType> | null);
-    }
-
-    // Backwards-compatibility for passing a virtual element to `reference`
-    // after it has set the DOM reference.
-    // A ref setter: read the current reference without subscribing.
-    const reference = untrack(position.refs.reference);
-    if (
-      isElement(reference) ||
-      reference == null ||
-      // Don't allow setting virtual elements using the old technique back to
-      // `null` to support `positionReference` + an unstable `reference`
-      // callback ref.
-      (node != null && !isElement(node))
-    ) {
-      position.refs.setReference(node);
-    }
-  };
-
-  const setFloating = (node: HTMLElement | null | undefined) => {
-    setLocalFloatingElement(node);
-    position.refs.setFloating(node);
-  };
-
   const refs = solidMergeProps(position.refs, {
     domReference,
-    setFloating,
     setPositionReference,
-    setReference,
   });
 
   const elements = solidMergeProps(position.elements, {

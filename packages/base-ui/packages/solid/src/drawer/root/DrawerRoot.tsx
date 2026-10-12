@@ -16,7 +16,7 @@ import {
 } from '../../utils/createBaseUIEventDetails';
 import { addEventListener } from '../../utils/addEventListener';
 import { NOOP } from '../../utils/empty';
-import { isAndroid } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { ownerWindow } from '../../utils/owner';
 import type { PayloadChildRenderFunction } from '../../utils/popups';
 import { REASONS } from '../../utils/reasons';
@@ -410,7 +410,7 @@ function DrawerProviderReporter() {
     (deps) => {
       // CloseWatcher enables the Android back gesture (Chromium-only).
       // Keep this Android-only for now to avoid interfering with Escape/nesting semantics on desktop due to `useDismiss`.
-      if (!deps.open || !deps.isTopmost || !isAndroid) {
+      if (!deps.open || !deps.isTopmost || !platform.os.android) {
         return undefined;
       }
 

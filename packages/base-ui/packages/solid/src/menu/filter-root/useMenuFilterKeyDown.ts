@@ -16,6 +16,7 @@ import {
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
 import type { MenuRoot } from '../root/MenuRoot';
+import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 
 export type MenuFilterKeyAction =
   /** Native text editing in the input; list navigation and parent handlers stay out of it. */
@@ -54,7 +55,7 @@ export function getMenuFilterKeyAction(
   const { orientation, rtl, hasActiveItem, activeItemOpensSubmenu, hasValue } = context;
   const { key } = event;
   // Enter that commits an IME composition belongs to the input, not the list.
-  if (event.which === 229) {
+  if (isCompositionKeyDown(event)) {
     return 'ignore';
   }
   if (key === 'Tab') {

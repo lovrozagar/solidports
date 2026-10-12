@@ -6,14 +6,16 @@ import { spy } from 'sinon';
 import { REASONS } from '../../utils/reasons';
 
 // Solid: React mocks `platform.os.mac`; the Solid port reads `isMac`.
-vi.mock('../../utils/detectBrowser', async () => {
-  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
-    '../../utils/detectBrowser',
-  );
+vi.mock('../../utils/platform', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../utils/platform')>('../../utils/platform');
 
   return {
     ...actual,
-    isMac: true,
+    platform: {
+      ...actual.platform,
+      os: { ...actual.platform.os, mac: true, apple: true },
+    },
   };
 });
 

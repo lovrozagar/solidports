@@ -4,11 +4,17 @@ import { createRenderer } from '#test-utils';
 import { FilterDropdownRoot } from '../root/FilterDropdownRoot';
 import { FilterDropdownInput } from './FilterDropdownInput';
 
-vi.mock('../../utils/detectBrowser', async () => {
-  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
-    '../../utils/detectBrowser',
-  );
-  return { ...actual, isAndroid: true };
+vi.mock('../../utils/platform', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../utils/platform')>('../../utils/platform');
+
+  return {
+    ...actual,
+    platform: {
+      ...actual.platform,
+      os: { ...actual.platform.os, android: true },
+    },
+  };
 });
 
 describe('FilterDropdownInput on Android', () => {

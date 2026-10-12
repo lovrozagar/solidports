@@ -1,6 +1,6 @@
 import { createSignal, omit, onSettled } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';
-import { isSafari } from './detectBrowser';
+import { platform } from './platform';
 import { visuallyHidden } from './visuallyHidden';
 
 /**
@@ -36,12 +36,13 @@ export function FocusGuard(
 const NO_ROLE = () => undefined;
 
 /**
- * The guard's role: `button` on Safari once mounted (VoiceOver's virtual cursor fires `onFocus`
- * only on buttons; NVDA and JAWS fire it on the focus trap element). Set after mount so server and
- * hydration markup match. Other browsers create nothing.
+ * The guard's role: `button` under VoiceOver on WebKit once mounted. Unlike NVDA and JAWS,
+ * VoiceOver's virtual cursor triggers `onFocus` as it moves, but only on focusable/role-button
+ * elements through WebKit's NSAccessibility path, so the role lets the focus trap catch the
+ * cursor. Set after mount so server and hydration markup match. Other environments create nothing.
  */
 export function useSafariGuardRole(): () => 'button' | undefined {
-  if (!isSafari) {
+  if (!(platform.screenReader.voiceOver && platform.engine.webkit)) {
     return NO_ROLE;
   }
   const [role, setRole] = createSignal<'button' | undefined>();

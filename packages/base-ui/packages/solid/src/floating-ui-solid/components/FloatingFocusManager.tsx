@@ -5,7 +5,7 @@ import { createDepsEffect, defaultProps, live, type ReactLikeRef } from '../../s
 import { addEventListener } from '../../utils/addEventListener';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { isWebKit } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { FocusGuard } from '../../utils/FocusGuard';
 import { mergeCleanups } from '../../utils/mergeCleanups';
 import { ownerDocument, ownerWindow } from '../../utils/owner';
@@ -954,7 +954,7 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
   createDepsEffect(
     () => ({ open: open(), floating: floating() }),
     (deps) => {
-      if (!isWebKit || deps.open || !deps.floating) {
+      if (!platform.engine.webkit || deps.open || !deps.floating) {
         return;
       }
 

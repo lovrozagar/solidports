@@ -1,10 +1,11 @@
 import { flushMicrotasks } from '#test-utils';
-import { isJSDOM } from '#utils/detectBrowser';
+import { isJSDOM } from '#test-utils';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal, onSettled } from 'solid-js';
 import { FloatingPortalLite } from '../../utils/FloatingPortalLite';
-import { FloatingFocusManager, FloatingPortal, useFloating } from '../index';
+import { FloatingFocusManager, FloatingPortal } from '../index';
 import type { UseFloatingPortalNodeProps } from './FloatingPortal';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
 
 interface AppProps {
   container?: UseFloatingPortalNodeProps['container'];

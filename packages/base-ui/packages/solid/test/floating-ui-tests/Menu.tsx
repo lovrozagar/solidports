@@ -16,12 +16,10 @@ import {
   shift,
   useClick,
   useDismiss,
-  useFloating,
   useFloatingNodeId,
   useFloatingParentNodeId,
   useFloatingTree,
   useFocus,
-  useHover,
   useInteractions,
   useListNavigation,
   useRole,
@@ -31,6 +29,8 @@ import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyR
 import { callEventHandler, defaultProps } from '../../src/solid-helpers';
 import { splitProps } from '../../src/solid-1-compat';
 import { gridNavigationWithColumns } from './gridNavigationWithColumns';
+import { useFloating } from './useFloating';
+import { useHover } from './useHover';
 
 type MenuContextType = {
   getItemProps: ReturnType<typeof useInteractions>['getItemProps'];

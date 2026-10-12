@@ -1,5 +1,5 @@
 import { isElement, isHTMLElement } from '@floating-ui/utils/dom';
-import { isJSDOM } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { activeElement, closest, contains, getTarget } from '../../utils/shadowDom';
 import { type PopupTriggerMap } from '../../utils/popups';
 import { FOCUSABLE_ATTRIBUTE, TYPEABLE_SELECTOR } from './constants';
@@ -68,7 +68,7 @@ export function isTypeableCombobox(element: Element | null | undefined) {
 export function matchesFocusVisible(element: Element | null) {
   // We don't want to block focus from working with `visibleOnly`
   // (JSDOM doesn't match `:focus-visible` when the element has `:focus`)
-  if (!element || isJSDOM) {
+  if (!element || platform.env.jsdom) {
     return true;
   }
   try {
@@ -120,5 +120,5 @@ export function isRenderTreeDescendant(
 }
 
 export function isEventTargetInsidePortal<E extends Event>(event: E) {
-  return !!(event.target as HTMLElement)?.closest(`[${createAttribute('portal')}]`);
+  return closest(event.target as Element | null, `[${createAttribute('portal')}]`) != null;
 }

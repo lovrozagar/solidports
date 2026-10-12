@@ -1,5 +1,5 @@
 import { createEffect } from 'solid-js';
-import { isIOS } from '../utils/detectBrowser';
+import { platform } from '../utils/platform';
 import { useTimeout } from '../utils/useTimeout';
 import { access, useRef, type MaybeAccessor } from '../solid-helpers';
 
@@ -36,7 +36,7 @@ export function useInitialLiveRegionTextMutation<T extends HTMLElement>(
   createEffect(
     () => access(present),
     (isPresent) => {
-      if (!isPresent || isIOS) {
+      if (!isPresent || platform.os.ios) {
         return undefined;
       }
 

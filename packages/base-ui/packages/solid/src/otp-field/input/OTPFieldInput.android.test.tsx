@@ -3,11 +3,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { OTPField } from '@solidports/base-ui/otp-field';
 import { act, createRenderer } from '#test-utils';
 
-vi.mock('../../utils/detectBrowser', async () => {
-  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
-    '../../utils/detectBrowser',
-  );
-  return { ...actual, isAndroid: true };
+vi.mock('../../utils/platform', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../utils/platform')>('../../utils/platform');
+
+  return {
+    ...actual,
+    platform: {
+      ...actual.platform,
+      os: { ...actual.platform.os, android: true },
+    },
+  };
 });
 
 describe('<OTPField.Input /> Android', () => {

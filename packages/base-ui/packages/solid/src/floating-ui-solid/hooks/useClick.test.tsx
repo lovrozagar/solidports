@@ -2,10 +2,12 @@ import { vi, expect, beforeEach, afterEach, test } from 'vitest';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal, Show, untrack } from 'solid-js';
 import { act, flushMicrotasks, isJSDOM } from '#test-utils';
-import { useClick, useFloating, useHover, useInteractions } from '../index';
+import { useClick, useInteractions } from '../index';
 import { REASONS } from '../../utils/reasons';
 import type { UseFloatingOptions } from '../types';
 import type { UseClickProps } from './useClick';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
+import { useHover } from '../../../test/floating-ui-tests/useHover';
 
 function App(
   props: UseClickProps & {

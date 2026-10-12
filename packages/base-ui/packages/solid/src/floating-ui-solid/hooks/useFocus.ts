@@ -2,7 +2,7 @@ import { getWindow, isElement, isHTMLElement } from '@floating-ui/utils/dom';
 import { createEffect } from 'solid-js';
 import { createDepsEffect, defaultProps, live } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { isMac, isSafari } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
 import type { FloatingUIOpenChangeDetails } from '../../utils/types';
@@ -20,7 +20,7 @@ import {
 } from '../utils';
 import { createAttribute } from '../utils/createAttribute';
 
-const isMacSafari = isMac && isSafari;
+const isMacSafari = platform.os.mac && platform.engine.webkit;
 
 export interface UseFocusProps {
   /**

@@ -10,7 +10,6 @@ import {
   offset,
   shift as floatingShift,
   size,
-  useFloating,
   type Accessorify,
   type AutoUpdateOptions,
   type FloatingContext,
@@ -22,6 +21,7 @@ import {
   type Side as PhysicalSide,
   type Placement,
   type UseFloatingOptions,
+  type UseFloatingReturn,
   type VirtualElement,
 } from '../floating-ui-solid/index';
 import { arrow } from '../floating-ui-solid/middleware/arrow';
@@ -39,6 +39,7 @@ import { DEFAULT_SIDES } from './adaptiveOriginMiddleware';
 import { hide } from './hideMiddleware';
 import { ownerDocument, ownerWindow } from './owner';
 import * as CommonPositionerCssVars from './CommonPositionerCssVars';
+import { useBaseUIFloating } from '../floating-ui-solid/hooks/useFloating';
 
 const AVAILABLE_WIDTH_VAR = CommonPositionerCssVars.availableWidth;
 const AVAILABLE_HEIGHT_VAR = CommonPositionerCssVars.availableHeight;
@@ -117,8 +118,21 @@ export type CollisionAvoidance = SideFlipMode | SideShiftMode;
  * `useFloating` hook.
  */
 
+type UseFloatingHook = (options: UseFloatingOptions) => UseFloatingReturn;
+
+/**
+ * Provides standardized anchor positioning behavior for floating elements. Wraps Floating UI's
+ * `useFloating` hook.
+ */
 export function useAnchorPositioning(
+  params: UseAnchorPositioningParameters & { floatingRootContext: FloatingRootContext },
+): UseAnchorPositioningReturnValue {
+  return useAnchorPositioningWithHook(params, useBaseUIFloating as UseFloatingHook);
+}
+
+export function useAnchorPositioningWithHook(
   params: UseAnchorPositioningParameters,
+  useFloatingHook: UseFloatingHook,
 ): UseAnchorPositioningReturnValue {
   // Public parameters
   const anchor = createMemo(() => access(params.anchor));
@@ -347,7 +361,6 @@ export function useAnchorPositioning(
       element: arrowRef.current || ownerDocument(state.elements.floating).createElement('div'),
       // No padding for the fake arrow: it would displace aligned popups on narrow anchors.
       padding: arrowRef.current ? arrowPaddingValue : 0,
-      offsetParent: 'floating',
     }));
   });
 
@@ -491,7 +504,7 @@ export function useAnchorPositioning(
     context,
     isPositioned,
     floatingStyles: originalFloatingStyles,
-  } = useFloating({
+  } = useFloatingHook({
     get rootContext() {
       return params.floatingRootContext;
     },

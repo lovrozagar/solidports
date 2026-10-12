@@ -9,14 +9,14 @@ import {
   safePolygon,
   shift,
   useDismiss,
-  useFloating,
   useFloatingNodeId,
   useFocus,
-  useHover,
   useInteractions,
 } from '../../src/floating-ui-solid';
 import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyRootContext';
 import { splitProps } from '../../src/solid-1-compat';
+import { useFloating } from './useFloating';
+import { useHover } from './useHover';
 
 interface SubItemProps {
   label: string;

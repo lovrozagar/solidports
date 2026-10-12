@@ -11,7 +11,7 @@ import { useToolbarRootContext } from '../../toolbar/root/ToolbarRootContext';
 import { addEventListener } from '../../utils/addEventListener';
 import { clamp } from '../../utils/clamp';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { isWebKit } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { getDisabledMountTransitionStyles } from '../../utils/getDisabledMountTransitionStyles';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { ownerDocument, ownerWindow } from '../../utils/owner';
@@ -388,7 +388,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
           Math.ceil(height) + SCROLL_EDGE_TOLERANCE_PX < Math.min(scrollHeight, minHeight);
 
         // Safari doesn't position the popup correctly when pinch-zoomed.
-        const isPinchZoomed = (win.visualViewport?.scale ?? 1) !== 1 && isWebKit;
+        const isPinchZoomed = (win.visualViewport?.scale ?? 1) !== 1 && platform.engine.webkit;
 
         if (fallbackToAlignPopupToTrigger || isPinchZoomed) {
           clearStyles(positionerEl, originalPositionerStylesRef);

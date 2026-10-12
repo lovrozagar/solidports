@@ -3,7 +3,7 @@
 import { createMemo, createSignal, untrack } from 'solid-js';
 import { isServer, type JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
-import { isAndroid } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { stopEvent } from '../../floating-ui-solid/utils';
 import {
   IndexGuessBehavior,
@@ -246,7 +246,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       handleInputBlur(event as FocusEvent & { currentTarget: HTMLInputElement });
     },
     onCompositionStart() {
-      if (!isAndroid) {
+      if (!platform.os.android) {
         setComposingValue(slotValue());
       }
     },

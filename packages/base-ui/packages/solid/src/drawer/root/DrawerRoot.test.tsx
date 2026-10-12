@@ -23,10 +23,16 @@ vi.mock('../../utils/useId', async () => {
 });
 
 // Solid: `isAndroid` stands in for React's `platform.os.android`.
-vi.mock('#utils/detectBrowser', async () => {
+vi.mock('../../utils/platform', async () => {
   const actual =
-    await vi.importActual<typeof import('#utils/detectBrowser')>('#utils/detectBrowser');
-  return { ...actual, isAndroid: true };
+    await vi.importActual<typeof import('../../utils/platform')>('../../utils/platform');
+  return {
+    ...actual,
+    platform: {
+      ...actual.platform,
+      os: { ...actual.platform.os, android: true },
+    },
+  };
 });
 
 // `timeStamp` is required: omitting it would leave the event stamped off the runner's real clock,
@@ -1796,9 +1802,11 @@ describe('<Drawer.Root />', () => {
     });
 
     it('closes on a close request that cannot be prevented even if onOpenChange cancels it', async () => {
-      const handleOpenChange = vi.fn((_open: boolean, details: { cancel: () => void; event: Event; isCanceled: boolean }) => {
-        details.cancel();
-      });
+      const handleOpenChange = vi.fn(
+        (_open: boolean, details: { cancel: () => void; event: Event; isCanceled: boolean }) => {
+          details.cancel();
+        },
+      );
       render(() => <TestDrawer defaultOpen onOpenChange={handleOpenChange} />);
       await flushMicrotasks();
 
@@ -1853,9 +1861,7 @@ describe('<Drawer.Root />', () => {
       const handleOpenChange = vi.fn((_open: boolean, details: { cancel: () => void }) => {
         details.cancel();
       });
-      const { unmount } = render(() => (
-        <TestDrawer defaultOpen onOpenChange={handleOpenChange} />
-      ));
+      const { unmount } = render(() => <TestDrawer defaultOpen onOpenChange={handleOpenChange} />);
       await flushMicrotasks();
       const watcher = currentWatcher();
 

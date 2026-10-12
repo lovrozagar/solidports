@@ -1,5 +1,5 @@
 import { ownerWindow } from './owner';
-import { isJSDOM } from './detectBrowser';
+import { platform } from './platform';
 
 interface ElementBounds {
   left: number;
@@ -33,7 +33,7 @@ export function getPseudoElementBounds(element: HTMLElement): ElementBounds {
   const win = ownerWindow(element);
 
   // Avoid "Not implemented: window.getComputedStyle(elt, pseudoElt)" in jsdom.
-  if (isJSDOM) {
+  if (platform.env.jsdom) {
     return elementRect;
   }
 

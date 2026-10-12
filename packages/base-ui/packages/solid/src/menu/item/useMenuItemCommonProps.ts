@@ -1,7 +1,7 @@
 /* eslint-disable typescript/no-explicit-any -- the store's payload type is erased for shared item logic, as in the React port */
 import { useContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
 import { type ReactLikeRef } from '../../solid-helpers';
-import { isMac } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
 import { REASONS } from '../../utils/reasons';
 import { HTMLProps } from '../../utils/types';
@@ -127,7 +127,7 @@ export function useMenuItemCommonProps(params: UseMenuItemCommonPropsParameters)
         // On non-macOS platforms, this mouseup belongs to the right-click gesture
         // that opened the context menu, so it must not activate an item.
         // Solid: React reads `platform.os.mac`.
-        if (isContextMenu && !isMac && event.button === 2) {
+        if (isContextMenu && !platform.os.mac && event.button === 2) {
           return;
         }
       }
