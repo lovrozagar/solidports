@@ -29,7 +29,11 @@ export function MenuFilterRoot<Payload>(props: MenuFilterRootProps<Payload>): JS
           autoHighlight={filter.autoHighlight}
           locale={filter.locale}
         >
-          {typeof props.children === 'function' ? props.children(payload) : props.children}
+          {(() => {
+            // One read: each read of JSX children creates them anew.
+            const children = props.children;
+            return typeof children === 'function' ? children(payload) : children;
+          })()}
         </MenuFilterDropdown>
       )}
     </MenuRootInternal>

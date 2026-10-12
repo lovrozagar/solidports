@@ -1,7 +1,6 @@
-import { createSignal } from 'solid-js';
-import { Show } from 'solid-js';
-import { useInitialLiveRegionTextMutation } from '../../combobox/utils/useInitialLiveRegionTextMutation';
-import { createLayoutEffect } from '../../solid-helpers';
+import { createMemo, createSignal } from 'solid-js';
+import { useInitialLiveRegionTextMutation } from '../../internals/useInitialLiveRegionTextMutation';
+import { createLayoutEffect, splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useFilterDropdownItemContext } from '../root/FilterDropdownRootContext';
@@ -11,29 +10,27 @@ import { useFilterDropdownItemContext } from '../root/FilterDropdownRootContext'
  * from server HTML and does not flash on open.
  */
 export function FilterDropdownEmpty(componentProps: FilterDropdownEmpty.Props) {
+  const [, , elementProps] = splitComponentProps(componentProps, []);
   const { store } = useFilterDropdownItemContext();
   const isEmpty = store.useState('isEmpty');
 
+  // Items mounting in the same pass register in their own effects, after this first read, and
+  // don't register on the server at all. Deciding once they have keeps the children from
+  // mounting for a frame on every open, and the message out of server markup.
   const [ready, setReady] = createSignal(false, { ownedWrite: true });
   createLayoutEffect(
     () => true,
     () => {
-      // After the first read, so server HTML and the first client paint omit the message.
-      queueMicrotask(() => setReady(true));
+      setReady(true);
     },
   );
 
-  return (
-    <Show when={ready() && isEmpty()}>
-      <EmptyMessage {...componentProps} />
-    </Show>
-  );
-}
+  const visible = createMemo(() => ready() && isEmpty());
 
-function EmptyMessage(componentProps: FilterDropdownEmpty.Props) {
-  const emptyRef = useInitialLiveRegionTextMutation<HTMLDivElement>();
+  const emptyRef = useInitialLiveRegionTextMutation<HTMLDivElement>(visible);
 
   const element = useRenderElement('div', componentProps, {
+    enabled: visible,
     ref: [emptyRef],
     props: [
       {
@@ -41,6 +38,7 @@ function EmptyMessage(componentProps: FilterDropdownEmpty.Props) {
         'aria-live': 'polite',
         'aria-atomic': 'true',
       },
+      elementProps,
     ],
   });
 

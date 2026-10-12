@@ -4,7 +4,7 @@ import { act } from '#test-utils';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { createRenderer, describeConformance } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
-import { INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY } from '../utils/useInitialLiveRegionTextMutation';
+import { INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY } from '../../internals/useInitialLiveRegionTextMutation';
 
 describe('<Combobox.Empty />', () => {
   const { render } = createRenderer();

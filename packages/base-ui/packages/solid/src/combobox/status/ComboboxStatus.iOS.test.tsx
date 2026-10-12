@@ -2,7 +2,7 @@ import { expect, vi, describe, it } from 'vitest';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { screen } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
-import { INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY } from '../utils/useInitialLiveRegionTextMutation';
+import { INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY } from '../../internals/useInitialLiveRegionTextMutation';
 
 // Solid: OS detection lives in `detectBrowser` rather than the `platform` utility.
 vi.mock('../../utils/detectBrowser', async () => {

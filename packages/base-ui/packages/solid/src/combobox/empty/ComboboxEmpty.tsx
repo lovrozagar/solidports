@@ -1,7 +1,7 @@
 import { splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { useInitialLiveRegionTextMutation } from '../utils/useInitialLiveRegionTextMutation';
+import { useInitialLiveRegionTextMutation } from '../../internals/useInitialLiveRegionTextMutation';
 import {
   useComboboxDerivedItemsContext,
   useComboboxRootContext,

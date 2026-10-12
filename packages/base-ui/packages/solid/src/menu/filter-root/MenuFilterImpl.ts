@@ -9,14 +9,16 @@ import type { MenuFilterItemParams, MenuFilterItemResult } from './MenuFilterCon
 
 function useItem(params: MenuFilterItemParams): MenuFilterItemResult {
   const item = useFilterDropdownItem({
+    // One read each: reading JSX children creates them.
     get label() {
-      return typeof params.label === 'function' ? params.label() : params.label;
+      const label = params.label;
+      return typeof label === 'function' ? label() : label;
     },
     get children() {
-      return typeof params.children === 'function' ? params.children() : params.children;
+      return params.children;
     },
     get render() {
-      return typeof params.render === 'function' ? params.render() : params.render;
+      return params.render;
     },
   });
   return { visible: item.visible, ref: item.ref };
