@@ -124,7 +124,7 @@ export default function ExampleMenu() {
 Wrap each component part and apply styles, then assemble your styled components.
 
 ```tsx title="menu.tsx"
-import { Menu } from '@solidports/base-ui/menu';
+import { Menu, MenuItemDataAttributes, MenuPositionerCssVariables } from '@solidports/base-ui/menu';
 import styled from '@emotion/styled';
 
 const StyledMenuTrigger = styled(Menu.Trigger)`
@@ -136,11 +136,13 @@ const StyledMenuPositioner = styled(Menu.Positioner)`
 `;
 
 const StyledMenuPopup = styled(Menu.Popup)`
-  // Popup styles
+  max-height: var(${MenuPositionerCssVariables.availableHeight});
 `;
 
 const StyledMenuItem = styled(Menu.Item)`
-  // Menu item styles
+  &[${MenuItemDataAttributes.highlighted}] {
+    outline: 1px solid currentColor;
+  }
 `;
 
 const MenuExample = () => (

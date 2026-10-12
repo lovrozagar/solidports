@@ -2,7 +2,8 @@ import type { JSX } from '@solidjs/web';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 
 
-import { createForm, revalidateLogic, type DeepKeys, type ValidationError } from '@tanstack/solid-form';
+import type { DeepKeys, ValidationError } from '@tanstack/react-form';
+import { createForm, revalidateLogic } from '@tanstack/solid-form';
 import { Button } from '../../components/button';
 import { CheckboxGroup } from '../../components/checkbox-group';
 import { RadioGroup } from '../../components/radio-group';

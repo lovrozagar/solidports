@@ -1,5 +1,6 @@
 import type { JSX } from '@solidjs/web';
-import { For } from 'solid-js';
+
+
 import { Menu } from '@solidports/base-ui/menu';
 
 export default function ExampleMenuFilter() {
@@ -55,9 +56,11 @@ export default function ExampleMenuFilter() {
                       >
                         <Menu.Popup class={popupClass}>
                           <Menu.List class={submenuListClass}>
-                            <For each={sharingOptions}>
-                              {(option) => <Menu.Item class={itemClass}>{option}</Menu.Item>}
-                            </For>
+                            {sharingOptions.map((option) => (
+                              <Menu.Item class={itemClass}>
+                                {option}
+                              </Menu.Item>
+                            ))}
                           </Menu.List>
                         </Menu.Popup>
                       </Menu.Positioner>
@@ -77,16 +80,18 @@ export default function ExampleMenuFilter() {
                 <Menu.RadioGroup data-filter-section defaultValue="date">
                   <Menu.Separator data-filter-separator class={separatorClass} />
                   <Menu.GroupLabel class={groupLabelClass}>Sort by</Menu.GroupLabel>
-                  <For each={sortOptions}>
-                    {([value, label]) => (
-                      <Menu.RadioItem class={choiceItemClass} value={value}>
-                        <Menu.RadioItemIndicator class="col-start-1">
-                          <CheckIcon />
-                        </Menu.RadioItemIndicator>
-                        <span class="col-start-2 min-w-0">{label}</span>
-                      </Menu.RadioItem>
-                    )}
-                  </For>
+                  {[
+                    ['date', 'Date modified'],
+                    ['name', 'Name'],
+                    ['size', 'Size'],
+                  ].map(([value, label]) => (
+                    <Menu.RadioItem class={choiceItemClass} value={value}>
+                      <Menu.RadioItemIndicator class="col-start-1">
+                        <CheckIcon />
+                      </Menu.RadioItemIndicator>
+                      <span class="col-start-2 min-w-0">{label}</span>
+                    </Menu.RadioItem>
+                  ))}
                 </Menu.RadioGroup>
 
                 <Menu.Group data-filter-section>
@@ -120,13 +125,15 @@ export default function ExampleMenuFilter() {
   );
 }
 
-function FilterableSubmenu(props: {
+interface FilterableSubmenuProps {
   label: string;
   inputLabel: string;
   placeholder: string;
   emptyText: string;
   options: readonly string[];
-}) {
+}
+
+function FilterableSubmenu(props: FilterableSubmenuProps) {
   return (
     <Menu.FilterProvider>
       <Menu.SubmenuRoot>
@@ -153,9 +160,11 @@ function FilterableSubmenu(props: {
               </div>
               <Menu.Empty class={emptyClass}>{props.emptyText}</Menu.Empty>
               <Menu.List class={submenuListClass}>
-                <For each={props.options}>
-                  {(option) => <Menu.Item class={itemClass}>{option}</Menu.Item>}
-                </For>
+                {props.options.map((option) => (
+                  <Menu.Item class={itemClass}>
+                    {option}
+                  </Menu.Item>
+                ))}
               </Menu.List>
             </Menu.Popup>
           </Menu.Positioner>
@@ -174,6 +183,7 @@ const inputClass =
 const clearClass =
   'flex size-8 items-center justify-center bg-transparent outline-hidden focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white';
 const emptyClass = 'p-3 text-sm text-neutral-500 dark:text-neutral-400';
+// Filtered groups stay mounted with `hidden`.
 const listBaseClass =
   'overflow-y-auto py-1 outline-hidden scroll-py-1 not-has-[>:not([hidden])]:py-0';
 const listClass = `${listBaseClass} max-h-[min(22rem,var(--available-height))] [&>[data-filter-section]:not([hidden])~[data-filter-section]:not([hidden])>[data-filter-separator]]:block`;
@@ -191,11 +201,7 @@ function getSubmenuOffset({ side }: { side: Menu.Positioner.Props['side'] }) {
   return side === 'top' || side === 'bottom' ? 4 : -4;
 }
 
-type IconProps = Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & {
-  style?: JSX.CSSProperties;
-};
-
-function CaretDownIcon(props: IconProps) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -210,7 +216,7 @@ function CaretDownIcon(props: IconProps) {
   );
 }
 
-function ClearIcon(props: IconProps) {
+function ClearIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -226,7 +232,7 @@ function ClearIcon(props: IconProps) {
   );
 }
 
-function CaretRightIcon(props: IconProps) {
+function CaretRightIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -241,7 +247,7 @@ function CaretRightIcon(props: IconProps) {
   );
 }
 
-function CheckIcon(props: IconProps) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -256,12 +262,6 @@ function CheckIcon(props: IconProps) {
     </svg>
   );
 }
-
-const sortOptions = [
-  ['date', 'Date modified'],
-  ['name', 'Name'],
-  ['size', 'Size'],
-] as const;
 
 const sharingOptions = [
   'Email',
