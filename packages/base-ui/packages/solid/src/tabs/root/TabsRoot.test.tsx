@@ -280,6 +280,37 @@ describe('<Tabs.Root />', () => {
         }),
       );
     });
+
+    it('should support a function as the default value', async () => {
+      const functionValue = () => 1;
+
+      render(() => (
+        <Tabs.Root defaultValue={functionValue}>
+          <Tabs.List>
+            <Tabs.Tab value={0} />
+            <Tabs.Tab value={functionValue} />
+          </Tabs.List>
+          <Tabs.Panel value={functionValue} keepMounted>
+            Function panel
+          </Tabs.Panel>
+        </Tabs.Root>
+      ));
+
+      const tabElements = screen.getAllByRole('tab');
+      expect(tabElements[1]).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tabpanel')).not.toHaveAttribute('hidden');
+
+      await act(() => {
+        tabElements[0].click();
+      });
+      expect(tabElements[0]).toHaveAttribute('aria-selected', 'true');
+
+      await act(() => {
+        tabElements[1].click();
+      });
+      expect(tabElements[1]).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tabpanel')).not.toHaveAttribute('hidden');
+    });
   });
 
   describe('disabled tabs', () => {
