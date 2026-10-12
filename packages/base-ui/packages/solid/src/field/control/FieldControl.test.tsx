@@ -347,6 +347,71 @@ describe('<Field.Control />', () => {
     expect(root).not.toHaveAttribute('data-filled');
   });
 
+  it('forwards a changing defaultValue without warning', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      function App() {
+        const [defaultValue, setDefaultValue] = createSignal('');
+        return (
+          <>
+            <button type="button" onClick={() => setDefaultValue('value')}>
+              change
+            </button>
+            <Field.Root data-testid="root">
+              <Field.Control defaultValue={defaultValue()} />
+            </Field.Root>
+          </>
+        );
+      }
+
+      render(() => <App />);
+
+      const root = screen.getByTestId('root');
+      expect(root).not.toHaveAttribute('data-filled');
+
+      fireEvent.click(screen.getByRole('button', { name: 'change' }));
+
+      expect(screen.getByRole('textbox')).toHaveValue('value');
+      expect(root).toHaveAttribute('data-filled', '');
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('keeps filled state from the edited value when defaultValue changes', () => {
+    function App() {
+      const [defaultValue, setDefaultValue] = createSignal('');
+      return (
+        <>
+          <button
+            type="button"
+            onClick={() => setDefaultValue((current) => (current === '' ? 'next' : ''))}
+          >
+            change
+          </button>
+          <Field.Root data-testid="root">
+            <Field.Control defaultValue={defaultValue()} />
+          </Field.Root>
+        </>
+      );
+    }
+
+    render(() => <App />);
+
+    const root = screen.getByTestId('root');
+    const input = screen.getByRole('textbox');
+    fireEvent.input(input, { target: { value: 'typed' } });
+    expect(root).toHaveAttribute('data-filled', '');
+
+    fireEvent.click(screen.getByRole('button', { name: 'change' }));
+    fireEvent.click(screen.getByRole('button', { name: 'change' }));
+
+    expect(input).toHaveValue('typed');
+    expect(root).toHaveAttribute('data-filled', '');
+  });
+
   it('sets filled state from a controlled value on a custom element', async () => {
     render(() => (
       <Field.Root data-testid="root">
