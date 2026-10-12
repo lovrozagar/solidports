@@ -1,6 +1,6 @@
 import { expect, describe, it, vi } from 'vitest';
 import { screen } from '@solidjs/testing-library';
-import { act, createRenderer } from '#test-utils';
+import { act, createRenderer, isJSDOM } from '#test-utils';
 import { useMediaQuery } from '@solidports/base-ui/unstable-use-media-query';
 import { renderServer } from '../../test/ssrFixtures';
 import ssrFixtures from './index.ssr-fixtures';
@@ -67,6 +67,13 @@ describe('useMediaQuery', () => {
     unmount();
 
     expect(media.listeners.size).toBe(0);
+  });
+
+  // Solid: the default `window.matchMedia` is called unbound, as the browser requires.
+  it.skipIf(isJSDOM)('reads the window media query by default', async () => {
+    await render(() => <Test query="(min-width: 1px)" options={{}} />);
+
+    expect(screen.getByTestId('result')).toHaveTextContent('true');
   });
 
   // Solid: server output comes from `index.ssr-fixtures.tsx`, rendered by the server build. A

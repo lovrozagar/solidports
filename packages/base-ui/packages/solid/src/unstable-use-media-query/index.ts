@@ -54,12 +54,15 @@ export function useMediaQuery(
   createEffect(
     () => ({ matchMediaValue: matchMedia(), query: safeQuery(), fallback: defaultMatches() }),
     (current) => {
-      if (current.matchMediaValue === null) {
+      const matchMediaValue = current.matchMediaValue;
+      if (matchMediaValue === null) {
         setMatch(current.fallback);
         return undefined;
       }
 
-      const mediaQueryList = current.matchMediaValue(current.query);
+      // Called unbound, as `window.matchMedia` would be: a method call would pass the deps object
+      // as the receiver, which the browser rejects.
+      const mediaQueryList = matchMediaValue(current.query);
       const notify = () => setMatch(mediaQueryList.matches);
       notify();
       return addEventListener(mediaQueryList, 'change', notify);
