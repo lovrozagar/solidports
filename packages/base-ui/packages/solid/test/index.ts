@@ -13,3 +13,4 @@ export { createFormDataSpy } from './formData';
 export { isScrollLocked } from './scrollLock';
 export { resetBrowserPointer } from './resetBrowserPointer';
 export { waitForPositioned } from './waitForPositioned';
+export { positionerConformanceTests } from './positionerConformanceTests';

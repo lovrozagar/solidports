@@ -1,4 +1,12 @@
-import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import {
+  act,
+  createRenderer,
+  describeConformance,
+  flushMicrotasks,
+  isJSDOM,
+  positionerConformanceTests,
+  waitForPositioned,
+} from '#test-utils';
 import { ContextMenu } from '@solidports/base-ui/context-menu';
 import { Menu } from '@solidports/base-ui/menu';
 import { Menubar } from '@solidports/base-ui/menubar';
@@ -30,15 +38,6 @@ function lastAnchorPositioningParameter(key: string) {
   return access(parameters?.[key]);
 }
 
-async function waitForPositioned(positioner: HTMLElement) {
-  await waitFor(() => {
-    expect(positioner.style.opacity).not.to.equal('0');
-  });
-  await waitFor(() => {
-    expect(positioner).toBeVisible();
-  });
-}
-
 function Trigger(props: Menu.Trigger.Props) {
   return <Menu.Trigger {...props} ref={props.ref} render="div" nativeButton={false} />;
 }
@@ -68,6 +67,43 @@ describe('<Menu.Positioner />', () => {
       errorSpy.mockRestore();
       warnSpy.mockRestore();
     }
+  });
+
+  it('enables lazy flipping for a filter menu', async () => {
+    render(() => (
+      <Menu.FilterProvider>
+        <Menu.Root open>
+          <Menu.Trigger>Actions</Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner>
+              <Menu.Popup>
+                <Menu.Input aria-label="Filter" />
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      </Menu.FilterProvider>
+    ));
+
+    // `'placement'` and not `true`: the filter menu locks the alignment as well as the side, so a
+    // popup that flipped once does not jitter back while typing resizes it. Combobox stays on
+    // `true` (side only), which is what it shipped with.
+    expect(lastAnchorPositioningParameter('lazyFlip')).toBe('placement');
+  });
+
+  it('leaves lazy flipping off for a plain menu', async () => {
+    render(() => (
+      <Menu.Root open>
+        <Menu.Trigger>Actions</Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner>
+            <Menu.Popup />
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    ));
+
+    expect(lastAnchorPositioningParameter('lazyFlip')).toBe(false);
   });
 
   describeConformance(Menu.Positioner, () => ({
@@ -394,6 +430,9 @@ describe('<Menu.Positioner />', () => {
       }
 
       render(() => <TestComponent />);
+
+      expect(screen.getByTestId('positioner')).toBeInTheDocument();
+      expect(screen.getAllByRole('menuitem')).toHaveLength(2);
     });
 
     it('should react to the anchor changing from a ref to undefined and back', async () => {
@@ -543,14 +582,8 @@ describe('<Menu.Positioner />', () => {
     });
   });
 
-  const baselineX = 10;
-  const baselineY = 36;
-  const popupWidth = 52;
-  const popupHeight = 24;
-  const anchorWidth = 72;
-  const anchorHeight = 36;
-  const triggerStyle = { height: `${anchorHeight}px`, width: `${anchorWidth}px` };
-  const popupStyle = { height: `${popupHeight}px`, width: `${popupWidth}px` };
+  const triggerStyle = { width: '72px', height: '36px' };
+  const popupStyle = { width: '52px', height: '24px' };
 
   describe.skipIf(isJSDOM)('Menubar parent', () => {
     it('uses bottom as the default side when the menubar is horizontal', async () => {
@@ -606,285 +639,20 @@ describe('<Menu.Positioner />', () => {
     });
   });
 
-  describe.skipIf(isJSDOM)('prop: sideOffset', () => {
-    it('offsets the side when a number is specified', async () => {
-      const sideOffset = 7;
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner data-testid="positioner" sideOffset={sideOffset}>
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('positioner').style.transform).to.equal(
-          `translate(${baselineX}px, ${baselineY + sideOffset}px)`,
-        );
-      });
-    });
-
-    it('offsets the side when a function is specified', async () => {
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner
-              data-testid="positioner"
-              sideOffset={(data) => data.positioner.width + data.anchor.width}
-            >
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('positioner').style.transform).to.equal(
-          `translate(${baselineX}px, ${baselineY + popupWidth + anchorWidth}px)`,
-        );
-      });
-    });
-
-    it('can read the latest side inside sideOffset', async () => {
-      let side = 'none';
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner
-              side="left"
-              data-testid="positioner"
-              sideOffset={(data) => {
-                side = data.side;
-                return 0;
-              }}
-            >
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      // correctly flips the side in the browser
-      await waitFor(() => {
-        expect(side).to.equal('right');
-      });
-    });
-
-    it('can read the latest align inside sideOffset', async () => {
-      let align = 'none';
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner
-              side="right"
-              align="start"
-              data-testid="positioner"
-              sideOffset={(data) => {
-                align = data.align;
-                return 0;
-              }}
-            >
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      // correctly flips the align in the browser
-      await waitFor(() => {
-        expect(align).to.equal('end');
-      });
-    });
-
-    it('reads logical side inside sideOffset', async () => {
-      let side = 'none';
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner
-              side="inline-start"
-              data-testid="positioner"
-              sideOffset={(data) => {
-                side = data.side;
-                return 0;
-              }}
-            >
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      // correctly flips the side in the browser
-      await waitFor(() => {
-        expect(side).to.equal('inline-end');
-      });
-    });
-  });
-
-  describe.skipIf(isJSDOM)('prop: alignOffset', () => {
-    it('offsets the align when a number is specified', async () => {
-      const alignOffset = 7;
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner data-testid="positioner" alignOffset={alignOffset}>
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('positioner').style.transform).to.equal(
-          `translate(${baselineX + alignOffset}px, ${baselineY}px)`,
-        );
-      });
-    });
-
-    it('offsets the align when a function is specified', async () => {
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner data-testid="positioner" alignOffset={(data) => data.positioner.width}>
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('positioner').style.transform).to.equal(
-          `translate(${baselineX + popupWidth}px, ${baselineY}px)`,
-        );
-      });
-    });
-
-    it('can read the latest side inside alignOffset', async () => {
-      let side = 'none';
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner
-              side="left"
-              data-testid="positioner"
-              alignOffset={(data) => {
-                side = data.side;
-                return 0;
-              }}
-            >
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      // correctly flips the side in the browser
-      await waitFor(() => {
-        expect(side).to.equal('right');
-      });
-    });
-
-    it('can read the latest align inside alignOffset', async () => {
-      let align = 'none';
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner
-              side="right"
-              align="start"
-              data-testid="positioner"
-              alignOffset={(data) => {
-                align = data.align;
-                return 0;
-              }}
-            >
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      // correctly flips the align in the browser
-      await waitFor(() => {
-        expect(align).to.equal('end');
-      });
-    });
-
-    it('reads logical side inside alignOffset', async () => {
-      let side = 'none';
-      render(() => (
-        <Menu.Root open>
-          <Trigger style={triggerStyle}>Trigger</Trigger>
-          <Menu.Portal>
-            <Menu.Positioner
-              side="inline-start"
-              data-testid="positioner"
-              alignOffset={(data) => {
-                side = data.side;
-                return 0;
-              }}
-            >
-              <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      await waitFor(() => {
-        // correctly flips the side in the browser
-        expect(side).to.equal('inline-end');
-      });
-    });
-  });
-
-  it.skipIf(isJSDOM)('uses transform positioning without Viewport', async () => {
-    const { unmount } = render(() => (
-      <Menu.Root open>
-        <Trigger style={triggerStyle}>Trigger</Trigger>
+  positionerConformanceTests({
+    render,
+    viewport: true,
+    createComponent: (props) => (
+      <Menu.Root {...props.root}>
+        <Trigger {...props.trigger}>Trigger</Trigger>
         <Menu.Portal>
-          <Menu.Positioner data-testid="positioner">
-            <Menu.Popup style={popupStyle}>Popup</Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-    ));
-
-    const positioner = screen.getByTestId('positioner');
-    await waitFor(() => {
-      expect(positioner.style.transform).not.to.equal('');
-    });
-    unmount();
-  });
-
-  it.skipIf(isJSDOM)('uses top/left positioning with Viewport', async () => {
-    const { unmount } = render(() => (
-      <Menu.Root open>
-        <Trigger style={triggerStyle}>Trigger</Trigger>
-        <Menu.Portal>
-          <Menu.Positioner data-testid="positioner">
-            <Menu.Popup style={popupStyle}>
-              <Menu.Viewport>Popup</Menu.Viewport>
+          <Menu.Positioner {...props.positioner}>
+            <Menu.Popup {...props.popup}>
+              {props.viewport ? <Menu.Viewport>Popup</Menu.Viewport> : 'Popup'}
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>
       </Menu.Root>
-    ));
-
-    const positioner = screen.getByTestId('positioner');
-    await waitForPositioned(positioner);
-    expect(positioner.style.transform).to.equal('');
-    unmount();
+    ),
   });
 });

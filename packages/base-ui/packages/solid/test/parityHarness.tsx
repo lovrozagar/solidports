@@ -64,7 +64,10 @@ export type ParityRender = (ui: () => JSX.Element) => {
   unmount: () => void;
 };
 
-export function renderParity(render: ParityRender, make: (slow: boolean) => JSX.Element): ParityPair {
+export function renderParity(
+  render: ParityRender,
+  make: (slow: boolean) => JSX.Element,
+): ParityPair {
   const fastResult = render(() => make(false));
   const slowResult = render(() => make(true));
   const fast = fastResult.container;
