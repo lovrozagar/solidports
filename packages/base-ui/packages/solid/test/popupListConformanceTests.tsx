@@ -1,7 +1,6 @@
 import { expect, vi, describe, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import type { JSX } from 'solid-js';
-import { Dialog } from '@solidports/base-ui/dialog';
 import { isJSDOM } from '../src/utils/testUtils';
 import { act } from './act';
 import type { createRenderer } from './createRenderer';
@@ -1027,6 +1026,9 @@ export function popupListConformanceTests(config: PopupListTestConfig) {
       }
 
       it('closes only itself on Escape inside a dialog', async () => {
+        // Solid: imported here so the shared test utils don't load component modules before a
+        // test file's `vi.mock` of an internal module applies.
+        const { Dialog } = await import('@solidports/base-ui/dialog');
         const { user } = await renderList({
           wrap: (node) => (
             <Dialog.Root defaultOpen>
