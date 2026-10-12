@@ -364,6 +364,10 @@ export function SliderControl(componentProps: SliderControl.Props) {
   }
 
   function handleTouchEnd(nativeEvent: TouchEvent | PointerEvent) {
+    if (getFingerCoords(nativeEvent, touchIdRef) == null) {
+      return;
+    }
+
     setActive(-1);
     setDragging(false);
 
@@ -393,7 +397,6 @@ export function SliderControl(componentProps: SliderControl.Props) {
     }
 
     pressedThumbIndexRef.current = -1;
-    touchIdRef.current = null;
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     stopListening();
   }
