@@ -13,7 +13,10 @@ export interface OTPFieldRootContext {
   queueFocusInput: (index: number, value: string) => void;
   getInputId: (index: number) => string | undefined;
   handleInputBlur: (event: FocusEvent & { currentTarget: HTMLInputElement }) => void;
-  handleInputFocus: (index: number, event: FocusEvent & { currentTarget: HTMLInputElement }) => void;
+  handleInputFocus: (
+    index: number,
+    event: FocusEvent & { currentTarget: HTMLInputElement },
+  ) => void;
   inputMode: Accessor<JSX.HTMLAttributes<HTMLInputElement>['inputmode']>;
   inputAriaLabelledBy: Accessor<string | undefined>;
   invalid: Accessor<boolean | undefined>;

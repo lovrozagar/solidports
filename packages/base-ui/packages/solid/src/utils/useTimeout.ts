@@ -16,10 +16,7 @@ export function registerOwnerCleanup(fn: () => void) {
       });
       return;
     } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        !error.message.includes('CLEANUP_IN_FORBIDDEN_SCOPE')
-      ) {
+      if (!(error instanceof Error) || !error.message.includes('CLEANUP_IN_FORBIDDEN_SCOPE')) {
         throw error;
       }
       owner = owner._parent;

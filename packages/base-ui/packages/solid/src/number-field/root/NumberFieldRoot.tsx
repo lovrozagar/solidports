@@ -10,7 +10,9 @@ import {
   createDepsEffect,
   splitComponentProps,
   useRef,
-  type ReactLikeRef, createLayoutEffect } from '../../solid-helpers';
+  type ReactLikeRef,
+  createLayoutEffect,
+} from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import {
   createChangeEventDetails,

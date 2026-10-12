@@ -12,7 +12,13 @@ type AnyProps = Record<string, any>;
 type Handler = (...args: any[]) => unknown;
 
 /** Keys a consumer passes that never reach the element as they are. */
-export const NATIVE_RESERVED_KEYS: readonly string[] = ['class', 'style', 'render', 'ref', 'children'];
+export const NATIVE_RESERVED_KEYS: readonly string[] = [
+  'class',
+  'style',
+  'render',
+  'ref',
+  'children',
+];
 const RESERVED: ReadonlySet<string> = new Set(NATIVE_RESERVED_KEYS);
 const EMPTY_KEYS: ReadonlySet<string> = new Set();
 const EMPTY_LIST: readonly string[] = [];

@@ -82,14 +82,20 @@ describe('native parity: Radio', () => {
       [() => ({ id: 'rb', class: 'a b', style: { color: 'red' } }), { defaultValue: 'b' }],
       // A function `style` is left out: the slow path (`CompositeItem` forwards `class` only)
       // drops it, the native path applies it as React does.
-      [() => ({ class: (state: Radio.Root.State) => (state.checked ? 'on' : 'off') }), { defaultValue: 'b' }],
+      [
+        () => ({ class: (state: Radio.Root.State) => (state.checked ? 'on' : 'off') }),
+        { defaultValue: 'b' },
+      ],
       [() => ({ 'aria-labelledby': 'lbl', 'aria-describedby': 'desc' }), {}],
       [() => ({ tabindex: 3, 'aria-checked': 'x', 'data-checked': 'y' }), {}],
       [() => ({ lang: 'fr', 'data-foo': 'bar', title: 't', hidden: true }), {}],
       [() => ({ onClick: () => {}, onKeyDown: () => {}, onFocus: () => {} }), {}],
     ];
     for (const [make, group] of cases) {
-      const { fast, slow } = renderBoth(() => withIndicator({ value: 'b', 'data-testid': 't', ...make() }), group);
+      const { fast, slow } = renderBoth(
+        () => withIndicator({ value: 'b', 'data-testid': 't', ...make() }),
+        group,
+      );
       expect(stripIds(fast)).toBe(stripIds(slow));
     }
   });
@@ -139,7 +145,10 @@ describe('native parity: Radio', () => {
           onClick: (event: MouseEvent & { preventBaseUIHandler?: () => void }) =>
             calls.push(`click:${typeof event.preventBaseUIHandler}`),
           onKeyDown: (event: KeyboardEvent) => calls.push(`keydown:${event.key}`),
-          onKeyUp: [(data: string, event: KeyboardEvent) => calls.push(`keyup:${data}:${event.key}`), 'd'],
+          onKeyUp: [
+            (data: string, event: KeyboardEvent) => calls.push(`keyup:${data}:${event.key}`),
+            'd',
+          ],
           onPointerDown: () => calls.push('pointerdown'),
           onMouseDown: () => calls.push('mousedown'),
           onFocus: () => calls.push('focus'),
@@ -156,14 +165,20 @@ describe('native parity: Radio', () => {
       calls.push(`pointerdown:${fireEvent.pointerDown(el)}`);
       calls.push(`mousedown:${fireEvent.mouseDown(el)}`);
       calls.push(`keydown-enter:${fireEvent.keyDown(el, { key: 'Enter' })}`);
-      calls.push(`click-a:${fireEvent.click(a)}:${a.getAttribute('aria-checked')}:${el.getAttribute('aria-checked')}`);
+      calls.push(
+        `click-a:${fireEvent.click(a)}:${a.getAttribute('aria-checked')}:${el.getAttribute('aria-checked')}`,
+      );
       calls.push(`keydown-space:${fireEvent.keyDown(el, { key: ' ' })}`);
-      calls.push(`keyup-space:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-checked')}`);
+      calls.push(
+        `keyup-space:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-checked')}`,
+      );
       a.focus();
       calls.push(`focus-a:${document.activeElement === a}`);
       calls.push(`arrow:${fireEvent.keyDown(a, { key: 'ArrowDown' })}`);
       flush();
-      calls.push(`after-arrow:${a.getAttribute('aria-checked')}:${el.getAttribute('aria-checked')}:${el.getAttribute('tabindex')}`);
+      calls.push(
+        `after-arrow:${a.getAttribute('aria-checked')}:${el.getAttribute('aria-checked')}:${el.getAttribute('tabindex')}`,
+      );
       return calls;
     };
     const fast = run('fast');
@@ -203,7 +218,12 @@ describe('native parity: Radio', () => {
     const run = (variant: 'fast' | 'slow') => {
       const ref = vi.fn();
       const inputRef = vi.fn();
-      const { fastEl, slowEl } = renderBoth(() => ({ value: 'b', 'data-testid': 't', ref, inputRef }));
+      const { fastEl, slowEl } = renderBoth(() => ({
+        value: 'b',
+        'data-testid': 't',
+        ref,
+        inputRef,
+      }));
       const el = variant === 'fast' ? fastEl : slowEl;
       expect(ref.mock.calls.some((call) => call[0] === el)).toBe(true);
       expect(inputRef.mock.calls.filter((call) => call[0]?.type === 'radio')).toHaveLength(2);
@@ -312,10 +332,37 @@ describe('native parity: RadioGroup', () => {
 
   it('renders the same group for the props matrix, alone and inside a Field', () => {
     const cases: Array<() => Props> = [
-      () => ({ get children() { return radios(); } }),
-      () => ({ get children() { return radios(); }, defaultValue: 'b', disabled: true, readOnly: true, required: true }),
-      () => ({ get children() { return radios(); }, id: 'g', name: 'n', class: 'c', style: { gap: '1px' }, 'aria-describedby': 'd' }),
-      () => ({ get children() { return radios(); }, class: (state: RadioGroup.State) => (state.required ? 'r' : 'o'), onKeyDown: () => {} }),
+      () => ({
+        get children() {
+          return radios();
+        },
+      }),
+      () => ({
+        get children() {
+          return radios();
+        },
+        defaultValue: 'b',
+        disabled: true,
+        readOnly: true,
+        required: true,
+      }),
+      () => ({
+        get children() {
+          return radios();
+        },
+        id: 'g',
+        name: 'n',
+        class: 'c',
+        style: { gap: '1px' },
+        'aria-describedby': 'd',
+      }),
+      () => ({
+        get children() {
+          return radios();
+        },
+        class: (state: RadioGroup.State) => (state.required ? 'r' : 'o'),
+        onKeyDown: () => {},
+      }),
     ];
     // One name per render: a browser unchecks same-named radios across the two containers.
     let names = 0;
@@ -356,9 +403,13 @@ describe('native parity: RadioGroup', () => {
       const b = container.querySelector('[data-testid="b"]') as HTMLElement;
       calls.push(`focus:${fireEvent.focus(group)}`);
       a.focus();
-      calls.push(`arrow:${fireEvent.keyDown(a, { key: 'ArrowRight' })}:${document.activeElement === b}`);
+      calls.push(
+        `arrow:${fireEvent.keyDown(a, { key: 'ArrowRight' })}:${document.activeElement === b}`,
+      );
       flush();
-      calls.push(`state:${a.getAttribute('aria-checked')}:${b.getAttribute('aria-checked')}:${a.getAttribute('tabindex')}:${b.getAttribute('tabindex')}`);
+      calls.push(
+        `state:${a.getAttribute('aria-checked')}:${b.getAttribute('aria-checked')}:${a.getAttribute('tabindex')}:${b.getAttribute('tabindex')}`,
+      );
       calls.push(`click:${fireEvent.click(b)}:${b.getAttribute('aria-checked')}`);
       calls.push(`blur:${fireEvent.blur(group)}`);
       return calls;

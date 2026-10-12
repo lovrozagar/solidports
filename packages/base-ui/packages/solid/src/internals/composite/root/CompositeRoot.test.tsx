@@ -32,9 +32,7 @@ describe('Composite', () => {
   }
 
   function TestGridItems() {
-    return (
-      <For each={gridItems}>{(i) => <CompositeItem data-testid={i}>{i}</CompositeItem>}</For>
-    );
+    return <For each={gridItems}>{(i) => <CompositeItem data-testid={i}>{i}</CompositeItem>}</For>;
   }
 
   describe('list', () => {

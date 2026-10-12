@@ -42,7 +42,10 @@ describe('native toggles cost', () => {
   }
 
   /** Nodes one extra copy of `part` adds next to `n` copies (includes the parent's insert). */
-  function perPart(part: () => JSX.Element, wrap: (children: JSX.Element) => JSX.Element = (c) => <div>{c}</div>) {
+  function perPart(
+    part: () => JSX.Element,
+    wrap: (children: JSX.Element) => JSX.Element = (c) => <div>{c}</div>,
+  ) {
     const one = nodes(() => wrap(part()));
     const two = nodes(() =>
       wrap(
@@ -86,7 +89,10 @@ describe('native toggles cost', () => {
     // attribute effect, the hidden input's effect, the label-fallback effect, the children
     // insert, and the indicator's Show, transition status (2 writable memos + effect) and
     // open-change-complete effect. Tighten as the machinery gets lazier.
-    expect(part - raw, `Checkbox: ${part - raw} nodes beyond raw (${part} vs ${raw})`).toBeLessThanOrEqual(19);
+    expect(
+      part - raw,
+      `Checkbox: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
+    ).toBeLessThanOrEqual(19);
   });
 
   it('Switch.Root + Thumb: ≤ 10 nodes beyond a hand-written switch', () => {
@@ -96,20 +102,30 @@ describe('native toggles cost', () => {
         <Switch.Thumb />
       </Switch.Root>
     ));
-    expect(part - raw, `Switch: ${part - raw} nodes beyond raw (${part} vs ${raw})`).toBeLessThanOrEqual(10);
+    expect(
+      part - raw,
+      `Switch: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
+    ).toBeLessThanOrEqual(10);
   });
 
   it('Toggle: ≤ 5 nodes beyond a hand-written toggle button', () => {
     const raw = perPart(() => {
       const [pressed, setPressed] = createSignal(false);
       return (
-        <button type="button" aria-pressed={pressed() ? 'true' : 'false'} onClick={() => setPressed((v) => !v)}>
+        <button
+          type="button"
+          aria-pressed={pressed() ? 'true' : 'false'}
+          onClick={() => setPressed((v) => !v)}
+        >
           T
         </button>
       );
     });
     const part = perPart(() => <Toggle>T</Toggle>);
-    expect(part - raw, `Toggle: ${part - raw} nodes beyond raw (${part} vs ${raw})`).toBeLessThanOrEqual(5);
+    expect(
+      part - raw,
+      `Toggle: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
+    ).toBeLessThanOrEqual(5);
   });
 
   it('Toggle in a ToggleGroup: ≤ 5 nodes beyond a hand-written grouped toggle', () => {
@@ -132,7 +148,10 @@ describe('native toggles cost', () => {
       (children) => <ToggleGroup>{children}</ToggleGroup>,
     );
     // The controlled memo (group membership), the list index signal, the dev root.
-    expect(part - raw, `Toggle in group: ${part - raw} nodes beyond raw (${part} vs ${raw})`).toBeLessThanOrEqual(5);
+    expect(
+      part - raw,
+      `Toggle in group: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
+    ).toBeLessThanOrEqual(5);
   });
 
   it('Radio.Root + Indicator in a RadioGroup: ≤ 18 nodes beyond a hand-written radio', () => {
@@ -161,6 +180,9 @@ describe('native toggles cost', () => {
       ),
       (children) => <RadioGroup>{children}</RadioGroup>,
     );
-    expect(part - raw, `Radio: ${part - raw} nodes beyond raw (${part} vs ${raw})`).toBeLessThanOrEqual(18);
+    expect(
+      part - raw,
+      `Radio: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
+    ).toBeLessThanOrEqual(18);
   });
 });

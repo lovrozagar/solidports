@@ -21,10 +21,7 @@ import { createRenderer } from '#test-utils';
 describe('field focus follows the active control', () => {
   const { render } = createRenderer();
 
-  function expectReleased(
-    focus: () => HTMLElement,
-    setDisabled: (disabled: boolean) => void,
-  ) {
+  function expectReleased(focus: () => HTMLElement, setDisabled: (disabled: boolean) => void) {
     const field = screen.getByTestId('field');
     const control = focus();
     control.focus();

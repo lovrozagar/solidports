@@ -19,7 +19,8 @@ import {
 export function gridNavigation(
   event: KeyboardEvent,
   prevIndex: number,
-  listRef: Array<HTMLElement | null | undefined> | { current: Array<HTMLElement | null | undefined> },
+  listRef:
+    Array<HTMLElement | null | undefined> | { current: Array<HTMLElement | null | undefined> },
   orientation: 'horizontal' | 'vertical' | 'both',
   loopFocus: boolean,
   rtl: boolean,

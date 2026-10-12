@@ -73,8 +73,7 @@ export function DialogInteractions(props: {
             return internalBackdrop || backdrop
               ? internalBackdrop === target ||
                   backdrop === target ||
-                  (contains(target, popupElement()) &&
-                    !target?.hasAttribute('data-base-ui-portal'))
+                  (contains(target, popupElement()) && !target?.hasAttribute('data-base-ui-portal'))
               : true;
           }
           return true;

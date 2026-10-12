@@ -243,7 +243,11 @@ export function getTabbableNearElement(
   const candidates = list.filter(isFocusableElement);
   for (let offset = 1; offset < list.length; offset += 1) {
     const element = list[(index + direction * offset + list.length) % list.length];
-    if (!contains(exclude, element) && isTabbable(element) && isTabbableRadio(element, candidates)) {
+    if (
+      !contains(exclude, element) &&
+      isTabbable(element) &&
+      isTabbableRadio(element, candidates)
+    ) {
       return element;
     }
   }

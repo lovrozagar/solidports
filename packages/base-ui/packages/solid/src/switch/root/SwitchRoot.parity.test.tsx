@@ -132,7 +132,10 @@ describe('native parity: Switch', () => {
         onClick: (event: MouseEvent & { preventBaseUIHandler?: () => void }) =>
           calls.push(`click:${typeof event.preventBaseUIHandler}`),
         onKeyDown: (event: KeyboardEvent) => calls.push(`keydown:${event.key}`),
-        onKeyUp: [(data: string, event: KeyboardEvent) => calls.push(`keyup:${data}:${event.key}`), 'd'],
+        onKeyUp: [
+          (data: string, event: KeyboardEvent) => calls.push(`keyup:${data}:${event.key}`),
+          'd',
+        ],
         onPointerDown: () => calls.push('pointerdown'),
         onMouseDown: () => calls.push('mousedown'),
         onfocus: () => calls.push('focus'),
@@ -144,8 +147,12 @@ describe('native parity: Switch', () => {
       calls.push(`pointerdown:${fireEvent.pointerDown(el)}`);
       calls.push(`mousedown:${fireEvent.mouseDown(el)}`);
       calls.push(`keydown-space:${fireEvent.keyDown(el, { key: ' ' })}`);
-      calls.push(`keyup-space:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-checked')}`);
-      calls.push(`keydown-enter:${fireEvent.keyDown(el, { key: 'Enter' })}:${el.getAttribute('aria-checked')}`);
+      calls.push(
+        `keyup-space:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-checked')}`,
+      );
+      calls.push(
+        `keydown-enter:${fireEvent.keyDown(el, { key: 'Enter' })}:${el.getAttribute('aria-checked')}`,
+      );
       calls.push(`focus:${fireEvent.focus(el)}`);
       calls.push(`blur:${fireEvent.blur(el)}`);
       return calls;
