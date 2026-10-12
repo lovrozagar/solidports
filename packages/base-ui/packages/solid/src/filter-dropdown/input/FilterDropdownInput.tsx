@@ -2,7 +2,7 @@ import { createSignal } from 'solid-js';
 import { isServer, type JSX } from '@solidjs/web';
 import { createLayoutEffect, splitComponentProps, useRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { isAndroid } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, BaseUIHTMLProps, HTMLProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -123,7 +123,7 @@ export function FilterDropdownInput(componentProps: FilterDropdownInput.Props) {
           return context.listId();
         },
         onCompositionStart(event: CompositionEvent) {
-          if (isAndroid) {
+          if (platform.os.android) {
             return;
           }
           isComposing = true;

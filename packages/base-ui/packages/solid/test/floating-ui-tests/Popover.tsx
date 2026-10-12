@@ -14,15 +14,15 @@ import {
   shift,
   useClick,
   useDismiss,
-  useFloating,
   useFloatingNodeId,
   useFloatingParentNodeId,
-  useHover,
   useInteractions,
 } from '../../src/floating-ui-solid';
 import type { Placement } from '../../src/floating-ui-solid/types';
 import { getEmptyRootContext } from '../../src/floating-ui-solid/utils/getEmptyRootContext';
 import { defaultProps } from '../../src/solid-helpers';
+import { useFloating } from './useFloating';
+import { useHover } from './useHover';
 
 /** @internal */
 export function Main() {

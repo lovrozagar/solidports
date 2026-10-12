@@ -1,26 +1,32 @@
 import { isElement } from '@floating-ui/utils/dom';
 import { createEffect, createMemo, onCleanup, untrack } from 'solid-js';
-import { createDepsEffect, defaultProps, live } from '../../solid-helpers';
-import { addEventListener } from '../../utils/addEventListener';
-import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { mergeCleanups } from '../../utils/mergeCleanups';
-import { ownerDocument } from '../../utils/owner';
-import { REASONS } from '../../utils/reasons';
-import type { FloatingUIOpenChangeDetails } from '../../utils/types';
-import { useTimeout } from '../../utils/useTimeout';
-import { mergeProps as solidMergeProps } from '../../solid-1-compat';
-import { useFloatingParentNodeId, useFloatingTree } from '../components/FloatingTree';
-import type { Delay, ElementProps, FloatingContext, FloatingRootContext } from '../types';
-import { contains, getTarget, isInteractiveElement } from '../utils';
-import type { HandleClose } from './useHoverShared';
+import { createDepsEffect, defaultProps, live } from '../../src/solid-helpers';
+import { addEventListener } from '../../src/utils/addEventListener';
+import { createChangeEventDetails } from '../../src/utils/createBaseUIEventDetails';
+import { mergeCleanups } from '../../src/utils/mergeCleanups';
+import { ownerDocument } from '../../src/utils/owner';
+import { REASONS } from '../../src/utils/reasons';
+import type { FloatingUIOpenChangeDetails } from '../../src/utils/types';
+import { useTimeout } from '../../src/utils/useTimeout';
+import { mergeProps as solidMergeProps } from '../../src/solid-1-compat';
+import {
+  useFloatingParentNodeId,
+  useFloatingTree,
+} from '../../src/floating-ui-solid/components/FloatingTree';
+import type {
+  Delay,
+  ElementProps,
+  FloatingContext,
+  FloatingRootContext,
+} from '../../src/floating-ui-solid/types';
+import { contains, getTarget, isInteractiveElement } from '../../src/floating-ui-solid/utils';
+import type { HandleClose } from '../../src/floating-ui-solid/hooks/useHoverShared';
 import {
   getDelay,
   getRestMs,
   isClickLikeOpenEvent as isClickLikeOpenEventShared,
   isHoverOpenEvent,
-} from './useHoverShared';
-
-export type { HandleClose, HandleCloseContext } from './useHoverShared';
+} from '../../src/floating-ui-solid/hooks/useHoverShared';
 
 export interface UseHoverProps {
   /**

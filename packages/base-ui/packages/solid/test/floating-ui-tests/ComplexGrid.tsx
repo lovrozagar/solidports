@@ -3,12 +3,12 @@ import {
   FloatingFocusManager,
   useClick,
   useDismiss,
-  useFloating,
   useInteractions,
   useListNavigation,
 } from '../../src/floating-ui-solid';
 import { defaultProps } from '../../src/solid-helpers';
 import { gridNavigationWithColumns } from './gridNavigationWithColumns';
+import { useFloating } from './useFloating';
 
 const grid = gridNavigationWithColumns(7);
 

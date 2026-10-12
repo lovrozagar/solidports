@@ -30,6 +30,7 @@ import {
 } from '../utils/parse';
 import { stateAttributesMapping } from '../utils/stateAttributesMapping';
 import { hasNumberFormatRoundingOptions, removeFloatingPointErrors } from '../utils/validate';
+import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 
 const NAVIGATE_KEYS = new Set([
   'Backspace',
@@ -362,7 +363,7 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
         // Allow composition events (e.g., pinyin)
         // event.nativeEvent.isComposing does not work in Safari:
         // https://bugs.webkit.org/show_bug.cgi?id=165004
-        event.which === 229 ||
+        isCompositionKeyDown(event) ||
         (event.altKey && !isStepKey) ||
         event.ctrlKey ||
         event.metaKey ||
@@ -484,19 +485,17 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
   // It does not serialize into server HTML. React's `value` prop does, and an empty server input
   // would flash blank before hydration even though `inputValue` is already formatted. Solid's JSX
   // types lock `prop:value` to `never`, so the entry is typed as plain props.
-  const valueProps = (
-    isServer
-      ? {
-          get value() {
-            return inputValue();
-          },
-        }
-      : {
-          get 'prop:value'() {
-            return inputValue();
-          },
-        }
-  ) as unknown as BaseUIHTMLProps;
+  const valueProps = (isServer
+    ? {
+        get value() {
+          return inputValue();
+        },
+      }
+    : {
+        get 'prop:value'() {
+          return inputValue();
+        },
+      }) as unknown as BaseUIHTMLProps;
 
   const element = useRenderElement('input', componentProps, {
     ref: (el) => {

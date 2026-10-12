@@ -5,8 +5,9 @@ import { createSignal, For, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { vi, expect, beforeEach, describe, it } from 'vitest';
 import { defaultProps } from '../../solid-helpers';
-import { useClick, useFloating, useInteractions, useTypeahead } from '../index';
+import { useClick, useInteractions, useTypeahead } from '../index';
 import type { UseTypeaheadProps } from './useTypeahead';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -375,5 +376,50 @@ describe('useTypeahead', () => {
 
     await userEvent.keyboard('a');
     expect(spy).toHaveBeenCalledWith(1);
+  });
+
+  it('passes the matching keydown event to onMatch', async () => {
+    const onMatch = vi.fn();
+
+    function App() {
+      const { refs, context } = useFloating({ open: true });
+      // Solid: the list is passed as the array itself.
+      const listRef = ['one', 'two', 'three'];
+      const typeahead = useTypeahead({ context, props: { listRef, activeIndex: null, onMatch } });
+      const { getReferenceProps } = useInteractions([typeahead]);
+      return <input {...getReferenceProps({ role: 'combobox', ref: refs.setReference })} />;
+    }
+
+    render(() => <App />);
+
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.keyboard('t');
+
+    expect(onMatch).toHaveBeenCalledTimes(1);
+    expect(onMatch.mock.lastCall?.[0]).toBe(1);
+    expect(onMatch.mock.lastCall?.[1].type).toBe('keydown');
+    expect(onMatch.mock.lastCall?.[1].key).toBe('t');
+  });
+
+  it('onTyping is called when the popup closes without moving focus', async () => {
+    const spy = vi.fn();
+    // Solid: the rerenders with a new `open` prop are a signal update.
+    const [open, setOpen] = createSignal(true);
+    render(() => <Combobox open={open()} onTyping={spy} />);
+
+    expect(spy).not.toHaveBeenCalled();
+
+    act(() => screen.getByRole('combobox').focus());
+    await userEvent.keyboard('t');
+    expect(spy.mock.calls).toEqual([[true]]);
+
+    act(() => setOpen(false));
+    expect(spy.mock.calls).toEqual([[true], [false]]);
+
+    vi.advanceTimersByTime(750);
+    expect(spy.mock.calls).toEqual([[true], [false]]);
+
+    act(() => setOpen(true));
+    expect(spy.mock.calls).toEqual([[true], [false]]);
   });
 });

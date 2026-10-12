@@ -1,5 +1,5 @@
 import { act, flushMicrotasks } from '#test-utils';
-import { isJSDOM } from '#utils/detectBrowser';
+import { isJSDOM } from '#test-utils';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import { createSignal, For, Show, untrack } from 'solid-js';
@@ -10,11 +10,12 @@ import { Main as Grid } from '../../../test/floating-ui-tests/Grid';
 import { Main as ListboxFocus } from '../../../test/floating-ui-tests/ListboxFocus';
 import { Main as NestedMenu } from '../../../test/floating-ui-tests/Menu';
 import { HorizontalMenu } from '../../../test/floating-ui-tests/MenuOrientation';
-import { useClick, useDismiss, useFloating, useInteractions, useListNavigation } from '../index';
+import { useClick, useDismiss, useInteractions, useListNavigation } from '../index';
 import type { UseListNavigationProps } from '../types';
 import { gridNavigation } from './gridNavigation';
 import type { JSX } from '@solidjs/web';
 import { splitProps } from '../../solid-1-compat';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
 
 function App(
   inProps: Omit<Partial<UseListNavigationProps>, 'listRef'> & {
@@ -1611,6 +1612,24 @@ describe('useListNavigation', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('item-1')).toHaveFocus();
+    });
+  });
+
+  describe('reference focus', () => {
+    it('clears ordinary item focus when the open reference receives focus', async () => {
+      render(() => <App />);
+      const reference = screen.getByRole('button');
+
+      fireEvent.keyDown(reference, { key: 'ArrowDown' });
+      await waitFor(() => {
+        expect(screen.getByTestId('item-0')).toHaveFocus();
+      });
+
+      await act(async () => {
+        reference.focus();
+      });
+
+      expect(screen.getByTestId('item-0')).toHaveAttribute('aria-selected', 'false');
     });
   });
 });

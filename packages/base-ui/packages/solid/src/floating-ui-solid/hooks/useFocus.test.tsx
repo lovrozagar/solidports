@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal, Show } from 'solid-js';
 import { act, isJSDOM } from '#test-utils';
 import { useInteractions } from './useInteractions';
-import { useFloating } from './useFloating';
 import { useFocus } from './useFocus';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
 
 describe.skipIf(!isJSDOM)('useFocus', () => {
   beforeEach(() => {

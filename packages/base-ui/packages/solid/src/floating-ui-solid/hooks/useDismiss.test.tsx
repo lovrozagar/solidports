@@ -1,5 +1,5 @@
 import { act, flushMicrotasks } from '#test-utils';
-import { isJSDOM } from '#utils/detectBrowser';
+import { isJSDOM } from '#test-utils';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import { createSignal, Show } from 'solid-js';
@@ -16,7 +16,6 @@ import {
   FloatingTree,
   useClick,
   useDismiss,
-  useFloating,
   useFloatingNodeId,
   useFloatingParentNodeId,
   useFocus,
@@ -25,6 +24,7 @@ import {
 import type { UseDismissProps } from './useDismiss';
 import { normalizeProp } from './useDismiss';
 import { splitProps } from '../../solid-1-compat';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
 
 beforeEach(() => {
   vi.spyOn(window, 'requestAnimationFrame').mockImplementation(
@@ -507,6 +507,172 @@ describe.skipIf(!isJSDOM)('useDismiss', () => {
       await userEvent.click(popover1);
       expect(popover2).not.toBeInTheDocument();
     });
+
+    test('does not dismiss with escape key while a composition spans a reopen', async () => {
+      function PersistentDismiss() {
+        const [open, setOpen] = createSignal(true);
+        const { refs, context } = useFloating({
+          get open() {
+            return open();
+          },
+          onOpenChange: setOpen,
+        });
+        const { getReferenceProps, getFloatingProps } = useInteractions([useDismiss({ context })]);
+
+        return (
+          <>
+            <button {...getReferenceProps({ ref: refs.setReference })} />
+            <button onClick={() => setOpen(true)}>open</button>
+            <button onClick={() => setOpen(false)}>close</button>
+            {open() && <div role="tooltip" {...getFloatingProps({ ref: refs.setFloating })} />}
+          </>
+        );
+      }
+
+      render(() => <PersistentDismiss />);
+
+      fireEvent.compositionStart(document.body);
+      fireEvent.click(screen.getByRole('button', { name: 'close' }));
+      fireEvent.click(screen.getByRole('button', { name: 'open' }));
+      expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+      fireEvent.keyDown(document.body, { key: 'Escape', isComposing: true });
+      await flushMicrotasks();
+      expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    });
+
+    test('does not dismiss with the escape key that ends a composition spanning a reopen', async () => {
+      function PersistentDismiss() {
+        const [open, setOpen] = createSignal(true);
+        const { refs, context } = useFloating({
+          get open() {
+            return open();
+          },
+          onOpenChange: setOpen,
+        });
+        const { getReferenceProps, getFloatingProps } = useInteractions([useDismiss({ context })]);
+
+        return (
+          <>
+            <button {...getReferenceProps({ ref: refs.setReference })} />
+            <button onClick={() => setOpen(true)}>open</button>
+            <button onClick={() => setOpen(false)}>close</button>
+            {open() && <div role="tooltip" {...getFloatingProps({ ref: refs.setFloating })} />}
+          </>
+        );
+      }
+
+      render(() => <PersistentDismiss />);
+
+      fireEvent.compositionStart(document.body);
+      fireEvent.click(screen.getByRole('button', { name: 'close' }));
+      fireEvent.click(screen.getByRole('button', { name: 'open' }));
+
+      // Safari fires `compositionend` before the `keydown` that ends the composition.
+      fireEvent.compositionEnd(document.body);
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      await flushMicrotasks();
+      expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    });
+
+    test('dismisses with escape key after closing during IME composition', async () => {
+      function PersistentDismiss() {
+        const [open, setOpen] = createSignal(true);
+        const { refs, context } = useFloating({
+          get open() {
+            return open();
+          },
+          onOpenChange: setOpen,
+        });
+        const { getReferenceProps, getFloatingProps } = useInteractions([useDismiss({ context })]);
+
+        return (
+          <>
+            <button {...getReferenceProps({ ref: refs.setReference })} />
+            <button onClick={() => setOpen(true)}>open</button>
+            <button onClick={() => setOpen(false)}>close</button>
+            {open() && (
+              <div role="tooltip" {...getFloatingProps({ ref: refs.setFloating })}>
+                <input />
+              </div>
+            )}
+          </>
+        );
+      }
+
+      render(() => <PersistentDismiss />);
+
+      // The hook stays mounted while closed, so the composition that ends after closing must not
+      // keep blocking Escape once it reopens.
+      fireEvent.compositionStart(screen.getByRole('textbox'));
+      fireEvent.click(screen.getByRole('button', { name: 'close' }));
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+      fireEvent.compositionEnd(document.body);
+
+      fireEvent.click(screen.getByRole('button', { name: 'open' }));
+      expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+      fireEvent.keyDown(document.body, { key: 'Escape' });
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    });
+
+    test.each([6, 12])(
+      'does not dismiss a reopened popup when an old touch moves %s pixels and ends',
+      (distance) => {
+        function ReopenApp() {
+          const [open, setOpen] = createSignal(true);
+          const { refs, context } = useFloating({
+            get open() {
+              return open();
+            },
+            onOpenChange: setOpen,
+          });
+          const { getReferenceProps, getFloatingProps } = useInteractions([
+            useDismiss({ context }),
+          ]);
+
+          return (
+            <>
+              <button
+                {...getReferenceProps({
+                  ref: refs.setReference,
+                  onClick: () => setOpen((value) => !value),
+                })}
+              />
+              {open() && <div role="tooltip" {...getFloatingProps({ ref: refs.setFloating })} />}
+            </>
+          );
+        }
+
+        render(() => <ReopenApp />);
+
+        const touch = { identifier: 1, target: document.body, clientX: 10, clientY: 10 };
+        fireEvent.touchStart(document.body, { touches: [touch], changedTouches: [touch] });
+
+        fireEvent.click(screen.getByRole('button'));
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button'));
+        expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+        // Both the deferred touchend dismissal and the immediate touchmove dismissal belong
+        // to the previous session, even though the interaction hook never unmounted.
+        const movedTouch = { ...touch, clientX: touch.clientX + distance };
+        fireEvent.touchMove(document.body, {
+          touches: [movedTouch],
+          changedTouches: [movedTouch],
+        });
+        fireEvent.touchEnd(document.body, { touches: [], changedTouches: [movedTouch] });
+        expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+        // A new gesture in this session must still dismiss normally.
+        fireEvent.touchStart(document.body, { touches: [touch], changedTouches: [touch] });
+        fireEvent.touchMove(document.body, {
+          touches: [{ ...touch, clientX: 22 }],
+          changedTouches: [{ ...touch, clientX: 22 }],
+        });
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+      },
+    );
   });
 
   describe('options set to false', () => {

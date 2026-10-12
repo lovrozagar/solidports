@@ -4,15 +4,17 @@ import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
 
-// Solid: engine detection lives in `detectBrowser` rather than the `platform` utility.
-vi.mock('../../utils/detectBrowser', async () => {
-  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
-    '../../utils/detectBrowser',
-  );
-
+vi.mock('../../utils/platform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/platform')>();
   return {
     ...actual,
-    isFirefox: true,
+    platform: {
+      ...actual.platform,
+      engine: {
+        ...actual.platform.engine,
+        gecko: true,
+      },
+    },
   };
 });
 

@@ -1,18 +1,14 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import { act, flushMicrotasks } from '#test-utils';
-import { isJSDOM } from '#utils/detectBrowser';
+import { isJSDOM } from '#test-utils';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal, onSettled, Show } from 'solid-js';
 import type { Component } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { vi } from 'vitest';
-import {
-  FloatingDelayGroup,
-  useDelayGroup,
-  useFloating,
-  useHover,
-  useInteractions,
-} from '../index';
+import { FloatingDelayGroup, useDelayGroup, useInteractions } from '../index';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
+import { useHover } from '../../../test/floating-ui-tests/useHover';
 
 interface Props {
   label: string;

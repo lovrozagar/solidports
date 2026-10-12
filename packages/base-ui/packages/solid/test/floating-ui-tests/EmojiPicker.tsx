@@ -19,7 +19,6 @@ import {
   offset,
   useClick,
   useDismiss,
-  useFloating,
   useInteractions,
   useListNavigation,
   useRole,
@@ -29,6 +28,7 @@ import { useId } from '../../src/utils/useId';
 import { Button } from './Button';
 import { splitProps } from '../../src/solid-1-compat';
 import { gridNavigationWithColumns } from './gridNavigationWithColumns';
+import { useFloating } from './useFloating';
 
 const grid = gridNavigationWithColumns(3);
 

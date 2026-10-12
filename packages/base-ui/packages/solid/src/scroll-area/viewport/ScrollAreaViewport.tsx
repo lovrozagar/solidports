@@ -3,7 +3,7 @@ import type { ComponentProps } from '@solidjs/web';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
-import { isWebKit } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { NOOP } from '../../utils/empty';
 import { getFiniteAnimations } from '../../utils/getFiniteAnimations';
 import { normalizeScrollOffset } from '../../utils/scrollEdges';
@@ -44,7 +44,7 @@ function removeCSSVariableInheritance() {
     scrollAreaOverflowVarsRegistered ||
     // When `inherits: false`, specifying `inherit` on child elements doesn't work
     // in Safari. To let CSS features work correctly, this optimization must be skipped.
-    isWebKit
+    platform.engine.webkit
   ) {
     return;
   }

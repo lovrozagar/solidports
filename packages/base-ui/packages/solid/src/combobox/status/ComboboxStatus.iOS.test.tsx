@@ -4,16 +4,16 @@ import { screen } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
 import { INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY } from '../../internals/useInitialLiveRegionTextMutation';
 
-// Solid: OS detection lives in `detectBrowser` rather than the `platform` utility.
-vi.mock('../../utils/detectBrowser', async () => {
-  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
-    '../../utils/detectBrowser',
-  );
+vi.mock('../../utils/platform', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../utils/platform')>('../../utils/platform');
 
   return {
     ...actual,
-    isIOS: true,
-    isMac: true,
+    platform: {
+      ...actual.platform,
+      os: { ...actual.platform.os, ios: true, apple: true },
+    },
   };
 });
 

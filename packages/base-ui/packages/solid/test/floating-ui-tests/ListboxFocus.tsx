@@ -4,12 +4,12 @@ import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../src/internals/composite/list/CompositeList';
 import { useCompositeListItem } from '../../src/internals/composite/list/useCompositeListItem';
 import {
-  useFloating,
   useInteractions,
   useListNavigation,
   useRole,
   useTypeahead,
 } from '../../src/floating-ui-solid';
+import { useFloating } from './useFloating';
 
 interface SelectContextValue {
   activeIndex: Accessor<number | null>;

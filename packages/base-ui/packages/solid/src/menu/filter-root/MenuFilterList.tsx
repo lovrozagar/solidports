@@ -18,6 +18,7 @@ import { useMenuRootContext } from '../root/MenuRootContext';
 import type { MenuList } from '../list/MenuList';
 import { useMenuFilterKeyDown } from './useMenuFilterKeyDown';
 import { moveHighlightFrom } from './moveHighlightFrom';
+import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 
 /**
  * The list of a filterable menu: it takes the `menu` role while the popup is a dialog holding
@@ -41,7 +42,7 @@ export function MenuFilterList(props: MenuList.Props) {
     const fromNestedPopup = target != null && !contains(currentTarget, target);
     if (owner == null || ownerFocused || fromNestedPopup) {
       if (
-        event.which !== 229 &&
+        !isCompositionKeyDown(event) &&
         !event.shiftKey &&
         !event.ctrlKey &&
         !event.metaKey &&

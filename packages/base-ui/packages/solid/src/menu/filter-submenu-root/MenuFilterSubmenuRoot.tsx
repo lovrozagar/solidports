@@ -23,6 +23,7 @@ import { useMenuFilterRoot } from '../filter-root/useMenuFilterRoot';
 import { moveHighlightFrom } from '../filter-root/moveHighlightFrom';
 import { isKeyboardOpen } from '../utils/isKeyboardOpen';
 import type { MenuStore } from '../store/MenuStore';
+import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 
 type ParentReference = { reference: HTMLElement; trigger: HTMLElement };
 
@@ -247,7 +248,7 @@ function MenuFilterSubmenuNavigation(props: {
   }
 
   function handlePopupKeyDown(event: KeyboardEvent) {
-    if (event.which === 229) {
+    if (isCompositionKeyDown(event)) {
       return;
     }
     if (isCrossOrientationCloseKey(event.key, orientation(), direction() === 'rtl', false)) {

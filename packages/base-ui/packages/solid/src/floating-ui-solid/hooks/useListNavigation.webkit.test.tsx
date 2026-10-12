@@ -1,7 +1,8 @@
 import { vi, it, describe, expect } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal, For, Show, untrack } from 'solid-js';
-import { useClick, useFloating, useInteractions, useListNavigation } from '../index';
+import { useClick, useInteractions, useListNavigation } from '../index';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
 
 vi.mock('../../utils/platform', async () => {
   const actual =

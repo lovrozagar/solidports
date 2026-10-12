@@ -3,15 +3,17 @@ import { Combobox } from '@solidports/base-ui/combobox';
 import { createRenderer } from '#test-utils';
 import { fireEvent, screen } from '@solidjs/testing-library';
 
-// Solid: OS detection lives in `detectBrowser` rather than the `platform` utility.
-vi.mock('../../utils/detectBrowser', async () => {
-  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
-    '../../utils/detectBrowser',
-  );
-
+vi.mock('../../utils/platform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/platform')>();
   return {
     ...actual,
-    isAndroid: true,
+    platform: {
+      ...actual.platform,
+      os: {
+        ...actual.platform.os,
+        android: true,
+      },
+    },
   };
 });
 

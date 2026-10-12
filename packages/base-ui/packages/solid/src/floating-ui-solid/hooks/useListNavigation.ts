@@ -38,6 +38,7 @@ import { useAnimationFrame } from '../../utils/useAnimationFrame';
 import { platform } from '../../utils/platform';
 import type { gridNavigation } from './gridNavigation';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
+import { isCompositionKeyDown } from '../utils/event';
 
 export const ESCAPE = 'Escape';
 
@@ -740,7 +741,7 @@ export function useListNavigation(parameters: {
     // don't appear to suffer from this. `event.isComposing` is avoided due to
     // Safari not supporting it properly (although it's not needed in the first
     // place for Safari, just avoiding any possible issues).
-    if (event.which === 229) {
+    if (isCompositionKeyDown(event)) {
       return;
     }
 
@@ -982,7 +983,7 @@ export function useListNavigation(parameters: {
         return;
       }
 
-      if (store().select('open') && !props.virtual && activeIndex() == null) {
+      if (store().select('open') && !props.virtual) {
         indexRef.current = -1;
         onNavigate(event);
       }

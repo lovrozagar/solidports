@@ -7,7 +7,8 @@ import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { PopupTriggerMap } from '../../utils/popups';
 import { FloatingRootStore } from '../components/FloatingRootStoreV2';
-import { useClientPoint, useFloating, useInteractions } from '../index';
+import { useClientPoint, useInteractions } from '../index';
+import { useFloating } from '../../../test/floating-ui-tests/useFloating';
 
 function expectLocation({ x, y }: Coords) {
   expect(Number(screen.getByTestId('x')?.textContent)).toBe(x);
@@ -63,7 +64,11 @@ function App(props: {
   });
   const { getReferenceProps, getTriggerProps, getFloatingProps } = useInteractions([clientPoint]);
 
-  const rect = () => elements.reference()?.getBoundingClientRect();
+  // Solid: React reads the rect on every render, so an open change also re-reads it.
+  const rect = () => {
+    isOpen();
+    return elements.reference()?.getBoundingClientRect();
+  };
   const referenceProps = () => (props.useTriggerProps ? getTriggerProps() : getReferenceProps());
 
   return (
@@ -339,6 +344,63 @@ test('axis y', async () => {
 
   expectLocation({ x: 0, y: 500 });
 });
+
+test.for([
+  {
+    axis: 'x',
+    atCursor: { x: 500, y: 20, width: 0, height: 40 },
+    afterReferenceMoves: { x: 550, y: 70, width: 0, height: 40 },
+  },
+  {
+    axis: 'y',
+    atCursor: { x: 10, y: 500, width: 30, height: 0 },
+    afterReferenceMoves: { x: 60, y: 550, width: 30, height: 0 },
+  },
+] as const)(
+  'keeps the reference size on the untracked axis when tracking $axis',
+  async ({ axis, atCursor, afterReferenceMoves }) => {
+    render(() => <App axis={axis} />);
+
+    const reference = screen.getByTestId('reference');
+    let referenceRect = { x: 10, y: 20, width: 30, height: 40 };
+
+    reference.getBoundingClientRect = () => {
+      const { x, y, width, height } = referenceRect;
+      return {
+        x,
+        y,
+        width,
+        height,
+        top: y,
+        right: x + width,
+        bottom: y + height,
+        left: x,
+        toJSON: () => {},
+      };
+    };
+
+    fireEvent(
+      reference,
+      new MouseEvent('mousemove', {
+        bubbles: true,
+        clientX: 500,
+        clientY: 500,
+      }),
+    );
+    await flushMicrotasks();
+
+    expectRect(atCursor);
+
+    // Opening re-reads the same virtual element as an auto-update. The open wasn't a hover,
+    // so the cursor point keeps its offset from the reference instead of snapping back.
+    referenceRect = { x: 60, y: 70, width: 30, height: 40 };
+
+    fireEvent.click(screen.getByRole('button'));
+    await flushMicrotasks();
+
+    expectRect(afterReferenceMoves);
+  },
+);
 
 test('removes window listener when cursor lands on floating element', async () => {
   render(() => <App />);
