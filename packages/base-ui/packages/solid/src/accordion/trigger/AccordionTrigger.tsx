@@ -8,6 +8,8 @@ import {
 import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import { accordionStateAttributesMapping } from '../item/stateAttributesMapping';
 import { canRenderNative } from '../../utils/native';
 import { renderNativeElement } from '../../utils/native/element';
 import { createIdRegistration } from '../../utils/native/registration';
@@ -22,6 +24,11 @@ const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
 const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'id', 'nativeButton']);
 /** Handler keys the trigger needs even without a consumer handler. */
 const HANDLER_KEYS = ['onClick', 'onKeyDown', 'onPointerDown'] as const;
+
+const stateAttributesMapping: StateAttributesMapping<AccordionTriggerState> = {
+  ...accordionStateAttributesMapping,
+  ...triggerOpenStateMapping,
+};
 
 /**
  * A button that opens and closes the corresponding panel.
@@ -86,7 +93,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
     state,
     ref: buttonRef,
     props: [...buttonSources.attributes, props, elementProps, buttonSources.handlers],
-    stateAttributesMapping: triggerOpenStateMapping,
+    stateAttributesMapping,
   });
 
   return <>{element()}</>;
@@ -104,7 +111,7 @@ function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
     refs: registerId ? [registerId] : undefined,
     own: OWN_KEYS,
     state,
-    mapping: triggerOpenStateMapping,
+    mapping: stateAttributesMapping,
     reactive: true,
     attributes: (set) => {
       writeDisclosureTriggerAttributes(set, open(), panelId(), disabled());
