@@ -2,6 +2,7 @@ import { untrack } from 'solid-js';
 import { FloatingTreeStore } from '../../floating-ui-solid/components/FloatingTreeStore';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { AdaptiveOriginMiddleware } from '../../utils/adaptiveOriginConstants';
+import { isWebKit } from '../../utils/detectBrowser';
 import { EMPTY_OBJECT, NOOP } from '../../utils/empty';
 import { NullStore } from '../../utils/NullStore';
 import {
@@ -108,6 +109,9 @@ const selectors = {
   filterTriggerProps: (state: State<unknown>) => state.filterTriggerProps,
   inputProps: (state: State<unknown>) => state.inputProps,
   highlightedItem: (state: State<unknown>) => state.highlightedItem,
+  // Solid: selector args are accessors.
+  webkitAriaSelected: (state: State<unknown>, highlighted: () => boolean) =>
+    isWebKit && state.inputFocused && highlighted() ? true : undefined,
   highlightedItemId: (state: State<unknown>) => state.highlightedItem?.id || undefined,
   // Solid: selector args are accessors.
   isActive: (state: State<unknown>, itemIndex: () => number) => state.activeIndex === itemIndex(),

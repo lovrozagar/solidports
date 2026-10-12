@@ -6,7 +6,12 @@ import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifie
 import { REASONS } from '../../utils/reasons';
 import { HTMLProps } from '../../utils/types';
 import { MenuStore } from '../store/MenuStore';
+import { useMenuRootContext } from '../root/MenuRootContext';
 import type { UseMenuItemMetadata } from './useMenuItem';
+
+function preventMouseDownDefault(event: MouseEvent) {
+  event.preventDefault();
+}
 
 export interface UseMenuItemCommonPropsParameters {
   /**
@@ -45,15 +50,26 @@ export interface UseMenuItemCommonPropsParameters {
 
 /**
  * Returns common props shared by all menu item types.
- * This hook extracts the shared logic for id, role, tabIndex, onKeyDown,
- * onMouseMove, onClick, and onMouseUp handlers.
+ * This hook extracts the shared logic for id, role, tabIndex, and interaction handlers.
  *
  * Solid: `params` is read through getters, so the returned props stay live.
  */
 export function useMenuItemCommonProps(params: UseMenuItemCommonPropsParameters): HTMLProps {
+  const rootContext = useMenuRootContext();
+  const contextMenuContext = useContextMenuRootContext(true);
+
+  // A submenu trigger is an item of the parent menu's list, so it follows that list's focus model.
+  // The item type is fixed for the item's lifetime.
+  const isSubmenuTrigger = params.itemMetadata.type === 'submenu-trigger';
+  const virtualFocus = isSubmenuTrigger ? rootContext.parentVirtualFocus : rootContext.virtualFocus;
+  const parent = rootContext.parent;
+  const selectionStore =
+    isSubmenuTrigger && parent.type === 'menu' ? parent.store : rootContext.store;
+  const ariaSelected = selectionStore.useState('webkitAriaSelected', () => params.highlighted);
+
   const floatingTreeRoot = params.store.useState('floatingTreeRoot');
   const open = params.store.useState('open');
-  const contextMenuContext = useContextMenuRootContext(true);
+
   const isContextMenu = contextMenuContext != null;
 
   return {
@@ -61,8 +77,16 @@ export function useMenuItemCommonProps(params: UseMenuItemCommonPropsParameters)
       return params.id;
     },
     role: 'menuitem',
+    // `-1` rather than omitting it, which leaves links and buttons in the tab order.
     get tabindex() {
-      return open() && params.highlighted ? 0 : -1;
+      return !virtualFocus() && open() && params.highlighted ? 0 : -1;
+    },
+    get 'aria-selected'() {
+      return ariaSelected() ? ('true' as const) : undefined;
+    },
+    // Real focus stays on the input or list that owns virtual navigation.
+    get onMouseDown() {
+      return virtualFocus() ? preventMouseDownDefault : undefined;
     },
     onKeyDown(event: KeyboardEvent) {
       if (event.key === ' ' && params.typingRef?.current) {
@@ -117,9 +141,12 @@ export function useMenuItemCommonProps(params: UseMenuItemCommonPropsParameters)
         // This fires whenever the user clicks on the trigger, moves the cursor, and releases it over the item.
         // We trigger the click and override the `closeOnClick` preference to always close the menu.
         if (params.itemMetadata.type === 'regular-item') {
-          // `detail: 1` marks this as a mouse-gesture click so MenuRoot doesn't
-          // treat it as a keyboard activation (`detail === 0` → `data-instant`).
-          dispatchClickWithModifiers(itemElement, event, { detail: 1 });
+          // `detail: 1` and `pointerType: 'mouse'` mark this as a mouse-gesture click so
+          // MenuRoot and FloatingFocusManager don't treat it as a keyboard activation.
+          dispatchClickWithModifiers(itemElement, event, {
+            detail: 1,
+            pointerType: 'mouse',
+          });
         }
       }
     },

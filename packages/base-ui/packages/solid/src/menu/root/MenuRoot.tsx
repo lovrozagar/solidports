@@ -664,6 +664,11 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
         get orientation() {
           return orientation();
         },
+        // A virtual-focus list can navigate on either axis, but its trigger always opens on the
+        // vertical one.
+        get triggerOrientation() {
+          return virtualFocus() ? ('vertical' as const) : orientation();
+        },
         get parentOrientation() {
           const currentParent = parent();
           return currentParent.type === 'menubar' ? currentParent.context.orientation() : undefined;
@@ -679,6 +684,7 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
         get externalTree() {
           return !virtualFocus() && nested() ? floatingTreeRoot() : undefined;
         },
+        nestedReturnFocusRef: parentMenuStore?.context.virtualFocusRef,
         get resetOnPointerLeave() {
           return resetOnPointerLeave();
         },
