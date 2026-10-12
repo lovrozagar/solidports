@@ -217,9 +217,10 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     'aria-label': 'Notifications',
     'aria-live': 'polite',
     'aria-relevant': 'additions text',
-    onBlur: handleBlur,
     onClick: handleFocus,
-    onFocus: handleFocus,
+    // Solid: React's `onFocus`/`onBlur` bubble from the toasts, so they map to `focusin`/`focusout`.
+    onFocusIn: handleFocus,
+    onFocusOut: handleBlur,
     onKeyDown: handleKeyDown,
     onMouseEnter: handleMouseEnter,
     onMouseLeave: handleMouseLeave,

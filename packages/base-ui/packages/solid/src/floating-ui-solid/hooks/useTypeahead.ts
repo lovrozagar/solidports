@@ -246,7 +246,8 @@ export function useTypeahead(parameters: {
     },
   );
 
-  const sharedProps = { onKeyDown, onBlur };
+  // Solid: React's `onBlur` bubbles from the floating element's items (`focusout`).
+  const sharedProps = { onKeyDown, onFocusOut: onBlur };
 
   return {
     get reference() {

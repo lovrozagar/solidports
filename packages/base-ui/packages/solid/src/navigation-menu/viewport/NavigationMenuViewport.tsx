@@ -125,7 +125,8 @@ export function NavigationMenuViewport(componentProps: NavigationMenuViewport.Pr
         get id() {
           return id();
         },
-        onBlur(event: FocusEvent) {
+        // Solid: React's `onBlur` bubbles from the viewport's descendants (`focusout`).
+        onFocusOut(event: FocusEvent) {
           const relatedTarget = event.relatedTarget as Element | null;
           const currentTarget = event.currentTarget as Element;
 

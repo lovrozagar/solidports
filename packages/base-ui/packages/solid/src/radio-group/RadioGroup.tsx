@@ -328,11 +328,11 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     get 'aria-labelledby'() {
       return ariaLabelledby();
     },
-    onFocus() {
-      setFocused(true);
-    },
-    onBlur(event: FocusEvent) {
+    // Solid: React's `onBlur` bubbles from the radios (`focusout`). The focused state itself is set
+    // by the focused radio.
+    onFocusOut(event: FocusEvent) {
       if (!contains(event.currentTarget as Element, event.relatedTarget as Element | null)) {
+        setTouched(false);
         setFieldTouched(true);
         setFocused(false);
 
@@ -346,7 +346,6 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
       keydown(event) {
         if (event.key.startsWith('Arrow')) {
           setTouched(true);
-          setFocused(true);
         }
       },
     }),
@@ -402,25 +401,11 @@ const GROUP_ATTRIBUTES = { role: 'radiogroup' };
 // The group's own handlers (after the consumer's, as React's `mergeProps`).
 function groupFocus(m: NativeRadioGroup, event: FocusEvent) {
   makeEventPreventable(event as GroupEvent<FocusEvent>);
-  if (runConsumerHandler(m.props, 'onFocus', event as GroupEvent<FocusEvent>)) {
-    return;
-  }
-  m.field.setFocused(true);
+  runConsumerHandler(m.props, 'onFocus', event as GroupEvent<FocusEvent>);
 }
 function groupBlur(m: NativeRadioGroup, event: FocusEvent) {
   makeEventPreventable(event as GroupEvent<FocusEvent>);
-  if (runConsumerHandler(m.props, 'onBlur', event as GroupEvent<FocusEvent>)) {
-    return;
-  }
-  if (!contains(event.currentTarget as Element, event.relatedTarget as Element | null)) {
-    m.setTouched(false);
-    m.field.setTouched(true);
-    m.field.setFocused(false);
-
-    if (untrack(m.field.validationMode) === 'onBlur') {
-      m.field.validation.commit(untrack(m.checkedValue));
-    }
-  }
+  runConsumerHandler(m.props, 'onBlur', event as GroupEvent<FocusEvent>);
 }
 
 function NativeRadioGroupElement(
@@ -448,15 +433,21 @@ function NativeRadioGroupElement(
         (event) => {
           if (event.key.startsWith('Arrow')) {
             m.setTouched(true);
-            field.setFocused(true);
           }
         },
         true,
       );
-      // `onBlur` does not bubble, so a child leaving the group is observed on `focusout`.
+      // React's `onBlur` bubbles: focus leaving the group from any radio is observed on `focusout`.
+      // The focused state itself is set by the focused radio.
       el.addEventListener('focusout', (event) => {
         if (!contains(event.currentTarget as Element, event.relatedTarget as Element | null)) {
           m.setTouched(false);
+          field.setTouched(true);
+          field.setFocused(false);
+
+          if (untrack(field.validationMode) === 'onBlur') {
+            field.validation.commit(untrack(m.checkedValue));
+          }
         }
       });
       return renderNativeElement({

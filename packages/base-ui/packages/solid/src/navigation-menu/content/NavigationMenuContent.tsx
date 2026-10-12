@@ -113,16 +113,18 @@ export function NavigationMenuContent(componentProps: NavigationMenuContent.Prop
     }
   };
 
+  // Solid: React's `onFocus`/`onBlur` bubble from the content's descendants, so they map to
+  // `focusin`/`focusout`.
   const commonProps: HTMLProps<HTMLDivElement> = {
-    onFocus(event) {
+    onFocusIn(event: FocusEvent) {
       const target = getTarget(event) as Element | null;
       if (target?.hasAttribute('data-base-ui-focus-guard')) {
         return;
       }
       setFocusInside(true);
     },
-    onBlur(event) {
-      if (!contains(event.currentTarget, event.relatedTarget as Element | null)) {
+    onFocusOut(event: FocusEvent) {
+      if (!contains(event.currentTarget as Element, event.relatedTarget as Element | null)) {
         setFocusInside(false);
       }
     },
