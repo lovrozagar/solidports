@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSignal, onCleanup, onSettled, Show, type Accessor } from 'solid-js';
-import { Drawer } from '@solidports/base-ui/drawer';
+import {
+  Drawer,
+  DrawerCloseDataAttributes,
+  DrawerTriggerDataAttributes,
+} from '@solidports/base-ui/drawer';
 import { createEvent, fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { act, createRenderer, flushMicrotasks, isJSDOM, waitSingleFrame } from '#test-utils';
 import { REASONS } from '../../utils/reasons';
@@ -1615,9 +1619,10 @@ describe('<Drawer.Root />', () => {
       const env = setupSwipeTestEnv();
 
       try {
-        render(() => (
-          <SnapPointGestureCase initialSnapPoint="100px" rejectClose snapToSequentialPoints />
-        ));
+        // Start from a non-default snap point. Root's open change handler resets the snap point
+        // to the default ('100px') even when the parent rejects the close, so only a
+        // non-default starting point shows that the rejected dismissal restores it.
+        await render(() => <SnapPointGestureCase initialSnapPoint="300px" rejectClose />);
         const viewport = screen.getByTestId('viewport');
         env.pointAt(screen.getByTestId('popup'));
 
@@ -1631,7 +1636,7 @@ describe('<Drawer.Root />', () => {
           await waitSingleFrame();
         });
 
-        expect(screen.getByTestId('active-snap').textContent).toBe('100px');
+        expect(screen.getByTestId('active-snap').textContent).toBe('300px');
         expect(screen.getByTestId('popup')).toHaveAttribute('data-open', '');
       } finally {
         env.cleanup();
@@ -1872,4 +1877,127 @@ describe('<Drawer.Root />', () => {
       expect(watcher.active).toBe(false);
     });
   });
+
+  it('exposes the attributes rendered by borrowed trigger and close parts', async () => {
+    const { user } = await render(() => (
+      <Drawer.Root modal={false}>
+        <Drawer.Trigger>Open</Drawer.Trigger>
+        <Drawer.Trigger disabled>Disabled</Drawer.Trigger>
+        <Drawer.Close disabled>Close</Drawer.Close>
+      </Drawer.Root>
+    ));
+
+    const disabledTrigger = screen.getByRole('button', { name: 'Disabled' });
+    expect(disabledTrigger).toHaveAttribute(DrawerTriggerDataAttributes.disabled);
+
+    const closeButton = screen.getByRole('button', { name: 'Close' });
+    expect(closeButton).toHaveAttribute(DrawerCloseDataAttributes.disabled);
+
+    const trigger = screen.getByRole('button', { name: 'Open' });
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute(DrawerTriggerDataAttributes.popupOpen);
+  });
+
+  it('does not re-render inactive detached triggers when the popup opens and closes', async () => {
+    const handle = Drawer.createHandle();
+    const bystander = { renders: 0 };
+
+    const { user } = await render(() => (
+      <div>
+        <Drawer.Trigger handle={handle}>Trigger 1</Drawer.Trigger>
+        <Drawer.Trigger
+          handle={handle}
+          render={(props) => {
+            bystander.renders += 1;
+            return <button {...props} />;
+          }}
+        >
+          Trigger 2
+        </Drawer.Trigger>
+        <Drawer.Root handle={handle}>
+          <Drawer.Portal>
+            <Drawer.Viewport>
+              <Drawer.Popup data-testid="popup">
+                <Drawer.Close>Close</Drawer.Close>
+              </Drawer.Popup>
+            </Drawer.Viewport>
+          </Drawer.Portal>
+        </Drawer.Root>
+      </div>
+    ));
+
+    const trigger = screen.getByRole('button', { name: 'Trigger 1' });
+
+    async function openAndClose() {
+      await user.click(trigger);
+      expect(await screen.findByTestId('popup')).not.toBe(null);
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+      await waitFor(() => {
+        expect(screen.queryByTestId('popup')).toBe(null);
+      });
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    }
+
+    bystander.renders = 0;
+    await openAndClose();
+    await openAndClose();
+    expect(bystander.renders).toBe(0);
+  });
+
+  it.skipIf(isJSDOM).each([false, true])(
+    'advances on a short flick with a trailing stationary sample: %s',
+    async (phantom) => {
+      const env = setupSwipeTestEnv();
+
+      try {
+        await render(() => <SnapPointSequentialSkipCase />);
+
+        const viewport = screen.getByTestId('viewport');
+        env.pointAt(screen.getByTestId('popup'));
+
+        await simulateTimedSwipe(viewport, [
+          { type: 'down', x: 100, y: 500, time: 992 },
+          { type: 'move', x: 100, y: 500, time: 1000 },
+          { type: 'move', x: 100, y: 488, time: 1016 },
+          { type: 'move', x: 100, y: 476, time: 1032 },
+          { type: 'move', x: 100, y: 464, time: 1048 },
+          ...(phantom ? [{ type: 'move' as const, x: 100, y: 463.5, time: 1064 }] : []),
+          { type: 'up', x: 100, y: phantom ? 463.5 : 464, time: phantom ? 1072 : 1056 },
+        ]);
+
+        expect(screen.getByTestId('active-snap').textContent).toBe('300px');
+      } finally {
+        env.cleanup();
+      }
+    },
+  );
+
+  it.skipIf(isJSDOM)(
+    'stays on the current snap point after repeated stationary samples',
+    async () => {
+      const env = setupSwipeTestEnv();
+
+      try {
+        await render(() => <SnapPointSequentialSkipCase />);
+
+        const viewport = screen.getByTestId('viewport');
+        env.pointAt(screen.getByTestId('popup'));
+
+        await simulateTimedSwipe(viewport, [
+          { type: 'down', x: 100, y: 500, time: 992 },
+          { type: 'move', x: 100, y: 500, time: 1000 },
+          { type: 'move', x: 100, y: 460, time: 1016 },
+          { type: 'move', x: 100, y: 460, time: 1032 },
+          { type: 'move', x: 100, y: 460, time: 1048 },
+          { type: 'move', x: 100, y: 460, time: 1064 },
+          { type: 'up', x: 100, y: 460, time: 1072 },
+        ]);
+
+        expect(screen.getByTestId('active-snap').textContent).toBe('100px');
+      } finally {
+        env.cleanup();
+      }
+    },
+  );
 });
