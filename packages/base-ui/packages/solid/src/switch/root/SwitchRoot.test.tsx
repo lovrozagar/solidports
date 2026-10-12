@@ -103,8 +103,6 @@ describe('<Switch.Root />', () => {
       expect(switchElement).toHaveAttribute('aria-checked', 'false');
     });
 
-    ['Enter', 'Space'].forEach((key) => {});
-
     it.each([{ key: 'Enter' }, { key: 'Space' }])(
       'can be activated with $key key',
       async ({ key }) => {

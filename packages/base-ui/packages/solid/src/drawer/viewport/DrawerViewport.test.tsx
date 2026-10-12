@@ -5,7 +5,7 @@ import { Slider } from '@solidports/base-ui/slider';
 import { Portal } from '@solidjs/web';
 import { createEvent, fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createEffect, createRenderEffect, createSignal, onSettled, Show } from 'solid-js';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { useDrawerProviderContext } from '../provider/DrawerProviderContext';
 import { useDrawerRootContext } from '../root/DrawerRootContext';
@@ -46,12 +46,6 @@ const firePointer = {
 };
 
 describe('<Drawer.Viewport />', () => {
-  beforeAll(function beforeHook() {
-    // PointerEvent not fully implemented in jsdom, causing fireEvent.pointer* to ignore options.
-    // https://github.com/jsdom/jsdom/issues/2527
-    (window as any).PointerEvent = window.MouseEvent;
-  });
-
   const { render } = createRenderer();
 
   describeConformance(Drawer.Viewport, () => ({

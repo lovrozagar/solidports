@@ -1,7 +1,14 @@
 import { createSignal, flush } from 'solid-js';
 import { describe, expect, it } from 'vitest';
+import { waitFor } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
 import { ItemIndicator } from './ItemIndicator';
+
+function nextFrame() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
 
 describe('ItemIndicator', () => {
   const { render } = createRenderer();
@@ -73,17 +80,16 @@ describe('ItemIndicator', () => {
       selectedNow = false;
       setVersion(1);
       flush();
-      await new Promise((resolve) => {
-        setTimeout(resolve, 0);
+      // The animations are read on the next animation frame.
+      await waitFor(() => {
+        expect(animationReads).toBeGreaterThan(0);
       });
-      expect(animationReads).toBeGreaterThan(0);
 
       selectedNow = true;
       resolveFinished();
       await finished;
-      await new Promise((resolve) => {
-        setTimeout(resolve, 0);
-      });
+      await nextFrame();
+      await nextFrame();
       flush();
       expect(document.querySelector('[data-testid="mark"]')).not.toBe(null);
     } finally {

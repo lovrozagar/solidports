@@ -481,14 +481,37 @@ describe('<Field.Root />', () => {
       // expect(screen.queryByText('custom error')).to.equal(null);
     });
 
-    (
-      [
-        ['an empty array', () => []],
-        ['an undefined', () => undefined],
-        ['an empty string', () => ''],
-        ['an array of empty strings', () => ['', '']],
-      ] as const
-    ).forEach(([label, validate]) => {});
+    it.each([
+      { label: 'an empty array', validate: () => [] },
+      { label: 'an undefined', validate: () => undefined },
+      { label: 'an empty string', validate: () => '' },
+      { label: 'an array of empty strings', validate: () => ['', ''] },
+    ])('treats $label result as valid', async ({ validate }) => {
+      const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
+
+      render(() => (
+        <Form onSubmit={onSubmit}>
+          <Field.Root name="field" validationMode="onChange" validate={validate}>
+            <Field.Control data-testid="control" />
+            <Field.Error data-testid="error" />
+          </Field.Root>
+          <button type="submit">submit</button>
+        </Form>
+      ));
+
+      const control = screen.getByTestId('control');
+
+      fireEvent.input(control, { target: { value: 'abc' } });
+
+      expect(control).not.toHaveAttribute('aria-invalid');
+      expect(control).not.toHaveAttribute('data-invalid');
+      expect(screen.queryByTestId('error')).toBe(null);
+      expect(control).toHaveProperty('validationMessage', '');
+
+      fireEvent.click(screen.getByText('submit'));
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
 
     describe('async validation pending state', () => {
       it('retires a stale native error to neutral once the constraint passes again', async () => {

@@ -2,7 +2,7 @@ import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import type { JSX } from '@solidjs/web';
 import { type Orientation } from '../../utils/types';
 import { useToolbarRootContext } from './ToolbarRootContext';
@@ -45,16 +45,62 @@ describe('<Toolbar.Root />', () => {
   });
 
   describe.skipIf(isJSDOM)('keyboard navigation', () => {
-    [
-      ['ltr', 'horizontal', 'ArrowRight', 'ArrowLeft'],
-      ['ltr', 'vertical', 'ArrowDown', 'ArrowUp'],
-      ['rtl', 'horizontal', 'ArrowLeft', 'ArrowRight'],
-      ['rtl', 'vertical', 'ArrowDown', 'ArrowUp'],
-    ].forEach((entry) => {
-      const [direction, orientation, nextKey, prevKey] = entry;
+    it.each<{
+      direction: TextDirection;
+      orientation: Orientation;
+      nextKey: string;
+      prevKey: string;
+    }>([
+      { direction: 'ltr', orientation: 'horizontal', nextKey: 'ArrowRight', prevKey: 'ArrowLeft' },
+      { direction: 'ltr', orientation: 'vertical', nextKey: 'ArrowDown', prevKey: 'ArrowUp' },
+      { direction: 'rtl', orientation: 'horizontal', nextKey: 'ArrowLeft', prevKey: 'ArrowRight' },
+      { direction: 'rtl', orientation: 'vertical', nextKey: 'ArrowDown', prevKey: 'ArrowUp' },
+    ])(
+      '$direction, orientation: $orientation',
+      async ({ direction, orientation, nextKey, prevKey }) => {
+        const { user } = render(() => (
+          <DirectionProvider direction={direction}>
+            <Toolbar.Root dir={direction as JSX.HTMLDir} orientation={orientation}>
+              <Toolbar.Button />
+              <Toolbar.Link href="https://base-ui.com">Link</Toolbar.Link>
+              <Toolbar.Group>
+                <Toolbar.Button />
+                <Toolbar.Button />
+              </Toolbar.Group>
+              <Toolbar.Input defaultValue="" />
+            </Toolbar.Root>
+          </DirectionProvider>
+        ));
+        const [button1, groupedButton1, groupedButton2] = screen.getAllByRole('button');
+        const link = screen.getByText('Link');
+        const input = screen.getByRole('textbox');
 
-      describe(direction, () => {});
-    });
+        await user.keyboard('[Tab]');
+        expect(button1).toHaveFocus();
+
+        await user.keyboard(`[${nextKey}]`);
+        expect(link).toHaveFocus();
+
+        await user.keyboard(`[${nextKey}]`);
+        expect(groupedButton1).toHaveFocus();
+
+        await user.keyboard(`[${nextKey}]`);
+        expect(groupedButton2).toHaveFocus();
+
+        await user.keyboard(`[${nextKey}]`);
+        expect(input).toHaveFocus();
+
+        // loop to the beginning
+        await user.keyboard(`[${nextKey}]`);
+        expect(button1).toHaveFocus();
+
+        await user.keyboard(`[${prevKey}]`);
+        expect(input).toHaveFocus();
+
+        await user.keyboard(`[${prevKey}]`);
+        expect(groupedButton2).toHaveFocus();
+      },
+    );
 
     it('does not wrap focus when loopFocus is false', async () => {
       const { user } = render(() => (

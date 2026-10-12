@@ -141,11 +141,42 @@ describe('<Toolbar.Input />', () => {
     // when navigating through RTL text in real browsers the arrow keys for
     // moving the text insertion cursor is also reversed from LTR but this doesn't
     // work with testing library
-    [
-      ['horizontal', ARROW_RIGHT, ARROW_LEFT],
-      ['vertical', ARROW_DOWN, ARROW_UP],
-    ].forEach((entry) => {
-      const [orientation, nextKey, prevKey] = entry;
+    it.each<{ orientation: Orientation; nextKey: string; prevKey: string }>([
+      { orientation: 'horizontal', nextKey: ARROW_RIGHT, prevKey: ARROW_LEFT },
+      { orientation: 'vertical', nextKey: ARROW_DOWN, prevKey: ARROW_UP },
+    ])('orientation: $orientation', async ({ orientation, nextKey, prevKey }) => {
+      const { user } = render(() => (
+        <Toolbar.Root orientation={orientation}>
+          <Toolbar.Button />
+          <Toolbar.Input defaultValue="abcd" />
+          <Toolbar.Button />
+        </Toolbar.Root>
+      ));
+      const input = screen.getByRole('textbox') as HTMLInputElement;
+      const [button1, button2] = screen.getAllByRole('button');
+
+      await user.keyboard('[Tab]');
+      expect(button1).toHaveFocus();
+
+      await user.keyboard(`[${nextKey}]`);
+      expect(input).toHaveFocus();
+
+      // Firefox doesn't support document.getSelection() in inputs
+      expect(input.selectionStart).toBe(0);
+      expect(input.selectionEnd).toBe(4);
+
+      await user.keyboard(`[${ARROW_RIGHT}]`);
+      await user.keyboard(`[${nextKey}]`);
+
+      expect(button2).toHaveFocus();
+
+      await user.keyboard(`[${prevKey}]`);
+      expect(input).toHaveFocus();
+
+      await user.keyboard(`[${ARROW_LEFT}]`);
+      await user.keyboard(`[${prevKey}]`);
+
+      expect(button1).toHaveFocus();
     });
   });
 

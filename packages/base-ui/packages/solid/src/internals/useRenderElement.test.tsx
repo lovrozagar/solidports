@@ -593,6 +593,7 @@ describe('useRenderElement', () => {
       it('merges props with the same precedence as a plain render element', () => {});
       it('attaches the render element ref', () => {});
       it('does not unwrap a pending element when disabled', () => {});
+      it.skip('reports a wrapper that unwraps to %s as an invalid render element', () => {});
     });
 
     // Solid: a string `render` is an intrinsic tag name, not an invalid element.

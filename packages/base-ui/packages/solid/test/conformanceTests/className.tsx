@@ -11,6 +11,7 @@ export function testClassName(
   element: Component<ConformantComponentProps>,
   getOptions: () => BaseUiConformanceTestsOptions,
 ) {
+  // Solid: the prop is `class`, not React's `className`.
   describe('prop: class', () => {
     const { render } = getOptions();
 

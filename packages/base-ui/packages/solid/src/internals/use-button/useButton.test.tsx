@@ -19,8 +19,6 @@ describe('useButton', () => {
 
   describe('non-native button', () => {
     describe('keyboard interactions', () => {
-      ['Enter', 'Space'].forEach((key) => {});
-
       it('does not set a type prop', async () => {
         let buttonProps: Record<string, unknown> | undefined = undefined;
 
