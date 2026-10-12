@@ -1,3 +1,4 @@
+import { createEffect } from 'solid-js';
 import { createRenderer, describeConformance } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { screen, waitFor } from '@solidjs/testing-library';
@@ -9,6 +10,38 @@ describe('<Popover.Backdrop />', () => {
     refInstanceof: window.HTMLDivElement,
     render: (node, props) => render(() => <Popover.Root open>{node(props!)}</Popover.Root>),
   }));
+
+  it.each([false, true])(
+    'does not start an entry phase when initially open (controlled=%s)',
+    async (controlled) => {
+      const statuses = new Set<Popover.Backdrop.State['transitionStatus']>();
+
+      // Solid: an effect over the state records each committed value, as React's layout effect.
+      function RecordState(props: { state: Popover.Backdrop.State }) {
+        createEffect(
+          () => props.state.transitionStatus,
+          (status) => {
+            statuses.add(status);
+          },
+        );
+        return null;
+      }
+
+      await render(() => (
+        <Popover.Root open={controlled ? true : undefined} defaultOpen={!controlled}>
+          <Popover.Backdrop
+            render={(props: Record<string, unknown>, state: Popover.Backdrop.State) => (
+              <div {...props}>
+                <RecordState state={state} />
+              </div>
+            )}
+          />
+        </Popover.Root>
+      ));
+
+      expect(statuses).toEqual(new Set([undefined]));
+    },
+  );
 
   it('sets `pointer-events: none` style on backdrop if opened by hover', async () => {
     const { user } = render(() => (

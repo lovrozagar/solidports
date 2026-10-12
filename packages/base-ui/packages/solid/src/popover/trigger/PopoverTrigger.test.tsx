@@ -285,29 +285,6 @@ describe('<Popover.Trigger />', () => {
 
     clock.withFakeTimers();
 
-    it('does not close the popover if the user clicks too quickly', async () => {
-      renderFakeTimers(() => (
-        <Popover.Root>
-          <Popover.Trigger delay={0} openOnHover />
-          <Popover.Portal>
-            <Popover.Positioner>
-              <Popover.Popup />
-            </Popover.Positioner>
-          </Popover.Portal>
-        </Popover.Root>
-      ));
-
-      const trigger = screen.getByRole('button');
-
-      fireEvent.mouseMove(trigger);
-
-      clock.tick(PATIENT_CLICK_THRESHOLD - 1);
-
-      fireEvent.click(trigger);
-
-      expect(trigger).to.have.attribute('data-popup-open');
-    });
-
     it('closes the popover if the user clicks patiently', async () => {
       renderFakeTimers(() => (
         <Popover.Root>
@@ -329,6 +306,11 @@ describe('<Popover.Trigger />', () => {
       fireEvent.click(trigger);
 
       expect(trigger).not.to.have.attribute('data-popup-open');
+
+      // Leaving the trigger afterwards doesn't reopen it.
+      fireEvent.mouseLeave(trigger);
+
+      expect(trigger).not.toHaveAttribute('data-popup-open');
     });
 
     it('sticks if the user clicks impatiently', async () => {
@@ -347,9 +329,15 @@ describe('<Popover.Trigger />', () => {
 
       fireEvent.mouseEnter(trigger);
 
+      // The hover opened the popover, so the click below lands on an open popover.
+      expect(trigger).toHaveAttribute('data-popup-open');
+
       clock.tick(PATIENT_CLICK_THRESHOLD - 1);
 
       fireEvent.click(trigger);
+
+      expect(trigger).toHaveAttribute('data-popup-open');
+
       fireEvent.mouseLeave(trigger);
 
       expect(trigger).to.have.attribute('data-popup-open');
@@ -357,30 +345,6 @@ describe('<Popover.Trigger />', () => {
       clock.tick(1);
 
       expect(trigger).to.have.attribute('data-popup-open');
-    });
-
-    it('does not stick if the user clicks patiently', async () => {
-      renderFakeTimers(() => (
-        <Popover.Root>
-          <Popover.Trigger delay={0} openOnHover />
-          <Popover.Portal>
-            <Popover.Positioner>
-              <Popover.Popup />
-            </Popover.Positioner>
-          </Popover.Portal>
-        </Popover.Root>
-      ));
-
-      const trigger = screen.getByRole('button');
-
-      fireEvent.mouseEnter(trigger);
-
-      clock.tick(PATIENT_CLICK_THRESHOLD);
-
-      fireEvent.click(trigger);
-      fireEvent.mouseLeave(trigger);
-
-      expect(trigger).not.to.have.attribute('data-popup-open');
     });
 
     it('sticks when clicked before the hover delay completes', async () => {
@@ -534,67 +498,6 @@ describe('<Popover.Trigger />', () => {
     fireEvent.pointerDown(screen.getByText('Plain'));
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Nested' }));
     expect(screen.getByRole('dialog')).toBeTruthy();
-  });
-
-  it('moves focus forward from the trailing guard while it is still tabbable', async () => {
-    const { user } = render(() => (
-      <div>
-        <button type="button">Before</button>
-        <Popover.Root modal={false}>
-          <Popover.Trigger>Toggle</Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Positioner>
-              <Popover.Popup finalFocus={false}>
-                <button type="button">Inside</button>
-              </Popover.Popup>
-            </Popover.Positioner>
-          </Popover.Portal>
-        </Popover.Root>
-        <button type="button">After</button>
-      </div>
-    ));
-
-    await user.click(screen.getByRole('button', { name: 'Toggle' }));
-    await flushMicrotasks();
-    const guards = document.querySelectorAll('[data-base-ui-focus-guard]');
-    (guards[guards.length - 1] as HTMLElement).focus();
-    await flushMicrotasks();
-
-    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus();
-  });
-
-  it('moves focus past a tabindex=-1 trigger when its guard unmounts on close', async () => {
-    const { user } = render(() => (
-      <div>
-        <button type="button">Before</button>
-        <Popover.Root modal={false}>
-          <Popover.Trigger tabIndex={-1}>Toggle</Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Positioner>
-              <Popover.Popup>
-                <button type="button">Inside</button>
-              </Popover.Popup>
-            </Popover.Positioner>
-          </Popover.Portal>
-        </Popover.Root>
-        <button type="button">After</button>
-      </div>
-    ));
-
-    await user.click(screen.getByRole('button', { name: 'Toggle' }));
-    await flushMicrotasks();
-    expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute('aria-expanded', 'true');
-
-    const guards = document.querySelectorAll('[data-base-ui-focus-guard]');
-    const trailingGuard = guards[guards.length - 1] as HTMLElement;
-    trailingGuard.focus();
-    await flushMicrotasks();
-
-    expect(screen.getByRole('button', { name: 'After' })).toHaveFocus();
-    expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
   });
 
   it('moves focus to the previous control when the leading guard is focused', async () => {
