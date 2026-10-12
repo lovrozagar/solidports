@@ -24,27 +24,68 @@ const componentGroupNames = fs
 
 const namespaceAliasMap = buildNamespaceAliasMap();
 
+/**
+ * Members of a constants namespace (`export * as AccordionTriggerDataAttributes from '...'`), which
+ * the extractor flattens into `AccordionTriggerDataAttributes.member` literal exports, in the shape
+ * `formatEnum` produces for an enum.
+ */
+function formatNamespaceConstants(allExports: tae.ExportNode[], namespace: string) {
+  const prefix = `${namespace}.`;
+  const members = allExports.filter(
+    (node) => node.name.startsWith(prefix) && node.type instanceof tae.LiteralNode,
+  );
+  if (members.length === 0) {
+    return undefined;
+  }
+
+  const result: Record<string, any> = {};
+  for (const member of members) {
+    const value = String((member.type as tae.LiteralNode).value).replace(/^"(.*)"$/, '$1');
+    result[value] = {
+      description: member.documentation?.description,
+      type: member.documentation?.tags?.find((tag) => tag.name === 'type')?.value,
+    };
+  }
+  return Object.fromEntries(Object.entries(result).sort(([a], [b]) => a.localeCompare(b)));
+}
+
+function formatConstants(allExports: tae.ExportNode[], names: string[]) {
+  for (const name of names) {
+    const enumNode = allExports.find((node) => node.name === name);
+    if (enumNode?.type instanceof tae.EnumNode) {
+      return formatEnum(enumNode.type);
+    }
+    const constants = formatNamespaceConstants(allExports, name);
+    if (constants) {
+      return constants;
+    }
+  }
+  return undefined;
+}
+
 export async function formatComponentData(component: tae.ExportNode, allExports: tae.ExportNode[]) {
   const description = component.documentation?.description?.replace(/\n\nDocumentation: .*$/ms, '');
-  const dataAttributes = allExports.find((node) => node.name === `${component.name}DataAttributes`);
-  const cssVariables = allExports.find((node) => node.name === `${component.name}CssVars`);
+  const dataAttributes = formatConstants(allExports, [`${component.name}DataAttributes`]);
+  const cssVariables = formatConstants(allExports, [
+    `${component.name}CssVars`,
+    `${component.name}CssVariables`,
+  ]);
 
   const raw = {
     name: component.name,
     description,
     props: sortObjectByKeys(
-      await formatProperties((component.type as tae.ComponentNode).props, allExports),
+      await formatProperties(
+        // Solid's namespaced JSX attributes (`prop:value`, `on:click`) are not component props.
+        (component.type as tae.ComponentNode).props.filter((prop) => !prop.name.includes(':')),
+        allExports,
+      ),
       memberOrder.props,
     ),
     dataAttributes: dataAttributes
-      ? sortObjectByKeys(
-          formatEnum(dataAttributes.type as tae.EnumNode),
-          memberOrder.dataAttributes,
-        )
+      ? sortObjectByKeys(dataAttributes, memberOrder.dataAttributes)
       : {},
-    cssVariables: cssVariables
-      ? sortObjectByKeys(formatEnum(cssVariables.type as tae.EnumNode), memberOrder.cssVariables)
-      : {},
+    cssVariables: cssVariables ? sortObjectByKeys(cssVariables, memberOrder.cssVariables) : {},
   } as Record<string, any>;
 
   // Post-process type strings to align naming across re-exports and hide internal suffixes.
