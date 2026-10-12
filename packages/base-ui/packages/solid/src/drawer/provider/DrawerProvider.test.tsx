@@ -2,11 +2,39 @@ import { describe, expect, it, vi } from 'vitest';
 import { createRenderEffect, createSignal, Show } from 'solid-js';
 import { Drawer } from '@solidports/base-ui/drawer';
 import { screen } from '@solidjs/testing-library';
-import { act, createRenderer } from '#test-utils';
+import { act, createRenderer, isJSDOM } from '#test-utils';
 import { useDrawerProviderContext } from './DrawerProviderContext';
 
 const manualDrawer = {};
 const missingDrawer = {};
+
+async function collectGarbage() {
+  const bunGc = (globalThis as { Bun?: { gc?: (sync?: boolean) => void } }).Bun?.gc;
+  if (typeof bunGc === 'function') {
+    for (let i = 0; i < 3; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => {
+        setTimeout(resolve);
+      });
+      bunGc(true);
+    }
+    return;
+  }
+
+  const nodeProcess = process as unknown as {
+    getBuiltinModule(id: 'node:v8'): { setFlagsFromString: (flags: string) => void };
+    getBuiltinModule(id: 'node:vm'): { runInNewContext: (code: string) => () => void };
+  };
+  nodeProcess.getBuiltinModule('node:v8').setFlagsFromString('--expose-gc');
+  const gc = nodeProcess.getBuiltinModule('node:vm').runInNewContext('gc');
+  for (let i = 0; i < 3; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => {
+      setTimeout(resolve);
+    });
+    gc();
+  }
+}
 
 function ProviderControls() {
   const context = useDrawerProviderContext();
@@ -148,6 +176,45 @@ describe('<Drawer.Provider />', () => {
     await user.click(screen.getByRole('button', { name: 'Register closed' }));
 
     expect(onRender).not.toHaveBeenCalled();
+  });
+
+  // Forcing GC needs a runtime that can collect, so this only runs in jsdom.
+  it.skipIf(!isJSDOM)('releases closed drawers once they are removed', async () => {
+    const drawerRefs: WeakRef<object>[] = [];
+
+    function RegisterClosedDrawers() {
+      const context = useDrawerProviderContext();
+      return (
+        <button
+          onClick={() => {
+            for (let i = 0; i < 10; i += 1) {
+              const closed = {};
+              const removed = {};
+              drawerRefs.push(new WeakRef(closed), new WeakRef(removed));
+              context?.setDrawerOpen(closed, false);
+              context?.removeDrawer(closed);
+              context?.setDrawerOpen(removed, true);
+              context?.removeDrawer(removed);
+            }
+          }}
+        >
+          Register closed drawers
+        </button>
+      );
+    }
+
+    const { user } = render(() => (
+      <Drawer.Provider>
+        <RegisterClosedDrawers />
+      </Drawer.Provider>
+    ));
+
+    await user.click(screen.getByRole('button', { name: 'Register closed drawers' }));
+    expect(drawerRefs).toHaveLength(20);
+
+    await collectGarbage();
+
+    expect(drawerRefs.filter((ref) => ref.deref() !== undefined)).toHaveLength(0);
   });
 
   it('synchronizes and restores visual state on Drawer.Indent', async () => {
