@@ -30,9 +30,15 @@ export function useControlled<T = unknown>(props: UseControlledProps<T>) {
 
   // The mode and the initial value are fixed by the first render, as in React.
   const isControlled = untrack(() => controlledProp() !== undefined);
-  // `createSignal(fn)` is a derived signal. A function value (a tab value) must be stored, not called.
+  // `createSignal(fn)` is a derived signal. A function value (a tab value) must be stored, not
+  // called, so only that case pays for the derived node.
   const initialValue = untrack(defaultProp);
-  const [valueState, setValue] = createSignal(() => initialValue as Exclude<T, Function>);
+  const [valueState, setValue] = createSignal(
+    (typeof initialValue === 'function' ? () => initialValue : initialValue) as Exclude<
+      T,
+      Function
+    >,
+  );
   // Keep the initial mode, but use the initial default if a controlled value disappears. A
   // controlled value goes through one memo (a derived value, such as a group's membership, then
   // reaches readers only when it changes); an uncontrolled one is the signal itself.

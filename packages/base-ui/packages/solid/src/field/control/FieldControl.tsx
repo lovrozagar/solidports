@@ -126,10 +126,16 @@ export function FieldControl(componentProps: FieldControl.Props) {
     }
   });
   // A later `defaultValue` updates the DOM value only while the user has not edited it.
-  // Refresh `filled` from that DOM value either way.
+  // Refresh `filled` from that DOM value either way. Solid: the compute also re-runs when the
+  // merged props it reads through change, so act only on a new `defaultValue`.
+  let lastDefaultValue = initialDefaultValue;
   createEffect(
     () => local.defaultValue,
-    () => {
+    (nextDefaultValue) => {
+      if (nextDefaultValue === lastDefaultValue) {
+        return;
+      }
+      lastDefaultValue = nextDefaultValue;
       if (untrack(isControlled)) {
         return;
       }

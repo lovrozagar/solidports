@@ -1,6 +1,6 @@
 import { untrack } from 'solid-js';
 import { access, createLayoutEffect, type MaybeAccessor } from '../../solid-helpers';
-import { useFieldRootContext } from './FieldRootContext';
+import { DEFAULT_FIELD_ROOT_CONTEXT, useFieldRootContext } from './FieldRootContext';
 
 /**
  * Returns the field's `setFocused`, recording which control the focused state belongs to.
@@ -14,7 +14,12 @@ export function useSetFieldFocused(
   focusTargetRef: { current: Element | null | undefined },
   onFocusedChange?: ((focused: boolean) => void) | undefined,
 ) {
-  const { setFocused, focusOwnerRef } = useFieldRootContext();
+  const fieldRootContext = useFieldRootContext();
+  // Solid: outside a field `setFocused` is a no-op, so skip the effect and its reactive nodes.
+  if (fieldRootContext === DEFAULT_FIELD_ROOT_CONTEXT && onFocusedChange === undefined) {
+    return noop;
+  }
+  const { setFocused, focusOwnerRef } = fieldRootContext;
 
   const setFieldFocused = (focused: boolean) => {
     // Latest disabled state, including when a layout effect calls this after `disabled` changes.
@@ -45,3 +50,5 @@ export function useSetFieldFocused(
 
   return setFieldFocused;
 }
+
+function noop(_focused: boolean) {}
