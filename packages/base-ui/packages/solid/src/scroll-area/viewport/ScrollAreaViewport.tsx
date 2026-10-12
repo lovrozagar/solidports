@@ -15,10 +15,10 @@ import { MIN_THUMB_SIZE } from '../constants';
 import type { HiddenState, ScrollAreaRootState } from '../root/ScrollAreaRoot';
 import { useScrollAreaRootContext } from '../root/ScrollAreaRootContext';
 import { scrollAreaStateAttributesMapping } from '../root/stateAttributes';
-import { ScrollAreaScrollbarCssVars } from '../scrollbar/ScrollAreaScrollbarCssVars';
+import * as ScrollAreaScrollbarCssVars from '../scrollbar/ScrollAreaScrollbarCssVars';
 import { getOffset } from '../utils/getOffset';
 import { ScrollAreaViewportContext } from './ScrollAreaViewportContext';
-import { ScrollAreaViewportCssVars } from './ScrollAreaViewportCssVars';
+import * as ScrollAreaViewportCssVars from './ScrollAreaViewportCssVars';
 
 const OVERFLOW_EDGE_VARS = [
   ScrollAreaViewportCssVars.scrollAreaOverflowXStart,

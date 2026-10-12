@@ -9,10 +9,10 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { SCROLL_TIMEOUT } from '../constants';
-import { ScrollAreaScrollbarDataAttributes } from '../scrollbar/ScrollAreaScrollbarDataAttributes';
+import * as ScrollAreaScrollbarDataAttributes from '../scrollbar/ScrollAreaScrollbarDataAttributes';
 import { getOffset } from '../utils/getOffset';
 import { ScrollAreaRootContext } from './ScrollAreaRootContext';
-import { ScrollAreaRootCssVars } from './ScrollAreaRootCssVars';
+import * as ScrollAreaRootCssVars from './ScrollAreaRootCssVars';
 import { scrollAreaStateAttributesMapping } from './stateAttributes';
 
 const DEFAULT_COORDS = { x: 0, y: 0 };

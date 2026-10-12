@@ -7,8 +7,8 @@ import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import { type BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { type TransitionStatus } from '../../utils/useTransitionStatus';
-import { DrawerPopupCssVars } from '../popup/DrawerPopupCssVars';
-import { DrawerBackdropCssVars } from './DrawerBackdropCssVars';
+import * as DrawerPopupCssVars from '../popup/DrawerPopupCssVars';
+import * as DrawerBackdropCssVars from './DrawerBackdropCssVars';
 
 const stateAttributesMapping: StateAttributesMapping<DrawerBackdrop.State> = {
   ...baseMapping,

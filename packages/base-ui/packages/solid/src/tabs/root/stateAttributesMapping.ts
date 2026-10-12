@@ -1,6 +1,6 @@
 import type { TabsRoot } from './TabsRoot';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
-import { TabsRootDataAttributes } from './TabsRootDataAttributes';
+import * as TabsRootDataAttributes from './TabsRootDataAttributes';
 
 export const tabsStateAttributesMapping: StateAttributesMapping<TabsRoot.State> = {
   tabActivationDirection: (dir) => ({

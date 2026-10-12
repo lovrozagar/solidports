@@ -6,7 +6,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { MenuViewportCssVars } from './MenuViewportCssVars';
+import * as MenuViewportCssVars from './MenuViewportCssVars';
 
 const stateAttributesMapping: StateAttributesMapping<MenuViewport.State> = {
   activationDirection: (value) =>

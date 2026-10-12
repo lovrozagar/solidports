@@ -22,7 +22,7 @@ import { useAnimationsFinished } from '../../utils/useAnimationsFinished';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
 import type { CollapsibleRoot } from '../root/CollapsibleRoot';
-import { CollapsiblePanelDataAttributes } from './CollapsiblePanelDataAttributes';
+import * as CollapsiblePanelDataAttributes from './CollapsiblePanelDataAttributes';
 
 type AnimationType = 'css-transition' | 'css-animation' | 'none';
 

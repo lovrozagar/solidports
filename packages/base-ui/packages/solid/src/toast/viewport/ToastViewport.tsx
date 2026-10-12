@@ -12,7 +12,7 @@ import { visuallyHidden } from '../../utils/visuallyHidden';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
 import type { ToastObject } from '../useToastManager';
 import { isFocusVisible } from '../utils/focusVisible';
-import { ToastViewportCssVars } from './ToastViewportCssVars';
+import * as ToastViewportCssVars from './ToastViewportCssVars';
 
 /**
  * A container viewport for toasts.

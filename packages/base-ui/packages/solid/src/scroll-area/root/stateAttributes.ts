@@ -1,6 +1,6 @@
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import type { ScrollAreaRoot } from './ScrollAreaRoot';
-import { ScrollAreaRootDataAttributes } from './ScrollAreaRootDataAttributes';
+import * as ScrollAreaRootDataAttributes from './ScrollAreaRootDataAttributes';
 
 export const scrollAreaStateAttributesMapping: StateAttributesMapping<ScrollAreaRoot.State> = {
   cornerHidden: () => null,

@@ -3,8 +3,8 @@ import { splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { DrawerBackdropCssVars } from '../backdrop/DrawerBackdropCssVars';
-import { DrawerPopupCssVars } from '../popup/DrawerPopupCssVars';
+import * as DrawerBackdropCssVars from '../backdrop/DrawerBackdropCssVars';
+import * as DrawerPopupCssVars from '../popup/DrawerPopupCssVars';
 import { useDrawerProviderContext } from '../provider/DrawerProviderContext';
 
 const stateAttributesMapping: StateAttributesMapping<DrawerIndent.State> = {

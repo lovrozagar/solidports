@@ -19,7 +19,7 @@ import { tabsStateAttributesMapping } from '../root/stateAttributesMapping';
 import type { TabsRootState } from '../root/TabsRoot';
 import { useTabsRootContext } from '../root/TabsRootContext';
 import type { TabsTab } from '../tab/TabsTab';
-import { TabsPanelDataAttributes } from './TabsPanelDataAttributes';
+import * as TabsPanelDataAttributes from './TabsPanelDataAttributes';
 
 const stateAttributesMapping: StateAttributesMapping<TabsPanelState> = {
   ...tabsStateAttributesMapping,
@@ -250,7 +250,10 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
     panelRef = el;
     getListItem().setRef(el);
     if (staticRegistration && el && unregister === undefined) {
-      unregister = registerMountedTabPanel(untrack(() => props.value), untrack(id)!);
+      unregister = registerMountedTabPanel(
+        untrack(() => props.value),
+        untrack(id)!,
+      );
     }
   };
 
@@ -273,21 +276,21 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
 
   return createNativeConditional(owner, shouldRender, () =>
     renderNativeElement((<div />) as unknown as Element, props, {
-        own: OWN_KEYS,
-        state,
-        mapping: stateAttributesMapping,
-        reactive: true,
-        literal: TABPANEL,
-        attributes: (set) => {
-          set('aria-labelledby', correspondingTabId());
-          set('hidden', !mounted());
-          set('id', id());
-          set('tabindex', open() ? 0 : -1);
-          set('inert', !open());
-          set(TabsPanelDataAttributes.index, getListItem().index());
-        },
-        refs: [setPanelRef],
-      }),
+      own: OWN_KEYS,
+      state,
+      mapping: stateAttributesMapping,
+      reactive: true,
+      literal: TABPANEL,
+      attributes: (set) => {
+        set('aria-labelledby', correspondingTabId());
+        set('hidden', !mounted());
+        set('id', id());
+        set('tabindex', open() ? 0 : -1);
+        set('inert', !open());
+        set(TabsPanelDataAttributes.index, getListItem().index());
+      },
+      refs: [setPanelRef],
+    }),
   ) as unknown as JSX.Element;
 }
 

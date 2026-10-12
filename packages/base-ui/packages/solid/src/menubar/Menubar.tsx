@@ -10,7 +10,7 @@ import { BaseUIComponentProps } from '../utils/types';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { REASONS } from '../utils/reasons';
 import { MenubarContext, type MenubarMenu } from './MenubarContext';
-import { MenubarDataAttributes } from './MenubarDataAttributes';
+import * as MenubarDataAttributes from './MenubarDataAttributes';
 
 const menubarStateAttributesMapping: StateAttributesMapping<Menubar.State> = {
   hasSubmenuOpen(value) {

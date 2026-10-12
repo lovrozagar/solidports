@@ -21,7 +21,7 @@ import { useAccordionItemContext } from '../item/AccordionItemContext';
 import { accordionStateAttributesMapping } from '../item/stateAttributesMapping';
 import type { AccordionRoot } from '../root/AccordionRoot';
 import { useAccordionRootContext } from '../root/AccordionRootContext';
-import { AccordionPanelCssVars } from './AccordionPanelCssVars';
+import * as AccordionPanelCssVars from './AccordionPanelCssVars';
 
 const KEEP_MOUNTED_WARNING =
   'The `keepMounted={false}` prop on an `Accordion.Panel` is ignored when `hiddenUntilFound` is enabled on the panel or root, since the panel must remain mounted while closed.';

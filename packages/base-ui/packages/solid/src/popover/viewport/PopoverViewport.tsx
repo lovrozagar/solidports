@@ -6,7 +6,7 @@ import { usePopupViewport } from '../../utils/usePopupViewport';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { usePopoverPositionerContext } from '../positioner/PopoverPositionerContext';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
-import { PopoverViewportCssVars } from './PopoverViewportCssVars';
+import * as PopoverViewportCssVars from './PopoverViewportCssVars';
 
 const stateAttributesMapping: StateAttributesMapping<PopoverViewport.State> = {
   activationDirection: (value) =>
