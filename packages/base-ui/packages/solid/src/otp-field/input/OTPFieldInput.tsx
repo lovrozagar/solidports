@@ -482,11 +482,17 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
 }
 
 export interface OTPFieldInputState extends Omit<OTPFieldRootState, 'filled' | 'value'> {
-  /** Whether this input contains a character. */
+  /**
+   * Whether this input contains a character.
+   */
   filled: boolean;
-  /** The input index. */
+  /**
+   * The input index.
+   */
   index: number;
-  /** The character rendered in this slot. */
+  /**
+   * The character rendered in this slot.
+   */
   value: string;
 }
 

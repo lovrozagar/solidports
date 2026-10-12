@@ -7,7 +7,7 @@ import { useScrollAreaScrollbarContext } from '../scrollbar/ScrollAreaScrollbarC
 import * as ScrollAreaScrollbarCssVars from '../scrollbar/ScrollAreaScrollbarCssVars';
 
 /**
- * The draggable part of the the scrollbar that indicates the current scroll position.
+ * The draggable part of the scrollbar that indicates the current scroll position.
  * Renders a `<div>` element.
  *
  * Documentation: [Base UI Scroll Area](https://base-ui.com/react/components/scroll-area)

@@ -6,7 +6,7 @@ import type { ProgressRootState } from '../root/ProgressRoot';
 import { useProgressRootContext } from '../root/ProgressRootContext';
 import { progressStateAttributesMapping } from '../root/stateAttributesMapping';
 /**
- * A text label displaying the current value.
+ * A text element displaying the current value.
  * Renders a `<span>` element.
  *
  * Documentation: [Base UI Progress](https://base-ui.com/react/components/progress)

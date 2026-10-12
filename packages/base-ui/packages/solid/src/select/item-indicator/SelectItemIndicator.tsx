@@ -34,7 +34,9 @@ export interface SelectItemIndicatorProps extends BaseUIComponentProps<
   SelectItemIndicator.State
 > {
   children?: JSX.Element;
-  /** Whether to keep the HTML element in the DOM when the item is not selected. */
+  /**
+   * Whether to keep the HTML element in the DOM when the item is not selected.
+   */
   keepMounted?: boolean | undefined;
 }
 

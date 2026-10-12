@@ -42,10 +42,10 @@ import { mergeProps as solidMergeProps } from '../solid-1-compat';
 const MODIFIER_KEYS = [SHIFT];
 
 /**
- * Provides a shared state to a series of radio buttons.
+ * Provides shared state to a series of radio buttons.
  * Renders a `<div>` element.
  *
- * Documentation: [Base UI Radio Group](https://base-ui.com/react/components/radio)
+ * Documentation: [Base UI Radio Group](https://base-ui.com/react/components/radio-group)
  */
 export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
   const [renderProps, local, elementProps] = splitComponentProps(componentProps, [

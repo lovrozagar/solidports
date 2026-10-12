@@ -8,6 +8,8 @@ import { useComboboxItemContext } from '../item/ComboboxItemContext';
 /**
  * Indicates whether the item is selected.
  * Renders a `<span>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxItemIndicator(componentProps: ComboboxItemIndicator.Props) {
   const { selected } = useComboboxItemContext();

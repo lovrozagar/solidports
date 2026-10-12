@@ -27,7 +27,8 @@ export interface MenuFilterDropdownProps {
 
 /**
  * Reads the menu store, which is only available below the menu root, and hands the filter
- * engine the list the menu navigates and the command that moves its highlight.
+ * engine the list the menu navigates and the command that moves its highlight. The query is
+ * owned here; the menu root keeps sole ownership of the open state.
  */
 export function MenuFilterDropdown(props: MenuFilterDropdownProps) {
   const { store } = useMenuRootContext();

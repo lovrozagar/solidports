@@ -129,7 +129,7 @@ function PopoverRootComponent<Payload>(
 
 /**
  * Groups all parts of the popover.
- * Doesn’t render its own HTML element.
+ * Doesn't render its own HTML element.
  *
  * Documentation: [Base UI Popover](https://base-ui.com/react/components/popover)
  */

@@ -13,7 +13,7 @@ const stateAttributesMapping: StateAttributesMapping<PreviewCardBackdrop.State> 
 };
 
 /**
- * An overlay displayed beneath the popup.
+ * A presentational overlay displayed beneath the popup.
  * Renders a `<div>` element.
  *
  * Documentation: [Base UI Preview Card](https://base-ui.com/react/components/preview-card)

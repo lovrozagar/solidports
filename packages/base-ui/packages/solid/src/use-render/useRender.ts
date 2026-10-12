@@ -39,10 +39,10 @@ export type UseRenderComponentProps<
   State extends Record<string, MaybeAccessor<any>> = {},
 > = SolidComponentProps<ElementType> & {
   /**
-   * Allows you to replace the component’s HTML element
+   * Allows you to replace the component's HTML element
    * with a different tag, or compose it with another component.
    *
-   * Accepts a `ReactElement` or a function that returns the element to render.
+   * Accepts a `JSX.Element` or a function that returns the element to render.
    */
   render?: UseRenderRenderProp<State, ElementType> | undefined;
 };

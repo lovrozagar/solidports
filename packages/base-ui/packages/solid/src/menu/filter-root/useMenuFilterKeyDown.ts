@@ -101,7 +101,10 @@ export function getMenuFilterKeyAction(
 
 /**
  * Routes keys for a filterable menu's input, which holds real focus while the list is navigated
- * with `aria-activedescendant`.
+ * with `aria-activedescendant`. Keys reaching the input, and those an item that received real
+ * focus from assistive technology hands back, go through here; the trigger relays only the
+ * vertical arrows while the popup is open. Navigation runs the menu's own `useListNavigation`
+ * handler directly.
  */
 export function useMenuFilterKeyDown(hasValue: Accessor<boolean>) {
   const { orientation, store } = useMenuRootContext();

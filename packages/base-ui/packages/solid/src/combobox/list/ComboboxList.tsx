@@ -19,6 +19,8 @@ import {
 /**
  * A list container for the items.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxList(componentProps: ComboboxList.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['children', 'id']);

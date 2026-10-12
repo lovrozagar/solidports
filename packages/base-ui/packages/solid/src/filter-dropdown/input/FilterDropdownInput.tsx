@@ -30,11 +30,9 @@ export function filterInputValueProps(server: boolean, read: () => string): Base
 }
 
 /**
- * The text input that owns the filter query. The host supplies list-navigation props.
- *
  * @internal
  */
-export function FilterDropdownInput(componentProps: FilterDropdownInput.Props) {
+export function FilterDropdownInput(componentProps: FilterDropdownInputHostProps) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'id',
     'disabled',
@@ -180,15 +178,22 @@ export function FilterDropdownInput(componentProps: FilterDropdownInput.Props) {
 }
 
 export interface FilterDropdownInputState {
-  /** Whether the input shows its focus ring. Cleared when keyboard navigation highlights an item. */
+  /**
+   * Whether the input shows its focus ring.
+   * Cleared when keyboard navigation highlights an item.
+   */
   highlighted: boolean;
 }
 
 export interface FilterDropdownInputProps extends BaseUIComponentProps<
   'input',
   FilterDropdownInputState
-> {
-  /** The id of the item the host highlights, which the input points at while it holds focus. */
+> {}
+
+export interface FilterDropdownInputHostProps extends FilterDropdownInputProps {
+  /**
+   * The id of the item the host highlights, which the input points at while it holds focus.
+   */
   activeItemId?: string | undefined;
   /**
    * The host's list navigation props. The host routes key presses itself, so these exclude a

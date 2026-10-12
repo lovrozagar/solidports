@@ -551,11 +551,17 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
 export type ToastRootToastObject<Data extends object = any> = ToastObjectType<Data>;
 export interface ToastRootState {
   transitionStatus: TransitionStatus;
-  /** Whether the toasts in the viewport are expanded. */
+  /**
+   * Whether the toasts in the viewport are expanded.
+   */
   expanded: boolean;
-  /** Whether the toast was removed due to exceeding the limit. */
+  /**
+   * Whether the toast was limited because the toast limit was exceeded.
+   */
   limited: boolean;
-  /** The type of the toast. */
+  /**
+   * The type of the toast.
+   */
   type: string | undefined;
   /** Whether the toast is being swiped. */
   swiping: boolean;

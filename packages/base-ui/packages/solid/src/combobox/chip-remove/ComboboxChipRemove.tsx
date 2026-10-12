@@ -14,6 +14,8 @@ import { useComboboxRootContext } from '../root/ComboboxRootContext';
 /**
  * A button to remove a chip.
  * Renders a `<button>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
   const elementProps = omitComponentProps(componentProps, ['disabled', 'nativeButton'] as const);

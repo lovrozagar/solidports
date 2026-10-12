@@ -15,6 +15,8 @@ const stateAttributesMapping: StateAttributesMapping<ComboboxBackdrop.State> = {
 /**
  * An overlay displayed beneath the popup.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxBackdrop(componentProps: ComboboxBackdrop.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);

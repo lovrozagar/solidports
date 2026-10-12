@@ -28,7 +28,8 @@ import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 type ParentReference = { reference: HTMLElement; trigger: HTMLElement };
 
 /**
- * The filterable implementation of `Menu.SubmenuRoot`.
+ * The filterable implementation of `Menu.SubmenuRoot`, rendered in its place when the submenu
+ * root sits inside `Menu.FilterProvider`.
  *
  * @internal
  */

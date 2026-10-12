@@ -8,6 +8,8 @@ import { splitProps } from '../../solid-1-compat';
  * A portal element that moves the popup to a different part of the DOM.
  * By default, the portal element is appended to `<body>`.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxPortal(props: ComboboxPortal.Props) {
   const [local, portalProps] = splitProps(props, ['keepMounted']);

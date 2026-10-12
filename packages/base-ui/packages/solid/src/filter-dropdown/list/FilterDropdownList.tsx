@@ -9,8 +9,6 @@ import { refocusOwner } from '../utils/refocusOwner';
 import { useFilterDropdownRootContext } from '../root/FilterDropdownRootContext';
 
 /**
- * The list whose items the query filters. Groups inside it belong to this root.
- *
  * @internal
  */
 export function FilterDropdownList(componentProps: FilterDropdownList.Props) {

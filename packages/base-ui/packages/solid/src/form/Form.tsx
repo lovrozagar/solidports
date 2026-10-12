@@ -225,10 +225,10 @@ export interface FormProps<
    * @example
    * ```tsx
    * // validate all fields
-   * actionsRef.validate();
+   * actionsRef.current?.validate();
    *
    * // validate one field
-   * actionsRef.validate('email');
+   * actionsRef.current?.validate('email');
    * ```
    */
   actionsRef?: ReactLikeRef<Form.Actions | null> | undefined;

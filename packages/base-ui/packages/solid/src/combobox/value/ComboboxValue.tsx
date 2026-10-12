@@ -47,6 +47,11 @@ export function ComboboxValue(props: ComboboxValue.Props) {
 export interface ComboboxValueState {}
 
 export interface ComboboxValueProps {
+  /**
+   * Accepts a function that returns a `ReactNode` to format the selected value.
+   * Treat the value as read-only: in `multiple` mode it may be a shared frozen array
+   * when nothing is selected.
+   */
   children?: JSX.Element | ((selectedValue: Accessor<any>) => JSX.Element);
   /**
    * The placeholder value to display when no value is selected.

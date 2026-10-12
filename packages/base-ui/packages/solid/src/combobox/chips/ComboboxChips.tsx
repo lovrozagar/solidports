@@ -8,12 +8,14 @@ import { useComboboxRootContext } from '../root/ComboboxRootContext';
 import { handleInputPress } from '../utils/handleInputPress';
 import { ComboboxChipsContext } from './ComboboxChipsContext';
 
+const TOOLBAR_ROLE = { role: 'toolbar' } as const;
+
 /**
  * A container for the chips in a multiselectable input.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
-const TOOLBAR_ROLE = { role: 'toolbar' } as const;
-
 export function ComboboxChips(componentProps: ComboboxChips.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
