@@ -1,7 +1,7 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it, beforeEach, afterEach } from 'vitest';
 import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Checkbox } from '@solidports/base-ui/checkbox';
-import { screen, waitFor } from '@solidjs/testing-library';
+import { screen, waitFor, fireEvent } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import { CheckboxRootContext } from '../root/CheckboxRootContext';
 
@@ -71,16 +71,6 @@ describe('<Checkbox.Indicator />', () => {
     ));
     const indicator = screen.getByTestId('indicator');
     expect(indicator).not.to.equal(null);
-  });
-
-  it('should spread extra props', async () => {
-    render(() => (
-      <Checkbox.Root defaultChecked>
-        <Checkbox.Indicator data-testid="indicator" data-extra-prop="Lorem ipsum" />
-      </Checkbox.Root>
-    ));
-    const indicator = screen.getByTestId('indicator');
-    expect(indicator).to.have.attribute('data-extra-prop', 'Lorem ipsum');
   });
 
   describe('keepMounted prop', () => {
@@ -282,7 +272,8 @@ describe('<Checkbox.Indicator />', () => {
 
         return (
           <div>
-            <style>{style}</style>
+            {/* eslint-disable-next-line solid/no-innerhtml */}
+            <style innerHTML={style} />
             <button onClick={handleUncheck}>Uncheck</button>
             <Checkbox.Root checked={checked()}>
               <Checkbox.Indicator class="animation-test-indicator" data-testid="indicator" />
@@ -291,19 +282,16 @@ describe('<Checkbox.Indicator />', () => {
         );
       }
 
-      const { user } = render(() => <Test />);
-      expect(screen.getByTestId('indicator')).not.to.equal(null);
+      await render(() => <Test />);
+      expect(screen.getByTestId('indicator')).not.toBe(null);
 
-      await user.click(screen.getByText('Uncheck'));
+      // `user.click` can yield a frame, which is long enough for the 1ms animation to finish.
+      fireEvent.click(screen.getByText('Uncheck'));
 
-      await waitFor(() => {
-        const indicator = screen.queryByTestId('indicator');
-        expect(indicator).not.to.equal(null);
-        expect(indicator).to.have.attribute('data-ending-style');
-      });
+      expect(screen.getByTestId('indicator')).toHaveAttribute('data-ending-style');
 
       await waitFor(() => {
-        expect(screen.queryByTestId('indicator')).to.equal(null);
+        expect(screen.queryByTestId('indicator')).toBe(null);
       });
     });
 

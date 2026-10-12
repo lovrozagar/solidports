@@ -2,8 +2,8 @@ import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
-import { createSignal } from 'solid-js';
+import { expect, describe, it, afterEach } from 'vitest';
+import { createSignal, Show } from 'solid-js';
 
 describe('<Field.Error />', () => {
   const { render } = createRenderer();
@@ -395,7 +395,8 @@ describe('<Field.Error />', () => {
 
         return (
           <div>
-            <style>{style}</style>
+            {/* eslint-disable-next-line solid/no-innerhtml */}
+            <style innerHTML={style} />
             <button onClick={handleHideError}>Hide</button>
             <Field.Root>
               <Field.Control required />
@@ -407,19 +408,16 @@ describe('<Field.Error />', () => {
         );
       }
 
-      const { user } = render(() => <Test />);
-      expect(screen.getByTestId('error')).not.to.equal(null);
+      await render(() => <Test />);
+      expect(screen.getByTestId('error')).not.toBe(null);
 
-      await user.click(screen.getByText('Hide'));
+      // `user.click` can yield a frame, which is long enough for the 1ms animation to finish.
+      fireEvent.click(screen.getByText('Hide'));
 
-      await waitFor(() => {
-        const error = screen.queryByTestId('error');
-        expect(error).not.to.equal(null);
-        expect(error).to.have.attribute('data-ending-style');
-      });
+      expect(screen.getByTestId('error')).toHaveAttribute('data-ending-style');
 
       await waitFor(() => {
-        expect(screen.queryByTestId('error')).to.equal(null);
+        expect(screen.queryByTestId('error')).toBe(null);
       });
     });
   });

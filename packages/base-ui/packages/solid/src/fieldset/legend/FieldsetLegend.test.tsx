@@ -70,17 +70,24 @@ describe('<Fieldset.Legend />', () => {
 
   it('throws a descriptive error when rendered outside <Fieldset.Root>', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    // Solid: a throwing component also reports REACTIVITY_HALTED through `console.warn`.
+    // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Solid: the uncaught render error also reaches `reportError` where the platform has one.
+    const reportErrorSpy =
+      typeof globalThis.reportError === 'function'
+        ? vi.spyOn(globalThis, 'reportError').mockImplementation(() => {})
+        : undefined;
 
     try {
+      // Solid: the render throws synchronously rather than rejecting.
       expect(() => render(() => <Fieldset.Legend />)).toThrow(
         'Base UI: FieldsetRootContext is missing. Fieldset parts must be placed within <Fieldset.Root>.',
       );
-      await flushMicrotasks();
     } finally {
+      await flushMicrotasks();
       errorSpy.mockRestore();
       warnSpy.mockRestore();
+      reportErrorSpy?.mockRestore();
     }
   });
 
@@ -108,4 +115,14 @@ describe('<Fieldset.Legend />', () => {
       });
     },
   );
+
+  it('reflects the disabled state', async () => {
+    await render(() => (
+      <Fieldset.Root disabled>
+        <Fieldset.Legend data-testid="legend">Legend</Fieldset.Legend>
+      </Fieldset.Root>
+    ));
+
+    expect(screen.getByTestId('legend')).toHaveAttribute('data-disabled');
+  });
 });

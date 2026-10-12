@@ -1,7 +1,8 @@
-import { createSignal } from 'solid-js';
+import { createSignal, flush, onCleanup } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { createDepsEffect } from '../../solid-helpers';
+import { observeLabels } from './observeLabels';
 
 type LabelSource = HTMLElement & { labels?: NodeListOf<HTMLLabelElement> | null | undefined };
 
@@ -71,7 +72,11 @@ export function useAriaLabelledBy(
   );
   const [fallbackAriaLabelledBy, setFallbackAriaLabelledBy] = createSignal<string | undefined>();
 
-  // React runs this after every render; here it runs when any input changes. The DOM label
+  let stopObserving: (() => void) | undefined;
+  onCleanup(() => stopObserving?.());
+
+  // React runs this after every render; here it runs when any input changes, and while the
+  // fallback is in use, when a label in the control's tree mounts or unmounts. The DOM label
   // lookup happens in the apply phase.
   createDepsEffect(
     () => ({
@@ -82,11 +87,28 @@ export function useAriaLabelledBy(
       ariaLabel: ariaLabel?.(),
     }),
     (deps) => {
-      setFallbackAriaLabelledBy(
-        deps.explicit || deps.label || ariaLabelOverridesLabel(deps.ariaLabel) || !enableFallback
-          ? undefined
-          : getAriaLabelledBy(deps.labelSource, deps.generatedLabelId),
-      );
+      stopObserving?.();
+      stopObserving = undefined;
+      if (
+        deps.explicit ||
+        deps.label ||
+        ariaLabelOverridesLabel(deps.ariaLabel) ||
+        !enableFallback ||
+        !deps.labelSource
+      ) {
+        setFallbackAriaLabelledBy(undefined);
+        return;
+      }
+      const labelSource = deps.labelSource;
+      const resolve = () => getAriaLabelledBy(labelSource, deps.generatedLabelId);
+      setFallbackAriaLabelledBy(resolve());
+      // A wrapping label leaves with the control; any other label can mount or unmount on its own.
+      if (labelSource.parentElement?.tagName !== 'LABEL') {
+        stopObserving = observeLabels(labelSource.getRootNode(), () => {
+          setFallbackAriaLabelledBy(resolve());
+          flush();
+        });
+      }
     },
   );
 

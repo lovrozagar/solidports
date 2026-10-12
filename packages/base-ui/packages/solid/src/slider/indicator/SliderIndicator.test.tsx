@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
 import { Slider } from '@solidports/base-ui/slider';
@@ -66,6 +66,7 @@ describe('<Slider.Indicator />', () => {
       });
       expect(indicator.style[startSide]).toBe(expectedStartSide);
       expect(indicator.style[sizeSide]).toBe(expectedSizeSide);
+      // Only edge-aligned (inset) indicators expose the positioning custom properties.
       expect(indicator.style.getPropertyValue('--start-position')).toBe(edge ? start : '');
       expect(indicator.style.getPropertyValue('--relative-size')).toBe(edge && range ? size : '');
 

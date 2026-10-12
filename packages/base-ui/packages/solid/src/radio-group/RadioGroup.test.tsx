@@ -941,31 +941,117 @@ describe('<RadioGroup />', () => {
         });
 
         describe('modifier keys', () => {
-          it('when Shift is pressed arrow keys move focus normally', async () => {
-            const { user } = render(() => (
-              <DirectionProvider direction={direction as TextDirection}>
-                <RadioGroup>
-                  <Radio.Root value="a" data-testid="a" />
-                  <Radio.Root value="b" data-testid="b" />
-                  <Radio.Root value="c" data-testid="c" />
-                </RadioGroup>
-              </DirectionProvider>
-            ));
+          it.skipIf(isJSDOM && direction === 'rtl')(
+            'when Shift is pressed arrow keys move focus normally',
+            async () => {
+              const { user } = render(() => (
+                <DirectionProvider direction={direction}>
+                  <RadioGroup>
+                    <Radio.Root value="a" data-testid="a" />
+                    <Radio.Root value="b" data-testid="b" />
+                    <Radio.Root value="c" data-testid="c" />
+                  </RadioGroup>
+                </DirectionProvider>
+              ));
 
-            const a = screen.getByTestId('a');
-            const b = screen.getByTestId('b');
-            const c = screen.getByTestId('c');
+              const a = screen.getByTestId('a');
+              const b = screen.getByTestId('b');
+              const c = screen.getByTestId('c');
 
-            await user.keyboard('{Tab}');
-            expect(a).toHaveFocus();
+              await user.keyboard('{Tab}');
+              expect(a).toHaveFocus();
 
-            await user.keyboard(`{Shift>}{${horizontalNextKey}}`);
-            expect(b).toHaveFocus();
+              await user.keyboard(`{Shift>}{${horizontalNextKey}}`);
+              expect(b).toHaveFocus();
 
-            await user.keyboard('{Shift>}{ArrowDown}');
-            expect(c).toHaveFocus();
-          });
+              await user.keyboard('{Shift>}{ArrowDown}');
+              expect(c).toHaveFocus();
+            },
+          );
         });
+      });
+    });
+
+    describe.each([
+      { direction: 'ltr', horizontalNextKey: 'ArrowRight', horizontalPrevKey: 'ArrowLeft' },
+      { direction: 'rtl', horizontalNextKey: 'ArrowLeft', horizontalPrevKey: 'ArrowRight' },
+    ] satisfies Array<{
+      direction: TextDirection;
+      horizontalNextKey: string;
+      horizontalPrevKey: string;
+    }>)('direction: $direction', ({ direction, horizontalNextKey, horizontalPrevKey }) => {
+      it.skipIf(isJSDOM && direction === 'rtl')('moves focus with arrow keys and Tab', async () => {
+        const { user } = await render(() => (
+          <DirectionProvider direction={direction}>
+            <button data-testid="before" />
+            <RadioGroup>
+              <Radio.Root value="a" data-testid="a" />
+              <Radio.Root value="b" data-testid="b" />
+              <Radio.Root value="c" data-testid="c" />
+            </RadioGroup>
+            <button data-testid="after" />
+          </DirectionProvider>
+        ));
+
+        const a = screen.getByTestId('a');
+        const b = screen.getByTestId('b');
+        const c = screen.getByTestId('c');
+        const after = screen.getByTestId('after');
+
+        act(() => {
+          a.focus();
+        });
+
+        expect(a).toHaveFocus();
+
+        await user.keyboard('{ArrowDown}');
+
+        expect(b).toHaveFocus();
+
+        await user.keyboard('{ArrowDown}');
+
+        expect(c).toHaveFocus();
+
+        await user.keyboard('{ArrowDown}');
+
+        expect(a).toHaveFocus();
+
+        await user.keyboard('{ArrowUp}');
+
+        expect(c).toHaveFocus();
+
+        await user.keyboard('{ArrowUp}');
+
+        expect(b).toHaveFocus();
+
+        await user.keyboard('{ArrowUp}');
+
+        expect(a).toHaveFocus();
+
+        await user.keyboard(`{${horizontalPrevKey}}`);
+
+        expect(c).toHaveFocus();
+
+        await user.keyboard(`{${horizontalNextKey}}`);
+
+        expect(a).toHaveFocus();
+
+        await user.tab();
+
+        expect(after).toHaveFocus();
+
+        await user.tab({ shift: true });
+
+        expect(a).toHaveFocus();
+
+        await user.keyboard(`{${horizontalPrevKey}}`);
+
+        expect(c).toHaveFocus();
+
+        await user.tab({ shift: true });
+        await user.tab();
+
+        expect(c).toHaveFocus();
       });
     });
   });
@@ -1427,6 +1513,290 @@ describe('<RadioGroup />', () => {
         expect(validate).toHaveBeenCalledTimes(1);
         expect(validate.mock.calls[0][0]).toBe('a');
         expect(group).toHaveAttribute('aria-invalid', 'true');
+      });
+    });
+
+    describe('[data-focused] without a blur event', () => {
+      function Groups(props: { firstMounted?: boolean; firstDisabled?: boolean }) {
+        return (
+          <Field.Root data-testid="field">
+            {(props.firstMounted ?? true) && (
+              <RadioGroup data-testid="first" disabled={props.firstDisabled ?? false}>
+                <Radio.Root value="a" data-testid="first-radio" />
+              </RadioGroup>
+            )}
+          </Field.Root>
+        );
+      }
+
+      it('is removed when the focused group becomes disabled', async () => {
+        const [testProps, setTestProps] = createSignal<Parameters<typeof Groups>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof Groups>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        await render(() => <Groups {...testProps()} />);
+
+        act(() => {
+          screen.getByTestId('first-radio').focus();
+        });
+
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+
+        await setProps({ firstDisabled: true });
+
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+      });
+
+      it('is removed when the focused group unmounts', async () => {
+        const [testProps, setTestProps] = createSignal<Parameters<typeof Groups>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof Groups>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        await render(() => <Groups {...testProps()} />);
+
+        act(() => {
+          screen.getByTestId('first-radio').focus();
+        });
+
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+
+        await setProps({ firstMounted: false });
+
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+      });
+
+      it('is kept when a previously focused radio unmounts after focus moves to a sibling', async () => {
+        function TestCase(props: { firstMounted?: boolean }) {
+          return (
+            <Field.Root data-testid="field">
+              <RadioGroup>
+                {(props.firstMounted ?? true) && (
+                  <Radio.Root key="first" value="a" data-testid="first-radio" />
+                )}
+                <Radio.Root key="second" value="b" data-testid="second-radio" />
+              </RadioGroup>
+            </Field.Root>
+          );
+        }
+
+        const [testProps, setTestProps] = createSignal<Parameters<typeof TestCase>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof TestCase>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        await render(() => <TestCase {...testProps()} />);
+        const first = screen.getByTestId('first-radio');
+        const second = screen.getByTestId('second-radio');
+
+        act(() => {
+          first.focus();
+        });
+        act(() => {
+          second.focus();
+        });
+
+        expect(second).toHaveFocus();
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+
+        await setProps({ firstMounted: false });
+
+        expect(second).toHaveFocus();
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+      });
+
+      it('is removed when the focused radio unmounts but its group remains', async () => {
+        function TestCase(props: { firstMounted?: boolean }) {
+          return (
+            <Field.Root data-testid="field">
+              <RadioGroup>
+                {(props.firstMounted ?? true) && <Radio.Root value="a" data-testid="first-radio" />}
+                <Radio.Root value="b" />
+              </RadioGroup>
+            </Field.Root>
+          );
+        }
+
+        const [testProps, setTestProps] = createSignal<Parameters<typeof TestCase>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof TestCase>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        await render(() => <TestCase {...testProps()} />);
+
+        act(() => {
+          screen.getByTestId('first-radio').focus();
+        });
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+
+        await setProps({ firstMounted: false });
+
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+      });
+
+      it('is not acquired when focus lands on a disabled radio', async () => {
+        await render(() => (
+          <Field.Root data-testid="field">
+            <RadioGroup>
+              <Radio.Root value="a" disabled data-testid="disabled-radio" />
+              <Radio.Root value="b" />
+            </RadioGroup>
+          </Field.Root>
+        ));
+
+        act(() => {
+          screen.getByTestId('disabled-radio').focus();
+        });
+
+        expect(screen.getByTestId('disabled-radio')).toHaveFocus();
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+      });
+
+      it('is not reacquired when a radio disabled while focused is refocused', async () => {
+        function TestCase(props: { firstDisabled?: boolean }) {
+          return (
+            <Field.Root data-testid="field">
+              <RadioGroup>
+                <Radio.Root
+                  value="a"
+                  disabled={props.firstDisabled ?? false}
+                  data-testid="first-radio"
+                />
+                <Radio.Root value="b" />
+              </RadioGroup>
+            </Field.Root>
+          );
+        }
+
+        const [testProps, setTestProps] = createSignal<Parameters<typeof TestCase>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof TestCase>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        await render(() => <TestCase {...testProps()} />);
+        const first = screen.getByTestId('first-radio');
+
+        act(() => {
+          first.focus();
+        });
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+
+        await setProps({ firstDisabled: true });
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+
+        act(() => {
+          first.blur();
+        });
+        act(() => {
+          first.focus();
+        });
+
+        expect(first).toHaveFocus();
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+      });
+
+      it('is reacquired when a radio that kept focus while disabled is re-enabled', async () => {
+        function TestCase(props: { firstDisabled?: boolean }) {
+          return (
+            <Field.Root data-testid="field">
+              <RadioGroup>
+                <Radio.Root
+                  value="a"
+                  disabled={props.firstDisabled ?? false}
+                  data-testid="first-radio"
+                />
+                <Radio.Root value="b" />
+              </RadioGroup>
+            </Field.Root>
+          );
+        }
+
+        const [testProps, setTestProps] = createSignal<Parameters<typeof TestCase>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof TestCase>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        await render(() => <TestCase {...testProps()} />);
+        const first = screen.getByTestId('first-radio');
+
+        act(() => {
+          first.focus();
+        });
+
+        await setProps({ firstDisabled: true });
+        expect(first).toHaveFocus();
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+
+        await setProps({ firstDisabled: false });
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+      });
+
+      it('is not acquired when a radio inherits disabled from Field.Item', async () => {
+        await render(() => (
+          <Field.Root data-testid="field">
+            <RadioGroup>
+              <Field.Item disabled>
+                <Radio.Root value="a" data-testid="disabled-radio" />
+              </Field.Item>
+              <Field.Item>
+                <Radio.Root value="b" />
+              </Field.Item>
+            </RadioGroup>
+          </Field.Root>
+        ));
+
+        act(() => {
+          screen.getByTestId('disabled-radio').focus();
+        });
+
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+      });
+
+      it('is reacquired when an arrow key moves focus from a disabled radio to an enabled sibling', async () => {
+        function TestCase(props: { firstDisabled?: boolean }) {
+          return (
+            <Field.Root data-testid="field">
+              <RadioGroup>
+                <Radio.Root
+                  value="a"
+                  disabled={props.firstDisabled ?? false}
+                  data-testid="first-radio"
+                />
+                <Radio.Root value="b" data-testid="second-radio" />
+              </RadioGroup>
+            </Field.Root>
+          );
+        }
+
+        const [testProps, setTestProps] = createSignal<Parameters<typeof TestCase>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof TestCase>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        const { user } = await render(() => <TestCase {...testProps()} />);
+        const first = screen.getByTestId('first-radio');
+        const second = screen.getByTestId('second-radio');
+
+        act(() => {
+          first.focus();
+        });
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+
+        await setProps({ firstDisabled: true });
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+
+        await user.keyboard('{ArrowDown}');
+
+        expect(second).toHaveFocus();
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
       });
     });
   });

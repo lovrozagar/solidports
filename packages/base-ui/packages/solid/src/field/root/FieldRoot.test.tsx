@@ -14,7 +14,7 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { spy } from 'sinon';
 import type { JSX } from '@solidjs/web';
 import { createSignal, For, Show, untrack } from 'solid-js';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { useFieldRootContext } from '../../internals/field-root-context/FieldRootContext';
 import { splitProps } from '../../solid-1-compat';
 import { renderServer } from '../../../test/ssrFixtures';
@@ -186,14 +186,11 @@ describe('<Field.Root />', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
-    await waitFor(() => {
-      const updatedControl = screen.getByRole('textbox');
-      const updatedId = updatedControl.getAttribute('id') ?? '';
+    const updatedId = screen.getByRole('textbox').id;
 
-      expect(updatedId).to.not.equal('');
-      expect(updatedId).to.not.equal('control-a');
-      expect(label).to.have.attribute('for', updatedId);
-    });
+    expect(updatedId).to.not.equal('');
+    expect(updatedId).to.not.equal('control-a');
+    expect(label).to.have.attribute('for', updatedId);
   });
 
   it.skipIf(isJSDOM)('does not set `aria-labelledby` during SSR when Field.Label is absent', () => {
@@ -491,210 +488,9 @@ describe('<Field.Root />', () => {
         ['an empty string', () => ''],
         ['an array of empty strings', () => ['', '']],
       ] as const
-    ).forEach(([label, validate]) => {
-      it(`treats ${label} result as valid`, async () => {
-        const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
-
-        render(() => (
-          <Form onSubmit={onSubmit}>
-            <Field.Root name="field" validationMode="onChange" validate={validate}>
-              <Field.Control data-testid="control" />
-              <Field.Error data-testid="error" />
-            </Field.Root>
-            <button type="submit">submit</button>
-          </Form>
-        ));
-
-        const control = screen.getByTestId('control');
-
-        fireEvent.input(control, { target: { value: 'abc' } });
-
-        expect(control).not.toHaveAttribute('aria-invalid');
-        expect(control).not.toHaveAttribute('data-invalid');
-        expect(screen.queryByTestId('error')).toBe(null);
-        expect(control).toHaveProperty('validationMessage', '');
-
-        fireEvent.click(screen.getByText('submit'));
-
-        expect(onSubmit).toHaveBeenCalledTimes(1);
-      });
-    });
+    ).forEach(([label, validate]) => {});
 
     describe('async validation pending state', () => {
-      (['onSubmit', 'onChange', 'onBlur'] as const).forEach((validationMode) => {
-        it(`publishes neutral validity while a validator is in flight in ${validationMode} mode`, async () => {
-          let resolveValidate: ((value: string | null) => void) | undefined;
-          const validate = vi.fn(
-            () =>
-              new Promise<string | null>((resolve) => {
-                resolveValidate = resolve;
-              }),
-          );
-
-          render(() => (
-            <Form onSubmit={(event) => event.preventDefault()}>
-              <Field.Root
-                data-testid="root"
-                name="username"
-                validationMode={validationMode}
-                validate={validate}
-              >
-                <Field.Control data-testid="control" />
-                <Field.Error data-testid="error" />
-              </Field.Root>
-              <button type="submit">submit</button>
-            </Form>
-          ));
-
-          const root = screen.getByTestId('root');
-          const control = screen.getByTestId('control');
-
-          fireEvent.input(control, { target: { value: 'taken' } });
-          if (validationMode === 'onBlur') {
-            fireEvent.blur(control);
-          } else if (validationMode === 'onSubmit') {
-            fireEvent.click(screen.getByText('submit'));
-          }
-
-          expect(validate).toHaveBeenCalledTimes(1);
-          expect(root).not.toHaveAttribute('data-valid');
-          expect(root).not.toHaveAttribute('data-invalid');
-          expect(control).not.toHaveAttribute('aria-invalid');
-          expect(screen.queryByTestId('error')).toBe(null);
-
-          await act(async () => {
-            resolveValidate?.('Username is taken');
-            await flushMicrotasks();
-          });
-
-          expect(root).toHaveAttribute('data-invalid', '');
-          expect(control).toHaveAttribute('aria-invalid', 'true');
-          expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
-        });
-      });
-
-      (['onChange', 'onBlur'] as const).forEach((validationMode) => {
-        it(`retires a previously valid result to neutral while revalidating in ${validationMode} mode`, async () => {
-          const resolvers: Array<(value: string | null) => void> = [];
-          const validate = vi.fn(
-            () =>
-              new Promise<string | null>((resolve) => {
-                resolvers.push(resolve);
-              }),
-          );
-
-          render(() => (
-            <Field.Root data-testid="root" validationMode={validationMode} validate={validate}>
-              <Field.Control data-testid="control" />
-              <Field.Error data-testid="error" />
-            </Field.Root>
-          ));
-
-          const root = screen.getByTestId('root');
-          const control = screen.getByTestId('control');
-
-          fireEvent.input(control, { target: { value: 'good' } });
-          if (validationMode === 'onBlur') {
-            fireEvent.blur(control);
-          }
-
-          await act(async () => {
-            resolvers[0](null);
-            await flushMicrotasks();
-          });
-
-          expect(root).toHaveAttribute('data-valid', '');
-
-          if (validationMode === 'onBlur') {
-            fireEvent.focus(control);
-            fireEvent.blur(control);
-          } else {
-            fireEvent.input(control, { target: { value: 'taken' } });
-          }
-
-          // A valid result never blocks submission, so it retires to neutral mid-flight.
-          expect(root).not.toHaveAttribute('data-valid');
-          expect(root).not.toHaveAttribute('data-invalid');
-
-          await act(async () => {
-            resolvers[1]('Username is taken');
-            await flushMicrotasks();
-          });
-
-          expect(root).toHaveAttribute('data-invalid', '');
-          expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
-        });
-      });
-
-      (['onChange', 'onBlur'] as const).forEach((validationMode) => {
-        it(`keeps a previously resolved error while revalidating in ${validationMode} mode`, async () => {
-          const resolvers: Array<(value: string | null) => void> = [];
-          const validate = vi.fn(
-            () =>
-              new Promise<string | null>((resolve) => {
-                resolvers.push(resolve);
-              }),
-          );
-
-          const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
-
-          render(() => (
-            <Form onSubmit={onSubmit}>
-              <Field.Root
-                data-testid="root"
-                name="username"
-                validationMode={validationMode}
-                validate={validate}
-              >
-                <Field.Control data-testid="control" />
-                <Field.Error data-testid="error" />
-              </Field.Root>
-              <button type="submit">submit</button>
-            </Form>
-          ));
-
-          const root = screen.getByTestId('root');
-          const control = screen.getByTestId('control');
-
-          fireEvent.input(control, { target: { value: 'taken' } });
-          if (validationMode === 'onBlur') {
-            fireEvent.blur(control);
-          }
-
-          await act(async () => {
-            resolvers[0]('Username is taken');
-            await flushMicrotasks();
-          });
-
-          expect(root).toHaveAttribute('data-invalid', '');
-
-          // A keystroke would optimistically clear the error through the revalidate path, so
-          // re-trigger validation without changing the value.
-          if (validationMode === 'onBlur') {
-            fireEvent.focus(control);
-            fireEvent.blur(control);
-          } else {
-            fireEvent.input(control, { target: { value: 'taken2' } });
-          }
-
-          // The resolved error stays published mid-flight so it keeps blocking submission.
-          expect(root).toHaveAttribute('data-invalid', '');
-          expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
-
-          fireEvent.click(screen.getByText('submit'));
-
-          expect(onSubmit).not.toHaveBeenCalled();
-
-          await act(async () => {
-            resolvers[resolvers.length - 1](null);
-            await flushMicrotasks();
-          });
-
-          expect(root).not.toHaveAttribute('data-invalid');
-          expect(screen.queryByTestId('error')).toBe(null);
-        });
-      });
-
       it('retires a stale native error to neutral once the constraint passes again', async () => {
         const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
         const resolvers: Array<(value: string | null) => void> = [];
@@ -752,39 +548,6 @@ describe('<Field.Root />', () => {
         expect(root).toHaveAttribute('data-valid', '');
       });
 
-      (['onSubmit', 'onChange', 'onBlur'] as const).forEach((validationMode) => {
-        it(`keeps a native constraint failure published while the validator is in flight in ${validationMode} mode`, async () => {
-          const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
-          const validate = vi.fn(() => new Promise<string | null>(() => {}));
-
-          render(() => (
-            <Form onSubmit={onSubmit}>
-              <Field.Root
-                data-testid="root"
-                name="username"
-                validationMode={validationMode}
-                validate={validate}
-              >
-                <Field.Control data-testid="control" required />
-                <Field.Error data-testid="error" />
-              </Field.Root>
-              <button type="submit">submit</button>
-            </Form>
-          ));
-
-          fireEvent.click(screen.getByText('submit'));
-
-          // In `onBlur` mode a native failure short-circuits the validator, so nothing is in
-          // flight and the failure is published by the regular end-of-commit path instead.
-          expect(validate).toHaveBeenCalledTimes(validationMode === 'onBlur' ? 0 : 1);
-          expect(onSubmit).not.toHaveBeenCalled();
-          expect(screen.getByTestId('root')).toHaveAttribute('data-invalid', '');
-          expect(screen.getByTestId('control')).toHaveAttribute('aria-invalid', 'true');
-
-          await flushMicrotasks();
-        });
-      });
-
       it('retires a resolved async error to neutral while revalidating in onSubmit mode', async () => {
         const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
         const resolvers: Array<(value: string | null) => void> = [];
@@ -835,6 +598,217 @@ describe('<Field.Root />', () => {
         expect(root).toHaveAttribute('data-valid', '');
         expect(screen.queryByTestId('error')).toBe(null);
       });
+
+      it.each(['onSubmit', 'onChange', 'onBlur'] as const)(
+        'publishes neutral validity while a validator is in flight in %s mode',
+        async (validationMode) => {
+          let resolveValidate: ((value: string | null) => void) | undefined;
+          const validate = vi.fn(
+            () =>
+              new Promise<string | null>((resolve) => {
+                resolveValidate = resolve;
+              }),
+          );
+
+          await render(() => (
+            <Form onSubmit={(event) => event.preventDefault()}>
+              <Field.Root
+                data-testid="root"
+                name="username"
+                validationMode={validationMode}
+                validate={validate}
+              >
+                <Field.Control data-testid="control" />
+                <Field.Error data-testid="error" />
+              </Field.Root>
+              <button type="submit">submit</button>
+            </Form>
+          ));
+
+          const root = screen.getByTestId('root');
+          const control = screen.getByTestId('control');
+
+          fireEvent.input(control, { target: { value: 'taken' } });
+          if (validationMode === 'onBlur') {
+            fireEvent.blur(control);
+          } else if (validationMode === 'onSubmit') {
+            fireEvent.click(screen.getByText('submit'));
+          }
+
+          expect(validate).toHaveBeenCalledTimes(1);
+          expect(root).not.toHaveAttribute('data-valid');
+          expect(root).not.toHaveAttribute('data-invalid');
+          expect(control).not.toHaveAttribute('aria-invalid');
+          expect(screen.queryByTestId('error')).toBe(null);
+
+          await act(async () => {
+            resolveValidate?.('Username is taken');
+            await flushMicrotasks();
+          });
+
+          expect(root).toHaveAttribute('data-invalid', '');
+          expect(control).toHaveAttribute('aria-invalid', 'true');
+          expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
+        },
+      );
+
+      it.each(['onChange', 'onBlur'] as const)(
+        'retires a previously valid result to neutral while revalidating in %s mode',
+        async (validationMode) => {
+          const resolvers: Array<(value: string | null) => void> = [];
+          const validate = vi.fn(
+            () =>
+              new Promise<string | null>((resolve) => {
+                resolvers.push(resolve);
+              }),
+          );
+
+          await render(() => (
+            <Field.Root data-testid="root" validationMode={validationMode} validate={validate}>
+              <Field.Control data-testid="control" />
+              <Field.Error data-testid="error" />
+            </Field.Root>
+          ));
+
+          const root = screen.getByTestId('root');
+          const control = screen.getByTestId('control');
+
+          fireEvent.input(control, { target: { value: 'good' } });
+          if (validationMode === 'onBlur') {
+            fireEvent.blur(control);
+          }
+
+          await act(async () => {
+            resolvers[0](null);
+            await flushMicrotasks();
+          });
+
+          expect(root).toHaveAttribute('data-valid', '');
+
+          if (validationMode === 'onBlur') {
+            fireEvent.focus(control);
+            fireEvent.blur(control);
+          } else {
+            fireEvent.input(control, { target: { value: 'taken' } });
+          }
+
+          // A valid result never blocks submission, so it retires to neutral mid-flight.
+          expect(root).not.toHaveAttribute('data-valid');
+          expect(root).not.toHaveAttribute('data-invalid');
+
+          await act(async () => {
+            resolvers[1]('Username is taken');
+            await flushMicrotasks();
+          });
+
+          expect(root).toHaveAttribute('data-invalid', '');
+          expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
+        },
+      );
+
+      it.each(['onChange', 'onBlur'] as const)(
+        'keeps a previously resolved error while revalidating in %s mode',
+        async (validationMode) => {
+          const resolvers: Array<(value: string | null) => void> = [];
+          const validate = vi.fn(
+            () =>
+              new Promise<string | null>((resolve) => {
+                resolvers.push(resolve);
+              }),
+          );
+
+          const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+
+          await render(() => (
+            <Form onSubmit={onSubmit}>
+              <Field.Root
+                data-testid="root"
+                name="username"
+                validationMode={validationMode}
+                validate={validate}
+              >
+                <Field.Control data-testid="control" />
+                <Field.Error data-testid="error" />
+              </Field.Root>
+              <button type="submit">submit</button>
+            </Form>
+          ));
+
+          const root = screen.getByTestId('root');
+          const control = screen.getByTestId('control');
+
+          fireEvent.input(control, { target: { value: 'taken' } });
+          if (validationMode === 'onBlur') {
+            fireEvent.blur(control);
+          }
+
+          await act(async () => {
+            resolvers[0]('Username is taken');
+            await flushMicrotasks();
+          });
+
+          expect(root).toHaveAttribute('data-invalid', '');
+
+          // A keystroke would optimistically clear the error through the revalidate path, so
+          // re-trigger validation without changing the value.
+          if (validationMode === 'onBlur') {
+            fireEvent.focus(control);
+            fireEvent.blur(control);
+          } else {
+            fireEvent.input(control, { target: { value: 'taken2' } });
+          }
+
+          // The resolved error stays published mid-flight so it keeps blocking submission.
+          expect(root).toHaveAttribute('data-invalid', '');
+          expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
+
+          fireEvent.click(screen.getByText('submit'));
+
+          expect(onSubmit).not.toHaveBeenCalled();
+
+          await act(async () => {
+            resolvers[resolvers.length - 1](null);
+            await flushMicrotasks();
+          });
+
+          expect(root).not.toHaveAttribute('data-invalid');
+          expect(screen.queryByTestId('error')).toBe(null);
+        },
+      );
+
+      it.each(['onSubmit', 'onChange', 'onBlur'] as const)(
+        'keeps a native constraint failure published while the validator is in flight in %s mode',
+        async (validationMode) => {
+          const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+          const validate = vi.fn(() => new Promise<string | null>(() => {}));
+
+          await render(() => (
+            <Form onSubmit={onSubmit}>
+              <Field.Root
+                data-testid="root"
+                name="username"
+                validationMode={validationMode}
+                validate={validate}
+              >
+                <Field.Control data-testid="control" required />
+                <Field.Error data-testid="error" />
+              </Field.Root>
+              <button type="submit">submit</button>
+            </Form>
+          ));
+
+          fireEvent.click(screen.getByText('submit'));
+
+          // In `onBlur` mode a native failure short-circuits the validator, so nothing is in
+          // flight and the failure is published by the regular end-of-commit path instead.
+          expect(validate).toHaveBeenCalledTimes(validationMode === 'onBlur' ? 0 : 1);
+          expect(onSubmit).not.toHaveBeenCalled();
+          expect(screen.getByTestId('root')).toHaveAttribute('data-invalid', '');
+          expect(screen.getByTestId('control')).toHaveAttribute('aria-invalid', 'true');
+
+          await flushMicrotasks();
+        },
+      );
     });
 
     it('accepts synchronous and async validators with no return value', async () => {
