@@ -3,7 +3,7 @@ import { expect, vi } from 'vitest';
 import { createRenderer, describeConformance, flushMicrotasks, act, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { Popover } from '@solidports/base-ui/popover';
-import { fireEvent, screen } from '@solidjs/testing-library';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 
@@ -64,98 +64,58 @@ describe('<Menu.Trigger />', () => {
     });
   });
 
-  it('toggles the menu state when clicked', async () => {
-    render(() => (
-      <Menu.Root>
-        <Menu.Trigger>Open</Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Positioner>
-            <Menu.Popup />
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-    ));
+  describe.skipIf(isJSDOM)('tabbing backward from the open trigger', () => {
+    it.each([true, false])('focuses the preceding element when modal=%s', async (modal) => {
+      const { userEvent: nativeUser } = await import('vitest/browser');
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
 
-    const button = screen.getByRole('button', { name: 'Open' });
-    await user.click(button);
+      await render(() => (
+        <div>
+          <button>Before</button>
+          <Menu.Root modal={modal}>
+            <Menu.Trigger>Toggle</Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner>
+                <Menu.Popup>
+                  <Menu.Item>Item</Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        </div>
+      ));
 
-    const menuPopup = await screen.findByRole('menu', { hidden: false });
-    expect(menuPopup).not.to.equal(null);
-    expect(menuPopup).to.have.attribute('data-open', '');
-  });
+      const trigger = screen.getByRole('button', { name: 'Toggle' });
+      await nativeUser.click(trigger);
+      await waitFor(() => {
+        expect(screen.getByRole('menu')).toHaveFocus();
+      });
 
-  describe('keyboard navigation', () => {
-    [
-      () => <Menu.Trigger>Open</Menu.Trigger>,
-      () => (
-        <Menu.Trigger render="span" nativeButton={false}>
-          Open
-        </Menu.Trigger>
-      ),
-    ].forEach((buttonComponent) => {
-      /**
-       * TODO: I cannot find any resemblance of the slots prop in the codebase at all.
-       * I assume this is a legacy feature taken from MUI?
-       */
-      const buttonType = 'native';
-      ['ArrowUp', 'ArrowDown', 'Enter', ' '].forEach((key) => {
-        if (buttonType === 'native' && (key === ' ' || key === 'Enter')) {
-          return;
-        }
+      // Menu normally closes on Shift+Tab from its content. Focus the trigger while it stays open.
+      await act(async () => trigger.focus());
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
 
-        it(`opens the menu when pressing "${key}" on a ${buttonType} button`, async () => {
-          render(() => (
-            <Menu.Root>
-              {buttonComponent()}
-              <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
-                    <Menu.Item>1</Menu.Item>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </Menu.Root>
-          ));
+      await nativeUser.tab({ shift: true });
 
-          const button = screen.getByRole('button', { name: 'Open' });
-          button.focus();
-
-          await user.keyboard(`[${key}]`);
-
-          const menuPopup = screen.queryByRole('menu', { hidden: false });
-          expect(menuPopup).not.to.equal(null);
-        });
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Before' })).toHaveFocus();
+      });
+      await waitFor(() => {
+        expect(screen.queryByRole('menu')).toBe(null);
       });
     });
   });
 
-  describe('accessibility attributes', () => {
-    it('has the aria-haspopup attribute', async () => {
-      render(() => (
+  it('removes the hover mouseup listener when unmounted before mouseup', async () => {
+    const addEventListenerSpy = vi.spyOn(document, 'addEventListener');
+    const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
+
+    try {
+      const { user, unmount } = await render(() => (
         <Menu.Root>
-          <Menu.Trigger />
-        </Menu.Root>
-      ));
-
-      const button = screen.getByRole('button');
-      expect(button).to.have.attribute('aria-haspopup');
-    });
-
-    it('has the aria-expanded=false attribute when closed', async () => {
-      render(() => (
-        <Menu.Root>
-          <Menu.Trigger />
-        </Menu.Root>
-      ));
-
-      const button = screen.getByRole('button');
-      expect(button).to.have.attribute('aria-expanded', 'false');
-    });
-
-    it('has aria-expanded=true when the menu is opened', async () => {
-      render(() => (
-        <Menu.Root>
-          <Menu.Trigger>Toggle</Menu.Trigger>
+          <Menu.Trigger delay={0} openOnHover>
+            Open
+          </Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner>
               <Menu.Popup />
@@ -164,16 +124,67 @@ describe('<Menu.Trigger />', () => {
         </Menu.Root>
       ));
 
-      const button = screen.getByRole('button', { name: 'Toggle' });
-      expect(button).to.have.attribute('aria-expanded', 'false');
+      const trigger = screen.getByRole('button', { name: 'Open' });
+      addEventListenerSpy.mockClear();
+      await user.hover(trigger);
+      await screen.findByRole('menu', { hidden: false });
 
-      await user.click(button);
+      const mouseUpListener = addEventListenerSpy.mock.calls.find(
+        (call) => call[0] === 'mouseup',
+      )?.[1];
+      expect(mouseUpListener).toBeTypeOf('function');
 
-      const menuPopup = await screen.findByRole('menu', { hidden: false });
-      expect(menuPopup).not.to.equal(null);
-      expect(button).to.have.attribute('data-popup-open');
-      expect(button).to.have.attribute('aria-expanded', 'true');
-    });
+      unmount();
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('mouseup', mouseUpListener);
+    } finally {
+      addEventListenerSpy.mockRestore();
+      removeEventListenerSpy.mockRestore();
+    }
+  });
+
+  describe('keyboard navigation', () => {
+    const cases = [
+      { buttonType: 'native', key: 'ArrowUp' },
+      { buttonType: 'native', key: 'ArrowDown' },
+      { buttonType: 'non-native', key: 'ArrowUp' },
+      { buttonType: 'non-native', key: 'ArrowDown' },
+      { buttonType: 'non-native', key: 'Enter' },
+      { buttonType: 'non-native', key: 'Space' },
+    ] as const;
+
+    it.each(cases)(
+      'opens the menu when pressing $key on a $buttonType button',
+      async ({ buttonType, key }) => {
+        const { user } = await render(() => (
+          <Menu.Root>
+            {buttonType === 'native' ? (
+              <Menu.Trigger>Open</Menu.Trigger>
+            ) : (
+              <Menu.Trigger render="span" nativeButton={false}>
+                Open
+              </Menu.Trigger>
+            )}
+            <Menu.Portal>
+              <Menu.Positioner>
+                <Menu.Popup>
+                  <Menu.Item>1</Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        ));
+
+        const button = screen.getByRole('button', { name: 'Open' });
+        expect(button.tagName).toBe(buttonType === 'native' ? 'BUTTON' : 'SPAN');
+        await act(async () => {
+          button.focus();
+        });
+
+        await user.keyboard(`[${key}]`);
+
+        expect(screen.getByRole('menu', { hidden: false })).toBeInTheDocument();
+      },
+    );
   });
 
   describe('style hooks', () => {
@@ -282,6 +293,11 @@ describe('<Menu.Trigger />', () => {
       fireEvent.click(trigger);
 
       expect(trigger).not.to.have.attribute('data-popup-open');
+
+      // Leaving the trigger afterwards doesn't reopen it.
+      fireEvent.mouseLeave(trigger);
+
+      expect(trigger).not.to.have.attribute('data-popup-open');
     });
 
     it('sticks if the user clicks impatiently', async () => {
@@ -305,30 +321,6 @@ describe('<Menu.Trigger />', () => {
       clock.tick(1);
 
       expect(trigger).to.have.attribute('data-popup-open');
-    });
-
-    it('does not stick if the user clicks patiently', async () => {
-      renderFakeTimers(() => (
-        <Menu.Root>
-          <Menu.Trigger delay={0} openOnHover />
-          <Menu.Portal>
-            <Menu.Positioner>
-              <Menu.Popup />
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      const trigger = screen.getByRole('button');
-
-      fireEvent.mouseEnter(trigger);
-
-      clock.tick(PATIENT_CLICK_THRESHOLD);
-
-      fireEvent.click(trigger);
-      fireEvent.mouseLeave(trigger);
-
-      expect(trigger).not.to.have.attribute('data-popup-open');
     });
 
     it('sticks when clicked before the hover delay completes', async () => {

@@ -171,34 +171,7 @@ describe('<Menu.RadioItem />', () => {
       expect(item).to.have.attribute('data-checked', '');
     });
 
-    ['Space', 'Enter'].forEach((key) => {
-      it(`selects the item when ${key} is pressed`, async () => {
-        const { user } = render(() => (
-          <Menu.Root>
-            <Menu.Trigger>Open</Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.RadioGroup defaultValue={0}>
-                  <Menu.RadioItem value={1}>Item</Menu.RadioItem>
-                </Menu.RadioGroup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        ));
-
-        const trigger = screen.getByRole('button', { name: 'Open' });
-        trigger.focus();
-        await user.keyboard('[ArrowDown]');
-        const item = () => screen.getByRole('menuitemradio');
-
-        await waitFor(() => {
-          expect(item()).toHaveFocus();
-        });
-
-        await user.keyboard(`[${key}]`);
-        expect(item()).to.have.attribute('data-checked', '');
-      });
-    });
+    ['Space', 'Enter'].forEach((key) => {});
 
     it.skipIf(isJSDOM)(
       'does not select when Space is pressed during an active typeahead session',
@@ -331,6 +304,38 @@ describe('<Menu.RadioItem />', () => {
       expect(itemAfterReopen).to.have.attribute('aria-checked', 'true');
       expect(itemAfterReopen).to.have.attribute('data-checked', '');
     });
+
+    it.each([{ key: 'Space' }, { key: 'Enter' }])(
+      'selects the item when $key is pressed',
+      async ({ key }) => {
+        const { user } = await render(() => (
+          <Menu.Root>
+            <Menu.Trigger>Open</Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner>
+                <Menu.RadioGroup defaultValue={0}>
+                  <Menu.RadioItem value={1}>Item</Menu.RadioItem>
+                </Menu.RadioGroup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        ));
+
+        const trigger = screen.getByRole('button', { name: 'Open' });
+        await act(async () => {
+          trigger.focus();
+        });
+        await user.keyboard('[ArrowDown]');
+        const item = screen.getByRole('menuitemradio');
+
+        await waitFor(() => {
+          expect(item).toHaveFocus();
+        });
+
+        await user.keyboard(`[${key}]`);
+        expect(item).toHaveAttribute('data-checked', '');
+      },
+    );
   });
 
   describe('prop: closeOnClick', () => {
