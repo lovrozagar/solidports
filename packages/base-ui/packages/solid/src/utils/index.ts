@@ -1,4 +1,4 @@
-export { platform } from './platform';
+export * from './platform';
 export { EMPTY_ARRAY, EMPTY_OBJECT, NOOP } from './empty';
 export { error, reset } from './error';
 export { default as formatErrorMessage } from './formatErrorMessage';
