@@ -19,3 +19,4 @@ export { viewportConformanceTests } from './viewportConformanceTests';
 export { detachedTriggersConformanceTests } from './detachedTriggersConformanceTests';
 export { dialogRootSharedTests } from './dialogRootSharedTests';
 export { popupFocusPropsTests } from './popupFocusPropsTests';
+export { popupListConformanceTests } from './popupListConformanceTests';
