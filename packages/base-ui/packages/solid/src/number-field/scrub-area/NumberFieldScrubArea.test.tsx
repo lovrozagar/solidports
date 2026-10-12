@@ -167,6 +167,88 @@ describe('<NumberField.ScrubArea />', () => {
     });
   });
 
+  it('synthesizes one click when a still press has no native click', async () => {
+    const handleClick = vi.fn();
+
+    render(() => (
+      <NumberField.Root defaultValue={0}>
+        <NumberField.ScrubArea data-testid="scrub-area" onClick={handleClick}>
+          <NumberField.ScrubAreaCursor />
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    ));
+
+    const scrubArea = screen.getByTestId('scrub-area');
+
+    await act(async () => {
+      scrubArea.dispatchEvent(createPointerDownEvent(scrubArea));
+      window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    });
+
+    expect(handleClick).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not synthesize a click when the native click already arrived', async () => {
+    const handleClick = vi.fn();
+
+    render(() => (
+      <NumberField.Root defaultValue={0}>
+        <NumberField.ScrubArea data-testid="scrub-area" onClick={handleClick}>
+          <NumberField.ScrubAreaCursor />
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    ));
+
+    const scrubArea = screen.getByTestId('scrub-area');
+
+    await act(async () => {
+      scrubArea.dispatchEvent(createPointerDownEvent(scrubArea));
+      window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      scrubArea.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not synthesize a click after the pointer has scrubbed', async () => {
+    const handleClick = vi.fn();
+
+    render(() => (
+      <NumberField.Root defaultValue={0}>
+        <NumberField.ScrubArea data-testid="scrub-area" onClick={handleClick}>
+          <NumberField.ScrubAreaCursor />
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    ));
+
+    const scrubArea = screen.getByTestId('scrub-area');
+
+    await act(async () => {
+      scrubArea.dispatchEvent(createPointerDownEvent(scrubArea));
+      window.dispatchEvent(createPointerMoveEvent({ movementX: 10 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+
+    expect(handleClick).not.toHaveBeenCalled();
+  });
+
   // Only run the following tests in Chromium/Firefox.
   if (isJSDOM || isWebKit) {
     return;
