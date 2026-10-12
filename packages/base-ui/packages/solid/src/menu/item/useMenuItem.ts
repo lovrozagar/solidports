@@ -62,13 +62,13 @@ export function useMenuItem(params: useMenuItem.Parameters): useMenuItem.ReturnV
       ...buttonSources.attributes,
       commonProps,
       {
-        onMouseEnter() {
+        onMouseEnter(event: MouseEvent) {
           const metadata = itemMetadata();
           if (metadata.type !== 'submenu-trigger') {
             return;
           }
 
-          metadata.setActive();
+          metadata.setActive(event);
         },
       },
     ],
@@ -131,7 +131,7 @@ export type UseMenuItemMetadata =
   | typeof REGULAR_ITEM
   | {
       type: 'submenu-trigger';
-      setActive: () => void;
+      setActive: (event: MouseEvent) => void;
     };
 
 export interface UseMenuItemSources {

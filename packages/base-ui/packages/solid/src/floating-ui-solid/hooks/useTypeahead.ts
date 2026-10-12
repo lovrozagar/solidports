@@ -23,7 +23,7 @@ export interface UseTypeaheadProps {
   /**
    * Callback invoked with the matching index if found as the user types.
    */
-  onMatch?: ((index: number) => void) | undefined;
+  onMatch?: ((index: number, event: KeyboardEvent) => void) | undefined;
   /**
    * Optional list of item elements that correspond to `listRef` indices.
    * When an element exists for an index, typeahead skips it if it is hidden by
@@ -200,7 +200,7 @@ export function useTypeahead(parameters: {
       const index = getMatchingIndex(listContent, stringRef, startIndex);
 
       if (index !== -1) {
-        props.onMatch?.(index);
+        props.onMatch?.(index, event);
         matchIndexRef = index;
       } else if (event.key !== ' ') {
         stringRef = '';
@@ -241,6 +241,7 @@ export function useTypeahead(parameters: {
 
       if (stringRef !== '') {
         stringRef = '';
+        untrack(() => props.onTyping)?.(false);
       }
     },
   );

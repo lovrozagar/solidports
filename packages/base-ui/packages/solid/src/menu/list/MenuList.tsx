@@ -32,7 +32,9 @@ function MenuListPlain(componentProps: MenuList.Props) {
     resolvePopupLabel(
       {
         'aria-label':
-          typeof componentProps['aria-label'] === 'string' ? componentProps['aria-label'] : undefined,
+          typeof componentProps['aria-label'] === 'string'
+            ? componentProps['aria-label']
+            : undefined,
         'aria-labelledby':
           typeof componentProps['aria-labelledby'] === 'string'
             ? componentProps['aria-labelledby']

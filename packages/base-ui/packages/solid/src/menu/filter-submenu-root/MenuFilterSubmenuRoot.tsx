@@ -89,47 +89,46 @@ export function MenuFilterSubmenuRoot(props: MenuFilterSubmenuRootProps): JSX.El
   }
 
   return (
-    <MenuSubmenuRootContext value={{ parentMenu: parentStore }}>
-      <MenuRootInternal
-        {...props}
-        virtualFocus
-        virtualFocusRef={filter.virtualFocusRef}
-        allowEscape={filter.allowEscape}
-        resetOnPointerLeave={filter.resetOnPointerLeave}
-        disabled={parentDisabled() || props.disabled}
-        onOpenChange={handleOpenChange}
-      >
-        {(payload) => (
-          <MenuFilterSubmenuNavigation
-            parentStore={parentStore}
-            parentVirtualFocus={parent.virtualFocus}
-            parentAllowEscape={() => parent.virtualFocus() && parent.allowEscape()}
-            parentOrientation={parent.orientation}
-            parentLoopFocus={parent.loopFocus}
-            getReturnElement={() =>
-              parentReferenceRef.current?.reference ??
-              (parent.virtualFocus() ? parentStore.context.virtualFocusRef?.current : null) ??
-              null
-            }
-            onSubmenuEnter={handleSubmenuEnter}
-            onSubmenuExit={handleSubmenuExit}
+    <MenuRootInternal
+      {...props}
+      isSubmenu
+      virtualFocus
+      virtualFocusRef={filter.virtualFocusRef}
+      allowEscape={filter.allowEscape}
+      resetOnPointerLeave={filter.resetOnPointerLeave}
+      disabled={parentDisabled() || props.disabled}
+      onOpenChange={handleOpenChange}
+    >
+      {(payload) => (
+        <MenuFilterSubmenuNavigation
+          parentStore={parentStore}
+          parentVirtualFocus={parent.virtualFocus}
+          parentAllowEscape={() => parent.virtualFocus() && parent.allowEscape()}
+          parentOrientation={parent.orientation}
+          parentLoopFocus={parent.loopFocus}
+          getReturnElement={() =>
+            parentReferenceRef.current?.reference ??
+            (parent.virtualFocus() ? parentStore.context.virtualFocusRef?.current : null) ??
+            null
+          }
+          onSubmenuEnter={handleSubmenuEnter}
+          onSubmenuExit={handleSubmenuExit}
+        >
+          <MenuFilterDropdown
+            value={filter.value}
+            defaultValue={filter.defaultValue}
+            onValueChange={filter.onValueChange}
+            filter={filter.filter}
+            autoHighlight={filter.autoHighlight}
+            locale={filter.locale}
           >
-            <MenuFilterDropdown
-              value={filter.value}
-              defaultValue={filter.defaultValue}
-              onValueChange={filter.onValueChange}
-              filter={filter.filter}
-              autoHighlight={filter.autoHighlight}
-              locale={filter.locale}
-            >
-              {typeof props.children === 'function'
-                ? (props.children as (payload: unknown) => JSX.Element)(payload)
-                : props.children}
-            </MenuFilterDropdown>
-          </MenuFilterSubmenuNavigation>
-        )}
-      </MenuRootInternal>
-    </MenuSubmenuRootContext>
+            {typeof props.children === 'function'
+              ? (props.children as (payload: unknown) => JSX.Element)(payload)
+              : props.children}
+          </MenuFilterDropdown>
+        </MenuFilterSubmenuNavigation>
+      )}
+    </MenuRootInternal>
   );
 }
 
@@ -254,11 +253,9 @@ function MenuFilterSubmenuNavigation(props: {
   return (
     <MenuSubmenuRootContext
       value={{
-        parentMenu: props.parentStore,
         getReturnElement: handleReturnFocus,
         onTriggerKeyDown: handleTriggerKeyDown,
         onPopupKeyDown: handlePopupKeyDown,
-        parentVirtualFocus: props.parentVirtualFocus,
       }}
     >
       {props.children}
