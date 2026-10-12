@@ -68,6 +68,7 @@ interface TouchScrollState {
   lastX: number;
   lastY: number;
   scrollTarget: HTMLElement | null;
+  startedInPopup: boolean;
   hasCrossAxisGestureTarget: boolean;
   allowSwipe: boolean | null;
   preserveNativeCrossAxisScroll: boolean;
@@ -369,15 +370,29 @@ export function DrawerViewport(props: DrawerViewport.Props) {
         return false;
       }
 
+      const nativeEvent = details.nativeEvent;
+      const touchLike = 'touches' in nativeEvent || nativeEvent.pointerType === 'touch';
+      const touchState = touchLike ? touchScrollStateRef : null;
+
       const doc = popupElement.ownerDocument;
       const elementAtPoint = getElementAtPoint(popupElement.getRootNode(), position.x, position.y);
-      if (!elementAtPoint || !contains(popupElement, elementAtPoint)) {
+      // Activation can be deferred until after a touch that started inside has left the popup.
+      if (!touchState?.startedInPopup && !contains(popupElement, elementAtPoint)) {
         return false;
       }
 
-      const nativeEvent = details.nativeEvent;
-      const touchLike = 'touches' in nativeEvent || nativeEvent.pointerType === 'touch';
       if (touchLike && shouldIgnoreSwipeForTextSelection(doc, popupElement)) {
+        return false;
+      }
+
+      // Over a cross-axis gesture target, stay pending until the drawer axis wins the gesture.
+      // Starting on touchstart would leave the drawer swiping (and settling on release) while the
+      // cross-axis target handles the drag.
+      if (
+        touchState?.hasCrossAxisGestureTarget &&
+        !touchState.drawerAxisAttributed &&
+        touchState.allowSwipe !== true
+      ) {
         return false;
       }
 
@@ -740,7 +755,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
 
         const allowTouchMove = shouldIgnoreSwipeForTextSelection(doc, resolvedRootElement);
 
-        if (allowTouchMove || !deps.open || !deps.mounted || deps.nestedDrawerOpen) {
+        if (allowTouchMove || deps.nestedDrawerOpen) {
           return;
         }
 
@@ -1037,6 +1052,7 @@ export function DrawerViewport(props: DrawerViewport.Props) {
               lastX: touch.clientX,
               lastY: touch.clientY,
               scrollTarget,
+              startedInPopup: contains(store.context.popupRef.current, elementAtPoint),
               hasCrossAxisGestureTarget,
               allowSwipe,
               preserveNativeCrossAxisScroll: false,

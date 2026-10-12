@@ -28,7 +28,7 @@ function getDevElementIds(map: PopupTriggerMap) {
  * while `hasElement` and `hasMatchingElement` are linear in the number of triggers.
  */
 export class PopupTriggerMap {
-  private idMap: Map<string, Element>;
+  private idMap: Map<string, Element> = new Map();
 
   /**
    * The number of registered triggers, reactive. Solid: lets a popup derive its trigger count from
@@ -39,7 +39,6 @@ export class PopupTriggerMap {
   private setTrackedSize: Setter<number>;
 
   constructor() {
-    this.idMap = new Map();
     [this.trackedSize, this.setTrackedSize] = createSignal(0);
   }
 

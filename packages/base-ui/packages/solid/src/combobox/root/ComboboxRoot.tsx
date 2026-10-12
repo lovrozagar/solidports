@@ -121,8 +121,9 @@ export type ComboboxRootProps<
   defaultValue?: ComboboxInputValue<Value, Multiple> | null | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: Ends the closing phase after an externally controlled closing animation finishes.
+   * - `unmount`: Ends the closing phase of the combobox after an externally controlled closing animation finishes.
    * Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the combobox completes closing on its own.
+   * Whether it leaves the DOM is decided by `keepMounted` on the portal.
    * - `close`: Closes the combobox imperatively when called.
    */
   actionsRef?: ReactLikeRef<ComboboxRoot.Actions | null> | undefined;

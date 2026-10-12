@@ -4,7 +4,7 @@ import type { JSX } from '@solidjs/web';
 import { ownerDocument } from './owner';
 import { clamp } from './clamp';
 import { contains, getTarget } from '../floating-ui-solid/utils';
-import { findScrollableTouchTarget, hasScrollableAncestor, type ScrollAxis } from './scrollable';
+import { findScrollableAncestor, findScrollableTouchTarget, type ScrollAxis } from './scrollable';
 import { getElementAtPoint } from './getElementAtPoint';
 import { getElementTransform } from './getElementTransform';
 
@@ -31,7 +31,6 @@ type SwipeProgressDetailsInternal = {
 
 const DEFAULT_SWIPE_THRESHOLD = 40;
 const REVERSE_CANCEL_THRESHOLD = 10;
-const MIN_DRAG_THRESHOLD = 1;
 const MIN_VELOCITY_DURATION_MS = 50;
 const MIN_RELEASE_VELOCITY_DURATION_MS = 4;
 const MIN_VELOCITY_SAMPLE_DISTANCE = 1;
@@ -118,16 +117,8 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
   const hasHorizontal = () => allowLeft() || allowRight();
   const hasVertical = () => allowUp() || allowDown();
 
-  const scrollAxes = (): ScrollAxis[] => {
-    const axes: ScrollAxis[] = [];
-    if (hasVertical()) {
-      axes.push('vertical');
-    }
-    if (hasHorizontal()) {
-      axes.push('horizontal');
-    }
-    return axes;
-  };
+  // Consumers only pass directions on a single axis.
+  const scrollAxis = (): ScrollAxis => (hasHorizontal() ? 'horizontal' : 'vertical');
 
   const [currentSwipeDirection, setCurrentSwipeDirection] = createSignal<
     SwipeDirection | undefined
@@ -143,7 +134,6 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
   const maxSwipeDisplacementRef = { current: 0 };
   const cancelledSwipeRef = { current: false };
   const swipeCancelBaselineRef = { current: { x: 0, y: 0 } };
-  const lockedDirectionRef = { current: null as 'horizontal' | 'vertical' | null };
   const isFirstPointerMoveRef = { current: false };
   const pendingSwipeRef = { current: false };
   const pendingSwipeStartPosRef = { current: null as { x: number; y: number } | null };
@@ -298,7 +288,6 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     maxSwipeDisplacementRef.current = 0;
     cancelledSwipeRef.current = false;
     swipeCancelBaselineRef.current = { x: 0, y: 0 };
-    lockedDirectionRef.current = null;
     isFirstPointerMoveRef.current = false;
     lastMovePosRef.current = null;
     pendingSwipeRef.current = false;
@@ -356,13 +345,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
         : scrollTarget;
     };
 
-    if (hasHorizontal() && !hasVertical()) {
-      return find('horizontal');
-    }
-    if (hasVertical() && !hasHorizontal()) {
-      return find('vertical');
-    }
-    return find('vertical') ?? find('horizontal');
+    return find(scrollAxis());
   }
 
   function startSwipeAtPosition(
@@ -394,9 +377,9 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     }
 
     const element = getElement();
-    if (ignoreScrollableAncestors() && element && target && scrollAxes().length > 0) {
+    if (ignoreScrollableAncestors() && element && target) {
       const ignoreAncestors = startOptions?.ignoreScrollableAncestors ?? false;
-      if (!ignoreAncestors && hasScrollableAncestor(target, element, scrollAxes())) {
+      if (!ignoreAncestors && findScrollableAncestor(target, element, scrollAxis()) != null) {
         return false;
       }
     }
@@ -434,7 +417,6 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     options.onSwipeStart?.(getNativeEvent(event) as SwipeDismissNativeEvent);
 
     setSwiping(true);
-    lockedDirectionRef.current = null;
     isFirstPointerMoveRef.current = true;
     updateSwipeProgress(0);
     syncDragStyles(true);
@@ -461,7 +443,6 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     }
 
     setSwiping(false);
-    lockedDirectionRef.current = null;
 
     const resolvedInitialTransform = initialTransformRef.current;
 
@@ -518,10 +499,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
       (delta > 0 && scrollOffset <= 0 && allowTowardStart) ||
       (delta < 0 && scrollOffset >= Math.max(0, maxScrollOffset) && allowTowardEnd);
 
-    const absDeltaX = Math.abs(deltaX);
-    const absDeltaY = Math.abs(deltaY);
-
-    if (hasVertical() && deltaY !== 0 && (!hasHorizontal() || absDeltaY >= absDeltaX)) {
+    if (hasVertical() && deltaY !== 0) {
       return canSwipeOnAxis(
         deltaY,
         scrollTarget.scrollTop,
@@ -531,7 +509,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
       );
     }
 
-    if (hasHorizontal() && deltaX !== 0 && (!hasVertical() || absDeltaX > absDeltaY)) {
+    if (hasHorizontal() && deltaX !== 0) {
       return canSwipeOnAxis(
         deltaX,
         scrollTarget.scrollLeft,
@@ -648,30 +626,9 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     const cancelDeltaY = clientY - swipeCancelBaselineRef.current.y;
     const cancelDeltaX = clientX - swipeCancelBaselineRef.current.x;
 
-    let lockedDirection = lockedDirectionRef.current;
-    if (lockedDirection === null && hasHorizontal() && hasVertical()) {
-      const movementDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      if (movementDistance >= MIN_DRAG_THRESHOLD) {
-        lockedDirection = Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical';
-        lockedDirectionRef.current = lockedDirection;
-      }
-    }
-
     let candidate: SwipeDirection | undefined;
     if (!intendedSwipeDirectionRef.current) {
-      if (lockedDirection === 'vertical') {
-        if (deltaY > 0) {
-          candidate = 'down';
-        } else if (deltaY < 0) {
-          candidate = 'up';
-        }
-      } else if (lockedDirection === 'horizontal') {
-        if (deltaX > 0) {
-          candidate = 'right';
-        } else if (deltaX < 0) {
-          candidate = 'left';
-        }
-      } else if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+      if (Math.abs(deltaX) >= Math.abs(deltaY)) {
         candidate = deltaX > 0 ? 'right' : 'left';
       } else {
         candidate = deltaY > 0 ? 'down' : 'up';
@@ -710,21 +667,11 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     let newOffsetX = initialTransformRef.current.x;
     let newOffsetY = initialTransformRef.current.y;
 
-    if (lockedDirection === 'horizontal') {
-      if (hasHorizontal()) {
-        newOffsetX += dampedDelta.x;
-      }
-    } else if (lockedDirection === 'vertical') {
-      if (hasVertical()) {
-        newOffsetY += dampedDelta.y;
-      }
-    } else {
-      if (hasHorizontal()) {
-        newOffsetX += dampedDelta.x;
-      }
-      if (hasVertical()) {
-        newOffsetY += dampedDelta.y;
-      }
+    if (hasHorizontal()) {
+      newOffsetX += dampedDelta.x;
+    }
+    if (hasVertical()) {
+      newOffsetY += dampedDelta.y;
     }
 
     // Only rewrite drag styles when the drag offset actually changed. `syncDragStyles` writes the
@@ -789,7 +736,6 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     }
 
     setSwiping(false);
-    lockedDirectionRef.current = null;
     resetPendingSwipeState();
     sawPrimaryButtonsOnMoveRef.current = false;
 

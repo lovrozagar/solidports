@@ -2,9 +2,8 @@
 // TODO: Remove if temporal adapters are supported
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
-'use client';
 import { DateTime, Info } from 'luxon';
-import {
+import type {
   TemporalAdapterFormats,
   DateBuilderReturnType,
   TemporalTimezone,
@@ -29,6 +28,7 @@ const FORMATS: TemporalAdapterFormats = {
   // Letter formats
   month3Letters: 'MMM',
   monthFullLetter: 'MMMM',
+  monthFullLetterStandalone: 'LLLL',
   weekday: 'cccc',
   weekday3Letters: 'ccc',
   weekday1Letter: 'ccccc',
@@ -41,7 +41,7 @@ const FORMATS: TemporalAdapterFormats = {
 };
 
 // Temporarily disabled to avoid docs being built with `| DateTime`
-// declare module '@base-ui/react/internals/temporal' {
+// declare module '@solidports/base-ui/internals/temporal' {
 //   interface TemporalSupportedObjectLookup {
 //     luxon: DateTime;
 //   }
@@ -52,7 +52,7 @@ export class TemporalAdapterLuxon implements TemporalAdapter {
 
   public lib = 'luxon';
 
-  private locale: string;
+  declare private locale: string;
 
   public formats: TemporalAdapterFormats = FORMATS;
 
@@ -366,6 +366,11 @@ export class TemporalAdapterLuxon implements TemporalAdapter {
   public getDayOfWeek = (value: DateTime) => {
     /* istanbul ignore next */
     return value.localWeekday ?? value.weekday;
+  };
+
+  public isWeekend = (value: DateTime) => {
+    /* istanbul ignore next */
+    return this.setLocaleToValue(value).isWeekend ?? [6, 7].includes(value.weekday);
   };
 }
 

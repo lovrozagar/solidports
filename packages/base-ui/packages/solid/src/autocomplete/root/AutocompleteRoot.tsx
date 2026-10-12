@@ -5,6 +5,7 @@ import { AriaCombobox } from '../../combobox/root/AriaCombobox';
 import { useCoreFilter } from '../../combobox/root/utils/useFilter';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { REASONS } from '../../utils/reasons';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { stringifyAsLabel, type Group } from '../../utils/resolveValueLabel';
 import { splitProps } from '../../solid-1-compat';
 import { createDepsEffect } from '../../solid-helpers';
@@ -133,8 +134,12 @@ export interface AutocompleteRootActions {
 }
 
 export type AutocompleteRootChangeEventReason = AriaCombobox.ChangeEventReason;
-export type AutocompleteRootChangeEventDetails = AriaCombobox.ChangeEventDetails;
-export type AutocompleteRootOpenChangeEventDetails = AriaCombobox.OpenChangeEventDetails;
+export type AutocompleteRootChangeEventDetails =
+  BaseUIChangeEventDetails<AutocompleteRootChangeEventReason>;
+export type AutocompleteRootOpenChangeEventDetails = AutocompleteRootChangeEventDetails & {
+  /** Prevents the popup from unmounting until the `unmount` action is called. */
+  preventUnmountOnClose: () => void;
+};
 
 export type AutocompleteRootHighlightEventReason = AriaCombobox.HighlightEventReason;
 export type AutocompleteRootHighlightEventDetails = AriaCombobox.HighlightEventDetails;
@@ -256,8 +261,9 @@ export interface AutocompleteRootProps<ItemValue> extends Omit<
   itemToStringValue?: ((itemValue: ItemValue) => string) | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: Ends the closing phase after an externally controlled closing animation finishes.
+   * - `unmount`: Ends the closing phase of the autocomplete after an externally controlled closing animation finishes.
    * Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the autocomplete completes closing on its own.
+   * Whether it leaves the DOM is decided by `keepMounted` on the portal.
    * - `close`: Closes the autocomplete imperatively when called.
    */
   actionsRef?: ReactLikeRef<AutocompleteRootActions | null> | undefined;
