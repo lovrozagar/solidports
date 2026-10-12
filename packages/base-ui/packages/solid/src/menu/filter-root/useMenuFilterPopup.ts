@@ -5,7 +5,8 @@ import { warn } from '../../utils/warn';
 import { activeElement, contains, getTarget } from '../../utils/shadowDom';
 import { isTypeableElement } from '../../floating-ui-solid/utils/element';
 import { isCrossOrientationCloseKey } from '../../floating-ui-solid/hooks/useListNavigation';
-import { createLayoutEffect, useRef } from '../../solid-helpers';
+import { createEffect } from 'solid-js';
+import { useRef } from '../../solid-helpers';
 import { useFilterDropdownRootContext } from '../../filter-dropdown/root/FilterDropdownRootContext';
 import { isRefocusingOwner, refocusOwner } from '../../filter-dropdown/utils/refocusOwner';
 import type { MenuRoot } from '../root/MenuRoot';
@@ -19,21 +20,17 @@ export function useMenuFilterPopup(orientation: () => MenuRoot.Orientation): HTM
   const pointerTypeRef = useRef('mouse');
 
   if (process.env.NODE_ENV !== 'production') {
-    createLayoutEffect(
+    // A user effect runs after the pass that mounts the popup's children, so the input's ref is
+    // assigned by then, as after React's commit.
+    createEffect(
       () => context.open(),
       (open) => {
-        if (!open) {
-          return;
+        if (open && focusOwnerRef.current === null) {
+          warn(
+            'A filterable menu opened without a <Menu.Input>. Render the input inside ' +
+              '<Menu.Popup>, or drop <Menu.FilterProvider> for a menu that does not filter.',
+          );
         }
-        // The input ref is assigned while children render, after this effect.
-        queueMicrotask(() => {
-          if (context.open() && focusOwnerRef.current === null) {
-            warn(
-              'A filterable menu opened without a <Menu.Input>. Render the input inside ' +
-                '<Menu.Popup>, or drop <Menu.FilterProvider> for a menu that does not filter.',
-            );
-          }
-        });
       },
     );
   }
@@ -106,7 +103,8 @@ export function useMenuFilterPopup(orientation: () => MenuRoot.Orientation): HTM
         restoreInputFocus(event, true);
       }
     },
-    onFocus(event: FocusEvent) {
+    // Solid: React's `onFocus` is `focusin`, which also sees the input and nested popups' focus.
+    onFocusIn(event: FocusEvent) {
       const target = getTarget(event);
       const currentTarget = event.currentTarget as HTMLElement;
       if (target === focusOwnerRef.current) {

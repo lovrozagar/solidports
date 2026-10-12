@@ -4,15 +4,16 @@ import { screen, waitFor } from '@solidjs/testing-library';
 import { describe, expect, it, vi } from 'vitest';
 
 // Kept in a separate file so the module mock doesn't leak into `MenuSubmenuTrigger.test.tsx`.
-// Solid: React mocks `platform.screenReader.voiceOver`; the Solid port derives it from `isMac`.
-vi.mock('../../utils/detectBrowser', async () => {
-  const actual = await vi.importActual<typeof import('../../utils/detectBrowser')>(
-    '../../utils/detectBrowser',
-  );
+vi.mock('../../utils/platform', async () => {
+  const actual =
+    await vi.importActual<typeof import('../../utils/platform')>('../../utils/platform');
 
   return {
     ...actual,
-    isMac: true,
+    platform: {
+      ...actual.platform,
+      screenReader: { ...actual.platform.screenReader, voiceOver: true },
+    },
   };
 });
 

@@ -337,9 +337,11 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     ...buttonSources.attributes,
     propsSourceAccessor(localInteractionProps),
     hoverProps ?? EMPTY_OBJECT,
+    // Below the root's props, which carry the filter root's trigger props: React places those
+    // after this default, so a filterable menu's `dialog` wins.
+    TRIGGER_HASPOPUP,
     propsSourceAccessor(rootTriggerProps),
     {
-      'aria-haspopup': 'menu' as const,
       get 'aria-controls'() {
         return store().select('triggerControlsId', thisTriggerId);
       },
@@ -414,6 +416,8 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     </TriggerFocusGuards>
   );
 }
+
+const TRIGGER_HASPOPUP = { 'aria-haspopup': 'menu' } as const;
 
 export interface MenuTriggerProps<Payload = unknown>
   extends NativeButtonProps, BaseUIComponentProps<'button', MenuTriggerState> {

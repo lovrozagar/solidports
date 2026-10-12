@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value erased at value renderer */
-import { Match, Switch } from 'solid-js';
+import { createMemo, Match, Switch } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
@@ -41,14 +41,15 @@ export function SelectValue(componentProps: SelectValue.Props) {
     },
   };
 
+  // One read: each read of JSX children creates them anew.
+  const children = createMemo(() => componentProps.children);
+
   const element = useRenderElement('span', componentProps, {
     get children() {
       return (
         <Switch fallback={<>{resolveSelectedLabel(value(), items(), itemToStringLabel())}</>}>
-          <Match when={typeof componentProps.children === 'function'}>
-            {(componentProps.children as Function)(value())}
-          </Match>
-          <Match when={componentProps.children != null}>{componentProps.children}</Match>
+          <Match when={typeof children() === 'function'}>{(children() as Function)(value())}</Match>
+          <Match when={children() != null}>{children() as JSX.Element}</Match>
           <Match when={!hasSelectedValue() && local.placeholder != null && !hasNullLabel()}>
             {local.placeholder}
           </Match>

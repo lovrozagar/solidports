@@ -43,6 +43,9 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     get children() {
       return componentProps.children;
     },
+    get render() {
+      return componentProps.render;
+    },
   });
   const listItem = useCompositeListItem({ label: () => local.label });
   const id = useBaseUiId(idProp);

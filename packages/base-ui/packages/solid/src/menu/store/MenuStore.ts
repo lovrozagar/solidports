@@ -2,7 +2,7 @@ import { untrack } from 'solid-js';
 import { FloatingTreeStore } from '../../floating-ui-solid/components/FloatingTreeStore';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { AdaptiveOriginMiddleware } from '../../utils/adaptiveOriginConstants';
-import { isWebKit } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { EMPTY_OBJECT, NOOP } from '../../utils/empty';
 import { NullStore } from '../../utils/NullStore';
 import {
@@ -32,6 +32,11 @@ export type State<Payload> = PopupStoreState<Payload> & {
   activeIndex: number | null;
   /** The `Menu.List` element, which takes the `menu` role from the popup when rendered. */
   listElement: HTMLElement | null;
+  /**
+   * The id the `Menu.List` element renders with. Solid: the store has no `notifyAll()` to make
+   * subscribers re-read the stored element's id, so the id is state of its own.
+   */
+  listId: string | undefined;
   /**
    * Props a filter root adds to its triggers (dialog semantics and the key relay to the input).
    * Published by the filter implementation so a plain menu never bundles them.
@@ -101,17 +106,18 @@ const selectors = {
   },
   activeIndex: (state: State<unknown>) => state.activeIndex,
   listElement: (state: State<unknown>) => state.listElement,
+  listId: (state: State<unknown>) => state.listId,
   /** The trigger's `aria-controls`: the list when one holds the `menu` role, else the popup. */
   triggerControlsId: (state: State<unknown>, triggerId: () => string | undefined) => {
     const popupId = popupStoreSelectors.triggerPopupId(state, triggerId);
-    return popupId ? state.listElement?.id || popupId : undefined;
+    return popupId ? (state.listElement ? state.listId : undefined) || popupId : undefined;
   },
   filterTriggerProps: (state: State<unknown>) => state.filterTriggerProps,
   inputProps: (state: State<unknown>) => state.inputProps,
   highlightedItem: (state: State<unknown>) => state.highlightedItem,
   // Solid: selector args are accessors.
   webkitAriaSelected: (state: State<unknown>, highlighted: () => boolean) =>
-    isWebKit && state.inputFocused && highlighted() ? true : undefined,
+    platform.engine.webkit && state.inputFocused && highlighted() ? true : undefined,
   highlightedItemId: (state: State<unknown>) => state.highlightedItem?.id || undefined,
   // Solid: selector args are accessors.
   isActive: (state: State<unknown>, itemIndex: () => number) => state.activeIndex === itemIndex(),
@@ -291,6 +297,7 @@ function createInitialState<Payload>(initialState?: Partial<State<Payload>>) {
       rootId: undefined,
       activeIndex: null,
       listElement: null,
+      listId: undefined,
       filterTriggerProps: EMPTY_OBJECT as HTMLProps,
       inputProps: EMPTY_OBJECT as HTMLProps,
       inputFocused: false,

@@ -770,19 +770,11 @@ export function useListNavigation(parameters: {
         }
       }
 
-      if (shouldLetParentNavigate) {
-        queueMicrotask(() => {
-          store().setOpen(false, createChangeEventDetails(REASONS.listNavigation, event));
-        });
-      } else {
-        store().setOpen(false, createChangeEventDetails(REASONS.listNavigation, event));
-      }
+      store().setOpen(false, createChangeEventDetails(REASONS.listNavigation, event));
 
-      if (!shouldLetParentNavigate) {
-        const returnElement = props.nestedReturnFocusRef?.current ?? domReference;
-        if (isHTMLElement(returnElement)) {
-          returnElement.focus();
-        }
+      const returnElement = props.nestedReturnFocusRef?.current ?? domReference;
+      if (isHTMLElement(returnElement)) {
+        returnElement.focus();
       }
 
       return;

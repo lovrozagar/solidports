@@ -1,3 +1,4 @@
+import { onCleanup } from 'solid-js';
 import { mergeProps } from '../../merge-props';
 import { ownerDocument } from '../../utils/owner';
 import { activeElement } from '../../utils/shadowDom';
@@ -47,6 +48,11 @@ export function MenuInput(props: MenuInput.Props) {
         get: () => storeInputProps()[key as keyof HTMLProps],
       };
     },
+  });
+
+  // Solid: refs are not called with `null` on unmount, so removal without blur is cleared here.
+  onCleanup(() => {
+    store.set('inputFocused', false);
   });
 
   const inputProps = mergeProps<typeof FilterDropdownInput>(

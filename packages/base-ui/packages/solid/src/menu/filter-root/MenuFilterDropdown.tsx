@@ -1,10 +1,11 @@
+import { untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useMenubarContext } from '../../menubar/MenubarContext';
 import { isVirtualPointerEvent } from '../../floating-ui-solid/utils/event';
 import { FilterDropdownRoot } from '../../filter-dropdown/root/FilterDropdownRoot';
 import { useFilterDropdownCloseQuery } from '../../filter-dropdown/root/useFilterDropdownCloseQuery';
 import type { FilterDropdownFilter } from '../../filter-dropdown/root/FilterDropdownRootContext';
-import { provideContext } from '../../solid-helpers';
+import { createLayoutEffect, provideContext } from '../../solid-helpers';
 import { useControlled } from '../../utils/useControlled';
 import { REASONS } from '../../utils/reasons';
 import type { HTMLProps } from '../../utils/types';
@@ -49,7 +50,8 @@ export function MenuFilterDropdown(props: MenuFilterDropdownProps) {
     nextValue: string,
     eventDetails: MenuFilterProvider.ChangeEventDetails,
   ) => {
-    props.onValueChange?.(nextValue, eventDetails);
+    // A callback: the close reset calls this from an effect, so the prop is read untracked.
+    untrack(() => props.onValueChange)?.(nextValue, eventDetails);
     if (!eventDetails.isCanceled) {
       setValue(nextValue);
     }
@@ -63,7 +65,17 @@ export function MenuFilterDropdown(props: MenuFilterDropdownProps) {
   });
 
   const filterTriggerProps = useFilterTriggerProps(() => value() !== '');
+  // Seeded before the triggers below render, like the root's inactive trigger props.
+  store.set('filterTriggerProps', filterTriggerProps);
   store.useSyncedValue('filterTriggerProps', () => filterTriggerProps);
+
+  // Only `setOpen` records a keyboard open, so a controlled close that bypasses it must not leave
+  // the next programmatic open looking like one.
+  createLayoutEffect(open, (isOpen) => {
+    if (!isOpen) {
+      store.set('keyboardOpen', false);
+    }
+  });
 
   const triggerId = () => {
     const element = activeTriggerElement();

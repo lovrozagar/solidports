@@ -1,7 +1,7 @@
 import type { JSX } from '@solidjs/web';
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { useDirection } from '../../direction-provider/DirectionContext';
-import { createLayoutEffect, useRef } from '../../solid-helpers';
+import { ComponentWithPayload, createLayoutEffect, useRef } from '../../solid-helpers';
 import { activeElement, contains } from '../../utils/shadowDom';
 import { ownerDocument } from '../../utils/owner';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -122,9 +122,12 @@ export function MenuFilterSubmenuRoot(props: MenuFilterSubmenuRootProps): JSX.El
             autoHighlight={filter.autoHighlight}
             locale={filter.locale}
           >
-            {typeof props.children === 'function'
-              ? (props.children as (payload: unknown) => JSX.Element)(payload)
-              : props.children}
+            {/* Solid: a component's output can be an accessor, so a payload render function is
+                told apart by resolving the children once, as the root does. */}
+            <ComponentWithPayload
+              payload={() => payload.payload}
+              children={props.children as JSX.Element}
+            />
           </MenuFilterDropdown>
         </MenuFilterSubmenuNavigation>
       )}
