@@ -3,7 +3,8 @@ import type { UserEvent } from '@testing-library/user-event';
 import { fireEvent, screen, waitFor, within } from '@solidjs/testing-library';
 import { createSignal, lazy, Loading, Match, onSettled, Show, Switch } from 'solid-js';
 import { Dialog } from '@solidports/base-ui/dialog';
-import { act, createRenderer, isJSDOM } from '#test-utils';
+import { act, createRenderer, detachedTriggersConformanceTests, isJSDOM } from '#test-utils';
+import { Popover } from '@solidports/base-ui/popover';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures, { fixtureState, hydrationGate } from './DialogRoot.detached-triggers.ssr-fixtures';
 
@@ -12,6 +13,304 @@ describe('<Dialog.Root />', () => {
 
   beforeEach(() => {
     globalThis.BASE_UI_ANIMATIONS_DISABLED = true;
+  });
+
+  detachedTriggersConformanceTests({
+    render,
+    createHandle: Dialog.createHandle,
+    Root: Dialog.Root,
+    Trigger: Dialog.Trigger,
+    Portal: Dialog.Portal,
+    Popup: Dialog.Popup,
+    Close: Dialog.Close,
+    openInteractions: ['click'],
+    ariaExpanded: true,
+    throwOnMissingTrigger: false,
+  });
+
+  describe('does not re-render inactive triggers', () => {
+    function renderDialog() {
+      const handle = Dialog.createHandle();
+      const bystander = { renders: 0 };
+
+      const { user } = render(() => (
+        <div>
+          <Dialog.Trigger handle={handle} id="trigger-1">
+            Trigger 1
+          </Dialog.Trigger>
+          <Dialog.Trigger handle={handle} id="trigger-2">
+            Trigger 2
+          </Dialog.Trigger>
+          <Dialog.Trigger
+            handle={handle}
+            id="trigger-3"
+            render={(props) => {
+              bystander.renders += 1;
+              return <button {...props} />;
+            }}
+          >
+            Trigger 3
+          </Dialog.Trigger>
+          <Dialog.Root handle={handle}>
+            <Dialog.Portal>
+              <Dialog.Popup data-testid="popup">Content</Dialog.Popup>
+            </Dialog.Portal>
+          </Dialog.Root>
+        </div>
+      ));
+
+      bystander.renders = 0;
+      return {
+        user,
+        handle,
+        bystander,
+        trigger1: screen.getByRole('button', { name: 'Trigger 1' }),
+        trigger2: screen.getByRole('button', { name: 'Trigger 2' }),
+      };
+    }
+
+    async function expectOpenedBy(trigger: HTMLElement) {
+      expect(await screen.findByTestId('popup')).not.toBe(null);
+      await waitFor(() => {
+        expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      });
+    }
+
+    async function expectClosed(trigger: HTMLElement) {
+      await waitFor(() => {
+        expect(screen.queryByTestId('popup')).toBe(null);
+      });
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    }
+
+    it('when the popup opens and closes', async () => {
+      const { user, bystander, trigger1 } = renderDialog();
+
+      async function openAndClose() {
+        await user.click(trigger1);
+        await expectOpenedBy(trigger1);
+        await user.keyboard('[Escape]');
+        await expectClosed(trigger1);
+      }
+
+      await openAndClose();
+      await openAndClose();
+      expect(bystander.renders).toBe(0);
+    });
+
+    it('when the popup moves to another trigger', async () => {
+      const { handle, bystander, trigger1, trigger2 } = renderDialog();
+
+      act(() => handle.open('trigger-1'));
+      await expectOpenedBy(trigger1);
+      act(() => handle.open('trigger-2'));
+      await expectOpenedBy(trigger2);
+      expect(trigger1).toHaveAttribute('aria-expanded', 'false');
+      act(() => handle.close());
+      await expectClosed(trigger2);
+
+      expect(bystander.renders).toBe(0);
+    });
+  });
+
+  it('closes a nonmodal dialog on Escape from an inactive trigger inside a popover on every open', async () => {
+    const dialog = Dialog.createHandle();
+    const { user } = render(() => (
+      <Popover.Root defaultOpen>
+        <Popover.Trigger>Popover trigger</Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Positioner>
+            <Popover.Popup data-testid="popover">
+              <Dialog.Root handle={dialog} modal={false}>
+                <Dialog.Trigger handle={dialog}>Dialog trigger 1</Dialog.Trigger>
+                <Dialog.Trigger handle={dialog}>Dialog trigger 2</Dialog.Trigger>
+                <Dialog.Portal>
+                  <Dialog.Popup data-testid="dialog">Dialog</Dialog.Popup>
+                </Dialog.Portal>
+              </Dialog.Root>
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
+    ));
+
+    async function openThenEscapeFromInactiveTrigger() {
+      await user.click(screen.getByRole('button', { name: 'Dialog trigger 1' }));
+      expect(await screen.findByTestId('dialog')).not.toBe(null);
+
+      await act(async () => {
+        screen.getByRole('button', { name: 'Dialog trigger 2' }).focus();
+      });
+      await user.keyboard('[Escape]');
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('dialog')).toBe(null);
+      });
+      expect(screen.queryByTestId('popover')).not.toBe(null);
+    }
+
+    await openThenEscapeFromInactiveTrigger();
+    await openThenEscapeFromInactiveTrigger();
+    await openThenEscapeFromInactiveTrigger();
+  });
+
+  it('opens a handle-backed dialog as topmost over a dialog that opened while it was closed', async () => {
+    const help = Dialog.createHandle();
+
+    const { user } = render(() => (
+      <Dialog.Root handle={help}>
+        <Dialog.Portal>
+          <Dialog.Backdrop data-testid="help-backdrop" />
+          <Dialog.Popup data-testid="help">Help</Dialog.Popup>
+        </Dialog.Portal>
+        <Dialog.Root>
+          <Dialog.Trigger>Open section</Dialog.Trigger>
+          <Dialog.Portal>
+            <Dialog.Popup data-testid="section">
+              <Dialog.Trigger handle={help}>Open help</Dialog.Trigger>
+            </Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </Dialog.Root>
+    ));
+
+    async function openHelp() {
+      await user.click(screen.getByRole('button', { name: 'Open help' }));
+      expect(await screen.findByTestId('help')).not.toBe(null);
+      expect(screen.getByTestId('help')).not.toHaveAttribute('data-nested-dialog-open');
+      expect(screen.getByTestId('help').style.getPropertyValue('--nested-dialogs')).toBe('0');
+    }
+
+    await user.click(screen.getByRole('button', { name: 'Open section' }));
+    expect(await screen.findByTestId('section')).not.toBe(null);
+
+    await openHelp();
+    await user.keyboard('[Escape]');
+    await waitFor(() => {
+      expect(screen.queryByTestId('help')).toBe(null);
+    });
+    expect(screen.queryByTestId('section')).not.toBe(null);
+
+    await openHelp();
+    await user.click(screen.getByTestId('help-backdrop'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('help')).toBe(null);
+    });
+    expect(screen.queryByTestId('section')).not.toBe(null);
+  });
+
+  it('resets nested state recorded while open when a handle-backed dialog closes', async () => {
+    const help = Dialog.createHandle();
+    const section = Dialog.createHandle();
+
+    render(() => (
+      <Dialog.Root handle={help}>
+        <Dialog.Portal>
+          <Dialog.Popup data-testid="help">Help</Dialog.Popup>
+        </Dialog.Portal>
+        <Dialog.Root handle={section}>
+          <Dialog.Portal>
+            <Dialog.Popup data-testid="section">Section</Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </Dialog.Root>
+    ));
+
+    act(() => help.open(null));
+    act(() => section.open(null));
+    expect(await screen.findByTestId('section')).not.toBe(null);
+    await waitFor(() => {
+      expect(screen.getByTestId('help')).toHaveAttribute('data-nested-dialog-open');
+    });
+
+    // The section dialog stays open, so it never sends a zeroed count.
+    act(() => help.close());
+    await waitFor(() => {
+      expect(screen.queryByTestId('help')).toBe(null);
+    });
+    expect(screen.queryByTestId('section')).not.toBe(null);
+
+    act(() => help.open(null));
+    expect(await screen.findByTestId('help')).not.toHaveAttribute('data-nested-dialog-open');
+    expect(screen.getByTestId('help').style.getPropertyValue('--nested-dialogs')).toBe('0');
+  });
+
+  it('updates the parent nested state each time a handle-backed nested dialog opens and closes', async () => {
+    const child = Dialog.createHandle();
+
+    const { user } = render(() => (
+      <Dialog.Root defaultOpen>
+        <Dialog.Portal>
+          <Dialog.Popup data-testid="parent">
+            <Dialog.Trigger handle={child}>Open child</Dialog.Trigger>
+            <Dialog.Root handle={child}>
+              <Dialog.Portal>
+                <Dialog.Popup data-testid="child">
+                  <Dialog.Close>Close child</Dialog.Close>
+                </Dialog.Popup>
+              </Dialog.Portal>
+            </Dialog.Root>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    ));
+
+    const parent = await screen.findByTestId('parent');
+
+    async function openAndCloseChild() {
+      await user.click(screen.getByRole('button', { name: 'Open child' }));
+      expect(await screen.findByTestId('child')).not.toBe(null);
+      await waitFor(() => {
+        expect(parent).toHaveAttribute('data-nested-dialog-open');
+      });
+      expect(parent.style.getPropertyValue('--nested-dialogs')).toBe('1');
+
+      await user.click(screen.getByRole('button', { name: 'Close child' }));
+      await waitFor(() => {
+        expect(screen.queryByTestId('child')).toBe(null);
+      });
+      expect(parent).not.toHaveAttribute('data-nested-dialog-open');
+      expect(parent.style.getPropertyValue('--nested-dialogs')).toBe('0');
+    }
+
+    await openAndCloseChild();
+    await openAndCloseChild();
+  });
+
+  it('keeps the parent nested state when a closed handle-backed nested dialog mounts', async () => {
+    const handle = Dialog.createHandle();
+    const handleParentOpenChange = vi.fn();
+
+    const { user } = render(() => (
+      <Dialog.Root defaultOpen onOpenChange={handleParentOpenChange}>
+        <Dialog.Portal>
+          <Dialog.Backdrop data-testid="parent-backdrop" />
+          <Dialog.Popup data-testid="parent">
+            <Dialog.Root defaultOpen>
+              <Dialog.Portal>
+                <Dialog.Popup data-testid="nested">Nested</Dialog.Popup>
+              </Dialog.Portal>
+            </Dialog.Root>
+            {/* Must come after the open sibling so its mount runs last. */}
+            <Dialog.Root handle={handle}>
+              <Dialog.Portal>
+                <Dialog.Popup>Closed</Dialog.Popup>
+              </Dialog.Portal>
+            </Dialog.Root>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
+    ));
+
+    await screen.findByTestId('nested');
+    await waitFor(() => {
+      expect(screen.getByTestId('parent')).toHaveAttribute('data-nested-dialog-open');
+    });
+
+    // The parent isn't topmost while the nested dialog is open, so its backdrop doesn't dismiss it.
+    await user.click(screen.getByTestId('parent-backdrop'));
+    expect(handleParentOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId('parent')).toBeVisible();
   });
 
   describe('handle-backed root ownership', () => {
@@ -162,50 +461,6 @@ describe('<Dialog.Root />', () => {
       expect(handle.isOpen).toBe(false);
     });
 
-    it('ignores imperative handle calls made before a root is attached', async () => {
-      const handle = Dialog.createHandle<number>();
-
-      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      handle.open('trigger');
-      handle.openWithPayload(8);
-      handle.close();
-      const detachedWarnings = consoleWarn.mock.calls.filter(
-        ([message]) =>
-          typeof message === 'string' && message.includes('no root using this handle is mounted'),
-      );
-      consoleWarn.mockRestore();
-
-      expect(handle.isOpen).toBe(false);
-      expect(detachedWarnings).toHaveLength(3);
-
-      const { user } = render(() => (
-        <>
-          <Dialog.Trigger handle={handle} id="trigger" payload={1}>
-            Trigger
-          </Dialog.Trigger>
-          <Dialog.Root handle={handle}>
-            {(data: NumberPayload) => (
-              <>
-                <span data-testid="payload">{data.payload ?? 'No payload'}</span>
-                <Dialog.Portal>
-                  <Dialog.Popup>Dialog Content</Dialog.Popup>
-                </Dialog.Portal>
-              </>
-            )}
-          </Dialog.Root>
-        </>
-      ));
-
-      expect(screen.queryByRole('dialog')).toBe(null);
-      expect(screen.getByTestId('payload').textContent).toBe('No payload');
-
-      await user.click(screen.getByRole('button', { name: 'Trigger' }));
-      await waitFor(() => {
-        expect(screen.getByRole('dialog')).toBeVisible();
-      });
-      expect(screen.getByTestId('payload').textContent).toBe('1');
-    });
-
     it.skipIf(!isJSDOM)('does not warn for a detached payload open in production', () => {
       const originalEnvironment = process.env.NODE_ENV;
       const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -225,82 +480,40 @@ describe('<Dialog.Root />', () => {
       }
     });
 
-    it('ignores imperative handle calls made after the root is detached', async () => {
+    it('ignores openWithPayload() after the root unmounts and keeps the remounted root without payload', async () => {
       const handle = Dialog.createHandle<number>();
+      const [mounted, setMounted] = createSignal(true);
 
-      function App() {
-        const [mounted, setMounted] = createSignal(true);
-
-        return (
-          <>
-            <Dialog.Trigger handle={handle} id="trigger" payload={1}>
-              Trigger
-            </Dialog.Trigger>
-            <Show when={!mounted()}>
-              <button type="button" onClick={() => setMounted(true)}>
-                Remount root
-              </button>
-            </Show>
-            <Show when={mounted()}>
-              <Dialog.Root handle={handle}>
-                {(data: NumberPayload) => (
-                  <>
-                    <span data-testid="payload">{data.payload ?? 'No payload'}</span>
-                    <Dialog.Portal>
-                      <Dialog.Popup>
-                        Dialog Content
-                        <button type="button" onClick={() => setMounted(false)}>
-                          Unmount root
-                        </button>
-                      </Dialog.Popup>
-                    </Dialog.Portal>
-                  </>
-                )}
-              </Dialog.Root>
-            </Show>
-          </>
-        );
-      }
-
-      const { user } = render(() => <App />);
-      const trigger = screen.getByRole('button', { name: 'Trigger' });
-
-      await user.click(trigger);
-      await waitFor(() => {
-        expect(screen.getByRole('dialog')).toBeVisible();
-      });
-      expect(screen.getByTestId('payload').textContent).toBe('1');
-
-      await user.click(
-        within(screen.getByRole('dialog')).getByRole('button', { name: 'Unmount root' }),
-      );
-      expect(handle.isOpen).toBe(false);
-      expect(screen.queryByRole('dialog')).toBe(null);
+      render(() => (
+        <Show when={mounted()}>
+          <Dialog.Root handle={handle}>
+            {(data: NumberPayload) => (
+              <span data-testid="payload">{data.payload ?? 'No payload'}</span>
+            )}
+          </Dialog.Root>
+        </Show>
+      ));
+      act(() => setMounted(false));
 
       const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      handle.openWithPayload(8);
-      handle.open('trigger');
-      handle.close();
-      const detachedWarnings = consoleWarn.mock.calls.filter(
-        ([message]) =>
-          typeof message === 'string' && message.includes('no root using this handle is mounted'),
-      );
-      consoleWarn.mockRestore();
-
+      try {
+        handle.openWithPayload(8);
+        expect(
+          consoleWarn.mock.calls.filter(
+            ([message]) =>
+              typeof message === 'string' &&
+              message.includes('openWithPayload() was called while no root using this handle'),
+          ),
+        ).toHaveLength(1);
+      } finally {
+        consoleWarn.mockRestore();
+      }
       expect(handle.isOpen).toBe(false);
-      expect(detachedWarnings).toHaveLength(3);
 
-      await user.click(screen.getByRole('button', { name: 'Remount root' }));
-      expect(screen.queryByRole('dialog')).toBe(null);
+      act(() => setMounted(true));
+      expect(handle.isOpen).toBe(false);
       expect(screen.getByTestId('payload').textContent).toBe('No payload');
-
-      await user.click(trigger);
-      await waitFor(() => {
-        expect(screen.getByRole('dialog')).toBeVisible();
-      });
-      expect(screen.getByTestId('payload').textContent).toBe('1');
     });
-
     // Solid: no abandoned renders; a subtree pending under `Loading` runs render effects, and the
     // handle attaches with render-effect timing so `onSettled` callbacks can open it on mount.
     it.skip('does not attach a replacement root store from an abandoned transition render', async () => {
@@ -588,35 +801,6 @@ describe('<Dialog.Root />', () => {
       expect(detachedWarnings).toHaveLength(2);
     });
 
-    it('registers a detached trigger declared after the root', async () => {
-      const handle = Dialog.createHandle();
-
-      const { user } = render(() => (
-        <>
-          <Dialog.Root handle={handle}>
-            <Dialog.Portal>
-              <Dialog.Popup>Dialog Content</Dialog.Popup>
-            </Dialog.Portal>
-          </Dialog.Root>
-          <Dialog.Trigger handle={handle} id="trigger">
-            Trigger
-          </Dialog.Trigger>
-        </>
-      ));
-
-      const trigger = screen.getByRole('button', { name: 'Trigger' });
-
-      await user.click(trigger);
-      await waitFor(() => {
-        expect(screen.getByText('Dialog Content')).toBeVisible();
-      });
-
-      expect(trigger).toHaveAttribute('aria-expanded', 'true');
-      expect(trigger.getAttribute('aria-controls')).toBe(
-        screen.getByRole('dialog').getAttribute('id'),
-      );
-    });
-
     it('associates the requested trigger when opened by id in the same commit a root attaches', async () => {
       const handle = Dialog.createHandle<number>();
 
@@ -782,321 +966,11 @@ describe('<Dialog.Root />', () => {
         expect(screen.getByText('Strict Mode Dialog')).toBeVisible();
         expect(handle.isOpen).toBe(true);
       });
-
-      it('warns when a handle stays attached to more than one mounted root', async () => {
-        const handle = Dialog.createHandle();
-        const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-        render(() => (
-          <>
-            <Dialog.Root handle={handle}>
-              <Dialog.Portal>
-                <Dialog.Popup>First</Dialog.Popup>
-              </Dialog.Portal>
-            </Dialog.Root>
-            <Dialog.Root handle={handle}>
-              <Dialog.Portal>
-                <Dialog.Popup>Second</Dialog.Popup>
-              </Dialog.Portal>
-            </Dialog.Root>
-          </>
-        ));
-
-        // Both roots stay mounted, so the deferred check still sees the overlap and warns.
-        clock.tick(20);
-
-        expect(overlapWarned(consoleWarn)).toBe(true);
-        consoleWarn.mockRestore();
-      });
-
-      it('resolves a trigger still registered to the previous root during a transient overlap', async () => {
-        const handle = Dialog.createHandle();
-        const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-        function OpenOnMount() {
-          onSettled(() => {
-            handle.open('trigger');
-          });
-          return null;
-        }
-
-        function App(props: { phase: Phase }) {
-          return (
-            <>
-              <Dialog.Trigger handle={handle} id="trigger">
-                Trigger
-              </Dialog.Trigger>
-              <Show when={props.phase === 'outgoing' || props.phase === 'overlap'}>
-                <Dialog.Root handle={handle} modal={false}>
-                  <Dialog.Portal>
-                    <Dialog.Popup>Outgoing</Dialog.Popup>
-                  </Dialog.Portal>
-                </Dialog.Root>
-              </Show>
-              <Show when={props.phase === 'overlap' || props.phase === 'incoming'}>
-                <Dialog.Root handle={handle} modal={false}>
-                  <Dialog.Portal>
-                    <Dialog.Popup>Incoming</Dialog.Popup>
-                  </Dialog.Portal>
-                </Dialog.Root>
-                <OpenOnMount />
-              </Show>
-            </>
-          );
-        }
-
-        // The detached trigger settles into the outgoing root's store (it is no longer in the
-        // fallback map). The incoming root then attaches while the outgoing one is still mounted,
-        // and a layout effect in that same commit opens by trigger id — before the trigger has
-        // migrated to the incoming root's store. The dialog must open associated with the trigger
-        // rather than falling back to an unassociated open with a "No trigger found" warning.
-        const [phase, setPhase] = createSignal<Phase>('outgoing');
-        render(() => <App phase={phase()} />);
-        act(() => setPhase('overlap'));
-
-        const missingTriggerWarned = consoleWarn.mock.calls.some(
-          ([message]: unknown[]) =>
-            typeof message === 'string' && message.includes('No trigger found'),
-        );
-        expect(missingTriggerWarned).toBe(false);
-        expect(handle.isOpen).toBe(true);
-        expect(screen.getByRole('button', { name: 'Trigger' })).toHaveAttribute(
-          'aria-expanded',
-          'true',
-        );
-
-        // Completing the handoff (the outgoing root unmounts) keeps the dialog open and associated.
-        act(() => setPhase('incoming'));
-        expect(handle.isOpen).toBe(true);
-        consoleWarn.mockRestore();
-      });
     });
   });
 
   describe.skipIf(isJSDOM)('multiple triggers within Root', () => {
     type NumberPayload = { payload: number | undefined };
-
-    it('opens the dialog with any trigger', async () => {
-      const { user } = render(() => (
-        <Dialog.Root>
-          <Dialog.Trigger>Trigger 1</Dialog.Trigger>
-          <Dialog.Trigger>Trigger 2</Dialog.Trigger>
-          <Dialog.Trigger>Trigger 3</Dialog.Trigger>
-
-          <Dialog.Portal>
-            <Dialog.Popup>
-              Dialog Content
-              <Dialog.Close>Close</Dialog.Close>
-            </Dialog.Popup>
-          </Dialog.Portal>
-        </Dialog.Root>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-      const trigger3 = screen.getByRole('button', { name: 'Trigger 3' });
-
-      expect(screen.queryByText('Dialog Content')).toBe(null);
-
-      await user.click(trigger1);
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).not.toBe(null);
-      });
-
-      await user.click(screen.getByText('Close'));
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).toBe(null);
-      });
-
-      await user.click(trigger2);
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).not.toBe(null);
-      });
-
-      await user.click(screen.getByText('Close'));
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).toBe(null);
-      });
-
-      await user.click(trigger3);
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).not.toBe(null);
-      });
-    });
-
-    it('sets the payload and renders content based on its value', async () => {
-      const { user } = render(() => (
-        <Dialog.Root>
-          {(data: NumberPayload) => (
-            <>
-              <Dialog.Trigger payload={1}>Trigger 1</Dialog.Trigger>
-              <Dialog.Trigger payload={2}>Trigger 2</Dialog.Trigger>
-
-              <Dialog.Portal>
-                <Dialog.Popup>
-                  <span data-testid="content">{data.payload}</span>
-                  <Dialog.Close>Close</Dialog.Close>
-                </Dialog.Popup>
-              </Dialog.Portal>
-            </>
-          )}
-        </Dialog.Root>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      await user.click(trigger1);
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).toBe('1');
-      });
-
-      await user.click(trigger2);
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).toBe('2');
-      });
-    });
-
-    it('reuses the popup DOM node when switching triggers', async () => {
-      const { user } = render(() => (
-        <Dialog.Root>
-          {(data: NumberPayload) => (
-            <>
-              <Dialog.Trigger payload={1}>Trigger 1</Dialog.Trigger>
-              <Dialog.Trigger payload={2}>Trigger 2</Dialog.Trigger>
-
-              <Dialog.Portal>
-                <Dialog.Popup data-testid="dialog-popup">
-                  <span>{data.payload}</span>
-                </Dialog.Popup>
-              </Dialog.Portal>
-            </>
-          )}
-        </Dialog.Root>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      await user.click(trigger1);
-      const popupElement = screen.getByTestId('dialog-popup');
-
-      await user.click(trigger2);
-      expect(screen.getByTestId('dialog-popup')).toBe(popupElement);
-    });
-
-    it('synchronizes ARIA attributes on the active trigger', async () => {
-      const { user } = render(() => (
-        <Dialog.Root>
-          <Dialog.Trigger>Trigger 1</Dialog.Trigger>
-          <Dialog.Trigger>Trigger 2</Dialog.Trigger>
-
-          <Dialog.Portal>
-            <Dialog.Popup data-testid="dialog-popup">Dialog Content</Dialog.Popup>
-          </Dialog.Portal>
-        </Dialog.Root>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      expect(trigger1).toHaveAttribute('aria-expanded', 'false');
-      expect(trigger2).toHaveAttribute('aria-expanded', 'false');
-
-      await user.click(trigger1);
-
-      const dialog = await screen.findByRole('dialog');
-      const trigger1Controls = trigger1.getAttribute('aria-controls');
-      expect(trigger1Controls).not.toBe(null);
-      expect(dialog.getAttribute('id')).toBe(trigger1Controls);
-      await waitFor(() => {
-        expect(trigger1).toHaveAttribute('aria-expanded', 'true');
-      });
-      expect(trigger2).toHaveAttribute('aria-expanded', 'false');
-    });
-
-    it('synchronizes ARIA attributes in controlled mode', async () => {
-      render(() => (
-        <Dialog.Root open triggerId="trigger-2">
-          <Dialog.Trigger id="trigger-1">Trigger 1</Dialog.Trigger>
-          <Dialog.Trigger id="trigger-2">Trigger 2</Dialog.Trigger>
-
-          <Dialog.Portal>
-            <Dialog.Popup>Dialog Content</Dialog.Popup>
-          </Dialog.Portal>
-        </Dialog.Root>
-      ));
-
-      const trigger1 = screen.getByText('Trigger 1');
-      const trigger2 = screen.getByText('Trigger 2');
-      const dialog = await screen.findByRole('dialog');
-
-      expect(trigger1).toHaveAttribute('aria-expanded', 'false');
-      expect(trigger1).not.toHaveAttribute('aria-controls');
-      expect(trigger2).toHaveAttribute('aria-expanded', 'true');
-      expect(trigger2.getAttribute('aria-controls')).toBe(dialog.getAttribute('id'));
-    });
-
-    it('sets the payload when opening programmatically with a controlled triggerId', async () => {
-      function App() {
-        const [open, setOpen] = createSignal(false);
-        const [triggerId, setTriggerId] = createSignal<string | null>(null);
-
-        return (
-          <div>
-            <Dialog.Root
-              open={open()}
-              triggerId={triggerId()}
-              onOpenChange={(nextOpen) => setOpen(nextOpen)}
-            >
-              {(data: NumberPayload) => (
-                <>
-                  <Dialog.Trigger id="trigger-1" payload={1}>
-                    One
-                  </Dialog.Trigger>
-                  <Dialog.Trigger id="trigger-2" payload={2}>
-                    Two
-                  </Dialog.Trigger>
-
-                  <Dialog.Portal>
-                    <Dialog.Popup>
-                      <span data-testid="content">{data.payload}</span>
-                      <Dialog.Close>Close</Dialog.Close>
-                    </Dialog.Popup>
-                  </Dialog.Portal>
-                </>
-              )}
-            </Dialog.Root>
-
-            <button
-              type="button"
-              onClick={() => {
-                setTriggerId('trigger-2');
-                setOpen(true);
-              }}
-            >
-              Open programmatically
-            </button>
-          </div>
-        );
-      }
-
-      const { user } = render(() => <App />);
-
-      const openButton = screen.getByRole('button', { name: 'Open programmatically' });
-      await user.click(openButton);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).toBe('2');
-      });
-
-      await user.click(screen.getByRole('button', { name: 'Close' }));
-
-      await waitFor(() => {
-        expect(screen.queryByTestId('content')).toBe(null);
-      });
-      expect(openButton).toHaveFocus();
-    });
 
     it('keeps the payload reactive', async () => {
       function App() {
@@ -1206,55 +1080,6 @@ describe('<Dialog.Root />', () => {
         expect(screen.queryByText('Dialog Content')).toBe(null);
       });
     }
-
-    it('opens the dialog with any trigger', async () => {
-      const testDialog = Dialog.createHandle();
-      const { user } = render(() => (
-        <div>
-          <Dialog.Trigger handle={testDialog}>Trigger 1</Dialog.Trigger>
-          <Dialog.Trigger handle={testDialog}>Trigger 2</Dialog.Trigger>
-          <Dialog.Trigger handle={testDialog}>Trigger 3</Dialog.Trigger>
-
-          <Dialog.Root handle={testDialog}>
-            <Dialog.Portal>
-              <Dialog.Popup>
-                Dialog Content
-                <Dialog.Close>Close</Dialog.Close>
-              </Dialog.Popup>
-            </Dialog.Portal>
-          </Dialog.Root>
-        </div>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-      const trigger3 = screen.getByRole('button', { name: 'Trigger 3' });
-
-      expect(screen.queryByText('Dialog Content')).toBe(null);
-
-      await user.click(trigger1);
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).not.toBe(null);
-      });
-      await user.click(screen.getByText('Close'));
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).toBe(null);
-      });
-
-      await user.click(trigger2);
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).not.toBe(null);
-      });
-      await user.click(screen.getByText('Close'));
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).toBe(null);
-      });
-
-      await user.click(trigger3);
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).not.toBe(null);
-      });
-    });
 
     it('attaches fresh root state when the root remounts after being unmounted while open', async () => {
       const testDialog = Dialog.createHandle();
@@ -1580,73 +1405,6 @@ describe('<Dialog.Root />', () => {
       }
     });
 
-    it('keeps detached triggers clickable when reparented (remove wrappers)', async () => {
-      const testDialog = Dialog.createHandle();
-      const [nesting, setNesting] = createSignal<0 | 1 | 2 | 3>(3);
-      const { user } = render(() => (
-        <DetachedTriggerReparentingTest handle={testDialog} nesting={nesting()} />
-      ));
-
-      await openAndCloseDialog(user);
-
-      act(() => setNesting(2));
-      await openAndCloseDialog(user);
-
-      act(() => setNesting(1));
-      await openAndCloseDialog(user);
-
-      act(() => setNesting(0));
-      await openAndCloseDialog(user);
-    });
-
-    it('keeps detached triggers clickable when reparented (add wrappers)', async () => {
-      const testDialog = Dialog.createHandle();
-      const [nesting, setNesting] = createSignal<0 | 1 | 2 | 3>(0);
-      const { user } = render(() => (
-        <DetachedTriggerReparentingTest handle={testDialog} nesting={nesting()} />
-      ));
-
-      await openAndCloseDialog(user);
-
-      act(() => setNesting(1));
-      await openAndCloseDialog(user);
-
-      act(() => setNesting(2));
-      await openAndCloseDialog(user);
-
-      act(() => setNesting(3));
-      await openAndCloseDialog(user);
-    });
-
-    it('keeps detached triggers clickable during Fast Refresh-like handle recreation', async () => {
-      function DetachedTriggerTest(props: { handle: ReturnType<typeof Dialog.createHandle> }) {
-        return (
-          <>
-            <Dialog.Trigger handle={props.handle}>Trigger</Dialog.Trigger>
-            <Dialog.Root handle={props.handle}>
-              <Dialog.Portal>
-                <Dialog.Popup>
-                  Dialog Content
-                  <Dialog.Close>Close</Dialog.Close>
-                </Dialog.Popup>
-              </Dialog.Portal>
-            </Dialog.Root>
-          </>
-        );
-      }
-
-      const [handle, setHandle] = createSignal(Dialog.createHandle());
-      const { user } = render(() => <DetachedTriggerTest handle={handle()} />);
-
-      await openAndCloseDialog(user);
-
-      act(() => setHandle(Dialog.createHandle()));
-      await openAndCloseDialog(user);
-
-      act(() => setHandle(Dialog.createHandle()));
-      await openAndCloseDialog(user);
-    });
-
     it('keeps ARIA controls in sync when a detached handle is recreated while open', async () => {
       function DetachedTriggerTest(props: { handle: ReturnType<typeof Dialog.createHandle> }) {
         return (
@@ -1681,99 +1439,6 @@ describe('<Dialog.Root />', () => {
       await waitFor(() => {
         expect(trigger.getAttribute('aria-controls')).toBe(popup.getAttribute('id'));
       });
-    });
-
-    it('keeps detached triggers clickable when reparented during Fast Refresh-like handle recreation', async () => {
-      const handleA = Dialog.createHandle();
-      const [state, setState] = createSignal<{
-        handle: ReturnType<typeof Dialog.createHandle>;
-        nesting: 0 | 1 | 2 | 3;
-      }>({ handle: handleA, nesting: 3 });
-      const { user } = render(() => (
-        <DetachedTriggerReparentingTest handle={state().handle} nesting={state().nesting} />
-      ));
-
-      await openAndCloseDialog(user);
-
-      act(() => setState({ handle: Dialog.createHandle(), nesting: 2 }));
-      await openAndCloseDialog(user);
-
-      act(() => setState({ handle: Dialog.createHandle(), nesting: 1 }));
-      await openAndCloseDialog(user);
-
-      act(() => setState({ handle: Dialog.createHandle(), nesting: 0 }));
-      await openAndCloseDialog(user);
-    });
-
-    it('sets the payload and renders content based on its value', async () => {
-      const testDialog = Dialog.createHandle<number>();
-      const { user } = render(() => (
-        <div>
-          <Dialog.Trigger handle={testDialog} payload={1}>
-            Trigger 1
-          </Dialog.Trigger>
-          <Dialog.Trigger handle={testDialog} payload={2}>
-            Trigger 2
-          </Dialog.Trigger>
-
-          <Dialog.Root handle={testDialog}>
-            {(data: NumberPayload) => (
-              <Dialog.Portal>
-                <Dialog.Popup>
-                  <span data-testid="content">{data.payload}</span>
-                  <Dialog.Close>Close</Dialog.Close>
-                </Dialog.Popup>
-              </Dialog.Portal>
-            )}
-          </Dialog.Root>
-        </div>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      await user.click(trigger1);
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).toBe('1');
-      });
-
-      await user.click(trigger2);
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).toBe('2');
-      });
-    });
-
-    it('reuses the popup DOM node when switching triggers', async () => {
-      const testDialog = Dialog.createHandle<number>();
-      const { user } = render(() => (
-        <>
-          <Dialog.Trigger handle={testDialog} payload={1}>
-            Trigger 1
-          </Dialog.Trigger>
-          <Dialog.Trigger handle={testDialog} payload={2}>
-            Trigger 2
-          </Dialog.Trigger>
-
-          <Dialog.Root handle={testDialog}>
-            {(data: NumberPayload) => (
-              <Dialog.Portal>
-                <Dialog.Popup data-testid="dialog-popup">
-                  <span>{data.payload}</span>
-                </Dialog.Popup>
-              </Dialog.Portal>
-            )}
-          </Dialog.Root>
-        </>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      await user.click(trigger1);
-      const popupElement = screen.getByTestId('dialog-popup');
-
-      await user.click(trigger2);
-      expect(screen.getByTestId('dialog-popup')).toBe(popupElement);
     });
 
     it('keeps the payload reactive', async () => {
@@ -1862,40 +1527,6 @@ describe('<Dialog.Root />', () => {
   });
 
   describe('imperative actions on the handle', () => {
-    it('opens and closes the dialog', async () => {
-      const dialog = Dialog.createHandle();
-      render(() => (
-        <div>
-          <Dialog.Trigger handle={dialog} id="trigger">
-            Trigger
-          </Dialog.Trigger>
-          <Dialog.Root handle={dialog}>
-            <Dialog.Portal>
-              <Dialog.Popup data-testid="content">Content</Dialog.Popup>
-            </Dialog.Portal>
-          </Dialog.Root>
-        </div>
-      ));
-
-      const trigger = screen.getByRole('button', { name: 'Trigger' });
-      expect(screen.queryByRole('dialog')).toBe(null);
-
-      act(() => dialog.open('trigger'));
-      await waitFor(() => {
-        expect(screen.queryByRole('dialog')).not.toBe(null);
-      });
-
-      expect(screen.getByTestId('content').textContent).toBe('Content');
-      expect(trigger).toHaveAttribute('aria-expanded', 'true');
-
-      act(() => dialog.close());
-      await waitFor(() => {
-        expect(screen.queryByRole('dialog')).toBe(null);
-      });
-
-      expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    });
-
     it('associates an imperative open-by-id with a persistent detached trigger after the root remounts', async () => {
       const dialog = Dialog.createHandle<number>();
 
@@ -2029,18 +1660,15 @@ describe('<Dialog.Root />', () => {
       }
     });
 
-    it('sets the payload assosiated with the trigger', async () => {
-      const dialog = Dialog.createHandle<number>();
-      render(() => (
+    it('does not associate the only rendered trigger when opened with a payload', async () => {
+      const dialog = Dialog.createHandle<string>();
+      const { user } = render(() => (
         <div>
-          <Dialog.Trigger handle={dialog} id="trigger1" payload={1}>
-            Trigger 1
-          </Dialog.Trigger>
-          <Dialog.Trigger handle={dialog} id="trigger2" payload={2}>
-            Trigger 2
+          <Dialog.Trigger handle={dialog} id="trigger" payload="from trigger">
+            Trigger
           </Dialog.Trigger>
           <Dialog.Root handle={dialog}>
-            {(data: { payload: number | undefined }) => (
+            {(data: { payload: string | undefined }) => (
               <Dialog.Portal>
                 <Dialog.Popup data-testid="content">{data.payload}</Dialog.Popup>
               </Dialog.Portal>
@@ -2049,39 +1677,48 @@ describe('<Dialog.Root />', () => {
         </div>
       ));
 
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-      expect(screen.queryByRole('dialog')).toBe(null);
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
 
-      act(() => dialog.open('trigger2'));
+      act(() => dialog.openWithPayload('from openWithPayload'));
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBe(null);
       });
 
-      expect(screen.getByTestId('content').textContent).toBe('2');
-      expect(trigger2).toHaveAttribute('aria-expanded', 'true');
-      expect(trigger1).not.toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByTestId('content').textContent).toBe('from openWithPayload');
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      expect(trigger).not.toHaveAttribute('aria-controls');
+      expect(trigger).not.toHaveAttribute('data-popup-open');
 
       act(() => dialog.close());
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).toBe(null);
       });
 
-      expect(trigger2).toHaveAttribute('aria-expanded', 'false');
+      // Opening through the trigger afterwards still associates it and forwards its payload.
+      await user.click(trigger);
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBe(null);
+      });
+      expect(screen.getByTestId('content').textContent).toBe('from trigger');
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      expect(trigger.getAttribute('aria-controls')).toBe(
+        screen.getByRole('dialog').getAttribute('id'),
+      );
     });
 
-    it('sets the payload programmatically', async () => {
-      const dialog = Dialog.createHandle<number>();
+    it('does not let a trigger that mounts while open replace the programmatic payload', async () => {
+      const dialog = Dialog.createHandle<string>();
+      const [showTrigger, setShowTrigger] = createSignal(false);
+
       render(() => (
         <div>
-          <Dialog.Trigger handle={dialog} id="trigger1" payload={1}>
-            Trigger 1
-          </Dialog.Trigger>
-          <Dialog.Trigger handle={dialog} id="trigger2" payload={2}>
-            Trigger 2
-          </Dialog.Trigger>
+          <Show when={showTrigger()}>
+            <Dialog.Trigger handle={dialog} id="trigger" payload="from trigger">
+              Trigger
+            </Dialog.Trigger>
+          </Show>
           <Dialog.Root handle={dialog}>
-            {(data: { payload: number | undefined }) => (
+            {(data: { payload: string | undefined }) => (
               <Dialog.Portal>
                 <Dialog.Popup data-testid="content">{data.payload}</Dialog.Popup>
               </Dialog.Portal>
@@ -2090,23 +1727,68 @@ describe('<Dialog.Root />', () => {
         </div>
       ));
 
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-      expect(screen.queryByRole('dialog')).toBe(null);
+      act(() => dialog.openWithPayload('from openWithPayload'));
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBe(null);
+      });
+      expect(screen.getByTestId('content').textContent).toBe('from openWithPayload');
 
-      act(() => dialog.openWithPayload(8));
+      act(() => setShowTrigger(true));
+
+      expect(screen.getByTestId('content').textContent).toBe('from openWithPayload');
+      // The modal dialog hides the rest of the page from the accessibility tree.
+      const trigger = screen.getByRole('button', { name: 'Trigger', hidden: true });
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      expect(trigger).not.toHaveAttribute('aria-controls');
+    });
+
+    it('keeps the programmatic payload when a controlled dialog declines a close request', async () => {
+      const dialog = Dialog.createHandle<string>();
+      const [showTrigger, setShowTrigger] = createSignal(false);
+      const [open, setOpen] = createSignal(false);
+
+      render(() => (
+        <div>
+          <Show when={showTrigger()}>
+            <Dialog.Trigger handle={dialog} id="trigger" payload="from trigger">
+              Trigger
+            </Dialog.Trigger>
+          </Show>
+          <Dialog.Root
+            handle={dialog}
+            open={open()}
+            onOpenChange={(nextOpen) => {
+              // Accept opens, but keep the dialog open on close requests.
+              if (nextOpen) {
+                setOpen(true);
+              }
+            }}
+          >
+            {(data: { payload: string | undefined }) => (
+              <Dialog.Portal>
+                <Dialog.Popup data-testid="content">{data.payload}</Dialog.Popup>
+              </Dialog.Portal>
+            )}
+          </Dialog.Root>
+        </div>
+      ));
+
+      act(() => dialog.openWithPayload('from openWithPayload'));
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBe(null);
       });
 
-      expect(screen.getByTestId('content').textContent).toBe('8');
-      expect(trigger1).not.toHaveAttribute('aria-expanded', 'true');
-      expect(trigger2).not.toHaveAttribute('aria-expanded', 'true');
-
+      // The close request is declined, so the dialog stays open without a trigger.
       act(() => dialog.close());
-      await waitFor(() => {
-        expect(screen.queryByRole('dialog')).toBe(null);
-      });
+      expect(screen.queryByRole('dialog')).not.toBe(null);
+      expect(dialog.isOpen).toBe(true);
+
+      act(() => setShowTrigger(true));
+
+      expect(screen.getByTestId('content').textContent).toBe('from openWithPayload');
+      const trigger = screen.getByRole('button', { name: 'Trigger', hidden: true });
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      expect(trigger).not.toHaveAttribute('aria-controls');
     });
   });
 });
