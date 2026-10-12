@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Collapsible } from '@solidports/base-ui/collapsible';
 import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { REASONS } from '../../utils/reasons';
+import { AnimationFrame } from '../../utils/useAnimationFrame';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures from './CollapsiblePanel.ssr-fixtures';
 
@@ -1160,16 +1161,212 @@ describe('<Collapsible.Panel />', () => {
       const trigger = screen.getByRole('button', { name: 'Trigger' });
 
       fireBeforeMatch(panel);
+      // The browser drops `hidden` as part of revealing the match, regardless of
+      // what the event handler decided.
+      panel.removeAttribute('hidden');
 
       expect(handleOpenChange).toHaveBeenCalledOnce();
       expect(trigger).toHaveAttribute('aria-expanded', 'false');
       expect(panel).toHaveAttribute('data-closed');
+      // A canceled reveal must leave the collapsed styles in place.
+      expect(panel).toHaveAttribute('data-starting-style');
+      expect(getComputedStyle(panel).height).toBe('0px');
+
+      // A canceled reveal must also stay hidden and searchable.
+      await waitFor(() => {
+        expect(panel).toHaveAttribute('hidden', 'until-found');
+      });
 
       await user.click(trigger);
 
       expect(handleOpenChange).toHaveBeenCalledTimes(2);
       expect(panel).toHaveAttribute('data-open');
       expect(panel.style.transitionDuration).toBe('123ms');
+    });
+
+    it('expands the panel while beforematch is being dispatched', async () => {
+      await render(() => (
+        <>
+          <style>{`
+            .transition-test-panel {
+              overflow: hidden;
+              height: var(--collapsible-panel-height);
+              transition-property: height;
+              transition-duration: 999ms;
+              transition-timing-function: linear;
+            }
+
+            .transition-test-panel[data-starting-style],
+            .transition-test-panel[data-ending-style] {
+              height: 0;
+            }
+          `}</style>
+
+          <Collapsible.Root>
+            <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+            <Collapsible.Panel class="transition-test-panel" data-testid="panel" hiddenUntilFound>
+              {PANEL_CONTENT}
+            </Collapsible.Panel>
+          </Collapsible.Root>
+        </>
+      ));
+
+      const panel = screen.getByTestId('panel');
+
+      expect(panel).toHaveAttribute('data-starting-style');
+
+      let startingStyleWhenRevealed: boolean | undefined;
+      let heightWhenRevealed: string | undefined;
+
+      // Registered after the component's own listener, so this observes the panel
+      // from where the browser does: the same task, once `beforematch` handling is
+      // done. The browser drops `hidden` and measures the match there, and a panel
+      // still holding its collapsed starting styles measures as zero-sized.
+      panel.addEventListener('beforematch', () => {
+        startingStyleWhenRevealed = panel.hasAttribute('data-starting-style');
+        panel.removeAttribute('hidden');
+        heightWhenRevealed = getComputedStyle(panel).height;
+      });
+
+      fireBeforeMatch(panel);
+
+      expect(startingStyleWhenRevealed).toBe(false);
+      expect(heightWhenRevealed).not.toBe('0px');
+    });
+
+    it('re-collapses the panel when the open state never arrives', async () => {
+      function App() {
+        const [open, setOpen] = createSignal(false);
+        const [tick, setTick] = createSignal(0);
+
+        return (
+          <>
+            <style>{`
+              .transition-test-panel {
+                overflow: hidden;
+                height: var(--collapsible-panel-height);
+                transition-property: height;
+                transition-duration: 999ms;
+                transition-timing-function: linear;
+              }
+
+              .transition-test-panel[data-starting-style],
+              .transition-test-panel[data-ending-style] {
+                height: 0;
+              }
+            `}</style>
+
+            <button type="button" onClick={() => setTick((value) => value + 1)}>
+              Rerender
+            </button>
+            <span data-testid="tick">{tick()}</span>
+
+            <Collapsible.Root
+              open={open()}
+              onOpenChange={(nextOpen, eventDetails) => {
+                // Opts out of find-in-page reveals while still honoring the trigger.
+                if (eventDetails.reason === REASONS.none) {
+                  return;
+                }
+
+                setOpen(nextOpen);
+              }}
+            >
+              <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+              <Collapsible.Panel
+                class="transition-test-panel"
+                data-testid="panel"
+                hiddenUntilFound
+                style={{ 'transition-duration': '123ms' }}
+              >
+                {PANEL_CONTENT}
+              </Collapsible.Panel>
+            </Collapsible.Root>
+          </>
+        );
+      }
+
+      const { user } = await render(() => <App />);
+
+      const panel = screen.getByTestId('panel');
+
+      expect(panel).toHaveAttribute('data-starting-style');
+
+      fireBeforeMatch(panel);
+      // The browser drops `hidden` as part of revealing the match.
+      panel.removeAttribute('hidden');
+
+      // The closed props do not change, so they cannot restore `hidden` on their own.
+      await waitFor(() => {
+        expect(panel).toHaveAttribute('hidden', 'until-found');
+      });
+      expect(panel).toHaveAttribute('data-starting-style');
+      expect(getComputedStyle(panel).height).toBe('0px');
+
+      await user.click(screen.getByRole('button', { name: 'Rerender' }));
+
+      expect(panel).toHaveAttribute('data-starting-style');
+      expect(getComputedStyle(panel).height).toBe('0px');
+
+      // The reveal never opened the panel, so it must not consume the motion of the
+      // next ordinary open.
+      await user.click(screen.getByRole('button', { name: 'Trigger' }));
+
+      expect(panel).toHaveAttribute('data-open');
+      expect(getComputedStyle(panel).transitionDuration).toBe('0.123s');
+    });
+
+    it('does not re-hide a panel that opens before the reveal revert paints', async () => {
+      const frames: FrameRequestCallback[] = [];
+      const request = vi.spyOn(AnimationFrame, 'request').mockImplementation((callback) => {
+        frames.push(callback);
+        return frames.length;
+      });
+
+      try {
+        function App() {
+          const [open, setOpen] = createSignal(false);
+          return (
+            <Collapsible.Root
+              open={open()}
+              onOpenChange={(nextOpen, eventDetails) => {
+                if (eventDetails.reason === REASONS.none) {
+                  return;
+                }
+                setOpen(nextOpen);
+              }}
+            >
+              <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+              <Collapsible.Panel data-testid="panel" hiddenUntilFound>
+                {PANEL_CONTENT}
+              </Collapsible.Panel>
+            </Collapsible.Root>
+          );
+        }
+
+        const { user } = await render(() => <App />);
+        const panel = screen.getByTestId('panel');
+
+        fireBeforeMatch(panel);
+        panel.removeAttribute('hidden');
+
+        await act(async () => {
+          await new Promise((resolve) => {
+            setTimeout(resolve, 0);
+          });
+        });
+
+        const revert = frames.at(-1);
+        expect(revert).toEqual(expect.any(Function));
+
+        await user.click(screen.getByRole('button', { name: 'Trigger' }));
+        revert?.(0);
+
+        expect(panel).toHaveAttribute('data-open');
+        expect(panel).not.toHaveAttribute('hidden');
+      } finally {
+        request.mockRestore();
+      }
     });
 
     it('uses `hidden="until-found" to hide panel when true', async () => {
