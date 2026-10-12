@@ -1,9 +1,9 @@
-import { act, createRenderer, isJSDOM, wait } from '#test-utils';
-import { Menu } from '@solidports/base-ui/menu';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
-import { spy } from 'sinon';
-import { createRenderEffect, createSignal, Show } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { JSX } from 'solid-js';
+import { Menu } from '@solidports/base-ui/menu';
+import { act, createRenderer, detachedTriggersConformanceTests, isJSDOM, wait } from '#test-utils';
 
 describe('<MenuRoot />', () => {
   beforeEach(() => {
@@ -12,834 +12,110 @@ describe('<MenuRoot />', () => {
 
   const { render } = createRenderer();
 
-  describe.skipIf(isJSDOM)('handle-backed root ownership', () => {
-    type NumberPayload = { payload: number | undefined };
-
-    it('ignores imperative handle calls made before a root is attached', async () => {
-      const handle = Menu.createHandle<number>();
-
-      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      handle.open('trigger');
-      handle.close();
-      const detachedWarnings = consoleWarn.mock.calls.filter(
-        ([message]) =>
-          typeof message === 'string' && message.includes('no root using this handle is mounted'),
-      );
-      consoleWarn.mockRestore();
-
-      expect(handle.isOpen).to.equal(false);
-      expect(detachedWarnings).to.have.length(2);
-
-      const { user } = render(() => (
-        <>
-          <Menu.Trigger handle={handle} id="trigger" payload={1}>
-            Trigger
-          </Menu.Trigger>
-          <Menu.Root handle={handle}>
-            {(data: NumberPayload) => (
-              <>
-                <span data-testid="payload">{data.payload ?? 'No payload'}</span>
-                <Menu.Portal>
-                  <Menu.Positioner>
-                    <Menu.Popup>
-                      <Menu.Item>Menu Content</Menu.Item>
-                    </Menu.Popup>
-                  </Menu.Positioner>
-                </Menu.Portal>
-              </>
-            )}
-          </Menu.Root>
-        </>
-      ));
-
-      expect(screen.queryByRole('menu')).to.equal(null);
-      expect(screen.getByTestId('payload').textContent).to.equal('No payload');
-
-      await user.click(screen.getByRole('button', { name: 'Trigger' }));
-      await screen.findByRole('menu');
-      expect(screen.getByTestId('payload').textContent).to.equal('1');
-    });
-
-    it('ignores imperative handle calls made after the root is detached', async () => {
-      const handle = Menu.createHandle<number>();
-
-      function App() {
-        const [mounted, setMounted] = createSignal(true);
-
-        return (
-          <>
-            <Menu.Trigger handle={handle} id="trigger" payload={1}>
-              Trigger
-            </Menu.Trigger>
-            <Show when={!mounted()}>
-              <button type="button" onClick={() => setMounted(true)}>
-                Remount root
-              </button>
-            </Show>
-            <Show when={mounted()}>
-              <Menu.Root handle={handle}>
-                {(data: NumberPayload) => (
-                  <>
-                    <span data-testid="payload">{data.payload ?? 'No payload'}</span>
-                    <Menu.Portal>
-                      <Menu.Positioner>
-                        <Menu.Popup>
-                          <Menu.Item onClick={() => setMounted(false)}>Unmount root</Menu.Item>
-                        </Menu.Popup>
-                      </Menu.Positioner>
-                    </Menu.Portal>
-                  </>
-                )}
-              </Menu.Root>
-            </Show>
-          </>
-        );
-      }
-
-      const { user } = render(() => <App />);
-      const trigger = screen.getByRole('button', { name: 'Trigger' });
-
-      await user.click(trigger);
-      await screen.findByRole('menu');
-      expect(screen.getByTestId('payload').textContent).to.equal('1');
-
-      await user.click(screen.getByRole('menuitem', { name: 'Unmount root' }));
-      expect(handle.isOpen).to.equal(false);
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-
-      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      handle.open('trigger');
-      handle.close();
-      const detachedWarnings = consoleWarn.mock.calls.filter(
-        ([message]) =>
-          typeof message === 'string' && message.includes('no root using this handle is mounted'),
-      );
-      consoleWarn.mockRestore();
-
-      expect(handle.isOpen).to.equal(false);
-      expect(detachedWarnings).to.have.length(2);
-
-      await user.click(screen.getByRole('button', { name: 'Remount root' }));
-      expect(screen.queryByRole('menu')).to.equal(null);
-      expect(screen.getByTestId('payload').textContent).to.equal('No payload');
-
-      await user.click(trigger);
-      await screen.findByRole('menu');
-      expect(screen.getByTestId('payload').textContent).to.equal('1');
-    });
-
-    it('registers a detached trigger declared after the root', async () => {
-      const handle = Menu.createHandle();
-
-      const { user } = render(() => (
-        <>
-          <Menu.Root handle={handle}>
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
-                  <Menu.Item>Menu Content</Menu.Item>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-          <Menu.Trigger handle={handle} id="trigger">
-            Trigger
-          </Menu.Trigger>
-        </>
-      ));
-
-      const trigger = screen.getByRole('button', { name: 'Trigger' });
-
-      await user.click(trigger);
-      await screen.findByRole('menu');
-
-      expect(trigger).to.have.attribute('aria-expanded', 'true');
-    });
-
-    it('throws when called with an unregistered trigger id', async () => {
-      const handle = Menu.createHandle();
-
-      render(() => (
-        <>
-          <Menu.Root handle={handle}>
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
-                  <Menu.Item>Menu Content</Menu.Item>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-          <Menu.Trigger handle={handle} id="trigger">
-            Trigger
-          </Menu.Trigger>
-        </>
-      ));
-
-      expect(() => handle.open('missing')).to.throw('was called with the trigger id "missing"');
-      expect(handle.isOpen).to.equal(false);
-    });
-
-    describe('multiple roots sharing one handle', () => {
-      // Fake timers so the deferred overlap check only runs when ticked, after the handoff settles.
-      // Solid: the browser-mode test clock's `withFakeTimers()` applies to the whole file, so the
-      // fake timers are scoped to this block directly.
-      beforeEach(() => {
-        vi.useFakeTimers();
-      });
-      afterEach(() => {
-        vi.useRealTimers();
-      });
-
-      it('warns when a handle stays attached to more than one mounted root', async () => {
-        const handle = Menu.createHandle();
-        const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-        render(() => (
-          <>
-            <Menu.Root handle={handle}>
-              <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
-                    <Menu.Item>First</Menu.Item>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </Menu.Root>
-            <Menu.Root handle={handle}>
-              <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
-                    <Menu.Item>Second</Menu.Item>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </Menu.Root>
-          </>
-        ));
-
-        // Both roots stay mounted, so the deferred check still sees the overlap and warns.
-        act(() => {
-          vi.advanceTimersByTime(20);
-        });
-
-        const overlapWarned = consoleWarn.mock.calls.some(
-          ([message]) =>
-            typeof message === 'string' && message.includes('more than one mounted root'),
-        );
-        expect(overlapWarned).to.equal(true);
-        consoleWarn.mockRestore();
-      });
-
-      it('resolves a trigger still registered to the previous root during a transient overlap', async () => {
-        const handle = Menu.createHandle();
-        const openErrors: unknown[] = [];
-
-        function OpenOnMount() {
-          // Solid: a render effect stands in for React's layout effect.
-          createRenderEffect(
-            () => undefined,
-            () => {
-              try {
-                handle.open('trigger');
-              } catch (error) {
-                openErrors.push(error);
-              }
-            },
-          );
-          return null;
-        }
-
-        const [phase, setPhase] = createSignal<'outgoing' | 'overlap' | 'incoming'>('outgoing');
-
-        function App() {
-          return (
-            <>
-              <Menu.Trigger handle={handle} id="trigger">
-                Trigger
-              </Menu.Trigger>
-              <Show when={phase() === 'outgoing' || phase() === 'overlap'}>
-                <Menu.Root handle={handle}>
-                  <Menu.Portal>
-                    <Menu.Positioner>
-                      <Menu.Popup>
-                        <Menu.Item>Outgoing</Menu.Item>
-                      </Menu.Popup>
-                    </Menu.Positioner>
-                  </Menu.Portal>
-                </Menu.Root>
-              </Show>
-              <Show when={phase() === 'overlap' || phase() === 'incoming'}>
-                <Menu.Root handle={handle}>
-                  <Menu.Portal>
-                    <Menu.Positioner>
-                      <Menu.Popup>
-                        <Menu.Item>Incoming</Menu.Item>
-                      </Menu.Popup>
-                    </Menu.Positioner>
-                  </Menu.Portal>
-                </Menu.Root>
-                <OpenOnMount />
-              </Show>
-            </>
-          );
-        }
-
-        // The detached trigger settles into the outgoing root's store (it is no longer in the
-        // fallback map). The incoming root then attaches while the outgoing one is still mounted,
-        // and a render effect in that same flush opens by trigger id — before the trigger has
-        // migrated to the incoming root's store.
-        render(() => <App />);
-        await act(() => setPhase('overlap'));
-
-        expect(openErrors).to.have.length(0);
-        expect(handle.isOpen).to.equal(true);
-        expect(screen.getByRole('button', { name: 'Trigger' })).to.have.attribute(
-          'aria-expanded',
-          'true',
-        );
-
-        // Completing the handoff (the outgoing root unmounts) keeps the popup open and associated.
-        await act(() => setPhase('incoming'));
-        expect(handle.isOpen).to.equal(true);
-      });
-    });
-  });
-
-  describe.skipIf(isJSDOM)('multiple triggers within Root', () => {
-    type NumberPayload = { payload: number | undefined };
-
-    it('should open the menu with any trigger', async () => {
-      const { user } = render(() => (
-        <Menu.Root>
-          <Menu.Trigger>Trigger 1</Menu.Trigger>
-          <Menu.Trigger>Trigger 2</Menu.Trigger>
-          <Menu.Trigger>Trigger 3</Menu.Trigger>
-
-          <Menu.Portal>
-            <Menu.Positioner>
-              <Menu.Popup>
-                <Menu.Item>Close</Menu.Item>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-      const trigger3 = screen.getByRole('button', { name: 'Trigger 3' });
-
-      expect(screen.queryByRole('menu')).to.equal(null);
-
-      await user.click(trigger1);
-      await screen.findByRole('menu');
-      await user.click(await screen.findByRole('menuitem', { name: 'Close' }));
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-
-      await user.click(trigger2);
-      await screen.findByRole('menu');
-      await user.click(await screen.findByRole('menuitem', { name: 'Close' }));
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-
-      await user.click(trigger3);
-      await screen.findByRole('menu');
-      await user.click(await screen.findByRole('menuitem', { name: 'Close' }));
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-    });
-
-    it('should set the payload and render content based on its value', async () => {
-      const { user } = render(() => (
-        <Menu.Root>
-          {(data: NumberPayload) => (
-            <>
-              <Menu.Trigger payload={1}>Trigger 1</Menu.Trigger>
-              <Menu.Trigger payload={2}>Trigger 2</Menu.Trigger>
-
-              <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
-                    <Menu.Item data-testid="content">{data.payload}</Menu.Item>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </>
-          )}
-        </Menu.Root>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      await user.click(trigger1);
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('1');
-      });
-
-      await user.click(screen.getByTestId('content'));
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-
-      await user.click(trigger2);
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('2');
-      });
-    });
-
-    it('should reuse the popup and positioner DOM nodes when switching triggers', async () => {
-      const { user } = render(() => (
-        <Menu.Root>
-          {(data: NumberPayload) => (
-            <>
-              <Menu.Trigger payload={1}>Trigger 1</Menu.Trigger>
-              <Menu.Trigger payload={2}>Trigger 2</Menu.Trigger>
-
-              <Menu.Portal>
-                <Menu.Positioner data-testid="positioner">
-                  <Menu.Popup data-testid="popup">
-                    <span>{data.payload}</span>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </>
-          )}
-        </Menu.Root>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      await user.click(trigger1);
-      await screen.findByRole('menu');
-      const popupElement = screen.getByTestId('popup');
-      const positionerElement = screen.getByTestId('positioner');
-
-      await user.click(trigger2);
-      await screen.findByRole('menu');
-
-      expect(screen.getByTestId('popup')).to.equal(popupElement);
-      expect(screen.getByTestId('positioner')).to.equal(positionerElement);
-    });
-
-    it('should allow controlling the menu state programmatically', async () => {
-      function Test() {
-        const [open, setOpen] = createSignal(false);
-        const [activeTrigger, setActiveTrigger] = createSignal<string | null>(null);
-
-        return (
-          <div>
-            <Menu.Root
-              open={open()}
-              triggerId={activeTrigger()}
-              onOpenChange={(nextOpen, details) => {
-                setActiveTrigger(details.trigger?.id ?? null);
-                setOpen(nextOpen);
-              }}
-            >
-              {(data: NumberPayload) => (
-                <>
-                  <Menu.Trigger payload={1} id="trigger-1">
-                    Trigger 1
-                  </Menu.Trigger>
-                  <Menu.Trigger payload={2} id="trigger-2">
-                    Trigger 2
-                  </Menu.Trigger>
-
-                  <Menu.Portal>
-                    <Menu.Positioner>
-                      <Menu.Popup>
-                        <Menu.Item data-testid="content">{data.payload}</Menu.Item>
-                      </Menu.Popup>
-                    </Menu.Positioner>
-                  </Menu.Portal>
-                </>
-              )}
-            </Menu.Root>
-            <button
-              onClick={() => {
-                setOpen(true);
-                setActiveTrigger('trigger-1');
-              }}
-            >
-              Open Trigger 1
-            </button>
-            <button
-              onClick={() => {
-                setOpen(true);
-                setActiveTrigger('trigger-2');
-              }}
-            >
-              Open Trigger 2
-            </button>
-            <button onClick={() => setOpen(false)}>Close</button>
-          </div>
-        );
-      }
-
-      const { user } = render(() => <Test />);
-
-      await user.click(screen.getByRole('button', { name: 'Open Trigger 1' }));
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('1');
-      });
-
-      await user.click(screen.getByRole('button', { name: 'Open Trigger 2' }));
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('2');
-      });
-
-      await user.click(screen.getByRole('button', { name: 'Close' }));
-      await waitFor(() => {
-        expect(screen.queryByTestId('content')).to.equal(null);
-      });
-    });
-
-    it('allows setting an initially open menu', async () => {
-      render(() => (
-        <Menu.Root defaultOpen defaultTriggerId="trigger-2">
-          {(data: NumberPayload) => (
-            <>
-              <Menu.Trigger payload={1} id="trigger-1">
-                Trigger 1
-              </Menu.Trigger>
-              <Menu.Trigger payload={2} id="trigger-2">
-                Trigger 2
-              </Menu.Trigger>
-              <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
-                    <Menu.Item data-testid="popup-content">{data.payload}</Menu.Item>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </>
-          )}
-        </Menu.Root>
-      ));
-
-      expect(screen.getByTestId('popup-content').textContent).to.equal('2');
-    });
-
-    describe('nested menus', () => {
-      it('supports keyboard navigation from any trigger', async () => {
-        const { user } = render(() => (
-          <Menu.Root>
-            <Menu.Trigger>Trigger 1</Menu.Trigger>
-            <Menu.Trigger>Trigger 2</Menu.Trigger>
-
-            <Menu.Portal>
-              <Menu.Positioner data-testid="menu">
-                <Menu.Popup>
-                  <Menu.Item>Standalone</Menu.Item>
-                  <Menu.SubmenuRoot>
-                    <Menu.SubmenuTrigger data-testid="submenu-trigger">More</Menu.SubmenuTrigger>
-                    <Menu.Portal>
-                      <Menu.Positioner data-testid="submenu">
-                        <Menu.Popup>
-                          <Menu.Item data-testid="submenu-item">Nested</Menu.Item>
-                        </Menu.Popup>
-                      </Menu.Positioner>
-                    </Menu.Portal>
-                  </Menu.SubmenuRoot>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        ));
-
-        const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-        const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-        await user.click(trigger1);
-        await screen.findByTestId('menu');
-
-        await user.keyboard('[ArrowDown]');
-        await user.keyboard('[ArrowDown]');
-
-        const submenuTrigger = await screen.findByTestId('submenu-trigger');
-        await waitFor(() => {
-          expect(submenuTrigger).toHaveFocus();
-        });
-
-        await user.keyboard('[ArrowRight]');
-
-        const submenuItem = await screen.findByTestId('submenu-item');
-        await waitFor(() => {
-          expect(submenuItem).toHaveFocus();
-        });
-
-        await user.keyboard('[ArrowLeft]');
-        await waitFor(() => {
-          expect(screen.queryByTestId('submenu')).to.equal(null);
-        });
-        expect(submenuTrigger).toHaveFocus();
-
-        await user.keyboard('[Escape]');
-        await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
-        });
-
-        await user.click(trigger2);
-        await screen.findByTestId('menu');
-      });
-
-      it('opens a submenu with the mouse when hover is disabled', async () => {
-        const { user } = render(() => (
-          <Menu.Root>
-            <Menu.Trigger>Trigger 1</Menu.Trigger>
-            <Menu.Trigger>Trigger 2</Menu.Trigger>
-
-            <Menu.Portal>
-              <Menu.Positioner data-testid="menu">
-                <Menu.Popup>
-                  <Menu.Item>Standalone</Menu.Item>
-                  <Menu.SubmenuRoot>
-                    <Menu.SubmenuTrigger data-testid="submenu-trigger" openOnHover={false}>
-                      More
-                    </Menu.SubmenuTrigger>
-                    <Menu.Portal>
-                      <Menu.Positioner data-testid="submenu">
-                        <Menu.Popup>
-                          <Menu.Item data-testid="submenu-item">Nested</Menu.Item>
-                        </Menu.Popup>
-                      </Menu.Positioner>
-                    </Menu.Portal>
-                  </Menu.SubmenuRoot>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        ));
-
-        const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-        const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-        await user.click(trigger1);
-        await screen.findByTestId('menu');
-        expect(screen.queryByTestId('submenu')).to.equal(null);
-
-        const submenuTrigger = screen.getByTestId('submenu-trigger');
-        await user.click(submenuTrigger);
-
-        const submenuItem = await screen.findByTestId('submenu-item');
-        expect(submenuItem.textContent).to.equal('Nested');
-
-        await user.click(submenuItem);
-        await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
-        });
-
-        await user.click(trigger2);
-        await screen.findByTestId('menu');
-        expect(screen.queryByTestId('submenu')).to.equal(null);
-      });
-
-      it('closes every level when clicking outside the deepest submenu', async () => {
-        const { user } = render(() => (
-          <div>
-            <Menu.Root>
-              <Menu.Trigger>Trigger 1</Menu.Trigger>
-              <Menu.Trigger>Trigger 2</Menu.Trigger>
-              <Menu.Portal>
-                <Menu.Positioner data-testid="level-1">
-                  <Menu.Popup>
-                    <Menu.Item>Item 1</Menu.Item>
-                    <Menu.SubmenuRoot>
-                      <Menu.SubmenuTrigger data-testid="submenu-trigger-1">
-                        Level 2
-                      </Menu.SubmenuTrigger>
-                      <Menu.Portal>
-                        <Menu.Positioner data-testid="level-2">
-                          <Menu.Popup>
-                            <Menu.Item>Item 2</Menu.Item>
-                            <Menu.SubmenuRoot>
-                              <Menu.SubmenuTrigger data-testid="submenu-trigger-2">
-                                Level 3
-                              </Menu.SubmenuTrigger>
-                              <Menu.Portal>
-                                <Menu.Positioner data-testid="level-3">
-                                  <Menu.Popup>
-                                    <Menu.Item>Deep Item</Menu.Item>
-                                  </Menu.Popup>
-                                </Menu.Positioner>
-                              </Menu.Portal>
-                            </Menu.SubmenuRoot>
-                          </Menu.Popup>
-                        </Menu.Positioner>
-                      </Menu.Portal>
-                    </Menu.SubmenuRoot>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </Menu.Root>
-            <button data-testid="outside">Outside</button>
-          </div>
-        ));
-
-        const trigger = screen.getByRole('button', { name: 'Trigger 1' });
-        await user.click(trigger);
-        await screen.findByTestId('level-1');
-
-        await user.keyboard('[ArrowDown]');
-        await user.keyboard('[ArrowDown]');
-
-        const submenuTrigger1 = await screen.findByTestId('submenu-trigger-1');
-        await waitFor(() => {
-          expect(submenuTrigger1).toHaveFocus();
-        });
-
-        await user.keyboard('[ArrowRight]');
-        await screen.findByTestId('level-2');
-
-        await user.keyboard('[ArrowDown]');
-        const submenuTrigger2 = await screen.findByTestId('submenu-trigger-2');
-        await waitFor(() => {
-          expect(submenuTrigger2).toHaveFocus();
-        });
-
-        await user.keyboard('[ArrowRight]');
-        await screen.findByTestId('level-3');
-
-        await user.click(screen.getByTestId('outside'));
-        await waitFor(() => {
-          expect(screen.queryByTestId('level-1')).to.equal(null);
-          expect(screen.queryByTestId('level-2')).to.equal(null);
-          expect(screen.queryByTestId('level-3')).to.equal(null);
-        });
-      });
-
-      it('allows selecting nested items via click, drag, release', async () => {
-        const clickSpy = spy();
-        const { user } = render(() => (
-          <Menu.Root>
-            <Menu.Trigger>Trigger 1</Menu.Trigger>
-            <Menu.Trigger>Trigger 2</Menu.Trigger>
-
-            <Menu.Portal>
-              <Menu.Positioner data-testid="menu">
-                <Menu.Popup>
-                  <Menu.Item>Item 1</Menu.Item>
-                  <Menu.SubmenuRoot>
-                    <Menu.SubmenuTrigger data-testid="submenu-trigger">More</Menu.SubmenuTrigger>
-                    <Menu.Portal>
-                      <Menu.Positioner data-testid="submenu">
-                        <Menu.Popup>
-                          <Menu.Item data-testid="submenu-item" onClick={clickSpy}>
-                            Nested Action
-                          </Menu.Item>
-                        </Menu.Popup>
-                      </Menu.Positioner>
-                    </Menu.Portal>
-                  </Menu.SubmenuRoot>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        ));
-
-        const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-        fireEvent.mouseDown(trigger1);
-
-        await screen.findByTestId('menu');
-
-        const submenuTrigger = await screen.findByTestId('submenu-trigger');
-        await user.hover(submenuTrigger);
-        await screen.findByTestId('submenu');
-
-        // Wait 200ms to enable mouseup on menu items
-        await wait(200);
-
-        const submenuItem = await screen.findByTestId('submenu-item');
-        fireEvent.mouseUp(submenuItem);
-
-        await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
-        });
-        expect(clickSpy.callCount).to.equal(1);
-
-        const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-        await user.click(trigger2);
-        await screen.findByTestId('menu');
-      });
-    });
+  detachedTriggersConformanceTests({
+    render,
+    createHandle: Menu.createHandle,
+    Root: Menu.Root,
+    Trigger: Menu.Trigger,
+    Portal: Menu.Portal,
+    Positioner: Menu.Positioner,
+    Popup: Menu.Popup,
+    Viewport: Menu.Viewport,
+    openInteractions: ['click'],
+    ariaExpanded: true,
+    throwOnMissingTrigger: true,
   });
 
   describe.skipIf(isJSDOM)('multiple detached triggers', () => {
     type NumberPayload = { payload: number | undefined };
 
-    it('should open the menu with any trigger', async () => {
-      const testMenu = Menu.createHandle();
-      const { user } = render(() => (
-        <div>
-          <Menu.Trigger handle={testMenu}>Trigger 1</Menu.Trigger>
-          <Menu.Trigger handle={testMenu}>Trigger 2</Menu.Trigger>
-          <Menu.Trigger handle={testMenu}>Trigger 3</Menu.Trigger>
+    /**
+     * Mirrors the Popover detached-trigger hover fixture: two detached hover
+     * triggers with a real position transition on the positioner and a real exit
+     * transition on the popup, handed off from trigger 1 to trigger 2 so
+     * `instantType` is `trigger-change`.
+     */
+    async function renderHoverDetachedTriggers({
+      settleTriggerChange = true,
+    }: {
+      /**
+       * Set to `false` to return while the positioner is still animating to the
+       * new trigger, so the delayed `trigger-change` restoration is still pending.
+       */
+      settleTriggerChange?: boolean;
+    } = {}) {
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
 
-          <Menu.Root handle={testMenu}>
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
-                  <Menu.Item>Close</Menu.Item>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        </div>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-      const trigger3 = screen.getByRole('button', { name: 'Trigger 3' });
-
-      expect(screen.queryByRole('menu')).to.equal(null);
-
-      await user.click(trigger1);
-      await screen.findByRole('menu');
-      await user.click(await screen.findByRole('menuitem', { name: 'Close' }));
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-
-      await user.click(trigger2);
-      await screen.findByRole('menu');
-      await user.click(await screen.findByRole('menuitem', { name: 'Close' }));
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-
-      await user.click(trigger3);
-      await screen.findByRole('menu');
-      await user.click(await screen.findByRole('menuitem', { name: 'Close' }));
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-    });
-
-    it('should set the payload and render content based on its value', async () => {
       const testMenu = Menu.createHandle<number>();
-      const { user } = render(() => (
-        <div>
-          <Menu.Trigger handle={testMenu} payload={1}>
+      const instantsWhileEnding: (string | undefined)[] = [];
+
+      const utils = render(() => (
+        <div style={{ position: 'relative', width: '400px', height: '200px' }}>
+          <style>
+            {`
+              .positioner {
+                transition:
+                  top 120ms linear,
+                  left 120ms linear,
+                  transform 120ms linear;
+              }
+
+              .popup {
+                opacity: 1;
+                transition: opacity 250ms linear;
+              }
+
+              .popup[data-ending-style] {
+                opacity: 0;
+              }
+
+              .positioner[data-instant],
+              .popup[data-instant] {
+                transition: none;
+              }
+            `}
+          </style>
+
+          <Menu.Trigger
+            handle={testMenu}
+            payload={1}
+            openOnHover
+            delay={0}
+            style={{ position: 'absolute', top: '20px', left: '20px' }}
+          >
             Trigger 1
           </Menu.Trigger>
-          <Menu.Trigger handle={testMenu} payload={2}>
+          <Menu.Trigger
+            handle={testMenu}
+            payload={2}
+            openOnHover
+            delay={0}
+            style={{ position: 'absolute', top: '20px', left: '220px' }}
+          >
             Trigger 2
           </Menu.Trigger>
 
           <Menu.Root handle={testMenu}>
             {(data: NumberPayload) => (
               <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
+                <Menu.Positioner data-testid="positioner" class="positioner">
+                  <Menu.Popup
+                    data-testid="popup"
+                    class="popup"
+                    // Solid: state read at the top of a render function re-creates the element,
+                    // so the recording reads it inside the JSX, which updates the element in place.
+                    render={(props, state) => (
+                      <div
+                        {...props}
+                        data-probe={(() => {
+                          if (state.transitionStatus === 'ending') {
+                            instantsWhileEnding.push(state.instant);
+                          }
+                          return undefined;
+                        })()}
+                      />
+                    )}
+                  >
                     <Menu.Item data-testid="content">{data.payload}</Menu.Item>
                   </Menu.Popup>
                 </Menu.Positioner>
@@ -852,115 +128,151 @@ describe('<MenuRoot />', () => {
       const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
       const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
 
-      await user.click(trigger1);
+      await utils.user.hover(trigger1);
       await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('1');
+        expect(screen.getByTestId('content').textContent).toBe('1');
       });
 
-      await user.click(screen.getByTestId('content'));
+      await utils.user.hover(trigger2);
       await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
+        expect(screen.getByTestId('content').textContent).toBe('2');
       });
 
-      await user.click(trigger2);
+      if (settleTriggerChange) {
+        await waitFor(() => {
+          expect(screen.getByTestId('popup')).toHaveAttribute('data-instant', 'trigger-change');
+        });
+      }
+
+      // The handoff itself legitimately renders `trigger-change` while closing
+      // the previous trigger's popup. Only the close that follows matters.
+      instantsWhileEnding.length = 0;
+
+      return {
+        ...utils,
+        trigger1,
+        trigger2,
+        instantsWhileEnding,
+        popup: screen.getByTestId('popup'),
+      };
+    }
+
+    it('does not apply the trigger-change instant to a hover close after switching triggers', async () => {
+      const { user, trigger2, popup, instantsWhileEnding } = await renderHoverDetachedTriggers();
+
+      await user.unhover(trigger2);
       await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('2');
+        expect(popup).toHaveAttribute('data-ending-style');
       });
+
+      expect(instantsWhileEnding).not.toContain('trigger-change');
     });
 
-    it('should reuse the popup and positioner DOM nodes when switching triggers', async () => {
-      const testMenu = Menu.createHandle<number>();
-      const { user } = render(() => (
-        <>
-          <Menu.Trigger handle={testMenu} payload={1}>
-            Trigger 1
-          </Menu.Trigger>
-          <Menu.Trigger handle={testMenu} payload={2}>
-            Trigger 2
-          </Menu.Trigger>
+    it('does not restore the trigger-change instant when a controlled close commits late', async () => {
+      // A controlled consumer can accept the close but commit `open={false}`
+      // later. That commit goes straight through the prop without passing back
+      // through `setOpen`, so a `trigger-change` restored in the meantime would
+      // never be cleared and would collapse the exit transition.
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
 
-          <Menu.Root handle={testMenu}>
-            {(data: NumberPayload) => (
-              <Menu.Portal>
-                <Menu.Positioner data-testid="positioner">
-                  <Menu.Popup data-testid="popup">
-                    <span>{data.payload}</span>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            )}
-          </Menu.Root>
-        </>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      await user.click(trigger1);
-      await screen.findByRole('menu');
-      const popupElement = screen.getByTestId('popup');
-      const positionerElement = screen.getByTestId('positioner');
-
-      await user.click(trigger2);
-      await screen.findByRole('menu');
-
-      expect(screen.getByTestId('popup')).to.equal(popupElement);
-      expect(screen.getByTestId('positioner')).to.equal(positionerElement);
-    });
-
-    it('should allow controlling the menu state programmatically', async () => {
-      const testMenu = Menu.createHandle<number>();
+      const instantsWhileEnding: (string | undefined)[] = [];
+      // Renders between the close request and its late commit. The restoration
+      // has to land in this window, or the test isn't exercising the race.
+      const instantsWhileClosePending: (string | undefined)[] = [];
+      const openedTriggerIds: (string | undefined)[] = [];
+      let closeRequested = false;
+      const switchDuration = 200;
+      const commitDelay = 400;
 
       function Test() {
         const [open, setOpen] = createSignal(false);
         const [activeTrigger, setActiveTrigger] = createSignal<string | null>(null);
 
         return (
-          <div style={{ margin: '50px' }}>
-            <Menu.Trigger handle={testMenu} payload={1} id="trigger-1">
-              Trigger 1
-            </Menu.Trigger>
-            <Menu.Trigger handle={testMenu} payload={2} id="trigger-2">
-              Trigger 2
-            </Menu.Trigger>
+          <div style={{ position: 'relative', width: '400px', height: '200px' }}>
+            <style>
+              {`
+                .positioner {
+                  transition:
+                    top ${switchDuration}ms linear,
+                    left ${switchDuration}ms linear,
+                    transform ${switchDuration}ms linear;
+                }
+
+                .popup {
+                  opacity: 1;
+                  transition: opacity 250ms linear;
+                }
+
+                .popup[data-ending-style] {
+                  opacity: 0;
+                }
+
+                .positioner[data-instant],
+                .popup[data-instant] {
+                  transition: none;
+                }
+              `}
+            </style>
 
             <Menu.Root
               open={open()}
-              onOpenChange={(nextOpen, details) => {
-                setActiveTrigger(details.trigger?.id ?? null);
-                setOpen(nextOpen);
-              }}
               triggerId={activeTrigger()}
-              handle={testMenu}
-            >
-              {(data: NumberPayload) => (
-                <Menu.Portal>
-                  <Menu.Positioner data-testid="positioner" side="bottom" align="start">
-                    <Menu.Popup>
-                      <Menu.Item data-testid="content">{data.payload}</Menu.Item>
-                    </Menu.Popup>
-                  </Menu.Positioner>
-                </Menu.Portal>
-              )}
-            </Menu.Root>
+              onOpenChange={(nextOpen, details) => {
+                if (nextOpen) {
+                  openedTriggerIds.push(details.trigger?.id);
+                  setActiveTrigger(details.trigger?.id ?? null);
+                  setOpen(true);
+                  return;
+                }
 
-            <button
-              onClick={() => {
-                setOpen(true);
-                setActiveTrigger('trigger-1');
+                closeRequested = true;
+                setTimeout(() => setOpen(false), commitDelay);
               }}
             >
-              Open Trigger 1
-            </button>
-            <button
-              onClick={() => {
-                setOpen(true);
-                setActiveTrigger('trigger-2');
-              }}
-            >
-              Open Trigger 2
-            </button>
-            <button onClick={() => setOpen(false)}>Close</button>
+              <Menu.Trigger
+                id="trigger-1"
+                openOnHover
+                delay={0}
+                style={{ position: 'absolute', top: '20px', left: '20px' }}
+              >
+                Trigger 1
+              </Menu.Trigger>
+              <Menu.Trigger
+                id="trigger-2"
+                openOnHover
+                delay={0}
+                style={{ position: 'absolute', top: '20px', left: '220px' }}
+              >
+                Trigger 2
+              </Menu.Trigger>
+
+              <Menu.Portal>
+                <Menu.Positioner data-testid="positioner" class="positioner">
+                  <Menu.Popup
+                    data-testid="popup"
+                    class="popup"
+                    // Solid: state read at the top of a render function re-creates the element,
+                    // so the recording reads it inside the JSX, which updates the element in place.
+                    render={(props, state) => (
+                      <div
+                        {...props}
+                        data-probe={(() => {
+                          if (state.transitionStatus === 'ending') {
+                            instantsWhileEnding.push(state.instant);
+                          } else if (closeRequested) {
+                            instantsWhileClosePending.push(state.instant);
+                          }
+                          return undefined;
+                        })()}
+                      />
+                    )}
+                  >
+                    <Menu.Item>Item</Menu.Item>
+                  </Menu.Popup>
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
           </div>
         );
       }
@@ -970,118 +282,95 @@ describe('<MenuRoot />', () => {
       const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
       const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
 
-      await user.click(screen.getByRole('button', { name: 'Open Trigger 1' }));
+      await user.hover(trigger1);
       await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('1');
+        expect(screen.queryByTestId('popup')).not.toBe(null);
       });
 
-      await waitFor(() => {
-        const positionerLeft = screen.getByTestId('positioner').getBoundingClientRect().left;
-        expect(positionerLeft).to.be.closeTo(trigger1.getBoundingClientRect().left, 1);
+      // Let the first open settle so moving to trigger 2 is a real switch.
+      await act(async () => {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 100);
+        });
       });
 
-      await user.click(screen.getByRole('button', { name: 'Open Trigger 2' }));
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('2');
-      });
-      await waitFor(() => {
-        const positionerLeft = screen.getByTestId('positioner').getBoundingClientRect().left;
-        expect(positionerLeft).to.be.closeTo(trigger2.getBoundingClientRect().left, 1);
-      });
+      await user.hover(trigger2);
+      // Request the close while the switch is still animating.
+      await user.unhover(trigger2);
 
-      await user.click(screen.getByRole('button', { name: 'Close' }));
-      await waitFor(() => {
-        expect(screen.queryByTestId('content')).to.equal(null);
-      });
+      await waitFor(
+        () => {
+          expect(instantsWhileEnding.length).toBeGreaterThan(0);
+        },
+        { timeout: 2000 },
+      );
+
+      expect(openedTriggerIds).toEqual(['trigger-1', 'trigger-2']);
+      expect(instantsWhileClosePending).toContain('trigger-change');
+      expect(instantsWhileEnding).not.toContain('trigger-change');
     });
 
-    it('allows setting an initially open menu', async () => {
-      const testMenu = Menu.createHandle<number>();
-      render(() => (
-        <Menu.Root handle={testMenu} defaultOpen defaultTriggerId="trigger-2">
-          {(data: NumberPayload) => (
+    it('does not restore the trigger-change instant after a hover close has started', async () => {
+      const { user, trigger2, popup } = await renderHoverDetachedTriggers({
+        settleTriggerChange: false,
+      });
+
+      const positioner = screen.getByTestId('positioner');
+      await waitFor(() => {
+        expect(positioner.getAnimations().length).toBeGreaterThan(0);
+      });
+      const switchAnimations = positioner.getAnimations();
+
+      await user.unhover(trigger2);
+      await waitFor(() => {
+        expect(popup).toHaveAttribute('data-ending-style');
+      });
+
+      await act(async () => {
+        await Promise.all(switchAnimations.map((animation) => animation.finished));
+      });
+
+      // Still mid-exit: the stale callback must not have marked it instant and
+      // collapsed the transition.
+      expect(screen.getByTestId('popup')).toBe(popup);
+      expect(popup).toHaveAttribute('data-ending-style');
+      expect(popup).not.toHaveAttribute('data-instant');
+    });
+  });
+
+  describe.skipIf(isJSDOM)('nested menus', () => {
+    describe.each([{ mode: 'contained' as const }, { mode: 'detached' as const }])(
+      'with $mode triggers',
+      ({ mode }) => {
+        /**
+         * Renders two triggers for one menu: as Root children (`contained`) or outside the Root,
+         * connected with a handle (`detached`).
+         */
+        function TwoTriggerMenu(props: { children: JSX.Element }) {
+          const handle = Menu.createHandle();
+
+          if (mode === 'contained') {
+            return (
+              <Menu.Root>
+                <Menu.Trigger>Trigger 1</Menu.Trigger>
+                <Menu.Trigger>Trigger 2</Menu.Trigger>
+                {props.children}
+              </Menu.Root>
+            );
+          }
+
+          return (
             <>
-              <Menu.Trigger handle={testMenu} payload={1} id="trigger-1">
-                Trigger 1
-              </Menu.Trigger>
-              <Menu.Trigger handle={testMenu} payload={2} id="trigger-2">
-                Trigger 2
-              </Menu.Trigger>
-              <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
-                    <Menu.Item data-testid="popup-content">{data.payload}</Menu.Item>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
+              <Menu.Trigger handle={handle}>Trigger 1</Menu.Trigger>
+              <Menu.Trigger handle={handle}>Trigger 2</Menu.Trigger>
+              <Menu.Root handle={handle}>{props.children}</Menu.Root>
             </>
-          )}
-        </Menu.Root>
-      ));
+          );
+        }
 
-      expect(screen.getByTestId('popup-content').textContent).to.equal('2');
-    });
-
-    it('should not have inline scale style after switching triggers', async () => {
-      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
-
-      const testMenu = Menu.createHandle<number>();
-
-      function Test() {
-        return (
-          <>
-            <Menu.Trigger handle={testMenu} payload={1}>
-              Trigger 1
-            </Menu.Trigger>
-            <Menu.Trigger handle={testMenu} payload={2}>
-              Trigger 2
-            </Menu.Trigger>
-
-            <Menu.Root handle={testMenu}>
-              {(data: NumberPayload) => (
-                <Menu.Portal>
-                  <Menu.Positioner>
-                    <Menu.Popup data-testid="popup">
-                      <Menu.Viewport>
-                        <Menu.Item data-testid="content">{data.payload}</Menu.Item>
-                      </Menu.Viewport>
-                    </Menu.Popup>
-                  </Menu.Positioner>
-                </Menu.Portal>
-              )}
-            </Menu.Root>
-          </>
-        );
-      }
-
-      const { user } = render(() => <Test />);
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-
-      await user.click(trigger1);
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('1');
-      });
-
-      await user.click(trigger2);
-      await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('2');
-      });
-
-      const popup = screen.getByTestId('popup');
-      expect(popup.style.scale).to.equal('');
-    });
-
-    describe('nested menus', () => {
-      it('supports keyboard navigation regardless of which trigger opened the menu', async () => {
-        const testMenu = Menu.createHandle();
-        const { user } = render(() => (
-          <div>
-            <Menu.Trigger handle={testMenu}>Trigger 1</Menu.Trigger>
-            <Menu.Trigger handle={testMenu}>Trigger 2</Menu.Trigger>
-
-            <Menu.Root handle={testMenu}>
+        it('supports keyboard navigation regardless of which trigger opened the menu', async () => {
+          const { user } = render(() => (
+            <TwoTriggerMenu>
               <Menu.Portal>
                 <Menu.Positioner data-testid="menu">
                   <Menu.Popup>
@@ -1099,51 +388,52 @@ describe('<MenuRoot />', () => {
                   </Menu.Popup>
                 </Menu.Positioner>
               </Menu.Portal>
-            </Menu.Root>
-          </div>
-        ));
+            </TwoTriggerMenu>
+          ));
 
-        const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-        const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
+          const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
+          const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
 
-        await user.click(trigger1);
-        await screen.findByTestId('menu');
+          await user.click(trigger1);
+          await screen.findByTestId('menu');
+          // The menu focuses itself a frame after opening; keys sent earlier go to the trigger.
+          await waitFor(() => {
+            expect(screen.getByRole('menu')).toHaveFocus();
+          });
 
-        await user.keyboard('[ArrowDown]');
-        await user.keyboard('[ArrowDown]');
+          await user.keyboard('[ArrowDown]');
+          await user.keyboard('[ArrowDown]');
 
-        const submenuTrigger = await screen.findByTestId('submenu-trigger');
-        await waitFor(() => {
+          const submenuTrigger = await screen.findByTestId('submenu-trigger');
+          await waitFor(() => {
+            expect(submenuTrigger).toHaveFocus();
+          });
+
+          await user.keyboard('[ArrowRight]');
+
+          const submenuItem = await screen.findByTestId('submenu-item');
+          await waitFor(() => {
+            expect(submenuItem).toHaveFocus();
+          });
+
+          await user.keyboard('[ArrowLeft]');
+          await waitFor(() => {
+            expect(screen.queryByTestId('submenu')).toBe(null);
+          });
           expect(submenuTrigger).toHaveFocus();
+
+          await user.keyboard('[Escape]');
+          await waitFor(() => {
+            expect(screen.queryByTestId('menu')).toBe(null);
+          });
+
+          await user.click(trigger2);
+          await screen.findByTestId('menu');
         });
 
-        await user.keyboard('[ArrowRight]');
-        const submenuItem = await screen.findByTestId('submenu-item');
-        await waitFor(() => expect(submenuItem).toHaveFocus());
-
-        await user.keyboard('[ArrowLeft]');
-        await waitFor(() => {
-          expect(screen.queryByTestId('submenu')).to.equal(null);
-        });
-        expect(submenuTrigger).toHaveFocus();
-
-        await user.keyboard('[Escape]');
-        await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
-        });
-
-        await user.click(trigger2);
-        await screen.findByTestId('menu');
-      });
-
-      it('opens submenus on click when hover is disabled', async () => {
-        const testMenu = Menu.createHandle();
-        const { user } = render(() => (
-          <div>
-            <Menu.Trigger handle={testMenu}>Trigger 1</Menu.Trigger>
-            <Menu.Trigger handle={testMenu}>Trigger 2</Menu.Trigger>
-
-            <Menu.Root handle={testMenu}>
+        it('opens a submenu on click when hover is disabled', async () => {
+          const { user } = render(() => (
+            <TwoTriggerMenu>
               <Menu.Portal>
                 <Menu.Positioner data-testid="menu">
                   <Menu.Popup>
@@ -1163,114 +453,115 @@ describe('<MenuRoot />', () => {
                   </Menu.Popup>
                 </Menu.Positioner>
               </Menu.Portal>
-            </Menu.Root>
-          </div>
-        ));
+            </TwoTriggerMenu>
+          ));
 
-        const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-        const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
+          const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
+          const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
 
-        await user.click(trigger1);
-        await screen.findByTestId('menu');
-        expect(screen.queryByTestId('submenu')).to.equal(null);
+          await user.click(trigger1);
+          await screen.findByTestId('menu');
+          expect(screen.queryByTestId('submenu')).toBe(null);
 
-        const submenuTrigger = screen.getByTestId('submenu-trigger');
-        await user.click(submenuTrigger);
+          const submenuTrigger = screen.getByTestId('submenu-trigger');
+          await user.click(submenuTrigger);
 
-        const submenuItem = await screen.findByTestId('submenu-item');
-        expect(submenuItem.textContent).to.equal('Nested');
+          const submenuItem = await screen.findByTestId('submenu-item');
+          expect(submenuItem.textContent).toBe('Nested');
 
-        await user.click(submenuItem);
-        await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
+          await user.click(submenuItem);
+          await waitFor(() => {
+            expect(screen.queryByTestId('menu')).toBe(null);
+          });
+
+          await user.click(trigger2);
+          await screen.findByTestId('menu');
+          expect(screen.queryByTestId('submenu')).toBe(null);
         });
 
-        await user.click(trigger2);
-        await screen.findByTestId('menu');
-        expect(screen.queryByTestId('submenu')).to.equal(null);
-      });
+        it('closes every level when clicking outside the deepest submenu', async () => {
+          const { user } = render(() => (
+            <div>
+              <TwoTriggerMenu>
+                <Menu.Portal>
+                  <Menu.Positioner data-testid="level-1">
+                    <Menu.Popup>
+                      <Menu.Item>Item 1</Menu.Item>
+                      <Menu.SubmenuRoot>
+                        <Menu.SubmenuTrigger data-testid="submenu-trigger-1">
+                          Level 2
+                        </Menu.SubmenuTrigger>
+                        <Menu.Portal>
+                          <Menu.Positioner data-testid="level-2">
+                            <Menu.Popup>
+                              <Menu.Item>Item 2</Menu.Item>
+                              <Menu.SubmenuRoot>
+                                <Menu.SubmenuTrigger data-testid="submenu-trigger-2">
+                                  Level 3
+                                </Menu.SubmenuTrigger>
+                                <Menu.Portal>
+                                  <Menu.Positioner data-testid="level-3">
+                                    <Menu.Popup>
+                                      <Menu.Item>Deep Item</Menu.Item>
+                                    </Menu.Popup>
+                                  </Menu.Positioner>
+                                </Menu.Portal>
+                              </Menu.SubmenuRoot>
+                            </Menu.Popup>
+                          </Menu.Positioner>
+                        </Menu.Portal>
+                      </Menu.SubmenuRoot>
+                    </Menu.Popup>
+                  </Menu.Positioner>
+                </Menu.Portal>
+              </TwoTriggerMenu>
+              <button data-testid="outside">Outside</button>
+            </div>
+          ));
 
-      it('closes the nested tree on outside click', async () => {
-        const testMenu = Menu.createHandle();
-        const { user } = render(() => (
-          <div>
-            <Menu.Trigger handle={testMenu}>Trigger 1</Menu.Trigger>
-            <Menu.Trigger handle={testMenu}>Trigger 2</Menu.Trigger>
+          const trigger = screen.getByRole('button', { name: 'Trigger 1' });
+          await user.click(trigger);
+          await screen.findByTestId('level-1');
+          // The menu focuses itself a frame after opening; keys sent earlier go to the trigger.
+          await waitFor(() => {
+            expect(screen.getByRole('menu')).toHaveFocus();
+          });
 
-            <Menu.Root handle={testMenu}>
-              <Menu.Portal>
-                <Menu.Positioner data-testid="level-1">
-                  <Menu.Popup>
-                    <Menu.Item>Item 1</Menu.Item>
-                    <Menu.SubmenuRoot>
-                      <Menu.SubmenuTrigger data-testid="submenu-trigger-1">
-                        Level 2
-                      </Menu.SubmenuTrigger>
-                      <Menu.Portal>
-                        <Menu.Positioner data-testid="level-2">
-                          <Menu.Popup>
-                            <Menu.Item>Item 2</Menu.Item>
-                            <Menu.SubmenuRoot>
-                              <Menu.SubmenuTrigger data-testid="submenu-trigger-2">
-                                Level 3
-                              </Menu.SubmenuTrigger>
-                              <Menu.Portal>
-                                <Menu.Positioner data-testid="level-3">
-                                  <Menu.Popup>
-                                    <Menu.Item>Deep Item</Menu.Item>
-                                  </Menu.Popup>
-                                </Menu.Positioner>
-                              </Menu.Portal>
-                            </Menu.SubmenuRoot>
-                          </Menu.Popup>
-                        </Menu.Positioner>
-                      </Menu.Portal>
-                    </Menu.SubmenuRoot>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            </Menu.Root>
-            <button data-testid="outside">Outside</button>
-          </div>
-        ));
+          await user.keyboard('[ArrowDown]');
+          await user.keyboard('[ArrowDown]');
 
-        const trigger = screen.getByRole('button', { name: 'Trigger 1' });
-        await user.click(trigger);
-        await screen.findByTestId('level-1');
+          const submenuTrigger1 = await screen.findByTestId('submenu-trigger-1');
+          await waitFor(() => {
+            expect(submenuTrigger1).toHaveFocus();
+          });
 
-        await user.keyboard('[ArrowDown]');
-        await user.keyboard('[ArrowDown]');
+          await user.keyboard('[ArrowRight]');
+          await screen.findByTestId('level-2');
+          await waitFor(() => {
+            expect(screen.getByRole('menuitem', { name: 'Item 2' })).toHaveFocus();
+          });
 
-        const submenuTrigger1 = await screen.findByTestId('submenu-trigger-1');
-        await waitFor(() => expect(submenuTrigger1).toHaveFocus());
+          await user.keyboard('[ArrowDown]');
+          const submenuTrigger2 = await screen.findByTestId('submenu-trigger-2');
+          await waitFor(() => {
+            expect(submenuTrigger2).toHaveFocus();
+          });
 
-        await user.keyboard('[ArrowRight]');
-        await screen.findByTestId('level-2');
+          await user.keyboard('[ArrowRight]');
+          await screen.findByTestId('level-3');
 
-        await user.keyboard('[ArrowDown]');
-        const submenuTrigger2 = await screen.findByTestId('submenu-trigger-2');
-        await waitFor(() => expect(submenuTrigger2).toHaveFocus());
-
-        await user.keyboard('[ArrowRight]');
-        await screen.findByTestId('level-3');
-
-        await user.click(screen.getByTestId('outside'));
-        await waitFor(() => {
-          expect(screen.queryByTestId('level-1')).to.equal(null);
-          expect(screen.queryByTestId('level-2')).to.equal(null);
-          expect(screen.queryByTestId('level-3')).to.equal(null);
+          await user.click(screen.getByTestId('outside'));
+          await waitFor(() => {
+            expect(screen.queryByTestId('level-1')).toBe(null);
+          });
+          expect(screen.queryByTestId('level-2')).toBe(null);
+          expect(screen.queryByTestId('level-3')).toBe(null);
         });
-      });
 
-      it('selects nested items with click, drag, release', async () => {
-        const testMenu = Menu.createHandle();
-        const clickSpy = spy();
-        const { user } = render(() => (
-          <div>
-            <Menu.Trigger handle={testMenu}>Trigger 1</Menu.Trigger>
-            <Menu.Trigger handle={testMenu}>Trigger 2</Menu.Trigger>
-
-            <Menu.Root handle={testMenu}>
+        it('selects nested items with click, drag, release', async () => {
+          const clickSpy = vi.fn();
+          const { user } = render(() => (
+            <TwoTriggerMenu>
               <Menu.Portal>
                 <Menu.Positioner data-testid="menu">
                   <Menu.Popup>
@@ -1290,120 +581,34 @@ describe('<MenuRoot />', () => {
                   </Menu.Popup>
                 </Menu.Positioner>
               </Menu.Portal>
-            </Menu.Root>
-          </div>
-        ));
+            </TwoTriggerMenu>
+          ));
 
-        const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-        fireEvent.mouseDown(trigger1);
-        await screen.findByTestId('menu');
+          const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
+          fireEvent.mouseDown(trigger1);
 
-        const submenuTrigger = await screen.findByTestId('submenu-trigger');
-        await user.hover(submenuTrigger);
-        await screen.findByTestId('submenu');
+          await screen.findByTestId('menu');
 
-        // Wait 200ms to enable mouseup on menu items
-        await wait(200);
+          const submenuTrigger = await screen.findByTestId('submenu-trigger');
+          await user.hover(submenuTrigger);
+          await screen.findByTestId('submenu');
 
-        const submenuItem = await screen.findByTestId('submenu-item');
-        fireEvent.mouseUp(submenuItem);
+          // Wait 200ms to enable mouseup on menu items
+          await wait(200);
 
-        await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
+          const submenuItem = await screen.findByTestId('submenu-item');
+          fireEvent.mouseUp(submenuItem);
+
+          await waitFor(() => {
+            expect(screen.queryByTestId('menu')).toBe(null);
+          });
+          expect(clickSpy.mock.calls.length).toBe(1);
+
+          const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
+          await user.click(trigger2);
+          await screen.findByTestId('menu');
         });
-        expect(clickSpy.callCount).to.equal(1);
-
-        const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-        await user.click(trigger2);
-        await screen.findByTestId('menu');
-      });
-    });
-  });
-
-  describe.skipIf(isJSDOM)('imperative actions on the handle', () => {
-    type NumberPayload = { payload: number | undefined };
-
-    it('opens and closes the menu', async () => {
-      const menuHandle = Menu.createHandle();
-      render(() => (
-        <div>
-          <Menu.Trigger handle={menuHandle} id="trigger">
-            Trigger
-          </Menu.Trigger>
-          <Menu.Root handle={menuHandle}>
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup data-testid="content">
-                  <Menu.Item>Content</Menu.Item>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        </div>
-      ));
-
-      const trigger = screen.getByRole('button', { name: 'Trigger' });
-      expect(screen.queryByRole('menu')).to.equal(null);
-
-      menuHandle.open('trigger');
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).not.to.equal(null);
-      });
-
-      expect(screen.getByTestId('content').textContent).to.equal('Content');
-      expect(trigger).to.have.attribute('aria-expanded', 'true');
-
-      menuHandle.close();
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-
-      expect(trigger).to.have.attribute('aria-expanded', 'false');
-    });
-
-    it('sets the payload associated with the trigger', async () => {
-      const menuHandle = Menu.createHandle<number>();
-      render(() => (
-        <div>
-          <Menu.Trigger handle={menuHandle} id="trigger1" payload={1}>
-            Trigger 1
-          </Menu.Trigger>
-          <Menu.Trigger handle={menuHandle} id="trigger2" payload={2}>
-            Trigger 2
-          </Menu.Trigger>
-          <Menu.Root handle={menuHandle}>
-            {(data: NumberPayload) => (
-              <Menu.Portal>
-                <Menu.Positioner>
-                  <Menu.Popup>
-                    <Menu.Item data-testid="content">{data.payload}</Menu.Item>
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
-            )}
-          </Menu.Root>
-        </div>
-      ));
-
-      const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
-      const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
-      expect(screen.queryByRole('menu')).to.equal(null);
-
-      menuHandle.open('trigger2');
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).not.to.equal(null);
-      });
-
-      expect(screen.getByTestId('content').textContent).to.equal('2');
-      expect(trigger2).to.have.attribute('aria-expanded', 'true');
-      expect(trigger1).not.to.have.attribute('aria-expanded', 'true');
-
-      menuHandle.close();
-      await waitFor(() => {
-        expect(screen.queryByRole('menu')).to.equal(null);
-      });
-
-      expect(trigger2).to.have.attribute('aria-expanded', 'false');
-    });
+      },
+    );
   });
 });
