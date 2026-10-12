@@ -12,6 +12,7 @@ describe('<Collapsible.Trigger />', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
+      // Solid: the render throws synchronously rather than rejecting.
       expect(() => render(() => <Collapsible.Trigger />)).toThrow(
         'Base UI: CollapsibleRootContext is missing. Collapsible parts must be placed within <Collapsible.Root>.',
       );
