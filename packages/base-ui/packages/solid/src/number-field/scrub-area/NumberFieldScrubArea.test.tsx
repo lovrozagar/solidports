@@ -2,7 +2,7 @@ import { createSignal, Show } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';
-import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, isJSDOM, wait } from '#test-utils';
 import { platform } from '../../utils/platform';
 
 const isWebKit = platform.engine.webkit;
@@ -708,22 +708,6 @@ describe('<NumberField.ScrubArea />', () => {
     });
   });
 
-  it('should fire onClick when clicked without scrubbing', async () => {
-    const handleClick = vi.fn();
-
-    const { user } = render(() => (
-      <NumberField.Root defaultValue={0}>
-        <NumberField.ScrubArea data-testid="scrub-area" onClick={handleClick}>
-          <NumberField.ScrubAreaCursor />
-        </NumberField.ScrubArea>
-      </NumberField.Root>
-    ));
-
-    await user.click(screen.getByTestId('scrub-area'));
-
-    expect(handleClick.mock.calls.length).toBe(1);
-  });
-
   it('should fire onClick on child elements', async () => {
     const handleScrubAreaClick = vi.fn();
     const handleLabelClick = vi.fn();
@@ -742,5 +726,30 @@ describe('<NumberField.ScrubArea />', () => {
 
     expect(handleLabelClick.mock.calls.length).toBe(1);
     expect(handleScrubAreaClick.mock.calls.length).toBe(1);
+  });
+
+  it('should fire onClick once when clicked without scrubbing', async () => {
+    const handleClick = vi.fn();
+
+    await render(() => (
+      <NumberField.Root defaultValue={0}>
+        <NumberField.ScrubArea
+          data-testid="scrub-area"
+          onClick={handleClick}
+          style={{ display: 'inline-block', width: '100px', height: '40px' }}
+        >
+          <NumberField.ScrubAreaCursor />
+        </NumberField.ScrubArea>
+        <NumberField.Input />
+      </NumberField.Root>
+    ));
+
+    // Real browser input, so the native click and the synthesized one can both happen.
+    const { userEvent } = await import('vitest/browser');
+    await userEvent.click(screen.getByTestId('scrub-area'));
+    // The synthesized click is deferred by one task (20ms in Firefox).
+    await wait(50);
+
+    expect(handleClick).toHaveBeenCalledTimes(1);
   });
 });
