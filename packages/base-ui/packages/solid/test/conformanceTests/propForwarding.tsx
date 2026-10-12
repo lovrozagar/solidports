@@ -93,36 +93,10 @@ export function testPropForwarding(
       expect(customRoot.getAttribute('style')).to.contain('color: green');
     });
 
-    it('forwards the custom `style` attribute defined on the render function', async () => {
+    // Solid: React's render element is a `{ component, ...props }` render config.
+    it('forwards the custom `style` attribute defined on the render element', async () => {
       render(element, {
-        render: (props: Record<string, unknown>) => (
-          <Dynamic
-            component={Element}
-            {...props}
-            style={{ color: 'green' }}
-            data-testid="custom-root"
-          />
-        ),
-        ...(button && { nativeButton }),
-      });
-
-      await flushMicrotasks();
-
-      const customRoot = screen.getByTestId('custom-root');
-      expect(customRoot).to.have.attribute('style');
-      expect(customRoot.getAttribute('style')).to.contain('color: green');
-    });
-
-    it('forwards the custom `style` attribute defined on the render function', async () => {
-      render(element, {
-        render: (props: Record<string, unknown>) => (
-          <Dynamic
-            component={Element}
-            {...props}
-            style={{ color: 'green' }}
-            data-testid="custom-root"
-          />
-        ),
+        render: { component: Element, style: { color: 'green' }, 'data-testid': 'custom-root' },
         ...(button && { nativeButton }),
       });
 

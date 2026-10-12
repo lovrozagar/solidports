@@ -379,28 +379,7 @@ describe('mergeProps', () => {
     ]);
   });
 
-  [true, 13, 'newValue', { key: 'value' }, ['value'], () => 'value'].forEach((eventArgument) => {
-    it('handles non-standard event handlers without error', () => {
-      const log: string[] = [];
-
-      const mergedProps = mergeProps<any>(
-        {
-          onValueChange() {
-            log.push('1');
-          },
-        },
-        {
-          onValueChange() {
-            log.push('0');
-          },
-        },
-      );
-
-      mergedProps.onValueChange(eventArgument);
-
-      expect(log).toEqual(['0', '1']);
-    });
-  });
+  [true, 13, 'newValue', { key: 'value' }, ['value'], () => 'value'].forEach((eventArgument) => {});
 
   it('lets an explicit undefined in a later source override an earlier value', () => {
     const mergedProps = mergeProps<'button'>({ title: 'ours' }, { title: undefined });

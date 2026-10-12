@@ -18,7 +18,7 @@ describe('<Checkbox.Root />', () => {
     button: true,
     refInstanceof: window.HTMLSpanElement,
     render,
-    testComponentPropWith: 'span',
+    testRenderPropWith: 'span',
   }));
 
   describe('ARIA attributes', () => {

@@ -37,7 +37,7 @@ describe('<Tabs.Tab />', () => {
     (props) => <Tabs.Tab {...props} ref={props.ref} value="1" />,
     () => ({
       refInstanceof: window.HTMLButtonElement,
-      testComponentPropWith: 'button',
+      testRenderPropWith: 'button',
       button: true,
       render: (node, props) =>
         render(() => (

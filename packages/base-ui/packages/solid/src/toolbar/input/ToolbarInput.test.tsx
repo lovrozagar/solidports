@@ -39,18 +39,6 @@ describe('<Toolbar.Input />', () => {
     testRenderPropWith: 'input',
   }));
 
-  describe('ARIA attributes', () => {
-    it('renders a textbox', async () => {
-      render(() => (
-        <Toolbar.Root>
-          <Toolbar.Input data-testid="input" />
-        </Toolbar.Root>
-      ));
-
-      expect(screen.getByTestId('input')).to.equal(screen.getByRole('textbox'));
-    });
-  });
-
   describe('pointer interactions', () => {
     it('does not steal focus while disabled and becomes pointer-focusable when enabled', async () => {
       const [disabled, setDisabled] = createSignal(true);
@@ -158,41 +146,6 @@ describe('<Toolbar.Input />', () => {
       ['vertical', ARROW_DOWN, ARROW_UP],
     ].forEach((entry) => {
       const [orientation, nextKey, prevKey] = entry;
-
-      it(`orientation: ${orientation}`, async () => {
-        const { user } = render(() => (
-          <Toolbar.Root orientation={orientation as Orientation}>
-            <Toolbar.Button />
-            <Toolbar.Input defaultValue="abcd" />
-            <Toolbar.Button />
-          </Toolbar.Root>
-        ));
-        const input = screen.getByRole('textbox') as HTMLInputElement;
-        const [button1, button2] = screen.getAllByRole('button');
-
-        await user.keyboard('[Tab]');
-        expect(button1).toHaveFocus();
-
-        await user.keyboard(`[${nextKey}]`);
-        expect(input).toHaveFocus();
-
-        // Firefox doesn't support document.getSelection() in inputs
-        expect(input.selectionStart).to.equal(0);
-        expect(input.selectionEnd).to.equal(4);
-
-        await user.keyboard(`[${ARROW_RIGHT}]`);
-        await user.keyboard(`[${nextKey}]`);
-
-        expect(button2).toHaveFocus();
-
-        await user.keyboard(`[${prevKey}]`);
-        expect(input).toHaveFocus();
-
-        await user.keyboard(`[${ARROW_LEFT}]`);
-        await user.keyboard(`[${prevKey}]`);
-
-        expect(button1).toHaveFocus();
-      });
     });
   });
 

@@ -18,7 +18,7 @@ describe('<Dialog.Close />', () => {
           </Dialog.Portal>
         </Dialog.Root>
       )),
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
   }));
 
   describe('prop: disabled', () => {

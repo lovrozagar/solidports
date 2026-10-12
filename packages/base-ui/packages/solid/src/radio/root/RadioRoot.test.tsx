@@ -13,7 +13,7 @@ describe('<Radio.Root />', () => {
     (props: any) => <Radio.Root {...props} ref={props.ref} value="" />,
     () => ({
       refInstanceof: window.HTMLSpanElement,
-      testComponentPropWith: 'span',
+      testRenderPropWith: 'span',
       button: true,
       render,
     }),

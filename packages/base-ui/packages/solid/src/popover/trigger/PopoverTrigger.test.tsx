@@ -27,7 +27,7 @@ describe('<Popover.Trigger />', () => {
     button: true,
     refInstanceof: window.HTMLButtonElement,
     render: (node, props) => render(() => <Popover.Root open>{node(props!)}</Popover.Root>),
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
   }));
 
   it('throws a descriptive error when rendered without a root or a handle', async () => {

@@ -14,7 +14,7 @@ describe('<Toggle />', () => {
     button: true,
     refInstanceof: window.HTMLButtonElement,
     render,
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
   }));
 
   describe('pressed state', () => {

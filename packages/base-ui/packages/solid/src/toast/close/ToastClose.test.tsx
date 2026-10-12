@@ -24,7 +24,7 @@ describe('<Toast.Close />', () => {
         </Toast.Provider>
       ));
     },
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
   }));
 
   it('closes the toast when clicked', async () => {

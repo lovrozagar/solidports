@@ -15,7 +15,7 @@ describe('<Dialog.Trigger />', () => {
           {node(props!)}
         </Dialog.Root>
       )),
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
   }));
 
   it('throws a descriptive error without a root or handle', () => {

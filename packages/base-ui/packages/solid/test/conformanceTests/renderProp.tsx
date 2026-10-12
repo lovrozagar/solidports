@@ -14,7 +14,12 @@ export function testRenderProp(
   element: Component<ConformantComponentProps>,
   getOptions: () => BaseUiConformanceTestsOptions,
 ) {
-  const { render, testRenderPropWith: Element = 'div', button = false } = getOptions();
+  const {
+    render,
+    testRenderPropWith: Element = 'div',
+    button = false,
+    wrappingAllowed = true,
+  } = getOptions();
 
   if (!render) {
     throwMissingPropError('render');
@@ -38,30 +43,32 @@ export function testRenderProp(
         ...(button && { nativeButton }),
       });
 
-      expect(screen.queryByTestId('base-ui-wrapper')).not.to.equal(null);
+      expect(screen.queryAllByTestId('base-ui-wrapper')).toHaveLength(wrappingAllowed ? 1 : 0);
       expect(screen.queryByTestId('wrapped')).not.to.equal(null);
       expect(screen.queryByTestId('wrapped')).to.have.attribute('data-test-value', testValue);
     });
 
-    it('renders a customized root element with an implicit Dynamic element', () => {
+    // Solid: React's render element is a `{ component, ...props }` render config.
+    it('renders a customized root element with an element', () => {
       const testValue = randomStringValue();
       render(element, {
         render: { component: Wrapper, 'data-test-value': testValue },
         ...(button && { nativeButton }),
       });
 
-      expect(screen.queryByTestId('base-ui-wrapper')).not.to.equal(null);
+      expect(screen.queryAllByTestId('base-ui-wrapper')).toHaveLength(wrappingAllowed ? 1 : 0);
       expect(screen.queryByTestId('wrapped')).not.to.equal(null);
       expect(screen.queryByTestId('wrapped')).to.have.attribute('data-test-value', testValue);
     });
 
-    it('renders a customized root element with an element', () => {
+    // Solid: a component can be passed as the render prop itself.
+    it('renders a customized root element with a component', () => {
       render(element as any, {
         render: Wrapper,
         ...(button && { nativeButton: Element === 'button' }),
       });
 
-      expect(document.querySelector('[data-testid="base-ui-wrapper"]')).not.to.equal(null);
+      expect(screen.queryAllByTestId('base-ui-wrapper')).toHaveLength(wrappingAllowed ? 1 : 0);
     });
 
     it('should pass the ref to the custom component', () => {
@@ -117,7 +124,7 @@ export function testRenderProp(
       expect(refB!).to.have.attribute('data-testid', 'wrapped');
     });
 
-    it('should merge the rendering element class with the custom component class', () => {
+    it('should merge the rendering element className with the custom component className', () => {
       function Test() {
         return (
           <Dynamic

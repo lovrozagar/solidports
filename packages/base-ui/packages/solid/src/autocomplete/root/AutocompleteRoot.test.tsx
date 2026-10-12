@@ -1819,7 +1819,7 @@ describe('<Autocomplete.Root />', () => {
               <Autocomplete.Portal>
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
-                    <Autocomplete.Input render={<Input data-testid="input" />} />
+                    <Autocomplete.Input render={{ component: Input, 'data-testid': 'input' }} />
                     <Autocomplete.List>
                       {(item) => (
                         <Autocomplete.Item key={item} value={item}>
@@ -1954,7 +1954,7 @@ describe('<Autocomplete.Root />', () => {
               <Autocomplete.Portal>
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
-                    <Autocomplete.Input render={<Input data-testid="input" />} />
+                    <Autocomplete.Input render={{ component: Input, 'data-testid': 'input' }} />
                     <Autocomplete.List>
                       {(item) => (
                         <Autocomplete.Item key={item} value={item}>
