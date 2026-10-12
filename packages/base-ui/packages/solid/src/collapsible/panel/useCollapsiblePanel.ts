@@ -214,6 +214,11 @@ export function useCollapsiblePanel(
         // Not a dependency: open and status changes drive this pass, and it unmounts the panel
         // itself when there is nothing to animate.
         const isMounted = untrack(mounted);
+        // A render function can remove the panel on close. Clear one-shot open animation
+        // suppression even without an element, so the next open animates normally.
+        if (!isOpen) {
+          shouldPreventMountAnimationRef = false;
+        }
         // Solid: a render function that swaps its element for `null` does not call the ref with
         // `null`, so a detached element stands for React's cleared ref.
         if (!panel || !panel.isConnected) {
@@ -293,8 +298,6 @@ export function useCollapsiblePanel(
         // deferred ending phase applies closed styles. This keeps close transitions
         // starting from a measured pixel value, including interrupted opens.
         if (!isOpen && isMounted && (status === 'idle' || status === 'starting')) {
-          shouldPreventMountAnimationRef = false;
-
           if (animationType === 'none') {
             setDimensions(EMPTY_DIMENSIONS, false);
             setMounted(false);
