@@ -595,7 +595,8 @@ function rootBlur(m: NativeSwitch, event: FocusEvent) {
   if (runConsumerHandler(m.props, 'onBlur', event as SwitchEvent<FocusEvent>)) {
     return;
   }
-  if (m.disabled()) {
+  // Removing the focused switch fires `blur` while the removal flushes, so read untracked.
+  if (untrack(m.disabled)) {
     return;
   }
   m.field.setTouched(true);

@@ -2,7 +2,7 @@ import { expect, vi, describe, it } from 'vitest';
 import { createSignal, For, omit } from 'solid-js';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Slider } from '@solidports/base-ui/slider';
-import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { createTouches, getHorizontalSliderRect } from '../utils/test-utils';
 
 describe('<Slider.Control />', () => {
@@ -286,9 +286,17 @@ describe('<Slider.Control />', () => {
       const onValueChange = vi.fn();
       const onValueCommitted = vi.fn();
 
+      const [disabled, setDisabled] = createSignal(false);
+      const setProps = (next: { disabled: boolean }) =>
+        act(async () => {
+          await Promise.resolve();
+          setDisabled(next.disabled);
+        });
+
       render(() => (
         <>
           <Slider.Root
+            disabled={disabled()}
             defaultValue={20}
             onValueChange={onValueChange}
             onValueCommitted={onValueCommitted}
@@ -311,6 +319,7 @@ describe('<Slider.Control />', () => {
 
       return {
         control,
+        setProps,
         elsewhere: screen.getByTestId('elsewhere'),
         onValueChange,
         onValueCommitted,
