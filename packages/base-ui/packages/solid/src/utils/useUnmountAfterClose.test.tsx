@@ -1,6 +1,13 @@
 import { createRoot, createSignal, flush } from 'solid-js';
 import { describe, expect, it } from 'vitest';
+import { waitFor } from '@solidjs/testing-library';
 import { useUnmountAfterClose } from './useUnmountAfterClose';
+
+function nextFrame() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
 
 describe('useUnmountAfterClose', () => {
   it('unmounts after close, ignores a second force, and drops a force that arrives while open', async () => {
@@ -208,18 +215,17 @@ describe('useUnmountAfterClose', () => {
       openNow = false;
       setVersion(1);
       flush();
-      await new Promise((resolve) => {
-        setTimeout(resolve, 0);
+      // The animations are read on the next animation frame.
+      await waitFor(() => {
+        expect(animationReads).toBeGreaterThan(0);
       });
-      expect(animationReads).toBeGreaterThan(0);
       expect(api!.mounted()).toBe(true);
 
       openNow = true;
       resolveFinished();
       await finished;
-      await new Promise((resolve) => {
-        setTimeout(resolve, 0);
-      });
+      await nextFrame();
+      await nextFrame();
       flush();
       expect(calls).toEqual([]);
       expect(api!.mounted()).toBe(true);
