@@ -9,6 +9,7 @@ import {
   defaultProps,
   useRef,
   createLayoutEffect,
+  type ReactLikeRef,
 } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
@@ -19,13 +20,14 @@ import type { ElementProps, FloatingContext, FloatingRootContext } from '../type
 import {
   activeElement,
   contains,
-  findNonDisabledListIndex,
   getFloatingFocusElement,
   getMaxListIndex,
   getMinListIndex,
+  getNextListIndex,
   getTarget,
   isIndexOutOfListBounds,
   isTypeableCombobox,
+  isTypeableElement,
   isVirtualClick,
   isVirtualPointerEvent,
   stopEvent,
@@ -214,6 +216,11 @@ export interface UseListNavigationProps {
    */
   orientation?: 'vertical' | 'horizontal' | 'both' | undefined;
   /**
+   * The orientation used to open the list from its trigger.
+   * @default orientation
+   */
+  triggerOrientation?: 'vertical' | 'horizontal' | 'both' | undefined;
+  /**
    * The id of the root component.
    */
   id?: string | undefined;
@@ -226,6 +233,10 @@ export interface UseListNavigationProps {
    * External FlatingTree to use when the one provided by context can't be used.
    */
   externalTree?: FloatingTreeStore | undefined;
+  /**
+   * Focus target used when a nested list returns to a virtually focused parent.
+   */
+  nestedReturnFocusRef?: ReactLikeRef<HTMLElement | null> | undefined;
   /**
    * Computes two-dimensional list navigation for grid-capable consumers.
    */
@@ -264,6 +275,7 @@ export function useListNavigation(parameters: {
     virtual: false,
   });
   const activeIndex = () => parameters.props.activeIndex;
+  const triggerOrientation = () => props.triggerOrientation ?? props.orientation;
   const hasMountedList = () => props.listRef.some((item) => item != null);
 
   if (process.env.NODE_ENV !== 'production') {
@@ -320,9 +332,20 @@ export function useListNavigation(parameters: {
   const keyRef = useRef<null | string>(null);
   const isPointerModalityRef = useRef(true);
 
+  // Solid: a navigation reaches the consumer's `activeIndex` at the next flush, so until then the
+  // prop still shows the previous highlight. Synchronous keydowns in that window must not read it
+  // as the consumer declining the navigation.
+  let navigationPending = false;
+
   // A user callback, invoked from effects and handlers: it reads state, it does not subscribe.
   const onNavigate = (event?: Event) => {
     untrack(() => props.onNavigate?.(indexRef.current === -1 ? null : indexRef.current, event));
+    if (!navigationPending) {
+      navigationPending = true;
+      queueMicrotask(() => {
+        navigationPending = false;
+      });
+    }
   };
 
   const forceSyncFocusRef = useRef(false);
@@ -341,9 +364,7 @@ export function useListNavigation(parameters: {
 
   function runFocus(item: HTMLElement) {
     // Solid: also runs from effect callbacks, where a direct prop read is untracked by design.
-    if (untrack(() => props.virtual)) {
-      getTree()?.events.emit('virtualfocus', item);
-    } else {
+    if (!untrack(() => props.virtual)) {
       cancelQueuedFocusRef.current = enqueueFocus(item, {
         preventScroll: true,
         sync: forceSyncFocusRef.current,
@@ -352,6 +373,9 @@ export function useListNavigation(parameters: {
   }
 
   const focusItem = () => {
+    // Synchronous navigation must also supersede any deferred focus from an earlier update.
+    focusFrame.cancel();
+
     const initialItem = props.listRef[indexRef.current];
     const forceScrollIntoView = forceScrollIntoViewRef.current;
     if (initialItem) {
@@ -383,6 +407,20 @@ export function useListNavigation(parameters: {
       }
     });
   };
+
+  createDepsRenderEffect(
+    () => ({ open: open(), focusItemOnOpen: props.focusItemOnOpen }),
+    (values) => {
+      if (!values.open) {
+        keyRef.current = null;
+      }
+      // Explicit values can change with the opening interaction. Keep an inferred 'auto' value
+      // from the trigger event, but apply a boolean before the initial highlight is synchronized.
+      if (!values.open || values.focusItemOnOpen !== 'auto') {
+        focusItemOnOpenRef.current = values.focusItemOnOpen;
+      }
+    },
+  );
 
   // Sync `selectedIndex` to be the `activeIndex` upon opening the floating
   // element. Also, reset `activeIndex` upon closing the floating element.
@@ -437,7 +475,7 @@ export function useListNavigation(parameters: {
       isOpen: open(),
       mounted: isMounted(),
       idx: activeIndex(),
-      orientation: props.orientation,
+      triggerOrientation: triggerOrientation(),
       rtl: props.rtl,
       nested: props.nested,
     }),
@@ -483,7 +521,8 @@ export function useListNavigation(parameters: {
           let runs = 0;
           const maxRuns = 10;
           let deferredForVisibility = false;
-          const orientationResolved = info.orientation;
+          // The key came from the trigger, so it is read on the trigger's orientation.
+          const orientationResolved = info.triggerOrientation;
           const rtlResolved = info.rtl;
           const nestedResolved = info.nested;
           const waitForListPopulated = () => {
@@ -603,16 +642,6 @@ export function useListNavigation(parameters: {
     },
   );
 
-  createDepsRenderEffect(
-    () => ({ open: open(), focusItemOnOpen: props.focusItemOnOpen }),
-    (values) => {
-      if (!values.open) {
-        keyRef.current = null;
-        focusItemOnOpenRef.current = values.focusItemOnOpen;
-      }
-    },
-  );
-
   const hasActiveIndex = () => activeIndex() != null;
 
   function syncCurrentTarget(event: Event) {
@@ -631,7 +660,12 @@ export function useListNavigation(parameters: {
       forceSyncFocusRef.current = true;
       syncCurrentTarget(event);
     },
-    onClick: ({ currentTarget }) => currentTarget.focus({ preventScroll: true }), // Safari
+    onClick({ currentTarget }) {
+      // Safari. Skipped under virtual focus, which must keep real focus on the reference.
+      if (!props.virtual) {
+        (currentTarget as HTMLElement).focus({ preventScroll: true });
+      }
+    },
     onMouseMove(event) {
       if (isStationaryWebKitPointer(event)) {
         return;
@@ -744,15 +778,28 @@ export function useListNavigation(parameters: {
         store().setOpen(false, createChangeEventDetails(REASONS.listNavigation, event));
       }
 
-      if (!shouldLetParentNavigate && isHTMLElement(domReference)) {
-        if (props.virtual) {
-          getTree()?.events.emit('virtualfocus', domReference);
-        } else {
-          domReference.focus();
+      if (!shouldLetParentNavigate) {
+        const returnElement = props.nestedReturnFocusRef?.current ?? domReference;
+        if (isHTMLElement(returnElement)) {
+          returnElement.focus();
         }
       }
 
       return;
+    }
+
+    // The consumer owns `activeIndex` and may decline a navigation this hook proposed, such as a
+    // virtual list keeping its highlight when the reference is refocused. Declining produces no
+    // update, so reconcile here: otherwise the cursor drifts from the rendered highlight and
+    // this key moves from the wrong position.
+    const currentActiveIndex = untrack(activeIndex);
+    if (
+      !navigationPending &&
+      currentActiveIndex != null &&
+      currentActiveIndex !== indexRef.current &&
+      !isIndexOutOfListBounds(props.listRef, currentActiveIndex)
+    ) {
+      indexRef.current = currentActiveIndex;
     }
 
     const currentIndex = indexRef.current;
@@ -795,7 +842,9 @@ export function useListNavigation(parameters: {
         maxIndex,
       );
 
-      if (index != null) {
+      // The grid navigator returns the unchanged index for keys it does not handle, and
+      // reporting that as a navigation would re-emit the current highlight on every keydown.
+      if (index != null && index !== indexRef.current) {
         indexRef.current = index;
         onNavigate(event);
       }
@@ -808,79 +857,42 @@ export function useListNavigation(parameters: {
     if (isMainOrientationKey(event.key, props.orientation)) {
       stopEvent(event);
 
-      // Reset the index if no item is focused.
+      // Reset the index if no item is focused. Focus can also rest on a container inside the
+      // popup, such as a list that holds the `menu` role. Keys bubbling from a portaled nested
+      // popup are not in this popup's DOM, so they navigate from the current index.
+      const currentTarget = event.currentTarget as HTMLElement;
+      const focusedElement = activeElement(currentTarget.ownerDocument);
       if (
         open() &&
         !props.virtual &&
-        event.currentTarget === floatingEl &&
-        activeElement((event.currentTarget as any)?.ownerDocument) === event.currentTarget
+        contains(currentTarget, focusedElement) &&
+        !props.listRef.some((listItem) => listItem != null && contains(listItem, focusedElement))
       ) {
-        const newIndex = isMainOrientationToEndKey(event.key, props.orientation, props.rtl)
+        indexRef.current = isMainOrientationToEndKey(event.key, props.orientation, props.rtl)
           ? minIndex
           : maxIndex;
-        indexRef.current = newIndex;
-
         onNavigate(event);
+        // The boundary item may already be highlighted, so `activeIndex` won't change and the
+        // effect that moves focus to the highlighted item won't run.
+        if (untrack(activeIndex) === indexRef.current) {
+          focusItem();
+        }
         return;
       }
 
-      if (isMainOrientationToEndKey(event.key, props.orientation, props.rtl)) {
-        if (props.loopFocus) {
-          if (currentIndex >= maxIndex) {
-            if (props.allowEscape && currentIndex !== props.listRef.length) {
-              indexRef.current = -1;
-            } else {
-              // Give time for virtualizers to update the listRef.
-              forceSyncFocusRef.current = false;
-              indexRef.current = minIndex;
-            }
-          } else {
-            indexRef.current = findNonDisabledListIndex(props.listRef, {
-              disabledIndices: disabledIndicesRef.current,
-              startingIndex: currentIndex,
-            });
-          }
-        } else {
-          const newIndex = Math.min(
-            maxIndex,
-            findNonDisabledListIndex(props.listRef, {
-              disabledIndices: disabledIndicesRef.current,
-              startingIndex: currentIndex,
-            }),
-          );
-          indexRef.current = newIndex;
-        }
-      } else if (props.loopFocus) {
-        if (currentIndex <= minIndex) {
-          if (props.allowEscape && currentIndex !== -1) {
-            indexRef.current = props.listRef.length;
-          } else {
-            // Give time for virtualizers to update the listRef.
-            forceSyncFocusRef.current = false;
-            indexRef.current = maxIndex;
-          }
-        } else {
-          indexRef.current = findNonDisabledListIndex(props.listRef, {
-            decrement: true,
-            disabledIndices: disabledIndicesRef.current,
-            startingIndex: currentIndex,
-          });
-        }
-      } else {
-        const newIndex = Math.max(
-          minIndex,
-          findNonDisabledListIndex(props.listRef, {
-            decrement: true,
-            disabledIndices: disabledIndicesRef.current,
-            startingIndex: currentIndex,
-          }),
-        );
-        indexRef.current = newIndex;
+      const { index, wrapped } = getNextListIndex(props.listRef, currentIndex, {
+        decrement: !isMainOrientationToEndKey(event.key, props.orientation, props.rtl),
+        loopFocus: props.loopFocus,
+        allowEscape: props.allowEscape,
+        disabledIndices: disabledIndicesRef.current,
+        minIndex,
+        maxIndex,
+      });
+      if (wrapped) {
+        // Give time for virtualizers to update the listRef.
+        forceSyncFocusRef.current = false;
       }
-
-      if (isIndexOutOfListBounds(props.listRef, indexRef.current)) {
-        indexRef.current = -1;
-      }
+      indexRef.current = index;
 
       onNavigate(event);
 
@@ -921,10 +933,12 @@ export function useListNavigation(parameters: {
         }
 
         stopEvent(event);
-        store().setOpen(false, createChangeEventDetails(REASONS.focusOut, event));
+        const details = createChangeEventDetails(REASONS.focusOut, event);
+        store().setOpen(false, details);
 
-        if (isHTMLElement(domReference)) {
-          domReference.focus();
+        const returnElement = props.nestedReturnFocusRef?.current ?? domReference;
+        if (!details.isCanceled && isHTMLElement(returnElement)) {
+          returnElement.focus();
         }
 
         return;
@@ -972,6 +986,10 @@ export function useListNavigation(parameters: {
   const trigger: ElementProps['trigger'] = {
     onClick: checkVirtualMouse,
     onFocus(event) {
+      if (event.target !== event.currentTarget) {
+        return;
+      }
+
       if (store().select('open') && !props.virtual && activeIndex() == null) {
         indexRef.current = -1;
         onNavigate(event);
@@ -988,13 +1006,20 @@ export function useListNavigation(parameters: {
         getParentOrientation(),
         props.rtl,
       );
-      const isMainKey = isMainOrientationKey(event.key, props.orientation);
+      const isMainKey = isMainOrientationKey(
+        event.key,
+        currentOpen ? props.orientation : triggerOrientation(),
+      );
       const isNavigationKey =
         (props.nested ? isParentCrossOpenKey : isMainKey) ||
         event.key === 'Enter' ||
         event.key.trim() === '';
 
-      if (props.virtual && currentOpen) {
+      if (
+        props.virtual &&
+        currentOpen &&
+        (!props.nested || isTypeableElement(event.currentTarget))
+      ) {
         return commonOnKeyDown(event);
       }
 
@@ -1017,6 +1042,9 @@ export function useListNavigation(parameters: {
             const newIndex = getMinListIndex(props.listRef, disabledIndicesRef.current);
             indexRef.current = newIndex;
             onNavigate(event);
+            if (props.virtual) {
+              floatingFocusElementRef.current?.focus();
+            }
           } else {
             store().setOpen(
               true,
