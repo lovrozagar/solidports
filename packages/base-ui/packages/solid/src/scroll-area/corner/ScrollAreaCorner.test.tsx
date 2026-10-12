@@ -81,7 +81,7 @@ describe('<ScrollArea.Corner />', () => {
 
   describe.skipIf(isJSDOM)('interactions', () => {
     it('should apply correct corner size when both scrollbars are present', async () => {
-      render(() => (
+      await render(() => (
         <ScrollArea.Root style={{ width: '200px', height: '200px' }}>
           <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
             <div style={{ width: '1000px', height: '1000px' }} />
@@ -96,8 +96,10 @@ describe('<ScrollArea.Corner />', () => {
 
       await waitFor(() => {
         const style = getComputedStyle(corner);
-        expect(style.getPropertyValue('--scroll-area-corner-width')).toBe('10px');
-        expect(style.getPropertyValue('--scroll-area-corner-height')).toBe('10px');
+        expect({
+          width: style.getPropertyValue('--scroll-area-corner-width'),
+          height: style.getPropertyValue('--scroll-area-corner-height'),
+        }).toEqual({ width: '10px', height: '10px' });
       });
     });
   });

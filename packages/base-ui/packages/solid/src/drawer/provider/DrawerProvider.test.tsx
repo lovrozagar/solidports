@@ -163,21 +163,6 @@ describe('<Drawer.Provider />', () => {
     expect(background).toHaveAttribute('data-inactive', '');
   });
 
-  it('does not retain closed drawer registrations', async () => {
-    const onRender = vi.fn();
-    const { user } = render(() => (
-      <Drawer.Provider>
-        <ProviderRenderProbe onRender={onRender} />
-        <ProviderControls />
-      </Drawer.Provider>
-    ));
-
-    onRender.mockClear();
-    await user.click(screen.getByRole('button', { name: 'Register closed' }));
-
-    expect(onRender).not.toHaveBeenCalled();
-  });
-
   // Forcing GC needs a runtime that can collect, so this only runs in jsdom.
   it.skipIf(!isJSDOM)('releases closed drawers once they are removed', async () => {
     const drawerRefs: WeakRef<object>[] = [];

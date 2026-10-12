@@ -4,7 +4,7 @@ import { screen, waitFor } from '@solidjs/testing-library';
 import { act, createRenderer, flushMicrotasks } from '#test-utils';
 import { useAnimationsFinished } from './useAnimationsFinished';
 
-function createAnimation() {
+function createAnimation(iterations = 1, duration = 1) {
   let resolveFinished!: () => void;
   let rejectFinished!: () => void;
 
@@ -16,6 +16,7 @@ function createAnimation() {
   return {
     animation: {
       finished,
+      effect: { getTiming: () => ({ duration, iterations }) },
       pending: false,
       playState: 'running',
     } as unknown as Animation,
@@ -74,8 +75,9 @@ describe('useAnimationsFinished', () => {
 
     const initialAnimation = createAnimation();
     const replacementAnimation = createAnimation();
+    const infiniteAnimation = createAnimation(Infinity);
     const onFinished = vi.fn();
-    let animations: Animation[] = [initialAnimation.animation];
+    let animations: Animation[] = [initialAnimation.animation, infiniteAnimation.animation];
     let getAnimationsCallCount = 0;
 
     try {
@@ -93,7 +95,7 @@ describe('useAnimationsFinished', () => {
         expect(getAnimationsCallCount).toBeGreaterThan(0);
       });
 
-      animations = [replacementAnimation.animation];
+      animations = [replacementAnimation.animation, infiniteAnimation.animation];
 
       await act(async () => {
         initialAnimation.cancel();
@@ -391,4 +393,56 @@ describe('useAnimationsFinished', () => {
       globalThis.BASE_UI_ANIMATIONS_DISABLED = animationsDisabled;
     }
   });
+
+  it.each(['finish', 'cancel'] as const)(
+    'ignores infinite animations when a finite animation completes via %s',
+    async (completion) => {
+      const animationsDisabled = globalThis.BASE_UI_ANIMATIONS_DISABLED;
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+
+      const finite = createAnimation();
+      const infinite = createAnimation(Infinity);
+      const onFinished = vi.fn();
+      let animations = [finite.animation, infinite.animation];
+      const getAnimations = vi.fn(() => animations);
+
+      try {
+        await render(() => <Test getAnimations={getAnimations} onFinished={onFinished} />);
+        await waitFor(() => expect(getAnimations).toHaveBeenCalled());
+        expect(onFinished).not.toHaveBeenCalled();
+
+        animations = [infinite.animation];
+        await act(async () => {
+          finite[completion]();
+          await flushMicrotasks();
+        });
+
+        expect(onFinished).toHaveBeenCalledTimes(1);
+      } finally {
+        globalThis.BASE_UI_ANIMATIONS_DISABLED = animationsDisabled;
+      }
+    },
+  );
+
+  it.each([
+    ['iteration count', Infinity, 1],
+    ['duration', 1, Infinity],
+  ] as const)(
+    'finishes when the element only has an animation with an infinite %s',
+    async (_timing, iterations, duration) => {
+      const animationsDisabled = globalThis.BASE_UI_ANIMATIONS_DISABLED;
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
+      const infinite = createAnimation(iterations, duration);
+      const onFinished = vi.fn();
+
+      try {
+        await render(() => (
+          <Test getAnimations={() => [infinite.animation]} onFinished={onFinished} />
+        ));
+        await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));
+      } finally {
+        globalThis.BASE_UI_ANIMATIONS_DISABLED = animationsDisabled;
+      }
+    },
+  );
 });

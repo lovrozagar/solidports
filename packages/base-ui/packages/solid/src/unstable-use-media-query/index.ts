@@ -1,7 +1,8 @@
-import { createSignal, onCleanup, onSettled, untrack } from 'solid-js';
+import { createEffect, createSignal, isHydrating, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { access, type MaybeAccessor } from '../solid-helpers';
+import { addEventListener } from '../utils/addEventListener';
 
 export function useMediaQuery(
   query: MaybeAccessor<string>,
@@ -10,59 +11,60 @@ export function useMediaQuery(
   // Wait for jsdom to support the match media feature.
   // All the browsers Base UI support have this built-in.
   // This defensive check is here for simplicity.
-  // Most of the time, the match media logic isn't central to people tests.
+  // Most of the time, the match media logic isn't central to people's tests.
   const supportMatchMedia = () =>
     typeof window !== 'undefined' && typeof window.matchMedia !== 'undefined';
 
   const safeQuery = () => access(query).replace(/^@media( ?)/m, '');
   const defaultMatches = () => access(options.defaultMatches) ?? false;
-  const matchMedia = () => options.matchMedia ?? (supportMatchMedia() ? window.matchMedia : null);
-  const ssrMatchMedia = () => options.ssrMatchMedia ?? null;
-  const noSsr = () => access(options.noSsr) ?? false;
-  const [match, setMatch] = createSignal(untrack(() => defaultMatches()));
+  const matchMedia = () =>
+    options.matchMedia === undefined
+      ? supportMatchMedia()
+        ? window.matchMedia
+        : null
+      : options.matchMedia;
 
-  onSettled(() => {
-    const _c: Array<() => void> = [];
-    (() => {
-      const matchMediaValue = matchMedia();
-      if (matchMediaValue === null) {
-        setMatch(defaultMatches());
-        return;
-      }
-
-      function notify(event: MediaQueryListEvent) {
-        setMatch(event.matches);
-      }
-
-      const mediaQueryList = matchMediaValue(safeQuery());
-      mediaQueryList.addEventListener('change', notify);
-      _c.push(() => {
-        mediaQueryList.removeEventListener('change', notify);
-      });
-    })();
-    return () => {
-      for (let i = _c.length - 1; i >= 0; i -= 1) {
-        _c[i]();
-      }
-    };
-  });
+  // `useSyncExternalStore`'s server snapshot: what the server renders and hydration starts from.
+  const getServerSnapshot = () => {
+    const matchMediaValue = matchMedia();
+    if (access(options.noSsr) && matchMediaValue) {
+      return matchMediaValue(safeQuery()).matches;
+    }
+    if (options.ssrMatchMedia != null) {
+      return options.ssrMatchMedia(safeQuery()).matches;
+    }
+    return defaultMatches();
+  };
 
   if (isServer) {
-    const matchMediaValue = matchMedia();
-    if (noSsr() && matchMediaValue) {
-      return () => matchMediaValue(safeQuery()).matches;
-    }
-
-    // The server value is constant, so it is returned directly rather than written into `match`
+    // The server value is constant, so it is returned directly rather than written into state
     // (a server render writes no state).
-    const ssrMatch = ssrMatchMedia();
-    if (ssrMatch !== null) {
-      const { matches } = ssrMatch(safeQuery());
-      return () => matches;
-    }
-
-    return () => defaultMatches();
+    const matches = getServerSnapshot();
+    return () => matches;
   }
+
+  const getSnapshot = () => {
+    const matchMediaValue = matchMedia();
+    return matchMediaValue === null ? defaultMatches() : matchMediaValue(safeQuery()).matches;
+  };
+
+  // A client render reads the media query at once; hydration starts from the server snapshot.
+  const [match, setMatch] = createSignal(untrack(isHydrating() ? getServerSnapshot : getSnapshot));
+
+  createEffect(
+    () => ({ matchMediaValue: matchMedia(), query: safeQuery(), fallback: defaultMatches() }),
+    (current) => {
+      if (current.matchMediaValue === null) {
+        setMatch(current.fallback);
+        return undefined;
+      }
+
+      const mediaQueryList = current.matchMediaValue(current.query);
+      const notify = () => setMatch(mediaQueryList.matches);
+      notify();
+      return addEventListener(mediaQueryList, 'change', notify);
+    },
+  );
 
   return match;
 }

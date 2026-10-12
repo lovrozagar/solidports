@@ -4,6 +4,7 @@ import { screen, within } from '@solidjs/testing-library';
 import { describe, expect, it } from 'vitest';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { Field } from '@solidports/base-ui/field';
+import { Select } from '@solidports/base-ui/select';
 import { act, createRenderer } from '#test-utils';
 import { useLabel } from './useLabel';
 
@@ -182,5 +183,102 @@ describe('useLabel', () => {
     });
 
     expect(control).not.toHaveFocus();
+  });
+
+  describe.each(['Select.Label', 'Combobox.Label', 'Field.Label'])('%s', (labelType) => {
+    function TestControl() {
+      if (labelType === 'Combobox.Label') {
+        return (
+          <Field.Root name="country">
+            <Combobox.Root>
+              <Combobox.Label>Country</Combobox.Label>
+              <Combobox.Trigger id="country">Choose a country</Combobox.Trigger>
+              <Combobox.Portal>
+                <Combobox.Positioner>
+                  <Combobox.Popup>
+                    <Combobox.Input aria-label="Search countries" />
+                    <Combobox.List>
+                      <Combobox.Item value="fr">France</Combobox.Item>
+                    </Combobox.List>
+                  </Combobox.Popup>
+                </Combobox.Positioner>
+              </Combobox.Portal>
+            </Combobox.Root>
+          </Field.Root>
+        );
+      }
+
+      return (
+        <Field.Root name="country">
+          {labelType === 'Field.Label' && (
+            <Field.Label nativeLabel={false} render={{ component: 'div' }}>
+              Country
+            </Field.Label>
+          )}
+          <Select.Root>
+            {labelType === 'Select.Label' && <Select.Label>Country</Select.Label>}
+            <Select.Trigger id="country">Choose a country</Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner>
+                <Select.Popup>
+                  <Select.List>
+                    <Select.Item value="fr">
+                      <Select.ItemText>France</Select.ItemText>
+                    </Select.Item>
+                  </Select.List>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+        </Field.Root>
+      );
+    }
+
+    it('focuses the trigger without opening the popup in the document', async () => {
+      const { user } = await render(() => <TestControl />);
+      const trigger = screen.getByRole('combobox', { name: 'Country' });
+
+      await user.click(screen.getByText('Country'));
+
+      expect(trigger).toHaveFocus();
+      expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    });
+  });
+
+  it('does not throw when a label is clicked in a detached React root', async () => {
+    const container = document.createElement('div');
+
+    const { unmount } = await render(
+      () => (
+        <Field.Root>
+          <Field.Label nativeLabel={false} render={{ component: 'div' }}>
+            Country
+          </Field.Label>
+          <Select.Root>
+            <Select.Trigger id="country">Choose a country</Select.Trigger>
+          </Select.Root>
+        </Field.Root>
+      ),
+      {},
+      { container },
+    );
+
+    const errors: ErrorEvent[] = [];
+    function handleError(event: ErrorEvent) {
+      event.preventDefault();
+      errors.push(event);
+    }
+    window.addEventListener('error', handleError);
+
+    try {
+      await act(async () => {
+        within(container).getByText('Country').click();
+      });
+
+      expect(errors).toHaveLength(0);
+    } finally {
+      window.removeEventListener('error', handleError);
+      unmount();
+    }
   });
 });

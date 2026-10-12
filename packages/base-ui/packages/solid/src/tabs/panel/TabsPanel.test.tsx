@@ -224,7 +224,7 @@ describe('<Tabs.Panel />', () => {
         }
       `;
 
-      const { user } = render(() => (
+      const { user } = await render(() => (
         <div>
           {/* eslint-disable-next-line solid/no-innerhtml */}
           <style innerHTML={style} />
@@ -246,9 +246,7 @@ describe('<Tabs.Panel />', () => {
       await user.click(screen.getByRole('tab', { name: 'Two' }));
 
       await waitFor(() => {
-        const panel = screen.queryByTestId('panel-one');
-        expect(panel).not.toBeNull();
-        expect(panel).toHaveAttribute('data-ending-style');
+        expect(screen.queryByTestId('panel-one')).toHaveAttribute('data-ending-style');
       });
 
       await waitFor(() => {

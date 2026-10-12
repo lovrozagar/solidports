@@ -950,6 +950,8 @@ describe('FloatingFocusManager', () => {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
         const iframeWithin = iframeDoc ? within(iframeDoc.body) : screen;
 
+        // The popover renders inside an iframe and the renderer's `user` is bound to the
+        // top-level document, so user-event needs an instance for the iframe's document.
         const user = userEvent.setup({ document: iframeDoc });
 
         await user.click(iframeWithin.getByRole('button', { name: 'Open' }));
@@ -974,6 +976,8 @@ describe('FloatingFocusManager', () => {
           const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
           const iframeWithin = iframeDoc ? within(iframeDoc.body) : screen;
 
+          // The popover renders inside an iframe and the renderer's `user` is bound to the
+          // top-level document, so user-event needs an instance for the iframe's document.
           const user = userEvent.setup({ document: iframeDoc });
 
           await user.click(iframeWithin.getByRole('button', { name: 'Open' }));

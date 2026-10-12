@@ -17,13 +17,6 @@ describe('<Separator />', () => {
   });
 
   describe('prop: orientation', () => {
-    ['horizontal', 'vertical'].forEach((orientation) => {
-      it(orientation, async () => {
-        render(() => <Separator orientation={orientation as Separator.Props['orientation']} />);
-        expect(screen.getByRole('separator')).to.have.attribute('aria-orientation', orientation);
-      });
-    });
-
     it.each([{ orientation: 'horizontal' }, { orientation: 'vertical' }] as const)(
       'sets aria-orientation="$orientation"',
       async ({ orientation }) => {

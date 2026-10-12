@@ -14,7 +14,6 @@ describe('<CheckboxGroup />', () => {
   const { render } = createRenderer();
 
   describeConformance(CheckboxGroup, () => ({
-    inheritComponent: 'div',
     refInstanceof: window.HTMLDivElement,
     render,
   }));

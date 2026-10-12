@@ -1,8 +1,18 @@
 import { expect, vi } from 'vitest';
+import type { CDPSession } from '@vitest/browser-playwright';
+import { platform } from '../../utils/platform';
+import { ownerDocument } from '../../utils/owner';
 import { createSignal, Show } from 'solid-js';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { DirectionProvider } from '@solidports/base-ui/direction-provider';
-import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import {
+  act,
+  createRenderer,
+  describeConformance,
+  flushMicrotasks,
+  isJSDOM,
+  waitSingleFrame,
+} from '#test-utils';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { flushSync } from '../../utils/flushSync';
 import { SCROLL_TIMEOUT } from '../constants';
@@ -190,6 +200,62 @@ describe('<ScrollArea.Viewport />', () => {
         await finished;
       });
     });
+
+    it.skipIf(!platform.engine.blink)(
+      'releases a completed animation target while another animation is paused',
+      async () => {
+        const { cdp } = await import('vitest/browser');
+        const session = cdp() as CDPSession;
+        let targetRef: WeakRef<HTMLDivElement> | undefined;
+        let animationsRead = false;
+
+        await render(() => (
+          <ScrollArea.Root>
+            <ScrollArea.Viewport
+              data-testid="viewport"
+              ref={(node) => {
+                if (!node || node.firstElementChild) {
+                  return;
+                }
+
+                const target = ownerDocument(node).createElement('div');
+                const pausedTarget = ownerDocument(node).createElement('div');
+                node.append(target, pausedTarget);
+                targetRef = new WeakRef(target);
+
+                for (const element of [target, pausedTarget]) {
+                  element
+                    .animate({ opacity: [0, 1] }, { duration: 1000, fill: 'forwards' })
+                    .pause();
+                }
+
+                // A spy would retain the Animation objects in its recorded results.
+                const getAnimations = node.getAnimations.bind(node);
+                node.getAnimations = (options) => {
+                  animationsRead = true;
+                  return getAnimations(options);
+                };
+              }}
+            />
+          </ScrollArea.Root>
+        ));
+
+        await waitFor(() => expect(animationsRead).toBe(true));
+
+        const viewport = screen.getByTestId('viewport');
+        viewport.firstElementChild!.getAnimations()[0].finish();
+        await act(async () => {
+          await flushMicrotasks();
+        });
+        viewport.firstElementChild!.remove();
+        await waitSingleFrame();
+
+        await session.send('HeapProfiler.collectGarbage');
+
+        expect(targetRef!.deref()).toBeUndefined();
+        expect(viewport.firstElementChild!.getAnimations()[0].playState).toBe('paused');
+      },
+    );
   });
 
   describe('data-scrolling attribute', () => {
@@ -362,31 +428,33 @@ describe('<ScrollArea.Viewport />', () => {
     const SCROLLABLE_CONTENT_SIZE = 1000;
 
     it('applies data attributes on viewport', async () => {
-      render(() => (
-        <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
+      await render(() => (
+        <ScrollArea.Root style={{ width: VIEWPORT_SIZE, height: VIEWPORT_SIZE }}>
           <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
-            <div
-              style={{
-                width: `${SCROLLABLE_CONTENT_SIZE}px`,
-                height: `${SCROLLABLE_CONTENT_SIZE}px`,
-              }}
-            />
+            <div style={{ width: SCROLLABLE_CONTENT_SIZE, height: SCROLLABLE_CONTENT_SIZE }} />
           </ScrollArea.Viewport>
         </ScrollArea.Root>
       ));
 
       const viewport = screen.getByTestId('viewport');
 
-      /* eslint-disable testing-library/no-wait-for-multiple-assertions */
       await waitFor(() => {
-        expect(viewport).toHaveAttribute('data-has-overflow-x');
-        expect(viewport).toHaveAttribute('data-has-overflow-y');
-        expect(viewport).not.toHaveAttribute('data-overflow-x-start');
-        expect(viewport).toHaveAttribute('data-overflow-x-end');
-        expect(viewport).not.toHaveAttribute('data-overflow-y-start');
-        expect(viewport).toHaveAttribute('data-overflow-y-end');
+        expect({
+          hasOverflowX: viewport.hasAttribute('data-has-overflow-x'),
+          hasOverflowY: viewport.hasAttribute('data-has-overflow-y'),
+          overflowXStart: viewport.hasAttribute('data-overflow-x-start'),
+          overflowXEnd: viewport.hasAttribute('data-overflow-x-end'),
+          overflowYStart: viewport.hasAttribute('data-overflow-y-start'),
+          overflowYEnd: viewport.hasAttribute('data-overflow-y-end'),
+        }).toEqual({
+          hasOverflowX: true,
+          hasOverflowY: true,
+          overflowXStart: false,
+          overflowXEnd: true,
+          overflowYStart: false,
+          overflowYEnd: true,
+        });
       });
-      /* eslint-enable testing-library/no-wait-for-multiple-assertions */
     });
   });
 

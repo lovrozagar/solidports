@@ -281,42 +281,6 @@ describe('<Form />', () => {
     await flushMicrotasks();
   });
 
-  (['onBlur', 'onChange'] as const).forEach((validationMode) => {
-    it(`blocks submission on a resolved async error in ${validationMode} mode`, async () => {
-      const onFormSubmit = vi.fn();
-      const validate = vi.fn((value: unknown) =>
-        Promise.resolve(value === 'taken' ? 'Username is taken' : null),
-      );
-
-      render(() => (
-        <Form onFormSubmit={onFormSubmit}>
-          <Field.Root name="username" validationMode={validationMode} validate={validate}>
-            <Field.Control data-testid="control" />
-            <Field.Error data-testid="error" />
-          </Field.Root>
-          <button type="submit">Submit</button>
-        </Form>
-      ));
-
-      const control = screen.getByTestId('control');
-
-      fireEvent.input(control, { target: { value: 'taken' } });
-      fireEvent.blur(control);
-      await flushMicrotasks();
-
-      await waitFor(() => {
-        expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
-      });
-
-      fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-
-      expect(onFormSubmit).not.toHaveBeenCalled();
-      expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
-
-      await flushMicrotasks();
-    });
-  });
-
   it('does not submit if an unnamed registered field control is invalid', async () => {
     const onSubmit = vi.fn((event: SubmitEvent) => {
       event.preventDefault();
@@ -1214,4 +1178,41 @@ describe('<Form />', () => {
       expect(control).toHaveAttribute('aria-invalid', 'true');
     });
   });
+
+  it.each([{ validationMode: 'onBlur' as const }, { validationMode: 'onChange' as const }])(
+    'blocks submission on a resolved async error in $validationMode mode',
+    async ({ validationMode }) => {
+      const onFormSubmit = vi.fn();
+      const validate = vi.fn((value: unknown) =>
+        Promise.resolve(value === 'taken' ? 'Username is taken' : null),
+      );
+
+      await render(() => (
+        <Form onFormSubmit={onFormSubmit}>
+          <Field.Root name="username" validationMode={validationMode} validate={validate}>
+            <Field.Control data-testid="control" />
+            <Field.Error data-testid="error" />
+          </Field.Root>
+          <button type="submit">Submit</button>
+        </Form>
+      ));
+
+      const control = screen.getByTestId('control');
+
+      fireEvent.input(control, { target: { value: 'taken' } });
+      fireEvent.blur(control);
+      await flushMicrotasks();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+      expect(onFormSubmit).not.toHaveBeenCalled();
+      expect(screen.getByTestId('error')).toHaveTextContent('Username is taken');
+
+      await flushMicrotasks();
+    },
+  );
 });

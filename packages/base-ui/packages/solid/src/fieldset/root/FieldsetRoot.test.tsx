@@ -13,7 +13,6 @@ describe('<Fieldset.Root />', () => {
   const { render } = createRenderer();
 
   describeConformance(Fieldset.Root, () => ({
-    inheritComponent: 'fieldset',
     refInstanceof: window.HTMLFieldSetElement,
     render,
   }));

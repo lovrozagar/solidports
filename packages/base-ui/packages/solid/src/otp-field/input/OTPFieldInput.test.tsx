@@ -427,9 +427,7 @@ describe('<OTPField.Input />', () => {
   });
 
   it('moves focus to the next slot when typing the same character into a filled slot', async () => {
-    const user = userEvent.setup();
-
-    await render(() => <OTPFieldTest defaultValue="12" />);
+    const { user } = await render(() => <OTPFieldTest defaultValue="12" />);
 
     const inputs = screen.getAllByRole<HTMLInputElement>('textbox');
 
@@ -717,9 +715,7 @@ describe('<OTPField.Input />', () => {
   });
 
   it('allows tabbing out of the field from the active slot', async () => {
-    const user = userEvent.setup();
-
-    await render(() => (
+    const { user } = await render(() => (
       <>
         <OTPFieldTest />
         <button type="button">Next</button>

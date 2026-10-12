@@ -1503,12 +1503,14 @@ describe('<RadioGroup />', () => {
         const radioA = screen.getByTestId('radio-a');
         const radioB = screen.getByTestId('radio-b');
 
+        // Solid: React Testing Library's `fireEvent.blur` also dispatches `focusout`, which is what
+        // React's `onBlur` (and the group's handler here) listens to.
         fireEvent.focus(radioA);
-        fireEvent.blur(group, { relatedTarget: radioB });
+        fireEvent.focusOut(group, { relatedTarget: radioB });
 
         expect(validate).not.toHaveBeenCalled();
 
-        fireEvent.blur(group, { relatedTarget: screen.getByText('Outside') });
+        fireEvent.focusOut(group, { relatedTarget: screen.getByText('Outside') });
 
         expect(validate).toHaveBeenCalledTimes(1);
         expect(validate.mock.calls[0][0]).toBe('a');
