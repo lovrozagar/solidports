@@ -402,8 +402,9 @@ export interface NavigationMenuRootProps<Value = any> extends BaseUIComponentPro
 > {
   /**
    * A ref to imperative actions.
-   * - `unmount`: Ends the closing phase after an externally controlled closing animation finishes.
+   * - `unmount`: Ends the closing phase of the navigation menu popup after an externally controlled closing animation finishes.
    * Call `preventUnmountOnClose()` in `onValueChange` first, otherwise the navigation menu popup completes closing on its own.
+   * Whether it leaves the DOM is decided by `keepMounted` on the portal.
    * - `close`: Closes the navigation menu imperatively when called.
    */
   actionsRef?: ReactLikeRef<NavigationMenuRoot.Actions | null> | undefined;
@@ -471,7 +472,8 @@ export type NavigationMenuRootChangeEventDetails =
      * Call in `onValueChange` before the popup finishes closing, to keep it mounted until
      * `actionsRef.unmount()`.
      */
-    preventUnmountOnClose(): void;
+    /** Prevents the popup from unmounting until the `unmount` action is called. */
+    preventUnmountOnClose: () => void;
   };
 
 export namespace NavigationMenuRoot {

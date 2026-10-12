@@ -983,8 +983,9 @@ export interface MenuRootProps<Payload = unknown> {
   closeParentOnEsc?: boolean | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: Manually unmounts the menu.
-   *   Call this after any externally controlled closing animation finishes.
+   * - `unmount`: Ends the closing phase of the menu after an externally controlled closing animation finishes.
+   *   Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the menu completes closing on its own.
+   *   Whether it leaves the DOM is decided by `keepMounted` on the portal.
    * - `close`: When specified, the menu can be closed imperatively.
    */
   actionsRef?: ReactLikeRef<MenuRoot.Actions | null> | undefined;

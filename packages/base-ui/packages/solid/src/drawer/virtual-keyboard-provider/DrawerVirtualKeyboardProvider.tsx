@@ -256,16 +256,6 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
         );
       };
 
-      const clearFocusedKeyboardTarget = () => {
-        focusedKeyboardTargetRef.current = null;
-        keyboardScrollElement = null;
-        keyboardVisualHeight = -1;
-        setDrawerKeyboardInset(0);
-        restoreKeyboardScrollAdjustment();
-        keyboardFocusFrame.cancel();
-        keyboardRealignTimeout.clear();
-      };
-
       // WebKit's native reveal scroll can move the page even while the scroll lock hides
       // overflow (e.g. when the software keyboard's previous/next field arrows move focus).
       // While the drawer is modal, any window scroll during keyboard interaction is spurious,
@@ -278,21 +268,18 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
           deps.modal !== true ||
           deps.nestedDrawerOpen ||
           !focusedKeyboardTargetRef.current ||
+          (win.scrollX === baseScrollX && win.scrollY === baseScrollY) ||
           getKeyboardViewport() == null
         ) {
           return false;
         }
 
-        if (win.scrollX !== baseScrollX || win.scrollY !== baseScrollY) {
-          // Force an instant jump: the two-argument form defaults `behavior` to `auto`, which
-          // obeys the page's `scroll-behavior`, so a global `scroll-behavior: smooth` would
-          // animate the restore. The measurements that follow assume the page is already back
-          // at rest, and a smooth restore also re-emits `scroll`, re-entering this handler.
-          win.scrollTo({ left: baseScrollX, top: baseScrollY, behavior: 'instant' });
-          return true;
-        }
-
-        return false;
+        // Force an instant jump: the two-argument form defaults `behavior` to `auto`, which
+        // obeys the page's `scroll-behavior`, so a global `scroll-behavior: smooth` would
+        // animate the restore. The measurements that follow assume the page is already back
+        // at rest, and a smooth restore also re-emits `scroll`, re-entering this handler.
+        win.scrollTo({ left: baseScrollX, top: baseScrollY, behavior: 'instant' });
+        return true;
       };
 
       // Focus moved by the drawer itself goes through `focusKeyboardInputWithoutPageScroll`,
@@ -453,6 +440,15 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
         keyboardRealignTimeout.start(KEYBOARD_REALIGN_INTERVAL, realign);
       };
 
+      // A tap's compatibility mousedown moves focus before mouseup/click hit-test the same
+      // point. Defer releasing the inset and slack so the target stays under the finger.
+      const releaseFocusedKeyboardTarget = () => {
+        focusedKeyboardTargetRef.current = null;
+        keyboardVisualHeight = -1;
+        keyboardRealignTimeout.clear();
+        scheduleKeyboardFocusAlignment();
+      };
+
       const captureFocusedKeyboardTarget = (eventTarget: EventTarget | null) => {
         if (deps.nestedDrawerOpen) {
           return false;
@@ -500,7 +496,7 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
           // inset, slack, and pending realign. Reconcile against the real focus here.
           // A handler that ends focus entirely emits no `focusin` to reconcile from; that case
           // is covered by clearing the suppression flag above so its `focusout` is handled.
-          clearFocusedKeyboardTarget();
+          releaseFocusedKeyboardTarget();
           return;
         }
 
@@ -516,7 +512,7 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
 
       const handleFocusOut = (event: FocusEvent) => {
         // The blur inside `focusKeyboardInputWithoutPageScroll` is followed synchronously by
-        // a re-focus; clearing state here would drop the keyboard inset for a frame.
+        // a re-focus; handling it here would run the reveal against the off-screen geometry.
         if (programmaticKeyboardFocusRef.current) {
           return;
         }
@@ -533,7 +529,7 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
           return;
         }
 
-        clearFocusedKeyboardTarget();
+        releaseFocusedKeyboardTarget();
       };
 
       const handleViewportUpdate = () => {
@@ -566,7 +562,10 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
       // distinguish a user scroll from a reveal scroll WebKit canceled. A later focus or viewport
       // change reschedules alignment if it's still needed.
       const cancelKeyboardRealignOnPointerDown = () => {
-        keyboardFocusFrame.cancel();
+        // Preserve a pending cleanup when focus has already left the keyboard input.
+        if (focusedKeyboardTargetRef.current) {
+          keyboardFocusFrame.cancel();
+        }
         keyboardRealignTimeout.clear();
         keyboardScrollElement = null;
       };
@@ -586,7 +585,10 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
       return () => {
         cleanupListeners.forEach((cleanup) => cleanup());
         consumePreemptedFocus();
-        clearFocusedKeyboardTarget();
+        focusedKeyboardTargetRef.current = null;
+        restoreKeyboardScrollAdjustment();
+        keyboardFocusFrame.cancel();
+        keyboardRealignTimeout.clear();
         getKeyboardViewportRef.current = null;
         smallViewportProbe?.remove();
         rootElement.style.removeProperty(DrawerViewportCssVars.keyboardInset);
@@ -680,9 +682,9 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
       }
 
       // iOS only opens the software keyboard when focus happens synchronously
-      // inside the touch gesture. The flag suppresses the `focusout` cleanup the
-      // intermediate blur would otherwise trigger, so the keyboard inset isn't
-      // dropped for a frame between the blur and the re-focus. It is cleared by the
+      // inside the touch gesture. The flag suppresses the `focusout` handling the
+      // intermediate blur would otherwise trigger, so it doesn't measure the input
+      // while its geometry is overridden off-screen. It is cleared by the
       // `focusin` that lands, so only that blur is suppressed; the `finally` is the
       // backstop for a target that never takes focus.
       event.preventDefault();

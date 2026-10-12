@@ -11,6 +11,7 @@ import { useTimeout } from '../../utils/useTimeout';
 import { visuallyHidden } from '../../utils/visuallyHidden';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
 import type { ToastObject } from '../useToastManager';
+import { selectors } from '../store';
 import { isFocusVisible } from '../utils/focusVisible';
 import * as ToastViewportCssVars from './ToastViewportCssVars';
 
@@ -141,13 +142,11 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
       return;
     }
 
-    // Once transitions have finished, see if a mouseleave was already triggered
-    // but blocked from taking effect. If so, we can now safely collapse the viewport
-    // without restarting timers while the window is blurred.
-    if (store.state.isWindowFocused) {
+    // Apply any mouseleave that was deferred until transitions finished.
+    store.set('hovering', false);
+    if (!selectors.expandedOrOutOfFocus(store.state)) {
       store.resumeTimers();
     }
-    store.set('hovering', false);
     markedReadyForMouseLeaveRef = false;
   }
 
@@ -159,12 +158,6 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     store.pauseTimers();
     store.set('hovering', true);
     markedReadyForMouseLeaveRef = false;
-  }
-
-  function resumeTimersIfWindowFocused() {
-    if (store.state.isWindowFocused) {
-      store.resumeTimers();
-    }
   }
 
   function handleMouseLeave() {
@@ -214,7 +207,9 @@ export function ToastViewport(componentProps: ToastViewport.Props) {
     }
 
     store.set('focused', false);
-    resumeTimersIfWindowFocused();
+    if (!selectors.expandedOrOutOfFocus(store.state)) {
+      store.resumeTimers();
+    }
   }
 
   const defaultProps: HTMLProps = {

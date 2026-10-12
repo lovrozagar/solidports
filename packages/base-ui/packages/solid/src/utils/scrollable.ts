@@ -39,36 +39,14 @@ export function isScrollable(
     : isScrollableX(element, allowOverflowIntent);
 }
 
-export function hasScrollableAncestor(
-  target: EventTarget | null,
-  root: HTMLElement,
-  axes: ScrollAxis[],
-): boolean {
-  // `getParentNode` crosses shadow boundaries (and slots), so a target inside a shadow root
-  // still walks up to scrollable ancestors in the light DOM. Non-HTML targets (SVG, MathML)
-  // can't scroll, but their HTML ancestors can.
-  let node: EventTarget | null = target;
-  while (isElement(node) && node !== root && !isLastTraversableNode(node)) {
-    if (isHTMLElement(node)) {
-      for (const axis of axes) {
-        if (isScrollable(node, axis)) {
-          return true;
-        }
-      }
-    }
-    node = getParentNode(node);
-  }
-  return false;
-}
-
-export function findScrollableTouchTarget(
+export function findScrollableAncestor(
   target: EventTarget | null | undefined,
   root: HTMLElement,
-  axis: ScrollAxis = 'vertical',
+  axis: ScrollAxis,
   allowOverflowIntent = false,
 ): HTMLElement | null {
   // `getParentNode` crosses shadow boundaries (and slots), so a target inside a shadow root
-  // still reaches a scrollable ancestor in the light DOM. Non-HTML targets (SVG, MathML)
+  // still walks up to scrollable ancestors in the light DOM. Non-HTML targets (SVG, MathML)
   // can't scroll, but their HTML ancestors can.
   let node: EventTarget | null | undefined = target;
   while (isElement(node) && node !== root && !isLastTraversableNode(node)) {
@@ -78,5 +56,17 @@ export function findScrollableTouchTarget(
     node = getParentNode(node);
   }
 
-  return isScrollable(root, axis, allowOverflowIntent) ? root : null;
+  return null;
+}
+
+export function findScrollableTouchTarget(
+  target: EventTarget | null | undefined,
+  root: HTMLElement,
+  axis: ScrollAxis = 'vertical',
+  allowOverflowIntent = false,
+): HTMLElement | null {
+  return (
+    findScrollableAncestor(target, root, axis, allowOverflowIntent) ??
+    (isScrollable(root, axis, allowOverflowIntent) ? root : null)
+  );
 }

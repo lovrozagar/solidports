@@ -855,8 +855,9 @@ export interface SelectRootProps<Value, Multiple extends boolean | undefined = f
   modal?: boolean | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: Ends the closing phase after an externally controlled closing animation finishes.
+   * - `unmount`: Ends the closing phase of the select after an externally controlled closing animation finishes.
    * Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the select completes closing on its own.
+   * Whether it leaves the DOM is decided by `keepMounted` on the portal.
    * - `close`: Closes the select imperatively when called.
    */
   actionsRef?: ReactLikeRef<SelectRootActions | null> | undefined;
@@ -941,7 +942,8 @@ export type SelectRootOpenChangeEventDetails = SelectRootChangeEventDetails & {
    * Call in `onOpenChange` before the popup finishes closing, to keep it mounted until
    * `actionsRef.unmount()`.
    */
-  preventUnmountOnClose(): void;
+  /** Prevents the popup from unmounting until the `unmount` action is called. */
+  preventUnmountOnClose: () => void;
 };
 
 export namespace SelectRoot {

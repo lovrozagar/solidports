@@ -251,8 +251,9 @@ export interface DrawerRootProps<Payload = unknown> {
   disablePointerDismissal?: boolean | undefined;
   /**
    * A ref to imperative actions.
-   * - `unmount`: Manually unmounts the drawer.
-   * Call this after any externally controlled closing animation finishes.
+   * - `unmount`: Ends the closing phase of the drawer after an externally controlled closing animation finishes.
+   * Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the drawer completes closing on its own.
+   * Whether it leaves the DOM is decided by `keepMounted` on the portal.
    * - `close`: Closes the drawer imperatively when called.
    */
   actionsRef?: ReactLikeRef<DrawerRoot.Actions | null> | undefined;
@@ -331,7 +332,8 @@ export type DrawerRootChangeEventReason =
 
 export type DrawerRootChangeEventDetails =
   BaseUIChangeEventDetails<DrawerRoot.ChangeEventReason> & {
-    preventUnmountOnClose(): void;
+    /** Prevents the popup from unmounting until the `unmount` action is called. */
+    preventUnmountOnClose: () => void;
   };
 
 export type DrawerRootSnapPointChangeEventReason = DrawerRootChangeEventReason;
