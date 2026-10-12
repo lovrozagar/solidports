@@ -10,7 +10,7 @@ export default function StepsSlider() {
       step={100}
       largeStep={200}
     >
-      <Slider.Label class="text-sm text-neutral-950 dark:text-white">
+      <Slider.Label class="cursor-default text-sm text-neutral-950 dark:text-white">
         Playback speed
       </Slider.Label>
       <Slider.Value class="text-end text-sm text-neutral-950 dark:text-white" />

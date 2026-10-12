@@ -184,8 +184,8 @@ export const sitemap: Sitemap = {
           "path": "./progress/page.mdx"
         },
         {
-          "title": "Radio",
-          "path": "./radio/page.mdx"
+          "title": "Radio Group",
+          "path": "./radio-group/page.mdx"
         },
         {
           "title": "Scroll Area",

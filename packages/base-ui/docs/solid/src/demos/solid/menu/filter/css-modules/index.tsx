@@ -1,5 +1,6 @@
 import type { JSX } from '@solidjs/web';
-import { For } from 'solid-js';
+
+
 import { Menu } from '@solidports/base-ui/menu';
 import styles from './index.module.css';
 
@@ -56,9 +57,11 @@ export default function ExampleMenuFilter() {
                       >
                         <Menu.Popup class={styles.Popup}>
                           <Menu.List class={`${styles.List} ${styles.SubmenuList}`}>
-                            <For each={sharingOptions}>
-                              {(option) => <Menu.Item class={styles.Item}>{option}</Menu.Item>}
-                            </For>
+                            {sharingOptions.map((option) => (
+                              <Menu.Item class={styles.Item}>
+                                {option}
+                              </Menu.Item>
+                            ))}
                           </Menu.List>
                         </Menu.Popup>
                       </Menu.Positioner>
@@ -78,16 +81,18 @@ export default function ExampleMenuFilter() {
                 <Menu.RadioGroup class={styles.Section} defaultValue="date">
                   <Menu.Separator class={styles.Separator} />
                   <Menu.GroupLabel class={styles.GroupLabel}>Sort by</Menu.GroupLabel>
-                  <For each={sortOptions}>
-                    {([value, label]) => (
-                      <Menu.RadioItem class={styles.ChoiceItem} value={value}>
-                        <Menu.RadioItemIndicator class={styles.ChoiceIndicator}>
-                          <CheckIcon />
-                        </Menu.RadioItemIndicator>
-                        <span class={styles.ChoiceText}>{label}</span>
-                      </Menu.RadioItem>
-                    )}
-                  </For>
+                  {[
+                    ['date', 'Date modified'],
+                    ['name', 'Name'],
+                    ['size', 'Size'],
+                  ].map(([value, label]) => (
+                    <Menu.RadioItem class={styles.ChoiceItem} value={value}>
+                      <Menu.RadioItemIndicator class={styles.ChoiceIndicator}>
+                        <CheckIcon />
+                      </Menu.RadioItemIndicator>
+                      <span class={styles.ChoiceText}>{label}</span>
+                    </Menu.RadioItem>
+                  ))}
                 </Menu.RadioGroup>
 
                 <Menu.Group class={styles.Section}>
@@ -121,13 +126,15 @@ export default function ExampleMenuFilter() {
   );
 }
 
-function FilterableSubmenu(props: {
+interface FilterableSubmenuProps {
   label: string;
   inputLabel: string;
   placeholder: string;
   emptyText: string;
   options: readonly string[];
-}) {
+}
+
+function FilterableSubmenu(props: FilterableSubmenuProps) {
   return (
     <Menu.FilterProvider>
       <Menu.SubmenuRoot>
@@ -154,9 +161,11 @@ function FilterableSubmenu(props: {
               </div>
               <Menu.Empty class={styles.Empty}>{props.emptyText}</Menu.Empty>
               <Menu.List class={`${styles.List} ${styles.SubmenuList}`}>
-                <For each={props.options}>
-                  {(option) => <Menu.Item class={styles.Item}>{option}</Menu.Item>}
-                </For>
+                {props.options.map((option) => (
+                  <Menu.Item class={styles.Item}>
+                    {option}
+                  </Menu.Item>
+                ))}
               </Menu.List>
             </Menu.Popup>
           </Menu.Positioner>
@@ -170,11 +179,7 @@ function getSubmenuOffset({ side }: { side: Menu.Positioner.Props['side'] }) {
   return side === 'top' || side === 'bottom' ? 4 : -4;
 }
 
-type IconProps = Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & {
-  style?: JSX.CSSProperties;
-};
-
-function CaretDownIcon(props: IconProps) {
+function CaretDownIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -189,7 +194,7 @@ function CaretDownIcon(props: IconProps) {
   );
 }
 
-function ClearIcon(props: IconProps) {
+function ClearIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -205,7 +210,7 @@ function ClearIcon(props: IconProps) {
   );
 }
 
-function CaretRightIcon(props: IconProps) {
+function CaretRightIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -220,7 +225,7 @@ function CaretRightIcon(props: IconProps) {
   );
 }
 
-function CheckIcon(props: IconProps) {
+function CheckIcon(props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties }) {
   return (
     <svg
       width="16"
@@ -235,12 +240,6 @@ function CheckIcon(props: IconProps) {
     </svg>
   );
 }
-
-const sortOptions = [
-  ['date', 'Date modified'],
-  ['name', 'Name'],
-  ['size', 'Size'],
-] as const;
 
 const sharingOptions = [
   'Email',
