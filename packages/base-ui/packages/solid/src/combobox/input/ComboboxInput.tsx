@@ -12,6 +12,7 @@ import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isAndroid, isFirefox } from '../../utils/detectBrowser';
 import { REASONS } from '../../utils/reasons';
+import { getHighlightReason } from '../../utils/getHighlightReason';
 import { BaseUIComponentProps, type HTMLProps } from '../../utils/types';
 import type { Side } from '../../utils/useAnchorPositioning';
 import { useBaseUiId } from '../../utils/useBaseUiId';
@@ -25,7 +26,6 @@ import { ComboboxInternalDismissButton } from '../utils/ComboboxInternalDismissB
 import {
   clickHighlightedItem,
   getChipNavigationKeys,
-  getIndexAfterChipRemoval,
   useListEmpty,
   usePopupSide,
 } from '../utils/parts';
@@ -93,7 +93,13 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
   const [inputEventCount, setInputEventCount] = createSignal(0);
   let isComposingRef = false;
   let lastActiveIndexRef = null as number | null;
-  let shouldRestoreActiveIndexRef = false;
+
+  // Restore the saved highlight on refocus only within the same open cycle.
+  createLayoutEffect(open, (isOpen) => {
+    if (!isOpen) {
+      lastActiveIndexRef = null;
+    }
+  });
   // Solid: a `value` prop overrides the controlled input value, as React's prop order does.
   const renderedValue = () =>
     String(componentProps.value ?? composingValue() ?? inputValue() ?? '');
@@ -121,16 +127,13 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
       : validation.getValidationProps(disabled(), elementProps as HTMLProps),
   );
 
-  function clearHighlight() {
+  function clearHighlight(event: Event) {
     store.context.setIndices({
       activeIndex: null,
       selectedIndex: null,
-      type: store.context.keyboardActiveRef.current ? REASONS.keyboard : REASONS.pointer,
+      type: getHighlightReason(event),
+      event,
     });
-  }
-
-  function markPointerActive() {
-    store.context.keyboardActiveRef.current = false;
   }
 
   const state: ComboboxInput.State = solidMergeProps(fieldStateForInput, {
@@ -158,36 +161,10 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
 
     let nextIndex: number | undefined;
 
-    const highlightedChipIndex = comboboxChipsContext.highlightedChipIndex();
     const renderedChipsCount = comboboxChipsContext.chipsRef.current.length;
-    const [previousChipKey, nextChipKey] = getChipNavigationKeys(direction());
+    const [previousChipKey] = getChipNavigationKeys(direction());
     const currentSelectedValue = selectedValue();
 
-    if (highlightedChipIndex !== undefined) {
-      if (event.key === previousChipKey) {
-        event.preventDefault();
-        if (highlightedChipIndex > 0) {
-          nextIndex = highlightedChipIndex - 1;
-        } else {
-          nextIndex = undefined;
-        }
-      } else if (event.key === nextChipKey) {
-        event.preventDefault();
-        if (highlightedChipIndex < renderedChipsCount - 1) {
-          nextIndex = highlightedChipIndex + 1;
-        } else {
-          nextIndex = undefined;
-        }
-      } else if (event.key === 'Backspace' || event.key === 'Delete') {
-        event.preventDefault();
-        // Move highlight appropriately after removal.
-        nextIndex = getIndexAfterChipRemoval(highlightedChipIndex, currentSelectedValue.length);
-        clearHighlight();
-      }
-      return nextIndex;
-    }
-
-    // Handle navigation when no chip is highlighted
     if (
       event.key === previousChipKey &&
       ((event.currentTarget as HTMLInputElement).selectionStart ?? 0) === 0 &&
@@ -254,12 +231,12 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
         onFocus() {
           setFocused(true);
 
-          if (!inline() || !shouldRestoreActiveIndexRef) {
+          if (!inline()) {
             return;
           }
 
-          shouldRestoreActiveIndexRef = false;
           const nextActiveIndex = lastActiveIndexRef;
+          lastActiveIndexRef = null;
 
           if (
             nextActiveIndex == null ||
@@ -278,7 +255,6 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
           const activeIndex = store.state.activeIndex;
           if (inline() && activeIndex !== null && autoHighlightMode() !== 'always') {
             lastActiveIndexRef = activeIndex;
-            shouldRestoreActiveIndexRef = true;
             store.context.setIndices({ activeIndex: null });
           }
 
@@ -320,7 +296,7 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
             store.context.setOpen(true, createChangeEventDetails(REASONS.inputChange, nativeEvent));
             // When autoHighlight is enabled, keep the highlight (will be set to 0 in root).
             if (!autoHighlightEnabled()) {
-              clearHighlight();
+              clearHighlight(nativeEvent);
             }
           }
 
@@ -347,7 +323,7 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
             maybeOpenOnInput(trimmed);
 
             if (open() && store.state.activeIndex !== null && !shouldMaintainHighlight) {
-              clearHighlight();
+              clearHighlight(nativeEvent);
             }
 
             return;
@@ -379,16 +355,13 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
           // virtual focus returns to the input (aria-activedescendant is
           // cleared).
           if (open() && store.state.activeIndex !== null && !autoHighlightEnabled()) {
-            clearHighlight();
+            clearHighlight(nativeEvent);
           }
         },
         onKeyDown(event: KeyboardEvent) {
           if (event.ctrlKey || event.shiftKey || event.altKey || event.metaKey) {
             return;
           }
-
-          // Tracked before the guards so `readOnly` browsing reports keyboard highlight reasons.
-          store.context.keyboardActiveRef.current = true;
 
           if (disabled() || readOnly()) {
             // Browsing can highlight an item, and Enter there must not submit the form.
@@ -438,12 +411,11 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
             return;
           }
 
-          // Handle deletion when no chip is highlighted and the input is empty.
+          // Handle deletion when the input is empty.
           if (
             comboboxChipsContext &&
             event.key === 'Backspace' &&
             input.value === '' &&
-            comboboxChipsContext.highlightedChipIndex() === undefined &&
             Array.isArray(currentSelectedValue) &&
             currentSelectedValue.length > 0
           ) {
@@ -455,20 +427,15 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
               (_: any, index: number) => index !== removalIndex,
             );
             // If the removed item was also the active (highlighted) item, clear highlight
-            clearHighlight();
+            clearHighlight(event);
             store.context.setSelectedValue(newValue, createChangeEventDetails(REASONS.none, event));
             return;
           }
 
-          const hadHighlightedChip = comboboxChipsContext?.highlightedChipIndex() !== undefined;
           const nextIndex = handleKeyDown(event);
-
-          comboboxChipsContext?.setHighlightedChipIndex(nextIndex);
 
           if (nextIndex !== undefined) {
             comboboxChipsContext?.chipsRef.current[nextIndex]?.focus();
-          } else if (hadHighlightedChip) {
-            store.context.inputRef.current?.focus();
           }
 
           // event.isComposing
@@ -493,8 +460,6 @@ export function ComboboxInput(componentProps: ComboboxInput.Props) {
             clickHighlightedItem(store, activeIndex, event);
           }
         },
-        onPointerMove: markPointerActive,
-        onPointerDown: markPointerActive,
       },
       propsSourceAccessor(validationProps),
     ],

@@ -59,7 +59,8 @@ export function useUnmountAfterClose(parameters: UseUnmountAfterCloseParameters)
   const unmount = () => {
     mountedNow = false;
     setMounted(false);
-    parameters.onUnmount();
+    // A callback: it may also run from the effect below, where its reads must not subscribe.
+    untrack(parameters.onUnmount);
   };
 
   // Solid: one effect replaces React's `[open]` effect and its every-commit `mounted` mirror.

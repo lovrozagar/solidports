@@ -6,6 +6,7 @@ import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
+import { getHighlightReason } from '../../utils/getHighlightReason';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
@@ -103,7 +104,7 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
             return;
           }
 
-          const type = store.context.keyboardActiveRef.current ? REASONS.keyboard : REASONS.pointer;
+          const type = getHighlightReason(event);
 
           store.context.setInputValue('', createChangeEventDetails(REASONS.clearPress, event));
 
@@ -112,9 +113,14 @@ export function ComboboxClear(componentProps: ComboboxClear.Props) {
               Array.isArray(selectedValue()) ? [] : null,
               createChangeEventDetails(REASONS.clearPress, event),
             );
-            store.context.setIndices({ activeIndex: null, selectedIndex: null, type });
+            store.context.setIndices({
+              activeIndex: null,
+              selectedIndex: null,
+              type,
+              event,
+            });
           } else {
-            store.context.setIndices({ activeIndex: null, type });
+            store.context.setIndices({ activeIndex: null, type, event });
           }
 
           store.context.inputRef.current?.focus();

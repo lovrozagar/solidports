@@ -213,10 +213,12 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
         untrack(() => syncRefs(items!));
       }
 
+      // React empties the shared refs. Solid's lists are the consumers' own arrays, filled in place,
+      // so they are emptied in place.
       return () => {
-        refs.elements = [];
+        refs.elements.length = 0;
         if (refs.labels) {
-          refs.labels = [];
+          refs.labels.length = 0;
         }
       };
     },

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any` to mirror upstream React combobox API; tightening to `unknown` breaks consumer ergonomics for unspecified-Value usage */
 import { createEffect, createMemo, createSignal, onSettled, untrack } from 'solid-js';
+import { closest } from '../../utils/shadowDom';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -26,7 +27,7 @@ import {
   createChangeEventDetails,
   createGenericEventDetails,
   type BaseUIChangeEventDetails,
-  type BaseUIGenericEventDetails,
+  type BaseUIHighlightEventDetails,
 } from '../../utils/createBaseUIEventDetails';
 import {
   compareItemEquality,
@@ -45,6 +46,7 @@ import {
 } from '../../utils/popups';
 import { useUnmountAfterClose } from '../../utils/useUnmountAfterClose';
 import { REASONS } from '../../utils/reasons';
+import { getHighlightReason } from '../../utils/getHighlightReason';
 import {
   flattenLeafItems,
   Group,
@@ -257,7 +259,6 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   const startDismissRef = useRef<HTMLSpanElement | null | undefined>(null);
   const endDismissRef = useRef<HTMLSpanElement | null | undefined>(null);
   const emptyRef = useRef<HTMLDivElement | null | undefined>(null);
-  const keyboardActiveRef = useRef(true);
   const hadInputClearRef = useRef(false);
   const chipsContainerRef = useRef<HTMLDivElement | null | undefined>(null);
   const clearRef = useRef<HTMLButtonElement | null | undefined>(null);
@@ -482,22 +483,19 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   // Filled in below, once the close cleanup and the positioner state exist.
   let finishClose!: () => void;
   let readPositioner!: () => HTMLElement | null | undefined;
-  const {
-    mounted,
-    transitionStatus,
-    forceUnmount,
-  } = useUnmountAfterClose({
+  // An inline list composed inside a dialog animates the dialog, not the list popup.
+  // `[role="dialog"]` works with third-party modals; the closest dialog must be the
+  // animated element.
+  const resolvedPopupElement = () => {
+    const positionerEl = readPositioner();
+    if (inlineProp() && positionerEl) {
+      return closest<HTMLElement>(positionerEl, '[role="dialog"]');
+    }
+    return popupRef.current;
+  };
+  const { mounted, transitionStatus, forceUnmount } = useUnmountAfterClose({
     open,
-    // An inline list composed inside a dialog animates the dialog, not the list popup.
-    // `[role="dialog"]` works with third-party modals; the closest dialog must be the
-    // animated element.
-    ref: () => {
-      const positionerEl = readPositioner();
-      if (inlineProp() && positionerEl) {
-        return positionerEl.closest('[role="dialog"]') as HTMLElement | null;
-      }
-      return popupRef.current;
-    },
+    ref: resolvedPopupElement,
     preventUnmountOnClose,
     setPreventUnmountOnClose,
     onUnmount() {
@@ -647,7 +645,6 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
       inputRef,
       startDismissRef,
       endDismissRef,
-      keyboardActiveRef,
       chipsContainerRef,
       clearRef,
       valuesRef,
@@ -712,7 +709,12 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
    * Emits `onItemHighlighted` for the item at `index`, or clears the highlight when `index` is `-1`
    * (a no-op if nothing was highlighted). Keeps `lastHighlightRef` in sync with what was emitted.
    */
-  const emitHighlight = (value: any, index: number, type: AriaCombobox.HighlightEventReason) => {
+  const emitHighlight = (
+    value: any,
+    index: number,
+    type: AriaCombobox.HighlightEventReason,
+    event?: Event,
+  ) => {
     if (index === -1) {
       if (lastHighlightRef.current === INITIAL_LAST_HIGHLIGHT) {
         return;
@@ -722,13 +724,17 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
       lastHighlightRef.current = { value, index };
     }
 
-    props.onItemHighlighted?.(value, createGenericEventDetails(type, undefined, { index }));
+    props.onItemHighlighted?.(
+      value,
+      createGenericEventDetails(type, event, { index }) as AriaCombobox.HighlightEventDetails,
+    );
   };
 
   const setIndices = (options: {
     activeIndex?: number | null | undefined;
     selectedIndex?: number | null | undefined;
     type?: AriaCombobox.HighlightEventReason | undefined;
+    event?: Event | undefined;
   }) => {
     const update = {} as Pick<StoreState, 'activeIndex' | 'selectedIndex'>;
 
@@ -750,9 +756,9 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     const type: AriaCombobox.HighlightEventReason = options.type || REASONS.none;
 
     if (activeIndexOption === null) {
-      emitHighlight(undefined, -1, type);
+      emitHighlight(undefined, -1, type, options.event);
     } else {
-      emitHighlight(valuesRef.current[activeIndexOption], activeIndexOption, type);
+      emitHighlight(valuesRef.current[activeIndexOption], activeIndexOption, type, options.event);
     }
   };
 
@@ -988,7 +994,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
     const eventDetails = createChangeEventDetails(REASONS.itemPress, overrideEvent);
 
     // Let the link handle the click.
-    const href = targetEl?.closest('a')?.getAttribute('href');
+    const href = closest(targetEl, 'a')?.getAttribute('href');
     if (href) {
       if (href.startsWith('#')) {
         setOpen(false, eventDetails);
@@ -1214,6 +1220,13 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
         inputValue,
       ],
       () => {
+        // A kept-mounted dialog hides its inline list on close. Discard query-clear restoration
+        // before it can overwrite the cleared highlight or report an item from the unfiltered list.
+        if (!open() && inline() && untrack(resolvedPopupElement)) {
+          pendingQueryHighlightRef.current = null;
+          return;
+        }
+
         const candidateItems =
           hasItems() || hasFilteredItemsProp()
             ? flatFilteredValues()
@@ -1265,7 +1278,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
               // commit, so the item registries are mid-update here. Defer past the cascade.
               queueMicrotask(() => {
                 if (
-                  (!store.state.open && !store.state.inline) ||
+                  (!store.state.open && (!store.state.inline || resolvedPopupElement())) ||
                   (inputRef.current && inputRef.current.value.trim() !== '')
                 ) {
                   return;
@@ -1664,21 +1677,21 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
             return grid() ? gridNavigation : undefined;
           },
           onNavigate(nextActiveIndex, event) {
-            // Retain the highlight only while actually transitioning out or closed.
-            if ((!event && !open()) || transitionStatus() === 'ending') {
+            // Ignore automatic navigation while closed, including selected-index sync for inline
+            // lists. Inline lists remain navigable while `open` is false, so still allow resets
+            // (clearing the highlight when an unbound inline list unmounts, e.g. in a closed dialog).
+            if (
+              (!event && !open() && !(inline() && nextActiveIndex === null)) ||
+              transitionStatus() === 'ending'
+            ) {
               return;
             }
 
-            if (!event) {
-              setIndices({
-                activeIndex: nextActiveIndex,
-              });
-            } else {
-              setIndices({
-                activeIndex: nextActiveIndex,
-                type: keyboardActiveRef.current ? REASONS.keyboard : REASONS.pointer,
-              });
-            }
+            setIndices({
+              activeIndex: nextActiveIndex,
+              type: getHighlightReason(event),
+              event,
+            });
           },
         },
       });
@@ -2041,8 +2054,10 @@ interface ComboboxRootProps<ItemValue, Item = ItemValue> {
    * Receives the highlighted item value (or `undefined` if no item is highlighted) and event details with a `reason` property describing why the highlight changed.
    * The `reason` can be:
    * - `'keyboard'`: the highlight changed due to keyboard navigation.
-   * - `'pointer'`: the highlight changed due to pointer hovering.
-   * - `'none'`: the highlight changed programmatically.
+   * - `'pointer'`: the highlight changed due to pointer hovering. The event may be a `MouseEvent`
+   *   rather than a `PointerEvent`.
+   * - `'none'`: the highlight changed for another reason, such as typing, `autoHighlight`, the
+   *   item list changing, or the popup opening or closing.
    */
   onItemHighlighted?:
     | ((itemValue: ItemValue | undefined, eventDetails: AriaCombobox.HighlightEventDetails) => void)
@@ -2214,7 +2229,7 @@ export namespace AriaCombobox {
 
   export type HighlightEventReason =
     typeof REASONS.keyboard | typeof REASONS.pointer | typeof REASONS.none;
-  export type HighlightEventDetails = BaseUIGenericEventDetails<
+  export type HighlightEventDetails = BaseUIHighlightEventDetails<
     HighlightEventReason,
     { index: number }
   >;

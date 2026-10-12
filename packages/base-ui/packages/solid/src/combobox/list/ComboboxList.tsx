@@ -7,7 +7,6 @@ import { stopEvent } from '../../floating-ui-solid/utils';
 import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { withCaptureListeners } from '../../utils/withCaptureListeners';
 import { ComboboxCollection } from '../collection/ComboboxCollection';
 import { clickHighlightedItem } from '../utils/parts';
 import { useComboboxPositionerContext } from '../positioner/ComboboxPositionerContext';
@@ -104,15 +103,6 @@ export function ComboboxList(componentProps: ComboboxList.Props) {
             // On a grid the attribute describes cell editability, not selection, so it's left to the
             // combobox element in that mode.
             'aria-readonly': !grid() && readOnly() ? ('true' as const) : undefined,
-            // Solid: capture-phase listeners have no JSX prop form.
-            ref: withCaptureListeners({
-              keydown: () => {
-                store.context.keyboardActiveRef.current = true;
-              },
-              pointermove: () => {
-                store.context.keyboardActiveRef.current = false;
-              },
-            }),
             onKeyDown(event: KeyboardEvent) {
               if (store.state.disabled || store.state.readOnly) {
                 return;

@@ -1,4 +1,3 @@
-import { createEffect, createSignal } from 'solid-js';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/constants';
@@ -20,21 +19,7 @@ export function ComboboxChips(componentProps: ComboboxChips.Props) {
 
   const store = useComboboxRootContext();
 
-  const open = store.useState('open');
   const hasSelectionChips = store.useState('hasSelectionChips');
-
-  const [highlightedChipIndex, setHighlightedChipIndex] = createSignal<number | undefined>(
-    undefined,
-  );
-
-  createEffect(
-    () => open() && highlightedChipIndex() !== undefined,
-    (shouldReset) => {
-      if (shouldReset) {
-        setHighlightedChipIndex(undefined);
-      }
-    },
-  );
 
   const chipsRef = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -55,11 +40,7 @@ export function ComboboxChips(componentProps: ComboboxChips.Props) {
     ],
   });
 
-  const contextValue: ComboboxChipsContext = {
-    chipsRef,
-    highlightedChipIndex,
-    setHighlightedChipIndex,
-  };
+  const contextValue: ComboboxChipsContext = { chipsRef };
 
   return (
     <ComboboxChipsContext value={contextValue}>
