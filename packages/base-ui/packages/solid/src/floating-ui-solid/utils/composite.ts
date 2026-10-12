@@ -1,4 +1,5 @@
 import { floor } from '@floating-ui/utils';
+import { closest } from '../../utils/shadowDom';
 import { getComputedStyle } from '@floating-ui/utils/dom';
 
 import type { Dimensions } from '../types';
@@ -166,7 +167,7 @@ export function getGridNavigatedIndex(
 
         visibleItemCount += 1;
 
-        const rowEl = el.closest('[role="row"]');
+        const rowEl = closest(el, '[role="row"]');
         if (rowEl) {
           hasRoleRow = true;
         }

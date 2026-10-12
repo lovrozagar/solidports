@@ -1,5 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Data type erased at root */
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
+import { closest } from '../../utils/shadowDom';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps, useRef, provideContext } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
@@ -245,7 +246,8 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
 
     const target = getTarget(event) as HTMLElement | null;
 
-    const isInteractiveElement = target?.closest(
+    const isInteractiveElement = closest(
+      target,
       `button,a,input,textarea,[role="button"],${TOAST_SWIPE_IGNORE_SELECTOR}`,
     );
 

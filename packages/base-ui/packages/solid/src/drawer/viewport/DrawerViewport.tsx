@@ -1100,11 +1100,11 @@ function setBackdropSwipingAttribute(
 }
 
 function isSwipeIgnoredTarget(target: Element | null): boolean {
-  return Boolean(target?.closest(BASE_UI_SWIPE_IGNORE_SELECTOR));
+  return Boolean(closest(target, BASE_UI_SWIPE_IGNORE_SELECTOR));
 }
 
 function isDrawerContentTarget(target: Element | null): boolean {
-  return Boolean(target?.closest(DRAWER_CONTENT_SELECTOR));
+  return Boolean(closest(target, DRAWER_CONTENT_SELECTOR));
 }
 
 function getBaseSwipeSize(element: HTMLElement, direction: SwipeDirection): number {
