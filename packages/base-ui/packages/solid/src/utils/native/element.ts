@@ -49,7 +49,8 @@ export interface NativeElementSpec<State extends object> {
    * leaves alone.
    */
   wrapHandler?:
-    ((key: string, read: (() => Handler | undefined) | undefined) => Handler | undefined) | undefined;
+    | ((key: string, read: (() => Handler | undefined) | undefined) => Handler | undefined)
+    | undefined;
   /** Handler keys the part needs even when the consumer passes none. */
   handlerKeys?: readonly string[] | undefined;
   /** A part style combined below the consumer's (the consumer's keys win), e.g. measured CSS variables. */
@@ -194,9 +195,7 @@ export function renderNativeElement<State extends object>(
       }
     }
     if (hasStyle || styleOverride || partStyle) {
-      let value = hasStyle
-        ? resolveStyle(source.style, state, partStyle?.())
-        : partStyle?.();
+      let value = hasStyle ? resolveStyle(source.style, state, partStyle?.()) : partStyle?.();
       const override = styleOverride?.();
       if (override) {
         value = value ? combineStyle(value, override) : override;

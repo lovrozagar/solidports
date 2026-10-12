@@ -22,7 +22,11 @@ import { useRenderElement } from '../utils/useRenderElement';
 /** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
 const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
 /** The part's own props: never forwarded to the element. */
-const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'focusableWhenDisabled', 'nativeButton']);
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'disabled',
+  'focusableWhenDisabled',
+  'nativeButton',
+]);
 
 /**
  * A button component that can be used to trigger actions.
@@ -234,9 +238,11 @@ function NativeButton(props: Button.Props): JSX.Element {
   }
 
   // The element itself (a cloned template), its attributes, refs and children: no `ref` round trip.
-  const el = (
-    templateStatics ? <button type="button" tabindex="0" /> : <button />
-  ) as unknown as HTMLButtonElement;
+  const el = (templateStatics ? (
+    <button type="button" tabindex="0" />
+  ) : (
+    <button />
+  )) as unknown as HTMLButtonElement;
   attachNativeAttributes(el, literal, dynamic, owner);
   if (props.ref != null) {
     applyRefs(el, props.ref);

@@ -417,7 +417,10 @@ function NativeToggle(props: Toggle.Props<string>): JSX.Element {
       literal[key] = value;
     });
   }
-  const el = createNativeElement('button', composite ? BUTTON_ATTRIBUTES : BUTTON_TABBABLE_ATTRIBUTES);
+  const el = createNativeElement(
+    'button',
+    composite ? BUTTON_ATTRIBUTES : BUTTON_TABBABLE_ATTRIBUTES,
+  );
   model.el = el;
   const element = renderNativeElement({
     el,

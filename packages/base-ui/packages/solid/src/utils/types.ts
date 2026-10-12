@@ -10,7 +10,6 @@ export type UseRenderElementRef<T> =
   | ReactLikeRef<NoInfer<T> | null | undefined>
   | ReactLikeRef<Element | null | undefined>;
 
-
 /**
  * Element type of an intrinsic tag. Solid 2 `JSX.Ref<T>` is a union
  * (`T | callback | undefined | Ref[]`); do not distribute over it.

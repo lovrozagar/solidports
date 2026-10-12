@@ -38,5 +38,6 @@ export function useFilterDropdownCloseQuery(parameters: UseFilterDropdownCloseQu
     },
   );
 
-  return () => (!access(parameters.open) && closeQuery() !== null ? closeQuery()! : access(parameters.value));
+  return () =>
+    !access(parameters.open) && closeQuery() !== null ? closeQuery()! : access(parameters.value);
 }

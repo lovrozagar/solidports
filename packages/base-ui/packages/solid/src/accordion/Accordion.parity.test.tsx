@@ -175,7 +175,13 @@ describe('native parity: Accordion', () => {
 
   it('applies refs the same way', () => {
     const run = (slow: boolean) => {
-      const refs = { root: vi.fn(), item: vi.fn(), header: vi.fn(), trigger: vi.fn(), panel: vi.fn() };
+      const refs = {
+        root: vi.fn(),
+        item: vi.fn(),
+        header: vi.fn(),
+        trigger: vi.fn(),
+        panel: vi.fn(),
+      };
       const result = render(() =>
         part(Accordion.Root, slow, 'div', {
           ref: refs.root,

@@ -41,7 +41,10 @@ function normalized(el: Element): string {
   const children = Array.from(el.childNodes)
     .map((node) => (node instanceof Element ? normalized(node) : node.textContent))
     .join('');
-  const input = el instanceof HTMLInputElement ? ` checked=${el.checked} indeterminate=${el.indeterminate}` : '';
+  const input =
+    el instanceof HTMLInputElement
+      ? ` checked=${el.checked} indeterminate=${el.indeterminate}`
+      : '';
   return `<${tag} ${attributes}${input}>${children}</${tag}>`;
 }
 
@@ -52,9 +55,10 @@ describe('native parity: Checkbox', () => {
     const fast = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     const slow = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     (slow as { render?: string }).render = 'span';
-    expect(canRenderNative(fast, ['nativeButton', 'parent', 'inputRef']), 'fast props qualify').toBe(
-      true,
-    );
+    expect(
+      canRenderNative(fast, ['nativeButton', 'parent', 'inputRef']),
+      'fast props qualify',
+    ).toBe(true);
     const ui = (props: Props) => () =>
       createComponent(Checkbox.Root, props as Checkbox.Root.Props) as unknown as JSX.Element;
     const fastResult = render(() => (wrap ? wrap(ui(fast)) : ui(fast)()) as never);
@@ -152,7 +156,10 @@ describe('native parity: Checkbox', () => {
         onClick: (event: MouseEvent & { preventBaseUIHandler?: () => void }) =>
           calls.push(`click:${typeof event.preventBaseUIHandler}`),
         onKeyDown: (event: KeyboardEvent) => calls.push(`keydown:${event.key}`),
-        onKeyUp: [(data: string, event: KeyboardEvent) => calls.push(`keyup:${data}:${event.key}`), 'd'],
+        onKeyUp: [
+          (data: string, event: KeyboardEvent) => calls.push(`keyup:${data}:${event.key}`),
+          'd',
+        ],
         onPointerDown: () => calls.push('pointerdown'),
         onMouseDown: () => calls.push('mousedown'),
         onfocus: () => calls.push('focus'),
@@ -165,7 +172,9 @@ describe('native parity: Checkbox', () => {
       calls.push(`pointerdown:${fireEvent.pointerDown(el)}`);
       calls.push(`mousedown:${fireEvent.mouseDown(el)}`);
       calls.push(`keydown-space:${fireEvent.keyDown(el, { key: ' ' })}`);
-      calls.push(`keyup-space:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-checked')}`);
+      calls.push(
+        `keyup-space:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-checked')}`,
+      );
       calls.push(`keydown-enter:${fireEvent.keyDown(el, { key: 'Enter' })}`);
       calls.push(`focus:${fireEvent.focus(el)}`);
       calls.push(`blur:${fireEvent.blur(el)}`);
@@ -234,7 +243,10 @@ describe('native parity: Checkbox', () => {
       const ref = vi.fn();
       const inputRef = { current: null as HTMLInputElement | null };
       const inputRefFn = vi.fn();
-      const { fastEl, slowEl } = renderBoth(() => ({ ref, inputRef: variant === 'fast' ? inputRef : inputRefFn }));
+      const { fastEl, slowEl } = renderBoth(() => ({
+        ref,
+        inputRef: variant === 'fast' ? inputRef : inputRefFn,
+      }));
       const el = variant === 'fast' ? fastEl : slowEl;
       expect(ref).toHaveBeenCalledTimes(2);
       expect(ref.mock.calls.some((call) => call[0] === el)).toBe(true);

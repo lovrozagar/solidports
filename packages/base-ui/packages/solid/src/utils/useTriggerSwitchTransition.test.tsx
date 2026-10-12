@@ -96,7 +96,9 @@ describe('useTriggerSwitchTransition', () => {
   });
 });
 
-function createStore(open: boolean): TriggerSwitchStore & { open: boolean; sets: Array<string | undefined> } {
+function createStore(
+  open: boolean,
+): TriggerSwitchStore & { open: boolean; sets: Array<string | undefined> } {
   const store = {
     open,
     sets: [] as Array<string | undefined>,

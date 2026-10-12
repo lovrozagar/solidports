@@ -14,7 +14,8 @@ import { part, renderParity } from '../../test/parityHarness';
 describe('native parity: Tabs', () => {
   const { render } = createRenderer();
 
-  const tabs = (root: HTMLElement) => Array.from(root.querySelectorAll<HTMLElement>('[role="tab"]'));
+  const tabs = (root: HTMLElement) =>
+    Array.from(root.querySelectorAll<HTMLElement>('[role="tab"]'));
 
   function tree(
     slow: boolean,
@@ -171,7 +172,13 @@ describe('native parity: Tabs', () => {
 
   it('applies refs the same way', () => {
     const run = (slow: boolean) => {
-      const refs = { root: vi.fn(), list: vi.fn(), tab: vi.fn(), panel: vi.fn(), indicator: vi.fn() };
+      const refs = {
+        root: vi.fn(),
+        list: vi.fn(),
+        tab: vi.fn(),
+        panel: vi.fn(),
+        indicator: vi.fn(),
+      };
       const result = render(() =>
         part(Tabs.Root, slow, 'div', {
           ref: refs.root,

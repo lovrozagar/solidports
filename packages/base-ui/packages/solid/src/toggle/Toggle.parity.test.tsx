@@ -115,7 +115,10 @@ describe('native parity: Toggle', () => {
           onClick: (event: MouseEvent & { preventBaseUIHandler?: () => void }) =>
             calls.push(`click:${typeof event.preventBaseUIHandler}`),
           onKeyDown: (event: KeyboardEvent) => calls.push(`keydown:${event.key}`),
-          onKeyUp: [(data: string, event: KeyboardEvent) => calls.push(`keyup:${data}:${event.key}`), 'd'],
+          onKeyUp: [
+            (data: string, event: KeyboardEvent) => calls.push(`keyup:${data}:${event.key}`),
+            'd',
+          ],
           onPointerDown: () => calls.push('pointerdown'),
           onMouseDown: () => calls.push('mousedown'),
         });
@@ -125,7 +128,9 @@ describe('native parity: Toggle', () => {
         calls.push(`pointerdown:${fireEvent.pointerDown(el)}`);
         calls.push(`mousedown:${fireEvent.mouseDown(el)}`);
         calls.push(`keydown-space:${fireEvent.keyDown(el, { key: ' ' })}`);
-        calls.push(`keyup-space:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-pressed')}`);
+        calls.push(
+          `keyup-space:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-pressed')}`,
+        );
         calls.push(`keydown-enter:${fireEvent.keyDown(el, { key: 'Enter' })}`);
         return calls;
       };
@@ -208,12 +213,18 @@ describe('native parity: Toggle', () => {
         calls.push(`tabindex:${a.getAttribute('tabindex')}:${el.getAttribute('tabindex')}`);
         a.focus();
         calls.push(`focus-a:${a.getAttribute('tabindex')}`);
-        calls.push(`arrow:${fireEvent.keyDown(a, { key: 'ArrowRight' })}:${document.activeElement === el}`);
+        calls.push(
+          `arrow:${fireEvent.keyDown(a, { key: 'ArrowRight' })}:${document.activeElement === el}`,
+        );
         flush();
         calls.push(`tabindex:${a.getAttribute('tabindex')}:${el.getAttribute('tabindex')}`);
-        calls.push(`space:${fireEvent.keyDown(el, { key: ' ' })}:${el.getAttribute('aria-pressed')}`);
+        calls.push(
+          `space:${fireEvent.keyDown(el, { key: ' ' })}:${el.getAttribute('aria-pressed')}`,
+        );
         calls.push(`keyup:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-pressed')}`);
-        calls.push(`click-a:${fireEvent.click(a)}:${a.getAttribute('aria-pressed')}:${el.getAttribute('aria-pressed')}`);
+        calls.push(
+          `click-a:${fireEvent.click(a)}:${a.getAttribute('aria-pressed')}:${el.getAttribute('aria-pressed')}`,
+        );
         calls.push(`click:${fireEvent.click(el)}:${el.getAttribute('aria-pressed')}`);
         return calls;
       };
@@ -296,10 +307,35 @@ describe('native parity: ToggleGroup', () => {
       </>
     );
     const cases: Array<() => Props> = [
-      () => ({ get children() { return children(); } }),
-      () => ({ get children() { return children(); }, disabled: true, multiple: true, orientation: 'vertical' }),
-      () => ({ get children() { return children(); }, class: 'g', style: { gap: '4px' }, 'aria-label': 'Group', id: 'g' }),
-      () => ({ get children() { return children(); }, class: (state: ToggleGroup.State) => (state.multiple ? 'm' : 's'), onKeyDown: () => {} }),
+      () => ({
+        get children() {
+          return children();
+        },
+      }),
+      () => ({
+        get children() {
+          return children();
+        },
+        disabled: true,
+        multiple: true,
+        orientation: 'vertical',
+      }),
+      () => ({
+        get children() {
+          return children();
+        },
+        class: 'g',
+        style: { gap: '4px' },
+        'aria-label': 'Group',
+        id: 'g',
+      }),
+      () => ({
+        get children() {
+          return children();
+        },
+        class: (state: ToggleGroup.State) => (state.multiple ? 'm' : 's'),
+        onKeyDown: () => {},
+      }),
     ];
     for (const make of cases) {
       const plain = renderBoth(make);
@@ -331,11 +367,15 @@ describe('native parity: ToggleGroup', () => {
         onKeyDown: (event: KeyboardEvent) => calls.push(`keydown:${event.key}`),
       }));
       const container = variant === 'fast' ? fast : slow;
-      expect(ref.mock.calls.some((call) => call[0] === container.querySelector('[role="group"]'))).toBe(true);
+      expect(
+        ref.mock.calls.some((call) => call[0] === container.querySelector('[role="group"]')),
+      ).toBe(true);
       const a = container.querySelector('[data-testid="a"]') as HTMLElement;
       const b = container.querySelector('[data-testid="b"]') as HTMLElement;
       a.focus();
-      calls.push(`arrow:${fireEvent.keyDown(a, { key: 'ArrowRight' })}:${document.activeElement === b}`);
+      calls.push(
+        `arrow:${fireEvent.keyDown(a, { key: 'ArrowRight' })}:${document.activeElement === b}`,
+      );
       calls.push(`home:${fireEvent.keyDown(b, { key: 'Home' })}:${document.activeElement === a}`);
       calls.push(`click:${fireEvent.click(b)}:${b.getAttribute('aria-pressed')}`);
       flush();

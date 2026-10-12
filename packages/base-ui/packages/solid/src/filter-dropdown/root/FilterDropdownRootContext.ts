@@ -75,9 +75,7 @@ export function useFilterDropdownRootContext(optional?: boolean): FilterDropdown
 /**
  * Finds the dropdown that owns the given item list, walking out through nested roots.
  */
-export function useFilterContextForList(
-  listRef: ReactLikeRef<Array<HTMLElement | null>> | null,
-) {
+export function useFilterContextForList(listRef: ReactLikeRef<Array<HTMLElement | null>> | null) {
   let context = useContext(FilterDropdownItemContext);
   if (listRef === null) {
     return null;

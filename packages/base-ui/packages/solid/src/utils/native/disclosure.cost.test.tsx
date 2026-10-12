@@ -69,7 +69,10 @@ describe('native disclosure part cost', () => {
       ),
     );
     const floor = perItem((items) => <div>{items()}</div>, plainDiv);
-    expect(cost - floor, `closed collapsible: ${cost - floor} nodes beyond a plain div`).toBeLessThanOrEqual(BUDGET);
+    expect(
+      cost - floor,
+      `closed collapsible: ${cost - floor} nodes beyond a plain div`,
+    ).toBeLessThanOrEqual(BUDGET);
   });
 
   it('an open Collapsible (Root + Trigger + rendered Panel) costs at most 18 nodes (dev)', () => {
@@ -87,7 +90,10 @@ describe('native disclosure part cost', () => {
       ),
     );
     const floor = perItem((items) => <div>{items()}</div>, plainDiv);
-    expect(cost - floor, `open collapsible: ${cost - floor} nodes beyond a plain div`).toBeLessThanOrEqual(BUDGET);
+    expect(
+      cost - floor,
+      `open collapsible: ${cost - floor} nodes beyond a plain div`,
+    ).toBeLessThanOrEqual(BUDGET);
   });
 
   it('a closed Accordion item (Item + Header + Trigger + Panel) costs at most 14 nodes (dev)', () => {
@@ -107,7 +113,10 @@ describe('native disclosure part cost', () => {
       ),
     );
     const floor = perItem((items) => <Accordion.Root>{items()}</Accordion.Root>, plainDiv);
-    expect(cost - floor, `closed accordion item: ${cost - floor} nodes beyond a plain div`).toBeLessThanOrEqual(BUDGET);
+    expect(
+      cost - floor,
+      `closed accordion item: ${cost - floor} nodes beyond a plain div`,
+    ).toBeLessThanOrEqual(BUDGET);
   });
 
   it('a Tab and its hidden Panel cost at most 4 nodes together (dev)', () => {
@@ -134,9 +143,15 @@ describe('native disclosure part cost', () => {
       (items) => <Tabs.Root defaultValue="zz">{items()}</Tabs.Root>,
       (index) => <Tabs.Panel value={index}>Panel</Tabs.Panel>,
     );
-    const panelFloor = perItem((items) => <Tabs.Root defaultValue="zz">{items()}</Tabs.Root>, plainDiv);
+    const panelFloor = perItem(
+      (items) => <Tabs.Root defaultValue="zz">{items()}</Tabs.Root>,
+      plainDiv,
+    );
     const tab = cost - floor;
     const panel = panelCost - panelFloor;
-    expect(tab + panel, `tab ${tab} + hidden panel ${panel} nodes beyond plain divs`).toBeLessThanOrEqual(BUDGET);
+    expect(
+      tab + panel,
+      `tab ${tab} + hidden panel ${panel} nodes beyond plain divs`,
+    ).toBeLessThanOrEqual(BUDGET);
   });
 });

@@ -1,4 +1,9 @@
-import { access, createDepsRenderEffect, createLayoutEffect, type MaybeAccessor } from '../solid-helpers';
+import {
+  access,
+  createDepsRenderEffect,
+  createLayoutEffect,
+  type MaybeAccessor,
+} from '../solid-helpers';
 import { useAnimationsFinished } from './useAnimationsFinished';
 
 /**

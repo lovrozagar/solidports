@@ -30,9 +30,8 @@ export function createIdRegistration(
   /** The registry's owner: when it is disposed with the part, the unmount write has no reader. */
   registryOwner?: Owner | null,
 ): ((element: Element | null) => void) | undefined {
-  const read = () => ((props as Record<string, string | undefined>)[key] || undefined) as
-    | string
-    | undefined;
+  const read = () =>
+    ((props as Record<string, string | undefined>)[key] || undefined) as string | undefined;
   if (!(key in props) || isStatic(props, key)) {
     const registered = untrack(read);
     onCleanup(() => {

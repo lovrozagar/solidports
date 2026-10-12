@@ -20,9 +20,7 @@ export function createNativeConditional<T>(
     if (show !== shown) {
       shown = show;
       if (show) {
-        branch = runWithOwner(owner, () =>
-          createRoot((dispose) => ({ dispose, value: render() })),
-        );
+        branch = runWithOwner(owner, () => createRoot((dispose) => ({ dispose, value: render() })));
       } else {
         branch?.dispose();
         branch = undefined;

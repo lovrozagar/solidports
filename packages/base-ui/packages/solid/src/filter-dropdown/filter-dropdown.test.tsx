@@ -567,7 +567,12 @@ function labels() {
   return Array.from(document.querySelectorAll('[role="menuitem"]'), (item) => item.textContent);
 }
 
-function Item(props: { label?: string; children?: unknown; render?: unknown; retainGroup?: boolean }) {
+function Item(props: {
+  label?: string;
+  children?: unknown;
+  render?: unknown;
+  retainGroup?: boolean;
+}) {
   const filter = useFilterDropdownItem({
     get label() {
       return props.label;
@@ -590,9 +595,10 @@ function Item(props: { label?: string; children?: unknown; render?: unknown; ret
           filter.ref.current = node;
         }}
       >
-        {props.label ?? (typeof props.children === 'string' || typeof props.children === 'number'
-          ? String(props.children)
-          : null)}
+        {props.label ??
+          (typeof props.children === 'string' || typeof props.children === 'number'
+            ? String(props.children)
+            : null)}
       </div>
     </Show>
   );

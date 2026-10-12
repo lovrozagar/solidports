@@ -11,5 +11,7 @@ export function resolveRef<T extends HTMLElement | null | undefined>(
     return maybeRef as T;
   }
 
-  return 'current' in (maybeRef as object) ? (maybeRef as ReactLikeRef<T>).current : (maybeRef as T);
+  return 'current' in (maybeRef as object)
+    ? (maybeRef as ReactLikeRef<T>).current
+    : (maybeRef as T);
 }
