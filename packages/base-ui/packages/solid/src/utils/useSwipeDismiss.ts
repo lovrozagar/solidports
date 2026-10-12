@@ -1,4 +1,5 @@
 import { createSignal, untrack } from 'solid-js';
+import { closest } from './shadowDom';
 import type { JSX } from '@solidjs/web';
 import { ownerDocument } from './owner';
 import { clamp } from './clamp';
@@ -387,7 +388,7 @@ export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismis
     }
     swipeFromScrollableRef.current = Boolean(scrollableTarget && ignoreScrollableTarget);
 
-    const isInteractiveElement = target ? target.closest(ignoreSelector) : false;
+    const isInteractiveElement = closest(target, ignoreSelector);
     if (isInteractiveElement && (!touchLike || ignoreSelectorWhenTouch())) {
       return false;
     }

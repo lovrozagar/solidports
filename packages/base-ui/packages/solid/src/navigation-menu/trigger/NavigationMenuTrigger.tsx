@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
+import { closest } from '../../utils/shadowDom';
 import type { JSX } from '@solidjs/web';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import {
@@ -543,7 +544,7 @@ export function NavigationMenuTrigger(componentProps: NavigationMenuTrigger.Prop
       return null;
     }
 
-    return triggerElementRef.current?.closest('ul') ?? null;
+    return closest(triggerElementRef.current, 'ul');
   }
 
   const hoverProps = useHoverReferenceInteraction({
