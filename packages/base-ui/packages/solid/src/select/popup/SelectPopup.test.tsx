@@ -1,11 +1,18 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it, afterEach } from 'vitest';
 import { createSignal, For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Select } from '@solidports/base-ui/select';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import {
+  act,
+  createRenderer,
+  describeConformance,
+  flushMicrotasks,
+  isJSDOM,
+  popupFocusPropsTests,
+} from '#test-utils';
 
 describe('<Select.Popup />', () => {
   const { render } = createRenderer();
@@ -294,6 +301,8 @@ describe('<Select.Popup />', () => {
 
     await waitFor(() => {
       expect(positioner).toHaveAttribute('data-side', 'none');
+    });
+    await waitFor(() => {
       expect(
         Math.abs(value.getBoundingClientRect().left - itemText.getBoundingClientRect().left),
       ).toBeLessThan(1);
@@ -365,6 +374,8 @@ describe('<Select.Popup />', () => {
 
       await waitFor(() => {
         expect(positioner).toHaveAttribute('data-side', 'none');
+      });
+      await waitFor(() => {
         expect(
           Math.abs(value.getBoundingClientRect().left - itemText.getBoundingClientRect().left),
         ).toBeLessThan(1);
@@ -426,6 +437,8 @@ describe('<Select.Popup />', () => {
 
     await waitFor(() => {
       expect(positioner).toHaveAttribute('data-side', 'none');
+    });
+    await waitFor(() => {
       expect(
         Math.abs(value.getBoundingClientRect().right - itemText.getBoundingClientRect().right),
       ).toBeLessThan(1);
@@ -477,6 +490,8 @@ describe('<Select.Popup />', () => {
 
       await waitFor(() => {
         expect(positioner).toHaveAttribute('data-side', 'none');
+      });
+      await waitFor(() => {
         expect(
           Math.abs(
             trigger.getBoundingClientRect().right - positioner.getBoundingClientRect().right,
@@ -551,6 +566,8 @@ describe('<Select.Popup />', () => {
 
       await waitFor(() => {
         expect(screen.getByTestId('positioner')).toHaveAttribute('data-side', 'none');
+      });
+      await waitFor(() => {
         expect(
           Math.abs(
             getCenterY(value.getBoundingClientRect()) -
@@ -719,6 +736,8 @@ describe('<Select.Popup />', () => {
 
       await waitFor(() => {
         expect(positioner).toHaveAttribute('data-side', 'none');
+      });
+      await waitFor(() => {
         expect(
           Math.abs(value.getBoundingClientRect().right - itemText.getBoundingClientRect().right),
         ).toBeLessThan(1);
@@ -748,6 +767,8 @@ describe('<Select.Popup />', () => {
 
       await waitFor(() => {
         expect(positioner).toHaveAttribute('data-side', 'none');
+      });
+      await waitFor(() => {
         expect(positioner.style.getPropertyValue('--anchor-width')).toBe('240px');
       });
     });
@@ -834,9 +855,9 @@ describe('<Select.Popup />', () => {
         fireEvent.scroll(list);
 
         await waitFor(() => {
-          expect(scrollTop).toBe(14);
           expect(positioner.style.height).toBe('226px');
         });
+        expect(scrollTop).toBe(14);
       } finally {
         docEl.style.zoom = previousZoom;
       }
@@ -938,10 +959,13 @@ describe('<Select.Popup />', () => {
 
         const positioner = screen.getByTestId('positioner');
 
+        // Check the side and the inset styles together so they come from the same layout pass.
         await waitFor(() => {
-          expect(positioner).toHaveAttribute('data-side', 'none');
-          expect(positioner.style.top).not.toBe('');
-          expect(positioner.style.bottom).toBe('');
+          expect({
+            side: positioner.getAttribute('data-side'),
+            hasTop: positioner.style.top !== '',
+            bottom: positioner.style.bottom,
+          }).toEqual({ side: 'none', hasTop: true, bottom: '' });
         });
       } finally {
         restoreDescriptor(docEl, 'clientHeight', clientHeightDescriptor);
@@ -1693,196 +1717,62 @@ describe('<Select.Popup />', () => {
     });
   });
 
-  describe('prop: finalFocus', () => {
-    it('should focus the trigger by default when closed', async () => {
-      render(() => (
-        <div>
-          <input />
-          <Select.Root>
-            <Select.Trigger data-testid="trigger">Open</Select.Trigger>
-            <Select.Portal>
-              <Select.Positioner>
-                <Select.Popup>
-                  <Select.Item value="1">Item 1</Select.Item>
-                </Select.Popup>
-              </Select.Positioner>
-            </Select.Portal>
-          </Select.Root>
-          <input />
-        </div>
-      ));
+  it('moves focus into the items when the boundary item is already highlighted', async () => {
+    const { user } = await render(() => (
+      <Select.Root defaultValue="a">
+        <Select.Trigger data-testid="trigger">
+          <Select.Value />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner>
+            <Select.Popup>
+              <button type="button">Select all</button>
+              <Select.List>
+                <Select.Item value="a">a</Select.Item>
+                <Select.Item value="b">b</Select.Item>
+                <Select.Item value="c">c</Select.Item>
+              </Select.List>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    ));
 
-      const trigger = screen.getByTestId('trigger');
+    await act(async () => screen.getByTestId('trigger').focus());
+    await user.keyboard('[Enter]');
 
-      act(() => trigger.click());
-      const item = screen.getByText('Item 1');
+    const a = await screen.findByRole('option', { name: 'a' });
+    await waitFor(() => expect(a).toHaveAttribute('data-highlighted'));
+    await act(async () => screen.getByRole('button', { name: 'Select all' }).focus());
+    expect(a).toHaveAttribute('data-highlighted');
 
-      act(() => item.click());
-      await waitFor(() => {
-        expect(trigger).toHaveFocus();
-      });
-    });
+    await user.keyboard('[ArrowDown]');
+    await waitFor(() => expect(a).toHaveFocus());
 
-    it('should focus the element provided to the prop when closed', async () => {
-      function TestComponent() {
-        let inputRef: HTMLInputElement | undefined;
-        return (
-          <div>
-            <input />
-            <Select.Root>
-              <Select.Trigger data-testid="trigger">Open</Select.Trigger>
-              <Select.Portal>
-                <Select.Positioner>
-                  <Select.Popup finalFocus={inputRef}>
-                    <Select.Item value="1">Item 1</Select.Item>
-                  </Select.Popup>
-                </Select.Positioner>
-              </Select.Portal>
-            </Select.Root>
-            <input />
-            <input data-testid="input-to-focus" ref={inputRef} />
-            <input />
-          </div>
-        );
-      }
+    await user.keyboard('[ArrowDown]');
+    await waitFor(() => expect(screen.getByRole('option', { name: 'b' })).toHaveFocus());
+  });
 
-      render(() => <TestComponent />);
-
-      const trigger = screen.getByTestId('trigger');
-
-      act(() => trigger.click());
-      const item = screen.getByText('Item 1');
-
-      act(() => item.click());
-      const inputToFocus = screen.getByTestId('input-to-focus');
-
-      await waitFor(() => {
-        expect(inputToFocus).toHaveFocus();
-      });
-    });
-
-    it('should focus the element provided to `finalFocus` as a function when closed', async () => {
-      function TestComponent() {
-        let ref: HTMLInputElement | undefined;
-        const getRef = () => ref;
-        return (
-          <div>
-            <Select.Root>
-              <Select.Trigger data-testid="trigger">Open</Select.Trigger>
-              <Select.Portal>
-                <Select.Positioner>
-                  <Select.Popup finalFocus={getRef}>
-                    <Select.Item value="1">Item 1</Select.Item>
-                  </Select.Popup>
-                </Select.Positioner>
-              </Select.Portal>
-            </Select.Root>
-            <input data-testid="input-to-focus" ref={ref} />
-          </div>
-        );
-      }
-
-      render(() => <TestComponent />);
-
-      const trigger = screen.getByTestId('trigger');
-
-      act(() => trigger.click());
-      const item = screen.getByText('Item 1');
-
-      act(() => item.click());
-      await waitFor(() => {
-        expect(screen.getByTestId('input-to-focus')).toHaveFocus();
-      });
-    });
-
-    it('should not move focus when finalFocus is false', async () => {
-      function TestComponent() {
-        return (
-          <div>
-            <Select.Root>
-              <Select.Trigger data-testid="trigger">Open</Select.Trigger>
-              <Select.Portal>
-                <Select.Positioner>
-                  <Select.Popup finalFocus={false}>
-                    <Select.Item value="1">Item 1</Select.Item>
-                  </Select.Popup>
-                </Select.Positioner>
-              </Select.Portal>
-            </Select.Root>
-          </div>
-        );
-      }
-
-      render(() => <TestComponent />);
-      const trigger = screen.getByTestId('trigger');
-
-      act(() => trigger.click());
-      const item = screen.getByText('Item 1');
-
-      act(() => item.click());
-      await waitFor(() => {
-        expect(trigger).not.toHaveFocus();
-      });
-    });
-
-    it('should move focus to trigger when finalFocus returns true', async () => {
-      function TestComponent() {
-        return (
-          <div>
-            <Select.Root>
-              <Select.Trigger data-testid="trigger">Open</Select.Trigger>
-              <Select.Portal>
-                <Select.Positioner>
-                  <Select.Popup finalFocus={() => true}>
-                    <Select.Item value="1">Item 1</Select.Item>
-                  </Select.Popup>
-                </Select.Positioner>
-              </Select.Portal>
-            </Select.Root>
-          </div>
-        );
-      }
-
-      render(() => <TestComponent />);
-      const trigger = screen.getByTestId('trigger');
-
-      act(() => trigger.click());
-      const item = screen.getByText('Item 1');
-
-      act(() => item.click());
-      await waitFor(() => {
-        expect(trigger).toHaveFocus();
-      });
-    });
-
-    it('uses default behavior when finalFocus returns null', async () => {
-      function TestComponent() {
-        return (
-          <div>
-            <Select.Root>
-              <Select.Trigger data-testid="trigger">Open</Select.Trigger>
-              <Select.Portal>
-                <Select.Positioner>
-                  <Select.Popup finalFocus={() => null}>
-                    <Select.Item value="1">Item 1</Select.Item>
-                  </Select.Popup>
-                </Select.Positioner>
-              </Select.Portal>
-            </Select.Root>
-          </div>
-        );
-      }
-
-      render(() => <TestComponent />);
-      const trigger = screen.getByTestId('trigger');
-
-      act(() => trigger.click());
-      const item = screen.getByText('Item 1');
-
-      act(() => item.click());
-      await waitFor(() => {
-        expect(trigger).toHaveFocus();
-      });
-    });
+  popupFocusPropsTests({
+    render,
+    initialFocus: false,
+    triggerRole: 'combobox',
+    alwaysMounted: true,
+    // Known gap: an item press closes the Select through its own `setOpen`, which skips the
+    // open-change event that records the close type, so `finalFocus` receives '' rather than 'mouse'.
+    mouseCloseType: '',
+    createComponent: (props) => (
+      <Select.Root>
+        <Select.Trigger>Open</Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner>
+            <Select.Popup finalFocus={props.finalFocus}>
+              {props.children}
+              <Select.Item value="close">Close</Select.Item>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    ),
   });
 });

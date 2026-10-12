@@ -1,6 +1,8 @@
 import { screen, waitFor } from '@solidjs/testing-library';
-import { createRenderer, describeConformance } from '#test-utils';
+import { createRenderer, describeConformance, act } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
+import { createSignal } from 'solid-js';
+import { expect, describe, it } from 'vitest';
 
 describe('<Select.ItemIndicator />', () => {
   const { render } = createRenderer();
@@ -88,13 +90,86 @@ describe('<Select.ItemIndicator />', () => {
         </Select.Trigger>
         <Select.Positioner>
           <Select.Item value="a">
-            a
-            <Select.ItemIndicator data-testid="selected">pick</Select.ItemIndicator>
+            a<Select.ItemIndicator data-testid="selected">pick</Select.ItemIndicator>
           </Select.Item>
         </Select.Positioner>
       </Select.Root>
     ));
 
     expect(screen.getByTestId('selected').textContent).toBe('pick');
+  });
+
+  function TestComponent(props: { value: string; keepMounted?: boolean }) {
+    return (
+      <Select.Root value={props.value} open>
+        <Select.Trigger />
+        <Select.Positioner>
+          <Select.Popup>
+            <Select.Item value="a">
+              a
+              <Select.ItemIndicator keepMounted={props.keepMounted} data-testid="indicator" />
+            </Select.Item>
+            <Select.Item value="b">b</Select.Item>
+          </Select.Popup>
+        </Select.Positioner>
+      </Select.Root>
+    );
+  }
+
+  it('mounts only while selected when keepMounted is false', async () => {
+    const [testProps, setTestProps] = createSignal<Parameters<typeof TestComponent>[0]>({
+      value: 'b',
+    });
+    const setProps = async (next: Partial<Parameters<typeof TestComponent>[0]>) =>
+      act(() => setTestProps((previous) => ({ ...previous, ...next })));
+    await render(() => <TestComponent {...testProps()} />);
+
+    expect(screen.queryByTestId('indicator')).toBe(null);
+
+    await setProps({ value: 'a' });
+
+    const indicator = screen.getByTestId('indicator');
+    expect(indicator).toHaveAttribute('data-selected');
+    expect(indicator).toHaveAttribute('aria-hidden', 'true');
+    expect(indicator).not.toHaveAttribute('selected');
+
+    await setProps({ value: 'b' });
+
+    expect(screen.queryByTestId('indicator')).toBe(null);
+
+    await setProps({ value: 'a' });
+
+    expect(screen.getByTestId('indicator')).toHaveAttribute('data-selected');
+  });
+
+  it('preserves the kept-mounted element across selection changes', async () => {
+    const [testProps, setTestProps] = createSignal<Parameters<typeof TestComponent>[0]>({
+      value: 'b',
+      keepMounted: true,
+    });
+    const setProps = async (next: Partial<Parameters<typeof TestComponent>[0]>) =>
+      act(() => setTestProps((previous) => ({ ...previous, ...next })));
+    await render(() => <TestComponent {...testProps()} />);
+    const indicator = screen.getByTestId('indicator');
+
+    expect(indicator).not.toHaveAttribute('data-selected');
+
+    await setProps({ value: 'a' });
+
+    expect(screen.getByTestId('indicator')).toBe(indicator);
+    expect(indicator).toHaveAttribute('data-selected');
+
+    await setProps({ value: 'b' });
+
+    expect(screen.getByTestId('indicator')).toBe(indicator);
+    expect(indicator).not.toHaveAttribute('data-selected');
+    await waitFor(() => {
+      expect(indicator).not.toHaveAttribute('data-ending-style');
+    });
+
+    await setProps({ value: 'a' });
+
+    expect(screen.getByTestId('indicator')).toBe(indicator);
+    expect(indicator).toHaveAttribute('data-selected');
   });
 });
