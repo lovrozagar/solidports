@@ -5,6 +5,7 @@ import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { findItemIndex } from '../../utils/itemEquality';
 import { REASONS } from '../../utils/reasons';
+import { getHighlightReason } from '../../utils/getHighlightReason';
 import { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useComboboxChipContext } from '../chip/ComboboxChipContext';
@@ -40,7 +41,7 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
     },
   };
 
-  function clearActiveIndexForRemovedItem(removedItem: any) {
+  function clearActiveIndexForRemovedItem(removedItem: any, event: Event) {
     const activeIndex = store.state.activeIndex;
 
     if (activeIndex == null) {
@@ -57,7 +58,8 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
     if (removedIndex !== -1 && activeIndex === removedIndex) {
       store.context.setIndices({
         activeIndex: null,
-        type: store.context.keyboardActiveRef.current ? 'keyboard' : 'pointer',
+        type: getHighlightReason(event),
+        event,
       });
     }
   }
@@ -68,7 +70,7 @@ export function ComboboxChipRemove(componentProps: ComboboxChipRemove.Props) {
     const eventDetails = createChangeEventDetails(REASONS.chipRemovePress, event);
     const removedItem = val[idx];
 
-    clearActiveIndexForRemovedItem(removedItem);
+    clearActiveIndexForRemovedItem(removedItem, event);
 
     store.context.setSelectedValue(
       val.filter((_: any, i: number) => i !== idx),

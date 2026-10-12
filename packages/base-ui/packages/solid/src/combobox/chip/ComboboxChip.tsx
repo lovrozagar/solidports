@@ -21,7 +21,7 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
 
   const store = useComboboxRootContext();
-  const { setHighlightedChipIndex, chipsRef } = useComboboxChipsContext()!;
+  const { chipsRef } = useComboboxChipsContext()!;
   const direction = useDirection();
 
   const disabled = store.useState('disabled');
@@ -55,21 +55,28 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
 
       stopEvent(event);
 
-      store.context.setIndices({
-        activeIndex: null,
-        selectedIndex: null,
-        type: REASONS.keyboard,
+      // Commit the removal before focusing so `chipsRef` reflects the remaining chips.
+      flushSync(() => {
+        store.context.setIndices({
+          activeIndex: null,
+          selectedIndex: null,
+          type: REASONS.keyboard,
+          event,
+        });
+        store.context.setSelectedValue(
+          currentSelectedValue.filter((_: any, i: number) => i !== currentIndex),
+          createChangeEventDetails(REASONS.none, event),
+        );
       });
-      store.context.setSelectedValue(
-        currentSelectedValue.filter((_: any, i: number) => i !== currentIndex),
-        createChangeEventDetails(REASONS.none, event),
-      );
     } else if (event.key === 'Enter' || event.key === ' ') {
       stopEvent(event);
       nextIndex = undefined;
     } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       stopEvent(event);
-      store.context.setOpen(true, createChangeEventDetails(REASONS.listNavigation, event));
+      // The input may mount when opening.
+      flushSync(() => {
+        store.context.setOpen(true, createChangeEventDetails(REASONS.listNavigation, event));
+      });
       nextIndex = undefined;
     } else if (
       // Check for printable characters (letters, numbers, symbols)
@@ -108,10 +115,6 @@ export function ComboboxChip(componentProps: ComboboxChip.Props) {
           }
 
           const nextIndex = handleKeyDown(event);
-
-          flushSync(() => {
-            setHighlightedChipIndex(nextIndex);
-          });
 
           if (nextIndex === undefined) {
             store.context.inputRef.current?.focus();
