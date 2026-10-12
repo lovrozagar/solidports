@@ -22,6 +22,8 @@ const stateAttributesMapping: StateAttributesMapping<ComboboxClear.State> = {
 /**
  * Clears the value when clicked.
  * Renders a `<button>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxClear(componentProps: ComboboxClear.Props) {
   const elementProps = omitComponentProps(componentProps, [

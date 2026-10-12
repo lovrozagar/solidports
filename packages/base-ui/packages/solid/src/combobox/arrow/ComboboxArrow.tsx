@@ -9,6 +9,8 @@ import { useComboboxRootContext } from '../root/ComboboxRootContext';
 /**
  * Displays an element positioned against the anchor.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxArrow(componentProps: ComboboxArrow.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);

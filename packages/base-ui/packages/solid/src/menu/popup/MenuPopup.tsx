@@ -31,15 +31,16 @@ const stateAttributesMapping: StateAttributesMapping<MenuPopup.State> = {
   ...transitionStatusMapping,
 };
 
+export interface MenuPopupPlainProps extends MenuPopup.Props {
+  /** A filter root's own initial focus target; the plain default focuses the popup or its list. */
+  initialFocus?:
+    boolean | HTMLElement | null | (() => boolean | HTMLElement | null | undefined) | undefined;
+}
+
 /**
- * A container for the menu items.
- * Renders a `<div>` element.
- *
- * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
- *
  * @internal
  */
-export function MenuPopupPlain(componentProps: MenuPopup.Props) {
+export function MenuPopupPlain(componentProps: MenuPopupPlainProps) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
     'finalFocus',
     'initialFocus',
@@ -278,6 +279,8 @@ export function MenuPopupPlain(componentProps: MenuPopup.Props) {
 /**
  * A container for the menu items.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuPopup(props: MenuPopup.Props) {
   const Popup = useMenuFilterImpl()?.Popup ?? MenuPopupPlain;
@@ -299,11 +302,6 @@ export interface MenuPopupProps extends BaseUIComponentProps<'div', MenuPopup.St
    * - `function`: Called with the interaction type (`mouse`, `touch`, `pen`, or `keyboard`).
    *   Return an element to focus, `true` to use the default behavior, or `false`/`undefined` to do nothing.
    */
-  /**
-   * The element to focus when the menu opens. `false` leaves focus where it is.
-   */
-  initialFocus?:
-    boolean | HTMLElement | null | (() => boolean | HTMLElement | null | undefined) | undefined;
   finalFocus?:
     | (
         | boolean

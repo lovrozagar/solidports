@@ -51,7 +51,9 @@ export interface UseFilterDropdownItemParameters {
 /**
  * Registers an item with the enclosing filter root and reports whether the query keeps it.
  *
- * The item renders once before it is registered so its rendered text can be read and cached.
+ * The item renders once before it is registered so its rendered text can be read and cached: a
+ * popup can open with a query that already excludes the item, and a hidden item has no text left
+ * to match against.
  *
  * @internal
  */

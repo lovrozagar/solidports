@@ -10,6 +10,8 @@ import { ComboboxGroupContext } from './ComboboxGroupContext';
 /**
  * Groups related items with the corresponding label.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxGroup(componentProps: ComboboxGroup.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['items']);

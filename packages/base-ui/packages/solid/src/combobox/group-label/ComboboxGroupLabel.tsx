@@ -8,6 +8,8 @@ import { useComboboxGroupContext } from '../group/ComboboxGroupContext';
 /**
  * An accessible label that is automatically associated with its parent group.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Combobox](https://base-ui.com/react/components/combobox)
  */
 export function ComboboxGroupLabel(componentProps: ComboboxGroupLabel.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['id']);

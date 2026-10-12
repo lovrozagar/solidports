@@ -6,9 +6,6 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { useFilterDropdownItemContext } from '../root/FilterDropdownRootContext';
 
 /**
- * Announces that the query matched nothing. Hidden until items have registered, so it is absent
- * from server HTML and does not flash on open.
- *
  * @internal
  */
 export function FilterDropdownEmpty(componentProps: FilterDropdownEmpty.Props) {

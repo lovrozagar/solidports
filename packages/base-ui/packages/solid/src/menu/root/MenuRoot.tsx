@@ -63,11 +63,6 @@ import {
 import { MenuRootContext, useMenuRootContext } from './MenuRootContext';
 
 /**
- * Groups all parts of the menu.
- * Doesn't render its own HTML element.
- *
- * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
- *
  * @internal
  */
 export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>) {
@@ -986,7 +981,7 @@ export interface MenuRootProps<Payload = unknown> {
    * - `unmount`: Ends the closing phase of the menu after an externally controlled closing animation finishes.
    *   Call `preventUnmountOnClose()` in `onOpenChange` first, otherwise the menu completes closing on its own.
    *   Whether it leaves the DOM is decided by `keepMounted` on the portal.
-   * - `close`: When specified, the menu can be closed imperatively.
+   * - `close`: Closes the menu imperatively when called.
    */
   actionsRef?: ReactLikeRef<MenuRoot.Actions | null> | undefined;
   /**
@@ -1030,6 +1025,12 @@ export interface MenuRootInternalProps<Payload = unknown> extends MenuRoot.Props
   resetOnPointerLeave?: boolean | undefined;
 }
 
+/**
+ * Groups all parts of the menu.
+ * Doesn't render its own HTML element.
+ *
+ * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
+ */
 export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   const filterProvider = useMenuFilterProviderContext(true);
   if (filterProvider == null) {

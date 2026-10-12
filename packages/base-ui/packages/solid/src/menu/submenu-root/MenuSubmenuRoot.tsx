@@ -11,14 +11,14 @@ import { MenuSubmenuRootContext } from './MenuSubmenuRootContext';
 
 export { useMenuSubmenuRootContext } from './MenuSubmenuRootContext';
 
+const EMPTY_SUBMENU_ROOT_CONTEXT = {};
+
 /**
  * Groups all parts of a submenu.
- * Doesn’t render its own HTML element.
+ * Doesn't render its own HTML element.
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
-const EMPTY_SUBMENU_ROOT_CONTEXT = {};
-
 export function MenuSubmenuRoot(props: MenuSubmenuRoot.Props) {
   // Throws when the submenu isn't inside a menu.
   useMenuRootContext();

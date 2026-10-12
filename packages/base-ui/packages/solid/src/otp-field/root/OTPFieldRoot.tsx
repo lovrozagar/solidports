@@ -516,17 +516,29 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
 }
 
 export interface OTPFieldRootState extends FieldRootState {
-  /** Whether all slots are filled. */
+  /**
+   * Whether all slots are filled.
+   */
   complete: boolean;
-  /** Whether the component should ignore user interaction. */
+  /**
+   * Whether the component should ignore user interaction.
+   */
   disabled: boolean;
-  /** The number of OTP input slots. */
+  /**
+   * The number of OTP input slots.
+   */
   length: number;
-  /** Whether the user should be unable to change the field value. */
+  /**
+   * Whether the user should be unable to change the field value.
+   */
   readOnly: boolean;
-  /** Whether the user must enter a value before submitting a form. */
+  /**
+   * Whether the user must enter a value before submitting a form.
+   */
   required: boolean;
-  /** The OTP value. */
+  /**
+   * The OTP value.
+   */
   value: string;
 }
 
@@ -534,19 +546,40 @@ export interface OTPFieldRootProps extends Omit<
   BaseUIComponentProps<'div', OTPFieldRootState>,
   'onChange'
 > {
-  /** The id of the first input element. */
+  /**
+   * The id of the first input element.
+   * Subsequent inputs derive their ids from it (`{id}-2`, `{id}-3`, and so on).
+   */
   id?: string | undefined;
-  /** @default 'one-time-code' */
+  /**
+   * The input autocomplete attribute. Applied to the first slot and hidden validation input.
+   * @default 'one-time-code'
+   */
   autoComplete?: string | undefined;
   form?: string | undefined;
-  /** Required: number of OTP input slots. */
+  /**
+   * The number of OTP input slots.
+   * Required so the root can clamp values, detect completion, and generate
+   * consistent validation markup before all slots hydrate.
+   */
   length: number;
-  /** @default false */
+  /**
+   * Whether to submit the owning form when the OTP becomes complete.
+   * @default false
+   */
   autoSubmit?: boolean | undefined;
-  /** @default false */
+  /**
+   * Whether the slot inputs should mask entered characters.
+   * Pass `type` directly to individual `<OTPField.Input>` parts to use a custom
+   * input type.
+   * @default false
+   */
   mask?: boolean | undefined;
   inputMode?: JSX.HTMLAttributes<HTMLInputElement>['inputmode'] | undefined;
-  /** @default 'numeric' */
+  /**
+   * The type of input validation to apply to the OTP value.
+   * @default 'numeric'
+   */
   validationType?: OTPFieldRoot.ValidationType | undefined;
   /**
    * Function that normalizes the OTP value after whitespace and `validationType` filtering.

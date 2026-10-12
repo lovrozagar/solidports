@@ -4,7 +4,7 @@ import { mergeProps } from '../../merge-props';
 import { REASONS } from '../../utils/reasons';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { MenuPopupPlain } from '../popup/MenuPopup';
-import type { MenuPopup } from '../popup/MenuPopup';
+import type { MenuPopup, MenuPopupPlainProps } from '../popup/MenuPopup';
 import { useMenuFilterPopup } from './useMenuFilterPopup';
 
 /**
@@ -31,7 +31,7 @@ export function MenuFilterPopup(props: MenuPopup.Props): JSX.Element {
   );
 
   // The input holds real focus; the popup is never the focus target.
-  const initialFocus = createMemo<MenuPopup.Props['initialFocus']>(() => {
+  const initialFocus = createMemo<MenuPopupPlainProps['initialFocus']>(() => {
     if (!mayFocusInput()) {
       return false;
     }

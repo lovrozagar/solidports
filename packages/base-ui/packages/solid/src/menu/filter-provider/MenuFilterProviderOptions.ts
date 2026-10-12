@@ -13,6 +13,11 @@ export interface MenuFilterProviderOptions {
    * Whether filtering highlights the first matching item automatically.
    * - `true`: highlight it while the query is not empty.
    * - `'always'`: highlight it even when the query is empty.
+   *
+   * Opening the menu from the keyboard highlights the first item either way, and the arrow keys
+   * can move the highlight to another item. With either value, the arrow keys wrap within the
+   * list rather than returning to the input, and with `'always'` a pointer highlight stays when
+   * the pointer leaves.
    * @default false
    */
   autoHighlight?: boolean | 'always' | undefined;

@@ -13,7 +13,8 @@ import { useMenuRootContext } from '../root/MenuRootContext';
 import type { MenuFilterItemParams, MenuFilterItemResult } from './MenuFilterContext';
 
 /**
- * Registers a submenu trigger with the parent menu's filter and adapts it to a filterable submenu.
+ * Registers a submenu trigger with the parent menu's filter and adapts it to a filterable
+ * submenu: the trigger lives inside its own submenu root, but it is an item of the parent list.
  */
 export function useMenuFilterSubmenuTrigger(params: MenuFilterItemParams): MenuFilterItemResult {
   const { store, virtualFocus } = useMenuRootContext();

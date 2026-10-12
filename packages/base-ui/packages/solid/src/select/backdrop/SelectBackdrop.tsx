@@ -13,7 +13,7 @@ const stateAttributesMapping: StateAttributesMapping<SelectBackdrop.State> = {
 };
 
 /**
- * An overlay displayed beneath the menu popup.
+ * An overlay displayed beneath the select popup.
  * Renders a `<div>` element.
  *
  * Documentation: [Base UI Select](https://base-ui.com/react/components/select)

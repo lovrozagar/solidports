@@ -10,8 +10,6 @@ import {
 } from '../root/FilterDropdownRootContext';
 
 /**
- * Clears the filter query and returns focus to the input.
- *
  * @internal
  */
 export function FilterDropdownClear(componentProps: FilterDropdownClear.Props) {
@@ -65,13 +63,18 @@ export function FilterDropdownClear(componentProps: FilterDropdownClear.Props) {
 }
 
 export interface FilterDropdownClearState {
-  /** Whether the component should ignore user interaction. */
+  /**
+   * Whether the component should ignore user interaction.
+   */
   disabled: boolean;
 }
 
 export interface FilterDropdownClearProps
   extends NativeButtonProps, BaseUIComponentProps<'button', FilterDropdownClearState> {
-  /** Whether the component should ignore user interaction. */
+  /**
+   * Whether the component should ignore user interaction.
+   * @default false
+   */
   disabled?: boolean | undefined;
 }
 

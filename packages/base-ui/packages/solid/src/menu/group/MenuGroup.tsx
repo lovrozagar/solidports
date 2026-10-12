@@ -40,6 +40,8 @@ export function MenuGroupPlain(componentProps: MenuGroup.Props) {
 /**
  * Groups related menu items with the corresponding label.
  * Renders a `<div>` element.
+ *
+ * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
 export function MenuGroup(props: MenuGroup.Props) {
   const Group = useMenuFilterImpl()?.Group ?? MenuGroupPlain;
@@ -47,10 +49,6 @@ export function MenuGroup(props: MenuGroup.Props) {
 }
 
 export interface MenuGroupProps extends BaseUIComponentProps<'div', MenuGroup.State> {
-  /**
-   * Whether the group is hidden because filtering removed every item in it.
-   */
-  hidden?: boolean | undefined;
   /**
    * The content of the component.
    */

@@ -73,7 +73,7 @@ import { mergeProps as solidMergeProps } from '../../solid-1-compat';
  * Represents the radio button itself.
  * Renders a `<span>` element and a hidden `<input>` beside.
  *
- * Documentation: [Base UI Radio](https://base-ui.com/react/components/radio)
+ * Documentation: [Base UI Radio](https://base-ui.com/react/components/radio-group)
  */
 export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
   // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): the `<span role="radio">` and
