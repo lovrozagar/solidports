@@ -6915,7 +6915,7 @@ describe('<Select.Root />', () => {
 
     function AlignedSelect() {
       return (
-        <div style={{ 'padding-top': 240 }}>
+        <div style={{ 'padding-top': '240px' }}>
           <Select.Root defaultValue="Item 15">
             <Select.Trigger data-testid="trigger" style={{ height: '30px' }}>
               <Select.Value />

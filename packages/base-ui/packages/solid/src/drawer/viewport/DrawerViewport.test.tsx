@@ -777,36 +777,6 @@ describe('<Drawer.Viewport />', () => {
       },
     );
 
-    it('does not swipe or settle snap points while a marked cross-axis target handles the drag', () => {
-      const handleSnapPointChange = vi.fn();
-      render(() => (
-        <Drawer.Root open snapPoints={[200, 360]} onSnapPointChange={handleSnapPointChange}>
-          <Drawer.Portal>
-            <Drawer.Backdrop data-testid="backdrop" />
-            <Drawer.Viewport>
-              <Drawer.Popup data-testid="popup">
-                <div data-testid="target" data-base-ui-swipe-ignore="x">
-                  Carousel
-                </div>
-              </Drawer.Popup>
-            </Drawer.Viewport>
-          </Drawer.Portal>
-        </Drawer.Root>
-      ));
-
-      const target = screen.getByTestId('target');
-      const popup = screen.getByTestId('popup');
-      const crossAxis = { clientX: 140, clientY: 104 };
-      expect(swipe(target, [{ clientX: 103, clientY: 101 }, crossAxis])).toEqual([true, true]);
-      expect(popup.style.getPropertyValue('--drawer-swipe-movement-x')).toBe('0px');
-      expect(popup.style.getPropertyValue('--drawer-swipe-movement-y')).toBe('0px');
-
-      endSwipe(target, crossAxis);
-      flushMicrotasks();
-
-      expect(handleSnapPointChange).not.toHaveBeenCalled();
-    });
-
     it.each([
       [
         'down',
@@ -871,6 +841,47 @@ describe('<Drawer.Viewport />', () => {
 
       expect(handleOpenChange).not.toHaveBeenCalled();
     });
+
+    it.each(['marked', 'scrollable'] as const)(
+      'does not swipe or settle snap points while a %s cross-axis target handles the drag',
+      async (kind) => {
+        const handleSnapPointChange = vi.fn();
+        await render(() => (
+          <Drawer.Root open snapPoints={[200, 360]} onSnapPointChange={handleSnapPointChange}>
+            <Drawer.Portal>
+              <Drawer.Backdrop data-testid="backdrop" />
+              <Drawer.Viewport>
+                <Drawer.Popup data-testid="popup">
+                  <div
+                    data-testid="target"
+                    data-base-ui-swipe-ignore={kind === 'marked' ? 'x' : undefined}
+                    style={kind === 'scrollable' ? { 'overflow-x': 'auto' } : undefined}
+                  >
+                    Carousel
+                  </div>
+                </Drawer.Popup>
+              </Drawer.Viewport>
+            </Drawer.Portal>
+          </Drawer.Root>
+        ));
+
+        const target = screen.getByTestId('target');
+        if (kind === 'scrollable') {
+          Object.defineProperty(target, 'scrollWidth', { value: 400, configurable: true });
+          Object.defineProperty(target, 'clientWidth', { value: 100, configurable: true });
+        }
+
+        const crossAxis = { clientX: 140, clientY: 104 };
+        expect(swipe(target, [{ clientX: 103, clientY: 101 }, crossAxis])).toEqual([true, true]);
+        expect(screen.getByTestId('backdrop')).not.toHaveAttribute('data-swiping');
+        expect(screen.getByTestId('popup')).not.toHaveAttribute('data-swiping');
+
+        endSwipe(target, crossAxis);
+        await flushMicrotasks();
+
+        expect(handleSnapPointChange).not.toHaveBeenCalled();
+      },
+    );
   });
 
   it('does not prevent native touch scrolling in portaled descendants', async () => {
@@ -5528,4 +5539,105 @@ describe('<Drawer.Viewport />', () => {
     });
     expect(touchMove.defaultPrevented).toBe(false);
   });
+
+  it.each(['HTML scroller', 'SVG scroller', 'axis ignore marker'] as const)(
+    'expands a collapsed sheet when the first move from a %s leaves the popup',
+    async (kind) => {
+      const handleSnapPointChange = vi.fn();
+      await render(() => (
+        <Drawer.Root
+          defaultOpen
+          swipeDirection="down"
+          snapPoints={['100px', '200px']}
+          defaultSnapPoint="100px"
+          onSnapPointChange={handleSnapPointChange}
+        >
+          <Drawer.Portal>
+            <Drawer.Backdrop data-testid="backdrop" />
+            <Drawer.Viewport data-testid="viewport" ref={(element) => setHeight(element, 400)}>
+              <Drawer.Popup data-testid="popup" ref={(element) => setHeight(element, 200)}>
+                <div
+                  data-testid="scroll"
+                  data-base-ui-swipe-ignore={kind === 'axis ignore marker' ? 'x' : undefined}
+                  style={kind === 'axis ignore marker' ? undefined : { 'overflow-x': 'auto' }}
+                >
+                  {kind === 'SVG scroller' ? (
+                    <svg>
+                      <rect data-testid="target" width="120" height="40" />
+                    </svg>
+                  ) : (
+                    <div data-testid="target">Swipe here</div>
+                  )}
+                </div>
+              </Drawer.Popup>
+            </Drawer.Viewport>
+          </Drawer.Portal>
+        </Drawer.Root>
+      ));
+
+      const popup = screen.getByTestId('popup');
+      const backdrop = screen.getByTestId('backdrop');
+      const viewport = screen.getByTestId('viewport');
+      const scroll = screen.getByTestId('scroll');
+      const target = screen.getByTestId('target');
+      if (kind !== 'axis ignore marker') {
+        Object.defineProperty(scroll, 'scrollWidth', { value: 120, configurable: true });
+        Object.defineProperty(scroll, 'clientWidth', { value: 40, configurable: true });
+      }
+
+      await waitFor(() =>
+        expect(popup.style.getPropertyValue('--drawer-snap-point-offset')).toBe('100px'),
+      );
+
+      const originalElementFromPoint = document.elementFromPoint;
+      // The popup starts at y=300. Touch events keep their original target after leaving it.
+      document.elementFromPoint = (_x, y) => (y >= 300 ? target : viewport);
+
+      try {
+        fireEvent.touchStart(target, {
+          touches: [createTouch(target, { clientX: 100, clientY: 305 })],
+        });
+        expect(backdrop).not.toHaveAttribute('data-swiping');
+
+        fireEvent.touchMove(target, {
+          touches: [createTouch(target, { clientX: 100, clientY: 275 })],
+        });
+        expect(backdrop).toHaveAttribute('data-swiping');
+
+        fireEvent.touchMove(target, {
+          touches: [createTouch(target, { clientX: 100, clientY: 125 })],
+        });
+        expect(parseFloat(popup.style.getPropertyValue('--drawer-swipe-movement-y'))).toBeLessThan(
+          0,
+        );
+
+        fireEvent.touchEnd(target, {
+          changedTouches: [createTouch(target, { clientX: 100, clientY: 125 })],
+        });
+        await flushMicrotasks();
+
+        expect(handleSnapPointChange).toHaveBeenCalledWith(
+          '200px',
+          expect.objectContaining({ reason: 'swipe' }),
+        );
+
+        // The next touch starts and stays outside; it must not inherit the previous eligibility.
+        handleSnapPointChange.mockClear();
+        fireEvent.touchStart(viewport, {
+          touches: [createTouch(viewport, { clientX: 100, clientY: 275 })],
+        });
+        fireEvent.touchMove(viewport, {
+          touches: [createTouch(viewport, { clientX: 100, clientY: 125 })],
+        });
+        expect(backdrop).not.toHaveAttribute('data-swiping');
+        fireEvent.touchEnd(viewport, {
+          changedTouches: [createTouch(viewport, { clientX: 100, clientY: 125 })],
+        });
+        await flushMicrotasks();
+        expect(handleSnapPointChange).not.toHaveBeenCalled();
+      } finally {
+        document.elementFromPoint = originalElementFromPoint;
+      }
+    },
+  );
 });
