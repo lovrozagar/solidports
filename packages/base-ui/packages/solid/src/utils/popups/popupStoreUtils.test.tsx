@@ -93,13 +93,22 @@ function TestTrigger(props: {
   return null;
 }
 
-function TestForwardedTrigger(props: { id: string; store: BaseStore; element: HTMLElement }) {
+function TestForwardedTrigger(props: {
+  id: string;
+  store: BaseStore;
+  element: HTMLElement;
+  payload?: unknown;
+}) {
   const elementRef: { current: Element | null } = { current: null };
   const { registerTrigger } = useTriggerDataForwarding(
     () => props.id,
     elementRef,
     () => props.store,
-    {},
+    {
+      get payload() {
+        return props.payload;
+      },
+    },
   );
 
   createDepsRenderEffect(
@@ -766,6 +775,86 @@ describe('useTriggerRegistration', () => {
 
     expect(store.state.triggerCount).toBe(0);
   });
+
+  it('does not claim the only registered trigger when the popup opened without a trigger', () => {
+    const store = createStore();
+    const element = document.createElement('button');
+
+    render(() => (
+      <>
+        <ImplicitActiveTriggerTest store={store} />
+        <TestTrigger id="trigger" store={store} element={element} />
+      </>
+    ));
+
+    act(() => {
+      store.update(createPopupOpenState(store.state, true, undefined));
+    });
+
+    expect(store.state.triggerCount).toBe(1);
+    expect(store.state.openedWithoutTrigger).toBe(true);
+    expect(store.state.activeTriggerId).toBe(null);
+    expect(store.state.activeTriggerElement).toBe(null);
+  });
+
+  it('claims the only registered trigger again after a trigger-less open is closed by a controlled prop', () => {
+    const store = createStore();
+    const element = document.createElement('button');
+
+    render(() => (
+      <>
+        <ImplicitActiveTriggerTest store={store} />
+        <TestTrigger id="trigger" store={store} element={element} />
+      </>
+    ));
+
+    act(() => {
+      store.update(createPopupOpenState(store.state, true, undefined));
+    });
+    expect(store.state.activeTriggerId).toBe(null);
+
+    // A controlled close bypasses `createPopupOpenState`, so the root clears the flag itself.
+    act(() => {
+      store.set('open', false);
+    });
+    expect(store.state.openedWithoutTrigger).toBe(false);
+
+    act(() => {
+      store.set('open', true);
+    });
+    expect(store.state.activeTriggerId).toBe('trigger');
+    expect(store.state.activeTriggerElement).toBe(element);
+  });
+
+  it('does not let a trigger registering into an open trigger-less popup claim it', () => {
+    const store = createStore();
+    const element = document.createElement('button');
+    store.set('payload', 'programmatic');
+    store.update(createPopupOpenState(store.state, true, undefined));
+
+    render(() => (
+      <TestForwardedTrigger id="trigger" store={store} element={element} payload="from trigger" />
+    ));
+
+    expect(store.context.triggerElements.getById('trigger')).toBe(element);
+    expect(store.state.activeTriggerId).toBe(null);
+    expect(store.state.activeTriggerElement).toBe(null);
+    expect(store.state.payload).toBe('programmatic');
+  });
+
+  it('lets a trigger registering into a popup opened by a controlled prop claim it', () => {
+    const store = createStore();
+    const element = document.createElement('button');
+    store.set('open', true);
+
+    render(() => (
+      <TestForwardedTrigger id="trigger" store={store} element={element} payload="from trigger" />
+    ));
+
+    expect(store.state.activeTriggerId).toBe('trigger');
+    expect(store.state.activeTriggerElement).toBe(element);
+    expect(store.state.payload).toBe('from trigger');
+  });
 });
 
 describe('popupId selector', () => {
@@ -800,6 +889,16 @@ describe('popupId selector', () => {
     });
 
     expect(store.select('popupId')).toBe('explicit-popup-id');
+  });
+
+  it('associates a lone trigger with the popup id unless the popup opened without a trigger', () => {
+    const store = createStore();
+
+    store.update({ open: true, floatingId: 'popup-id', triggerCount: 1 });
+    expect(store.select('triggerPopupId', () => 'trigger')).toBe('popup-id');
+
+    store.set('openedWithoutTrigger', true);
+    expect(store.select('triggerPopupId', () => 'trigger')).toBeUndefined();
   });
 });
 
@@ -863,6 +962,24 @@ describe('getPopupOpenState', () => {
 
     expect(nextState.activeTriggerId).toBe('trigger-id');
     expect(nextState.activeTriggerElement).toBe(trigger);
+  });
+
+  it('records whether an open request carried a trigger', () => {
+    const state = createInitialPopupStoreState(new PopupTriggerMap());
+    const trigger = document.createElement('button');
+    trigger.id = 'trigger-id';
+
+    expect(createPopupOpenState(state, true, undefined).openedWithoutTrigger).toBe(true);
+    expect(createPopupOpenState(state, true, trigger).openedWithoutTrigger).toBe(false);
+  });
+
+  it('keeps the trigger-less open flag through a close request', () => {
+    // A controlled root may decline the close and stay open; the Root resets the flag itself once
+    // the popup is effectively closed.
+    const state = createInitialPopupStoreState(new PopupTriggerMap());
+    state.openedWithoutTrigger = true;
+
+    expect(createPopupOpenState(state, false, undefined).openedWithoutTrigger).toBe(true);
   });
 });
 

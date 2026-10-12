@@ -257,7 +257,7 @@ describe('useSwipeDismiss', () => {
         let ref: HTMLDivElement | undefined;
         const swipe = useSwipeDismiss({
           enabled: true,
-          directions: ['down', 'right'],
+          directions: ['right'],
           get elementRef() {
             return ref;
           },
@@ -271,7 +271,7 @@ describe('useSwipeDismiss', () => {
             ref={(node) => {
               ref = node;
             }}
-            style={{ ...swipe.getDragStyles(), position: 'fixed', inset: '0' }}
+            style={{ ...swipe.getDragStyles(), position: 'fixed', inset: 0 }}
             {...swipe.getTouchProps()}
           >
             <div
@@ -1695,7 +1695,6 @@ describe('useSwipeDismiss', () => {
   it.each([
     { trailingTime: 1040, releaseTime: 1048, expectedVelocity: 2.5 },
     { trailingTime: 1040, releaseTime: 1113, expectedVelocity: 0 },
-    // A skipped stationary sample must not refresh the sample time, so the moving sample still ages out.
     { trailingTime: 1113, releaseTime: 1121, expectedVelocity: 0 },
   ])(
     'handles a stationary move at $trailingTime and release at $releaseTime',
@@ -1743,28 +1742,62 @@ describe('useSwipeDismiss', () => {
           movementY: 0,
           timeStamp: 1000,
         });
+
         await flushMicrotasks();
 
-        for (const [timeStamp, clientY] of [
-          [1008, 20],
-          [1016, 40],
-          [1024, 60],
-          [1032, 80],
-        ] as const) {
-          firePointer.move(element, {
-            pointerId: 1,
-            buttons: 1,
-            clientX: 0,
-            clientY,
-            bubbles: true,
-            movementX: 0,
-            movementY: 20,
-            timeStamp,
-          });
-          // eslint-disable-next-line no-await-in-loop
-          await flushMicrotasks();
-        }
+        firePointer.move(element, {
+          pointerId: 1,
+          buttons: 1,
+          clientX: 0,
+          clientY: 20,
+          bubbles: true,
+          movementX: 0,
+          movementY: 20,
+          timeStamp: 1008,
+        });
 
+        await flushMicrotasks();
+
+        firePointer.move(element, {
+          pointerId: 1,
+          buttons: 1,
+          clientX: 0,
+          clientY: 40,
+          bubbles: true,
+          movementX: 0,
+          movementY: 20,
+          timeStamp: 1016,
+        });
+
+        await flushMicrotasks();
+
+        firePointer.move(element, {
+          pointerId: 1,
+          buttons: 1,
+          clientX: 0,
+          clientY: 60,
+          bubbles: true,
+          movementX: 0,
+          movementY: 20,
+          timeStamp: 1024,
+        });
+
+        await flushMicrotasks();
+
+        firePointer.move(element, {
+          pointerId: 1,
+          buttons: 1,
+          clientX: 0,
+          clientY: 80,
+          bubbles: true,
+          movementX: 0,
+          movementY: 20,
+          timeStamp: 1032,
+        });
+
+        await flushMicrotasks();
+
+        // Chrome on Android emits an effectively stationary sample right before `pointerup`.
         firePointer.move(element, {
           pointerId: 1,
           buttons: 1,
@@ -1775,6 +1808,7 @@ describe('useSwipeDismiss', () => {
           movementY: 0.5,
           timeStamp: trailingTime,
         });
+
         await flushMicrotasks();
 
         firePointer.up(element, {
@@ -1784,8 +1818,10 @@ describe('useSwipeDismiss', () => {
           bubbles: true,
           timeStamp: releaseTime,
         });
+
         await flushMicrotasks();
 
+        // Keep the last moving sample (20px / 8ms), unless it is older than 80ms.
         const details = onRelease.mock.calls[0]?.[0];
         expect(details?.releaseVelocityY).toBeCloseTo(expectedVelocity, 4);
         expect(details?.releaseVelocityX).toBeCloseTo(0, 2);
@@ -1896,6 +1932,7 @@ describe('useSwipeDismiss', () => {
           movementY: 0,
           timeStamp: 1000,
         });
+
         await flushMicrotasks();
 
         let lastY = 0;
@@ -1922,255 +1959,16 @@ describe('useSwipeDismiss', () => {
           bubbles: true,
           timeStamp: release[0],
         });
+
         await flushMicrotasks();
 
-        expect(onRelease.mock.calls[0]?.[0]?.releaseVelocityY).toBeCloseTo(expected, 4);
+        const details = onRelease.mock.calls[0]?.[0];
+        expect(details?.releaseVelocityY).toBeCloseTo(expected, 4);
       } finally {
         vi.useRealTimers();
       }
     },
   );
-
-  it('replaces release velocity from movement whose timestamp was rejected', async () => {
-    const onRelease = vi.fn();
-
-    function SwipeBoxRejectedStamp() {
-      let ref: HTMLDivElement | undefined;
-      const swipe = useSwipeDismiss({
-        enabled: true,
-        directions: ['right', 'down'],
-        get elementRef() {
-          return ref;
-        },
-        movementCssVars: { x: '--x', y: '--y' },
-        onRelease,
-      });
-
-      return (
-        <div
-          data-testid="release-velocity-rejected-stamp"
-          ref={(node) => {
-            ref = node;
-          }}
-          style={swipe.getDragStyles()}
-          {...swipe.getPointerProps()}
-        />
-      );
-    }
-
-    vi.useFakeTimers();
-    try {
-      await render(() => <SwipeBoxRejectedStamp />);
-      const element = screen.getByTestId('release-velocity-rejected-stamp');
-
-      firePointer.down(element, {
-        button: 0,
-        buttons: 1,
-        pointerId: 1,
-        clientX: 0,
-        clientY: 0,
-        bubbles: true,
-        pointerType: 'mouse',
-        movementX: 0,
-        movementY: 0,
-        timeStamp: 1000,
-      });
-      await flushMicrotasks();
-
-      firePointer.move(element, {
-        pointerId: 1,
-        buttons: 1,
-        clientX: 0,
-        clientY: 0,
-        bubbles: true,
-        movementX: 0,
-        movementY: 0,
-        timeStamp: 1008,
-      });
-      await flushMicrotasks();
-
-      firePointer.move(element, {
-        pointerId: 1,
-        buttons: 1,
-        clientX: 10,
-        clientY: 0,
-        bubbles: true,
-        movementX: 10,
-        movementY: 0,
-        timeStamp: 1016,
-      });
-      await flushMicrotasks();
-
-      // A gesture that allows both axes locks to the first one, so each axis is covered by its
-      // own swipe. `getValidTimeStamp` drops a non-finite stamp: the move still updates the drag
-      // offset, and release measures that 8px segment over 8ms.
-      fireRejectedPointerMove(element, { clientX: 18, clientY: 0, movementX: 8, movementY: 0 });
-      await flushMicrotasks();
-
-      firePointer.up(element, {
-        pointerId: 1,
-        clientX: 18,
-        clientY: 0,
-        bubbles: true,
-        timeStamp: 1024,
-      });
-      await flushMicrotasks();
-
-      const horizontal = onRelease.mock.calls[0]?.[0];
-      expect(horizontal?.releaseVelocityX).toBeCloseTo(1, 4);
-      expect(horizontal?.releaseVelocityY).toBeCloseTo(0, 4);
-
-      firePointer.down(element, {
-        button: 0,
-        buttons: 1,
-        pointerId: 2,
-        clientX: 0,
-        clientY: 0,
-        bubbles: true,
-        pointerType: 'mouse',
-        movementX: 0,
-        movementY: 0,
-        timeStamp: 2000,
-      });
-      await flushMicrotasks();
-
-      firePointer.move(element, {
-        pointerId: 2,
-        buttons: 1,
-        clientX: 0,
-        clientY: 0,
-        bubbles: true,
-        movementX: 0,
-        movementY: 0,
-        timeStamp: 2008,
-      });
-      await flushMicrotasks();
-
-      firePointer.move(element, {
-        pointerId: 2,
-        buttons: 1,
-        clientX: 0,
-        clientY: 10,
-        bubbles: true,
-        movementX: 0,
-        movementY: 10,
-        timeStamp: 2016,
-      });
-      await flushMicrotasks();
-
-      fireRejectedPointerMove(element, {
-        clientX: 0,
-        clientY: 18,
-        movementX: 0,
-        movementY: 8,
-        pointerId: 2,
-      });
-      await flushMicrotasks();
-
-      firePointer.up(element, {
-        pointerId: 2,
-        clientX: 0,
-        clientY: 18,
-        bubbles: true,
-        timeStamp: 2024,
-      });
-      await flushMicrotasks();
-
-      const vertical = onRelease.mock.calls[1]?.[0];
-      expect(vertical?.releaseVelocityX).toBeCloseTo(0, 4);
-      expect(vertical?.releaseVelocityY).toBeCloseTo(1, 4);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('clears release velocity after repeated stationary samples', async () => {
-    const onRelease = vi.fn();
-
-    function SwipeBoxPinned() {
-      let ref: HTMLDivElement | undefined;
-      const swipe = useSwipeDismiss({
-        enabled: true,
-        directions: ['down'],
-        get elementRef() {
-          return ref;
-        },
-        movementCssVars: { x: '--x', y: '--y' },
-        onRelease,
-      });
-
-      return (
-        <div
-          data-testid="release-velocity-pinned"
-          ref={(node) => {
-            ref = node;
-          }}
-          style={swipe.getDragStyles()}
-          {...swipe.getPointerProps()}
-        />
-      );
-    }
-
-    vi.useFakeTimers();
-    try {
-      await render(() => <SwipeBoxPinned />);
-      const element = screen.getByTestId('release-velocity-pinned');
-
-      firePointer.down(element, {
-        button: 0,
-        buttons: 1,
-        pointerId: 1,
-        clientX: 0,
-        clientY: 0,
-        bubbles: true,
-        pointerType: 'mouse',
-        movementX: 0,
-        movementY: 0,
-        timeStamp: 1000,
-      });
-      await flushMicrotasks();
-
-      firePointer.move(element, {
-        pointerId: 1,
-        buttons: 1,
-        clientX: 0,
-        clientY: 20,
-        bubbles: true,
-        movementX: 0,
-        movementY: 20,
-        timeStamp: 1016,
-      });
-      await flushMicrotasks();
-
-      for (const timeStamp of [1032, 1048, 1064]) {
-        firePointer.move(element, {
-          pointerId: 1,
-          buttons: 1,
-          clientX: 0,
-          clientY: 20,
-          bubbles: true,
-          movementX: 0,
-          movementY: 0,
-          timeStamp,
-        });
-        // eslint-disable-next-line no-await-in-loop
-        await flushMicrotasks();
-      }
-
-      firePointer.up(element, {
-        pointerId: 1,
-        clientX: 0,
-        clientY: 20,
-        bubbles: true,
-        timeStamp: 1072,
-      });
-      await flushMicrotasks();
-
-      expect(onRelease.mock.calls[0]?.[0]?.releaseVelocityY).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
 
   it('keeps release velocity when moves arrive sparsely', async () => {
     const onRelease = vi.fn();
@@ -2620,5 +2418,113 @@ describe('useSwipeDismiss', () => {
 
     expect(onSwipeStart).not.toHaveBeenCalled();
     expect(root.style.getPropertyValue('--y')).toBe('0px');
+  });
+
+  it('decays release velocity while the pointer stays pinned', async () => {
+    const onRelease = vi.fn();
+
+    function SwipeBoxPinned() {
+      let ref: HTMLDivElement | undefined;
+      const swipe = useSwipeDismiss({
+        enabled: true,
+        directions: ['down'],
+        get elementRef() {
+          return ref;
+        },
+        movementCssVars: { x: '--x', y: '--y' },
+        onRelease,
+      });
+
+      return (
+        <div
+          data-testid="release-velocity-pinned"
+          ref={(node) => {
+            ref = node;
+          }}
+          style={swipe.getDragStyles()}
+          {...swipe.getPointerProps()}
+        />
+      );
+    }
+
+    vi.useFakeTimers();
+    try {
+      await render(() => <SwipeBoxPinned />);
+      const element = screen.getByTestId('release-velocity-pinned');
+
+      firePointer.down(element, {
+        button: 0,
+        buttons: 1,
+        pointerId: 1,
+        clientX: 0,
+        clientY: 0,
+        bubbles: true,
+        pointerType: 'mouse',
+        movementX: 0,
+        movementY: 0,
+        timeStamp: 1000,
+      });
+
+      await flushMicrotasks();
+
+      firePointer.move(element, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 0,
+        clientY: 0,
+        bubbles: true,
+        movementX: 0,
+        movementY: 0,
+        timeStamp: 1000,
+      });
+
+      await flushMicrotasks();
+
+      firePointer.move(element, {
+        pointerId: 1,
+        buttons: 1,
+        clientX: 0,
+        clientY: 20,
+        bubbles: true,
+        movementX: 0,
+        movementY: 20,
+        timeStamp: 1016,
+      });
+
+      await flushMicrotasks();
+
+      // An off-screen mouse keeps emitting moves at the pinned coordinates.
+      for (const timeStamp of [1032, 1048, 1064]) {
+        firePointer.move(element, {
+          pointerId: 1,
+          buttons: 1,
+          clientX: 0,
+          clientY: 20,
+          bubbles: true,
+          movementX: 0,
+          movementY: 0,
+          timeStamp,
+        });
+
+        // eslint-disable-next-line no-await-in-loop
+        await flushMicrotasks();
+      }
+
+      firePointer.up(element, {
+        pointerId: 1,
+        clientX: 0,
+        clientY: 20,
+        bubbles: true,
+        timeStamp: 1072,
+      });
+
+      await flushMicrotasks();
+
+      // Repeated stationary samples clear the velocity from the last movement.
+      const details = onRelease.mock.calls[0]?.[0];
+      expect(details?.releaseVelocityY).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

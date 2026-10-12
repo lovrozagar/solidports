@@ -1,5 +1,5 @@
 import { createSignal, flush } from 'solid-js';
-import { fireEvent, screen } from '@solidjs/testing-library';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createRenderer, flushMicrotasks } from '#test-utils';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -338,8 +338,10 @@ describe('popup preventUnmountOnClose', () => {
 
       expect(screen.queryByRole('listbox')).toBeNull();
       await user.click(screen.getByRole('combobox'));
-      await flushMicrotasks();
-      expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');
+      // A mouse press opens on the next animation frame, once focus has settled.
+      await waitFor(() => {
+        expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');
+      });
       expect(screen.getByRole('listbox')).toBeTruthy();
     });
 
