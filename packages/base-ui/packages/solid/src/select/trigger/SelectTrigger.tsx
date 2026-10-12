@@ -10,7 +10,7 @@ import { useLabelableId } from '../../internals/labelable-provider/useLabelableI
 import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { getPseudoElementBounds } from '../../utils/getPseudoElementBounds';
+import { isMouseWithinBounds } from '../../utils/getPseudoElementBounds';
 import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { ownerDocument } from '../../utils/owner';
 import { pressableTriggerOpenStateMapping } from '../../utils/popupStateMapping';
@@ -24,7 +24,6 @@ import type { Side } from '../../utils/useAnchorPositioning';
 import * as SelectTriggerDataAttributes from './SelectTriggerDataAttributes';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
-const BOUNDARY_OFFSET = 2;
 const SELECTED_DELAY = 400;
 
 const stateAttributesMapping: StateAttributesMapping<SelectTrigger.State> = {
@@ -245,23 +244,16 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
 
         const mouseUpTarget = mouseEvent.target as Element | null;
 
-        // Early return if clicked on trigger element or its children
+        // Don't treat the release as an outside press when it lands on the trigger or inside
+        // the popup positioner (or their children).
         if (
           contains(triggerRef, mouseUpTarget) ||
-          contains(store.state.positionerElement, mouseUpTarget) ||
-          mouseUpTarget === triggerRef
+          contains(store.state.positionerElement, mouseUpTarget)
         ) {
           return;
         }
 
-        const bounds = getPseudoElementBounds(triggerRef);
-
-        if (
-          mouseEvent.clientX >= bounds.left - BOUNDARY_OFFSET &&
-          mouseEvent.clientX <= bounds.right + BOUNDARY_OFFSET &&
-          mouseEvent.clientY >= bounds.top - BOUNDARY_OFFSET &&
-          mouseEvent.clientY <= bounds.bottom + BOUNDARY_OFFSET
-        ) {
+        if (isMouseWithinBounds(mouseEvent, triggerRef)) {
           return;
         }
 

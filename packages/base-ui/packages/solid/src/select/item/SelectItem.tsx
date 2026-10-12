@@ -14,12 +14,10 @@ import {
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isVirtualClick } from '../../floating-ui-solid/utils/event';
-import { isMouseWithinBounds } from '../../utils/isMouseWithinBounds';
 import { compareItemEquality, removeItem, resolveSelectedIndex } from '../../utils/itemEquality';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { useTimeout } from '../../utils/useTimeout';
 import { useSelectRootContext } from '../root/SelectRootContext';
 import { SelectItemContext } from './SelectItemContext';
 
@@ -57,14 +55,11 @@ export function SelectItem(componentProps: SelectItem.Props) {
     typingRef,
     valuesRef,
     selectedItemTextRef,
-    keyboardActiveRef,
     multiple,
-    highlightItemOnHover,
     disabled: selectDisabled,
     readOnly,
   } = useSelectRootContext();
 
-  const highlightTimeout = useTimeout();
   const disabled = () => selectDisabled() || disabledProp();
 
   const highlighted = store.useState('isActive', listItem.index);
@@ -245,35 +240,6 @@ export function SelectItem(componentProps: SelectItem.Props) {
       }
 
       commitSelection(event);
-    },
-    // Solid: the root's list navigation props do not cover hover highlighting for Select items.
-    onFocus() {
-      store.set('activeIndex', index());
-    },
-    onMouseEnter() {
-      if (
-        !keyboardActiveRef.current &&
-        store.state.selectedIndex === null &&
-        highlightItemOnHover()
-      ) {
-        store.set('activeIndex', index());
-      }
-    },
-    onMouseLeave(event: MouseEvent) {
-      if (!highlightItemOnHover() || keyboardActiveRef.current || isMouseWithinBounds(event)) {
-        return;
-      }
-
-      highlightTimeout.start(0, () => {
-        if (store.state.activeIndex === index()) {
-          store.set('activeIndex', null);
-        }
-      });
-    },
-    onMouseMove() {
-      if (highlightItemOnHover()) {
-        store.set('activeIndex', index());
-      }
     },
     onPointerEnter(event: PointerEvent) {
       pointerTypeRef = event.pointerType as 'mouse' | 'touch' | 'pen';

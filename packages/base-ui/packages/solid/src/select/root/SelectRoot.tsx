@@ -177,6 +177,18 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
       get multiple() {
         return multiple();
       },
+      get disabled() {
+        return disabled();
+      },
+      get readOnly() {
+        return readOnly();
+      },
+      get required() {
+        return required();
+      },
+      get highlightItemOnHover() {
+        return highlightItemOnHover();
+      },
       get open() {
         return open();
       },

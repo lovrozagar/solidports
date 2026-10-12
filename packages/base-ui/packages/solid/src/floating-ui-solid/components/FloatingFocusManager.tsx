@@ -903,7 +903,8 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
 
         const returnFocusValueOrFn = untrack(() => props.returnFocus);
         const closeType = closeTypeRef;
-        const returnElement = getReturnElement(closeType);
+        // `returnFocus` may be a user function; its reads must not subscribe the cleanup.
+        const returnElement = untrack(() => getReturnElement(closeType));
 
         const job = { cancelled: false };
         pendingReturnFocus = job;
