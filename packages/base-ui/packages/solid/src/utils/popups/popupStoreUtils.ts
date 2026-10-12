@@ -627,14 +627,19 @@ export function useOpenStateTransitions<State extends PopupStoreState<any>>(
     ref: () => store.context.popupRef.current,
     preventUnmountOnClose: preventUnmountingOnClose,
     setPreventUnmountOnClose: (preventUnmountOnClose) => {
-      store.set('preventUnmountingOnClose', preventUnmountOnClose as State['preventUnmountingOnClose']);
+      store.set(
+        'preventUnmountingOnClose',
+        preventUnmountOnClose as State['preventUnmountingOnClose'],
+      );
     },
     animateInitialOpen,
     onUnmount() {
+      // Solid: `mounted` reaches the store only through `useSyncedValues` below. A direct write
+      // here would win over the re-sync when `onOpenChangeComplete(false)` reopens in the same
+      // flush, where React's layout-effect sync restores `mounted`.
       store.update({
         activeTriggerId: null,
         activeTriggerElement: null,
-        mounted: false,
         preventUnmountingOnClose: false,
       } as Partial<State>);
       onUnmount?.();

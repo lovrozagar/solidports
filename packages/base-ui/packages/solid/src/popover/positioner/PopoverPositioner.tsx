@@ -64,8 +64,6 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
   const transitionStatus = store.useState('transitionStatus');
   const adaptiveOrigin = store.useState('adaptiveOrigin');
 
-
-
   const positioning = useAnchorPositioning({
     get adaptiveOrigin() {
       return adaptiveOrigin();

@@ -37,7 +37,7 @@ export interface UseClickProps {
    * reference element for the first time.
    * @default true
    */
-  stickIfOpen?: boolean | undefined;
+  stickIfOpen?: boolean | (() => boolean) | undefined;
   /**
    * Touch-only delay (ms) before opening. Useful to allow mobile viewport/keyboard to settle.
    * @default 0
@@ -121,7 +121,8 @@ export function useClick(parameters: {
       return true;
     }
 
-    if (openEvent && props.stickIfOpen) {
+    const stickIfOpen = props.stickIfOpen;
+    if (openEvent && (typeof stickIfOpen === 'function' ? stickIfOpen() : stickIfOpen)) {
       // Preserve hover/focus-opened popups until the matching click-like event closes them.
       return !isClickLikeOpenEvent(openEvent.type);
     }

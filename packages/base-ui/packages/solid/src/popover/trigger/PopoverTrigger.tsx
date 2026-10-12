@@ -11,7 +11,6 @@ import {
   pressableTriggerOpenStateMapping,
   triggerOpenStateMapping,
 } from '../../utils/popupStateMapping';
-import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useOpenMethodTriggerProps } from '../../utils/useOpenInteractionType';
@@ -90,10 +89,10 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     },
   );
 
-  const openReason = () => currentStore().select('openChangeReason');
-  const stickIfOpen = () => currentStore().select('stickIfOpen');
-  const openMethod = () => currentStore().select('openMethod');
-  const focusManagerModal = () => currentStore().select('focusManagerModal');
+  const isPressOpenedByThisTrigger = () =>
+    currentStore().select('isPressOpenedByTrigger', thisTriggerId);
+  const isTouchPressOpen = () => currentStore().select('isTouchPressOpen', openOnHover());
+  const hasFocusGuards = () => currentStore().select('hasTriggerFocusGuards', thisTriggerId);
 
   const hoverProps = useHoverReferenceInteraction({
     get context() {
@@ -101,11 +100,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     },
     props: {
       get enabled() {
-        return (
-          !disabled() &&
-          openOnHover() &&
-          (openMethod() !== 'touch' || openReason() !== REASONS.triggerPress)
-        );
+        return !disabled() && openOnHover() && !isTouchPressOpen();
       },
       mouseOnly: true,
       move: false,
@@ -131,9 +126,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
       return floatingContext();
     },
     props: {
-      get stickIfOpen() {
-        return stickIfOpen();
-      },
+      stickIfOpen: () => currentStore().context.stickIfOpen,
     },
   });
   const interactionTypeProps = useOpenMethodTriggerProps(
@@ -155,7 +148,7 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
 
   const stateAttributesMapping: StateAttributesMapping<{ open: boolean }> = {
     open(value) {
-      if (value && openReason() === REASONS.triggerPress) {
+      if (isPressOpenedByThisTrigger()) {
         return pressableTriggerOpenStateMapping.open(value);
       }
 
@@ -210,11 +203,9 @@ export function PopoverTrigger<Payload>(componentProps: PopoverTrigger.Props<Pay
     stateAttributesMapping,
   });
 
-  const guardsActive = () => isMountedByThisTrigger() && !focusManagerModal();
-
   return (
     <TriggerFocusGuards
-      active={guardsActive()}
+      active={hasFocusGuards()}
       leadingGuardRef={currentStore().context.beforeTriggerFocusGuardRef}
       onLeadingFocus={handlePreFocusGuardFocus}
       trailingGuardRef={currentStore().context.triggerFocusTargetRef}
