@@ -167,6 +167,9 @@ describe('<Combobox.Root />', () => {
     triggerMouseAction: 'click',
     expectedPopupRole: 'listbox',
     combobox: true,
+    openReason: REASONS.inputPress,
+    // The `popup` props go to the List (it carries the listbox role), which has no exit state.
+    exitAnimation: false,
   });
 
   // Solid: the test harness has no renderToString/hydrate renderer, so these assert the client render.
