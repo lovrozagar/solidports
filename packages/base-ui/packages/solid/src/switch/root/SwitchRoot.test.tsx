@@ -174,6 +174,33 @@ describe('<Switch.Root />', () => {
     });
   });
 
+  it('prefers `aria-label` over an associated label', async () => {
+    render(() => (
+      <>
+        <label>
+          <Switch.Root aria-label="Wi-Fi" />
+          Wi-Fi
+        </label>
+        <Field.Root>
+          <Field.Label>
+            <Switch.Root aria-label="Bluetooth" />
+            Bluetooth
+          </Field.Label>
+        </Field.Root>
+        <span id="explicit-switch">Explicit switch</span>
+        <Switch.Root aria-label="ignored" aria-labelledby="explicit-switch" />
+      </>
+    ));
+
+    const [nativeLabelled, fieldLabelled, explicitLabelled] = screen.getAllByRole('switch');
+    expect(nativeLabelled).not.toHaveAttribute('aria-labelledby');
+    expect(nativeLabelled).toHaveAccessibleName('Wi-Fi');
+    expect(fieldLabelled).not.toHaveAttribute('aria-labelledby');
+    expect(fieldLabelled).toHaveAccessibleName('Bluetooth');
+    expect(explicitLabelled).toHaveAttribute('aria-labelledby', 'explicit-switch');
+    expect(explicitLabelled).toHaveAccessibleName('Explicit switch');
+  });
+
   describe('prop: onCheckedChange', () => {
     it('should call onCheckedChange when clicked', async () => {
       const handleChange = vi.fn();

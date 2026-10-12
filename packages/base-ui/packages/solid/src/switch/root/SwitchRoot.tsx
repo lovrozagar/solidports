@@ -38,12 +38,20 @@ import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { useFormContext } from '../../form/FormContext';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
-import { useAriaLabelledBy } from '../../internals/labelable-provider/useAriaLabelledBy';
+import {
+  ariaLabelOverridesLabel,
+  useAriaLabelledBy,
+} from '../../internals/labelable-provider/useAriaLabelledBy';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useButton } from '../../internals/use-button';
 import { useValueChanged } from '../../internals/useValueChanged';
 import { mergeProps } from '../../merge-props';
-import { provideContext, splitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
+import {
+  provideContext,
+  splitComponentProps,
+  useRef,
+  type ReactLikeRef,
+} from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../types';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
@@ -177,6 +185,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     inputElement,
     !untrack(nativeButton),
     hiddenInputId,
+    () => componentProps['aria-label'],
   );
 
   const rootProps: JSX.HTMLAttributes<HTMLSpanElement> = {
@@ -429,6 +438,7 @@ function switchAttributes(l: SwitchLayout, target: Record<string, unknown>, once
   if (!once) {
     // The label fallback (after the apply) follows these: read them here so a change re-runs it.
     void l.props['aria-labelledby'];
+    void l.props['aria-label'];
     m.labelId();
     m.controlId();
   }
@@ -453,7 +463,13 @@ function switchAttributes(l: SwitchLayout, target: Record<string, unknown>, once
   }
   if (once === Boolean(f & LABELLEDBY_STATIC)) {
     const explicit = l.props['aria-labelledby'];
-    put(l, target, once, 'aria-labelledby', (typeof explicit === 'string' ? explicit : undefined) ?? m.labelId());
+    const labelledBy =
+      typeof explicit === 'string'
+        ? explicit
+        : ariaLabelOverridesLabel(l.props['aria-label'])
+          ? undefined
+          : m.labelId();
+    put(l, target, once, 'aria-labelledby', labelledBy);
   }
   if (once) {
     return target;
@@ -649,7 +665,14 @@ function NativeSwitchRoot(props: SwitchRoot.Props): JSX.Element {
 
   const switchRef = useRef<HTMLElement | null | undefined>(null);
   const setFieldFocused = useSetFieldFocused(disabled, switchRef);
-  useRegisterFieldControl(switchRef, id, checked, undefined, () => !disabled(), () => props.name);
+  useRegisterFieldControl(
+    switchRef,
+    id,
+    checked,
+    undefined,
+    () => !disabled(),
+    () => props.name,
+  );
   // React sets `filled` and `dirty` from layout effects when the value changes; the field derives them.
   fieldRootContext.registerFilledSource(checked);
   fieldRootContext.registerDirtySource(() => checked() !== validityData.initialValue);
@@ -776,7 +799,14 @@ function NativeSwitchRoot(props: SwitchRoot.Props): JSX.Element {
       literal,
       dynamic,
       owner,
-      createLabelFallback(el, input, () => props['aria-labelledby'], labelId, controlId),
+      createLabelFallback(
+        el,
+        input,
+        () => props['aria-labelledby'],
+        labelId,
+        controlId,
+        () => props['aria-label'],
+      ),
       elementRefs(el, [switchRef], props.ref),
     );
     if (isStatic(props, 'children')) {

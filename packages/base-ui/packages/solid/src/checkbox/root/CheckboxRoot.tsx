@@ -57,7 +57,10 @@ import { useRegisterFieldControl } from '../../internals/field-register-control/
 import { DEFAULT_FIELD_ITEM_CONTEXT, useFieldItemContext } from '../../field/item/FieldItemContext';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
-import { useAriaLabelledBy } from '../../internals/labelable-provider/useAriaLabelledBy';
+import {
+  ariaLabelOverridesLabel,
+  useAriaLabelledBy,
+} from '../../internals/labelable-provider/useAriaLabelledBy';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useCheckboxGroupContext } from '../../checkbox-group/CheckboxGroupContext';
 import { CheckboxRootContext } from './CheckboxRootContext';
@@ -282,6 +285,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     inputElement,
     !untrack(nativeButton),
     controlId,
+    () => componentProps['aria-label'],
   );
 
   createDepsEffect(
@@ -668,7 +672,10 @@ function commitInputChange(
  * Enter on the checkbox submits its form (the default submitter's click) instead of toggling it,
  * unless a handler prevents the event's default during propagation.
  */
-function submitOnEnter(event: BaseUIEvent<KeyboardEvent>, input: HTMLInputElement | null | undefined) {
+function submitOnEnter(
+  event: BaseUIEvent<KeyboardEvent>,
+  input: HTMLInputElement | null | undefined,
+) {
   if (event.key !== 'Enter') {
     return;
   }
@@ -781,6 +788,7 @@ function checkboxAttributes(l: CheckboxLayout, target: Record<string, unknown>, 
   if (!once) {
     // The label fallback (after the apply) follows these: read them here so a change re-runs it.
     void l.props['aria-labelledby'];
+    void l.props['aria-label'];
     m.labelId();
     m.controlId();
   }
@@ -807,7 +815,13 @@ function checkboxAttributes(l: CheckboxLayout, target: Record<string, unknown>, 
   }
   if (once === Boolean(f & LABELLEDBY_STATIC)) {
     const explicit = l.props['aria-labelledby'];
-    put(l, target, once, 'aria-labelledby', (typeof explicit === 'string' ? explicit : undefined) ?? m.labelId());
+    const labelledBy =
+      typeof explicit === 'string'
+        ? explicit
+        : ariaLabelOverridesLabel(l.props['aria-label'])
+          ? undefined
+          : m.labelId();
+    put(l, target, once, 'aria-labelledby', labelledBy);
   }
   if (once) {
     if (f & IS_PARENT) {
@@ -1000,9 +1014,9 @@ function NativeCheckboxRoot(props: CheckboxRoot.Props): JSX.Element {
   const disabled = () =>
     Boolean(
       fieldRootContext.disabled() ||
-        fieldItemContext.disabled() ||
-        groupContext?.disabled() ||
-        props.disabled,
+      fieldItemContext.disabled() ||
+      groupContext?.disabled() ||
+      props.disabled,
     );
   const readOnly = () => props.readOnly ?? false;
   const required = () => props.required ?? false;
@@ -1069,7 +1083,9 @@ function NativeCheckboxRoot(props: CheckboxRoot.Props): JSX.Element {
   if (!groupContext) {
     // React sets `filled` and `dirty` from effects when the value changes; the field derives them.
     fieldRootContext.registerFilledSource(checked);
-    fieldRootContext.registerDirtySource(() => checked() !== fieldRootContext.validityData.initialValue);
+    fieldRootContext.registerDirtySource(
+      () => checked() !== fieldRootContext.validityData.initialValue,
+    );
     // Outside a Field and a Form the change effect has nothing to do (every call is a no-op).
     if (inField || clearErrors !== NOOP) {
       useValueChanged(checked, () => {
@@ -1238,7 +1254,9 @@ function NativeCheckboxRoot(props: CheckboxRoot.Props): JSX.Element {
     const staticProp = (key: string) => !(key in props) || isStatic(props, key);
     // What can never change: a prop that is a literal and no context that could flip it.
     l.flags =
-      (staticProp('disabled') && !inField && !inFieldItem && groupContext == null ? DISABLED_STATIC : 0) |
+      (staticProp('disabled') && !inField && !inFieldItem && groupContext == null
+        ? DISABLED_STATIC
+        : 0) |
       (staticProp('readOnly') ? READONLY_STATIC : 0) |
       (staticProp('required') ? REQUIRED_STATIC : 0) |
       (staticProp('aria-labelledby') && !inLabelable ? LABELLEDBY_STATIC : 0) |
@@ -1265,7 +1283,14 @@ function NativeCheckboxRoot(props: CheckboxRoot.Props): JSX.Element {
       literal,
       dynamic,
       owner,
-      createLabelFallback(el, input, () => props['aria-labelledby'], labelId, controlId),
+      createLabelFallback(
+        el,
+        input,
+        () => props['aria-labelledby'],
+        labelId,
+        controlId,
+        () => props['aria-label'],
+      ),
       elementRefs(el, [controlRef], props.ref),
     );
     if (isStatic(props, 'children')) {
@@ -1279,11 +1304,7 @@ function NativeCheckboxRoot(props: CheckboxRoot.Props): JSX.Element {
       nodes.push(
         <Show
           when={
-            !checked() &&
-            !groupContext &&
-            name() &&
-            !isParent &&
-            props.uncheckedValue !== undefined
+            !checked() && !groupContext && name() && !isParent && props.uncheckedValue !== undefined
           }
         >
           <input
