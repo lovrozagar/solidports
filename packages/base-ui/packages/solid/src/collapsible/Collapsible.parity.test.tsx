@@ -83,7 +83,8 @@ describe('native parity: Collapsible', () => {
     pair.both(() => setOpen(false));
     expect(pair.fast.querySelector('#my-panel')).not.toBe(null);
     pair.both(() => setDisabled(true));
-    expect(pair.fast.querySelector('button')).to.have.attribute('aria-disabled', 'true');
+    pair.same();
+    expect(pair.fast.querySelector('button')).to.have.attribute('disabled');
     pair.both((root) => fireEvent.click(trigger(root)));
     pair.both(() => setDisabled(false));
     pair.both(() => setOpen(true));
