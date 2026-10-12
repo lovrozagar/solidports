@@ -61,7 +61,10 @@ function doSwitch(
   }
 }
 
-export function isMainOrientationKey(key: string, orientation: UseListNavigationProps['orientation']) {
+export function isMainOrientationKey(
+  key: string,
+  orientation: UseListNavigationProps['orientation'],
+) {
   const vertical = key === ARROW_UP || key === ARROW_DOWN;
   const horizontal = key === ARROW_LEFT || key === ARROW_RIGHT;
   return doSwitch(orientation, vertical, horizontal);
@@ -337,7 +340,8 @@ export function useListNavigation(parameters: {
   const waitForListPopulatedFrame = useAnimationFrame();
 
   function runFocus(item: HTMLElement) {
-    if (props.virtual) {
+    // Solid: also runs from effect callbacks, where a direct prop read is untracked by design.
+    if (untrack(() => props.virtual)) {
       getTree()?.events.emit('virtualfocus', item);
     } else {
       cancelQueuedFocusRef.current = enqueueFocus(item, {

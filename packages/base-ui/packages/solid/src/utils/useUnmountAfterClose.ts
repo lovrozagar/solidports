@@ -43,11 +43,8 @@ export interface UseUnmountAfterCloseParameters {
 export function useUnmountAfterClose(parameters: UseUnmountAfterCloseParameters) {
   const open = () => Boolean(access(parameters.open));
 
-  const { mounted, setMounted, transitionStatus } = useTransitionStatus(
-    open,
-    false,
-    false,
-    () => Boolean(access(parameters.animateInitialOpen)),
+  const { mounted, setMounted, transitionStatus } = useTransitionStatus(open, false, false, () =>
+    Boolean(access(parameters.animateInitialOpen)),
   );
 
   // Opening starts a new close cycle. Derive it so the close-completion hook reads the value on
@@ -55,14 +52,9 @@ export function useUnmountAfterClose(parameters: UseUnmountAfterCloseParameters)
   const preventUnmountingOnClose = () =>
     open() ? false : Boolean(access(parameters.preventUnmountOnClose));
 
-  createLayoutEffect(open, (isOpen) => {
-    if (isOpen) {
-      parameters.setPreventUnmountOnClose(false);
-    }
-  });
-
   let mountedNow = untrack(mounted);
   let pendingUnmount = false;
+  let wasOpen: boolean | undefined;
 
   const unmount = () => {
     mountedNow = false;
@@ -70,9 +62,16 @@ export function useUnmountAfterClose(parameters: UseUnmountAfterCloseParameters)
     parameters.onUnmount();
   };
 
+  // Solid: one effect replaces React's `[open]` effect and its every-commit `mounted` mirror.
   createLayoutEffect(
     () => ({ mounted: mounted(), open: open() }),
     (state) => {
+      // Only a change to `open` clears the opt-out, so one recorded while a controlled close is
+      // still pending survives.
+      if (state.open && wasOpen !== true) {
+        parameters.setPreventUnmountOnClose(false);
+      }
+      wasOpen = state.open;
       mountedNow = state.mounted;
       if (pendingUnmount) {
         pendingUnmount = false;

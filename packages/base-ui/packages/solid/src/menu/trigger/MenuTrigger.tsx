@@ -289,7 +289,15 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     () => mergeProps(focus.reference, click.reference) as HTMLProps,
   );
 
-  const rootTriggerProps = createMemo(() => store().select('triggerProps', isMountedByThisTrigger));
+  // The filter root's trigger props ride on the root's memo, so a plain menu adds no node.
+  const rootTriggerProps = createMemo(() => {
+    const currentStore = store();
+    const triggerProps = currentStore.select('triggerProps', isMountedByThisTrigger);
+    const filterTriggerProps = currentStore.select('filterTriggerProps');
+    return filterTriggerProps === EMPTY_OBJECT
+      ? triggerProps
+      : mergeProps(triggerProps, filterTriggerProps);
+  });
 
   const { handlePreFocusGuardFocus, handleFocusTargetFocus } = useTriggerFocusGuards(
     store,
@@ -324,7 +332,6 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     propsSourceAccessor(localInteractionProps),
     hoverProps ?? EMPTY_OBJECT,
     propsSourceAccessor(rootTriggerProps),
-    propsSourceAccessor(() => store().select('filterTriggerProps')),
     {
       'aria-haspopup': 'menu' as const,
       get 'aria-controls'() {

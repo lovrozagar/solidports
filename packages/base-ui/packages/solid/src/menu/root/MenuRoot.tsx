@@ -32,7 +32,7 @@ import {
   createChangeEventDetails,
   type BaseUIChangeEventDetails,
 } from '../../utils/createBaseUIEventDetails';
-import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/empty';
+import { EMPTY_ARRAY, EMPTY_OBJECT, NOOP } from '../../utils/empty';
 import {
   attachPreventUnmountOnClose,
   createPopupOpenState,
@@ -160,7 +160,8 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
     untrack(floatingId),
     hasFloatingParentNode,
   );
-  store.context.virtualFocusRef = props.virtualFocusRef;
+  // Solid: the filter root passes a stable ref object, so it is read once.
+  store.context.virtualFocusRef = untrack(() => props.virtualFocusRef);
 
   store.useControlledProp('openProp', openProp);
   store.useControlledProp('triggerIdProp', triggerIdProp);
@@ -557,22 +558,25 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
     store.setActiveIndex(index, getHighlightReason(event), event);
   };
 
-  const [highlightVersion, setHighlightVersion] = createSignal(0, { ownedWrite: true });
-  const syncHighlightedItem = () => {
-    setHighlightVersion((version) => version + 1);
-  };
-  store.useSyncedValue('highlightedItem', () => {
-    highlightVersion();
-    if (!virtualFocus()) {
-      return undefined;
-    }
-    const index = store.select('activeIndex');
-    if (index == null) {
-      return undefined;
-    }
-    const item = store.context.itemDomElements.current[index];
-    return item ?? undefined;
-  });
+  // Solid: `virtualFocus` is fixed per root (only a filter root sets it), so a plain menu never
+  // creates the nodes that publish the highlighted item or the input's navigation props.
+  const isVirtualFocusRoot = untrack(virtualFocus);
+  let syncHighlightedItem: () => void = NOOP;
+  if (isVirtualFocusRoot) {
+    const [highlightVersion, setHighlightVersion] = createSignal(0, { ownedWrite: true });
+    syncHighlightedItem = () => {
+      setHighlightVersion((version) => version + 1);
+    };
+    store.useSyncedValue('highlightedItem', () => {
+      highlightVersion();
+      const index = store.select('activeIndex');
+      if (index == null) {
+        return undefined;
+      }
+      const item = store.context.itemDomElements.current[index];
+      return item ?? undefined;
+    });
+  }
 
   const onTyping = (nextTyping: boolean) => {
     store.context.typingRef.current = nextTyping;
@@ -732,11 +736,12 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
     return rest;
   };
 
-  store.useSyncedValue('inputProps', () =>
-    virtualFocus()
-      ? ((interactions()?.listNavigation.reference ?? EMPTY_OBJECT) as HTMLProps)
-      : (EMPTY_OBJECT as HTMLProps),
-  );
+  if (isVirtualFocusRoot) {
+    store.useSyncedValue(
+      'inputProps',
+      () => (interactions()?.listNavigation.reference ?? EMPTY_OBJECT) as HTMLProps,
+    );
+  }
 
   const activeTriggerProps = createMemo(
     () =>
@@ -982,7 +987,8 @@ export interface MenuRootInternalProps<Payload = unknown> extends MenuRoot.Props
 export function MenuRoot<Payload>(props: MenuRoot.Props<Payload>) {
   const filterProvider = useMenuFilterProviderContext(true);
   if (filterProvider == null) {
-    return <MenuRootInternal {...props} />;
+    // Solid: a direct call, so a plain menu adds no component owner.
+    return MenuRootInternal(props);
   }
 
   const FilterRoot = filterProvider.Root;
