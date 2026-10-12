@@ -6,7 +6,7 @@ import { usePopupViewport } from '../../utils/usePopupViewport';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTooltipPositionerContext } from '../positioner/TooltipPositionerContext';
 import { useTooltipRootContext } from '../root/TooltipRootContext';
-import { TooltipViewportCssVars } from './TooltipViewportCssVars';
+import * as TooltipViewportCssVars from './TooltipViewportCssVars';
 
 const stateAttributesMapping: StateAttributesMapping<TooltipViewport.State> = {
   activationDirection: (value) =>

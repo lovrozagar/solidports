@@ -5,3 +5,10 @@ export type * from './list/TabsList';
 export type * from './panel/TabsPanel';
 export type * from './root/TabsRoot';
 export type * from './tab/TabsTab';
+
+export * as TabsRootDataAttributes from './root/TabsRootDataAttributes';
+export * as TabsTabDataAttributes from './tab/TabsTabDataAttributes';
+export * as TabsIndicatorCssVariables from './indicator/TabsIndicatorCssVars';
+export * as TabsIndicatorDataAttributes from './indicator/TabsIndicatorDataAttributes';
+export * as TabsPanelDataAttributes from './panel/TabsPanelDataAttributes';
+export * as TabsListDataAttributes from './list/TabsListDataAttributes';

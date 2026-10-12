@@ -58,8 +58,8 @@ import {
   useNavigationMenuRootContext,
   useNavigationMenuTreeContext,
 } from '../root/NavigationMenuRootContext';
-import { NavigationMenuPopupCssVars } from '../popup/NavigationMenuPopupCssVars';
-import { NavigationMenuPositionerCssVars } from '../positioner/NavigationMenuPositionerCssVars';
+import * as NavigationMenuPopupCssVars from '../popup/NavigationMenuPopupCssVars';
+import * as NavigationMenuPositionerCssVars from '../positioner/NavigationMenuPositionerCssVars';
 import { NAVIGATION_MENU_TRIGGER_IDENTIFIER } from '../utils/constants';
 import { isOutsideMenuEvent } from '../utils/isOutsideMenuEvent';
 import { setSharedFixedSize } from '../utils/setSharedFixedSize';

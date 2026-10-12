@@ -13,3 +13,14 @@ export type * from './positioner/NavigationMenuPositioner';
 export type * from './root/NavigationMenuRoot';
 export type * from './trigger/NavigationMenuTrigger';
 export type * from './viewport/NavigationMenuViewport';
+
+export * as NavigationMenuContentDataAttributes from './content/NavigationMenuContentDataAttributes';
+export * as NavigationMenuTriggerDataAttributes from './trigger/NavigationMenuTriggerDataAttributes';
+export * as NavigationMenuPositionerCssVariables from './positioner/NavigationMenuPositionerCssVars';
+export * as NavigationMenuPositionerDataAttributes from './positioner/NavigationMenuPositionerDataAttributes';
+export * as NavigationMenuBackdropDataAttributes from './backdrop/NavigationMenuBackdropDataAttributes';
+export * as NavigationMenuPopupCssVariables from './popup/NavigationMenuPopupCssVars';
+export * as NavigationMenuPopupDataAttributes from './popup/NavigationMenuPopupDataAttributes';
+export * as NavigationMenuArrowDataAttributes from './arrow/NavigationMenuArrowDataAttributes';
+export * as NavigationMenuLinkDataAttributes from './link/NavigationMenuLinkDataAttributes';
+export * as NavigationMenuIconDataAttributes from './icon/NavigationMenuIconDataAttributes';

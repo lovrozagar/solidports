@@ -1,4 +1,4 @@
-import { TransitionStatusDataAttributes } from '../../utils/stateAttributesMapping';
+import { TransitionStatusDataAttributes } from '../../internals/stateAttributesMapping';
 
 /**
  * Present when the collapsible is open.

@@ -28,7 +28,7 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { NavigationMenuPositionerCssVars } from '../positioner/NavigationMenuPositionerCssVars';
+import * as NavigationMenuPositionerCssVars from '../positioner/NavigationMenuPositionerCssVars';
 import { setSharedFixedSize } from '../utils/setSharedFixedSize';
 import {
   type NavigationMenuPopupAutoSizeResetState,
@@ -157,20 +157,16 @@ export function NavigationMenuRoot<Value = any>(
   });
   // Filled in below, once the close cleanup exists.
   let finishClose!: () => void;
-  const {
-    mounted,
-    transitionStatus,
-    preventUnmountingOnClose,
-    forceUnmount,
-  } = useUnmountAfterClose({
-    open,
-    ref: popupElement,
-    preventUnmountOnClose,
-    setPreventUnmountOnClose,
-    onUnmount() {
-      finishClose();
-    },
-  });
+  const { mounted, transitionStatus, preventUnmountingOnClose, forceUnmount } =
+    useUnmountAfterClose({
+      open,
+      ref: popupElement,
+      preventUnmountOnClose,
+      setPreventUnmountOnClose,
+      onUnmount() {
+        finishClose();
+      },
+    });
 
   createDepsRenderEffect(
     () => ({ open: open(), popupElement: popupElement(), positionerElement: positionerElement() }),

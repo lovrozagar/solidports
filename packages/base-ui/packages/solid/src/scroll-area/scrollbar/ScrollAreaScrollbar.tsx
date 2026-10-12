@@ -8,11 +8,11 @@ import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { ScrollAreaRootState } from '../root/ScrollAreaRoot';
 import { useScrollAreaRootContext } from '../root/ScrollAreaRootContext';
-import { ScrollAreaRootCssVars } from '../root/ScrollAreaRootCssVars';
+import * as ScrollAreaRootCssVars from '../root/ScrollAreaRootCssVars';
 import { scrollAreaStateAttributesMapping } from '../root/stateAttributes';
 import { getOffset } from '../utils/getOffset';
 import { ScrollAreaScrollbarContext } from './ScrollAreaScrollbarContext';
-import { ScrollAreaScrollbarCssVars } from './ScrollAreaScrollbarCssVars';
+import * as ScrollAreaScrollbarCssVars from './ScrollAreaScrollbarCssVars';
 
 /**
  * A vertical or horizontal scrollbar for the scroll area.

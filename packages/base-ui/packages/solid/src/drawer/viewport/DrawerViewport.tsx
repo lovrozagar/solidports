@@ -8,7 +8,7 @@ import { flushSync } from '../../utils/flushSync';
 import { createDepsEffect, createDepsRenderEffect, createLayoutEffect } from '../../solid-helpers';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { DialogViewport } from '../../dialog/viewport/DialogViewport';
-import { DialogViewportDataAttributes } from '../../dialog/viewport/DialogViewportDataAttributes';
+import * as DialogViewportDataAttributes from '../../dialog/viewport/DialogViewportDataAttributes';
 import { mergeProps } from '../../merge-props';
 import { useDrawerRootContext } from '../root/DrawerRootContext';
 import {
@@ -24,9 +24,9 @@ import {
   type SwipeDirection,
   type UseSwipeDismissProgressDetails,
 } from '../../utils/useSwipeDismiss';
-import { DrawerPopupCssVars } from '../popup/DrawerPopupCssVars';
-import { DrawerPopupDataAttributes } from '../popup/DrawerPopupDataAttributes';
-import { DrawerBackdropCssVars } from '../backdrop/DrawerBackdropCssVars';
+import * as DrawerPopupCssVars from '../popup/DrawerPopupCssVars';
+import * as DrawerPopupDataAttributes from '../popup/DrawerPopupDataAttributes';
+import * as DrawerBackdropCssVars from '../backdrop/DrawerBackdropCssVars';
 import { DRAWER_CONTENT_ATTRIBUTE } from '../content/drawerContentAttribute';
 import { REASONS } from '../../utils/reasons';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';

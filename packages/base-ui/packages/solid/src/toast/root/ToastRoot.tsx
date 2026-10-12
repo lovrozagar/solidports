@@ -17,8 +17,8 @@ import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
 import type { ToastObject as ToastObjectType } from '../useToastManager';
 import { ToastRootContext } from './ToastRootContext';
-import { ToastRootCssVars } from './ToastRootCssVars';
-import { ToastRootDataAttributes } from './ToastRootDataAttributes';
+import * as ToastRootCssVars from './ToastRootCssVars';
+import * as ToastRootDataAttributes from './ToastRootDataAttributes';
 
 export const toastRootStateAttributesMapping: StateAttributesMapping<ToastRootState> = {
   ...transitionStatusMapping,

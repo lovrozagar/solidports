@@ -6,7 +6,7 @@ import { usePopupViewport } from '../../utils/usePopupViewport';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { usePreviewCardPositionerContext } from '../positioner/PreviewCardPositionerContext';
 import { usePreviewCardRootContext } from '../root/PreviewCardContext';
-import { PreviewCardViewportCssVars } from './PreviewCardViewportCssVars';
+import * as PreviewCardViewportCssVars from './PreviewCardViewportCssVars';
 
 const stateAttributesMapping: StateAttributesMapping<PreviewCardViewport.State> = {
   activationDirection: (value) =>

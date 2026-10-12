@@ -21,7 +21,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { useSelectRootContext } from '../root/SelectRootContext';
 import type { Side } from '../../utils/useAnchorPositioning';
-import { SelectTriggerDataAttributes } from './SelectTriggerDataAttributes';
+import * as SelectTriggerDataAttributes from './SelectTriggerDataAttributes';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 const BOUNDARY_OFFSET = 2;

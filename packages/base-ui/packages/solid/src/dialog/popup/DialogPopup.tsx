@@ -11,7 +11,7 @@ import { type TransitionStatus } from '../../utils/useTransitionStatus';
 import { useDialogPortalContext } from '../portal/DialogPortalContext';
 import { useDialogRootContext } from '../root/DialogRootContext';
 import { dialogStateAttributesMapping } from '../utils/stateAttributesMapping';
-import { DialogPopupCssVars } from './DialogPopupCssVars';
+import * as DialogPopupCssVars from './DialogPopupCssVars';
 
 /**
  * A container for the dialog contents.

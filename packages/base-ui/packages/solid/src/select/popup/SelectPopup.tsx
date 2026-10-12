@@ -28,7 +28,7 @@ import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useSelectPositionerContext } from '../positioner/SelectPositionerContext';
-import { SelectPositionerCssVars } from '../positioner/SelectPositionerCssVars';
+import * as SelectPositionerCssVars from '../positioner/SelectPositionerCssVars';
 import { useSelectFloatingContext, useSelectRootContext } from '../root/SelectRootContext';
 import { clearStyles, LIST_FUNCTIONAL_STYLES } from './utils';
 

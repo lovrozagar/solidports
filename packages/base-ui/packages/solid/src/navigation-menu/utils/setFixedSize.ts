@@ -1,6 +1,6 @@
 import { getCssDimensions } from '../../utils/getCssDimensions';
-import { NavigationMenuPopupCssVars } from '../popup/NavigationMenuPopupCssVars';
-import { NavigationMenuPositionerCssVars } from '../positioner/NavigationMenuPositionerCssVars';
+import * as NavigationMenuPopupCssVars from '../popup/NavigationMenuPopupCssVars';
+import * as NavigationMenuPositionerCssVars from '../positioner/NavigationMenuPositionerCssVars';
 
 export function setFixedSize(element: HTMLElement, type: 'popup' | 'positioner') {
   const { width, height } = getCssDimensions(element);

@@ -17,8 +17,8 @@ import { renderNativeElement, type SetAttribute } from '../../utils/native/eleme
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { createIdRegistration } from '../../utils/native/registration';
 import { useCollapsiblePanel } from './useCollapsiblePanel';
-import { CollapsiblePanelCssVars } from './CollapsiblePanelCssVars';
-import { CollapsiblePanelDataAttributes } from './CollapsiblePanelDataAttributes';
+import * as CollapsiblePanelCssVars from './CollapsiblePanelCssVars';
+import * as CollapsiblePanelDataAttributes from './CollapsiblePanelDataAttributes';
 
 /**
  * A panel with the collapsible contents.

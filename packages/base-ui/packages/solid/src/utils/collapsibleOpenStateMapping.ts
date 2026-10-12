@@ -1,5 +1,5 @@
-import { CollapsiblePanelDataAttributes } from '../collapsible/panel/CollapsiblePanelDataAttributes';
-import { CollapsibleTriggerDataAttributes } from '../collapsible/trigger/CollapsibleTriggerDataAttributes';
+import * as CollapsiblePanelDataAttributes from '../collapsible/panel/CollapsiblePanelDataAttributes';
+import * as CollapsibleTriggerDataAttributes from '../collapsible/trigger/CollapsibleTriggerDataAttributes';
 import type { StateAttributesMapping } from './getStateAttributesProps';
 
 const PANEL_OPEN_HOOK = {

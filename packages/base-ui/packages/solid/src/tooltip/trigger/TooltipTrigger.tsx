@@ -36,7 +36,7 @@ import { useTooltipRootContext } from '../root/TooltipRootContext';
 import { TooltipHandle } from '../store/TooltipHandle';
 import type { TooltipHandleStore } from '../store/TooltipStore';
 import { OPEN_DELAY } from '../utils/constants';
-import { TooltipTriggerDataAttributes } from './TooltipTriggerDataAttributes';
+import * as TooltipTriggerDataAttributes from './TooltipTriggerDataAttributes';
 
 const TOOLTIP_TRIGGER_IDENTIFIER = 'data-base-ui-tooltip-trigger';
 

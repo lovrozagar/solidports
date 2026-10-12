@@ -8,7 +8,7 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
 import { usePositioner } from '../../utils/usePositioner';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
-import { ToastRootCssVars } from '../root/ToastRootCssVars';
+import * as ToastRootCssVars from '../root/ToastRootCssVars';
 import type { ToastObject } from '../useToastManager';
 import { ToastPositionerContext } from './ToastPositionerContext';
 import { splitProps } from '../../solid-1-compat';

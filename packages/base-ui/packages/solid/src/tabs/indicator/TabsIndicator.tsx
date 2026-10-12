@@ -16,7 +16,7 @@ import type { TabsRoot, TabsRootState } from '../root/TabsRoot';
 import { useTabsRootContext } from '../root/TabsRootContext';
 import type { TabsTab } from '../tab/TabsTab';
 import { script as prehydrationScript } from './prehydrationScript.min';
-import { TabsIndicatorCssVars } from './TabsIndicatorCssVars';
+import * as TabsIndicatorCssVars from './TabsIndicatorCssVars';
 
 const stateAttributesMapping = {
   ...tabsStateAttributesMapping,

@@ -3,3 +3,5 @@ export * as Avatar from './index.parts';
 export type * from './fallback/AvatarFallback';
 export type * from './image/AvatarImage';
 export type * from './root/AvatarRoot';
+
+export * as AvatarImageDataAttributes from './image/AvatarImageDataAttributes';

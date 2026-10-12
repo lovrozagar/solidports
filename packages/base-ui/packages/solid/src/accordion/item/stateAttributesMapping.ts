@@ -2,7 +2,7 @@ import { collapsibleOpenStateMapping as baseMapping } from '../../utils/collapsi
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { transitionStatusMapping } from '../../utils/styleHookMapping';
 import type { AccordionItem } from './AccordionItem';
-import { AccordionItemDataAttributes } from './AccordionItemDataAttributes';
+import * as AccordionItemDataAttributes from './AccordionItemDataAttributes';
 
 export const accordionStateAttributesMapping: StateAttributesMapping<AccordionItem.State> = {
   ...baseMapping,

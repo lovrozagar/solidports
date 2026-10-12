@@ -38,7 +38,7 @@ import { getMidpoint } from '../utils/getMidpoint';
 import { getSliderValue } from '../utils/getSliderValue';
 import { getDecimalPrecision, roundValueToStep } from '../utils/roundValueToStep';
 import { script as prehydrationScript } from './prehydrationScript.min';
-import { SliderThumbDataAttributes } from './SliderThumbDataAttributes';
+import * as SliderThumbDataAttributes from './SliderThumbDataAttributes';
 
 const ALL_KEYS = new Set([...COMPOSITE_KEYS, PAGE_UP, PAGE_DOWN]);
 

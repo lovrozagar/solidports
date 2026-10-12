@@ -2,7 +2,7 @@ import { fieldValidityMapping } from '../../field/utils/constants';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
-import { RadioRootDataAttributes } from '../root/RadioRootDataAttributes';
+import * as RadioRootDataAttributes from '../root/RadioRootDataAttributes';
 
 export const stateAttributesMapping = {
   checked(value): Record<string, string> {
