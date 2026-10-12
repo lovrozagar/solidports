@@ -10,7 +10,6 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
-import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
@@ -46,7 +45,6 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     },
   });
   const listItem = useCompositeListItem({ label: () => local.label });
-  const menuPositionerContext = useMenuPositionerContext(true);
   const id = useBaseUiId(idProp);
 
   const { store } = useMenuRootContext();
@@ -70,7 +68,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     id,
     itemMetadata: REGULAR_ITEM,
     nativeButton,
-    nodeId: () => menuPositionerContext?.context.nodeId(),
+    nodeId: store.useState('floatingNodeId'),
     store,
   });
 

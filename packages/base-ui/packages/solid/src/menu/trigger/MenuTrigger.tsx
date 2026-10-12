@@ -201,7 +201,13 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
       ) {
         const doc = ownerDocument(triggerRef.current ?? null);
         doc.addEventListener('mouseup', handleDocumentMouseUp, { once: true });
+
+        return () => {
+          doc.removeEventListener('mouseup', handleDocumentMouseUp);
+        };
       }
+
+      return undefined;
     },
   );
 

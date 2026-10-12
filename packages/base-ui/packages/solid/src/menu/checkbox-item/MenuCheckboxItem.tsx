@@ -10,7 +10,6 @@ import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
-import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import type { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
@@ -50,7 +49,6 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     },
   });
   const listItem = useCompositeListItem({ label: () => local.label });
-  const menuPositionerContext = useMenuPositionerContext(true);
   const id = useBaseUiId(idProp);
 
   const { store } = useMenuRootContext();
@@ -73,7 +71,7 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     id,
     itemMetadata: REGULAR_ITEM,
     nativeButton,
-    nodeId: () => menuPositionerContext?.context.nodeId(),
+    nodeId: store.useState('floatingNodeId'),
     store,
   });
 

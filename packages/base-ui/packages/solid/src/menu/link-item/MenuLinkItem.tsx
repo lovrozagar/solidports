@@ -10,7 +10,6 @@ import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM } from '../item/useMenuItem';
 import { useMenuItemCommonProps } from '../item/useMenuItemCommonProps';
 import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
-import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 
 /**
@@ -35,12 +34,11 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
     },
   });
   const listItem = useCompositeListItem({ label: () => componentProps.label });
-  const menuPositionerContext = useMenuPositionerContext(true);
-  const nodeId = () => menuPositionerContext?.context.nodeId();
 
   const id = useBaseUiId(idProp);
 
   const { store } = useMenuRootContext();
+  const nodeId = store.useState('floatingNodeId');
   const highlighted = store.useState('isActive', listItem.index);
   const itemProps = store.useState('itemProps');
   const typingRef = store.context.typingRef;

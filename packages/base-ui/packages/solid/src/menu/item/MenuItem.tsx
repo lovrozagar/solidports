@@ -6,7 +6,6 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
 import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
-import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { REGULAR_ITEM, useMenuItem } from './useMenuItem';
 
@@ -43,7 +42,6 @@ export function MenuItem(componentProps: MenuItem.Props) {
       return componentProps.label;
     },
   });
-  const menuPositionerContext = useMenuPositionerContext(true);
   const id = useBaseUiId(idProp);
 
   const { store } = useMenuRootContext();
@@ -59,7 +57,7 @@ export function MenuItem(componentProps: MenuItem.Props) {
     id,
     itemMetadata: REGULAR_ITEM,
     nativeButton,
-    nodeId: () => menuPositionerContext?.context.nodeId(),
+    nodeId: store.useState('floatingNodeId'),
     store,
   });
 
