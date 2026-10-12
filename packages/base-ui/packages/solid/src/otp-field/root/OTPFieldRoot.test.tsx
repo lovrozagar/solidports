@@ -1144,66 +1144,6 @@ describe('<OTPField.Root />', () => {
       expect(onValueComplete.mock.calls[0]?.[1].reason).toBe(REASONS.inputChange);
     });
 
-    it.each([
-      { lockState: 'readOnly', label: 'inside Field', withField: true },
-      { lockState: 'disabled', label: 'inside Field', withField: true },
-      { lockState: 'readOnly', label: 'outside Field', withField: false },
-      { lockState: 'disabled', label: 'outside Field', withField: false },
-    ] as const)(
-      'ignores hidden-input autofill when $lockState $label',
-      async ({ lockState, withField }) => {
-        const onValueChange = vi.fn();
-        const onValueInvalid = vi.fn();
-        const onValueComplete = vi.fn();
-        const otpField = () => (
-          <OTPField
-            readOnly={lockState === 'readOnly'}
-            disabled={lockState === 'disabled'}
-            name={withField ? undefined : 'otp'}
-            onValueChange={onValueChange}
-            onValueInvalid={onValueInvalid}
-            onValueComplete={onValueComplete}
-          />
-        );
-
-        await render(() =>
-          withField ? (
-            <Form errors={{ otp: 'test' }}>
-              <Field.Root name="otp">
-                {otpField()}
-                <Field.Error data-testid="error" />
-              </Field.Root>
-            </Form>
-          ) : (
-            otpField()
-          ),
-        );
-
-        const hiddenInput = document.querySelector<HTMLInputElement>('input[name="otp"]');
-
-        expect(hiddenInput).not.toBeNull();
-
-        // Only the Field wrapper renders an error and marks the inputs invalid,
-        // unless the field is disabled.
-        const expectedError = withField ? 'test' : undefined;
-        const expectedAriaInvalid = withField && lockState !== 'disabled' ? 'true' : null;
-
-        expect(screen.queryByTestId('error')?.textContent).toBe(expectedError);
-        screen.getAllByRole('textbox').forEach((input) => {
-          expect(input.getAttribute('aria-invalid')).toBe(expectedAriaInvalid);
-        });
-
-        fireEvent.input(hiddenInput!, { target: { value: '12a34b56' } });
-
-        expect(getValues()).toBe('');
-        expect(onValueChange).not.toHaveBeenCalled();
-        expect(onValueInvalid).not.toHaveBeenCalled();
-        expect(onValueComplete).not.toHaveBeenCalled();
-
-        expect(screen.queryByTestId('error')?.textContent).toBe(expectedError);
-      },
-    );
-
     describe('prop: autoSubmit', () => {
       const flushSyncLifecycleError = 'flushSync was called from inside a lifecycle method';
 
@@ -1459,6 +1399,86 @@ describe('<OTPField.Root />', () => {
         expect(hiddenInput).toHaveAttribute('pattern', '\\d{6}');
       });
     });
+
+    it.each([
+      { lockState: 'readOnly', ariaInvalid: 'true' },
+      { lockState: 'disabled', ariaInvalid: null },
+    ] as const)(
+      'ignores hidden-input autofill when $lockState inside Field',
+      async ({ lockState, ariaInvalid }) => {
+        const onValueChange = vi.fn();
+        const onValueInvalid = vi.fn();
+        const onValueComplete = vi.fn();
+
+        await render(() => (
+          <Form errors={{ otp: 'test' }}>
+            <Field.Root name="otp">
+              <OTPField
+                readOnly={lockState === 'readOnly'}
+                disabled={lockState === 'disabled'}
+                onValueChange={onValueChange}
+                onValueInvalid={onValueInvalid}
+                onValueComplete={onValueComplete}
+              />
+              <Field.Error data-testid="error" />
+            </Field.Root>
+          </Form>
+        ));
+
+        const hiddenInput = document.querySelector<HTMLInputElement>('input[name="otp"]');
+
+        expect(hiddenInput).not.toBeNull();
+        expect(screen.getByTestId('error')).toHaveTextContent('test');
+        const inputs = screen.getAllByRole('textbox');
+        expect(inputs.map((input) => input.getAttribute('aria-invalid'))).toEqual(
+          inputs.map(() => ariaInvalid),
+        );
+
+        fireEvent.input(hiddenInput!, { target: { value: '12a34b56' } });
+
+        expect(getValues()).toBe('');
+        expect(onValueChange).not.toHaveBeenCalled();
+        expect(onValueInvalid).not.toHaveBeenCalled();
+        expect(onValueComplete).not.toHaveBeenCalled();
+        expect(screen.getByTestId('error')).toHaveTextContent('test');
+      },
+    );
+
+    it.each([{ lockState: 'readOnly' }, { lockState: 'disabled' }] as const)(
+      'ignores hidden-input autofill when $lockState outside Field',
+      async ({ lockState }) => {
+        const onValueChange = vi.fn();
+        const onValueInvalid = vi.fn();
+        const onValueComplete = vi.fn();
+
+        await render(() => (
+          <OTPField
+            readOnly={lockState === 'readOnly'}
+            disabled={lockState === 'disabled'}
+            name="otp"
+            onValueChange={onValueChange}
+            onValueInvalid={onValueInvalid}
+            onValueComplete={onValueComplete}
+          />
+        ));
+
+        const hiddenInput = document.querySelector<HTMLInputElement>('input[name="otp"]');
+
+        expect(hiddenInput).not.toBeNull();
+        // Without a Field wrapper, nothing marks the inputs invalid.
+        const inputs = screen.getAllByRole('textbox');
+        expect(inputs.map((input) => input.getAttribute('aria-invalid'))).toEqual(
+          inputs.map(() => null),
+        );
+
+        fireEvent.input(hiddenInput!, { target: { value: '12a34b56' } });
+
+        expect(getValues()).toBe('');
+        expect(onValueChange).not.toHaveBeenCalled();
+        expect(onValueInvalid).not.toHaveBeenCalled();
+        expect(onValueComplete).not.toHaveBeenCalled();
+      },
+    );
   });
 
   it('updates standalone filled and focused state on the root', async () => {
@@ -1567,4 +1587,153 @@ describe('<OTPField.Root />', () => {
       }
     },
   );
+
+  describe('[data-focused] without a blur event', () => {
+    function Fields(props: { firstMounted?: boolean; firstDisabled?: boolean }) {
+      return (
+        <Field.Root data-testid="field">
+          {(props.firstMounted ?? true) && (
+            <OTPField data-testid="first" disabled={props.firstDisabled ?? false} />
+          )}
+        </Field.Root>
+      );
+    }
+
+    it('is removed when the focused field becomes disabled', async () => {
+      const [testProps, setTestProps] = createSignal<Parameters<typeof Fields>[0]>({});
+      const setProps = async (next: Partial<Parameters<typeof Fields>[0]>) =>
+        act(async () => {
+          await Promise.resolve();
+          setTestProps((previous) => ({ ...previous, ...next }));
+        });
+      await render(() => <Fields {...testProps()} />);
+
+      await act(async () => {
+        screen.getAllByRole<HTMLInputElement>('textbox')[0].focus();
+      });
+
+      expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+      expect(screen.getByTestId('first')).toHaveAttribute('data-focused', '');
+
+      await setProps({ firstDisabled: true });
+
+      expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+      expect(screen.getByTestId('first')).not.toHaveAttribute('data-focused');
+    });
+
+    it('is removed when the focused field unmounts', async () => {
+      const [testProps, setTestProps] = createSignal<Parameters<typeof Fields>[0]>({});
+      const setProps = async (next: Partial<Parameters<typeof Fields>[0]>) =>
+        act(async () => {
+          await Promise.resolve();
+          setTestProps((previous) => ({ ...previous, ...next }));
+        });
+      await render(() => <Fields {...testProps()} />);
+
+      await act(async () => {
+        screen.getAllByRole<HTMLInputElement>('textbox')[0].focus();
+      });
+
+      expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+
+      await setProps({ firstMounted: false });
+
+      expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+    });
+
+    it('is kept when a previously focused slot unmounts after focus moves to a sibling', async () => {
+      // `inputCount` trails `length` by a render, so shrinking both at once warns about a
+      // mismatch that never reaches the DOM. Silencing it keeps the test from passing only on
+      // CI's retry, where `warn`'s dedupe swallows the message it failed on the first time.
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      function TestCase(props: { firstMounted?: boolean }) {
+        return (
+          <Field.Root data-testid="field">
+            <OTPFieldBase.Root
+              length={(props.firstMounted ?? true) ? 3 : 2}
+              defaultValue="1"
+              data-testid="otp"
+            >
+              {(props.firstMounted ?? true) && <OTPFieldBase.Input key="first" />}
+              <OTPFieldBase.Input key="second" />
+              <OTPFieldBase.Input key="third" />
+            </OTPFieldBase.Root>
+          </Field.Root>
+        );
+      }
+
+      try {
+        const [testProps, setTestProps] = createSignal<Parameters<typeof TestCase>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof TestCase>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        await render(() => <TestCase {...testProps()} />);
+        const [first, second] = screen.getAllByRole<HTMLInputElement>('textbox');
+
+        await act(async () => {
+          first.focus();
+        });
+        await act(async () => {
+          second.focus();
+        });
+
+        expect(second).toHaveFocus();
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+        expect(screen.getByTestId('otp')).toHaveAttribute('data-focused', '');
+
+        await setProps({ firstMounted: false });
+
+        expect(second).toHaveFocus();
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+        expect(screen.getByTestId('otp')).toHaveAttribute('data-focused', '');
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('is removed when the focused slot unmounts but its field remains', async () => {
+      // Unmounting one slot leaves `length` out of sync with the rendered inputs, which is
+      // irrelevant to what this test asserts. `warn` dedupes on the message, so `length={3}`
+      // keeps this silenced warning from consuming the messages other tests assert.
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      function TestCase(props: { firstMounted?: boolean }) {
+        return (
+          <Field.Root data-testid="field">
+            <OTPFieldBase.Root length={3} data-testid="otp">
+              {(props.firstMounted ?? true) && <OTPFieldBase.Input />}
+              <OTPFieldBase.Input />
+              <OTPFieldBase.Input />
+            </OTPFieldBase.Root>
+          </Field.Root>
+        );
+      }
+
+      try {
+        const [testProps, setTestProps] = createSignal<Parameters<typeof TestCase>[0]>({});
+        const setProps = async (next: Partial<Parameters<typeof TestCase>[0]>) =>
+          act(async () => {
+            await Promise.resolve();
+            setTestProps((previous) => ({ ...previous, ...next }));
+          });
+        await render(() => <TestCase {...testProps()} />);
+
+        await act(async () => {
+          screen.getAllByRole<HTMLInputElement>('textbox')[0].focus();
+        });
+        expect(screen.getByTestId('field')).toHaveAttribute('data-focused', '');
+        expect(screen.getByTestId('otp')).toHaveAttribute('data-focused', '');
+
+        await setProps({ firstMounted: false });
+
+        expect(screen.getByTestId('field')).not.toHaveAttribute('data-focused');
+        expect(screen.getByTestId('otp')).not.toHaveAttribute('data-focused');
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+  });
 });
