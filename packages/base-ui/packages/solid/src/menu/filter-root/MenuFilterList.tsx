@@ -3,6 +3,7 @@ import { useDirection } from '../../direction-provider/DirectionContext';
 import { ownerDocument } from '../../utils/owner';
 import { activeElement, contains, getTarget } from '../../utils/shadowDom';
 import { FilterDropdownList } from '../../filter-dropdown/list/FilterDropdownList';
+import { mergeProps } from '../../merge-props';
 import { isMainOrientationKey } from '../../floating-ui-solid/hooks/useListNavigation';
 import { useCompositeListContext } from '../../internals/composite/list/CompositeListContext';
 import { createLayoutEffect, useRef } from '../../solid-helpers';
@@ -99,25 +100,28 @@ export function MenuFilterList(props: MenuList.Props) {
     () => subscribeMapChange(handleItemMapChange),
   );
 
-  const ariaLabelledBy = () =>
-    resolvePopupLabel(
-      {
-        'aria-label': typeof props['aria-label'] === 'string' ? props['aria-label'] : undefined,
-        'aria-labelledby':
-          typeof props['aria-labelledby'] === 'string' ? props['aria-labelledby'] : undefined,
-        render: props.render,
+  const listProps = mergeProps(
+    {
+      role: 'menu',
+      get 'aria-labelledby'() {
+        return resolvePopupLabel(
+          {
+            'aria-label': typeof props['aria-label'] === 'string' ? props['aria-label'] : undefined,
+            'aria-labelledby':
+              typeof props['aria-labelledby'] === 'string' ? props['aria-labelledby'] : undefined,
+            render: props.render,
+          },
+          null,
+          triggerId() ?? null,
+        );
       },
-      null,
-      triggerId() ?? null,
-    );
+      get 'aria-orientation'() {
+        return orientation() === 'horizontal' ? 'horizontal' : undefined;
+      },
+      onKeyDown: handleKeyDown,
+    },
+    props,
+  ) as FilterDropdownList.Props;
 
-  return (
-    <FilterDropdownList
-      {...(props as object)}
-      role="menu"
-      aria-labelledby={ariaLabelledBy()}
-      aria-orientation={orientation() === 'horizontal' ? 'horizontal' : undefined}
-      onKeyDown={handleKeyDown}
-    />
-  );
+  return <FilterDropdownList {...listProps} />;
 }

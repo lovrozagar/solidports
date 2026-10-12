@@ -1,3 +1,4 @@
+import { mergeProps } from '../../merge-props';
 import { ownerDocument } from '../../utils/owner';
 import { activeElement } from '../../utils/shadowDom';
 import type { HTMLProps } from '../../utils/types';
@@ -18,7 +19,7 @@ export function MenuInput(props: MenuInput.Props) {
   useMenuFilterPart('Input');
   const { store } = useMenuRootContext();
   const value = useFilterDropdownValueContext();
-  const inputProps = store.useState('inputProps');
+  const storeInputProps = store.useState('inputProps');
   const activeItemId = store.useState('highlightedItemId');
   const handleKeyDown = useMenuFilterKeyDown(() => value() !== '');
 
@@ -28,13 +29,13 @@ export function MenuInput(props: MenuInput.Props) {
       if (key === 'onKeyDown') {
         return undefined;
       }
-      return inputProps()[key as keyof HTMLProps];
+      return storeInputProps()[key as keyof HTMLProps];
     },
     has(_target, key) {
-      return key !== 'onKeyDown' && key in inputProps();
+      return key !== 'onKeyDown' && key in storeInputProps();
     },
     ownKeys() {
-      return Reflect.ownKeys(inputProps()).filter((key) => key !== 'onKeyDown');
+      return Reflect.ownKeys(storeInputProps()).filter((key) => key !== 'onKeyDown');
     },
     getOwnPropertyDescriptor(_target, key) {
       if (key === 'onKeyDown' || typeof key !== 'string') {
@@ -43,26 +44,33 @@ export function MenuInput(props: MenuInput.Props) {
       return {
         configurable: true,
         enumerable: true,
-        get: () => inputProps()[key as keyof HTMLProps],
+        get: () => storeInputProps()[key as keyof HTMLProps],
       };
     },
   });
 
+  const inputProps = mergeProps<typeof FilterDropdownInput>(
+    {
+      onKeyDown: handleKeyDown,
+      onFocus() {
+        store.set('inputFocused', true);
+      },
+      onBlur() {
+        store.set('inputFocused', false);
+      },
+      // Ref changes cover input removal without blur.
+      ref(input: HTMLInputElement | null) {
+        store.set('inputFocused', input != null && activeElement(ownerDocument(input)) === input);
+      },
+    },
+    props,
+  );
+
   return (
     <FilterDropdownInput
-      {...props}
+      {...inputProps}
       activeItemId={activeItemId()}
       navigationProps={navigationProps}
-      onKeyDown={handleKeyDown}
-      onFocus={() => {
-        store.set('inputFocused', true);
-      }}
-      onBlur={() => {
-        store.set('inputFocused', false);
-      }}
-      ref={(input) => {
-        store.set('inputFocused', input != null && activeElement(ownerDocument(input)) === input);
-      }}
     />
   );
 }

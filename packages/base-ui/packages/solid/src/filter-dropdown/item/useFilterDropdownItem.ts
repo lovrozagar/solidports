@@ -7,7 +7,11 @@ import {
 import { DETACHED_OWNER } from '../store';
 import { access, createLayoutEffect, useRef, type MaybeAccessor } from '../../solid-helpers';
 
-/** Text of the rendered children, for when the element is filtered out and has no DOM node. */
+/**
+ * Text of the rendered children, for when the element is filtered out and has no DOM node.
+ * Solid: children resolve to strings, accessors and DOM nodes rather than element descriptions,
+ * so a node reports the text it renders.
+ */
 function childrenText(children: unknown): string {
   if (typeof children === 'string' || typeof children === 'number') {
     return String(children);
@@ -15,8 +19,11 @@ function childrenText(children: unknown): string {
   if (Array.isArray(children)) {
     return children.map(childrenText).join('');
   }
-  if (children != null && typeof children === 'object' && 'children' in children) {
-    return childrenText((children as { children?: unknown }).children);
+  if (typeof children === 'function') {
+    return childrenText((children as () => unknown)());
+  }
+  if (typeof Node !== 'undefined' && children instanceof Node) {
+    return children.textContent ?? '';
   }
   return '';
 }
@@ -67,24 +74,31 @@ export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
   // registered and skip the mount update. A late item under an active filter starts
   // unregistered and renders once so its DOM text can be captured.
   const [registered, setRegistered] = createSignal(untrack(matched), { ownedWrite: true });
+  // Whether the item renders its element. A filtered-out item's last element stays in `ref`.
+  const rendered = () => !registered() || matched();
 
-  const resolveText = () => {
+  // Solid: reading JSX children creates them, so they are read only while the item is filtered
+  // out and has no element whose text could be read instead.
+  const readChildrenText = () => childrenText(access(params.children) ?? access(params.render));
+
+  const resolveText = (fromChildren?: string) => {
     const label = untrack(() => access(params.label));
     if (label != null) {
       return label;
     }
-    const fromChildren = childrenText(
-      untrack(() => access(params.children) ?? access(params.render)),
-    );
-    const previous = previousChildrenText;
-    previousChildrenText = fromChildren;
-    if (ref.current !== null) {
-      return ref.current.textContent || '';
+    if (untrack(rendered)) {
+      // The element can attach after this runs; `getText` reads it when the filter runs.
+      return ref.current !== null ? ref.current.textContent || '' : (registeredText ?? '');
     }
-    if (registeredText !== undefined && fromChildren === previous) {
+    const childrenTextValue = fromChildren ?? untrack(readChildrenText);
+    const previous = previousChildrenText;
+    previousChildrenText = childrenTextValue;
+    // A filtered-out item has no DOM node left. Its children are only a stand-in for the text it
+    // renders, so the cached text wins unless the children changed.
+    if (registeredText !== undefined && childrenTextValue === previous) {
       return registeredText;
     }
-    return fromChildren;
+    return childrenTextValue;
   };
 
   const register = (resolvedText?: string) => {
@@ -94,8 +108,10 @@ export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
     }
     return registerItem(itemId, {
       getText() {
+        // A mounted item reports what it renders now, even nothing, since a descendant can change
+        // its text without the item updating. A filtered-out item falls back to the cached text.
         const label = untrack(() => access(params.label));
-        if (label == null && ref.current) {
+        if (label == null && ref.current && untrack(rendered)) {
           registeredText = ref.current.textContent || '';
         }
         return registeredText;
@@ -117,15 +133,20 @@ export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
     (retainGroup) => registerGroupItem?.(itemId, retainGroup),
   );
 
-  // Re-register when the item's text changes, so the active query runs again.
+  // Re-register when the item's text changes, so the active query runs again. A rendered item's
+  // text is read from its element when the filter runs.
   createLayoutEffect(
-    () => ({
-      label: access(params.label),
-      children: access(params.children),
-      render: access(params.render),
-    }),
     () => {
-      const text = resolveText();
+      const label = access(params.label);
+      if (label != null || rendered()) {
+        return label;
+      }
+      return { children: readChildrenText() };
+    },
+    (source) => {
+      const text = resolveText(
+        source != null && typeof source === 'object' ? source.children : undefined,
+      );
       if (text !== registeredText) {
         registeredText = text;
         register(text);

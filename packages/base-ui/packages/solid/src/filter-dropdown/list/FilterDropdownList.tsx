@@ -20,14 +20,16 @@ export function FilterDropdownList(componentProps: FilterDropdownList.Props) {
     context.setRenderedListId,
   );
 
-  const groupedChildren = provideContext(
-    FilterDropdownGroupContext,
-    null,
-    () => componentProps.children as JSX.Element,
-  );
-
   const element = useRenderElement('div', componentProps, {
     ref: [registerIdRef],
+    // Groups inside the list belong to this root, not to a group the list is nested in.
+    get children() {
+      return provideContext(
+        FilterDropdownGroupContext,
+        null,
+        () => componentProps.children as JSX.Element,
+      );
+    },
     props: [
       {
         tabindex: -1,
@@ -36,11 +38,7 @@ export function FilterDropdownList(componentProps: FilterDropdownList.Props) {
         },
         onFocus(event: FocusEvent) {
           const owner = context.focusOwnerRef.current;
-          if (
-            owner &&
-            event.relatedTarget === owner &&
-            getTarget(event) === event.currentTarget
-          ) {
+          if (owner && event.relatedTarget === owner && getTarget(event) === event.currentTarget) {
             refocusOwner(owner);
           }
         },
@@ -52,9 +50,6 @@ export function FilterDropdownList(componentProps: FilterDropdownList.Props) {
         },
       } satisfies HTMLProps,
       elementProps,
-      {
-        children: groupedChildren,
-      },
     ],
   });
 

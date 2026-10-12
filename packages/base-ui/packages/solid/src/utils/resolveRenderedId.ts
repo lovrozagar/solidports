@@ -1,3 +1,4 @@
+import { createEffect, createMemo, onCleanup, untrack } from 'solid-js';
 import { access, type MaybeAccessor } from '../solid-helpers';
 
 interface ResolveRenderedIdProps {
@@ -40,14 +41,32 @@ export function useRenderedId(
   setId: ((id: string | undefined) => void) | undefined,
 ) {
   const id = () => resolveRenderedId(props, access(defaultId));
-  const registeredId = () => {
+  const registeredId = createMemo(() => {
     const fallback = access(defaultId);
     const resolved = resolveRenderedId(props, fallback);
     return resolved === fallback ? undefined : resolved;
-  };
+  });
 
-  const ref = (element: HTMLElement | null | undefined) => {
-    setId?.(element ? registeredId() : undefined);
+  let element: HTMLElement | null = null;
+  if (setId) {
+    // Solid: React re-runs the ref callback when the registered id changes; Solid calls a ref
+    // once, so a changed id is republished here and released when the element's owner disposes.
+    createEffect(registeredId, (registered) => {
+      if (element) {
+        setId(registered);
+      }
+    });
+    onCleanup(() => {
+      if (element) {
+        element = null;
+        setId(undefined);
+      }
+    });
+  }
+
+  const ref = (nextElement: HTMLElement | null | undefined) => {
+    element = nextElement ?? null;
+    setId?.(element ? untrack(registeredId) : undefined);
   };
 
   return [id, ref] as const;

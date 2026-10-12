@@ -23,7 +23,7 @@ export function FilterDropdownClear(componentProps: FilterDropdownClear.Props) {
   const disabled = () => context.disabled() || disabledProp();
   const visible = () => value() !== '';
 
-  const { buttonRef, getButtonProps } = useButton({
+  const { buttonRef, buttonSources } = useButton({
     disabled,
     native: nativeButton,
   });
@@ -38,7 +38,9 @@ export function FilterDropdownClear(componentProps: FilterDropdownClear.Props) {
     enabled: visible,
     state,
     ref: [buttonRef],
+    // The button's attributes below the part's props, its handlers above them.
     props: [
+      ...buttonSources.attributes,
       {
         tabindex: -1,
         'aria-hidden': 'true',
@@ -53,7 +55,7 @@ export function FilterDropdownClear(componentProps: FilterDropdownClear.Props) {
         },
       },
       elementProps,
-      getButtonProps(),
+      buttonSources.handlers,
     ],
   });
 

@@ -1,5 +1,6 @@
 import { expect, describe, it } from 'vitest';
-import { createRenderer } from '#test-utils';
+import { createSignal, Show } from 'solid-js';
+import { act, createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
 import {
   INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY,
@@ -43,6 +44,34 @@ describe('useInitialLiveRegionTextMutation', () => {
 
     expect(text.data).toBe('Status⁠');
     expect(empty.data).toBe('');
+  });
+
+  it('marks the text when the element appears after mount', () => {
+    const [present, setPresent] = createSignal(false);
+
+    function Status() {
+      const ref = useInitialLiveRegionTextMutation<HTMLDivElement>(present);
+      return (
+        <Show when={present()}>
+          <div
+            ref={(el) => {
+              ref.current = el;
+            }}
+            data-testid="status"
+          >
+            Ready
+          </div>
+        </Show>
+      );
+    }
+
+    render(Status);
+
+    expect(screen.queryByTestId('status')).toBe(null);
+
+    act(() => setPresent(true));
+
+    expect(screen.getByTestId('status').firstChild).toHaveProperty('nodeValue', 'Ready\u2060');
   });
 
   describe('with fake timers', () => {

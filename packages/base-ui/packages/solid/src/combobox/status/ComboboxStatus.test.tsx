@@ -4,7 +4,7 @@ import { act, createRenderer, describeConformance } from '#test-utils';
 import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY } from '../utils/useInitialLiveRegionTextMutation';
+import { INITIAL_LIVE_REGION_TEXT_MUTATION_RESET_DELAY } from '../../internals/useInitialLiveRegionTextMutation';
 
 describe('<Combobox.Status />', () => {
   const { render } = createRenderer();
