@@ -1,0 +1,42 @@
+{
+  "name": "MenuFilterProvider",
+  "description": "Enables filtering for the menu or submenu it wraps. Add `Menu.Input` to the popup and place\nits items in `Menu.List`.\nWrap each searchable submenu in its own provider.\nDoesn't render its own HTML element.",
+  "props": {
+    "defaultValue": {
+      "type": "string",
+      "description": "The uncontrolled filter query when the menu is initially rendered.\nTo render a controlled query, use the `value` prop instead.",
+      "detailedType": "string | undefined"
+    },
+    "value": {
+      "type": "string",
+      "description": "The filter query. Use when controlled.\nWhen the popup closes, `onValueChange` is called with an empty query. The controlled\nvalue changes only when the consumer updates this prop.",
+      "detailedType": "string | undefined"
+    },
+    "onValueChange": {
+      "type": "((value: string, eventDetails: Menu.FilterProvider.ChangeEventDetails) => void)",
+      "description": "Event handler called when the filter query changes.",
+      "detailedType": "| ((\n    value: string,\n    eventDetails: Menu.FilterProvider.ChangeEventDetails,\n  ) => void)\n| undefined"
+    },
+    "autoHighlight": {
+      "type": "boolean | 'always'",
+      "default": "false",
+      "description": "Whether filtering highlights the first matching item automatically.\n- `true`: highlight it while the query is not empty.\n- `'always'`: highlight it even when the query is empty.\n\nOpening the menu from the keyboard highlights the first item either way, and the arrow keys\ncan move the highlight to another item. With either value, the arrow keys wrap within the\nlist rather than returning to the input, and with `'always'` a pointer highlight stays when\nthe pointer leaves.",
+      "detailedType": "boolean | 'always' | undefined"
+    },
+    "filter": {
+      "type": "((text: string, query: string) => boolean) | null",
+      "description": "Filter function used to match items against the query. Receives each item's `label` (or its\nrendered text) and the trimmed query, and keeps the item when it returns `true`.\nBy default, items match when they contain the query, ignoring case, accents, and punctuation.\nPass `null` when rendering filtered items yourself.",
+      "detailedType": "| ((text: string, query: string) => boolean)\n| null\n| undefined"
+    },
+    "locale": {
+      "type": "Intl.LocalesArgument",
+      "description": "The locale the default `filter` uses for string comparison.\nDefaults to the user's runtime locale."
+    },
+    "children": {
+      "type": "JSX.Element",
+      "description": "The `<Menu.Root>` or `<Menu.SubmenuRoot>` to make filterable."
+    }
+  },
+  "dataAttributes": {},
+  "cssVariables": {}
+}

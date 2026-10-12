@@ -197,7 +197,7 @@ declare module "virtual:file-routes" {
       $$route?: undefined;
     },
     {
-      path: "/(docs)/solid/components/radio/";
+      path: "/(docs)/solid/components/radio-group/";
       page: true;
       $component: FileRouteLazyRef;
       $$route?: undefined;
@@ -509,6 +509,12 @@ declare module "virtual:file-routes" {
       $$route?: undefined;
     },
     {
+      path: "/(docs)/solid/overview/releases/v1-9-0/";
+      page: true;
+      $component: FileRouteLazyRef;
+      $$route?: undefined;
+    },
+    {
       path: "/(docs)/solid/utils/csp-provider/";
       page: true;
       $component: FileRouteLazyRef;
@@ -669,14 +675,6 @@ declare module "virtual:file-routes" {
         {
           path: "/solid/components/meter/";
           id: "/solid/components/meter/";
-          page: true;
-          $component: FileRouteLazyRef;
-          $$route?: undefined;
-          children?: undefined;
-        },
-        {
-          path: "/solid/components/radio/";
-          id: "/solid/components/radio/";
           page: true;
           $component: FileRouteLazyRef;
           $$route?: undefined;
@@ -931,6 +929,14 @@ declare module "virtual:file-routes" {
           children?: undefined;
         },
         {
+          path: "/solid/components/radio-group/";
+          id: "/solid/components/radio-group/";
+          page: true;
+          $component: FileRouteLazyRef;
+          $$route?: undefined;
+          children?: undefined;
+        },
+        {
           path: "/solid/components/scroll-area/";
           id: "/solid/components/scroll-area/";
           page: true;
@@ -1077,6 +1083,14 @@ declare module "virtual:file-routes" {
         {
           path: "/solid/overview/releases/v1-8-0/";
           id: "/solid/overview/releases/v1-8-0/";
+          page: true;
+          $component: FileRouteLazyRef;
+          $$route?: undefined;
+          children?: undefined;
+        },
+        {
+          path: "/solid/overview/releases/v1-9-0/";
+          id: "/solid/overview/releases/v1-9-0/";
           page: true;
           $component: FileRouteLazyRef;
           $$route?: undefined;

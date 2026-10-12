@@ -2,7 +2,7 @@ import { useLocation } from "@solidjs/router"
 import { GitHubIcon } from "../../icons/GitHubIcon"
 
 const SOURCE_CODE_REPO = "https://github.com/mui/base-ui"
-const SOURCE_CODE_REF = "v1.8.0"
+const SOURCE_CODE_REF = "v1.9.0"
 const SOURCE_PATH_PREFIXES = ["/solid/components/", "/solid/utils/"] as const
 
 function getSourceUrl(pathname: string) {

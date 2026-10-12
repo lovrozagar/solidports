@@ -26,10 +26,13 @@ export default function ExampleDirectionProvider() {
     <div dir="rtl">
       <DirectionProvider direction="rtl">
         <Slider.Root defaultValue={25}>
-          <Slider.Control class="flex w-56 items-center py-3">
-            <Slider.Track class="relative h-1 w-full rounded bg-gray-200 shadow-[inset_0_0_0_1px] shadow-gray-200">
-              <Slider.Indicator class="rounded bg-gray-700" />
-              <Slider.Thumb class="size-4 rounded-full bg-white outline outline-1 outline-gray-300 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-blue-800" />
+          <Slider.Control class="flex w-56 touch-none items-center py-3 select-none">
+            <Slider.Track class="h-1 w-full bg-neutral-200 select-none dark:bg-neutral-800">
+              <Slider.Indicator class="bg-neutral-950 select-none dark:bg-white" />
+              <Slider.Thumb
+                aria-label="Volume"
+                class="size-4 border border-neutral-950 bg-white select-none has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-neutral-950 dark:has-[:focus-visible]:outline-white dark:border-white dark:bg-neutral-950"
+              />
             </Slider.Track>
           </Slider.Control>
         </Slider.Root>
@@ -51,31 +54,54 @@ This example shows how to implement the component using CSS Modules.
   align-items: center;
   width: 14rem;
   padding-block: 0.75rem;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .Track {
   width: 100%;
-  background-color: var(--color-gray-200);
-  box-shadow: inset 0 0 0 1px var(--color-gray-200);
   height: 0.25rem;
-  border-radius: 0.25rem;
-  position: relative;
+  background-color: oklch(92.2% 0 0deg);
+  -webkit-user-select: none;
+  user-select: none;
+
+  @media (prefers-color-scheme: dark) {
+    background-color: oklch(26.9% 0 0deg);
+  }
 }
 
 .Indicator {
-  border-radius: 0.25rem;
-  background-color: var(--color-gray-700);
+  background-color: oklch(14.5% 0 0deg);
+  -webkit-user-select: none;
+  user-select: none;
+
+  @media (prefers-color-scheme: dark) {
+    background-color: white;
+  }
 }
 
 .Thumb {
+  box-sizing: border-box;
   width: 1rem;
   height: 1rem;
-  border-radius: 100%;
+  border: 1px solid oklch(14.5% 0 0deg);
   background-color: white;
-  outline: 1px solid var(--color-gray-300);
+  -webkit-user-select: none;
+  user-select: none;
+
+  @media (prefers-color-scheme: dark) {
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+  }
 
   &:has(:focus-visible) {
-    outline: 2px solid var(--color-blue);
+    outline: 2px solid oklch(14.5% 0 0deg);
+    outline-offset: 2px;
+
+    @media (prefers-color-scheme: dark) {
+      outline-color: white;
+    }
   }
 }
 ```
@@ -94,7 +120,7 @@ export default function ExampleDirectionProvider() {
           <Slider.Control class={styles.Control}>
             <Slider.Track class={styles.Track}>
               <Slider.Indicator class={styles.Indicator} />
-              <Slider.Thumb class={styles.Thumb} />
+              <Slider.Thumb aria-label="Volume" class={styles.Thumb} />
             </Slider.Track>
           </Slider.Control>
         </Slider.Root>
@@ -128,16 +154,8 @@ Enables RTL behavior for Base UI components.
 | Prop      | Type            | Default | Description                       |
 | :-------- | :-------------- | :------ | :-------------------------------- |
 | direction | `TextDirection` | `'ltr'` | The reading direction of the text |
-| children  | `ReactNode`     | -       | -                                 |
+| children  | `JSX.Element`   | -       | -                                 |
 
-## useDirection
+### useDirection
 
 Use this hook to read the current text direction. This is useful for wrapping portaled components that may be rendered outside your application root and are unaffected by the `dir` attribute set within.
-
-### Return value
-
-**Return Value:**
-
-| Property  | Type            | Description                 |
-| :-------- | :-------------- | :-------------------------- |
-| direction | `TextDirection` | The current text direction. |

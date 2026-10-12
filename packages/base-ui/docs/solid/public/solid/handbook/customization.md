@@ -47,12 +47,12 @@ interface BaseUIChangeEventDetails {
 
 An event can be canceled with the `cancel()` method on `eventDetails`:
 
-```tsx title="Prevent a tooltip from closing when pressing the trigger" "cancel"
+```tsx title="Prevent a tooltip from closing when pressing the trigger"
 <Tooltip.Root
   onOpenChange={(open, eventDetails) => {
     if (eventDetails.reason === 'trigger-press') {
       // Stop the open change (false) from happening.
-      eventDetails.cancel();
+      eventDetails.cancel(); // @highlight-text "cancel"
     }
   }}
 >
@@ -68,12 +68,12 @@ This is an alternative to controlling the component with external state and guar
 In most components, pressing the <kbd>Esc</kbd> key stops the propagation of the event so parent popups don't close simultaneously.
 This can also be customized with the `allowPropagation()` method:
 
-```tsx title="Allowing propagation of the event" "allowPropagation"
+```tsx title="Allowing propagation of the event"
 <Tooltip.Root
   onOpenChange={(open, eventDetails) => {
     if (eventDetails.reason === 'escape-key') {
       // Allow the DOM event to propagate.
-      eventDetails.allowPropagation();
+      eventDetails.allowPropagation(); // @highlight-text "allowPropagation"
     }
   }}
 >
@@ -110,7 +110,7 @@ Components are uncontrolled by default, meaning that they manage their own state
 
 A component can be made controlled by passing external state to a prop, such as `open` or `value`, and the state's setter to its corresponding change handler, such as `onOpenChange` or `onValueChange`.
 
-For instance, you can open [Dialog](/react/components/dialog) after a timeout, without a trigger:
+For instance, you can open [Dialog](/solid/components/dialog.md) after a timeout, without a trigger:
 
 ```tsx title="Controlled dialog"
 const [open, setOpen] = React.useState(false);

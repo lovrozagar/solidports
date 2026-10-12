@@ -17,21 +17,21 @@ You retain total control of your styling layer.
 
 ### CSS classes
 
-Components that render an HTML element accept a `class` prop to style the element with CSS classes.
+Components that render an HTML element accept a `className` prop to style the element with CSS classes.
 
 ```tsx title="switch.tsx"
-<Switch.Thumb class="SwitchThumb" />
+<Switch.Thumb className="SwitchThumb" />
 ```
 
 The prop can also be passed a function that takes the component's state as an argument.
 
 ```tsx title="switch.tsx"
-<Switch.Thumb class={(state) => (state.checked ? 'checked' : 'unchecked')} />
+<Switch.Thumb className={(state) => (state.checked ? 'checked' : 'unchecked')} />
 ```
 
 ### Data attributes
 
-Components provide data attributes designed for styling their states. For example, [Switch](/react/components/switch) can be styled using its `[data-checked]` and `[data-unchecked]` attributes, among others.
+Components provide data attributes designed for styling their states. For example, [Switch](/solid/components/switch.md) can be styled using its `[data-checked]` and `[data-unchecked]` attributes, among others.
 
 ```css title="switch.css"
 .SwitchThumb[data-checked] {
@@ -41,7 +41,7 @@ Components provide data attributes designed for styling their states. For exampl
 
 ### CSS variables
 
-Components expose CSS variables to aid in styling, often containing dynamic numeric values to be used in sizing or transform calculations. For example, [Popover](/react/components/popover) exposes CSS variables on its `Popup` component like `--available-height` and `--anchor-width`.
+Components expose CSS variables to aid in styling, often containing dynamic numeric values to be used in sizing or transform calculations. For example, [Popover](/solid/components/popover.md) exposes CSS variables on its `Popup` component like `--available-height` and `--anchor-width`.
 
 ```css title="popover.css"
 .Popup {
@@ -67,7 +67,7 @@ The prop also accepts a function that takes the component's state as an argument
 
 ## Tailwind CSS
 
-Apply Tailwind CSS classes to each part via the `class` prop.
+Apply Tailwind CSS classes to each part via the `className` prop.
 
 ```tsx title="menu.tsx"
 import { Menu } from '@solidports/base-ui/menu';
@@ -75,16 +75,16 @@ import { Menu } from '@solidports/base-ui/menu';
 export default function ExampleMenu() {
   return (
     <Menu.Root>
-      <Menu.Trigger class="flex h-10 items-center justify-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3.5 text-base font-medium text-gray-900 select-none hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-blue-800 active:bg-gray-100 data-[popup-open]:bg-gray-100">
+      <Menu.Trigger className="flex h-8 items-center justify-center rounded-md border border-neutral-950 bg-white px-3 text-sm text-neutral-950 select-none hover:bg-neutral-100 active:bg-neutral-200 data-pressed:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:border-white dark:bg-neutral-950 dark:text-white dark:hover:bg-neutral-800 dark:active:bg-neutral-700 dark:data-pressed:bg-neutral-800 dark:focus-visible:outline-white">
         Song
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner class="outline-none" sideOffset={8}>
-          <Menu.Popup class="origin-[var(--transform-origin)] rounded-md bg-[canvas] py-1 text-gray-900 shadow-lg shadow-gray-200 outline outline-1 outline-gray-200 transition-[transform,scale,opacity] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[starting-style]:scale-90 data-[starting-style]:opacity-0 dark:shadow-none dark:-outline-offset-1 dark:outline-gray-300">
-            <Menu.Item class="flex cursor-default py-2 pr-8 pl-4 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900">
+        <Menu.Positioner className="outline-hidden" sideOffset={8}>
+          <Menu.Popup className="origin-(--transform-origin) border border-neutral-950 bg-white py-1 text-neutral-950 outline-hidden transition data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white">
+            <Menu.Item className="flex cursor-default py-2 pr-8 pl-4 text-sm leading-4 outline-hidden select-none data-highlighted:bg-neutral-950 data-highlighted:text-white dark:data-highlighted:bg-white dark:data-highlighted:text-neutral-950">
               Add to Library
             </Menu.Item>
-            <Menu.Item class="flex cursor-default py-2 pr-8 pl-4 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900">
+            <Menu.Item className="flex cursor-default py-2 pr-8 pl-4 text-sm leading-4 outline-hidden select-none data-highlighted:bg-neutral-950 data-highlighted:text-white dark:data-highlighted:bg-white dark:data-highlighted:text-neutral-950">
               Add to Playlist
             </Menu.Item>
           </Menu.Popup>
@@ -97,7 +97,7 @@ export default function ExampleMenu() {
 
 ## CSS Modules
 
-Apply custom CSS classes to each part via the `class` prop.
+Apply custom CSS classes to each part via the `className` prop.
 Then style those classes in a CSS Modules file.
 
 ```tsx title="menu.tsx"
@@ -107,12 +107,12 @@ import styles from './menu.module.css';
 export default function ExampleMenu() {
   return (
     <Menu.Root>
-      <Menu.Trigger class={styles.Button}>Song</Menu.Trigger>
+      <Menu.Trigger className={styles.Button}>Song</Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner class={styles.Positioner} sideOffset={8}>
-          <Menu.Popup class={styles.Popup}>
-            <Menu.Item class={styles.Item}>Add to Library</Menu.Item>
-            <Menu.Item class={styles.Item}>Add to Playlist</Menu.Item>
+        <Menu.Positioner className={styles.Positioner} sideOffset={8}>
+          <Menu.Popup className={styles.Popup}>
+            <Menu.Item className={styles.Item}>Add to Library</Menu.Item>
+            <Menu.Item className={styles.Item}>Add to Playlist</Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -126,7 +126,7 @@ export default function ExampleMenu() {
 Wrap each component part and apply styles, then assemble your styled components.
 
 ```tsx title="menu.tsx"
-import { Menu } from '@solidports/base-ui/menu';
+import { Menu, MenuItemDataAttributes, MenuPositionerCssVariables } from '@solidports/base-ui/menu';
 import styled from '@emotion/styled';
 
 const StyledMenuTrigger = styled(Menu.Trigger)`
@@ -138,11 +138,13 @@ const StyledMenuPositioner = styled(Menu.Positioner)`
 `;
 
 const StyledMenuPopup = styled(Menu.Popup)`
-  // Popup styles
+  max-height: var(${MenuPositionerCssVariables.availableHeight});
 `;
 
 const StyledMenuItem = styled(Menu.Item)`
-  // Menu item styles
+  &[${MenuItemDataAttributes.highlighted}] {
+    outline: 1px solid currentColor;
+  }
 `;
 
 const MenuExample = () => (
@@ -153,9 +155,9 @@ const MenuExample = () => (
         <StyledMenuPopup>
           <StyledMenuItem>Add to Library</StyledMenuItem>
           <StyledMenuItem>Add to Playlist</StyledMenuItem>
-        </Menu.Portal>
+        </StyledMenuPopup>
       </StyledMenuPositioner>
-    </StyledMenuPopup>
+    </Menu.Portal>
   </Menu.Root>
 );
 

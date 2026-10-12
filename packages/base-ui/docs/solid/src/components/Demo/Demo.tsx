@@ -111,7 +111,7 @@ export function Demo(props: DemoProps) {
     const [component, ...rest] = props.path.split("/")
     const demoName = rest.join("/")
     if (!component || !demoName) return null
-    return `https://github.com/mui/base-ui/tree/v1.8.0/docs/src/app/(docs)/react/components/${component}/demos/${demoName}/${variant}`
+    return `https://github.com/mui/base-ui/tree/v1.9.0/docs/src/app/(docs)/react/components/${component}/demos/${demoName}/${variant}`
   })
 
   const toolbarActions = () => (

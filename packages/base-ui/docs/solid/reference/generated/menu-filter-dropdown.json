@@ -1,0 +1,37 @@
+{
+  "name": "MenuFilterDropdown",
+  "description": "Reads the menu store, which is only available below the menu root, and hands the filter\nengine the list the menu navigates and the command that moves its highlight. The query is\nowned here; the menu root keeps sole ownership of the open state.",
+  "props": {
+    "defaultValue": {
+      "type": "string | undefined",
+      "required": true
+    },
+    "value": {
+      "type": "string | undefined",
+      "required": true
+    },
+    "onValueChange": {
+      "type": "((value: string, eventDetails: Menu.FilterProvider.ChangeEventDetails) => void) | undefined",
+      "required": true,
+      "detailedType": "| ((\n    value: string,\n    eventDetails: Menu.FilterProvider.ChangeEventDetails,\n  ) => void)\n| undefined"
+    },
+    "autoHighlight": {
+      "type": "boolean | 'always'",
+      "required": true
+    },
+    "filter": {
+      "type": "FilterDropdownFilter | null | undefined",
+      "required": true,
+      "detailedType": "| ((text: string, query: string) => boolean)\n| null\n| undefined"
+    },
+    "locale": {
+      "type": "Intl.LocalesArgument",
+      "required": true
+    },
+    "children": {
+      "type": "JSX.Element"
+    }
+  },
+  "dataAttributes": {},
+  "cssVariables": {}
+}
