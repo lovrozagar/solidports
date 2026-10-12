@@ -93,6 +93,7 @@ export function SliderControl(componentProps: SliderControl.Props) {
     disabled,
     dragging,
     inset,
+    isArrayValue,
     lastChangeReasonRef,
     max,
     min,
@@ -213,7 +214,7 @@ export function SliderControl(componentProps: SliderControl.Props) {
 
     if (!range()) {
       return {
-        value: newValue,
+        value: untrack(isArrayValue) ? [newValue] : newValue,
         thumbIndex,
         didSwap: false,
       };

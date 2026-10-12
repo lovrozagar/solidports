@@ -115,6 +115,7 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
     format,
     handleInputChange,
     inset,
+    isArrayValue,
     labelId,
     largeStep,
     locale,
@@ -404,7 +405,7 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
                 untrack(index),
                 untrack(min),
                 untrack(max),
-                untrack(range),
+                untrack(isArrayValue),
                 untrack(sliderValues),
               ),
             );
