@@ -417,6 +417,171 @@ describe('<RadioGroup />', () => {
     expect(inputRefSpy).toHaveBeenCalledTimes(callCountAfterMount);
   });
 
+  it('transfers the current input when the object inputRef changes', () => {
+    const oldRef = { current: null as HTMLInputElement | null };
+    const newRef = { current: null as HTMLInputElement | null };
+
+    function App() {
+      const [which, setWhich] = createSignal<'old' | 'new' | 'none'>('old');
+      return (
+        <>
+          <RadioGroup
+            defaultValue="b"
+            inputRef={which() === 'old' ? oldRef : which() === 'new' ? newRef : undefined}
+          >
+            <Radio.Root value="a" />
+            <Radio.Root value="b" />
+          </RadioGroup>
+          <button type="button" onClick={() => setWhich('new')}>
+            to new
+          </button>
+          <button type="button" onClick={() => setWhich('none')}>
+            clear
+          </button>
+          <button type="button" onClick={() => setWhich('new')}>
+            restore
+          </button>
+        </>
+      );
+    }
+
+    render(() => <App />);
+
+    const input = oldRef.current;
+    expect(input).toHaveAttribute('value', 'b');
+
+    fireEvent.click(screen.getByRole('button', { name: 'to new' }));
+    expect(oldRef.current).toBe(null);
+    expect(newRef.current).toBe(input);
+
+    fireEvent.click(screen.getByRole('button', { name: 'clear' }));
+    expect(newRef.current).toBe(null);
+
+    fireEvent.click(screen.getByRole('button', { name: 'restore' }));
+    expect(newRef.current).toBe(input);
+  });
+
+  it.each([false, true])(
+    'detaches the previous callback inputRef when it changes (cleanup: %s)',
+    (returnsCleanup) => {
+      const cleanup = vi.fn();
+      const oldRef = vi.fn((input: HTMLInputElement | null) =>
+        input && returnsCleanup ? cleanup : undefined,
+      );
+      const newRef = vi.fn();
+
+      function App() {
+        const [which, setWhich] = createSignal(0);
+        return (
+          <>
+            <RadioGroup defaultValue="a" inputRef={which() === 0 ? oldRef : newRef}>
+              <Radio.Root value="a" />
+            </RadioGroup>
+            <button type="button" onClick={() => setWhich(1)}>
+              swap
+            </button>
+          </>
+        );
+      }
+
+      render(() => <App />);
+
+      const input = oldRef.mock.lastCall?.[0];
+      expect(input).toHaveAttribute('value', 'a');
+      oldRef.mockClear();
+      cleanup.mockClear();
+
+      fireEvent.click(screen.getByRole('button', { name: 'swap' }));
+
+      expect(newRef).toHaveBeenLastCalledWith(input);
+      expect(cleanup).toHaveBeenCalledTimes(returnsCleanup ? 1 : 0);
+      expect(oldRef.mock.calls).toEqual(returnsCleanup ? [] : [[null]]);
+    },
+  );
+
+  it('cleans up inputRef bindings when selecting, clearing, and unmounting', () => {
+    const bindings = new Set<{ input: HTMLInputElement }>();
+    const inputRef = (input: HTMLInputElement | null) => {
+      if (!input) {
+        return undefined;
+      }
+      const binding = { input };
+      bindings.add(binding);
+      return () => {
+        bindings.delete(binding);
+      };
+    };
+
+    function App() {
+      const [value, setValue] = createSignal<string | null>('a');
+      const [mounted, setMounted] = createSignal(true);
+      return (
+        <>
+          <Show when={mounted()}>
+            <RadioGroup value={value()} onValueChange={setValue} inputRef={inputRef}>
+              <Radio.Root value="a" data-testid="radio-a" />
+              <Radio.Root value="b" data-testid="radio-b" />
+            </RadioGroup>
+          </Show>
+          <button type="button" onClick={() => setValue(null)}>
+            Clear
+          </button>
+          <button type="button" onClick={() => setMounted(false)}>
+            Unmount
+          </button>
+        </>
+      );
+    }
+
+    render(() => <App />);
+
+    const inputA = screen.getByTestId('radio-a').nextElementSibling;
+    const inputB = screen.getByTestId('radio-b').nextElementSibling;
+    expect(Array.from(bindings, (binding) => binding.input)).toEqual([inputA]);
+
+    fireEvent.click(screen.getByTestId('radio-b'));
+    expect(Array.from(bindings, (binding) => binding.input)).toEqual([inputB]);
+
+    fireEvent.click(screen.getByText('Clear'));
+    expect(Array.from(bindings, (binding) => binding.input)).toEqual([inputA]);
+
+    fireEvent.click(screen.getByText('Unmount'));
+    expect(bindings.size).toBe(0);
+  });
+
+  it('detaches inputRef when an initially disabled radio is enabled and then unmounted', () => {
+    const inputRef = { current: null as HTMLInputElement | null };
+
+    function App() {
+      const [disabled, setDisabled] = createSignal(true);
+      const [mounted, setMounted] = createSignal(true);
+      return (
+        <>
+          <Show when={mounted()}>
+            <RadioGroup inputRef={inputRef}>
+              <Radio.Root value="a" disabled={disabled()} />
+            </RadioGroup>
+          </Show>
+          <button type="button" onClick={() => setDisabled(false)}>
+            enable
+          </button>
+          <button type="button" onClick={() => setMounted(false)}>
+            remove
+          </button>
+        </>
+      );
+    }
+
+    render(() => <App />);
+    expect(inputRef.current).toBe(null);
+
+    fireEvent.click(screen.getByRole('button', { name: 'enable' }));
+    expect(inputRef.current).toHaveAttribute('value', 'a');
+
+    fireEvent.click(screen.getByRole('button', { name: 'remove' }));
+    expect(inputRef.current).toBe(null);
+  });
+
   it('skips disabled radios when assigning inputRef', async () => {
     const groupInputRef = useRef<HTMLInputElement | null>(null);
 

@@ -1,5 +1,5 @@
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at group level */
-import { createSignal, untrack } from 'solid-js';
+import { createEffect, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider/DirectionContext';
 import { DEFAULT_FIELD_ROOT_CONTEXT } from '../field/root/FieldRootContext';
@@ -118,43 +118,77 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
   };
   let groupInputRef: HTMLInputElement | null = null;
   let firstEnabledInputRef: HTMLInputElement | null = null;
+  let appliedInputRef: RadioGroup.Props<Value>['inputRef'];
+  let appliedCleanup: (() => void) | undefined;
+
+  function detachConsumerRef() {
+    const previous = appliedInputRef;
+    const cleanup = appliedCleanup;
+    appliedInputRef = undefined;
+    appliedCleanup = undefined;
+    if (cleanup) {
+      cleanup();
+      return;
+    }
+    if (typeof previous === 'function') {
+      previous(null);
+    } else if (previous) {
+      previous.current = null;
+    }
+  }
 
   // Only forwards the public `inputRef` and tracks the current representative for that forwarding.
   // The registry (`validation.registeredInputs`) is authoritative for validation and form-value
   // projection, so the group must not write `validation.inputRef`: a stale, unmounted radio left
   // there would become the Field's fallback once the registry empties and keep blocking submission.
   function setInputRef(hiddenInput: HTMLInputElement | null) {
-    let cleanup: void | (() => void) | undefined = undefined;
-
     // Called from child effects and ref callbacks: read the latest prop without subscribing.
     const inputRefProp = untrack(() => local.inputRef);
-    if (inputRefProp) {
-      if (typeof inputRefProp === 'function') {
-        cleanup = inputRefProp(hiddenInput);
-      } else {
-        inputRefProp.current = hiddenInput;
-      }
+    if (groupInputRef === hiddenInput && appliedInputRef === inputRefProp) {
+      return;
     }
 
+    detachConsumerRef();
     groupInputRef = hiddenInput;
 
-    return cleanup;
+    if (hiddenInput == null || inputRefProp == null) {
+      return;
+    }
+
+    if (typeof inputRefProp === 'function') {
+      const result = inputRefProp(hiddenInput);
+      if (typeof result === 'function') {
+        appliedCleanup = result;
+      }
+    } else {
+      inputRefProp.current = hiddenInput;
+    }
+    appliedInputRef = inputRefProp;
   }
 
+  // Re-apply when the consumer ref changes while the same input stays forwarded.
+  createEffect(
+    () => local.inputRef,
+    () => {
+      setInputRef(groupInputRef);
+    },
+  );
+
   const registerInputRef = (input: HTMLInputElement | null) => {
-    if (!input || input.disabled) {
+    if (!input) {
       return undefined;
     }
 
-    if (!firstEnabledInputRef) {
-      firstEnabledInputRef = input;
-    }
+    if (!input.disabled) {
+      if (!firstEnabledInputRef) {
+        firstEnabledInputRef = input;
+      }
 
-    const currentInput = groupInputRef;
-    const cleanup =
-      input.checked || currentInput == null || currentInput.disabled
-        ? setInputRef(input)
-        : undefined;
+      const currentInput = groupInputRef;
+      if (input.checked || currentInput == null || currentInput.disabled) {
+        setInputRef(input);
+      }
+    }
 
     // Detach when this input unmounts while still forwarded, so consumers don't
     // keep holding a disconnected node. The input may have become the forwarded
@@ -164,14 +198,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
         firstEnabledInputRef = null;
       }
       if (groupInputRef === input) {
-        if (cleanup) {
-          cleanup();
-          groupInputRef = null;
-        } else {
-          void setInputRef(null);
-        }
-      } else {
-        cleanup?.();
+        setInputRef(null);
       }
     };
   };
