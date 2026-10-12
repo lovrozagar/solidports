@@ -7,6 +7,7 @@ import {
   isScrollLocked,
   moveMouse,
   popupConformanceTests,
+  popupListConformanceTests,
   wait,
   waitSingleFrame,
 } from '#test-utils';
@@ -282,6 +283,36 @@ describe('<Menu.Root />', () => {
         expect(screen.getByRole('menuitem', { name: 'One' })).toHaveFocus();
       });
     });
+  });
+
+  popupListConformanceTests({
+    createComponent: (props) => (
+      <Menu.Root {...props.root}>
+        <Menu.Trigger data-testid="trigger">Open menu</Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner>
+            <Menu.Popup data-testid="popup">
+              <Menu.List data-testid="scroller" style={props.scrollerStyle}>
+                <For each={props.items}>
+                  {(item) => (
+                    <Menu.Item
+                      disabled={props.disabledItems.includes(item)}
+                      style={props.itemStyle}
+                      onClick={props.onItemClick}
+                    >
+                      <span>{item}</span>
+                    </Menu.Item>
+                  )}
+                </For>
+              </Menu.List>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    ),
+    render,
+    itemRole: 'menuitem',
+    listEnd: 'wrap',
   });
 
   it('warns that nested menus ignore the modal prop', async () => {
