@@ -260,7 +260,15 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     };
     return (
       <RadioGroupContext value={contextValue}>
-        {NativeRadioGroupElement(model, state, labelableContext, ariaLabelledby, disabled, required, readOnly)}
+        {NativeRadioGroupElement(
+          model,
+          state,
+          labelableContext,
+          ariaLabelledby,
+          disabled,
+          required,
+          readOnly,
+        )}
       </RadioGroupContext>
     );
   }
@@ -378,6 +386,7 @@ function groupBlur(m: NativeRadioGroup, event: FocusEvent) {
     return;
   }
   if (!contains(event.currentTarget as Element, event.relatedTarget as Element | null)) {
+    m.setTouched(false);
     m.field.setTouched(true);
     m.field.setFocused(false);
 
@@ -417,6 +426,12 @@ function NativeRadioGroupElement(
         },
         true,
       );
+      // `onBlur` does not bubble, so a child leaving the group is observed on `focusout`.
+      el.addEventListener('focusout', (event) => {
+        if (!contains(event.currentTarget as Element, event.relatedTarget as Element | null)) {
+          m.setTouched(false);
+        }
+      });
       return renderNativeElement({
         el,
         props,
@@ -438,7 +453,13 @@ function NativeRadioGroupElement(
           set('data-readonly', stateAttr(isReadOnly));
           set('data-required', stateAttr(isRequired));
           if (inField || inLabelable) {
-            fieldAttributes(labelableContext, field, isDisabled, props as Record<string, unknown>, target);
+            fieldAttributes(
+              labelableContext,
+              field,
+              isDisabled,
+              props as Record<string, unknown>,
+              target,
+            );
           }
         },
         handlers: {
