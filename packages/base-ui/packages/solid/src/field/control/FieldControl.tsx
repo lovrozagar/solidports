@@ -75,9 +75,12 @@ export function FieldControl(componentProps: FieldControl.Props) {
 
   const id = useLabelableId({ id: idProp });
 
+  // `defaultValue` is forwarded to the input. Tracking it here would warn when it changes,
+  // which is how an untouched control picks up a new default.
+  const initialDefaultValue = untrack(() => local.defaultValue);
   const [valueUnwrapped] = useControlled({
     controlled: valueProp,
-    default: () => local.defaultValue,
+    default: initialDefaultValue,
     name: 'FieldControl',
     state: 'value',
   });
@@ -122,6 +125,20 @@ export function FieldControl(componentProps: FieldControl.Props) {
       setInputFilled(inputValue !== '');
     }
   });
+  // A later `defaultValue` updates the DOM value only while the user has not edited it.
+  // Refresh `filled` from that DOM value either way.
+  createEffect(
+    () => local.defaultValue,
+    () => {
+      if (untrack(isControlled)) {
+        return;
+      }
+      const inputValue = validation.inputRef.current?.value;
+      if (inputValue !== undefined) {
+        setInputFilled(inputValue !== '');
+      }
+    },
+  );
 
   useValueChanged(serializedValue, () => {
     const nextSerializedValue = untrack(serializedValue);
