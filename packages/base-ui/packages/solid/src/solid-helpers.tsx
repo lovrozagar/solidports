@@ -56,16 +56,21 @@ export type MaybeAccessorValue<T extends MaybeAccessor<any>> = T extends () => a
   : T;
 
 export function autofocus(element: HTMLElement | null | undefined) {
-  if (!element || !element.hasAttribute('autofocus')) {
+  if (!element) {
     return;
   }
 
   // Refs run ownerless once the element is inserted, so focus right away, as React applies
-  // `autoFocus` during commit (before effects such as a focus manager's initial focus).
-  if (element.isConnected) {
+  // `autoFocus` during commit (before effects such as a focus manager's initial focus). An element
+  // not yet inserted, or whose attributes are still being applied, is checked once it settles.
+  if (element.isConnected && element.hasAttribute('autofocus')) {
     element.focus();
   } else {
-    queueMicrotask(() => element.focus());
+    queueMicrotask(() => {
+      if (element.isConnected && element.hasAttribute('autofocus')) {
+        element.focus();
+      }
+    });
   }
 }
 

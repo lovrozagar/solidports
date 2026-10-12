@@ -1,6 +1,6 @@
 import { createSignal } from 'solid-js';
 import { isServer, type JSX } from '@solidjs/web';
-import { splitComponentProps, useRef } from '../../solid-helpers';
+import { createLayoutEffect, splitComponentProps, useRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isAndroid } from '../../utils/detectBrowser';
 import { REASONS } from '../../utils/reasons';
@@ -16,19 +16,17 @@ import { isRefocusingOwner, refocusOwner } from '../utils/refocusOwner';
 
 /** Server HTML needs a `value` attribute. The client writes the DOM property only when it changes. */
 export function filterInputValueProps(server: boolean, read: () => string): BaseUIHTMLProps {
-  return (
-    server
-      ? {
-          get value() {
-            return read();
-          },
-        }
-      : {
-          get 'prop:value'() {
-            return read();
-          },
-        }
-  ) as unknown as BaseUIHTMLProps;
+  return (server
+    ? {
+        get value() {
+          return read();
+        },
+      }
+    : {
+        get 'prop:value'() {
+          return read();
+        },
+      }) as unknown as BaseUIHTMLProps;
 }
 
 /**
@@ -50,7 +48,11 @@ export function FilterDropdownInput(componentProps: FilterDropdownInput.Props) {
   const value = useFilterDropdownValueContext();
 
   const [composingValue, setComposingValue] = createSignal<string | null>(null);
+  // Solid: React re-renders a controlled input after every change and restores its value; count
+  // native input events so the DOM value sync below re-runs even when the value is unchanged.
+  const [inputEventCount, setInputEventCount] = createSignal(0);
   let isComposing = false;
+  let inputElement: HTMLInputElement | null = null;
 
   function commitValue(nextValue: string, nativeEvent: Event) {
     // The input keeps focus until the popup unmounts. An edit made while it animates out would
@@ -67,6 +69,20 @@ export function FilterDropdownInput(componentProps: FilterDropdownInput.Props) {
   // It does not serialize into server HTML, so the server render uses the `value` attribute.
   const valueProps = filterInputValueProps(isServer, displayedValue);
 
+  // A rejected edit (a canceled change or a controlled value that stays put) leaves the typed text
+  // in the DOM; write the committed value back. Equal values are left alone to keep the caret.
+  createLayoutEffect(
+    () => {
+      inputEventCount();
+      return displayedValue();
+    },
+    (nextValue) => {
+      if (inputElement && inputElement.value !== nextValue) {
+        inputElement.value = nextValue;
+      }
+    },
+  );
+
   const state: FilterDropdownInput.State = {
     get highlighted() {
       return context.inputFocusVisible() && (!context.keyboardModality() || activeItemId() == null);
@@ -75,7 +91,12 @@ export function FilterDropdownInput(componentProps: FilterDropdownInput.Props) {
 
   const element = useRenderElement('input', componentProps, {
     state,
-    ref: [context.focusOwnerRef],
+    ref: [
+      context.focusOwnerRef,
+      (element: HTMLInputElement | null) => {
+        inputElement = element;
+      },
+    ],
     props: [
       local.navigationProps,
       valueProps,
@@ -121,6 +142,7 @@ export function FilterDropdownInput(componentProps: FilterDropdownInput.Props) {
             return;
           }
           commitValue(input.value, event);
+          setInputEventCount((count) => count + 1);
         },
         onKeyDown() {
           context.setKeyboardModality(true);

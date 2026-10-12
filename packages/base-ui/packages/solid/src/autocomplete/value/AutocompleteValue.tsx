@@ -1,4 +1,4 @@
-import { Match, Switch } from 'solid-js';
+import { createMemo, Match, Switch } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { useComboboxInputValueContext } from '../../combobox/root/ComboboxRootContext';
@@ -11,20 +11,22 @@ import { useComboboxInputValueContext } from '../../combobox/root/ComboboxRootCo
  */
 export function AutocompleteValue(props: AutocompleteValue.Props) {
   const inputValue = useComboboxInputValueContext();
+  // One read: each read of JSX children creates them anew.
+  const children = createMemo(() => props.children);
 
   return (
     <Switch fallback={<>{inputValue()}</>}>
       <Match
         keyed
         when={
-          typeof props.children === 'function'
-            ? (props.children as (value: typeof inputValue) => JSX.Element)
+          typeof children() === 'function'
+            ? (children() as (value: typeof inputValue) => JSX.Element)
             : undefined
         }
       >
         {(renderer) => renderer(inputValue)}
       </Match>
-      <Match when={props.children != null}>{props.children as JSX.Element}</Match>
+      <Match when={children() != null}>{children() as JSX.Element}</Match>
     </Switch>
   );
 }

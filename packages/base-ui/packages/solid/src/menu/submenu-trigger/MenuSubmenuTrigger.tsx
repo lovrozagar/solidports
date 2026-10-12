@@ -8,7 +8,7 @@ import {
   splitComponentProps,
 } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { isIOS, isMac } from '../../utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { EMPTY_OBJECT } from '../../utils/empty';
 import { isElementDisabled } from '../../utils/isElementDisabled';
 import { useTriggerRegistration } from '../../utils/popups';
@@ -24,9 +24,6 @@ import { useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
-
-// Solid: React reads `platform.screenReader.voiceOver`, which is true on any Apple platform.
-const isVoiceOverPlatform = isMac || isIOS;
 
 /**
  * A menu item that opens a submenu.
@@ -58,6 +55,9 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
       },
       get children() {
         return componentProps.children;
+      },
+      get render() {
+        return componentProps.render;
       },
     },
     'submenu-trigger',
@@ -269,7 +269,7 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
   // `openMethod` stays null there; Enter and Space do dispatch one and report `keyboard`.
   const openedByKeyboard = () =>
     lastOpenChangeReason() === REASONS.listNavigation || openMethod() === 'keyboard';
-  const shouldOmitExpanded = () => open() && openedByKeyboard() && isVoiceOverPlatform;
+  const shouldOmitExpanded = () => open() && openedByKeyboard() && platform.screenReader.voiceOver;
 
   const element = useRenderElement('div', componentProps, {
     state,

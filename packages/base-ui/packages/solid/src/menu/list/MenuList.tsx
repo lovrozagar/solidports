@@ -1,4 +1,4 @@
-import { untrack } from 'solid-js';
+import { onCleanup, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createLayoutEffect, splitComponentProps } from '../../solid-helpers';
 import { resolvePopupLabel } from '../../utils/resolvePopupLabel';
@@ -17,14 +17,13 @@ function MenuListPlain(componentProps: MenuList.Props) {
   const setListElement = store.useStateSetter('listElement');
   const id = useBaseUiId(idProp);
 
-  let renderedId = untrack(id);
+  // The trigger's `aria-controls` follows the id the list renders with.
   createLayoutEffect(id, (nextId) => {
-    if (renderedId !== nextId) {
-      renderedId = nextId;
-      const element = store.select('listElement');
-      if (element) {
-        store.set('listElement', element);
-      }
+    store.set('listId', nextId);
+  });
+  onCleanup(() => {
+    if (store.select('listId') === untrack(id)) {
+      store.set('listId', undefined);
     }
   });
 

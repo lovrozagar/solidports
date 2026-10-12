@@ -97,7 +97,8 @@ export function FilterDropdownRoot(props: FilterDropdownRoot.Props): JSX.Element
     nextValue: string,
     eventDetails: FilterDropdownRoot.ChangeEventDetails,
   ) => {
-    props.onValueChange?.(nextValue, eventDetails);
+    // A callback, which an effect can call (the close reset): read the prop untracked.
+    untrack(() => props.onValueChange)?.(nextValue, eventDetails);
     // Indexes are positional, so a kept highlight would land on whatever fills its slot.
     // With `autoHighlight`, the filtering effect below places the highlight instead.
     if (!eventDetails.isCanceled && !untrack(autoHighlight)) {

@@ -32,6 +32,9 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
     get children() {
       return componentProps.children;
     },
+    get render() {
+      return componentProps.render;
+    },
   });
   const listItem = useCompositeListItem({ label: () => componentProps.label });
 

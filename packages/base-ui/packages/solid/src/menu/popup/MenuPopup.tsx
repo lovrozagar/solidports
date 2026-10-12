@@ -1,4 +1,4 @@
-import { createEffect, createMemo } from 'solid-js';
+import { createEffect, createMemo, useContext } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { COMPOSITE_KEYS } from '../../internals/composite/composite';
 import { FloatingFocusManager, useHoverFloatingInteraction } from '../../floating-ui-solid';
@@ -23,7 +23,7 @@ import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import type { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
-import { useMenuFilterImpl } from '../filter-root/MenuFilterContext';
+import { MenuFilterImplContext, useMenuFilterImpl } from '../filter-root/MenuFilterContext';
 import { useNoParentHandoff } from '../filter-root/useVirtualFocusParentHandoff';
 
 const stateAttributesMapping: StateAttributesMapping<MenuPopup.State> = {
@@ -83,7 +83,9 @@ export function MenuPopupPlain(componentProps: MenuPopup.Props) {
     defaultFloatingId,
     setRenderedFloatingId,
   );
-  const handoff = (useMenuFilterImpl()?.useParentHandoff ?? useNoParentHandoff)(
+  // Only a menu under a filter root bundles the handoff to a filterable parent, including a plain
+  // submenu of one. Whether one is above is fixed for a mounted popup.
+  const handoff = (useContext(MenuFilterImplContext)?.useParentHandoff ?? useNoParentHandoff)(
     store,
     parent,
     open,
@@ -198,7 +200,8 @@ export function MenuPopupPlain(componentProps: MenuPopup.Props) {
             event.stopPropagation();
           }
         },
-        onFocus() {
+        // Solid: React's `onFocus` is `focusin`, which also sees focus entering an item.
+        onFocusIn() {
           handoff.handleFocus?.();
         },
       },

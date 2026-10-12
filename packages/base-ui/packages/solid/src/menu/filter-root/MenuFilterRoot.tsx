@@ -1,4 +1,5 @@
 import type { JSX } from '@solidjs/web';
+import { ComponentWithPayload } from '../../solid-helpers';
 import { MenuRootInternal } from '../root/MenuRoot';
 import type { MenuRoot } from '../root/MenuRoot';
 import type { MenuFilterProviderOptions } from '../filter-provider/MenuFilterProviderOptions';
@@ -29,11 +30,9 @@ export function MenuFilterRoot<Payload>(props: MenuFilterRootProps<Payload>): JS
           autoHighlight={filter.autoHighlight}
           locale={filter.locale}
         >
-          {(() => {
-            // One read: each read of JSX children creates them anew.
-            const children = props.children;
-            return typeof children === 'function' ? children(payload) : children;
-          })()}
+          {/* Solid: a component's output can be an accessor, so a payload render function is
+              told apart by resolving the children once, as the root does. */}
+          <ComponentWithPayload payload={() => payload.payload} children={props.children} />
         </MenuFilterDropdown>
       )}
     </MenuRootInternal>

@@ -25,12 +25,15 @@ export function ComboboxValue(props: ComboboxValue.Props) {
     !hasSelectedValue() && props.placeholder != null && props.children == null;
   const hasNullLabel = store.useState('hasNullItemLabel', shouldCheckNullItemLabel);
 
+  // One read: each read of JSX children creates them anew.
+  const children = createMemo(() => props.children);
+
   return (
     <Switch fallback={resolveSelectedLabel(selectedValue(), items(), itemToStringLabel())}>
-      <Match keyed when={typeof props.children === 'function' && props.children}>
-        {(renderer) => renderer(selectedValue)}
+      <Match keyed when={typeof children() === 'function' && children()}>
+        {(renderer) => (renderer as (value: typeof selectedValue) => JSX.Element)(selectedValue)}
       </Match>
-      <Match when={props.children != null}>{props.children}</Match>
+      <Match when={children() != null}>{children() as JSX.Element}</Match>
       <Match when={!hasSelectedValue() && props.placeholder != null && !hasNullLabel()}>
         {props.placeholder}
       </Match>

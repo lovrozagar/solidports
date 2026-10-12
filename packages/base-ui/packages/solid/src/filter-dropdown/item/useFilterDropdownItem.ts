@@ -25,6 +25,10 @@ function childrenText(children: unknown): string {
   if (typeof Node !== 'undefined' && children instanceof Node) {
     return children.textContent ?? '';
   }
+  // A `render` config object carries its element's children.
+  if (children != null && typeof children === 'object' && 'children' in children) {
+    return childrenText((children as { children?: unknown }).children);
+  }
   return '';
 }
 
@@ -135,6 +139,7 @@ export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
 
   // Re-register when the item's text changes, so the active query runs again. A rendered item's
   // text is read from its element when the filter runs.
+  let filteredOut = false;
   createLayoutEffect(
     () => {
       const label = access(params.label);
@@ -144,9 +149,18 @@ export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
       return { children: readChildrenText() };
     },
     (source) => {
-      const text = resolveText(
-        source != null && typeof source === 'object' ? source.children : undefined,
-      );
+      const childrenTextValue =
+        source != null && typeof source === 'object' ? source.children : undefined;
+      if (childrenTextValue !== undefined && !filteredOut) {
+        // Solid: React records what the children read as while the item renders; reading them here
+        // would create them, so the first read after the item is filtered out is the baseline. Its
+        // cached rendered text wins until the children change.
+        filteredOut = true;
+        previousChildrenText = childrenTextValue;
+        return;
+      }
+      filteredOut = childrenTextValue !== undefined;
+      const text = resolveText(childrenTextValue);
       if (text !== registeredText) {
         registeredText = text;
         register(text);

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, Show, untrack } from 'solid-js';
+import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
@@ -618,7 +618,9 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
     );
   };
 
-  createLayoutEffect(activeIndex, () => {
+  // A user effect: it runs after this flush's DOM updates, so an item the same change filters out
+  // is already disconnected, as after React's commit.
+  createEffect(activeIndex, () => {
     syncHighlightedItem();
   });
 

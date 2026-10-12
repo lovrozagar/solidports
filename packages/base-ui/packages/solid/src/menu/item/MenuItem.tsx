@@ -35,6 +35,9 @@ export function MenuItem(componentProps: MenuItem.Props) {
     get children() {
       return componentProps.children;
     },
+    get render() {
+      return componentProps.render;
+    },
   });
 
   const listItem = useCompositeListItem({

@@ -18,7 +18,13 @@ import type { JSX, ValidComponent } from '@solidjs/web';
 import { assign, Dynamic, dynamic, isServer } from '@solidjs/web';
 import type { DynamicProps } from '@solidjs/web';
 import { MERGED_REFS } from '../merge-props/mergeProps';
-import { access, shallowEqual, type MaybeAccessor, createLayoutEffect } from '../solid-helpers';
+import {
+  access,
+  autofocus,
+  shallowEqual,
+  type MaybeAccessor,
+  createLayoutEffect,
+} from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
 import { type StateAttributesMapping } from './getStateAttributesProps';
 import {
@@ -173,6 +179,15 @@ export function useRenderElement<
       appliedRefs = new Set();
       appliedObjectRefs = new Set();
       syncRefs(untrack(readRefs));
+      // Solid: browsers ignore `autofocus` on elements inserted after load; React DOM focuses
+      // them on mount.
+      if (
+        el instanceof HTMLElement &&
+        (el.hasAttribute('autofocus') ||
+          untrack(() => Boolean((componentProps as { autofocus?: boolean }).autofocus)))
+      ) {
+        autofocus(el);
+      }
     };
     // React calls the part's refs with `null` when the element unmounts, and the ported
     // registration logic relies on it; Solid only applies refs on mount. Mirror the unmount call.
