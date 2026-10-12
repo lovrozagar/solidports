@@ -17,6 +17,7 @@ import { ownerWindow } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
 import { HTMLProps } from '../../utils/types';
 import { AnimationFrame } from '../../utils/useAnimationFrame';
+import { useTimeout } from '../../utils/useTimeout';
 import { useAnimationsFinished } from '../../utils/useAnimationsFinished';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
@@ -437,18 +438,15 @@ export function useCollapsiblePanel(
   // Solid: string `hidden` values render as-is, so `hidden="until-found"` is set through the
   // `hidden` prop below instead of being forced back into the DOM from a layout effect.
 
-  function handleBeforeMatch(event: Event) {
-    const eventDetails = createChangeEventDetails(REASONS.none, event);
-
-    onOpenChange(true, eventDetails);
-
-    if (eventDetails.isCanceled) {
-      return;
-    }
-
-    shouldSkipNextOpenRef = true;
-    setOpen(true);
-  }
+  // Decides, after the browser has measured the match, whether a `beforematch` open actually
+  // landed. A task (not a frame) runs after Solid's microtask flush, so a real open is visible
+  // here and an ignored one is not. The DOM revert then runs in a frame so it stays atomic
+  // with respect to paint.
+  const revealDecisionTimeout = useTimeout();
+  let revertRevealFrame = -1;
+  onCleanup(() => {
+    AnimationFrame.cancel(revertRevealFrame);
+  });
 
   // The `beforematch` listener follows the element from the ref (no effect): attached with the
   // element, removed when the ref clears it. An attached element gets the current rendered size
@@ -456,13 +454,75 @@ export function useCollapsiblePanel(
   let removeBeforeMatchListener: (() => void) | undefined;
   const ref = (element: HTMLDivElement | null) => {
     removeBeforeMatchListener?.();
-    removeBeforeMatchListener = element
-      ? addEventListener(element, 'beforematch', handleBeforeMatch)
-      : undefined;
-    setPanelElement(element);
-    if (element) {
-      applyDimensions();
+    revealDecisionTimeout.clear();
+    AnimationFrame.cancel(revertRevealFrame);
+    revertRevealFrame = -1;
+
+    if (!element) {
+      removeBeforeMatchListener = undefined;
+      setPanelElement(element);
+      return;
     }
+
+    const scheduleRevealRevert = (revertSkippedMotion: boolean, restoreStartingStyle: boolean) => {
+      revealDecisionTimeout.start(0, () => {
+        if (untrack(open)) {
+          return;
+        }
+
+        revertRevealFrame = AnimationFrame.request(() => {
+          if (untrack(open)) {
+            return;
+          }
+
+          if (revertSkippedMotion) {
+            // The open never happened, so the next one is an ordinary open that
+            // should keep its author-defined motion.
+            shouldSkipNextOpenRef = false;
+          }
+
+          if (restoreStartingStyle) {
+            element.setAttribute(CollapsiblePanelDataAttributes.startingStyle, '');
+          }
+
+          element.setAttribute('hidden', 'until-found');
+        });
+      });
+    };
+
+    // Declared here so the handler touches the same element the listener is attached to.
+    const handleBeforeMatch = (event: Event) => {
+      const eventDetails = createChangeEventDetails(REASONS.none, event);
+
+      onOpenChange(true, eventDetails);
+
+      if (eventDetails.isCanceled) {
+        // A canceled reveal means the panel must stay hidden, so undo the
+        // browser's removal of `hidden` and keep the content searchable.
+        scheduleRevealRevert(false, false);
+        return;
+      }
+
+      shouldSkipNextOpenRef = true;
+
+      // The browser removes `hidden` and measures the match in the same task that
+      // dispatches this event, while the state update below only lands in a later
+      // one. Panels kept collapsed by persisted starting styles would still be
+      // zero-sized at that point and the match highlight is dropped, so drop those
+      // styles synchronously here.
+      const hadStartingStyle = element.hasAttribute(CollapsiblePanelDataAttributes.startingStyle);
+      element.removeAttribute(CollapsiblePanelDataAttributes.startingStyle);
+
+      setOpen(true);
+
+      // A controlled panel whose `onOpenChange` is ignored never receives the open
+      // state, so return it to the fully closed state once the browser has measured.
+      scheduleRevealRevert(true, hadStartingStyle);
+    };
+
+    removeBeforeMatchListener = addEventListener(element, 'beforematch', handleBeforeMatch);
+    setPanelElement(element);
+    applyDimensions();
   };
 
   // `<Show>` memoizes its condition, so a plain function costs nothing more.
