@@ -3,6 +3,7 @@
 import { createMemo, createSignal, untrack } from 'solid-js';
 import { isServer, type JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
+import { isAndroid } from '../../utils/detectBrowser';
 import { stopEvent } from '../../floating-ui-solid/utils';
 import {
   IndexGuessBehavior,
@@ -78,6 +79,13 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
   const direction = useDirection();
 
   const slotValue = () => value()[index()] ?? '';
+  // While an IME composition is active, Safari exposes the in-progress text through `input`
+  // as an accumulating string (`d`, then `dd`, then `ddd`). Committing those intermediate values
+  // would treat them as bulk input and fill too many slots, so the text is only buffered here
+  // and committed once on `compositionend`. Android keyboards report all text as composing, so
+  // they keep committing through `input`.
+  const [composingValue, setComposingValue] = createSignal<string | null>(null);
+  const displayedValue = () => composingValue() ?? slotValue();
   // One memo: each state getter below reads it, rather than re-deriving the whole state.
   const inputState = createMemo(() => getOTPFieldInputState(state, slotValue(), index()));
   const slotAriaLabel = () => externalAriaLabel();
@@ -112,7 +120,7 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
   }
 
   createLayoutEffect(
-    () => [inputElement(), slotValue()] as const,
+    () => [inputElement(), displayedValue()] as const,
     ([input, nextValue]) => {
       syncInputValue(input, nextValue);
     },
@@ -237,15 +245,44 @@ export function OTPFieldInput(componentProps: OTPFieldInput.Props) {
       }
       handleInputBlur(event as FocusEvent & { currentTarget: HTMLInputElement });
     },
+    onCompositionStart() {
+      if (!isAndroid) {
+        setComposingValue(slotValue());
+      }
+    },
+    onCompositionEnd(event) {
+      if (composingValue() == null) {
+        return;
+      }
+
+      const input = event.currentTarget as HTMLInputElement;
+      setComposingValue(null);
+
+      if (disabled() || readOnly()) {
+        syncInputValue(input, slotValue());
+        return;
+      }
+
+      handleInputChange(event as unknown as InputEvent & { currentTarget: HTMLInputElement });
+      syncInputValue(input, untrack(slotValue));
+    },
     /* onInput used instead of onChange for Solid reactivity */
     onInput(event) {
+      const input = event.currentTarget as HTMLInputElement;
+      if (composingValue() != null) {
+        setComposingValue(input.value);
+        return;
+      }
+
       handleInputChange(event as InputEvent & { currentTarget: HTMLInputElement });
       // Solid: restore the controlled slot value after the change, as React does for controlled inputs.
-      syncInputValue(event.currentTarget as HTMLInputElement, untrack(slotValue));
+      syncInputValue(input, untrack(slotValue));
     },
     onKeyDown(event) {
       const kbEvent = event as KeyboardEvent & { currentTarget: HTMLInputElement };
-      if (kbEvent.defaultPrevented || disabled()) {
+      // Browsers deliver real key names (such as `Backspace`) for keydowns inside a composition.
+      // The IME owns editing until `compositionend`, so OTP commands must not run on them.
+      if (kbEvent.defaultPrevented || disabled() || composingValue() != null) {
         return;
       }
 

@@ -208,6 +208,138 @@ describe('<OTPField.Input />', () => {
     expect(firstInput.selectionEnd).toBe(1);
   });
 
+  it('commits an IME composition once on compositionend instead of per intermediate change', async () => {
+    const onValueChange = vi.fn();
+
+    await render(() => (
+      <OTPFieldTest validationType="alphanumeric" onValueChange={onValueChange} />
+    ));
+
+    const inputs = screen.getAllByRole<HTMLInputElement>('textbox');
+    const firstInput = inputs[0];
+
+    await act(async () => {
+      firstInput.focus();
+    });
+
+    fireEvent.compositionStart(firstInput);
+
+    // Safari can surface in-progress IME text through `input` as an accumulating string.
+    fireEvent.input(firstInput, { target: { value: 'd' } });
+    fireEvent.input(firstInput, { target: { value: 'dd' } });
+    fireEvent.input(firstInput, { target: { value: 'ddd' } });
+
+    // No value commits while the composition is active; the text is only buffered for display.
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(inputs.map((input) => input.value)).toEqual(['ddd', '', '', '', '', '']);
+
+    fireEvent.compositionEnd(firstInput, { target: { value: 'ddd' } });
+
+    // The final composed value commits once across three slots, not six.
+    expect(onValueChange).toHaveBeenCalledTimes(1);
+    expect(onValueChange).toHaveBeenLastCalledWith('ddd', expect.anything());
+    expect(inputs.map((input) => input.value)).toEqual(['d', 'd', 'd', '', '', '']);
+    expect(document.activeElement).toBe(inputs[3]);
+  });
+
+  it('reports characters rejected from a committed IME composition', async () => {
+    const onValueChange = vi.fn();
+    const onValueInvalid = vi.fn();
+
+    await render(() => (
+      <OTPFieldTest onValueChange={onValueChange} onValueInvalid={onValueInvalid} />
+    ));
+
+    const inputs = screen.getAllByRole<HTMLInputElement>('textbox');
+    const firstInput = inputs[0];
+
+    await act(async () => {
+      firstInput.focus();
+    });
+
+    fireEvent.compositionStart(firstInput);
+    fireEvent.input(firstInput, { target: { value: '1a' } });
+
+    expect(onValueInvalid).not.toHaveBeenCalled();
+
+    fireEvent.compositionEnd(firstInput, { target: { value: '1a' } });
+
+    expect(onValueInvalid).toHaveBeenCalledTimes(1);
+    expect(onValueInvalid.mock.calls[0]?.[0]).toBe('1a');
+    expect(onValueInvalid.mock.calls[0]?.[1].reason).toBe('input-change');
+    expect(onValueChange).toHaveBeenCalledTimes(1);
+    expect(onValueChange).toHaveBeenLastCalledWith('1', expect.anything());
+    expect(inputs.map((input) => input.value)).toEqual(['1', '', '', '', '', '']);
+    expect(document.activeElement).toBe(inputs[1]);
+  });
+
+  it('ignores keyboard commands while a composition is buffered', async () => {
+    const onValueChange = vi.fn();
+
+    await render(() => (
+      <OTPFieldTest validationType="alphanumeric" defaultValue="12" onValueChange={onValueChange} />
+    ));
+
+    const inputs = screen.getAllByRole<HTMLInputElement>('textbox');
+    const thirdInput = inputs[2];
+
+    await act(async () => {
+      thirdInput.focus();
+    });
+
+    fireEvent.compositionStart(thirdInput);
+    fireEvent.input(thirdInput, { target: { value: 'a' } });
+
+    // iOS Safari fires a real `Backspace` keydown while the IME is still composing.
+    fireEvent.keyDown(thirdInput, { key: 'Backspace' });
+
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(thirdInput);
+    expect(inputs.map((input) => input.value)).toEqual(['1', '2', 'a', '', '', '']);
+
+    // The IME deleted its own text, so the composition ends empty and nothing commits.
+    fireEvent.compositionEnd(thirdInput, { target: { value: '' } });
+
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(inputs.map((input) => input.value)).toEqual(['1', '2', '', '', '', '']);
+  });
+
+  it.each([{ prop: 'disabled' as const }, { prop: 'readOnly' as const }])(
+    'does not commit a composition that ends after the field becomes $prop',
+    async ({ prop }) => {
+      const onValueChange = vi.fn();
+      const [blocked, setBlocked] = createSignal(false);
+
+      await render(() => (
+        <OTPFieldTest
+          validationType="alphanumeric"
+          onValueChange={onValueChange}
+          disabled={prop === 'disabled' ? blocked() : undefined}
+          readOnly={prop === 'readOnly' ? blocked() : undefined}
+        />
+      ));
+
+      const inputs = screen.getAllByRole<HTMLInputElement>('textbox');
+      const firstInput = inputs[0];
+
+      await act(async () => {
+        firstInput.focus();
+      });
+
+      fireEvent.compositionStart(firstInput);
+      fireEvent.input(firstInput, { target: { value: 'abc' } });
+
+      await act(async () => {
+        setBlocked(true);
+      });
+
+      fireEvent.compositionEnd(firstInput, { target: { value: 'abc' } });
+
+      expect(onValueChange).not.toHaveBeenCalled();
+      expect(inputs.map((input) => input.value)).toEqual(['', '', '', '', '', '']);
+    },
+  );
+
   it('selects the slot value on mousedown', async () => {
     await render(() => <OTPFieldTest defaultValue="1" />);
 
