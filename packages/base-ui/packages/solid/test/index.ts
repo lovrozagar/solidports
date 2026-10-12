@@ -16,3 +16,4 @@ export { waitForPositioned } from './waitForPositioned';
 export { positionerConformanceTests } from './positionerConformanceTests';
 export { viewportConformanceTests } from './viewportConformanceTests';
 export { detachedTriggersConformanceTests } from './detachedTriggersConformanceTests';
+export { dialogRootSharedTests } from './dialogRootSharedTests';
