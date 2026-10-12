@@ -300,11 +300,12 @@ export function useRenderElement<
             ? IMG_DEFAULTS
             : undefined,
         renderProps,
+        stateAttributesSource,
+        ...partSources(),
+        // The render element's own props win over the part's, as React merges `render.props` last.
         render != null && typeof render === 'object' && !(render instanceof Node)
           ? render
           : undefined,
-        stateAttributesSource,
-        ...partSources(),
         classStyleSource,
       ];
     };

@@ -5,7 +5,7 @@ import type { BaseUIComponentProps, NonNativeButtonProps } from '../../utils/typ
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
-import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
+import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { REGULAR_ITEM, useMenuItem } from './useMenuItem';
 
@@ -73,7 +73,7 @@ export function MenuItem(componentProps: MenuItem.Props) {
     },
   };
 
-  const element = useRenderElement('div', componentProps, {
+  const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
     // Built once: the root's item props as an accessor source between the item's own sources.
     props: [
       ...itemSources.attributes,

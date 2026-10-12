@@ -153,6 +153,9 @@ export function useFloatingDelayGroupContext() {
   return useContext(FloatingDelayGroupContext);
 }
 
+/**
+ * @internal
+ */
 export function useDelayGroup(parameters: {
   context: FloatingRootContext | FloatingContext;
   options: UseDelayGroupOptions;

@@ -9,7 +9,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM } from '../item/useMenuItem';
 import { useMenuItemCommonProps } from '../item/useMenuItemCommonProps';
-import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
+import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
 
 /**
@@ -76,7 +76,7 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
     },
   };
 
-  const element = useRenderElement('a', componentProps, {
+  const element = useRenderElement('a', withFilterChildren(componentProps, filterItem), {
     // Built once (plan 7 step 3.4): the button's attributes and the item's common props below the
     // part's props, the button's handlers above them (wrapping, as `getButtonProps` did).
     props: [

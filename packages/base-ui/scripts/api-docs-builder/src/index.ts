@@ -237,8 +237,9 @@ async function run(options: RunOptions) {
     targetMetadata.parts[targetPart] = partMetadata;
   }
 
-  // Update the components page index with metadata all at once
-  if (componentsMetadata.size > 0) {
+  // Update the components page index with metadata all at once. The Solid docs generate their
+  // pages from the React snapshot, which must stay untouched.
+  if (componentsMetadata.size > 0 && process.env.FRAMEWORK !== 'solid') {
     const componentsPagePath = path.resolve(
       path.dirname(path.dirname(path.dirname(options.configPath))),
       'docs/react/src/app/(docs)/react/components/page.mdx',
@@ -373,7 +374,7 @@ function findAllExports(program: ts.Program, sourceFiles: string[]) {
     }
 
     try {
-      const ast = tae.parseFromProgram(file, program);
+      const ast = parseWithStoreFallback(file, program);
       // Tag each export with its source file path
       for (const exp of ast.exports) {
         (exp as any).sourceFilePath = file;
@@ -391,3 +392,38 @@ function findAllExports(program: ts.Program, sourceFiles: string[]) {
 
   return { exports: allExports, errorCount: errorCounter };
 }
+
+/**
+ * The extractor fails on parameters synthesized from a store's selector map (Solid's stores are
+ * structural, not classes). Store members never appear in the public API reference, so a file
+ * that fails inside one is parsed again with that member excluded.
+ */
+function parseWithStoreFallback(file: string, program: ts.Program) {
+  const excluded = new Set<string>();
+  for (;;) {
+    try {
+      return tae.parseFromProgram(file, program, {
+        shouldInclude: ({ name }) => (excluded.has(name) ? false : undefined),
+      });
+    } catch (error) {
+      const stack: string[] = (error as { parsedSymbolStack?: string[] }).parsedSymbolStack ?? [];
+      const member = stack
+        .filter((entry) => entry.startsWith('property: '))
+        .map((entry) => entry.slice('property: '.length))
+        .find((name) => STORE_MEMBERS.has(name) && !excluded.has(name));
+      if (process.env.FRAMEWORK !== 'solid' || member === undefined) {
+        throw error;
+      }
+      excluded.add(member);
+    }
+  }
+}
+
+const STORE_MEMBERS = new Set([
+  'observe',
+  'select',
+  'subscribe',
+  'useContextCallback',
+  'useState',
+  'useSyncedValue',
+]);

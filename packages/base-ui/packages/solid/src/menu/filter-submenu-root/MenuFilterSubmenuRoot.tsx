@@ -28,6 +28,8 @@ type ParentReference = { reference: HTMLElement; trigger: HTMLElement };
 
 /**
  * The filterable implementation of `Menu.SubmenuRoot`.
+ *
+ * @internal
  */
 export function MenuFilterSubmenuRoot(props: MenuFilterSubmenuRootProps): JSX.Element {
   const parent = useMenuRootContext();

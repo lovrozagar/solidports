@@ -19,7 +19,7 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { warn } from '../../utils/warn';
-import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
+import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
 import { useMenuItem } from '../item/useMenuItem';
 import { useMenuPositionerContext } from '../positioner/MenuPositionerContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
@@ -271,7 +271,7 @@ export function MenuSubmenuTrigger(componentProps: MenuSubmenuTrigger.Props) {
     lastOpenChangeReason() === REASONS.listNavigation || openMethod() === 'keyboard';
   const shouldOmitExpanded = () => open() && openedByKeyboard() && platform.screenReader.voiceOver;
 
-  const element = useRenderElement('div', componentProps, {
+  const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
     state,
     stateAttributesMapping: triggerOpenStateMapping,
     // A static list whose changing parts are read per key: highlighting the trigger or opening the

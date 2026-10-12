@@ -1,6 +1,6 @@
-import { createMemo, createSignal } from 'solid-js';
+import { createEffect, createMemo, createSignal } from 'solid-js';
 import { useInitialLiveRegionTextMutation } from '../../internals/useInitialLiveRegionTextMutation';
-import { createLayoutEffect, splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useFilterDropdownItemContext } from '../root/FilterDropdownRootContext';
@@ -8,6 +8,8 @@ import { useFilterDropdownItemContext } from '../root/FilterDropdownRootContext'
 /**
  * Announces that the query matched nothing. Hidden until items have registered, so it is absent
  * from server HTML and does not flash on open.
+ *
+ * @internal
  */
 export function FilterDropdownEmpty(componentProps: FilterDropdownEmpty.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);
@@ -17,8 +19,10 @@ export function FilterDropdownEmpty(componentProps: FilterDropdownEmpty.Props) {
   // Items mounting in the same pass register in their own effects, after this first read, and
   // don't register on the server at all. Deciding once they have keeps the children from
   // mounting for a frame on every open, and the message out of server markup.
+  // A user effect runs after the render effects items register in, as React applies the state
+  // update after the commit's layout effects.
   const [ready, setReady] = createSignal(false, { ownedWrite: true });
-  createLayoutEffect(
+  createEffect(
     () => true,
     () => {
       setReady(true);

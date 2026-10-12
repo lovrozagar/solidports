@@ -40,7 +40,7 @@ export interface UseFilterDropdownItemParameters {
   /** The item's children, watched so a changed label re-registers against the active query. */
   children?: MaybeAccessor<unknown>;
   /** The item's `render` prop, watched like `children` since its element can carry the text. */
-  render?: MaybeAccessor<unknown>;
+  render?: unknown;
   /**
    * The dropdown that owns this item, when it isn't the nearest one. Pass `null` for none.
    * Omit the property to use the nearest dropdown.
@@ -52,6 +52,8 @@ export interface UseFilterDropdownItemParameters {
  * Registers an item with the enclosing filter root and reports whether the query keeps it.
  *
  * The item renders once before it is registered so its rendered text can be read and cached.
+ *
+ * @internal
  */
 export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
   const nearestContext = useFilterDropdownItemContext(true);
@@ -70,58 +72,47 @@ export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
   const itemId = Symbol('filter-dropdown-item');
   const ref = useRef<HTMLElement | null>(null);
   let registeredText: string | undefined;
-  let previousChildrenText: string | undefined;
 
   const matched = store.useState('isItemVisible', itemId);
 
   // An initial item is visible before registration (`visibleItemIds` is null), so start
   // registered and skip the mount update. A late item under an active filter starts
-  // unregistered and renders once so its DOM text can be captured.
+  // unregistered and renders once so its text can be captured.
   const [registered, setRegistered] = createSignal(untrack(matched), { ownedWrite: true });
-  // Whether the item renders its element. A filtered-out item's last element stays in `ref`.
-  const rendered = () => !registered() || matched();
 
-  // Solid: reading JSX children creates them, so they are read only while the item is filtered
-  // out and has no element whose text could be read instead.
-  const readChildrenText = () => childrenText(access(params.children) ?? access(params.render));
+  // Solid: the item resolves its children once and renders those nodes, so their text is what the
+  // item renders, and reading them while it is filtered out creates nothing.
+  const childrenTextNow = () => {
+    const children = access(params.children);
+    if (children != null) {
+      return childrenText(children);
+    }
+    // A render function is opaque: only a render element (config object) carries text.
+    const render = params.render;
+    return typeof render === 'function' ? '' : childrenText(render);
+  };
 
-  const resolveText = (fromChildren?: string) => {
+  // What the item renders now: its element while it is in the document, else its children. A
+  // descendant can change its text without the item updating, so this is read when filtering.
+  const currentText = () => {
     const label = untrack(() => access(params.label));
     if (label != null) {
       return label;
     }
-    if (untrack(rendered)) {
-      // The element can attach after this runs; `getText` reads it when the filter runs.
-      return ref.current !== null ? ref.current.textContent || '' : (registeredText ?? '');
+    const element = ref.current;
+    if (element?.isConnected) {
+      return element.textContent || '';
     }
-    const childrenTextValue = fromChildren ?? untrack(readChildrenText);
-    const previous = previousChildrenText;
-    previousChildrenText = childrenTextValue;
-    // A filtered-out item has no DOM node left. Its children are only a stand-in for the text it
-    // renders, so the cached text wins unless the children changed.
-    if (registeredText !== undefined && childrenTextValue === previous) {
-      return registeredText;
-    }
-    return childrenTextValue;
+    return untrack(childrenTextNow);
   };
 
-  const register = (resolvedText?: string) => {
-    const text = resolvedText ?? resolveText();
-    if (text) {
-      registeredText = text;
-    }
-    return registerItem(itemId, {
+  const register = () =>
+    registerItem(itemId, {
       getText() {
-        // A mounted item reports what it renders now, even nothing, since a descendant can change
-        // its text without the item updating. A filtered-out item falls back to the cached text.
-        const label = untrack(() => access(params.label));
-        if (label == null && ref.current && untrack(rendered)) {
-          registeredText = ref.current.textContent || '';
-        }
+        registeredText = currentText();
         return registeredText;
       },
     });
-  };
 
   createLayoutEffect(
     () => access(params.label),
@@ -137,36 +128,18 @@ export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
     (retainGroup) => registerGroupItem?.(itemId, retainGroup),
   );
 
-  // Re-register when the item's text changes, so the active query runs again. A rendered item's
-  // text is read from its element when the filter runs.
-  let filteredOut = false;
-  createLayoutEffect(
-    () => {
-      const label = access(params.label);
-      if (label != null || rendered()) {
-        return label;
-      }
-      return { children: readChildrenText() };
-    },
-    (source) => {
-      const childrenTextValue =
-        source != null && typeof source === 'object' ? source.children : undefined;
-      if (childrenTextValue !== undefined && !filteredOut) {
-        // Solid: React records what the children read as while the item renders; reading them here
-        // would create them, so the first read after the item is filtered out is the baseline. Its
-        // cached rendered text wins until the children change.
-        filteredOut = true;
-        previousChildrenText = childrenTextValue;
-        return;
-      }
-      filteredOut = childrenTextValue !== undefined;
-      const text = resolveText(childrenTextValue);
-      if (text !== registeredText) {
-        registeredText = text;
-        register(text);
-      }
-    },
-  );
+  // Re-register when the children's text changes, so the active query runs again, as React's
+  // effect does when the item's children change.
+  createLayoutEffect(childrenTextNow, (text) => {
+    if (
+      registeredText !== undefined &&
+      text !== registeredText &&
+      untrack(() => access(params.label)) == null
+    ) {
+      registeredText = text;
+      register();
+    }
+  });
 
   return {
     visible: () => !registered() || matched(),

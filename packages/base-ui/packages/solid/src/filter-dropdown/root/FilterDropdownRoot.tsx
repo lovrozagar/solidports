@@ -25,6 +25,8 @@ import {
 /**
  * Holds the filter query, matches it against the registered items, and publishes the result. The
  * host owns list navigation; this root moves the highlight through `setActiveIndex`.
+ *
+ * @internal
  */
 export function FilterDropdownRoot(props: FilterDropdownRoot.Props): JSX.Element {
   const open = () => props.open;

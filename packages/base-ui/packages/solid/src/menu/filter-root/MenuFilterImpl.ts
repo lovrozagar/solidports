@@ -1,3 +1,5 @@
+import { children } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useFilterDropdownItem } from '../../filter-dropdown/item/useFilterDropdownItem';
 import type { MenuFilterImpl } from './MenuFilterContext';
 import { MenuFilterGroup, MenuFilterRadioGroup } from './MenuFilterGroup';
@@ -8,6 +10,9 @@ import { useVirtualFocusParentHandoff } from './useVirtualFocusParentHandoff';
 import type { MenuFilterItemParams, MenuFilterItemResult } from './MenuFilterContext';
 
 function useItem(params: MenuFilterItemParams): MenuFilterItemResult {
+  // Resolved once in the item's owner: the item renders these nodes, so a filtered-out item's
+  // text is read from them without creating its children again.
+  const resolvedChildren = children(() => params.children as JSX.Element);
   const item = useFilterDropdownItem({
     // One read each: reading JSX children creates them.
     get label() {
@@ -15,13 +20,13 @@ function useItem(params: MenuFilterItemParams): MenuFilterItemResult {
       return typeof label === 'function' ? label() : label;
     },
     get children() {
-      return params.children;
+      return resolvedChildren();
     },
     get render() {
       return params.render;
     },
   });
-  return { visible: item.visible, ref: item.ref };
+  return { visible: item.visible, ref: item.ref, children: resolvedChildren };
 }
 
 export const MENU_FILTER_IMPL: MenuFilterImpl = {

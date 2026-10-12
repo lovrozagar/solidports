@@ -15,6 +15,8 @@ import { MenuRadioGroupContext } from './MenuRadioGroupContext';
  * Renders a `<div>` element.
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
+ *
+ * @internal
  */
 export function MenuRadioGroupPlain(componentProps: MenuRadioGroup.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
