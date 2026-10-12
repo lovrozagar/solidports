@@ -250,9 +250,12 @@ describe('<Collapsible.Panel />', () => {
 
       await user.click(trigger);
 
+      // Both hold only mid-transition, so check them in one snapshot.
       await waitFor(() => {
-        expect(panel).toHaveAttribute('data-ending-style');
-        expect(panel.style.getPropertyValue('--collapsible-panel-height')).toMatch(/px$/);
+        expect({
+          endingStyle: panel.hasAttribute('data-ending-style'),
+          height: panel.style.getPropertyValue('--collapsible-panel-height'),
+        }).toEqual({ endingStyle: true, height: expect.stringMatching(/px$/) });
       });
     });
 
@@ -388,13 +391,16 @@ describe('<Collapsible.Panel />', () => {
     });
 
     it('keeps exit transitions working after a close is interrupted by reopening', async () => {
+      // Keep the close running long enough for a slow run to interrupt it. Without animations,
+      // `data-ending-style` only lasts a frame and `waitFor` can miss it.
+      globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
       const { user } = await render(() => (
         <>
           <style>{`
             .interruptible-panel {
               overflow: hidden;
               height: var(--collapsible-panel-height);
-              transition: height 1s linear;
+              transition: height 10s linear;
             }
 
             .interruptible-panel[data-starting-style],
@@ -706,16 +712,22 @@ describe('<Collapsible.Panel />', () => {
 
       await user.click(trigger);
 
+      // The animation runs only while the panel is closing, so check both in one snapshot.
       await waitFor(() => {
-        expect(panel).toHaveAttribute('data-closed');
-        expect(panel.getAnimations().length).toBe(1);
+        expect({
+          closed: panel.hasAttribute('data-closed'),
+          animations: panel.getAnimations().length,
+        }).toEqual({ closed: true, animations: 1 });
       });
 
       await user.click(trigger);
 
+      // The animation runs only while the panel is opening, so check both in one snapshot.
       await waitFor(() => {
-        expect(panel).toHaveAttribute('data-open');
-        expect(panel.getAnimations().length).toBe(1);
+        expect({
+          open: panel.hasAttribute('data-open'),
+          animations: panel.getAnimations().length,
+        }).toEqual({ open: true, animations: 1 });
       });
     });
 
@@ -757,10 +769,13 @@ describe('<Collapsible.Panel />', () => {
 
       await user.click(trigger);
 
+      // All three hold only while the closing animation runs, so check them in one snapshot.
       await waitFor(() => {
-        expect(panel).toHaveAttribute('data-ending-style');
-        expect(panel.style.getPropertyValue('--collapsible-panel-height')).toMatch(/px$/);
-        expect(panel.getAnimations().length).toBe(1);
+        expect({
+          endingStyle: panel.hasAttribute('data-ending-style'),
+          height: panel.style.getPropertyValue('--collapsible-panel-height'),
+          animations: panel.getAnimations().length,
+        }).toEqual({ endingStyle: true, height: expect.stringMatching(/px$/), animations: 1 });
       });
     });
 
@@ -806,9 +821,12 @@ describe('<Collapsible.Panel />', () => {
 
       await user.click(trigger);
 
+      // The animation runs only while the panel is opening, so check both in one snapshot.
       await waitFor(() => {
-        expect(panel).toHaveAttribute('data-open');
-        expect(panel.getAnimations().length).toBe(1);
+        expect({
+          open: panel.hasAttribute('data-open'),
+          animations: panel.getAnimations().length,
+        }).toEqual({ open: true, animations: 1 });
       });
     });
   });
@@ -841,56 +859,60 @@ describe('<Collapsible.Panel />', () => {
 
   describe.skipIf(isJSDOM || !('onbeforematch' in window))('interrupted beforematch opens', () => {
     it('keeps the temporary zero animation duration until the panel closes', async () => {
-      const { user } = await render(() => (
-        <>
-          <style>{`
-            @keyframes panel-slide-down {
-              from {
-                height: 0;
-              }
+      function App() {
+        return (
+          <>
+            <style>{`
+                @keyframes panel-slide-down {
+                  from {
+                    height: 0;
+                  }
 
-              to {
-                height: var(--collapsible-panel-height);
-              }
-            }
+                  to {
+                    height: var(--collapsible-panel-height);
+                  }
+                }
 
-            @keyframes panel-slide-up {
-              from {
-                height: var(--collapsible-panel-height);
-              }
+                @keyframes panel-slide-up {
+                  from {
+                    height: var(--collapsible-panel-height);
+                  }
 
-              to {
-                height: 0;
-              }
-            }
+                  to {
+                    height: 0;
+                  }
+                }
 
-            .animation-test-panel {
-              overflow: hidden;
-              animation-duration: 123ms;
-            }
+                .animation-test-panel {
+                  overflow: hidden;
+                  animation-duration: 123ms;
+                }
 
-            .animation-test-panel[data-open] {
-              animation-name: panel-slide-down;
-            }
+                .animation-test-panel[data-open] {
+                  animation-name: panel-slide-down;
+                }
 
-            .animation-test-panel[data-closed] {
-              animation-name: panel-slide-up;
-            }
-          `}</style>
+                .animation-test-panel[data-closed] {
+                  animation-name: panel-slide-up;
+                }
+              `}</style>
 
-          <Collapsible.Root>
-            <Collapsible.Trigger>Trigger</Collapsible.Trigger>
-            <Collapsible.Panel
-              class="animation-test-panel"
-              data-testid="panel"
-              hiddenUntilFound
-              keepMounted
-            >
-              {PANEL_CONTENT}
-            </Collapsible.Panel>
-          </Collapsible.Root>
-        </>
-      ));
+            <Collapsible.Root>
+              <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+              <Collapsible.Panel
+                class="animation-test-panel"
+                data-testid="panel"
+                hiddenUntilFound
+                keepMounted
+              >
+                {PANEL_CONTENT}
+              </Collapsible.Panel>
+            </Collapsible.Root>
+          </>
+        );
+      }
+
+      const { user } = await render(() => <App />);
 
       const panel = screen.getByTestId('panel');
       const trigger = screen.getByRole('button', { name: 'Trigger' });
@@ -910,46 +932,53 @@ describe('<Collapsible.Panel />', () => {
 
       await user.click(trigger);
 
+      // The animation runs only while the panel is closing, so check both in one snapshot.
       await waitFor(() => {
-        expect(panel).toHaveAttribute('data-closed');
-        expect(panel.getAnimations().length).toBe(1);
+        expect({
+          closed: panel.hasAttribute('data-closed'),
+          animations: panel.getAnimations().length,
+        }).toEqual({ closed: true, animations: 1 });
       });
 
       expect(getComputedStyle(panel).animationDuration).toBe('0.123s');
     });
 
     it('restores the transition duration before the first close after a beforematch open', async () => {
-      const { user } = await render(() => (
-        <>
-          <style>{`
-            .transition-test-panel {
-              overflow: hidden;
-              height: var(--collapsible-panel-height);
-              transition-property: height;
-              transition-duration: 999ms;
-              transition-timing-function: linear;
-            }
+      function App() {
+        return (
+          <>
+            <style>{`
+                .transition-test-panel {
+                  overflow: hidden;
+                  height: var(--collapsible-panel-height);
+                  transition-property: height;
+                  transition-duration: 999ms;
+                  transition-timing-function: linear;
+                }
 
-            .transition-test-panel[data-starting-style],
-            .transition-test-panel[data-ending-style] {
-              height: 0;
-            }
-          `}</style>
+                .transition-test-panel[data-starting-style],
+                .transition-test-panel[data-ending-style] {
+                  height: 0;
+                }
+              `}</style>
 
-          <Collapsible.Root>
-            <Collapsible.Trigger>Trigger</Collapsible.Trigger>
-            <Collapsible.Panel
-              class="transition-test-panel"
-              data-testid="panel"
-              hiddenUntilFound
-              keepMounted
-              style={{ 'transition-duration': '123ms' }}
-            >
-              {PANEL_CONTENT}
-            </Collapsible.Panel>
-          </Collapsible.Root>
-        </>
-      ));
+            <Collapsible.Root>
+              <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+              <Collapsible.Panel
+                class="transition-test-panel"
+                data-testid="panel"
+                hiddenUntilFound
+                keepMounted
+                style={{ 'transition-duration': '123ms' }}
+              >
+                {PANEL_CONTENT}
+              </Collapsible.Panel>
+            </Collapsible.Root>
+          </>
+        );
+      }
+
+      const { user } = await render(() => <App />);
 
       const panel = screen.getByTestId('panel');
       const trigger = screen.getByRole('button', { name: 'Trigger' });
@@ -969,10 +998,13 @@ describe('<Collapsible.Panel />', () => {
 
       await user.click(trigger);
 
+      // All three hold only while the closing transition runs, so check them in one snapshot.
       await waitFor(() => {
-        expect(panel).toHaveAttribute('data-ending-style');
-        expect(panel.style.transitionDuration).toBe('123ms');
-        expect(panel.getAnimations().length).toBe(1);
+        expect({
+          endingStyle: panel.hasAttribute('data-ending-style'),
+          transitionDuration: panel.style.transitionDuration,
+          animations: panel.getAnimations().length,
+        }).toEqual({ endingStyle: true, transitionDuration: '123ms', animations: 1 });
       });
     });
 
@@ -1117,7 +1149,7 @@ describe('<Collapsible.Panel />', () => {
   describe.skipIf(!('onbeforematch' in window) || isJSDOM)('prop: hiddenUntilFound', () => {
     it('does not open or suppress the next trigger open when beforematch is canceled', async () => {
       const handleOpenChange = vi.fn(
-        (nextOpen: boolean, eventDetails: Collapsible.Root.ChangeEventDetails) => {
+        (nextOpen, eventDetails: Collapsible.Root.ChangeEventDetails) => {
           if (eventDetails.reason === REASONS.none) {
             eventDetails.cancel();
           }
@@ -1387,6 +1419,92 @@ describe('<Collapsible.Panel />', () => {
 
       expect(handleOpenChange.mock.calls.length).toBe(1);
       expect(panel).toHaveAttribute('data-open');
+    });
+
+    it('re-collapses a keyframe panel when the open state never arrives', async () => {
+      function App() {
+        const [open, setOpen] = createSignal(false);
+
+        return (
+          <>
+            <style>{`
+                @keyframes test-panel-slide-down {
+                  from { height: 0; }
+                  to { height: var(--collapsible-panel-height); }
+                }
+
+                @keyframes test-panel-slide-up {
+                  from { height: var(--collapsible-panel-height); }
+                  to { height: 0; }
+                }
+
+                .animation-test-panel {
+                  overflow: hidden;
+                }
+
+                .animation-test-panel[data-open] {
+                  animation: test-panel-slide-down 100ms ease-out;
+                }
+
+                .animation-test-panel[data-closed] {
+                  animation: test-panel-slide-up 100ms ease-in;
+                }
+              `}</style>
+
+            <Collapsible.Root
+              open={open()}
+              onOpenChange={(nextOpen, eventDetails) => {
+                // Opts out of find-in-page reveals while still honoring the trigger.
+                if (eventDetails.reason === REASONS.none) {
+                  return;
+                }
+
+                setOpen(nextOpen);
+              }}
+            >
+              <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+              <Collapsible.Panel class="animation-test-panel" data-testid="panel" hiddenUntilFound>
+                {PANEL_CONTENT}
+              </Collapsible.Panel>
+            </Collapsible.Root>
+          </>
+        );
+      }
+
+      const { user } = await render(() => <App />);
+
+      const panel = screen.getByTestId('panel');
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+
+      // A full open/close cycle reaches the steady state where the closed panel
+      // no longer carries `data-starting-style` (keyframe panels only hold it
+      // until the animation type has been detected).
+      await user.click(trigger);
+      await user.click(trigger);
+
+      await waitFor(() => {
+        expect(panel).toHaveAttribute('hidden', 'until-found');
+      });
+      expect(panel).not.toHaveAttribute('data-starting-style');
+
+      fireBeforeMatch(panel);
+      // The browser drops `hidden` as part of revealing the match.
+      panel.removeAttribute('hidden');
+
+      // The panel returns to the fully closed state without gaining attributes
+      // React does not render for it.
+      await waitFor(() => {
+        expect(panel).toHaveAttribute('hidden', 'until-found');
+      });
+      expect(panel).not.toHaveAttribute('data-starting-style');
+
+      // The reveal never opened the panel, so it must not consume the motion of
+      // the next ordinary open.
+      await user.click(trigger);
+
+      expect(panel).toHaveAttribute('data-open');
+      expect(getComputedStyle(panel).animationDuration).toBe('0.1s');
+      expect(panel.getAnimations().length).toBeGreaterThan(0);
     });
   });
 });
