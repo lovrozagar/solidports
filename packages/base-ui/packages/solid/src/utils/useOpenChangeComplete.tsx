@@ -21,8 +21,16 @@ export function useOpenChangeComplete(parameters: useOpenChangeComplete.Paramete
         return;
       }
 
-      // `onComplete` is a callback: it reads the latest state, it does not subscribe.
-      const onComplete = () => untrack(parameters.onComplete);
+      // `onComplete` is a callback: it reads the latest state, it does not subscribe. React aborts
+      // a run in the commit that changes `open`; this effect re-runs a flush later, so a run that
+      // finishes in between is dropped here instead of reporting the new state.
+      const scheduledOpen = untrack(open);
+      const onComplete = () => {
+        if (untrack(open) !== scheduledOpen) {
+          return;
+        }
+        untrack(parameters.onComplete);
+      };
       // Without an element there is nothing to wait for or abort (a part that is not rendered).
       if (access(parameters.ref) == null) {
         runOnceAnimationsFinish(onComplete);
