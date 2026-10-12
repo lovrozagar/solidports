@@ -14,6 +14,10 @@ export type State = {
   labelId: string | undefined;
   modal: boolean;
   multiple: boolean;
+  disabled: boolean;
+  readOnly: boolean;
+  required: boolean;
+  highlightItemOnHover: boolean;
 
   items:
     | Record<string, JSX.Element>
@@ -108,6 +112,10 @@ export const selectors = {
 
   mounted: (state: State) => state.mounted,
   multiple: (state: State) => state.multiple,
+  disabled: (state: State) => state.disabled,
+  readOnly: (state: State) => state.readOnly,
+  required: (state: State) => state.required,
+  highlightItemOnHover: (state: State) => state.highlightItemOnHover,
   open: (state: State) => state.open,
 
   openMethod: (state: State) => state.openMethod,
