@@ -54,7 +54,6 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
 
   const { buttonSources, buttonRef } = useButton({
     disabled,
-    focusableWhenDisabled: true,
     native: nativeButton,
   });
 
@@ -82,8 +81,8 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
 type Handler = (...args: any[]) => unknown;
 
 /**
- * The consumer's handler for one of a disclosure trigger's keys, composed as `useButton` (a
- * focusable-when-disabled native button outside a composite root) and the trigger's own `onClick`
+ * The consumer's handler for one of a disclosure trigger's keys, composed as `useButton` and the
+ * trigger's own `onClick`
  * compose it: the disabled gate first, the consumer, then the part unless prevented. The
  * after-consumer keyboard logic of `useButton` is a no-op for a native button (the browser
  * activates it). Shared by Collapsible.Trigger and Accordion.Trigger.
@@ -136,12 +135,18 @@ export function writeDisclosureTriggerAttributes(
 ) {
   set('aria-controls', open ? panelId : undefined);
   set('aria-expanded', open ? 'true' : 'false');
-  set('aria-disabled', disabled ? 'true' : 'false');
+  // Native buttons expose disabled through the disabled attribute.
+  set('disabled', disabled ? true : undefined);
 }
 
 function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element {
-  const { panelId, open, handleTrigger, state, disabled: contextDisabled } =
-    useCollapsibleRootContext();
+  const {
+    panelId,
+    open,
+    handleTrigger,
+    state,
+    disabled: contextDisabled,
+  } = useCollapsibleRootContext();
   const disabled = () => Boolean(props.disabled ?? contextDisabled());
 
   return renderNativeElement((<button type="button" tabindex="0" />) as unknown as Element, props, {

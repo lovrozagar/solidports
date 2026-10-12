@@ -53,7 +53,6 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
 
   const { buttonSources, buttonRef } = useButton({
     disabled,
-    focusableWhenDisabled: true,
     native: nativeButton,
   });
 
