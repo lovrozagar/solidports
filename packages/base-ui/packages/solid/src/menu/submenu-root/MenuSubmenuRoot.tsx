@@ -4,7 +4,8 @@ import {
   MenuFilterProviderContext,
   useMenuFilterProviderContext,
 } from '../filter-provider/MenuFilterProviderContext';
-import { MenuRoot } from '../root/MenuRoot';
+import { MenuRootInternal } from '../root/MenuRoot';
+import type { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { MenuSubmenuRootContext } from './MenuSubmenuRootContext';
 
@@ -16,8 +17,11 @@ export { useMenuSubmenuRootContext } from './MenuSubmenuRootContext';
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
  */
+const EMPTY_SUBMENU_ROOT_CONTEXT = {};
+
 export function MenuSubmenuRoot(props: MenuSubmenuRoot.Props) {
-  const parentMenu = useMenuRootContext().store;
+  // Throws when the submenu isn't inside a menu.
+  useMenuRootContext();
   const filterProvider = useMenuFilterProviderContext(true);
 
   if (filterProvider != null) {
@@ -28,8 +32,8 @@ export function MenuSubmenuRoot(props: MenuSubmenuRoot.Props) {
   }
 
   return (
-    <MenuSubmenuRootContext value={{ parentMenu }}>
-      <MenuRoot {...props} />
+    <MenuSubmenuRootContext value={EMPTY_SUBMENU_ROOT_CONTEXT}>
+      <MenuRootInternal {...props} isSubmenu />
     </MenuSubmenuRootContext>
   );
 }

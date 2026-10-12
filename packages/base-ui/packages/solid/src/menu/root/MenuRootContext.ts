@@ -11,9 +11,12 @@ export interface MenuRootContext<Payload = unknown> {
   loopFocus: Accessor<boolean>;
   /** Whether arrow keys can step from either end of the list back to a virtual focus owner. */
   allowEscape: Accessor<boolean>;
+  defaultFloatingId: Accessor<string | undefined>;
+  /** Records the id the popup rendered with, when it differs from `defaultFloatingId`. */
+  setRenderedFloatingId: (id: string | undefined) => void;
   virtualFocus: Accessor<boolean>;
   parentVirtualFocus: Accessor<boolean>;
-  /** Re-reads the highlighted element after the item registry settles. */
+  /** Re-emits `onItemHighlighted` after the item registry settles. */
   syncHighlightedItem: () => void;
 }
 

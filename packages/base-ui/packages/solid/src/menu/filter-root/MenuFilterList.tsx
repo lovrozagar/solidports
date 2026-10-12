@@ -102,8 +102,7 @@ export function MenuFilterList(props: MenuList.Props) {
   const ariaLabelledBy = () =>
     resolvePopupLabel(
       {
-        'aria-label':
-          typeof props['aria-label'] === 'string' ? props['aria-label'] : undefined,
+        'aria-label': typeof props['aria-label'] === 'string' ? props['aria-label'] : undefined,
         'aria-labelledby':
           typeof props['aria-labelledby'] === 'string' ? props['aria-labelledby'] : undefined,
         render: props.render,

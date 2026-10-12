@@ -18,6 +18,7 @@ import { useTimeout } from '../../utils/useTimeout';
 import type { FloatingContext, FloatingRootContext } from '../types';
 import {
   activeElement,
+  closest,
   contains,
   enableFocusInside,
   focusable,
@@ -56,7 +57,12 @@ function getEventType(event: Event, lastInteractionType?: InteractionType): Inte
     return lastInteractionType || 'keyboard';
   }
   if ('pointerType' in event) {
-    return ((event.pointerType as PointerEvent['pointerType']) || 'keyboard') as InteractionType;
+    // A trusted click without a pointerType is keyboard/AT; only synthesized
+    // clicks (e.g. a test harness) pair an empty pointerType with a click count.
+    return (
+      (event.pointerType as InteractionType) ||
+      (isVirtualClick(event as PointerEvent) ? 'keyboard' : lastInteractionType || 'mouse')
+    );
   }
   if ('touches' in event) {
     return 'touch';
@@ -194,6 +200,12 @@ export interface FloatingFocusManagerProps {
     | FocusTarget
     | ((closeType: InteractionType) => boolean | HTMLElement | null | void)
     | undefined;
+  /**
+   * Whether `returnFocus` is an explicit consumer target. Internal dynamic defaults use `false`
+   * so focus that has already moved outside the floating tree is respected.
+   * @internal
+   */
+  explicitReturnFocus?: boolean | undefined;
   /**
    * Determines where focus should be restored if focus inside the floating element is lost
    * (such as due to the removal of the currently focused element from the DOM).
@@ -371,7 +383,7 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
         pointerDownOutsideRef = !pointerTargetInside;
         lastInteractionTypeRef = (event.pointerType as InteractionType) || 'keyboard';
 
-        if (target?.closest(`[${CLICK_TRIGGER_IDENTIFIER}]`)) {
+        if (closest(target, `[${CLICK_TRIGGER_IDENTIFIER}]`)) {
           isPointerDownRef = true;
           // Reset on the next tick so a single click on a click-trigger doesn't
           // permanently suppress focus-out closing for the lifetime of the instance.
@@ -723,13 +735,20 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
 
         const hadFocusInside = contains(floatingFocusValue, activeElement(doc));
 
+        // Screen readers re-sync focus to their cursor right after a synthesized press. A focus
+        // that lands a frame later reads as a stray move and gets pulled back to the reference.
+        const openEvent = dataRef().openEvent;
+        const openedByVirtualPress =
+          openEvent?.type === 'mousedown' && isVirtualClick(openEvent as MouseEvent);
+
         // enqueueFocus returns a rAF-cancel function; we intentionally don't cancel this focus.
         void enqueueFocus(elToFocus, {
+          sync: openedByVirtualPress,
           preventScroll: elToFocus === floatingFocusValue,
           shouldFocus() {
-            // This focus is queued on the next animation frame. If the floating element has closed
-            // before it runs — e.g. tabbing out of a kept-mounted popup — don't pull focus back
-            // onto the initial element after it has legitimately moved elsewhere.
+            // If the floating element has closed before this runs — e.g. tabbing out of a
+            // kept-mounted popup — don't pull focus back onto the initial element after it has
+            // legitimately moved elsewhere.
             if (!untrack(open)) {
               return false;
             }
@@ -750,6 +769,10 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
     },
   );
 
+  // A return-focus queued by the effect cleanup. If the effect re-arms in the same flush, a
+  // dependency changed while the popup stayed open, so the cleanup was not a close.
+  let pendingReturnFocus: { cancelled: boolean } | null = null;
+
   // Track return focus targets and restore focus on unmount/close.
   createDepsEffect(
     () => ({
@@ -761,7 +784,13 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
     (deps) => {
       const floatingFocusValue = deps.floatingFocusElement;
       if (deps.disabled || !floatingFocusValue) {
+        pendingReturnFocus = null;
         return undefined;
+      }
+
+      if (pendingReturnFocus) {
+        pendingReturnFocus.cancelled = true;
+        pendingReturnFocus = null;
       }
 
       const doc = ownerDocument(floatingFocusValue);
@@ -778,7 +807,12 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
           closeTypeRef = getEventType(details.nativeEvent, lastInteractionTypeRef);
         }
 
-        if (details.reason === REASONS.triggerHover && details.nativeEvent.type === 'mouseleave') {
+        // Focus guards transfer focus themselves; other close handlers may still need return focus.
+        if (
+          (details.reason === REASONS.focusOut &&
+            details.triggerElement?.hasAttribute(createAttribute('focus-guard'))) ||
+          (details.reason === REASONS.triggerHover && details.nativeEvent.type === 'mouseleave')
+        ) {
           preventReturnFocusRef = true;
         }
 
@@ -871,13 +905,22 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
         const closeType = closeTypeRef;
         const returnElement = getReturnElement(closeType);
 
+        const job = { cancelled: false };
+        pendingReturnFocus = job;
+
         queueMicrotask(() => {
+          if (pendingReturnFocus === job) {
+            pendingReturnFocus = null;
+          }
           // `returnElement` if it is tabbable, otherwise its first tabbable child,
           // otherwise `returnElement` itself (which may not be tabbable at all).
           const tabbableReturnElement = getFirstTabbableElement(returnElement);
-          const hasExplicitReturnFocus = typeof returnFocusValueOrFn !== 'boolean';
+          // Read at close time on purpose: the latest `explicitReturnFocus` decides.
+          const hasExplicitReturnFocus =
+            untrack(() => props.explicitReturnFocus) ?? typeof returnFocusValueOrFn !== 'boolean';
 
           if (
+            !job.cancelled &&
             returnFocusValueOrFn &&
             !preventReturnFocusRef &&
             isHTMLElement(tabbableReturnElement) &&
@@ -897,6 +940,7 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
             tabbableReturnElement.focus(focusOptions);
           }
 
+          // A cancelled return must also clear suppression before the next close.
           preventReturnFocusRef = false;
         });
       };

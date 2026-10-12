@@ -281,9 +281,9 @@ describe('getMenuFilterKeyAction', () => {
         activeItemOpensSubmenu: true,
       }),
     ).toBe('submenu');
-    expect(
-      getMenuFilterKeyAction(key('ArrowDown'), { ...base, orientation: 'horizontal' }),
-    ).toBe('enter-list');
+    expect(getMenuFilterKeyAction(key('ArrowDown'), { ...base, orientation: 'horizontal' })).toBe(
+      'enter-list',
+    );
     expect(getMenuFilterKeyAction(key('ArrowLeft'), { ...base, hasValue: true })).toBe('edit');
     expect(getMenuFilterKeyAction(key('ArrowLeft'), base)).toBe('navigate');
   });

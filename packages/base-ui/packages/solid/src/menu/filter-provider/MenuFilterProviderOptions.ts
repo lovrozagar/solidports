@@ -36,6 +36,5 @@ export interface MenuFilterProviderOptions {
    * Event handler called when the filter query changes.
    */
   onValueChange?:
-    | ((value: string, eventDetails: MenuFilterProvider.ChangeEventDetails) => void)
-    | undefined;
+    ((value: string, eventDetails: MenuFilterProvider.ChangeEventDetails) => void) | undefined;
 }
