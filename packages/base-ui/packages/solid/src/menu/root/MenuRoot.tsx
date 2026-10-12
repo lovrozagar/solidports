@@ -67,6 +67,8 @@ import { MenuRootContext, useMenuRootContext } from './MenuRootContext';
  * Doesn't render its own HTML element.
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
+ *
+ * @internal
  */
 export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>) {
   const openProp = () => props.open;

@@ -22,6 +22,8 @@ export type ProgressRootContext = {
 
 /**
  * @internal
+ *
+ * @internal
  */
 export const ProgressRootContext = createContext<ProgressRootContext | null>(null);
 

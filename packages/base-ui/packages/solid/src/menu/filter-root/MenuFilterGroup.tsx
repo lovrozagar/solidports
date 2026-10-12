@@ -10,6 +10,8 @@ import type { MenuRadioGroup } from '../radio-group/MenuRadioGroup';
 /**
  * `Menu.Group` in a filterable menu: hidden, label included, once the query filters out all of
  * its items.
+ *
+ * @internal
  */
 export function MenuFilterGroup(props: MenuGroup.Props): JSX.Element {
   const { hidden, context } = useFilterDropdownGroup();
@@ -21,6 +23,8 @@ export function MenuFilterGroup(props: MenuGroup.Props): JSX.Element {
 
 /**
  * `Menu.RadioGroup` in a filterable menu, hidden like `MenuFilterGroup`.
+ *
+ * @internal
  */
 export function MenuFilterRadioGroup(props: MenuRadioGroup.Props): JSX.Element {
   const { hidden, context } = useFilterDropdownGroup();

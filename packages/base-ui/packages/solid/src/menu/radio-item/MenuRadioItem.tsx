@@ -12,7 +12,7 @@ import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
 import { useMenuRadioGroupContext } from '../radio-group/MenuRadioGroupContext';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
+import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
 import { itemMapping } from '../utils/stateAttributesMapping';
 import { MenuRadioItemContext } from './MenuRadioItemContext';
 
@@ -100,7 +100,7 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     setSelectedValue(local.value, details);
   };
 
-  const element = useRenderElement('div', componentProps, {
+  const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
     props: [
       ...itemSources.attributes,
       propsSourceMemo(itemProps),

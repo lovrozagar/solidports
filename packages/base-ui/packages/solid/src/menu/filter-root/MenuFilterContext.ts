@@ -21,6 +21,43 @@ export interface MenuFilterItemResult {
   ref: ReactLikeRef<HTMLElement | null> | null;
   /** Props the filter needs on the element, merged under the consumer's. */
   props?: HTMLProps | undefined;
+  /**
+   * The item's children, resolved once and owned by the item. Solid: reading JSX children creates
+   * them, so the item renders these and the filter reads a filtered-out item's text from them.
+   */
+  children?: Accessor<unknown> | undefined;
+}
+
+/**
+ * The item's props with the children its filter resolved, when the item filters. Only `children`
+ * is overridden; every other key keeps its own descriptor.
+ */
+export function withFilterChildren<P extends object>(
+  props: P,
+  filterItem: MenuFilterItemResult,
+): P {
+  const resolved = filterItem.children;
+  if (!resolved) {
+    return props;
+  }
+  return new Proxy(props, {
+    get(target, key, receiver) {
+      return key === 'children' ? resolved() : Reflect.get(target, key, receiver);
+    },
+    has(target, key) {
+      return key === 'children' || Reflect.has(target, key);
+    },
+    getOwnPropertyDescriptor(target, key) {
+      if (key === 'children') {
+        return { configurable: true, enumerable: true, get: resolved };
+      }
+      return Reflect.getOwnPropertyDescriptor(target, key);
+    },
+    ownKeys(target) {
+      const keys = Reflect.ownKeys(target);
+      return keys.includes('children') ? keys : [...keys, 'children'];
+    },
+  });
 }
 
 /**

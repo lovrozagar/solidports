@@ -9,6 +9,8 @@ import { useMenuFilterRoot } from './useMenuFilterRoot';
 /**
  * The filterable implementation of `Menu.Root`, rendered in its place when the root sits inside
  * `Menu.FilterProvider`.
+ *
+ * @internal
  */
 export function MenuFilterRoot<Payload>(props: MenuFilterRootProps<Payload>): JSX.Element {
   const filter = useMenuFilterRoot(props);

@@ -12,7 +12,7 @@ import { propsSourceMemo } from '../../utils/propsView';
 import { REGULAR_ITEM, useMenuItem } from '../item/useMenuItem';
 import type { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { useMenuFilterItem } from '../filter-root/MenuFilterContext';
+import { useMenuFilterItem, withFilterChildren } from '../filter-root/MenuFilterContext';
 import { itemMapping } from '../utils/stateAttributesMapping';
 import { MenuCheckboxItemContext } from './MenuCheckboxItemContext';
 
@@ -110,7 +110,7 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     setChecked(() => !checked());
   };
 
-  const element = useRenderElement('div', componentProps, {
+  const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
     props: [
       ...itemSources.attributes,
       propsSourceMemo(itemProps),

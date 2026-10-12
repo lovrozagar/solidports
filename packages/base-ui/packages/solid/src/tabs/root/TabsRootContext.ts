@@ -4,6 +4,9 @@ import type { CompositeMetadata } from '../../internals/composite/list/Composite
 import type { TabsTab } from '../tab/TabsTab';
 import type { TabsRoot } from './TabsRoot';
 
+/**
+ * @internal
+ */
 export interface TabsRootContext {
   value: Accessor<TabsTab.Value>;
   onValueChange: (value: TabsTab.Value, eventDetails: TabsRoot.ChangeEventDetails) => void;

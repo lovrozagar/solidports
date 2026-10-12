@@ -11,6 +11,8 @@ import { MenuGroupContext } from './MenuGroupContext';
  * Renders a `<div>` element.
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
+ *
+ * @internal
  */
 export function MenuGroupPlain(componentProps: MenuGroup.Props) {
   const [, , elementProps] = splitComponentProps(componentProps, []);

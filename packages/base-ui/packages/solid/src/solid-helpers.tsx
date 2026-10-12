@@ -229,7 +229,14 @@ export function ComponentWithPayload<Payload>(props: {
   children: JSX.Element | PayloadChildRenderFunction<Payload>;
   payload: Accessor<Payload | undefined>;
 }) {
-  const cachedChildren = children(() => props.children as any);
+  const cachedChildren = children(() => {
+    const child = props.children;
+    // A zero-arity function child is called in its own memo: resolved by `children()` itself, it
+    // would be called again (re-creating its components) each time an accessor it returned updates.
+    return (
+      typeof child === 'function' && child.length === 0 ? createMemo(child as () => unknown) : child
+    ) as any;
+  });
   const childrenFn = createMemo(() => {
     const child = cachedChildren();
     return typeof child === 'function' ? (child as PayloadChildRenderFunction<Payload>) : null;

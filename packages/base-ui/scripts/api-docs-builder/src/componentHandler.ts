@@ -4,7 +4,10 @@ import * as tae from 'typescript-api-extractor';
 import { formatProperties, formatEnum } from './formatter';
 import memberOrder from './order.json';
 
-const componentsDir = path.resolve(process.cwd(), '../../packages/react/src');
+const componentsDir = path.resolve(
+  process.cwd(),
+  `../../packages/${process.env.FRAMEWORK ?? 'react'}/src`,
+);
 
 function kebabToPascal(str: string): string {
   return str

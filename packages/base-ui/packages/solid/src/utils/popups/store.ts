@@ -153,7 +153,10 @@ const activeTriggerIdSelector = (state: S) => state.triggerIdProp ?? state.activ
 const openSelector = (state: S) => state.openProp ?? state.open;
 
 const popupIdSelector = (state: S) => {
-  const popupId = state.popupElement?.id ?? state.floatingId;
+  // Solid: read the id state before the element: the element's DOM id is not reactive, so a
+  // selector that short-circuits past `floatingId` would never update when it changes.
+  const floatingId = state.floatingId;
+  const popupId = state.popupElement?.id ?? floatingId;
   return popupId || undefined;
 };
 

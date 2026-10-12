@@ -9,7 +9,10 @@ import {
   type FilterDropdownGroupContext as FilterDropdownGroupContextValue,
 } from './FilterDropdownGroupContext';
 
-function isGroupHidden(visibleItemIds: ReadonlySet<symbol> | null, items: ReadonlyMap<symbol, boolean>) {
+function isGroupHidden(
+  visibleItemIds: ReadonlySet<symbol> | null,
+  items: ReadonlyMap<symbol, boolean>,
+) {
   // A group with no members hasn't been filtered out, it hasn't registered yet.
   if (visibleItemIds === null || items.size === 0) {
     return false;
@@ -31,6 +34,8 @@ export interface UseFilterDropdownGroupReturnValue {
 
 /**
  * Tracks which items belong to a group and hides the group once none of them match.
+ *
+ * @internal
  */
 export function useFilterDropdownGroup(): UseFilterDropdownGroupReturnValue {
   const { store } = useFilterDropdownItemContext();

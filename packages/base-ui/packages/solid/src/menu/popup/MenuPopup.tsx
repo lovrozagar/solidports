@@ -36,6 +36,8 @@ const stateAttributesMapping: StateAttributesMapping<MenuPopup.State> = {
  * Renders a `<div>` element.
  *
  * Documentation: [Base UI Menu](https://base-ui.com/react/components/menu)
+ *
+ * @internal
  */
 export function MenuPopupPlain(componentProps: MenuPopup.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [

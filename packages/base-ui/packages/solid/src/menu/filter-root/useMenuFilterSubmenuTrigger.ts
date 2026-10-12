@@ -1,4 +1,5 @@
-import { untrack } from 'solid-js';
+import { children, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { createLayoutEffect } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
@@ -28,6 +29,8 @@ export function useMenuFilterSubmenuTrigger(params: MenuFilterItemParams): MenuF
     parentListRef as ReactLikeRef<Array<HTMLElement | null>> | null,
   );
 
+  // Resolved once in the trigger's owner, as filtered items do.
+  const resolvedChildren = children(() => params.children as JSX.Element);
   const item = useFilterDropdownItem({
     // One read each: reading JSX children creates them.
     get label() {
@@ -35,7 +38,7 @@ export function useMenuFilterSubmenuTrigger(params: MenuFilterItemParams): MenuF
       return typeof label === 'function' ? label() : label;
     },
     get children() {
-      return params.children;
+      return resolvedChildren();
     },
     get render() {
       return params.render;
@@ -92,5 +95,6 @@ export function useMenuFilterSubmenuTrigger(params: MenuFilterItemParams): MenuF
     visible: () => item.visible() || mounted(),
     ref: item.ref,
     props,
+    children: resolvedChildren,
   };
 }

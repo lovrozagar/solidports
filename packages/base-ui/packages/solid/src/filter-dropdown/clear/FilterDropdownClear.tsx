@@ -11,6 +11,8 @@ import {
 
 /**
  * Clears the filter query and returns focus to the input.
+ *
+ * @internal
  */
 export function FilterDropdownClear(componentProps: FilterDropdownClear.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);

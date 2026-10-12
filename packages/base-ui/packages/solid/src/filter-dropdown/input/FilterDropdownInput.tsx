@@ -31,6 +31,8 @@ export function filterInputValueProps(server: boolean, read: () => string): Base
 
 /**
  * The text input that owns the filter query. The host supplies list-navigation props.
+ *
+ * @internal
  */
 export function FilterDropdownInput(componentProps: FilterDropdownInput.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, [
