@@ -952,10 +952,15 @@ describe('<ScrollArea.Scrollbar />', () => {
     const SCROLLABLE_CONTENT_SIZE = 1000;
 
     it('applies data attributes on vertical and horizontal scrollbars', async () => {
-      await render(() => (
-        <ScrollArea.Root style={{ width: VIEWPORT_SIZE, height: VIEWPORT_SIZE }}>
+      render(() => (
+        <ScrollArea.Root style={{ width: `${VIEWPORT_SIZE}px`, height: `${VIEWPORT_SIZE}px` }}>
           <ScrollArea.Viewport data-testid="viewport" style={{ width: '100%', height: '100%' }}>
-            <div style={{ width: SCROLLABLE_CONTENT_SIZE, height: SCROLLABLE_CONTENT_SIZE }} />
+            <div
+              style={{
+                width: `${SCROLLABLE_CONTENT_SIZE}px`,
+                height: `${SCROLLABLE_CONTENT_SIZE}px`,
+              }}
+            />
           </ScrollArea.Viewport>
           <ScrollArea.Scrollbar orientation="vertical" data-testid="scrollbar-vertical">
             <ScrollArea.Thumb />
@@ -970,23 +975,17 @@ describe('<ScrollArea.Scrollbar />', () => {
       const vScrollbar = screen.getByTestId('scrollbar-vertical');
       const hScrollbar = screen.getByTestId('scrollbar-horizontal');
 
+      /* eslint-disable testing-library/no-wait-for-multiple-assertions */
       await waitFor(() => {
-        expect({
-          vHasOverflowY: vScrollbar.hasAttribute('data-has-overflow-y'),
-          vOverflowYStart: vScrollbar.hasAttribute('data-overflow-y-start'),
-          vOverflowYEnd: vScrollbar.hasAttribute('data-overflow-y-end'),
-          hHasOverflowX: hScrollbar.hasAttribute('data-has-overflow-x'),
-          hOverflowXStart: hScrollbar.hasAttribute('data-overflow-x-start'),
-          hOverflowXEnd: hScrollbar.hasAttribute('data-overflow-x-end'),
-        }).toEqual({
-          vHasOverflowY: true,
-          vOverflowYStart: false,
-          vOverflowYEnd: true,
-          hHasOverflowX: true,
-          hOverflowXStart: false,
-          hOverflowXEnd: true,
-        });
+        expect(vScrollbar).toHaveAttribute('data-has-overflow-y');
+        expect(vScrollbar).not.toHaveAttribute('data-overflow-y-start');
+        expect(vScrollbar).toHaveAttribute('data-overflow-y-end');
+
+        expect(hScrollbar).toHaveAttribute('data-has-overflow-x');
+        expect(hScrollbar).not.toHaveAttribute('data-overflow-x-start');
+        expect(hScrollbar).toHaveAttribute('data-overflow-x-end');
       });
+      /* eslint-enable testing-library/no-wait-for-multiple-assertions */
 
       // Scroll to middle
       const halfY = (viewport.scrollHeight - viewport.clientHeight) / 2;

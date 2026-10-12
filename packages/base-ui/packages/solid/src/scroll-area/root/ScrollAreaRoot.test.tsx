@@ -459,14 +459,14 @@ describe('<ScrollArea.Root />', () => {
           <ScrollArea.Scrollbar
             orientation="vertical"
             data-testid="vertical-scrollbar"
-            style={{ 'margin-inline': `${margin}px` }}
+            style={{ 'margin-block': `${margin}px` }}
           >
             <ScrollArea.Thumb data-testid="vertical-thumb" />
           </ScrollArea.Scrollbar>
           <ScrollArea.Scrollbar
             orientation="horizontal"
             data-testid="horizontal-scrollbar"
-            style={{ 'margin-block': `${margin}px` }}
+            style={{ 'margin-inline': `${margin}px` }}
           >
             <ScrollArea.Thumb data-testid="horizontal-thumb" />
           </ScrollArea.Scrollbar>
@@ -475,14 +475,17 @@ describe('<ScrollArea.Root />', () => {
 
       const verticalThumb = screen.getByTestId('vertical-thumb');
       const horizontalThumb = screen.getByTestId('horizontal-thumb');
+      const expectedThumbSize = `${(viewportSize - margin * 2) * (viewportSize / SCROLLABLE_CONTENT_SIZE)}px`;
 
       await waitFor(() => {
         expect(getComputedStyle(verticalThumb).getPropertyValue('--scroll-area-thumb-height')).toBe(
-          `${viewportSize * (viewportSize / SCROLLABLE_CONTENT_SIZE)}px`,
+          expectedThumbSize,
         );
+      });
+      await waitFor(() => {
         expect(
           getComputedStyle(horizontalThumb).getPropertyValue('--scroll-area-thumb-width'),
-        ).toBe(`${viewportSize * (viewportSize / SCROLLABLE_CONTENT_SIZE)}px`);
+        ).toBe(expectedThumbSize);
       });
     });
 
