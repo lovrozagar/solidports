@@ -4,6 +4,8 @@ import { useDirection } from '../../direction-provider/DirectionContext';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
 import { isWebKit } from '../../utils/detectBrowser';
+import { NOOP } from '../../utils/empty';
+import { getFiniteAnimations } from '../../utils/getFiniteAnimations';
 import { normalizeScrollOffset } from '../../utils/scrollEdges';
 import { styleDisableScrollbar } from '../../utils/styles';
 import type { BaseUIComponentProps } from '../../utils/types';
@@ -341,7 +343,7 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
     // Wait for subtree animations to finish, then recompute thumb geometry that
     // may have been affected by transform-based animations.
     waitForAnimationsTimeout.start(0, () => {
-      const animations = viewport.getAnimations({ subtree: true });
+      const animations = getFiniteAnimations(viewport, { subtree: true });
       if (animations.length === 0) {
         return;
       }
@@ -349,7 +351,8 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
       // `allSettled` never rejects, but `computeThumbPosition` can still run against a
       // torn-down tree once the animations resolve. Swallow instead of leaking an unhandled
       // rejection; `void` alone would only silence the floating-promise lint.
-      Promise.allSettled(animations.map((animation) => animation.finished))
+      // Discard fulfilled Animation values so unfinished animations cannot retain their targets.
+      Promise.allSettled(animations.map((animation) => animation.finished.then(NOOP)))
         .then(computeThumbPosition)
         .catch(() => {});
     });
