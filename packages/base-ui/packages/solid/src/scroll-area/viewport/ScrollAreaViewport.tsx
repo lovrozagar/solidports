@@ -365,7 +365,6 @@ export function ScrollAreaViewport(componentProps: ScrollAreaViewport.Props) {
   }
 
   const props: ComponentProps<'div'> = {
-    role: 'presentation',
     get ['data-id' as string]() {
       return rootId() ? `${rootId()}-viewport` : undefined;
     },
