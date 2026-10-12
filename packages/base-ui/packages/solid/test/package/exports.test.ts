@@ -22,7 +22,8 @@ const packageJson = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 
 // Subpaths that only export types have no runtime exports.
 const TYPE_ONLY_SUBPATHS = new Set(['./types', './internals/types', './internals/temporal']);
 const SOURCE_FILE = /\.tsx?$/;
-const TEST_FILE = /(\.(test|spec)\.tsx?|\/test-utils\.tsx?)$/;
+// Mirrors the `files` exclusions in package.json.
+const TEST_FILE = /(\.(test|spec|ssr-fixtures)\.tsx?|\/test-utils\.tsx?)$/;
 const IMPORT_SPECIFIER =
   /(?:^|[\s;])(?:import|export)\s(?:[^'"]*?\sfrom\s)?['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
 
