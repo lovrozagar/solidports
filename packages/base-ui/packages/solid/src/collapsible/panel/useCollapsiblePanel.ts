@@ -201,7 +201,8 @@ export function useCollapsiblePanel(
       // open or status change that always comes with it (the layout effect React runs for it).
       // The element is read when the part applies (React's `ref.current`): its dependency value
       // is computed when the node is created, before a native panel's ref has attached.
-      deps: () => [panelElement(), open(), shouldPreventOpenAnimation(), transitionStatus()] as const,
+      deps: () =>
+        [panelElement(), open(), shouldPreventOpenAnimation(), transitionStatus()] as const,
       // Solid: a user effect, so it runs after the panel's DOM (including a render prop's output)
       // has updated, as React's layout effect runs after commit.
       apply([, isOpen, preventOpenAnimation, status]) {
@@ -391,7 +392,13 @@ export function useCollapsiblePanel(
         }
 
         const panel = untrack(panelElement);
-        if (!panel) {
+        // Solid: a render function that returns null does not clear the ref, so a detached
+        // element is the cleared ref React would see. A missing element is the same case.
+        if (panel?.isConnected !== true) {
+          // A render function can drop the panel element while it closes. There is nothing left
+          // to animate, so finish closing instead of staying in the ending phase.
+          setMounted(false);
+          setDimensions(EMPTY_DIMENSIONS, false);
           return undefined;
         }
 
@@ -458,7 +465,8 @@ export function useCollapsiblePanel(
   // `<Show>` memoizes its condition, so a plain function costs nothing more.
   const shouldRender = () => keepMounted() || hiddenUntilFound() || mounted() || open();
 
-  const hiddenAttribute = () => (hidden() ? (hiddenUntilFound() ? 'until-found' : true) : undefined);
+  const hiddenAttribute = () =>
+    hidden() ? (hiddenUntilFound() ? 'until-found' : true) : undefined;
 
   // Solid: a memo so the starting-style key is omitted rather than set to `undefined`, which
   // would override the transition status attribute in the merged props. A native panel writes
