@@ -67,7 +67,9 @@ describe('server rendering', () => {
       ['toolbar-text', 'toolbar-text'],
     ].flatMap(([id, expected]) => {
       const actual = inputValue(html, id);
-      return actual === expected ? [] : [`#${id}: expected "${expected}", got ${formatValue(actual)}`];
+      return actual === expected
+        ? []
+        : [`#${id}: expected "${expected}", got ${formatValue(actual)}`];
     });
     const range = inputBy(html, (tag) => tag.includes('aria-label="Volume"'));
     if (!range) {

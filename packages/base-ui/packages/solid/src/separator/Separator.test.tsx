@@ -23,5 +23,14 @@ describe('<Separator />', () => {
         expect(screen.getByRole('separator')).to.have.attribute('aria-orientation', orientation);
       });
     });
+
+    it.each([{ orientation: 'horizontal' }, { orientation: 'vertical' }] as const)(
+      'sets aria-orientation="$orientation"',
+      async ({ orientation }) => {
+        await render(() => <Separator orientation={orientation} />);
+
+        expect(screen.getByRole('separator')).toHaveAttribute('aria-orientation', orientation);
+      },
+    );
   });
 });

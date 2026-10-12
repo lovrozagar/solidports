@@ -30,7 +30,7 @@ describe('<Toast.Action />', () => {
           </Toast.Provider>
         ));
       },
-      testComponentPropWith: 'button',
+      testRenderPropWith: 'button',
     }),
   );
 

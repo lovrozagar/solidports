@@ -12,7 +12,7 @@ describe('<Switch.Root />', () => {
 
   describeConformance(Switch.Root, () => ({
     refInstanceof: window.HTMLSpanElement,
-    testComponentPropWith: 'span',
+    testRenderPropWith: 'span',
     button: true,
     render,
   }));

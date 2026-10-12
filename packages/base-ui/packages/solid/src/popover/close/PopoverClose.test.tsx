@@ -35,7 +35,7 @@ describe('<Popover.Close />', () => {
         </Popover.Root>
       )),
 
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
   }));
 
   it('renders when popover is closed', async () => {

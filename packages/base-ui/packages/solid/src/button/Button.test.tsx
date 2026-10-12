@@ -1,5 +1,5 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
-import { Button } from '@solidports/base-ui/button';
+import { Button, ButtonDataAttributes } from '@solidports/base-ui/button';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect } from 'vitest';
@@ -113,12 +113,12 @@ describe('<Button />', () => {
 
   describe('prop: disabled', () => {
     it('native button: uses the disabled attribute and is not focusable', async () => {
-      const handleClick = spy();
-      const handleMouseDown = spy();
-      const handlePointerDown = spy();
-      const handleKeyDown = spy();
+      const handleClick = vi.fn();
+      const handleMouseDown = vi.fn();
+      const handlePointerDown = vi.fn();
+      const handleKeyDown = vi.fn();
 
-      const { user } = render(() => (
+      const { user } = await render(() => (
         <Button
           disabled
           onClick={handleClick}
@@ -130,9 +130,9 @@ describe('<Button />', () => {
 
       const button = screen.getByRole('button');
 
-      expect(button).to.have.attribute('disabled');
-      expect(button).to.have.attribute('data-disabled');
-      expect(button).not.to.have.attribute('aria-disabled');
+      expect(button).toHaveAttribute('disabled');
+      expect(button).toHaveAttribute(ButtonDataAttributes.disabled);
+      expect(button).not.toHaveAttribute('aria-disabled');
 
       await user.keyboard('[Tab]');
       expect(button).not.toHaveFocus();
@@ -141,23 +141,23 @@ describe('<Button />', () => {
       await user.keyboard('[Space]');
       await user.keyboard('[Enter]');
 
-      expect(handleClick.callCount).to.equal(0);
-      expect(handleMouseDown.callCount).to.equal(0);
-      expect(handlePointerDown.callCount).to.equal(0);
-      expect(handleKeyDown.callCount).to.equal(0);
+      expect(handleClick.mock.calls.length).toBe(0);
+      expect(handleMouseDown.mock.calls.length).toBe(0);
+      expect(handlePointerDown.mock.calls.length).toBe(0);
+      expect(handleKeyDown.mock.calls.length).toBe(0);
     });
 
     it('custom element: applies aria-disabled and is not focusable', async () => {
-      const handleClick = spy();
-      const handleMouseDown = spy();
-      const handlePointerDown = spy();
-      const handleKeyDown = spy();
+      const handleClick = vi.fn();
+      const handleMouseDown = vi.fn();
+      const handlePointerDown = vi.fn();
+      const handleKeyDown = vi.fn();
 
-      const { user } = render(() => (
+      const { user } = await render(() => (
         <Button
           disabled
           nativeButton={false}
-          render="span"
+          render={{ component: 'span' }}
           onClick={handleClick}
           onMouseDown={handleMouseDown}
           onPointerDown={handlePointerDown}
@@ -167,10 +167,10 @@ describe('<Button />', () => {
 
       const button = screen.getByRole('button');
 
-      expect(button).to.not.have.attribute('disabled');
-      expect(button).to.have.attribute('data-disabled');
-      expect(button).to.have.attribute('aria-disabled', 'true');
-      expect(button).to.have.attribute('tabindex', '-1');
+      expect(button).not.toHaveAttribute('disabled');
+      expect(button).toHaveAttribute(ButtonDataAttributes.disabled);
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      expect(button).toHaveAttribute('tabindex', '-1');
 
       await user.keyboard('[Tab]');
       expect(button).not.toHaveFocus();
@@ -179,21 +179,21 @@ describe('<Button />', () => {
       await user.keyboard('[Space]');
       await user.keyboard('[Enter]');
 
-      expect(handleClick.callCount).to.equal(0);
-      expect(handleMouseDown.callCount).to.equal(0);
-      expect(handlePointerDown.callCount).to.equal(0);
-      expect(handleKeyDown.callCount).to.equal(0);
+      expect(handleClick.mock.calls.length).toBe(0);
+      expect(handleMouseDown.mock.calls.length).toBe(0);
+      expect(handlePointerDown.mock.calls.length).toBe(0);
+      expect(handleKeyDown.mock.calls.length).toBe(0);
     });
   });
 
   describe('prop: focusableWhenDisabled', () => {
     it('native button: prevents interactions but remains focusable', async () => {
-      const handleClick = spy();
-      const handleMouseDown = spy();
-      const handlePointerDown = spy();
-      const handleKeyDown = spy();
+      const handleClick = vi.fn();
+      const handleMouseDown = vi.fn();
+      const handlePointerDown = vi.fn();
+      const handleKeyDown = vi.fn();
 
-      const { user } = render(() => (
+      const { user } = await render(() => (
         <Button
           disabled
           focusableWhenDisabled
@@ -206,10 +206,10 @@ describe('<Button />', () => {
 
       const button = screen.getByRole('button');
 
-      expect(button).to.not.have.attribute('disabled');
-      expect(button).to.have.attribute('data-disabled');
-      expect(button).to.have.attribute('aria-disabled', 'true');
-      expect(button).to.have.attribute('tabindex', '0');
+      expect(button).not.toHaveAttribute('disabled');
+      expect(button).toHaveAttribute(ButtonDataAttributes.disabled);
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      expect(button).toHaveAttribute('tabindex', '0');
 
       await user.keyboard('[Tab]');
       expect(button).toHaveFocus();
@@ -218,19 +218,19 @@ describe('<Button />', () => {
       await user.keyboard('[Space]');
       await user.keyboard('[Enter]');
 
-      expect(handleClick.callCount).to.equal(0);
-      expect(handleMouseDown.callCount).to.equal(0);
-      expect(handlePointerDown.callCount).to.equal(0);
-      expect(handleKeyDown.callCount).to.equal(0);
+      expect(handleClick.mock.calls.length).toBe(0);
+      expect(handleMouseDown.mock.calls.length).toBe(0);
+      expect(handlePointerDown.mock.calls.length).toBe(0);
+      expect(handleKeyDown.mock.calls.length).toBe(0);
     });
 
     it.skipIf(isJSDOM)(
       'native button: allows hover handlers while blocking activation',
       async () => {
-        const handleClick = spy();
-        const handleMouseMove = spy();
+        const handleClick = vi.fn();
+        const handleMouseMove = vi.fn();
 
-        const { user } = render(() => (
+        const { user } = await render(() => (
           <Button
             disabled
             focusableWhenDisabled
@@ -241,17 +241,17 @@ describe('<Button />', () => {
 
         const button = screen.getByRole('button');
 
-        expect(button).to.not.have.attribute('disabled');
-        expect(button).to.have.attribute('data-disabled');
-        expect(button).to.have.attribute('aria-disabled', 'true');
+        expect(button).not.toHaveAttribute('disabled');
+        expect(button).toHaveAttribute(ButtonDataAttributes.disabled);
+        expect(button).toHaveAttribute('aria-disabled', 'true');
 
         await user.hover(button);
 
-        expect(handleMouseMove.called).to.equal(true);
+        expect(handleMouseMove).toHaveBeenCalled();
 
         await user.click(button);
 
-        expect(handleClick.callCount).to.equal(0);
+        expect(handleClick).toHaveBeenCalledTimes(0);
       },
     );
 
@@ -297,17 +297,17 @@ describe('<Button />', () => {
     });
 
     it('custom element: prevents interactions but remains focusable', async () => {
-      const handleClick = spy();
-      const handleMouseDown = spy();
-      const handlePointerDown = spy();
-      const handleKeyDown = spy();
+      const handleClick = vi.fn();
+      const handleMouseDown = vi.fn();
+      const handlePointerDown = vi.fn();
+      const handleKeyDown = vi.fn();
 
-      const { user } = render(() => (
+      const { user } = await render(() => (
         <Button
           disabled
           focusableWhenDisabled
           nativeButton={false}
-          render="span"
+          render={{ component: 'span' }}
           onClick={handleClick}
           onMouseDown={handleMouseDown}
           onPointerDown={handlePointerDown}
@@ -317,10 +317,10 @@ describe('<Button />', () => {
 
       const button = screen.getByRole('button');
 
-      expect(button).to.not.have.attribute('disabled');
-      expect(button).to.have.attribute('data-disabled');
-      expect(button).to.have.attribute('aria-disabled', 'true');
-      expect(button).to.have.attribute('tabindex', '0');
+      expect(button).not.toHaveAttribute('disabled');
+      expect(button).toHaveAttribute(ButtonDataAttributes.disabled);
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      expect(button).toHaveAttribute('tabindex', '0');
 
       await user.keyboard('[Tab]');
       expect(button).toHaveFocus();
@@ -329,10 +329,10 @@ describe('<Button />', () => {
       await user.keyboard('[Space]');
       await user.keyboard('[Enter]');
 
-      expect(handleClick.callCount).to.equal(0);
-      expect(handleMouseDown.callCount).to.equal(0);
-      expect(handlePointerDown.callCount).to.equal(0);
-      expect(handleKeyDown.callCount).to.equal(0);
+      expect(handleClick.mock.calls.length).toBe(0);
+      expect(handleMouseDown.mock.calls.length).toBe(0);
+      expect(handlePointerDown.mock.calls.length).toBe(0);
+      expect(handleKeyDown.mock.calls.length).toBe(0);
     });
   });
 });

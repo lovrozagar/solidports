@@ -122,7 +122,7 @@ describe('<NavigationMenu.Trigger />', () => {
 
   describeConformance(NavigationMenu.Trigger, () => ({
     refInstanceof: window.HTMLButtonElement,
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
     button: true,
     render: (node, props = {}) =>
       render(() => (

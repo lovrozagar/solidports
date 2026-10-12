@@ -39,6 +39,17 @@ describe('<ListboxSeparator />', () => {
         expect(separator).not.toHaveAttribute('aria-orientation');
       });
     });
+
+    it.each([{ orientation: 'horizontal' as const }, { orientation: 'vertical' as const }])(
+      'sets data-orientation to $orientation',
+      async ({ orientation }) => {
+        await render(() => <ListboxSeparator orientation={orientation} data-testid="separator" />);
+
+        const separator = screen.getByTestId('separator');
+        expect(separator).toHaveAttribute('data-orientation', orientation);
+        expect(separator).not.toHaveAttribute('aria-orientation');
+      },
+    );
   });
 
   // Solid: elements are created inside the render scope, so each case renders through a thunk.

@@ -25,7 +25,7 @@ describe('<Collapsible.Trigger />', () => {
 
   describeConformance(Collapsible.Trigger, () => ({
     refInstanceof: window.HTMLButtonElement,
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
     button: true,
     render: (node, props) => render(() => <Collapsible.Root>{node(props!)}</Collapsible.Root>),
   }));

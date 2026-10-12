@@ -14,7 +14,7 @@ describe('<Menu.Trigger />', () => {
     button: true,
     refInstanceof: window.HTMLButtonElement,
     render: (node, props) => render(() => <Menu.Root open>{node(props!)}</Menu.Root>),
-    testComponentPropWith: 'button',
+    testRenderPropWith: 'button',
   }));
 
   it('throws without Menu.Root or a handle', async () => {

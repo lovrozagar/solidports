@@ -910,7 +910,8 @@ describe('<Avatar.Image />', () => {
 
         return (
           <div>
-            <style>{style}</style>
+            {/* eslint-disable-next-line solid/no-innerhtml */}
+            <style innerHTML={style} />
             <button onClick={handleHideImage}>Hide image</button>
             <Avatar.Root>
               <Avatar.Image
@@ -923,16 +924,13 @@ describe('<Avatar.Image />', () => {
         );
       }
 
-      const { user } = await render(() => <Test />);
+      await render(() => <Test />);
       expect(screen.getByTestId('image')).not.toBe(null);
 
-      await user.click(screen.getByText('Hide image'));
+      // `user.click` can yield a frame, which is long enough for the 1ms animation to finish.
+      fireEvent.click(screen.getByText('Hide image'));
 
-      await waitFor(() => {
-        const image = screen.queryByTestId('image');
-        expect(image).not.toBe(null);
-        expect(image).toHaveAttribute('data-ending-style');
-      });
+      expect(screen.getByTestId('image')).toHaveAttribute('data-ending-style');
 
       await waitFor(() => {
         expect(screen.queryByTestId('image')).toBe(null);

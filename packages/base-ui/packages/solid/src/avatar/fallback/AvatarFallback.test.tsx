@@ -225,10 +225,8 @@ describe('<Avatar.Fallback />', () => {
 
       await user.click(screen.getByText('Show image'));
 
-      await waitFor(() => {
-        expect(screen.queryByTestId('image')).toBe(null);
-        expect(screen.getByTestId('fallback')).not.toBe(null);
-      });
+      expect(screen.queryByTestId('image')).toBe(null);
+      expect(screen.getByTestId('fallback')).not.toBe(null);
     },
   );
 
@@ -263,7 +261,8 @@ describe('<Avatar.Fallback />', () => {
 
         return (
           <div>
-            <style>{style}</style>
+            {/* eslint-disable-next-line solid/no-innerhtml */}
+            <style innerHTML={style} />
             <button onClick={handleShowImage}>Show image</button>
             <Avatar.Root>
               <Avatar.Image data-testid="image" src={showImage() ? 'avatar.png' : undefined} />
@@ -282,10 +281,11 @@ describe('<Avatar.Fallback />', () => {
 
       await user.click(screen.getByText('Show image'));
 
+      // The fallback unmounts once the image reports `loaded` to the root, after the image mounts.
       await waitFor(() => {
-        expect(screen.queryByTestId('image')).not.toBe(null);
         expect(screen.queryByTestId('fallback')).toBe(null);
       });
+      expect(screen.queryByTestId('image')).not.toBe(null);
     });
   });
 });
