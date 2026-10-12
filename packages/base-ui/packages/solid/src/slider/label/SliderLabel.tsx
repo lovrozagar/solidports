@@ -1,6 +1,9 @@
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import { focusElementWithVisible, useLabel } from '../../internals/labelable-provider/useLabel';
-import { ownerDocument } from '../../utils/owner';
+import {
+  focusElementWithVisible,
+  getControlById,
+  useLabel,
+} from '../../internals/labelable-provider/useLabel';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { SliderRoot } from '../root/SliderRoot';
@@ -27,9 +30,7 @@ export function SliderLabel(componentProps: SliderLabel.Props) {
 
   function focusControl(event: MouseEvent, controlId: string | undefined) {
     if (controlId) {
-      const controlElement = ownerDocument(event.currentTarget as Element).getElementById(
-        controlId,
-      );
+      const controlElement = getControlById(event.currentTarget as Element, controlId);
       if (isHTMLElement(controlElement)) {
         focusElementWithVisible(controlElement);
         return;

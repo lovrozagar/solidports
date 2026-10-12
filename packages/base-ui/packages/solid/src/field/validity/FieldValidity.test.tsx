@@ -3,74 +3,17 @@ import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { spy } from 'sinon';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 
 describe('<Field.Validity />', () => {
   const { render } = createRenderer();
 
-  ['onBlur', 'onSubmit'].forEach((validationMode) => {
-    it(`surfaces valueMissing immediately after a stale custom error in ${validationMode} mode`, () => {
-      const handleValidity = vi.fn();
-      const validate = vi.fn(() => 'custom error');
-
-      render(() => (
-        <Form>
-          <Field.Root validationMode={validationMode as 'onBlur' | 'onSubmit'} validate={validate}>
-            <Field.Control required />
-            <Field.Error match="valueMissing">Required</Field.Error>
-            <Field.Validity>{handleValidity}</Field.Validity>
-          </Field.Root>
-          <button type="submit">submit</button>
-        </Form>
-      ));
-
-      const input = screen.getByRole<HTMLInputElement>('textbox');
-      const establishInvalidState = () => {
-        if (validationMode === 'onBlur') {
-          fireEvent.blur(input);
-        } else {
-          fireEvent.click(screen.getByText('submit'));
-        }
-      };
-
-      fireEvent.focus(input);
-      fireEvent.input(input, { target: { value: 'invalid' } });
-      establishInvalidState();
-
-      expect(handleValidity.mock.lastCall?.[0].value).to.equal('invalid');
-      expect(handleValidity.mock.lastCall?.[0].validity.customError).to.equal(true);
-      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).to.equal(false);
-      expect(validate).toHaveBeenCalledTimes(1);
-
-      fireEvent.focus(input);
-      fireEvent.input(input, { target: { value: '' } });
-
-      expect(handleValidity.mock.lastCall?.[0].value).to.equal('');
-      expect(handleValidity.mock.lastCall?.[0].validity.customError).to.equal(
-        validationMode === 'onSubmit',
-      );
-      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).to.equal(true);
-      expect(screen.getByText('Required')).toBeVisible();
-      expect(validate).toHaveBeenCalledTimes(validationMode === 'onBlur' ? 1 : 2);
-
-      if (validationMode === 'onBlur') {
-        fireEvent.blur(input);
-      } else {
-        fireEvent.click(screen.getByText('submit'));
-      }
-
-      expect(handleValidity.mock.lastCall?.[0].value).to.equal('');
-      expect(handleValidity.mock.lastCall?.[0].validity.customError).to.equal(
-        validationMode === 'onSubmit',
-      );
-      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).to.equal(true);
-      expect(screen.getByText('Required')).toBeVisible();
-    });
-  });
+  ['onBlur', 'onSubmit'].forEach((validationMode) => {});
 
   it.skipIf(isJSDOM)('defers badInput during required change revalidation', async () => {
-    const { userEvent } = await import('vitest/browser');
-    const user = userEvent.setup();
+    // Real browser input is needed: typing `e` into a number input only sets `badInput` when the
+    // browser handles the keystroke, which @testing-library/user-event does not emulate.
+    const { userEvent: user } = await import('vitest/browser');
     const handleValidity = vi.fn();
 
     render(() => (
@@ -195,4 +138,65 @@ describe('<Field.Validity />', () => {
       expect(handleValidity.lastCall.args[0].errors).to.deep.equal(['1', '2']);
     });
   });
+
+  it.each([{ validationMode: 'onBlur' as const }, { validationMode: 'onSubmit' as const }])(
+    'surfaces valueMissing immediately after a stale custom error in $validationMode mode',
+    async ({ validationMode }) => {
+      const handleValidity = vi.fn();
+      const validate = vi.fn(() => 'custom error');
+
+      await render(() => (
+        <Form>
+          <Field.Root validationMode={validationMode} validate={validate}>
+            <Field.Control required />
+            <Field.Error match="valueMissing">Required</Field.Error>
+            <Field.Validity>{handleValidity}</Field.Validity>
+          </Field.Root>
+          <button type="submit">submit</button>
+        </Form>
+      ));
+
+      const input = screen.getByRole<HTMLInputElement>('textbox');
+      const establishInvalidState = () => {
+        if (validationMode === 'onBlur') {
+          fireEvent.blur(input);
+        } else {
+          fireEvent.click(screen.getByText('submit'));
+        }
+      };
+
+      fireEvent.focus(input);
+      fireEvent.input(input, { target: { value: 'invalid' } });
+      establishInvalidState();
+
+      expect(handleValidity.mock.lastCall?.[0].value).toBe('invalid');
+      expect(handleValidity.mock.lastCall?.[0].validity.customError).toBe(true);
+      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).toBe(false);
+      expect(validate).toHaveBeenCalledTimes(1);
+
+      fireEvent.focus(input);
+      fireEvent.input(input, { target: { value: '' } });
+
+      expect(handleValidity.mock.lastCall?.[0].value).toBe('');
+      expect(handleValidity.mock.lastCall?.[0].validity.customError).toBe(
+        validationMode === 'onSubmit',
+      );
+      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).toBe(true);
+      expect(screen.getByText('Required')).toBeVisible();
+      expect(validate).toHaveBeenCalledTimes(validationMode === 'onBlur' ? 1 : 2);
+
+      if (validationMode === 'onBlur') {
+        fireEvent.blur(input);
+      } else {
+        fireEvent.click(screen.getByText('submit'));
+      }
+
+      expect(handleValidity.mock.lastCall?.[0].value).toBe('');
+      expect(handleValidity.mock.lastCall?.[0].validity.customError).toBe(
+        validationMode === 'onSubmit',
+      );
+      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).toBe(true);
+      expect(screen.getByText('Required')).toBeVisible();
+    },
+  );
 });

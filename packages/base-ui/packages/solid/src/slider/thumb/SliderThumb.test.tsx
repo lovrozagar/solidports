@@ -1,15 +1,17 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createSignal, omit } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Slider } from '@solidports/base-ui/slider';
 import { Field } from '@solidports/base-ui/field';
 import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
-import { isWebKit } from '#utils/detectBrowser';
+import { platform } from '../../utils/platform';
 import { useRef } from '@solidports/base-ui/solid-helpers';
 import { createTouches, getHorizontalSliderRect } from '../utils/test-utils';
 import { renderServer } from '../../../test/ssrFixtures';
 import ssrFixtures from './SliderThumb.ssr-fixtures';
+
+const isWebKit = platform.engine.webkit;
 
 function UnstableRefThumb(props: JSX.HTMLAttributes<HTMLDivElement>) {
   const internalRef: { current: HTMLDivElement | null } = { current: null };
@@ -60,22 +62,7 @@ describe('<Slider.Thumb />', () => {
   });
 
   describe('ARIA attributes', () => {
-    ['aria-label', 'aria-labelledby', 'aria-describedby', 'aria-valuetext'].forEach((attr) => {
-      it(`forwards ${attr} to the input`, async () => {
-        render(() => (
-          <Slider.Root defaultValue={50}>
-            <Slider.Control>
-              <Slider.Thumb
-                {...{
-                  [attr]: 'test',
-                }}
-              />
-            </Slider.Control>
-          </Slider.Root>
-        ));
-        expect(screen.getByRole('slider')).toHaveAttribute(attr, 'test');
-      });
-    });
+    ['aria-label', 'aria-labelledby', 'aria-describedby', 'aria-valuetext'].forEach((attr) => {});
 
     it('prefers getAriaValueText over a direct aria-valuetext prop', async () => {
       render(() => (
@@ -89,6 +76,26 @@ describe('<Slider.Thumb />', () => {
         </Slider.Root>
       ));
       expect(screen.getByRole('slider')).toHaveAttribute('aria-valuetext', '50 percent');
+    });
+
+    it.each([
+      { attr: 'aria-label' },
+      { attr: 'aria-labelledby' },
+      { attr: 'aria-describedby' },
+      { attr: 'aria-valuetext' },
+    ])('forwards $attr to the input', async ({ attr }) => {
+      await render(() => (
+        <Slider.Root defaultValue={50}>
+          <Slider.Control>
+            <Slider.Thumb
+              {...{
+                [attr]: 'test',
+              }}
+            />
+          </Slider.Control>
+        </Slider.Root>
+      ));
+      expect(screen.getByRole('slider')).toHaveAttribute(attr, 'test');
     });
   });
 
@@ -111,26 +118,7 @@ describe('<Slider.Thumb />', () => {
       expect(handleKeyDown).toHaveBeenCalledTimes(1);
     });
 
-    ['ArrowRight', 'PageUp'].forEach((key) => {
-      it(`forwards handled ${key} key events`, async () => {
-        const handleKeyDown = vi.fn();
-        render(() => (
-          <Slider.Root defaultValue={50}>
-            <Slider.Control>
-              <Slider.Thumb onKeyDown={handleKeyDown} />
-            </Slider.Control>
-          </Slider.Root>
-        ));
-
-        const slider = screen.getByRole('slider');
-        await act(async () => {
-          slider.focus();
-        });
-        fireEvent.keyDown(slider, { key });
-
-        expect(handleKeyDown).toHaveBeenCalledTimes(1);
-      });
-    });
+    ['ArrowRight', 'PageUp'].forEach((key) => {});
 
     it('allows preventing the internal key handling', async () => {
       const handleKeyDown = vi.fn((event: KeyboardEvent) => {
@@ -182,6 +170,28 @@ describe('<Slider.Thumb />', () => {
       expect(onValueChange).not.toHaveBeenCalled();
       expect(onValueCommitted).not.toHaveBeenCalled();
     });
+
+    it.each([{ key: 'ArrowRight' }, { key: 'PageUp' }])(
+      'forwards handled $key key events',
+      async ({ key }) => {
+        const handleKeyDown = vi.fn();
+        await render(() => (
+          <Slider.Root defaultValue={50}>
+            <Slider.Control>
+              <Slider.Thumb onKeyDown={handleKeyDown} />
+            </Slider.Control>
+          </Slider.Root>
+        ));
+
+        const slider = screen.getByRole('slider');
+        await act(async () => {
+          slider.focus();
+        });
+        fireEvent.keyDown(slider, { key });
+
+        expect(handleKeyDown).toHaveBeenCalledTimes(1);
+      },
+    );
   });
 
   // AT (e.g. Android Talkback) may use increase/decrease actions to interact
@@ -681,21 +691,32 @@ describe('<Slider.Thumb />', () => {
 
       const thumb = screen.getByTestId('thumb');
       const indicator = screen.getByTestId('indicator');
+      // Read the thumb and indicator together so each poll checks one consistent snapshot.
+      const getInsetStyles = () => ({
+        thumbVisibility: thumb.style.visibility,
+        thumbPosition: thumb.style.getPropertyValue('--position'),
+        indicatorVisibility: indicator.style.visibility,
+        indicatorStartPosition: indicator.style.getPropertyValue('--start-position'),
+      });
 
       await waitFor(() => {
-        expect(thumb.style.visibility).toBe('hidden');
-        expect(thumb.style.getPropertyValue('--position')).toBe('0%');
-        expect(indicator.style.visibility).toBe('hidden');
-        expect(indicator.style.getPropertyValue('--start-position')).toBe('0%');
+        expect(getInsetStyles()).toEqual({
+          thumbVisibility: 'hidden',
+          thumbPosition: '0%',
+          indicatorVisibility: 'hidden',
+          indicatorStartPosition: '0%',
+        });
       });
 
       await user.click(screen.getByRole('button', { name: 'show' }));
 
       await waitFor(() => {
-        expect(thumb.style.visibility).toBe('');
-        expect(thumb.style.getPropertyValue('--position')).toBe('32%');
-        expect(indicator.style.visibility).toBe('');
-        expect(indicator.style.getPropertyValue('--start-position')).toBe('32%');
+        expect(getInsetStyles()).toEqual({
+          thumbVisibility: '',
+          thumbPosition: '32%',
+          indicatorVisibility: '',
+          indicatorStartPosition: '32%',
+        });
       });
     });
 
@@ -743,27 +764,41 @@ describe('<Slider.Thumb />', () => {
         const startThumb = screen.getByTestId('start-thumb');
         const endThumb = screen.getByTestId('end-thumb');
         const indicator = screen.getByTestId('indicator');
+        // Read the thumbs and indicator together so each poll checks one consistent snapshot.
+        const getInsetStyles = () => ({
+          startThumbVisibility: startThumb.style.visibility,
+          startThumbPosition: startThumb.style.getPropertyValue('--position'),
+          endThumbVisibility: endThumb.style.visibility,
+          endThumbPosition: endThumb.style.getPropertyValue('--position'),
+          indicatorVisibility: indicator.style.visibility,
+          indicatorStartPosition: indicator.style.getPropertyValue('--start-position'),
+          indicatorRelativeSize: indicator.style.getPropertyValue('--relative-size'),
+        });
 
         await waitFor(() => {
-          expect(startThumb.style.visibility).toBe('hidden');
-          expect(startThumb.style.getPropertyValue('--position')).toBe('0%');
-          expect(endThumb.style.visibility).toBe('hidden');
-          expect(endThumb.style.getPropertyValue('--position')).toBe('0%');
-          expect(indicator.style.visibility).toBe('hidden');
-          expect(indicator.style.getPropertyValue('--start-position')).toBe('0%');
-          expect(indicator.style.getPropertyValue('--relative-size')).toBe('0%');
+          expect(getInsetStyles()).toEqual({
+            startThumbVisibility: 'hidden',
+            startThumbPosition: '0%',
+            endThumbVisibility: 'hidden',
+            endThumbPosition: '0%',
+            indicatorVisibility: 'hidden',
+            indicatorStartPosition: '0%',
+            indicatorRelativeSize: '0%',
+          });
         });
 
         await user.click(screen.getByRole('button', { name: 'show' }));
 
         await waitFor(() => {
-          expect(startThumb.style.visibility).toBe('');
-          expect(startThumb.style.getPropertyValue('--position')).toBe('32%');
-          expect(endThumb.style.visibility).toBe('');
-          expect(endThumb.style.getPropertyValue('--position')).toBe('68%');
-          expect(indicator.style.visibility).toBe('');
-          expect(indicator.style.getPropertyValue('--start-position')).toBe('32%');
-          expect(indicator.style.getPropertyValue('--relative-size')).toBe('36%');
+          expect(getInsetStyles()).toEqual({
+            startThumbVisibility: '',
+            startThumbPosition: '32%',
+            endThumbVisibility: '',
+            endThumbPosition: '68%',
+            indicatorVisibility: '',
+            indicatorStartPosition: '32%',
+            indicatorRelativeSize: '36%',
+          });
         });
       },
     );

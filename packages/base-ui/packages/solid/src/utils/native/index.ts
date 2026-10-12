@@ -35,6 +35,7 @@ import {
   ariaLabelOverridesLabel,
   getAriaLabelledBy,
 } from '../../internals/labelable-provider/useAriaLabelledBy';
+import { observeLabels } from '../../internals/labelable-provider/observeLabels';
 import { resolveClassName } from '../resolveClassName';
 import { resolveStyle as resolveStyleProp } from '../resolveStyle';
 import type { BaseUIEvent } from '../types';
@@ -650,19 +651,34 @@ export function createLabelFallback(
   ariaLabel?: () => unknown,
 ): () => void {
   let first = true;
+  let stopObserving: (() => void) | undefined;
+  const observe = (active: boolean) => {
+    if (!active) {
+      stopObserving?.();
+      stopObserving = undefined;
+    } else if (!stopObserving) {
+      stopObserving = observeLabels(labelSource.getRootNode(), () => untrack(apply));
+    }
+  };
+  onCleanup(() => observe(false));
   const apply = () => {
     const value = explicit();
     const named = ariaLabelOverridesLabel(ariaLabel?.());
     if (typeof value === 'string') {
+      observe(false);
       return;
     }
     if (named) {
+      observe(false);
       el.removeAttribute('aria-labelledby');
       return;
     }
     if (labelId() != null) {
+      observe(false);
       return;
     }
+    // A wrapping label leaves with the control; any other label can mount or unmount on its own.
+    observe(labelSource.parentElement?.tagName !== 'LABEL');
     const control = controlId();
     const found = getAriaLabelledBy(labelSource, control ? `${control}-label` : undefined);
     if (found) {

@@ -3,7 +3,7 @@ import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal, Show, untrack } from 'solid-js';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { autofocus } from '../../solid-helpers';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures from './FieldControl.ssr-fixtures';
@@ -23,28 +23,30 @@ describe('<Field.Control />', () => {
   it('avoids rerendering for uncontrolled input changes', async () => {
     const renderCountRef = { current: 0 };
 
-    function RenderCountedControl() {
-      renderCountRef.current += 1;
-      return <Field.Control data-testid="control" />;
-    }
-
+    // Count renders of Field.Control itself: the render function runs every time it renders.
     render(() => (
       <Field.Root>
-        <RenderCountedControl />
+        <Field.Control
+          data-testid="control"
+          render={(props) => {
+            renderCountRef.current += 1;
+            return <input {...props} />;
+          }}
+        />
       </Field.Root>
     ));
 
     const control = screen.getByTestId('control');
     const initialRenderCount = renderCountRef.current;
 
-    fireEvent.change(control, { target: { value: 'a' } });
+    fireEvent.input(control, { target: { value: 'a' } });
     const afterFirstChange = renderCountRef.current;
 
-    fireEvent.change(control, { target: { value: 'ab' } });
-    fireEvent.change(control, { target: { value: 'abc' } });
+    fireEvent.input(control, { target: { value: 'ab' } });
+    fireEvent.input(control, { target: { value: 'abc' } });
 
-    expect(renderCountRef.current).to.equal(afterFirstChange);
-    expect(afterFirstChange).to.be.at.most(initialRenderCount + 1);
+    expect(renderCountRef.current).toBe(afterFirstChange);
+    expect(afterFirstChange).toBeLessThanOrEqual(initialRenderCount + 1);
   });
 
   it('renders once per keystroke for controlled input changes', async () => {
@@ -466,8 +468,8 @@ describe('<Field.Control />', () => {
   });
 
   it.skipIf(isJSDOM)('validates once when Enter implicitly submits a form', async () => {
-    const { userEvent } = await import('vitest/browser');
-    const user = userEvent.setup();
+    // Real browser input is needed: implicit form submission on Enter is browser behavior.
+    const { userEvent: user } = await import('vitest/browser');
     const validate = vi.fn(() => null);
     const handleSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
 
@@ -489,8 +491,8 @@ describe('<Field.Control />', () => {
   });
 
   it.skipIf(isJSDOM)('validates when Enter does not implicitly submit the form', async () => {
-    const { userEvent } = await import('vitest/browser');
-    const user = userEvent.setup();
+    // Real browser input is needed: implicit form submission on Enter is browser behavior.
+    const { userEvent: user } = await import('vitest/browser');
     const validate = vi.fn(() => null);
     const handleSubmit = vi.fn();
 
@@ -514,8 +516,8 @@ describe('<Field.Control />', () => {
   it.skipIf(isJSDOM)(
     'validates when a disabled submit button blocks implicit submission',
     async () => {
-      const { userEvent } = await import('vitest/browser');
-      const user = userEvent.setup();
+      // Real browser input is needed: implicit form submission on Enter is browser behavior.
+      const { userEvent: user } = await import('vitest/browser');
       const validate = vi.fn(() => null);
       const handleSubmit = vi.fn();
 
@@ -647,6 +649,126 @@ describe('<Field.Control />', () => {
 
       expect(screen.getByRole('textbox')).toHaveAttribute('id', 'b');
       expect(screen.getByTestId('label')).toHaveAttribute('for', 'b');
+    });
+  });
+
+  describe('[data-focused]', () => {
+    function Controls(props: { firstMounted?: boolean; firstDisabled?: boolean }) {
+      return (
+        <>
+          <Field.Root data-testid="root">
+            <Field.Label data-testid="label">Name</Field.Label>
+            {(props.firstMounted ?? true) && (
+              <Field.Control data-testid="first" disabled={props.firstDisabled ?? false} />
+            )}
+          </Field.Root>
+          <button type="button" data-testid="outside" />
+        </>
+      );
+    }
+
+    it('is removed when the focused control becomes disabled', async () => {
+      const [testProps, setTestProps] = createSignal<Parameters<typeof Controls>[0]>({});
+      const setProps = async (next: Partial<Parameters<typeof Controls>[0]>) =>
+        act(async () => {
+          await Promise.resolve();
+          setTestProps((previous) => ({ ...previous, ...next }));
+        });
+      await render(() => <Controls {...testProps()} />);
+
+      const control = screen.getByTestId('first');
+      act(() => {
+        control.focus();
+      });
+
+      expect(screen.getByTestId('root')).toHaveAttribute('data-focused', '');
+      expect(control).toHaveAttribute('data-focused', '');
+
+      await setProps({ firstDisabled: true });
+
+      expect(screen.getByTestId('root')).not.toHaveAttribute('data-focused');
+      expect(control).not.toHaveAttribute('data-focused');
+      expect(screen.getByTestId('label')).not.toHaveAttribute('data-focused');
+    });
+
+    it('is removed when the field root becomes disabled', async () => {
+      function TestCase(props: { disabled?: boolean }) {
+        return (
+          <Field.Root data-testid="root" disabled={props.disabled ?? false}>
+            <Field.Control data-testid="control" />
+          </Field.Root>
+        );
+      }
+
+      const [testProps, setTestProps] = createSignal<Parameters<typeof TestCase>[0]>({});
+      const setProps = async (next: Partial<Parameters<typeof TestCase>[0]>) =>
+        act(async () => {
+          await Promise.resolve();
+          setTestProps((previous) => ({ ...previous, ...next }));
+        });
+      await render(() => <TestCase {...testProps()} />);
+
+      act(() => {
+        screen.getByTestId('control').focus();
+      });
+      expect(screen.getByTestId('root')).toHaveAttribute('data-focused', '');
+
+      await setProps({ disabled: true });
+
+      expect(screen.getByTestId('root')).not.toHaveAttribute('data-focused');
+    });
+
+    it('can be re-acquired after the control is re-enabled', async () => {
+      const [testProps, setTestProps] = createSignal<Parameters<typeof Controls>[0]>({});
+      const setProps = async (next: Partial<Parameters<typeof Controls>[0]>) =>
+        act(async () => {
+          await Promise.resolve();
+          setTestProps((previous) => ({ ...previous, ...next }));
+        });
+      await render(() => <Controls {...testProps()} />);
+
+      const control = screen.getByTestId('first');
+      act(() => {
+        control.focus();
+      });
+      expect(screen.getByTestId('root')).toHaveAttribute('data-focused', '');
+
+      await setProps({ firstDisabled: true });
+      expect(screen.getByTestId('root')).not.toHaveAttribute('data-focused');
+
+      // Browsers move focus off a disabled control; jsdom leaves it as the active element.
+      act(() => {
+        screen.getByTestId('outside').focus();
+      });
+
+      await setProps({ firstDisabled: false });
+      expect(screen.getByTestId('root')).not.toHaveAttribute('data-focused');
+
+      act(() => {
+        control.focus();
+      });
+      expect(screen.getByTestId('root')).toHaveAttribute('data-focused', '');
+    });
+
+    it('is removed when the focused control unmounts', async () => {
+      const [testProps, setTestProps] = createSignal<Parameters<typeof Controls>[0]>({});
+      const setProps = async (next: Partial<Parameters<typeof Controls>[0]>) =>
+        act(async () => {
+          await Promise.resolve();
+          setTestProps((previous) => ({ ...previous, ...next }));
+        });
+      await render(() => <Controls {...testProps()} />);
+
+      act(() => {
+        screen.getByTestId('first').focus();
+      });
+
+      expect(screen.getByTestId('root')).toHaveAttribute('data-focused', '');
+
+      await setProps({ firstMounted: false });
+
+      expect(screen.getByTestId('root')).not.toHaveAttribute('data-focused');
+      expect(screen.getByTestId('label')).not.toHaveAttribute('data-focused');
     });
   });
 });
