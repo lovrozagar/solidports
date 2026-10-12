@@ -190,7 +190,8 @@ function createTabsRoot(
       return;
     }
 
-    setValue(newValue);
+    // Tab values can be functions, which the uncontrolled setter would otherwise call as updaters.
+    setValue(() => newValue);
   };
 
   const notifyAutomaticValueChange = (
@@ -298,7 +299,8 @@ function createTabsRoot(
         fallbackValue: TabsTab.Value,
         fallbackReason: TabsRoot.ChangeEventReason,
       ) {
-        setValue(fallbackValue);
+        // Tab values can be functions, which the uncontrolled setter would otherwise call as updaters.
+        setValue(() => fallbackValue);
         // Automatic fallbacks are not directional transitions; reset the direction
         // alongside the value so the batched commit keeps both in sync.
         setActivationDirectionState({
