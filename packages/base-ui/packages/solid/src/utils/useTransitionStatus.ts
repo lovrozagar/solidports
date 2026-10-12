@@ -48,9 +48,17 @@ export function useTransitionStatus(
   // them in the same flush instead: writable memos re-derive whenever their inputs change, and keep
   // what the frame callbacks and `setMounted` write until the next change. Copying them from an
   // effect would render one flush with the new `open` and the stale status.
-  const [mounted, setMounted] = createSignal<boolean>(
-    (prev) => openProp() || ((prev ?? false) && Boolean(access(canStayMounted))),
-  );
+  // `setMounted(false)` goes through a request the memo reads, so `open` still wins when both
+  // change in one flush: React re-mounts on `open && !mounted`, whereas a direct write would keep
+  // `false` over the re-derivation.
+  const [unmountRequest, setUnmountRequest] = createSignal(0);
+  let handledUnmountRequest = 0;
+  const [mounted, setMounted] = createSignal<boolean>((prev) => {
+    const request = unmountRequest();
+    const unmountRequested = request !== handledUnmountRequest;
+    handledUnmountRequest = request;
+    return openProp() || (!unmountRequested && (prev ?? false) && Boolean(access(canStayMounted)));
+  });
 
   let previouslyOpen: boolean | undefined;
   // React enters `'starting'` only for `open && !mounted`: an element still mounted when it opens
@@ -58,6 +66,9 @@ export function useTransitionStatus(
   // its status. `mounted` is derived from `open` here, so track whether it was mounted before.
   let previouslyMounted = false;
   let mountedExplicitly = false;
+  // `setMounted(false)` unmounts even when a reopen in the same flush re-derives `mounted` as
+  // `true`, so the reopen enters `'starting'` as React's `open && !mounted` does.
+  let unmountedExplicitly = false;
   // The two frame-scheduling effects below only have work once the element is open or mounted:
   // an element that starts closed (a collapsed panel, a closed popup) gets them when it first
   // opens, owned by this hook's owner. Each keeps its own dependencies and cleanup.
@@ -81,10 +92,11 @@ export function useTransitionStatus(
     }
     const deferEnding = deferEndingStateProp();
     const wasOpen = previouslyOpen;
-    const wasMounted = previouslyMounted || mountedExplicitly;
+    const wasMounted = (previouslyMounted && !unmountedExplicitly) || mountedExplicitly;
     previouslyOpen = isOpen;
     previouslyMounted = isMounted;
     mountedExplicitly = false;
+    unmountedExplicitly = false;
 
     if (wasOpen === undefined) {
       // Initial values, like React's `useState(initial)`. Content that mounts already open skips
@@ -149,6 +161,11 @@ export function useTransitionStatus(
   return {
     mounted,
     setMounted: ((value: Parameters<typeof setMounted>[0]) => {
+      if (value === false) {
+        unmountedExplicitly = true;
+        setUnmountRequest((request) => request + 1);
+        return false;
+      }
       if (value === true) {
         mountedExplicitly = true;
       }

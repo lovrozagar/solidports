@@ -1,4 +1,4 @@
-import { untrack } from 'solid-js';
+import { untrack, type Accessor } from 'solid-js';
 import { type ReactLikeRef } from '../../solid-helpers';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { NOOP } from '../../utils/empty';
@@ -29,7 +29,6 @@ export type State<Payload> = PopupStoreState<Payload> & {
   focusManagerModal: boolean;
   openMethod: InteractionType | null;
   openChangeReason: PopoverRoot.ChangeEventReason | null;
-  stickIfOpen: boolean;
   titleElementId: string | undefined;
   descriptionElementId: string | undefined;
   openOnHover: boolean;
@@ -46,6 +45,8 @@ type Context = PopupStoreContext<PopoverRoot.ChangeEventDetails> & {
   readonly triggerFocusTargetRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly beforeContentFocusGuardRef: ReactLikeRef<HTMLElement | null | undefined>;
   readonly stickIfOpenTimeout: Timeout;
+  // Only read when a trigger is pressed, so it isn't reactive state.
+  stickIfOpen: boolean;
 };
 
 const selectors = {
@@ -61,9 +62,16 @@ const selectors = {
       : state.instantType,
   openMethod: (state: State<unknown>) => state.openMethod,
   openChangeReason: (state: State<unknown>) => state.openChangeReason,
+  isPressOpenedByTrigger: (state: State<unknown>, triggerId: Accessor<string | undefined>) =>
+    state.openChangeReason === REASONS.triggerPress &&
+    popupStoreSelectors.isOpenedByTrigger(state, triggerId),
+  // The trigger selectors below resolve to a constant for triggers that don't use them, so state
+  // changes don't re-render every inactive trigger.
+  isTouchPressOpen: (state: State<unknown>, openOnHover: boolean) =>
+    openOnHover && state.openMethod === 'touch' && state.openChangeReason === REASONS.triggerPress,
+  hasTriggerFocusGuards: (state: State<unknown>, triggerId: Accessor<string | undefined>) =>
+    popupStoreSelectors.isOpenedByTrigger(state, triggerId) && !state.focusManagerModal,
   modal: (state: State<unknown>) => state.modal,
-  focusManagerModal: (state: State<unknown>) => state.focusManagerModal,
-  stickIfOpen: (state: State<unknown>) => state.stickIfOpen,
   titleElementId: (state: State<unknown>) => state.titleElementId,
   descriptionElementId: (state: State<unknown>) => state.descriptionElementId,
   openOnHover: (state: State<unknown>) => state.openOnHover,
@@ -150,9 +158,9 @@ export function PopoverStore<Payload>(
     if (isHover) {
       // Only allow "patient" clicks to close the popover if it's open.
       // If they clicked within 500ms of the popover opening, keep it open.
-      store.set('stickIfOpen', true);
+      store.context.stickIfOpen = true;
       store.context.stickIfOpenTimeout.start(PATIENT_CLICK_THRESHOLD, () => {
-        store.set('stickIfOpen', false);
+        store.context.stickIfOpen = false;
       });
 
       flushSync(changeState);
@@ -210,7 +218,6 @@ function createInitialState<Payload>(
       openChangeReason: null,
       titleElementId: undefined,
       descriptionElementId: undefined,
-      stickIfOpen: true,
       openOnHover: false,
       closeDelay: 0,
       adaptiveOrigin: undefined,
@@ -248,6 +255,7 @@ function createInitialContext(
     onOpenChangeComplete: undefined,
     popupRef: { current: null },
     stickIfOpenTimeout: useTimeout(),
+    stickIfOpen: true,
     triggerElements,
     triggerFocusTargetRef: { current: null },
   };

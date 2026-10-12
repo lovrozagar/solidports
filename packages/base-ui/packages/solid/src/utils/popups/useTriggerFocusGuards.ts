@@ -47,13 +47,13 @@ export function useTriggerFocusGuards(
       store().setOpen(false, createChangeEventDetails(REASONS.focusOut, event, guard));
     });
 
-    // The close commits before this read, so the guard may have unmounted or lost its
-    // tabindex. Anchor on the trigger, which still finds the next tab stop when its
-    // own tabIndex is -1. Solid keeps the trailing guard node mounted.
-    getTabbableNearElement(
-      triggerElementRef.current,
-      direction,
-      positionerElement,
+    // The close callback may change the tab order. Resolve it after the flush, using
+    // the trigger as the anchor if the guard left the tab order, even when its tabIndex is -1.
+    // Solid: the trailing guard stays mounted as an inert span, so "unmounted" also covers a
+    // guard that is no longer a tab candidate.
+    (
+      (guard.isConnected ? getTabbableNearElement(guard, direction, positionerElement) : null) ??
+      getTabbableNearElement(triggerElementRef.current, direction, positionerElement)
     )?.focus();
   }
 
