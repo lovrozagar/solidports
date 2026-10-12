@@ -22,7 +22,7 @@ Use the following Base UI attributes for creating transitions when a component 
 Transitions are recommended over CSS animations, because a transition can be smoothly cancelled midway.
 For example, if the user closes a popup before it finishes opening, with CSS transitions it will smoothly animate to its closed state without any abrupt changes.
 
-```css title="popover.css" {10-14}
+```css title="popover.css"
 .Popup {
   box-sizing: border-box;
   padding: 1rem 1.5rem;
@@ -32,11 +32,13 @@ For example, if the user closes a popup before it finishes opening, with CSS tra
     transform 150ms,
     opacity 150ms;
 
+  /* @highlight-start */
   &[data-starting-style],
   &[data-ending-style] {
     opacity: 0;
     transform: scale(0.9);
   }
+  /* @highlight-end */
 }
 ```
 
@@ -81,16 +83,25 @@ Use the following Base UI attributes for creating CSS animations when a compone
 
 ## JavaScript animations
 
-JavaScript animation libraries such as [Motion](https://motion.dev) require control of the mounting and unmounting lifecycle of components in order for exit animations to play.
+JavaScript animation libraries such as [Motion](https://motion.dev) need the popup to stay rendered while its exit animation plays, and Base UI to know when that animation is over.
 
-Base UI relies on [`element.getAnimations()`](https://developer.mozilla.org/en-US/docs/Web/API/Element/getAnimations) to detect if animations have finished on an element. When using Motion, `opacity` animations are reflected in `element.getAnimations()`, so Base UI automatically waits for the animation finish before unmounting the component. If `opacity` isn't part of your animation (such as in a translating drawer component), you should still animate it using a value close to `1` (such as `opacity: 0.9999`), so that Base UI can detect the animation.
+When a popup closes, `open` becomes `false` right away, but the popup stays rendered in a closing phase until its closing animation finishes.
+Base UI detects animations on the popup element. CSS animations are always detected, and so are Motion animations that include `opacity`.
+Once the animation ends, the popup is removed from the DOM, or hidden if the `<Portal>` has `keepMounted`, and `onOpenChangeComplete(false)` fires.
+
+This leaves two choices:
+
+- **Where does the popup go when closed?** Removed from the DOM with `<AnimatePresence>`, or kept in the DOM with `keepMounted`.
+- **Who ends the closing phase?** Base UI, when it can detect the animation, or you, with [manual unmounting](/solid/handbook/animation.md).
+
+The examples below animate `opacity`, so Base UI ends the closing phase on its own.
 
 ### Animating components unmounted from DOM when closed with Motion
 
-Most popup components like Popover, Dialog, Tooltip, and Menu are unmounted from the DOM when they are closed by default. To animate them with Motion:
+Most popup components like Popover, Dialog, Tooltip, and Menu are removed from the DOM when they are closed by default. To animate them with Motion:
 
 - Make the component controlled with the `open` prop so `<AnimatePresence>` can see the state as a child
-- Specify `keepMounted` on the `<Portal>` part
+- Specify `keepMounted` on the `<Portal>` part so Base UI doesn't remove it before the exit animation has played
 - Use the `render` prop to compose the `<Popup>` with `motion.div`
 
 ## Demo
@@ -106,37 +117,59 @@ This example shows how to implement the component using CSS Modules.
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 2.5rem;
-  padding: 0 0.875rem;
+  height: 2rem;
+  padding: 0 0.75rem;
   margin: 0;
   outline: 0;
-  border: 1px solid var(--color-gray-200);
-  border-radius: 0.375rem;
-  background-color: var(--color-gray-50);
+  border: 1px solid oklch(14.5% 0 0deg);
+  background-color: white;
   font-family: inherit;
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.5rem;
-  color: var(--color-gray-900);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+  color: oklch(14.5% 0 0deg);
+  -webkit-user-select: none;
   user-select: none;
+
+  @media (prefers-color-scheme: dark) {
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
+  }
 
   @media (hover: hover) {
     &:hover {
-      background-color: var(--color-gray-100);
+      background-color: oklch(97% 0 0deg);
+
+      @media (prefers-color-scheme: dark) {
+        background-color: oklch(26.9% 0 0deg);
+      }
     }
   }
 
   &:active {
-    background-color: var(--color-gray-100);
+    background-color: oklch(92.2% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(37.1% 0 0deg);
+    }
   }
 
-  &[data-popup-open] {
-    background-color: var(--color-gray-100);
+  &[data-pressed] {
+    background-color: oklch(97% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(26.9% 0 0deg);
+    }
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-blue);
+    outline: 2px solid oklch(14.5% 0 0deg);
     outline-offset: -1px;
+
+    @media (prefers-color-scheme: dark) {
+      outline-color: white;
+    }
   }
 }
 
@@ -148,44 +181,108 @@ This example shows how to implement the component using CSS Modules.
 
 .Popup {
   box-sizing: border-box;
-  padding: 1rem 1.5rem;
-  border-radius: 0.5rem;
-  background-color: canvas;
-  color: var(--color-gray-900);
+  padding: 0.75rem 1rem;
+  border: 1px solid oklch(14.5% 0 0deg);
+  background-color: white;
+  color: oklch(14.5% 0 0deg);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   transform-origin: var(--transform-origin);
+  box-shadow: 0.25rem 0.25rem 0 rgb(0 0 0 / 12%);
+  outline: none;
 
   width: var(--popup-width, auto);
   height: var(--popup-height, auto);
   max-width: 500px;
 
-  @media (prefers-color-scheme: light) {
-    outline: 1px solid var(--color-gray-200);
-    box-shadow:
-      0 10px 15px -3px var(--color-gray-200),
-      0 4px 6px -4px var(--color-gray-200);
-  }
-
   @media (prefers-color-scheme: dark) {
-    outline: 1px solid var(--color-gray-300);
-    outline-offset: -1px;
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
+    box-shadow: none;
   }
 }
 ```
 
 ```tsx
 /* index.tsx */
-/* TODO: port this demo to Solid.
- * Reason: motion/react not available in Solid (use solid-motionone).
- * Upstream: docs/src/app/(docs)/react/handbook/animation/demos/animated-popover-motion-keep-mounted-false/css-modules/index.tsx
- * A Solid equivalent library is required (e.g. solid-motionone for animations,
- * or a Solid form lib). Left as a minimal placeholder so the docs build stays green.
- */
-export default function UnportedDemo() {
-  return null;
+import { createEffect, omit } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { animate, type DOMKeyframesDefinition } from 'motion';
+import { Popover } from '@solidports/base-ui/popover';
+import styles from './index.module.css';
+
+export default function AnimatedPopoverMotionKeepMountedFalseDemo() {
+  return (
+    <Popover.Root>
+      <Popover.Trigger class={styles.Trigger}>Trigger</Popover.Trigger>
+      {/* Solid has no `AnimatePresence`: Base UI keeps the popup mounted while its
+          exit animation (`transitionStatus: 'ending'`) runs, then unmounts it. */}
+      <Popover.Portal>
+        <Popover.Positioner class={styles.Positioner} sideOffset={8}>
+          <Popover.Popup
+            class={styles.Popup}
+            render={(props, state) => (
+              <MotionDiv
+                {...props}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={
+                  state.transitionStatus === 'ending'
+                    ? { opacity: 0, scale: 0.8 }
+                    : { opacity: 1, scale: 1 }
+                }
+              />
+            )}
+          >
+            Popup
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+interface MotionDivProps extends JSX.HTMLAttributes<HTMLDivElement> {
+  /** Styles to start from when mounted, or `false` to start at `animate`. */
+  initial: DOMKeyframesDefinition | false;
+  /** Styles to animate to whenever they change. */
+  animate: DOMKeyframesDefinition;
+}
+
+/** A minimal `motion.div`: Motion's `animate()` moves the element toward `animate`. */
+function MotionDiv(props: MotionDivProps) {
+  const others = omit(props, 'initial', 'animate', 'ref');
+  let element: HTMLDivElement | undefined;
+  let animated = false;
+
+  createEffect(
+    () => ({ target: props.animate, instant: !animated && props.initial === false }),
+    ({ target, instant }) => {
+      animated = true;
+      if (element) {
+        animate(element, target, instant ? { duration: 0 } : undefined);
+      }
+    },
+  );
+
+  return (
+    <div
+      {...others}
+      ref={[
+        props.ref,
+        (el: HTMLDivElement) => {
+          element = el;
+          if (props.initial) {
+            animate(el, props.initial, { duration: 0 });
+          }
+        },
+      ]}
+    />
+  );
 }
 ```
 
-```jsx title="animated-popover.tsx" {12-18} "keepMounted"
+```jsx title="animated-popover.tsx"
 function App() {
   const [open, setOpen] = React.useState(false);
 
@@ -194,9 +291,10 @@ function App() {
       <Popover.Trigger>Trigger</Popover.Trigger>
       <AnimatePresence>
         {open && (
-          <Popover.Portal keepMounted>
+          <Popover.Portal keepMounted> {/* @highlight-text "keepMounted" */}
             <Popover.Positioner>
               <Popover.Popup
+                {/* @highlight-start */}
                 render={
                   <motion.div
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -204,6 +302,7 @@ function App() {
                     exit={{ opacity: 0, scale: 0.8 }}
                   />
                 }
+                {/* @highlight-end */}
               >
                 Popup
               </Popover.Popup>
@@ -236,37 +335,59 @@ This example shows how to implement the component using CSS Modules.
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 2.5rem;
-  padding: 0 0.875rem;
+  height: 2rem;
+  padding: 0 0.75rem;
   margin: 0;
   outline: 0;
-  border: 1px solid var(--color-gray-200);
-  border-radius: 0.375rem;
-  background-color: var(--color-gray-50);
+  border: 1px solid oklch(14.5% 0 0deg);
+  background-color: white;
   font-family: inherit;
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.5rem;
-  color: var(--color-gray-900);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+  color: oklch(14.5% 0 0deg);
+  -webkit-user-select: none;
   user-select: none;
+
+  @media (prefers-color-scheme: dark) {
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
+  }
 
   @media (hover: hover) {
     &:hover {
-      background-color: var(--color-gray-100);
+      background-color: oklch(97% 0 0deg);
+
+      @media (prefers-color-scheme: dark) {
+        background-color: oklch(26.9% 0 0deg);
+      }
     }
   }
 
   &:active {
-    background-color: var(--color-gray-100);
+    background-color: oklch(92.2% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(37.1% 0 0deg);
+    }
   }
 
-  &[data-popup-open] {
-    background-color: var(--color-gray-100);
+  &[data-pressed] {
+    background-color: oklch(97% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(26.9% 0 0deg);
+    }
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-blue);
+    outline: 2px solid oklch(14.5% 0 0deg);
     outline-offset: -1px;
+
+    @media (prefers-color-scheme: dark) {
+      outline-color: white;
+    }
   }
 }
 
@@ -278,54 +399,47 @@ This example shows how to implement the component using CSS Modules.
 
 .Popup {
   box-sizing: border-box;
-  padding: 1rem 1.5rem;
-  border-radius: 0.5rem;
-  background-color: canvas;
-  color: var(--color-gray-900);
+  padding: 0.75rem 1rem;
+  border: 1px solid oklch(14.5% 0 0deg);
+  background-color: white;
+  color: oklch(14.5% 0 0deg);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   transform-origin: var(--transform-origin);
-
+  box-shadow: 0.25rem 0.25rem 0 rgb(0 0 0 / 12%);
   width: var(--popup-width, auto);
   height: var(--popup-height, auto);
   max-width: 500px;
-
-  @media (prefers-color-scheme: light) {
-    outline: 1px solid var(--color-gray-200);
-    box-shadow:
-      0 10px 15px -3px var(--color-gray-200),
-      0 4px 6px -4px var(--color-gray-200);
-  }
+  outline: none;
 
   @media (prefers-color-scheme: dark) {
-    outline: 1px solid var(--color-gray-300);
-    outline-offset: -1px;
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
+    box-shadow: none;
   }
 }
 ```
 
 ```tsx
 /* index.tsx */
-/* TODO: port this demo to Solid.
- * Reason: motion/react not available in Solid (use solid-motionone).
- * Upstream: docs/src/app/(docs)/react/handbook/animation/demos/animated-popover-motion-keep-mounted-true/css-modules/index.tsx
- * A Solid equivalent library is required (e.g. solid-motionone for animations,
- * or a Solid form lib). Left as a minimal placeholder so the docs build stays green.
- */
-export default function UnportedDemo() {
-  return null;
-}
-```
+import { createEffect, omit } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { animate, type DOMKeyframesDefinition } from 'motion';
+import { Popover } from '@solidports/base-ui/popover';
+import styles from './index.module.css';
 
-```jsx title="animated-popover.tsx" {8-17} "keepMounted"
-function App() {
+export default function AnimatedPopoverMotionKeepMountedTrueDemo() {
   return (
     <Popover.Root>
-      <Popover.Trigger>Trigger</Popover.Trigger>
+      <Popover.Trigger class={styles.Trigger}>Trigger</Popover.Trigger>
       <Popover.Portal keepMounted>
-        <Popover.Positioner>
+        <Popover.Positioner class={styles.Positioner} sideOffset={8}>
           <Popover.Popup
+            class={styles.Popup}
             render={(props, state) => (
-              <motion.div
-                {...(props as HTMLMotionProps<'div'>)}
+              <MotionDiv
+                {...props}
                 initial={false}
                 animate={{
                   opacity: state.open ? 1 : 0,
@@ -341,11 +455,80 @@ function App() {
     </Popover.Root>
   );
 }
+
+interface MotionDivProps extends JSX.HTMLAttributes<HTMLDivElement> {
+  /** Styles to start from when mounted, or `false` to start at `animate`. */
+  initial: DOMKeyframesDefinition | false;
+  /** Styles to animate to whenever they change. */
+  animate: DOMKeyframesDefinition;
+}
+
+/** A minimal `motion.div`: Motion's `animate()` moves the element toward `animate`. */
+function MotionDiv(props: MotionDivProps) {
+  const others = omit(props, 'initial', 'animate', 'ref');
+  let element: HTMLDivElement | undefined;
+  let animated = false;
+
+  createEffect(
+    () => ({ target: props.animate, instant: !animated && props.initial === false }),
+    ({ target, instant }) => {
+      animated = true;
+      if (element) {
+        animate(element, target, instant ? { duration: 0 } : undefined);
+      }
+    },
+  );
+
+  return (
+    <div
+      {...others}
+      ref={[
+        props.ref,
+        (el: HTMLDivElement) => {
+          element = el;
+          if (props.initial) {
+            animate(el, props.initial, { duration: 0 });
+          }
+        },
+      ]}
+    />
+  );
+}
+```
+
+```jsx title="animated-popover.tsx"
+function App() {
+  return (
+    <Popover.Root>
+      <Popover.Trigger>Trigger</Popover.Trigger>
+      <Popover.Portal keepMounted> {/* @highlight-text "keepMounted" */}
+        <Popover.Positioner>
+          <Popover.Popup
+            // @highlight-start
+            render={(props, state) => (
+              <motion.div
+                {...(props as HTMLMotionProps<'div'>)}
+                initial={false}
+                animate={{
+                  opacity: state.open ? 1 : 0,
+                  scale: state.open ? 1 : 0.8,
+                }}
+              />
+            )}
+            {/* @highlight-end */}
+          >
+            Popup
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
 ```
 
 ### Animating Select component with Motion
 
-The Select component is initially unmounted but remains mounted after interaction. To animate it with Motion, a mix of the two previous approaches is needed.
+The Select component is removed from the DOM until its first interaction and stays in the DOM after that. To animate it with Motion, a mix of the two previous approaches is needed.
 
 ## Demo
 
@@ -361,71 +544,99 @@ This example shows how to implement the component using CSS Modules.
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  height: 2.5rem;
-  padding-left: 0.875rem;
-  padding-right: 0.75rem;
+  height: 2rem;
+  padding-left: 0.5rem;
+  padding-right: 0.25rem;
   margin: 0;
   outline: 0;
-  border: 1px solid var(--color-gray-200);
-  border-radius: 0.375rem;
-  background-color: canvas;
+  border: 1px solid oklch(14.5% 0 0deg);
+  background-color: white;
   font-family: inherit;
-  font-size: 1rem;
-  line-height: 1.5rem;
-  color: var(--color-gray-900);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 400;
+  color: oklch(14.5% 0 0deg);
   -webkit-user-select: none;
   user-select: none;
   min-width: 9rem;
 
+  @media (prefers-color-scheme: dark) {
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
+  }
+
   @media (hover: hover) {
     &:hover {
-      background-color: var(--color-gray-100);
+      background-color: oklch(97% 0 0deg);
+
+      @media (prefers-color-scheme: dark) {
+        background-color: oklch(26.9% 0 0deg);
+      }
     }
   }
 
-  &[data-popup-open] {
-    background-color: var(--color-gray-100);
+  &[data-pressed] {
+    background-color: oklch(97% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(26.9% 0 0deg);
+    }
+  }
+
+  &:active {
+    background-color: oklch(92.2% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(37.1% 0 0deg);
+    }
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-blue);
+    outline: 2px solid oklch(14.5% 0 0deg);
     outline-offset: -1px;
+
+    @media (prefers-color-scheme: dark) {
+      outline-color: white;
+    }
   }
 }
 
-.SelectIcon {
-  display: flex;
+.Value[data-placeholder] {
+  color: oklch(55.6% 0 0deg);
+
+  @media (prefers-color-scheme: dark) {
+    color: oklch(70.8% 0 0deg);
+  }
 }
 
 .Positioner {
   outline: none;
-  z-index: 1;
+  z-index: 10;
   -webkit-user-select: none;
   user-select: none;
 }
 
 .Popup {
   box-sizing: border-box;
-  border-radius: 0.375rem;
-  background-color: canvas;
+  outline: 0;
+  border: 1px solid oklch(14.5% 0 0deg);
+  background-color: white;
   background-clip: padding-box;
-  color: var(--color-gray-900);
+  color: oklch(14.5% 0 0deg);
   min-width: var(--anchor-width);
   transform-origin: var(--transform-origin);
-
-  &[data-side='none'] {
-    min-width: calc(var(--anchor-width) + 1rem);
-  }
-
-  @media (prefers-color-scheme: light) {
-    outline: 1px solid var(--color-gray-200);
-    box-shadow:
-      0 10px 15px -3px var(--color-gray-200),
-      0 4px 6px -4px var(--color-gray-200);
-  }
+  box-shadow: 0.25rem 0.25rem 0 rgb(0 0 0 / 12%);
 
   @media (prefers-color-scheme: dark) {
-    outline: 1px solid var(--color-gray-300);
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
+    box-shadow: none;
+  }
+
+  &[data-side='none'] {
+    min-width: calc(var(--anchor-width) + 1.75rem);
   }
 }
 
@@ -463,18 +674,26 @@ This example shows how to implement the component using CSS Modules.
 }
 
 .ArrowFill {
-  fill: canvas;
+  fill: white;
+
+  @media (prefers-color-scheme: dark) {
+    fill: oklch(14.5% 0 0deg);
+  }
 }
 
 .ArrowOuterStroke {
-  @media (prefers-color-scheme: light) {
-    fill: var(--color-gray-200);
+  fill: oklch(14.5% 0 0deg);
+
+  @media (prefers-color-scheme: dark) {
+    fill: white;
   }
 }
 
 .ArrowInnerStroke {
+  fill: white;
+
   @media (prefers-color-scheme: dark) {
-    fill: var(--color-gray-300);
+    fill: oklch(14.5% 0 0deg);
   }
 }
 
@@ -482,53 +701,31 @@ This example shows how to implement the component using CSS Modules.
   box-sizing: border-box;
   outline: 0;
   font-size: 0.875rem;
-  line-height: 1rem;
-  padding-block: 0.5rem;
+  line-height: 1.25rem;
+  padding-block: 0.375rem;
   padding-left: 0.625rem;
   padding-right: 1rem;
   display: grid;
   gap: 0.5rem;
   align-items: center;
-  grid-template-columns: 0.75rem 1fr;
+  grid-template-columns: 1rem 1fr;
   cursor: default;
   -webkit-user-select: none;
   user-select: none;
 
-  @media (pointer: coarse) {
-    padding-block: 0.625rem;
-    font-size: 0.925rem;
-  }
-
-  [data-side='none'] & {
-    font-size: 1rem;
-    padding-right: 3rem;
-  }
-
   &[data-highlighted] {
-    z-index: 0;
-    position: relative;
-    color: var(--color-gray-50);
-  }
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
 
-  &[data-highlighted]::before {
-    content: '';
-    z-index: -1;
-    position: absolute;
-    inset-block: 0;
-    inset-inline: 0.25rem;
-    border-radius: 0.25rem;
-    background-color: var(--color-gray-900);
+    @media (prefers-color-scheme: dark) {
+      background-color: white;
+      color: oklch(14.5% 0 0deg);
+    }
   }
 }
 
 .ItemIndicator {
   grid-column-start: 1;
-}
-
-.ItemIndicatorIcon {
-  display: block;
-  width: 0.75rem;
-  height: 0.75rem;
 }
 
 .ItemText {
@@ -537,16 +734,19 @@ This example shows how to implement the component using CSS Modules.
 
 .ScrollArrow {
   width: 100%;
-  background: canvas;
+  background-color: white;
   z-index: 1;
   text-align: center;
   cursor: default;
-  border-radius: 0.375rem;
   height: 1rem;
   font-size: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
+
+  @media (prefers-color-scheme: dark) {
+    background-color: oklch(14.5% 0 0deg);
+  }
 
   &::before {
     content: '';
@@ -557,6 +757,8 @@ This example shows how to implement the component using CSS Modules.
   }
 
   &[data-direction='up'] {
+    top: 0;
+
     &[data-side='none'] {
       &::before {
         top: -100%;
@@ -578,28 +780,173 @@ This example shows how to implement the component using CSS Modules.
 
 ```tsx
 /* index.tsx */
-/* TODO: port this demo to Solid.
- * Reason: motion/react not available in Solid (use solid-motionone).
- * Upstream: docs/src/app/(docs)/react/handbook/animation/demos/animated-select-motion/css-modules/index.tsx
- * A Solid equivalent library is required (e.g. solid-motionone for animations,
- * or a Solid form lib). Left as a minimal placeholder so the docs build stays green.
- */
-export default function UnportedDemo() {
-  return null;
+import { createEffect, createSignal, omit, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { animate, type DOMKeyframesDefinition } from 'motion';
+import { Select } from '@solidports/base-ui/select';
+import styles from './index.module.css';
+
+const fonts = [
+  { label: 'Select font', value: null },
+  { label: 'Sans-serif', value: 'sans' },
+  { label: 'Serif', value: 'serif' },
+  { label: 'Monospace', value: 'mono' },
+  { label: 'Cursive', value: 'cursive' },
+];
+
+export default function AnimatedSelectMotionDemo() {
+  const [open, setOpen] = createSignal(false);
+  const [mounted, setMounted] = createSignal(false);
+
+  const positionerRef = () => {
+    setMounted(true);
+  };
+
+  // Once the trigger has been interacted with, the popup will always be
+  // mounted in the DOM. It enters from `initial` the first time and then
+  // animates between the open and closed styles while it stays mounted.
+  return (
+    <Select.Root items={fonts} open={open()} onOpenChange={setOpen}>
+      <Select.Trigger class={styles.Select}>
+        <Select.Value class={styles.Value} />
+        <Select.Icon>
+          <CaretUpDownIcon />
+        </Select.Icon>
+      </Select.Trigger>
+      <Show when={open() || mounted()}>
+        <Select.Portal>
+          <Select.Positioner class={styles.Positioner} sideOffset={4} ref={positionerRef}>
+            <Select.Popup
+              class={styles.Popup}
+              render={(props) => (
+                <MotionDiv
+                  {...props}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{
+                    opacity: open() ? 1 : 0,
+                    scale: open() ? 1 : 0.8,
+                  }}
+                />
+              )}
+            >
+              <Select.ScrollUpArrow class={styles.ScrollArrow} />
+              <Select.List class={styles.List}>
+                {fonts.map(({ label, value }) => (
+                  <Select.Item value={value} class={styles.Item}>
+                    <Select.ItemIndicator class={styles.ItemIndicator}>
+                      <CheckIcon />
+                    </Select.ItemIndicator>
+                    <Select.ItemText class={styles.ItemText}>{label}</Select.ItemText>
+                  </Select.Item>
+                ))}
+              </Select.List>
+              <Select.ScrollDownArrow class={styles.ScrollArrow} />
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Show>
+    </Select.Root>
+  );
+}
+
+interface MotionDivProps extends JSX.HTMLAttributes<HTMLDivElement> {
+  /** Styles to start from when mounted, or `false` to start at `animate`. */
+  initial: DOMKeyframesDefinition | false;
+  /** Styles to animate to whenever they change. */
+  animate: DOMKeyframesDefinition;
+}
+
+/** A minimal `motion.div`: Motion's `animate()` moves the element toward `animate`. */
+function MotionDiv(props: MotionDivProps) {
+  const others = omit(props, 'initial', 'animate', 'ref');
+  let element: HTMLDivElement | undefined;
+  let animated = false;
+
+  createEffect(
+    () => ({ target: props.animate, instant: !animated && props.initial === false }),
+    ({ target, instant }) => {
+      animated = true;
+      if (element) {
+        animate(element, target, instant ? { duration: 0 } : undefined);
+      }
+    },
+  );
+
+  return (
+    <div
+      {...others}
+      ref={[
+        props.ref,
+        (el: HTMLDivElement) => {
+          element = el;
+          if (props.initial) {
+            animate(el, props.initial, { duration: 0 });
+          }
+        },
+      ]}
+    />
+  );
+}
+
+function CaretUpDownIcon(
+  props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties },
+) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      {...props}
+      style={{ display: 'block', ...props.style }}
+    >
+      <path d="M11 10H5l3 3.5zm0-4H5l3-3.5z" />
+    </svg>
+  );
+}
+
+function CheckIcon(
+  props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties },
+) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      {...props}
+      style={{ display: 'block', ...props.style }}
+    >
+      <path d="m2.5 8.5 4 4 7-9" />
+    </svg>
+  );
 }
 ```
 
 ### Manual unmounting
 
-For full control, you can manually unmount the component when it's closed once animations have finished using an `actionsRef` passed to the `<Root>`:
+Use this when Base UI can't detect your closing animation, for example when it doesn't animate `opacity`, or when the popup should stay in its closing phase until something other than an animation completes.
 
-```jsx title="manual-unmount.tsx" "actionsRef"
+Call `eventDetails.preventUnmountOnClose()` in `onOpenChange` when the component closes, then call `unmount()` on the `actionsRef` passed to the `<Root>` once the animation finishes.
+This ends the closing phase, and `onOpenChangeComplete(false)` fires. Whether the popup leaves the DOM is still decided by `keepMounted`.
+
+```jsx title="manual-unmount.tsx"
 function App() {
   const [open, setOpen] = React.useState(false);
-  const actionsRef = React.useRef(null);
+  const actionsRef = React.useRef(null); // @highlight-text "actionsRef"
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen} actionsRef={actionsRef}>
+    <Popover.Root
+      open={open}
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (!nextOpen) {
+          eventDetails.preventUnmountOnClose(); // @highlight-text "preventUnmountOnClose"
+        }
+        setOpen(nextOpen);
+      }}
+      actionsRef={actionsRef} // @highlight-text "actionsRef"
+    >
       <Popover.Trigger>Trigger</Popover.Trigger>
       <AnimatePresence>
         {open && (
@@ -613,7 +960,7 @@ function App() {
                     exit={{ scale: 0 }}
                     onAnimationComplete={() => {
                       if (!open) {
-                        actionsRef.current.unmount();
+                        actionsRef.current.unmount(); // @highlight-text "actionsRef"
                       }
                     }}
                   />

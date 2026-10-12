@@ -27,40 +27,46 @@ This example shows how to implement the component using CSS Modules.
 .Text {
   font-size: 0.875rem;
   line-height: 1rem;
-  color: var(--color-gray-900);
+  color: oklch(14.5% 0 0deg);
+
+  @media (prefers-color-scheme: dark) {
+    color: white;
+  }
 
   strong& {
-    font-weight: 500;
+    font-weight: 700;
   }
 }
 ```
 
 ```tsx
 /* index.tsx */
-import type { JSX } from 'solid-js';
+import { omit } from 'solid-js';
 import { useRender } from '@solidports/base-ui/use-render';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 import styles from './index.module.css';
 
-interface TextProps extends useRender.JSX.HTMLAttributes<HTMLElement> {}
+interface TextProps extends useRender.ComponentProps<'p'> {}
 
 function Text(props: TextProps) {
-  const { render, ...otherProps } = props;
+  const otherProps = omit(props, 'render');
 
   const element = useRender({
     defaultTagName: 'p',
-    render,
+    get render() {
+      return props.render;
+    },
     props: mergeProps<'p'>({ class: styles.Text }, otherProps),
   });
 
-  return element;
+  return <>{element()}</>;
 }
 
 export default function ExampleText() {
   return (
     <div>
       <Text>Text component rendered as a paragraph tag</Text>
-      <Text render={<strong />}>Text component rendered as a strong tag</Text>
+      <Text render={(props) => <strong {...props} />}>Text component rendered as a strong tag</Text>
     </div>
   );
 }
@@ -81,51 +87,77 @@ This example shows how to implement the component using CSS Modules.
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 2.5rem;
-  padding: 0 0.875rem;
+  gap: 0.25rem;
+  height: 2rem;
+  padding: 0 0.75rem;
   margin: 0;
   outline: 0;
-  border: 1px solid var(--color-gray-200);
-  border-radius: 0.375rem;
-  background-color: var(--color-gray-50);
+  border: 1px solid oklch(14.5% 0 0deg);
+  border-radius: 0;
+  background-color: white;
   font-family: inherit;
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.5rem;
-  color: var(--color-gray-900);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+  color: oklch(14.5% 0 0deg);
+  -webkit-user-select: none;
   user-select: none;
 
-  & span {
-    font-variant-numeric: tabular-nums;
-    display: inline-block;
-    text-align: end;
-    min-width: 2.5ch;
+  @media (prefers-color-scheme: dark) {
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
   }
 
   @media (hover: hover) {
     &:hover {
-      background-color: var(--color-gray-100);
+      background-color: oklch(97% 0 0deg);
+
+      @media (prefers-color-scheme: dark) {
+        background-color: oklch(26.9% 0 0deg);
+      }
     }
   }
 
   &:active {
-    background-color: var(--color-gray-100);
+    background-color: oklch(92.2% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(37.1% 0 0deg);
+    }
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-blue);
+    outline: 2px solid oklch(14.5% 0 0deg);
     outline-offset: -1px;
+
+    @media (prefers-color-scheme: dark) {
+      outline-color: white;
+    }
   }
 }
 
+.count {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
 .suffix {
-  margin-left: 0.125rem;
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid currentColor;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-transform: uppercase;
 }
 ```
 
 ```tsx
 /* index.tsx */
-import { createSignal, createMemo } from 'solid-js';
+import { createSignal, omit } from 'solid-js';
 import { useRender } from '@solidports/base-ui/use-render';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 import styles from './index.module.css';
@@ -137,34 +169,44 @@ interface CounterState {
 interface CounterProps extends useRender.ComponentProps<'button', CounterState> {}
 
 function Counter(props: CounterProps) {
-  const { render, ...otherProps } = props;
+  const otherProps = omit(props, 'render');
 
   const [count, setCount] = createSignal(0);
-  const odd = count() % 2 === 1;
-  const state = createMemo(() => ({ odd }));
+  // The component body runs once: getters keep the state and props current.
+  const state: CounterState = {
+    get odd() {
+      return count() % 2 === 1;
+    },
+  };
 
   const defaultProps: useRender.ElementProps<'button'> = {
     class: styles.Button,
     type: 'button',
-    children: (
-      <>
-        Counter: <span>{count()}</span>
-      </>
-    ),
+    get children() {
+      return (
+        <>
+          Counter: <span class={styles.count}>{count()}</span>
+        </>
+      );
+    },
     onClick() {
       setCount((prev) => prev + 1);
     },
-    'aria-label': `Count is ${count()}, click to increase.`,
+    get 'aria-label'() {
+      return `Count is ${count()}, click to increase.`;
+    },
   };
 
   const element = useRender({
     defaultTagName: 'button',
-    render,
-    state: state(),
+    get render() {
+      return props.render;
+    },
+    state,
     props: mergeProps<'button'>(defaultProps, otherProps),
   });
 
-  return element;
+  return <>{element()}</>;
 }
 
 export default function ExampleCounter() {
@@ -186,7 +228,7 @@ export default function ExampleCounter() {
 The `mergeProps` function merges two or more sets of React props together. It safely merges three types of props:
 
 1. Event handlers, so that all are invoked
-2. `class` strings
+2. `className` strings
 3. `style` properties
 
 `mergeProps` merges objects from left to right, so that subsequent objects' properties in the arguments overwrite previous ones. Merging props is useful when creating custom components, as well as inside the callback version of the `render` prop for any Base UI component.
@@ -201,7 +243,7 @@ function Button() {
       render={(props, state) => (
         <button
           {...mergeProps<'button'>(props, {
-            class: styles.Button,
+            className: styles.Button,
           })}
         />
       )}
@@ -216,13 +258,15 @@ When building custom components, you often need to control a ref internally whil
 
 In React 19, `React.forwardRef()` is not needed when building primitive components, as the external ref prop is already contained inside `props`. Your internal ref can be passed to `ref` to be merged with `props.ref`:
 
-```tsx title="React 19" {6} "internalRef"
+```tsx title="React 19"
 function Text({ render, ...props }: TextProps) {
-  const internalRef = React.useRef<HTMLElement | null>(null);
+  const internalRef = React.useRef<HTMLElement | null>(null); {/* @highlight-text "internalRef" */}
 
   const element = useRender({
     defaultTagName: 'p',
-    ref: internalRef,
+    {/* @highlight-start */}
+    ref: internalRef, {/* @highlight-text "internalRef" */}
+    {/* @highlight-end */}
     props,
     render,
   });
@@ -235,16 +279,19 @@ In older versions of React, you need to use `React.forwardRef()` and add the for
 
 The [examples](/solid/utils/use-render.md) above assume React 19, and should be modified to use `React.forwardRef()` to support React 18 and 17.
 
-```tsx title="React 18 and 17" {9} "forwardedRef" "internalRef"
+```tsx title="React 18 and 17"
 const Text = React.forwardRef(function Text(
   { render, ...props }: TextProps,
-  forwardedRef: React.ForwardedRef<HTMLElement>,
+  forwardedRef: React.ForwardedRef<HTMLElement>, //@highlight-text "forwardedRef"
 ) {
-  const internalRef = React.useRef<HTMLElement | null>(null);
+  const internalRef = React.useRef<HTMLElement | null>(null); // @highlight-text "internalRef"
 
   const element = useRender({
     defaultTagName: 'p',
+    // @highlight-start
+    // @highlight-text "internalRef" "forwardedRef"
     ref: [forwardedRef, internalRef],
+    // @highlight-end
     props,
     render,
   });
@@ -260,12 +307,14 @@ To type props, there are two interfaces:
 - `useRender.ComponentProps` for a component's external (public) props. It types the `render` prop and HTML attributes.
 - `useRender.ElementProps` for the element's internal (private) props. It types HTML attributes alone.
 
-```tsx title="Typing props" {1,4}
+```tsx title="Typing props"
+// @highlight
 interface ButtonProps extends useRender.ComponentProps<'button'> {}
 
 function Button({ render, ...props }: ButtonProps) {
+  // @highlight
   const defaultProps: useRender.ElementProps<'button'> = {
-    class: styles.Button,
+    className: styles.Button,
     type: 'button',
     children: 'Click me',
   };
@@ -282,7 +331,7 @@ function Button({ render, ...props }: ButtonProps) {
 
 ## Migrating from Radix UI
 
-Radix UI uses an `asChild` prop, while Base UI uses a `render` prop. Learn more about how composition works in Base UI in the [composition guide](/react/handbook/composition).
+Radix UI uses an `asChild` prop, while Base UI uses a `render` prop. Learn more about how composition works in Base UI in the [composition guide](/solid/handbook/composition.md).
 
 In Radix UI, the `Slot` component lets you implement an `asChild` prop.
 
@@ -296,7 +345,7 @@ function Button({ asChild, ...props }) {
 
 // Usage
 <Button asChild>
-  <a href="/contact">Contact</a>
+  <MyButton className="primary">Submit</MyButton>
 </Button>;
 ```
 
@@ -314,31 +363,37 @@ function Button({ render, ...props }) {
 }
 
 // Usage
-<Button render={<a href="/contact" />}>Contact</Button>;
+<Button render={<MyButton className="primary" />}>Submit</Button>;
 ```
+
+## Render prop and polymorphism
+
+The `render` prop is primarily designed for composing event handlers and behavioral props. In most cases it should render the same tag as the default element.
+
+Using `render` for polymorphism (rendering a different tag) requires more care, as some default props may not be valid on the new element. For example, `type="button"` is only valid on a `<button>`. Since the component can't know what element `render` will produce at render time and before hydration, props like these need an explicit signal. This is why Base UI's [Button](/solid/components/button.md) provides a `nativeButton` prop to control which defaults are applied.
 
 ## API reference
 
-### Input parameters
+Renders a Base UI element.
 
-**Props:**
+**Parameters:**
 
-| Prop                   | Type                                                                 | Default | Description                                                                                                                                                                                                                                              |
-| :--------------------- | :------------------------------------------------------------------- | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| defaultTagName         | `keyof React.JSX.IntrinsicElements`                                  | -       | The default tag name to use for the rendered element when `render` is not provided.                                                                                                                                                                      |
-| render                 | `RenderProp<State>`                                                  | -       | The React element or a function that returns one to override the default element.                                                                                                                                                                        |
-| props                  | `Record<string, unknown>`                                            | -       | Props to be spread on the rendered element.They are merged with the internal props&#xA;of the component, so that event handlers are merged,&#xA;`class` strings and `style` properties are joined, and other external props overwrite the internal ones. |
-| ref                    | `React.Ref<RenderedElementType> \| React.Ref<RenderedElementType>[]` | -       | The refs to apply to the rendered element.                                                                                                                                                                                                               |
-| state                  | `State`                                                              | -       | The state of the component. It will be used as a parameter for the render callback.                                                                                                                                                                      |
-| stateAttributesMapping | `StateAttributesMapping<State>`                                      | -       | Custom mapping for converting state properties to data-\* attributes.                                                                                                                                                                                    |
-
-### Return value
+| Parameter              | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Default | Description                                                                                                                                                                                                                                                         |
+| :--------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| render                 | `UseRenderRenderProp<Record<string, any>, ValidComponent>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | -       | The React element or a function that returns one to override the default element.                                                                                                                                                                                   |
+| ref                    | `UseRenderElementRef<Element>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | -       | The ref to apply to the rendered element.                                                                                                                                                                                                                           |
+| state                  | `Record<string, any>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | -       | The state of the component, passed as the second argument to the `render` callback.&#xA;State properties are automatically converted to data-\* attributes.                                                                                                         |
+| stateAttributesMapping | `StateAttributesMapping<Record<string, any>>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | -       | Custom mapping for converting state properties to data-\* attributes.                                                                                                                                                                                               |
+| props                  | `Record<string, unknown>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | -       | Props to be spread on the rendered element.&#xA;They are merged with the internal props of the component, so that event handlers&#xA;are merged, `className` strings and `style` properties are joined, while other external props overwrite the&#xA;internal ones. |
+| enabled                | `MaybeAccessor<boolean \| undefined>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `true`  | If `false`, the hook will skip most of its internal logic and return `null`.&#xA;This is useful for rendering a component conditionally.                                                                                                                            |
+| defaultTagName         | `MaybeAccessor<'symbol' \| 'object' \| 'a' \| 'abbr' \| 'address' \| 'area' \| 'article' \| 'aside' \| 'audio' \| 'b' \| 'base' \| 'bdi' \| 'bdo' \| 'blockquote' \| 'body' \| 'br' \| 'button' \| 'canvas' \| 'caption' \| 'cite' \| 'code' \| 'col' \| 'colgroup' \| 'data' \| 'datalist' \| 'dd' \| 'del' \| 'details' \| 'dfn' \| 'dialog' \| 'div' \| 'dl' \| 'dt' \| 'em' \| 'embed' \| 'fieldset' \| 'figcaption' \| 'figure' \| 'footer' \| 'form' \| 'h1' \| 'h2' \| 'h3' \| 'h4' \| 'h5' \| 'h6' \| 'head' \| 'header' \| 'hgroup' \| 'hr' \| 'html' \| 'i' \| 'iframe' \| 'img' \| 'input' \| 'ins' \| 'kbd' \| 'label' \| 'legend' \| 'li' \| 'link' \| 'main' \| 'map' \| 'mark' \| 'menu' \| 'meta' \| 'meter' \| 'nav' \| 'noscript' \| 'ol' \| 'optgroup' \| 'option' \| 'output' \| 'p' \| 'picture' \| 'pre' \| 'progress' \| 'q' \| 'rp' \| 'rt' \| 'ruby' \| 's' \| 'samp' \| 'script' \| 'search' \| 'section' \| 'select' \| 'selectedcontent' \| 'slot' \| 'small' \| 'source' \| 'span' \| 'strong' \| 'style' \| 'sub' \| 'summary' \| 'sup' \| 'table' \| 'tbody' \| 'td' \| 'template' \| 'textarea' \| 'tfoot' \| 'th' \| 'thead' \| 'time' \| 'title' \| 'tr' \| 'track' \| 'u' \| 'ul' \| 'var' \| 'video' \| 'wbr' \| 'webview' \| 'big' \| 'keygen' \| 'menuitem' \| 'param' \| 'animate' \| 'animateMotion' \| 'animateTransform' \| 'circle' \| 'clipPath' \| 'defs' \| 'desc' \| 'ellipse' \| 'feBlend' \| 'feColorMatrix' \| 'feComponentTransfer' \| 'feComposite' \| 'feConvolveMatrix' \| 'feDiffuseLighting' \| 'feDisplacementMap' \| 'feDistantLight' \| 'feDropShadow' \| 'feFlood' \| 'feFuncA' \| 'feFuncB' \| 'feFuncG' \| 'feFuncR' \| 'feGaussianBlur' \| 'feImage' \| 'feMerge' \| 'feMergeNode' \| 'feMorphology' \| 'feOffset' \| 'fePointLight' \| 'feSpecularLighting' \| 'feSpotLight' \| 'feTile' \| 'feTurbulence' \| 'filter' \| 'foreignObject' \| 'g' \| 'image' \| 'line' \| 'linearGradient' \| 'marker' \| 'mask' \| 'metadata' \| 'mpath' \| 'path' \| 'pattern' \| 'polygon' \| 'polyline' \| 'radialGradient' \| 'rect' \| 'set' \| 'stop' \| 'svg' \| 'switch' \| 'text' \| 'textPath' \| 'tspan' \| 'use' \| 'view' \| 'annotation' \| 'annotation-xml' \| 'math' \| 'merror' \| 'mfrac' \| 'mi' \| 'mmultiscripts' \| 'mn' \| 'mo' \| 'mover' \| 'mpadded' \| 'mphantom' \| 'mprescripts' \| 'mroot' \| 'mrow' \| 'ms' \| 'mspace' \| 'msqrt' \| 'mstyle' \| 'msub' \| 'msubsup' \| 'msup' \| 'mtable' \| 'mtd' \| 'mtext' \| 'mtr' \| 'munder' \| 'munderover' \| 'semantics' \| 'menclose' \| 'maction' \| 'mfenced' \| undefined>` | `'div'` | The default tag name to use for the rendered element when `render` is not provided.                                                                                                                                                                                 |
+| children               | `JSX.Element \| ((args: any[]) => JSX.Element)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | -       | The children to render.                                                                                                                                                                                                                                             |
 
 **Return Value:**
 
-| Property | Type                 | Description                |
-| :------- | :------------------- | :------------------------- |
-| element  | `React.ReactElement` | The rendered React element |
+| Type                                                       | Description |
+| :--------------------------------------------------------- | :---------- |
+| `((props: HTMLProps \| undefined) => JSX.Element \| null)` | -           |
 
 ```tsx title="Usage"
 const element = useRender({

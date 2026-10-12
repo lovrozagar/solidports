@@ -1,18 +1,17 @@
 {
-  "cssVariables": {},
-  "dataAttributes": {},
-  "description": "Enables RTL behavior for Base UI components.",
   "name": "DirectionProvider",
+  "description": "Enables RTL behavior for Base UI components.",
   "props": {
-    "children": {
-      "detailedType": "React.ReactNode",
-      "type": "ReactNode"
-    },
     "direction": {
+      "type": "TextDirection",
       "default": "'ltr'",
       "description": "The reading direction of the text",
-      "detailedType": "'ltr' | 'rtl' | undefined",
-      "type": "TextDirection"
+      "detailedType": "'ltr' | 'rtl' | undefined"
+    },
+    "children": {
+      "type": "JSX.Element"
     }
-  }
+  },
+  "dataAttributes": {},
+  "cssVariables": {}
 }

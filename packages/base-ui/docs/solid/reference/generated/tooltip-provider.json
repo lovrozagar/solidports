@@ -1,28 +1,27 @@
 {
-  "cssVariables": {},
-  "dataAttributes": {},
-  "description": "Provides a shared delay for multiple tooltips. The grouping logic ensures that\nonce a tooltip becomes visible, the adjacent tooltips will be shown instantly.",
   "name": "TooltipProvider",
+  "description": "Provides a shared delay for multiple tooltips. The grouping logic ensures that\nonce a tooltip becomes visible, the adjacent tooltips will be shown instantly.",
   "props": {
-    "children": {
-      "detailedType": "React.ReactNode",
-      "type": "ReactNode"
+    "delay": {
+      "type": "number",
+      "description": "How long to wait before opening the tooltip on hover. Specified in milliseconds.",
+      "detailedType": "number | undefined"
     },
     "closeDelay": {
+      "type": "number",
       "description": "How long to wait before closing a tooltip. Specified in milliseconds.",
-      "detailedType": "number | undefined",
-      "type": "number"
-    },
-    "delay": {
-      "description": "How long to wait before opening a tooltip. Specified in milliseconds.",
-      "detailedType": "number | undefined",
-      "type": "number"
+      "detailedType": "number | undefined"
     },
     "timeout": {
+      "type": "number",
       "default": "400",
       "description": "Another tooltip will open instantly if the previous tooltip\nis closed within this timeout. Specified in milliseconds.",
-      "detailedType": "number | undefined",
-      "type": "number"
+      "detailedType": "number | undefined"
+    },
+    "children": {
+      "type": "JSX.Element"
     }
-  }
+  },
+  "dataAttributes": {},
+  "cssVariables": {}
 }

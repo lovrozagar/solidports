@@ -1,12 +1,12 @@
 {
-  "cssVariables": {},
-  "dataAttributes": {},
-  "description": "The current value of the autocomplete.\nDoesn't render its own HTML element.",
   "name": "AutocompleteValue",
+  "description": "The current value of the autocomplete.\nDoesn't render its own HTML element.",
   "props": {
     "children": {
-      "detailedType": "React.ReactNode | ((value: string) => ReactNode)",
-      "type": "ReactNode | ((value: string) => ReactNode)"
+      "type": "JSX.Element | ((value: Accessor<string | number | string[] | undefined>) => JSX.Element)",
+      "detailedType": "| JSX.Element\n| ((\n    value: Accessor<\n      string | number | string[] | undefined\n    >,\n  ) => JSX.Element)"
     }
-  }
+  },
+  "dataAttributes": {},
+  "cssVariables": {}
 }

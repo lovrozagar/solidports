@@ -1,12 +1,11 @@
 {
-  "cssVariables": {},
-  "dataAttributes": {},
-  "description": "Provides a shared context for coordinating global Drawer UI, such as indent/background effects based on whether any Drawer is open.\nDoesn't render its own HTML element.",
   "name": "DrawerProvider",
+  "description": "Provides a shared context for coordinating global Drawer UI, such as indent/background effects based on whether any Drawer is open.\nDoesn't render its own HTML element.",
   "props": {
     "children": {
-      "detailedType": "React.ReactNode",
-      "type": "ReactNode"
+      "type": "JSX.Element"
     }
-  }
+  },
+  "dataAttributes": {},
+  "cssVariables": {}
 }

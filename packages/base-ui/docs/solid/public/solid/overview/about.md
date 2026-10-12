@@ -10,7 +10,7 @@ description: An overview of Base UI, providing information on its history, team
 
 An overview of Base UI, providing information on its history, team, and goals.
 
-From the creators of Radix, Material UI, and Floating UI, Base UI is an unstyled React component library for building accessible user interfaces.
+From the creators of Radix, Material UI, and Floating UI, Base UI is an unstyled Solid component library for building accessible user interfaces.
 Our focus is on accessibility, performance, and developer experience.
 Our goal is to provide a complete set of open-source UI components, with a delightful developer experience, in a sustainable way.
 
@@ -34,12 +34,13 @@ Component APIs are fully open, so you have direct access to each node, you can e
 
 ## Team
 
-- **Colm Tuite** (Radix) [@colmtuite](https://x.com/colmtuite)
-- **James Nelson** (Floating UI) [@atomiksdev](https://x.com/atomiksdev)
-- **Michał Dudak** (Material UI) [@michaldudak](https://x.com/michaldudak)
-- **Marija Najdova** (Material UI + Fluent UI) [@marijanajdova](https://x.com/marijanajdova)
-- **Albert Yu** (Material UI) [@mj12albert](https://github.com/mj12albert)
-- **Lukas Tyla** (Material UI) [@LukasTy](https://github.com/LukasTy)
+- **Colm Tuite** [@colmtuite](https://x.com/colmtuite)
+- **Marija Najdova** [@marijanajdova](https://x.com/marijanajdova)
+- **Flavien Delangle** [@flaviendelangle](https://github.com/flaviendelangle)
+- **James Nelson** [@atomiksdev](https://x.com/atomiksdev)
+- **Jenna Smith** [@jjenzz](https://x.com/jjenzz)
+- **Michał Dudak** [@michaldudak](https://x.com/michaldudak)
+- **Aarón García** [@aarongarciah](https://github.com/aarongarciah)
 
 ## Browser support
 
@@ -52,21 +53,10 @@ For the full list of supported browsers, refer to our [.browserslistrc](https://
 
 Base UI supports React 17 and newer versions.
 
+## Bundler support
+
+Base UI works with maintained versions of all popular bundlers, including Vite, webpack, Turbopack and Parcel.
+
 ## Community
 
-### GitHub
-
-Base UI is an open-source project.
-If you want to file a bug report or contribute, visit our [GitHub](https://github.com/mui/base-ui).
-
-### Discord
-
-For community support, questions, and tips, join our [Discord](https://base-ui.com/r/discord).
-
-### X
-
-The best way to stay up-to-date on new releases and announcements is by following [Base UI on X](https://x.com/base_ui).
-
-### Bluesky
-
-We're also on [Bluesky](https://bsky.app/profile/base-ui.com).
+Visit the [Community](/solid/overview/community.md) page to learn more about ecosystem projects, support channels, and how to stay up to date and contribute.

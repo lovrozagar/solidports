@@ -18,62 +18,63 @@ This example shows how to implement the component using Tailwind CSS.
 
 ```tsx
 /* index.tsx */
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+
 import { Menubar } from '@solidports/base-ui/menubar';
 import { Menu } from '@solidports/base-ui/menu';
 
 export default function ExampleMenubar() {
   return (
-    <Menubar class="flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
+    <Menubar class="flex items-center">
       <Menu.Root>
-        <Menu.Trigger class="h-8 rounded px-3 text-sm font-medium text-gray-600 outline-none select-none focus-visible:bg-gray-100 data-[disabled]:opacity-50 data-[popup-open]:bg-gray-100">
+        <Menu.Trigger class="h-8 border-0 bg-transparent px-3 font-[inherit] text-sm font-normal text-neutral-950 select-none data-pressed:bg-neutral-100 data-disabled:text-neutral-500 dark:text-white dark:focus-visible:bg-neutral-800 dark:data-pressed:bg-neutral-800 dark:data-disabled:text-neutral-400 focus-visible:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 focus-visible:relative dark:focus-visible:outline-white">
           File
         </Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner class="outline-none" sideOffset={6}>
-            <Menu.Popup class="origin-[var(--transform-origin)] rounded-md bg-[canvas] py-1 text-gray-900 shadow-lg shadow-gray-200 outline outline-1 outline-gray-200 data-[ending-style]:opacity-0 data-[ending-style]:transition-opacity data-[instant]:transition-none dark:shadow-none dark:outline dark:outline-1 dark:-outline-offset-1 dark:outline-gray-300">
+          <Menu.Positioner class="outline-none" sideOffset={4}>
+            <Menu.Popup class="origin-[var(--transform-origin)] border border-neutral-950 bg-white py-1 text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 outline-none transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-instant:transition-none data-starting-style:scale-[0.98] data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none">
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 New
               </Menu.Item>
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Open
               </Menu.Item>
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Save
               </Menu.Item>
 
               <Menu.SubmenuRoot>
-                <Menu.SubmenuTrigger class="flex w-full cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900 data-[popup-open]:relative data-[popup-open]:z-0 data-[popup-open]:before:absolute data-[popup-open]:before:inset-x-1 data-[popup-open]:before:inset-y-0 data-[popup-open]:before:z-[-1] data-[popup-open]:before:rounded-sm data-[popup-open]:before:bg-gray-100 data-[highlighted]:data-[popup-open]:before:bg-gray-900">
+                <Menu.SubmenuTrigger class="flex cursor-default items-center justify-between gap-4 py-2 pr-2 pl-4 text-sm leading-4 font-normal outline-none select-none data-popup-open:relative data-popup-open:z-0 data-popup-open:before:absolute data-popup-open:before:inset-x-1 data-popup-open:before:inset-y-0 data-popup-open:before:z-[-1] data-popup-open:before:bg-neutral-100 data-popup-open:before:content-[''] data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] data-highlighted:data-popup-open:before:bg-neutral-950 dark:data-popup-open:before:bg-neutral-800 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white dark:data-highlighted:data-popup-open:before:bg-white">
                   Export
-                  <ChevronRightIcon />
+                  <CaretRightIcon />
                 </Menu.SubmenuTrigger>
                 <Menu.Portal>
-                  <Menu.Positioner>
-                    <Menu.Popup class="origin-[var(--transform-origin)] rounded-md bg-[canvas] py-1 text-gray-900 shadow-lg shadow-gray-200 outline outline-1 outline-gray-200 data-[ending-style]:opacity-0 data-[ending-style]:transition-opacity data-[instant]:transition-none dark:shadow-none dark:outline dark:outline-1 dark:-outline-offset-1 dark:outline-gray-300">
+                  <Menu.Positioner class="outline-none" sideOffset={-4} alignOffset={-4}>
+                    <Menu.Popup class="origin-[var(--transform-origin)] border border-neutral-950 bg-white py-1 text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 outline-none transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-instant:transition-none data-starting-style:scale-[0.98] data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none">
                       <Menu.Item
                         onClick={handleClick}
-                        class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                        class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                       >
                         PDF
                       </Menu.Item>
                       <Menu.Item
                         onClick={handleClick}
-                        class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                        class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                       >
                         PNG
                       </Menu.Item>
                       <Menu.Item
                         onClick={handleClick}
-                        class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                        class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                       >
                         SVG
                       </Menu.Item>
@@ -82,10 +83,10 @@ export default function ExampleMenubar() {
                 </Menu.Portal>
               </Menu.SubmenuRoot>
 
-              <Menu.Separator class="mx-4 my-1.5 h-px bg-gray-200" />
+              <Menu.Separator class="mx-1 my-1 h-px bg-neutral-950 dark:bg-white" />
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Print
               </Menu.Item>
@@ -95,27 +96,27 @@ export default function ExampleMenubar() {
       </Menu.Root>
 
       <Menu.Root>
-        <Menu.Trigger class="h-8 rounded px-3 text-sm font-medium text-gray-600 outline-none select-none focus-visible:bg-gray-100 data-[disabled]:opacity-50 data-[popup-open]:bg-gray-100">
+        <Menu.Trigger class="h-8 border-0 bg-transparent px-3 font-[inherit] text-sm font-normal text-neutral-950 select-none data-pressed:bg-neutral-100 data-disabled:text-neutral-500 dark:text-white dark:focus-visible:bg-neutral-800 dark:data-pressed:bg-neutral-800 dark:data-disabled:text-neutral-400 focus-visible:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 focus-visible:relative dark:focus-visible:outline-white">
           Edit
         </Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner class="outline-none" sideOffset={6}>
-            <Menu.Popup class="origin-[var(--transform-origin)] rounded-md bg-[canvas] py-1 text-gray-900 shadow-lg shadow-gray-200 outline outline-1 outline-gray-200 data-[ending-style]:opacity-0 data-[ending-style]:transition-opacity data-[instant]:transition-none dark:shadow-none dark:outline dark:outline-1 dark:-outline-offset-1 dark:outline-gray-300">
+          <Menu.Positioner class="outline-none" sideOffset={4}>
+            <Menu.Popup class="origin-[var(--transform-origin)] border border-neutral-950 bg-white py-1 text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 outline-none transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-instant:transition-none data-starting-style:scale-[0.98] data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none">
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Cut
               </Menu.Item>
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Copy
               </Menu.Item>
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Paste
               </Menu.Item>
@@ -125,48 +126,48 @@ export default function ExampleMenubar() {
       </Menu.Root>
 
       <Menu.Root>
-        <Menu.Trigger class="h-8 rounded px-3 text-sm font-medium text-gray-600 outline-none select-none focus-visible:bg-gray-100 data-[disabled]:opacity-50 data-[popup-open]:bg-gray-100">
+        <Menu.Trigger class="h-8 border-0 bg-transparent px-3 font-[inherit] text-sm font-normal text-neutral-950 select-none data-pressed:bg-neutral-100 data-disabled:text-neutral-500 dark:text-white dark:focus-visible:bg-neutral-800 dark:data-pressed:bg-neutral-800 dark:data-disabled:text-neutral-400 focus-visible:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 focus-visible:relative dark:focus-visible:outline-white">
           View
         </Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner class="outline-none" sideOffset={6}>
-            <Menu.Popup class="origin-[var(--transform-origin)] rounded-md bg-[canvas] py-1 text-gray-900 shadow-lg shadow-gray-200 outline outline-1 outline-gray-200 data-[ending-style]:opacity-0 data-[ending-style]:transition-opacity data-[instant]:transition-none dark:shadow-none dark:outline dark:outline-1 dark:-outline-offset-1 dark:outline-gray-300">
+          <Menu.Positioner class="outline-none" sideOffset={4}>
+            <Menu.Popup class="origin-[var(--transform-origin)] border border-neutral-950 bg-white py-1 text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 outline-none transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-instant:transition-none data-starting-style:scale-[0.98] data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none">
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Zoom In
               </Menu.Item>
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Zoom Out
               </Menu.Item>
 
               <Menu.SubmenuRoot>
-                <Menu.SubmenuTrigger class="flex w-full cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900 data-[popup-open]:relative data-[popup-open]:z-0 data-[popup-open]:before:absolute data-[popup-open]:before:inset-x-1 data-[popup-open]:before:inset-y-0 data-[popup-open]:before:z-[-1] data-[popup-open]:before:rounded-sm data-[popup-open]:before:bg-gray-100 data-[highlighted]:data-[popup-open]:before:bg-gray-900">
+                <Menu.SubmenuTrigger class="flex cursor-default items-center justify-between gap-4 py-2 pr-2 pl-4 text-sm leading-4 font-normal outline-none select-none data-popup-open:relative data-popup-open:z-0 data-popup-open:before:absolute data-popup-open:before:inset-x-1 data-popup-open:before:inset-y-0 data-popup-open:before:z-[-1] data-popup-open:before:bg-neutral-100 data-popup-open:before:content-[''] data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] data-highlighted:data-popup-open:before:bg-neutral-950 dark:data-popup-open:before:bg-neutral-800 dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white dark:data-highlighted:data-popup-open:before:bg-white">
                   Layout
-                  <ChevronRightIcon />
+                  <CaretRightIcon />
                 </Menu.SubmenuTrigger>
                 <Menu.Portal>
-                  <Menu.Positioner>
-                    <Menu.Popup class="origin-[var(--transform-origin)] rounded-md bg-[canvas] py-1 text-gray-900 shadow-lg shadow-gray-200 outline outline-1 outline-gray-200 data-[ending-style]:opacity-0 data-[ending-style]:transition-opacity data-[instant]:transition-none dark:shadow-none dark:outline dark:outline-1 dark:-outline-offset-1 dark:outline-gray-300">
+                  <Menu.Positioner class="outline-none" sideOffset={-4} alignOffset={-4}>
+                    <Menu.Popup class="origin-[var(--transform-origin)] border border-neutral-950 bg-white py-1 text-neutral-950 shadow-[0.25rem_0.25rem_0] shadow-black/12 outline-none transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-instant:transition-none data-starting-style:scale-[0.98] data-starting-style:opacity-0 dark:border-white dark:bg-neutral-950 dark:text-white dark:shadow-none">
                       <Menu.Item
                         onClick={handleClick}
-                        class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                        class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                       >
                         Single Page
                       </Menu.Item>
                       <Menu.Item
                         onClick={handleClick}
-                        class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                        class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                       >
                         Two Pages
                       </Menu.Item>
                       <Menu.Item
                         onClick={handleClick}
-                        class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                        class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
                       >
                         Continuous
                       </Menu.Item>
@@ -175,10 +176,10 @@ export default function ExampleMenubar() {
                 </Menu.Portal>
               </Menu.SubmenuRoot>
 
-              <Menu.Separator class="mx-4 my-1.5 h-px bg-gray-200" />
+              <Menu.Separator class="mx-1 my-1 h-px bg-neutral-950 dark:bg-white" />
               <Menu.Item
                 onClick={handleClick}
-                class="flex cursor-default items-center justify-between gap-4 px-4 py-2 text-sm leading-4 outline-none select-none data-[highlighted]:relative data-[highlighted]:z-0 data-[highlighted]:text-gray-50 data-[highlighted]:before:absolute data-[highlighted]:before:inset-x-1 data-[highlighted]:before:inset-y-0 data-[highlighted]:before:z-[-1] data-[highlighted]:before:rounded-sm data-[highlighted]:before:bg-gray-900"
+                class="flex cursor-default items-center justify-between gap-4 py-2 pr-4 pl-4 text-sm leading-4 font-normal outline-none select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-x-1 data-highlighted:before:inset-y-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-950 data-highlighted:before:content-[''] dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-white"
               >
                 Full Screen
               </Menu.Item>
@@ -188,7 +189,7 @@ export default function ExampleMenubar() {
       </Menu.Root>
 
       <Menu.Root disabled>
-        <Menu.Trigger class="h-8 rounded px-3 text-sm font-medium text-gray-600 outline-none select-none focus-visible:bg-gray-100 data-[disabled]:opacity-50 data-[popup-open]:bg-gray-100">
+        <Menu.Trigger class="h-8 border-0 bg-transparent px-3 font-[inherit] text-sm font-normal text-neutral-950 select-none data-pressed:bg-neutral-100 data-disabled:text-neutral-500 dark:text-white dark:focus-visible:bg-neutral-800 dark:data-pressed:bg-neutral-800 dark:data-disabled:text-neutral-400 focus-visible:bg-neutral-100 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 focus-visible:relative dark:focus-visible:outline-white">
           Help
         </Menu.Trigger>
       </Menu.Root>
@@ -196,21 +197,24 @@ export default function ExampleMenubar() {
   );
 }
 
-function handleClick(event: MouseEvent) {
+function handleClick(event: MouseEvent & { currentTarget: HTMLElement }) {
   // eslint-disable-next-line no-console
   console.log(`${event.currentTarget.textContent} clicked`);
 }
 
-function ChevronRightIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretRightIcon(
+  props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties },
+) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...props}>
-      <path
-        d="M6 12L10 8L6 4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      {...props}
+      style={{ display: 'block', ...props.style }}
+    >
+      <path d="M6 12V4l4.5 4z" />
     </svg>
   );
 }
@@ -224,35 +228,71 @@ This example shows how to implement the component using CSS Modules.
 /* index.module.css */
 .Menubar {
   display: flex;
-  background-color: var(--color-gray-50);
-  border: 1px solid var(--color-gray-200);
-  border-radius: 0.375rem;
-  padding: 0.125rem;
+  align-items: center;
 }
 
 .MenuTrigger {
   box-sizing: border-box;
-  background: none;
+  height: 2rem;
   padding: 0 0.75rem;
   margin: 0;
-  outline: 0;
   border: 0;
-  color: var(--color-gray-600);
-  border-radius: 0.25rem;
-  user-select: none;
-  height: 2rem;
+  background-color: transparent;
+  color: oklch(14.5% 0 0deg);
   font-family: inherit;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 400;
+  line-height: 1.25rem;
+  -webkit-user-select: none;
+  user-select: none;
 
-  &[data-pressed],
-  &:focus-visible {
-    background-color: var(--color-gray-100);
-    outline: none;
+  @media (prefers-color-scheme: dark) {
+    color: white;
+  }
+
+  @media (hover: hover) {
+    &:hover:not([data-disabled]) {
+      background-color: oklch(97% 0 0deg);
+
+      @media (prefers-color-scheme: dark) {
+        background-color: oklch(26.9% 0 0deg);
+      }
+    }
+  }
+
+  &:active:not([data-disabled]) {
+    background-color: oklch(92.2% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(37.1% 0 0deg);
+    }
+  }
+
+  &[data-pressed] {
+    background-color: oklch(97% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(26.9% 0 0deg);
+    }
   }
 
   &[data-disabled] {
-    opacity: 0.5;
+    color: oklch(55.6% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      color: oklch(70.8% 0 0deg);
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid oklch(14.5% 0 0deg);
+    outline-offset: -1px;
+    position: relative;
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(26.9% 0 0deg);
+      outline-color: white;
+    }
   }
 }
 
@@ -262,45 +302,78 @@ This example shows how to implement the component using CSS Modules.
 
 .MenuPopup {
   box-sizing: border-box;
+  outline: 0;
   padding-block: 0.25rem;
-  border-radius: 0.375rem;
-  background-color: canvas;
-  color: var(--color-gray-900);
+  border: 1px solid oklch(14.5% 0 0deg);
+  background-color: white;
+  color: oklch(14.5% 0 0deg);
+  box-shadow: 0.25rem 0.25rem 0 rgb(0 0 0 / 12%);
   transform-origin: var(--transform-origin);
+  transition:
+    transform 100ms ease-out,
+    opacity 100ms ease-out;
 
+  @media (prefers-color-scheme: dark) {
+    border: 1px solid white;
+    background-color: oklch(14.5% 0 0deg);
+    color: white;
+    box-shadow: none;
+  }
+
+  &[data-starting-style],
   &[data-ending-style] {
     opacity: 0;
-    transition: opacity 150ms;
+    transform: scale(0.98);
   }
 
   &[data-instant] {
     transition: none;
   }
-
-  @media (prefers-color-scheme: light) {
-    outline: 1px solid var(--color-gray-200);
-    box-shadow:
-      0 10px 15px -3px var(--color-gray-200),
-      0 4px 6px -4px var(--color-gray-200);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    outline: 1px solid var(--color-gray-300);
-    outline-offset: -1px;
-  }
 }
 
-.MenuItem {
+.MenuItem,
+.SubmenuTrigger {
   outline: 0;
   cursor: default;
+  -webkit-user-select: none;
   user-select: none;
-  padding: 0.5rem 1rem;
+  padding-block: 0.5rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
   display: flex;
   font-size: 0.875rem;
   line-height: 1rem;
+  font-weight: 400;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+
+  &[data-highlighted] {
+    z-index: 0;
+    position: relative;
+    color: white;
+
+    @media (prefers-color-scheme: dark) {
+      color: oklch(14.5% 0 0deg);
+    }
+  }
+
+  &[data-highlighted]::before {
+    content: '';
+    z-index: -1;
+    position: absolute;
+    inset-block: 0;
+    inset-inline: 0.25rem;
+    background-color: oklch(14.5% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: white;
+    }
+  }
+}
+
+.SubmenuTrigger {
+  padding-right: 0.5rem;
 
   &[data-popup-open] {
     z-index: 0;
@@ -313,37 +386,37 @@ This example shows how to implement the component using CSS Modules.
     position: absolute;
     inset-block: 0;
     inset-inline: 0.25rem;
-    border-radius: 0.25rem;
-    background-color: var(--color-gray-100);
+    background-color: oklch(97% 0 0deg);
+
+    @media (prefers-color-scheme: dark) {
+      background-color: oklch(26.9% 0 0deg);
+    }
   }
 
-  &[data-highlighted] {
-    z-index: 0;
-    position: relative;
-    color: var(--color-gray-50);
-  }
+  &[data-highlighted][data-popup-open]::before {
+    background-color: oklch(14.5% 0 0deg);
 
-  &[data-highlighted]::before {
-    content: '';
-    z-index: -1;
-    position: absolute;
-    inset-block: 0;
-    inset-inline: 0.25rem;
-    border-radius: 0.25rem;
-    background-color: var(--color-gray-900);
+    @media (prefers-color-scheme: dark) {
+      background-color: white;
+    }
   }
 }
 
 .MenuSeparator {
-  margin: 0.375rem 1rem;
+  margin: 0.25rem;
   height: 1px;
-  background-color: var(--color-gray-200);
+  background-color: oklch(14.5% 0 0deg);
+
+  @media (prefers-color-scheme: dark) {
+    background-color: white;
+  }
 }
 ```
 
 ```tsx
 /* index.tsx */
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+
 import { Menubar } from '@solidports/base-ui/menubar';
 import { Menu } from '@solidports/base-ui/menu';
 import styles from './index.module.css';
@@ -354,7 +427,7 @@ export default function ExampleMenubar() {
       <Menu.Root>
         <Menu.Trigger class={styles.MenuTrigger}>File</Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner class={styles.MenuPositioner} sideOffset={6} alignOffset={-2}>
+          <Menu.Positioner class={styles.MenuPositioner} sideOffset={4}>
             <Menu.Popup class={styles.MenuPopup}>
               <Menu.Item class={styles.MenuItem} onClick={handleClick}>
                 New
@@ -367,12 +440,12 @@ export default function ExampleMenubar() {
               </Menu.Item>
 
               <Menu.SubmenuRoot>
-                <Menu.SubmenuTrigger class={styles.MenuItem}>
+                <Menu.SubmenuTrigger class={styles.SubmenuTrigger}>
                   Export
-                  <ChevronRightIcon />
+                  <CaretRightIcon />
                 </Menu.SubmenuTrigger>
                 <Menu.Portal>
-                  <Menu.Positioner alignOffset={-4}>
+                  <Menu.Positioner class={styles.MenuPositioner} sideOffset={-4} alignOffset={-4}>
                     <Menu.Popup class={styles.MenuPopup}>
                       <Menu.Item class={styles.MenuItem} onClick={handleClick}>
                         PDF
@@ -400,7 +473,7 @@ export default function ExampleMenubar() {
       <Menu.Root>
         <Menu.Trigger class={styles.MenuTrigger}>Edit</Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner class={styles.MenuPositioner} sideOffset={6}>
+          <Menu.Positioner class={styles.MenuPositioner} sideOffset={4}>
             <Menu.Popup class={styles.MenuPopup}>
               <Menu.Item class={styles.MenuItem} onClick={handleClick}>
                 Cut
@@ -419,7 +492,7 @@ export default function ExampleMenubar() {
       <Menu.Root>
         <Menu.Trigger class={styles.MenuTrigger}>View</Menu.Trigger>
         <Menu.Portal>
-          <Menu.Positioner class={styles.MenuPositioner} sideOffset={6}>
+          <Menu.Positioner class={styles.MenuPositioner} sideOffset={4}>
             <Menu.Popup class={styles.MenuPopup}>
               <Menu.Item class={styles.MenuItem} onClick={handleClick}>
                 Zoom In
@@ -429,12 +502,12 @@ export default function ExampleMenubar() {
               </Menu.Item>
 
               <Menu.SubmenuRoot>
-                <Menu.SubmenuTrigger class={styles.MenuItem}>
+                <Menu.SubmenuTrigger class={styles.SubmenuTrigger}>
                   Layout
-                  <ChevronRightIcon />
+                  <CaretRightIcon />
                 </Menu.SubmenuTrigger>
                 <Menu.Portal>
-                  <Menu.Positioner alignOffset={-4}>
+                  <Menu.Positioner class={styles.MenuPositioner} sideOffset={-4} alignOffset={-4}>
                     <Menu.Popup class={styles.MenuPopup}>
                       <Menu.Item class={styles.MenuItem} onClick={handleClick}>
                         Single Page
@@ -466,21 +539,24 @@ export default function ExampleMenubar() {
   );
 }
 
-function handleClick(event: MouseEvent) {
+function handleClick(event: MouseEvent & { currentTarget: HTMLElement }) {
   // eslint-disable-next-line no-console
   console.log(`${event.currentTarget.textContent} clicked`);
 }
 
-function ChevronRightIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+function CaretRightIcon(
+  props: Omit<JSX.SvgSVGAttributes<SVGSVGElement>, 'style'> & { style?: JSX.CSSProperties },
+) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" {...props}>
-      <path
-        d="M6 12L10 8L6 4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      {...props}
+      style={{ display: 'block', ...props.style }}
+    >
+      <path d="M6 12V4l4.5 4z" />
     </svg>
   );
 }
@@ -503,14 +579,28 @@ import { Menu } from '@solidports/base-ui/menu';
         <Menu.Popup>
           <Menu.Arrow />
           <Menu.Item />
+          <Menu.LinkItem />
           <Menu.Separator />
+
+          <Menu.SubmenuRoot>
+            <Menu.SubmenuTrigger />
+          </Menu.SubmenuRoot>
+
           <Menu.Group>
             <Menu.GroupLabel />
           </Menu.Group>
+
           <Menu.RadioGroup>
-            <Menu.RadioItem />
+            <Menu.RadioItem>
+              <Menu.RadioItemIndicator />
+            </Menu.RadioItem>
           </Menu.RadioGroup>
-          <Menu.CheckboxItem />
+
+          <Menu.CheckboxItem>
+            <Menu.CheckboxItemIndicator />
+          </Menu.CheckboxItem>
+
+          <Menu.Viewport />
         </Menu.Popup>
       </Menu.Positioner>
     </Menu.Portal>
@@ -524,12 +614,20 @@ The container for menus.
 
 **Menubar Props:**
 
-| Prop        | Type                                                                         | Default        | Description                                                                                                                                                                                  |
-| :---------- | :--------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| loopFocus   | `boolean`                                                                    | `true`         | Whether to loop keyboard focus back to the first item&#xA;when the end of the list is reached while using the arrow keys.                                                                    |
-| modal       | `boolean`                                                                    | `true`         | Whether the menubar is modal.                                                                                                                                                                |
-| disabled    | `boolean`                                                                    | `false`        | Whether the whole menubar is disabled.                                                                                                                                                       |
-| orientation | `Menu.Root.Orientation`                                                      | `'horizontal'` | The orientation of the menubar.                                                                                                                                                              |
-| className   | `string \| ((state: Menubar.State) => string \| undefined)`                  | -              | CSS class applied to the element, or a function that&#xA;returns a class based on the component’s state.                                                                                     |
-| style       | `CSSProperties \| ((state: Menubar.State) => CSSProperties \| undefined)`    | -              | -                                                                                                                                                                                            |
-| render      | `ReactElement \| ((props: HTMLProps, state: Menubar.State) => ReactElement)` | -              | Allows you to replace the component’s HTML element&#xA;with a different tag, or compose it with another component.Accepts a `ReactElement` or a function that returns the element to render. |
+| Prop        | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Default        | Description                                                                                                                                                                                  |
+| :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| class       | `string \| ((state: Menubar.State) => string \| undefined)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | -              | CSS class applied to the element, or a function that&#xA;returns a class based on the component's state.                                                                                     |
+| loopFocus   | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `true`         | Whether to loop keyboard focus back to the first item&#xA;when the end of the list is reached while using the arrow keys.                                                                    |
+| modal       | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `true`         | Whether the menubar is modal.                                                                                                                                                                |
+| disabled    | `boolean`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `false`        | Whether the whole menubar is disabled.                                                                                                                                                       |
+| orientation | `Menu.Root.Orientation`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `'horizontal'` | The orientation of the menubar.                                                                                                                                                              |
+| style       | `JSX.CSSProperties \| ((state: Menubar.State) => JSX.CSSProperties \| undefined)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | -              | Style applied to the element, or a function that&#xA;returns a style object based on the component's state.                                                                                  |
+| render      | `'symbol' \| 'object' \| 'a' \| 'abbr' \| 'address' \| 'area' \| 'article' \| 'aside' \| 'audio' \| 'b' \| 'base' \| 'bdi' \| 'bdo' \| 'blockquote' \| 'body' \| 'br' \| 'button' \| 'canvas' \| 'caption' \| 'cite' \| 'code' \| 'col' \| 'colgroup' \| 'data' \| 'datalist' \| 'dd' \| 'del' \| 'details' \| 'dfn' \| 'dialog' \| 'div' \| 'dl' \| 'dt' \| 'em' \| 'embed' \| 'fieldset' \| 'figcaption' \| 'figure' \| 'footer' \| 'form' \| 'h1' \| 'h2' \| 'h3' \| 'h4' \| 'h5' \| 'h6' \| 'head' \| 'header' \| 'hgroup' \| 'hr' \| 'html' \| 'i' \| 'iframe' \| 'img' \| 'input' \| 'ins' \| 'kbd' \| 'label' \| 'legend' \| 'li' \| 'link' \| 'main' \| 'map' \| 'mark' \| 'menu' \| 'meta' \| 'meter' \| 'nav' \| 'noscript' \| 'ol' \| 'optgroup' \| 'option' \| 'output' \| 'p' \| 'picture' \| 'pre' \| 'progress' \| 'q' \| 'rp' \| 'rt' \| 'ruby' \| 's' \| 'samp' \| 'script' \| 'search' \| 'section' \| 'select' \| 'selectedcontent' \| 'slot' \| 'small' \| 'source' \| 'span' \| 'strong' \| 'style' \| 'sub' \| 'summary' \| 'sup' \| 'table' \| 'tbody' \| 'td' \| 'template' \| 'textarea' \| 'tfoot' \| 'th' \| 'thead' \| 'time' \| 'title' \| 'tr' \| 'track' \| 'u' \| 'ul' \| 'var' \| 'video' \| 'wbr' \| 'webview' \| 'big' \| 'keygen' \| 'menuitem' \| 'param' \| 'animate' \| 'animateMotion' \| 'animateTransform' \| 'circle' \| 'clipPath' \| 'defs' \| 'desc' \| 'ellipse' \| 'feBlend' \| 'feColorMatrix' \| 'feComponentTransfer' \| 'feComposite' \| 'feConvolveMatrix' \| 'feDiffuseLighting' \| 'feDisplacementMap' \| 'feDistantLight' \| 'feDropShadow' \| 'feFlood' \| 'feFuncA' \| 'feFuncB' \| 'feFuncG' \| 'feFuncR' \| 'feGaussianBlur' \| 'feImage' \| 'feMerge' \| 'feMergeNode' \| 'feMorphology' \| 'feOffset' \| 'fePointLight' \| 'feSpecularLighting' \| 'feSpotLight' \| 'feTile' \| 'feTurbulence' \| 'filter' \| 'foreignObject' \| 'g' \| 'image' \| 'line' \| 'linearGradient' \| 'marker' \| 'mask' \| 'metadata' \| 'mpath' \| 'path' \| 'pattern' \| 'polygon' \| 'polyline' \| 'radialGradient' \| 'rect' \| 'set' \| 'stop' \| 'svg' \| 'switch' \| 'text' \| 'textPath' \| 'tspan' \| 'use' \| 'view' \| 'annotation' \| 'annotation-xml' \| 'math' \| 'merror' \| 'mfrac' \| 'mi' \| 'mmultiscripts' \| 'mn' \| 'mo' \| 'mover' \| 'mpadded' \| 'mphantom' \| 'mprescripts' \| 'mroot' \| 'mrow' \| 'ms' \| 'mspace' \| 'msqrt' \| 'mstyle' \| 'msub' \| 'msubsup' \| 'msup' \| 'mtable' \| 'mtd' \| 'mtext' \| 'mtr' \| 'munder' \| 'munderover' \| 'semantics' \| 'menclose' \| 'maction' \| 'mfenced' \| ((props: RenderFunctionHTMLProps<JSX.HTMLAttributes<any>>, state: Menubar.State) => JSX.Element) \| DynamicProps<ValidComponent> \| null` | -              | Allows you to replace the component's HTML element&#xA;with a different tag, or compose it with another component.Accepts a `ReactElement` or a function that returns the element to render. |
+
+**Menubar Data Attributes:**
+
+| Attribute             | Type                         | Description                                          |
+| :-------------------- | :--------------------------- | :--------------------------------------------------- |
+| data-orientation      | `'horizontal' \| 'vertical'` | Determines the orientation of the menubar.           |
+| data-has-submenu-open | -                            | Present when any submenu within the menubar is open. |
+| data-modal            | -                            | Present when the corresponding menubar is modal.     |

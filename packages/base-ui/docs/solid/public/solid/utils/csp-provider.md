@@ -102,6 +102,6 @@ require inline `<style>` or `<script>` tags.
 
 | Prop                 | Type        | Default | Description                                                                                                                                                                      |
 | :------------------- | :---------- | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| children             | `ReactNode` | -       | -                                                                                                                                                                                |
 | disableStyleElements | `boolean`   | `false` | Whether inline `<style>` elements created by Base UI components should not be rendered. Instead, components must specify the CSS styles via custom class names or other methods. |
 | nonce                | `string`    | -       | The nonce value to apply to inline `<style>` and `<script>` tags.                                                                                                                |
-| children             | `ReactNode` | -       | -                                                                                                                                                                                |

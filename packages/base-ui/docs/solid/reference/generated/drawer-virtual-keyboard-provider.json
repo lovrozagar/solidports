@@ -1,0 +1,11 @@
+{
+  "name": "DrawerVirtualKeyboardProvider",
+  "description": "Provides keyboard-aware focus and scroll handling for bottom-sheet drawers with form fields.",
+  "props": {
+    "children": {
+      "type": "JSX.Element"
+    }
+  },
+  "dataAttributes": {},
+  "cssVariables": {}
+}
