@@ -60,6 +60,56 @@ function isHandlerKey(key: string) {
   return key.length > 2 && key[0] === 'o' && key[1] === 'n';
 }
 
+/**
+ * Mixed-case spellings of attribute keys seen by any view (`tabIndex`), by lowercase name.
+ * HTML attribute names are case-insensitive, so a part's `tabindex` and a consumer's `tabIndex`
+ * set the same attribute. React has one spelling per attribute, so the later source wins; a view
+ * resolves every spelling as one key to match. Views enumerate their keys before reading values,
+ * so a spelling is registered before any lookup needs it.
+ */
+const MIXED_CASE_SPELLINGS = new Map<string, Set<string>>();
+
+function registerSpelling(key: string, lower: string) {
+  if (lower === key) {
+    return;
+  }
+  let spellings = MIXED_CASE_SPELLINGS.get(lower);
+  if (!spellings) {
+    spellings = new Set();
+    MIXED_CASE_SPELLINGS.set(lower, spellings);
+  }
+  spellings.add(key);
+}
+
+/** The other spellings of `key` any view has seen, or `undefined` when there are none. */
+function otherSpellingsOf(key: string): Set<string> | undefined {
+  return MIXED_CASE_SPELLINGS.size === 0 ? undefined : MIXED_CASE_SPELLINGS.get(key.toLowerCase());
+}
+
+/** The key `props` holds for `key` under any known spelling, preferring `key` itself. */
+function spellingIn(
+  props: Record<string, any>,
+  key: string,
+  spellings: Set<string> | undefined,
+): string | undefined {
+  if (key in props) {
+    return key;
+  }
+  if (!spellings) {
+    return undefined;
+  }
+  const lower = key.toLowerCase();
+  if (lower !== key && lower in props) {
+    return lower;
+  }
+  for (const spelling of spellings) {
+    if (spelling !== key && spelling in props) {
+      return spelling;
+    }
+  }
+  return undefined;
+}
+
 function arraysEqual(a: readonly string[], b: readonly string[]) {
   if (a.length !== b.length) {
     return false;
@@ -326,10 +376,12 @@ export function createPropsView(
       }
       return chainHandlers(handlers);
     }
+    const spellings = otherSpellingsOf(key);
     for (let index = all.length - 1; index >= 0; index -= 1) {
       const props = resolve(all[index]);
-      if (props && key in props) {
-        return props[key];
+      const spelling = props && spellingIn(props, key, spellings);
+      if (spelling !== undefined) {
+        return props![spelling];
       }
     }
     return undefined;
@@ -340,6 +392,7 @@ export function createPropsView(
     () => {
       const seen = new Set<string>();
       const handlerNames = new Set<string>();
+      const attributeNames = new Set<string>();
       const result: string[] = [];
       for (const source of list()) {
         const props = resolve(source);
@@ -350,12 +403,19 @@ export function createPropsView(
           if (omitted.has(key) || seen.has(key)) {
             continue;
           }
+          const lower = key.toLowerCase();
           if (isHandlerKey(key)) {
-            const lower = key.toLowerCase();
             if (handlerNames.has(lower)) {
               continue;
             }
             handlerNames.add(lower);
+          } else {
+            registerSpelling(key, lower);
+            // Another spelling of an attribute already listed resolves through that key.
+            if (attributeNames.has(lower)) {
+              continue;
+            }
+            attributeNames.add(lower);
           }
           seen.add(key);
           result.push(key);
@@ -371,12 +431,21 @@ export function createPropsView(
     if (omitted.has(key)) {
       return false;
     }
-    const lower = isHandlerKey(key) ? key.toLowerCase() : undefined;
+    const handler = isHandlerKey(key);
+    const lower = handler ? key.toLowerCase() : undefined;
+    const spellings = handler ? undefined : otherSpellingsOf(key);
     // Last to first: later sources usually carry the key (`ref`, `children`), ending the scan early.
     const all = list();
     for (let index = all.length - 1; index >= 0; index -= 1) {
       const props = resolve(all[index]);
-      if (props && (key in props || (lower !== undefined && lower !== key && lower in props))) {
+      if (!props) {
+        continue;
+      }
+      if (handler) {
+        if (key in props || (lower !== key && lower! in props)) {
+          return true;
+        }
+      } else if (spellingIn(props, key, spellings) !== undefined) {
         return true;
       }
     }
@@ -394,14 +463,16 @@ export function createPropsView(
       return false;
     }
     const all = list();
+    const spellings = otherSpellingsOf(key);
     for (let index = all.length - 1; index >= 0; index -= 1) {
       const source = all[index];
       const props = resolve(source);
-      if (!props || !(key in props)) {
+      const spelling = props && spellingIn(props, key, spellings);
+      if (spelling === undefined) {
         continue;
       }
       // An accessor source's current props decide; the caller re-evaluates when it changes.
-      return isStaticSourceKey(props, key);
+      return isStaticSourceKey(props!, spelling);
     }
     return false;
   }
