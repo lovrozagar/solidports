@@ -379,7 +379,33 @@ describe('mergeProps', () => {
     ]);
   });
 
-  [true, 13, 'newValue', { key: 'value' }, ['value'], () => 'value'].forEach((eventArgument) => {});
+  it.each([
+    { name: 'a boolean', eventArgument: true },
+    { name: 'a number', eventArgument: 13 },
+    { name: 'a string', eventArgument: 'newValue' },
+    { name: 'an object', eventArgument: { key: 'value' } },
+    { name: 'an array', eventArgument: ['value'] },
+    { name: 'a function', eventArgument: () => 'value' },
+  ])('handles non-standard event handlers called with $name', ({ eventArgument }) => {
+    const log: string[] = [];
+
+    const mergedProps = mergeProps<any>(
+      {
+        onValueChange() {
+          log.push('1');
+        },
+      },
+      {
+        onValueChange() {
+          log.push('0');
+        },
+      },
+    );
+
+    mergedProps.onValueChange(eventArgument);
+
+    expect(log).toEqual(['0', '1']);
+  });
 
   it('lets an explicit undefined in a later source override an earlier value', () => {
     const mergedProps = mergeProps<'button'>({ title: 'ours' }, { title: undefined });

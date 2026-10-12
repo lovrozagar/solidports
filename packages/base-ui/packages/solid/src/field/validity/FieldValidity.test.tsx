@@ -8,8 +8,6 @@ import { expect, vi, describe, it } from 'vitest';
 describe('<Field.Validity />', () => {
   const { render } = createRenderer();
 
-  ['onBlur', 'onSubmit'].forEach((validationMode) => {});
-
   it.skipIf(isJSDOM)('defers badInput during required change revalidation', async () => {
     // Real browser input is needed: typing `e` into a number input only sets `badInput` when the
     // browser handles the keystroke, which @testing-library/user-event does not emulate.

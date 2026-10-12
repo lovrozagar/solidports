@@ -445,7 +445,7 @@ describe('<Menu.CheckboxItem />', () => {
     });
   });
 
-  describe('focusableWhenDisabled', () => {
+  describe('prop: focusableWhenDisabled', () => {
     it('can be focused but not interacted with when disabled', async () => {
       const handleCheckedChange = spy();
       const handleClick = spy();

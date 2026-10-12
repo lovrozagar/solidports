@@ -126,7 +126,7 @@ describe('<Slider.Control />', () => {
     expect(onValueChange).not.toHaveBeenCalled();
   });
 
-  [
+  it.each([
     {
       name: 'horizontal',
       orientation: 'horizontal' as const,
@@ -141,7 +141,36 @@ describe('<Slider.Control />', () => {
       thumbRect: new DOMRect(0, 40, 10, 20),
       pointer: { clientX: 5, clientY: 90 },
     },
-  ].forEach(({ name, orientation, controlRect, thumbRect, pointer }) => {});
+  ])(
+    'accounts for the thumb size when pressing an inset $name control',
+    async ({ orientation, controlRect, thumbRect, pointer }) => {
+      const onValueChange = vi.fn();
+
+      render(() => (
+        <Slider.Root
+          defaultValue={50}
+          orientation={orientation}
+          thumbAlignment="edge-client-only"
+          onValueChange={onValueChange}
+        >
+          <Slider.Control data-testid="control">
+            <Slider.Thumb data-testid="thumb" />
+          </Slider.Control>
+        </Slider.Root>
+      ));
+
+      const control = screen.getByTestId('control');
+      vi.spyOn(control, 'getBoundingClientRect').mockReturnValue(controlRect);
+      vi.spyOn(screen.getByTestId('thumb'), 'getBoundingClientRect').mockReturnValue(thumbRect);
+
+      fireEvent.pointerDown(control, { button: 0, buttons: 1, ...pointer });
+
+      expect(onValueChange).toHaveBeenCalledWith(
+        0,
+        expect.objectContaining({ activeThumbIndex: 0, reason: 'track-press' }),
+      );
+    },
+  );
 
   it('preserves single-element array values on track press', async () => {
     const onValueChange = vi.fn();

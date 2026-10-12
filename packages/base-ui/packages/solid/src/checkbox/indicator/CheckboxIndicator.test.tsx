@@ -73,7 +73,7 @@ describe('<Checkbox.Indicator />', () => {
     expect(indicator).not.to.equal(null);
   });
 
-  describe('keepMounted prop', () => {
+  describe('prop: keepMounted', () => {
     it('should keep indicator mounted when unchecked', async () => {
       render(() => (
         <Checkbox.Root>

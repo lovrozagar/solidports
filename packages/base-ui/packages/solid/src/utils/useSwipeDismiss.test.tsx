@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createEvent, fireEvent, screen } from '@solidjs/testing-library';
@@ -90,12 +90,6 @@ function createTouch(target: EventTarget, point: { clientX: number; clientY: num
 }
 
 describe('useSwipeDismiss', () => {
-  beforeAll(function beforeHook() {
-    // Solid: jsdom's PointerEvent drops pointer-specific init options, so fall back to MouseEvent.
-    // https://github.com/jsdom/jsdom/issues/2527
-    (window as any).PointerEvent = window.MouseEvent;
-  });
-
   const { render } = createRenderer();
 
   it('does not start swiping within a scrollable element when ignoreScrollableAncestors is true', async () => {

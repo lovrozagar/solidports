@@ -171,8 +171,6 @@ describe('<Menu.RadioItem />', () => {
       expect(item).to.have.attribute('data-checked', '');
     });
 
-    ['Space', 'Enter'].forEach((key) => {});
-
     it.skipIf(isJSDOM)(
       'does not select when Space is pressed during an active typeahead session',
       async () => {
@@ -392,7 +390,7 @@ describe('<Menu.RadioItem />', () => {
     });
   });
 
-  describe('focusableWhenDisabled', () => {
+  describe('prop: focusableWhenDisabled', () => {
     it('can be focused but not interacted with when a radio group is disabled', async () => {
       const handleClick = spy();
       const handleKeyDown = spy();

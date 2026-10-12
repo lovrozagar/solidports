@@ -62,7 +62,25 @@ describe('<Slider.Thumb />', () => {
   });
 
   describe('ARIA attributes', () => {
-    ['aria-label', 'aria-labelledby', 'aria-describedby', 'aria-valuetext'].forEach((attr) => {});
+    it.each([
+      { attr: 'aria-label' },
+      { attr: 'aria-labelledby' },
+      { attr: 'aria-describedby' },
+      { attr: 'aria-valuetext' },
+    ])('forwards $attr to the input', async ({ attr }) => {
+      render(() => (
+        <Slider.Root defaultValue={50}>
+          <Slider.Control>
+            <Slider.Thumb
+              {...{
+                [attr]: 'test',
+              }}
+            />
+          </Slider.Control>
+        </Slider.Root>
+      ));
+      expect(screen.getByRole('slider')).toHaveAttribute(attr, 'test');
+    });
 
     it('prefers getAriaValueText over a direct aria-valuetext prop', async () => {
       render(() => (
@@ -117,8 +135,6 @@ describe('<Slider.Thumb />', () => {
       fireEvent.keyDown(slider, { key: 'Enter' });
       expect(handleKeyDown).toHaveBeenCalledTimes(1);
     });
-
-    ['ArrowRight', 'PageUp'].forEach((key) => {});
 
     it('allows preventing the internal key handling', async () => {
       const handleKeyDown = vi.fn((event: KeyboardEvent) => {

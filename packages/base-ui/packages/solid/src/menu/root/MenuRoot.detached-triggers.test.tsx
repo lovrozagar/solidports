@@ -3,7 +3,14 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import type { JSX } from 'solid-js';
 import { Menu } from '@solidports/base-ui/menu';
-import { act, createRenderer, detachedTriggersConformanceTests, isJSDOM, wait } from '#test-utils';
+import {
+  act,
+  createRenderer,
+  detachedTriggersConformanceTests,
+  isJSDOM,
+  resetBrowserPointer,
+  wait,
+} from '#test-utils';
 
 describe('<MenuRoot />', () => {
   beforeEach(() => {
@@ -27,6 +34,10 @@ describe('<MenuRoot />', () => {
   });
 
   describe.skipIf(isJSDOM)('multiple detached triggers', () => {
+    // A real cursor left over the trigger area by an earlier browser test file opens these hover
+    // triggers when layout shifts, so park it first.
+    beforeEach(resetBrowserPointer);
+
     type NumberPayload = { payload: number | undefined };
 
     /**
