@@ -1,8 +1,8 @@
-import { createSignal, Show } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Fieldset } from '@solidports/base-ui/fieldset';
-import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { renderServer } from '../../../test/ssrFixtures';
 import ssrFixtures from './FieldsetLegend.ssr-fixtures';
 
@@ -65,6 +65,40 @@ describe('<Fieldset.Legend />', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Change id' }));
     expect(screen.getByRole('group')).toHaveAttribute('aria-labelledby', 'legend-b');
     fireEvent.click(screen.getByRole('button', { name: 'Remove legend' }));
+    expect(screen.getByRole('group')).not.toHaveAttribute('aria-labelledby');
+  });
+
+  // Solid: a `For` disposes its rows inside its mapping computation, so the legend's unmount
+  // cleanup writes its root's legend id from an owned scope.
+  it('unmounts with its root when a For removes or re-keys the row', async () => {
+    const [rows, setRows] = createSignal(['a', 'b']);
+    render(() => (
+      <For each={rows()}>
+        {(item) => (
+          <Fieldset.Root>
+            <Fieldset.Legend id={`legend-${item}`}>Legend</Fieldset.Legend>
+          </Fieldset.Root>
+        )}
+      </For>
+    ));
+
+    expect(screen.getAllByRole('group')).toHaveLength(2);
+    await act(() => setRows(['a']));
+    expect(screen.getAllByRole('group')).toHaveLength(1);
+    await act(() => setRows(['c']));
+    expect(screen.getByRole('group')).toHaveAttribute('aria-labelledby', 'legend-c');
+  });
+
+  it('clears the legend association when a For inside the root removes it', async () => {
+    const [rows, setRows] = createSignal(['a']);
+    render(() => (
+      <Fieldset.Root>
+        <For each={rows()}>{(item) => <Fieldset.Legend id={`legend-${item}`}>Legend</Fieldset.Legend>}</For>
+      </Fieldset.Root>
+    ));
+
+    expect(screen.getByRole('group')).toHaveAttribute('aria-labelledby', 'legend-a');
+    await act(() => setRows([]));
     expect(screen.getByRole('group')).not.toHaveAttribute('aria-labelledby');
   });
 

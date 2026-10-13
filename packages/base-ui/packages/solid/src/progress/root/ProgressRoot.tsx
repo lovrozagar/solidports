@@ -29,7 +29,8 @@ export function ProgressRoot(componentProps: ProgressRoot.Props) {
   const min = () => local.min ?? 0;
   const value = () => local.value;
 
-  const [labelId, setLabelId] = createSignal<string | undefined>();
+  // Solid: `ownedWrite` because the label unregisters from its unmount cleanup.
+  const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
 
   // `value === null` (or any non-finite value) keeps Progress indeterminate. Otherwise compute a
   // single clamped value and normalized percentage so completion status, `aria-valuenow`, the
