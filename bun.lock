@@ -225,7 +225,7 @@
     },
     "packages/base-ui/packages/solid": {
       "name": "@solidports/base-ui",
-      "version": "1.9.0-6",
+      "version": "1.9.0-7",
       "devDependencies": {
         "@date-fns/tz": "catalog:",
         "@floating-ui/dom": "catalog:",
