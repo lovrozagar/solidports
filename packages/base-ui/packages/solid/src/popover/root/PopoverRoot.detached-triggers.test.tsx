@@ -4,6 +4,7 @@ import {
   detachedTriggersConformanceTests,
   flushMicrotasks,
   isJSDOM,
+  resetBrowserPointer,
 } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
@@ -641,6 +642,10 @@ describe('<Popover.Root />', () => {
   });
 
   describe.skipIf(isJSDOM)('multiple detached triggers', () => {
+    // A real cursor left over the trigger area by an earlier browser test file opens these hover
+    // triggers when layout shifts, so park it first.
+    beforeEach(resetBrowserPointer);
+
     type NumberPayload = { payload: number | undefined };
 
     /**
