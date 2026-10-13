@@ -252,7 +252,8 @@ describe('native parity: Button', () => {
   });
 
   it('keeps the slow path for spread props, a render prop and a reactive ref', () => {
-    const [ref] = createSignal<(el: Element) => void>(() => {});
+    // Solid: a function passed to `createSignal` is its compute, so it returns the ref.
+    const [ref] = createSignal<(el: Element) => void>(() => () => {});
     const reactiveRef = {
       get ref() {
         return ref();

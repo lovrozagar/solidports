@@ -740,7 +740,7 @@ describe('<Field.Root />', () => {
               }),
           );
 
-          const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+          const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
 
           await render(() => (
             <Form onSubmit={onSubmit}>
@@ -802,7 +802,7 @@ describe('<Field.Root />', () => {
       it.each(['onSubmit', 'onChange', 'onBlur'] as const)(
         'keeps a native constraint failure published while the validator is in flight in %s mode',
         async (validationMode) => {
-          const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault());
+          const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
           const validate = vi.fn(() => new Promise<string | null>(() => {}));
 
           await render(() => (

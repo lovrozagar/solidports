@@ -1,6 +1,6 @@
 import { expect, vi, describe, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { isJSDOM } from '../src/utils/testUtils';
 import { act } from './act';
 import type { createRenderer } from './createRenderer';

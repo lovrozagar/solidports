@@ -2131,8 +2131,9 @@ describe('<Select.Root />', () => {
 
   describe('prop: actionsRef', () => {
     it('unmounts the select when the `unmount` method is called', async () => {
-      const actionsRef = useRef({
+      const actionsRef = useRef<Select.Root.Actions | null>({
         unmount: spy(),
+        close: spy(),
       });
 
       const { user } = render(() => (
@@ -2254,9 +2255,10 @@ describe('<Select.Root />', () => {
     );
 
     it('does not leave a tabbable option while closed and kept mounted after tabbing out', async () => {
-      const actionsRef = {
+      const actionsRef: { current: Select.Root.Actions | null } = {
         current: {
           unmount: vi.fn(),
+          close: vi.fn(),
         },
       };
 
@@ -6924,7 +6926,7 @@ describe('<Select.Root />', () => {
               <Select.Positioner>
                 <Select.Popup data-testid="popup" style={{ 'max-height': '200px' }}>
                   {items.map((item) => (
-                    <Select.Item key={item} value={item} style={{ height: '30px' }}>
+                    <Select.Item value={item} style={{ height: '30px' }}>
                       {item}
                     </Select.Item>
                   ))}
@@ -6994,7 +6996,7 @@ describe('<Select.Root />', () => {
               <Select.Positioner data-testid="positioner">
                 <Select.Popup data-testid="popup" style={{ 'max-height': '400px' }}>
                   {items.map((item) => (
-                    <Select.Item key={item} value={item} style={{ height: '30px' }}>
+                    <Select.Item value={item} style={{ height: '30px' }}>
                       <Select.ItemText>{item}</Select.ItemText>
                     </Select.Item>
                   ))}
@@ -7176,7 +7178,7 @@ describe('<Select.Root />', () => {
             <Select.Positioner>
               <Select.Popup>
                 {Array.from({ length: 10 }, (_, index) => (
-                  <Select.Item key={index} value={String(index)}>{`Item ${index}`}</Select.Item>
+                  <Select.Item value={String(index)}>{`Item ${index}`}</Select.Item>
                 ))}
               </Select.Popup>
             </Select.Positioner>

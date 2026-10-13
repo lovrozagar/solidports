@@ -261,11 +261,11 @@ describe('<Tabs.Root />', () => {
         <Tabs.Root>
           <Tabs.List>
             {tabValues.map((value, index) => (
-              <Tabs.Tab key={index} value={value} />
+              <Tabs.Tab value={value} />
             ))}
           </Tabs.List>
           {tabValues.map((value, index) => (
-            <Tabs.Panel key={index} value={value} keepMounted />
+            <Tabs.Panel value={value} keepMounted />
           ))}
         </Tabs.Root>
       ));

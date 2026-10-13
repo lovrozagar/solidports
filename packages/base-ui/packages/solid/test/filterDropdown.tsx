@@ -1,4 +1,5 @@
-import { omit, type ComponentProps } from 'solid-js';
+import { omit } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
 import { useBaseUiId } from '../src/utils/useBaseUiId';
 import { resolvePopupLabel } from '../src/utils/resolvePopupLabel';
 import { mergeProps } from '../src/merge-props';
@@ -43,7 +44,16 @@ export function List(props: FilterDropdownList.Props) {
         {
           role: 'menu',
           get 'aria-labelledby'() {
-            return resolvePopupLabel(props, null, context.triggerId() ?? null);
+            return resolvePopupLabel(
+              {
+                'aria-label': typeof props['aria-label'] === 'string' ? props['aria-label'] : undefined,
+                'aria-labelledby':
+                  typeof props['aria-labelledby'] === 'string' ? props['aria-labelledby'] : undefined,
+                render: props.render,
+              },
+              null,
+              context.triggerId() ?? null,
+            );
           },
         },
         props,

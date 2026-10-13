@@ -1144,7 +1144,7 @@ describe('<Combobox.Input />', () => {
               <Combobox.Popup>
                 <Combobox.List>
                   {(item: string) => (
-                    <Combobox.Item key={item} value={item}>
+                    <Combobox.Item value={item}>
                       {item}
                     </Combobox.Item>
                   )}

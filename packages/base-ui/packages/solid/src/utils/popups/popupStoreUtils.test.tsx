@@ -965,7 +965,7 @@ describe('getPopupOpenState', () => {
   });
 
   it('records whether an open request carried a trigger', () => {
-    const state = createInitialPopupStoreState(new PopupTriggerMap());
+    const state = createInitialState();
     const trigger = document.createElement('button');
     trigger.id = 'trigger-id';
 
@@ -976,7 +976,7 @@ describe('getPopupOpenState', () => {
   it('keeps the trigger-less open flag through a close request', () => {
     // A controlled root may decline the close and stay open; the Root resets the flag itself once
     // the popup is effectively closed.
-    const state = createInitialPopupStoreState(new PopupTriggerMap());
+    const state = createInitialState();
     state.openedWithoutTrigger = true;
 
     expect(createPopupOpenState(state, false, undefined).openedWithoutTrigger).toBe(true);

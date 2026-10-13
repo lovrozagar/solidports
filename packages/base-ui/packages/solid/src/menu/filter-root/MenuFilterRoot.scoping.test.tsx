@@ -1,4 +1,5 @@
 import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { expect, describe, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';

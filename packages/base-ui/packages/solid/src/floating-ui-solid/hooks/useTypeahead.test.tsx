@@ -13,8 +13,13 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
+// The spies assert on the matched index alone, so the helpers forward only that.
+type TestTypeaheadProps = Pick<UseTypeaheadProps, 'onTyping'> & {
+  onMatch?: ((index: number) => void) | undefined;
+};
+
 const useImpl = (
-  componentProps: Pick<UseTypeaheadProps, 'onMatch' | 'onTyping'> & {
+  componentProps: TestTypeaheadProps & {
     list?: Array<string>;
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
@@ -78,8 +83,9 @@ const useImpl = (
 };
 
 function Combobox(
-  props: Pick<UseTypeaheadProps, 'onMatch' | 'onTyping'> & {
+  props: TestTypeaheadProps & {
     list?: Array<string>;
+    open?: boolean;
   },
 ) {
   const { getReferenceProps, getFloatingProps } = useImpl(props);
@@ -92,7 +98,7 @@ function Combobox(
 }
 
 function ComboboxWithElementsRef(
-  props: Pick<UseTypeaheadProps, 'onMatch'> & {
+  props: Pick<TestTypeaheadProps, 'onMatch'> & {
     list?: Array<string>;
     hiddenIndices?: Array<number>;
   },
@@ -257,7 +263,7 @@ describe('useTypeahead', () => {
     }
   });
 
-  function App1(props: Pick<UseTypeaheadProps, 'onMatch'> & { list: Array<string> }) {
+  function App1(props: Pick<TestTypeaheadProps, 'onMatch'> & { list: Array<string> }) {
     const { getReferenceProps, getFloatingProps, activeIndex, open } = useImpl(props);
     let inputRef: HTMLInputElement | undefined;
 
