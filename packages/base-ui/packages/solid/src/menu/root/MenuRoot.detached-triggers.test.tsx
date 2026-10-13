@@ -1,7 +1,7 @@
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { Menu } from '@solidports/base-ui/menu';
 import {
   act,
@@ -60,7 +60,7 @@ describe('<MenuRoot />', () => {
       const testMenu = Menu.createHandle<number>();
       const instantsWhileEnding: (string | undefined)[] = [];
 
-      const utils = render(() => (
+      const utils = await render(() => (
         <div style={{ position: 'relative', width: '400px', height: '200px' }}>
           <style>
             {`

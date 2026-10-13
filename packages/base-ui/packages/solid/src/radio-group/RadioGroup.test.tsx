@@ -945,7 +945,7 @@ describe('<RadioGroup />', () => {
             'when Shift is pressed arrow keys move focus normally',
             async () => {
               const { user } = render(() => (
-                <DirectionProvider direction={direction}>
+                <DirectionProvider direction={direction as TextDirection}>
                   <RadioGroup>
                     <Radio.Root value="a" data-testid="a" />
                     <Radio.Root value="b" data-testid="b" />
@@ -1577,9 +1577,9 @@ describe('<RadioGroup />', () => {
             <Field.Root data-testid="field">
               <RadioGroup>
                 {(props.firstMounted ?? true) && (
-                  <Radio.Root key="first" value="a" data-testid="first-radio" />
+                  <Radio.Root value="a" data-testid="first-radio" />
                 )}
-                <Radio.Root key="second" value="b" data-testid="second-radio" />
+                <Radio.Root value="b" data-testid="second-radio" />
               </RadioGroup>
             </Field.Root>
           );

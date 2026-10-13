@@ -75,7 +75,7 @@ describe('<FilterDropdown.Root />', () => {
   it('focuses the input when the pointer enters or the popup itself receives focus', async () => {
     const { user } = render(() => (
       <TestFilterDropdownRoot open value="">
-        <FilterDropdown.Popup id={undefined} data-testid="popup" tabIndex={-1}>
+        <FilterDropdown.Popup id={undefined} data-testid="popup" tabindex={-1}>
           <FilterDropdown.Input aria-label="Filter countries" />
           <FilterDropdown.List id={undefined}>
             <div role="menuitem">Canada</div>

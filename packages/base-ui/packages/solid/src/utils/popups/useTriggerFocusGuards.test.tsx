@@ -35,7 +35,7 @@ describe.skipIf(isJSDOM)('useTriggerFocusGuards', () => {
     }) {
       return (
         <Component.Root modal={false} open={props.open} onOpenChange={props.onOpenChange}>
-          <Component.Trigger tabIndex={props.tabIndex}>Toggle</Component.Trigger>
+          <Component.Trigger tabindex={props.tabIndex}>Toggle</Component.Trigger>
           <Component.Portal>
             <Component.Positioner>
               <Component.Popup
@@ -138,7 +138,7 @@ describe.skipIf(isJSDOM)('useTriggerFocusGuards', () => {
             const candidate = (
               <button
                 disabled={change === 'disabled' && !open()}
-                tabIndex={change === 'tabIndex' && !open() ? -1 : 0}
+                tabindex={change === 'tabIndex' && !open() ? -1 : 0}
                 hidden={change === 'hidden' && !open()}
               >
                 Candidate

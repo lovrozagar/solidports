@@ -1655,9 +1655,9 @@ describe('<OTPField.Root />', () => {
               defaultValue="1"
               data-testid="otp"
             >
-              {(props.firstMounted ?? true) && <OTPFieldBase.Input key="first" />}
-              <OTPFieldBase.Input key="second" />
-              <OTPFieldBase.Input key="third" />
+              {(props.firstMounted ?? true) && <OTPFieldBase.Input />}
+              <OTPFieldBase.Input />
+              <OTPFieldBase.Input />
             </OTPFieldBase.Root>
           </Field.Root>
         );

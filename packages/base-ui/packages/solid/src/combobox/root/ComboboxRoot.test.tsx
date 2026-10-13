@@ -3140,7 +3140,7 @@ describe('<Combobox.Root />', () => {
                   <Combobox.Popup>
                     <Combobox.List>
                       {(item: string) => (
-                        <Combobox.Item key={item} value={item}>
+                        <Combobox.Item value={item}>
                           {item}
                         </Combobox.Item>
                       )}
@@ -7112,7 +7112,7 @@ describe('<Combobox.Root />', () => {
                     <Combobox.Input data-testid="input" />
                     <Combobox.List>
                       {(item: string) => (
-                        <Combobox.Item key={item} value={item}>
+                        <Combobox.Item value={item}>
                           {item}
                         </Combobox.Item>
                       )}
@@ -7557,7 +7557,7 @@ describe('<Combobox.Root />', () => {
                       <Combobox.Input data-testid="input" />
                       <Combobox.List>
                         {(item: string) => (
-                          <Combobox.Item key={item} value={item}>
+                          <Combobox.Item value={item}>
                             {item}
                           </Combobox.Item>
                         )}
@@ -8779,7 +8779,7 @@ describe('<Combobox.Root />', () => {
                   <Combobox.Popup>
                     <Combobox.List>
                       {props.results.map((item) => (
-                        <Combobox.Item key={item} value={item}>
+                        <Combobox.Item value={item}>
                           {item}
                         </Combobox.Item>
                       ))}
@@ -9796,7 +9796,7 @@ describe('<Combobox.Root />', () => {
               <Combobox.Popup>
                 <Combobox.List>
                   {(item: string) => (
-                    <Combobox.Item key={item} value={item}>
+                    <Combobox.Item value={item}>
                       {item}
                     </Combobox.Item>
                   )}
@@ -10941,12 +10941,12 @@ describe('<Combobox.Root />', () => {
                 <Dialog.Portal keepMounted>
                   <Dialog.Popup
                     aria-label="Fruit chooser"
-                    style={{ opacity: open ? 1 : 0, transition: 'opacity 50ms' }}
+                    style={{ opacity: open() ? 1 : 0, transition: 'opacity 50ms' }}
                   >
                     <Combobox.Input />
                     <Combobox.List>
                       {(item: string) => (
-                        <Combobox.Item key={item} value={item}>
+                        <Combobox.Item value={item}>
                           {item}
                         </Combobox.Item>
                       )}
@@ -11008,7 +11008,7 @@ describe('<Combobox.Root />', () => {
                 <Combobox.Input />
                 <Combobox.List>
                   {(item: string) => (
-                    <Combobox.Item key={item} value={item}>
+                    <Combobox.Item value={item}>
                       {item}
                     </Combobox.Item>
                   )}
@@ -12946,7 +12946,7 @@ describe('<Combobox.Root />', () => {
                   <Combobox.Empty data-testid="empty">No countries found.</Combobox.Empty>
                   <Combobox.List>
                     {(item: Country) => (
-                      <Combobox.Item key={item.code} value={item}>
+                      <Combobox.Item value={item}>
                         {item.label}
                       </Combobox.Item>
                     )}
@@ -13616,7 +13616,7 @@ describe('<Combobox.Root />', () => {
               <Combobox.Popup>
                 <Combobox.List>
                   {(item: string) => (
-                    <Combobox.Item key={item} value={item}>
+                    <Combobox.Item value={item}>
                       {item}
                     </Combobox.Item>
                   )}
@@ -13654,7 +13654,7 @@ describe('<Combobox.Root />', () => {
               <Combobox.Popup>
                 <Combobox.List>
                   {(item: string) => (
-                    <Combobox.Item key={item} value={item}>
+                    <Combobox.Item value={item}>
                       {item}
                     </Combobox.Item>
                   )}
@@ -14025,7 +14025,7 @@ describe('<Combobox.Root />', () => {
             <Combobox.Popup>
               <Combobox.List>
                 {(item: string) => (
-                  <Combobox.Item key={item} value={item}>
+                  <Combobox.Item value={item}>
                     {item}
                   </Combobox.Item>
                 )}

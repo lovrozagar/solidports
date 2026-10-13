@@ -1699,10 +1699,10 @@ describe('<Checkbox.Root />', () => {
 
       it('is kept when the checkbox is focused during mount in StrictMode', async () => {
         function FocusOnMount() {
-          const ref = { current: null as HTMLButtonElement };
+          const ref = { current: null as HTMLButtonElement | null };
           onSettled(() => {
             ref.current?.focus();
-          }, []);
+          });
           return (
             <Field.Root data-testid="root">
               <Checkbox.Root ref={ref} />

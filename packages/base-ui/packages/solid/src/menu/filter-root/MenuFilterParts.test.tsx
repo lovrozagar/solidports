@@ -126,7 +126,7 @@ describe('Menu filter parts conformance', () => {
   );
 
   describeConformance(
-    (props: Menu.RadioItem.Props) => <Menu.RadioItem value="value" {...props} />,
+    (props: Omit<Menu.RadioItem.Props, 'value'>) => <Menu.RadioItem value="value" {...props} />,
     () => ({
       refInstanceof: window.HTMLDivElement,
       render: (node, props) =>

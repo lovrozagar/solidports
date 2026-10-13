@@ -55,7 +55,7 @@ export function render(): string {
       </Select.Root>
       <Checkbox.Root id="agree" name="agree" value="yes" />
       <Switch.Root id="alerts" name="alerts" value="on" />
-      <Radio.Root id="size-m" name="size" value="m" />
+      <Radio.Root id="size-m" value="m" />
       <Toolbar.Root>
         <Toolbar.Input id="toolbar-text" defaultValue="toolbar-text" />
       </Toolbar.Root>

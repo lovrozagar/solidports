@@ -1,7 +1,7 @@
 import { expect, describe, it, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
-import type { JSX } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { isJSDOM } from '../src/utils/testUtils';
 import type { Side } from '../src/internals/useAnchorPositioning';

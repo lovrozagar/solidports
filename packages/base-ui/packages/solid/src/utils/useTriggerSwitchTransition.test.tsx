@@ -96,9 +96,9 @@ describe('useTriggerSwitchTransition', () => {
   });
 });
 
-function createStore(
-  open: boolean,
-): TriggerSwitchStore & { open: boolean; sets: Array<string | undefined> } {
+// Mutable on purpose: the tests write `state.instantType` directly. It still satisfies
+// `TriggerSwitchStore` where the hook receives it.
+function createStore(open: boolean) {
   const store = {
     open,
     sets: [] as Array<string | undefined>,

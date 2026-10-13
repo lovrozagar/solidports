@@ -28,7 +28,7 @@ describe('<ScrollArea.Viewport />', () => {
   it('does not use a presentational role on the focusable viewport', async () => {
     render(() => (
       <ScrollArea.Root>
-        <ScrollArea.Viewport tabIndex={0} data-testid="viewport" />
+        <ScrollArea.Viewport tabindex={0} data-testid="viewport" />
       </ScrollArea.Root>
     ));
 

@@ -512,7 +512,7 @@ describe('filter dropdown', () => {
   });
 
   it('binds the input value as an attribute on the server and a property in the browser', () => {
-    expect(filterInputValueProps(true, () => 'server').value).toBe('server');
+    expect(filterInputValueProps(true, () => 'server')).toHaveProperty('value', 'server');
     expect(filterInputValueProps(false, () => 'client')['prop:value']).toBe('client');
   });
 
@@ -530,7 +530,7 @@ describe('filter dropdown', () => {
       focus() {
         throw new Error('focus failed');
       },
-    } as HTMLElement;
+    } as unknown as HTMLElement;
     expect(() => refocusOwner(broken)).toThrow('focus failed');
     expect(isRefocusingOwner()).toBe(false);
   });
