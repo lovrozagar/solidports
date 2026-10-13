@@ -72,9 +72,11 @@ describe('ItemIndicator', () => {
       // callback can observe a selection that did not schedule a new effect of its own.
       let selectedNow = true;
       const [version, setVersion] = createSignal(0);
-      render(() => (
-        <ItemIndicator data-testid="mark" keepMounted selected={(version(), selectedNow)} />
-      ));
+      const selected = () => {
+        version();
+        return selectedNow;
+      };
+      render(() => <ItemIndicator data-testid="mark" keepMounted selected={selected()} />);
       flush();
 
       selectedNow = false;
