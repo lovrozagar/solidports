@@ -20,7 +20,7 @@ export default defineSsrFixtures(import.meta.url, {
     <form>
       <Field.Root name="name">
         <Field.Label>Name</Field.Label>
-        <Input readOnly defaultValue="Ada" />
+        <Input readonly defaultValue="Ada" />
       </Field.Root>
     </form>
   ),
