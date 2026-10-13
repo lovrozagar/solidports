@@ -66,11 +66,14 @@ describe('Solid dev diagnostics', () => {
       if (/^\[[A-Z_]+\]/.test(message)) {
         // `FLUSH_IN_EFFECT_CALLBACK` comes from the test harness: testing-library's event wrapper
         // flushes after events, including events an effect dispatches (`element.focus()`).
-        // `HOT_SCOPE_TIME` is a CPU-time budget (8ms per window): it measures the machine, so a
-        // slower CI runner trips it; this suite guards the reactive graph, not timings.
+        // `HOT_SCOPE_TIME` is a CPU-time budget (8ms per window), and `WASTED_RECOMPUTE` reports
+        // only once the discarded compute in a window crosses a time threshold: both measure the
+        // machine, so a slower CI runner trips them; this suite guards the reactive graph, not
+        // timings.
         if (
           !message.startsWith('[FLUSH_IN_EFFECT_CALLBACK]') &&
           !message.startsWith('[HOT_SCOPE_TIME]') &&
+          !message.startsWith('[WASTED_RECOMPUTE]') &&
           !/repair guide|deeper evidence/.test(message)
         ) {
           warnings.push(message.split('\n').slice(0, 2).join(' | '));

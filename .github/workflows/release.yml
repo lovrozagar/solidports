@@ -79,12 +79,13 @@ jobs:
           bun run types
           bunx tsc -p tsconfig.test.json --noEmit
           bun run test:package
+      # The test steps run even after an earlier one fails, so one run reports every failure.
       - name: base-ui tests (jsdom)
-        if: needs.resolve.outputs.id == 'base-ui'
+        if: needs.resolve.outputs.id == 'base-ui' && !cancelled()
         working-directory: packages/base-ui
         run: bun run test:solid:jsdom --maxWorkers=2
       - name: base-ui tests (Chromium)
-        if: needs.resolve.outputs.id == 'base-ui'
+        if: needs.resolve.outputs.id == 'base-ui' && !cancelled()
         working-directory: packages/base-ui
         run: |
           bunx playwright install --with-deps chromium
