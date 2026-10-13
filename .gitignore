@@ -48,3 +48,4 @@ packages/recharts/opensrc/repos
 packages/recharts/.upstream/cache/
 packages/recharts/.upstream/patches/
 packages/recharts/.upstream/last-diff.patch
+.tmp/
