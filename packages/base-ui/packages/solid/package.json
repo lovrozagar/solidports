@@ -472,7 +472,7 @@
     "test:package": "publint . && cross-env NPM_CONFIG_CACHE=/tmp/base-ui-npm-cache attw --pack . --profile esm-only",
     "ts:specific": "bun --filter \"@solidports/base-ui\" exec tsc -p tsconfig.build.json --noEmit --skipLibCheck",
     "type:check": "tsc --noEmit -p tsconfig.build.json --skipLibCheck",
-    "types": "tsc -p tsconfig.build.json",
+    "types": "tsc -p tsconfig.build.json && node scripts/addDeclarationExtensions.mjs",
     "typescript": "tsc -b tsconfig.json"
   },
   "sideEffects": false,

@@ -72,12 +72,13 @@ jobs:
       - run: bun run fmt:check
       - run: bun run lint
 
-      - name: base-ui typecheck (emits declarations into types/)
+      - name: base-ui typecheck and package check (emits declarations into types/)
         if: needs.resolve.outputs.id == 'base-ui'
         working-directory: packages/base-ui/packages/solid
         run: |
           bun run types
           bunx tsc -p tsconfig.test.json --noEmit
+          bun run test:package
       - name: base-ui tests (jsdom)
         if: needs.resolve.outputs.id == 'base-ui'
         working-directory: packages/base-ui
