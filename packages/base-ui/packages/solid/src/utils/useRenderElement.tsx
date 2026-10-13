@@ -58,7 +58,16 @@ const BUTTON_DEFAULTS = { type: 'button' } as const;
 const OMIT_COMPONENT = ['component'] as const;
 /** A previous value no prop equals, so `assign` removes or rewrites a server attribute. */
 const SERVER_ATTRIBUTE = {};
-const ATTRIBUTE_ALIASES: Record<string, string> = { className: 'class', htmlFor: 'for' };
+/**
+ * Keys that render an attribute of another name. An uncontrolled input's `defaultValue` renders the
+ * `value` attribute the server printed; removing that attribute after hydration would also clear
+ * the input's value.
+ */
+const ATTRIBUTE_ALIASES: Record<string, string> = {
+  className: 'class',
+  htmlFor: 'for',
+  defaultValue: 'value',
+};
 const IMG_DEFAULTS = { alt: '' } as const;
 const isHandlerKey = (key: string) => key.length > 2 && key[0] === 'o' && key[1] === 'n';
 
@@ -612,7 +621,7 @@ export function useRenderElement<
                 }
               }
               // Attribute names are case-insensitive (`tabIndex` renders `tabindex`), and React-style
-              // aliases render their attribute (`className` → `class`, `htmlFor` → `for`).
+              // aliases render their attribute (`className` → `class`, `defaultValue` → `value`).
               const renderedNames = new Set(
                 Object.keys(current).map((key) => ATTRIBUTE_ALIASES[key] ?? key.toLowerCase()),
               );
