@@ -6,6 +6,8 @@
  */
 import { createOwner, runWithOwner } from 'solid-js';
 import type { Context, Owner } from 'solid-js';
+// `solid-js` does not re-export `setContext`; `@solidjs/signals` is a peer pinned to the solid-js
+// range, so this is the same core solid-js runs on.
 import { setContext } from '@solidjs/signals';
 
 /**

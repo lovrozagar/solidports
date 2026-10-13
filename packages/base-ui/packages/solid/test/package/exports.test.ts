@@ -94,12 +94,13 @@ describe.skipIf(!isJSDOM)('package exports', () => {
     });
   });
 
-  it('reaches the reactive core only through solid-js', () => {
-    // Vite dev never pre-bundles a bare import made from `node_modules`: a direct
-    // `@solidjs/signals` import would load a second reactive core next to the one bundled into
-    // `solid-js`, and contexts set through it would not reach `useContext`.
-    expect(packageJson.peerDependencies, 'peerDependencies').not.to.have.property(
-      '@solidjs/signals',
+  it('pins @solidjs/signals to the solid-js range', () => {
+    // Native parts set context with `setContext`, which only `@solidjs/signals` exports. Sharing
+    // the solid-js range keeps one installed core: production bundles dedupe it, and Vite dev's
+    // second module instance (solid-js is pre-bundled, this source package is not) runs the same
+    // file, so a context written on an owner reaches `useContext`.
+    expect(packageJson.peerDependencies?.['@solidjs/signals']).toBe(
+      packageJson.peerDependencies?.['solid-js'],
     );
   });
 
