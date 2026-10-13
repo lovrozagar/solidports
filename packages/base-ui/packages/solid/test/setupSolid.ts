@@ -4,6 +4,7 @@ import { flush } from 'solid-js';
 import { vi } from 'vitest';
 import { reset as resetErrorLog } from '../src/utils/error';
 import { isSurfacedRenderError } from './createRenderer';
+import { resetBrowserPointer } from './resetBrowserPointer';
 
 let isCleaningUp = false;
 
@@ -126,6 +127,12 @@ afterEach(() => {
  * `setTimeout(0)` it schedules (user-event waits) to 4ms, which React's harness never does.
  */
 if (!navigator.userAgent.includes('jsdom')) {
+  // The real Playwright cursor persists across test files in the same page. A file that drives it
+  // (drag, CDP mouse events) leaves it wherever it stopped, and the next file's hover-opening
+  // popups (tooltips, preview cards, hover menus) open when their trigger renders under it. Park it
+  // before each file.
+  beforeAll(resetBrowserPointer);
+
   afterEach(
     () =>
       new Promise<void>((resolve) => {
