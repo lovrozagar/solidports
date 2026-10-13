@@ -34,6 +34,38 @@ if (typeof window !== 'undefined' && window.navigator.userAgent.includes('jsdom'
 }
 
 /*
+ * Library code can dispatch an event from inside an effect (`element.focus()`; user-event
+ * re-dispatches it through the wrapper below when the document lacks focus, as a parallel test
+ * iframe does). Solid's queue is already running there, so the wrapper's `flush()` is a no-op and
+ * Solid reports `FLUSH_IN_EFFECT_CALLBACK` about the harness, not the code under test. Drop only
+ * that report, and only while the harness's own flush runs.
+ */
+let harnessFlushDepth = 0;
+
+function flushAfterEvent() {
+  harnessFlushDepth += 1;
+  try {
+    flush();
+  } finally {
+    harnessFlushDepth -= 1;
+  }
+}
+
+// Registered after the shared setup's console check, so it wraps that check's `console.warn`.
+beforeEach(() => {
+  const warn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    if (harnessFlushDepth > 0 && String(args[0] ?? '').startsWith('[FLUSH_IN_EFFECT_CALLBACK]')) {
+      return;
+    }
+    warn(...args);
+  };
+  return () => {
+    console.warn = warn;
+  };
+});
+
+/*
  * React's harness wraps every testing-library event in `act()`. Solid 2 batches writes until the
  * next flush, so do the equivalent: flush after each dispatched event (fireEvent and user-event).
  * Not during teardown: a real browser fires blur/focusout synchronously while focused elements
@@ -43,7 +75,7 @@ configure({
   eventWrapper(callback) {
     const result = callback();
     if (!isCleaningUp) {
-      flush();
+      flushAfterEvent();
     }
     return result;
   },
