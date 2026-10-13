@@ -11,7 +11,7 @@ import { GitHubIcon } from "../icons/GitHubIcon"
 import { NpmIcon } from "../icons/NpmIcon"
 import "./(docs)/layout.css"
 
-/* Match the React docs snapshot badge. The Solid package version is 1.9.0-7. */
+/* Match the React docs snapshot badge. The Solid package version is 1.9.0-8. */
 const LIB_VERSION = "1.9.0"
 
 export default function Layout(props: ParentProps) {
