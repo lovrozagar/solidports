@@ -1,7 +1,7 @@
 import { expect, vi } from 'vitest';
-import { createSignal, Show } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
+import { act, createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { Progress } from '@solidports/base-ui/progress';
 
 describe('<Progress.Label />', () => {
@@ -44,6 +44,40 @@ describe('<Progress.Label />', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove label' }));
     expect(progressbar).not.toHaveAttribute('aria-labelledby');
+  });
+
+  // Solid: a `For` disposes its rows inside its mapping computation, so the label's unmount
+  // cleanup writes its root's label id from an owned scope.
+  it('unmounts with its root when a For removes or re-keys the row', async () => {
+    const [rows, setRows] = createSignal(['a', 'b']);
+    render(() => (
+      <For each={rows()}>
+        {(item) => (
+          <Progress.Root value={40}>
+            <Progress.Label id={`label-${item}`}>Label</Progress.Label>
+          </Progress.Root>
+        )}
+      </For>
+    ));
+
+    expect(screen.getAllByRole('progressbar')).toHaveLength(2);
+    await act(() => setRows(['a']));
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1);
+    await act(() => setRows(['c']));
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-labelledby', 'label-c');
+  });
+
+  it('clears the label association when a For inside the root removes it', async () => {
+    const [rows, setRows] = createSignal(['a']);
+    render(() => (
+      <Progress.Root value={40}>
+        <For each={rows()}>{(item) => <Progress.Label id={`label-${item}`}>Label</Progress.Label>}</For>
+      </Progress.Root>
+    ));
+
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-labelledby', 'label-a');
+    await act(() => setRows([]));
+    expect(screen.getByRole('progressbar')).not.toHaveAttribute('aria-labelledby');
   });
 
   it('throws a descriptive error when rendered outside <Progress.Root>', async () => {

@@ -28,7 +28,8 @@ export function MeterRoot(componentProps: MeterRoot.Props) {
   const min = () => local.min ?? 0;
   const valueProp = () => local.value;
 
-  const [labelId, setLabelId] = createSignal<string | undefined>();
+  // Solid: `ownedWrite` because the label unregisters from its unmount cleanup.
+  const [labelId, setLabelId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
 
   // `clamp` handles infinity, but NaN needs an explicit fallback before normalizing range outputs.
   const percentageValue = createMemo(() => {

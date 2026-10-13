@@ -1,7 +1,7 @@
 import { expect, vi } from 'vitest';
-import { createSignal, Show } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
+import { act, createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { Meter } from '@solidports/base-ui/meter';
 
 describe('<Meter.Label />', () => {
@@ -44,6 +44,40 @@ describe('<Meter.Label />', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove label' }));
     expect(meter).not.toHaveAttribute('aria-labelledby');
+  });
+
+  // Solid: a `For` disposes its rows inside its mapping computation, so the label's unmount
+  // cleanup writes its root's label id from an owned scope.
+  it('unmounts with its root when a For removes or re-keys the row', async () => {
+    const [rows, setRows] = createSignal(['a', 'b']);
+    render(() => (
+      <For each={rows()}>
+        {(item) => (
+          <Meter.Root value={50}>
+            <Meter.Label id={`label-${item}`}>Label</Meter.Label>
+          </Meter.Root>
+        )}
+      </For>
+    ));
+
+    expect(screen.getAllByRole('meter')).toHaveLength(2);
+    await act(() => setRows(['a']));
+    expect(screen.getAllByRole('meter')).toHaveLength(1);
+    await act(() => setRows(['c']));
+    expect(screen.getByRole('meter')).toHaveAttribute('aria-labelledby', 'label-c');
+  });
+
+  it('clears the label association when a For inside the root removes it', async () => {
+    const [rows, setRows] = createSignal(['a']);
+    render(() => (
+      <Meter.Root value={50}>
+        <For each={rows()}>{(item) => <Meter.Label id={`label-${item}`}>Label</Meter.Label>}</For>
+      </Meter.Root>
+    ));
+
+    expect(screen.getByRole('meter')).toHaveAttribute('aria-labelledby', 'label-a');
+    await act(() => setRows([]));
+    expect(screen.getByRole('meter')).not.toHaveAttribute('aria-labelledby');
   });
 
   it('throws a descriptive error when rendered outside <Meter.Root>', async () => {

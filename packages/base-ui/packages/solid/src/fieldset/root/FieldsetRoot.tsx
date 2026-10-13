@@ -14,7 +14,8 @@ export function FieldsetRoot(componentProps: FieldsetRoot.Props) {
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled']);
   const disabledProp = () => Boolean(local.disabled);
 
-  const [legendId, setLegendId] = createSignal<string | undefined>(undefined);
+  // Solid: `ownedWrite` because the legend unregisters from its unmount cleanup.
+  const [legendId, setLegendId] = createSignal<string | undefined>(undefined, { ownedWrite: true });
 
   const parentContext = useFieldsetRootContext(true);
   const disabled = () => (parentContext?.disabled() ?? false) || disabledProp();
