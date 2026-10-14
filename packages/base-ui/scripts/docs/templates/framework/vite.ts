@@ -188,7 +188,10 @@ export async function nextApp(root: string): Promise<Plugin[]> {
       for (const entry of [...rule.loaders].reverse()) {
         const { loader: specifier, options } =
           typeof entry === 'string' ? { loader: entry, options: undefined } : entry;
+        // Each loader takes the previous one's output.
+        // eslint-disable-next-line no-await-in-loop
         const loader = await loadLoader(specifier);
+        // eslint-disable-next-line no-await-in-loop
         source = await runLoader(loader, options, source, file, query, root, (dependency) =>
           this.addWatchFile(dependency),
         );

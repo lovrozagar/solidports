@@ -30,5 +30,8 @@ export function jsx(type: unknown, props: Props): JSX.Element {
 export { jsx as jsxs, jsx as jsxDEV };
 
 export function Fragment(props: { children?: JSX.Element }): JSX.Element {
+  // The children getter returns what the renderer inserts (a dynamic child is a memo), as Solid's
+  // own fragments return it.
+  // eslint-disable-next-line solid/reactivity
   return props.children;
 }

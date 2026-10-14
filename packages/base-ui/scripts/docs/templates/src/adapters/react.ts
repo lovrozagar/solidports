@@ -10,6 +10,7 @@ import {
   isHydrating,
   onCleanup,
   onSettled,
+  untrack,
   useContext,
 } from 'solid-js';
 import type { Accessor, Context } from 'solid-js';
@@ -48,7 +49,8 @@ export function useReducer<S, A, I = S>(
   const initial = init ? init(initialArg) : (initialArg as unknown as S);
   const [state, setState] = createSignal<{ current: S }>({ current: initial });
   const dispatch = (action: A) => setState((prev) => ({ current: reducer(prev.current, action) }));
-  return [() => state().current, dispatch];
+  const current = createMemo(() => state().current);
+  return [current, dispatch];
 }
 
 /**
@@ -61,7 +63,8 @@ export function useTransition(): [Accessor<boolean>, (callback: () => unknown) =
     setPending((count) => count + 1);
     Promise.resolve(callback()).finally(() => setPending((count) => count - 1));
   };
-  return [() => pending() > 0, start];
+  const isPending = createMemo(() => pending() > 0);
+  return [isPending, start];
 }
 
 /** `React.useActionState`: the action's latest result and whether a call is in flight. */
@@ -73,11 +76,13 @@ export function useActionState<S, P>(
   const [pending, setPending] = createSignal(0);
   const dispatch = (payload: P) => {
     setPending((count) => count + 1);
-    Promise.resolve(action(state().current, payload))
+    Promise.resolve(action(untrack(state).current, payload))
       .then((next) => setState({ current: next }))
       .finally(() => setPending((count) => count - 1));
   };
-  return [() => state().current, dispatch, () => pending() > 0];
+  const current = createMemo(() => state().current);
+  const isPending = createMemo(() => pending() > 0);
+  return [current, dispatch, isPending];
 }
 
 /** `React.useOptimistic`: the passed state, or the optimistic one until the state changes. */
@@ -86,10 +91,8 @@ export function useOptimistic<S, A>(
   update: (state: S, action: A) => S = (_state, action) => action as unknown as S,
 ): [Accessor<S>, (action: A) => void] {
   const [optimistic, setOptimistic] = createSignal<{ current: S }>({ current: state });
-  return [
-    () => optimistic().current,
-    (action) => setOptimistic({ current: update(state, action) }),
-  ];
+  const current = createMemo(() => optimistic().current);
+  return [current, (action) => setOptimistic({ current: update(state, action) })];
 }
 
 /**

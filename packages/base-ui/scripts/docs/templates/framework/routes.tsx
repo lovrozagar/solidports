@@ -22,6 +22,9 @@ const notFoundModules = import.meta.glob<RouteModule>('/src/app/global-not-found
 
 const APP = '/src/app/';
 
+// The names of catch-all segments (`[...slug]`), whose params are arrays.
+const catchAllNames = new Set<string>();
+
 interface RouteProps {
   params: Record<string, string | undefined>;
   location: { search: string };
@@ -51,8 +54,6 @@ function nextProps(props: RouteProps, withChildren: boolean) {
       }
     : { params, searchParams };
 }
-
-const catchAllNames = new Set<string>();
 
 function NotFoundPage() {
   const module = Object.values(notFoundModules)[0];

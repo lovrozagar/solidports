@@ -58,7 +58,13 @@ const NO_RESTRICTED_IMPORTS_PATHS_TOP_LEVEL_PACKAGES = [
 
 export default defineConfig(
   // `docs/docs-infra` is mui/mui-public source the docs generator reads; it follows mui-public's lint.
-  globalIgnores(['./examples', './playground/vite-app/dist', './docs/docs-infra']),
+  // The docs generator's templates are Solid code that lints where it lands, in `docs/solid`.
+  globalIgnores([
+    './examples',
+    './playground/vite-app/dist',
+    './docs/docs-infra',
+    './scripts/docs/templates',
+  ]),
   baseConfig,
   // eslint-plugin-mdx loads `.remarkrc.mjs` itself, but ESLint doesn't know
   // that file is a config dependency, so `--cache` doesn't invalidate when

@@ -31,6 +31,7 @@ export interface ImageProps extends Omit<
 export default function Image(props: ImageProps) {
   const rest = omit(
     props,
+    'alt',
     'src',
     'width',
     'height',
@@ -45,7 +46,10 @@ export default function Image(props: ImageProps) {
   );
   const data = createMemo(() => {
     const src = props.src;
-    return typeof src === 'string' ? { src } : 'default' in src ? src.default : src;
+    if (typeof src === 'string') {
+      return { src };
+    }
+    return 'default' in src ? src.default : src;
   });
   const style = createMemo((): JSX.CSSProperties => ({
     ...(props.fill
@@ -56,6 +60,7 @@ export default function Image(props: ImageProps) {
   return (
     <img
       {...rest}
+      alt={props.alt}
       src={data().src}
       width={props.fill ? undefined : (props.width ?? (data() as StaticImageData).width)}
       height={props.fill ? undefined : (props.height ?? (data() as StaticImageData).height)}
