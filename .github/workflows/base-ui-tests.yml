@@ -45,6 +45,9 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
+      # The package tests (`test/package`) check each export's declaration file in `types/`.
+      - working-directory: packages/base-ui/packages/solid
+        run: bun run types
       - working-directory: packages/base-ui
         run: bun run test:solid:jsdom --run --maxWorkers=2
 
