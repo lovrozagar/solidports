@@ -38,6 +38,7 @@ export function TabsRoot(componentProps: TabsRoot.Props): JSX.Element {
   // JSX and the root context on one owner; the panel list stays `CompositeList`.
   if (canRenderNative(componentProps)) {
     const root = createTabsRoot(componentProps);
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return provideNativeContext(TabsRootContext, root.tabsContextValue, () =>
       createComponent(CompositeList<TabsPanel.Metadata>, {
         refs: { elements: root.tabPanelRefs },

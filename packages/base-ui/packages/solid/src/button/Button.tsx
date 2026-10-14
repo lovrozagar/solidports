@@ -153,7 +153,7 @@ function buttonAttributes(
     set('data-disabled', stateAttr(disabled));
   }
   if (!keys.has('aria-disabled')) {
-    set('aria-disabled', focusable ? (disabled ? 'true' : 'false') : undefined);
+    set('aria-disabled', focusable ? String(Boolean(disabled)) : undefined);
   }
   if (!keys.has('disabled')) {
     set('disabled', !focusable && disabled ? true : undefined);
@@ -239,8 +239,10 @@ function NativeButton(props: Button.Props): JSX.Element {
 
   // The element itself (a cloned template), its attributes, refs and children: no `ref` round trip.
   const el = (templateStatics ? (
+    // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
     <button type="button" tabindex="0" />
   ) : (
+    // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
     <button />
   )) as unknown as HTMLButtonElement;
   attachNativeAttributes(el, literal, dynamic, owner);

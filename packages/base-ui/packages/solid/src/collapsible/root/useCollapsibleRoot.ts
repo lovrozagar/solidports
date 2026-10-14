@@ -34,10 +34,12 @@ export function useCollapsibleRoot(
   // `'starting'`, as an eagerly created instance does when it goes from closed to open.
   const owner = getOwner();
   let transition: ReturnType<typeof useTransitionStatus> | undefined;
-  const createTransition = () =>
-    (transition ??= runWithOwner(owner, () =>
+  const createTransition = () => {
+    transition ??= runWithOwner(owner, () =>
       untrack(() => useTransitionStatus(open, true, true, true)),
-    )!);
+    )!;
+    return transition;
+  };
   if (untrack(open)) {
     transition = useTransitionStatus(open, true, true);
   }

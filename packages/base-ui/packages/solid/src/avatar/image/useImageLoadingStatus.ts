@@ -64,8 +64,13 @@ export function useImageLoadingStatus(
     }
     // Solid: JSX allows `true` (the empty, anonymous value) and `false` (no attribute).
     const crossOrigin = current.crossOrigin;
-    image.crossOrigin =
-      crossOrigin === true ? '' : crossOrigin === false || crossOrigin == null ? null : crossOrigin;
+    if (crossOrigin === true) {
+      image.crossOrigin = '';
+    } else if (crossOrigin === false || crossOrigin == null) {
+      image.crossOrigin = null;
+    } else {
+      image.crossOrigin = crossOrigin;
+    }
     if (current.sizes) {
       image.sizes = current.sizes;
     }

@@ -79,7 +79,7 @@ export function useFloatingNodeId(
     },
     ({ nodeId, parentId, tree: currentTree }) => {
       if (!nodeId) {
-        return;
+        return undefined;
       }
 
       const node: FloatingNodeType = { id: nodeId, parentId, context: nodeContext };

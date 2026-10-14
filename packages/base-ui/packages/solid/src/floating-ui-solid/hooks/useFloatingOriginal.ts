@@ -208,6 +208,7 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
 
         update();
       }
+      return undefined;
     }),
   );
 

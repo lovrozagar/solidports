@@ -31,6 +31,7 @@ export function SwitchThumb(componentProps: SwitchThumb.Props) {
 
   // Solid-native fast path (plan 8): the `<span>` with its state attributes rendered directly.
   if (canRenderNative(componentProps)) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeThumb(componentProps, state);
   }
 

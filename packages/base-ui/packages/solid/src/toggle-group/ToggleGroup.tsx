@@ -111,6 +111,7 @@ export function ToggleGroup<Value extends string>(componentProps: ToggleGroup.Pr
   // Solid-native fast path (plan 8): the `<div role="group">` rendered directly, as a
   // `CompositeRoot` (its own roving focus) or a plain group inside a Toolbar.
   if (canRenderNative(componentProps)) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return (
       <ToggleGroupContext value={contextValue}>
         {NativeToggleGroup(

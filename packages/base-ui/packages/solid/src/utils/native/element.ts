@@ -80,7 +80,7 @@ export function writeStateAttributes<State extends object>(
     if (mapper) {
       const custom = mapper(value as never);
       if (custom != null) {
-        for (const attribute in custom) {
+        for (const attribute of Object.keys(custom)) {
           set(attribute, custom[attribute]);
         }
       }

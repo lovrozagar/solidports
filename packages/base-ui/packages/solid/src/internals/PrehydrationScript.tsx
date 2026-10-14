@@ -12,6 +12,7 @@ export function PrehydrationScript(props: PrehydrationScript.Props) {
 
   return (
     <Show when={isHydrating()}>
+      {/* eslint-disable-next-line solid/no-innerhtml -- a constant built from the package's own script template */}
       <script nonce={nonce()} innerHTML={props.script} />
     </Show>
   );

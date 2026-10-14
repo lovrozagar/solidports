@@ -1,4 +1,4 @@
-import type { MaybeAccessor } from '../../solid-helpers';
+import type { MaybeAccessor, ReactLikeRef } from '../../solid-helpers';
 import { access, useRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import type { UseButtonSources } from '../../internals/use-button/useButton';
@@ -120,8 +120,7 @@ export interface UseMenuItemParameters {
    * Whether a typeahead session is in progress.
    * @default store.context.typingRef
    */
-  typingRef?:
-    MaybeAccessor<import('../../solid-helpers').ReactLikeRef<boolean> | undefined> | undefined;
+  typingRef?: MaybeAccessor<ReactLikeRef<boolean> | undefined> | undefined;
   /**
    * The menu store.
    */

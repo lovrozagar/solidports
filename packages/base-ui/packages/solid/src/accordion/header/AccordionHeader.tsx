@@ -22,6 +22,7 @@ export function AccordionHeader(componentProps: AccordionHeader.Props) {
 
   // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): an `<h3>` rendered with direct JSX.
   if (canRenderNative(componentProps)) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return renderNativeElement((<h3 />) as unknown as Element, componentProps, {
       own: OWN_KEYS,
       state,

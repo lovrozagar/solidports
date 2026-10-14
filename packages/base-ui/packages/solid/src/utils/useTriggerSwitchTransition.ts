@@ -78,7 +78,7 @@ export function useTriggerSwitchTransition(parameters: UseTriggerSwitchTransitio
       }
 
       if (!previous || !currentTrigger || currentTrigger === previous) {
-        return;
+        return undefined;
       }
 
       // The trigger element can also change while the popup is closing, when a
@@ -86,7 +86,7 @@ export function useTriggerSwitchTransition(parameters: UseTriggerSwitchTransitio
       // the cancellation effect above has already run for this commit, so a
       // restoration scheduled here would survive into whatever opens next.
       if (!parameters.store.select('open')) {
-        return;
+        return undefined;
       }
 
       parameters.store.set('instantType', undefined);

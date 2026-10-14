@@ -116,6 +116,7 @@ function PopoverRootComponent<Payload>(
   );
 
   if (props.nestedInPopoverRoot) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return renderContent();
   }
 

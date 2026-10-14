@@ -19,7 +19,7 @@ export function useOpenChangeComplete(parameters: useOpenChangeComplete.Paramete
   createEffect(
     ...on([open, enabled], () => {
       if (!enabled()) {
-        return;
+        return undefined;
       }
 
       // `onComplete` is a callback: it reads the latest state, it does not subscribe. React aborts

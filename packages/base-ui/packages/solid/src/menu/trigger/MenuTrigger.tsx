@@ -43,6 +43,7 @@ import { useMenuRootContext } from '../root/MenuRootContext';
 import type { MenuHandle } from '../store/MenuHandle';
 import type { MenuStore } from '../store/MenuStore';
 import { findRootOwnerId } from '../utils/findRootOwnerId';
+
 const TRIGGER_HASPOPUP = { 'aria-haspopup': 'menu' } as const;
 
 /**
@@ -392,6 +393,7 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
       }
     };
 
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return (
       <CompositeItem
         tag="button"

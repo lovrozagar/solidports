@@ -18,12 +18,12 @@ export function useMediaQuery(
 
   const safeQuery = () => access(query).replace(/^@media( ?)/m, '');
   const defaultMatches = () => access(options.defaultMatches) ?? false;
-  const matchMedia = () =>
-    options.matchMedia === undefined
-      ? supportMatchMedia()
-        ? window.matchMedia
-        : null
-      : options.matchMedia;
+  const matchMedia = () => {
+    if (options.matchMedia !== undefined) {
+      return options.matchMedia;
+    }
+    return supportMatchMedia() ? window.matchMedia : null;
+  };
 
   // `useSyncExternalStore`'s server snapshot: what the server renders and hydration starts from.
   const getServerSnapshot = () => {

@@ -145,6 +145,7 @@ function PreviewCardInteractions<Payload>(props: { store: PreviewCardStore<Paylo
  */
 export function PreviewCardRoot<Payload>(props: PreviewCardRoot.Props<Payload>) {
   if (usePreviewCardRootContext(true)) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return <PreviewCardRootComponent {...props} />;
   }
 

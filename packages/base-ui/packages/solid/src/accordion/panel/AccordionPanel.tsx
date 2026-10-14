@@ -37,6 +37,7 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
   // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
   // JSX; the panel's measurement machinery is created when the panel first renders.
   if (canRenderNative(componentProps)) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeAccordionPanel(componentProps);
   }
 
@@ -199,8 +200,8 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
   // panel without `keepMounted` never does) and kept for the part's lifetime, owned by the part.
   const initialOpen = untrack(open);
   let panel: ReturnType<typeof useCollapsiblePanel> | undefined;
-  const getPanel = () =>
-    (panel ??= runWithOwner(owner, () =>
+  const getPanel = () => {
+    panel ??= runWithOwner(owner, () =>
       untrack(() =>
         useCollapsiblePanel({
           dimensionCssVars: {
@@ -220,7 +221,9 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
           transitionStatus,
         }),
       ),
-    )!);
+    )!;
+    return panel;
+  };
 
   const panelState: AccordionPanelState = {
     get value() {

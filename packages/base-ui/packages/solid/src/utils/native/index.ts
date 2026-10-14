@@ -482,7 +482,7 @@ export function renderNativeElement<State>(spec: NativeElementSpec<State>): JSX.
   const literal: Record<string, unknown> = {};
   const partLiteral = spec.literal;
   if (partLiteral) {
-    for (const key in partLiteral) {
+    for (const key of Object.keys(partLiteral)) {
       const value = partLiteral[key];
       if (value !== undefined && !(hasKeys && keys.has(key))) {
         literal[key] = value;
@@ -799,7 +799,7 @@ export function createNativeElement<K extends keyof HTMLElementTagNameMap>(
 ): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   if (attributes) {
-    for (const key in attributes) {
+    for (const key of Object.keys(attributes)) {
       el.setAttribute(key, attributes[key]);
     }
   }

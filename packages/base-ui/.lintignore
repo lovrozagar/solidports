@@ -5,6 +5,7 @@
 /docs/react/export
 /docs/react/src/app/(private)/playground/
 /packages/react/**/*.min.*
+/packages/solid/**/*.min.*
 build
 build-tests
 node_modules

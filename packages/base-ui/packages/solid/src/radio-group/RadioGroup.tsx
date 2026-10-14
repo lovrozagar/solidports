@@ -285,6 +285,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
       checkedValue,
       setTouched,
     };
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return (
       <RadioGroupContext value={contextValue}>
         {NativeRadioGroupElement(

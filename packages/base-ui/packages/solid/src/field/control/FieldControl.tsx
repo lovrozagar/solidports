@@ -182,6 +182,16 @@ export function FieldControl(componentProps: FieldControl.Props) {
     }
   });
 
+  // Solid re-applies an input's `value` property on every spread update (like a React controlled
+  // input), so uncontrolled inputs must only pass `defaultValue`. The server renders it as the
+  // `value` attribute, as React does (a `defaultValue` prop has none).
+  const valueProps = () => {
+    if (isControlled()) {
+      return { value: value() };
+    }
+    return isServer ? { value: local.defaultValue } : { defaultValue: local.defaultValue };
+  };
+
   const element = useRenderElement('input', componentProps, {
     ref: [setValidationInputRef, inputRef],
     state,
@@ -275,14 +285,7 @@ export function FieldControl(componentProps: FieldControl.Props) {
             }
           },
         },
-        // Solid re-applies an input's `value` property on every spread update (like a React
-        // controlled input), so uncontrolled inputs must only pass `defaultValue`. The server
-        // renders it as the `value` attribute, as React does (a `defaultValue` prop has none).
-        isControlled()
-          ? { value: value() }
-          : isServer
-            ? { value: local.defaultValue }
-            : { defaultValue: local.defaultValue },
+        valueProps(),
         elementProps,
         (props: HTMLProps) => validation.getValidationProps(disabled(), props),
       ];
