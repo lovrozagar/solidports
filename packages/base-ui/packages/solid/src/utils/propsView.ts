@@ -2,13 +2,11 @@ import {
   $PROXY,
   createMemo,
   getOwner,
-  isHydrating,
   isStatic,
   runWithOwner,
   untrack,
 } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { isServer } from '@solidjs/web';
 import { access, shallowEqual } from '../solid-helpers';
 import { combineStyle, makeEventPreventable } from '../merge-props/mergeProps';
 import type { BaseUIEvent } from './types';
@@ -120,18 +118,11 @@ function arraysEqual(a: readonly string[], b: readonly string[]) {
   return true;
 }
 
-/** `lazyMemo`'s signature, created now (server and hydration renders). */
-function eagerMemo<T>(
-  owner: ReturnType<typeof getOwner>,
-  compute: () => T,
-  equals: (a: T, b: T) => boolean,
-): Accessor<T> {
-  return runWithOwner(owner, () => createMemo(compute, { equals })) as Accessor<T>;
-}
-
 /**
  * A memo created on first read, owned by `owner`: views that are never enumerated (most element
- * props are read per key) never pay for it.
+ * props are read per key) never pay for it. Transparent: created on first read, it would take
+ * `owner`'s next hydration id at a different point on the server and the client (see
+ * `runInLazyScope`).
  */
 function lazyMemo<T>(
   owner: ReturnType<typeof getOwner>,
@@ -140,7 +131,9 @@ function lazyMemo<T>(
 ): Accessor<T> {
   let memo: Accessor<T> | undefined;
   return () => {
-    memo ??= runWithOwner(owner, () => createMemo(compute, { equals })) as Accessor<T>;
+    memo ??= runWithOwner(owner, () =>
+      createMemo(compute, { equals, transparent: true }),
+    ) as Accessor<T>;
     return memo();
   };
 }
@@ -538,6 +531,7 @@ export function createStateAttributesSource<State extends Record<string, any>>(
       attributes = runWithOwner(owner, () =>
         createMemo(() => mapping()?.[stateKey]?.(state()[stateKey]) ?? null, {
           equals: shallowEqual,
+          transparent: true,
         }),
       );
       attributesByStateKey.set(stateKey, attributes);
@@ -573,11 +567,7 @@ export function createStateAttributesSource<State extends Record<string, any>>(
   // The attributes the custom mappers currently produce (attribute -> highest-priority mapped
   // state key and its attributes), as one dependency for lookups.
   // Created on first use: only parts with a custom mapper read it.
-  // Lazy on the client (most parts have no custom mapper). Server and hydration renders create it
-  // up front, as both must create the part's owners in the same order (hydration keys); a memo
-  // created on first read would land at a different position on each side.
-  const createdUpFront = isServer || isHydrating();
-  const mappedAttributes = (createdUpFront ? eagerMemo : lazyMemo)(
+  const mappedAttributes = lazyMemo(
     owner,
     () => {
       const result = new Map<string, { stateKey: string; attributes: Record<string, unknown> }>();

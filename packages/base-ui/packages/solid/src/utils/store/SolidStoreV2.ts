@@ -173,9 +173,9 @@ export function SolidStore<
     // A tracked read of a key, or of a selector that returns one key as is, subscribes the reader
     // to that key directly: the key's signal already notifies only on change, so a memo would only
     // add a node. A derived selector reads through a memo created on the first tracked read, under
-    // this call's owner: dependents re-run only when the selected value changes (React's selector
-    // equality), and a value read only by handlers costs no computation. Untracked reads compute
-    // directly and see the latest write.
+    // this call's owner (transparent, see `runInLazyScope`): dependents re-run only when the
+    // selected value changes (React's selector equality), and a value read only by handlers costs no
+    // computation. Untracked reads compute directly and see the latest write.
     const selector = selectors && key in selectors ? selectors[key] : undefined;
     const directKey = selector ? directSelectorKey(selector) : key;
     if (directKey !== undefined) {
@@ -192,7 +192,9 @@ export function SolidStore<
       if (getObserver() === null) {
         return untrack(compute);
       }
-      selected ??= runWithOwner(owner, () => createMemo(compute)) as Accessor<any>;
+      selected ??= runWithOwner(owner, () =>
+        createMemo(compute, { transparent: true }),
+      ) as Accessor<any>;
       return selected();
     };
   }
@@ -651,7 +653,10 @@ export function createStoreState<State extends object>(
     // The first derivation sees the key's value from before binding as `prev`.
     let unbound: { value: unknown } | null = { value: latest(key) };
     // The derived signal is created on first access, under the owner the key is bound under: a
-    // key nobody reads (most popup keys while the popup is closed) costs no computation.
+    // key nobody reads (most popup keys while the popup is closed) costs no computation. It is
+    // transparent, as a node created on first read would take the owner's next hydration id (see
+    // `runInLazyScope`). The server, which renders once and never writes signals, computes the
+    // value directly: its derived signals would take hydration ids (they ignore `transparent`).
     const owner = getOwner();
     let derived: Signal<unknown> | undefined;
     const signal = () => {
@@ -663,7 +668,7 @@ export function createStoreState<State extends object>(
             written.delete(key);
             return next;
           },
-          { name: `store.${String(key)}` },
+          { name: `store.${String(key)}`, transparent: true },
         ),
       ) as Signal<unknown>;
       return derived;
@@ -675,7 +680,7 @@ export function createStoreState<State extends object>(
     const ownerGone = () => owner !== null && isDisposed(owner);
     const binding: Binding = {
       [BINDING]: true,
-      value: () => (derived || !ownerGone() ? signal()[0]() : peek()),
+      value: () => (!isServer && (derived || !ownerGone()) ? signal()[0]() : peek()),
       setValue: (next: unknown) => {
         if (derived || !ownerGone()) {
           signal()[1](() => next);
@@ -723,7 +728,8 @@ export function createStoreState<State extends object>(
   }
 
   function startNotifier(binding: Binding) {
-    if (binding.notifying) {
+    // Server state never changes after a write, which notifies directly.
+    if (binding.notifying || isServer) {
       return;
     }
     binding.notifying = true;
@@ -731,12 +737,17 @@ export function createStoreState<State extends object>(
     // notifies.
     const initial = untrack(binding.value);
     runWithOwner(binding.owner ?? null, () => {
-      createEffect(binding.value, (next, prev) => {
-        const before = prev === undefined ? initial : prev;
-        if (!Object.is(next, before)) {
-          notify();
-        }
-      });
+      // Transparent: created when a listener first reads the key (see `runInLazyScope`).
+      createEffect(
+        binding.value,
+        (next, prev) => {
+          const before = prev === undefined ? initial : prev;
+          if (!Object.is(next, before)) {
+            notify();
+          }
+        },
+        { transparent: true },
+      );
     });
   }
 

@@ -51,16 +51,23 @@ const BUTTON_DEFAULTS = { type: 'button' } as const;
 const OMIT_COMPONENT = ['component'] as const;
 /** A previous value no prop equals, so `assign` removes or rewrites a server attribute. */
 const SERVER_ATTRIBUTE = {};
-/**
- * Keys that render an attribute of another name. An uncontrolled input's `defaultValue` renders the
- * `value` attribute the server printed; removing that attribute after hydration would also clear
- * the input's value.
- */
+/** Keys that render an attribute of another name. */
 const ATTRIBUTE_ALIASES: Record<string, string> = {
   className: 'class',
   htmlFor: 'for',
   defaultValue: 'value',
 };
+/**
+ * A form control's default state: the server prints its current value, checked or selected state
+ * as these attributes, while the client sets the properties (an uncontrolled `defaultValue`, a
+ * `prop:value`, a part's value effect). Removing one after hydration resets an untouched control,
+ * so they are never reconciled away.
+ */
+const FORM_STATE_ATTRIBUTES = new Set(['value', 'checked', 'selected']);
+const isFormControl = (el: Element) =>
+  el instanceof HTMLInputElement ||
+  el instanceof HTMLTextAreaElement ||
+  el instanceof HTMLOptionElement;
 const IMG_DEFAULTS = { alt: '' } as const;
 /** React's `renderTag` defaults per intrinsic tag, at the lowest priority. */
 const TAG_DEFAULTS = new Map<unknown, object>([
@@ -406,14 +413,10 @@ export function useRenderElement<
     // reads (e.g. `state.pressed`); a prop it reads in its JSX updates only that prop.
     // Component tags and render functions read these; an intrinsic element never does, so they
     // are created on first use, owned by the part (not by the computation that first asks).
+    // They create no computation up front (a props view's memos are transparent), so creating
+    // them on first use takes no hydration id (see `runInLazyScope`).
     const partOwner = getOwner();
-    // Server and hydration renders create them up front, in place: creating them later through
-    // the part's owner shifts hydration keys.
     const lazyOwned = <T,>(create: () => T) => {
-      if (serverOrHydrating) {
-        const value = create();
-        return () => value;
-      }
       let value: T | undefined;
       let created = false;
       return () => {
@@ -622,8 +625,13 @@ export function useRenderElement<
               const renderedNames = new Set(
                 Object.keys(current).map((key) => ATTRIBUTE_ALIASES[key] ?? key.toLowerCase()),
               );
+              const keepsFormState = isFormControl(el);
               for (const [name, value] of serverAttributes) {
-                if (!renderedNames.has(name) && el.getAttribute(name) === value) {
+                if (
+                  !renderedNames.has(name) &&
+                  !(keepsFormState && FORM_STATE_ATTRIBUTES.has(name)) &&
+                  el.getAttribute(name) === value
+                ) {
                   previous[name] = SERVER_ATTRIBUTE;
                 }
               }

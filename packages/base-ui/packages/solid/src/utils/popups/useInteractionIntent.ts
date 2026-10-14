@@ -1,7 +1,8 @@
-import { createOwner, createSignal, flush, getOwner, runWithOwner, untrack } from 'solid-js';
+import { createSignal, flush, getOwner, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { createLayoutEffect } from '../../solid-helpers';
 import type { PopupStoreContext } from './store';
+import { runInLazyScope } from '../runInLazyScope';
 
 // Every event a popup's interactions handle on a trigger.
 const INTENT_EVENTS = [
@@ -80,12 +81,8 @@ export function useDeferredInteractions<T>(create: () => T, needed: Accessor<boo
     if (untrack(interactions) !== undefined) {
       return;
     }
-    // The server never creates these, so they live in a scope with its own id: the owner's other
-    // children keep the hydration ids the server assigned.
-    const scope = runWithOwner(owner, () =>
-      createOwner({ id: owner?.id == null ? undefined : `${owner.id}-interactions` }),
-    );
-    const created = runWithOwner(scope, create);
+    // The server never creates these (see `runInLazyScope`).
+    const created = runInLazyScope(owner, create);
     setInteractions(() => created);
   }
 

@@ -24,6 +24,7 @@ import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
 import type { CollapsibleRoot } from '../root/CollapsibleRoot';
 import * as CollapsiblePanelDataAttributes from './CollapsiblePanelDataAttributes';
+import { runInLazyScope } from '../../utils/runInLazyScope';
 
 type AnimationType = 'css-transition' | 'css-animation' | 'none';
 
@@ -354,7 +355,7 @@ export function useCollapsiblePanel(
         if (!enabled) {
           return undefined;
         }
-        runOnceOpenAnimationsFinish ??= runWithOwner(owner, () =>
+        runOnceOpenAnimationsFinish ??= runInLazyScope(owner, () =>
           useAnimationsFinished(panelElement, true),
         )!;
         const onComplete = () => {
@@ -408,7 +409,7 @@ export function useCollapsiblePanel(
           return undefined;
         }
 
-        runOnceCloseAnimationsFinish ??= runWithOwner(owner, () =>
+        runOnceCloseAnimationsFinish ??= runInLazyScope(owner, () =>
           useAnimationsFinished(panelElement),
         )!;
         const abortController = new AbortController();

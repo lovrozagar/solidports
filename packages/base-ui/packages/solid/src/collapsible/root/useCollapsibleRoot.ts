@@ -1,4 +1,4 @@
-import { createSignal, getOwner, runWithOwner, untrack } from 'solid-js';
+import { createSignal, getOwner, untrack } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { access } from '../../solid-helpers';
@@ -10,6 +10,7 @@ import { useControlled } from '../../utils/useControlled';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import type { CollapsibleRoot } from './CollapsibleRoot';
+import { runInLazyScope } from '../../utils/runInLazyScope';
 
 export function useCollapsibleRoot(
   parameters: UseCollapsibleRootParameters,
@@ -35,7 +36,7 @@ export function useCollapsibleRoot(
   const owner = getOwner();
   let transition: ReturnType<typeof useTransitionStatus> | undefined;
   const createTransition = () => {
-    transition ??= runWithOwner(owner, () =>
+    transition ??= runInLazyScope(owner, () =>
       untrack(() => useTransitionStatus(open, true, true, true)),
     )!;
     return transition;
