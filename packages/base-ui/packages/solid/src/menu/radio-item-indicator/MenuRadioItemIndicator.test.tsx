@@ -1,5 +1,5 @@
 import { expect, vi, describe, it } from 'vitest';
-import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
@@ -44,50 +44,65 @@ describe('<Menu.RadioItemIndicator />', () => {
     }
   });
 
-  it('should remove the indicator when there is no exit animation defined', async ({ skip }) => {
-    if (isJSDOM) {
-      skip();
-    }
+  it.skipIf(isJSDOM)(
+    'should remove the indicator when there is no exit animation defined',
+    async ({ onTestFinished }) => {
+      const frameCallbacks: FrameRequestCallback[] = [];
+      const requestAnimationFrameSpy = vi
+        .spyOn(window, 'requestAnimationFrame')
+        .mockImplementation((callback) => {
+          frameCallbacks.push(callback);
+          return frameCallbacks.length;
+        });
+      onTestFinished(() => requestAnimationFrameSpy.mockRestore());
 
-    function Test() {
-      const [value, setValue] = createSignal('a');
-      return (
-        <div>
-          <button onClick={() => setValue('b')}>Close</button>
-          <Menu.Root open modal={false}>
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
+      function Test() {
+        const [value, setValue] = createSignal('a');
+        return (
+          <div>
+            <button onClick={() => setValue('b')}>Close</button>
+            <Menu.Root open modal={false}>
+              <Menu.Portal>
+                <Menu.Positioner>
                   <Menu.Popup>
-                    <Menu.RadioGroup value={value()}>
-                      <Menu.RadioItem value="a">
-                        <Menu.RadioItemIndicator data-testid="indicator" />
-                      </Menu.RadioItem>
-                      <Menu.RadioItem value="b">
-                        <Menu.RadioItemIndicator keepMounted />
-                      </Menu.RadioItem>
-                    </Menu.RadioGroup>
+                    <Menu.Popup>
+                      <Menu.RadioGroup value={value()}>
+                        <Menu.RadioItem value="a">
+                          <Menu.RadioItemIndicator data-testid="indicator" />
+                        </Menu.RadioItem>
+                        <Menu.RadioItem value="b">
+                          <Menu.RadioItemIndicator keepMounted />
+                        </Menu.RadioItem>
+                      </Menu.RadioGroup>
+                    </Menu.Popup>
                   </Menu.Popup>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        </div>
-      );
-    }
+                </Menu.Positioner>
+              </Menu.Portal>
+            </Menu.Root>
+          </div>
+        );
+      }
 
-    const { user } = render(() => <Test />);
+      render(() => <Test />);
 
-    expect(screen.queryByTestId('indicator')).not.toBe(null);
+      expect(screen.queryByTestId('indicator')).not.toBe(null);
 
-    const closeButton = screen.getByText('Close');
+      await waitFor(() => expect(frameCallbacks.length).toBeGreaterThan(0));
+      while (frameCallbacks.length > 0) {
+        act(() => {
+          const callbacks = frameCallbacks.splice(0);
+          callbacks.forEach((callback) => callback(performance.now()));
+        });
+      }
+      requestAnimationFrameSpy.mockRestore();
 
-    await user.click(closeButton);
+      fireEvent.click(screen.getByText('Close'));
 
-    await waitFor(() => {
-      expect(screen.queryByTestId('indicator')).toBe(null);
-    });
-  });
+      await waitFor(() => {
+        expect(screen.queryByTestId('indicator')).toBe(null);
+      });
+    },
+  );
 
   it('should remove the indicator when the animation finishes', async ({ skip }) => {
     if (isJSDOM) {

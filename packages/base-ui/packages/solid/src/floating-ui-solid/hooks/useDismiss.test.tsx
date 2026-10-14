@@ -258,14 +258,14 @@ describe.skipIf(!isJSDOM)('useDismiss', () => {
       },
     );
 
-    test('dismisses with reference press', async () => {
-      render(() => <App referencePress={true} />);
-      await userEvent.click(screen.getByRole('button'));
+    test('dismisses with reference press', () => {
+      render(() => <App referencePress={() => true} />);
+      fireEvent.pointerDown(screen.getByRole('button'));
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
 
     test('dismisses with native click', async () => {
-      render(() => <App referencePress={true} />);
+      render(() => <App referencePress={() => true} />);
       fireEvent.click(screen.getByRole('button'));
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
@@ -279,7 +279,7 @@ describe.skipIf(!isJSDOM)('useDismiss', () => {
     });
 
     test('outsidePress function guard', async () => {
-      render(() => <App outsidePress={false} />);
+      render(() => <App outsidePress={() => false} />);
       await userEvent.click(document.body);
       expect(screen.getByRole('tooltip')).toBeInTheDocument();
     });
@@ -689,7 +689,7 @@ describe.skipIf(!isJSDOM)('useDismiss', () => {
     });
 
     test('does not dismiss with reference pointer down', async () => {
-      render(() => <App referencePress={false} />);
+      render(() => <App referencePress={() => false} />);
       await userEvent.click(screen.getByRole('button'));
       expect(screen.getByRole('tooltip')).toBeInTheDocument();
     });
@@ -740,7 +740,7 @@ describe.skipIf(!isJSDOM)('useDismiss', () => {
     });
 
     test('outsidePress function guard', async () => {
-      render(() => <App outsidePress={true} />);
+      render(() => <App outsidePress={() => true} />);
       await userEvent.click(document.body);
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });

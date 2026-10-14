@@ -151,6 +151,15 @@ function extractTests(rawSource) {
       continue;
     }
     const flags = flagText.split('.').filter(Boolean);
+    // A test that starts with `if (condition) { skip(); }` (Vitest's runtime skip) skips under that
+    // condition, as `skipIf(condition)` does.
+    const runtimeSkip = /^[^>]*?=>\s*\{\s*if\s*\(([^)]*(?:\([^)]*\)[^)]*)*)\)\s*\{?\s*(?:\w+\.)?skip\(\s*\)/.exec(
+      source.slice(cursor + call[0].length + title[0].length, cursor + call[0].length + title[0].length + 400),
+    );
+    if (runtimeSkip) {
+      const runtimeCondition = runtimeSkip[1].replace(/\s+/g, ' ').trim();
+      condition = condition ? `(${condition}) || (${runtimeCondition})` : runtimeCondition;
+    }
     // A test with a title and no body is a todo.
     const afterTitle = cursor + call[0].length + title[0].length;
     if (kind !== 'describe' && /^\s*\)/.test(source.slice(afterTitle))) {
