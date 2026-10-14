@@ -118,6 +118,8 @@ export function useRenderElement<
     let attachedElement: unknown = null;
     let appliedRefs = new Set<Function>();
     let appliedObjectRefs = new Set<{ current: unknown }>();
+    // The cleanup functions ref callbacks returned for the attached element (React 19 refs).
+    let refCleanups: Map<Function, Function> | undefined;
     const collectRefs = (
       ref: unknown,
       callbacks: Set<Function>,
@@ -178,7 +180,10 @@ export function useRenderElement<
           const el = attachedElement;
           refs.callbacks.forEach((callback) => {
             if (!appliedRefs.has(callback)) {
-              callback(el);
+              const cleanup = callback(el);
+              if (typeof cleanup === 'function') {
+                (refCleanups ??= new Map()).set(callback, cleanup);
+              }
             }
           });
           // An object ref that was removed is cleared, as React does; callback refs keep Solid's
@@ -202,6 +207,7 @@ export function useRenderElement<
       attachedElement = el;
       appliedRefs = new Set();
       appliedObjectRefs = new Set();
+      refCleanups = undefined;
       syncRefs(untrack(readRefs));
       // Solid: browsers ignore `autofocus` on elements inserted after load; React DOM focuses
       // them on mount.
@@ -214,8 +220,9 @@ export function useRenderElement<
       }
     };
     // React calls the part's refs with `null` when the element unmounts, and the ported
-    // registration logic relies on it; Solid only applies refs on mount. Mirror the unmount call.
-    // User refs keep Solid's contract.
+    // registration logic relies on it; Solid only applies refs on mount. Mirror the unmount call:
+    // a ref that returned a cleanup function runs it instead, as React 19 does. User refs keep
+    // Solid's contract.
     void onCleanup(() => {
       if (attachedElement != null) {
         const previousElement = attachedElement;
@@ -227,7 +234,15 @@ export function useRenderElement<
         untrack(() => collectRefs(params.ref, partRefs.callbacks, partRefs.objects));
         runWithOwner(null, () =>
           untrack(() => {
-            partRefs.callbacks.forEach((callback) => callback(null));
+            partRefs.callbacks.forEach((callback) => {
+              const cleanup = refCleanups?.get(callback);
+              if (cleanup) {
+                cleanup();
+              } else {
+                callback(null);
+              }
+            });
+            refCleanups = undefined;
             // Solid may attach a replacement element before this cleanup runs: only clear a ref
             // that still points at the outgoing element.
             partRefs.objects.forEach((ref) => {
