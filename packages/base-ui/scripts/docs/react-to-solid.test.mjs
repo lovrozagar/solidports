@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { printCode, transformReactToSolid } from './react-to-solid.mjs';
 
 /** Prints code through the transform's own printer, so tests compare structure, not formatting. */
-function normalize(code) {
-  return printCode(code);
+function normalize(code, filename) {
+  return printCode(code, filename);
 }
 
 function expectTransform(input, output, options) {
-  expect(normalize(transformReactToSolid(input, options))).toBe(normalize(output));
+  expect(normalize(transformReactToSolid(input, options), options?.filename)).toBe(
+    normalize(output, options?.filename),
+  );
 }
 
 describe('transformReactToSolid', () => {
@@ -207,7 +209,7 @@ export function Drawer({ open }: { open: boolean }) {
   return <div data-open={open} />;
 }`,
         `export function Drawer(props: { open: boolean }) {
-  const callbackRef = { current: null as ((open: boolean) => void) | null };
+  const callbackRef: { current: ((open: boolean) => void) | null } = { current: null };
   return <div data-open={props.open} />;
 }`,
       );
@@ -279,7 +281,7 @@ export function Focus() {
   return <input ref={inputRef} onClick={() => inputRef.current?.select()} />;
 }`,
         `export function Focus() {
-  const inputRef = { current: null as HTMLInputElement | null };
+  const inputRef: { current: HTMLInputElement | null } = { current: null };
   return <input ref={(element) => { inputRef.current = element; }} onClick={() => inputRef.current?.select()} />;
 }`,
       );
@@ -556,7 +558,10 @@ export function useLabel(_params: Accessor<{ prefix: string; name: string }>, _s
     const { prefix, name } = _params();
     return { prefix, name };
   });
-  const separator = createMemo(() => (_separator?.() === undefined ? ': ' : _separator?.()));
+  const separator = createMemo(() => {
+    const _separator2 = _separator?.();
+    return _separator2 === undefined ? ': ' : _separator2;
+  });
   return createMemo(() => _params2().prefix + separator() + _params2().name);
 }`,
       );
@@ -903,10 +908,11 @@ export const Input = React.forwardRef<HTMLInputElement, { className?: string }>(
   return <input ref={forwardedRef} className={className} {...props} />;
 });`,
         `import { omit } from 'solid-js';
-import type { Ref } from 'solid-js';
+import { reactRef } from 'docs/src/adapters/react';
+import type { Ref } from 'docs/src/adapters/react';
 export const Input = function Input(props: { class?: string } & { ref?: Ref<HTMLInputElement> }) {
   const rest = omit(props, 'class', 'ref');
-  return <input ref={props.ref} class={props.class} {...rest} />;
+  return <input ref={reactRef(props.ref)} class={props.class} {...rest} />;
 };`,
       );
     });
@@ -981,6 +987,23 @@ export function User() {
       );
     });
 
+    it('reads a guarded value once into the elements a memo creates', () => {
+      const output = transformReactToSolid(
+        `import * as React from 'react';
+export function useFiles(params: { file: { name?: string } | null }) {
+  const { file } = params;
+  return React.useMemo(() => {
+    if (!file) {
+      return [];
+    }
+    return [<p title={file.name}>{file.name}</p>];
+  }, [file]);
+}`,
+      );
+      expect(output).toContain('const _file = _params().file;');
+      expect(output).toContain('element(() => <p title={_file.name}>{_file.name}</p>)');
+    });
+
     it('reads a value a guard narrows once, for the statements after it', () => {
       expectTransform(
         `import * as React from 'react';
@@ -1005,6 +1028,70 @@ export function useName() {
     return _user.name;
   };
   return createMemo(() => read);
+}`,
+      );
+    });
+
+    it('reads a destructured value once, for the closures a guard narrows it for', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function useKeys(params: { code?: Record<string, string> }) {
+  const { code } = params;
+  React.useEffect(() => {
+    if (!code) {
+      return;
+    }
+    setTimeout(() => console.log(Object.keys(code).map((key) => code[key])));
+  }, [code]);
+}`,
+        `import { createEffect, createMemo } from 'solid-js';
+import type { Accessor } from 'solid-js';
+export function useKeys(params: Accessor<{ code?: Record<string, string> }>) {
+  const _params = createMemo(() => {
+    const { code } = params();
+    return { code };
+  });
+  createEffect(
+    () => [_params().code],
+    () => {
+      const _code = _params().code;
+      if (!_code) {
+        return;
+      }
+      setTimeout(() => console.log(Object.keys(_code).map((key) => _code[key])));
+    },
+  );
+}`,
+      );
+    });
+
+    it('reads a setup value once, and the live value in closures after it', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function useFirst(params: { code?: Record<string, string>; name: string }) {
+  const { code, name } = params;
+  let first: string | undefined;
+  if (typeof code?.[name] === 'string') {
+    first = code[name];
+  }
+  const read = () => code?.[name];
+  return React.useMemo(() => [first, read], [first]);
+}`,
+        `import { createMemo, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+export function useFirst(params: Accessor<{ code?: Record<string, string>; name: string }>) {
+  const _params = createMemo(() => {
+    const { code, name } = params();
+    return { code, name };
+  });
+  let first: string | undefined;
+  const _code = untrack(_params).code;
+  const _name = untrack(_params).name;
+  if (typeof _code?.[_name] === 'string') {
+    first = _code[_name];
+  }
+  const read = () => _params().code?.[_params().name];
+  return createMemo(() => [first, read]);
 }`,
       );
     });
@@ -1119,6 +1206,27 @@ export function Search() {
   });
 
   describe('strings', () => {
+    it('parses a .ts module without JSX, where <T> asserts a type', () => {
+      expectTransform(
+        `export type Slot = React.ReactNode;
+export const width = <number>(0 as unknown);`,
+        `import type { JSX } from '@solidjs/web';
+export type Slot = JSX.Element;
+export const width = <number>(0 as unknown);`,
+        { filename: 'types.ts' },
+      );
+    });
+
+    it('keeps the parentheses of a statement that starts with a declaration keyword', () => {
+      const output = transformReactToSolid(
+        `export function check(type: unknown) {
+  (type satisfies unknown);
+}`,
+        { filename: 'check.ts' },
+      );
+      expect(output).toContain('(type satisfies unknown);');
+    });
+
     it('rewrites strings, template parts and JSX text but not module specifiers', () => {
       expectTransform(
         `import { Menu } from './react/menu';
@@ -1164,9 +1272,10 @@ const Dialog = lazy(async () => ({ default: (await import('./Dialog')).Dialog })
 export const Button = React.forwardRef<HTMLButtonElement, { label: string }>(function Button(props, forwardedRef) {
   return <button ref={forwardedRef}>{props.label}</button>;
 });`,
-        `import type { Ref } from 'solid-js';
+        `import { reactRef } from 'docs/src/adapters/react';
+import type { Ref } from 'docs/src/adapters/react';
 export const Button = function Button(props: { label: string } & { ref?: Ref<HTMLButtonElement> }) {
-  return <button ref={props.ref}>{props.label}</button>;
+  return <button ref={reactRef(props.ref)}>{props.label}</button>;
 };`,
       );
     });

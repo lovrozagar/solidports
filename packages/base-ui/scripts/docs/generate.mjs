@@ -283,10 +283,14 @@ async function format(code, file) {
   return prettier.format(code, { ...prettierConfig, filepath: file });
 }
 
-/** Whether a module needs the transform (React, JSX or hooks), or is plain code to copy. */
+/**
+ * Whether a module needs the transform (React, its global types, JSX or hooks), or is plain code
+ * to copy.
+ */
 function needsTransform(code, file) {
   return (
     /from ['"]react(-dom)?(\/[^'"]*)?['"]/.test(code) ||
+    /\bReact\.[A-Z]/.test(code) ||
     /\buse[A-Z]\w*\s*\(/.test(code) ||
     (file.endsWith('.tsx') && /<[A-Za-z>]/.test(code))
   );
