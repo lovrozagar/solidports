@@ -7,6 +7,7 @@
  * server's inert copy.
  */
 import { flush } from 'solid-js';
+import { render as clientRender } from '@solidjs/web';
 import { screen } from '@solidjs/testing-library';
 import { describe, expect, it } from 'vitest';
 import { flushMicrotasks } from '../flushMicrotasks';
@@ -23,6 +24,19 @@ import type { SsrFixtures } from '../ssrFixtures';
 /** The form controls in the document. */
 function formControls() {
   return [...document.body.querySelectorAll('input, textarea, option')];
+}
+
+const FORM_STATE_ATTRIBUTES = ['value', 'checked', 'selected'];
+
+/**
+ * The form-state attributes each control carries. Browsers read an input whose value equals its
+ * `value` attribute as prefilled by the page (autofill skips it), so hydration must leave the
+ * attributes a client render has.
+ */
+function formStateAttributes(controls: Element[]) {
+  return controls.map((control) =>
+    FORM_STATE_ATTRIBUTES.filter((name) => control.hasAttribute(name)),
+  );
 }
 
 /** Each control's live state: what the user sees and submits. */
@@ -61,6 +75,22 @@ describe.for(Object.keys(SERVER_RENDERS) as ServerRender[])('hydration (%s)', (r
           // only the client renders (a portal's content) have no server state to keep.
           await flushMicrotasks();
           expect(formState(serverControls)).toEqual(serverFormState);
+
+          // The same fixture rendered on the client: hydration leaves its form-state attributes.
+          const clientContainer = document.createElement('div');
+          document.body.append(clientContainer);
+          const view = clientRender(module.fixtures[name], clientContainer);
+          try {
+            await flushMicrotasks();
+            const clientControls = [...clientContainer.querySelectorAll('input, textarea, option')];
+            const hydratedControls = serverControls.filter((control) => control.isConnected);
+            expect(formStateAttributes(hydratedControls)).toEqual(
+              formStateAttributes(clientControls).slice(0, hydratedControls.length),
+            );
+          } finally {
+            view();
+            clientContainer.remove();
+          }
         });
       }
     });

@@ -21,6 +21,7 @@ import { access, autofocus, shallowEqual, createLayoutEffect } from '../solid-he
 import type { MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
 import { warn } from './warn';
+import { releaseFormStateAttributes } from './releaseServerFormState';
 import type { StateAttributesMapping } from './getStateAttributesProps';
 import {
   createPropsView,
@@ -735,6 +736,18 @@ export function useRenderElement<
                 }
               }
               assign(el, current, true, previous, true);
+              if (keepsFormState) {
+                // The client render's own form-state attributes stay: a `defaultValue` or
+                // `defaultChecked` renders as the attribute; the rest are properties.
+                const keep = new Set<string>();
+                if (current.defaultValue != null) {
+                  keep.add('value');
+                }
+                if (current.defaultChecked != null) {
+                  keep.add('checked');
+                }
+                releaseFormStateAttributes(el, keep);
+              }
             });
           }
         }),
