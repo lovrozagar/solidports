@@ -8194,12 +8194,14 @@ describe('<Combobox.Root />', () => {
 
         // A later highlight must not consume a typed-input reset that should already be cleared.
         list.scrollTop = 40;
+        // Solid: the offset the list reports (Firefox snaps it to device pixels: 39.8).
+        const scrollTopBeforeHighlight = list.scrollTop;
         const visibleOption = screen.getByRole('option', { name: 'beta-5' });
         fireEvent.mouseMove(visibleOption, { pointerType: 'mouse' });
         await waitFor(() => {
           expect(visibleOption).toHaveAttribute('data-highlighted');
         });
-        expect(list.scrollTop).toBe(40);
+        expect(list.scrollTop).toBe(scrollTopBeforeHighlight);
       },
     );
 
@@ -8384,7 +8386,9 @@ describe('<Combobox.Root />', () => {
         const dialog = screen.getByTestId('dialog');
         const viewport = screen.getByTestId('viewport');
         await user.click(input);
-        dialog.scrollTop = 150;
+        // Solid: scrolled with the input still in view (it spans 100-122px): Firefox scrolls a
+        // focused input back into view as it is typed into, which is not a reset.
+        dialog.scrollTop = 60;
         viewport.scrollTop = 40;
         const dialogScrollTop = dialog.scrollTop;
         expect(dialog.scrollTop).toBeGreaterThan(0);
