@@ -28,19 +28,15 @@ function walk(dir, out = []) {
   return out;
 }
 
-/** The Solid counterpart of an upstream test file, or `undefined`. */
-function solidCounterpart(reactFile) {
+/** The Solid counterparts of an upstream test file (a test can move between `.ts` and `.tsx`). */
+function solidCounterparts(reactFile) {
   const relative = path
     .relative(reactSrc, reactFile)
     .replace(/^floating-ui-react\//, 'floating-ui-solid/')
     .replace(/\.[cm]?[jt]sx?$/, '');
-  for (const extension of ['.tsx', '.ts', '.jsx', '.js']) {
-    const candidate = path.join(solidSrc, relative + extension);
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return undefined;
+  return ['.tsx', '.ts', '.jsx', '.js']
+    .map((extension) => path.join(solidSrc, relative + extension))
+    .filter((candidate) => fs.existsSync(candidate));
 }
 
 /** Reads a balanced `(...)` starting at `open` (the index of `(`); returns [inner, endIndex]. */
@@ -71,6 +67,27 @@ function readParens(source, open) {
   return [source.slice(open + 1), source.length];
 }
 
+/** The index after `<...>` type arguments at `index` (an arrow's `=>` is not a closing bracket). */
+function skipTypeArguments(source, index) {
+  let cursor = index;
+  while (/\s/.test(source[cursor] ?? '')) cursor += 1;
+  if (source[cursor] !== '<') return cursor;
+  let depth = 0;
+  for (; cursor < source.length; cursor += 1) {
+    const char = source[cursor];
+    if (char === '<') depth += 1;
+    else if (char === '>' && source[cursor - 1] !== '=') {
+      depth -= 1;
+      if (depth === 0) {
+        cursor += 1;
+        while (/\s/.test(source[cursor] ?? '')) cursor += 1;
+        return cursor;
+      }
+    }
+  }
+  return cursor;
+}
+
 const TITLE = /^\s*(['"`])((?:\\.|(?!\1).)*)\1/s;
 const CALL =
   /\b(it|test|describe)\b((?:\.(?:only|skip|todo|fails|concurrent|sequential)\b)*)(?:\.(skipIf|runIf)\s*\()?/g;
@@ -79,7 +96,11 @@ const CALL =
  * Every test and suite title in a file with its modifiers, as `{ kind, title, condition, flags }`.
  * `condition` is the normalized `skipIf`/`runIf` argument (`runIf(x)` becomes `!(x)`).
  */
-function extractTests(source) {
+function extractTests(rawSource) {
+  // Comments become spaces (offsets kept), so a word like `test (` in prose is not a test.
+  const source = rawSource.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) =>
+    comment.replace(/[^\n]/g, ' '),
+  );
   const tests = [];
   CALL.lastIndex = 0;
   let match;
@@ -95,11 +116,14 @@ function extractTests(source) {
       }
       cursor = end + 1;
     }
-    // `.each(table)` or `.for(table)` before the title call.
-    const each = /^\s*\.(?:each|for)\s*\(/.exec(source.slice(cursor));
+    // `.each(table)` or `.for(table)` (optionally with type arguments) before the title call.
+    const each = /^\s*\.(?:each|for)\s*/.exec(source.slice(cursor));
     if (each) {
-      const [, end] = readParens(source, cursor + each[0].length - 1);
-      cursor = end + 1;
+      const open = skipTypeArguments(source, cursor + each[0].length);
+      if (source[open] === '(') {
+        const [, end] = readParens(source, open);
+        cursor = end + 1;
+      }
     }
     const call = /^\s*\(/.exec(source.slice(cursor));
     if (!call) {
@@ -200,15 +224,15 @@ const report = {
 };
 
 for (const reactFile of walk(reactSrc)) {
-  const solidFile = solidCounterpart(reactFile);
+  const solidFiles = solidCounterparts(reactFile);
   const reactRelative = path.relative(root, reactFile);
-  if (!solidFile) {
+  if (solidFiles.length === 0) {
     report.missingFiles.push(reactRelative);
     continue;
   }
-  const solidRelative = path.relative(root, solidFile);
+  const solidRelative = solidFiles.map((file) => path.relative(root, file)).join(', ');
   const reactTests = extractTests(fs.readFileSync(reactFile, 'utf8'));
-  const solidTests = extractTests(fs.readFileSync(solidFile, 'utf8'));
+  const solidTests = solidFiles.flatMap((file) => extractTests(fs.readFileSync(file, 'utf8')));
   const solidByTitle = new Map();
   for (const test of solidTests) {
     const list = solidByTitle.get(test.title) ?? [];
