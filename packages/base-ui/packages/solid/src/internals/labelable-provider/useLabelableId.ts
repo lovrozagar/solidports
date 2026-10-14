@@ -68,7 +68,7 @@ export function useLabelableId(params: UseLabelableIdParameters = {}) {
 
     // Unregister on unmount so a replacement control does not still see the outgoing
     // control's registration.
-    onCleanup(unregisterControlId);
+    void onCleanup(unregisterControlId);
   }
 
   // The provider's id wins until registration runs: the label renders `for` from the

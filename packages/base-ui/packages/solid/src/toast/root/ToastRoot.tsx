@@ -171,7 +171,7 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     },
   );
 
-  onCleanup(() => {
+  void onCleanup(() => {
     dragAbortControllerRef.current?.abort();
   });
 

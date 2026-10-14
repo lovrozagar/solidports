@@ -42,7 +42,7 @@ export function DialogPopup(componentProps: DialogPopup.Props) {
   const role = store.useState('role');
   const floatingId = floatingRootContext.useState('floatingId');
 
-  useDialogPortalContext();
+  void useDialogPortalContext();
 
   useOpenChangeComplete({
     open,

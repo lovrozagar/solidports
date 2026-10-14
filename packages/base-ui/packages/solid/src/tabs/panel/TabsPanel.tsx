@@ -218,7 +218,7 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
     untrack(keepMounted);
   let unregister: (() => void) | undefined;
   if (staticRegistration) {
-    onCleanup(() => unregister?.());
+    void onCleanup(() => unregister?.());
   }
 
   let listItem: NativeListItem | undefined;

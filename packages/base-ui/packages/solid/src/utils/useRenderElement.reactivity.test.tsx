@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/render-result-naming-convention */
 import { createRenderer } from '#test-utils';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { createMemo, createRenderEffect, createSignal, flush, onSettled } from 'solid-js';

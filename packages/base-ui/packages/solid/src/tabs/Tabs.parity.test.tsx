@@ -9,7 +9,7 @@ import { Tabs } from '@solidports/base-ui/tabs';
 import { fireEvent } from '@solidjs/testing-library';
 import { createSignal, flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
-import { part, renderParity } from '../../test/parityHarness';
+import { part, mountParity } from '../../test/parityHarness';
 
 describe('native parity: Tabs', () => {
   const { render } = createRenderer();
@@ -58,7 +58,7 @@ describe('native parity: Tabs', () => {
   }
 
   it('renders and switches identically (uncontrolled)', async () => {
-    const pair = renderParity(render, (slow) => tree(slow));
+    const pair = mountParity(render, (slow) => tree(slow));
     pair.same();
     expect(pair.fast.querySelectorAll('[role="tabpanel"]').length).toBe(1);
     expect(pair.fast.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
@@ -83,7 +83,7 @@ describe('native parity: Tabs', () => {
   it('renders identically with every prop form (controlled, vertical, keepMounted)', async () => {
     const [value, setValue] = createSignal<string | null>('item-1');
     const [disabled, setDisabled] = createSignal(false);
-    const pair = renderParity(render, (slow) =>
+    const pair = mountParity(render, (slow) =>
       tree(
         slow,
         {
@@ -130,7 +130,7 @@ describe('native parity: Tabs', () => {
   it('calls consumer handlers in the same order and honors preventBaseUIHandler', () => {
     const run = (slow: boolean) => {
       const calls: string[] = [];
-      const result = render(() =>
+      const view = render(() =>
         tree(
           slow,
           { onValueChange: (value: string) => calls.push(`value:${value}`) },
@@ -149,7 +149,7 @@ describe('native parity: Tabs', () => {
           }),
         ),
       );
-      const list = tabs(result.container);
+      const list = tabs(view.container);
       calls.push(`p:${fireEvent.click(list[1])}`);
       flush();
       calls.push(`p:${fireEvent.click(list[2])}`);
@@ -163,9 +163,9 @@ describe('native parity: Tabs', () => {
       flush();
       calls.push(`p:${fireEvent.pointerDown(list[0])}`);
       calls.push(
-        `selected:${result.container.querySelector('[role="tab"][aria-selected="true"]')?.textContent}`,
+        `selected:${view.container.querySelector('[role="tab"][aria-selected="true"]')?.textContent}`,
       );
-      result.unmount();
+      view.unmount();
       return calls;
     };
     const fast = run(false);
@@ -183,7 +183,7 @@ describe('native parity: Tabs', () => {
         panel: vi.fn(),
         indicator: vi.fn(),
       };
-      const result = render(() =>
+      const view = render(() =>
         part(Tabs.Root, slow, 'div', {
           ref: refs.root,
           get children() {
@@ -205,7 +205,7 @@ describe('native parity: Tabs', () => {
       const tags = Object.values(refs).map((ref) =>
         ref.mock.calls.map((call) => (call[0] as Element).tagName).join(),
       );
-      result.unmount();
+      view.unmount();
       return tags;
     };
     expect(run(false)).toEqual(['DIV', 'DIV', 'BUTTON', 'DIV', 'SPAN']);

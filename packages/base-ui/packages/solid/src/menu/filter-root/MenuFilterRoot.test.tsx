@@ -42,9 +42,8 @@ describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider>', () => {
     globalThis.BASE_UI_ANIMATIONS_DISABLED = true;
   });
 
-  const { render } = createRenderer();
   // Solid: there is no Strict Mode double render, so one renderer covers both of React's.
-  const renderNonStrict = render;
+  const { render, render: renderNonStrict } = createRenderer();
 
   describe('opening with a query', () => {
     it('keeps the matching items mounted', async () => {

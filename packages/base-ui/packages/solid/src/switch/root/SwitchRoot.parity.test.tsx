@@ -46,20 +46,24 @@ function withThumb(props: Props): Props {
 describe('native parity: Switch', () => {
   const { render } = createRenderer();
 
-  function renderBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
+  function mountBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
     const fast = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     const slow = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     (slow as { render?: string }).render = 'span';
     expect(canRenderNative(fast, ['nativeButton', 'inputRef']), 'fast props qualify').toBe(true);
     const ui = (props: Props) => () =>
       createComponent(Switch.Root, props as Switch.Root.Props) as unknown as JSX.Element;
-    const fastResult = render(() => (wrap ? wrap(ui(fast)) : ui(fast)()) as never);
-    const slowResult = render(() => (wrap ? wrap(ui(slow)) : ui(slow)()) as never);
+    const { container: fastContainer } = render(
+      () => (wrap ? wrap(ui(fast)) : ui(fast)()) as never,
+    );
+    const { container: slowContainer } = render(
+      () => (wrap ? wrap(ui(slow)) : ui(slow)()) as never,
+    );
     return {
-      fast: fastResult.container,
-      slow: slowResult.container,
-      fastEl: fastResult.container.querySelector('[role="switch"]')!,
-      slowEl: slowResult.container.querySelector('[role="switch"]')!,
+      fast: fastContainer,
+      slow: slowContainer,
+      fastEl: fastContainer.querySelector('[role="switch"]')!,
+      slowEl: slowContainer.querySelector('[role="switch"]')!,
     };
   }
 
@@ -82,7 +86,7 @@ describe('native parity: Switch', () => {
       () => ({ onClick: () => {}, onKeyDown: () => {}, onFocus: () => {} }),
     ];
     for (const make of cases) {
-      const { fast, slow } = renderBoth(() => withThumb(make()));
+      const { fast, slow } = mountBoth(() => withThumb(make()));
       expect(stripIds(fast)).toBe(stripIds(slow));
     }
   });
@@ -104,7 +108,7 @@ describe('native parity: Switch', () => {
         },
         class: (state: Switch.Root.State) => (state.checked ? 'on' : 'off'),
       });
-    const { fast, slow, fastEl } = renderBoth(make);
+    const { fast, slow, fastEl } = mountBoth(make);
     expect(stripIds(fast)).toBe(stripIds(slow));
     setChecked(true);
     flush();
@@ -141,7 +145,7 @@ describe('native parity: Switch', () => {
         onfocus: () => calls.push('focus'),
         onBlur: () => calls.push('blur'),
       });
-      const { fastEl, slowEl } = renderBoth(make);
+      const { fastEl, slowEl } = mountBoth(make);
       const el = variant === 'fast' ? fastEl : slowEl;
       calls.push(`click:${fireEvent.click(el)}:${el.getAttribute('aria-checked')}`);
       calls.push(`pointerdown:${fireEvent.pointerDown(el)}`);
@@ -187,7 +191,7 @@ describe('native parity: Switch', () => {
           onPointerDown: () => calls.push('pointerdown'),
           onMouseDown: () => calls.push('mousedown'),
         });
-        const { fastEl, slowEl } = renderBoth(make);
+        const { fastEl, slowEl } = mountBoth(make);
         const el = variant === 'fast' ? fastEl : slowEl;
         calls.push(`click:${fireEvent.click(el)}:${el.getAttribute('aria-checked')}`);
         calls.push(`pointerdown:${fireEvent.pointerDown(el)}`);
@@ -204,7 +208,7 @@ describe('native parity: Switch', () => {
     const run = (variant: 'fast' | 'slow') => {
       const ref = vi.fn();
       const inputRef = { current: null as HTMLInputElement | null };
-      const { fastEl, slowEl } = renderBoth(() => ({ ref, inputRef }));
+      const { fastEl, slowEl } = mountBoth(() => ({ ref, inputRef }));
       const el = variant === 'fast' ? fastEl : slowEl;
       expect(ref).toHaveBeenCalledTimes(2);
       expect(ref.mock.calls.some((call) => call[0] === el)).toBe(true);
@@ -225,7 +229,7 @@ describe('native parity: Switch', () => {
         </Field.Root>
       </Form>
     );
-    const { fast, slow, fastEl, slowEl } = renderBoth(() => withThumb({}), wrap);
+    const { fast, slow, fastEl, slowEl } = mountBoth(() => withThumb({}), wrap);
     expect(stripIds(fast)).toBe(stripIds(slow));
     expect(fastEl).toHaveAttribute('aria-invalid', 'true');
     expect(fastEl).toHaveAttribute('data-invalid');
@@ -252,7 +256,7 @@ describe('native parity: Switch', () => {
         Wrapped
       </label>
     );
-    const a = renderBoth(() => ({}), wrapped);
+    const a = mountBoth(() => ({}), wrapped);
     expect(a.fastEl.getAttribute('aria-labelledby')).toMatch(/-label$/);
     expect(stripIds(a.fast)).toBe(stripIds(a.slow));
     const sibling = (ui: () => JSX.Element) => (
@@ -261,7 +265,7 @@ describe('native parity: Switch', () => {
         <label for="sw">Sibling</label>
       </div>
     );
-    const b = renderBoth(() => ({ id: 'sw' }), sibling);
+    const b = mountBoth(() => ({ id: 'sw' }), sibling);
     expect(b.fastEl.getAttribute('aria-labelledby')).toBe(b.slowEl.getAttribute('aria-labelledby'));
     expect(b.fastEl.getAttribute('aria-labelledby')).toBe('sw-label');
   });

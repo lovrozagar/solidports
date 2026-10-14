@@ -131,7 +131,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
       return;
     }
     if (typeof previous === 'function') {
-      previous(null);
+      void previous(null);
     } else if (previous) {
       previous.current = null;
     }

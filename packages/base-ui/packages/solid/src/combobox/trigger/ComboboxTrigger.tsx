@@ -82,7 +82,7 @@ export function ComboboxTrigger(componentProps: ComboboxTrigger.Props) {
   const listEmpty = useListEmpty();
   const popupSide = usePopupSide(store);
 
-  useLabelableId({ id: () => (inputInsidePopup() ? idProp() : undefined) });
+  void useLabelableId({ id: () => (inputInsidePopup() ? idProp() : undefined) });
   const id = () => (inputInsidePopup() ? (idProp() ?? rootId()) : idProp());
   const ariaLabelledBy = () => resolveAriaLabelledBy(fieldLabelId(), comboboxLabelId());
 

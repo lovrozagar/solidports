@@ -153,7 +153,7 @@ export function DrawerPopup(componentProps: DrawerPopup.Props) {
   const popupId = () => elementProps.id ?? floatingId();
 
   const swipe = useDrawerViewportContext();
-  useDialogPortalContext();
+  void useDialogPortalContext();
   const { snapPoints, activeSnapPoint, activeSnapPointOffset } = useDrawerSnapPoints();
 
   const nestedDrawerOpen = () => nestedOpenDrawerCount() > 0;

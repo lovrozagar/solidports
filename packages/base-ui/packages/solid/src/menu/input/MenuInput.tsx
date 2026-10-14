@@ -51,7 +51,7 @@ export function MenuInput(props: MenuInput.Props) {
   });
 
   // Solid: refs are not called with `null` on unmount, so removal without blur is cleared here.
-  onCleanup(() => {
+  void onCleanup(() => {
     store.set('inputFocused', false);
   });
 

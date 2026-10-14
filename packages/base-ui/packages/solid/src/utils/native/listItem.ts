@@ -69,7 +69,7 @@ export function createNativeListItem<Metadata>(
     }
   });
 
-  onCleanup(() => {
+  void onCleanup(() => {
     unsubscribe();
     if (element) {
       unregister(element, owner);

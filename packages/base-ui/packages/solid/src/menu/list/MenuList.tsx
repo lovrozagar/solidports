@@ -21,7 +21,7 @@ function MenuListPlain(componentProps: MenuList.Props) {
   createLayoutEffect(id, (nextId) => {
     store.set('listId', nextId);
   });
-  onCleanup(() => {
+  void onCleanup(() => {
     if (store.select('listId') === untrack(id)) {
       store.set('listId', undefined);
     }

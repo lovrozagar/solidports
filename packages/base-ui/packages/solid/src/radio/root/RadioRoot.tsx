@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- the native fast path packs its static props into one flags number */
 import {
   createEffect,
   createRenderEffect,
@@ -163,7 +164,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     setInputElement(element);
     inputRefCleanups = [registerInputRef(element), registerInput(element)];
   };
-  onCleanup(() => {
+  void onCleanup(() => {
     inputRefCleanups.forEach((cleanup) => cleanup?.());
     inputRefCleanups = [];
     const inputRefProp = untrack(() => local.inputRef);
@@ -188,11 +189,11 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
       }
 
       if (deps.disabled && deps.checked) {
-        registerInputRef(null);
+        void registerInputRef(null);
         return;
       }
 
-      registerInputRef(inputRef.current);
+      void registerInputRef(inputRef.current);
     },
   );
 
@@ -794,7 +795,7 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
       ];
     }
   });
-  onCleanup(() => {
+  void onCleanup(() => {
     inputRefCleanups.forEach((cleanup) => cleanup?.());
     if (typeof inputRefProp === 'function') {
       inputRefProp(null);
@@ -815,10 +816,10 @@ function NativeRadioRoot(props: RadioRoot.Props<unknown>): JSX.Element {
       () => ({ checked: checked(), disabled: disabled() }),
       (deps) => {
         if (deps.disabled && deps.checked) {
-          registerInputRef(null);
+          void registerInputRef(null);
           return;
         }
-        registerInputRef(input);
+        void registerInputRef(input);
       },
     );
   }

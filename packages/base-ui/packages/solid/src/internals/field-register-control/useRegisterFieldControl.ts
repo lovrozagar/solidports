@@ -48,7 +48,7 @@ export function useRegisterFieldControl(
     },
   );
 
-  onCleanup(() => {
+  void onCleanup(() => {
     registerFieldControl(source, undefined);
   });
 }

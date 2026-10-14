@@ -64,7 +64,7 @@ export type ParityRender = (ui: () => JSX.Element) => {
   unmount: () => void;
 };
 
-export function renderParity(
+export function mountParity(
   render: ParityRender,
   make: (slow: boolean) => JSX.Element,
 ): ParityPair {

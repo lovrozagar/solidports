@@ -142,7 +142,7 @@ export function useFloatingPortalNode(
         let host: HTMLElement | null = null;
         // Clear only this subtree's host: on a container change Solid mounts the next subtree
         // (and applies its ref) before disposing this one.
-        onCleanup(() => setPortalNode((current) => (current === host ? null : current)));
+        void onCleanup(() => setPortalNode((current) => (current === host ? null : current)));
         return (
           <Portal mount={container as HTMLElement}>
             {portalElement({

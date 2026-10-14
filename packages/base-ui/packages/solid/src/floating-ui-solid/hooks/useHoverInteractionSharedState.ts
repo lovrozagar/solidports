@@ -89,7 +89,7 @@ export function useHoverInteractionSharedState(options: {
     return dataRef.hoverInteractionState;
   };
 
-  onCleanup(() => {
+  void onCleanup(() => {
     for (const [state] of [ownState, untrack(current)]) {
       state.openChangeTimeout.clear();
       state.restTimeout.clear();

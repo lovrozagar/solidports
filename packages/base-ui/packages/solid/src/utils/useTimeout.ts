@@ -12,7 +12,7 @@ export function registerOwnerCleanup(fn: () => void) {
   while (owner) {
     try {
       runWithOwner(owner as never, () => {
-        onCleanup(fn);
+        void onCleanup(fn);
       });
       return;
     } catch (error) {

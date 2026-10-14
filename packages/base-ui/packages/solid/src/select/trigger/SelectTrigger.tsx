@@ -85,7 +85,7 @@ export function SelectTrigger(componentProps: SelectTrigger.Props) {
   const popupSide = () => (mounted() && positionerElement() ? popupSideValue() : null);
 
   const id = () => idProp() ?? rootId();
-  useLabelableId({ id });
+  void useLabelableId({ id });
 
   let triggerRef = null as HTMLElement | null | undefined;
   const focusTargetRef = {

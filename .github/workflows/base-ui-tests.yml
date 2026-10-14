@@ -23,8 +23,9 @@ on:
 permissions:
   contents: read
 
+# Every pushed commit gets its own run; a pull request keeps only its newest one.
 concurrency:
-  group: base-ui-tests-${{ inputs.ref || github.ref }}
+  group: base-ui-tests-${{ github.event_name == 'pull_request' && github.ref || inputs.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:

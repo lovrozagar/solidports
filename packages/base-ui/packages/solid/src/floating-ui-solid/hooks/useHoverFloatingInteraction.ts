@@ -119,7 +119,7 @@ export function useHoverFloatingInteraction(parameters: {
     }
   });
 
-  onCleanup(() => {
+  void onCleanup(() => {
     clearPointerEvents();
   });
 

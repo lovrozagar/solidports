@@ -51,7 +51,7 @@ function normalized(el: Element): string {
 describe('native parity: Checkbox', () => {
   const { render } = createRenderer();
 
-  function renderBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
+  function mountBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
     const fast = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     const slow = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     (slow as { render?: string }).render = 'span';
@@ -61,13 +61,17 @@ describe('native parity: Checkbox', () => {
     ).toBe(true);
     const ui = (props: Props) => () =>
       createComponent(Checkbox.Root, props as Checkbox.Root.Props) as unknown as JSX.Element;
-    const fastResult = render(() => (wrap ? wrap(ui(fast)) : ui(fast)()) as never);
-    const slowResult = render(() => (wrap ? wrap(ui(slow)) : ui(slow)()) as never);
+    const { container: fastContainer } = render(
+      () => (wrap ? wrap(ui(fast)) : ui(fast)()) as never,
+    );
+    const { container: slowContainer } = render(
+      () => (wrap ? wrap(ui(slow)) : ui(slow)()) as never,
+    );
     return {
-      fast: fastResult.container,
-      slow: slowResult.container,
-      fastEl: fastResult.container.querySelector('[role="checkbox"]')!,
-      slowEl: slowResult.container.querySelector('[role="checkbox"]')!,
+      fast: fastContainer,
+      slow: slowContainer,
+      fastEl: fastContainer.querySelector('[role="checkbox"]')!,
+      slowEl: slowContainer.querySelector('[role="checkbox"]')!,
     };
   }
 
@@ -92,7 +96,7 @@ describe('native parity: Checkbox', () => {
       () => ({ onClick: () => {}, onKeyDown: () => {}, onFocus: () => {} }),
     ];
     for (const make of cases) {
-      const { fast, slow } = renderBoth(() => withIndicator(make()));
+      const { fast, slow } = mountBoth(() => withIndicator(make()));
       expect(stripIds(fast)).toBe(stripIds(slow));
     }
   });
@@ -120,7 +124,7 @@ describe('native parity: Checkbox', () => {
       },
       class: (state: Checkbox.Root.State) => (state.checked ? 'on' : 'off'),
     });
-    const { fast, slow, fastEl } = renderBoth(make);
+    const { fast, slow, fastEl } = mountBoth(make);
     expect(stripIds(fast)).toBe(stripIds(slow));
     setChecked(true);
     flush();
@@ -163,7 +167,7 @@ describe('native parity: Checkbox', () => {
         onfocus: () => calls.push('focus'),
         onBlur: () => calls.push('blur'),
       });
-      const { fastEl, slowEl, fast, slow } = renderBoth(make);
+      const { fastEl, slowEl, fast, slow } = mountBoth(make);
       const el = variant === 'fast' ? fastEl : slowEl;
       const container = variant === 'fast' ? fast : slow;
       calls.push(`click:${fireEvent.click(el)}:${el.getAttribute('aria-checked')}`);
@@ -198,7 +202,7 @@ describe('native parity: Checkbox', () => {
           onPointerDown: () => calls.push('pointerdown'),
           onMouseDown: () => calls.push('mousedown'),
         });
-        const { fastEl, slowEl } = renderBoth(make);
+        const { fastEl, slowEl } = mountBoth(make);
         const el = variant === 'fast' ? fastEl : slowEl;
         calls.push(`click:${fireEvent.click(el)}:${el.getAttribute('aria-checked')}`);
         calls.push(`pointerdown:${fireEvent.pointerDown(el)}`);
@@ -225,7 +229,7 @@ describe('native parity: Checkbox', () => {
           event.preventBaseUIHandler();
         },
       });
-      const { fastEl, slowEl } = renderBoth(make);
+      const { fastEl, slowEl } = mountBoth(make);
       const el = variant === 'fast' ? fastEl : slowEl;
       calls.push(`click:${fireEvent.click(el)}:${el.getAttribute('aria-checked')}`);
       calls.push(`keyup:${fireEvent.keyUp(el, { key: ' ' })}:${el.getAttribute('aria-checked')}`);
@@ -241,7 +245,7 @@ describe('native parity: Checkbox', () => {
       const ref = vi.fn();
       const inputRef = { current: null as HTMLInputElement | null };
       const inputRefFn = vi.fn();
-      const { fastEl, slowEl } = renderBoth(() => ({
+      const { fastEl, slowEl } = mountBoth(() => ({
         ref,
         inputRef: variant === 'fast' ? inputRef : inputRefFn,
       }));
@@ -269,7 +273,7 @@ describe('native parity: Checkbox', () => {
         </Field.Root>
       </Form>
     );
-    const { fast, slow, fastEl, slowEl } = renderBoth(() => withIndicator({}), wrap);
+    const { fast, slow, fastEl, slowEl } = mountBoth(() => withIndicator({}), wrap);
     const strip = stripIds;
     expect(strip(fast)).toBe(strip(slow));
     expect(fastEl).toHaveAttribute('aria-invalid', 'true');
@@ -297,7 +301,7 @@ describe('native parity: Checkbox', () => {
         Wrapped
       </label>
     );
-    const a = renderBoth(() => ({}), wrapped);
+    const a = mountBoth(() => ({}), wrapped);
     expect(a.fastEl.getAttribute('aria-labelledby')).toMatch(/-label$/);
     expect(stripIds(a.fast)).toBe(stripIds(a.slow));
     const sibling = (ui: () => JSX.Element) => (
@@ -306,7 +310,7 @@ describe('native parity: Checkbox', () => {
         <label for="box">Sibling</label>
       </div>
     );
-    const b = renderBoth(() => ({ id: 'box' }), sibling);
+    const b = mountBoth(() => ({ id: 'box' }), sibling);
     expect(b.fastEl.getAttribute('aria-labelledby')).toBe(b.slowEl.getAttribute('aria-labelledby'));
     expect(b.fastEl.getAttribute('aria-labelledby')).toBe('box-label');
   });
@@ -324,7 +328,7 @@ describe('native parity: Checkbox', () => {
         </Checkbox.Root>
       </CheckboxGroup>
     );
-    const { fast, slow } = renderBoth(
+    const { fast, slow } = mountBoth(
       () => withIndicator({ value: 'a', 'data-testid': 'child' }),
       wrap,
     );

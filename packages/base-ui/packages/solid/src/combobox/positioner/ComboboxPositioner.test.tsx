@@ -1,6 +1,6 @@
 import { expect, vi, describe, it } from 'vitest';
 import { createSignal, onSettled } from 'solid-js';
-import { render as renderToContainer } from '@solidjs/web';
+import { render as mountToContainer } from '@solidjs/web';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { Combobox } from '@solidports/base-ui/combobox';
 import {
@@ -40,7 +40,7 @@ describe('<Combobox.Positioner />', () => {
     }
 
     // Solid: mounted directly into the container, outside the test renderer's flush wrapper.
-    const dispose = renderToContainer(() => <Test />, container);
+    const dispose = mountToContainer(() => <Test />, container);
 
     // Wait for mount + useEffect re-render + setTimeout(0) in ScrollLocker.acquire
     await new Promise((resolve) => {

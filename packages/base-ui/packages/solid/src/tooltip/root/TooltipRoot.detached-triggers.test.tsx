@@ -9,7 +9,7 @@ import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { createSignal, Show } from 'solid-js';
-import { render as renderSolid } from '@solidjs/web';
+import { render as mountSolid } from '@solidjs/web';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures, { fixtureState } from './TooltipRoot.detached-triggers.ssr-fixtures';
 import { autofocus } from '../../solid-helpers';
@@ -80,7 +80,7 @@ describe('<Tooltip.Root />', () => {
     const handle = fixtureState.handle;
 
     const { hydrate } = renderServer(fixtures, 'switchingApp');
-    const triggerB = renderServer(fixtures, 'triggerB');
+    const { hydrate: hydrateTriggerB } = renderServer(fixtures, 'triggerB');
 
     hydrate();
 
@@ -95,7 +95,7 @@ describe('<Tooltip.Root />', () => {
     expect(handle.isOpen).toBe(true);
 
     await act(async () => {
-      triggerB.hydrate();
+      hydrateTriggerB();
     });
 
     await waitFor(() => {
@@ -280,7 +280,7 @@ describe('<Tooltip.Root />', () => {
       let popupIsOpen = false;
 
       // Solid: rendered outside the test renderer to keep the browser's native task ordering.
-      const dispose = renderSolid(
+      const dispose = mountSolid(
         () => (
           <>
             <Tooltip.Root
