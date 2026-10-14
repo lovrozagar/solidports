@@ -188,6 +188,7 @@ const MODULES = {
   'react-error-boundary': 'docs/src/adapters/react-error-boundary',
   'react-simple-code-editor': 'docs/react-simple-code-editor/src/index',
   'hast-util-to-jsx-runtime': 'docs/src/adapters/hast-util-to-jsx-runtime',
+  'mdx/types': 'docs/src/adapters/mdx-types',
   'server-only': 'docs/src/adapters/server-only',
 };
 
