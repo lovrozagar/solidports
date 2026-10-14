@@ -9,13 +9,26 @@ import { resetBrowserPointer } from './resetBrowserPointer';
 let isCleaningUp = false;
 
 /*
- * Desktop Firefox has no `Touch` or `TouchEvent` constructor, so the tests' `new Touch(...)` throws
- * and testing-library builds their touch events (`fireEvent.touchStart(el, { touches })`) as plain
- * `Event`s without their touch lists, and a touch handler reading `event.touches` throws. Provide
- * the constructors those tests need: a `Touch` with the fields of its init, and a `UIEvent` that
- * carries the touch lists of its init. Library code never detects `Touch` or `TouchEvent`.
+ * Desktop Firefox has no `Touch` or `TouchEvent` constructor, and desktop WebKit has both but
+ * throws "Illegal constructor" from them, so the tests' `new Touch(...)` throws and testing-library
+ * builds their touch events (`fireEvent.touchStart(el, { touches })`) as plain `Event`s without
+ * their touch lists, and a touch handler reading `event.touches` throws. Provide the constructors
+ * those tests need: a `Touch` with the fields of its init, and a `UIEvent` that carries the touch
+ * lists of its init. Library code never detects `Touch` or `TouchEvent`.
  */
-if (typeof window !== 'undefined' && typeof window.Touch === 'undefined') {
+function isConstructible(create: () => unknown) {
+  try {
+    create();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (
+  typeof window !== 'undefined' &&
+  !isConstructible(() => new window.Touch({ identifier: 0, target: document.body }))
+) {
   class Touch {
     declare readonly identifier: number;
 
@@ -59,7 +72,7 @@ if (typeof window !== 'undefined' && typeof window.Touch === 'undefined') {
   (window as unknown as { Touch: unknown }).Touch = Touch;
 }
 
-if (typeof window !== 'undefined' && typeof window.TouchEvent === 'undefined') {
+if (typeof window !== 'undefined' && !isConstructible(() => new window.TouchEvent('touchstart'))) {
   class TouchEvent extends UIEvent {
     declare readonly touches: readonly Touch[];
 
