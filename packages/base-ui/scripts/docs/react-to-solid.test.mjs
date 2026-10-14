@@ -909,8 +909,10 @@ export const Input = React.forwardRef<HTMLInputElement, { className?: string }>(
 });`,
         `import { omit } from 'solid-js';
 import { reactRef } from 'docs/src/adapters/react';
-import type { Ref } from 'docs/src/adapters/react';
-export const Input = function Input(props: { class?: string } & { ref?: Ref<HTMLInputElement> }) {
+import type { PropsWithoutRef, Ref } from 'docs/src/adapters/react';
+export const Input = function Input(
+  props: PropsWithoutRef<{ class?: string }> & { ref?: Ref<HTMLInputElement> },
+) {
   const rest = omit(props, 'class', 'ref');
   return <input ref={reactRef(props.ref)} class={props.class} {...rest} />;
 };`,
@@ -983,6 +985,75 @@ export function User() {
     }
   };
   return <button onClick={greet}>Greet</button>;
+}`,
+      );
+    });
+
+    it('reads a guarded value once into the JSX the render returns', () => {
+      const output = transformReactToSolid(
+        `import * as React from 'react';
+export function Editor(props: { load: () => Promise<{ Editor: () => React.ReactNode }> }) {
+  const [module, setModule] = React.useState<{ Editor: () => React.ReactNode } | null>(null);
+  React.useEffect(() => {
+    props.load().then(setModule);
+  }, []);
+  if (!module) {
+    return null;
+  }
+  return <module.Editor />;
+}`,
+      );
+      expect(output).toContain('const _module = module();');
+      expect(output).toContain('<Dynamic component={_module.Editor} />');
+    });
+
+    it("types React's event handlers as the docs runtime's, and as Solid's in a demo", () => {
+      const source = `import * as React from 'react';
+export type Props = { onKeyDown?: React.KeyboardEventHandler<HTMLTextAreaElement> };`;
+      expectTransform(
+        source,
+        `import type { ReactEventHandler } from 'docs/src/adapters/react';
+export type Props = { onKeyDown?: ReactEventHandler<HTMLTextAreaElement, KeyboardEvent> };`,
+      );
+      expectTransform(
+        source,
+        `import type { JSX } from '@solidjs/web';
+export type Props = { onKeyDown?: JSX.EventHandler<HTMLTextAreaElement, KeyboardEvent> };`,
+        { standalone: true },
+      );
+    });
+
+    it("types a hook's value as the value its accessor returns", () => {
+      expectTransform(
+        `export function useCount() {
+  return 1;
+}
+export function Count(props: { count: ReturnType<typeof useCount> }) {
+  return <span>{props.count}</span>;
+}`,
+        `import { createMemo } from 'solid-js';
+export function useCount() {
+  return createMemo(() => 1);
+}
+export function Count(props: { count: ReturnType<ReturnType<typeof useCount>> }) {
+  return <span>{props.count}</span>;
+}`,
+      );
+    });
+
+    it('types a callback as its useCallback type argument', () => {
+      expectTransform(
+        `import * as React from 'react';
+type Handler = (value: string) => void;
+export function useHandler() {
+  const handle = React.useCallback<Handler>((value) => console.log(value.length), []);
+  return handle;
+}`,
+        `import { createMemo } from 'solid-js';
+type Handler = (value: string) => void;
+export function useHandler() {
+  const handle: Handler = (value) => console.log(value.length);
+  return createMemo(() => handle);
 }`,
       );
     });
@@ -1273,8 +1344,10 @@ export const Button = React.forwardRef<HTMLButtonElement, { label: string }>(fun
   return <button ref={forwardedRef}>{props.label}</button>;
 });`,
         `import { reactRef } from 'docs/src/adapters/react';
-import type { Ref } from 'docs/src/adapters/react';
-export const Button = function Button(props: { label: string } & { ref?: Ref<HTMLButtonElement> }) {
+import type { PropsWithoutRef, Ref } from 'docs/src/adapters/react';
+export const Button = function Button(
+  props: PropsWithoutRef<{ label: string }> & { ref?: Ref<HTMLButtonElement> },
+) {
   return <button ref={reactRef(props.ref)}>{props.label}</button>;
 };`,
       );

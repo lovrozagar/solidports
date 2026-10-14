@@ -1325,7 +1325,7 @@ function lowerFunction(fnPath, kind, ctx) {
           const [init] = declarator.init.arguments;
           // `useRef<T>()` holds `T | undefined`, `useRef<T>(null)` holds `T | null`.
           let missing = null;
-          if (!init) {
+          if (!init || t.isIdentifier(init, { name: 'undefined' })) {
             missing = t.tsUndefinedKeyword();
           } else if (t.isNullLiteral(init)) {
             missing = t.tsNullKeyword();
@@ -1342,6 +1342,11 @@ function lowerFunction(fnPath, kind, ctx) {
             ]),
           );
           declarator.init.typeParameters = null;
+        }
+        // `useCallback<T>(fn)` types the function as `T`.
+        const callbackType = declarator.init.typeParameters?.params[0];
+        if (api === 'useCallback' && callbackType && t.isIdentifier(declarator.id) && !annotation) {
+          declarator.id.typeAnnotation = t.tsTypeAnnotation(callbackType);
         }
         declarator.init = lowerReactHook(declarator.init, api, ctx);
         // `const value: T = useMemo(...)` types the memo's value.
@@ -1702,24 +1707,15 @@ function exits(statement) {
 }
 
 /**
- * The reactive reads in a node, by key: those outside nested functions, and with `nested`, those
- * in the closures it creates (outside `skip`).
+ * The reactive reads in a node, by key: those it makes itself, and with `nested`, those of the
+ * closures and the JSX it creates. A statement that tests a value re-runs (in its memo or effect)
+ * when the value changes, so its closures and JSX can read the value it tested.
  */
-function readsIn(path, skip, nested) {
+function readsIn(path, nested) {
   const reads = new Map();
   path.traverse({
-    Function(inner) {
+    'Function|JSXExpressionContainer'(inner) {
       if (!nested) {
-        inner.skip();
-      }
-    },
-    JSXExpressionContainer(inner) {
-      // Rendered JSX stays reactive; an element value (`element(() => <jsx />)`) is a description
-      // of the values it closes over, as React's is.
-      const element = inner.findParent(
-        (parent) => parent === path || (parent.isCallExpression() && isElementCall(parent.node)),
-      );
-      if (skip === 'jsx' && !(element && element !== path && nested)) {
         inner.skip();
       }
     },
@@ -1728,14 +1724,11 @@ function readsIn(path, skip, nested) {
       if (!key) {
         return;
       }
-      const inClosure = Boolean(
-        readPath.findParent((parent) => parent === path || parent.isFunction())?.isFunction(),
+      const owner = readPath.findParent(
+        (parent) => parent === path || parent.isFunction() || parent.isJSXExpressionContainer(),
       );
-      if (inClosure && !nested) {
-        return;
-      }
       const entry = reads.get(key) ?? { direct: [], nested: [] };
-      (inClosure ? entry.nested : entry.direct).push(readPath);
+      (owner === path ? entry.direct : entry.nested).push(readPath);
       reads.set(key, entry);
       // A read's own parts are not reads of their own (`_value()` in `_value().name`).
       readPath.skip();
@@ -1813,12 +1806,12 @@ function snapshotReads(fnPath) {
       if (!path.parentPath.isBlockStatement()) {
         return;
       }
-      const reads = readsIn(path, 'jsx', true);
+      const reads = readsIn(path, true);
       // A guard (`if (!value) return;`) narrows the statements after it too.
       if (path.isIfStatement() && !path.node.alternate && exits(path.node.consequent)) {
-        const tested = readsIn(path.get('test'), 'jsx', false);
+        const tested = readsIn(path.get('test'), false);
         for (const sibling of path.getAllNextSiblings()) {
-          mergeReads(reads, readsIn(sibling, 'jsx', true), tested);
+          mergeReads(reads, readsIn(sibling, true), tested);
         }
       }
       // Only where a read narrows: a test that the same statement reads again after.
@@ -1850,13 +1843,13 @@ function snapshotReads(fnPath) {
         return;
       }
       const wrapper = t.blockStatement([t.returnStatement(body.node)]);
-      const reads = readsIn(body, 'jsx', true);
+      const reads = readsIn(body, true);
       if (!repeats(reads)) {
         return;
       }
       body.replaceWith(wrapper);
       const returnPath = path.get('body.body.0');
-      const declarations = snapshot(readsIn(returnPath, 'jsx', true), returnPath.scope);
+      const declarations = snapshot(readsIn(returnPath, true), returnPath.scope);
       returnPath.insertBefore(declarations);
     },
     JSXExpressionContainer(path) {
@@ -1864,7 +1857,7 @@ function snapshotReads(fnPath) {
       if (t.isJSXEmptyExpression(expression) || isFunctionNode(expression)) {
         return;
       }
-      const reads = readsIn(path, null, true);
+      const reads = readsIn(path, true);
       if (!repeats(reads)) {
         return;
       }
@@ -2139,6 +2132,36 @@ function transformModuleApis(programPath, ctx) {
             }
             const [propsParam, refParam] = fnPath.node.params;
             const [refType, propsType] = path.node.typeParameters?.params ?? [];
+            // React types the props as `PropsWithoutRef<P> & RefAttributes<T>`: the ref is the
+            // forwarded one, typed as the ref parameter is.
+            const refParamType = t.isIdentifier(refParam)
+              ? refParam.typeAnnotation?.typeAnnotation
+              : null;
+            const refPropType =
+              refParamType ||
+              (refType
+                ? t.tsTypeReference(t.identifier('Ref'), t.tsTypeParameterInstantiation([refType]))
+                : null);
+            const withRef = (annotation) => {
+              const refProp = t.tsPropertySignature(
+                t.identifier('ref'),
+                t.tsTypeAnnotation(refPropType ?? t.tsTypeReference(t.identifier('Ref'))),
+              );
+              refProp.optional = true;
+              // The ref parameter's own type (`React.Ref<T>`) maps with the other React types.
+              if (!refParamType) {
+                imports.add(ctx.standalone ? 'solid-js' : REACT_ADAPTERS, 'Ref', true);
+              }
+              let props = annotation;
+              if (!ctx.standalone) {
+                imports.add(REACT_ADAPTERS, 'PropsWithoutRef', true);
+                props = t.tsTypeReference(
+                  t.identifier('PropsWithoutRef'),
+                  t.tsTypeParameterInstantiation([annotation]),
+                );
+              }
+              return t.tsTypeAnnotation(t.tsIntersectionType([props, t.tsTypeLiteral([refProp])]));
+            };
             if (t.isObjectPattern(propsParam) && t.isIdentifier(refParam)) {
               // `({ className, ...props }, ref)` reads the ref from the props, before their rest.
               const restAt = propsParam.properties.findIndex((property) =>
@@ -2155,40 +2178,17 @@ function transformModuleApis(programPath, ctx) {
               );
               const annotation = propsParam.typeAnnotation?.typeAnnotation ?? propsType;
               if (annotation) {
-                const refProp = t.tsPropertySignature(
-                  t.identifier('ref'),
-                  t.tsTypeAnnotation(
-                    t.tsTypeReference(
-                      t.identifier('Ref'),
-                      refType ? t.tsTypeParameterInstantiation([refType]) : null,
-                    ),
-                  ),
-                );
-                refProp.optional = true;
-                imports.add(ctx.standalone ? 'solid-js' : REACT_ADAPTERS, 'Ref', true);
-                propsParam.typeAnnotation = t.tsTypeAnnotation(
-                  t.tsIntersectionType([annotation, t.tsTypeLiteral([refProp])]),
-                );
+                propsParam.typeAnnotation = withRef(annotation);
               }
               fnPath.node.params = [propsParam];
               path.replaceWith(fnPath.node);
               break;
             }
-            if (t.isIdentifier(propsParam) && !propsParam.typeAnnotation && propsType) {
-              const refProp = t.tsPropertySignature(
-                t.identifier('ref'),
-                t.tsTypeAnnotation(
-                  t.tsTypeReference(
-                    t.identifier('Ref'),
-                    refType ? t.tsTypeParameterInstantiation([refType]) : null,
-                  ),
-                ),
-              );
-              refProp.optional = true;
-              imports.add(ctx.standalone ? 'solid-js' : REACT_ADAPTERS, 'Ref', true);
-              propsParam.typeAnnotation = t.tsTypeAnnotation(
-                t.tsIntersectionType([propsType, t.tsTypeLiteral([refProp])]),
-              );
+            if (t.isIdentifier(propsParam)) {
+              const annotation = propsParam.typeAnnotation?.typeAnnotation ?? propsType;
+              if (annotation) {
+                propsParam.typeAnnotation = withRef(annotation);
+              }
             }
             if (t.isIdentifier(refParam) && t.isIdentifier(propsParam)) {
               const binding = fnPath.scope.getBinding(refParam.name);
@@ -2886,6 +2886,37 @@ function transformTypes(programPath, ctx) {
       typeParams.length ? t.tsTypeParameterInstantiation(typeParams) : null,
     );
 
+  // `ReturnType<typeof useHook>` types a corpus hook's value; the Solid hook returns an accessor.
+  const isCorpusHookName = (path, name) => {
+    if (!HOOK_NAME.test(name)) {
+      return false;
+    }
+    const binding = path.scope.getBinding(name);
+    if (!binding) {
+      return false;
+    }
+    return binding.kind === 'module'
+      ? ctx.corpusImports.has(name)
+      : binding.path.isFunctionDeclaration() || binding.path.isVariableDeclarator();
+  };
+  programPath.traverse({
+    TSTypeReference(path) {
+      const [query] = params(path.node);
+      if (
+        t.isIdentifier(path.node.typeName, { name: 'ReturnType' }) &&
+        t.isTSTypeQuery(query) &&
+        t.isIdentifier(query.exprName) &&
+        !query.typeParameters &&
+        isCorpusHookName(path, query.exprName.name)
+      ) {
+        path.node.typeParameters = t.tsTypeParameterInstantiation([
+          t.tsTypeReference(t.identifier('ReturnType'), t.tsTypeParameterInstantiation([query])),
+        ]);
+        path.skip();
+      }
+    },
+  });
+
   programPath.traverse({
     // `interface X extends React.ComponentProps<'button'>`
     TSExpressionWithTypeArguments(path) {
@@ -2924,6 +2955,35 @@ function transformTypes(programPath, ctx) {
                 ]),
               ])
             : eventType;
+        // `MouseEventHandler<T>`: a handler of the event on `T`. React declares its handlers
+        // bivariant in their event; the docs runtime's are too.
+        const handlerOf = /^(\w*Event)Handler$/.exec(name);
+        if (handlerOf && name !== 'EventHandler') {
+          const eventName = DOM_EVENTS.has(handlerOf[1]) ? handlerOf[1] : 'Event';
+          const target = args[0] ?? t.tsTypeReference(t.identifier('Element'));
+          const event = t.tsTypeReference(t.identifier(eventName));
+          if (ctx.standalone) {
+            path.replaceWith(reference(jsxType('EventHandler'), [target, event]));
+          } else {
+            imports.add(REACT_ADAPTERS, 'ReactEventHandler', true);
+            path.replaceWith(reference(t.identifier('ReactEventHandler'), [target, event]));
+          }
+          return;
+        }
+        if (name === 'EventHandler' && args[0]) {
+          path.replaceWith(
+            t.tsFunctionType(
+              null,
+              [
+                Object.assign(t.identifier('event'), {
+                  typeAnnotation: t.tsTypeAnnotation(args[0]),
+                }),
+              ],
+              t.tsTypeAnnotation(t.tsVoidKeyword()),
+            ),
+          );
+          return;
+        }
         if (DOM_EVENTS.has(name)) {
           path.replaceWith(withTarget(t.tsTypeReference(t.identifier(name))));
         } else if (GENERIC_EVENTS.has(name)) {

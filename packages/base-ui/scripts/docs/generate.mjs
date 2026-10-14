@@ -414,13 +414,37 @@ async function generateDocs() {
     const full = path.join(REACT, source);
     return fs.statSync(full).isDirectory() ? walk(full) : [full];
   });
+  // An excluded module that the generated docs import (a utility of an excluded page that a docs
+  // test covers) is generated with them.
+  const included = new Set(
+    files.filter((file) => {
+      const rel = path.relative(REACT, file);
+      return !DOCS_INFRA_OUTPUT.test(rel) && !EXCLUDED.some((entry) => rel.startsWith(entry.path));
+    }),
+  );
+  const queue = [...included].filter((file) => /\.(tsx?|mjs|js|mdx)$/.test(file));
+  while (queue.length > 0) {
+    const file = queue.pop();
+    // A page imports what it renders without its excluded sections.
+    const code = removeExcludedSections(fs.readFileSync(file, 'utf8'), path.relative(REACT, file));
+    for (const specifier of importsOf(code)) {
+      let base = null;
+      if (specifier.startsWith('.')) {
+        base = path.resolve(path.dirname(file), specifier);
+      } else if (specifier.startsWith('docs/')) {
+        base = path.join(REACT, specifier.slice('docs/'.length));
+      }
+      const target = base && resolveRelative(base);
+      if (target && target.startsWith(`${REACT}${path.sep}`) && !included.has(target)) {
+        included.add(target);
+        queue.push(target);
+      }
+    }
+  }
   const failures = [];
   await Promise.all(
-    files.map(async (file) => {
+    [...included].map(async (file) => {
       const rel = path.relative(REACT, file);
-      if (DOCS_INFRA_OUTPUT.test(rel) || EXCLUDED.some((entry) => rel.startsWith(entry.path))) {
-        return;
-      }
       try {
         const dest = path.join(OUT, outPath(rel));
         const content = await generateSource(file, rel);
@@ -430,7 +454,7 @@ async function generateDocs() {
       }
     }),
   );
-  return { count: files.length, failures };
+  return { count: included.size, failures };
 }
 
 const IMPORT_PATTERN =
@@ -597,6 +621,9 @@ const FRAMEWORK_DEPENDENCIES = {
   'solid-js': 'catalog:',
   vite: 'catalog:',
 };
+const FRAMEWORK_DEV_DEPENDENCIES = {
+  '@types/picomatch': '^4.0.3',
+};
 const DOCS_INFRA_PACKAGE = '@mui/internal-docs-infra';
 
 /**
@@ -659,7 +686,18 @@ function generatePackageJson() {
       [DOCS_INFRA_PACKAGE]: docsInfraVersion,
       ...FRAMEWORK_DEPENDENCIES,
     }),
-    devDependencies: sorted(mapped(reactPackage.devDependencies)),
+    devDependencies: sorted({
+      ...mapped(reactPackage.devDependencies),
+      // The types the generated docs-infra source compiles against.
+      ...mapped(
+        Object.fromEntries(
+          Object.entries(infraPackage.devDependencies).filter(([name]) =>
+            name.startsWith('@types/'),
+          ),
+        ),
+      ),
+      ...FRAMEWORK_DEV_DEPENDENCIES,
+    }),
   };
   write(path.join(OUT, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
 }

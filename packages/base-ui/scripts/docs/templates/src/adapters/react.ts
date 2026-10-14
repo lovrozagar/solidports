@@ -41,6 +41,12 @@ export function useSyncExternalStore<T>(
 }
 
 /** `React.useReducer`: state as an accessor and a dispatch that applies the reducer. */
+export function useReducer<S>(reducer: (state: S) => S, initialArg: S): [Accessor<S>, () => void];
+export function useReducer<S, A, I = S>(
+  reducer: (state: S, action: A) => S,
+  initialArg: I,
+  init?: (arg: I) => S,
+): [Accessor<S>, (action: A) => void];
 export function useReducer<S, A, I = S>(
   reducer: (state: S, action: A) => S,
   initialArg: I,
@@ -107,10 +113,24 @@ export function use<T>(usable: PromiseLike<T> | Context<Accessor<T>>): Accessor<
   return useContext(usable as Context<Accessor<T>>);
 }
 
-/** `React.Ref`: a callback, or an object whose `current` takes the instance. */
-export type Ref<T> = ((instance: T) => void) | { current: T | null } | null | undefined;
+/**
+ * `React.Ref`: a callback, or an object whose `current` takes the instance (`null` when React
+ * detaches it).
+ */
+export type Ref<T> = ((instance: T | null) => void) | { current: T | null } | null | undefined;
 
-function assignRef<T>(ref: Ref<T>, instance: T) {
+/**
+ * React's `MouseEventHandler<T>` and its kind: a handler of the event on `T`, bivariant in its event
+ * as React declares it (a prop typed for one element takes a handler typed for another).
+ */
+export type ReactEventHandler<T, E extends Event> = {
+  bivarianceHack(event: E & { currentTarget: T; target: Element }): void;
+}['bivarianceHack'];
+
+/** `React.PropsWithoutRef`: a `forwardRef` component's props without their own `ref`. */
+export type PropsWithoutRef<P> = P extends any ? ('ref' extends keyof P ? Omit<P, 'ref'> : P) : P;
+
+function assignRef<T>(ref: Ref<T>, instance: T | null) {
   if (typeof ref === 'function') {
     ref(instance);
   } else if (ref) {
@@ -229,8 +249,9 @@ export function element(render: () => JSX.Element): JSX.Element {
   return Object.assign(render, { [ELEMENT]: true }) as unknown as JSX.Element;
 }
 
-/** `React.isValidElement`: a value made by `element()`. */
-export function isValidElement(value: unknown): value is JSX.Element {
+/** `React.isValidElement`: a value made by `element()`. `P` types its props, as React's does. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function isValidElement<P = unknown>(value: unknown): value is JSX.Element {
   return typeof value === 'function' && ELEMENT in value;
 }
 
