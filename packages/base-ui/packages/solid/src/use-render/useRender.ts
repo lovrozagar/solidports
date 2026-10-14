@@ -28,12 +28,10 @@ export function useRender<
 
 export type UseRenderRenderProp<
   State = Record<string, unknown>,
-  ElementType extends ValidComponent = ValidComponent,
   RenderFunctionProps = JSX.HTMLAttributes<any>,
 > =
   | keyof JSX.IntrinsicElements
-  // Any element, as React's `render` takes any `ReactElement`: `ElementType` types the part's own
-  // props, not the element that replaces it.
+  // Any element, as React's `render` takes any `ReactElement`.
   | DynamicProps<ValidComponent>
   | ComponentRenderFn<RenderFunctionProps, State>
   | null;
@@ -52,7 +50,7 @@ export type UseRenderComponentProps<
    *
    * Accepts a `JSX.Element` or a function that returns the element to render.
    */
-  render?: UseRenderRenderProp<State, ElementType, RenderFunctionProps> | undefined;
+  render?: UseRenderRenderProp<State, RenderFunctionProps> | undefined;
 };
 
 export interface UseRenderParameters<
@@ -112,10 +110,7 @@ export interface UseRenderState {}
 export namespace useRender {
   export type State = UseRenderState;
 
-  export type RenderProp<
-    TState = Record<string, unknown>,
-    ElementType extends ValidComponent = ValidComponent,
-  > = UseRenderRenderProp<TState, ElementType>;
+  export type RenderProp<TState = Record<string, unknown>> = UseRenderRenderProp<TState>;
 
   export type ElementProps<ElementType extends ValidComponent> = UseRenderElementProps<ElementType>;
 
