@@ -129,8 +129,9 @@ export type ReactEventHandler<T, E extends Event> = {
 
 /**
  * Props as React types them: an event handler prop is a function (Solid's also take a
- * `[handler, data]` pair), `style` is an object (Solid's also takes a string), and DOM handlers and
- * the ref are bivariant, as React declares them. React code spreads one element's props onto
+ * `[handler, data]` pair), `style` is an object (Solid's also takes a string), an attribute holds
+ * its value (Solid's also take a server-serializable one), and DOM handlers and the ref are
+ * bivariant, as React declares them. React code spreads one element's props onto
  * another (`ComponentProps<'div'>` onto a `<nav>`), which Solid's strict handler and ref types take
  * only for any element.
  */
@@ -143,7 +144,7 @@ export type ReactProps<P> = {
         ? Initial extends Uppercase<Initial>
           ? ReactHandler<CallableHandler<P[K]>>
           : P[K]
-        : P[K];
+        : Exclude<P[K], JSX.SerializableAttributeValue>;
 };
 
 type CallableHandler<H> = H extends (...args: never) => unknown
@@ -315,6 +316,11 @@ const ELEMENT = Symbol.for('docs.element');
  */
 export function element(render: () => JSX.Element): JSX.Element {
   return Object.assign(render, { [ELEMENT]: true }) as unknown as JSX.Element;
+}
+
+/** `React.useState`'s initial value: a function is its initializer, called once. */
+export function initialState<S>(initial: S | (() => S)): S {
+  return typeof initial === 'function' ? (initial as () => S)() : initial;
 }
 
 /** `React.isValidElement`: a value made by `element()`. `P` types its props, as React's does. */

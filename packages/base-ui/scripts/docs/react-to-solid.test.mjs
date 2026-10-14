@@ -139,7 +139,86 @@ export function Bar(props: { width: number }) {
     });
   });
 
+  describe('dynamic tags', () => {
+    it('renders a tag that may be a tag name through Dynamic', () => {
+      expectTransform(
+        `export function Code(props: { pre?: () => null }) {
+  const Pre = props.pre ?? 'pre';
+  return <Pre class="code">x</Pre>;
+}`,
+        `import { createMemo } from 'solid-js';
+import { Dynamic } from '@solidjs/web';
+export function Code(props: { pre?: () => null }) {
+  const Pre = createMemo(() => props.pre ?? 'pre');
+  return <Dynamic component={Pre()} class="code">x</Dynamic>;
+}`,
+      );
+    });
+  });
+
+  describe('props objects', () => {
+    it("writes an element props object's attribute names as Solid's", () => {
+      expectTransform(
+        `import { mergeProps } from '@base-ui/react/merge-props';
+import type { useRender } from '@base-ui/react/use-render';
+const base: useRender.ElementProps<'button'> = { className: 'Button', tabIndex: 0 };
+export const props = mergeProps<'button'>(base, { className: 'Extra', htmlFor: 'x' });
+export const other = { className: 'kept' };`,
+        `import { mergeProps } from '@solidports/base-ui/merge-props';
+import type { useRender } from '@solidports/base-ui/use-render';
+const base: useRender.ElementProps<'button'> = { class: 'Button', tabindex: 0 };
+export const props = mergeProps<'button'>(base, { class: 'Extra', for: 'x' });
+export const other = { className: 'kept' };`,
+      );
+    });
+  });
+
+  describe('props types', () => {
+    it("renames a props type's className, not another type's", () => {
+      expectTransform(
+        `export interface CardProps { className?: string }
+export const classOf = (node: { properties: unknown }) =>
+  (node.properties as { className?: string }).className;`,
+        `export interface CardProps { class?: string }
+export const classOf = (node: { properties: unknown }) =>
+  (node.properties as { className?: string }).className;`,
+      );
+    });
+  });
+
+  describe('React developer tools', () => {
+    it("drops a component's and a context's displayName, with the guard it leaves empty", () => {
+      expectTransform(
+        `import * as React from 'react';
+export const ThemeContext = React.createContext('light');
+if (process.env.NODE_ENV !== 'production') {
+  ThemeContext.displayName = 'ThemeContext';
+}
+export function Demo() {
+  return null;
+}
+Demo.displayName = 'Demo';
+export const meta = { displayName: '' };
+meta.displayName = 'kept';`,
+        `import { createContext } from 'solid-js';
+export const ThemeContext = createContext(() => 'light');
+export function Demo() {
+  return null;
+}
+export const meta = { displayName: '' };
+meta.displayName = 'kept';`,
+      );
+    });
+  });
+
   describe('render elements', () => {
+    it("types an intrinsic config's untyped handlers by the element's attributes", () => {
+      const output = transformReactToSolid(`export function Item() {
+  return <Menu.Item render={<a href="/" onClick={(event) => event.preventDefault()} />} />;
+}`);
+      expect(output).toMatch(/satisfies \{\s*component: 'a';\s*\} & JSX\.IntrinsicElements\['a'\]/);
+    });
+
     it('makes a config of each element a conditional render can be', () => {
       const output = transformReactToSolid(`export function Item(props: { file: boolean }) {
   return <Menu.Item render={props.file ? <a href="/file" /> : <Link href="/page" />} />;
@@ -422,8 +501,9 @@ export function Counter(props: { initial: number }) {
   return <span>{count}</span>;
 }`,
         `import { createMemo, createSignal, untrack } from 'solid-js';
+import { initialState } from 'docs/src/adapters/react';
 export function Counter(props: { initial: number }) {
-  const [count] = createSignal(() => untrack(() => props.initial));
+  const [count] = createSignal(() => untrack(() => initialState(props.initial)));
   const doubled = createMemo(() => count() * 2);
   const _render = createMemo(() => {
     if (!doubled()) {
@@ -460,10 +540,11 @@ export function Editor(props: { value: string }) {
   const [module] = React.useState(loadEditor);
   return <module.CodeEditor value={props.value}></module.CodeEditor>;
 }`,
-        `import { createSignal } from 'solid-js';
+        `import { createSignal, untrack } from 'solid-js';
+import { initialState } from 'docs/src/adapters/react';
 import { Dynamic } from '@solidjs/web';
 export function Editor(props: { value: string }) {
-  const [module] = createSignal(() => loadEditor);
+  const [module] = createSignal(() => untrack(() => initialState(loadEditor)));
   return <Dynamic component={module().CodeEditor} value={props.value}></Dynamic>;
 }`,
       );
