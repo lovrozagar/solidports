@@ -20,6 +20,7 @@ import { getReactElementRef } from './getReactElementRef';
 import { access, autofocus, shallowEqual, createLayoutEffect } from '../solid-helpers';
 import type { MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
+import { warn } from './warn';
 import type { StateAttributesMapping } from './getStateAttributesProps';
 import {
   createPropsView,
@@ -77,6 +78,78 @@ const TAG_DEFAULTS = new Map<unknown, object>([
 ]);
 const isHandlerKey = (key: string) => key.length > 2 && key[0] === 'o' && key[1] === 'n';
 
+const COMPONENT_IDENTIFIER_PATTERN = /^[A-Z][A-Za-z0-9$]*$/;
+const LOWERCASE_CHARACTER_PATTERN = /[a-z]/;
+// An HTML, SVG or custom element name.
+const TAG_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9._-]*)?$/;
+
+/**
+ * Whether a `render` value can be rendered: nothing (the default element), a tag name, a render
+ * function, a rendered node, or a `{ component, ...props }` config whose `component` (when set) is
+ * a tag name or a component.
+ */
+function isValidRenderProp(render: unknown) {
+  if (!render) {
+    return true;
+  }
+  if (typeof render === 'string') {
+    return TAG_NAME_PATTERN.test(render);
+  }
+  if (typeof render === 'function' || (typeof Node !== 'undefined' && render instanceof Node)) {
+    return true;
+  }
+  if (typeof render !== 'object' || Array.isArray(render)) {
+    return false;
+  }
+  if (!('component' in render)) {
+    return true;
+  }
+  const component = (render as { component: unknown }).component;
+  return (
+    typeof component === 'function' ||
+    (typeof component === 'string' && TAG_NAME_PATTERN.test(component))
+  );
+}
+
+function validateRenderProp(render: unknown) {
+  if (process.env.NODE_ENV !== 'production') {
+    if (!isValidRenderProp(render)) {
+      // eslint-disable-next-line mui/no-guarded-throw
+      throw new Error(
+        [
+          'Base UI: The `render` prop was provided an invalid render element.',
+          'A valid render element must be provided to the `render` prop because it replaces the default element: a tag name, a `{ component, ...props }` config, or a render function.',
+          'https://base-ui.com/r/invalid-render-prop',
+        ].join('\n'),
+      );
+    }
+  }
+}
+
+function warnIfRenderPropLooksLikeComponent(renderFn: { name: string }) {
+  const functionName = renderFn.name;
+  if (functionName.length === 0) {
+    return;
+  }
+
+  if (!COMPONENT_IDENTIFIER_PATTERN.test(functionName)) {
+    return;
+  }
+
+  if (!LOWERCASE_CHARACTER_PATTERN.test(functionName)) {
+    return;
+  }
+
+  warn(
+    `The \`render\` prop received a function named \`${functionName}\` that starts with an uppercase letter.`,
+    'This usually means a component was passed directly as `render={Component}`.',
+    'Base UI calls `render` in a tracked scope, so a prop the component reads at its top level re-runs it and resets its state.',
+    'If this is an intentional render callback, rename it to start with a lowercase letter.',
+    'Use `render={(props) => <Component {...props} />}` or `render={{ component: Component }}` instead.',
+    'https://base-ui.com/r/invalid-render-prop',
+  );
+}
+
 export function useRenderElement<
   TagName extends keyof JSX.IntrinsicElements | undefined,
   State extends Record<string, MaybeAccessor<any>>,
@@ -109,9 +182,16 @@ export function useRenderElement<
       !serverOrHydrating &&
       untrack(() => !('render' in componentProps) || isStatic(componentProps, 'render'));
     const renderValue = staticRenderProp ? untrack(() => componentProps.render) : undefined;
+    if (staticRenderProp) {
+      validateRenderProp(renderValue);
+    }
     const renderProp = staticRenderProp
       ? () => renderValue
-      : createMemo(() => componentProps.render);
+      : createMemo(() => {
+          const render = componentProps.render;
+          validateRenderProp(render);
+          return render;
+        });
     // React semantics for the element's refs: each distinct ref callback is called once with the
     // element, and a replacement callback (a part rebuilt its props) is called with it too. A
     // replaced callback is not called with `null`: Solid refs never receive `null`. The consumer's ref usually also reaches the element props
@@ -702,6 +782,9 @@ export function useRenderElement<
         {(() => {
           const render = renderProp();
           if (typeof render === 'function') {
+            if (process.env.NODE_ENV !== 'production') {
+              warnIfRenderPropLooksLikeComponent(render);
+            }
             const fnProps = renderFnProps();
             const fnState = renderFnState();
             // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
