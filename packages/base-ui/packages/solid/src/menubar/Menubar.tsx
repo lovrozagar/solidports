@@ -104,7 +104,6 @@ export function Menubar(props: Menubar.Props) {
                 if (typeof props.ref === 'function') {
                   props.ref(el as HTMLDivElement);
                 } else {
-                  // eslint-disable-next-line solid/reactivity
                   props.ref = el as any;
                 }
               },

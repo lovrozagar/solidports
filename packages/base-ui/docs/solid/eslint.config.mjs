@@ -41,4 +41,10 @@ const nonSolidRulesOff = Object.fromEntries(
     .map((ruleName) => [ruleName, 'off']),
 );
 
-export default defineConfig(...docsConfig, { rules: nonSolidRulesOff });
+export default defineConfig(...docsConfig, {
+  rules: {
+    ...nonSolidRulesOff,
+    // Demos and docs code are application code, the code `solid/reactivity` is written for.
+    'solid/reactivity': 'warn',
+  },
+});

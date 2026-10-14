@@ -591,7 +591,7 @@ export function useDismiss(parameters: {
     }
 
     /* event-handler callback chain — runs in event context, not render */
-    // eslint-disable-next-line solid/reactivity
+
     addTargetEventListenerOnce(event, (targetEvent) => {
       if (targetEvent.type === 'pointerdown') {
         handlePointerDown(targetEvent as PointerEvent);

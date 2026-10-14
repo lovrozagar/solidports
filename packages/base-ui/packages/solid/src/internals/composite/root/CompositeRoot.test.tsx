@@ -1281,7 +1281,7 @@ describe('Composite', () => {
       expect(ref1).toBe(root);
       expect(ref2.current).toBe(root);
       expect(ref3.current).toBe(root);
-      // eslint-disable-next-line solid/reactivity
+
       expect(ref4()).toBe(root);
       expect(ref51.current).toBe(root);
       expect(ref52).toBe(root);

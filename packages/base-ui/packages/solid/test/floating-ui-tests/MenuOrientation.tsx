@@ -365,7 +365,7 @@ export function MenuItem(props: MenuItemProps & JSX.HTMLAttributes<HTMLButtonEle
       {...elementProps}
       ref={(el) => {
         item.setRef(el);
-        // eslint-disable-next-line solid/reactivity
+
         props.ref = el;
       }}
       type="button"
