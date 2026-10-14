@@ -432,12 +432,15 @@ export function popupListConformanceTests(config: PopupListTestConfig) {
             scroller.scrollTop = 45;
             await waitSingleFrame();
           });
+          // Solid: compared with the offset the scroller reports, not the one written: Firefox
+          // snaps scroll offsets to device pixels (45 reads back as 44.8).
+          const scrollTopBeforeHover = scroller.scrollTop;
           await user.hover(getItem(1));
           await waitFor(() => {
             expect(getHighlightedIndex()).toBe(1);
           });
           await settle();
-          expect(scroller.scrollTop).toBe(45);
+          expect(scroller.scrollTop).toBe(scrollTopBeforeHover);
         },
       );
     });
