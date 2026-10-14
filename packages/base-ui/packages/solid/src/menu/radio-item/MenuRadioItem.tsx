@@ -35,17 +35,6 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
   const disabledProp = () => Boolean(local.disabled);
   const closeOnClick = () => local.closeOnClick ?? false;
 
-  const filterItem = useMenuFilterItem({
-    get label() {
-      return local.label;
-    },
-    get children() {
-      return componentProps.children;
-    },
-    get render() {
-      return componentProps.render;
-    },
-  });
   const listItem = useCompositeListItem({ label: () => local.label });
   const id = useBaseUiId(idProp);
 
@@ -99,7 +88,21 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     setSelectedValue(local.value, details);
   };
 
-  const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
+  // The filter resolves the item's children once (to read their text): under the item's context,
+  // where its parts (the indicator) read it.
+  const renderItem = () => {
+    const filterItem = useMenuFilterItem({
+      get label() {
+        return local.label;
+      },
+      get children() {
+        return componentProps.children;
+      },
+      get render() {
+        return componentProps.render;
+      },
+    });
+    const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
     props: [
       ...itemSources.attributes,
       propsSourceMemo(itemProps),
@@ -123,12 +126,10 @@ export function MenuRadioItem(componentProps: MenuRadioItem.Props) {
     state,
     stateAttributesMapping: itemMapping,
   });
+    return <Show when={filterItem.visible()}>{element()}</Show>;
+  };
 
-  return (
-    <Show when={filterItem.visible()}>
-      {provideContext(MenuRadioItemContext, contextValue, element)}
-    </Show>
-  );
+  return provideContext(MenuRadioItemContext, contextValue, renderItem);
 }
 
 export type MenuRadioItemState = {
