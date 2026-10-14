@@ -22,7 +22,8 @@ export function Kbd(props: React.ComponentProps<'kbd'>) {
   return <kbd {...props} />;
 }`,
         `import type { ComponentProps } from '@solidjs/web';
-export function Kbd(props: ComponentProps<'kbd'>) {
+import type { ReactProps } from 'docs/src/adapters/react';
+export function Kbd(props: ReactProps<ComponentProps<'kbd'>>) {
   return <kbd {...props} />;
 }`,
       );
@@ -193,8 +194,9 @@ export function Item({ className, ...props }: React.ComponentProps<'li'>) {
 }`,
         `import { omit } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
 import clsx from 'clsx';
-export function Item(props: ComponentProps<'li'>) {
+export function Item(props: ReactProps<ComponentProps<'li'>>) {
   const rest = omit(props, 'class');
   return <li class={clsx('Item', props.class)} {...rest} />;
 }`,
@@ -795,10 +797,11 @@ interface ButtonProps extends React.ComponentProps<'button'> {
 }
 interface PanelProps extends React.HTMLAttributes<HTMLDivElement> {}`,
         `import type { ComponentProps, JSX } from '@solidjs/web';
-interface ButtonProps extends ComponentProps<'button'> {
+import type { ReactProps } from 'docs/src/adapters/react';
+interface ButtonProps extends ReactProps<ComponentProps<'button'>> {
   tone?: string;
 }
-interface PanelProps extends JSX.HTMLAttributes<HTMLDivElement> {}`,
+interface PanelProps extends ReactProps<JSX.HTMLAttributes<HTMLDivElement>> {}`,
       );
     });
 
@@ -811,9 +814,10 @@ type Icon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 type Box = React.RefObject<HTMLDivElement | null>;`,
         `import type { Component, ParentProps, Setter as SolidSetter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
 type Props = ParentProps<{ onPress: (event: MouseEvent & { currentTarget: HTMLButtonElement; target: Element }) => void }>;
 type Setter = SolidSetter<boolean>;
-type Icon = Component<JSX.SvgSVGAttributes<SVGSVGElement>>;
+type Icon = Component<ReactProps<JSX.SvgSVGAttributes<SVGSVGElement>>>;
 type Box = { current: HTMLDivElement | null };`,
       );
     });
@@ -1228,6 +1232,15 @@ export function Value() {
   }} />;
 }`,
       );
+    });
+
+    it("reads a docs module's alias of a Base UI hook as the Base UI hook", () => {
+      const source = `import { useToastManager } from './toast';
+export function Notify() {
+  const toastManager = useToastManager();
+  return <button onClick={() => toastManager.add({ title: 'Saved' })} />;
+}`;
+      expectTransform(source, source, { baseUiHookAliases: ['useToastManager'] });
     });
 
     it('creates a TanStack form from a function and reads its fields through calls', () => {
