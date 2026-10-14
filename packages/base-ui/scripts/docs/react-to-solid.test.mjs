@@ -402,7 +402,7 @@ export function Counter(props: { initial: number }) {
 }`,
         `import { createMemo, createSignal, untrack } from 'solid-js';
 export function Counter(props: { initial: number }) {
-  const [count] = createSignal(untrack(() => props.initial));
+  const [count] = createSignal(() => untrack(() => props.initial));
   const doubled = createMemo(() => count() * 2);
   const _render = createMemo(() => {
     if (!doubled()) {
@@ -422,9 +422,9 @@ export function Lazy() {
   const [value] = React.useState(() => compute());
   return <span>{value}</span>;
 }`,
-        `import { createSignal } from 'solid-js';
+        `import { createSignal, untrack } from 'solid-js';
 export function Lazy() {
-  const [value] = createSignal((() => compute())());
+  const [value] = createSignal(() => untrack(() => compute()));
   return <span>{value()}</span>;
 }`,
       );
@@ -442,7 +442,7 @@ export function Editor(props: { value: string }) {
         `import { createSignal } from 'solid-js';
 import { Dynamic } from '@solidjs/web';
 export function Editor(props: { value: string }) {
-  const [module] = createSignal(loadEditor);
+  const [module] = createSignal(() => loadEditor);
   return <Dynamic component={module().CodeEditor} value={props.value}></Dynamic>;
 }`,
       );
@@ -812,11 +812,11 @@ type Props = React.PropsWithChildren<{ onPress: (event: React.MouseEvent<HTMLBut
 type Setter = React.Dispatch<React.SetStateAction<boolean>>;
 type Icon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 type Box = React.RefObject<HTMLDivElement | null>;`,
-        `import type { Component, ParentProps, Setter as SolidSetter } from 'solid-js';
+        `import type { Component, ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { ReactProps } from 'docs/src/adapters/react';
 type Props = ParentProps<{ onPress: (event: MouseEvent & { currentTarget: HTMLButtonElement; target: Element }) => void }>;
-type Setter = SolidSetter<boolean>;
+type Setter = (value: boolean | ((prev: boolean) => boolean)) => void;
 type Icon = Component<ReactProps<JSX.SvgSVGAttributes<SVGSVGElement>>>;
 type Box = { current: HTMLDivElement | null };`,
       );
@@ -1043,6 +1043,27 @@ export function Count(props: { count: ReturnType<ReturnType<typeof useCount>> })
   return <span>{props.count}</span>;
 }`,
       );
+    });
+
+    it("types an optional hook parameter's accessor as returning undefined too", () => {
+      const output =
+        transformReactToSolid(`export function useCopier(text: string, opts?: { timeout: number }) {
+  return opts?.timeout ?? text.length;
+}`);
+      expect(output).toContain('opts?: Accessor<{');
+      expect(output).toMatch(/timeout: number;\s*\} \| undefined>/);
+    });
+
+    it('stores a value of a type parameter through an updater', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+export function useLoaded<P>(load: () => Promise<P>) {
+  const [data, setData] = React.useState<P | undefined>(undefined);
+  React.useEffect(() => {
+    load().then((result) => setData(result));
+  }, [load]);
+  return data;
+}`);
+      expect(output).toContain('setData(() => result)');
     });
 
     it('types a callback as its useCallback type argument', () => {
