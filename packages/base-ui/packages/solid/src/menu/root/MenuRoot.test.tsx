@@ -17,13 +17,25 @@ import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { Menu } from '@solidports/base-ui/menu';
 import { cleanup, fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { createSignal, flush, For, onSettled, Show } from 'solid-js';
+import {
+  createRenderEffect,
+  createRoot,
+  createSignal,
+  DEV,
+  flush,
+  For,
+  getOwner,
+  onSettled,
+  Show,
+} from 'solid-js';
 import type { Component } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { CDPSession } from '@vitest/browser-playwright';
-import { expect, vi, describe, beforeEach, it, afterEach } from 'vitest';
+import { expect, vi, describe, beforeEach, it, afterEach, onTestFinished } from 'vitest';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { REASONS } from '../../utils/reasons';
+import type { MenuStore } from '../store/MenuStore';
+import { useMenuRootContext } from './MenuRootContext';
 import { splitProps } from '../../solid-1-compat';
 
 // Solid: React reads `platform.engine.blink`.
@@ -3539,13 +3551,131 @@ describe('<Menu.Root />', () => {
   });
 
   describe('submenu parent store subscription', () => {
-    // Solid: a submenu reads its parent's shared state through owned reactive reads that are
-    // disposed with it; there is no store subscription to count.
-    it.skip('releases the subscriptions a submenu adds to its parent store when it unmounts', () => {});
-    // Solid: there is no StrictMode.
-    it.skip('releases them under StrictMode', () => {});
-    // Solid: there is no StrictMode.
-    it.skip('notifies submenu subscribers when shared parent state changes under StrictMode', () => {});
+    // Solid: a submenu subscribes to its parent's store through reactive reads, not `subscribe`.
+    // A probe computation that reads every key of the store collects the store's signals as its
+    // sources; their other observers are the store's active subscriptions.
+    function trackSubscriptions(store: MenuStore<unknown>) {
+      let probe: unknown;
+      const disposeProbe = createRoot((dispose) => {
+        createRenderEffect(
+          () => {
+            probe = getOwner();
+            for (const key of Object.keys(store.state)) {
+              void (store.state as Record<string, unknown>)[key];
+            }
+          },
+          () => {},
+        );
+        return dispose;
+      });
+      onTestFinished(disposeProbe);
+      return () =>
+        (DEV!.getSources(probe as never) as unknown[]).reduce<number>(
+          (count, source) =>
+            count +
+            (DEV!.getObservers(source as never) as unknown[]).filter(
+              (observer) => observer !== probe,
+            ).length,
+          0,
+        );
+    }
+
+    function StoreCapture(props: { onStore: (store: MenuStore<unknown>) => void }) {
+      props.onStore(useMenuRootContext().store);
+      return null;
+    }
+
+    function TestMenu(props: {
+      showSubmenu: boolean;
+      onParentStore: (store: MenuStore<unknown>) => void;
+      onSubmenuStore?: (store: MenuStore<unknown>) => void;
+    }) {
+      return (
+        <Menu.Root open>
+          <StoreCapture onStore={props.onParentStore} />
+          <Menu.Portal>
+            <Menu.Positioner>
+              <Menu.Popup>
+                <Show when={props.showSubmenu}>
+                  <Menu.SubmenuRoot>
+                    <StoreCapture onStore={props.onSubmenuStore ?? (() => {})} />
+                    <Menu.SubmenuTrigger>More</Menu.SubmenuTrigger>
+                  </Menu.SubmenuRoot>
+                </Show>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      );
+    }
+
+    // Solid: there is no StrictMode. What it exercises, a submenu torn down and mounted again, is
+    // a remount here (`remounts`).
+    function leakedSubscriptionsAfterSubmenuUnmount(remounts: number) {
+      let parentStore: MenuStore<unknown> | undefined;
+      const [showSubmenu, setShowSubmenu] = createSignal(false);
+      render(() => (
+        <TestMenu
+          showSubmenu={showSubmenu()}
+          onParentStore={(store) => {
+            parentStore = store;
+          }}
+        />
+      ));
+      const activeSubscriptions = trackSubscriptions(parentStore!);
+      const baseline = activeSubscriptions();
+
+      for (let mount = 0; mount <= remounts; mount += 1) {
+        act(() => setShowSubmenu(true));
+        expect(activeSubscriptions()).toBeGreaterThan(baseline);
+        act(() => setShowSubmenu(false));
+      }
+      return activeSubscriptions() - baseline;
+    }
+
+    it('releases the subscriptions a submenu adds to its parent store when it unmounts', () => {
+      expect(leakedSubscriptionsAfterSubmenuUnmount(0)).toBe(0);
+    });
+
+    it('releases them under StrictMode', () => {
+      expect(leakedSubscriptionsAfterSubmenuUnmount(1)).toBe(0);
+    });
+
+    it('notifies submenu subscribers when shared parent state changes under StrictMode', () => {
+      let parentStore: MenuStore<unknown> | undefined;
+      let submenuStore: MenuStore<unknown> | undefined;
+      const [showSubmenu, setShowSubmenu] = createSignal(true);
+      render(() => (
+        <TestMenu
+          showSubmenu={showSubmenu()}
+          onParentStore={(store) => {
+            parentStore = store;
+          }}
+          onSubmenuStore={(store) => {
+            submenuStore = store;
+          }}
+        />
+      ));
+      // Solid: StrictMode's second mount, as a remount.
+      act(() => setShowSubmenu(false));
+      act(() => setShowSubmenu(true));
+
+      const submenuListener = vi.fn();
+      let initialCall = true;
+      const unsubscribe = submenuStore!.observe('rootId', () => {
+        if (initialCall) {
+          initialCall = false;
+          return;
+        }
+        submenuListener();
+      });
+      act(() => {
+        parentStore!.set('rootId', 'next-root-id');
+      });
+      unsubscribe();
+
+      expect(submenuListener).toHaveBeenCalled();
+    });
   });
 });
 function ContainedTriggerMenu(props: TestMenuProps) {

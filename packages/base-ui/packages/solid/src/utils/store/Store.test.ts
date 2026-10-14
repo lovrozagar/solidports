@@ -103,8 +103,19 @@ describe('Store', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  // Solid: the state proxy keeps its identity and nested stores are tracked directly, so there is no `notifyAll()`.
-  it.skip('notifyAll() renews the state reference and notifies', () => {});
+  it('notifyAll() renews the state reference and notifies', () => {
+    const store = SolidStore<State>({ value: 0, label: 'a' });
+    const listener = vi.fn();
+    subscribe(store, listener);
+    const previous = { ...store.state };
+
+    store.notifyAll();
+
+    // Solid: the state is one proxy whose reference never changes; listeners get a new state.
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener.mock.calls[0][0]).not.toBe(previous);
+    expect(listener.mock.calls[0][0]).toEqual(previous);
+  });
   it('a nested setState from a listener stops the outer notification pass', () => {
     const store = SolidStore<State>({ value: 0, label: 'a' });
 
