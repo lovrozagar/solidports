@@ -111,7 +111,7 @@ const suites = [
     run: [
       `bun run test:${browser} --run --maxWorkers=2 --reporter=json --outputFile=../../.tmp/base-ui-test-all/react-${browser}.json || true`,
       `bun run test:solid:${browser} --run --maxWorkers=2 --reporter=json --outputFile=../../.tmp/base-ui-test-all/solid-${browser}.json || true`,
-      `node scripts/browser-parity.mjs ../../.tmp/base-ui-test-all/react-${browser}.json ../../.tmp/base-ui-test-all/solid-${browser}.json`,
+      `node scripts/browser-parity.mjs ../../.tmp/base-ui-test-all/react-${browser}.json ../../.tmp/base-ui-test-all/solid-${browser}.json --confirm ${browser}`,
     ],
   })),
   { job: 'E2E tests', name: 'e2e', cwd: baseUi, run: ['bun run test:e2e:solid'] },
