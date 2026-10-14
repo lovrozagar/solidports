@@ -66,6 +66,72 @@ const EXCLUDED = [
   },
 ];
 
+/**
+ * Page sections the Solid docs leave out, with their demos, each with its reason: the library the
+ * section shows has no Solid 2 version. `mentions` are links to the section elsewhere on the page.
+ */
+const EXCLUDED_SECTIONS = [
+  {
+    page: 'src/app/(docs)/react/components/combobox/page.mdx',
+    heading: 'Virtualized',
+    demos: 'src/app/(docs)/react/components/combobox/demos/virtualized/',
+    reason:
+      "@tanstack/solid-virtual targets Solid 1; the demo's virtualizer has no Solid 2 version.",
+  },
+  {
+    page: 'src/app/(docs)/react/components/autocomplete/page.mdx',
+    heading: 'Virtualized',
+    demos: 'src/app/(docs)/react/components/autocomplete/demos/virtualized/',
+    reason:
+      "@tanstack/solid-virtual targets Solid 1; the demo's virtualizer has no Solid 2 version.",
+  },
+  {
+    page: 'src/app/(docs)/react/handbook/forms/page.mdx',
+    heading: 'React Hook Form',
+    demos: 'src/app/(docs)/react/handbook/forms/demos/react-hook-form/',
+    mentions: ['[React Hook Form](#react-hook-form) and ', "    'React Hook Form Integration',\n"],
+    reason: 'React Hook Form has no Solid version.',
+  },
+];
+for (const section of EXCLUDED_SECTIONS) {
+  EXCLUDED.push({ path: section.demos, reason: section.reason });
+}
+
+const headingText = (node) =>
+  (node.children ?? []).map((child) => child.value ?? headingText(child)).join('');
+
+/** A page without its excluded sections (heading to the next heading of its level or above). */
+function removeExcludedSections(code, rel) {
+  const sections = EXCLUDED_SECTIONS.filter((section) => section.page === rel);
+  if (sections.length === 0) {
+    return code;
+  }
+  const tree = unified().use(remarkParse).use(remarkMdx).use(remarkGfm).parse(code);
+  const ranges = [];
+  tree.children.forEach((node, index) => {
+    const section =
+      node.type === 'heading' &&
+      sections.find((candidate) => candidate.heading === headingText(node));
+    if (!section) {
+      return;
+    }
+    const next = tree.children
+      .slice(index + 1)
+      .find((candidate) => candidate.type === 'heading' && candidate.depth <= node.depth);
+    ranges.push([node.position.start.offset, next ? next.position.start.offset : code.length]);
+  });
+  let output = code;
+  for (const [start, end] of ranges.sort((a, b) => b[0] - a[0])) {
+    output = output.slice(0, start) + output.slice(end);
+  }
+  for (const section of sections) {
+    for (const mention of section.mentions ?? []) {
+      output = output.replaceAll(mention, '');
+    }
+  }
+  return output;
+}
+
 const ROUTE_RENAMES = [['src/app/(docs)/react/', 'src/app/(docs)/solid/']];
 
 // docs-infra's output for the docs it renders (a component's API reference, `types.md`): written
@@ -121,7 +187,6 @@ const MODULES = {
   'react/jsx-runtime': 'docs/src/adapters/jsx-runtime',
   'react-error-boundary': 'docs/src/adapters/react-error-boundary',
   'react-simple-code-editor': 'docs/react-simple-code-editor/src/index',
-  '@tanstack/react-form': '@tanstack/solid-form',
   'hast-util-to-jsx-runtime': 'docs/src/adapters/hast-util-to-jsx-runtime',
   'server-only': 'docs/src/adapters/server-only',
 };
@@ -272,7 +337,8 @@ async function transformSample(code, lang) {
   return output.replace(/\n$/, '');
 }
 
-async function transformMdx(code) {
+async function transformMdx(source, rel) {
+  const code = removeExcludedSections(source, rel);
   const tree = unified().use(remarkParse).use(remarkMdx).use(remarkGfm).parse(code);
   const edits = [];
   const jobs = [];
@@ -331,7 +397,7 @@ async function generateSource(file, rel) {
     return transformCode(code, file, { rewriteString: rewriteText, standalone });
   }
   if (file.endsWith('.mdx')) {
-    return transformMdx(code);
+    return transformMdx(code, rel);
   }
   if (/\.(css|md|json|txt|mjs|js|d\.ts)$/.test(file)) {
     return rel.startsWith('src/') || rel === 'next.config.mjs' ? rewriteText(code) : code;
