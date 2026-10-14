@@ -2,13 +2,13 @@
 
 ## When to use
 
-The user asks you to port a Base UI React component to Solid that doesn't
+The user asks you to port a Base UI React component to Solid that doesn't
 yet exist (or is incomplete) under `packages/solid/src/`.
 
 ## Inputs you need
 
-- **Component name** in PascalCase (e.g. `Tooltip`, `NumberField`).
-- **Scope:** the whole component, or a specific subpart (e.g. just the
+- **Component name** in PascalCase (for example `Tooltip`, `NumberField`).
+- **Scope:** the whole component, or a specific subpart (for example just the
   `Trigger`)?
 - Whether **docs + demo** should be ported in this pass, or deferred.
 

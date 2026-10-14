@@ -1,6 +1,6 @@
 # `.kb/porting/` — porting playbooks
 
-Cross-cutting recipes for porting React Base UI components to Solid.
+Cross-cutting recipes for porting React Base UI components to Solid.
 **Routing only — no implementation detail lives here.** Detail lives in
 [`../solid/`](../solid/) topic files (refs, effects, events, etc.) and in
 [`../components/<name>.md`](../components/) per-component files.

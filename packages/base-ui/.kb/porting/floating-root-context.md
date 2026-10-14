@@ -5,7 +5,7 @@
 
 ## What this is
 
-The React Base UI codebase uses `floatingRootContext` in two distinct
+The React Base UI codebase uses `floatingRootContext` in two distinct
 ways. The Solid port must preserve both shapes — getting the choice wrong
 silently breaks position updates or breaks listener identity. This file
 documents which shape applies where, and points at the React file

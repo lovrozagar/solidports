@@ -76,7 +76,7 @@ Snapshot 2026-04-26. Run from `packages/solid/`.
 ## Execution order
 
 - [ ] step 1 — ensure `tsc -b tsconfig.build.json` runs in CI before test typecheck
-- [ ] step 2 — fix 11 TS errors
+- [ ] step 2 — fix 11 TypeScript errors
 - [ ] step 3 — add package-local `.oxlintrc.json` test override → -253 errors
 - [ ] step 4 — `bunx oxlint --fix` per dir → kills bulk eqeqeq + many warnings
 - [ ] step 5 — fix 2 `useSwipeDismiss` `const-comparisons` bugs

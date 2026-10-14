@@ -1,0 +1,8 @@
+# Upstream's workspace layout. Bun installs this monorepo; the file lets @mui/internal-code-infra's
+# tools (vale, extract-error-codes), which locate packages through pnpm, run as they do upstream.
+packages:
+  - packages/*
+  - docs/*
+  - test
+  - test/*
+  - scripts/*

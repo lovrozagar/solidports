@@ -6,7 +6,7 @@
 
 ## What this is
 
-Generic step order for porting **any** Base UI React component to Solid.
+Generic step order for porting **any** Base UI React component to Solid.
 The mechanical rules (hook → primitive translation, ref handling, etc.)
 live in the monorepo root `AGENTS.md`, [`../solid/reactivity-rules.md`](../solid/reactivity-rules.md),
 and the archived skill

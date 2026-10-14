@@ -1,0 +1,3 @@
+# Written by `generate-md` (dev and build), as upstream generates its LLM markdown at build time.
+/public/solid/
+/public/solid.md

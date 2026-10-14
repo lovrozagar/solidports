@@ -83,7 +83,7 @@
     "docs:sync": "bun scripts/docs/sync-docs-react.mjs",
     "eslint": "bun --filter '*' lint && eslint . --cache --report-unused-disable-directives --max-warnings 0",
     "eslint:ci": "bun --filter '*' lint && eslint . --report-unused-disable-directives --max-warnings 0",
-    "extract-error-codes": "code-infra extract-error-codes --errorCodesPath docs/react/src/error-codes.json --detection opt-out",
+    "extract-error-codes": "cross-env npm_config_package_manager_strict=false code-infra extract-error-codes --errorCodesPath docs/react/src/error-codes.json --detection opt-out",
     "inline-scripts": "tsx ./scripts/inlineScripts.mts",
     "markdownlint": "markdownlint-cli2 \"**/*.{md,mdx}\"",
     "playground:build:export": "cd playground/vite-app && cross-env PLAYGROUND_BASE=/vite-playground/ PLAYGROUND_OUT_DIR=../../docs/react/export/vite-playground bun run build",
@@ -141,7 +141,10 @@
     "test:webkit:ui": "bun test:webkit --browser.headless=false",
     "typescript": "tsc -b tsconfig.json",
     "use-react-18": "code-infra set-version-overrides --pkg react@18",
-    "valelint": "bunx --package @vvago/vale vale sync && git ls-files | grep -E \"\\.(md|mdx)$\" | xargs bunx --package @vvago/vale vale --filter='.Level==\"error\"'"
+    "valelint": "bunx code-infra vale sync --vale-version $npm_package_config_valeVersion && git ls-files | grep -E \"\\.(md|mdx)$\" | xargs bunx code-infra vale --vale-version $npm_package_config_valeVersion --filter='.Level==\"error\"'"
   },
-  "version": "1.2.0"
+  "version": "1.2.0",
+  "config": {
+    "valeVersion": "3.24.0"
+  }
 }

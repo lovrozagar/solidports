@@ -1,4 +1,4 @@
-# `.kb` — Base UI Solid port notes
+# `.kb` — Base UI Solid port notes
 
 **Read this first.** Agent-agnostic, terse. Long-form Solid rules live in the
 monorepo root `AGENTS.md` and `packages/base-ui/AGENTS.md`. This tree adds

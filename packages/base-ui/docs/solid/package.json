@@ -54,7 +54,7 @@
   "private": true,
   "scripts": {
     "build": "bun run generate-md && vite build",
-    "dev": "vite --port 3001",
+    "dev": "bun run generate-md && vite --port 3001",
     "generate-md": "node scripts/generateMd/index.mjs",
     "preview": "vite preview --port 3001",
     "test:e2e": "playwright test",

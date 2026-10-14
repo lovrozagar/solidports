@@ -6,7 +6,7 @@
 
 ## Stub
 
-Concept-level documentation pending. Base UI components accept a `render`
+Concept-level documentation pending. Base UI components accept a `render`
 prop that lets the consumer choose the underlying element or component while
 the headless component still owns props, state attributes, and behavior.
 

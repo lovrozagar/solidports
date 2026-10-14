@@ -53,7 +53,7 @@ participate in the click chain.
 ### Trigger handlers wrap setters in `batch(...)`
 
 Solid only auto-batches inside event-handler scope. When a hook's trigger
-handler calls multiple setters that should appear as one update (e.g.
+handler calls multiple setters that should appear as one update (for example
 `setMounted`, `setVisible`, `setOpen` in collapsible), wrap them in
 `batch(() => { ... })`. Without it, intermediate `createEffect` runs fire
 between setters. See `useCollapsibleRoot.ts` (~line 66).

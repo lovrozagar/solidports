@@ -6,7 +6,7 @@
 
 ## Stub
 
-Index of common Base UI React hooks pending. For the canonical translation
+Index of common Base UI React hooks pending. For the canonical translation
 table from React hooks to Solid primitives, see the upstream Cursor porting
 skill (Section 1–2):
 `~/.cursor/projects/Users-msv-codeforfun-base-ui/skills/base-ui-solid-port/SKILL.md`

@@ -27,15 +27,19 @@ async function buildFile(sourceFile: string) {
 }
 
 /**
- * Finds files with the `.template.js` extension in the `react` package, minifies them, and writes
+ * Finds files with the `.template.js` extension in the `react` and `solid` packages, minifies them, and writes
  * the code to a new file with the `.min.ts` extension.
  * The minified code is then exported as a string literal.
  */
 async function run() {
-  const files = await globby('**/*.template.js', {
-    absolute: true,
-    cwd: path.resolve(currentDirectory, '../packages/react/src'),
-  });
+  // The React package (upstream) and the Solid package, which ports its prehydration scripts.
+  const files = (
+    await Promise.all(
+      ['../packages/react/src', '../packages/solid/src'].map((dir) =>
+        globby('**/*.template.js', { absolute: true, cwd: path.resolve(currentDirectory, dir) }),
+      ),
+    )
+  ).flat();
   await Promise.all(files.map(buildFile));
   return files;
 }
