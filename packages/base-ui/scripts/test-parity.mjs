@@ -231,7 +231,57 @@ function extraSkips(upstreamCondition, solidCondition) {
 }
 
 // Upstream titles that name React where the Solid test names its own package.
-const TITLE_ALIASES = { '@base-ui/react': '@solidports/base-ui' };
+const TITLE_ALIASES = {
+  '@base-ui/react': '@solidports/base-ui',
+  // React 17 has no server id, so upstream asserts none; Solid's `createUniqueId` renders one.
+  'returns undefined on the server': 'renders the generated id on the server',
+};
+
+// `@base-ui/utils` modules the Solid package has no counterpart of, because nothing upstream (no
+// component, docs page or test) uses them: they are only re-exported for that package's
+// consumers, and the Solid package does not publish a utils package. Their test files are listed
+// as not ported, and the check fails once anything upstream starts using one.
+const UNUSED_UTILS_MODULES = {
+  'store/createSelector': 'createSelector',
+  'store/createSelectorMemoized': 'createSelectorMemoized',
+  useIdleCallback: 'useIdleCallback',
+};
+
+/** Upstream files outside the listed modules, their tests and the barrel that reference `name`. */
+function upstreamUsers(modulePath, name) {
+  const pattern = new RegExp(`\\b${name}\\b`);
+  const sources = (dir) => {
+    const out = [];
+    const visit = (current) => {
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        const full = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          if (!IGNORED_DIRECTORIES.has(entry.name)) {
+            visit(full);
+          }
+        } else if (/\.[cm]?[jt]sx?$/.test(entry.name) && !TEST_FILE.test(entry.name)) {
+          out.push(full);
+        }
+      }
+    };
+    if (fs.existsSync(dir)) {
+      visit(dir);
+    }
+    return out;
+  };
+  // The listed modules may use each other; only a use outside them counts.
+  const own = new Set(
+    Object.keys(UNUSED_UTILS_MODULES).flatMap((listed) =>
+      ['.ts', '.tsx'].map((extension) => path.join(root, 'packages/utils/src', listed + extension)),
+    ),
+  );
+  const barrel = path.join(root, 'packages/utils/src', path.dirname(modulePath), 'index.ts');
+  return ['packages/react/src', 'packages/react/test', 'packages/utils/src', 'docs/react/src']
+    .flatMap((dir) => sources(path.join(root, dir)))
+    .filter((file) => !own.has(file) && file !== barrel)
+    .filter((file) => pattern.test(fs.readFileSync(file, 'utf8')))
+    .map((file) => path.relative(root, file));
+}
 
 const report = {
   missingFiles: [],
@@ -239,6 +289,7 @@ const report = {
   extraSkips: [],
   markers: [],
   solidOnlyConditional: [],
+  notPorted: [],
 };
 
 for (const [tree, reactFile] of TREES.flatMap((entry) =>
@@ -246,6 +297,28 @@ for (const [tree, reactFile] of TREES.flatMap((entry) =>
 )) {
   const solidFiles = solidCounterparts(tree, reactFile);
   const reactRelative = path.relative(root, reactFile);
+  const unusedModule =
+    tree.react === 'packages/utils/src'
+      ? Object.keys(UNUSED_UTILS_MODULES).find(
+          (modulePath) =>
+            path.relative(path.join(root, tree.react), reactFile).replace(/\.[^/]+$/, '').replace(
+              /\.(test|spec|fallback\.test)$/,
+              '',
+            ) === modulePath ||
+            path
+              .relative(path.join(root, tree.react), reactFile)
+              .startsWith(`${modulePath}.`),
+        )
+      : undefined;
+  if (solidFiles.length === 0 && unusedModule) {
+    const users = upstreamUsers(unusedModule, UNUSED_UTILS_MODULES[unusedModule]);
+    if (users.length > 0) {
+      report.missingFiles.push(`${reactRelative} (its module is now used by ${users.join(', ')})`);
+    } else {
+      report.notPorted.push(reactRelative);
+    }
+    continue;
+  }
   if (solidFiles.length === 0) {
     report.missingFiles.push(reactRelative);
     continue;
@@ -325,6 +398,9 @@ const listed = [
 for (const line of listed) {
   console.log(`- ${line}`);
 }
+for (const file of report.notPorted) {
+  console.log(`- not ported (module unused upstream, no Solid counterpart): ${file}`);
+}
 
 console.log(
   [
@@ -333,6 +409,7 @@ console.log(
     `upstream tests Solid skips in an environment upstream runs them: ${report.extraSkips.length}`,
     `Solid .skip/.todo/.fails/.only markers: ${report.markers.length}`,
     `Solid-only tests with a skip condition (not counted): ${report.solidOnlyConditional.length}`,
+    `upstream test files of modules nothing upstream uses, not ported: ${report.notPorted.length}`,
   ].join('\n'),
 );
 
