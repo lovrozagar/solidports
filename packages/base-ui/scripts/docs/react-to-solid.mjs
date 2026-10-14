@@ -636,7 +636,7 @@ function lowerReactHook(node, api, ctx) {
         imports.add('solid-js', 'createTrackedEffect');
         return t.callExpression(t.identifier('createTrackedEffect'), [fn]);
       }
-      if (api !== 'useEffect') {
+      if (api !== 'useEffect' && !ctx.standalone) {
         // React never runs a layout effect on the server; Solid's server runs a render effect.
         imports.add(REACT_ADAPTERS, 'createLayoutEffect');
         return t.callExpression(t.identifier('createLayoutEffect'), [
@@ -1759,7 +1759,23 @@ function transformJsx(programPath, ctx) {
             property.key = t.stringLiteral(kebab(key));
           }
         }
-      } else if (!t.isStringLiteral(style) && !t.isTemplateLiteral(style)) {
+      } else if (ctx.standalone && t.isObjectExpression(style)) {
+        // Code users copy (a demo) converts what it can as written: literal keys, literal numbers.
+        for (const property of style.properties) {
+          if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.key)) {
+            continue;
+          }
+          const key = property.key.name;
+          if (t.isNumericLiteral(property.value) && !UNITLESS.has(key)) {
+            property.value = t.stringLiteral(
+              property.value.value === 0 ? '0' : `${property.value.value}px`,
+            );
+          }
+          if (/[A-Z]/.test(key)) {
+            property.key = t.stringLiteral(kebab(key));
+          }
+        }
+      } else if (!ctx.standalone && !t.isStringLiteral(style) && !t.isTemplateLiteral(style)) {
         // Anything else (a variable, a spread, a value computed at runtime, a function of the
         // state) converts when it is read.
         imports.add(REACT_ADAPTERS, 'reactStyle');
@@ -2209,6 +2225,8 @@ export function transformReactToSolid(source, options = {}) {
     refs: new Set(),
     // A `.ts` module has no JSX to render with.
     jsx: !options.filename?.endsWith('.ts'),
+    // Code users copy (demos, samples): no imports of the docs' adapters.
+    standalone: Boolean(options.standalone),
     // Prop names components declare under React's attribute names (kept on components).
     componentProps: new Set(options.componentProps ?? []),
   };
@@ -2271,7 +2289,9 @@ export function transformReactToSolid(source, options = {}) {
 
       transformModuleApis(programPath, ctx);
       programPath.scope.crawl();
-      deferElements(programPath, ctx);
+      if (!ctx.standalone) {
+        deferElements(programPath, ctx);
+      }
       programPath.scope.crawl();
       lowerReactiveFunctions(programPath, ctx);
       lowerRemainingHooks(programPath, ctx);

@@ -214,13 +214,22 @@ async function transformSample(code, lang) {
   const file = `sample.${lang === 'js' || lang === 'jsx' ? 'jsx' : 'tsx'}`;
   let output;
   try {
-    output = transformReactToSolid(code, { modules: MODULES, componentProps: COMPONENT_PROPS });
+    output = transformReactToSolid(code, {
+      modules: MODULES,
+      componentProps: COMPONENT_PROPS,
+      standalone: true,
+    });
     if (printCode(output) === printCode(code)) {
       return code;
     }
     output = await format(output, file);
   } catch {
     return code.replace(/\bclassName=/g, 'class=').replace(/\bhtmlFor=/g, 'for=');
+  }
+  // The blank line after the imports stays (the printer drops blank lines).
+  const importsEnd = /^(?:import [^\n]*\n)+\n/.exec(code);
+  if (importsEnd) {
+    output = output.replace(/^((?:import [^\n]*\n)+)(?!\n)/, '$1\n');
   }
   // A sample that ends in an expression without a semicolon keeps it that way.
   if (!/;\s*$/.test(code)) {
@@ -283,7 +292,9 @@ async function transformMdx(code) {
 async function generateSource(file, rel) {
   const code = fs.readFileSync(file, 'utf8');
   if (/\.(tsx?|mts)$/.test(file) && !file.endsWith('.d.ts')) {
-    return transformCode(code, file, { rewriteString: rewriteText });
+    // A demo is code users copy: it stands on its own.
+    const standalone = /\/demos\//.test(rel);
+    return transformCode(code, file, { rewriteString: rewriteText, standalone });
   }
   if (file.endsWith('.mdx')) {
     return transformMdx(code);
