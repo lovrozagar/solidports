@@ -895,6 +895,65 @@ import { useCode } from 'docs/src/adapters/docs-infra/useCode';`,
     });
   });
 
+  describe('more React shapes', () => {
+    it('reads a forwarded ref from destructured props', () => {
+      expectTransform(
+        `import * as React from 'react';
+export const Input = React.forwardRef<HTMLInputElement, { className?: string }>(function Input({ className, ...props }, forwardedRef) {
+  return <input ref={forwardedRef} className={className} {...props} />;
+});`,
+        `import { omit } from 'solid-js';
+import type { Ref } from 'solid-js';
+export const Input = function Input(props: { className?: string } & { ref?: Ref<HTMLInputElement> }) {
+  const rest = omit(props, 'class', 'ref');
+  return <input ref={props.ref} class={props.class} {...rest} />;
+};`,
+      );
+    });
+
+    it('calls the index of a mapped list, which For passes as an accessor', () => {
+      expectTransform(
+        `export function List(props: { items: string[] }) {
+  return <ul>{props.items.map((item, index) => <li data-first={index === 0}>{item}</li>)}</ul>;
+}`,
+        `import { For } from 'solid-js';
+export function List(props: { items: string[] }) {
+  return <ul><For each={props.items}>{(item, index) => <li data-first={index() === 0}>{item}</li>}</For></ul>;
+}`,
+      );
+    });
+
+    it('renames className reads on the rest of the props', () => {
+      expectTransform(
+        `export function Box({ id, ...rest }: { id: string; className?: string }) {
+  return <div id={id} className={rest.className} />;
+}`,
+        `import { omit } from 'solid-js';
+export function Box(props: { id: string; className?: string }) {
+  const rest = omit(props, 'id');
+  return <div id={props.id} class={rest.class} />;
+}`,
+      );
+    });
+
+    it('types the overloads of a hook with accessors', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function useInit<T>(init: () => T): { current: T };
+export function useInit(init: () => unknown) {
+  return React.useRef(init());
+}`,
+        `import { createMemo, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+export function useInit<T>(init: Accessor<() => T>): Accessor<{ current: T }>;
+export function useInit(init: Accessor<() => unknown>) {
+  const _useRef = { current: untrack(init)() };
+  return createMemo(() => _useRef);
+}`,
+      );
+    });
+  });
+
   describe('strings', () => {
     it('rewrites strings, template parts and JSX text but not module specifiers', () => {
       expectTransform(
