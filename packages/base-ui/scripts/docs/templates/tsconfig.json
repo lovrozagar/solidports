@@ -19,7 +19,9 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "strictNullChecks": true,
+    // Generated code reads reactive values through calls, which TypeScript does not narrow
+    // (`if (x()) x().y`); the React source it comes from is checked with strict null checks.
+    "strictNullChecks": false,
     "jsx": "preserve",
     "jsxImportSource": "@solidjs/web",
     "types": ["vite/client", "node"],

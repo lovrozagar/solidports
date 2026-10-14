@@ -1835,6 +1835,18 @@ function transformJsx(programPath, ctx) {
         }
       } else if (ctx.standalone && t.isObjectExpression(style)) {
         // Code users copy (a demo) converts what it can as written: literal keys, literal numbers.
+        // A spread style is an object, as React types it (Solid's may be a string).
+        for (const property of style.properties) {
+          if (t.isSpreadElement(property)) {
+            imports.add('@solidjs/web', 'JSX', true);
+            property.argument = t.tsAsExpression(
+              property.argument,
+              t.tsTypeReference(
+                t.tsQualifiedName(t.identifier('JSX'), t.identifier('CSSProperties')),
+              ),
+            );
+          }
+        }
         for (const property of style.properties) {
           if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.key)) {
             continue;
