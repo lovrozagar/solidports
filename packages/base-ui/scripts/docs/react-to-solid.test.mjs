@@ -139,23 +139,6 @@ export function Bar(props: { width: number }) {
     });
   });
 
-  describe('dynamic tags', () => {
-    it('renders a tag that may be a tag name through Dynamic', () => {
-      expectTransform(
-        `export function Code(props: { pre?: () => null }) {
-  const Pre = props.pre ?? 'pre';
-  return <Pre class="code">x</Pre>;
-}`,
-        `import { createMemo } from 'solid-js';
-import { Dynamic } from '@solidjs/web';
-export function Code(props: { pre?: () => null }) {
-  const Pre = createMemo(() => props.pre ?? 'pre');
-  return <Dynamic component={Pre()} class="code">x</Dynamic>;
-}`,
-      );
-    });
-  });
-
   describe('props objects', () => {
     it("writes an element props object's attribute names as Solid's", () => {
       expectTransform(
@@ -863,6 +846,21 @@ export function Providers(props: { children: unknown }) {
   });
 
   describe('dynamic tags', () => {
+    it('renders a tag that may be a tag name through Dynamic', () => {
+      expectTransform(
+        `export function Code(props: { pre?: () => null }) {
+  const Pre = props.pre ?? 'pre';
+  return <Pre class="code">x</Pre>;
+}`,
+        `import { createMemo } from 'solid-js';
+import { Dynamic } from '@solidjs/web';
+export function Code(props: { pre?: () => null }) {
+  const Pre = createMemo(() => props.pre ?? 'pre');
+  return <Dynamic component={Pre()} class="code">x</Dynamic>;
+}`,
+      );
+    });
+
     it('renders a prop used as a tag with Dynamic', () => {
       expectTransform(
         `export function Box({ tag: Tag = 'span', children }: { tag?: string; children?: unknown }) {
