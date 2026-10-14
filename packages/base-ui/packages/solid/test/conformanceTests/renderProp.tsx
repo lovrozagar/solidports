@@ -61,15 +61,6 @@ export function testRenderProp(
     });
 
     // Solid: a component can be passed as the render prop itself.
-    it('renders a customized root element with a component', () => {
-      render(element as any, {
-        render: Wrapper,
-        ...(button && { nativeButton: Element === 'button' }),
-      });
-
-      expect(screen.queryAllByTestId('base-ui-wrapper')).toHaveLength(wrappingAllowed ? 1 : 0);
-    });
-
     it('should pass the ref to the custom component', () => {
       let instanceFromRef: any;
 

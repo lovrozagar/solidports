@@ -1,8 +1,8 @@
 /* eslint-disable testing-library/render-result-naming-convention */
 import { act, createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
-import { expect, describe, it } from 'vitest';
-import { createSignal, lazy, Loading } from 'solid-js';
+import { expect, describe, it, vi } from 'vitest';
+import { createSignal, Errored, flush, lazy, Loading } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { EMPTY_OBJECT } from '../utils/empty';
 import { mergeProps as solidMergeProps } from '../merge-props';
@@ -340,7 +340,12 @@ describe('useRenderElement', () => {
       });
 
       const { container } = render(() => (
-        <TestComponent active render={renderFn} data-testid="custom" />
+        // A `vi.fn` mock is named `Mock`, which reads as a component passed as `render`.
+        <TestComponent
+          active
+          render={(props, state) => renderFn(props, state)}
+          data-testid="custom"
+        />
       ));
 
       const element = container.firstElementChild;
@@ -516,13 +521,43 @@ describe('useRenderElement', () => {
       expect(renderRef).toBe(componentRef);
     });
 
-    // Solid: components are plain functions, so a component passed as `render` is a valid
-    // callback and no naming warning exists.
-    it.skip('warns when render is passed a function with an uppercase name', () => {});
+    it('warns when render is passed a function with an uppercase name', () => {
+      const warnSpy = vi
+        .spyOn(console, 'warn')
+        .mockName('console.warn')
+        .mockImplementation(() => {});
 
-    // Solid: components are plain functions, so a component passed as `render` is a valid
-    // callback and no naming warning exists.
-    it.skip('warns when render is passed a function with an uppercase acronym prefix', () => {});
+      function UppercaseRenderPropWarningTestComponent(props: ComponentProps<'span'>) {
+        return <span {...props} />;
+      }
+
+      render(() => <TestComponent render={UppercaseRenderPropWarningTestComponent} />);
+
+      expect(warnSpy.mock.calls.length).toBe(1);
+      expect(warnSpy.mock.calls[0][0]).toContain(
+        'Base UI: The `render` prop received a function named `UppercaseRenderPropWarningTestComponent` that starts with an uppercase letter.',
+      );
+      expect(warnSpy.mock.calls[0][0]).toContain(
+        'Use `render={(props) => <Component {...props} />}` or `render={{ component: Component }}` instead.',
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('warns when render is passed a function with an uppercase acronym prefix', () => {
+      const warnSpy = vi
+        .spyOn(console, 'warn')
+        .mockName('console.warn')
+        .mockImplementation(() => {});
+
+      function UIInput(props: ComponentProps<'span'>) {
+        return <span {...props} />;
+      }
+
+      render(() => <TestComponent render={UIInput} />);
+
+      expect(warnSpy.mock.calls.length).toBe(1);
+      warnSpy.mockRestore();
+    });
 
     it('does not warn when render is passed a lowercase callback', () => {
       const warnSpy = vi
@@ -588,15 +623,128 @@ describe('useRenderElement', () => {
       warnSpy.mockRestore();
     });
 
-    // Solid: there are no React Flight `react.lazy` render-element wrappers.
-    describe.skip('lazy-wrapped render element (Flight shape)', () => {
-      it('merges props with the same precedence as a plain render element', () => {});
-      it('attaches the render element ref', () => {});
-      it('does not unwrap a pending element when disabled', () => {});
-      it.skip('reports a wrapper that unwraps to %s as an invalid render element', () => {});
+    // Solid: React's Flight client hands over a lazy wrapper that unwraps to an element. The Solid
+    // counterpart of an element description is the `{ component, ...props }` config, whose
+    // component may itself load lazily.
+    describe('lazy-wrapped render element (Flight shape)', () => {
+      it('merges props with the same precedence as a plain render element', () => {
+        const { container } = render(() => (
+          <TestComponent
+            active
+            data-slot="component"
+            render={{
+              component: 'div',
+              class: 'render-class',
+              style: { 'font-size': '16px' },
+              'data-slot': 'render',
+            }}
+          />
+        ));
+
+        const element = container.firstElementChild as HTMLElement;
+        expect(element.getAttribute('data-slot')).toBe('render');
+        expect(element.className).toContain('render-class');
+        expect(element.className).toContain('test-component');
+        expect(element.style.fontSize).toBe('16px');
+        expect(element.style.padding).toBe('10px');
+      });
+
+      it('attaches the render element ref', () => {
+        const renderRef = { current: null as HTMLDivElement | null };
+        const componentRef = { current: null as HTMLDivElement | null };
+
+        const { container } = render(() => (
+          <TestComponent
+            ref={(el) => {
+              componentRef.current = el;
+            }}
+            render={{ component: 'div', ref: renderRef }}
+          />
+        ));
+
+        const element = container.firstElementChild;
+        expect(renderRef.current).toBe(element);
+        expect(componentRef.current).toBe(element);
+      });
+
+      it('does not unwrap a pending element when disabled', () => {
+        const init = vi.fn(() => new Promise<{ default: () => JSX.Element }>(() => {}));
+        const LazyElement = lazy(init);
+
+        function DisabledLazyComponent(props: { render: { component: typeof LazyElement } }) {
+          const element = useRenderElement('div', props, { enabled: false });
+          return <>{element()}</>;
+        }
+
+        const { container } = render(() => (
+          <Loading fallback={<div data-testid="fallback" />}>
+            <DisabledLazyComponent render={{ component: LazyElement }} />
+          </Loading>
+        ));
+
+        expect(container.innerHTML).toBe('');
+        expect(init).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ['null', null],
+        ['false', false],
+        ['the number 0', 0],
+        ['an empty string', ''],
+      ])('reports a wrapper that unwraps to %s as an invalid render element', (_, payload) => {
+        const originalEnv = process.env.NODE_ENV;
+
+        let error: Error | null = null;
+        try {
+          process.env.NODE_ENV = 'development';
+          // Solid: a render error reaches the nearest error boundary, as React's render throws.
+          render(() => (
+            <Errored
+              fallback={(err) => {
+                error = (typeof err === 'function' ? (err as () => unknown)() : err) as Error;
+                return null;
+              }}
+            >
+              <TestComponent render={{ component: payload as any }} />
+            </Errored>
+          ));
+          flush();
+        } finally {
+          process.env.NODE_ENV = originalEnv;
+        }
+
+        expect(error?.message).toMatch(
+          /Base UI: The `render` prop was provided an invalid render element/,
+        );
+      });
     });
 
-    // Solid: a string `render` is an intrinsic tag name, not an invalid element.
-    it.skip('throws error for invalid render element in development', () => {});
+    it('throws error for invalid render element in development', () => {
+      const originalEnv = process.env.NODE_ENV;
+
+      let error: Error | null = null;
+      try {
+        process.env.NODE_ENV = 'development';
+        // Solid: a render error reaches the nearest error boundary, as React's render throws.
+        render(() => (
+          <Errored
+            fallback={(err) => {
+              error = (typeof err === 'function' ? (err as () => unknown)() : err) as Error;
+              return null;
+            }}
+          >
+            <TestComponent render={'not a valid element' as any} />
+          </Errored>
+        ));
+        flush();
+      } finally {
+        process.env.NODE_ENV = originalEnv;
+      }
+
+      expect(error).not.toBe(null);
+      expect(error?.message).toMatch(
+        /Base UI: The `render` prop was provided an invalid render element/,
+      );
+    });
   });
 });
