@@ -672,14 +672,19 @@ function inlineStandaloneHook(declarator, api, fnPath, ctx) {
     const setState = fnPath.scope.generateUidIdentifier('setState');
     const { setPending, declaration } = pendingSignal(pending);
     imports.add('solid-js', 'createSignal');
+    // `useActionState<State, Payload>` types the state and the payload.
+    const [stateType, payloadType] = declarator.init.typeParameters?.params ?? [];
     const payload = t.identifier('payload');
-    payload.typeAnnotation = t.tsTypeAnnotation(t.tsTypeReference(t.identifier('FormData')));
+    payload.typeAnnotation = t.tsTypeAnnotation(
+      payloadType ?? t.tsTypeReference(t.identifier('FormData')),
+    );
+    const stateSignal = t.callExpression(t.identifier('createSignal'), [initialState]);
+    if (stateType) {
+      stateSignal.typeParameters = t.tsTypeParameterInstantiation([stateType]);
+    }
     return [
       t.variableDeclaration('const', [
-        t.variableDeclarator(
-          t.arrayPattern([state, setState]),
-          t.callExpression(t.identifier('createSignal'), [initialState]),
-        ),
+        t.variableDeclarator(t.arrayPattern([state, setState]), stateSignal),
       ]),
       declaration,
       constDeclaration(
@@ -733,21 +738,24 @@ function lowerReactHook(node, api, ctx) {
     case 'useState': {
       imports.add('solid-js', 'createSignal');
       const [init] = args;
-      // React stores the initial value as it is (a function too), and runs a lazy initializer
-      // once. Solid's `createSignal` runs a function it is passed: anything that may be one goes
-      // in a function whose reads run once, as setup reads do.
-      let value = init;
+      // React runs a lazy initializer once and calls an initial value that is a function; Solid's
+      // `createSignal` runs a function it is passed (tracking its reads). A lazy initializer runs
+      // untracked; a value that may be a function goes through the docs runtime's
+      // `initialState` (React's rule, typed as React types it). A demo reads it once at setup,
+      // where Solid's rule is React's.
       const untracked = (fn) => {
         imports.add('solid-js', 'untrack');
         return t.arrowFunctionExpression([], t.callExpression(t.identifier('untrack'), [fn]));
       };
+      let value = init;
       if (init && (t.isArrowFunctionExpression(init) || t.isFunctionExpression(init))) {
-        value = untracked(init);
-      } else if (init && isReference(init)) {
-        value = t.arrowFunctionExpression([], init);
-        value.solidSetupScope = true;
-      } else if (init && !isNonFunctionLiteral(init)) {
-        value = untracked(t.arrowFunctionExpression([], init));
+        const body = t.isBlockStatement(init.body) ? null : init.body;
+        value = body && isNonFunctionLiteral(body) ? body : untracked(init);
+      } else if (init && !isNonFunctionLiteral(init) && !ctx.standalone) {
+        imports.add(REACT_ADAPTERS, 'initialState');
+        value = untracked(
+          t.arrowFunctionExpression([], t.callExpression(t.identifier('initialState'), [init])),
+        );
       }
       const call = t.callExpression(t.identifier('createSignal'), value ? [value] : []);
       call.typeParameters = node.typeParameters;
@@ -1506,6 +1514,47 @@ function lowerFunction(fnPath, kind, ctx) {
   snapshotReads(fnPath);
 }
 
+/**
+ * Drops `Component.displayName = ...` (a component's or a context's): React's developer tools
+ * label, which Solid has no counterpart of. A development-only guard left empty goes with it.
+ */
+function dropDisplayNames(programPath) {
+  const componentRoot = (node) => {
+    let current = node;
+    while (
+      t.isMemberExpression(current) ||
+      t.isTSAsExpression(current) ||
+      t.isParenthesizedExpression(current)
+    ) {
+      current = t.isMemberExpression(current) ? current.object : current.expression;
+    }
+    return t.isIdentifier(current) && /^[A-Z]/.test(current.name);
+  };
+  programPath.traverse({
+    ExpressionStatement(path) {
+      const expression = path.node.expression;
+      if (
+        t.isAssignmentExpression(expression, { operator: '=' }) &&
+        t.isMemberExpression(expression.left) &&
+        t.isIdentifier(expression.left.property, { name: 'displayName' }) &&
+        componentRoot(expression.left.object)
+      ) {
+        const block = path.parentPath;
+        path.remove();
+        const guard = block.parentPath;
+        if (
+          block.isBlockStatement() &&
+          block.node.body.length === 0 &&
+          guard?.isIfStatement() &&
+          !guard.node.alternate
+        ) {
+          guard.remove();
+        }
+      }
+    },
+  });
+}
+
 /** The type TypeScript infers for a parameter from its default value, when the transform can say. */
 function defaultType(value) {
   if (t.isIdentifier(value) && value.name !== 'undefined') {
@@ -1614,10 +1663,6 @@ function lowerAsyncComponent(fnPath, render, uid, imports) {
  */
 function isSetupRead(path, fnPath) {
   for (let current = path.parentPath; current && current !== fnPath; current = current.parentPath) {
-    // A signal's initial value (see `useState`) reads once, where the component sets up.
-    if (current.isFunction() && current.node.solidSetupScope) {
-      continue;
-    }
     if (current.isFunction() || current.isJSXElement() || current.isJSXFragment()) {
       return false;
     }
@@ -1667,18 +1712,6 @@ function storeGenericValues(fnPath, declarator) {
       call.node.arguments = [t.arrowFunctionExpression([], value)];
     }
   }
-}
-
-/** Whether an expression names a value (`value`, `props.value`, `items[0].key`) and calls nothing. */
-function isReference(node) {
-  if (t.isIdentifier(node)) {
-    return true;
-  }
-  return (
-    (t.isMemberExpression(node) || t.isOptionalMemberExpression(node)) &&
-    isReference(node.object) &&
-    (!node.computed || t.isLiteral(node.property) || t.isIdentifier(node.property))
-  );
 }
 
 /** Whether an expression is a literal that cannot be a function (`0`, `''`, `[]`, `null`). */
@@ -2466,6 +2499,23 @@ function isContextProvider(name, path, ctx) {
   return !binding || binding.kind !== 'module' || ctx.corpusImports.has(name.object.name);
 }
 
+/** Whether a value may be a tag name: a string, or one of the values a fallback can take. */
+function mayBeTagName(node) {
+  if (t.isStringLiteral(node)) {
+    return true;
+  }
+  if (t.isTSAsExpression(node) || t.isParenthesizedExpression(node)) {
+    return mayBeTagName(node.expression);
+  }
+  if (t.isLogicalExpression(node)) {
+    return mayBeTagName(node.left) || mayBeTagName(node.right);
+  }
+  if (t.isConditionalExpression(node)) {
+    return mayBeTagName(node.consequent) || mayBeTagName(node.alternate);
+  }
+  return false;
+}
+
 /**
  * Moves React's capture-phase handlers (`onKeyDownCapture`) into the element's ref, through the
  * docs runtime's `captureRef`: Solid's JSX has no capture-phase handlers.
@@ -2555,7 +2605,7 @@ const jsxNameToExpression = (name) =>
  * `render={<X a={b} />}` → `render={{ component: X, get a() { return b; } }}`: the `{ component,
  * ...props }` config Base UI renders as React renders an element it clones (props merged).
  */
-function renderElementToConfig(element) {
+function renderElementToConfig(element, imports) {
   const name = element.openingElement.name;
   const intrinsic = t.isJSXIdentifier(name) && /^[a-z]/.test(name.name);
   const properties = [
@@ -2611,7 +2661,36 @@ function renderElementToConfig(element) {
     }
     properties.push(getter(t.identifier('children'), value));
   }
-  return t.objectExpression(properties);
+  const config = t.objectExpression(properties);
+  // A handler that types its event by where it is written (`onClick: (event) => ...`) takes the
+  // element's attribute types, as it does as an attribute.
+  const untypedHandler = properties.some(
+    (property) =>
+      t.isObjectProperty(property) &&
+      isFunctionNode(property.value) &&
+      property.value.params.some((param) => !param.typeAnnotation),
+  );
+  if (!intrinsic || !untypedHandler) {
+    return config;
+  }
+  imports.add('@solidjs/web', 'JSX', true);
+  return t.tsSatisfiesExpression(
+    config,
+    t.tsIntersectionType([
+      t.tsTypeLiteral([
+        t.tsPropertySignature(
+          t.identifier('component'),
+          t.tsTypeAnnotation(t.tsLiteralType(t.stringLiteral(name.name))),
+        ),
+      ]),
+      t.tsIndexedAccessType(
+        t.tsTypeReference(
+          t.tsQualifiedName(t.identifier('JSX'), t.identifier('IntrinsicElements')),
+        ),
+        t.tsLiteralType(t.stringLiteral(name.name)),
+      ),
+    ]),
+  );
 }
 
 function transformJsx(programPath, ctx) {
@@ -2855,10 +2934,10 @@ function transformJsx(programPath, ctx) {
         // `render={cond ? <a /> : <Link />}`: each element the value can be becomes a config.
         const toConfig = (node) => {
           if (t.isJSXElement(node)) {
-            return renderElementToConfig(node);
+            return renderElementToConfig(node, imports);
           }
           if (isElementCall(node) && t.isJSXElement(node.arguments[0].body)) {
-            return renderElementToConfig(node.arguments[0].body);
+            return renderElementToConfig(node.arguments[0].body, imports);
           }
           if (t.isConditionalExpression(node)) {
             node.consequent = toConfig(node.consequent);
@@ -2883,6 +2962,25 @@ function transformJsx(programPath, ctx) {
       // React's capture-phase handlers become capture listeners given with the element's ref.
       if (!ctx.standalone) {
         captureHandlersToRef(path.node.openingElement, imports);
+      }
+      // A tag that may be a tag name (`const Pre = components.pre ?? 'pre'`) renders through
+      // `<Dynamic>`, as React renders a string type as an element.
+      if (t.isJSXIdentifier(name) && /^[A-Z]/.test(name.name)) {
+        const binding = path.scope.getBinding(name.name);
+        const init = binding?.path.isVariableDeclarator() ? binding.path.node.init : null;
+        if (init && mayBeTagName(init)) {
+          imports.add('@solidjs/web', 'Dynamic');
+          path.node.openingElement.attributes.unshift(
+            t.jsxAttribute(
+              t.jsxIdentifier('component'),
+              t.jsxExpressionContainer(t.identifier(name.name)),
+            ),
+          );
+          path.node.openingElement.name = t.jsxIdentifier('Dynamic');
+          if (path.node.closingElement) {
+            path.node.closingElement.name = t.jsxIdentifier('Dynamic');
+          }
+        }
       }
       // A render function Solid Base UI calls with accessors reads them through calls.
       const partName =
@@ -3226,6 +3324,7 @@ function transformTypes(programPath, ctx) {
         const args = params(path.node);
         // React's `MouseEvent<T = Element>` types its `currentTarget` as `T`, as Solid's handler
         // event does.
+        // Its `ChangeEvent<T>` types the `target` as `T` too.
         const withTarget = (eventType) =>
           t.tsIntersectionType([
             eventType,
@@ -3236,7 +3335,11 @@ function transformTypes(programPath, ctx) {
               ),
               t.tsPropertySignature(
                 t.identifier('target'),
-                t.tsTypeAnnotation(t.tsTypeReference(t.identifier('Element'))),
+                t.tsTypeAnnotation(
+                  name === 'ChangeEvent' && args[0]
+                    ? t.cloneNode(args[0], true)
+                    : t.tsTypeReference(t.identifier('Element')),
+                ),
               ),
             ]),
           ]);
@@ -3333,8 +3436,8 @@ function transformTypes(programPath, ctx) {
                 mapped.member
                   ? t.tsQualifiedName(t.identifier(mapped.name), t.identifier(mapped.member))
                   : t.identifier(mapped.name),
-                // `ValidComponent` takes no props type.
-                mapped.name === 'ValidComponent' ? [] : args,
+                // `ValidComponent` and `JSX.Element` take no type arguments.
+                mapped.name === 'ValidComponent' || mapped.member === 'Element' ? [] : args,
               ),
             ),
           );
@@ -3366,9 +3469,76 @@ function isPropsBinding(binding) {
   );
 }
 
+/** Whether a type member is in a props type: one named `...Props`, or a component's parameter's. */
+function isPropsType(path) {
+  for (let current = path.parentPath; current; current = current.parentPath) {
+    if (current.isTSInterfaceDeclaration() || current.isTSTypeAliasDeclaration()) {
+      return /Props$/.test(current.node.id.name);
+    }
+    if (current.isFunction()) {
+      return false;
+    }
+    if (current.parentPath?.isFunction() && current.listKey === 'params') {
+      return current.key === 0 && isComponentName(functionName(current.parentPath));
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether an object literal is element props: an argument of `mergeProps`, a value typed with a
+ * props type (`useRender.ElementProps<'button'>`), or the `props` `useRender` is given.
+ */
+function isPropsObject(path) {
+  const parent = path.parentPath;
+  if (parent.isCallExpression() && t.isIdentifier(parent.node.callee, { name: 'mergeProps' })) {
+    return path.listKey === 'arguments';
+  }
+  if (parent.isVariableDeclarator() && path.key === 'init') {
+    const annotation = parent.node.id.typeAnnotation?.typeAnnotation;
+    const typeName = t.isTSTypeReference(annotation) ? annotation.typeName : null;
+    const last = t.isTSQualifiedName(typeName) ? typeName.right : typeName;
+    return t.isIdentifier(last) && /Props$/.test(last.name);
+  }
+  if (
+    parent.isObjectProperty() &&
+    t.isIdentifier(parent.node.key, { name: 'props' }) &&
+    parent.parentPath.parentPath?.isCallExpression() &&
+    t.isIdentifier(parent.parentPath.parentPath.node.callee, { name: 'useRender' })
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function renameDomPropReads(programPath) {
   programPath.traverse({
-    // Props types declare the names the props are read by.
+    // Element props written as an object take Solid's names, as JSX attributes do.
+    ObjectExpression(path) {
+      if (!isPropsObject(path)) {
+        return;
+      }
+      for (const property of path.node.properties) {
+        if (!t.isObjectProperty(property) && !t.isObjectMethod(property)) {
+          continue;
+        }
+        if (property.computed || !t.isIdentifier(property.key)) {
+          continue;
+        }
+        const solidName =
+          DOM_ATTRIBUTES[property.key.name] ?? REACT_ATTRIBUTE_NAMES[property.key.name];
+        if (solidName) {
+          property.key = /^[A-Za-z_$][\w$]*$/.test(solidName)
+            ? t.identifier(solidName)
+            : t.stringLiteral(solidName);
+          if (t.isObjectProperty(property)) {
+            property.shorthand = false;
+          }
+        }
+      }
+    },
+    // Props types declare the names the props are read by (other types keep theirs: a HAST
+    // node's `className`, say).
     TSPropertySignature(path) {
       const key = path.node.key;
       let name = null;
@@ -3377,7 +3547,7 @@ function renameDomPropReads(programPath) {
       } else if (t.isStringLiteral(key)) {
         name = key.value;
       }
-      if (name && DOM_ATTRIBUTES[name]) {
+      if (name && DOM_ATTRIBUTES[name] && isPropsType(path)) {
         path.node.key = t.identifier(DOM_ATTRIBUTES[name]);
       }
     },
@@ -3663,6 +3833,7 @@ export function transformReactToSolid(source, options = {}) {
       }
 
       transformModuleApis(programPath, ctx);
+      dropDisplayNames(programPath);
       programPath.scope.crawl();
       if (!ctx.standalone) {
         deferElements(programPath, ctx);
