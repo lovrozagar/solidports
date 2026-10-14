@@ -9,6 +9,42 @@ import { resetBrowserPointer } from './resetBrowserPointer';
 let isCleaningUp = false;
 
 /*
+ * Desktop Firefox has no `TouchEvent` constructor, so testing-library builds a test's touch
+ * events (`fireEvent.touchStart(el, { touches })`) as plain `Event`s without their touch lists,
+ * and a touch handler reading `event.touches` throws. Provide the constructor those events need:
+ * a `UIEvent` that carries the touch lists of its init. Library code never detects `TouchEvent`.
+ */
+if (typeof window !== 'undefined' && typeof window.TouchEvent === 'undefined') {
+  class TouchEvent extends UIEvent {
+    readonly touches: readonly Touch[];
+
+    readonly targetTouches: readonly Touch[];
+
+    readonly changedTouches: readonly Touch[];
+
+    readonly altKey: boolean;
+
+    readonly ctrlKey: boolean;
+
+    readonly metaKey: boolean;
+
+    readonly shiftKey: boolean;
+
+    constructor(type: string, init: TouchEventInit = {}) {
+      super(type, init);
+      this.touches = init.touches ?? [];
+      this.targetTouches = init.targetTouches ?? [];
+      this.changedTouches = init.changedTouches ?? [];
+      this.altKey = init.altKey ?? false;
+      this.ctrlKey = init.ctrlKey ?? false;
+      this.metaKey = init.metaKey ?? false;
+      this.shiftKey = init.shiftKey ?? false;
+    }
+  }
+  (window as unknown as { TouchEvent: unknown }).TouchEvent = TouchEvent;
+}
+
+/*
  * The shared jsdom setup replaces `requestAnimationFrame` with a `setTimeout` that returns 0, so
  * `cancelAnimationFrame` cannot cancel it. Browsers can: keep that, so a superseded frame callback
  * (a queued focus replaced by a newer one) does not run.
