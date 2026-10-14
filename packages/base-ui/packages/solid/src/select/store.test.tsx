@@ -1,5 +1,6 @@
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { createRenderEffect, createSignal } from 'solid-js';
+import { screen } from '@solidjs/testing-library';
 import { act, createRenderer } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { useSelectRootContext } from './root/SelectRootContext';
@@ -100,7 +101,44 @@ describe('select store synchronization', () => {
     expect(handleOpenChange.mock.calls[0][0]).toBe(true);
   });
 
-  // Solid: ref callbacks run once and the root's props are live, so no commit exists where a
-  // descendant ref callback sees the previous `disabled` value.
-  it.skip('synchronizes an updated disabled prop after descendant ref callbacks', () => {});
+  it('synchronizes an updated disabled prop after descendant ref callbacks', async () => {
+    // Solid: a ref runs once, so the descendant's callback is a click dispatched in the same batch
+    // as the prop update, before the flush, where React runs ref callbacks before the root's
+    // layout effect syncs its props.
+    const handleValueChange = vi.fn();
+    const [disabled, setDisabled] = createSignal(false);
+    let itemElement: HTMLElement | undefined;
+
+    const { user } = await render(() => (
+      <Select.Root defaultOpen disabled={disabled()} onValueChange={handleValueChange}>
+        <Select.Trigger />
+        <Select.Portal>
+          <Select.Positioner>
+            <Select.Popup>
+              <Select.Item
+                data-testid="item"
+                value="alpha"
+                ref={(element) => {
+                  itemElement = element;
+                }}
+              >
+                alpha
+              </Select.Item>
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+    ));
+    await user.hover(screen.getByTestId('item'));
+
+    act(() => {
+      setDisabled(true);
+      itemElement!.click();
+    });
+
+    // The item receives the new state once the update flushes.
+    expect(handleValueChange).toHaveBeenCalledTimes(1);
+    expect(handleValueChange.mock.calls[0][0]).toBe('alpha');
+    expect(screen.getByRole('combobox')).toBeDisabled();
+  });
 });

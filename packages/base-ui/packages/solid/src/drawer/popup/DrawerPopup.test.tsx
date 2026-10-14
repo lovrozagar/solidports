@@ -337,10 +337,10 @@ describe('<Drawer.Popup />', () => {
     },
   );
 
-  // Solid: React-internal order only. The parent's `--nested-drawers` and `--drawer-frontmost-height`
-  // are set within the same synchronous flush (no frame shows them stale); Solid runs the re-triggered
-  // render effect after that flush's user effects, React before its passive effects.
-  it.skip('reports nested presence and frontmost height before passive effects', async () => {
+  // Solid: React runs passive effects after the browser paints. Solid's user effects run within the
+  // update's synchronous flush, before paint, so the counterpart of a passive effect here is a task
+  // a user effect schedules: the reports must land before it, so no frame shows the parent stale.
+  it('reports nested presence and frontmost height before passive effects', async () => {
     let passiveEffectFlushed = false;
     let heightReportedBeforePassiveEffect: boolean | null = null;
     let presenceReportedBeforePassiveEffect: boolean | null = null;
@@ -353,7 +353,9 @@ describe('<Drawer.Popup />', () => {
     function PassiveEffectBoundary() {
       createEffect(childOpen, (isOpen) => {
         if (isOpen) {
-          passiveEffectFlushed = true;
+          setTimeout(() => {
+            passiveEffectFlushed = true;
+          });
         }
       });
 
@@ -395,7 +397,9 @@ describe('<Drawer.Popup />', () => {
       });
 
       createEffect(open, () => {
-        passiveEffectFlushed = true;
+        setTimeout(() => {
+          passiveEffectFlushed = true;
+        });
       });
 
       return null;
@@ -438,7 +442,12 @@ describe('<Drawer.Popup />', () => {
 
     render(() => <TestCase />);
 
+    // React re-renders the phase boundary, resetting the flag, before the update's layout effects.
+    passiveEffectFlushed = false;
     act(() => setChildOpen(true));
+    await new Promise((resolve) => {
+      setTimeout(resolve);
+    });
 
     expect(heightReportedBeforePassiveEffect).toBe(true);
     expect(presenceReportedBeforePassiveEffect).toBe(true);
