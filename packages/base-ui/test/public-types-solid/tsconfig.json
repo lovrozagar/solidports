@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "target": "es2020",
+    "lib": ["es2020", "dom"],
+    "jsx": "preserve",
+    "jsxImportSource": "@solidjs/web",
+    // Only the types the files import: no ambient React `JSX` from hoisted `@types/*` packages.
+    "types": [],
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "noErrorTruncation": false,
+    "allowJs": true,
+    "emitDeclarationOnly": true,
+    "allowImportingTsExtensions": true,
+    "rootDir": ".",
+    "outDir": "./build",
+
+    // Don't touch these settings
+    "skipLibCheck": false,
+    "declaration": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}
