@@ -433,7 +433,10 @@ export function DrawerSwipeArea(componentProps: DrawerSwipeArea.Props) {
       if (prev === undefined) {
         return;
       }
-      if (!deps.enabled) {
+      // Solid: the reset runs when the area becomes disabled or a swipe is active while it is.
+      // React re-runs it when the swipe it cancelled ends, still before passive effects; here that
+      // re-run would land after them and repeat a reset that changes nothing.
+      if (!deps.enabled && (prev.enabled || deps.swipeActive)) {
         if (deps.swipeActive) {
           enableDismissAfterRelease();
         }
