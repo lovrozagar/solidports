@@ -102,6 +102,20 @@ export function Item(props: ComponentProps<'li'>) {
       );
     });
 
+    it('leaves names in type positions alone', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Drawer({ open }: { open: boolean }) {
+  const callbackRef = React.useRef<((open: boolean) => void) | null>(null);
+  return <div data-open={open} />;
+}`,
+        `export function Drawer(props: { open: boolean }) {
+  const callbackRef = { current: null as ((open: boolean) => void) | null };
+  return <div data-open={props.open} />;
+}`,
+      );
+    });
+
     it('merges destructuring defaults', () => {
       expectTransform(
         `export function Badge({ tone = 'info' }: { tone?: string }) {
