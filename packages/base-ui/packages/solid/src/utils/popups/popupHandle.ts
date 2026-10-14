@@ -110,6 +110,14 @@ export class BasePopupHandle<
   }
 
   /**
+   * Whether a root's store currently controls the handle.
+   * @internal
+   */
+  get hasAttachedStore() {
+    return this.attachedStoreValue !== null;
+  }
+
+  /**
    * Store that detached triggers read from: the attached root's store, or an inert fallback store
    * used while no root is attached.
    * @internal

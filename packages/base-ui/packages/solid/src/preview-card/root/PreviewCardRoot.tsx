@@ -10,7 +10,7 @@ import { REASONS } from '../../utils/reasons';
 import { PreviewCardStore } from '../store/PreviewCardStore';
 import type { PayloadChildRenderFunction } from '../../utils/popups';
 import {
-  PopupHandleAttachment,
+  createHandleAttachment,
   useImplicitActiveTrigger,
   usePopupRootStore,
   useOpenStateTransitions,
@@ -19,7 +19,9 @@ import {
 import type { PreviewCardHandle } from '../store/PreviewCardHandle';
 import { PreviewCardRootContext, usePreviewCardRootContext } from './PreviewCardContext';
 
-function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>) {
+function PreviewCardRootComponent<Payload>(
+  props: PreviewCardRoot.Props<Payload> & { nestedInPreviewCardRoot: boolean },
+) {
   const openProp = () => props.open;
   const defaultOpen = () => props.defaultOpen ?? false;
   const triggerIdProp = () => props.triggerId;
@@ -95,22 +97,25 @@ function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>
   // triggers.
   const shouldRenderInteractions = () => open() || mounted() || props.handle != null;
 
-  // No `handle` prop: nothing to attach, so no `Show` for it.
-  const handleAttachment = isAbsentProp(props, 'handle') ? null : (
-    <Show when={props.handle}>
-      {(handle) => <PopupHandleAttachment handle={handle()} store={store} />}
-    </Show>
-  );
+  if (!isAbsentProp(props, 'handle')) {
+    createHandleAttachment(() => props.handle, store);
+  }
 
-  return (
+  const renderContent = () => (
     <PreviewCardRootContext value={{ store } as PreviewCardRootContext}>
-      {handleAttachment}
       <Show when={shouldRenderInteractions()}>
         <PreviewCardInteractions store={store} />
       </Show>
       <ComponentWithPayload payload={payload} children={props.children} />
     </PreviewCardRootContext>
   );
+
+  if (props.nestedInPreviewCardRoot) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+    return renderContent();
+  }
+
+  return <FloatingTree>{renderContent()}</FloatingTree>;
 }
 
 function PreviewCardInteractions<Payload>(props: { store: PreviewCardStore<Payload> }) {
@@ -144,15 +149,12 @@ function PreviewCardInteractions<Payload>(props: { store: PreviewCardStore<Paylo
  * Documentation: [Base UI Preview Card](https://base-ui.com/react/components/preview-card)
  */
 export function PreviewCardRoot<Payload>(props: PreviewCardRoot.Props<Payload>) {
-  if (usePreviewCardRootContext(true)) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
-    return <PreviewCardRootComponent {...props} />;
-  }
-
+  // Solid: `<FloatingTree>` wraps the component's output rather than the component, because a
+  // provider resolves its children lazily: the root body (and its handle attachment) would run after
+  // later siblings' bodies and effects, unlike React, which renders the subtree in place.
+  const nestedInPreviewCardRoot = usePreviewCardRootContext(true) != null;
   return (
-    <FloatingTree>
-      <PreviewCardRootComponent {...props} />
-    </FloatingTree>
+    <PreviewCardRootComponent {...props} nestedInPreviewCardRoot={nestedInPreviewCardRoot} />
   );
 }
 

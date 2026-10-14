@@ -10,7 +10,7 @@ import { REASONS } from '../../utils/reasons';
 import {
   useImplicitActiveTrigger,
   useOpenStateTransitions,
-  PopupHandleAttachment,
+  createHandleAttachment,
   usePopupRootStore,
   usePopupRootSync,
 } from '../../utils/popups';
@@ -121,14 +121,12 @@ export function useRenderDialogRoot<Payload>(
   // triggers.
   const shouldRenderInteractions = () => open() || mounted() || props.handle != null;
 
-  // No `handle` prop: nothing to attach, so no insert for it.
-  const handleAttachment = isAbsentProp(props, 'handle')
-    ? null
-    : () => props.handle && <PopupHandleAttachment handle={props.handle} store={store} />;
+  if (!isAbsentProp(props, 'handle')) {
+    createHandleAttachment(() => props.handle, store);
+  }
 
   return (
     <DialogRootContext value={store as DialogStore<unknown>}>
-      {handleAttachment}
       <Show when={shouldRenderInteractions()}>
         <DialogInteractions
           store={store}

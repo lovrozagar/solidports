@@ -1,4 +1,4 @@
-import { createMemo, onCleanup, untrack } from 'solid-js';
+import { createEffect, createMemo, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useFloatingParentNodeId } from '../../floating-ui-solid/components/FloatingTree';
@@ -54,6 +54,8 @@ type PopupStoreWithOpen<
  */
 export interface PopupRootStoreHandle<Store> {
   attachStore(store: Store): () => void;
+  /** Whether a Root's store currently controls the handle. */
+  readonly hasAttachedStore: boolean;
 }
 
 /**
@@ -95,22 +97,43 @@ export function usePopupRootStore<
 }
 
 /**
- * Attaches a Root's store to a handle for this component's committed lifetime. Popup Roots render
- * it before their interactions and user children so its effect runs before descendant effects.
+ * Attaches a Root's store to its handle for the Root's lifetime. Roots call it from their own body,
+ * before their children render (React renders `<PopupHandleAttachment>` as the first child; Solid
+ * inserts children lazily, so a child's render effect would run after a later sibling's).
+ *
+ * Render-effect timing (React's layout effect) attaches a handle no other Root controls before any
+ * `onSettled` in the same mount, so `handle.open()` from a mount callback reaches this Root. A
+ * handle another Root controls is taken over from a user effect: it runs before a later sibling's
+ * `onSettled` in the same mount, and not at all while the Root's subtree is pending under `Loading`
+ * (React's uncommitted transition render), so a Root abandoned before it resolves never takes it.
  */
-export function PopupHandleAttachment<Store>(props: {
-  handle: PopupRootStoreHandle<Store>;
-  store: Store;
-}) {
-  // Render-effect timing (React's layout effect): the handle is attached before any `onSettled`
-  // in the same mount, so `handle.open()` from a mount callback reaches this Root. User effects
-  // run after `onSettled`.
-  createDepsRenderEffect(
-    () => ({ handle: props.handle, store: props.store }),
-    ({ handle, store }) => handle.attachStore(store),
-  );
-
-  return null;
+export function createHandleAttachment<Store>(
+  handle: Accessor<PopupRootStoreHandle<Store> | null | undefined>,
+  store: Store,
+) {
+  let committed = false;
+  let attachedTo: PopupRootStoreHandle<Store> | null | undefined;
+  let detach: (() => void) | undefined;
+  const attach = (target: PopupRootStoreHandle<Store> | null | undefined) => {
+    detach?.();
+    detach = target?.attachStore(store);
+    attachedTo = target;
+  };
+  createDepsRenderEffect(handle, (target) => {
+    if (!target || committed || !target.hasAttachedStore) {
+      attach(target);
+    } else {
+      // Taken over once this Root commits.
+      attach(null);
+    }
+  });
+  createEffect(handle, (target) => {
+    committed = true;
+    if (target !== attachedTo) {
+      attach(target);
+    }
+  });
+  void onCleanup(() => attach(null));
 }
 
 type PopupOpenState = Pick<

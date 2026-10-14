@@ -3,7 +3,12 @@ import type { JSX } from '@solidjs/web';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { RenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
 import type { DrawerHandle } from '../handle';
-import { createDepsEffect, ComponentWithPayload, createLayoutEffect } from '../../solid-helpers';
+import {
+  createDepsEffect,
+  ComponentWithPayload,
+  createLayoutEffect,
+  isAbsentProp,
+} from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -190,7 +195,14 @@ export function DrawerRoot<Payload = unknown>(props: DrawerRoot.Props<Payload>) 
         disablePointerDismissal={disablePointerDismissal()}
         modal={modal()}
         actionsRef={props.actionsRef}
-        handle={props.handle}
+        // Forwarded only when given, so a Drawer without a handle creates no handle attachment.
+        {...(isAbsentProp(props, 'handle')
+          ? undefined
+          : {
+              get handle() {
+                return props.handle;
+              },
+            })}
         triggerId={triggerIdProp()}
         defaultTriggerId={defaultTriggerIdProp()}
       >

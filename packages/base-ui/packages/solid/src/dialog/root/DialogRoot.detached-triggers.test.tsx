@@ -515,7 +515,7 @@ describe('<Dialog.Root />', () => {
     });
     // Solid: no abandoned renders; a subtree pending under `Loading` runs render effects, and the
     // handle attaches with render-effect timing so `onSettled` callbacks can open it on mount.
-    it.skip('does not attach a replacement root store from an abandoned transition render', async () => {
+    it('does not attach a replacement root store from an abandoned transition render', async () => {
       const handle = Dialog.createHandle<number>();
       const replacementRender = vi.fn();
       const never = new Promise<{ default: () => null }>(() => {});
