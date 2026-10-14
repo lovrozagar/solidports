@@ -385,6 +385,32 @@ export function Size() {
       );
     });
 
+    it('reads a value once where the component sets up, explicitly', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Counter(props: { initial: number }) {
+  const [count] = React.useState(props.initial);
+  const doubled = count * 2;
+  if (!doubled) {
+    console.warn('empty');
+  }
+  return <span>{count}</span>;
+}`,
+        `import { createMemo, createSignal, untrack } from 'solid-js';
+export function Counter(props: { initial: number }) {
+  const [count] = createSignal(untrack(() => props.initial));
+  const doubled = createMemo(() => count() * 2);
+  const _render = createMemo(() => {
+    if (!doubled()) {
+      console.warn('empty');
+    }
+    return <span>{count()}</span>;
+  });
+  return <>{_render()}</>;
+}`,
+      );
+    });
+
     it('runs a lazy state initializer once', () => {
       expectTransform(
         `import * as React from 'react';
@@ -536,7 +562,7 @@ export function useLabel(_params: Accessor<{ prefix: string; name: string }>, _s
       );
     });
 
-    it('leaves the hooks of other packages alone', () => {
+    it('passes the hooks of other packages props-like objects of getters', () => {
       expectTransform(
         `import { useRender } from '@base-ui/react/use-render';
 export function Box(props: { render?: unknown }) {
@@ -545,7 +571,11 @@ export function Box(props: { render?: unknown }) {
 }`,
         `import { useRender } from '@solidports/base-ui/use-render';
 export function Box(props: { render?: unknown }) {
-  const element = useRender({ render: props.render });
+  const element = useRender({
+    get render() {
+      return props.render;
+    },
+  });
   return <>{element}</>;
 }`,
       );

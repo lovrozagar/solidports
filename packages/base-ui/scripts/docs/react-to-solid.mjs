@@ -1030,6 +1030,17 @@ function lowerFunction(fnPath, kind, ctx) {
   const rewrites = new Map(); // reference node -> entry
   for (const entry of reactive.values()) {
     if (entry.kind === 'source') {
+      // `props.x` reads (the source itself stays an object of getters).
+      for (const reference of entry.binding.referencePaths) {
+        const member = reference.parentPath;
+        if (
+          member?.isMemberExpression({ object: reference.node }) &&
+          !(member.parentPath.isCallExpression() && member.parent.callee === member.node) &&
+          !(member.parentPath.isAssignmentExpression() && member.parent.left === member.node)
+        ) {
+          rewrites.set(member.node, { kind: 'source-read' });
+        }
+      }
       continue;
     }
     for (const reference of entry.binding.referencePaths) {
@@ -1194,7 +1205,31 @@ function lowerFunction(fnPath, kind, ctx) {
 /** Passes each argument of a corpus hook call as an accessor. */
 function wrapHookArguments(call, fnPath, ctx, rewrites) {
   const callPath = findPath(fnPath, call);
-  if (!callPath || !isCorpusHook(callPath, ctx)) {
+  if (!callPath) {
+    return;
+  }
+  if (!isCorpusHook(callPath, ctx)) {
+    // Another package's hook (Base UI's `useRender`) takes props-like objects: a property it reads
+    // later reads the current value, as React passes a fresh object on each render.
+    for (const arg of call.arguments) {
+      if (!t.isObjectExpression(arg)) {
+        continue;
+      }
+      arg.properties = arg.properties.map((property) =>
+        t.isObjectProperty(property) &&
+        !property.computed &&
+        !t.isLiteral(property.value) &&
+        !isFunctionNode(property.value) &&
+        !t.isIdentifier(property.value, { name: 'undefined' })
+          ? t.objectMethod(
+              'get',
+              property.key,
+              [],
+              t.blockStatement([t.returnStatement(property.value)]),
+            )
+          : property,
+      );
+    }
     return;
   }
   call.arguments = call.arguments.map((arg) => {
@@ -1252,14 +1287,45 @@ function lowerAsyncComponent(fnPath, render, uid, imports) {
 }
 
 /** Rewrites every collected read: accessors become calls, aliases their expression. */
+/**
+ * Whether a read runs once, as the component or hook sets up: not in a function it creates, nor in
+ * its JSX (which Solid tracks). React reads such a value on each render; Solid reads it once.
+ */
+function isSetupRead(path, fnPath) {
+  for (let current = path.parentPath; current && current !== fnPath; current = current.parentPath) {
+    if (current.isFunction() || current.isJSXElement() || current.isJSXFragment()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+const untrackCall = (expression, imports) => {
+  imports.add('solid-js', 'untrack');
+  const isRead =
+    t.isCallExpression(expression) &&
+    t.isIdentifier(expression.callee) &&
+    expression.arguments.length === 0;
+  return t.callExpression(t.identifier('untrack'), [
+    isRead ? expression.callee : t.arrowFunctionExpression([], expression),
+  ]);
+};
+
 function rewriteReads(fnPath, rewrites, imports) {
   if (rewrites.size === 0) {
     return;
   }
   fnPath.traverse({
+    MemberExpression(path) {
+      // A props read where the component sets up runs once, explicitly.
+      if (rewrites.get(path.node)?.kind === 'source-read' && isSetupRead(path, fnPath)) {
+        path.replaceWith(untrackCall(path.node, imports));
+        path.skip();
+      }
+    },
     'Identifier|JSXIdentifier'(path) {
       const entry = rewrites.get(path.node);
-      if (!entry) {
+      if (!entry || entry.kind === 'source-read') {
         return;
       }
       let replacement;
@@ -1269,6 +1335,14 @@ function rewriteReads(fnPath, rewrites, imports) {
         replacement = t.optionalCallExpression(t.identifier(entry.name), [], true);
       } else {
         replacement = t.callExpression(t.identifier(entry.name), []);
+      }
+      // A read where the component or hook sets up runs once, explicitly (`untrack`).
+      if (!path.isJSXIdentifier() && isSetupRead(path, fnPath)) {
+        if (entry.kind === 'alias' && t.isMemberExpression(replacement)) {
+          replacement.object = untrackCall(replacement.object, imports);
+        } else {
+          replacement = untrackCall(replacement, imports);
+        }
       }
       if (path.isJSXIdentifier()) {
         // A reactive component (or a member of a reactive value) renders through

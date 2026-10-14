@@ -47,6 +47,24 @@ const KEEP = new Set([
   'overrides',
 ]);
 
+/**
+ * React docs folders the Solid docs leave out, each with its reason. Paths are under `docs/react`.
+ */
+const EXCLUDED = [
+  {
+    path: 'src/app/(private)/experiments/',
+    reason:
+      'Internal React test pages rendered as React Server Components (they list and read their ' +
+      'own files with node:fs at render time); Solid has no counterpart to render them with.',
+  },
+  {
+    path: 'src/app/(private)/playground/',
+    reason:
+      'Internal React playground served as React Server Components (node:fs at render time); ' +
+      'no counterpart in Solid.',
+  },
+];
+
 const ROUTE_RENAMES = [['src/app/(docs)/react/', 'src/app/(docs)/solid/']];
 
 // docs-infra's output for the docs it renders (a component's API reference, `types.md`): written
@@ -314,7 +332,7 @@ async function generateDocs() {
   await Promise.all(
     files.map(async (file) => {
       const rel = path.relative(REACT, file);
-      if (DOCS_INFRA_OUTPUT.test(rel)) {
+      if (DOCS_INFRA_OUTPUT.test(rel) || EXCLUDED.some((entry) => rel.startsWith(entry.path))) {
         return;
       }
       try {
