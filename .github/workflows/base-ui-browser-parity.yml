@@ -56,4 +56,4 @@ jobs:
           path: packages/base-ui/*-${{ matrix.browser }}.json
       - name: compare
         working-directory: packages/base-ui
-        run: node scripts/browser-parity.mjs react-${{ matrix.browser }}.json solid-${{ matrix.browser }}.json
+        run: node scripts/browser-parity.mjs react-${{ matrix.browser }}.json solid-${{ matrix.browser }}.json --confirm ${{ matrix.browser }}
