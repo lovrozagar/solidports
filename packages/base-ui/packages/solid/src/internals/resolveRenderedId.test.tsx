@@ -29,9 +29,6 @@ describe('resolveRenderedId', () => {
     expect(resolveRenderedId({ render: { component: 'div', id: undefined } }, 'fallback')).toBe('');
   });
 
-  // Solid: render elements are plain config objects; there are no Server Component lazy wrappers.
-  it.skip("reads a server-created render element's id", () => {});
-
   it('ignores a render element that does not set an id', () => {
     expect(resolveRenderedId({ id: 'explicit', render: { component: 'div' } }, 'fallback')).toBe(
       'explicit',

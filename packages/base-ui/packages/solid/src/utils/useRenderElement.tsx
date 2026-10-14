@@ -85,8 +85,8 @@ const TAG_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9._-]*)?$/;
 
 /**
  * Whether a `render` value can be rendered: nothing (the default element), a tag name, a render
- * function, a rendered node, or a `{ component, ...props }` config whose `component` (when set) is
- * a tag name or a component.
+ * function, or a `{ component, ...props }` config whose `component` (when set) is a tag name or a
+ * component.
  */
 function isValidRenderProp(render: unknown) {
   if (!render) {
@@ -95,10 +95,16 @@ function isValidRenderProp(render: unknown) {
   if (typeof render === 'string') {
     return TAG_NAME_PATTERN.test(render);
   }
-  if (typeof render === 'function' || (typeof Node !== 'undefined' && render instanceof Node)) {
+  if (typeof render === 'function') {
     return true;
   }
-  if (typeof render !== 'object' || Array.isArray(render)) {
+  // A rendered node (`render={<div />}` evaluates to one) has no props to merge into: it would be
+  // dropped for the default element.
+  if (
+    typeof render !== 'object' ||
+    Array.isArray(render) ||
+    (typeof Node !== 'undefined' && render instanceof Node)
+  ) {
     return false;
   }
   if (!('component' in render)) {

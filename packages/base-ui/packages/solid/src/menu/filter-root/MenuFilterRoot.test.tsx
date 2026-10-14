@@ -4929,9 +4929,6 @@ describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider>', () => {
       expect(screen.getByRole('menu').id).toBe('');
     });
 
-    // Solid: render elements are plain config objects; there are no Server Component lazy wrappers.
-    it.skip('points aria-controls at the id of a server-created render element', () => {});
-
     it('omits the list label when the trigger renders with an explicitly empty id', async () => {
       await render(() => (
         <Menu.FilterProvider>
