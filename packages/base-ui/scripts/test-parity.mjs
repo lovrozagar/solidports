@@ -237,6 +237,17 @@ const TITLE_ALIASES = {
   'returns undefined on the server': 'renders the generated id on the server',
 };
 
+// Upstream tests of a React mechanism Solid does not have, so they have nothing to port. Each is
+// listed as not ported with its reason, and a Solid test under the same title fails the check.
+const NOT_APPLICABLE_TESTS = {
+  "reads a server-created render element's id":
+    'React Server Components hand a render element over as a lazy wrapper; Solid has no server components, and popup content renders on the client',
+  "reads a server-created render element's label":
+    'React Server Components hand a render element over as a lazy wrapper; Solid has no server components, and popup content renders on the client',
+  'points aria-controls at the id of a server-created render element':
+    'React Server Components hand a render element over as a lazy wrapper; Solid has no server components, and popup content renders on the client',
+};
+
 // `@base-ui/utils` modules the Solid package has no counterpart of, because nothing upstream (no
 // component, docs page or test) uses them: they are only re-exported for that package's
 // consumers, and the Solid package does not publish a utils package. Their test files are listed
@@ -290,6 +301,7 @@ const report = {
   markers: [],
   solidOnlyConditional: [],
   notPorted: [],
+  notApplicable: [],
 };
 
 for (const [tree, reactFile] of TREES.flatMap((entry) =>
@@ -334,6 +346,22 @@ for (const [tree, reactFile] of TREES.flatMap((entry) =>
   }
   for (const test of reactTests) {
     const matches = solidByTitle.get(TITLE_ALIASES[test.title] ?? test.title);
+    if (NOT_APPLICABLE_TESTS[test.title]) {
+      if (matches) {
+        report.missingTests.push({
+          file: solidRelative,
+          kind: test.kind,
+          title: `${test.title} (listed as not applicable, but the Solid file has it)`,
+        });
+      } else {
+        report.notApplicable.push({
+          file: solidRelative,
+          title: test.title,
+          reason: NOT_APPLICABLE_TESTS[test.title],
+        });
+      }
+      continue;
+    }
     if (!matches) {
       report.missingTests.push({ file: solidRelative, kind: test.kind, title: test.title });
       continue;
@@ -398,6 +426,9 @@ const listed = [
 for (const line of listed) {
   console.log(`- ${line}`);
 }
+for (const test of report.notApplicable) {
+  console.log(`- not applicable: ${test.file} :: ${test.title} (${test.reason})`);
+}
 for (const file of report.notPorted) {
   console.log(`- not ported (module unused upstream, no Solid counterpart): ${file}`);
 }
@@ -410,6 +441,7 @@ console.log(
     `Solid .skip/.todo/.fails/.only markers: ${report.markers.length}`,
     `Solid-only tests with a skip condition (not counted): ${report.solidOnlyConditional.length}`,
     `upstream test files of modules nothing upstream uses, not ported: ${report.notPorted.length}`,
+    `upstream tests of React mechanisms Solid does not have, not ported: ${report.notApplicable.length}`,
   ].join('\n'),
 );
 

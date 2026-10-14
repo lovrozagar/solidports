@@ -719,6 +719,26 @@ describe('useRenderElement', () => {
       });
     });
 
+    it('reports a rendered node as an invalid render element', () => {
+      // Solid: `render={<div />}` evaluates to a DOM node, which has no props to merge into.
+      let error = null as Error | null;
+      render(() => (
+        <Errored
+          fallback={(err) => {
+            error = (typeof err === 'function' ? (err as () => unknown)() : err) as Error;
+            return null;
+          }}
+        >
+          <TestComponent render={(<div />) as any} />
+        </Errored>
+      ));
+      flush();
+
+      expect(error?.message).toMatch(
+        /Base UI: The `render` prop was provided an invalid render element/,
+      );
+    });
+
     it('throws error for invalid render element in development', () => {
       const originalEnv = process.env.NODE_ENV;
 

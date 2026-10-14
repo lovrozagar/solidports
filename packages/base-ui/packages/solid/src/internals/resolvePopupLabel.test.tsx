@@ -15,7 +15,4 @@ describe('resolvePopupLabel', () => {
       ),
     ).toBe(undefined);
   });
-
-  // Solid: render elements are plain config objects; there are no Server Component lazy wrappers.
-  it.skip("reads a server-created render element's label", () => {});
 });
