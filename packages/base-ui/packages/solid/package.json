@@ -478,7 +478,7 @@
   },
   "sideEffects": false,
   "type": "module",
-  "version": "1.9.0-10",
+  "version": "1.9.0-11",
   "files": [
     "src",
     "types",
