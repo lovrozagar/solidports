@@ -78,6 +78,32 @@ function WrappedMenu() {
 }
 
 export default defineSsrFixtures(import.meta.url, {
+  filterableIndicators: () => (
+    <Menu.FilterProvider>
+      <Menu.Root defaultOpen>
+        <Menu.Trigger>Columns</Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner>
+            <Menu.Popup>
+              <Menu.Input aria-label="Filter" />
+              <Menu.List>
+                <Menu.CheckboxItem defaultChecked>
+                  <Menu.CheckboxItemIndicator>✓</Menu.CheckboxItemIndicator>
+                  Status
+                </Menu.CheckboxItem>
+                <Menu.RadioGroup defaultValue="name">
+                  <Menu.RadioItem value="name">
+                    <Menu.RadioItemIndicator>•</Menu.RadioItemIndicator>
+                    Name
+                  </Menu.RadioItem>
+                </Menu.RadioGroup>
+              </Menu.List>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    </Menu.FilterProvider>
+  ),
   wrapped: () => <WrappedMenu />,
   wrappedFilterProvider: () => (
     <Menu.FilterProvider>

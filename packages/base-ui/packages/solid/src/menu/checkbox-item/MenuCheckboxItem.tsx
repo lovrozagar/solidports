@@ -40,17 +40,6 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
   const checkedProp = () => local.checked;
   const defaultChecked = () => local.defaultChecked;
 
-  const filterItem = useMenuFilterItem({
-    get label() {
-      return local.label;
-    },
-    get children() {
-      return componentProps.children;
-    },
-    get render() {
-      return componentProps.render;
-    },
-  });
   const listItem = useCompositeListItem({ label: () => local.label });
   const id = useBaseUiId(idProp);
 
@@ -110,7 +99,21 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     setChecked(() => !checked());
   };
 
-  const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
+  // The filter resolves the item's children once (to read their text): under the item's context,
+  // where its parts (the indicator) read it.
+  const renderItem = () => {
+    const filterItem = useMenuFilterItem({
+      get label() {
+        return local.label;
+      },
+      get children() {
+        return componentProps.children;
+      },
+      get render() {
+        return componentProps.render;
+      },
+    });
+    const element = useRenderElement('div', withFilterChildren(componentProps, filterItem), {
     props: [
       ...itemSources.attributes,
       propsSourceMemo(itemProps),
@@ -134,12 +137,10 @@ export function MenuCheckboxItem(componentProps: MenuCheckboxItem.Props) {
     state,
     stateAttributesMapping: itemMapping,
   });
+    return <Show when={filterItem.visible()}>{element()}</Show>;
+  };
 
-  return (
-    <Show when={filterItem.visible()}>
-      {provideContext(MenuCheckboxItemContext, contextValue, element)}
-    </Show>
-  );
+  return provideContext(MenuCheckboxItemContext, contextValue, renderItem);
 }
 
 export type MenuCheckboxItemState = {
