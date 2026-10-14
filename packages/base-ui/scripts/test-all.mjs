@@ -67,6 +67,12 @@ const suites = [
     run: ['bun run typescript', 'bunx tsc -p tsconfig.test.json --noEmit'],
   },
   {
+    job: 'Typechecking (typescript@next)',
+    name: 'typecheck-next',
+    cwd: solid,
+    run: ['bunx --package typescript@next tsc -b tsconfig.json'],
+  },
+  {
     job: 'Package',
     name: 'package',
     cwd: solid,
@@ -90,11 +96,23 @@ const suites = [
     cwd: baseUi,
     run: ['bun run test:solid:jsdom --run --maxWorkers=2'],
   },
-  ...['chromium', 'firefox', 'webkit'].map((browser) => ({
+  {
     job: 'Browser tests',
-    name: browser,
+    name: 'chromium',
     cwd: baseUi,
-    run: [`bun run test:solid:${browser} --run --maxWorkers=2`],
+    run: ['bun run test:solid:chromium --run --maxWorkers=2'],
+  },
+  // The browser parity workflow: upstream's suite and the Solid suite in Firefox and WebKit, failing
+  // on Solid-only failures (upstream's CI runs neither browser).
+  ...['firefox', 'webkit'].map((browser) => ({
+    job: 'Browser parity',
+    name: `parity-${browser}`,
+    cwd: baseUi,
+    run: [
+      `bun run test:${browser} --run --maxWorkers=2 --reporter=json --outputFile=../../.tmp/base-ui-test-all/react-${browser}.json || true`,
+      `bun run test:solid:${browser} --run --maxWorkers=2 --reporter=json --outputFile=../../.tmp/base-ui-test-all/solid-${browser}.json || true`,
+      `node scripts/browser-parity.mjs ../../.tmp/base-ui-test-all/react-${browser}.json ../../.tmp/base-ui-test-all/solid-${browser}.json`,
+    ],
   })),
   { job: 'E2E tests', name: 'e2e', cwd: baseUi, run: ['bun run test:e2e:solid'] },
   {

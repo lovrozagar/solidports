@@ -2,8 +2,15 @@ name: Base UI browser parity
 
 # Runs upstream's React suite and the Solid suite in each browser and reports the Solid failures of
 # tests upstream passes there (`scripts/browser-parity.mjs`). Upstream's CI only runs Chromium, so
-# its Firefox and WebKit results are what a Solid failure there is measured against.
+# its Firefox and WebKit results are what a Solid failure there is measured against. Every push to
+# main runs Firefox and WebKit, which the Base UI tests workflow leaves out as upstream's CI does;
+# a dispatch runs all three browsers.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/base-ui/**"
+      - ".github/workflows/base-ui-browser-parity.yml"
   workflow_dispatch:
     inputs:
       ref:
@@ -25,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, firefox, webkit]
+        browser: ${{ fromJSON(github.event_name == 'push' && '["firefox","webkit"]' || '["chromium","firefox","webkit"]') }}
     steps:
       - uses: actions/checkout@v4
         with:

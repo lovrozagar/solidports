@@ -52,14 +52,12 @@ jobs:
         run: bun run test:solid:jsdom --run --maxWorkers=2
 
   # Upstream "Browser tests" (Chromium); Firefox and WebKit are upstream's local test:browsers
+  # Upstream runs its browser suite in Chromium only. Firefox and WebKit run in the browser parity
+  # workflow, which compares the Solid suite with upstream's there.
   browser:
-    name: Browser tests (${{ matrix.browser }})
+    name: Browser tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -68,9 +66,9 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps ${{ matrix.browser }}
+      - run: bunx playwright install --with-deps chromium
       - working-directory: packages/base-ui
-        run: bun run test:solid:${{ matrix.browser }} --run --maxWorkers=2
+        run: bun run test:solid:chromium --run --maxWorkers=2
 
   # Upstream "Screen Reader (Windows / NVDA)": upstream's screen reader specs against the Solid e2e app
   screen-reader:
