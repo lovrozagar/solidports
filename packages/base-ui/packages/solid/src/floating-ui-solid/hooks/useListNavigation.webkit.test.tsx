@@ -49,6 +49,7 @@ function App() {
           <ul>
             <For each={['one', 'two', 'three']}>
               {(string, index) => (
+                // eslint-disable-next-line jsx-a11y/role-supports-aria-props
                 <li
                   data-testid={`item-${index()}`}
                   aria-selected={activeIndex() === index() ? 'true' : 'false'}

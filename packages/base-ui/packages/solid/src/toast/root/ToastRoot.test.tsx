@@ -795,15 +795,15 @@ describe('<Toast.Root />', () => {
       );
     }
 
-    function SwipeTestToast({
-      swipeDirection,
-    }: {
-      swipeDirection: Toast.Root.Props['swipeDirection'];
-    }) {
+    function SwipeTestToast(props: { swipeDirection: Toast.Root.Props['swipeDirection'] }) {
       return (
         <For each={Toast.useToastManager().toasts()}>
           {(toastItem) => (
-            <Toast.Root toast={toastItem} data-testid="toast-root" swipeDirection={swipeDirection}>
+            <Toast.Root
+              toast={toastItem}
+              data-testid="toast-root"
+              swipeDirection={props.swipeDirection}
+            >
               <Toast.Title>{toastItem.title}</Toast.Title>
               <Toast.Description>{toastItem.description}</Toast.Description>
             </Toast.Root>

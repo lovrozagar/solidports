@@ -395,6 +395,7 @@ describe('<Menu.FilterProvider><Menu.SubmenuRoot/></Menu.FilterProvider>', () =>
       // Commit the hover highlight before awaiting focus frames so React 18's focus updates
       // stay inside act. Crossing the trigger must not interrupt typing in the submenu.
       // Solid: the event wrapper flushes after each dispatched event, as `flushSync` here.
+      // eslint-disable-next-line testing-library/no-unnecessary-act -- the focus frames are awaited inside act, as upstream
       await act(async () => {
         fireEvent.mouseMove(trigger);
         await waitSingleFrame();
@@ -527,6 +528,7 @@ describe('closing a filtered submenu from the keyboard', () => {
         </Menu.Portal>
       </Menu.SubmenuRoot>
     );
+    // eslint-disable-next-line solid/components-return-once -- the branch is fixed for the test's lifetime
     return props.filterable ? <Menu.FilterProvider>{submenu()}</Menu.FilterProvider> : submenu();
   }
 

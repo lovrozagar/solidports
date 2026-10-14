@@ -170,7 +170,7 @@ const scopedPopupAnimationStyles = `
 function TestNavigationMenuWithTopLevelLinkScopedPopupAnimation() {
   return (
     <NavigationMenu.Root>
-      <style innerHTML={scopedPopupAnimationStyles} />
+      <style>{scopedPopupAnimationStyles}</style>
       <NavigationMenu.List>
         <NavigationMenu.Item value="item-1">
           <NavigationMenu.Trigger data-testid="trigger-product">Product</NavigationMenu.Trigger>
@@ -638,7 +638,7 @@ function TestNavigationMenuWithScopedPopupExitAnimation(
 ) {
   return (
     <NavigationMenu.Root onOpenChangeComplete={props.onOpenChangeComplete}>
-      <style innerHTML={scopedPopupAnimationStyles} />
+      <style>{scopedPopupAnimationStyles}</style>
       <NavigationMenu.List>
         <NavigationMenu.Item value="item-1">
           <NavigationMenu.Trigger data-testid="trigger-product">Product</NavigationMenu.Trigger>
@@ -756,6 +756,15 @@ function primeOpenPopupSize(
   popupRoot.style.setProperty('--popup-height', 'auto');
   positioner.style.setProperty('--positioner-width', `${width}px`);
   positioner.style.setProperty('--positioner-height', `${height}px`);
+}
+
+function getPopupSizeVars(popupRoot: HTMLElement, positioner: HTMLElement) {
+  return {
+    popupWidth: popupRoot.style.getPropertyValue('--popup-width'),
+    popupHeight: popupRoot.style.getPropertyValue('--popup-height'),
+    positionerWidth: positioner.style.getPropertyValue('--positioner-width'),
+    positionerHeight: positioner.style.getPropertyValue('--positioner-height'),
+  };
 }
 
 function TestDeeplyNestedNavigationMenu() {
@@ -3426,10 +3435,12 @@ describe('<NavigationMenu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(popupRoot.style.getPropertyValue('--popup-width')).toBe('auto');
-            expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
-            expect(positioner.style.getPropertyValue('--positioner-width')).toBe('250px');
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('220px');
+            expect(getPopupSizeVars(popupRoot, positioner)).toEqual({
+              popupWidth: 'auto',
+              popupHeight: 'auto',
+              positionerWidth: '250px',
+              positionerHeight: '220px',
+            });
           });
         } finally {
           globalThis.BASE_UI_ANIMATIONS_DISABLED = previousAnimationsDisabled;
@@ -3476,10 +3487,12 @@ describe('<NavigationMenu.Root />', () => {
 
           expect(screen.getByTestId('nested-popup-1')).not.toBe(null);
           await waitFor(() => {
-            expect(popupRoot.style.getPropertyValue('--popup-width')).toBe('auto');
-            expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
-            expect(positioner.style.getPropertyValue('--positioner-width')).toBe('250px');
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('220px');
+            expect(getPopupSizeVars(popupRoot, positioner)).toEqual({
+              popupWidth: 'auto',
+              popupHeight: 'auto',
+              positionerWidth: '250px',
+              positionerHeight: '220px',
+            });
           });
         } finally {
           globalThis.BASE_UI_ANIMATIONS_DISABLED = previousAnimationsDisabled;
@@ -3527,10 +3540,12 @@ describe('<NavigationMenu.Root />', () => {
 
           expect(screen.getByTestId('nested-popup-1')).not.toHaveAttribute('hidden');
           await waitFor(() => {
-            expect(popupRoot.style.getPropertyValue('--popup-width')).toBe('auto');
-            expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
-            expect(positioner.style.getPropertyValue('--positioner-width')).toBe('250px');
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('220px');
+            expect(getPopupSizeVars(popupRoot, positioner)).toEqual({
+              popupWidth: 'auto',
+              popupHeight: 'auto',
+              positionerWidth: '250px',
+              positionerHeight: '220px',
+            });
           });
 
           const popupSetPropertyCalls = setPopupPropertySpy.mock.calls as Array<
@@ -3600,10 +3615,12 @@ describe('<NavigationMenu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(popupRoot.style.getPropertyValue('--popup-width')).toBe('auto');
-            expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
-            expect(positioner.style.getPropertyValue('--positioner-width')).toBe('250px');
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('300px');
+            expect(getPopupSizeVars(popupRoot, positioner)).toEqual({
+              popupWidth: 'auto',
+              popupHeight: 'auto',
+              positionerWidth: '250px',
+              positionerHeight: '300px',
+            });
           });
         } finally {
           globalThis.BASE_UI_ANIMATIONS_DISABLED = previousAnimationsDisabled;
@@ -3651,8 +3668,8 @@ describe('<NavigationMenu.Root />', () => {
 
           await waitFor(() => {
             expect(positioner.style.getPropertyValue('--positioner-width')).toBe('250px');
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('300px');
           });
+          expect(positioner.style.getPropertyValue('--positioner-height')).toBe('300px');
         } finally {
           globalThis.BASE_UI_ANIMATIONS_DISABLED = previousAnimationsDisabled;
           restoreResizeObserver();
@@ -3720,8 +3737,10 @@ describe('<NavigationMenu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('260px');
-            expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
+            expect(getPopupSizeVars(popupRoot, positioner)).toMatchObject({
+              popupHeight: 'auto',
+              positionerHeight: '260px',
+            });
           });
 
           setPropertySpy.mockRestore();
@@ -3818,10 +3837,12 @@ describe('<NavigationMenu.Root />', () => {
           expect(positioner).not.toHaveAttribute('data-instant');
 
           await waitFor(() => {
-            expect(popupRoot.style.getPropertyValue('--popup-width')).toBe('auto');
-            expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
-            expect(positioner.style.getPropertyValue('--positioner-width')).toBe('500px');
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('180px');
+            expect(getPopupSizeVars(popupRoot, positioner)).toEqual({
+              popupWidth: 'auto',
+              popupHeight: 'auto',
+              positionerWidth: '500px',
+              positionerHeight: '180px',
+            });
           });
         } finally {
           restoreResizeObserver();
@@ -3872,10 +3893,12 @@ describe('<NavigationMenu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(popupRoot.style.getPropertyValue('--popup-width')).toBe('auto');
-            expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
-            expect(positioner.style.getPropertyValue('--positioner-width')).toBe('500px');
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('180px');
+            expect(getPopupSizeVars(popupRoot, positioner)).toEqual({
+              popupWidth: 'auto',
+              popupHeight: 'auto',
+              positionerWidth: '500px',
+              positionerHeight: '180px',
+            });
           });
         } finally {
           globalThis.BASE_UI_ANIMATIONS_DISABLED = previousAnimationsDisabled;
@@ -3945,8 +3968,8 @@ describe('<NavigationMenu.Root />', () => {
 
           await waitFor(() => {
             expect(positioner.style.getPropertyValue('--positioner-width')).toBe('500px');
-            expect(positioner.style.getPropertyValue('--positioner-height')).toBe('180px');
           });
+          expect(positioner.style.getPropertyValue('--positioner-height')).toBe('180px');
 
           await finishAnimation(openAnimation);
 
@@ -3957,8 +3980,8 @@ describe('<NavigationMenu.Root />', () => {
 
           await waitFor(() => {
             expect(popupRoot.style.getPropertyValue('--popup-width')).toBe('auto');
-            expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
           });
+          expect(popupRoot.style.getPropertyValue('--popup-height')).toBe('auto');
         } finally {
           globalThis.BASE_UI_ANIMATIONS_DISABLED = previousAnimationsDisabled;
           restoreResizeObserver();
@@ -4023,9 +4046,9 @@ describe('<NavigationMenu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(triggerProduct).toHaveAttribute('aria-expanded', 'true');
             expect(popupRoot.style.getPropertyValue('--popup-width')).toBe('auto');
           });
+          expect(triggerProduct).toHaveAttribute('aria-expanded', 'true');
 
           const productContent = screen
             .getByText('Product panel')

@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import type { Component } from 'solid-js';
 import { screen } from '@solidjs/testing-library';
 import type {

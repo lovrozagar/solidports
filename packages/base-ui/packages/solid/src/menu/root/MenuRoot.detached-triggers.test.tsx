@@ -361,6 +361,7 @@ describe('<MenuRoot />', () => {
           const handle = Menu.createHandle();
 
           if (mode === 'contained') {
+            // eslint-disable-next-line solid/components-return-once -- the branch is fixed for the test's lifetime
             return (
               <Menu.Root>
                 <Menu.Trigger>Trigger 1</Menu.Trigger>

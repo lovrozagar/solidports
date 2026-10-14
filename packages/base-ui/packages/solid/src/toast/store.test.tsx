@@ -29,7 +29,7 @@ describe('ToastStore.promiseToast — rejection identity', () => {
 
     await expect(
       store.promiseToast(Promise.reject(failure), {
-        error: (e) => ({ title: String(e) }),
+        error: (error) => ({ title: String(error) }),
         loading: { title: 'load' },
         success: () => ({ title: 'ok' }),
       }),

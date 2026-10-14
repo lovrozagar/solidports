@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
  * Parity (plan 8 step 3.1): `Radio.Root` (+ Indicator) inside a `RadioGroup`, and the `RadioGroup`
  * itself, rendered through their Solid-native fast paths and through the `useRenderElement` slow
@@ -385,13 +386,16 @@ describe('native parity: RadioGroup', () => {
     ];
     // One name per render: a browser unchecks same-named radios across the two containers.
     let names = 0;
-    const inField = (ui: () => JSX.Element) => (
-      <Field.Root name={`choice-${(names += 1)}`}>
-        <Field.Label>Choice</Field.Label>
-        {ui()}
-        <Field.Description>Why</Field.Description>
-      </Field.Root>
-    );
+    const inField = (ui: () => JSX.Element) => {
+      names += 1;
+      return (
+        <Field.Root name={`choice-${names}`}>
+          <Field.Label>Choice</Field.Label>
+          {ui()}
+          <Field.Description>Why</Field.Description>
+        </Field.Root>
+      );
+    };
     for (const make of cases) {
       const plain = mountBoth(make);
       expect(stripIds(plain.fast)).toBe(stripIds(plain.slow));

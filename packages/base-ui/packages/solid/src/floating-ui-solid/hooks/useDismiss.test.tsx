@@ -1,4 +1,4 @@
-import { act, flushMicrotasks, isJSDOM } from '#test-utils';
+import { act, createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import { createSignal, Show } from 'solid-js';
@@ -1040,6 +1040,8 @@ describe.skipIf(!isJSDOM)('useDismiss', () => {
   });
 
   describe('prop: capture', () => {
+    const { render: renderWithUser } = createRenderer();
+
     describe('normalizeProp', () => {
       test('undefined', () => {
         const { escapeKey: escapeKeyCapture, outsidePress: outsidePressCapture } = normalizeProp();
@@ -1160,9 +1162,7 @@ describe.skipIf(!isJSDOM)('useDismiss', () => {
 
     describe('prop: capture.outsidePress', () => {
       test('when true', async () => {
-        const user = userEvent.setup();
-
-        render(() => (
+        const { user } = await renderWithUser(() => (
           <Overlay>
             <NestedDialog id="outer">
               <NestedDialog id="inner">{null}</NestedDialog>
@@ -1187,9 +1187,7 @@ describe.skipIf(!isJSDOM)('useDismiss', () => {
 
     describe('prop: capture.escapeKey', () => {
       test('when false', async () => {
-        const user = userEvent.setup();
-
-        render(() => (
+        const { user } = await renderWithUser(() => (
           <Overlay>
             <NestedDialog id="outer">
               <NestedDialog id="inner">{null}</NestedDialog>

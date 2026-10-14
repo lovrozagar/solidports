@@ -53,6 +53,7 @@ export async function renderSsrFixtures(
       createComponent: (component: () => unknown, props: object) => unknown;
     };
     for (const file of files) {
+      // eslint-disable-next-line no-await-in-loop -- one Vite SSR server loads one module at a time
       const mod = (await server.ssrLoadModule(file)) as {
         default?: { file: string; fixtures: Record<string, () => unknown> };
       };

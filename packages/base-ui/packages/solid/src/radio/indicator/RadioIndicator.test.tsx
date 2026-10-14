@@ -219,9 +219,7 @@ describe('<Radio.Indicator />', () => {
       await user.click(screen.getByText('Select b'));
 
       await waitFor(() => {
-        const indicator = screen.queryByTestId('indicator-a');
-        expect(indicator).not.toBe(null);
-        expect(indicator).toHaveAttribute('data-ending-style');
+        expect(screen.queryByTestId('indicator-a')).toHaveAttribute('data-ending-style');
       });
 
       await waitFor(() => {

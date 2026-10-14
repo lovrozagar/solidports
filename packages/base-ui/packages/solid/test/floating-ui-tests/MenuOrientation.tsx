@@ -271,18 +271,14 @@ export function MenuComponent(
           parent.getItemProps<HTMLButtonElement>({
             ...elementProps,
             onFocus(event) {
-              {
-                callEventHandler(props.onFocus, event);
-                setHasFocusInside(false);
-                parent.setHasFocusInside(true);
-              }
+              callEventHandler(props.onFocus, event);
+              setHasFocusInside(false);
+              parent.setHasFocusInside(true);
             },
             onMouseEnter(event) {
-              {
-                callEventHandler(props.onMouseEnter, event);
-                if (parent.allowHover() && parent.isOpen()) {
-                  parent.setActiveIndex(item.index());
-                }
+              callEventHandler(props.onMouseEnter, event);
+              if (parent.allowHover() && parent.isOpen()) {
+                parent.setActiveIndex(item.index());
               }
             },
           }),
@@ -386,10 +382,8 @@ export function MenuItem(props: MenuItemProps & JSX.HTMLAttributes<HTMLButtonEle
           tree?.events.emit('click');
         },
         onFocus(event) {
-          {
-            callEventHandler(props.onFocus, event);
-            menu.setHasFocusInside(true);
-          }
+          callEventHandler(props.onFocus, event);
+          menu.setHasFocusInside(true);
         },
         onMouseEnter(event) {
           callEventHandler(props.onMouseEnter, event);

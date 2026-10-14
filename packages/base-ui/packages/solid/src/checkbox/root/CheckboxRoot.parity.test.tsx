@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
  * Parity (plan 8 step 3.1): `Checkbox.Root` rendered through its Solid-native fast path and through
  * the `useRenderElement` slow path (`render="span"`, the same tag) must produce identical DOM for
@@ -252,11 +253,9 @@ describe('native parity: Checkbox', () => {
       const el = variant === 'fast' ? fastEl : slowEl;
       expect(ref).toHaveBeenCalledTimes(2);
       expect(ref.mock.calls.some((call) => call[0] === el)).toBe(true);
-      if (variant === 'fast') {
-        expect(inputRef.current?.type).toBe('checkbox');
-      } else {
-        expect(inputRefFn.mock.calls[0][0].type).toBe('checkbox');
-      }
+      const inputType =
+        variant === 'fast' ? inputRef.current?.type : inputRefFn.mock.calls[0][0].type;
+      expect(inputType).toBe('checkbox');
       return el.tagName;
     };
     expect(run('fast')).toBe(run('slow'));

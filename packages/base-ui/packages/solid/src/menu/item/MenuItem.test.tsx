@@ -176,13 +176,10 @@ describe('<Menu.Item />', () => {
 
     await user.keyboard('{ArrowDown}'); // highlights '2'
 
-    await waitFor(
-      () => {
-        expect(menuItems[0]).not.toHaveAttribute('data-highlighted');
-        expect(menuItems[1]).toHaveAttribute('data-highlighted');
-      },
-      { timeout: 1000 },
-    );
+    await waitFor(() => {
+      expect(menuItems[1]).toHaveAttribute('data-highlighted');
+    });
+    expect(menuItems[0]).not.toHaveAttribute('data-highlighted');
 
     // Solid updates the DOM state for plain menu items without re-invoking the custom render
     // component, so no item needs to rerender here.

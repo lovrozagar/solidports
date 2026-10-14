@@ -454,7 +454,7 @@ describe('<Combobox.Root />', () => {
         const { user } = render(() => (
           <>
             {}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Combobox.Root items={['Apple', 'Banana']} defaultValue="Banana">
               <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
               <SelectedIndexProbe />
@@ -519,7 +519,7 @@ describe('<Combobox.Root />', () => {
         const { user } = render(() => (
           <>
             {}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Combobox.Root items={['Apple', 'Banana']}>
               <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
               <Combobox.Portal>
@@ -1628,11 +1628,13 @@ describe('<Combobox.Root />', () => {
             >
               <Combobox.Input data-testid="input" />
               <Combobox.List>
-                {items.map((item, index) => (
-                  <Combobox.Item value={item} index={index}>
-                    {item}
-                  </Combobox.Item>
-                ))}
+                <For each={items}>
+                  {(item, index) => (
+                    <Combobox.Item value={item} index={index()}>
+                      {item}
+                    </Combobox.Item>
+                  )}
+                </For>
               </Combobox.List>
             </Combobox.Root>
           ));
@@ -2532,9 +2534,9 @@ describe('<Combobox.Root />', () => {
               <Combobox.Positioner>
                 <Combobox.Popup>
                   <Combobox.List>
-                    {['apple', 'banana', 'cherry'].map((item) => (
-                      <Combobox.Item value={item}>{item}</Combobox.Item>
-                    ))}
+                    <For each={['apple', 'banana', 'cherry']}>
+                      {(item) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                    </For>
                   </Combobox.List>
                 </Combobox.Popup>
               </Combobox.Positioner>
@@ -3190,9 +3192,9 @@ describe('<Combobox.Root />', () => {
                 <Combobox.Positioner>
                   <Combobox.Popup>
                     <Combobox.List>
-                      {items.map((item) => (
-                        <Combobox.Item value={item}>{item}</Combobox.Item>
-                      ))}
+                      <For each={items}>
+                        {(item) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                      </For>
                     </Combobox.List>
                   </Combobox.Popup>
                 </Combobox.Positioner>
@@ -3966,11 +3968,7 @@ describe('<Combobox.Root />', () => {
       expect(onValueChange).not.toHaveBeenCalled();
       expect(onInputValueChange).not.toHaveBeenCalled();
       expect(visibleInput.value).toBe('');
-      // Solid: delegated handlers skip disabled controls (as browsers do not dispatch input to
-      // them), so jsdom's direct write to a disabled hidden input is not reverted.
-      if (lockState !== 'disabled') {
-        expect(hiddenInput.value).toBe('');
-      }
+      expect(hiddenInput.value).toBe('');
       expect(screen.queryByTestId('error')?.textContent ?? null).toBe(expectedError);
     },
   );
@@ -5577,7 +5575,7 @@ describe('<Combobox.Root />', () => {
         return (
           <>
             {}
-            <style innerHTML={closeAnimationStyle} />
+            <style>{closeAnimationStyle}</style>
             <button type="button" data-testid="open" onClick={() => setOpen(true)}>
               Open
             </button>
@@ -5641,7 +5639,7 @@ describe('<Combobox.Root />', () => {
         return (
           <>
             {}
-            <style innerHTML={closeAnimationStyle} />
+            <style>{closeAnimationStyle}</style>
             <button
               type="button"
               data-testid="refetch"
@@ -5700,7 +5698,7 @@ describe('<Combobox.Root />', () => {
       const { user } = render(() => (
         <>
           {}
-          <style innerHTML={closeAnimationStyle} />
+          <style>{closeAnimationStyle}</style>
           <Combobox.Root items={['apple', 'apricot', 'banana']} defaultValue="apple">
             <Combobox.Input data-testid="input" />
             <Combobox.Portal>
@@ -5751,7 +5749,7 @@ describe('<Combobox.Root />', () => {
       const { user } = render(() => (
         <>
           {}
-          <style innerHTML={closeAnimationStyle} />
+          <style>{closeAnimationStyle}</style>
           <Combobox.Root
             multiple
             items={['apple', 'apricot', 'banana']}
@@ -5807,7 +5805,7 @@ describe('<Combobox.Root />', () => {
         return (
           <>
             {}
-            <style innerHTML={closeAnimationStyle} />
+            <style>{closeAnimationStyle}</style>
             <Combobox.Root
               items={items()}
               defaultValue="apple"
@@ -5868,7 +5866,7 @@ describe('<Combobox.Root />', () => {
         return (
           <>
             {}
-            <style innerHTML={closeAnimationStyle} />
+            <style>{closeAnimationStyle}</style>
             <button type="button" data-testid="reopen" onClick={() => setOpen(true)}>
               Reopen
             </button>
@@ -5958,7 +5956,7 @@ describe('<Combobox.Root />', () => {
         return (
           <>
             {}
-            <style innerHTML={closeAnimationStyle} />
+            <style>{closeAnimationStyle}</style>
             <Combobox.Root
               items={['apple', 'apricot', 'banana']}
               value={value()}
@@ -6025,7 +6023,7 @@ describe('<Combobox.Root />', () => {
         return (
           <>
             {}
-            <style innerHTML={closeAnimationStyle} />
+            <style>{closeAnimationStyle}</style>
             <button
               type="button"
               data-testid="preset"
@@ -6097,7 +6095,7 @@ describe('<Combobox.Root />', () => {
       const { user } = render(() => (
         <>
           {}
-          <style innerHTML={closeAnimationStyle} />
+          <style>{closeAnimationStyle}</style>
           <Combobox.Root items={['apple', 'apricot', 'banana']}>
             <Combobox.Input data-testid="input" />
             <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
@@ -7087,8 +7085,7 @@ describe('<Combobox.Root />', () => {
 
         const { user } = await render(() => (
           <>
-            {/* eslint-disable-next-line solid/no-innerhtml */}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Combobox.Root
               multiple
               items={['apple', 'apricot', 'banana']}
@@ -7161,7 +7158,7 @@ describe('<Combobox.Root />', () => {
         const { user } = render(() => (
           <>
             {}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Combobox.Root multiple items={['apple', 'apricot', 'banana']}>
               <Combobox.Input data-testid="input" />
               <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
@@ -7298,7 +7295,7 @@ describe('<Combobox.Root />', () => {
         const { user } = render(() => (
           <>
             {}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Combobox.Root multiple items={items}>
               <Combobox.Trigger data-testid="trigger">
                 <Combobox.Value />
@@ -7381,7 +7378,7 @@ describe('<Combobox.Root />', () => {
         const { user } = render(() => (
           <>
             {}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Combobox.Root multiple items={['apple', 'apricot', 'banana']}>
               <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
               <Combobox.Portal>
@@ -7439,7 +7436,7 @@ describe('<Combobox.Root />', () => {
         const { user } = render(() => (
           <>
             {}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Combobox.Root multiple items={items}>
               <Combobox.Trigger data-testid="trigger">
                 <Combobox.Value />
@@ -7519,8 +7516,7 @@ describe('<Combobox.Root />', () => {
           const [inputValue, setInputValue] = createSignal('');
           return (
             <>
-              {/* eslint-disable-next-line solid/no-innerhtml */}
-              <style innerHTML={style} />
+              <style>{style}</style>
               <Combobox.Root
                 multiple
                 items={['apple', 'banana']}
@@ -8759,9 +8755,9 @@ describe('<Combobox.Root />', () => {
                 <Combobox.Positioner>
                   <Combobox.Popup>
                     <Combobox.List>
-                      {props.results.map((item) => (
-                        <Combobox.Item value={item}>{item}</Combobox.Item>
-                      ))}
+                      <For each={props.results}>
+                        {(item) => <Combobox.Item value={item}>{item}</Combobox.Item>}
+                      </For>
                     </Combobox.List>
                   </Combobox.Popup>
                 </Combobox.Positioner>
@@ -10166,7 +10162,7 @@ describe('<Combobox.Root />', () => {
           return (
             <>
               {}
-              <style innerHTML={style} />
+              <style>{style}</style>
               <Combobox.Root
                 items={['Apple', 'Apricot', 'Banana']}
                 open={open()}
@@ -10861,8 +10857,8 @@ describe('<Combobox.Root />', () => {
 
         await waitFor(() => {
           expect(apple).toHaveAttribute('data-highlighted');
-          expect(input).toHaveAttribute('aria-activedescendant', apple.id);
         });
+        expect(input).toHaveAttribute('aria-activedescendant', apple.id);
 
         const done = screen.getByRole('button', { name: 'Done' });
         fireEvent.blur(input, { relatedTarget: done });
@@ -10877,8 +10873,8 @@ describe('<Combobox.Root />', () => {
 
         await waitFor(() => {
           expect(apple).toHaveAttribute('data-highlighted');
-          expect(input).toHaveAttribute('aria-activedescendant', apple.id);
         });
+        expect(input).toHaveAttribute('aria-activedescendant', apple.id);
       });
     });
 

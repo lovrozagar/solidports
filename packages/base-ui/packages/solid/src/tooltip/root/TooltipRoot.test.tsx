@@ -487,8 +487,7 @@ describe('<Tooltip.Root />', () => {
 
         const { user } = render(() => (
           <Tooltip.Provider>
-            {/* eslint-disable-next-line solid/no-innerhtml */}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Tooltip.Root>
               <Tooltip.Trigger data-testid="trigger-1" delay={0}>
                 First
@@ -563,7 +562,7 @@ describe('<Tooltip.Root />', () => {
 
         const { user } = render(() => (
           <Tooltip.Provider timeout={30000}>
-            <style innerHTML={style} />
+            <style>{style}</style>
             <For each={['First', 'Second']}>
               {(name, index) => (
                 <Tooltip.Root>
@@ -619,8 +618,7 @@ describe('<Tooltip.Root />', () => {
 
         const { user } = render(() => (
           <Tooltip.Root>
-            {/* eslint-disable-next-line solid/no-innerhtml */}
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Tooltip.Trigger data-testid="trigger" delay={0}>
               Trigger
             </Tooltip.Trigger>

@@ -1,7 +1,7 @@
 import { randomStringValue } from '@mui/internal-test-utils';
 import { screen, waitFor } from '@solidjs/testing-library';
 import type { UserEvent } from '@testing-library/user-event';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it, afterEach, beforeEach } from 'vitest';
 import { createSignal } from 'solid-js';
 import type { Component } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -47,7 +47,7 @@ export function popupConformanceTests(config: PopupTestConfig) {
    */
   const renderControlled = (initialOpen: boolean, root: RootProps = {}) => {
     const [open, setOpen] = createSignal(initialOpen);
-    const result = render(() =>
+    const view = render(() =>
       prepareComponent({
         root: {
           ...root,
@@ -57,7 +57,7 @@ export function popupConformanceTests(config: PopupTestConfig) {
         },
       }),
     );
-    return { ...result, setOpen: (value: boolean) => act(() => setOpen(value)) };
+    return { ...view, setOpen: (value: boolean) => act(() => setOpen(value)) };
   };
 
   const openWithTrigger = async (user: UserEvent) => {

@@ -1268,8 +1268,8 @@ describe('<Menubar /> provider guard', () => {
     createRoot(() => {
       try {
         solidRender(() => <Menu.Trigger data-testid="orphan">orphan</Menu.Trigger>);
-      } catch (e) {
-        caught = e;
+      } catch (error) {
+        caught = error;
       }
     });
     errSpy.mockRestore();

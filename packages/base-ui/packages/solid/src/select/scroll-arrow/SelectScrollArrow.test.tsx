@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import { expect, vi, describe, it, beforeEach, afterEach } from 'vitest';
 import { Select } from '@solidports/base-ui/select';
 import { fireEvent, screen } from '@solidjs/testing-library';
@@ -119,14 +120,16 @@ describe('<Select.ScrollArrow />', () => {
                   )
                 }
               >
-                {itemOffsets.map((offsetTop, index) => (
-                  <Select.Item
-                    value={`item-${index}`}
-                    ref={(node) => stubItem(node, offsetTop, itemHeight)}
-                  >
-                    Item {index}
-                  </Select.Item>
-                ))}
+                <For each={itemOffsets}>
+                  {(offsetTop, index) => (
+                    <Select.Item
+                      value={`item-${index()}`}
+                      ref={(node) => stubItem(node, offsetTop, itemHeight)}
+                    >
+                      Item {index()}
+                    </Select.Item>
+                  )}
+                </For>
               </Select.List>
               <Select.ScrollDownArrow keepMounted data-testid="down" />
             </Select.Popup>

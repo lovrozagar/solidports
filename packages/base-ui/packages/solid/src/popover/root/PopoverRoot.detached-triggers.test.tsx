@@ -76,21 +76,23 @@ describe('<Popover.Root />', () => {
 
     const { user } = render(() => (
       <>
-        {[1, 2].map((payload) => (
-          <Popover.Trigger
-            handle={handle}
-            id={`trigger-${payload}`}
-            payload={payload}
-            openOnHover
-            delay={0}
-            // Forces the handoff path: without a close delay the popup just closes and reopens,
-            // which works even when the trigger is registered on the wrong store.
-            closeDelay={100}
-            render={(props) => <StaleRefButton {...props} />}
-          >
-            Trigger {payload}
-          </Popover.Trigger>
-        ))}
+        <For each={[1, 2]}>
+          {(payload) => (
+            <Popover.Trigger
+              handle={handle}
+              id={`trigger-${payload}`}
+              payload={payload}
+              openOnHover
+              delay={0}
+              // Forces the handoff path: without a close delay the popup just closes and reopens,
+              // which works even when the trigger is registered on the wrong store.
+              closeDelay={100}
+              render={(props) => <StaleRefButton {...props} />}
+            >
+              Trigger {payload}
+            </Popover.Trigger>
+          )}
+        </For>
         <Popover.Root handle={handle}>
           {(data: { payload: number | undefined }) => (
             <Popover.Portal>

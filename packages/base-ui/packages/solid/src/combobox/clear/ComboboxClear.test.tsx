@@ -274,7 +274,7 @@ describe('<Combobox.Clear />', () => {
       const { user } = render(() => (
         <div>
           {}
-          <style innerHTML={style} />
+          <style>{style}</style>
           <Combobox.Root>
             <Combobox.Input data-testid="input" />
             <Combobox.Clear
@@ -330,7 +330,7 @@ describe('<Combobox.Clear />', () => {
       const { user } = render(() => (
         <div>
           {}
-          <style innerHTML={style} />
+          <style>{style}</style>
           <Combobox.Root defaultValue="a">
             <Combobox.Input data-testid="input" />
             <Combobox.Clear

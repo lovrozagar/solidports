@@ -209,12 +209,8 @@ describe('useRender', () => {
 
       expect(span).toHaveAttribute('class', 'test-class');
 
-      const attributes = span?.attributes;
-      if (attributes) {
-        for (let i = 0; i < attributes.length; i += 1) {
-          expect(attributes[i].name).not.toMatch(/^data-/);
-        }
-      }
+      const attributeNames = Array.from(span?.attributes ?? [], (attr) => attr.name);
+      expect(attributeNames.filter((name) => name.startsWith('data-'))).toEqual([]);
     });
 
     it('handles undefined state', async () => {

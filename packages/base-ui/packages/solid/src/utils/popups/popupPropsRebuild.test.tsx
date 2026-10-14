@@ -27,7 +27,9 @@ function probe(name: string, counts: Record<string, number>) {
 const settle = async () => {
   flush();
   await flushMicrotasks();
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  await new Promise((resolve) => {
+    setTimeout(resolve, 30);
+  });
   flush();
 };
 
@@ -185,6 +187,7 @@ describe('popup parts do not rebuild their props on open and close', () => {
       (document.activeElement ?? popup).dispatchEvent(
         new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
       );
+      // eslint-disable-next-line no-await-in-loop -- each round settles before the next one starts
       await settle();
       highlightedOnce ||= trigger.hasAttribute('data-highlighted');
     }

@@ -15,9 +15,9 @@ describe('ComboboxItemContext', () => {
     // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     // Solid: the uncaught render error also reaches `reportError` where the platform has one.
-    typeof globalThis.reportError === 'function'
-      ? vi.spyOn(globalThis, 'reportError').mockImplementation(() => {})
-      : undefined;
+    if (typeof globalThis.reportError === 'function') {
+      vi.spyOn(globalThis, 'reportError').mockImplementation(() => {});
+    }
 
     try {
       expect(() => render(Consumer)).toThrow(

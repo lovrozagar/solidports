@@ -1,3 +1,4 @@
+import { describe } from 'vitest';
 import { buildQueries } from '@solidjs/testing-library';
 import type { BoundFunction, queries, Queries, render } from '@solidjs/testing-library';
 import type { userEvent } from '@testing-library/user-event';

@@ -42,11 +42,15 @@ describe('<Select.Root /> reactivity', () => {
     flush();
 
     await user.click(screen.getByTestId('trigger'));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 100);
+    });
     expect(screen.getByRole('listbox')).toHaveAttribute('data-probe', 'popup');
 
     await user.click(screen.getByRole('option', { name: 'b' }));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 100);
+    });
 
     expect(screen.getByTestId('trigger')).toHaveTextContent('b');
     expect(triggerReads).toBe(1);

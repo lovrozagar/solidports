@@ -57,6 +57,7 @@ try {
   for (const file of files) {
     current = file;
     try {
+      // eslint-disable-next-line no-await-in-loop -- one Vite SSR server loads one module at a time
       const mod = await server.ssrLoadModule(file);
       web.renderToString(() => web.createComponent(mod.default, {}));
     } catch (error) {

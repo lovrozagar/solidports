@@ -31,7 +31,9 @@ describe('hydrated Tabs', () => {
     };
     dispose = hydrate(() => <TabsFixture />, container);
     flush();
-    await new Promise((done) => setTimeout(done, 0));
+    await new Promise((done) => {
+      setTimeout(done, 0);
+    });
     flush();
     const tabs = [...container.querySelectorAll('[role="tab"]')];
     const panel = container.querySelector('[role="tabpanel"]');

@@ -188,6 +188,7 @@ describe('useLabel', () => {
   describe.each(['Select.Label', 'Combobox.Label', 'Field.Label'])('%s', (labelType) => {
     function TestControl() {
       if (labelType === 'Combobox.Label') {
+        // eslint-disable-next-line solid/components-return-once -- the branch is fixed for the test's lifetime
         return (
           <Field.Root name="country">
             <Combobox.Root>

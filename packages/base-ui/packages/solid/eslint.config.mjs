@@ -11,6 +11,23 @@ import baseUiTestRules from '../../scripts/eslint/testRules.mjs';
 // entries keep the root as their base path.
 const baseConfig = rootConfig.map((config) => ({ basePath: '../..', ...config }));
 
+// Upstream's test config also covers its shared test helpers (`packages/react/test/
+// describeConformance.tsx`, `conformanceTests/*`, `*Tests.tsx`). The same entries cover the Solid
+// package's helpers at the same paths.
+const isReactTestHelperPattern = (pattern) =>
+  typeof pattern === 'string' && pattern.startsWith('packages/react/test/');
+const solidTestHelperConfig = rootConfig
+  .filter((config) => config.files?.some(isReactTestHelperPattern))
+  .map((config) => ({
+    ...config,
+    basePath: '../..',
+    files: config.files.map((pattern) =>
+      isReactTestHelperPattern(pattern)
+        ? pattern.replace('packages/react/', 'packages/solid/')
+        : pattern,
+    ),
+  }));
+
 const reactRulesOff = Object.fromEntries(
   rootConfig
     .flatMap((config) => Object.keys(config.rules ?? {}))
@@ -20,6 +37,7 @@ const reactRulesOff = Object.fromEntries(
 
 export default defineConfig(
   ...baseConfig,
+  ...solidTestHelperConfig,
   {
     rules: {
       ...reactRulesOff,

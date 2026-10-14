@@ -327,6 +327,7 @@ describe('<ToggleGroup />', () => {
           </ToggleGroup>
         );
 
+        // eslint-disable-next-line solid/components-return-once -- the branch is fixed for the test's lifetime
         return inToolbar ? (
           <Toolbar.Root>
             <Toolbar.Group>{group()}</Toolbar.Group>

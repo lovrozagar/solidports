@@ -79,6 +79,7 @@ import type { FilterItemToString } from './utils';
 import { INITIAL_LAST_HIGHLIGHT, NO_ACTIVE_VALUE } from './utils/constants';
 import { useCoreFilter } from './utils/useFilter';
 import { on } from '../../solid-1-compat';
+import { restoreValueWhileDisabled } from '../../utils/restoreValueWhileDisabled';
 
 type InternalAriaComboboxProps<Value, Mode extends SelectionMode, Item = Value> = AriaComboboxProps<
   Value,
@@ -1921,6 +1922,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
                     props.inputRef.current = el;
                   }
                   validation.inputRef.current = el;
+                  restoreValueWhileDisabled(el, disabled, serializedValue);
                 }}
                 style={hiddenInputName() ? visuallyHiddenInput : visuallyHidden}
                 tabindex={-1}

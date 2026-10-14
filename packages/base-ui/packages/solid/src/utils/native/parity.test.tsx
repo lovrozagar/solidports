@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
  * Parity harness (plan 8 step 1.1): a part rendered through its Solid-native fast path and through
  * the existing `useRenderElement` slow path, with the same props, must produce identical DOM
@@ -56,7 +57,7 @@ describe('native parity: Button', () => {
     return { fastEl, slowEl, fast, slow };
   }
 
-  const same = (a: Element, b: Element) => expect(normalized(a)).toBe(normalized(b));
+  const expectSame = (a: Element, b: Element) => expect(normalized(a)).toBe(normalized(b));
 
   it('renders the same element for the props matrix', () => {
     const cases: Array<() => Props> = [
@@ -89,7 +90,7 @@ describe('native parity: Button', () => {
     ];
     for (const make of cases) {
       const { fastEl, slowEl } = mountBoth(make);
-      same(fastEl, slowEl);
+      expectSame(fastEl, slowEl);
     }
   });
 
@@ -112,27 +113,27 @@ describe('native parity: Button', () => {
       style: (state: Button.State) => ({ opacity: state.disabled ? '0.5' : '1' }),
     });
     const { fastEl, slowEl } = mountBoth(make);
-    same(fastEl, slowEl);
+    expectSame(fastEl, slowEl);
     expect(fastEl).toHaveAttribute('class', 'on');
     setDisabled(true);
     flush();
-    same(fastEl, slowEl);
+    expectSame(fastEl, slowEl);
     expect(fastEl).toHaveAttribute('disabled');
     expect(fastEl).toHaveAttribute('class', 'off');
     setFocusable(true);
     flush();
-    same(fastEl, slowEl);
+    expectSame(fastEl, slowEl);
     expect(fastEl).not.toHaveAttribute('disabled');
     expect(fastEl).toHaveAttribute('aria-disabled', 'true');
     setTitle(undefined);
     flush();
-    same(fastEl, slowEl);
+    expectSame(fastEl, slowEl);
     expect(fastEl).not.toHaveAttribute('title');
     setDisabled(false);
     setFocusable(false);
     setTitle('t2');
     flush();
-    same(fastEl, slowEl);
+    expectSame(fastEl, slowEl);
     expect(fastEl).toHaveAttribute('title', 't2');
     expect(fastEl).toHaveAttribute('class', 'on');
   });
@@ -237,7 +238,7 @@ describe('native parity: Button', () => {
       </Field.Root>
     );
     const { fastEl, slowEl } = mountBoth(() => ({ children: 'In field', disabled: true }), wrap);
-    same(fastEl, slowEl);
+    expectSame(fastEl, slowEl);
   });
 
   it('renders dynamic children identically', () => {
@@ -248,10 +249,10 @@ describe('native parity: Button', () => {
       },
     });
     const { fastEl, slowEl } = mountBoth(make);
-    same(fastEl, slowEl);
+    expectSame(fastEl, slowEl);
     setCount(2);
     flush();
-    same(fastEl, slowEl);
+    expectSame(fastEl, slowEl);
     expect(fastEl.textContent).toBe('Count 2');
   });
 

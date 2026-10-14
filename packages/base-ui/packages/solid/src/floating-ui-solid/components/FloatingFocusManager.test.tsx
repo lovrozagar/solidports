@@ -951,6 +951,7 @@ describe('FloatingFocusManager', () => {
 
         // The popover renders inside an iframe and the renderer's `user` is bound to the
         // top-level document, so user-event needs an instance for the iframe's document.
+        // eslint-disable-next-line base-ui-test/no-standalone-user-event-setup
         const user = userEvent.setup({ document: iframeDoc });
 
         await user.click(iframeWithin.getByRole('button', { name: 'Open' }));
@@ -977,6 +978,7 @@ describe('FloatingFocusManager', () => {
 
           // The popover renders inside an iframe and the renderer's `user` is bound to the
           // top-level document, so user-event needs an instance for the iframe's document.
+          // eslint-disable-next-line base-ui-test/no-standalone-user-event-setup
           const user = userEvent.setup({ document: iframeDoc });
 
           await user.click(iframeWithin.getByRole('button', { name: 'Open' }));
@@ -2543,10 +2545,8 @@ describe('FloatingFocusManager', () => {
                     <button
                       data-testid="parent-floating-reference"
                       onClick={() => {
-                        {
-                          setIsDrawerOpen(true);
-                          setIsOpen(false);
-                        }
+                        setIsDrawerOpen(true);
+                        setIsOpen(false);
                       }}
                     />
                   </div>

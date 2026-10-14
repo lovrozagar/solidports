@@ -976,17 +976,14 @@ describe('<ScrollArea.Scrollbar />', () => {
       const vScrollbar = screen.getByTestId('scrollbar-vertical');
       const hScrollbar = screen.getByTestId('scrollbar-horizontal');
 
-      /* eslint-disable testing-library/no-wait-for-multiple-assertions */
       await waitFor(() => {
         expect(vScrollbar).toHaveAttribute('data-has-overflow-y');
-        expect(vScrollbar).not.toHaveAttribute('data-overflow-y-start');
-        expect(vScrollbar).toHaveAttribute('data-overflow-y-end');
-
-        expect(hScrollbar).toHaveAttribute('data-has-overflow-x');
-        expect(hScrollbar).not.toHaveAttribute('data-overflow-x-start');
-        expect(hScrollbar).toHaveAttribute('data-overflow-x-end');
       });
-      /* eslint-enable testing-library/no-wait-for-multiple-assertions */
+      expect(vScrollbar).not.toHaveAttribute('data-overflow-y-start');
+      expect(vScrollbar).toHaveAttribute('data-overflow-y-end');
+      expect(hScrollbar).toHaveAttribute('data-has-overflow-x');
+      expect(hScrollbar).not.toHaveAttribute('data-overflow-x-start');
+      expect(hScrollbar).toHaveAttribute('data-overflow-x-end');
 
       // Scroll to middle
       const halfY = (viewport.scrollHeight - viewport.clientHeight) / 2;

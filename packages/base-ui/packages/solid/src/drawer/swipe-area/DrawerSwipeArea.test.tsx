@@ -1451,7 +1451,7 @@ describe('<Drawer.SwipeArea />', () => {
       try {
         render(() => (
           <div>
-            <style innerHTML={style} />
+            <style>{style}</style>
             <Drawer.Root>
               <Drawer.SwipeArea data-testid="swipe-area" />
               <Drawer.Portal>

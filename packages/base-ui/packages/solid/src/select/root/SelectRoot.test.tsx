@@ -731,9 +731,7 @@ describe('<Select.Root />', () => {
           <Select.Portal>
             <Select.Positioner>
               <Select.Popup>
-                {items.map((it) => (
-                  <Select.Item value={it}>{it.country}</Select.Item>
-                ))}
+                <For each={items}>{(it) => <Select.Item value={it}>{it.country}</Select.Item>}</For>
               </Select.Popup>
             </Select.Positioner>
           </Select.Portal>
@@ -1183,9 +1181,7 @@ describe('<Select.Root />', () => {
         <Select.Portal>
           <Select.Positioner>
             <Select.Popup>
-              {items.map((it) => (
-                <Select.Item value={it}>{it.country}</Select.Item>
-              ))}
+              <For each={items}>{(it) => <Select.Item value={it}>{it.country}</Select.Item>}</For>
             </Select.Popup>
           </Select.Positioner>
         </Select.Portal>
@@ -1612,11 +1608,7 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       expect(onValueChange).not.toHaveBeenCalled();
-      // Solid: delegated handlers skip disabled controls (as browsers do not dispatch input to
-      // them), so jsdom's direct write to a disabled hidden input is not reverted.
-      if (lockState !== 'disabled') {
-        expect(selectInput.value).toBe('');
-      }
+      expect(selectInput.value).toBe('');
 
       expect(screen.queryByTestId('error')?.textContent).toBe(expectedError);
     },
@@ -1992,7 +1984,13 @@ describe('<Select.Root />', () => {
                 onOpenChange={setOpen}
                 onOpenChangeComplete={onOpenChangeComplete}
               >
-                <Select.Trigger ref={(node) => (triggerEl = node)}>Open</Select.Trigger>
+                <Select.Trigger
+                  ref={(node) => {
+                    triggerEl = node;
+                  }}
+                >
+                  Open
+                </Select.Trigger>
                 <Select.Portal>
                   <Select.Positioner data-testid="positioner" sideOffset={8}>
                     <Select.Popup class="reopen-test-popup">
@@ -2002,9 +2000,9 @@ describe('<Select.Root />', () => {
                         <div aria-hidden="true" style={{ height: '75px' }}>
                           Start
                         </div>
-                        {items.map((item) => (
-                          <Select.Item value={item}>{item}</Select.Item>
-                        ))}
+                        <For each={items}>
+                          {(item) => <Select.Item value={item}>{item}</Select.Item>}
+                        </For>
                         <div aria-hidden="true" style={{ height: '75px' }}>
                           End
                         </div>
@@ -2874,7 +2872,7 @@ describe('<Select.Root />', () => {
 
       await user.keyboard('[Tab]');
 
-      expect(expect(document.activeElement)).not.toBe(trigger);
+      expect(document.activeElement).not.toBe(trigger);
 
       await user.click(trigger);
       expect(handleOpenChange.mock.calls.length).toBe(0);
@@ -2911,7 +2909,7 @@ describe('<Select.Root />', () => {
 
       await user.keyboard('[Tab]');
 
-      expect(expect(document.activeElement)).not.toBe(trigger);
+      expect(document.activeElement).not.toBe(trigger);
 
       await user.click(trigger);
       expect(handleOpenChange.mock.calls.length).toBe(0);
@@ -6085,11 +6083,13 @@ describe('<Select.Root />', () => {
             <Select.Portal>
               <Select.Positioner>
                 <Select.Popup>
-                  {options.map((option) => (
-                    <Select.Item value={option}>
-                      <Select.ItemText>{`opt-${option.id}`}</Select.ItemText>
-                    </Select.Item>
-                  ))}
+                  <For each={options}>
+                    {(option) => (
+                      <Select.Item value={option}>
+                        <Select.ItemText>{`opt-${option.id}`}</Select.ItemText>
+                      </Select.Item>
+                    )}
+                  </For>
                 </Select.Popup>
               </Select.Positioner>
             </Select.Portal>
@@ -6142,11 +6142,13 @@ describe('<Select.Root />', () => {
                     data-testid="popup"
                     style={{ 'max-height': 'none', 'min-height': '100px' }}
                   >
-                    {options.map((option) => (
-                      <Select.Item value={option}>
-                        <Select.ItemText>{option}</Select.ItemText>
-                      </Select.Item>
-                    ))}
+                    <For each={options}>
+                      {(option) => (
+                        <Select.Item value={option}>
+                          <Select.ItemText>{option}</Select.ItemText>
+                        </Select.Item>
+                      )}
+                    </For>
                   </Select.Popup>
                 </Select.Positioner>
               </Select.Portal>
@@ -6359,8 +6361,10 @@ describe('<Select.Root />', () => {
         await waitFor(() => {
           const popupRect = popup.getBoundingClientRect();
           const itemRect = selected.getBoundingClientRect();
-          expect(itemRect.top).toBeGreaterThanOrEqual(popupRect.top - 1);
-          expect(itemRect.bottom).toBeLessThanOrEqual(popupRect.bottom + 1);
+          expect({
+            top: itemRect.top >= popupRect.top - 1,
+            bottom: itemRect.bottom <= popupRect.bottom + 1,
+          }).toEqual({ top: true, bottom: true });
         });
         expect(document.documentElement.scrollTop).toBe(0);
         expect(getComputedStyle(popup).overflowY).toBe('auto');
@@ -6384,11 +6388,13 @@ describe('<Select.Root />', () => {
                   scroll path only runs with it turned off. */}
               <Select.Positioner alignItemWithTrigger={false}>
                 <Select.Popup style={{ 'max-height': '200px', 'overflow-y': 'auto' }}>
-                  {options.map((option) => (
-                    <Select.Item value={option}>
-                      <Select.ItemText>{option}</Select.ItemText>
-                    </Select.Item>
-                  ))}
+                  <For each={options}>
+                    {(option) => (
+                      <Select.Item value={option}>
+                        <Select.ItemText>{option}</Select.ItemText>
+                      </Select.Item>
+                    )}
+                  </For>
                 </Select.Popup>
               </Select.Positioner>
             </Select.Portal>
@@ -6722,9 +6728,9 @@ describe('<Select.Root />', () => {
           <Select.Portal>
             <Select.Positioner>
               <Select.Popup>
-                {users.map((user) => (
-                  <Select.Item value={user}>{user.name}</Select.Item>
-                ))}
+                <For each={users}>
+                  {(user) => <Select.Item value={user}>{user.name}</Select.Item>}
+                </For>
               </Select.Popup>
             </Select.Positioner>
           </Select.Portal>
@@ -6918,11 +6924,13 @@ describe('<Select.Root />', () => {
             <Select.Portal>
               <Select.Positioner>
                 <Select.Popup data-testid="popup" style={{ 'max-height': '200px' }}>
-                  {items.map((item) => (
-                    <Select.Item value={item} style={{ height: '30px' }}>
-                      {item}
-                    </Select.Item>
-                  ))}
+                  <For each={items}>
+                    {(item) => (
+                      <Select.Item value={item} style={{ height: '30px' }}>
+                        {item}
+                      </Select.Item>
+                    )}
+                  </For>
                 </Select.Popup>
               </Select.Positioner>
             </Select.Portal>
@@ -6988,11 +6996,13 @@ describe('<Select.Root />', () => {
             <Select.Portal>
               <Select.Positioner data-testid="positioner">
                 <Select.Popup data-testid="popup" style={{ 'max-height': '400px' }}>
-                  {items.map((item) => (
-                    <Select.Item value={item} style={{ height: '30px' }}>
-                      <Select.ItemText>{item}</Select.ItemText>
-                    </Select.Item>
-                  ))}
+                  <For each={items}>
+                    {(item) => (
+                      <Select.Item value={item} style={{ height: '30px' }}>
+                        <Select.ItemText>{item}</Select.ItemText>
+                      </Select.Item>
+                    )}
+                  </For>
                 </Select.Popup>
               </Select.Positioner>
             </Select.Portal>

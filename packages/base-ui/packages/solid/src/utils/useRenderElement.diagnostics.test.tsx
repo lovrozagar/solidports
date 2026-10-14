@@ -197,11 +197,13 @@ describe('Solid dev diagnostics', () => {
         <Select.Portal>
           <Select.Positioner>
             <Select.Popup>
-              {items.map((item) => (
-                <Select.Item value={item.value}>
-                  <Select.ItemText>{item.label}</Select.ItemText>
-                </Select.Item>
-              ))}
+              <For each={items}>
+                {(item) => (
+                  <Select.Item value={item.value}>
+                    <Select.ItemText>{item.label}</Select.ItemText>
+                  </Select.Item>
+                )}
+              </For>
             </Select.Popup>
           </Select.Positioner>
         </Select.Portal>
@@ -476,7 +478,9 @@ describe('Solid dev diagnostics', () => {
     fireEvent.mouseMove(trigger);
     await flushMicrotasks();
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await new Promise((resolve) => {
+        setTimeout(resolve, 20);
+      });
     });
     expect(screen.queryByText('Copy')).not.toBe(null);
     fireEvent.pointerLeave(trigger, { pointerType: 'mouse' });
