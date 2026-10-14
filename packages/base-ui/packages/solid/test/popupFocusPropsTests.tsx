@@ -42,6 +42,7 @@ export function popupFocusPropsTests(config: PopupFocusPropsTestsConfig) {
             return resolve(props.popupProps?.finalFocus);
           },
           get children() {
+            // eslint-disable-next-line solid/components-return-once -- the branch is fixed for the test's lifetime
             return props.withPopupInputs ? (
               <>
                 <input data-testid="inside-1" />

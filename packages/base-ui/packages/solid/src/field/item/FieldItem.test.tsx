@@ -1,4 +1,4 @@
-import { createRenderer } from '#test-utils';
+import { createRenderer, describeConformance } from '#test-utils';
 import { Checkbox } from '@solidports/base-ui/checkbox';
 import { CheckboxGroup } from '@solidports/base-ui/checkbox-group';
 import { Field } from '@solidports/base-ui/field';
@@ -7,7 +7,6 @@ import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { screen } from '@solidjs/testing-library';
 import type { JSX } from '@solidjs/web';
 import { expect, vi, describe, it } from 'vitest';
-import { describeConformance } from '../../../test/describeConformance';
 
 describe('<Field.Item />', () => {
   const { render } = createRenderer();

@@ -88,6 +88,7 @@ export function mountParity(
       for (const root of [fast, slow]) {
         action(root);
         flush();
+        // eslint-disable-next-line no-await-in-loop -- each tick flushes before the next one
         await Promise.resolve();
         flush();
       }

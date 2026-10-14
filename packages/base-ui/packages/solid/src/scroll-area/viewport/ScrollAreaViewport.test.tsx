@@ -443,16 +443,14 @@ describe('<ScrollArea.Viewport />', () => {
 
       const viewport = screen.getByTestId('viewport');
 
-      /* eslint-disable testing-library/no-wait-for-multiple-assertions */
       await waitFor(() => {
         expect(viewport).toHaveAttribute('data-has-overflow-x');
-        expect(viewport).toHaveAttribute('data-has-overflow-y');
-        expect(viewport).not.toHaveAttribute('data-overflow-x-start');
-        expect(viewport).toHaveAttribute('data-overflow-x-end');
-        expect(viewport).not.toHaveAttribute('data-overflow-y-start');
-        expect(viewport).toHaveAttribute('data-overflow-y-end');
       });
-      /* eslint-enable testing-library/no-wait-for-multiple-assertions */
+      expect(viewport).toHaveAttribute('data-has-overflow-y');
+      expect(viewport).not.toHaveAttribute('data-overflow-x-start');
+      expect(viewport).toHaveAttribute('data-overflow-x-end');
+      expect(viewport).not.toHaveAttribute('data-overflow-y-start');
+      expect(viewport).toHaveAttribute('data-overflow-y-end');
     });
   });
 

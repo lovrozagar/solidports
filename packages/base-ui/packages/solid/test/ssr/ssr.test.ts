@@ -99,7 +99,7 @@ describe('server rendering', () => {
     if (!view.includes('kiwi')) {
       mismatches.push('select label: expected the selected text in the HTML');
     }
-    expect(mismatches, view).toEqual([]);
+    expect(mismatches, `server HTML:\n${view}`).toEqual([]);
   }, 60_000);
 });
 

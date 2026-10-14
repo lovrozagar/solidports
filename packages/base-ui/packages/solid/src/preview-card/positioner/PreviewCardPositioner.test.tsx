@@ -99,7 +99,7 @@ describe('<PreviewCard.Positioner />', () => {
             <PreviewCard.Positioner />
           </PreviewCard.Root>
         )),
-      ).to.throw('Base UI: <PreviewCard.Portal> is missing.');
+      ).toThrow('Base UI: <PreviewCard.Portal> is missing.');
     } finally {
       errorSpy.mockRestore();
     }

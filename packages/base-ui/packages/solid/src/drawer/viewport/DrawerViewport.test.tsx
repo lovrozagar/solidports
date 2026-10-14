@@ -1794,8 +1794,8 @@ describe('<Drawer.Viewport />', () => {
 
     await waitFor(() => {
       expect(dispatched).toBe(true);
-      expect(backdrop).not.toHaveAttribute('data-swiping');
     });
+    expect(backdrop).not.toHaveAttribute('data-swiping');
   });
 
   it('does not block touchmove on slider thumb range inputs', async () => {
@@ -1895,8 +1895,8 @@ describe('<Drawer.Viewport />', () => {
 
       await waitFor(() => {
         expect(dispatched).toBe(true);
-        expect(backdrop).not.toHaveAttribute('data-swiping');
       });
+      expect(backdrop).not.toHaveAttribute('data-swiping');
     } finally {
       document.elementFromPoint = originalElementFromPoint;
     }
@@ -1951,8 +1951,8 @@ describe('<Drawer.Viewport />', () => {
 
       await waitFor(() => {
         expect(dispatched).toBe(true);
-        expect(backdrop).not.toHaveAttribute('data-swiping');
       });
+      expect(backdrop).not.toHaveAttribute('data-swiping');
     } finally {
       document.elementFromPoint = originalElementFromPoint;
     }
@@ -2019,8 +2019,8 @@ describe('<Drawer.Viewport />', () => {
 
       await waitFor(() => {
         expect(dispatched).toBe(true);
-        expect(backdrop).not.toHaveAttribute('data-swiping');
       });
+      expect(backdrop).not.toHaveAttribute('data-swiping');
     } finally {
       document.elementFromPoint = originalElementFromPoint;
       selection.removeAllRanges();
@@ -2083,8 +2083,8 @@ describe('<Drawer.Viewport />', () => {
 
       await waitFor(() => {
         expect(dispatched).toBe(true);
-        expect(backdrop).not.toHaveAttribute('data-swiping');
       });
+      expect(backdrop).not.toHaveAttribute('data-swiping');
     } finally {
       document.elementFromPoint = originalElementFromPoint;
       selection.removeAllRanges();

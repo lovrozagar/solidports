@@ -23,6 +23,7 @@ export default async function setup(project: TestProject) {
   const entries = readdirSync(dir).filter((file) => file.endsWith('.server.tsx'));
   const serverHtml: Record<string, string> = {};
   for (const entry of entries) {
+    // eslint-disable-next-line no-await-in-loop -- each entry starts and closes its own Vite server
     serverHtml[entry] = await serverRender(entry);
   }
   project.provide('serverHtml', serverHtml);

@@ -551,7 +551,7 @@ describe('useTriggerRegistration', () => {
     const store = createStore();
     const first = document.createElement('button');
     const second = document.createElement('button');
-    const [renderedTrigger, setRenderedTrigger] = createSignal<'first' | 'second' | null>('first');
+    const [mountedTrigger, setMountedTrigger] = createSignal<'first' | 'second' | null>('first');
 
     store.update({
       open: true,
@@ -564,10 +564,10 @@ describe('useTriggerRegistration', () => {
 
     render(() => (
       <>
-        <Show when={renderedTrigger() === 'first'}>
+        <Show when={mountedTrigger() === 'first'}>
           <TestForwardedTrigger id="first" store={store} element={first} />
         </Show>
-        <Show when={renderedTrigger() === 'second'}>
+        <Show when={mountedTrigger() === 'second'}>
           <TestForwardedTrigger id="second" store={store} element={second} />
         </Show>
         <CloseOnActiveTriggerUnmountTest store={store} />
@@ -586,7 +586,7 @@ describe('useTriggerRegistration', () => {
 
     // Swap "first" out and "second" in within one commit, so the trigger count nets out
     // unchanged and only the forwarded active trigger element reruns the reconciliation.
-    act(() => setRenderedTrigger('second'));
+    act(() => setMountedTrigger('second'));
 
     await flushMicrotasks();
 
@@ -596,7 +596,7 @@ describe('useTriggerRegistration', () => {
     expect(store.setOpen).not.toHaveBeenCalled();
 
     // The now-registered active trigger genuinely unmounts: the popup must close.
-    act(() => setRenderedTrigger(null));
+    act(() => setMountedTrigger(null));
 
     await waitFor(() => {
       expect(store.setOpen).toHaveBeenCalledTimes(1);
@@ -744,13 +744,13 @@ describe('useTriggerRegistration', () => {
 
     await waitFor(() => {
       expect(store.context.triggerElements.getById('first')).toBeUndefined();
-      expect(store.context.triggerElements.getById('second')).toBe(second);
-      expect(store.state.triggerCount).toBe(1);
-      expect(store.state.activeTriggerId).toBe('first');
-      expect(store.state.activeTriggerElement).toBe(first);
-      expect(store.state.open).toBe(true);
-      expect(store.setOpen).not.toHaveBeenCalled();
     });
+    expect(store.context.triggerElements.getById('second')).toBe(second);
+    expect(store.state.triggerCount).toBe(1);
+    expect(store.state.activeTriggerId).toBe('first');
+    expect(store.state.activeTriggerElement).toBe(first);
+    expect(store.state.open).toBe(true);
+    expect(store.setOpen).not.toHaveBeenCalled();
   });
 
   it('resets triggerCount when the popup closes', () => {

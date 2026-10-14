@@ -40,6 +40,7 @@ function ProviderControls() {
   const context = useDrawerProviderContext();
 
   if (!context) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is fixed for the test's lifetime
     return null;
   }
 

@@ -1,3 +1,4 @@
+/* eslint-disable solid/prefer-for -- counts each part's own reactive nodes; <For> would add its own */
 /*
  * Reactive cost per part (plan 7 step 3): the reactive nodes (owners and computations) one part
  * creates, counted with Solid's dev `onOwner` hook. Budgets are the render-core v3 targets.

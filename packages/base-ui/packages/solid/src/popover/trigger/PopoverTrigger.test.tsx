@@ -153,6 +153,7 @@ describe('<Popover.Trigger />', () => {
     }
 
     async function pressTrigger(trigger: HTMLElement, pointerType: 'mouse' | 'touch') {
+      // eslint-disable-next-line testing-library/no-unnecessary-act -- flush the complete synthetic press before the browser can dispatch physical pointer movement
       await act(async () => {
         fireEvent.pointerDown(trigger, { pointerType });
         fireEvent.mouseDown(trigger);

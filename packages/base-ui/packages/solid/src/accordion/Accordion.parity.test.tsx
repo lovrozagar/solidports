@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
  * Native vs slow path parity for Accordion (plan 8 step 3.2): the same tree through the native
  * fast paths and through `useRenderElement` (`render="<tag>"` on every part) must produce

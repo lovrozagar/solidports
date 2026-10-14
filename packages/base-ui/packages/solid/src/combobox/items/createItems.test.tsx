@@ -1679,9 +1679,9 @@ describe('Combobox.createItems', () => {
           <Combobox.Root items={items} defaultOpen onValueChange={onValueChange}>
             <Combobox.Input />
             <Combobox.List>
-              {users.map((user) => (
-                <Combobox.Item value={user.id}>{user.name}</Combobox.Item>
-              ))}
+              <For each={users}>
+                {(user) => <Combobox.Item value={user.id}>{user.name}</Combobox.Item>}
+              </For>
             </Combobox.List>
           </Combobox.Root>
         );

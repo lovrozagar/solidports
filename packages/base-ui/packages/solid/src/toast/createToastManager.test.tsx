@@ -461,11 +461,9 @@ describe.skipIf(!isJSDOM)('createToastManager', () => {
       await clock.tickAsync(900);
       expect(screen.queryByTestId('title')).not.toBe(null);
 
-      console.log('after 900ms');
       fireEvent.click(screen.getByRole('button', { name: 'reset timeout' }));
 
       await clock.tickAsync(200);
-      console.log('after 1100ms');
       expect(screen.queryByTestId('title')).not.toBe(null);
 
       await clock.tickAsync(800);

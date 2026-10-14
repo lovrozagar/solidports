@@ -66,6 +66,12 @@ function App(
           <ul>
             <For keyed={false} each={['one', 'two', 'three']}>
               {(string, index) => {
+                const itemStyle = () => {
+                  if (index !== 0) {
+                    return undefined;
+                  }
+                  return local.hideFirstItem ? { display: 'none' } : local.firstItemStyle;
+                };
                 const disabledIndecies = () => {
                   if (typeof props.disabledIndices === 'function') {
                     return props.disabledIndices(index);
@@ -77,13 +83,7 @@ function App(
                   <li
                     data-testid={`item-${index}`}
                     aria-selected={activeIndex() === index ? 'true' : 'false'}
-                    style={
-                      index === 0
-                        ? local.hideFirstItem
-                          ? { display: 'none' }
-                          : local.firstItemStyle
-                        : undefined
-                    }
+                    style={itemStyle()}
                     tabindex={-1}
                     aria-disabled={
                       (local.disableFirstItem && index === 0) || disabledIndecies()

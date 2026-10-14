@@ -22,7 +22,7 @@ function TestNavigationMenuRapidHoverSizing() {
 
   return (
     <NavigationMenu.Root>
-      <style innerHTML={rapidHoverAnimationStyles} />
+      <style>{rapidHoverAnimationStyles}</style>
       <NavigationMenu.List style={{ display: 'flex' }}>
         <NavigationMenu.Item value="product">
           <NavigationMenu.Trigger>Product</NavigationMenu.Trigger>

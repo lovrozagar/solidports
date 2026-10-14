@@ -1,4 +1,4 @@
-import { act, createRenderer, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { Field } from '@solidports/base-ui/field';
@@ -11,7 +11,6 @@ import { fireEvent, screen } from '@solidjs/testing-library';
 import { createSignal, For, onSettled, Show } from 'solid-js';
 import { Portal } from '@solidjs/web';
 import { describe, expect, it, vi } from 'vitest';
-import { describeConformance } from '../../test/describeConformance';
 
 describe('<RadioGroup />', () => {
   const { render } = createRenderer();
@@ -424,12 +423,16 @@ describe('<RadioGroup />', () => {
 
     function App() {
       const [which, setWhich] = createSignal<'old' | 'new' | 'none'>('old');
+      const inputRef = () => {
+        const current = which();
+        if (current === 'old') {
+          return oldRef;
+        }
+        return current === 'new' ? newRef : undefined;
+      };
       return (
         <>
-          <RadioGroup
-            defaultValue="b"
-            inputRef={which() === 'old' ? oldRef : which() === 'new' ? newRef : undefined}
-          >
+          <RadioGroup defaultValue="b" inputRef={inputRef()}>
             <Radio.Root value="a" />
             <Radio.Root value="b" />
           </RadioGroup>
@@ -860,116 +863,116 @@ describe('<RadioGroup />', () => {
       },
     );
 
-    [
-      ['ltr', 'ArrowRight', 'ArrowLeft'],
-      ['rtl', 'ArrowLeft', 'ArrowRight'],
-    ].forEach((entry) => {
-      const [direction, horizontalNextKey, horizontalPrevKey] = entry;
+    describe.each([
+      { direction: 'ltr', horizontalNextKey: 'ArrowRight', horizontalPrevKey: 'ArrowLeft' },
+      { direction: 'rtl', horizontalNextKey: 'ArrowLeft', horizontalPrevKey: 'ArrowRight' },
+    ] satisfies Array<{
+      direction: TextDirection;
+      horizontalNextKey: string;
+      horizontalPrevKey: string;
+    }>)('direction: $direction', ({ direction, horizontalNextKey, horizontalPrevKey }) => {
+      it.skipIf(isJSDOM && direction === 'rtl')('moves focus with arrow keys and Tab', async () => {
+        const { user } = render(() => (
+          <DirectionProvider direction={direction}>
+            <button data-testid="before" />
+            <RadioGroup>
+              <Radio.Root value="a" data-testid="a" />
+              <Radio.Root value="b" data-testid="b" />
+              <Radio.Root value="c" data-testid="c" />
+            </RadioGroup>
+            <button data-testid="after" />
+          </DirectionProvider>
+        ));
 
-      describe.skipIf(isJSDOM && direction === 'rtl')(direction, () => {
-        it(direction, async () => {
-          const { user } = render(() => (
-            <DirectionProvider direction={direction as TextDirection}>
-              <button data-testid="before" />
-              <RadioGroup>
-                <Radio.Root value="a" data-testid="a" />
-                <Radio.Root value="b" data-testid="b" />
-                <Radio.Root value="c" data-testid="c" />
-              </RadioGroup>
-              <button data-testid="after" />
-            </DirectionProvider>
-          ));
+        const a = screen.getByTestId('a');
+        const b = screen.getByTestId('b');
+        const c = screen.getByTestId('c');
+        const after = screen.getByTestId('after');
 
-          const a = screen.getByTestId('a');
-          const b = screen.getByTestId('b');
-          const c = screen.getByTestId('c');
-          const after = screen.getByTestId('after');
-
-          act(() => {
-            a.focus();
-          });
-
-          expect(a).toHaveFocus();
-
-          await user.keyboard('{ArrowDown}');
-
-          expect(b).toHaveFocus();
-
-          await user.keyboard('{ArrowDown}');
-
-          expect(c).toHaveFocus();
-
-          await user.keyboard('{ArrowDown}');
-
-          expect(a).toHaveFocus();
-
-          await user.keyboard('{ArrowUp}');
-
-          expect(c).toHaveFocus();
-
-          await user.keyboard('{ArrowUp}');
-
-          expect(b).toHaveFocus();
-
-          await user.keyboard('{ArrowUp}');
-
-          expect(a).toHaveFocus();
-
-          await user.keyboard(`{${horizontalPrevKey}}`);
-
-          expect(c).toHaveFocus();
-
-          await user.keyboard(`{${horizontalNextKey}}`);
-
-          expect(a).toHaveFocus();
-
-          await user.tab();
-
-          expect(after).toHaveFocus();
-
-          await user.tab({ shift: true });
-
-          expect(a).toHaveFocus();
-
-          await user.keyboard(`{${horizontalPrevKey}}`);
-
-          expect(c).toHaveFocus();
-
-          await user.tab({ shift: true });
-          await user.tab();
-
-          expect(c).toHaveFocus();
+        act(() => {
+          a.focus();
         });
 
-        describe('modifier keys', () => {
-          it.skipIf(isJSDOM && direction === 'rtl')(
-            'when Shift is pressed arrow keys move focus normally',
-            async () => {
-              const { user } = render(() => (
-                <DirectionProvider direction={direction as TextDirection}>
-                  <RadioGroup>
-                    <Radio.Root value="a" data-testid="a" />
-                    <Radio.Root value="b" data-testid="b" />
-                    <Radio.Root value="c" data-testid="c" />
-                  </RadioGroup>
-                </DirectionProvider>
-              ));
+        expect(a).toHaveFocus();
 
-              const a = screen.getByTestId('a');
-              const b = screen.getByTestId('b');
-              const c = screen.getByTestId('c');
+        await user.keyboard('{ArrowDown}');
 
-              await user.keyboard('{Tab}');
-              expect(a).toHaveFocus();
+        expect(b).toHaveFocus();
 
-              await user.keyboard(`{Shift>}{${horizontalNextKey}}`);
-              expect(b).toHaveFocus();
+        await user.keyboard('{ArrowDown}');
 
-              await user.keyboard('{Shift>}{ArrowDown}');
-              expect(c).toHaveFocus();
-            },
-          );
-        });
+        expect(c).toHaveFocus();
+
+        await user.keyboard('{ArrowDown}');
+
+        expect(a).toHaveFocus();
+
+        await user.keyboard('{ArrowUp}');
+
+        expect(c).toHaveFocus();
+
+        await user.keyboard('{ArrowUp}');
+
+        expect(b).toHaveFocus();
+
+        await user.keyboard('{ArrowUp}');
+
+        expect(a).toHaveFocus();
+
+        await user.keyboard(`{${horizontalPrevKey}}`);
+
+        expect(c).toHaveFocus();
+
+        await user.keyboard(`{${horizontalNextKey}}`);
+
+        expect(a).toHaveFocus();
+
+        await user.tab();
+
+        expect(after).toHaveFocus();
+
+        await user.tab({ shift: true });
+
+        expect(a).toHaveFocus();
+
+        await user.keyboard(`{${horizontalPrevKey}}`);
+
+        expect(c).toHaveFocus();
+
+        await user.tab({ shift: true });
+        await user.tab();
+
+        expect(c).toHaveFocus();
+      });
+
+      describe('modifier keys', () => {
+        it.skipIf(isJSDOM && direction === 'rtl')(
+          'when Shift is pressed arrow keys move focus normally',
+          async () => {
+            const { user } = render(() => (
+              <DirectionProvider direction={direction}>
+                <RadioGroup>
+                  <Radio.Root value="a" data-testid="a" />
+                  <Radio.Root value="b" data-testid="b" />
+                  <Radio.Root value="c" data-testid="c" />
+                </RadioGroup>
+              </DirectionProvider>
+            ));
+
+            const a = screen.getByTestId('a');
+            const b = screen.getByTestId('b');
+            const c = screen.getByTestId('c');
+
+            await user.keyboard('{Tab}');
+            expect(a).toHaveFocus();
+
+            await user.keyboard(`{Shift>}{${horizontalNextKey}}`);
+            expect(b).toHaveFocus();
+
+            await user.keyboard('{Shift>}{ArrowDown}');
+            expect(c).toHaveFocus();
+          },
+        );
       });
     });
 

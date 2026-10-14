@@ -61,7 +61,7 @@ describe('<PreviewCard.Viewport />', () => {
             </PreviewCard.Portal>
           </PreviewCard.Root>
         )),
-      ).to.throw(
+      ).toThrow(
         'Base UI: PreviewCardPositionerContext is missing. PreviewCardPositioner parts must be placed within <PreviewCard.Positioner>.',
       );
     } finally {

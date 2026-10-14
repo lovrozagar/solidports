@@ -261,13 +261,9 @@ describe('<Tabs.Root />', () => {
       await render(() => (
         <Tabs.Root>
           <Tabs.List>
-            {tabValues.map((value) => (
-              <Tabs.Tab value={value} />
-            ))}
+            <For each={tabValues}>{(value) => <Tabs.Tab value={value} />}</For>
           </Tabs.List>
-          {tabValues.map((value) => (
-            <Tabs.Panel value={value} keepMounted />
-          ))}
+          <For each={tabValues}>{(value) => <Tabs.Panel value={value} keepMounted />}</For>
         </Tabs.Root>
       ));
 

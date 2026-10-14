@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
  * Parity (plan 8 step 3.1): `Toggle` (alone, in a `ToggleGroup`, in a `Toolbar`) and
  * `ToggleGroup` rendered through their Solid-native fast paths and through the `useRenderElement`
@@ -139,10 +140,7 @@ describe('native parity: Toggle', () => {
         return calls;
       };
       const fast = run('fast');
-      if (!disabled) {
-        expect(fast).toContain('change:true');
-        expect(fast).toContain('keyup:d: ');
-      }
+      expect(fast).toEqual(expect.arrayContaining(disabled ? [] : ['change:true', 'keyup:d: ']));
       expect(fast).toEqual(run('slow'));
     }
   });

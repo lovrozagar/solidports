@@ -871,7 +871,7 @@ describe('<Field.Root />', () => {
        * detached from the document in the vitest browser environment.
        */
       render(() => (
-        <Form onSubmit={(e) => e.preventDefault()}>
+        <Form onSubmit={(event) => event.preventDefault()}>
           <Field.Root name="checkbox">
             <Checkbox.Root defaultChecked />
           </Field.Root>
@@ -962,7 +962,7 @@ describe('<Field.Root />', () => {
          * detached from the document in the vitest browser environment.
          */
         return (
-          <Form onSubmit={(e) => e.preventDefault()}>
+          <Form onSubmit={(event) => event.preventDefault()}>
             <input type="checkbox" checked={checked()} onChange={() => setChecked(!checked())} />
             <Show when={checked()}>
               <Field.Root name="input1">

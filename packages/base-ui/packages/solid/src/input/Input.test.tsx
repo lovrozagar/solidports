@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { flush } from 'solid-js';
-import { waitFor } from '@solidjs/testing-library';
+import { waitFor, within } from '@solidjs/testing-library';
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Input } from '@solidports/base-ui/input';
 import { renderServer } from '../../test/ssrFixtures';
@@ -22,10 +22,9 @@ describe('<Input />', () => {
       // Hydration reconciles the server attributes in a microtask.
       await Promise.resolve();
       flush();
-      const control = container.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-        'input:not([aria-hidden]), textarea',
-      )!;
-      const form = container.querySelector('form')!;
+      const control = within(container).getByRole('textbox') as
+        HTMLInputElement | HTMLTextAreaElement;
+      const form = control.closest('form')!;
       return { control, formValue: () => new FormData(form).get('name') };
     }
 

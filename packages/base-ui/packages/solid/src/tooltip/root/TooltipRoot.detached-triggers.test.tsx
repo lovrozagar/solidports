@@ -23,10 +23,12 @@ describe('<Tooltip.Root />', () => {
     globalThis.BASE_UI_ANIMATIONS_DISABLED = true;
 
     act(() => document.body.click());
-    // Wait for all tooltips to unmount
+    // Wait for all tooltips to unmount (`expect` is not allowed outside test blocks)
     await waitFor(() => {
       const tooltips = document.querySelectorAll('[data-open]');
-      expect(tooltips.length).toBe(0);
+      if (tooltips.length > 0) {
+        throw new Error(`${tooltips.length} tooltips still mounted`);
+      }
     });
   });
 
