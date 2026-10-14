@@ -35,7 +35,7 @@ const OUT =
   outFlag === -1 ? path.join(FORK, 'docs/solid') : path.resolve(process.argv[outFlag + 1]);
 
 // The React docs files the Solid docs are generated from (paths under `docs/react`).
-const SOURCES = ['src', 'public', 'postcss.config.js', 'next.config.mjs'];
+const SOURCES = ['src', 'public', 'scripts', 'postcss.config.js', 'next.config.mjs'];
 const SKIP = new Set(['node_modules', '.next', 'export']);
 // Output folders the generator does not own (build output, local state, hand-ported overrides).
 const KEEP = new Set([
@@ -471,6 +471,110 @@ function applyAdaptations() {
   }
 }
 
+// React docs dependencies with no place in the Solid docs (React, Next.js and their libraries).
+const REACT_ONLY_DEPENDENCIES = new Set([
+  '@base-ui/utils',
+  '@mdx-js/loader',
+  '@mdx-js/react',
+  '@next/mdx',
+  '@react-spring/web',
+  '@types/react',
+  '@types/react-dom',
+  'next',
+  'radix-ui',
+  'react',
+  'react-dom',
+  'react-error-boundary',
+  'react-hook-form',
+  'server-only',
+]);
+const DEPENDENCY_RENAMES = {
+  '@base-ui/react': '@solidports/base-ui',
+  '@tanstack/react-form': '@tanstack/solid-form',
+  '@tanstack/react-virtual': '@tanstack/solid-virtual',
+  'lucide-react': 'lucide-solid',
+};
+// What the framework templates import.
+const FRAMEWORK_DEPENDENCIES = {
+  '@mdx-js/mdx': 'catalog:',
+  '@mdx-js/rollup': 'catalog:',
+  '@solidjs/router': 'catalog:',
+  '@solidjs/vite-plugin': 'catalog:',
+  '@solidjs/web': 'catalog:',
+  'cross-env': 'catalog:',
+  'hast-util-to-jsx-runtime': '^2.3.6',
+  jiti: '^2.7.0',
+  picomatch: '^4.0.3',
+  'solid-js': 'catalog:',
+  vite: 'catalog:',
+};
+const DOCS_INFRA_PACKAGE = '@mui/internal-docs-infra';
+
+/**
+ * The Solid docs' package: the React docs' dependencies in their Solid form, the dependencies of
+ * the generated docs-infra source (at docs-infra's versions), and the framework's. Scripts run
+ * the framework (Vite) where the React docs run Next.js; docs-infra's commands load
+ * `framework/typescript.mjs`.
+ */
+function generatePackageJson() {
+  const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+  const reactPackage = read(path.join(REACT, 'package.json'));
+  const infraPackage = read(path.join(SOURCE_PACKAGES[0].root, 'package.json'));
+  const catalog = read(path.join(FORK, '../../package.json')).workspaces.catalog;
+  const docsInfraVersion = reactPackage.dependencies[DOCS_INFRA_PACKAGE];
+  const mapped = (dependencies) => {
+    const result = {};
+    for (const [name, version] of Object.entries(dependencies ?? {})) {
+      if (REACT_ONLY_DEPENDENCIES.has(name)) {
+        continue;
+      }
+      const solidName = DEPENDENCY_RENAMES[name] ?? name;
+      if (solidName === '@solidports/base-ui') {
+        result[solidName] = 'workspace:*';
+      } else if (solidName === DOCS_INFRA_PACKAGE) {
+        result[solidName] = docsInfraVersion;
+      } else {
+        result[solidName] = catalog[solidName] ? 'catalog:' : version;
+      }
+    }
+    return result;
+  };
+  const infraDependencies = Object.fromEntries(
+    Object.entries(infraPackage.dependencies).filter(
+      // `typescript` resolves to the workspace's (see `framework/typescript.mjs`); the editor is
+      // an adapter.
+      ([name]) => name !== 'typescript' && name !== 'react-simple-code-editor',
+    ),
+  );
+  const sorted = (object) =>
+    Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
+  const hook = 'cross-env NODE_OPTIONS=--import=./framework/typescript.mjs';
+  const pkg = {
+    name: '@solidports/docs',
+    private: true,
+    type: 'module',
+    scripts: {
+      dev: `${hook} vite --port 3001`,
+      build: `${hook} vite build`,
+      preview: 'vite preview --port 3001',
+      'docs-infra': `${hook} docs-infra`,
+      validate: 'bun internal-validate --command "bun validate"',
+      'internal-validate': `${hook} docs-infra validate`,
+      typescript: 'tsc -p tsconfig.json',
+      'link-check': reactPackage.scripts['link-check'],
+      'generate-llms': reactPackage.scripts['generate-llms'],
+    },
+    dependencies: sorted({
+      ...mapped(reactPackage.dependencies),
+      ...infraDependencies,
+      [DOCS_INFRA_PACKAGE]: docsInfraVersion,
+      ...FRAMEWORK_DEPENDENCIES,
+    }),
+    devDependencies: sorted(mapped(reactPackage.devDependencies)),
+  };
+  write(path.join(OUT, 'package.json'), `${JSON.stringify(pkg, null, 2)}\n`);
+}
+
 function copyTemplates() {
   for (const file of walk(TEMPLATES)) {
     write(path.join(OUT, path.relative(TEMPLATES, file)), fs.readFileSync(file));
@@ -503,6 +607,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const docs = await generateDocs();
 const packages = await generateSourcePackages();
 applyAdaptations();
+generatePackageJson();
 copyTemplates();
 pruneStale(OUT);
 // eslint-disable-next-line no-console -- the generator's report

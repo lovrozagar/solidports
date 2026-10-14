@@ -954,6 +954,52 @@ export function useInit(init: Accessor<() => unknown>) {
     });
   });
 
+  describe('narrowing', () => {
+    it('reads a value a statement narrows once', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function User() {
+  const [user, setUser] = React.useState<{ name: string } | null>(null);
+  const greet = () => {
+    if (user) {
+      console.log(user.name);
+    }
+  };
+  return <button onClick={greet}>Greet</button>;
+}`,
+        `import { createSignal } from 'solid-js';
+export function User() {
+  const [user, setUser] = createSignal<{ name: string } | null>(null);
+  const greet = () => {
+    const _user = user();
+    if (_user) {
+      console.log(_user.name);
+    }
+  };
+  return <button onClick={greet}>Greet</button>;
+}`,
+      );
+    });
+
+    it('reads a value a JSX expression narrows once, in the expression', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function User() {
+  const [user] = React.useState<{ name: string } | null>(null);
+  return <p>{user && user.name}</p>;
+}`,
+        `import { createSignal } from 'solid-js';
+export function User() {
+  const [user] = createSignal<{ name: string } | null>(null);
+  return <p>{(() => {
+    const _user = user();
+    return _user && _user.name;
+  })()}</p>;
+}`,
+      );
+    });
+  });
+
   describe('strings', () => {
     it('rewrites strings, template parts and JSX text but not module specifiers', () => {
       expectTransform(
