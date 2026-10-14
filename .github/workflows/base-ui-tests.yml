@@ -72,6 +72,24 @@ jobs:
       - working-directory: packages/base-ui
         run: bun run test:solid:${{ matrix.browser }} --run --maxWorkers=2
 
+  # Upstream "Screen Reader (Windows / NVDA)": upstream's screen reader specs against the Solid e2e app
+  screen-reader:
+    name: Screen Reader (Windows / NVDA)
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - working-directory: packages/base-ui
+        run: bunx guidepup install
+      - working-directory: packages/base-ui
+        run: bunx playwright test --config test/screen-reader-solid/playwright.config.ts
+
   # Upstream "E2E tests"
   e2e:
     name: E2E tests
