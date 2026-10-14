@@ -151,6 +151,11 @@ function functionName(path) {
   return null;
 }
 
+/** Whether a reference sits in a type (a name there is a type parameter, not the binding). */
+function inTypePosition(path) {
+  return Boolean(path.findParent((parent) => parent.isTSType() || parent.isTSTypeAnnotation()));
+}
+
 /** Rewrites a component's destructured props parameter to `props` reads. */
 function rewriteDestructuredProps(path, imports) {
   const [param] = path.node.params;
@@ -221,7 +226,7 @@ function rewriteDestructuredProps(path, imports) {
 
   for (const { key, paths } of references) {
     const propKey = DOM_ATTRIBUTES[key] ?? key;
-    for (const reference of paths) {
+    for (const reference of paths.filter((ref) => !inTypePosition(ref))) {
       if (t.isJSXIdentifier(reference.node)) {
         // A prop used as a tag renders through `<Dynamic component={props.tag}>`.
         const element = reference.parentPath;
@@ -252,6 +257,9 @@ function callReads(path, names) {
   for (const name of names) {
     const binding = path.scope.getBinding(name);
     for (const reference of binding?.referencePaths ?? []) {
+      if (inTypePosition(reference)) {
+        continue;
+      }
       if (t.isCallExpression(reference.parent) && reference.parent.callee === reference.node) {
         continue;
       }
@@ -315,9 +323,12 @@ function transformHooks(programPath, reactNames, imports) {
           const typeParam = path.node.typeParameters?.params[0];
           let init = args[0] ?? t.identifier('undefined');
           if (typeParam && t.isNullLiteral(init)) {
+            const includesNull =
+              t.isTSNullKeyword(typeParam) ||
+              (t.isTSUnionType(typeParam) && typeParam.types.some((type) => t.isTSNullKeyword(type)));
             init = t.tsAsExpression(
               t.nullLiteral(),
-              t.tsUnionType([typeParam, t.tsNullKeyword()]),
+              includesNull ? typeParam : t.tsUnionType([typeParam, t.tsNullKeyword()]),
             );
           }
           path.replaceWith(t.objectExpression([t.objectProperty(t.identifier('current'), init)]));
