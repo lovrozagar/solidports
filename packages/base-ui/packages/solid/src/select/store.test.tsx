@@ -107,7 +107,7 @@ describe('select store synchronization', () => {
     // layout effect syncs its props.
     const handleValueChange = vi.fn();
     const [disabled, setDisabled] = createSignal(false);
-    let itemElement: HTMLElement | undefined;
+    let itemElement: HTMLElement | null = null;
 
     const { user } = await render(() => (
       <Select.Root defaultOpen disabled={disabled()} onValueChange={handleValueChange}>
