@@ -9,7 +9,10 @@ import sourceYaml from "@wooorm/starry-night/source.yaml"
 import textHtml from "@wooorm/starry-night/text.html.basic"
 import textMd from "@wooorm/starry-night/text.md"
 import { toHtml } from "hast-util-to-html"
-import { extendSyntaxTokens } from "@mui/internal-docs-infra/pipeline/parseSource/extendSyntaxTokens.mjs"
+// The docs-infra version the React docs install: `extendSyntaxTokens` is not an exported entry,
+// and the hoisted docs-infra is an older release without it.
+// eslint-disable-next-line import/no-relative-packages
+import { extendSyntaxTokens } from "../../../react/node_modules/@mui/internal-docs-infra/pipeline/parseSource/extendSyntaxTokens.mjs"
 
 const languageToScope = {
   js: "source.js",
