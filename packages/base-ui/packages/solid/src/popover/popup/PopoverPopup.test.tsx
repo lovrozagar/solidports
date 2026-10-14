@@ -172,8 +172,6 @@ describe('<Popover.Popup />', () => {
 
       fireEvent.click(screen.getByText('Close'));
       await flushMicrotasks();
-      clock.tick(16);
-      await flushMicrotasks();
 
       expect(trigger).toHaveFocus();
     });

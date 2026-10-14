@@ -1,8 +1,8 @@
 import { expect, vi, describe, it } from 'vitest';
-import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { Tooltip } from '@solidports/base-ui/tooltip';
-import { screen, waitFor } from '@solidjs/testing-library';
+import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 
 describe('<Tooltip.Trigger />', () => {
@@ -45,7 +45,12 @@ describe('<Tooltip.Trigger />', () => {
             setOpen(nextOpen);
           }}
         >
-          <Tooltip.Trigger data-testid="trigger" delay={0} closeDelay={0}>
+          <Tooltip.Trigger
+            data-testid="trigger"
+            delay={0}
+            closeDelay={0}
+            style={{ 'pointer-events': 'none' }}
+          >
             Trigger
           </Tooltip.Trigger>
           <Tooltip.Portal>
@@ -57,19 +62,18 @@ describe('<Tooltip.Trigger />', () => {
       );
     }
 
-    const { user } = render(() => <TooltipWithPreventedUnmount />);
+    render(() => <TooltipWithPreventedUnmount />);
     const trigger = screen.getByTestId('trigger');
 
-    await user.hover(trigger);
-    await waitFor(() => {
-      expect(trigger).toHaveAttribute('data-popup-open');
-    });
+    fireEvent.mouseEnter(trigger);
+    fireEvent.mouseMove(trigger);
+    await act(async () => flushMicrotasks());
+    expect(trigger).toHaveAttribute('data-popup-open');
+    expect(screen.getByText('Content')).not.toBe(null);
 
-    await user.unhover(trigger);
-    await waitFor(() => {
-      expect(trigger).not.toHaveAttribute('data-popup-open');
-    });
-
+    fireEvent.mouseLeave(trigger);
+    await act(async () => flushMicrotasks());
+    expect(trigger).not.toHaveAttribute('data-popup-open');
     expect(screen.getByText('Content')).not.toBe(null);
   });
 
