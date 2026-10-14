@@ -608,11 +608,7 @@ describe('<Drawer.SwipeArea />', () => {
     );
   });
 
-  // Solid: React-internal order only. Disabling clears the swipe (progress reset, `data-swiping`
-  // removed) before user effects, within one synchronous flush; the layout effect's re-run after
-  // `swipeActive` flips (React re-runs it too) repeats the same reset after the user effects here,
-  // and the test's last-entry check reads that repeat.
-  it.skip('cancels an active opening gesture when the swipe area becomes disabled', async () => {
+  it('cancels an active opening gesture when the swipe area becomes disabled', async () => {
     let disabledPassiveEffectFlushed = false;
     let providerContext: DrawerProviderContext | undefined;
     const cleanupPhases: boolean[] = [];
