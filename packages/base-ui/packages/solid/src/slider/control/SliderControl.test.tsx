@@ -378,7 +378,7 @@ describe('<Slider.Control />', () => {
       expect(onValueCommitted).toHaveBeenCalledTimes(1);
     });
 
-    it.skipIf(typeof Touch === 'undefined')(
+    it(
       'starts a touch drag that did not begin with a pointer event',
       () => {
         const { control, onValueChange } = renderCancelTestSlider();
@@ -393,7 +393,7 @@ describe('<Slider.Control />', () => {
       },
     );
 
-    it.skipIf(typeof Touch === 'undefined')(
+    it(
       'ignores a touch start that does not land on a thumb',
       () => {
         const onValueChange = vi.fn();
