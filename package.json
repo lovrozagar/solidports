@@ -191,6 +191,7 @@
 		"prepare": "git config --get core.hooksPath >/dev/null || git config core.hooksPath .githooks || true",
 		"test": "bun run --filter @solidports/recharts test",
 		"test:base-ui": "bun run --filter @base-ui/monorepo test:solid:jsdom",
+		"test:base-ui:all": "node packages/base-ui/scripts/test-all.mjs",
 		"test:recharts": "bun run --filter @solidports/recharts test",
 		"test:scripts": "bun test ./scripts",
 		"test:solid-table": "bun run --filter @solidports/solid-table test",
