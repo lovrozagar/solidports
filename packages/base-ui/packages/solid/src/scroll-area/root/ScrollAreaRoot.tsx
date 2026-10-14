@@ -14,6 +14,7 @@ import { getOffset } from '../utils/getOffset';
 import { ScrollAreaRootContext } from './ScrollAreaRootContext';
 import * as ScrollAreaRootCssVars from './ScrollAreaRootCssVars';
 import { scrollAreaStateAttributesMapping } from './stateAttributes';
+import { safelyChangePointerCapture } from '../../utils/pointerCapture';
 
 const DEFAULT_COORDS = { x: 0, y: 0 };
 const DEFAULT_SIZE = { width: 0, height: 0 };
@@ -151,7 +152,11 @@ export function ScrollAreaRoot(componentProps: ScrollAreaRoot.Props) {
     }
 
     const thumb = currentOrientation === 'vertical' ? thumbYRef.current : thumbXRef.current;
-    thumb?.setPointerCapture(event.pointerId);
+    // Solid: a pointer no longer active (released before this handler, or a synthetic event) makes
+    // the capture throw; the drag works without it.
+    if (thumb) {
+      safelyChangePointerCapture(thumb, event.pointerId, 'setPointerCapture');
+    }
   }
 
   function handlePointerUp(event: PointerEvent) {

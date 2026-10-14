@@ -19,6 +19,7 @@ import type { ToastObject as ToastObjectType } from '../useToastManager';
 import { ToastRootContext } from './ToastRootContext';
 import * as ToastRootCssVars from './ToastRootCssVars';
 import * as ToastRootDataAttributes from './ToastRootDataAttributes';
+import { safelyChangePointerCapture } from '../../utils/pointerCapture';
 
 export const toastRootStateAttributesMapping: StateAttributesMapping<ToastRootState> = {
   ...transitionStatusMapping,
@@ -285,7 +286,9 @@ export function ToastRoot(componentProps: ToastRoot.Props) {
     doc.addEventListener('pointerup', handleSwipeEnd, { signal: dragAbortController.signal });
     doc.addEventListener('pointercancel', handleSwipeEnd, { signal: dragAbortController.signal });
 
-    element.setPointerCapture?.(event.pointerId);
+    // Solid: as `useSwipeDismiss`, a pointer that is no longer active (released before this handler,
+    // or a synthetic event) makes the capture throw.
+    safelyChangePointerCapture(element, event.pointerId, 'setPointerCapture');
   }
 
   function handlePointerMove(event: PointerEvent) {
