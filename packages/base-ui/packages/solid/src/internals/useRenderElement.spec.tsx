@@ -1,7 +1,40 @@
-import { describe, it } from 'vitest';
+import type { JSX } from '@solidjs/web';
+import { expectType } from '#test-utils';
+import type { HTMLProps } from '../utils/types';
+import { useRenderElement } from './useRenderElement';
 
-describe.skip('useRenderElement.spec (internals)', () => {
-  it('skipped', () => {
-    // Solid runtime: internals re-export returns an accessor, not a React element. Coverage lives in utils/useRenderElement.spec.tsx.
-  });
-});
+// Solid: `useRenderElement` returns a render function rather than an element; `enabled: false`
+// makes it render nothing.
+const element1 = useRenderElement('div', {}, {});
+
+expectType<(props?: HTMLProps) => JSX.Element, typeof element1>(element1);
+
+const element2 = useRenderElement(
+  'div',
+  {},
+  {
+    enabled: true,
+  },
+);
+
+expectType<(props?: HTMLProps) => JSX.Element, typeof element2>(element2);
+
+const element3 = useRenderElement(
+  'div',
+  {},
+  {
+    enabled: false,
+  },
+);
+
+expectType<(props?: HTMLProps) => null, typeof element3>(element3);
+
+const element4 = useRenderElement(
+  'div',
+  {},
+  {
+    enabled: Math.random() > 0.5,
+  },
+);
+
+expectType<(props?: HTMLProps) => JSX.Element, typeof element4>(element4);
