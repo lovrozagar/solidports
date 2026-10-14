@@ -236,6 +236,20 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
       }
 
       const win = ownerWindow(inputRef.current);
+      // React tears this effect down when React.Activity hides the scrub area, which ends the
+      // scrub (`cancelScrub`). Solid keeps it: the scrub ends when the area stops rendering, as
+      // under a `display: none` ancestor.
+      const scrubArea = scrubAreaRef.current;
+      const hiddenObserver =
+        scrubArea && typeof ResizeObserver !== 'undefined'
+          ? new ResizeObserver(() => {
+              if (scrubArea.getClientRects().length === 0) {
+                cancelScrub();
+                setIsScrubbing(false);
+              }
+            })
+          : undefined;
+      hiddenObserver?.observe(scrubArea!);
       const unsubscribe = mergeCleanups(
         addEventListener(win, 'pointerup', handleScrubPointerUp, true),
         addEventListener(win, 'pointermove', handleScrubPointerMove, true),
@@ -243,14 +257,16 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
 
       return () => {
         exitPointerLockTimeout.clear();
+        hiddenObserver?.disconnect();
         unsubscribe();
       };
     },
   );
 
-  // If the scrub area unmounts mid-scrub, release pointer lock and clear the root's scrubbing
-  // state so it doesn't stay locked or stuck. (No commit: there's no pointer release here.)
-  void onCleanup(() => {
+  // A scrub that ends without a pointer release (the area unmounts or is hidden mid-scrub):
+  // release pointer lock and clear the root's scrubbing state so it doesn't stay locked or stuck.
+  // No commit: there's no pointer release here.
+  function cancelScrub() {
     if (isScrubbingRef) {
       isScrubbingRef = false;
       setRootScrubbing(false);
@@ -260,7 +276,9 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
         // Ignore errors.
       }
     }
-  });
+  }
+
+  void onCleanup(cancelScrub);
 
   // Prevent scrolling using touch input when scrubbing.
   createDepsEffect(

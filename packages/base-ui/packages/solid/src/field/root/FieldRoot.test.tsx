@@ -16,6 +16,7 @@ import { createSignal, Show } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
 import { useFieldRootContext } from '../../internals/field-root-context/FieldRootContext';
 import { splitProps } from '../../solid-1-compat';
+import { Activity } from '../../../test/activity';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures from './FieldRoot.ssr-fixtures';
 
@@ -355,11 +356,75 @@ describe('<Field.Root />', () => {
     expect(screen.getByTestId('trigger')).toHaveAttribute('aria-labelledby', labelId);
   });
 
-  // Solid: no `<Activity>` that tears effects down while keeping the DOM of a hidden subtree.
-  it.skip('keeps an explicit control id while the subtree is hidden', () => {});
+  // Solid: `Activity` (test/activity.tsx) hides its content as React's does in the DOM; Solid
+  // keeps the hidden subtree's effects, where React tears them down.
+  it('keeps an explicit control id while the subtree is hidden', async () => {
+    function TestCase() {
+      const [visible, setVisible] = createSignal(true);
 
-  // Solid: no `<Activity>` that tears effects down while keeping the DOM of a hidden subtree.
-  it.skip('keeps the group label suppressed while its subtree is hidden', () => {});
+      return (
+        <>
+          <Field.Root>
+            <Field.Label data-testid="label">Email</Field.Label>
+            <Activity mode={visible() ? 'visible' : 'hidden'}>
+              <Field.Control id="email" data-testid="control" />
+            </Activity>
+          </Field.Root>
+          <button type="button" onClick={() => setVisible(false)}>
+            hide
+          </button>
+        </>
+      );
+    }
+
+    render(() => <TestCase />);
+
+    expect(screen.getByTestId('control')).toHaveAttribute('id', 'email');
+    expect(screen.getByTestId('label')).toHaveAttribute('for', 'email');
+
+    fireEvent.click(screen.getByRole('button', { name: 'hide' }));
+
+    // Hiding destroys the control's effects but keeps its DOM, so the association must hold.
+    expect(screen.getByTestId('control')).toHaveAttribute('id', 'email');
+    expect(screen.getByTestId('label')).toHaveAttribute('for', 'email');
+  });
+
+  it('keeps the group label suppressed while its subtree is hidden', async () => {
+    function TestCase() {
+      const [visible, setVisible] = createSignal(true);
+
+      return (
+        <>
+          <Field.Root>
+            <Field.Label data-testid="label">Apples</Field.Label>
+            <Activity mode={visible() ? 'visible' : 'hidden'}>
+              <CheckboxGroup allValues={['fuji', 'gala']} defaultValue={[]} data-testid="group">
+                <Checkbox.Root parent />
+                <Checkbox.Root value="fuji" />
+                <Checkbox.Root value="gala" />
+              </CheckboxGroup>
+            </Activity>
+          </Field.Root>
+          <button type="button" onClick={() => setVisible(false)}>
+            hide
+          </button>
+        </>
+      );
+    }
+
+    render(() => <TestCase />);
+
+    const label = screen.getByTestId('label');
+    const group = screen.getByTestId('group');
+
+    expect(label).not.toHaveAttribute('for');
+    expect(group).toHaveAttribute('aria-labelledby', label.id);
+
+    fireEvent.click(screen.getByRole('button', { name: 'hide' }));
+
+    expect(label).not.toHaveAttribute('for');
+    expect(group).toHaveAttribute('aria-labelledby', label.id);
+  });
 
   describe('prop: disabled', () => {
     it('should add data-disabled style hook to all components', async () => {
