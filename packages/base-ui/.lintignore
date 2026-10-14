@@ -3,6 +3,8 @@
 /docs/react/next-env.d.ts
 /docs/react/.next
 /docs/react/export
+/docs/solid/dist
+/docs/solid/.output
 /docs/react/src/app/(private)/playground/
 /packages/react/**/*.min.*
 /packages/solid/**/*.min.*

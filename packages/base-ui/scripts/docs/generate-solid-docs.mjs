@@ -1129,7 +1129,7 @@ function copyChromeCss() {
       const css = readFileSync(join(fromCss, 'syntax.css'), 'utf8').replace(
         /( *\/\* stylelint-disable-next-line [^*]*\*\/\n)?  \.MdCode\[data-inline\]:not\(:has\(> \.di-ht\)\) \{/,
         (_m, lint = '') =>
-          `  /* HTML tags stay colored text. Shiki marks them with --syntax-tag; React uses .di-ht. */\n${lint}  .MdCode[data-inline]:not(:has(> .di-ht)):not(:has([style*='--syntax-tag'])) {`,
+          `  /* HTML tags stay colored text. Shiki marks them with --syntax-tag; React uses .di-ht. */\n${lint}  .MdCode[data-inline]:not(:has(> .di-ht), :has([style*='--syntax-tag'])) {`,
       );
       writeCss(syntax, css);
     }
