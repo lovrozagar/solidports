@@ -647,7 +647,6 @@ const FRAMEWORK_DEPENDENCIES = {
   '@solidjs/router': 'catalog:',
   '@solidjs/vite-plugin': 'catalog:',
   '@solidjs/web': 'catalog:',
-  'cross-env': 'catalog:',
   'hast-util-to-jsx-runtime': '^2.3.6',
   jiti: '^2.7.0',
   picomatch: '^4.0.3',
@@ -655,6 +654,8 @@ const FRAMEWORK_DEPENDENCIES = {
   vite: 'catalog:',
 };
 const FRAMEWORK_DEV_DEPENDENCIES = {
+  // `tsc` (the docs' `typescript` script), as upstream's root has it: TypeScript 7.
+  '@typescript/native': 'catalog:',
   '@types/picomatch': '^4.0.3',
 };
 const DOCS_INFRA_PACKAGE = '@mui/internal-docs-infra';
@@ -662,8 +663,7 @@ const DOCS_INFRA_PACKAGE = '@mui/internal-docs-infra';
 /**
  * The Solid docs' package: the React docs' dependencies in their Solid form, the dependencies of
  * the generated docs-infra source (at docs-infra's versions), and the framework's. Scripts run
- * the framework (Vite) where the React docs run Next.js; docs-infra's commands load
- * `framework/typescript.mjs`.
+ * the framework (Vite) where the React docs run Next.js.
  */
 function generatePackageJson() {
   const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -690,26 +690,25 @@ function generatePackageJson() {
   };
   const infraDependencies = Object.fromEntries(
     Object.entries(infraPackage.dependencies).filter(
-      // `typescript` resolves to the workspace's (see `framework/typescript.mjs`); the editor is
-      // an adapter.
+      // `typescript` comes with the React docs' own (TypeScript 6's API, as docs-infra's); the
+      // editor is an adapter.
       ([name]) => name !== 'typescript' && name !== 'react-simple-code-editor',
     ),
   );
   const sorted = (object) =>
     Object.fromEntries(Object.entries(object).sort(([a], [b]) => a.localeCompare(b)));
-  const hook = 'cross-env NODE_OPTIONS=--import=./framework/typescript.mjs';
   const pkg = {
     name: '@solidports/docs',
     private: true,
     // The React docs' module type: their `postcss.config.js` is CommonJS.
     ...(reactPackage.type && { type: reactPackage.type }),
     scripts: {
-      dev: `${hook} vite --port 3001`,
-      build: `${hook} vite build`,
+      dev: 'vite --port 3001',
+      build: 'vite build',
       preview: 'vite preview --port 3001',
-      'docs-infra': `${hook} docs-infra`,
+      'docs-infra': 'docs-infra',
       validate: 'bun internal-validate --command "bun validate"',
-      'internal-validate': `${hook} docs-infra validate`,
+      'internal-validate': 'docs-infra validate',
       typescript: 'tsc -p tsconfig.json',
       'link-check': reactPackage.scripts['link-check'],
       'generate-llms': reactPackage.scripts['generate-llms'],

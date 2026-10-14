@@ -25,6 +25,7 @@
     "luxon": "catalog:",
     "sinon": "catalog:",
     "solid-js": "catalog:",
+    "@typescript/native": "catalog:",
     "typescript": "catalog:"
   },
   "engines": {
