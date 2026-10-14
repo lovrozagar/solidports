@@ -67,6 +67,8 @@ import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden'
 import { stateAttributesMapping } from '../stateAttributesMapping';
 import { SwitchRootContext } from './SwitchRootContext';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
+/** Props the native path reads once, as the slow path reads `nativeButton`. */
+const NATIVE_STATIC_KEYS = ['nativeButton', 'inputRef'] as const;
 
 /**
  * Represents the switch itself.
@@ -352,9 +354,6 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     </SwitchRootContext>
   );
 }
-
-/** Props the native path reads once, as the slow path reads `nativeButton`. */
-const NATIVE_STATIC_KEYS = ['nativeButton', 'inputRef'] as const;
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: readonly string[] = [
   'checked',

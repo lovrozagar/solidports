@@ -17,6 +17,18 @@ import { AccordionRootContext } from './AccordionRootContext';
 const rootStateAttributesMapping = {
   value: () => null,
 };
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'disabled',
+  'hiddenUntilFound',
+  'keepMounted',
+  'loopFocus',
+  'onValueChange',
+  'multiple',
+  'orientation',
+  'value',
+  'defaultValue',
+]);
 
 /**
  * Groups all parts of the accordion.
@@ -71,19 +83,6 @@ export function AccordionRoot<Value = any>(
     </AccordionRootContext>
   );
 }
-
-/** The part's own props: never forwarded to the element. */
-const OWN_KEYS: ReadonlySet<string> = new Set([
-  'disabled',
-  'hiddenUntilFound',
-  'keepMounted',
-  'loopFocus',
-  'onValueChange',
-  'multiple',
-  'orientation',
-  'value',
-  'defaultValue',
-]);
 
 /** The root's value state and context, shared by both render paths (`local` reads the props). */
 function createAccordionRoot<Value>(

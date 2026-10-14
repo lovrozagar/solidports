@@ -75,6 +75,9 @@ import type { ReactLikeRef } from '../../solid-helpers';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export const PARENT_CHECKBOX = 'data-parent';
+/** Props the native path reads once, as the slow path reads `nativeButton` (and `parent`, fixed per mount). */
+const NATIVE_STATIC_KEYS = ['nativeButton', 'parent', 'inputRef'] as const;
+const NO_GROUP_PROPS: Partial<GroupProps> = {};
 
 /**
  * Represents the checkbox itself.
@@ -562,11 +565,6 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     </CheckboxRootContext>
   );
 }
-
-const NO_GROUP_PROPS: Partial<GroupProps> = {};
-
-/** Props the native path reads once, as the slow path reads `nativeButton` (and `parent`, fixed per mount). */
-const NATIVE_STATIC_KEYS = ['nativeButton', 'parent', 'inputRef'] as const;
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: readonly string[] = [
   'checked',

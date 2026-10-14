@@ -184,6 +184,18 @@ export function ToastStore(initialState: InitialState) {
   // the tick, so a re-add in the same tick reuses it and the list keeps its item.
   const pendingRecordRemovals = new Set<string>();
 
+  const initialToasts = reconcileToasts(initialState.toasts).toasts;
+  const base = SolidStore<State, {}, typeof selectors>(
+    {
+      ...initialState,
+      toasts: initialToasts,
+      toastMetadata: createToastMetadata(initialToasts),
+    },
+    {},
+    selectors,
+  );
+  const { state } = base;
+
   function scheduleRecordRemoval(id: string) {
     if (pendingRecordRemovals.has(id)) {
       return;
@@ -196,18 +208,6 @@ export function ToastStore(initialState: InitialState) {
       }
     });
   }
-
-  const initialToasts = reconcileToasts(initialState.toasts).toasts;
-  const base = SolidStore<State, {}, typeof selectors>(
-    {
-      ...initialState,
-      toasts: initialToasts,
-      toastMetadata: createToastMetadata(initialToasts),
-    },
-    {},
-    selectors,
-  );
-  const { state } = base;
 
   const timers = new Map<string, TimerInfo>();
 
@@ -329,12 +329,12 @@ export function ToastStore(initialState: InitialState) {
     );
   };
 
-  const updateToastInternal = <Data extends object>(
+  function updateToastInternal<Data extends object>(
     id: string,
     updates: ToastInternalUpdateOptions<Data>,
     resetTimer: boolean = false,
     markUpdated: boolean = false,
-  ) => {
+  ) {
     const { timeout, toasts } = state;
     const prevToastRecord = selectors.toast(state, () => id);
     if (!prevToastRecord) {
@@ -390,9 +390,9 @@ export function ToastStore(initialState: InitialState) {
         pauseTimers();
       }
     }
-  };
+  }
 
-  const closeToast = (toastId?: string) => {
+  function closeToast(toastId?: string) {
     const closeAll = toastId === undefined;
     const { limit, toasts } = state;
     let toastsToClose: StoredToast[];
@@ -426,7 +426,7 @@ export function ToastStore(initialState: InitialState) {
     });
 
     handleFocusManagement(toastId);
-  };
+  }
 
   const promiseToast = <Value, Data extends object>(
     promiseValue: Promise<Value>,

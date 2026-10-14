@@ -33,6 +33,16 @@ import { useValueChanged } from '../internals/useValueChanged';
 import { splitComponentProps, provideContext } from '../solid-helpers';
 import type { ReactLikeRef } from '../solid-helpers';
 import { mergeProps as solidMergeProps } from '../solid-1-compat';
+const OWN_KEYS: readonly string[] = [
+  'allValues',
+  'defaultValue',
+  'disabled',
+  'id',
+  'onValueChange',
+  'value',
+];
+const OWN_KEYS_SET: ReadonlySet<string> = new Set(OWN_KEYS);
+const GROUP_ATTRIBUTES = { role: 'group' };
 
 /**
  * Provides a shared state to a series of checkboxes.
@@ -238,18 +248,6 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
 
   return provideContext(CheckboxGroupContext, contextValue, element);
 }
-
-const GROUP_ATTRIBUTES = { role: 'group' };
-
-const OWN_KEYS: readonly string[] = [
-  'allValues',
-  'defaultValue',
-  'disabled',
-  'id',
-  'onValueChange',
-  'value',
-];
-const OWN_KEYS_SET: ReadonlySet<string> = new Set(OWN_KEYS);
 
 export interface CheckboxGroupState extends FieldRootState {
   /**
