@@ -62,24 +62,24 @@ describe('useRenderElement', () => {
 
       const element = container.firstElementChild as HTMLElement;
 
-      expect(mountSpy.mock.calls.length).to.equal(1);
-      expect(cleanupSpy.mock.calls.length).to.equal(0);
-      expect(element.hasAttribute('data-active')).to.equal(false);
+      expect(mountSpy.mock.calls.length).toBe(1);
+      expect(cleanupSpy.mock.calls.length).toBe(0);
+      expect(element.hasAttribute('data-active')).toBe(false);
 
       act(() => setActive(true));
       await flushMicrotasks();
-      expect(element.hasAttribute('data-active')).to.equal(true);
+      expect(element.hasAttribute('data-active')).toBe(true);
 
       act(() => setActive(false));
       await flushMicrotasks();
-      expect(element.hasAttribute('data-active')).to.equal(false);
+      expect(element.hasAttribute('data-active')).toBe(false);
 
       act(() => setActive(true));
       await flushMicrotasks();
-      expect(element.hasAttribute('data-active')).to.equal(true);
+      expect(element.hasAttribute('data-active')).toBe(true);
 
-      expect(mountSpy.mock.calls.length).to.equal(1);
-      expect(cleanupSpy.mock.calls.length).to.equal(0);
+      expect(mountSpy.mock.calls.length).toBe(1);
+      expect(cleanupSpy.mock.calls.length).toBe(0);
     });
 
     it('does not remount children when reactive class function changes', async () => {
@@ -100,19 +100,19 @@ describe('useRenderElement', () => {
 
       const element = container.firstElementChild as HTMLElement;
 
-      expect(element.className).to.contain('off');
-      expect(mountSpy.mock.calls.length).to.equal(1);
+      expect(element.className).toContain('off');
+      expect(mountSpy.mock.calls.length).toBe(1);
 
       act(() => setActive(true));
       await flushMicrotasks();
-      expect(element.className).to.contain('on');
+      expect(element.className).toContain('on');
 
       act(() => setActive(false));
       await flushMicrotasks();
-      expect(element.className).to.contain('off');
+      expect(element.className).toContain('off');
 
-      expect(mountSpy.mock.calls.length).to.equal(1);
-      expect(cleanupSpy.mock.calls.length).to.equal(0);
+      expect(mountSpy.mock.calls.length).toBe(1);
+      expect(cleanupSpy.mock.calls.length).toBe(0);
     });
 
     it('does not remount children when reactive style function changes', async () => {
@@ -135,19 +135,19 @@ describe('useRenderElement', () => {
 
       const element = container.firstElementChild as HTMLElement;
 
-      expect(element.style.color).to.equal('rgb(0, 0, 255)');
-      expect(mountSpy.mock.calls.length).to.equal(1);
+      expect(element.style.color).toBe('rgb(0, 0, 255)');
+      expect(mountSpy.mock.calls.length).toBe(1);
 
       act(() => setActive(true));
       await flushMicrotasks();
-      expect(element.style.color).to.equal('rgb(255, 0, 0)');
+      expect(element.style.color).toBe('rgb(255, 0, 0)');
 
       act(() => setActive(false));
       await flushMicrotasks();
-      expect(element.style.color).to.equal('rgb(0, 0, 255)');
+      expect(element.style.color).toBe('rgb(0, 0, 255)');
 
-      expect(mountSpy.mock.calls.length).to.equal(1);
-      expect(cleanupSpy.mock.calls.length).to.equal(0);
+      expect(mountSpy.mock.calls.length).toBe(1);
+      expect(cleanupSpy.mock.calls.length).toBe(0);
     });
 
     it('does not remount children when a reactive spread prop (getter) updates', async () => {
@@ -165,22 +165,22 @@ describe('useRenderElement', () => {
 
       const element = container.firstElementChild as HTMLElement;
 
-      expect(element.getAttribute('data-count')).to.equal('0');
+      expect(element.getAttribute('data-count')).toBe('0');
 
       act(() => setActive(true));
       await flushMicrotasks();
-      expect(element.getAttribute('data-count')).to.equal('1');
+      expect(element.getAttribute('data-count')).toBe('1');
 
       act(() => setActive(false));
       await flushMicrotasks();
-      expect(element.getAttribute('data-count')).to.equal('0');
+      expect(element.getAttribute('data-count')).toBe('0');
 
       act(() => setActive(true));
       await flushMicrotasks();
-      expect(element.getAttribute('data-count')).to.equal('1');
+      expect(element.getAttribute('data-count')).toBe('1');
 
-      expect(mountSpy.mock.calls.length).to.equal(1);
-      expect(cleanupSpy.mock.calls.length).to.equal(0);
+      expect(mountSpy.mock.calls.length).toBe(1);
+      expect(cleanupSpy.mock.calls.length).toBe(0);
     });
 
     it('children mount exactly once across many open/close-like toggles', async () => {
@@ -196,7 +196,7 @@ describe('useRenderElement', () => {
         />
       ));
 
-      expect(mountSpy.mock.calls.length).to.equal(1);
+      expect(mountSpy.mock.calls.length).toBe(1);
 
       for (let i = 0; i < 6; i += 1) {
         act(() => setActive((prev) => !prev));
@@ -204,8 +204,8 @@ describe('useRenderElement', () => {
         await flushMicrotasks();
       }
 
-      expect(mountSpy.mock.calls.length).to.equal(1);
-      expect(cleanupSpy.mock.calls.length).to.equal(0);
+      expect(mountSpy.mock.calls.length).toBe(1);
+      expect(cleanupSpy.mock.calls.length).toBe(0);
     });
 
     describe('children passed via componentProps', () => {
@@ -240,7 +240,7 @@ describe('useRenderElement', () => {
 
         render(() => <TestWrapper />);
 
-        expect(mountSpy.mock.calls.length).to.equal(1);
+        expect(mountSpy.mock.calls.length).toBe(1);
 
         for (let i = 0; i < 5; i += 1) {
           setActive((prev) => !prev);
@@ -248,8 +248,8 @@ describe('useRenderElement', () => {
           await flushMicrotasks();
         }
 
-        expect(mountSpy.mock.calls.length).to.equal(1);
-        expect(cleanupSpy.mock.calls.length).to.equal(0);
+        expect(mountSpy.mock.calls.length).toBe(1);
+        expect(cleanupSpy.mock.calls.length).toBe(0);
       });
 
       it('does not remount children passed as componentProps.children via a reactive getter', async () => {
@@ -281,7 +281,7 @@ describe('useRenderElement', () => {
           </TestWrapper>
         ));
 
-        expect(mountSpy.mock.calls.length).to.equal(1);
+        expect(mountSpy.mock.calls.length).toBe(1);
 
         for (let i = 0; i < 5; i += 1) {
           setActive((prev) => !prev);
@@ -289,8 +289,8 @@ describe('useRenderElement', () => {
           await flushMicrotasks();
         }
 
-        expect(mountSpy.mock.calls.length).to.equal(1);
-        expect(cleanupSpy.mock.calls.length).to.equal(0);
+        expect(mountSpy.mock.calls.length).toBe(1);
+        expect(cleanupSpy.mock.calls.length).toBe(0);
       });
 
       it('does not remount children passed as componentProps.children via a getter returning a fragment', async () => {
@@ -322,7 +322,7 @@ describe('useRenderElement', () => {
           </TestWrapper>
         ));
 
-        expect(mountSpy.mock.calls.length).to.equal(1);
+        expect(mountSpy.mock.calls.length).toBe(1);
 
         for (let i = 0; i < 5; i += 1) {
           setActive((prev) => !prev);
@@ -330,8 +330,8 @@ describe('useRenderElement', () => {
           await flushMicrotasks();
         }
 
-        expect(mountSpy.mock.calls.length).to.equal(1);
-        expect(cleanupSpy.mock.calls.length).to.equal(0);
+        expect(mountSpy.mock.calls.length).toBe(1);
+        expect(cleanupSpy.mock.calls.length).toBe(0);
       });
 
       it('does not remount sibling sub-components that themselves call useRenderElement (Collapsible-shape regression)', async () => {
@@ -443,9 +443,9 @@ describe('useRenderElement', () => {
           </Root>
         ));
 
-        expect(triggerMountSpy.mock.calls.length).to.equal(1);
-        expect(panelMountSpy.mock.calls.length).to.equal(1);
-        expect(panelBodyMountSpy.mock.calls.length).to.equal(1);
+        expect(triggerMountSpy.mock.calls.length).toBe(1);
+        expect(panelMountSpy.mock.calls.length).toBe(1);
+        expect(panelBodyMountSpy.mock.calls.length).toBe(1);
 
         // Mirror the open/close cycle the Collapsible demo goes through:
         // click -> open=true, starting, idle; click -> open=false, ending, idle
@@ -466,12 +466,12 @@ describe('useRenderElement', () => {
           await flushMicrotasks();
         }
 
-        expect(triggerMountSpy.mock.calls.length).to.equal(1);
-        expect(triggerCleanupSpy.mock.calls.length).to.equal(0);
-        expect(panelMountSpy.mock.calls.length).to.equal(1);
-        expect(panelCleanupSpy.mock.calls.length).to.equal(0);
-        expect(panelBodyMountSpy.mock.calls.length).to.equal(1);
-        expect(panelBodyCleanupSpy.mock.calls.length).to.equal(0);
+        expect(triggerMountSpy.mock.calls.length).toBe(1);
+        expect(triggerCleanupSpy.mock.calls.length).toBe(0);
+        expect(panelMountSpy.mock.calls.length).toBe(1);
+        expect(panelCleanupSpy.mock.calls.length).toBe(0);
+        expect(panelBodyMountSpy.mock.calls.length).toBe(1);
+        expect(panelBodyCleanupSpy.mock.calls.length).toBe(0);
       });
 
       it('does not remount children passed via componentProps.render object', async () => {
@@ -500,7 +500,7 @@ describe('useRenderElement', () => {
 
         render(() => <TestWrapper />);
 
-        expect(mountSpy.mock.calls.length).to.equal(1);
+        expect(mountSpy.mock.calls.length).toBe(1);
 
         for (let i = 0; i < 5; i += 1) {
           setActive((prev) => !prev);
@@ -508,8 +508,8 @@ describe('useRenderElement', () => {
           await flushMicrotasks();
         }
 
-        expect(mountSpy.mock.calls.length).to.equal(1);
-        expect(cleanupSpy.mock.calls.length).to.equal(0);
+        expect(mountSpy.mock.calls.length).toBe(1);
+        expect(cleanupSpy.mock.calls.length).toBe(0);
       });
     });
   });

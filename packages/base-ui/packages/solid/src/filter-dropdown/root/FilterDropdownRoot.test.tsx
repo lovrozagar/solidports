@@ -1,4 +1,5 @@
-import { createSignal, For, type ComponentProps } from 'solid-js';
+import { createSignal, For } from 'solid-js';
+import type { ComponentProps } from 'solid-js';
 import { Portal } from '@solidjs/web';
 import { expect, describe, beforeEach, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';

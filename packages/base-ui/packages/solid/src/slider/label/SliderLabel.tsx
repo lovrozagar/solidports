@@ -19,12 +19,10 @@ import { splitProps } from '../../solid-1-compat';
  */
 export function SliderLabel(componentProps: SliderLabel.Props) {
   // Keep label id derived from the root and ignore runtime `id` overrides from untyped consumers.
-  const [, elementProps] = splitProps(componentProps as SliderLabel.Props & { id?: string }, [
-    'class',
-    'render',
-    'style',
-    'id',
-  ]);
+  const [, elementProps] = splitProps(
+    componentProps as SliderLabel.Props & { id?: string | undefined },
+    ['class', 'render', 'style', 'id'],
+  );
 
   const { state, setLabelId, controlRef, rootLabelId } = useSliderRootContext();
 

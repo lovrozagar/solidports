@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSignal, onCleanup, onSettled, Show, type Accessor } from 'solid-js';
+import { createSignal, onCleanup, onSettled, Show } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import {
   Drawer,
   DrawerCloseDataAttributes,

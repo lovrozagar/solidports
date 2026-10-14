@@ -1,7 +1,7 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createSignal, untrack } from 'solid-js';
 import type { TextDirection } from '../../../direction-provider/DirectionContext';
-import { access, createDepsRenderEffect, type MaybeAccessor } from '../../../solid-helpers';
+import { access, createDepsRenderEffect } from '../../../solid-helpers';
+import type { MaybeAccessor } from '../../../solid-helpers';
 import { isElementDisabled } from '../../../utils/isElementDisabled';
 import { EMPTY_ARRAY } from '../../../utils/constants';
 import type { HTMLProps } from '../../../utils/types';
@@ -21,8 +21,8 @@ import {
   isListIndexDisabled,
   isNativeInput,
   scrollIntoViewIfNeeded,
-  type ModifierKey,
 } from '../composite';
+import type { ModifierKey } from '../composite';
 import { ACTIVE_COMPOSITE_ITEM } from '../constants';
 import type { CompositeList, CompositeMetadata } from '../list/CompositeList';
 import { getTarget } from '../../../floating-ui-solid/utils';
@@ -34,9 +34,9 @@ export interface CompositeElementsRef {
 }
 
 export interface UseCompositeRootParameters {
-  orientation?: MaybeAccessor<'horizontal' | 'vertical' | 'both' | undefined>;
-  grid?: MaybeAccessor<CompositeGridNavigator | undefined>;
-  loopFocus?: MaybeAccessor<boolean | undefined>;
+  orientation?: MaybeAccessor<'horizontal' | 'vertical' | 'both' | undefined> | undefined;
+  grid?: MaybeAccessor<CompositeGridNavigator | undefined> | undefined;
+  loopFocus?: MaybeAccessor<boolean | undefined> | undefined;
   onLoop?:
     | ((
         event: KeyboardEvent,
@@ -45,7 +45,7 @@ export interface UseCompositeRootParameters {
         elementsRef: CompositeElementsRef,
       ) => number)
     | undefined;
-  highlightedIndex?: MaybeAccessor<number | undefined>;
+  highlightedIndex?: MaybeAccessor<number | undefined> | undefined;
   onHighlightedIndexChange?: ((index: number) => void) | undefined;
   direction: MaybeAccessor<TextDirection>;
   rootRef?: { current: HTMLElement | null | undefined } | undefined;
@@ -54,24 +54,24 @@ export interface UseCompositeRootParameters {
    * and pressing the End key moves focus to the last item.
    * @default false
    */
-  enableHomeAndEndKeys?: MaybeAccessor<boolean | undefined>;
+  enableHomeAndEndKeys?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * When `true`, keypress events on Composite's navigation keys
    * be stopped with event.stopPropagation().
    * @default false
    */
-  stopEventPropagation?: MaybeAccessor<boolean | undefined>;
+  stopEventPropagation?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Array of item indices to be considered disabled.
    * Used for composite items that are focusable when disabled.
    */
-  disabledIndices?: MaybeAccessor<number[] | undefined>;
+  disabledIndices?: MaybeAccessor<number[] | undefined> | undefined;
   /**
    * Array of [modifier key values](https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values#modifier_keys) that should allow normal keyboard actions
    * when pressed. By default, all modifier keys prevent normal actions.
    * @default []
    */
-  modifierKeys?: MaybeAccessor<ModifierKey[] | undefined>;
+  modifierKeys?: MaybeAccessor<ModifierKey[] | undefined> | undefined;
 }
 
 export function useCompositeRoot<Metadata = any>(params: UseCompositeRootParameters) {

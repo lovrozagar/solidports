@@ -1,8 +1,8 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { omit, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Portal } from '@solidjs/web';
-import { useFloatingPortalNode, type FloatingPortal } from '../floating-ui-solid';
+import { useFloatingPortalNode } from '../floating-ui-solid';
+import type { FloatingPortal } from '../floating-ui-solid';
 
 /**
  * `FloatingPortal` includes tabbable logic handling for focus management.

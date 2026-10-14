@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { untrack } from 'solid-js';
-import { createInitialPopupStoreState, popupStoreSelectors, type PopupStoreState } from './store';
+import { createInitialPopupStoreState, popupStoreSelectors } from './store';
+import type { PopupStoreState } from './store';
 
 function createState(state: Partial<PopupStoreState<unknown>>) {
   // Solid: the initial state is a store; spread a plain snapshot of it.

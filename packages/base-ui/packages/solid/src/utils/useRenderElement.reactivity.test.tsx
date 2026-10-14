@@ -1,13 +1,7 @@
 import { createRenderer } from '#test-utils';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import {
-  createMemo,
-  createRenderEffect,
-  createSignal,
-  flush,
-  onSettled,
-  type Accessor,
-} from 'solid-js';
+import { createMemo, createRenderEffect, createSignal, flush, onSettled } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { expect, describe, it } from 'vitest';
 import type { BaseUIEvent } from './types';

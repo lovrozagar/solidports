@@ -1,12 +1,9 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo, isStatic, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { CompositeItem } from '../internals/composite/item/CompositeItem';
-import {
-  useCompositeRootContext,
-  type CompositeRootContext,
-} from '../internals/composite/root/CompositeRootContext';
+import { useCompositeRootContext } from '../internals/composite/root/CompositeRootContext';
+import type { CompositeRootContext } from '../internals/composite/root/CompositeRootContext';
 import { useToolbarRootContext } from '../toolbar/root/ToolbarRootContext';
 import { makeEventPreventable } from '../merge-props';
 import { dispatchClickWithModifiers } from '../utils/dispatchClickWithModifiers';
@@ -18,16 +15,14 @@ import {
   renderNativeElement,
   runConsumerHandler,
   stateAttr,
-  type CompositeItemRegistration,
 } from '../utils/native';
+import type { CompositeItemRegistration } from '../utils/native';
 import { createDepsEffect, splitComponentProps } from '../solid-helpers';
 import { useToggleGroupContext } from '../toggle-group/ToggleGroupContext';
 import type { ToolbarRoot } from '../toolbar/root/ToolbarRoot';
 import { useButton } from '../internals/use-button/useButton';
-import {
-  type BaseUIChangeEventDetails,
-  createChangeEventDetails,
-} from '../utils/createBaseUIEventDetails';
+import { createChangeEventDetails } from '../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import { error } from '../utils/error';
 import { REASONS } from '../utils/reasons';
 import { useBaseUiId } from '../utils/useBaseUiId';

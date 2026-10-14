@@ -1,12 +1,12 @@
-/* eslint-disable typescript/no-explicit-any -- toast Data is generic at consumer; StoredToast<any> erases consumer type at store level, mirrors React */
 import { createSignal, getObserver, runWithOwner, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { activeElement, contains, getTarget } from '../floating-ui-solid/utils';
 import { generateId } from '../utils/generateId';
 import { ownerDocument } from '../utils/owner';
 import { SolidStore } from '../utils/store/SolidStoreV2';
-import { useTimeout, type Timeout } from '../utils/useTimeout';
-import {
+import { useTimeout } from '../utils/useTimeout';
+import type { Timeout } from '../utils/useTimeout';
+import type {
   ToastManagerAddOptions,
   ToastManagerPromiseOptions,
   ToastManagerUpdateOptions,

@@ -3,27 +3,22 @@ import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { EMPTY_OBJECT } from '../../utils/empty';
 import { useClientPoint, useDismiss } from '../../floating-ui-solid';
-import {
-  ComponentWithPayload,
-  createDepsRenderEffect,
-  type ReactLikeRef,
-  isAbsentProp,
-} from '../../solid-helpers';
-import {
-  type BaseUIChangeEventDetails,
-  createChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { ComponentWithPayload, createDepsRenderEffect, isAbsentProp } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import {
   PopupHandleAttachment,
   useImplicitActiveTrigger,
   usePopupRootStore,
   useOpenStateTransitions,
   usePopupInteractionProps,
-  type PayloadChildRenderFunction,
 } from '../../utils/popups';
+import type { PayloadChildRenderFunction } from '../../utils/popups';
 import { mergeProps } from '../../merge-props';
-import { TooltipStore, type State as TooltipStoreState } from '../store/TooltipStore';
-import { type TooltipHandle } from '../store/TooltipHandle';
+import { TooltipStore } from '../store/TooltipStore';
+import type { State as TooltipStoreState } from '../store/TooltipStore';
+import type { TooltipHandle } from '../store/TooltipHandle';
 import { REASONS } from '../../utils/reasons';
 import { TooltipRootContext } from './TooltipRootContext';
 
@@ -239,7 +234,7 @@ export interface TooltipRootProps<Payload = unknown> {
    * The content of the tooltip.
    * This can be a regular React node or a render function that receives the `payload` of the active trigger.
    */
-  children?: JSX.Element | PayloadChildRenderFunction<Payload>;
+  children?: JSX.Element | PayloadChildRenderFunction<Payload> | undefined;
   /**
    * ID of the trigger that the tooltip is associated with.
    * This is useful in conjunction with the `open` prop to create a controlled tooltip.

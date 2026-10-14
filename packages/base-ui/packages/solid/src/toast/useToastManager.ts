@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic toast Data erased at manager interface */
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { ReactLikeRef } from '../solid-helpers';
@@ -35,7 +34,7 @@ export interface ToastObject<Data extends object> {
   /**
    * The title of the toast.
    */
-  title?: JSX.Element;
+  title?: JSX.Element | undefined;
   /**
    * The type of the toast. Used to conditionally style the toast,
    * including conditionally rendering elements based on the type.
@@ -44,7 +43,7 @@ export interface ToastObject<Data extends object> {
   /**
    * The description of the toast.
    */
-  description?: JSX.Element;
+  description?: JSX.Element | undefined;
   /**
    * The amount of time (in ms) before the toast is auto dismissed.
    * A value of `0` will prevent the toast from being dismissed automatically.

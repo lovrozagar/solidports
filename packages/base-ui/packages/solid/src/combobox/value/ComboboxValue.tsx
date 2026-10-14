@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo, Match, Switch } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -52,12 +51,12 @@ export interface ComboboxValueProps {
    * Treat the value as read-only: in `multiple` mode it may be a shared frozen array
    * when nothing is selected.
    */
-  children?: JSX.Element | ((selectedValue: Accessor<any>) => JSX.Element);
+  children?: JSX.Element | ((selectedValue: Accessor<any>) => JSX.Element) | undefined;
   /**
    * The placeholder value to display when no value is selected.
    * This is overridden by `children` if specified, or by a null item's label in `items`.
    */
-  placeholder?: JSX.Element;
+  placeholder?: JSX.Element | undefined;
 }
 
 export namespace ComboboxValue {

@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo, createSignal, untrack } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { AriaCombobox } from '../../combobox/root/AriaCombobox';
@@ -6,7 +5,8 @@ import { useCoreFilter } from '../../combobox/root/utils/useFilter';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { stringifyAsLabel, type Group } from '../../utils/resolveValueLabel';
+import { stringifyAsLabel } from '../../utils/resolveValueLabel';
+import type { Group } from '../../utils/resolveValueLabel';
 import { splitProps } from '../../solid-1-compat';
 import { createDepsEffect } from '../../solid-helpers';
 

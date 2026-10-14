@@ -1,7 +1,8 @@
 import { getNodeName, isHTMLElement } from '@floating-ui/utils/dom';
 import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { createDepsEffect, defaultProps, live, type ReactLikeRef } from '../../solid-helpers';
+import { createDepsEffect, defaultProps, live } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -36,8 +37,8 @@ import {
   isVirtualPointerEvent,
   stopEvent,
   tabbable,
-  type FocusableElement,
 } from '../utils';
+import type { FocusableElement } from '../utils';
 import { isElementVisible } from '../utils/composite';
 import { createAttribute } from '../utils/createAttribute';
 import { enqueueFocus } from '../utils/enqueueFocus';
@@ -932,7 +933,7 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
               ? isFocusInsideFloatingTree
               : true)
           ) {
-            const focusOptions: FocusOptions & { focusVisible?: boolean } = {
+            const focusOptions: FocusOptions & { focusVisible?: boolean | undefined } = {
               preventScroll: true,
             };
             if (closeType === 'keyboard') {

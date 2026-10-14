@@ -1,10 +1,7 @@
 import { expect, describe, it } from 'vitest';
 import { createSignal } from 'solid-js';
-import {
-  DirectionProvider,
-  useDirection,
-  type TextDirection,
-} from '@solidports/base-ui/direction-provider';
+import { DirectionProvider, useDirection } from '@solidports/base-ui/direction-provider';
+import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { screen } from '@solidjs/testing-library';
 import { act, createRenderer } from '#test-utils';
 

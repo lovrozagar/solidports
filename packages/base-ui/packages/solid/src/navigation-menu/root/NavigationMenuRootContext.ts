@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic value erased at context */
 import { createContext, useContext } from 'solid-js';
 import type { Accessor, Context, Setter } from 'solid-js';
 import type { FloatingRootContext } from '../../floating-ui-solid';
@@ -54,7 +53,7 @@ export interface NavigationMenuRootContext<Value = any> {
 
 // Solid: `Context` has no `displayName` field; it is added for parity with React's dev label.
 export const NavigationMenuRootContext: Context<NavigationMenuRootContext<any> | null> & {
-  displayName?: string;
+  displayName?: string | undefined;
 } = createContext<NavigationMenuRootContext<any> | null>(null);
 
 if (process.env.NODE_ENV !== 'production') {

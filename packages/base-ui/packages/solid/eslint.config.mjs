@@ -1,27 +1,28 @@
+import { EXTENSION_TEST_FILE } from '@mui/internal-code-infra/eslint';
 import solid from 'eslint-plugin-solid/configs/typescript';
+import { defineConfig } from 'eslint/config';
 // eslint-disable-next-line import/no-relative-packages
-import defaultConfig from '../../eslint.config.mjs';
+import rootConfig from '../../eslint.config.mjs';
+// eslint-disable-next-line import/no-relative-packages
+import baseUiTestRules from '../../scripts/eslint/testRules.mjs';
 
-const configWithDisabledReactRules = defaultConfig
-  .flatMap((config) =>
-    Object.entries(config.rules ?? {})
-      .filter(([ruleName]) => ruleName.startsWith('react'))
-      .map(([ruleName]) => ruleName),
-  )
-  .reduce((acc, ruleName) => {
-    acc[ruleName] = 'off';
-    return acc;
-  }, {});
+// The Base UI root config (upstream's) writes its file patterns from the Base UI root, such as
+// `packages/*/src/**`. ESLint resolves this config for files under `packages/solid`, so its
+// entries keep the root as their base path.
+const baseConfig = rootConfig.map((config) => ({ basePath: '../..', ...config }));
 
-/**
- * @type {import('eslint').Linter.Config[]}
- */
-const config = [
-  ...defaultConfig,
-  // TODO: really annoying suddenly
+const reactRulesOff = Object.fromEntries(
+  rootConfig
+    .flatMap((config) => Object.keys(config.rules ?? {}))
+    .filter((ruleName) => ruleName.startsWith('react'))
+    .map((ruleName) => [ruleName, 'off']),
+);
+
+export default defineConfig(
+  ...baseConfig,
   {
     rules: {
-      ...configWithDisabledReactRules,
+      ...reactRulesOff,
       '@typescript-eslint/no-namespace': 'off',
 
       /**
@@ -45,7 +46,46 @@ const config = [
       ],
     },
   },
-  { ...solid },
-];
-
-export default config;
+  {
+    // Upstream's "Base UI React tests" block, for the Solid package's tests.
+    name: 'Base UI Solid tests',
+    files: [
+      `**/*${EXTENSION_TEST_FILE}`,
+      'test/describeConformance.tsx',
+      'test/conformanceTests/*.tsx',
+      'test/*Tests.tsx',
+    ],
+    plugins: {
+      'base-ui-test': baseUiTestRules,
+    },
+    rules: {
+      // Assumes the async `#test-utils` renderer: awaiting a synchronous renderer flushes nothing.
+      'base-ui-test/no-flush-after-render': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@mui/internal-test-utils',
+              importNames: ['createRenderer', 'describeConformance'],
+              message:
+                "Import from '#test-utils': its `render` is async and wrapped in act, and its conformance suite is the Base UI one.",
+            },
+          ],
+          patterns: [
+            {
+              group: ['@solidports/base-ui/*/*'],
+              message:
+                'Prefer one level nested imports to avoid bundling everything in dev mode or breaking CJS/ESM split.',
+            },
+            {
+              regex: '(^|/)test/(createRenderer|describeConformance)$',
+              message: "Import test utilities from '#test-utils'.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  solid,
+);

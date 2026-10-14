@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createEffect, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
@@ -330,7 +329,7 @@ export interface SelectItemState {
 
 export interface SelectItemProps
   extends NonNativeButtonProps, Omit<BaseUIComponentProps<'div', SelectItem.State>, 'id'> {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * A unique value that identifies this select item.
    * @default null

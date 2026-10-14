@@ -1,7 +1,6 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-
 import { createMemo, createSignal, untrack } from 'solid-js';
-import { isServer, type JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
 import { platform } from '../../utils/platform';
 import { stopEvent } from '../../floating-ui-solid/utils';

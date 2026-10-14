@@ -1,6 +1,7 @@
 import { createEffect, createSignal, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { access, type MaybeAccessor } from '../../solid-helpers';
+import { access } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { NOOP } from '../empty';
 import type { PopupHandleStoreProvider } from './popupHandle';
 

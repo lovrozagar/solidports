@@ -27,10 +27,11 @@ import type { BaseUIComponentProps } from '../utils/types';
 import { fieldValidityMapping } from '../field/utils/constants';
 import { useCheckboxGroupParent } from './useCheckboxGroupParent';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
-import { REASONS } from '../utils/reasons';
+import type { REASONS } from '../utils/reasons';
 import { useFormContext } from '../form/FormContext';
 import { useValueChanged } from '../internals/useValueChanged';
-import { splitComponentProps, type ReactLikeRef, provideContext } from '../solid-helpers';
+import { splitComponentProps, provideContext } from '../solid-helpers';
+import type { ReactLikeRef } from '../solid-helpers';
 import { mergeProps as solidMergeProps } from '../solid-1-compat';
 
 /**

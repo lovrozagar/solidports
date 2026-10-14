@@ -1,12 +1,11 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any` to mirror upstream React combobox API; tightening to `unknown` breaks consumer ergonomics for unspecified-Value usage */
 import { createEffect, createMemo, createSignal, onSettled, untrack } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { closest } from '../../utils/shadowDom';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useField } from '../../field/useField';
+import type { ElementProps } from '../../floating-ui-solid';
 import {
-  ElementProps,
   getOverflowAncestors,
   useClick,
   useDismiss,
@@ -20,13 +19,16 @@ import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useDirection } from '../../internals/direction-context/DirectionContext';
 import { mergeProps } from '../../merge-props';
-import { type ReactLikeRef, shallowEqual, useRef, createLayoutEffect } from '../../solid-helpers';
+import { shallowEqual, useRef, createLayoutEffect } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
 import {
   createChangeEventDetails,
   createGenericEventDetails,
-  type BaseUIChangeEventDetails,
-  type BaseUIHighlightEventDetails,
+} from '../../utils/createBaseUIEventDetails';
+import type {
+  BaseUIChangeEventDetails,
+  BaseUIHighlightEventDetails,
 } from '../../utils/createBaseUIEventDetails';
 import {
   compareItemEquality,
@@ -46,9 +48,9 @@ import {
 import { useUnmountAfterClose } from '../../utils/useUnmountAfterClose';
 import { REASONS } from '../../utils/reasons';
 import { getHighlightReason } from '../../utils/getHighlightReason';
+import type { Group } from '../../utils/resolveValueLabel';
 import {
   flattenLeafItems,
-  Group,
   isGroupedItems,
   stringifyAsLabel,
   stringifyAsValue,
@@ -61,12 +63,10 @@ import { useIsHydrating } from '../../utils/useIsHydrating';
 import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
 import { useValueChanged } from '../../internals/useValueChanged';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
-import { selectors, type ComboboxStoreContext, type State as StoreState } from '../store';
-import {
-  findCollectionItem,
-  type ComboboxItemCollection,
-  type ItemCollection,
-} from '../items/itemCollection';
+import { selectors } from '../store';
+import type { ComboboxStoreContext, State as StoreState } from '../store';
+import { findCollectionItem } from '../items/itemCollection';
+import type { ComboboxItemCollection, ItemCollection } from '../items/itemCollection';
 import {
   ComboboxDerivedItemsContext,
   ComboboxFloatingContext,
@@ -74,7 +74,8 @@ import {
   ComboboxInputValueContext,
   ComboboxRootContext,
 } from './ComboboxRootContext';
-import { createCollatorItemFilter, type FilterItemToString } from './utils';
+import { createCollatorItemFilter } from './utils';
+import type { FilterItemToString } from './utils';
 import { INITIAL_LAST_HIGHLIGHT, NO_ACTIVE_VALUE } from './utils/constants';
 import { useCoreFilter } from './utils/useFilter';
 import { on } from '../../solid-1-compat';
@@ -1946,7 +1947,7 @@ type ComboboxItemValueType<ItemValue, Mode extends SelectionMode> = Mode extends
   : ItemValue;
 
 interface ComboboxRootProps<ItemValue, Item = ItemValue> {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * Identifies the field when a form is submitted.
    */

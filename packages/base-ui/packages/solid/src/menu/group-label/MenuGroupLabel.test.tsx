@@ -22,7 +22,7 @@ describe('<Menu.GroupLabel />', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Menu.GroupLabel />)).to.throw(
+      expect(() => render(() => <Menu.GroupLabel />)).toThrow(
         'Base UI: MenuGroupContext is missing. Menu group parts must be used within <Menu.Group> or <Menu.RadioGroup>.',
       );
       await flushMicrotasks();
@@ -49,7 +49,7 @@ describe('<Menu.GroupLabel />', () => {
       ));
 
       const groupLabel = screen.getByText('Test group');
-      expect(groupLabel).to.have.attribute('aria-hidden', 'true');
+      expect(groupLabel).toHaveAttribute('aria-hidden', 'true');
     });
 
     it('allows overriding aria-hidden', async () => {
@@ -68,7 +68,7 @@ describe('<Menu.GroupLabel />', () => {
       ));
 
       const groupLabel = screen.getByText('Test group');
-      expect(groupLabel).not.to.have.attribute('aria-hidden');
+      expect(groupLabel).not.toHaveAttribute('aria-hidden');
     });
 
     it("should reference the generated id in Group's `aria-labelledby`", async () => {
@@ -89,7 +89,7 @@ describe('<Menu.GroupLabel />', () => {
       const group = screen.getByRole('group');
       const groupLabel = screen.getByText('Test group');
 
-      expect(group).to.have.attribute('aria-labelledby', groupLabel.id);
+      expect(group).toHaveAttribute('aria-labelledby', groupLabel.id);
     });
 
     it("should reference the provided id in Group's `aria-labelledby`", async () => {
@@ -108,7 +108,7 @@ describe('<Menu.GroupLabel />', () => {
       ));
 
       const group = screen.getByRole('group');
-      expect(group).to.have.attribute('aria-labelledby', 'test-group');
+      expect(group).toHaveAttribute('aria-labelledby', 'test-group');
     });
 
     it("should reference the generated id in RadioGroup's `aria-labelledby`", async () => {
@@ -129,7 +129,7 @@ describe('<Menu.GroupLabel />', () => {
       const radioGroup = screen.getByRole('group');
       const groupLabel = screen.getByText('Test group');
 
-      expect(radioGroup).to.have.attribute('aria-labelledby', groupLabel.id);
+      expect(radioGroup).toHaveAttribute('aria-labelledby', groupLabel.id);
     });
 
     it("should reference the provided id in RadioGroup's `aria-labelledby`", async () => {
@@ -148,7 +148,7 @@ describe('<Menu.GroupLabel />', () => {
       ));
 
       const radioGroup = screen.getByRole('group');
-      expect(radioGroup).to.have.attribute('aria-labelledby', 'test-group');
+      expect(radioGroup).toHaveAttribute('aria-labelledby', 'test-group');
     });
 
     it('should support GroupLabel when RadioGroup is rendered as Group', async () => {
@@ -169,7 +169,7 @@ describe('<Menu.GroupLabel />', () => {
       const radioGroup = screen.getByRole('group');
       const groupLabel = screen.getByText('Test group');
 
-      expect(radioGroup).to.have.attribute('aria-labelledby', groupLabel.id);
+      expect(radioGroup).toHaveAttribute('aria-labelledby', groupLabel.id);
     });
 
     it('does not let an older label cleanup clear a newer label', async () => {
@@ -195,13 +195,13 @@ describe('<Menu.GroupLabel />', () => {
       ));
 
       const group = screen.getByRole('group');
-      expect(group).to.have.attribute('aria-labelledby', 'old-label');
+      expect(group).toHaveAttribute('aria-labelledby', 'old-label');
 
       await act(() => setLabels('both'));
-      expect(group).to.have.attribute('aria-labelledby', 'new-label');
+      expect(group).toHaveAttribute('aria-labelledby', 'new-label');
 
       await act(() => setLabels('new'));
-      expect(group).to.have.attribute('aria-labelledby', 'new-label');
+      expect(group).toHaveAttribute('aria-labelledby', 'new-label');
     });
   });
 });

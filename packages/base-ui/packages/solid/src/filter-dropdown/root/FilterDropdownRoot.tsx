@@ -1,13 +1,8 @@
 import { createMemo, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useItemRegistry } from '../../internals/useItemRegistry';
-import {
-  createLayoutEffect,
-  live,
-  provideContext,
-  useRef,
-  type ReactLikeRef,
-} from '../../solid-helpers';
+import { createLayoutEffect, live, provideContext, useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { getFilter } from '../../internals/filter';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { createFilterDropdownStore } from '../store';
@@ -16,10 +11,12 @@ import {
   FilterDropdownRootContext,
   FilterDropdownValueContext,
   useFilterDropdownItemContext,
-  type FilterDropdownFilter,
-  type FilterDropdownItemContext as FilterDropdownItemContextValue,
-  type FilterDropdownItemRegistration,
-  type FilterDropdownRoot as FilterDropdownRootNamespace,
+} from './FilterDropdownRootContext';
+import type {
+  FilterDropdownFilter,
+  FilterDropdownItemContext as FilterDropdownItemContextValue,
+  FilterDropdownItemRegistration,
+  FilterDropdownRoot as FilterDropdownRootNamespace,
 } from './FilterDropdownRootContext';
 
 /**
@@ -230,7 +227,7 @@ export function FilterDropdownRoot(props: FilterDropdownRoot.Props): JSX.Element
 }
 
 export interface FilterDropdownRootProps {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * Whether the popup is currently open.
    */

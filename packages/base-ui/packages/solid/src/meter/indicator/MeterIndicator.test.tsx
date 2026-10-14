@@ -21,7 +21,7 @@ describe('<Meter.Indicator />', () => {
         </Meter.Root>
       ));
 
-      expect(screen.getByTestId('indicator').style.width).to.equal('100%');
+      expect(screen.getByTestId('indicator').style.width).toBe('100%');
     });
 
     it('clamps the width to 0% when the value is below min', async () => {
@@ -33,7 +33,7 @@ describe('<Meter.Indicator />', () => {
         </Meter.Root>
       ));
 
-      expect(screen.getByTestId('indicator').style.width).to.equal('0%');
+      expect(screen.getByTestId('indicator').style.width).toBe('0%');
     });
 
     it('produces a finite width when min equals max', async () => {
@@ -45,7 +45,7 @@ describe('<Meter.Indicator />', () => {
         </Meter.Root>
       ));
 
-      expect(screen.getByTestId('indicator').style.width).to.equal('0%');
+      expect(screen.getByTestId('indicator').style.width).toBe('0%');
     });
   });
 

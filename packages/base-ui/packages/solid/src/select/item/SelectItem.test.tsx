@@ -132,7 +132,7 @@ describe('<Select.Item />', () => {
     const trigger = screen.getByTestId('trigger');
     const positioner = screen.getByTestId('positioner');
 
-    expect(value.textContent).to.equal('');
+    expect(value.textContent).toBe('');
 
     fireEvent.click(trigger);
 
@@ -142,7 +142,7 @@ describe('<Select.Item />', () => {
 
     await flushMicrotasks();
 
-    expect(value.textContent).to.equal('one');
+    expect(value.textContent).toBe('one');
 
     expect(positioner).not.toBeVisible();
   });
@@ -169,7 +169,7 @@ describe('<Select.Item />', () => {
     await flushMicrotasks();
 
     await waitFor(() => {
-      expect(screen.getByRole('listbox')).not.to.equal(null);
+      expect(screen.getByRole('listbox')).not.toBe(null);
     });
 
     await waitFor(() => {
@@ -212,7 +212,7 @@ describe('<Select.Item />', () => {
     await user.keyboard('{Enter}');
 
     await waitFor(() => {
-      expect(screen.getByTestId('value').textContent).to.equal('two');
+      expect(screen.getByTestId('value').textContent).toBe('two');
     });
   });
 
@@ -580,13 +580,13 @@ describe('<Select.Item />', () => {
       const trigger = screen.getByTestId('trigger');
       const value = screen.getByTestId('value');
 
-      expect(value.textContent).to.equal('Select font');
+      expect(value.textContent).toBe('Select font');
 
       // Open on mousedown and keep the mouse button "held" (no mouseup yet).
       fireEvent.mouseDown(trigger);
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).not.to.equal(null);
+        expect(screen.queryByRole('listbox')).not.toBe(null);
       });
 
       const option = screen.getByRole('option', { name: 'Sans-serif' });
@@ -597,7 +597,7 @@ describe('<Select.Item />', () => {
       fireEvent.mouseUp(option);
 
       await waitFor(() => {
-        expect(value.textContent).to.equal('Select font');
+        expect(value.textContent).toBe('Select font');
       });
     });
 
@@ -1096,14 +1096,14 @@ describe('<Select.Item />', () => {
       fireEvent.click(screen.getByTestId('trigger'));
       await flushMicrotasks();
 
-      expect(screen.getByRole('option', { name: 'a' })).to.have.attribute('data-highlighted', '');
-      expect(screen.getByRole('option', { name: 'b' })).not.to.have.attribute('data-highlighted');
+      expect(screen.getByRole('option', { name: 'a' })).toHaveAttribute('data-highlighted', '');
+      expect(screen.getByRole('option', { name: 'b' })).not.toHaveAttribute('data-highlighted');
 
       await user.keyboard('{ArrowDown}');
       await flushMicrotasks();
 
-      expect(screen.getByRole('option', { name: 'a' })).not.to.have.attribute('data-highlighted');
-      expect(screen.getByRole('option', { name: 'b' })).to.have.attribute('data-highlighted', '');
+      expect(screen.getByRole('option', { name: 'a' })).not.toHaveAttribute('data-highlighted');
+      expect(screen.getByRole('option', { name: 'b' })).toHaveAttribute('data-highlighted', '');
     });
 
     it('should apply data-selected attribute when item is selected', async () => {
@@ -1129,9 +1129,9 @@ describe('<Select.Item />', () => {
 
       fireEvent.click(screen.getByTestId('trigger'));
       await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'a' })).to.have.attribute('data-selected', '');
+        expect(screen.getByRole('option', { name: 'a' })).toHaveAttribute('data-selected', '');
       });
-      expect(screen.getByRole('option', { name: 'b' })).not.to.have.attribute('data-selected');
+      expect(screen.getByRole('option', { name: 'b' })).not.toHaveAttribute('data-selected');
     });
   });
 

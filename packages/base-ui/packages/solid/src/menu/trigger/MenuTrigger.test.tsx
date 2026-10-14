@@ -23,7 +23,7 @@ describe('<Menu.Trigger />', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Menu.Trigger />)).to.throw(
+      expect(() => render(() => <Menu.Trigger />)).toThrow(
         'Base UI: <Menu.Trigger> must be either used within a <Menu.Root> component or provided with a handle.',
       );
       await flushMicrotasks();
@@ -42,7 +42,7 @@ describe('<Menu.Trigger />', () => {
       ));
 
       const button = screen.getByRole('button');
-      expect(button).to.have.property('disabled', true);
+      expect(button).toHaveProperty(['disabled'], true);
     });
 
     it('should not open the menu when clicked', async () => {
@@ -198,8 +198,8 @@ describe('<Menu.Trigger />', () => {
       const trigger = screen.getByRole('button');
 
       act(() => trigger.click());
-      expect(trigger).to.have.attribute('data-popup-open');
-      expect(trigger).to.have.attribute('data-pressed');
+      expect(trigger).toHaveAttribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-pressed');
     });
 
     it('keeps the data-popup-open attribute and handle.isOpen when a controlled close is vetoed', async () => {
@@ -269,7 +269,7 @@ describe('<Menu.Trigger />', () => {
 
       fireEvent.click(trigger);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
     });
 
     it('closes the menu if the user clicks patiently', async () => {
@@ -292,12 +292,12 @@ describe('<Menu.Trigger />', () => {
 
       fireEvent.click(trigger);
 
-      expect(trigger).not.to.have.attribute('data-popup-open');
+      expect(trigger).not.toHaveAttribute('data-popup-open');
 
       // Leaving the trigger afterwards doesn't reopen it.
       fireEvent.mouseLeave(trigger);
 
-      expect(trigger).not.to.have.attribute('data-popup-open');
+      expect(trigger).not.toHaveAttribute('data-popup-open');
     });
 
     it('sticks if the user clicks impatiently', async () => {
@@ -316,11 +316,11 @@ describe('<Menu.Trigger />', () => {
       fireEvent.click(trigger);
       fireEvent.mouseLeave(trigger);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
 
       clock.tick(1);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
     });
 
     it('sticks when clicked before the hover delay completes', async () => {
@@ -347,11 +347,11 @@ describe('<Menu.Trigger />', () => {
       // User clicks impatiently to open
       fireEvent.click(trigger);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
 
       fireEvent.mouseLeave(trigger);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
     });
 
     it('should keep the menu open when re-hovered and clicked within the patient threshold', async () => {
@@ -376,7 +376,7 @@ describe('<Menu.Trigger />', () => {
       clock.tick(100);
       await flushMicrotasks();
 
-      expect(screen.getByText('Content')).not.to.equal(null);
+      expect(screen.getByText('Content')).not.toBe(null);
 
       clock.tick(PATIENT_CLICK_THRESHOLD);
 
@@ -385,7 +385,7 @@ describe('<Menu.Trigger />', () => {
       fireEvent.mouseMove(trigger);
 
       fireEvent.click(trigger);
-      expect(screen.getByText('Content')).not.to.equal(null);
+      expect(screen.getByText('Content')).not.toBe(null);
     });
   });
 
@@ -411,7 +411,7 @@ describe('<Menu.Trigger />', () => {
 
       const trigger = screen.getByRole('button', { name: 'Open' });
       await renderUser.hover(trigger);
-      expect(screen.queryByRole('menu')).not.to.equal(null);
+      expect(screen.queryByRole('menu')).not.toBe(null);
 
       const rect = trigger.getBoundingClientRect();
       fireEvent.mouseUp(document.body, {
@@ -419,7 +419,7 @@ describe('<Menu.Trigger />', () => {
         clientY: rect.top + rect.height / 2,
       });
 
-      expect(screen.queryByRole('menu')).not.to.equal(null);
+      expect(screen.queryByRole('menu')).not.toBe(null);
     },
   );
 
@@ -482,7 +482,7 @@ describe('<Menu.Trigger />', () => {
     ));
 
     const button = screen.getByTestId('menu-trigger');
-    expect(button).not.to.have.attribute('role');
+    expect(button).not.toHaveAttribute('role');
   });
 
   it('has a role prop inside a Popover when not a native button', async () => {
@@ -502,7 +502,7 @@ describe('<Menu.Trigger />', () => {
     ));
 
     const button = screen.getByTestId('menu-trigger');
-    expect(button).to.have.attribute('role', 'button');
+    expect(button).toHaveAttribute('role', 'button');
   });
 
   it('mounts a submenu popup without the root trigger focus guard', async () => {

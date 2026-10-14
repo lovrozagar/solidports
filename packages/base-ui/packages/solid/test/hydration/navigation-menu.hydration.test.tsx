@@ -18,7 +18,9 @@ afterEach(() => {
 describe('hydrated NavigationMenu', () => {
   it("claims the trigger's element children", () => {
     const html = inject('serverHtml')['navigation-menu.server.tsx'];
-    if (!html) throw new Error('globalSetup did not server-render navigation-menu.server.tsx');
+    if (!html) {
+      throw new Error('globalSetup did not server-render navigation-menu.server.tsx');
+    }
     const container = document.createElement('div');
     container.innerHTML = html;
     document.body.append(container);

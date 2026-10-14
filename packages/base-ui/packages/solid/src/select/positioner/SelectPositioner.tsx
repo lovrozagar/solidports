@@ -1,9 +1,7 @@
 import { createEffect, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import {
-  CompositeList,
-  type CompositeMetadata,
-} from '../../internals/composite/list/CompositeList';
+import { CompositeList } from '../../internals/composite/list/CompositeList';
+import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
 import { createDepsEffect, splitComponentProps, useRef } from '../../solid-helpers';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
@@ -13,7 +11,8 @@ import { findItemIndex, selectedValueIncludes } from '../../utils/itemEquality';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, BaseUIHTMLProps } from '../../utils/types';
 import { useAnchoredPopupScrollLock } from '../../utils/useAnchoredPopupScrollLock';
-import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
+import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
+import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { usePositioner } from '../../utils/usePositioner';
 import { clearStyles } from '../popup/utils';
 import { useSelectFloatingContext, useSelectRootContext } from '../root/SelectRootContext';

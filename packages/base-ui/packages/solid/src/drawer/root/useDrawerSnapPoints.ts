@@ -2,7 +2,8 @@ import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { clamp } from '../../utils/clamp';
 import { ownerDocument } from '../../utils/owner';
-import { type DrawerSnapPoint, useDrawerRootContext } from './DrawerRootContext';
+import { useDrawerRootContext } from './DrawerRootContext';
+import type { DrawerSnapPoint } from './DrawerRootContext';
 
 export interface ResolvedDrawerSnapPoint {
   value: DrawerSnapPoint;

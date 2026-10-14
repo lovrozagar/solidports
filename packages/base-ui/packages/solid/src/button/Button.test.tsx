@@ -2,8 +2,7 @@ import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Button, ButtonDataAttributes } from '@solidports/base-ui/button';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect, describe, it } from 'vitest';
-import { spy } from 'sinon';
+import { expect, describe, it, vi } from 'vitest';
 import { createSignal } from 'solid-js';
 
 describe('<Button />', () => {
@@ -17,7 +16,7 @@ describe('<Button />', () => {
 
   describe('prop: nativeButton', () => {
     it('custom link element: Space activates the link without scrolling the page', async () => {
-      const handleClick = spy();
+      const handleClick = vi.fn();
 
       const { user } = render(() => (
         <Button
@@ -30,26 +29,26 @@ describe('<Button />', () => {
       ));
 
       const link = screen.getByRole('button', { name: 'Go' });
-      expect(link.tagName).to.equal('A');
+      expect(link.tagName).toBe('A');
 
       await user.keyboard('[Tab]');
       expect(link).toHaveFocus();
 
       // `fireEvent` returns false when `preventDefault()` was called, i.e. no page scroll.
-      expect(fireEvent.keyDown(link, { key: ' ' })).to.equal(false);
+      expect(fireEvent.keyDown(link, { key: ' ' })).toBe(false);
       fireEvent.keyUp(link, { key: ' ' });
 
-      expect(handleClick.callCount).to.equal(1);
+      expect(handleClick.mock.calls.length).toBe(1);
       await waitFor(() => {
-        expect(window.location.hash).to.equal('#target');
+        expect(window.location.hash).toBe('#target');
       });
     });
 
     it('custom element: applies button semantics and dispatches real clicks from keyboard activation', async () => {
-      const handleClick = spy();
-      const handleRenderClick = spy();
-      const handleCaptureClick = spy();
-      const handleAncestorClick = spy();
+      const handleClick = vi.fn();
+      const handleRenderClick = vi.fn();
+      const handleCaptureClick = vi.fn();
+      const handleAncestorClick = vi.fn();
 
       const { user } = render(() => (
         <div onClick={handleAncestorClick}>
@@ -74,9 +73,9 @@ describe('<Button />', () => {
 
       const button = screen.getByRole('button', { name: 'Save' });
 
-      expect(button.tagName).to.equal('SPAN');
-      expect(button).to.have.attribute('role', 'button');
-      expect(button).to.have.attribute('tabindex', '0');
+      expect(button.tagName).toBe('SPAN');
+      expect(button).toHaveAttribute('role', 'button');
+      expect(button).toHaveAttribute('tabindex', '0');
 
       await user.keyboard('[Tab]');
       expect(button).toHaveFocus();
@@ -84,14 +83,14 @@ describe('<Button />', () => {
       await user.keyboard('[Enter]');
       await user.keyboard('[Space]');
 
-      expect(handleCaptureClick.callCount).to.equal(2);
-      expect(handleRenderClick.callCount).to.equal(2);
-      expect(handleClick.callCount).to.equal(2);
-      expect(handleAncestorClick.callCount).to.equal(2);
+      expect(handleCaptureClick.mock.calls.length).toBe(2);
+      expect(handleRenderClick.mock.calls.length).toBe(2);
+      expect(handleClick.mock.calls.length).toBe(2);
+      expect(handleAncestorClick.mock.calls.length).toBe(2);
     });
 
     it('custom element: keyboard activation clicks carry modifier key state', async () => {
-      const handleClick = spy();
+      const handleClick = vi.fn();
 
       const { user } = render(() => (
         <Button nativeButton={false} render="span" onClick={handleClick}>
@@ -106,8 +105,8 @@ describe('<Button />', () => {
 
       await user.keyboard('{Shift>}[Enter]{/Shift}');
 
-      expect(handleClick.callCount).to.equal(1);
-      expect(handleClick.firstCall.args[0].shiftKey).to.equal(true);
+      expect(handleClick.mock.calls.length).toBe(1);
+      expect(handleClick.mock.calls[0][0].shiftKey).toBe(true);
     });
   });
 
@@ -256,7 +255,7 @@ describe('<Button />', () => {
     );
 
     it('keeps focus and suppresses interactions after becoming disabled', async () => {
-      const handleClick = spy();
+      const handleClick = vi.fn();
 
       function TestButton() {
         const [disabled, setDisabled] = createSignal(false);
@@ -284,15 +283,15 @@ describe('<Button />', () => {
 
       await user.click(button);
 
-      expect(handleClick.callCount).to.equal(1);
+      expect(handleClick.mock.calls.length).toBe(1);
       expect(button).toHaveFocus();
-      expect(button).to.have.attribute('aria-disabled', 'true');
+      expect(button).toHaveAttribute('aria-disabled', 'true');
 
       await user.click(button);
       await user.keyboard('[Enter]');
       await user.keyboard('[Space]');
 
-      expect(handleClick.callCount).to.equal(1);
+      expect(handleClick.mock.calls.length).toBe(1);
       expect(button).toHaveFocus();
     });
 

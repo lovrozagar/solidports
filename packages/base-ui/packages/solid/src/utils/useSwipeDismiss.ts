@@ -4,7 +4,8 @@ import { closest } from './shadowDom';
 import { ownerDocument } from './owner';
 import { clamp } from './clamp';
 import { contains, getTarget } from '../floating-ui-solid/utils';
-import { findScrollableAncestor, findScrollableTouchTarget, type ScrollAxis } from './scrollable';
+import { findScrollableAncestor, findScrollableTouchTarget } from './scrollable';
+import type { ScrollAxis } from './scrollable';
 import { getElementAtPoint } from './getElementAtPoint';
 import { getElementTransform } from './getElementTransform';
 

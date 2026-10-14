@@ -61,7 +61,7 @@ describe('<Menu.Positioner />', () => {
             <Menu.Positioner />
           </Menu.Root>
         )),
-      ).to.throw('Base UI: <Menu.Portal> is missing.');
+      ).toThrow('Base UI: <Menu.Portal> is missing.');
       await flushMicrotasks();
     } finally {
       errorSpy.mockRestore();
@@ -128,7 +128,7 @@ describe('<Menu.Positioner />', () => {
         </ContextMenu.Root>
       ));
 
-      expect(lastAnchorPositioningParameter('shift')).to.deep.equal({
+      expect(lastAnchorPositioningParameter('shift')).toEqual({
         crossAxis: true,
         rootBoundary: 'layoutViewport',
       });
@@ -145,7 +145,7 @@ describe('<Menu.Positioner />', () => {
         </ContextMenu.Root>
       ));
 
-      expect(lastAnchorPositioningParameter('shift')).to.deep.equal({
+      expect(lastAnchorPositioningParameter('shift')).toEqual({
         crossAxis: false,
         rootBoundary: 'layoutViewport',
       });
@@ -167,7 +167,7 @@ describe('<Menu.Positioner />', () => {
         align: lastAnchorPositioningParameter('align'),
         sideOffset: lastAnchorPositioningParameter('sideOffset'),
         alignOffset: lastAnchorPositioningParameter('alignOffset'),
-      }).to.deep.equal({
+      }).toEqual({
         side: 'right',
         align: 'center',
         sideOffset: 11,
@@ -189,7 +189,7 @@ describe('<Menu.Positioner />', () => {
       ));
 
       expect(useAnchorPositioningSpy).toHaveBeenCalled();
-      expect(lastAnchorPositioningParameter('shift')).to.equal(undefined);
+      expect(lastAnchorPositioningParameter('shift')).toBe(undefined);
     });
   });
 
@@ -216,16 +216,16 @@ describe('<Menu.Positioner />', () => {
         </Menu.Portal>
       </Menu.Root>
     ));
-    expect(screen.queryByTestId('submenu-popup')).not.to.equal(null);
+    expect(screen.queryByTestId('submenu-popup')).not.toBe(null);
 
     await act(async () => {
       setOpen(false);
     });
 
     await waitFor(() => {
-      expect(onSubmenuOpenChange.mock.lastCall?.[0]).to.equal(false);
+      expect(onSubmenuOpenChange.mock.lastCall?.[0]).toBe(false);
     });
-    expect(onSubmenuOpenChange.mock.lastCall?.[1].reason).to.equal('sibling-open');
+    expect(onSubmenuOpenChange.mock.lastCall?.[1].reason).toBe('sibling-open');
   });
 
   describe.skipIf(isJSDOM)('prop: anchor', () => {
@@ -265,7 +265,7 @@ describe('<Menu.Positioner />', () => {
 
       await flushMicrotasks();
       await waitFor(() => {
-        expect(positioner.style.getPropertyValue('transform')).to.equal(
+        expect(positioner.style.getPropertyValue('transform')).toBe(
           `translate(${anchorPosition.left}px, ${anchorPosition.bottom}px)`,
         );
       });
@@ -311,7 +311,7 @@ describe('<Menu.Positioner />', () => {
       await flushMicrotasks();
 
       await waitFor(() => {
-        expect(positioner.style.getPropertyValue('transform')).to.equal(
+        expect(positioner.style.getPropertyValue('transform')).toBe(
           `translate(${anchorPosition.left}px, ${anchorPosition.bottom}px)`,
         );
       });
@@ -359,7 +359,7 @@ describe('<Menu.Positioner />', () => {
       await flushMicrotasks();
 
       await waitFor(() => {
-        expect(positioner.style.getPropertyValue('transform')).to.equal(
+        expect(positioner.style.getPropertyValue('transform')).toBe(
           `translate(${anchorPosition.left}px, ${anchorPosition.bottom}px)`,
         );
       });
@@ -401,7 +401,7 @@ describe('<Menu.Positioner />', () => {
 
       const positioner = screen.getByTestId('positioner');
       await waitFor(() => {
-        expect(positioner.style.getPropertyValue('transform')).to.equal(`translate(200px, 100px)`);
+        expect(positioner.style.getPropertyValue('transform')).toBe(`translate(200px, 100px)`);
       });
     });
 
@@ -486,7 +486,7 @@ describe('<Menu.Positioner />', () => {
       let anchorRect = anchorElement.getBoundingClientRect();
       await flushMicrotasks();
       await waitFor(() => {
-        expect(positioner.style.getPropertyValue('transform')).to.equal(
+        expect(positioner.style.getPropertyValue('transform')).toBe(
           `translate(${anchorRect.left}px, ${anchorRect.bottom}px)`,
         );
       });
@@ -495,7 +495,7 @@ describe('<Menu.Positioner />', () => {
       await flushMicrotasks();
 
       const triggerRect = trigger.getBoundingClientRect();
-      expect(positioner.style.getPropertyValue('transform')).to.equal(
+      expect(positioner.style.getPropertyValue('transform')).toBe(
         `translate(${Math.floor(triggerRect.left)}px, ${triggerRect.bottom}px)`,
       );
 
@@ -503,7 +503,7 @@ describe('<Menu.Positioner />', () => {
       await flushMicrotasks();
 
       anchorRect = anchorElement.getBoundingClientRect();
-      expect(positioner.style.getPropertyValue('transform')).to.equal(
+      expect(positioner.style.getPropertyValue('transform')).toBe(
         `translate(${anchorRect.left}px, ${anchorRect.bottom}px)`,
       );
     });
@@ -531,18 +531,18 @@ describe('<Menu.Positioner />', () => {
 
       const trigger = screen.getByRole('button', { name: 'Toggle' });
 
-      expect(screen.queryByRole('menu', { hidden: true })).not.to.equal(null);
+      expect(screen.queryByRole('menu', { hidden: true })).not.toBe(null);
       expect(screen.queryByRole('menu', { hidden: true })).toBeInaccessible();
 
       await userEvent.click(trigger, { delay: 20 });
       await waitFor(() => {
-        expect(screen.queryByRole('menu', { hidden: false })).not.to.equal(null);
+        expect(screen.queryByRole('menu', { hidden: false })).not.toBe(null);
       });
       expect(screen.queryByRole('menu', { hidden: false })).not.toBeInaccessible();
 
       await userEvent.click(trigger, { delay: 20 });
       await waitFor(() => {
-        expect(screen.queryByRole('menu', { hidden: true })).not.to.equal(null);
+        expect(screen.queryByRole('menu', { hidden: true })).not.toBe(null);
       });
       await waitFor(() => {
         expect(screen.queryByRole('menu', { hidden: true })).toBeInaccessible();
@@ -566,18 +566,18 @@ describe('<Menu.Positioner />', () => {
 
       const trigger = screen.getByRole('button', { name: 'Toggle' });
 
-      expect(screen.queryByRole('menu', { hidden: true })).to.equal(null);
+      expect(screen.queryByRole('menu', { hidden: true })).toBe(null);
 
       await userEvent.click(trigger, { delay: 20 });
       await flushMicrotasks();
       await waitFor(() => {
-        expect(screen.queryByRole('menu', { hidden: false })).not.to.equal(null);
+        expect(screen.queryByRole('menu', { hidden: false })).not.toBe(null);
       });
       expect(screen.queryByRole('menu', { hidden: false })).not.toBeInaccessible();
 
       await userEvent.click(trigger, { delay: 20 });
       await waitFor(() => {
-        expect(screen.queryByRole('menu', { hidden: true })).to.equal(null);
+        expect(screen.queryByRole('menu', { hidden: true })).toBe(null);
       });
     });
   });
@@ -608,7 +608,7 @@ describe('<Menu.Positioner />', () => {
       ));
 
       await waitFor(() => {
-        expect(side).to.equal('bottom');
+        expect(side).toBe('bottom');
       });
     });
 
@@ -634,7 +634,7 @@ describe('<Menu.Positioner />', () => {
       ));
 
       await waitFor(() => {
-        expect(side).to.equal('inline-end');
+        expect(side).toBe('inline-end');
       });
     });
   });

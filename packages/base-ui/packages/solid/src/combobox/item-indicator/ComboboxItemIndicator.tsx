@@ -28,7 +28,7 @@ export interface ComboboxItemIndicatorProps extends BaseUIComponentProps<
   'span',
   ComboboxItemIndicator.State
 > {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * Whether to keep the HTML element in the DOM when the item is not selected.
    * @default false

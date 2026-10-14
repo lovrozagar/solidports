@@ -1,20 +1,13 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createContext, createEffect, createSignal, untrack, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import {
-  createDepsEffect,
-  defaultProps,
-  live,
-  useRef,
-  type ReactLikeRef,
-} from '../../solid-helpers';
-import {
-  BaseUIChangeEventDetails,
-  createChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { createDepsEffect, defaultProps, live, useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
-import { useTimeout, type Timeout } from '../../utils/useTimeout';
+import { useTimeout } from '../../utils/useTimeout';
+import type { Timeout } from '../../utils/useTimeout';
 import { getDelay } from '../hooks/useHoverShared';
 import type { Delay, FloatingContext, FloatingRootContext } from '../types';
 
@@ -48,7 +41,7 @@ const FloatingDelayGroupContext = createContext<ContextValue>({
 });
 
 export interface FloatingDelayGroupProps {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * The delay to use for the group when it's not in the instant phase.
    */

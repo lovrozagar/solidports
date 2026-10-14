@@ -22,7 +22,7 @@ export interface MenuFilterDropdownProps {
   filter: FilterDropdownFilter | null | undefined;
   autoHighlight: boolean | 'always';
   locale: Intl.LocalesArgument | undefined;
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
 }
 
 /**
@@ -123,7 +123,7 @@ function useFilterTriggerProps(hasValue: () => boolean): HTMLProps {
     onPointerDown(event: PointerEvent) {
       store.context.virtualPress = isVirtualPointerEvent(event);
     },
-    onKeyDown(event: KeyboardEvent & { preventBaseUIHandler?: () => void }) {
+    onKeyDown(event: KeyboardEvent & { preventBaseUIHandler?: (() => void) | undefined }) {
       const focusOwner = store.context.virtualFocusRef?.current;
       if (!store.select('open') || !focusOwner || isInMenubar) {
         return;

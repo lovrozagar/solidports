@@ -17,7 +17,8 @@ import { contains } from '../../floating-ui-solid/utils';
 import { useButton } from '../../internals/use-button/useButton';
 import { useMenubarContext } from '../../menubar/MenubarContext';
 import { mergeProps } from '../../merge-props';
-import { live, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
+import { live, splitComponentProps } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { EMPTY_OBJECT } from '../../utils/empty';
 import { TriggerFocusGuards } from '../../utils/popups/TriggerFocusGuards';
@@ -31,15 +32,15 @@ import {
 } from '../../utils/popups';
 import { pressableTriggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
-import { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useMixedToggleClickHandler } from '../../utils/useMixedToggleClickHandler';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
-import { MenuParent } from '../root/MenuRoot';
+import type { MenuParent } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { MenuHandle } from '../store/MenuHandle';
+import type { MenuHandle } from '../store/MenuHandle';
 import type { MenuStore } from '../store/MenuStore';
 import { findRootOwnerId } from '../utils/findRootOwnerId';
 
@@ -421,7 +422,7 @@ const TRIGGER_HASPOPUP = { 'aria-haspopup': 'menu' } as const;
 
 export interface MenuTriggerProps<Payload = unknown>
   extends NativeButtonProps, BaseUIComponentProps<'button', MenuTriggerState> {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * Whether the component should ignore user interaction.
    * @default false

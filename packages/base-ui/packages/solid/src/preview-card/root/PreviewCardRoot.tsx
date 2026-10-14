@@ -2,27 +2,21 @@ import { onSettled, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { FloatingTree, useDismiss } from '../../floating-ui-solid';
-import {
-  ComponentWithPayload,
-  createDepsRenderEffect,
-  type ReactLikeRef,
-  isAbsentProp,
-} from '../../solid-helpers';
-import {
-  createChangeEventDetails,
-  type BaseUIChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { ComponentWithPayload, createDepsRenderEffect, isAbsentProp } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { PreviewCardStore } from '../store/PreviewCardStore';
+import type { PayloadChildRenderFunction } from '../../utils/popups';
 import {
-  PayloadChildRenderFunction,
   PopupHandleAttachment,
   useImplicitActiveTrigger,
   usePopupRootStore,
   useOpenStateTransitions,
   usePopupInteractionProps,
 } from '../../utils/popups';
-import { PreviewCardHandle } from '../store/PreviewCardHandle';
+import type { PreviewCardHandle } from '../store/PreviewCardHandle';
 import { PreviewCardRootContext, usePreviewCardRootContext } from './PreviewCardContext';
 
 function PreviewCardRootComponent<Payload>(props: PreviewCardRoot.Props<Payload>) {
@@ -202,7 +196,7 @@ export interface PreviewCardRootProps<Payload = unknown> {
    * The content of the preview card.
    * This can be a regular React node or a render function that receives the `payload` of the active trigger.
    */
-  children?: JSX.Element | PayloadChildRenderFunction<Payload>;
+  children?: JSX.Element | PayloadChildRenderFunction<Payload> | undefined;
   /**
    * ID of the trigger that the preview card is associated with.
    * This is useful in conjunction with the `open` prop to create a controlled preview card.

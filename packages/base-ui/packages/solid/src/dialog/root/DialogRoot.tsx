@@ -1,9 +1,9 @@
 import type { JSX } from '@solidjs/web';
-import { type ReactLikeRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { type PayloadChildRenderFunction } from '../../utils/popups';
-import { REASONS } from '../../utils/reasons';
-import { DialogHandle } from '../store/DialogHandle';
+import type { PayloadChildRenderFunction } from '../../utils/popups';
+import type { REASONS } from '../../utils/reasons';
+import type { DialogHandle } from '../store/DialogHandle';
 import { useRenderDialogRoot } from './useRenderDialogRoot';
 
 /**
@@ -73,7 +73,7 @@ export interface DialogRootProps<Payload = unknown> {
    * The content of the dialog.
    * This can be a regular React node or a render function that receives the `payload` of the active trigger.
    */
-  children?: JSX.Element | PayloadChildRenderFunction<Payload>;
+  children?: JSX.Element | PayloadChildRenderFunction<Payload> | undefined;
   /**
    * ID of the trigger that the dialog is associated with.
    * This is useful in conjunction with the `open` prop to create a controlled dialog.

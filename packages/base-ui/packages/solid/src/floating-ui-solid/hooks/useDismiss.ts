@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- EventTarget addEventListener variants + Solid event-handler shape bridging require any-casts */
 import { getOverflowAncestors } from '@floating-ui/dom';
 import {
   getComputedStyle,
@@ -19,7 +18,7 @@ import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
 import { useTimeout } from '../../utils/useTimeout';
 import { useFloatingTreeAccessor } from '../components/FloatingTree';
-import { FloatingTreeStore } from '../components/FloatingTreeStore';
+import type { FloatingTreeStore } from '../components/FloatingTreeStore';
 import type { ElementProps, FloatingContext, FloatingRootContext } from '../types';
 import {
   contains,
@@ -57,7 +56,7 @@ function markRenderTreeAncestors(floating: Element, event: Event) {
 
 function getRenderTreeParent(node: Node): Node | null | undefined {
   return (
-    (node as Node & { _$host?: Node | null })._$host ||
+    (node as Node & { _$host?: Node | null | undefined })._$host ||
     node.parentNode ||
     (node as Partial<ShadowRoot>).host
   );
@@ -171,7 +170,7 @@ export interface UseDismissProps {
  */
 export function useDismiss(parameters: {
   context: FloatingRootContext | FloatingContext;
-  props?: UseDismissProps;
+  props?: UseDismissProps | undefined;
 }): ElementProps {
   const props = defaultProps(parameters.props ?? {}, {
     ancestorScroll: false,

@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- floating-ui shared types use `any` for emitter event payloads and Accessor<any> in conditional generics; matches @floating-ui/react */
 import type { VirtualElement } from '@floating-ui/dom';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';

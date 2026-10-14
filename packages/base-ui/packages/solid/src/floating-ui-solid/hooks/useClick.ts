@@ -58,7 +58,7 @@ export interface UseClickProps {
 // recreating the handlers.
 export function useClick(parameters: {
   context: FloatingRootContext | FloatingContext;
-  props?: UseClickProps;
+  props?: UseClickProps | undefined;
 }): ElementProps {
   const props = defaultProps(parameters.props ?? {}, {
     enabled: true,

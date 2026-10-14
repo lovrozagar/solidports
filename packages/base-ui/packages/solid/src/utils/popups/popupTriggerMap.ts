@@ -1,4 +1,5 @@
-import { createSignal, runWithOwner, type Accessor, type Setter } from 'solid-js';
+import { createSignal, runWithOwner } from 'solid-js';
+import type { Accessor, Setter } from 'solid-js';
 
 /**
  * Development-only reverse index of element to registered id, keyed by the owning map.

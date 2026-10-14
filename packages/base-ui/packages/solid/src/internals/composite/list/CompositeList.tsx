@@ -2,7 +2,8 @@
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createLayoutEffect } from '../../../solid-helpers';
-import { CompositeListContext, type CompositeListRegistration } from './CompositeListContext';
+import { CompositeListContext } from './CompositeListContext';
+import type { CompositeListRegistration } from './CompositeListContext';
 
 export type CompositeMetadata<CustomMetadata> = {
   index?: number | null | undefined;

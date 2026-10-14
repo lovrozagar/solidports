@@ -1,10 +1,10 @@
-/* eslint-disable typescript/no-explicit-any -- generic State extends PopupStoreState<any> */
 import { isElement } from '@floating-ui/utils/dom';
 import { untrack } from 'solid-js';
-import { access, createDepsMemo, type MaybeAccessor } from '../../solid-helpers';
-import { BaseUIChangeEventDetails } from '../../types';
+import { access, createDepsMemo } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
+import type { BaseUIChangeEventDetails } from '../../types';
 import type { PopupStoreContext, PopupStoreSelectors, PopupStoreState } from '../../utils/popups';
-import { SolidStore } from '../../utils/store/SolidStoreV2';
+import type { SolidStore } from '../../utils/store/SolidStoreV2';
 import { FloatingRootState, FloatingRootStore } from '../components/FloatingRootStoreV2';
 
 /**

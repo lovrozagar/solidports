@@ -3,10 +3,8 @@ import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createRenderEffect, createSignal, Show } from 'solid-js';
 import { act, flushMicrotasks, isJSDOM } from '#test-utils';
 import { safePolygon } from '../safePolygon';
-import {
-  useHoverInteractionSharedState,
-  type HoverInteraction,
-} from './useHoverInteractionSharedState';
+import { useHoverInteractionSharedState } from './useHoverInteractionSharedState';
+import type { HoverInteraction } from './useHoverInteractionSharedState';
 import { useHoverFloatingInteraction } from './useHoverFloatingInteraction';
 import { useHoverReferenceInteraction } from './useHoverReferenceInteraction';
 import type { UseHoverReferenceInteractionProps } from './useHoverReferenceInteraction';

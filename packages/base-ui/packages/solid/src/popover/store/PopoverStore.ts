@@ -1,24 +1,24 @@
-import { untrack, type Accessor } from 'solid-js';
-import { type ReactLikeRef } from '../../solid-helpers';
+import { untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { NOOP } from '../../utils/empty';
 import { NullStore } from '../../utils/NullStore';
+import type { PopupStoreContext, PopupStoreState, PopupTriggerStoreKeys } from '../../utils/popups';
 import {
   attachPreventUnmountOnClose,
   createInitialPopupStoreState,
   createPopupFloatingRootContext,
   createPopupOpenState,
-  PopupStoreContext,
   popupStoreSelectors,
-  PopupStoreState,
   PopupTriggerMap,
-  type PopupTriggerStoreKeys,
 } from '../../utils/popups';
 import { flushSync } from '../../utils/flushSync';
 import { REASONS } from '../../utils/reasons';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
-import { type InteractionType } from '../../utils/useEnhancedClickHandler';
-import { useTimeout, type Timeout } from '../../utils/useTimeout';
+import type { InteractionType } from '../../utils/useEnhancedClickHandler';
+import { useTimeout } from '../../utils/useTimeout';
+import type { Timeout } from '../../utils/useTimeout';
 import type { PopoverRoot } from '../root/PopoverRoot';
 import type { AdaptiveOriginMiddleware } from '../../utils/adaptiveOriginConstants';
 

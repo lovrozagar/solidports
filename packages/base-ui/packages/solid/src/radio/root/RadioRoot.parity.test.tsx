@@ -127,13 +127,13 @@ describe('native parity: Radio', () => {
     setValue('b');
     flush();
     expect(stripIds(fast)).toBe(stripIds(slow));
-    expect(fastEl).to.have.attribute('aria-checked', 'true');
-    expect(fastEl).to.have.attribute('data-composite-item-active');
-    expect(fast.querySelector('[data-part="indicator"]')).to.have.attribute('data-checked');
+    expect(fastEl).toHaveAttribute('aria-checked', 'true');
+    expect(fastEl).toHaveAttribute('data-composite-item-active');
+    expect(fast.querySelector('[data-part="indicator"]')).toHaveAttribute('data-checked');
     setDisabled(true);
     flush();
     expect(stripIds(fast)).toBe(stripIds(slow));
-    expect(fastEl).to.have.attribute('aria-disabled', 'true');
+    expect(fastEl).toHaveAttribute('aria-disabled', 'true');
     setDisabled(false);
     setValue('a');
     flush();
@@ -254,23 +254,23 @@ describe('native parity: Radio', () => {
       wrap,
     );
     expect(stripIds(fast)).toBe(stripIds(slow));
-    expect(fastEl).to.have.attribute('aria-invalid', 'true');
-    expect(fastEl).to.have.attribute('data-invalid');
+    expect(fastEl).toHaveAttribute('aria-invalid', 'true');
+    expect(fastEl).toHaveAttribute('data-invalid');
     // The focused radio sets the field's focused state; focus leaving the group clears it.
     fireEvent.focus(fastEl);
     fireEvent.focus(slowEl);
     flush();
-    expect(fastEl).to.have.attribute('data-focused');
+    expect(fastEl).toHaveAttribute('data-focused');
     expect(stripIds(fast)).toBe(stripIds(slow));
     fireEvent.click(fastEl);
     fireEvent.click(slowEl);
     fireEvent.focusOut(fastEl);
     fireEvent.focusOut(slowEl);
     flush();
-    expect(fastEl).not.to.have.attribute('data-focused');
-    expect(fastEl).to.have.attribute('data-dirty');
-    expect(fastEl).to.have.attribute('data-touched');
-    expect(fastEl).to.have.attribute('data-filled');
+    expect(fastEl).not.toHaveAttribute('data-focused');
+    expect(fastEl).toHaveAttribute('data-dirty');
+    expect(fastEl).toHaveAttribute('data-touched');
+    expect(fastEl).toHaveAttribute('data-filled');
     expect(stripIds(fast)).toBe(stripIds(slow));
   });
 
@@ -306,7 +306,7 @@ describe('native parity: Radio', () => {
         <Radio.Root value="a" style={(state) => ({ opacity: state.checked ? '1' : '0.5' })} />
       </RadioGroup>
     ));
-    expect(container.querySelector('[role="radio"]')).to.have.attribute('style', 'opacity: 1;');
+    expect(container.querySelector('[role="radio"]')).toHaveAttribute('style', 'opacity: 1;');
   });
 
   it('keeps the slow path for render, spread and a native button', () => {

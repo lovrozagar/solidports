@@ -11,7 +11,6 @@ import { Slider } from '@solidports/base-ui/slider';
 import { useRef } from '@solidports/base-ui/solid-helpers';
 import { Switch } from '@solidports/base-ui/switch';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { spy } from 'sinon';
 import type { JSX } from '@solidjs/web';
 import { createSignal, For, Show, untrack } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
@@ -74,12 +73,12 @@ describe('<Field.Root />', () => {
     render(() => <TestCase />);
 
     const label = screen.getByText('Label');
-    expect(label).to.have.attribute('for', 'control-a');
+    expect(label).toHaveAttribute('for', 'control-a');
 
     fireEvent.click(screen.getByRole('button', { name: 'Toggle' }));
 
     await waitFor(() => {
-      expect(label).to.have.attribute('for', 'control-b');
+      expect(label).toHaveAttribute('for', 'control-b');
     });
   });
 
@@ -150,12 +149,12 @@ describe('<Field.Root />', () => {
 
     const label = screen.getByText('Label');
 
-    expect(label).to.have.attribute('for', 'control-a');
+    expect(label).toHaveAttribute('for', 'control-a');
 
     fireEvent.click(screen.getByRole('button', { name: 'Change' }));
 
     await waitFor(() => {
-      expect(label).to.have.attribute('for', 'control-b');
+      expect(label).toHaveAttribute('for', 'control-b');
     });
   });
 
@@ -181,16 +180,16 @@ describe('<Field.Root />', () => {
     const label = screen.getByText('Label');
     const control = screen.getByRole('textbox');
 
-    expect(label).to.have.attribute('for', 'control-a');
-    expect(control).to.have.attribute('id', 'control-a');
+    expect(label).toHaveAttribute('for', 'control-a');
+    expect(control).toHaveAttribute('id', 'control-a');
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
     const updatedId = screen.getByRole('textbox').id;
 
-    expect(updatedId).to.not.equal('');
-    expect(updatedId).to.not.equal('control-a');
-    expect(label).to.have.attribute('for', updatedId);
+    expect(updatedId).not.toBe('');
+    expect(updatedId).not.toBe('control-a');
+    expect(label).toHaveAttribute('for', updatedId);
   });
 
   it.skipIf(isJSDOM)('does not set `aria-labelledby` during SSR when Field.Label is absent', () => {
@@ -377,10 +376,10 @@ describe('<Field.Root />', () => {
       const label = screen.getByTestId('label');
       const message = screen.getByTestId('message');
 
-      expect(field).to.have.attribute('data-disabled', '');
-      expect(control).to.have.attribute('data-disabled', '');
-      expect(label).to.have.attribute('data-disabled', '');
-      expect(message).to.have.attribute('data-disabled', '');
+      expect(field).toHaveAttribute('data-disabled', '');
+      expect(control).toHaveAttribute('data-disabled', '');
+      expect(label).toHaveAttribute('data-disabled', '');
+      expect(message).toHaveAttribute('data-disabled', '');
     });
 
     it('keeps an explicitly invalid field marked invalid while disabled', async () => {
@@ -425,7 +424,7 @@ describe('<Field.Root />', () => {
 
   describe('prop: validate', () => {
     it('when not in <Form> the function does not run by default', () => {
-      const validateSpy = spy(() => 'error');
+      const validateSpy = vi.fn(() => 'error');
       render(() => (
         <Field.Root validate={validateSpy}>
           <Field.Control />
@@ -436,16 +435,16 @@ describe('<Field.Root />', () => {
       const control = screen.getByRole('textbox');
       const message = screen.queryByText('error');
 
-      expect(message).to.equal(null);
+      expect(message).toBe(null);
 
       fireEvent.focus(control);
       fireEvent.input(control, { target: { value: 'abc' } });
-      expect(validateSpy.callCount).to.equal(0);
-      expect(screen.queryByText('error')).to.equal(null);
+      expect(validateSpy.mock.calls.length).toBe(0);
+      expect(screen.queryByText('error')).toBe(null);
 
       fireEvent.blur(control);
-      expect(validateSpy.callCount).to.equal(0);
-      expect(screen.queryByText('error')).to.equal(null);
+      expect(validateSpy.mock.calls.length).toBe(0);
+      expect(screen.queryByText('error')).toBe(null);
     });
 
     it('runs after native validations', async () => {
@@ -460,24 +459,24 @@ describe('<Field.Root />', () => {
         </Form>
       ));
 
-      expect(screen.queryByText('value missing')).to.equal(null);
-      expect(screen.queryByText('custom error')).to.equal(null);
+      expect(screen.queryByText('value missing')).toBe(null);
+      expect(screen.queryByText('custom error')).toBe(null);
 
       const input = screen.getByRole<HTMLInputElement>('textbox');
 
       // submit
       fireEvent.click(screen.getByText('submit'));
-      expect(screen.queryByText('value missing')).not.to.equal(null);
-      expect(screen.queryByText('custom error')).to.equal(null);
+      expect(screen.queryByText('value missing')).not.toBe(null);
+      expect(screen.queryByText('custom error')).toBe(null);
 
       fireEvent.focus(input);
       // revalidate
       fireEvent.input(input, { target: { value: 'ab' } });
-      expect(screen.queryByText('value missing')).to.equal(null);
-      expect(screen.queryByText('custom error')).not.to.equal(null);
+      expect(screen.queryByText('value missing')).toBe(null);
+      expect(screen.queryByText('custom error')).not.toBe(null);
 
       fireEvent.input(input, { target: { value: '' } });
-      expect(screen.queryByText('value missing')).not.to.equal(null);
+      expect(screen.queryByText('value missing')).not.toBe(null);
       // expect(screen.queryByText('custom error')).to.equal(null);
     });
 
@@ -858,14 +857,14 @@ describe('<Field.Root />', () => {
       ));
 
       const control = screen.getByRole('textbox');
-      expect(control).not.to.have.attribute('aria-invalid');
+      expect(control).not.toHaveAttribute('aria-invalid');
 
       fireEvent.click(screen.getByText('submit'));
-      expect(control).to.have.attribute('aria-invalid', 'true');
+      expect(control).toHaveAttribute('aria-invalid', 'true');
     });
 
     it('receives all form values as the 2nd argument', async () => {
-      const validateSpy = spy();
+      const validateSpy = vi.fn();
 
       /**
        * For some reason, need to prevent default on submit so iframe is not
@@ -939,8 +938,8 @@ describe('<Field.Root />', () => {
 
       fireEvent.click(screen.getByText('submit'));
 
-      expect(validateSpy.callCount).to.equal(1);
-      expect(validateSpy.firstCall.args[1]).to.deep.equal({
+      expect(validateSpy.mock.calls.length).toBe(1);
+      expect(validateSpy.mock.calls[0][1]).toEqual({
         checkbox: true,
         'checkbox-group': ['apple', 'banana'],
         input: 'https://base-ui.com',
@@ -954,7 +953,7 @@ describe('<Field.Root />', () => {
     });
 
     it('unmounted fields are excluded from the validate fn', async () => {
-      const validateSpy = spy();
+      const validateSpy = vi.fn();
       function App() {
         const [checked, setChecked] = createSignal(true);
 
@@ -981,8 +980,8 @@ describe('<Field.Root />', () => {
 
       fireEvent.click(screen.getByText('submit'));
 
-      expect(validateSpy.callCount).to.equal(1);
-      expect(validateSpy.firstCall.args[1]).to.deep.equal({
+      expect(validateSpy.mock.calls.length).toBe(1);
+      expect(validateSpy.mock.calls[0][1]).toEqual({
         input1: 'one',
         input2: 'two',
       });
@@ -990,8 +989,8 @@ describe('<Field.Root />', () => {
       fireEvent.click(screen.getByRole('checkbox'));
       fireEvent.click(screen.getByText('submit'));
 
-      expect(validateSpy.callCount).to.equal(2);
-      expect(validateSpy.lastCall.args[1]).to.deep.equal({
+      expect(validateSpy.mock.calls.length).toBe(2);
+      expect(validateSpy.mock.lastCall?.[1]).toEqual({
         input2: 'two',
       });
     });
@@ -1235,11 +1234,11 @@ describe('<Field.Root />', () => {
 
         const message = screen.queryByText('error');
 
-        expect(message).to.equal(null);
+        expect(message).toBe(null);
 
         fireEvent.click(screen.getByText('submit'));
 
-        expect(screen.queryByText('error')).not.to.equal(null);
+        expect(screen.queryByText('error')).not.toBe(null);
       });
 
       it('revalidates on change', () => {
@@ -1255,13 +1254,13 @@ describe('<Field.Root />', () => {
 
         const control = screen.getByRole<HTMLInputElement>('textbox');
 
-        expect(screen.queryByTestId('error')).to.equal(null);
+        expect(screen.queryByTestId('error')).toBe(null);
 
         fireEvent.click(screen.getByText('submit'));
-        expect(screen.queryByTestId('error')).not.to.equal(null);
+        expect(screen.queryByTestId('error')).not.toBe(null);
 
         fireEvent.input(control, { target: { value: 'http://example' } });
-        expect(screen.queryByTestId('error')).to.equal(null);
+        expect(screen.queryByTestId('error')).toBe(null);
       });
     });
 
@@ -1283,12 +1282,12 @@ describe('<Field.Root />', () => {
         const control = screen.getByRole<HTMLInputElement>('textbox');
         const message = screen.queryByText('error');
 
-        expect(message).to.equal(null);
+        expect(message).toBe(null);
 
         fireEvent.input(control, { target: { value: 't' } });
 
-        expect(control).to.have.attribute('data-invalid', '');
-        expect(control).to.have.attribute('aria-invalid', 'true');
+        expect(control).toHaveAttribute('data-invalid', '');
+        expect(control).toHaveAttribute('aria-invalid', 'true');
       });
     });
 
@@ -1310,16 +1309,16 @@ describe('<Field.Root />', () => {
         const control = screen.getByRole<HTMLInputElement>('textbox');
         const message = screen.queryByText('error');
 
-        expect(message).to.equal(null);
+        expect(message).toBe(null);
 
         fireEvent.input(control, { target: { value: 't' } });
 
-        expect(control).not.to.have.attribute('data-invalid');
+        expect(control).not.toHaveAttribute('data-invalid');
 
         fireEvent.blur(control);
 
-        expect(control).to.have.attribute('data-invalid', '');
-        expect(control).to.have.attribute('aria-invalid', 'true');
+        expect(control).toHaveAttribute('data-invalid', '');
+        expect(control).toHaveAttribute('aria-invalid', 'true');
       });
 
       it('should not mark invalid if `valueMissing` is the only error and not yet dirtied', () => {
@@ -1334,8 +1333,8 @@ describe('<Field.Root />', () => {
         fireEvent.focus(control);
         fireEvent.blur(control);
 
-        expect(control).not.to.have.attribute('data-invalid');
-        expect(control).not.to.have.attribute('aria-invalid');
+        expect(control).not.toHaveAttribute('data-invalid');
+        expect(control).not.toHaveAttribute('aria-invalid');
       });
 
       it('does not publish errors while `valueMissing` is suppressed', async () => {
@@ -1377,8 +1376,8 @@ describe('<Field.Root />', () => {
         fireEvent.input(control, { target: { value: '' } });
         fireEvent.blur(control);
 
-        expect(control).to.have.attribute('data-invalid', '');
-        expect(control).to.have.attribute('aria-invalid', 'true');
+        expect(control).toHaveAttribute('data-invalid', '');
+        expect(control).toHaveAttribute('aria-invalid', 'true');
       });
 
       it('supports async validation', async () => {
@@ -1392,7 +1391,7 @@ describe('<Field.Root />', () => {
         const control = screen.getByRole('textbox');
         const message = screen.queryByText('error');
 
-        expect(message).to.equal(null);
+        expect(message).toBe(null);
 
         fireEvent.focus(control);
         fireEvent.blur(control);
@@ -1400,7 +1399,7 @@ describe('<Field.Root />', () => {
         await flushMicrotasks();
 
         await waitFor(() => {
-          expect(screen.queryByText('error')).not.to.equal(null);
+          expect(screen.queryByText('error')).not.toBe(null);
         });
       });
 
@@ -1456,10 +1455,10 @@ describe('<Field.Root />', () => {
         const description = screen.getByTestId('description');
         let error = screen.queryByTestId('error');
 
-        expect(control).not.to.have.attribute('data-valid');
-        expect(label).not.to.have.attribute('data-valid');
-        expect(description).not.to.have.attribute('data-valid');
-        expect(error).to.equal(null);
+        expect(control).not.toHaveAttribute('data-valid');
+        expect(label).not.toHaveAttribute('data-valid');
+        expect(description).not.toHaveAttribute('data-valid');
+        expect(error).toBe(null);
 
         fireEvent.focus(control);
         fireEvent.input(control, { target: { value: 'a' } });
@@ -1468,10 +1467,10 @@ describe('<Field.Root />', () => {
 
         error = screen.getByTestId('error');
 
-        expect(control).to.have.attribute('data-invalid', '');
-        expect(label).to.have.attribute('data-invalid', '');
-        expect(description).to.have.attribute('data-invalid', '');
-        expect(error).to.have.attribute('data-invalid', '');
+        expect(control).toHaveAttribute('data-invalid', '');
+        expect(label).toHaveAttribute('data-invalid', '');
+        expect(description).toHaveAttribute('data-invalid', '');
+        expect(error).toHaveAttribute('data-invalid', '');
 
         act(() => {
           control.value = 'value';
@@ -1481,10 +1480,10 @@ describe('<Field.Root />', () => {
 
         error = screen.queryByTestId('error');
 
-        expect(control).to.have.attribute('data-valid', '');
-        expect(label).to.have.attribute('data-valid', '');
-        expect(description).to.have.attribute('data-valid', '');
-        expect(error).to.equal(null);
+        expect(control).toHaveAttribute('data-valid', '');
+        expect(label).toHaveAttribute('data-valid', '');
+        expect(description).toHaveAttribute('data-valid', '');
+        expect(error).toBe(null);
       });
 
       describe('revalidation', () => {
@@ -1499,19 +1498,19 @@ describe('<Field.Root />', () => {
           const control = screen.getByRole('textbox');
           const message = screen.queryByText('error');
 
-          expect(message).to.equal(null);
+          expect(message).toBe(null);
 
           fireEvent.focus(control);
           fireEvent.input(control, { target: { value: 't' } });
           fireEvent.blur(control);
 
-          expect(control).not.to.have.attribute('aria-invalid', 'true');
+          expect(control).not.toHaveAttribute('aria-invalid', 'true');
 
           fireEvent.focus(control);
           fireEvent.input(control, { target: { value: '' } });
           fireEvent.blur(control);
 
-          expect(control).to.have.attribute('aria-invalid');
+          expect(control).toHaveAttribute('aria-invalid');
         });
 
         it('handles both `required` and `typeMismatch`', async () => {
@@ -1525,30 +1524,30 @@ describe('<Field.Root />', () => {
           const control = screen.getByRole('textbox');
           const message = screen.queryByTestId('error');
 
-          expect(message).to.equal(null);
+          expect(message).toBe(null);
 
           fireEvent.focus(control);
           fireEvent.blur(control);
 
-          expect(control).not.to.have.attribute('aria-invalid');
+          expect(control).not.toHaveAttribute('aria-invalid');
 
           fireEvent.focus(control);
           fireEvent.input(control, { target: { value: 'tt' } });
           fireEvent.blur(control);
 
-          expect(control).to.have.attribute('aria-invalid', 'true');
+          expect(control).toHaveAttribute('aria-invalid', 'true');
 
           fireEvent.focus(control);
           fireEvent.input(control, { target: { value: '' } });
           fireEvent.blur(control);
 
-          expect(control).to.have.attribute('aria-invalid', 'true');
+          expect(control).toHaveAttribute('aria-invalid', 'true');
 
           fireEvent.focus(control);
           fireEvent.input(control, { target: { value: 'email@email.com' } });
           fireEvent.blur(control);
 
-          expect(control).not.to.have.attribute('aria-invalid');
+          expect(control).not.toHaveAttribute('aria-invalid');
         });
 
         it('revalidates on change when clearing a type mismatch leaves only `valueMissing`', async () => {
@@ -1592,41 +1591,41 @@ describe('<Field.Root />', () => {
 
           fireEvent.focus(control);
           fireEvent.blur(control);
-          expect(control).not.to.have.attribute('aria-invalid', 'true');
-          expect(screen.queryByTestId('error')).to.equal(null);
+          expect(control).not.toHaveAttribute('aria-invalid', 'true');
+          expect(screen.queryByTestId('error')).toBe(null);
 
           fireEvent.focus(control);
           fireEvent.input(control, { target: { value: 'a' } });
           fireEvent.input(control, { target: { value: '' } });
           fireEvent.blur(control);
 
-          expect(control).to.have.attribute('aria-invalid', 'true');
-          expect(screen.getByTestId('error')).not.to.equal(null);
+          expect(control).toHaveAttribute('aria-invalid', 'true');
+          expect(screen.getByTestId('error')).not.toBe(null);
 
           fireEvent.focus(control);
           fireEvent.input(control, { target: { value: 't' } });
 
           // The field becomes temporarily valid because only 'valueMissing' is checked for immediate clearing.
           // Other errors like 'typeMismatch' are deferred to the next blur/submit.
-          expect(control).not.to.have.attribute('aria-invalid', 'true');
-          expect(screen.queryByTestId('error')).to.equal(null);
+          expect(control).not.toHaveAttribute('aria-invalid', 'true');
+          expect(screen.queryByTestId('error')).toBe(null);
 
           fireEvent.blur(control);
 
-          expect(control).to.have.attribute('aria-invalid', 'true');
-          expect(screen.getByTestId('error')).not.to.equal(null);
-          expect(screen.getByTestId('error').textContent).not.to.equal('');
+          expect(control).toHaveAttribute('aria-invalid', 'true');
+          expect(screen.getByTestId('error')).not.toBe(null);
+          expect(screen.getByTestId('error').textContent).not.toBe('');
 
           fireEvent.focus(control);
           fireEvent.input(control, { target: { value: 'test@example.com' } });
 
-          expect(control).not.to.have.attribute('aria-invalid', 'true');
-          expect(screen.queryByTestId('error')).to.equal(null);
+          expect(control).not.toHaveAttribute('aria-invalid', 'true');
+          expect(screen.queryByTestId('error')).toBe(null);
 
           fireEvent.blur(control);
 
-          expect(control).not.to.have.attribute('aria-invalid', 'true');
-          expect(screen.queryByTestId('error')).to.equal(null);
+          expect(control).not.toHaveAttribute('aria-invalid', 'true');
+          expect(screen.queryByTestId('error')).toBe(null);
         });
       });
 
@@ -1643,8 +1642,8 @@ describe('<Field.Root />', () => {
           fireEvent.focus(control);
           fireEvent.blur(control);
 
-          expect(control).not.to.have.attribute('data-invalid');
-          expect(control).not.to.have.attribute('aria-invalid');
+          expect(control).not.toHaveAttribute('data-invalid');
+          expect(control).not.toHaveAttribute('aria-invalid');
         });
 
         it('should mark field as invalid for valueMissing if dirty', () => {
@@ -1663,8 +1662,8 @@ describe('<Field.Root />', () => {
           fireEvent.blur(control);
 
           // valueMissing is true, and markedDirtyRef is true, so valid should be false
-          expect(control).to.have.attribute('data-invalid', '');
-          expect(control).to.have.attribute('aria-invalid', 'true');
+          expect(control).toHaveAttribute('data-invalid', '');
+          expect(control).toHaveAttribute('aria-invalid', 'true');
         });
 
         it('should mark field as invalid for other errors (e.g., typeMismatch) even if not dirty', () => {
@@ -1681,8 +1680,8 @@ describe('<Field.Root />', () => {
           fireEvent.blur(control);
 
           // typeMismatch is true, so valid should be false regardless of dirty state
-          expect(control).to.have.attribute('data-invalid', '');
-          expect(control).to.have.attribute('aria-invalid', 'true');
+          expect(control).toHaveAttribute('data-invalid', '');
+          expect(control).toHaveAttribute('aria-invalid', 'true');
         });
       });
     });
@@ -1711,11 +1710,11 @@ describe('<Field.Root />', () => {
       const control = screen.getByRole<HTMLInputElement>('textbox');
       const message = screen.queryByText('error');
 
-      expect(message).to.equal(null);
+      expect(message).toBe(null);
 
       fireEvent.input(control, { target: { value: 't' } });
 
-      expect(control).not.to.have.attribute('aria-invalid');
+      expect(control).not.toHaveAttribute('aria-invalid');
 
       clock.tick(99);
 
@@ -1723,12 +1722,12 @@ describe('<Field.Root />', () => {
 
       clock.tick(99);
 
-      expect(control).not.to.have.attribute('aria-invalid');
+      expect(control).not.toHaveAttribute('aria-invalid');
 
       clock.tick(1);
 
-      expect(control).to.have.attribute('aria-invalid', 'true');
-      expect(screen.queryByText('error')).not.to.equal(null);
+      expect(control).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.queryByText('error')).not.toBe(null);
     });
 
     it('should debounce validation for field-aware controls', async () => {
@@ -2391,20 +2390,20 @@ describe('<Field.Root />', () => {
         const description = screen.getByTestId('description');
         const error = screen.queryByTestId('error');
 
-        expect(root).not.to.have.attribute('data-touched');
-        expect(control).not.to.have.attribute('data-touched');
-        expect(label).not.to.have.attribute('data-touched');
-        expect(description).not.to.have.attribute('data-touched');
-        expect(error).to.equal(null);
+        expect(root).not.toHaveAttribute('data-touched');
+        expect(control).not.toHaveAttribute('data-touched');
+        expect(label).not.toHaveAttribute('data-touched');
+        expect(description).not.toHaveAttribute('data-touched');
+        expect(error).toBe(null);
 
         fireEvent.focus(control);
         fireEvent.blur(control);
 
-        expect(root).to.have.attribute('data-touched', '');
-        expect(control).to.have.attribute('data-touched', '');
-        expect(label).to.have.attribute('data-touched', '');
-        expect(description).to.have.attribute('data-touched', '');
-        expect(error).to.equal(null);
+        expect(root).toHaveAttribute('data-touched', '');
+        expect(control).toHaveAttribute('data-touched', '');
+        expect(label).toHaveAttribute('data-touched', '');
+        expect(description).toHaveAttribute('data-touched', '');
+        expect(error).toBe(null);
       });
     });
 
@@ -2424,24 +2423,24 @@ describe('<Field.Root />', () => {
         const label = screen.getByTestId('label');
         const description = screen.getByTestId('description');
 
-        expect(root).not.to.have.attribute('data-dirty');
-        expect(control).not.to.have.attribute('data-dirty');
-        expect(label).not.to.have.attribute('data-dirty');
-        expect(description).not.to.have.attribute('data-dirty');
+        expect(root).not.toHaveAttribute('data-dirty');
+        expect(control).not.toHaveAttribute('data-dirty');
+        expect(label).not.toHaveAttribute('data-dirty');
+        expect(description).not.toHaveAttribute('data-dirty');
 
         fireEvent.input(control, { target: { value: 'value' } });
 
-        expect(root).to.have.attribute('data-dirty', '');
-        expect(control).to.have.attribute('data-dirty', '');
-        expect(label).to.have.attribute('data-dirty', '');
-        expect(description).to.have.attribute('data-dirty', '');
+        expect(root).toHaveAttribute('data-dirty', '');
+        expect(control).toHaveAttribute('data-dirty', '');
+        expect(label).toHaveAttribute('data-dirty', '');
+        expect(description).toHaveAttribute('data-dirty', '');
 
         fireEvent.input(control, { target: { value: '' } });
 
-        expect(root).not.to.have.attribute('data-dirty');
-        expect(control).not.to.have.attribute('data-dirty');
-        expect(label).not.to.have.attribute('data-dirty');
-        expect(description).not.to.have.attribute('data-dirty');
+        expect(root).not.toHaveAttribute('data-dirty');
+        expect(control).not.toHaveAttribute('data-dirty');
+        expect(label).not.toHaveAttribute('data-dirty');
+        expect(description).not.toHaveAttribute('data-dirty');
       });
 
       it('should clear [data-dirty] when a null-valued control returns to its empty initial value', async () => {
@@ -2683,24 +2682,24 @@ describe('<Field.Root />', () => {
         const label = screen.getByTestId('label');
         const description = screen.getByTestId('description');
 
-        expect(root).not.to.have.attribute('data-filled');
-        expect(control).not.to.have.attribute('data-filled');
-        expect(label).not.to.have.attribute('data-filled');
-        expect(description).not.to.have.attribute('data-filled');
+        expect(root).not.toHaveAttribute('data-filled');
+        expect(control).not.toHaveAttribute('data-filled');
+        expect(label).not.toHaveAttribute('data-filled');
+        expect(description).not.toHaveAttribute('data-filled');
 
         fireEvent.input(control, { target: { value: 'value' } });
 
-        expect(root).to.have.attribute('data-filled', '');
-        expect(control).to.have.attribute('data-filled', '');
-        expect(label).to.have.attribute('data-filled', '');
-        expect(description).to.have.attribute('data-filled', '');
+        expect(root).toHaveAttribute('data-filled', '');
+        expect(control).toHaveAttribute('data-filled', '');
+        expect(label).toHaveAttribute('data-filled', '');
+        expect(description).toHaveAttribute('data-filled', '');
 
         fireEvent.input(control, { target: { value: '' } });
 
-        expect(root).not.to.have.attribute('data-filled');
-        expect(control).not.to.have.attribute('data-filled');
-        expect(label).not.to.have.attribute('data-filled');
-        expect(description).not.to.have.attribute('data-filled');
+        expect(root).not.toHaveAttribute('data-filled');
+        expect(control).not.toHaveAttribute('data-filled');
+        expect(label).not.toHaveAttribute('data-filled');
+        expect(description).not.toHaveAttribute('data-filled');
       });
 
       it('changes [data-filled] when the value is changed externally', async () => {
@@ -2719,13 +2718,13 @@ describe('<Field.Root />', () => {
 
         const { user } = render(() => <App />);
 
-        expect(screen.getByRole('textbox')).not.to.have.attribute('data-filled', '');
+        expect(screen.getByRole('textbox')).not.toHaveAttribute('data-filled', '');
 
         await user.click(screen.getByRole('button', { name: 'change' }));
-        expect(screen.getByRole('textbox')).to.have.attribute('data-filled', '');
+        expect(screen.getByRole('textbox')).toHaveAttribute('data-filled', '');
 
         await user.click(screen.getByRole('button', { name: 'reset' }));
-        expect(screen.getByRole('textbox')).not.to.have.attribute('data-filled', '');
+        expect(screen.getByRole('textbox')).not.toHaveAttribute('data-filled', '');
       });
     });
 
@@ -2745,24 +2744,24 @@ describe('<Field.Root />', () => {
         const label = screen.getByTestId('label');
         const description = screen.getByTestId('description');
 
-        expect(root).not.to.have.attribute('data-focused');
-        expect(control).not.to.have.attribute('data-focused');
-        expect(label).not.to.have.attribute('data-focused');
-        expect(description).not.to.have.attribute('data-focused');
+        expect(root).not.toHaveAttribute('data-focused');
+        expect(control).not.toHaveAttribute('data-focused');
+        expect(label).not.toHaveAttribute('data-focused');
+        expect(description).not.toHaveAttribute('data-focused');
 
         fireEvent.focus(control);
 
-        expect(root).to.have.attribute('data-focused', '');
-        expect(control).to.have.attribute('data-focused', '');
-        expect(label).to.have.attribute('data-focused', '');
-        expect(description).to.have.attribute('data-focused', '');
+        expect(root).toHaveAttribute('data-focused', '');
+        expect(control).toHaveAttribute('data-focused', '');
+        expect(label).toHaveAttribute('data-focused', '');
+        expect(description).toHaveAttribute('data-focused', '');
 
         fireEvent.blur(control);
 
-        expect(root).not.to.have.attribute('data-focused');
-        expect(control).not.to.have.attribute('data-focused');
-        expect(label).not.to.have.attribute('data-focused');
-        expect(description).not.to.have.attribute('data-focused');
+        expect(root).not.toHaveAttribute('data-focused');
+        expect(control).not.toHaveAttribute('data-focused');
+        expect(label).not.toHaveAttribute('data-focused');
+        expect(description).not.toHaveAttribute('data-focused');
       });
     });
   });
@@ -2785,17 +2784,17 @@ describe('<Field.Root />', () => {
 
       const input = screen.getByTestId('input') as HTMLInputElement;
 
-      expect(input.value).to.equal('foo');
+      expect(input.value).toBe('foo');
 
       if (inputRef) {
         inputRef.value = '';
       }
 
-      expect(input.value).to.equal('');
+      expect(input.value).toBe('');
 
       fireEvent.focus(input);
 
-      expect(input.value).to.equal('');
+      expect(input.value).toBe('');
     });
 
     it('should not reset to defaultValue when input value is programmatically changed to non-empty value and then focused', () => {
@@ -2815,17 +2814,17 @@ describe('<Field.Root />', () => {
 
       const input = screen.getByTestId('input') as HTMLInputElement;
 
-      expect(input.value).to.equal('foo');
+      expect(input.value).toBe('foo');
 
       if (inputRef) {
         inputRef.value = 'abc';
       }
 
-      expect(input.value).to.equal('abc');
+      expect(input.value).toBe('abc');
 
       fireEvent.focus(input);
 
-      expect(input.value).to.equal('abc');
+      expect(input.value).toBe('abc');
     });
   });
 
@@ -2841,7 +2840,7 @@ describe('<Field.Root />', () => {
       ));
 
       ['root', 'control', 'label', 'description'].forEach((part) => {
-        expect(screen.getByTestId(part)).to.have.attribute('data-dirty');
+        expect(screen.getByTestId(part)).toHaveAttribute('data-dirty');
       });
     });
 
@@ -2887,7 +2886,7 @@ describe('<Field.Root />', () => {
       ));
 
       ['root', 'control', 'label', 'description'].forEach((part) => {
-        expect(screen.getByTestId(part)).to.have.attribute('data-touched');
+        expect(screen.getByTestId(part)).toHaveAttribute('data-touched');
       });
     });
 
@@ -2924,11 +2923,11 @@ describe('<Field.Root />', () => {
 
       const { user } = render(() => <App />);
 
-      expect(screen.queryByTestId('error')).to.equal(null);
+      expect(screen.queryByTestId('error')).toBe(null);
 
       await user.click(screen.getByText('validate'));
 
-      expect(screen.queryByTestId('error')).to.not.equal(null);
+      expect(screen.queryByTestId('error')).not.toBe(null);
     });
 
     it('validates a logical field without a mounted control', async () => {

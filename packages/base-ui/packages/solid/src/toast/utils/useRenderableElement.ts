@@ -9,7 +9,7 @@ import { isRenderableNode } from './isRenderableNode';
  */
 export function getRenderContent(render: unknown, content: JSX.Element): JSX.Element {
   if (render != null && typeof render === 'object' && !(render instanceof Node)) {
-    return (render as { children?: JSX.Element }).children ?? content;
+    return (render as { children?: JSX.Element | undefined }).children ?? content;
   }
   return content;
 }

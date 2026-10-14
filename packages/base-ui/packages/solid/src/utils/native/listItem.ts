@@ -8,10 +8,8 @@
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
-import {
-  useCompositeListContext,
-  type CompositeListRegistration,
-} from '../../internals/composite/list/CompositeListContext';
+import { useCompositeListContext } from '../../internals/composite/list/CompositeListContext';
+import type { CompositeListRegistration } from '../../internals/composite/list/CompositeListContext';
 
 export interface NativeListItem {
   /** Registers the element (with `null`: unregisters it), as the hook's ref. */

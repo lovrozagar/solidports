@@ -1,21 +1,23 @@
 import { untrack } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { NullStore } from '../../utils/NullStore';
+import type {
+  InlineRectCoords,
+  PopupStoreContext,
+  PopupStoreState,
+  PopupTriggerStoreKeys,
+} from '../../utils/popups';
 import {
   applyPopupOpenChange,
   createInitialPopupStoreState,
   createPopupFloatingRootContext,
-  InlineRectCoords,
-  PopupStoreContext,
   popupStoreSelectors,
-  PopupStoreState,
   PopupTriggerMap,
-  type PopupTriggerStoreKeys,
   updateInlineRectCoords,
 } from '../../utils/popups';
 import { REASONS } from '../../utils/reasons';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
-import { type PreviewCardRoot } from '../root/PreviewCardRoot';
+import type { PreviewCardRoot } from '../root/PreviewCardRoot';
 import { CLOSE_DELAY } from '../utils/constants';
 import type { AdaptiveOriginMiddleware } from '../../utils/adaptiveOriginConstants';
 

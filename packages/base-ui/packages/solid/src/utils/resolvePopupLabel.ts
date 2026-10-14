@@ -16,7 +16,7 @@ export function resolvePopupLabel(
   const render = props.render;
   const renderedElementProps =
     render != null && typeof render === 'object' && !(render instanceof Node)
-      ? (render as { 'aria-label'?: string; 'aria-labelledby'?: string })
+      ? (render as { 'aria-label'?: string | undefined; 'aria-labelledby'?: string | undefined })
       : undefined;
   const ariaLabel = props['aria-label'] ?? renderedElementProps?.['aria-label'];
   let ariaLabelledBy = props['aria-labelledby'] ?? renderedElementProps?.['aria-labelledby'];

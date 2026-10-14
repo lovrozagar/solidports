@@ -14,6 +14,7 @@ export function hasRenderableChildren(element: JSX.Element): boolean {
   if (element == null || typeof element !== 'object') {
     return false;
   }
-  const children = (element as { props?: { children?: JSX.Element } }).props?.children;
+  const children = (element as { props?: { children?: JSX.Element | undefined } | undefined }).props
+    ?.children;
   return isRenderableNode(children as JSX.Element);
 }

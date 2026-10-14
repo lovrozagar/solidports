@@ -3,7 +3,6 @@ import { act, createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { Toast } from '@solidports/base-ui/toast';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { spy } from 'sinon';
 import { createSignal, For, Show } from 'solid-js';
 import { useToastManager } from './useToastManager';
 import { List, mouseEnterToast, mouseLeaveToast } from './utils/test-utils';
@@ -47,11 +46,11 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const button = screen.getByRole('button', { name: 'add' });
       fireEvent.click(button);
 
-      expect(screen.queryByTestId('root')).not.to.equal(null);
+      expect(screen.queryByTestId('root')).not.toBe(null);
 
       await tick(clock, 5000);
 
-      expect(screen.queryByTestId('root')).to.equal(null);
+      expect(screen.queryByTestId('root')).toBe(null);
     });
 
     it('keeps multiple providers isolated when one provider updates', async () => {
@@ -429,11 +428,11 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const button = screen.getByRole('button', { name: 'add' });
         fireEvent.click(button);
 
-        expect(screen.queryByTestId('root')).not.to.equal(null);
+        expect(screen.queryByTestId('root')).not.toBe(null);
 
         await tick(clock, 1000);
 
-        expect(screen.queryByTestId('root')).to.equal(null);
+        expect(screen.queryByTestId('root')).toBe(null);
       });
     });
 
@@ -480,7 +479,7 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const button = screen.getByRole('button', { name: 'add' });
         fireEvent.click(button);
 
-        expect(screen.queryByTestId('title')).to.have.text('title');
+        expect(screen.queryByTestId('title')?.textContent).toBe('title');
       });
     });
 
@@ -527,7 +526,7 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const button = screen.getByRole('button', { name: 'add' });
         fireEvent.click(button);
 
-        expect(screen.queryByTestId('description')).to.have.text('description');
+        expect(screen.queryByTestId('description')?.textContent).toBe('description');
       });
     });
 
@@ -564,14 +563,14 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const button = screen.getByRole('button', { name: 'add' });
         fireEvent.click(button);
 
-        expect(screen.queryByTestId('title')).to.have.text('test');
-        expect(screen.queryByText('success')).not.to.equal(null);
+        expect(screen.queryByTestId('title')?.textContent).toBe('test');
+        expect(screen.queryByText('success')).not.toBe(null);
       });
     });
 
     describe('option: onClose', () => {
       it('calls onClose when the toast is closed', async () => {
-        const onCloseSpy = spy();
+        const onCloseSpy = vi.fn();
 
         function AddButton() {
           const { add, close } = useToastManager();
@@ -613,16 +612,16 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const addButton = screen.getByRole('button', { name: 'add' });
         fireEvent.click(addButton);
 
-        expect(onCloseSpy.callCount).to.equal(0);
+        expect(onCloseSpy.mock.calls.length).toBe(0);
 
         const closeButton = screen.getByRole('button', { name: 'close' });
         fireEvent.click(closeButton);
 
-        expect(onCloseSpy.callCount).to.equal(1);
+        expect(onCloseSpy.mock.calls.length).toBe(1);
       });
 
       it('calls onClose when the toast auto-dismisses', async () => {
-        const onCloseSpy = spy();
+        const onCloseSpy = vi.fn();
 
         function AddButton() {
           const { add } = useToastManager();
@@ -653,17 +652,17 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const button = screen.getByRole('button', { name: 'add' });
         fireEvent.click(button);
 
-        expect(onCloseSpy.callCount).to.equal(0);
+        expect(onCloseSpy.mock.calls.length).toBe(0);
 
         await tick(clock, 1000);
 
-        expect(onCloseSpy.callCount).to.equal(1);
+        expect(onCloseSpy.mock.calls.length).toBe(1);
       });
     });
 
     describe('option: onRemove', () => {
       it('calls onRemove when the toast is removed', async () => {
-        const onRemoveSpy = spy();
+        const onRemoveSpy = vi.fn();
 
         function AddButton() {
           const { add, close } = useToastManager();
@@ -705,12 +704,12 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const addButton = screen.getByRole('button', { name: 'add' });
         fireEvent.click(addButton);
 
-        expect(onRemoveSpy.callCount).to.equal(0);
+        expect(onRemoveSpy.mock.calls.length).toBe(0);
 
         const closeButton = screen.getByRole('button', { name: 'close' });
         fireEvent.click(closeButton);
 
-        expect(onRemoveSpy.callCount).to.equal(1);
+        expect(onRemoveSpy.mock.calls.length).toBe(1);
       });
     });
 
@@ -739,15 +738,15 @@ describe.skipIf(!isJSDOM)('useToast', () => {
 
         const highRoot = screen.getByTestId('root');
 
-        expect(highRoot.getAttribute('role')).to.equal('alertdialog');
-        expect(highRoot.getAttribute('aria-modal')).to.equal('false');
-        expect(screen.getByRole('alert')).not.to.equal(null);
-        expect(screen.getByRole('alert').getAttribute('aria-atomic')).to.equal('true');
+        expect(highRoot.getAttribute('role')).toBe('alertdialog');
+        expect(highRoot.getAttribute('aria-modal')).toBe('false');
+        expect(screen.getByRole('alert')).not.toBe(null);
+        expect(screen.getByRole('alert').getAttribute('aria-atomic')).toBe('true');
 
         const closeHighButton = screen.getByLabelText('close-press');
         fireEvent.click(closeHighButton);
 
-        expect(screen.queryByRole('alert')).to.equal(null);
+        expect(screen.queryByRole('alert')).toBe(null);
       });
     });
   });
@@ -810,11 +809,11 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const button = screen.getByRole('button', { name: 'add' });
       fireEvent.click(button);
 
-      expect(screen.getByTestId('description')).to.have.text('loading');
+      expect(screen.getByTestId('description').textContent).toBe('loading');
 
       await tick(clock, 1000);
 
-      expect(screen.getByTestId('description')).to.have.text('success');
+      expect(screen.getByTestId('description').textContent).toBe('success');
     });
 
     it('displays error state as description after promise rejects', async () => {
@@ -856,11 +855,11 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const button = screen.getByRole('button', { name: 'add' });
       fireEvent.click(button);
 
-      expect(screen.getByTestId('description')).to.have.text('loading');
+      expect(screen.getByTestId('description').textContent).toBe('loading');
 
       await tick(clock, 1000);
 
-      expect(screen.getByTestId('description')).to.have.text('error');
+      expect(screen.getByTestId('description').textContent).toBe('error');
     });
 
     it('passes data when success is a function', async () => {
@@ -898,11 +897,11 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const button = screen.getByRole('button', { name: 'add' });
       fireEvent.click(button);
 
-      expect(screen.getByTestId('description')).to.have.text('loading');
+      expect(screen.getByTestId('description').textContent).toBe('loading');
 
       await tick(clock, 1000);
 
-      expect(screen.getByTestId('description')).to.have.text('test success');
+      expect(screen.getByTestId('description').textContent).toBe('test success');
     });
 
     it('accepts a function that returns full options for the success state', async () => {
@@ -993,11 +992,11 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const button = screen.getByRole('button', { name: 'add' });
       fireEvent.click(button);
 
-      expect(screen.getByTestId('description')).to.have.text('loading');
+      expect(screen.getByTestId('description').textContent).toBe('loading');
 
       await tick(clock, 1000);
 
-      expect(screen.getByTestId('description')).to.have.text('test error');
+      expect(screen.getByTestId('description').textContent).toBe('test error');
     });
 
     it('supports custom options', async () => {
@@ -1038,8 +1037,8 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const button = screen.getByRole('button', { name: 'add' });
       fireEvent.click(button);
 
-      expect(screen.getByTestId('title')).to.have.text('loading title');
-      expect(screen.getByTestId('description')).to.have.text('loading description');
+      expect(screen.getByTestId('title').textContent).toBe('loading title');
+      expect(screen.getByTestId('description').textContent).toBe('loading description');
 
       await flushMicrotasks();
     });
@@ -1081,14 +1080,14 @@ describe.skipIf(!isJSDOM)('useToast', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'add' }));
 
-      expect(screen.getByTestId('description')).to.have.text('loading');
+      expect(screen.getByTestId('description').textContent).toBe('loading');
 
       fireEvent.click(screen.getByLabelText('close-press'));
       resolvePromise('success');
 
       await flushMicrotasks();
 
-      expect(screen.queryByTestId('root')).to.equal(null);
+      expect(screen.queryByTestId('root')).toBe(null);
     });
 
     describe('timeout handling', () => {
@@ -1129,15 +1128,15 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const button = screen.getByRole('button', { name: 'add' });
         fireEvent.click(button);
 
-        expect(screen.getByTestId('description')).to.have.text('loading');
+        expect(screen.getByTestId('description').textContent).toBe('loading');
 
         await tick(clock, 1000);
 
-        expect(screen.getByTestId('description')).to.have.text('success');
+        expect(screen.getByTestId('description').textContent).toBe('success');
 
         await tick(clock, 5000);
 
-        expect(screen.queryByTestId('root')).to.equal(null);
+        expect(screen.queryByTestId('root')).toBe(null);
       });
 
       it('auto-dismisses error toast after default timeout when promise rejects', async () => {
@@ -1179,14 +1178,14 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         const button = screen.getByRole('button', { name: 'add' });
         fireEvent.click(button);
 
-        expect(screen.getByTestId('description')).to.have.text('loading');
+        expect(screen.getByTestId('description').textContent).toBe('loading');
 
         await tick(clock, 1000);
 
-        expect(screen.getByTestId('description')).to.have.text('error');
+        expect(screen.getByTestId('description').textContent).toBe('error');
 
         await tick(clock, 5000);
-        expect(screen.queryByTestId('root')).to.equal(null);
+        expect(screen.queryByTestId('root')).toBe(null);
       });
 
       it('uses custom timeout from success options when promise resolves', async () => {
@@ -1231,13 +1230,13 @@ describe.skipIf(!isJSDOM)('useToast', () => {
 
         await tick(clock, 1000);
 
-        expect(screen.getByTestId('description')).to.have.text('success');
+        expect(screen.getByTestId('description').textContent).toBe('success');
 
         await tick(clock, 1000);
-        expect(screen.getByTestId('root')).not.to.equal(null);
+        expect(screen.getByTestId('root')).not.toBe(null);
 
         await tick(clock, 1000);
-        expect(screen.queryByTestId('root')).to.equal(null);
+        expect(screen.queryByTestId('root')).toBe(null);
       });
 
       it('uses custom timeout from error options when promise rejects', async () => {
@@ -1284,13 +1283,13 @@ describe.skipIf(!isJSDOM)('useToast', () => {
 
         await tick(clock, 1000);
 
-        expect(screen.getByTestId('description')).to.have.text('error');
+        expect(screen.getByTestId('description').textContent).toBe('error');
 
         await tick(clock, 2000);
-        expect(screen.getByTestId('root')).not.to.equal(null);
+        expect(screen.getByTestId('root')).not.toBe(null);
 
         await tick(clock, 1000);
-        expect(screen.queryByTestId('root')).to.equal(null);
+        expect(screen.queryByTestId('root')).toBe(null);
       });
 
       it('uses provider timeout when no custom timeout is specified', async () => {
@@ -1332,10 +1331,10 @@ describe.skipIf(!isJSDOM)('useToast', () => {
 
         await tick(clock, 1000);
 
-        expect(screen.getByTestId('description')).to.have.text('success');
+        expect(screen.getByTestId('description').textContent).toBe('success');
 
         await tick(clock, 1000);
-        expect(screen.queryByTestId('root')).to.equal(null);
+        expect(screen.queryByTestId('root')).toBe(null);
       });
 
       it('does not inherit a loading timeout when success does not specify one', async () => {
@@ -1427,10 +1426,10 @@ describe.skipIf(!isJSDOM)('useToast', () => {
 
         await tick(clock, 1000);
 
-        expect(screen.getByTestId('description')).to.have.text('success');
+        expect(screen.getByTestId('description').textContent).toBe('success');
 
         await tick(clock, 10000);
-        expect(screen.getByTestId('root')).not.to.equal(null);
+        expect(screen.getByTestId('root')).not.toBe(null);
       });
 
       it('pauses timers when hovering over toast', async () => {
@@ -1475,7 +1474,7 @@ describe.skipIf(!isJSDOM)('useToast', () => {
 
         await tick(clock, 1000);
 
-        expect(screen.getByTestId('description')).to.have.text('success');
+        expect(screen.getByTestId('description').textContent).toBe('success');
 
         await tick(clock, 1000);
 
@@ -1483,11 +1482,11 @@ describe.skipIf(!isJSDOM)('useToast', () => {
         mouseEnterToast(toast);
 
         await tick(clock, 5000);
-        expect(screen.getByTestId('root')).not.to.equal(null);
+        expect(screen.getByTestId('root')).not.toBe(null);
 
         mouseLeaveToast(toast);
         await tick(clock, 2000);
-        expect(screen.queryByTestId('root')).to.equal(null);
+        expect(screen.queryByTestId('root')).toBe(null);
       });
     });
   });
@@ -1550,12 +1549,12 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const button = screen.getByRole('button', { name: 'add' });
       fireEvent.click(button);
 
-      expect(screen.getByTestId('title')).to.have.text('test');
+      expect(screen.getByTestId('title').textContent).toBe('test');
 
       const updateButton = screen.getByRole('button', { name: 'update' });
       fireEvent.click(updateButton);
 
-      expect(screen.getByTestId('title')).to.have.text('updated');
+      expect(screen.getByTestId('title').textContent).toBe('updated');
     });
 
     it('increments updateKey when updating a toast', async () => {
@@ -1645,12 +1644,12 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       ));
 
       fireEvent.click(screen.getByRole('button', { name: 'add' }));
-      expect(screen.queryByTestId('root')).not.to.equal(null);
+      expect(screen.queryByTestId('root')).not.toBe(null);
 
       fireEvent.click(screen.getByRole('button', { name: 'update' }));
       await tick(clock, 1000);
 
-      expect(screen.queryByTestId('root')).to.equal(null);
+      expect(screen.queryByTestId('root')).toBe(null);
     });
 
     it('schedules a timer when updating a loading toast to a non-loading type', async () => {
@@ -1691,13 +1690,13 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       ));
 
       fireEvent.click(screen.getByRole('button', { name: 'add' }));
-      expect(screen.getByTestId('title')).to.have.text('loading');
+      expect(screen.getByTestId('title').textContent).toBe('loading');
 
       fireEvent.click(screen.getByRole('button', { name: 'update' }));
-      expect(screen.getByTestId('title')).to.have.text('success');
+      expect(screen.getByTestId('title').textContent).toBe('success');
 
       await tick(clock, 1000);
-      expect(screen.queryByTestId('root')).to.equal(null);
+      expect(screen.queryByTestId('root')).toBe(null);
     });
   });
 
@@ -1757,12 +1756,12 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const addButton = screen.getByRole('button', { name: 'add' });
       fireEvent.click(addButton);
 
-      expect(screen.getByTestId('root')).not.to.equal(null);
+      expect(screen.getByTestId('root')).not.toBe(null);
 
       const closeButton = screen.getByRole('button', { name: 'close' });
       fireEvent.click(closeButton);
 
-      expect(screen.queryByTestId('root')).to.equal(null);
+      expect(screen.queryByTestId('root')).toBe(null);
     });
 
     it('closes all toasts', async () => {
@@ -1894,14 +1893,14 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const addButton = screen.getByRole('button', { name: 'add' });
 
       fireEvent.click(addButton);
-      expect(screen.getByTestId('toast-1')).not.to.have.attribute('data-limited');
+      expect(screen.getByTestId('toast-1')).not.toHaveAttribute('data-limited');
 
       fireEvent.click(addButton);
-      expect(screen.getByTestId('toast-2')).not.to.have.attribute('data-limited');
+      expect(screen.getByTestId('toast-2')).not.toHaveAttribute('data-limited');
 
       fireEvent.click(addButton);
-      expect(screen.getByTestId('toast-3')).not.to.have.attribute('data-limited');
-      expect(screen.getByTestId('toast-1')).to.have.attribute('data-limited');
+      expect(screen.getByTestId('toast-3')).not.toHaveAttribute('data-limited');
+      expect(screen.getByTestId('toast-1')).toHaveAttribute('data-limited');
     });
 
     it('unmarks toasts as limited when the limit is not exceeded', async () => {
@@ -1917,20 +1916,20 @@ describe.skipIf(!isJSDOM)('useToast', () => {
 
       fireEvent.click(addButton);
       const toast1 = screen.getByTestId('toast-1');
-      expect(toast1).not.to.have.attribute('data-limited');
+      expect(toast1).not.toHaveAttribute('data-limited');
 
       fireEvent.click(addButton);
       const toast2 = screen.getByTestId('toast-2');
-      expect(toast2).not.to.have.attribute('data-limited');
+      expect(toast2).not.toHaveAttribute('data-limited');
 
       fireEvent.click(addButton);
       const toast3 = screen.getByTestId('toast-3');
-      expect(toast3).not.to.have.attribute('data-limited');
+      expect(toast3).not.toHaveAttribute('data-limited');
 
       const closeToast3 = screen.getByTestId('close-toast-3');
       fireEvent.click(closeToast3);
 
-      expect(toast1).not.to.have.attribute('data-limited');
+      expect(toast1).not.toHaveAttribute('data-limited');
     });
 
     it('preserves limited state when upserting a limited toast', async () => {
@@ -2095,15 +2094,15 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       const openDialogButton = screen.getByRole('button', { name: 'open dialog' });
       fireEvent.click(openDialogButton);
 
-      expect(screen.getByRole('dialog')).not.to.equal(null);
+      expect(screen.getByRole('dialog')).not.toBe(null);
 
       const addToastButton = screen.getByRole('button', { name: 'add' });
       fireEvent.click(addToastButton);
 
       const toastRoot = screen.getByTestId('toast-root');
-      expect(toastRoot).not.to.equal(null);
-      expect(screen.getByTestId('toast-title')).to.have.text('Toast in dialog');
-      expect(screen.getByTestId('toast-description')).to.have.text('This toast is in a dialog');
+      expect(toastRoot).not.toBe(null);
+      expect(screen.getByTestId('toast-title').textContent).toBe('Toast in dialog');
+      expect(screen.getByTestId('toast-description').textContent).toBe('This toast is in a dialog');
     });
 
     it('high priority toasts in dialogs have correct accessibility structure', async () => {
@@ -2144,8 +2143,8 @@ describe.skipIf(!isJSDOM)('useToast', () => {
       fireEvent.click(addToastButton);
 
       const toastRoot = screen.getByTestId('toast-root');
-      expect(toastRoot).to.have.attribute('aria-hidden', 'true');
-      expect(screen.queryByRole('alert')).not.to.equal(null);
+      expect(toastRoot).toHaveAttribute('aria-hidden', 'true');
+      expect(screen.queryByRole('alert')).not.toBe(null);
     });
   });
 });

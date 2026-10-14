@@ -1,4 +1,5 @@
-import { createSignal, Show, type Component } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
+import type { Component } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
 import { screen, fireEvent } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';

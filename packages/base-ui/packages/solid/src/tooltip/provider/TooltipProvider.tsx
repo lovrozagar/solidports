@@ -26,7 +26,7 @@ export function TooltipProvider(props: TooltipProvider.Props) {
 export interface TooltipProviderState {}
 
 export interface TooltipProviderProps {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * How long to wait before opening the tooltip on hover. Specified in milliseconds.
    */

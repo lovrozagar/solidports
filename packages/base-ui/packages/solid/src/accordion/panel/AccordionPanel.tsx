@@ -9,7 +9,7 @@ import {
 import { useCollapsiblePanel } from '../../collapsible/panel/useCollapsiblePanel';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
 import { canRenderNative } from '../../utils/native';
 import { createIdRegistration } from '../../utils/native/registration';

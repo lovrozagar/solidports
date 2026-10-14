@@ -4,10 +4,8 @@ import type { JSX } from '@solidjs/web';
 import { Drawer } from '@solidports/base-ui/drawer';
 import { createEvent, fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
-import {
-  type DrawerProviderContext,
-  useDrawerProviderContext,
-} from '../provider/DrawerProviderContext';
+import { useDrawerProviderContext } from '../provider/DrawerProviderContext';
+import type { DrawerProviderContext } from '../provider/DrawerProviderContext';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import type { DialogStore } from '../../dialog/store/DialogStore';
 

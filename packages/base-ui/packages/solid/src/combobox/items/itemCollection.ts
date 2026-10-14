@@ -1,9 +1,6 @@
 import type { Group } from '../../utils/resolveValueLabel';
-import {
-  compareItemEquality,
-  defaultItemEquality,
-  type ItemEqualityComparer,
-} from '../../utils/itemEquality';
+import { compareItemEquality, defaultItemEquality } from '../../utils/itemEquality';
+import type { ItemEqualityComparer } from '../../utils/itemEquality';
 
 export function findCollectionItem<Item, Value>(
   valueToItem: Map<Value, Item>,

@@ -1,6 +1,7 @@
 import { createEffect, onCleanup } from 'solid-js';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
-import { access, type MaybeAccessor } from '../../solid-helpers';
+import { access } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import type { FieldControlRegistration } from './useFieldControlRegistration';
 import { NOOP } from '../../utils/noop';
 

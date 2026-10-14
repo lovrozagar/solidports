@@ -28,7 +28,7 @@ describe('<Autocomplete.Value />', () => {
         </Autocomplete.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('hel');
+      expect(screen.getByTestId('value').textContent).toBe('hel');
     });
 
     it('renders function child with empty string when no value typed', async () => {
@@ -49,7 +49,7 @@ describe('<Autocomplete.Value />', () => {
         </Autocomplete.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('empty');
+      expect(screen.getByTestId('value').textContent).toBe('empty');
     });
 
     it('overrides the display when children is a static ReactNode', async () => {
@@ -68,7 +68,7 @@ describe('<Autocomplete.Value />', () => {
         </Autocomplete.Root>
       ));
 
-      expect(screen.getByText('Custom Display Text')).not.to.equal(null);
+      expect(screen.getByText('Custom Display Text')).not.toBe(null);
     });
 
     it('renders complex ReactNode children', async () => {
@@ -92,8 +92,8 @@ describe('<Autocomplete.Value />', () => {
       ));
 
       const element = screen.getByTestId('complex');
-      expect(element.querySelector('strong')).to.have.text('Bold');
-      expect(element.querySelector('em')).to.have.text('italic');
+      expect(element.querySelector('strong')?.textContent).toBe('Bold');
+      expect(element.querySelector('em')?.textContent).toBe('italic');
     });
   });
 });

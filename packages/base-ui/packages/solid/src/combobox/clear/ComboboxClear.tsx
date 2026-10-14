@@ -3,7 +3,7 @@ import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
-import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import { getHighlightReason } from '../../utils/getHighlightReason';
@@ -11,7 +11,8 @@ import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
+import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import { useComboboxInputValueContext, useComboboxRootContext } from '../root/ComboboxRootContext';
 
 const stateAttributesMapping: StateAttributesMapping<ComboboxClear.State> = {

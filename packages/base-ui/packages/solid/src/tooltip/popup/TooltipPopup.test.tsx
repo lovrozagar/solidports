@@ -30,7 +30,7 @@ describe('<Tooltip.Popup />', () => {
       </Tooltip.Root>
     ));
 
-    expect(screen.getByText('Content')).not.to.equal(null);
+    expect(screen.getByText('Content')).not.toBe(null);
   });
 
   it('throws a descriptive error when rendered outside <Tooltip.Positioner>', async () => {
@@ -47,7 +47,7 @@ describe('<Tooltip.Popup />', () => {
             </Tooltip.Portal>
           </Tooltip.Root>
         )),
-      ).to.throw(
+      ).toThrow(
         'Base UI: TooltipPositionerContext is missing. TooltipPositioner parts must be placed within <Tooltip.Positioner>.',
       );
       await flushMicrotasks();

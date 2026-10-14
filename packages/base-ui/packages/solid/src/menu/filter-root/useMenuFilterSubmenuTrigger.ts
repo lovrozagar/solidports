@@ -79,7 +79,7 @@ export function useMenuFilterSubmenuTrigger(params: MenuFilterItemParams): MenuF
       clickProps.onPointerDown(event);
       store.context.virtualPress = isVirtualPointerEvent(event);
     },
-    onFocus(event: FocusEvent & { preventBaseUIHandler?: () => void }) {
+    onFocus(event: FocusEvent & { preventBaseUIHandler?: (() => void) | undefined }) {
       const focusOwner = store.context.virtualFocusRef?.current;
       if (focusOwner && store.select('open') && event.relatedTarget === focusOwner) {
         event.preventBaseUIHandler?.();

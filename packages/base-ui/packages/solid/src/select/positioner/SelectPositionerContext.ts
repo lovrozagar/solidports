@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
-import { useAnchorPositioning, type Side } from '../../utils/useAnchorPositioning';
+import type { useAnchorPositioning, Side } from '../../utils/useAnchorPositioning';
 
 export interface SelectPositionerContext extends Omit<
   useAnchorPositioning.ReturnValue,

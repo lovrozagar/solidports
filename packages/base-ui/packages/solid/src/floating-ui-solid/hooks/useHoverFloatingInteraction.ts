@@ -17,8 +17,8 @@ import {
   resolveHoverInteractionSharedState,
   clearSafePolygonPointerEventsMutation,
   useHoverInteractionSharedState,
-  type HoverInteraction,
 } from './useHoverInteractionSharedState';
+import type { HoverInteraction } from './useHoverInteractionSharedState';
 import { getDelay, isClickLikeOpenEvent as isClickLikeOpenEventShared } from './useHoverShared';
 import { on } from '../../solid-1-compat';
 

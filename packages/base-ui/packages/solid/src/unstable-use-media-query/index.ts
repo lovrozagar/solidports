@@ -1,7 +1,8 @@
 import { createEffect, createSignal, isHydrating, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { isServer } from '@solidjs/web';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { addEventListener } from '../utils/addEventListener';
 
 export function useMediaQuery(
@@ -78,7 +79,7 @@ export interface UseMediaQueryOptions {
    * it returns a default matches during the first mount.
    * @default false
    */
-  defaultMatches?: MaybeAccessor<boolean | undefined>;
+  defaultMatches?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * You can provide your own implementation of matchMedia.
    * This can be used for handling an iframe content window.
@@ -91,7 +92,7 @@ export interface UseMediaQueryOptions {
    * You can set this option to `true` if you use the returned value **only** client-side.
    * @default false
    */
-  noSsr?: MaybeAccessor<boolean | undefined>;
+  noSsr?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * You can provide your own implementation of `matchMedia`, it's used when rendering server-side.
    */

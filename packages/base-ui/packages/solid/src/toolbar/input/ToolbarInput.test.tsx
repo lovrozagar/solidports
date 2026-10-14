@@ -3,13 +3,12 @@ import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { NumberField } from '@solidports/base-ui/number-field';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { screen } from '@solidjs/testing-library';
-import { expect, describe, it } from 'vitest';
-import { spy } from 'sinon';
+import { expect, describe, it, vi } from 'vitest';
 import { createSignal } from 'solid-js';
 import { ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, ARROW_UP } from '../../internals/composite/composite';
 import { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { NOOP } from '../../utils/noop';
-import { type Orientation } from '../../utils/types';
+import type { Orientation } from '../../utils/types';
 import { ToolbarRootContext } from '../root/ToolbarRootContext';
 
 const testCompositeContext: CompositeRootContext = {
@@ -255,11 +254,11 @@ describe('<Toolbar.Input />', () => {
         </Toolbar.Root>
       ));
 
-      expect(screen.getByRole('textbox')).to.have.attribute('aria-roledescription', 'Number field');
+      expect(screen.getByRole('textbox')).toHaveAttribute('aria-roledescription', 'Number field');
     });
 
     it('handles interactions', async () => {
-      const onValueChange = spy();
+      const onValueChange = vi.fn();
       const { user } = render(() => (
         <Toolbar.Root>
           <NumberField.Root min={1} max={10} defaultValue={5} onValueChange={onValueChange}>
@@ -275,20 +274,20 @@ describe('<Toolbar.Input />', () => {
       const input = () => screen.getByRole('textbox');
 
       await user.keyboard('[Tab]');
-      expect(input()).to.have.attribute('tabindex', '0');
+      expect(input()).toHaveAttribute('tabindex', '0');
       expect(input()).toHaveFocus();
 
       await user.keyboard(`[${ARROW_UP}]`);
-      expect(onValueChange.callCount).to.equal(1);
-      expect(onValueChange.args[0][0]).to.equal(6);
+      expect(onValueChange.mock.calls.length).toBe(1);
+      expect(onValueChange.mock.calls[0][0]).toBe(6);
 
       await user.keyboard(`[${ARROW_DOWN}]`);
-      expect(onValueChange.callCount).to.equal(2);
-      expect(onValueChange.args[1][0]).to.equal(5);
+      expect(onValueChange.mock.calls.length).toBe(2);
+      expect(onValueChange.mock.calls[1][0]).toBe(5);
     });
 
     it('disabled state', async () => {
-      const onValueChange = spy();
+      const onValueChange = vi.fn();
       const { user } = render(() => (
         <Toolbar.Root>
           <NumberField.Root min={1} max={10} defaultValue={5} onValueChange={onValueChange}>
@@ -303,17 +302,17 @@ describe('<Toolbar.Input />', () => {
 
       const input = () => screen.getByRole('textbox');
 
-      expect(input()).to.not.have.attribute('disabled');
-      expect(input()).to.have.attribute('data-disabled');
-      expect(input()).to.have.attribute('aria-disabled', 'true');
+      expect(input()).not.toHaveAttribute('disabled');
+      expect(input()).toHaveAttribute('data-disabled');
+      expect(input()).toHaveAttribute('aria-disabled', 'true');
 
       await user.keyboard('[Tab]');
-      expect(input()).to.have.attribute('tabindex', '0');
+      expect(input()).toHaveAttribute('tabindex', '0');
       expect(input()).toHaveFocus();
 
       await user.keyboard(`[${ARROW_UP}]`);
       await user.keyboard(`[${ARROW_DOWN}]`);
-      expect(onValueChange.callCount).to.equal(0);
+      expect(onValueChange.mock.calls.length).toBe(0);
     });
   });
 });

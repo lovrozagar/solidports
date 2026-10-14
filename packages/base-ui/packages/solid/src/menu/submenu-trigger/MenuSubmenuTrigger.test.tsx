@@ -77,13 +77,13 @@ describe('<Menu.SubmenuTrigger />', () => {
     ));
 
     const submenuTrigger = screen.getByText('More');
-    expect(storeRef.current!.context.triggerElements.getById('first')).to.equal(submenuTrigger);
+    expect(storeRef.current!.context.triggerElements.getById('first')).toBe(submenuTrigger);
 
     await act(() => setId('second'));
 
-    expect(storeRef.current!.context.triggerElements.getById('first')).to.equal(undefined);
-    expect(storeRef.current!.context.triggerElements.getById('second')).to.equal(submenuTrigger);
-    expect(storeRef.current!.context.triggerElements.size).to.equal(1);
+    expect(storeRef.current!.context.triggerElements.getById('first')).toBe(undefined);
+    expect(storeRef.current!.context.triggerElements.getById('second')).toBe(submenuTrigger);
+    expect(storeRef.current!.context.triggerElements.size).toBe(1);
   });
 
   it('throws when rendered outside Menu.SubmenuRoot', async () => {
@@ -92,7 +92,7 @@ describe('<Menu.SubmenuTrigger />', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Menu.SubmenuTrigger />)).to.throw(
+      expect(() => render(() => <Menu.SubmenuTrigger />)).toThrow(
         'Base UI: <Menu.SubmenuTrigger> must be placed in <Menu.SubmenuRoot>.',
       );
       await flushMicrotasks();
@@ -165,7 +165,7 @@ describe('<Menu.SubmenuTrigger />', () => {
     fireEvent.keyDown(submenuTrigger, { key: 'ArrowRight' });
 
     await waitFor(() => {
-      expect(submenuTrigger).to.have.attribute('tabIndex', '0');
+      expect(submenuTrigger).toHaveAttribute('tabIndex', '0');
     });
   });
 
@@ -230,8 +230,8 @@ describe('<Menu.SubmenuTrigger />', () => {
 
       const submenuTrigger = screen.getByRole('menuitem', { name: 'Open submenu' });
 
-      expect(submenuTrigger).to.have.attribute('data-disabled');
-      expect(submenuTrigger).to.have.attribute('aria-disabled', 'true');
+      expect(submenuTrigger).toHaveAttribute('data-disabled');
+      expect(submenuTrigger).toHaveAttribute('aria-disabled', 'true');
     });
 
     it('does not open on hover when disabled', async () => {
@@ -265,7 +265,7 @@ describe('<Menu.SubmenuTrigger />', () => {
 
       await user.hover(submenuTrigger);
 
-      expect(screen.queryByTestId('submenu-popup')).to.equal(null);
+      expect(screen.queryByTestId('submenu-popup')).toBe(null);
     });
 
     it('should warn when a disabled element is detected via render prop with JSX element', async () => {
@@ -300,7 +300,7 @@ describe('<Menu.SubmenuTrigger />', () => {
           'Base UI: A disabled element was detected on <Menu.SubmenuTrigger>. To properly disable the trigger, use the `disabled` prop on the component instead of setting it on the rendered element.',
         ),
       );
-      expect(warnSpy.mock.lastCall?.[0]).not.to.contain('undefined');
+      expect(warnSpy.mock.lastCall?.[0]).not.toContain('undefined');
       warnSpy.mockRestore();
     });
 

@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- combobox value type is generic at the component boundary but erased here; carrying `Value` through store context would require parameterizing every selector */
 import type { Accessor } from 'solid-js';
 import type { InteractionType } from '../utils/useEnhancedClickHandler';
 import type { TransitionStatus } from '../utils/useTransitionStatus';

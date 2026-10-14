@@ -4,7 +4,8 @@ import { transitionStatusMapping } from './stateAttributesMapping';
 import type { BaseUIComponentProps } from './types';
 import { useOpenChangeComplete } from './useOpenChangeComplete';
 import { useRenderElement } from './useRenderElement';
-import { useTransitionStatus, type TransitionStatus } from './useTransitionStatus';
+import { useTransitionStatus } from './useTransitionStatus';
+import type { TransitionStatus } from './useTransitionStatus';
 
 /**
  * Shared selected-item indicator. Public wrappers mount it only when the item is selected or

@@ -1,5 +1,5 @@
 import type { Accessor } from 'solid-js';
-import { type MaybeAccessor } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { useId } from './useId';
 
 /**

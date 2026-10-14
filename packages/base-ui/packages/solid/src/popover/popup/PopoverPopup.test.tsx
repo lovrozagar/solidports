@@ -36,7 +36,7 @@ describe('<Popover.Popup />', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Popover.Popup />)).to.throw(
+      expect(() => render(() => <Popover.Popup />)).toThrow(
         'Base UI: PopoverRootContext is missing. Popover parts must be placed within <Popover.Root>.',
       );
     } finally {
@@ -58,7 +58,7 @@ describe('<Popover.Popup />', () => {
             </Popover.Portal>
           </Popover.Root>
         )),
-      ).to.throw(
+      ).toThrow(
         'Base UI: PopoverPositionerContext is missing. PopoverPositioner parts must be placed within <Popover.Positioner>.',
       );
     } finally {
@@ -78,7 +78,7 @@ describe('<Popover.Popup />', () => {
       </Popover.Root>
     ));
 
-    expect(screen.getByText('Content')).not.to.equal(null);
+    expect(screen.getByText('Content')).not.toBe(null);
   });
 
   popupFocusPropsTests({
@@ -166,7 +166,7 @@ describe('<Popover.Popup />', () => {
       fireEvent.click(trigger);
       await flushMicrotasks();
 
-      expect(screen.getByText('Close')).not.to.equal(null);
+      expect(screen.getByText('Close')).not.toBe(null);
 
       clock.tick(1000);
       await flushMicrotasks();
@@ -251,7 +251,7 @@ describe('<Popover.Popup />', () => {
       });
       await user.keyboard('[ArrowRight]');
 
-      expect(input.selectionStart).to.equal(1);
+      expect(input.selectionStart).toBe(1);
       expect(screen.getByRole('button', { name: 'Last' })).not.toHaveFocus();
     });
   });

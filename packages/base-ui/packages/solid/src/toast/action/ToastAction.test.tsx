@@ -106,7 +106,7 @@ describe('<Toast.Action />', () => {
     await user.click(button);
 
     const actionElement = screen.queryByTestId('action');
-    expect(actionElement).to.equal(null);
+    expect(actionElement).toBe(null);
   });
 
   // Solid: React's `render={<button>…</button>}` element maps to a `{ component, children }` render

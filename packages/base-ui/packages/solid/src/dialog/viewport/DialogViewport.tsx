@@ -1,9 +1,9 @@
 'use client';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
-import { type BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { type TransitionStatus } from '../../utils/useTransitionStatus';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useDialogPortalContext } from '../portal/DialogPortalContext';
 import { useDialogRootContext } from '../root/DialogRootContext';
 import { dialogStateAttributesMapping } from '../utils/stateAttributesMapping';

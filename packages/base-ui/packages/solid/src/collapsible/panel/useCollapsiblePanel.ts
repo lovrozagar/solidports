@@ -9,13 +9,14 @@ import {
 } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access, type MaybeAccessor } from '../../solid-helpers';
+import { access } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { createEffectGroup } from '../../utils/native/effectGroup';
 import { addEventListener } from '../../utils/addEventListener';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerWindow } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
-import { HTMLProps } from '../../utils/types';
+import type { HTMLProps } from '../../utils/types';
 import { AnimationFrame } from '../../utils/useAnimationFrame';
 import { useTimeout } from '../../utils/useTimeout';
 import { useAnimationsFinished } from '../../utils/useAnimationsFinished';

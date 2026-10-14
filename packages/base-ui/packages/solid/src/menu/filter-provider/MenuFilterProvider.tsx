@@ -51,7 +51,7 @@ export interface MenuFilterProviderProps extends MenuFilterProviderOptions {
   /**
    * The `<Menu.Root>` or `<Menu.SubmenuRoot>` to make filterable.
    */
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
 }
 
 export type MenuFilterProviderChangeEventReason = FilterDropdownRoot.ChangeEventReason;

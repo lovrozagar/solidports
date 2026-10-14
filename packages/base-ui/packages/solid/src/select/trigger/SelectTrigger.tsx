@@ -11,12 +11,12 @@ import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { isMouseWithinBounds } from '../../utils/getPseudoElementBounds';
-import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { ownerDocument } from '../../utils/owner';
 import { pressableTriggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import { resolveAriaLabelledBy } from '../../utils/resolveAriaLabelledBy';
-import { BaseUIComponentProps, NativeButtonProps, type HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, NativeButtonProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { useSelectRootContext } from '../root/SelectRootContext';
@@ -326,7 +326,7 @@ export interface SelectTriggerState extends FieldRoot.State {
 
 export interface SelectTriggerProps
   extends NativeButtonProps, BaseUIComponentProps<'button', SelectTrigger.State> {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * Whether the component should ignore user interaction.
    */

@@ -2,16 +2,10 @@ import { createEffect, onSettled, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { FloatingTree, useDismiss } from '../../floating-ui-solid';
-import {
-  ComponentWithPayload,
-  createDepsRenderEffect,
-  type ReactLikeRef,
-  isAbsentProp,
-} from '../../solid-helpers';
-import {
-  createChangeEventDetails,
-  type BaseUIChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { ComponentWithPayload, createDepsRenderEffect, isAbsentProp } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import {
   useImplicitActiveTrigger,
@@ -19,10 +13,11 @@ import {
   useOpenStateTransitions,
   usePopupInteractionProps,
   usePopupRootSync,
-  type PayloadChildRenderFunction,
 } from '../../utils/popups';
-import { PopoverHandle } from '../store/PopoverHandle';
-import { PopoverStore, type State as PopoverStoreState } from '../store/PopoverStore';
+import type { PayloadChildRenderFunction } from '../../utils/popups';
+import type { PopoverHandle } from '../store/PopoverHandle';
+import { PopoverStore } from '../store/PopoverStore';
+import type { State as PopoverStoreState } from '../store/PopoverStore';
 import { PopoverRootContext, usePopoverRootContext } from './PopoverRootContext';
 
 function PopoverRootComponent<Payload>(
@@ -219,7 +214,7 @@ export interface PopoverRootProps<Payload = unknown> {
    * The content of the popover.
    * This can be a regular React node or a render function that receives the `payload` of the active trigger.
    */
-  children?: JSX.Element | PayloadChildRenderFunction<Payload>;
+  children?: JSX.Element | PayloadChildRenderFunction<Payload> | undefined;
 }
 
 export interface PopoverRootActions {

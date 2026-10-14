@@ -1,6 +1,7 @@
 import { createMemo } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { access, shallowEqual, type MaybeAccessor } from '../solid-helpers';
+import { access, shallowEqual } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 
 export function useFocusableWhenDisabled(
   parameters: UseFocusableWhenDisabledParameters,
@@ -64,7 +65,7 @@ export function useFocusableWhenDisabled(
 interface FocusableWhenDisabledProps {
   'aria-disabled'?: 'true' | 'false' | undefined;
   disabled?: boolean | undefined;
-  onKeyDown?: (event: KeyboardEvent) => void;
+  onKeyDown?: ((event: KeyboardEvent) => void) | undefined;
   tabindex: string | number;
 }
 
@@ -73,7 +74,7 @@ export interface UseFocusableWhenDisabledParameters {
    * Whether the component should be focusable when disabled.
    * When `undefined`, composite items are focusable when disabled by default.
    */
-  focusableWhenDisabled?: MaybeAccessor<boolean | undefined>;
+  focusableWhenDisabled?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * The disabled state of the component.
    */
@@ -82,11 +83,11 @@ export interface UseFocusableWhenDisabledParameters {
    * Whether this is a composite item or not.
    * @default false
    */
-  composite?: MaybeAccessor<boolean | undefined>;
+  composite?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * @default 0
    */
-  tabIndex?: MaybeAccessor<string | number | undefined>;
+  tabIndex?: MaybeAccessor<string | number | undefined> | undefined;
   /**
    * @default true
    */

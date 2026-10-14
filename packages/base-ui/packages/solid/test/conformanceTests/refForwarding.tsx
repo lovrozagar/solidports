@@ -32,7 +32,7 @@ export function testRefForwarding(
       const { render, refInstanceof } = getOptions();
 
       await verifyRef(element, render, (instance) => {
-        expect(instance).to.be.instanceof(refInstanceof);
+        expect(instance).toBeInstanceOf(refInstanceof);
       });
     });
   });

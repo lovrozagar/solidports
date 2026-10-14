@@ -1,8 +1,8 @@
-/* eslint-disable typescript/no-explicit-any -- generic State/Metadata propagated via composite root, mirrors React port */
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps, type MaybeAccessor } from '../../../solid-helpers';
+import { splitComponentProps } from '../../../solid-helpers';
+import type { MaybeAccessor } from '../../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../../utils/constants';
-import { StateAttributesMapping } from '../../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../../utils/getStateAttributesProps';
 import type { BaseUIComponentProps, UseRenderElementRef } from '../../../utils/types';
 import { useRenderElement } from '../../../utils/useRenderElement';
 import { useCompositeItem } from './useCompositeItem';
@@ -62,9 +62,9 @@ export interface CompositeItemProps<Metadata, State extends Record<string, any>>
   BaseUIComponentProps<any, State>,
   'render' | 'class' | 'style'
 > {
-  children?: JSX.Element;
-  metadata?: MaybeAccessor<Metadata | undefined>;
-  refs?: UseRenderElementRef<HTMLElement> | UseRenderElementRef<HTMLElement>[];
+  children?: JSX.Element | undefined;
+  metadata?: MaybeAccessor<Metadata | undefined> | undefined;
+  refs?: UseRenderElementRef<HTMLElement> | UseRenderElementRef<HTMLElement>[] | undefined;
   /** Sources below the composite item's own props (a button's default attributes). */
   baseProps?: ReadonlyArray<Record<string, any> | (() => Record<string, any>)> | undefined;
   props?: Array<Record<string, any> | (() => Record<string, any>)> | undefined;

@@ -1,17 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createEffect, createSignal, Show, untrack, type Setter } from 'solid-js';
+import { createEffect, createSignal, Show, untrack } from 'solid-js';
+import type { Setter } from 'solid-js';
 import { render, screen, waitFor } from '@solidjs/testing-library';
 import { act, flushMicrotasks } from '#test-utils';
 import { SolidStore } from '../store/SolidStoreV2';
 import { createDepsRenderEffect } from '../../solid-helpers';
+import type { PopupStoreContext, PopupStoreState, PopupStoreSelectors } from './';
 import {
   applyPopupOpenChange,
   createInitialPopupStoreState,
   createPopupFloatingRootContext,
   createPopupOpenState,
-  PopupStoreContext,
-  PopupStoreState,
-  PopupStoreSelectors,
   PopupTriggerMap,
   popupStoreSelectors,
   useImplicitActiveTrigger,

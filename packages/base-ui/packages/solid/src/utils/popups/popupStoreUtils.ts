@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- popup utils accept arbitrary State extends PopupStoreState; carrying generic Payload through every helper would balloon signatures */
 import { createMemo, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -6,29 +5,23 @@ import { useFloatingParentNodeId } from '../../floating-ui-solid/components/Floa
 import { FOCUSABLE_ATTRIBUTE } from '../../floating-ui-solid/utils/constants';
 import { useSyncedFloatingRootContext } from '../../floating-ui-solid/hooks/useSyncedFloatingRootContext';
 import { EMPTY_OBJECT } from '../empty';
-import { SolidStore } from '../store/SolidStoreV2';
+import type { SolidStore } from '../store/SolidStoreV2';
 import type { HTMLProps } from '../types';
 import { useId } from '../useId';
 import type { InteractionType } from '../useEnhancedClickHandler';
 import { useUnmountAfterClose } from '../useUnmountAfterClose';
-import {
-  createChangeEventDetails,
-  type BaseUIChangeEventDetails,
-} from '../createBaseUIEventDetails';
+import { createChangeEventDetails } from '../createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../createBaseUIEventDetails';
 import { REASONS } from '../reasons';
 import { flushSync } from '../flushSync';
-import {
+import type {
   PopupStoreContext,
   popupStoreSelectors,
   PopupStoreState,
   PopupTriggerDataStore,
 } from './store';
-import {
-  access,
-  createDepsRenderEffect,
-  type MaybeAccessor,
-  type ReactLikeRef,
-} from '../../solid-helpers';
+import { access, createDepsRenderEffect } from '../../solid-helpers';
+import type { MaybeAccessor, ReactLikeRef } from '../../solid-helpers';
 import type { FloatingRootStore } from '../../floating-ui-solid/components/FloatingRootStoreV2';
 
 export const FOCUSABLE_POPUP_PROPS = {
@@ -474,7 +467,7 @@ export type PayloadChildRenderFunction<Payload> = (arg: {
 export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(
   store: PopupStoreWithOpen<State, BaseUIChangeEventDetails<typeof REASONS.none>>,
   options: {
-    closeOnActiveTriggerUnmount?: MaybeAccessor<boolean | undefined>;
+    closeOnActiveTriggerUnmount?: MaybeAccessor<boolean | undefined> | undefined;
   } = {},
 ) {
   // Distinguishes a trigger that unmounted from a new active trigger that has not hydrated yet.

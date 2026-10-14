@@ -19,7 +19,7 @@ describe('<Field.Description />', () => {
       </Field.Root>
     ));
 
-    expect(screen.getByRole('textbox')).to.have.attribute(
+    expect(screen.getByRole('textbox')).toHaveAttribute(
       'aria-describedby',
       screen.getByText('Message').id,
     );
@@ -33,7 +33,7 @@ describe('<Field.Description />', () => {
       </Field.Root>
     ));
 
-    expect(screen.getByRole('textbox').getAttribute('aria-describedby')).to.equal(
+    expect(screen.getByRole('textbox').getAttribute('aria-describedby')).toBe(
       `external-description ${screen.getByText('Message').id}`,
     );
   });
@@ -46,10 +46,7 @@ describe('<Field.Description />', () => {
       </Field.Root>
     ));
 
-    expect(screen.getByRole('textbox')).to.have.attribute(
-      'aria-describedby',
-      'external-description',
-    );
+    expect(screen.getByRole('textbox')).toHaveAttribute('aria-describedby', 'external-description');
   });
 
   it('reflects the disabled state from Field.Item', () => {
@@ -61,6 +58,6 @@ describe('<Field.Description />', () => {
       </Field.Root>
     ));
 
-    expect(screen.getByTestId('description')).to.have.attribute('data-disabled');
+    expect(screen.getByTestId('description')).toHaveAttribute('data-disabled');
   });
 });

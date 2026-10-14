@@ -9,7 +9,6 @@ import {
 import { Select } from '@solidports/base-ui/select';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect, vi, describe, it } from 'vitest';
-import { spy } from 'sinon';
 
 describe('<Select.Trigger />', () => {
   const { render } = createRenderer();
@@ -49,7 +48,7 @@ describe('<Select.Trigger />', () => {
     });
 
     it('does not toggle the popup when disabled', async () => {
-      const handleOpenChange = spy();
+      const handleOpenChange = vi.fn();
       render(() => (
         <Select.Root defaultValue="b" onOpenChange={handleOpenChange}>
           <Select.Trigger data-testid="trigger" disabled>
@@ -71,9 +70,9 @@ describe('<Select.Trigger />', () => {
       fireEvent.click(trigger);
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).to.equal(null);
+        expect(screen.queryByRole('listbox')).toBe(null);
       });
-      expect(handleOpenChange.callCount).to.equal(0);
+      expect(handleOpenChange.mock.calls.length).toBe(0);
     });
 
     it('is removed from the tab order when disabled and not rendered as a button', async () => {
@@ -110,8 +109,8 @@ describe('<Select.Trigger />', () => {
       const trigger = screen.getByTestId('trigger');
       const value = screen.getByTestId('value');
 
-      expect(trigger).to.have.attribute('data-placeholder');
-      expect(value).to.have.attribute('data-placeholder');
+      expect(trigger).toHaveAttribute('data-placeholder');
+      expect(value).toHaveAttribute('data-placeholder');
     });
 
     it('should have the data-placeholder attribute when provided custom property with `itemToStringValue`', async () => {
@@ -137,9 +136,9 @@ describe('<Select.Trigger />', () => {
       const trigger = screen.getByTestId('trigger');
       const value = screen.getByTestId('value');
 
-      expect(trigger).to.have.attribute('data-placeholder');
-      expect(value).to.have.attribute('data-placeholder');
-      expect(value.textContent).to.equal('Default');
+      expect(trigger).toHaveAttribute('data-placeholder');
+      expect(value).toHaveAttribute('data-placeholder');
+      expect(value.textContent).toBe('Default');
     });
 
     it('should have the data-placeholder attribute when provided { value: null }', async () => {
@@ -156,9 +155,9 @@ describe('<Select.Trigger />', () => {
       const trigger = screen.getByTestId('trigger');
       const value = screen.getByTestId('value');
 
-      expect(trigger).to.have.attribute('data-placeholder');
-      expect(value).to.have.attribute('data-placeholder');
-      expect(value.textContent).to.equal('Select font');
+      expect(trigger).toHaveAttribute('data-placeholder');
+      expect(value).toHaveAttribute('data-placeholder');
+      expect(value.textContent).toBe('Select font');
     });
 
     it('should not have the data-placeholder attribute when provided a value', async () => {
@@ -173,8 +172,8 @@ describe('<Select.Trigger />', () => {
       const trigger = screen.getByTestId('trigger');
       const value = screen.getByTestId('value');
 
-      expect(trigger).not.to.have.attribute('data-placeholder');
-      expect(value).not.to.have.attribute('data-placeholder');
+      expect(trigger).not.toHaveAttribute('data-placeholder');
+      expect(value).not.toHaveAttribute('data-placeholder');
     });
 
     it('should not have the data-placeholder attribute when multiple mode has a default value', async () => {
@@ -189,8 +188,8 @@ describe('<Select.Trigger />', () => {
       const trigger = screen.getByTestId('trigger');
       const value = screen.getByTestId('value');
 
-      expect(trigger).not.to.have.attribute('data-placeholder');
-      expect(value).not.to.have.attribute('data-placeholder');
+      expect(trigger).not.toHaveAttribute('data-placeholder');
+      expect(value).not.toHaveAttribute('data-placeholder');
     });
   });
 
@@ -207,9 +206,9 @@ describe('<Select.Trigger />', () => {
       await user.click(trigger);
 
       await waitFor(() => {
-        expect(trigger).to.have.attribute('data-popup-open');
+        expect(trigger).toHaveAttribute('data-popup-open');
       });
-      expect(trigger).to.have.attribute('data-pressed');
+      expect(trigger).toHaveAttribute('data-pressed');
     });
   });
 
@@ -222,7 +221,7 @@ describe('<Select.Trigger />', () => {
       ));
 
       const trigger = screen.getByTestId('trigger');
-      expect(trigger).to.have.attribute('aria-required', 'true');
+      expect(trigger).toHaveAttribute('aria-required', 'true');
     });
   });
 

@@ -46,9 +46,12 @@ export function List(props: FilterDropdownList.Props) {
           get 'aria-labelledby'() {
             return resolvePopupLabel(
               {
-                'aria-label': typeof props['aria-label'] === 'string' ? props['aria-label'] : undefined,
+                'aria-label':
+                  typeof props['aria-label'] === 'string' ? props['aria-label'] : undefined,
                 'aria-labelledby':
-                  typeof props['aria-labelledby'] === 'string' ? props['aria-labelledby'] : undefined,
+                  typeof props['aria-labelledby'] === 'string'
+                    ? props['aria-labelledby']
+                    : undefined,
                 render: props.render,
               },
               null,

@@ -83,7 +83,7 @@ describe('<Field.Control />', () => {
     // The controlled echo must not schedule a second render per keystroke.
     // Solid: the render function does not re-run per keystroke at all; prop changes reach the
     // element through its spread.
-    expect(renderCountRef.current).to.be.at.most(settledRenderCount + 2);
+    expect(renderCountRef.current).toBeLessThanOrEqual(settledRenderCount + 2);
   });
 
   it('validates once when changed by the user', async () => {
@@ -609,17 +609,17 @@ describe('<Field.Control />', () => {
     const { hydrate } = renderServer(fixtures, 'autoFocus');
 
     const control = screen.getByRole('textbox');
-    expect(control).to.have.attribute('autofocus');
+    expect(control).toHaveAttribute('autofocus');
 
     // Simulate focused by browser before hydration
     control.focus();
-    expect(control).to.equal(document.activeElement);
+    expect(control).toBe(document.activeElement);
 
     hydrate();
 
-    expect(screen.getByTestId('root')).to.have.attribute('data-focused', '');
-    expect(control).to.have.attribute('data-focused', '');
-    expect(screen.getByText('Name')).to.have.attribute('data-focused', '');
+    expect(screen.getByTestId('root')).toHaveAttribute('data-focused', '');
+    expect(control).toHaveAttribute('data-focused', '');
+    expect(screen.getByText('Name')).toHaveAttribute('data-focused', '');
   });
 
   describe('id', () => {

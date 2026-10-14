@@ -1,18 +1,19 @@
 import { createEffect, createSignal } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access, createDepsMemo, type MaybeAccessor } from '../../solid-helpers';
+import { access, createDepsMemo } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import type { ImageLoadingStatus } from '../root/AvatarRoot';
 
 export type { ImageLoadingStatus };
 
 interface UseImageLoadingStatusOptions {
-  referrerPolicy?: MaybeAccessor<JSX.HTMLReferrerPolicy | false | undefined>;
-  crossOrigin?: MaybeAccessor<
-    JSX.ImgHTMLAttributes<HTMLImageElement>['crossorigin'] | false | undefined
-  >;
-  sizes?: MaybeAccessor<string | undefined>;
-  srcSet?: MaybeAccessor<string | undefined>;
+  referrerPolicy?: MaybeAccessor<JSX.HTMLReferrerPolicy | false | undefined> | undefined;
+  crossOrigin?:
+    | MaybeAccessor<JSX.ImgHTMLAttributes<HTMLImageElement>['crossorigin'] | false | undefined>
+    | undefined;
+  sizes?: MaybeAccessor<string | undefined> | undefined;
+  srcSet?: MaybeAccessor<string | undefined> | undefined;
 }
 
 export function useImageLoadingStatus(

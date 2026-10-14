@@ -99,7 +99,7 @@ export interface UseClientPointProps {
  */
 export function useClientPoint(parameters: {
   context: FloatingRootContext | FloatingContext;
-  props?: UseClientPointProps;
+  props?: UseClientPointProps | undefined;
 }): ElementProps {
   const props = defaultProps(parameters.props ?? {}, {
     axis: 'both',

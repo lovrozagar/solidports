@@ -1,4 +1,5 @@
-import { createContext, untrack, useContext, type Accessor } from 'solid-js';
+import { createContext, untrack, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { HTMLProps } from '../../utils/types';
 import { MenuRootContext } from '../root/MenuRootContext';

@@ -94,9 +94,9 @@ describe('native parity: Toggle', () => {
     setDisabled(true);
     flush();
     expect(stripIds(fast)).toBe(stripIds(slow));
-    expect(fastEl).to.have.attribute('aria-pressed', 'true');
-    expect(fastEl).to.have.attribute('disabled');
-    expect(fastEl).to.have.attribute('class', 'on');
+    expect(fastEl).toHaveAttribute('aria-pressed', 'true');
+    expect(fastEl).toHaveAttribute('disabled');
+    expect(fastEl).toHaveAttribute('class', 'on');
     setPressed(false);
     setDisabled(false);
     flush();
@@ -259,8 +259,8 @@ describe('native parity: Toggle', () => {
       wrap,
     );
     expect(stripIds(fast)).toBe(stripIds(slow));
-    expect(fastEl).to.have.attribute('aria-disabled', 'false');
-    expect(fastEl).to.have.attribute('tabindex', '0');
+    expect(fastEl).toHaveAttribute('aria-disabled', 'false');
+    expect(fastEl).toHaveAttribute('tabindex', '0');
     setDisabled(true);
     flush();
     expect(stripIds(fast)).toBe(stripIds(slow));

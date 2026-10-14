@@ -1,11 +1,12 @@
 import {
   createStore as createStore2,
   omit,
-  type Accessor,
-  type Store,
-  type StoreSetter,
-  untrack,
+  
+  
+  
+  untrack
 } from 'solid-js';
+import type {Accessor, Store, StoreSetter} from 'solid-js';
 import { storePath } from '@solidjs/signals';
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void

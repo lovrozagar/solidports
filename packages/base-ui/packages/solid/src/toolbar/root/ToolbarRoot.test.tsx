@@ -1,10 +1,11 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
-import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
+import { DirectionProvider } from '@solidports/base-ui/direction-provider';
+import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { screen } from '@solidjs/testing-library';
 import { expect, describe, it } from 'vitest';
 import type { JSX } from '@solidjs/web';
-import { type Orientation } from '../../utils/types';
+import type { Orientation } from '../../utils/types';
 import { useToolbarRootContext } from './ToolbarRootContext';
 
 describe('<Toolbar.Root />', () => {
@@ -19,7 +20,7 @@ describe('<Toolbar.Root />', () => {
     it('has role="toolbar"', async () => {
       const { container } = render(() => <Toolbar.Root />);
 
-      expect(container.firstElementChild as HTMLElement).to.have.attribute('role', 'toolbar');
+      expect(container.firstElementChild as HTMLElement).toHaveAttribute('role', 'toolbar');
     });
   });
 
@@ -143,24 +144,24 @@ describe('<Toolbar.Root />', () => {
 
       [...screen.getAllByRole('button'), ...screen.getAllByRole('textbox')].forEach(
         (toolbarItem) => {
-          expect(toolbarItem).to.have.attribute('aria-disabled', 'true');
-          expect(toolbarItem).to.have.attribute('data-disabled');
+          expect(toolbarItem).toHaveAttribute('aria-disabled', 'true');
+          expect(toolbarItem).toHaveAttribute('data-disabled');
         },
       );
 
-      expect(screen.getByRole('group')).to.have.attribute('data-disabled');
+      expect(screen.getByRole('group')).toHaveAttribute('data-disabled');
 
       screen.getAllByText('Link').forEach((link) => {
-        expect(link).to.not.have.attribute('data-disabled');
-        expect(link).to.not.have.attribute('aria-disabled');
+        expect(link).not.toHaveAttribute('data-disabled');
+        expect(link).not.toHaveAttribute('aria-disabled');
       });
     });
   });
 
   describe.skipIf(isJSDOM)('prop: focusableWhenDisabled', () => {
     function expectFocusedWhenDisabled(element: Element) {
-      expect(element).to.have.attribute('data-disabled');
-      expect(element).to.have.attribute('aria-disabled', 'true');
+      expect(element).toHaveAttribute('data-disabled');
+      expect(element).toHaveAttribute('aria-disabled', 'true');
       expect(element).toHaveFocus();
     }
 
@@ -179,7 +180,7 @@ describe('<Toolbar.Root />', () => {
       const input = screen.getByRole('textbox');
       const buttons = screen.getAllByRole('button');
       [input, ...buttons].forEach((item) => {
-        expect(item).to.not.have.attribute('disabled');
+        expect(item).not.toHaveAttribute('disabled');
       });
 
       const [button1, groupedButton1, groupedButton2] = buttons;
@@ -198,7 +199,7 @@ describe('<Toolbar.Root />', () => {
 
       // loop to the beginning
       await user.keyboard('[ArrowRight]');
-      expect(button1).to.have.attribute('tabindex', '0');
+      expect(button1).toHaveAttribute('tabindex', '0');
 
       await user.keyboard('[ArrowLeft]');
       expectFocusedWhenDisabled(input);
@@ -225,11 +226,11 @@ describe('<Toolbar.Root />', () => {
         (button) => button.getAttribute('data-focusable') != null,
       );
       [input, ...focusableWhenDisabledButtons].forEach((item) => {
-        expect(item).to.not.have.attribute('disabled');
+        expect(item).not.toHaveAttribute('disabled');
       });
 
       const [button1, groupedButton1, groupedButton2] = buttons;
-      expect(groupedButton2).to.have.attribute('disabled');
+      expect(groupedButton2).toHaveAttribute('disabled');
 
       await user.keyboard('[Tab]');
       expect(button1).toHaveFocus();
@@ -242,7 +243,7 @@ describe('<Toolbar.Root />', () => {
 
       // loop to the beginning
       await user.keyboard('[ArrowRight]');
-      expect(button1).to.have.attribute('tabindex', '0');
+      expect(button1).toHaveAttribute('tabindex', '0');
 
       await user.keyboard('[ArrowLeft]');
       expectFocusedWhenDisabled(input);
@@ -262,9 +263,9 @@ describe('<Toolbar.Root />', () => {
 
       const [button1, button2, button3] = screen.getAllByRole('button');
       // a natively disabled first item cannot hold the single roving tab stop
-      expect(button1).to.have.attribute('disabled');
-      expect(button1).not.to.have.attribute('tabindex', '0');
-      expect(button2).to.have.attribute('tabindex', '0');
+      expect(button1).toHaveAttribute('disabled');
+      expect(button1).not.toHaveAttribute('tabindex', '0');
+      expect(button2).toHaveAttribute('tabindex', '0');
 
       await user.keyboard('[Tab]');
       expect(button2).toHaveFocus();
@@ -287,7 +288,7 @@ describe('<Toolbar.Root />', () => {
       ));
 
       const [button1, button2, button3] = screen.getAllByRole('button');
-      expect(button2).not.to.have.attribute('disabled');
+      expect(button2).not.toHaveAttribute('disabled');
 
       await user.keyboard('[Tab]');
       expect(button1).toHaveFocus();

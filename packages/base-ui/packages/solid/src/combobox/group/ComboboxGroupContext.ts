@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createContext, useContext } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 
@@ -9,7 +8,7 @@ export interface ComboboxGroupContext {
    * Optional list of items that belong to this group. Used by nested
    * collections to render group-specific items.
    */
-  items?: Accessor<readonly any[] | undefined>;
+  items?: Accessor<readonly any[] | undefined> | undefined;
 }
 
 export const ComboboxGroupContext = createContext<ComboboxGroupContext | null>(null);

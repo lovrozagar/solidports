@@ -1,12 +1,12 @@
 import type { JSX } from '@solidjs/web';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { splitComponentProps } from '../../solid-helpers';
-import { type StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { popupStateMapping as baseMapping } from '../../utils/popupStateMapping';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
-import { type BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { type TransitionStatus } from '../../utils/useTransitionStatus';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import * as DrawerPopupCssVars from '../popup/DrawerPopupCssVars';
 import * as DrawerBackdropCssVars from './DrawerBackdropCssVars';
 

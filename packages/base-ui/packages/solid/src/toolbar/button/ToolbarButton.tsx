@@ -3,7 +3,7 @@ import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { EMPTY_OBJECT } from '../../utils/empty';
-import { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
+import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useToolbarGroupContext } from '../group/ToolbarGroupContext';
 import type { ToolbarRoot } from '../root/ToolbarRoot';
 import { useToolbarRootContext } from '../root/ToolbarRootContext';

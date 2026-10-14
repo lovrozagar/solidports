@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createEffect, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { warn } from '../../utils/warn';
@@ -28,8 +27,8 @@ import {
   getOTPValidationConfig,
   normalizeOTPValue,
   normalizeOTPValueWithDetails,
-  type OTPValidationType,
 } from '../utils/otp';
+import type { OTPValidationType } from '../utils/otp';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 
 /**

@@ -13,7 +13,7 @@ import { REASONS } from '../../utils/reasons';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps } from '../../utils/types';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
-import { InteractionType } from '../../utils/useEnhancedClickHandler';
+import type { InteractionType } from '../../utils/useEnhancedClickHandler';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';

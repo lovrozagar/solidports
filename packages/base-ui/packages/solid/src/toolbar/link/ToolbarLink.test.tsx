@@ -41,7 +41,7 @@ describe('<Toolbar.Link />', () => {
         </Toolbar.Root>
       ));
 
-      expect(screen.getByTestId('link')).to.equal(screen.getByRole('link'));
+      expect(screen.getByTestId('link')).toBe(screen.getByRole('link'));
     });
   });
 });

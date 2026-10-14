@@ -38,7 +38,7 @@ describe('useRenderElement', () => {
 
     const element = container.firstElementChild;
 
-    expect(element).to.have.attribute('class', 'active-class test-component');
+    expect(element).toHaveAttribute('class', 'active-class test-component');
   });
 
   it('accepts className as function that returns undefined', () => {
@@ -48,7 +48,7 @@ describe('useRenderElement', () => {
 
     const element = container.firstElementChild;
 
-    expect(element).to.have.attribute('class', 'test-component');
+    expect(element).toHaveAttribute('class', 'test-component');
   });
 
   it('accepts style as function', () => {
@@ -61,7 +61,7 @@ describe('useRenderElement', () => {
 
     const element = container.firstElementChild;
 
-    expect(element?.getAttribute('style')).to.equal('padding: 10px; color: rgb(255, 0, 0);');
+    expect(element?.getAttribute('style')).toBe('padding: 10px; color: rgb(255, 0, 0);');
   });
 
   it('accepts style as function that returns undefined', () => {
@@ -71,7 +71,7 @@ describe('useRenderElement', () => {
 
     const element = container.firstElementChild;
 
-    expect(element?.getAttribute('style')).to.equal('padding: 10px;');
+    expect(element?.getAttribute('style')).toBe('padding: 10px;');
   });
 
   function DirectPropsTestComponent(
@@ -172,8 +172,8 @@ describe('useRenderElement', () => {
 
     expect(() =>
       element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })),
-    ).not.to.throw();
-    expect(handleMouseDown.mock.calls.length).to.equal(1);
+    ).not.toThrow();
+    expect(handleMouseDown.mock.calls.length).toBe(1);
   });
 
   it('makes multi-prop arrays preventable when the event handler is first', () => {
@@ -187,8 +187,8 @@ describe('useRenderElement', () => {
 
     expect(() =>
       element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })),
-    ).not.to.throw();
-    expect(handleMouseDown.mock.calls.length).to.equal(1);
+    ).not.toThrow();
+    expect(handleMouseDown.mock.calls.length).toBe(1);
   });
 
   it('makes obscure single-prop events preventable', () => {
@@ -204,8 +204,8 @@ describe('useRenderElement', () => {
 
     expect(() =>
       element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })),
-    ).not.to.throw();
-    expect(handleContextMenu.mock.calls.length).to.equal(1);
+    ).not.toThrow();
+    expect(handleContextMenu.mock.calls.length).toBe(1);
   });
 
   it('makes obscure multi-prop array events preventable when the event handler is first', () => {
@@ -221,8 +221,8 @@ describe('useRenderElement', () => {
 
     expect(() =>
       element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })),
-    ).not.to.throw();
-    expect(handleContextMenu.mock.calls.length).to.equal(1);
+    ).not.toThrow();
+    expect(handleContextMenu.mock.calls.length).toBe(1);
   });
 
   it('does not resolve props when disabled', () => {
@@ -232,8 +232,8 @@ describe('useRenderElement', () => {
 
     const { container } = render(() => <DisabledPropsTestComponent propsGetter={propsGetter} />);
 
-    expect(container.firstElementChild).to.equal(null);
-    expect(propsGetter.mock.calls.length).to.equal(0);
+    expect(container.firstElementChild).toBe(null);
+    expect(propsGetter.mock.calls.length).toBe(0);
   });
 
   it('handles enabled toggles across rerenders', () => {
@@ -250,23 +250,23 @@ describe('useRenderElement', () => {
       />
     ));
 
-    expect(document.getElementById('rerender-target')).to.equal(null);
-    expect(ref.current ?? null).to.equal(null);
+    expect(document.getElementById('rerender-target')).toBe(null);
+    expect(ref.current ?? null).toBe(null);
 
     act(() => setEnabled(true));
 
     const element = document.getElementById('rerender-target') as HTMLDivElement;
 
-    expect(element).not.to.equal(null);
-    expect(ref.current).to.equal(element);
+    expect(element).not.toBe(null);
+    expect(ref.current).toBe(element);
 
     element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(handleClick.mock.calls.length).to.equal(1);
+    expect(handleClick.mock.calls.length).toBe(1);
 
     act(() => setEnabled(false));
 
-    expect(document.getElementById('rerender-target')).to.equal(null);
-    expect(ref.current ?? null).to.equal(null);
+    expect(document.getElementById('rerender-target')).toBe(null);
+    expect(ref.current ?? null).toBe(null);
   });
 
   it('updates merged refs and event handlers when ref shape changes across rerenders', () => {
@@ -283,8 +283,8 @@ describe('useRenderElement', () => {
 
     const initialElement = document.getElementById('rerender-target');
 
-    expect(primaryRef.current).to.equal(initialElement);
-    expect(secondaryRef.current ?? null).to.equal(null);
+    expect(primaryRef.current).toBe(initialElement);
+    expect(secondaryRef.current ?? null).toBe(null);
 
     act(() => {
       setRefs([primaryRef, secondaryRef]);
@@ -293,17 +293,17 @@ describe('useRenderElement', () => {
 
     const updatedElement = document.getElementById('rerender-target') as HTMLDivElement;
 
-    expect(primaryRef.current).to.equal(updatedElement);
-    expect(secondaryRef.current).to.equal(updatedElement);
+    expect(primaryRef.current).toBe(updatedElement);
+    expect(secondaryRef.current).toBe(updatedElement);
 
     updatedElement.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    expect(firstHandleClick.mock.calls.length).to.equal(0);
-    expect(secondHandleClick.mock.calls.length).to.equal(1);
+    expect(firstHandleClick.mock.calls.length).toBe(0);
+    expect(secondHandleClick.mock.calls.length).toBe(1);
 
     act(() => setRefs(secondaryRef));
 
-    expect(primaryRef.current ?? null).to.equal(null);
-    expect(secondaryRef.current).to.equal(document.getElementById('rerender-target'));
+    expect(primaryRef.current ?? null).toBe(null);
+    expect(secondaryRef.current).toBe(document.getElementById('rerender-target'));
   });
 
   describe('EMPTY_OBJECT mutation safety', () => {
@@ -321,15 +321,15 @@ describe('useRenderElement', () => {
 
     it('does not throw when className is provided with minimal props', () => {
       const { container } = render(() => <MinimalComponent class="test-class" />);
-      expect(container.firstElementChild).not.to.equal(null);
-      expect(container.firstElementChild).to.have.attribute('class', 'test-class');
+      expect(container.firstElementChild).not.toBe(null);
+      expect(container.firstElementChild).toHaveAttribute('class', 'test-class');
     });
 
     it('does not throw when style is provided with minimal props', () => {
       const { container } = render(() => <MinimalComponent style={{ color: 'red' }} />);
-      expect(container.firstElementChild).not.to.equal(null);
+      expect(container.firstElementChild).not.toBe(null);
       const element = container.firstElementChild as HTMLElement;
-      expect(element.style.color).to.equal('red');
+      expect(element.style.color).toBe('red');
     });
   });
 
@@ -345,17 +345,17 @@ describe('useRenderElement', () => {
 
       const element = container.firstElementChild;
 
-      expect(renderFn.mock.calls.length).to.be.greaterThan(0);
+      expect(renderFn.mock.calls.length).toBeGreaterThan(0);
       const [firstCallProps, firstCallState] = renderFn.mock.calls[0];
-      expect(firstCallProps).to.include({
+      expect(firstCallProps).toMatchObject({
         class: 'test-component',
         'data-testid': 'custom',
       });
-      expect(firstCallProps.style).to.deep.equal({ padding: '10px' });
-      expect(firstCallState).to.deep.equal({ active: true });
-      expect(element?.tagName).to.equal('SPAN');
-      expect(element).to.have.attribute('data-testid', 'custom');
-      expect(element).to.have.attribute('data-active', 'true');
+      expect(firstCallProps.style).toEqual({ padding: '10px' });
+      expect(firstCallState).toEqual({ active: true });
+      expect(element?.tagName).toBe('SPAN');
+      expect(element).toHaveAttribute('data-testid', 'custom');
+      expect(element).toHaveAttribute('data-active', 'true');
     });
 
     it('accepts render as a React element and clones it with merged props', async () => {
@@ -373,9 +373,9 @@ describe('useRenderElement', () => {
 
       const element = container.firstElementChild;
 
-      expect(element?.tagName).to.equal('SPAN');
-      expect(element).to.have.attribute('data-testid', 'custom');
-      expect(element).to.have.attribute('data-active', 'true');
+      expect(element?.tagName).toBe('SPAN');
+      expect(element).toHaveAttribute('data-testid', 'custom');
+      expect(element).toHaveAttribute('data-active', 'true');
     });
 
     it('forwards ref to render element', async () => {
@@ -393,7 +393,7 @@ describe('useRenderElement', () => {
         />
       ));
       const element = container.firstElementChild;
-      expect(ref).to.equal(element);
+      expect(ref).toBe(element);
     });
 
     it('merges className from render element and component props', async () => {
@@ -407,9 +407,9 @@ describe('useRenderElement', () => {
 
       const element = container.firstElementChild;
 
-      expect(element?.className).to.contain('component-class');
-      expect(element?.className).to.contain('render-class');
-      expect(element?.className).to.contain('test-component');
+      expect(element?.className).toContain('component-class');
+      expect(element?.className).toContain('render-class');
+      expect(element?.className).toContain('test-component');
     });
 
     it('merges className function with render element', async () => {
@@ -423,9 +423,9 @@ describe('useRenderElement', () => {
 
       const element = container.firstElementChild;
 
-      expect(element?.className).to.contain('active-class');
-      expect(element?.className).to.contain('render-class');
-      expect(element?.className).to.contain('test-component');
+      expect(element?.className).toContain('active-class');
+      expect(element?.className).toContain('render-class');
+      expect(element?.className).toContain('test-component');
     });
 
     it('merges style from render element and component props', async () => {
@@ -441,9 +441,9 @@ describe('useRenderElement', () => {
       ));
 
       const element = container.firstElementChild as HTMLElement;
-      expect(element.style.padding).to.equal('10px');
-      expect(element.style.color).to.equal('rgb(255, 0, 0)');
-      expect(element.style.fontSize).to.equal('16px');
+      expect(element.style.padding).toBe('10px');
+      expect(element.style.color).toBe('rgb(255, 0, 0)');
+      expect(element.style.fontSize).toBe('16px');
     });
 
     it('merges style function with render element', async () => {
@@ -459,9 +459,9 @@ describe('useRenderElement', () => {
       ));
 
       const element = container.firstElementChild as HTMLElement;
-      expect(element.style.padding).to.equal('10px');
-      expect(element.style.color).to.equal('rgb(255, 0, 0)');
-      expect(element.style.fontSize).to.equal('16px');
+      expect(element.style.padding).toBe('10px');
+      expect(element.style.color).toBe('rgb(255, 0, 0)');
+      expect(element.style.fontSize).toBe('16px');
     });
 
     it('handles lazy elements', async () => {
@@ -481,11 +481,11 @@ describe('useRenderElement', () => {
       ));
 
       const element = await screen.findByTestId('lazy');
-      expect(element).to.not.equal(null);
+      expect(element).not.toBe(null);
 
-      expect(element?.getAttribute('data-testid')).to.equal('lazy');
-      expect(element?.getAttribute('data-lazy')).to.equal('true');
-      expect(element?.className).to.contain('test-component');
+      expect(element?.getAttribute('data-testid')).toBe('lazy');
+      expect(element?.getAttribute('data-lazy')).toBe('true');
+      expect(element?.className).toContain('test-component');
     });
 
     it('handles render element with existing ref', async () => {
@@ -511,9 +511,9 @@ describe('useRenderElement', () => {
         />
       ));
 
-      expect(renderRef).to.be.instanceOf(HTMLDivElement);
-      expect(componentRef).to.be.instanceOf(HTMLDivElement);
-      expect(renderRef).to.equal(componentRef);
+      expect(renderRef).toBeInstanceOf(HTMLDivElement);
+      expect(componentRef).toBeInstanceOf(HTMLDivElement);
+      expect(renderRef).toBe(componentRef);
     });
 
     // Solid: components are plain functions, so a component passed as `render` is a valid
@@ -534,7 +534,7 @@ describe('useRenderElement', () => {
 
       render(() => <TestComponent render={renderFn} />);
 
-      expect(warnSpy.mock.calls.length).to.equal(0);
+      expect(warnSpy.mock.calls.length).toBe(0);
       warnSpy.mockRestore();
     });
 
@@ -551,7 +551,7 @@ describe('useRenderElement', () => {
 
       render(() => <TestComponent render={renderFn} />);
 
-      expect(warnSpy.mock.calls.length).to.equal(0);
+      expect(warnSpy.mock.calls.length).toBe(0);
       warnSpy.mockRestore();
     });
 
@@ -568,7 +568,7 @@ describe('useRenderElement', () => {
 
       render(() => <TestComponent render={renderFn} />);
 
-      expect(warnSpy.mock.calls.length).to.equal(0);
+      expect(warnSpy.mock.calls.length).toBe(0);
       warnSpy.mockRestore();
     });
 
@@ -584,7 +584,7 @@ describe('useRenderElement', () => {
 
       render(() => <TestComponent render={(props) => <UppercaseRenderElement {...props} />} />);
 
-      expect(warnSpy.mock.calls.length).to.equal(0);
+      expect(warnSpy.mock.calls.length).toBe(0);
       warnSpy.mockRestore();
     });
 

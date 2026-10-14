@@ -38,12 +38,12 @@ describe('<Dialog.Viewport />', () => {
 
     const { user } = render(() => <App />);
 
-    expect(screen.queryByTestId('viewport')).to.equal(null);
+    expect(screen.queryByTestId('viewport')).toBe(null);
 
     await user.click(screen.getByText('Open'));
 
-    expect(screen.getByTestId('viewport')).not.to.equal(null);
-    expect(screen.getByTestId('viewport')).to.contain(screen.getByTestId('popup'));
+    expect(screen.getByTestId('viewport')).not.toBe(null);
+    expect(screen.getByTestId('viewport')).toContainElement(screen.getByTestId('popup'));
   });
 
   it('stays mounted when used within a keepMounted portal', async () => {
@@ -58,11 +58,11 @@ describe('<Dialog.Viewport />', () => {
       </Dialog.Root>
     ));
 
-    expect(screen.getByTestId('viewport')).not.to.equal(null);
+    expect(screen.getByTestId('viewport')).not.toBe(null);
 
     act(() => setOpen(false));
 
-    expect(screen.getByTestId('viewport')).not.to.equal(null);
+    expect(screen.getByTestId('viewport')).not.toBe(null);
   });
 
   // Solid-only: guards the `pointer-events` style key (Solid styles use CSS property names).
@@ -79,10 +79,10 @@ describe('<Dialog.Viewport />', () => {
     ));
 
     const viewport = screen.getByTestId('viewport');
-    expect(viewport.style.pointerEvents).to.equal('');
+    expect(viewport.style.pointerEvents).toBe('');
 
     act(() => setOpen(false));
 
-    expect(viewport.style.pointerEvents).to.equal('none');
+    expect(viewport.style.pointerEvents).toBe('none');
   });
 });

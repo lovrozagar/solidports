@@ -29,7 +29,7 @@ describe('<PreviewCard.Backdrop />', () => {
     await user.hover(screen.getByText('Open'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('backdrop').style.pointerEvents).to.equal('none');
+      expect(screen.getByTestId('backdrop').style.pointerEvents).toBe('none');
     });
   });
 });

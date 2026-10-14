@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- a props view handles arbitrary prop shapes; values are passed through as the sources hold them */
 import {
   $PROXY,
   createMemo,
@@ -7,8 +6,8 @@ import {
   isStatic,
   runWithOwner,
   untrack,
-  type Accessor,
 } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { access, shallowEqual } from '../solid-helpers';
 import { combineStyle, makeEventPreventable } from '../merge-props/mergeProps';

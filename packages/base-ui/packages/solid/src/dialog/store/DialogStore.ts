@@ -1,19 +1,17 @@
 import { untrack } from 'solid-js';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { NullStore } from '../../utils/NullStore';
+import type { PopupStoreContext, PopupStoreState, PopupTriggerDataStore } from '../../utils/popups';
 import {
   createInitialPopupStoreState,
   createPopupFloatingRootContext,
   createPopupOpenState,
-  PopupStoreContext,
   popupStoreSelectors,
-  PopupStoreState,
-  PopupTriggerDataStore,
   PopupTriggerMap,
 } from '../../utils/popups';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
-import { type InteractionType } from '../../utils/useEnhancedClickHandler';
-import { type DialogRoot } from '../root/DialogRoot';
+import type { InteractionType } from '../../utils/useEnhancedClickHandler';
+import type { DialogRoot } from '../root/DialogRoot';
 
 export type State<Payload> = PopupStoreState<Payload> & {
   modal: boolean | 'trap-focus';

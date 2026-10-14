@@ -24,7 +24,7 @@ describe('<Field.Error />', () => {
       </Field.Root>
     ));
 
-    expect(screen.getByRole('textbox')).to.have.attribute(
+    expect(screen.getByRole('textbox')).toHaveAttribute(
       'aria-describedby',
       screen.getByText('Message').id,
     );
@@ -41,7 +41,7 @@ describe('<Field.Error />', () => {
       </Form>
     ));
 
-    expect(screen.queryByText('Message')).to.equal(null);
+    expect(screen.queryByText('Message')).toBe(null);
 
     const input = screen.getByRole<HTMLInputElement>('textbox');
 
@@ -49,10 +49,10 @@ describe('<Field.Error />', () => {
     fireEvent.input(input, { target: { value: 'a' } });
     fireEvent.input(input, { target: { value: '' } });
     fireEvent.blur(input);
-    expect(screen.queryByText('Message')).to.equal(null);
+    expect(screen.queryByText('Message')).toBe(null);
 
     fireEvent.click(screen.getByText('submit'));
-    expect(screen.queryByText('Message')).not.to.equal(null);
+    expect(screen.queryByText('Message')).not.toBe(null);
   });
 
   describe('prop: match', () => {
@@ -67,19 +67,19 @@ describe('<Field.Error />', () => {
         </Form>
       ));
 
-      expect(screen.queryByText('Message')).to.equal(null);
+      expect(screen.queryByText('Message')).toBe(null);
 
       fireEvent.click(screen.getByText('submit'));
-      expect(screen.queryByText('Message')).not.to.equal(null);
+      expect(screen.queryByText('Message')).not.toBe(null);
 
       const input = screen.getByRole<HTMLInputElement>('textbox');
 
       fireEvent.focus(input);
       fireEvent.input(input, { target: { value: 'a' } });
-      expect(screen.queryByText('Message')).to.equal(null);
+      expect(screen.queryByText('Message')).toBe(null);
 
       fireEvent.input(input, { target: { value: '' } });
-      expect(screen.queryByText('Message')).not.to.equal(null);
+      expect(screen.queryByText('Message')).not.toBe(null);
     });
 
     it('should show custom errors', async () => {
@@ -98,10 +98,10 @@ describe('<Field.Error />', () => {
       fireEvent.focus(input);
       fireEvent.input(input, { target: { value: 'a' } });
       fireEvent.blur(input);
-      expect(screen.queryByText('Message')).to.equal(null);
+      expect(screen.queryByText('Message')).toBe(null);
 
       fireEvent.click(screen.getByText('submit'));
-      expect(screen.queryByText('Message')).not.to.equal(null);
+      expect(screen.queryByText('Message')).not.toBe(null);
     });
 
     it('uses `match={false}` as the default slot for Form errors', async () => {
@@ -305,7 +305,7 @@ describe('<Field.Error />', () => {
         </Field.Root>
       ));
 
-      expect(screen.queryByText('Message')).not.to.equal(null);
+      expect(screen.queryByText('Message')).not.toBe(null);
     });
   });
 
@@ -360,15 +360,15 @@ describe('<Field.Error />', () => {
       }
 
       const { user } = render(() => <Test />);
-      expect(screen.queryByTestId('error')).to.equal(null);
+      expect(screen.queryByTestId('error')).toBe(null);
 
       await user.click(screen.getByText('Show'));
 
       await waitFor(() => {
-        expect(transitionFinished).to.equal(true);
+        expect(transitionFinished).toBe(true);
       });
 
-      expect(screen.getByTestId('error')).not.to.equal(null);
+      expect(screen.getByTestId('error')).not.toBe(null);
     });
 
     it('applies data-ending-style before unmount', async () => {

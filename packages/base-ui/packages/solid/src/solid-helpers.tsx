@@ -15,11 +15,12 @@ import type { Accessor, Context } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import type { PayloadChildRenderFunction } from './utils/popups';
-import { mergeProps as solidMergeProps, splitProps, type SplitProps } from './solid-1-compat';
+import { mergeProps as solidMergeProps, splitProps } from './solid-1-compat';
+import type { SplitProps } from './solid-1-compat';
 
 export function callEventHandler<T, E extends Event>(
   eventHandler: JSX.EventHandlerUnion<T, E> | undefined,
-  event: E & { currentTarget?: T; target?: Element },
+  event: E & { currentTarget?: T | undefined; target?: Element | undefined },
 ) {
   if (eventHandler) {
     // Handlers never subscribe (see mergeProps' wrapEventHandler).

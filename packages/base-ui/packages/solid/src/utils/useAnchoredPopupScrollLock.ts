@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
-import { createDepsEffect, type MaybeAccessor, access } from '../solid-helpers';
+import { createDepsEffect, access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { ownerDocument } from './owner';
 import { useScrollLock } from './useScrollLock';
 

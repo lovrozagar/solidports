@@ -1,4 +1,5 @@
-import { type Accessor, createMemo, createSignal, createUniqueId, For } from 'solid-js';
+import {  createMemo, createSignal, createUniqueId, For } from 'solid-js';
+import type {Accessor} from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Combobox } from '@solidports/base-ui/combobox';
 

@@ -1,6 +1,7 @@
 import { expect, vi, describe, it } from 'vitest';
 import { createSignal, Show } from 'solid-js';
-import { Dynamic, type JSX } from '@solidjs/web';
+import { Dynamic } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import { Toast } from '@solidports/base-ui/toast';
 import { act, createRenderer, flushMicrotasks } from '#test-utils';
 import { screen } from '@solidjs/testing-library';

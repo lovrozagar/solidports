@@ -2,7 +2,6 @@ import { act, createRenderer, isJSDOM } from '#test-utils';
 import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { spy } from 'sinon';
 import { expect, vi, describe, it } from 'vitest';
 
 describe('<Field.Validity />', () => {
@@ -27,23 +26,23 @@ describe('<Field.Validity />', () => {
 
     await act(() => user.type(input, '1[Tab]'));
 
-    expect(handleValidity.mock.lastCall?.[0].value).to.equal('1');
-    expect(handleValidity.mock.lastCall?.[0].validity.customError).to.equal(true);
+    expect(handleValidity.mock.lastCall?.[0].value).toBe('1');
+    expect(handleValidity.mock.lastCall?.[0].validity.customError).toBe(true);
 
     await act(() => user.type(input, '{Control>}a{/Control}e'));
 
-    expect(input.validity.valueMissing).to.equal(true);
-    expect(input.validity.badInput).to.equal(true);
-    expect(handleValidity.mock.lastCall?.[0].value).to.equal('1');
-    expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).to.equal(false);
-    expect(handleValidity.mock.lastCall?.[0].validity.badInput).to.equal(false);
-    expect(screen.queryByText('Required')).to.equal(null);
-    expect(screen.queryByText('Invalid number')).to.equal(null);
+    expect(input.validity.valueMissing).toBe(true);
+    expect(input.validity.badInput).toBe(true);
+    expect(handleValidity.mock.lastCall?.[0].value).toBe('1');
+    expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).toBe(false);
+    expect(handleValidity.mock.lastCall?.[0].validity.badInput).toBe(false);
+    expect(screen.queryByText('Required')).toBe(null);
+    expect(screen.queryByText('Invalid number')).toBe(null);
   });
 
   describe('validationMode=onSubmit', () => {
     it('should pass validity data', () => {
-      const handleValidity = spy();
+      const handleValidity = vi.fn();
 
       render(() => (
         <Form>
@@ -57,26 +56,26 @@ describe('<Field.Validity />', () => {
 
       const input = screen.getByRole<HTMLInputElement>('textbox');
 
-      expect(handleValidity.lastCall.args[0].validity.valid).to.equal(null);
+      expect(handleValidity.mock.lastCall?.[0].validity.valid).toBe(null);
 
       fireEvent.click(screen.getByText('submit'));
 
-      expect(handleValidity.lastCall.args[0].validity.valid).to.equal(false);
-      expect(handleValidity.lastCall.args[0].validity.valueMissing).to.equal(true);
-      expect(handleValidity.lastCall.args[0]).to.have.property('transitionStatus');
+      expect(handleValidity.mock.lastCall?.[0].validity.valid).toBe(false);
+      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).toBe(true);
+      expect(handleValidity.mock.lastCall?.[0]).toHaveProperty(['transitionStatus']);
 
       fireEvent.focus(input);
       fireEvent.input(input, { target: { value: 'test' } });
 
-      expect(handleValidity.lastCall.args[0].value).to.equal('test');
-      expect(handleValidity.lastCall.args[0].validity.valid).to.equal(true);
-      expect(handleValidity.lastCall.args[0].validity.valueMissing).to.equal(false);
+      expect(handleValidity.mock.lastCall?.[0].value).toBe('test');
+      expect(handleValidity.mock.lastCall?.[0].validity.valid).toBe(true);
+      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).toBe(false);
     });
   });
 
   describe('validationMode=onBlur', () => {
     it('should pass validity data', () => {
-      const handleValidity = spy();
+      const handleValidity = vi.fn();
 
       render(() => (
         <Field.Root validationMode="onBlur">
@@ -87,19 +86,19 @@ describe('<Field.Validity />', () => {
 
       const input = screen.getByRole<HTMLInputElement>('textbox');
 
-      expect(handleValidity.lastCall.args[0].validity.valid).to.equal(null);
+      expect(handleValidity.mock.lastCall?.[0].validity.valid).toBe(null);
 
       fireEvent.focus(input);
       fireEvent.input(input, { target: { value: 'test' } });
       fireEvent.blur(input);
 
-      expect(handleValidity.lastCall.args[0].value).to.equal('test');
-      expect(handleValidity.lastCall.args[0].validity.valid).to.equal(true);
-      expect(handleValidity.lastCall.args[0].validity.valueMissing).to.equal(false);
+      expect(handleValidity.mock.lastCall?.[0].value).toBe('test');
+      expect(handleValidity.mock.lastCall?.[0].validity.valid).toBe(true);
+      expect(handleValidity.mock.lastCall?.[0].validity.valueMissing).toBe(false);
     });
 
     it('should correctly pass errors when validate function returns a string', () => {
-      const handleValidity = spy();
+      const handleValidity = vi.fn();
 
       render(() => (
         <Field.Root validationMode="onBlur" validate={() => 'error'}>
@@ -113,12 +112,12 @@ describe('<Field.Validity />', () => {
       fireEvent.focus(input);
       fireEvent.blur(input);
 
-      expect(handleValidity.lastCall.args[0].error).to.equal('error');
-      expect(handleValidity.lastCall.args[0].errors).to.deep.equal(['error']);
+      expect(handleValidity.mock.lastCall?.[0].error).toBe('error');
+      expect(handleValidity.mock.lastCall?.[0].errors).toEqual(['error']);
     });
 
     it('should correctly pass errors when validate function returns an array of strings', () => {
-      const handleValidity = spy();
+      const handleValidity = vi.fn();
 
       render(() => (
         <Field.Root validationMode="onBlur" validate={() => ['1', '2']}>
@@ -132,8 +131,8 @@ describe('<Field.Validity />', () => {
       fireEvent.focus(input);
       fireEvent.blur(input);
 
-      expect(handleValidity.lastCall.args[0].error).to.equal('1');
-      expect(handleValidity.lastCall.args[0].errors).to.deep.equal(['1', '2']);
+      expect(handleValidity.mock.lastCall?.[0].error).toBe('1');
+      expect(handleValidity.mock.lastCall?.[0].errors).toEqual(['1', '2']);
     });
   });
 

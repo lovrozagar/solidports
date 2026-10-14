@@ -1,8 +1,7 @@
 import { createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { ContextMenu } from '@solidports/base-ui/context-menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect, describe, beforeEach, it } from 'vitest';
-import { spy } from 'sinon';
+import { expect, describe, beforeEach, it, vi } from 'vitest';
 import { REASONS } from '../../utils/reasons';
 
 // Solid: React mocks `platform.os.mac`; the Solid port reads `isMac`.
@@ -34,8 +33,8 @@ describe('<ContextMenu.Root />', () => {
     clock.withFakeTimers();
 
     it('closes nested submenus when releasing the context menu pointer over an item', async () => {
-      const rootOnOpenChange = spy();
-      const submenuOnOpenChange = spy();
+      const rootOnOpenChange = vi.fn();
+      const submenuOnOpenChange = vi.fn();
 
       const { user } = render(() => (
         <ContextMenu.Root onOpenChange={rootOnOpenChange}>
@@ -80,17 +79,17 @@ describe('<ContextMenu.Root />', () => {
       await flushMicrotasks();
 
       await waitFor(() => {
-        expect(screen.queryByTestId('context-submenu-popup')).to.equal(null);
+        expect(screen.queryByTestId('context-submenu-popup')).toBe(null);
       });
 
       await waitFor(() => {
-        expect(screen.queryByTestId('context-root-popup')).to.equal(null);
+        expect(screen.queryByTestId('context-root-popup')).toBe(null);
       });
 
-      expect(submenuOnOpenChange.lastCall?.args[0]).to.equal(false);
-      expect(submenuOnOpenChange.lastCall?.args[1].reason).to.equal(REASONS.itemPress);
-      expect(rootOnOpenChange.lastCall?.args[0]).to.equal(false);
-      expect(rootOnOpenChange.lastCall?.args[1].reason).to.equal(REASONS.itemPress);
+      expect(submenuOnOpenChange.mock.lastCall?.[0]).toBe(false);
+      expect(submenuOnOpenChange.mock.lastCall?.[1].reason).toBe(REASONS.itemPress);
+      expect(rootOnOpenChange.mock.lastCall?.[0]).toBe(false);
+      expect(rootOnOpenChange.mock.lastCall?.[1].reason).toBe(REASONS.itemPress);
     });
 
     it('does not activate a submenu trigger when releasing the context menu pointer over it', async () => {
@@ -135,12 +134,12 @@ describe('<ContextMenu.Root />', () => {
       });
       await flushMicrotasks();
 
-      expect(screen.queryByTestId('context-submenu-popup')).to.equal(null);
+      expect(screen.queryByTestId('context-submenu-popup')).toBe(null);
       expect(submenuOnOpenChange).not.toHaveBeenCalled();
     });
 
     it('ignores mouseup directly under the cursor when the context menu spawns there', async () => {
-      const onOpenChange = spy();
+      const onOpenChange = vi.fn();
 
       render(() => (
         <ContextMenu.Root onOpenChange={onOpenChange}>
@@ -165,14 +164,14 @@ describe('<ContextMenu.Root />', () => {
       fireEvent.mouseUp(item, { button: 2, clientX: 12, clientY: 12 });
 
       await waitFor(() => {
-        expect(screen.queryByTestId('context-popup')).not.to.equal(null);
+        expect(screen.queryByTestId('context-popup')).not.toBe(null);
       });
 
-      expect(onOpenChange.callCount).to.equal(1);
+      expect(onOpenChange.mock.calls.length).toBe(1);
     });
 
     it('ignores mouseup directly under the cursor when alignOffset is negative', async () => {
-      const onOpenChange = spy();
+      const onOpenChange = vi.fn();
 
       render(() => (
         <ContextMenu.Root onOpenChange={onOpenChange}>
@@ -197,14 +196,14 @@ describe('<ContextMenu.Root />', () => {
       fireEvent.mouseUp(item, { button: 2, clientX: 18, clientY: 18 });
 
       await waitFor(() => {
-        expect(screen.queryByTestId('context-popup')).not.to.equal(null);
+        expect(screen.queryByTestId('context-popup')).not.toBe(null);
       });
 
-      expect(onOpenChange.callCount).to.equal(1);
+      expect(onOpenChange.mock.calls.length).toBe(1);
     });
 
     it('allows mouseup after leaving the initial cursor point', async () => {
-      const onOpenChange = spy();
+      const onOpenChange = vi.fn();
 
       render(() => (
         <ContextMenu.Root onOpenChange={onOpenChange}>
@@ -230,14 +229,14 @@ describe('<ContextMenu.Root />', () => {
       fireEvent.mouseUp(item, { button: 2, clientX: 24, clientY: 24 });
 
       await waitFor(() => {
-        expect(screen.queryByTestId('context-popup')).to.equal(null);
+        expect(screen.queryByTestId('context-popup')).toBe(null);
       });
 
-      expect(onOpenChange.lastCall?.args[0]).to.equal(false);
+      expect(onOpenChange.mock.lastCall?.[0]).toBe(false);
     });
 
     it('does not open when disabled', async () => {
-      const onOpenChange = spy();
+      const onOpenChange = vi.fn();
 
       render(() => (
         <ContextMenu.Root disabled onOpenChange={onOpenChange}>
@@ -257,8 +256,8 @@ describe('<ContextMenu.Root />', () => {
       fireEvent.contextMenu(trigger, { button: 2, clientX: 10, clientY: 10 });
       await flushMicrotasks();
 
-      expect(screen.queryByTestId('context-popup')).to.equal(null);
-      expect(onOpenChange.callCount).to.equal(0);
+      expect(screen.queryByTestId('context-popup')).toBe(null);
+      expect(onOpenChange.mock.calls.length).toBe(0);
     });
   });
 
@@ -305,7 +304,7 @@ describe('<ContextMenu.Root />', () => {
       await waitFor(() => {
         // When collisionAvoidance={{ side: 'flip' }} is set and there's no space below,
         // the menu should flip to the top
-        expect(positioner.getAttribute('data-side')).to.equal('top');
+        expect(positioner.getAttribute('data-side')).toBe('top');
       });
     });
   });

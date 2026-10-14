@@ -41,14 +41,14 @@ describe('<Radio.Indicator />', () => {
 
     const { user } = render(() => <Test />);
 
-    expect(screen.getByTestId('indicator-a')).not.to.equal(null);
+    expect(screen.getByTestId('indicator-a')).not.toBe(null);
 
     const closeButton = screen.getByText('Close');
 
     await user.click(closeButton);
 
     await waitFor(() => {
-      expect(screen.queryByTestId('indicator-a')).to.equal(null);
+      expect(screen.queryByTestId('indicator-a')).toBe(null);
     });
   });
 
@@ -102,13 +102,13 @@ describe('<Radio.Indicator />', () => {
 
     const { user } = render(() => <Test />);
 
-    expect(screen.getByTestId('indicator-a')).not.to.equal(null);
+    expect(screen.getByTestId('indicator-a')).not.toBe(null);
 
     const closeButton = screen.getByText('Close');
     await user.click(closeButton);
 
     await waitFor(() => {
-      expect(animationFinished).to.equal(true);
+      expect(animationFinished).toBe(true);
     });
   });
 
@@ -164,15 +164,15 @@ describe('<Radio.Indicator />', () => {
       }
 
       const { user } = render(() => <Test />);
-      expect(screen.queryByTestId('indicator-a')).to.equal(null);
+      expect(screen.queryByTestId('indicator-a')).toBe(null);
 
       await user.click(screen.getByText('Select a'));
 
       await waitFor(() => {
-        expect(transitionFinished).to.equal(true);
+        expect(transitionFinished).toBe(true);
       });
 
-      expect(screen.getByTestId('indicator-a')).not.to.equal(null);
+      expect(screen.getByTestId('indicator-a')).not.toBe(null);
     });
 
     it('applies data-ending-style before unmount', async () => {
@@ -214,18 +214,18 @@ describe('<Radio.Indicator />', () => {
       }
 
       const { user } = render(() => <Test />);
-      expect(screen.getByTestId('indicator-a')).not.to.equal(null);
+      expect(screen.getByTestId('indicator-a')).not.toBe(null);
 
       await user.click(screen.getByText('Select b'));
 
       await waitFor(() => {
         const indicator = screen.queryByTestId('indicator-a');
-        expect(indicator).not.to.equal(null);
-        expect(indicator).to.have.attribute('data-ending-style');
+        expect(indicator).not.toBe(null);
+        expect(indicator).toHaveAttribute('data-ending-style');
       });
 
       await waitFor(() => {
-        expect(screen.queryByTestId('indicator-a')).to.equal(null);
+        expect(screen.queryByTestId('indicator-a')).toBe(null);
       });
     });
   });

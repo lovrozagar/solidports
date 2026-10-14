@@ -1,7 +1,8 @@
 import { expect, vi, describe, it, beforeAll, afterAll } from 'vitest';
 import { createSignal, onSettled } from 'solid-js';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
+import { DirectionProvider } from '@solidports/base-ui/direction-provider';
+import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { Field } from '@solidports/base-ui/field';
 import { Slider } from '@solidports/base-ui/slider';
 import { Form } from '@solidports/base-ui/form';

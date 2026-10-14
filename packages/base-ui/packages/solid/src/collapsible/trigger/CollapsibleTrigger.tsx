@@ -5,12 +5,13 @@ import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { canRenderNative, composeHandler } from '../../utils/native';
-import { renderNativeElement, type SetAttribute } from '../../utils/native/element';
+import { renderNativeElement } from '../../utils/native/element';
+import type { SetAttribute } from '../../utils/native/element';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useCollapsibleRootContext } from '../root/CollapsibleRootContext';
-import { type CollapsibleRootState } from '../root/CollapsibleRoot';
+import type { CollapsibleRootState } from '../root/CollapsibleRoot';
 
 const stateAttributesMapping: StateAttributesMapping<CollapsibleRootState> = {
   ...triggerOpenStateMapping,
@@ -77,7 +78,6 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
   return <>{element()}</>;
 }
 
-/* eslint-disable-next-line typescript/no-explicit-any -- handlers pass through as the kit holds them */
 type Handler = (...args: any[]) => unknown;
 
 /**

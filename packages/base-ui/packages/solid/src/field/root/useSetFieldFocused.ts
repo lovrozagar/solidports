@@ -1,5 +1,6 @@
 import { untrack } from 'solid-js';
-import { access, createLayoutEffect, type MaybeAccessor } from '../../solid-helpers';
+import { access, createLayoutEffect } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { DEFAULT_FIELD_ROOT_CONTEXT, useFieldRootContext } from './FieldRootContext';
 
 /**

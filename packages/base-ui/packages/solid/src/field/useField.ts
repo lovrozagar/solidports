@@ -1,6 +1,7 @@
 import { untrack } from 'solid-js';
 import { useRegisterFieldControl } from '../internals/field-register-control/useRegisterFieldControl';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 
 /**
  * Solid: the 1.0 field registration hook, kept for parts not yet ported to 1.8.0.
@@ -25,11 +26,11 @@ export function useField(params: UseFieldParameters) {
 }
 
 export interface UseFieldParameters {
-  enabled?: MaybeAccessor<boolean | undefined>;
+  enabled?: MaybeAccessor<boolean | undefined> | undefined;
   value: MaybeAccessor<unknown>;
   getValue?: (() => unknown) | undefined;
   id: MaybeAccessor<string | false | undefined>;
-  name?: MaybeAccessor<string | false | undefined>;
+  name?: MaybeAccessor<string | false | undefined> | undefined;
   /**
    * Unused: registration validates through the field's own `commit`.
    */

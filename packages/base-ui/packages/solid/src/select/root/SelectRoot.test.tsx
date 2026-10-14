@@ -17,7 +17,6 @@ import { Select, SelectSeparatorDataAttributes } from '@solidports/base-ui/selec
 import { useRef } from '@solidports/base-ui/solid-helpers';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Portal } from '@solidjs/web';
-import { spy } from 'sinon';
 import { createEffect, createMemo, createSignal, For, Show, untrack } from 'solid-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderServer } from '../../../test/ssrFixtures';
@@ -474,7 +473,7 @@ describe('<Select.Root />', () => {
 
       await flushMicrotasks();
 
-      expect(screen.getByRole('option', { hidden: false, name: 'b' })).to.have.attribute(
+      expect(screen.getByRole('option', { hidden: false, name: 'b' })).toHaveAttribute(
         'data-selected',
         '',
       );
@@ -505,7 +504,7 @@ describe('<Select.Root />', () => {
 
       await flushMicrotasks();
 
-      expect(screen.getByRole('option', { hidden: false, name: 'b' })).to.have.attribute(
+      expect(screen.getByRole('option', { hidden: false, name: 'b' })).toHaveAttribute(
         'data-selected',
         '',
       );
@@ -561,14 +560,14 @@ describe('<Select.Root />', () => {
 
       await flushMicrotasks();
 
-      expect(screen.getByRole('option', { hidden: false, name: 'a' })).to.have.attribute(
+      expect(screen.getByRole('option', { hidden: false, name: 'a' })).toHaveAttribute(
         'data-selected',
         '',
       );
 
       act(() => setValue('b'));
 
-      expect(screen.getByRole('option', { hidden: false, name: 'b' })).to.have.attribute(
+      expect(screen.getByRole('option', { hidden: false, name: 'b' })).toHaveAttribute(
         'data-selected',
         '',
       );
@@ -632,12 +631,12 @@ describe('<Select.Root />', () => {
 
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).to.have.text('b');
+      expect(trigger.textContent).toBe('b');
 
       act(() => setValue('a'));
       await flushMicrotasks();
 
-      expect(trigger).to.have.text('a');
+      expect(trigger.textContent).toBe('a');
     });
   });
 
@@ -672,7 +671,7 @@ describe('<Select.Root />', () => {
       const hiddenInput = screen.getByRole('textbox', {
         hidden: true,
       });
-      expect(hiddenInput).to.have.value('US');
+      expect((hiddenInput as HTMLInputElement).value).toBe('US');
     });
 
     it('uses itemToStringValue for multiple selection form submission', async () => {
@@ -705,9 +704,9 @@ describe('<Select.Root />', () => {
 
       // eslint-disable-next-line testing-library/no-container -- No appropriate method on screen since it's a type=hidden input
       const hiddenInputs = container.querySelectorAll('input[name="countries"]');
-      expect(hiddenInputs).to.have.length(2);
-      expect(hiddenInputs[0]).to.have.value('US');
-      expect(hiddenInputs[1]).to.have.value('CA');
+      expect(hiddenInputs).toHaveLength(2);
+      expect((hiddenInputs[0] as HTMLInputElement).value).toBe('US');
+      expect((hiddenInputs[1] as HTMLInputElement).value).toBe('CA');
     });
 
     it('does not invoke itemToStringValue with the value array in multiple mode', async () => {
@@ -777,7 +776,7 @@ describe('<Select.Root />', () => {
       ));
 
       const trigger = screen.getByTestId('trigger');
-      expect(trigger).to.have.text('Canada');
+      expect(trigger.textContent).toBe('Canada');
     });
 
     it('updates trigger text with itemToStringLabel after selecting object item', async () => {
@@ -801,7 +800,7 @@ describe('<Select.Root />', () => {
       ));
 
       await user.click(screen.getByRole('option', { name: 'Canada' }));
-      expect(screen.getByTestId('trigger')).to.have.text('Canada');
+      expect(screen.getByTestId('trigger').textContent).toBe('Canada');
     });
   });
 
@@ -815,7 +814,7 @@ describe('<Select.Root />', () => {
     clock.withFakeTimers();
 
     it('should call onValueChange when an item is selected', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
 
       function App() {
         const [value, setValue] = createSignal<string | null>('');
@@ -857,11 +856,11 @@ describe('<Select.Root />', () => {
       fireEvent.click(option);
       await flushMicrotasks();
 
-      expect(handleValueChange.args[0][0]).to.equal('b');
+      expect(handleValueChange.mock.calls[0][0]).toBe('b');
     });
 
     it('is not called twice on select', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
 
       const { user } = renderFakeTimers(() => (
         <Select.Root onValueChange={handleValueChange}>
@@ -891,7 +890,7 @@ describe('<Select.Root />', () => {
       fireEvent.click(option);
       await flushMicrotasks();
 
-      expect(handleValueChange.callCount).to.equal(1);
+      expect(handleValueChange.mock.calls.length).toBe(1);
     });
   });
 
@@ -917,7 +916,7 @@ describe('<Select.Root />', () => {
     });
 
     it('should select an item and close when clicked while opened by default', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
 
       const { user } = render(() => (
         <Select.Root defaultOpen onValueChange={handleValueChange}>
@@ -943,11 +942,11 @@ describe('<Select.Root />', () => {
       await user.click(optionB);
       await flushMicrotasks();
 
-      expect(handleValueChange.callCount).to.equal(1);
-      expect(handleValueChange.args[0][0]).to.equal('b');
+      expect(handleValueChange.mock.calls.length).toBe(1);
+      expect(handleValueChange.mock.calls[0][0]).toBe('b');
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).to.equal(null);
+        expect(screen.queryByRole('listbox')).toBe(null);
       });
     });
   });
@@ -999,14 +998,14 @@ describe('<Select.Root />', () => {
     const selectInput = screen.getByRole('textbox', {
       hidden: true,
     });
-    expect(selectInput).to.have.attribute('name', 'select');
+    expect(selectInput).toHaveAttribute('name', 'select');
     fireEvent.input(selectInput, { target: { value: 'b' } });
     await flushMicrotasks();
 
     await user.click(trigger);
 
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'b' })).to.have.attribute('data-selected', '');
+      expect(screen.getByRole('option', { name: 'b' })).toHaveAttribute('data-selected', '');
     });
   });
 
@@ -1116,8 +1115,8 @@ describe('<Select.Root />', () => {
     ));
 
     const hiddenInput = screen.getByRole('textbox', { hidden: true });
-    expect(hiddenInput).to.have.attribute('name', 'country');
-    expect(hiddenInput).to.have.attribute('autocomplete', 'country');
+    expect(hiddenInput).toHaveAttribute('name', 'country');
+    expect(hiddenInput).toHaveAttribute('autocomplete', 'country');
   });
 
   it('should handle browser autofill with object values', async () => {
@@ -1150,14 +1149,14 @@ describe('<Select.Root />', () => {
     const selectInput = screen.getByRole('textbox', {
       hidden: true,
     });
-    expect(selectInput).to.have.attribute('name', 'country');
+    expect(selectInput).toHaveAttribute('name', 'country');
     fireEvent.input(selectInput, { target: { value: 'CA' } });
     await flushMicrotasks();
 
     await user.click(trigger);
 
     await waitFor(() => {
-      expect(screen.getByRole('option', { hidden: false, name: 'Canada' })).to.have.attribute(
+      expect(screen.getByRole('option', { hidden: false, name: 'Canada' })).toHaveAttribute(
         'data-selected',
         '',
       );
@@ -1680,12 +1679,12 @@ describe('<Select.Root />', () => {
       await user.click(trigger);
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).not.to.equal(null);
+        expect(screen.queryByRole('listbox')).not.toBe(null);
       });
 
       const positioner = screen.getByTestId('positioner');
 
-      expect(positioner.previousElementSibling).to.have.attribute('role', 'presentation');
+      expect(positioner.previousElementSibling).toHaveAttribute('role', 'presentation');
     });
 
     it('should not render an internal backdrop when `false`', async () => {
@@ -1710,12 +1709,12 @@ describe('<Select.Root />', () => {
       await user.click(trigger);
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).not.to.equal(null);
+        expect(screen.queryByRole('listbox')).not.toBe(null);
       });
 
       const positioner = screen.getByTestId('positioner');
 
-      expect(positioner.previousElementSibling).to.equal(null);
+      expect(positioner.previousElementSibling).toBe(null);
     });
   });
 
@@ -2132,8 +2131,8 @@ describe('<Select.Root />', () => {
   describe('prop: actionsRef', () => {
     it('unmounts the select when the `unmount` method is called', async () => {
       const actionsRef = useRef<Select.Root.Actions | null>({
-        unmount: spy(),
-        close: spy(),
+        unmount: vi.fn(),
+        close: vi.fn(),
       });
 
       const { user } = render(() => (
@@ -2160,13 +2159,13 @@ describe('<Select.Root />', () => {
       await user.click(trigger);
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).not.to.equal(null);
+        expect(screen.queryByRole('listbox')).not.toBe(null);
       });
 
       await user.click(trigger);
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).not.to.equal(null);
+        expect(screen.queryByRole('listbox')).not.toBe(null);
       });
 
       await new Promise((resolve) => {
@@ -2175,7 +2174,7 @@ describe('<Select.Root />', () => {
       actionsRef.current?.unmount();
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).to.equal(null);
+        expect(screen.queryByRole('listbox')).toBe(null);
       });
     });
 
@@ -2852,7 +2851,7 @@ describe('<Select.Root />', () => {
 
   describe('prop: disabled', () => {
     it('sets the disabled state', async () => {
-      const handleOpenChange = spy();
+      const handleOpenChange = vi.fn();
       const { user } = render(() => (
         <Select.Root defaultValue="b" onOpenChange={handleOpenChange} disabled>
           <Select.Trigger>
@@ -2870,19 +2869,19 @@ describe('<Select.Root />', () => {
       ));
 
       const trigger = screen.getByRole('combobox');
-      expect(trigger).to.have.attribute('disabled');
-      expect(trigger).to.have.attribute('data-disabled');
+      expect(trigger).toHaveAttribute('disabled');
+      expect(trigger).toHaveAttribute('data-disabled');
 
       await user.keyboard('[Tab]');
 
-      expect(expect(document.activeElement)).not.to.equal(trigger);
+      expect(expect(document.activeElement)).not.toBe(trigger);
 
       await user.click(trigger);
-      expect(handleOpenChange.callCount).to.equal(0);
+      expect(handleOpenChange.mock.calls.length).toBe(0);
     });
 
     it('updates the disabled state when the disabled prop changes', async () => {
-      const handleOpenChange = spy();
+      const handleOpenChange = vi.fn();
       function App() {
         const [disabled, setDisabled] = createSignal(true);
         return (
@@ -2907,27 +2906,27 @@ describe('<Select.Root />', () => {
       const { user } = render(() => <App />);
 
       const trigger = screen.getByRole('combobox');
-      expect(trigger).to.have.attribute('disabled');
-      expect(trigger).to.have.attribute('data-disabled');
+      expect(trigger).toHaveAttribute('disabled');
+      expect(trigger).toHaveAttribute('data-disabled');
 
       await user.keyboard('[Tab]');
 
-      expect(expect(document.activeElement)).not.to.equal(trigger);
+      expect(expect(document.activeElement)).not.toBe(trigger);
 
       await user.click(trigger);
-      expect(handleOpenChange.callCount).to.equal(0);
+      expect(handleOpenChange.mock.calls.length).toBe(0);
 
       await user.click(screen.getByRole('button', { name: 'toggle' }));
 
-      expect(trigger).to.not.have.attribute('disabled');
-      expect(trigger).to.not.have.attribute('data-disabled');
+      expect(trigger).not.toHaveAttribute('disabled');
+      expect(trigger).not.toHaveAttribute('data-disabled');
 
       await user.keyboard('[Tab]');
       expect(trigger).toHaveFocus();
 
       await user.click(trigger);
       await waitFor(() => {
-        expect(handleOpenChange.callCount).to.equal(1);
+        expect(handleOpenChange.mock.calls.length).toBe(1);
       });
     });
   });
@@ -3170,7 +3169,7 @@ describe('<Select.Root />', () => {
       ));
 
       const trigger = screen.getByRole('combobox');
-      expect(trigger).to.have.attribute('id', 'test-id');
+      expect(trigger).toHaveAttribute('id', 'test-id');
     });
 
     it('sets a hidden input id when name is not provided', async () => {
@@ -3239,7 +3238,7 @@ describe('<Select.Root />', () => {
       ));
 
       const trigger = screen.getByTestId('trigger');
-      expect(trigger).to.have.attribute('disabled');
+      expect(trigger).toHaveAttribute('disabled');
     });
 
     it('should receive name prop from Field.Root', async () => {
@@ -3262,7 +3261,7 @@ describe('<Select.Root />', () => {
       ));
 
       const hiddenInput = screen.getByRole('textbox', { hidden: true });
-      expect(hiddenInput).to.have.attribute('name', 'field-select');
+      expect(hiddenInput).toHaveAttribute('name', 'field-select');
     });
   });
 
@@ -3296,20 +3295,17 @@ describe('<Select.Root />', () => {
     await user.click(screen.getByText('initial'));
 
     await user.click(screen.getByRole('button', { name: '1' }));
-    expect(screen.getByTestId('value')).to.have.text('1');
+    expect(screen.getByTestId('value').textContent).toBe('1');
 
     await user.click(screen.getByRole('button', { name: '2' }));
-    expect(screen.getByTestId('value')).to.have.text('2');
+    expect(screen.getByTestId('value').textContent).toBe('2');
 
     await user.click(screen.getByRole('button', { name: 'null' }));
-    expect(screen.getByTestId('value')).to.have.text('initial');
+    expect(screen.getByTestId('value').textContent).toBe('initial');
 
     await user.click(screen.getByTestId('trigger'));
     await waitFor(() => {
-      expect(screen.queryByRole('option', { name: '2' })).not.to.have.attribute(
-        'data-selected',
-        '',
-      );
+      expect(screen.queryByRole('option', { name: '2' })).not.toHaveAttribute('data-selected', '');
     });
   });
 
@@ -3397,7 +3393,7 @@ describe('<Select.Root />', () => {
         { code: 'US', label: 'United States' },
         { code: 'CA', label: 'Canada' },
       ];
-      const handleFormSubmit = spy();
+      const handleFormSubmit = vi.fn();
 
       const { user } = renderFakeTimers(() => (
         <Form onFormSubmit={handleFormSubmit}>
@@ -3426,8 +3422,8 @@ describe('<Select.Root />', () => {
 
       await user.click(screen.getByText('Submit'));
 
-      expect(handleFormSubmit.callCount).to.equal(1);
-      expect(handleFormSubmit.firstCall.args[0]).to.deep.equal({ country: 'US' });
+      expect(handleFormSubmit.mock.calls.length).toBe(1);
+      expect(handleFormSubmit.mock.calls[0][0]).toEqual({ country: 'US' });
     });
 
     it.skipIf(isJSDOM)('submits to an external form when `form` is provided', async () => {
@@ -3524,12 +3520,12 @@ describe('<Select.Root />', () => {
 
       const submit = screen.getByText('Submit');
 
-      expect(screen.queryByTestId('error')).to.equal(null);
+      expect(screen.queryByTestId('error')).toBe(null);
 
       await user.click(submit);
 
       const error = screen.getByTestId('error');
-      expect(error).to.have.text('required');
+      expect(error.textContent).toBe('required');
     });
 
     it('clears external errors on change', async () => {
@@ -3558,10 +3554,10 @@ describe('<Select.Root />', () => {
         </Form>
       ));
 
-      expect(screen.getByTestId('error')).to.have.text('test');
+      expect(screen.getByTestId('error').textContent).toBe('test');
 
       const trigger = screen.getByTestId('trigger');
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
 
       await user.click(trigger);
       await flushMicrotasks();
@@ -3569,8 +3565,8 @@ describe('<Select.Root />', () => {
       const option = screen.getByRole('option', { name: 'b' });
       await selectUnselectedOption(option);
 
-      expect(screen.queryByTestId('error')).to.equal(null);
-      expect(trigger).not.to.have.attribute('aria-invalid');
+      expect(screen.queryByTestId('error')).toBe(null);
+      expect(trigger).not.toHaveAttribute('aria-invalid');
     });
 
     it('revalidates immediately after form submission errors', async () => {
@@ -3603,16 +3599,16 @@ describe('<Select.Root />', () => {
       const submit = screen.getByTestId('submit');
       await user.click(submit);
 
-      expect(screen.getByTestId('error')).to.have.text('required');
+      expect(screen.getByTestId('error').textContent).toBe('required');
       const trigger = screen.getByTestId('trigger');
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
 
       await user.click(trigger);
       await flushMicrotasks();
       await selectUnselectedOption(screen.getByRole('option', { name: 'b' }));
 
-      expect(screen.queryByTestId('error')).to.equal(null);
-      expect(trigger).not.to.have.attribute('aria-invalid');
+      expect(screen.queryByTestId('error')).toBe(null);
+      expect(trigger).not.toHaveAttribute('aria-invalid');
     });
   });
 
@@ -3658,14 +3654,14 @@ describe('<Select.Root />', () => {
 
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).not.to.have.attribute('data-dirty');
+      expect(trigger).not.toHaveAttribute('data-dirty');
 
       fireEvent.focus(trigger);
       fireEvent.blur(trigger);
 
       await flushMicrotasks();
 
-      expect(trigger).to.have.attribute('data-touched', '');
+      expect(trigger).toHaveAttribute('data-touched', '');
     });
 
     it('[data-dirty]', async () => {
@@ -3687,7 +3683,7 @@ describe('<Select.Root />', () => {
 
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).not.to.have.attribute('data-dirty');
+      expect(trigger).not.toHaveAttribute('data-dirty');
 
       await user.click(trigger);
       await flushMicrotasks();
@@ -3695,7 +3691,7 @@ describe('<Select.Root />', () => {
       const option = screen.getByRole('option', { name: 'Option 1' });
       await selectUnselectedOption(option);
 
-      expect(trigger).to.have.attribute('data-dirty', '');
+      expect(trigger).toHaveAttribute('data-dirty', '');
     });
 
     describe('[data-filled]', () => {
@@ -3718,7 +3714,7 @@ describe('<Select.Root />', () => {
 
         const trigger = screen.getByTestId('trigger');
 
-        expect(trigger).not.to.have.attribute('data-filled');
+        expect(trigger).not.toHaveAttribute('data-filled');
 
         await user.click(trigger);
         await flushMicrotasks();
@@ -3726,7 +3722,7 @@ describe('<Select.Root />', () => {
         const option = screen.getByRole('option', { name: 'Option 1' });
         await selectUnselectedOption(option);
 
-        expect(trigger).to.have.attribute('data-filled', '');
+        expect(trigger).toHaveAttribute('data-filled', '');
 
         await user.click(trigger);
 
@@ -3734,7 +3730,7 @@ describe('<Select.Root />', () => {
 
         const select = screen.getByRole('listbox');
 
-        expect(select).not.to.have.attribute('data-filled');
+        expect(select).not.toHaveAttribute('data-filled');
       });
 
       it('adds [data-filled] attribute when already filled', async () => {
@@ -3755,7 +3751,7 @@ describe('<Select.Root />', () => {
 
         const trigger = screen.getByTestId('trigger');
 
-        expect(trigger).to.have.attribute('data-filled');
+        expect(trigger).toHaveAttribute('data-filled');
       });
 
       it('does not add [data-filled] attribute when single value serializes to empty string', async () => {
@@ -3823,7 +3819,7 @@ describe('<Select.Root />', () => {
 
         const trigger = screen.getByTestId('trigger');
 
-        expect(trigger).not.to.have.attribute('data-filled');
+        expect(trigger).not.toHaveAttribute('data-filled');
 
         await user.click(trigger);
         await flushMicrotasks();
@@ -3834,11 +3830,11 @@ describe('<Select.Root />', () => {
 
         await toggleMultipleOption(option);
 
-        expect(trigger).to.have.attribute('data-filled', '');
+        expect(trigger).toHaveAttribute('data-filled', '');
 
         await toggleMultipleOption(option);
 
-        expect(trigger).not.to.have.attribute('data-filled');
+        expect(trigger).not.toHaveAttribute('data-filled');
       });
 
       it('does not add [data-filled] attribute when multiple defaultValue is empty array', async () => {
@@ -3860,7 +3856,7 @@ describe('<Select.Root />', () => {
 
         const trigger = screen.getByTestId('trigger');
 
-        expect(trigger).not.to.have.attribute('data-filled');
+        expect(trigger).not.toHaveAttribute('data-filled');
 
         await user.click(trigger);
         await flushMicrotasks();
@@ -3871,11 +3867,11 @@ describe('<Select.Root />', () => {
 
         await toggleMultipleOption(option);
 
-        expect(trigger).to.have.attribute('data-filled', '');
+        expect(trigger).toHaveAttribute('data-filled', '');
 
         await toggleMultipleOption(option);
 
-        expect(trigger).not.to.have.attribute('data-filled');
+        expect(trigger).not.toHaveAttribute('data-filled');
       });
     });
 
@@ -3898,19 +3894,19 @@ describe('<Select.Root />', () => {
 
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).not.to.have.attribute('data-focused');
+      expect(trigger).not.toHaveAttribute('data-focused');
 
       fireEvent.focus(trigger);
 
-      expect(trigger).to.have.attribute('data-focused', '');
+      expect(trigger).toHaveAttribute('data-focused', '');
 
       fireEvent.blur(trigger);
 
-      expect(trigger).not.to.have.attribute('data-focused');
+      expect(trigger).not.toHaveAttribute('data-focused');
     });
 
     it('does not mark as touched when focus moves into the popup', async () => {
-      const validateSpy = spy(() => 'error');
+      const validateSpy = vi.fn(() => 'error');
 
       render(() => (
         <>
@@ -3944,14 +3940,14 @@ describe('<Select.Root />', () => {
 
       await flushMicrotasks();
 
-      expect(validateSpy.callCount).to.equal(0);
-      expect(trigger).to.have.attribute('data-focused', '');
-      expect(trigger).not.to.have.attribute('data-touched');
-      expect(trigger).not.to.have.attribute('aria-invalid');
+      expect(validateSpy.mock.calls.length).toBe(0);
+      expect(trigger).toHaveAttribute('data-focused', '');
+      expect(trigger).not.toHaveAttribute('data-touched');
+      expect(trigger).not.toHaveAttribute('aria-invalid');
     });
 
     it('validates when the popup is blurred', async () => {
-      const validateSpy = spy(() => 'error');
+      const validateSpy = vi.fn(() => 'error');
 
       render(() => (
         <>
@@ -3991,15 +3987,15 @@ describe('<Select.Root />', () => {
       fireEvent.focus(outside);
 
       await waitFor(() => {
-        expect(validateSpy.callCount).to.equal(1);
+        expect(validateSpy.mock.calls.length).toBe(1);
       });
 
       // The above `waitFor` might not ensure re-render has finished
       await waitFor(() => {
-        expect(trigger).to.have.attribute('data-touched', '');
+        expect(trigger).toHaveAttribute('data-touched', '');
       });
-      expect(trigger).not.to.have.attribute('data-focused');
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(trigger).not.toHaveAttribute('data-focused');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
     });
 
     it('prop: validate', async () => {
@@ -4016,14 +4012,14 @@ describe('<Select.Root />', () => {
 
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).not.to.have.attribute('aria-invalid');
+      expect(trigger).not.toHaveAttribute('aria-invalid');
 
       fireEvent.focus(trigger);
       fireEvent.blur(trigger);
 
       await flushMicrotasks();
 
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
     });
 
     it('passes raw value to validate when itemToStringValue is provided', async () => {
@@ -4031,8 +4027,8 @@ describe('<Select.Root />', () => {
         { code: 'US', label: 'United States' },
         { code: 'CA', label: 'Canada' },
       ];
-      const validateSpy = spy((value: unknown) => {
-        expect(value).to.equal(items[0]);
+      const validateSpy = vi.fn((value: unknown) => {
+        expect(value).toBe(items[0]);
         return 'error';
       });
 
@@ -4059,9 +4055,9 @@ describe('<Select.Root />', () => {
       fireEvent.blur(trigger);
 
       await waitFor(() => {
-        expect(validateSpy.callCount).to.equal(1);
+        expect(validateSpy.mock.calls.length).toBe(1);
       });
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
     });
 
     it('prop: validateMode=onSubmit', async () => {
@@ -4085,28 +4081,28 @@ describe('<Select.Root />', () => {
       ));
 
       const trigger = screen.getByRole('combobox');
-      expect(trigger).not.to.have.attribute('aria-invalid');
+      expect(trigger).not.toHaveAttribute('aria-invalid');
 
       await user.click(screen.getByText('submit'));
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
 
       // Arrow Down to focus Option 1 (valid)
       await user.keyboard('{ArrowDown}');
       await user.keyboard('{Enter}');
-      expect(trigger).not.to.have.attribute('aria-invalid');
+      expect(trigger).not.toHaveAttribute('aria-invalid');
 
       await user.click(trigger);
       // Arrow Down to focus Option 2 (invalid)
       await user.keyboard('{ArrowDown}');
       await user.keyboard('{Enter}');
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
 
       await user.click(trigger);
       // Arrow Down to focus Option 1 (valid)
       await user.keyboard('{ArrowUp}');
       await user.keyboard('{Enter}');
       await flushMicrotasks();
-      expect(trigger).to.not.have.attribute('aria-invalid');
+      expect(trigger).not.toHaveAttribute('aria-invalid');
     });
 
     // flaky in real browser
@@ -4135,7 +4131,7 @@ describe('<Select.Root />', () => {
 
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).not.to.have.attribute('aria-invalid');
+      expect(trigger).not.toHaveAttribute('aria-invalid');
 
       await user.click(trigger);
 
@@ -4145,11 +4141,11 @@ describe('<Select.Root />', () => {
       await user.keyboard('{ArrowDown}');
       await user.keyboard('{Enter}');
 
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
     });
 
     it('revalidates when the controlled value changes externally', async () => {
-      const validateSpy = spy((value: unknown) => ((value as string) === 'b' ? 'error' : null));
+      const validateSpy = vi.fn((value: unknown) => ((value as string) === 'b' ? 'error' : null));
 
       function App() {
         const [value, setValue] = createSignal('a');
@@ -4183,15 +4179,15 @@ describe('<Select.Root />', () => {
       const trigger = screen.getByTestId('trigger');
       const toggle = screen.getByText('Select externally');
 
-      expect(trigger).not.to.have.attribute('aria-invalid');
-      const initialCallCount = validateSpy.callCount;
+      expect(trigger).not.toHaveAttribute('aria-invalid');
+      const initialCallCount = validateSpy.mock.calls.length;
 
       fireEvent.click(toggle);
       await flushMicrotasks();
 
-      expect(validateSpy.callCount).to.equal(initialCallCount + 1);
-      expect(validateSpy.lastCall.args[0]).to.equal('b');
-      expect(trigger).to.have.attribute('aria-invalid', 'true');
+      expect(validateSpy.mock.calls.length).toBe(initialCallCount + 1);
+      expect(validateSpy.mock.lastCall?.[0]).toBe('b');
+      expect(trigger).toHaveAttribute('aria-invalid', 'true');
     });
 
     // flaky in real browser
@@ -4221,7 +4217,7 @@ describe('<Select.Root />', () => {
 
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).not.to.have.attribute('aria-invalid');
+      expect(trigger).not.toHaveAttribute('aria-invalid');
 
       await user.click(trigger);
 
@@ -4236,7 +4232,7 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       await waitFor(() => {
-        expect(trigger).to.have.attribute('aria-invalid', 'true');
+        expect(trigger).toHaveAttribute('aria-invalid', 'true');
       });
     });
 
@@ -4253,7 +4249,7 @@ describe('<Select.Root />', () => {
         </Field.Root>
       ));
 
-      expect(screen.getByTestId('trigger')).to.have.attribute(
+      expect(screen.getByTestId('trigger')).toHaveAttribute(
         'aria-labelledby',
         screen.getByTestId('label').id,
       );
@@ -4362,8 +4358,8 @@ describe('<Select.Root />', () => {
       const label = screen.getByTestId<HTMLLabelElement>('label');
       const trigger = screen.getByTestId('trigger');
 
-      expect(label).to.have.attribute('for', trigger.id);
-      expect(trigger).to.have.attribute('id', label?.htmlFor);
+      expect(label).toHaveAttribute('for', trigger.id);
+      expect(trigger).toHaveAttribute('id', label?.htmlFor);
 
       await user.click(label);
 
@@ -4393,9 +4389,9 @@ describe('<Select.Root />', () => {
       const label = screen.getByTestId<HTMLLabelElement>('label');
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).to.have.attribute('id', 'x-id');
-      expect(label).to.have.attribute('for', 'x-id');
-      expect(trigger).to.have.attribute('id', label?.htmlFor);
+      expect(trigger).toHaveAttribute('id', 'x-id');
+      expect(label).toHaveAttribute('for', 'x-id');
+      expect(trigger).toHaveAttribute('id', label?.htmlFor);
 
       await user.click(label);
 
@@ -4415,7 +4411,7 @@ describe('<Select.Root />', () => {
         </Field.Root>
       ));
 
-      expect(screen.getByTestId('trigger')).to.have.attribute(
+      expect(screen.getByTestId('trigger')).toHaveAttribute(
         'aria-describedby',
         screen.getByTestId('description').id,
       );
@@ -4534,7 +4530,7 @@ describe('<Select.Root />', () => {
       await user.keyboard('{ArrowDown}');
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).not.to.equal(null);
+        expect(screen.queryByRole('listbox')).not.toBe(null);
       });
 
       await user.keyboard('{ArrowDown}');
@@ -4591,16 +4587,16 @@ describe('<Select.Root />', () => {
       trigger.focus();
       await user.keyboard('{ArrowDown}');
 
-      expect(screen.queryByRole('option', { name: 'a' })).to.have.attribute('data-selected');
-      expect(screen.getByTestId('value')).to.have.text('a');
+      expect(screen.queryByRole('option', { name: 'a' })).toHaveAttribute('data-selected');
+      expect(screen.getByTestId('value').textContent).toBe('a');
 
       fireEvent.click(screen.getByText('Remove'));
 
-      expect(screen.queryByRole('option', { name: 'b' })).not.to.have.attribute('data-selected');
+      expect(screen.queryByRole('option', { name: 'b' })).not.toHaveAttribute('data-selected');
 
       fireEvent.click(screen.getByText('Add'));
 
-      expect(screen.queryByRole('option', { name: 'a' })).not.to.have.attribute('data-selected');
+      expect(screen.queryByRole('option', { name: 'a' })).not.toHaveAttribute('data-selected');
     });
 
     it('resets the value when the selected item is replaced and the item count is unchanged', async () => {
@@ -4805,12 +4801,12 @@ describe('<Select.Root />', () => {
       await user.click(screen.getByTestId('remove-c'));
 
       await waitFor(() => {
-        expect(trigger).to.have.text('b');
+        expect(trigger.textContent).toBe('b');
       });
 
       await user.click(trigger);
       await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'b' })).to.have.attribute('data-selected', '');
+        expect(screen.getByRole('option', { name: 'b' })).toHaveAttribute('data-selected', '');
       });
     });
 
@@ -4845,7 +4841,7 @@ describe('<Select.Root />', () => {
       const { user } = render(() => <TestControlled />);
 
       const trigger = screen.getByTestId('trigger');
-      expect(trigger).to.have.text('c');
+      expect(trigger.textContent).toBe('c');
 
       await user.click(screen.getByTestId('remove-c'));
 
@@ -4858,7 +4854,7 @@ describe('<Select.Root />', () => {
 
       const options = await screen.findAllByRole('option');
       options.forEach((opt) => {
-        expect(opt).not.to.have.attribute('data-selected');
+        expect(opt).not.toHaveAttribute('data-selected');
       });
     });
 
@@ -5119,14 +5115,14 @@ describe('<Select.Root />', () => {
 
       // Now no fallback remains; value should reset to null
       await waitFor(() => {
-        expect(trigger).to.have.text('');
+        expect(trigger.textContent).toBe('');
       });
 
       await user.click(trigger);
 
       const options = await screen.findAllByRole('option');
       options.forEach((opt) => {
-        expect(opt).not.to.have.attribute('data-selected');
+        expect(opt).not.toHaveAttribute('data-selected');
       });
     });
 
@@ -5174,7 +5170,7 @@ describe('<Select.Root />', () => {
 
       const options = await screen.findAllByRole('option');
       options.forEach((opt) => {
-        expect(opt).not.to.have.attribute('data-selected');
+        expect(opt).not.toHaveAttribute('data-selected');
       });
     });
   });
@@ -5472,13 +5468,13 @@ describe('<Select.Root />', () => {
 
       trigger.focus();
       await user.keyboard('a');
-      expect(valueEl.textContent).to.equal('a1');
+      expect(valueEl.textContent).toBe('a1');
 
       await user.click(resetBtn);
 
       trigger.focus();
       await user.keyboard('a');
-      expect(valueEl.textContent).to.equal('a1');
+      expect(valueEl.textContent).toBe('a1');
     });
 
     it('does not jump matches after a closed-state value reset', async () => {
@@ -5513,17 +5509,17 @@ describe('<Select.Root />', () => {
       const valueEl = screen.getByTestId('value');
       const setCarButton = screen.getByTestId('set-car');
 
-      expect(valueEl.textContent).to.equal('dog');
+      expect(valueEl.textContent).toBe('dog');
 
       await user.click(setCarButton);
-      expect(valueEl.textContent).to.equal('car');
+      expect(valueEl.textContent).toBe('car');
 
       trigger.focus();
       await user.keyboard('c');
-      expect(valueEl.textContent).to.equal('cat');
+      expect(valueEl.textContent).toBe('cat');
 
       await user.keyboard('a');
-      expect(valueEl.textContent).to.equal('cat');
+      expect(valueEl.textContent).toBe('cat');
     });
 
     it('matches an item by its label when the rendered text differs', async () => {
@@ -5613,9 +5609,9 @@ describe('<Select.Root />', () => {
       await user.click(trigger);
 
       await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'a' })).to.have.attribute('data-selected', '');
+        expect(screen.getByRole('option', { name: 'a' })).toHaveAttribute('data-selected', '');
       });
-      expect(screen.getByRole('option', { name: 'c' })).to.have.attribute('data-selected', '');
+      expect(screen.getByRole('option', { name: 'c' })).toHaveAttribute('data-selected', '');
 
       // Remove one of the selected items; remaining selection should persist
       await user.click(screen.getByTestId('remove-c'));
@@ -5623,9 +5619,9 @@ describe('<Select.Root />', () => {
       await user.click(trigger);
 
       await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'a' })).to.have.attribute('data-selected', '');
+        expect(screen.getByRole('option', { name: 'a' })).toHaveAttribute('data-selected', '');
       });
-      expect(screen.queryByRole('option', { name: 'c' })).to.equal(null);
+      expect(screen.queryByRole('option', { name: 'c' })).toBe(null);
 
       // Remove the last selected item; selection should become empty
       await user.click(screen.getByTestId('remove-a'));
@@ -5634,7 +5630,7 @@ describe('<Select.Root />', () => {
 
       const options = await screen.findAllByRole('option');
       options.forEach((opt) => {
-        expect(opt).not.to.have.attribute('data-selected');
+        expect(opt).not.toHaveAttribute('data-selected');
       });
     });
 
@@ -5720,7 +5716,7 @@ describe('<Select.Root />', () => {
     });
 
     it('should allow multiple selections when multiple is true', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
 
       function App() {
         const [value, setValue] = createSignal<any[]>([]);
@@ -5760,17 +5756,17 @@ describe('<Select.Root />', () => {
       const optionA = await screen.findByRole('option', { name: 'a' });
       await toggleMultipleOption(optionA);
 
-      expect(handleValueChange.args[0][0]).to.deep.equal(['a']);
-      expect(optionA).to.have.attribute('data-selected', '');
+      expect(handleValueChange.mock.calls[0][0]).toEqual(['a']);
+      expect(optionA).toHaveAttribute('data-selected', '');
 
       const optionB = screen.getByRole('option', { name: 'b' });
       await toggleMultipleOption(optionB);
 
-      expect(handleValueChange.args[1][0]).to.deep.equal(['a', 'b']);
-      expect(optionA).to.have.attribute('data-selected', '');
-      expect(optionB).to.have.attribute('data-selected', '');
+      expect(handleValueChange.mock.calls[1][0]).toEqual(['a', 'b']);
+      expect(optionA).toHaveAttribute('data-selected', '');
+      expect(optionB).toHaveAttribute('data-selected', '');
 
-      expect(screen.getByRole('listbox')).not.to.equal(null);
+      expect(screen.getByRole('listbox')).not.toBe(null);
     });
 
     it('keeps the selection when items are added and none of the selected ones are removed', async () => {
@@ -5818,7 +5814,7 @@ describe('<Select.Root />', () => {
     });
 
     it('should deselect items when clicked again in multiple mode', async () => {
-      const handleValueChange = spy();
+      const handleValueChange = vi.fn();
 
       function App() {
         const [value, setValue] = createSignal(['a', 'b']);
@@ -5858,15 +5854,15 @@ describe('<Select.Root />', () => {
       const optionA = await screen.findByRole('option', { name: 'a' });
       const optionB = screen.getByRole('option', { name: 'b' });
 
-      expect(optionA).to.have.attribute('data-selected', '');
-      expect(optionB).to.have.attribute('data-selected', '');
+      expect(optionA).toHaveAttribute('data-selected', '');
+      expect(optionB).toHaveAttribute('data-selected', '');
 
       await user.click(optionA);
       await flushMicrotasks();
 
-      expect(handleValueChange.args[0][0]).to.deep.equal(['b']);
-      expect(optionA).not.to.have.attribute('data-selected');
-      expect(optionB).to.have.attribute('data-selected', '');
+      expect(handleValueChange.mock.calls[0][0]).toEqual(['b']);
+      expect(optionA).not.toHaveAttribute('data-selected');
+      expect(optionB).toHaveAttribute('data-selected', '');
     });
 
     it('should update selected items when the controlled value prop changes while open', async () => {
@@ -5930,13 +5926,13 @@ describe('<Select.Root />', () => {
       await user.click(optionB);
 
       await waitFor(() => {
-        expect(optionB).to.have.attribute('data-highlighted');
+        expect(optionB).toHaveAttribute('data-highlighted');
       });
 
       await user.click(optionB);
 
       await waitFor(() => {
-        expect(optionB).to.have.attribute('data-highlighted');
+        expect(optionB).toHaveAttribute('data-highlighted');
       });
     });
 
@@ -6435,9 +6431,9 @@ describe('<Select.Root />', () => {
       fireEvent.click(trigger);
       await flushMicrotasks();
 
-      expect(screen.getByRole('option', { name: 'a' })).to.have.attribute('data-selected', '');
-      expect(screen.getByRole('option', { name: 'b' })).not.to.have.attribute('data-selected');
-      expect(screen.getByRole('option', { name: 'c' })).to.have.attribute('data-selected', '');
+      expect(screen.getByRole('option', { name: 'a' })).toHaveAttribute('data-selected', '');
+      expect(screen.getByRole('option', { name: 'b' })).not.toHaveAttribute('data-selected');
+      expect(screen.getByRole('option', { name: 'c' })).toHaveAttribute('data-selected', '');
     });
 
     it('should serialize multiple values correctly for form submission', async () => {
@@ -6462,9 +6458,9 @@ describe('<Select.Root />', () => {
       const hiddenInputs = container.querySelectorAll(
         '[name="select"]',
       ) as NodeListOf<HTMLInputElement>;
-      expect(hiddenInputs).to.have.length(2);
+      expect(hiddenInputs).toHaveLength(2);
       const values = Array.from(hiddenInputs).map((input) => input.value);
-      expect(values).to.deep.equal(['a', 'c']);
+      expect(values).toEqual(['a', 'c']);
     });
 
     it.skipIf(isJSDOM)('does not submit multiple values when disabled', async () => {
@@ -6521,13 +6517,13 @@ describe('<Select.Root />', () => {
       // In multiple mode with empty array, no hidden inputs with name should exist
       // eslint-disable-next-line testing-library/no-container -- No appropriate method on screen since it's a hidden input without any type
       const namedHiddenInputs = container.querySelectorAll('[name="select"]');
-      expect(namedHiddenInputs).to.have.length(0);
+      expect(namedHiddenInputs).toHaveLength(0);
 
       // But the main input should have the serialized empty value for Field validation purposes
       // eslint-disable-next-line testing-library/no-container -- No appropriate method on screen since it's a hidden input without any type
       const mainInput = container.querySelector<HTMLInputElement>('input[aria-hidden="true"]');
-      expect(mainInput).not.to.equal(null);
-      expect(mainInput?.value).to.equal('');
+      expect(mainInput).not.toBe(null);
+      expect(mainInput?.value).toBe('');
     });
 
     it('does not mark the hidden input as required when selection exists', async () => {
@@ -6540,8 +6536,8 @@ describe('<Select.Root />', () => {
       ));
 
       const hiddenInput = screen.getByRole('textbox', { hidden: true });
-      expect(hiddenInput).not.to.equal(null);
-      expect(hiddenInput).not.to.have.attribute('required');
+      expect(hiddenInput).not.toBe(null);
+      expect(hiddenInput).not.toHaveAttribute('required');
     });
 
     it('keeps the hidden input required when no selection exists', async () => {
@@ -6554,8 +6550,8 @@ describe('<Select.Root />', () => {
       ));
 
       const hiddenInput = screen.getByRole('textbox', { hidden: true });
-      expect(hiddenInput).not.to.equal(null);
-      expect(hiddenInput).to.have.attribute('required');
+      expect(hiddenInput).not.toBe(null);
+      expect(hiddenInput).toHaveAttribute('required');
     });
 
     it('should not close popup when selecting items in multiple mode', async () => {
@@ -6582,18 +6578,18 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       await waitFor(() => {
-        expect(screen.getByRole('listbox')).not.to.equal(null);
+        expect(screen.getByRole('listbox')).not.toBe(null);
       });
 
       const optionA = await screen.findByRole('option', { name: 'a' });
       await toggleMultipleOption(optionA);
 
-      expect(screen.getByRole('listbox')).not.to.equal(null);
+      expect(screen.getByRole('listbox')).not.toBe(null);
 
       const optionB = screen.getByRole('option', { name: 'b' });
       await toggleMultipleOption(optionB);
 
-      expect(screen.getByRole('listbox')).not.to.equal(null);
+      expect(screen.getByRole('listbox')).not.toBe(null);
     });
 
     it('should close popup in single select mode', async () => {
@@ -6620,7 +6616,7 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       await waitFor(() => {
-        expect(screen.getByRole('listbox')).not.to.equal(null);
+        expect(screen.getByRole('listbox')).not.toBe(null);
       });
 
       const optionA = await screen.findByRole('option', { name: 'a' });
@@ -6628,7 +6624,7 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       await waitFor(() => {
-        expect(screen.queryByRole('listbox')).to.equal(null);
+        expect(screen.queryByRole('listbox')).toBe(null);
       });
     });
 
@@ -6656,17 +6652,14 @@ describe('<Select.Root />', () => {
       fireEvent.click(trigger);
       await flushMicrotasks();
 
-      expect(await screen.findByRole('option', { name: 'a' })).to.have.attribute(
-        'data-selected',
-        '',
-      );
-      expect(screen.getByRole('option', { name: 'b' })).not.to.have.attribute('data-selected');
+      expect(await screen.findByRole('option', { name: 'a' })).toHaveAttribute('data-selected', '');
+      expect(screen.getByRole('option', { name: 'b' })).not.toHaveAttribute('data-selected');
 
       act(() => setValue(['a', 'b', 'c']));
 
-      expect(screen.getByRole('option', { name: 'a' })).to.have.attribute('data-selected', '');
-      expect(screen.getByRole('option', { name: 'b' })).to.have.attribute('data-selected', '');
-      expect(screen.getByRole('option', { name: 'c' })).to.have.attribute('data-selected', '');
+      expect(screen.getByRole('option', { name: 'a' })).toHaveAttribute('data-selected', '');
+      expect(screen.getByRole('option', { name: 'b' })).toHaveAttribute('data-selected', '');
+      expect(screen.getByRole('option', { name: 'c' })).toHaveAttribute('data-selected', '');
     });
   });
 
@@ -6700,12 +6693,12 @@ describe('<Select.Root />', () => {
       ));
 
       const trigger = screen.getByTestId('trigger');
-      expect(trigger).to.have.text('Bob');
+      expect(trigger.textContent).toBe('Bob');
 
       fireEvent.click(trigger);
 
       await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'Bob' })).to.have.attribute('data-selected', '');
+        expect(screen.getByRole('option', { name: 'Bob' })).toHaveAttribute('data-selected', '');
       });
     });
 
@@ -6775,12 +6768,12 @@ describe('<Select.Root />', () => {
       ));
 
       const option = screen.getByRole('option', { name: 'Bob' });
-      expect(option).to.have.attribute('data-selected', '');
+      expect(option).toHaveAttribute('data-selected', '');
 
       fireEvent.click(option);
 
       await waitFor(() => {
-        expect(screen.getByRole('option', { name: 'Bob' })).not.to.have.attribute('data-selected');
+        expect(screen.getByRole('option', { name: 'Bob' })).not.toHaveAttribute('data-selected');
       });
     });
   });
@@ -6808,7 +6801,7 @@ describe('<Select.Root />', () => {
       await user.hover(optionB);
 
       await waitFor(() => {
-        expect(optionB).to.have.attribute('data-highlighted');
+        expect(optionB).toHaveAttribute('data-highlighted');
       });
     });
 
@@ -6869,7 +6862,7 @@ describe('<Select.Root />', () => {
 
       await flushMicrotasks();
 
-      expect(optionB).not.to.have.attribute('data-highlighted');
+      expect(optionB).not.toHaveAttribute('data-highlighted');
     });
 
     it('does not remove highlight when mousing out of popup when disabled', async () => {
@@ -6901,13 +6894,13 @@ describe('<Select.Root />', () => {
       await user.keyboard('{ArrowDown}');
 
       await waitFor(() => {
-        expect(optionA).to.have.attribute('data-highlighted');
+        expect(optionA).toHaveAttribute('data-highlighted');
       });
 
       await user.unhover(popup);
 
       await waitFor(() => {
-        expect(optionA).to.have.attribute('data-highlighted');
+        expect(optionA).toHaveAttribute('data-highlighted');
       });
     });
   });

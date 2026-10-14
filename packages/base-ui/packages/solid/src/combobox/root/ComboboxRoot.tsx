@@ -1,7 +1,8 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
-import { AriaCombobox, type AriaComboboxState } from './AriaCombobox';
+import { splitComponentProps } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
+import { AriaCombobox } from './AriaCombobox';
+import type { AriaComboboxState } from './AriaCombobox';
 
 /**
  * Groups all parts of the combobox.

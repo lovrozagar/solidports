@@ -1,6 +1,7 @@
 import { expect, describe, it } from 'vitest';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
+import { DirectionProvider } from '@solidports/base-ui/direction-provider';
+import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { Slider } from '@solidports/base-ui/slider';
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 

@@ -1,5 +1,6 @@
 import type { JSX } from '@solidjs/web';
-import { DirectionContext, type TextDirection } from './DirectionContext';
+import { DirectionContext } from './DirectionContext';
+import type { TextDirection } from './DirectionContext';
 
 /**
  * Enables RTL behavior for Base UI components.
@@ -14,7 +15,7 @@ export function DirectionProvider(props: DirectionProvider.Props) {
 export interface DirectionProviderState {}
 
 export interface DirectionProviderProps {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * The reading direction of the text
    * @default 'ltr'

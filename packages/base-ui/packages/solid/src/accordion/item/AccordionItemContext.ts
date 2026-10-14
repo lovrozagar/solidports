@@ -3,13 +3,13 @@ import type { Accessor, Owner, Setter } from 'solid-js';
 import type { AccordionItemState } from './AccordionItem';
 
 export interface AccordionItemContext {
-  defaultTriggerId?: Accessor<string | undefined>;
+  defaultTriggerId?: Accessor<string | undefined> | undefined;
   open: Accessor<boolean>;
   /** Solid: the item's owner (the trigger skips its unmount registration write while the item is disposed). */
-  owner?: Owner | null;
+  owner?: Owner | null | undefined;
   state: AccordionItemState;
   setTriggerId: Setter<string | null | undefined>;
-  triggerId?: Accessor<string | undefined>;
+  triggerId?: Accessor<string | undefined> | undefined;
 }
 
 export const AccordionItemContext = createContext<AccordionItemContext | null>(null);

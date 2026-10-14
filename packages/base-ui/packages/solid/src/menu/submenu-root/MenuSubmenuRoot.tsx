@@ -62,7 +62,7 @@ export interface MenuSubmenuRootProps extends Omit<
   /**
    * The content of the submenu.
    */
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
 }
 
 export interface MenuSubmenuRootState {}

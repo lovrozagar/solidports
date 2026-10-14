@@ -1,11 +1,10 @@
-/* eslint-disable typescript/no-explicit-any -- the store payload type is erased at the Root boundary, as in React */
 import { createSignal, untrack } from 'solid-js';
 import { useDismiss } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
 import { createDepsRenderEffect } from '../../solid-helpers';
 import { usePopupInteractionProps } from '../../utils/popups';
 import { useScrollLock } from '../../utils/useScrollLock';
-import { type DialogStore } from '../store/DialogStore';
+import type { DialogStore } from '../store/DialogStore';
 
 export function DialogInteractions(props: {
   store: DialogStore<any>;

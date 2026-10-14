@@ -1,4 +1,5 @@
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { NOOP } from './empty';
 import { flushSync } from './flushSync';
 import { getFiniteAnimations } from './getFiniteAnimations';
@@ -89,7 +90,8 @@ export function useAnimationsFinished<T extends HTMLElement>(
 
     if (
       typeof resolvedElement.getAnimations !== 'function' ||
-      (globalThis as { BASE_UI_ANIMATIONS_DISABLED?: boolean }).BASE_UI_ANIMATIONS_DISABLED
+      (globalThis as { BASE_UI_ANIMATIONS_DISABLED?: boolean | undefined })
+        .BASE_UI_ANIMATIONS_DISABLED
     ) {
       fnToExecute();
       return;

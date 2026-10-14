@@ -1,11 +1,5 @@
-import {
-  createStore as createStore2,
-  omit,
-  type Accessor,
-  type Store,
-  type StoreSetter,
-  untrack,
-} from 'solid-js';
+import { createStore as createStore2, omit, untrack } from 'solid-js';
+import type { Accessor, Store, StoreSetter } from 'solid-js';
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
   ? I
@@ -120,8 +114,8 @@ type EffectApply<T> = (value: T, prev?: T) => void | (() => void);
 export function on<const D extends Accessor<unknown> | readonly Accessor<unknown>[]>(
   deps: D,
   fn: EffectApply<OnDepsValue<D>>,
-  options: { defer?: boolean },
-): [() => OnDepsValue<D>, EffectApply<OnDepsValue<D>>, { defer?: boolean }];
+  options: { defer?: boolean | undefined },
+): [() => OnDepsValue<D>, EffectApply<OnDepsValue<D>>, { defer?: boolean | undefined }];
 export function on<const D extends Accessor<unknown> | readonly Accessor<unknown>[]>(
   deps: D,
   fn: EffectApply<OnDepsValue<D>>,
@@ -129,8 +123,8 @@ export function on<const D extends Accessor<unknown> | readonly Accessor<unknown
 export function on(
   deps: Accessor<unknown> | readonly Accessor<unknown>[],
   fn: EffectApply<any>,
-  options?: { defer?: boolean },
-): [() => any, EffectApply<any>, { defer?: boolean }?] {
+  options?: { defer?: boolean | undefined },
+): [() => any, EffectApply<any>, { defer?: boolean | undefined }?] {
   const compute = () => {
     if (Array.isArray(deps)) {
       return (deps as readonly Accessor<unknown>[]).map((dep) =>
@@ -235,7 +229,7 @@ function applyPath(set: StoreSetter<any>, args: any[]) {
  */
 export function createStore<T extends object>(
   initialValue: T,
-  options?: { name?: string; shallow?: boolean },
+  options?: { name?: string | undefined; shallow?: boolean | undefined },
 ): [Store<T>, SetStoreFunction<T>] {
   const [store, set] = createStore2(initialValue as any, options);
   const setCompat = ((...args: any[]) => {

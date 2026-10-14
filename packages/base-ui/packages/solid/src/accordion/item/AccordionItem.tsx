@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- `value` is `any`, mirrors React */
 import { createMemo, createSignal, getOwner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { CollapsibleRoot, CollapsibleRootState } from '../../collapsible/root/CollapsibleRoot';
@@ -6,13 +5,13 @@ import { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootCo
 import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
-import { type BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { canRenderNative } from '../../utils/native';
 import { provideNativeContexts } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
 import { createNativeListItem } from '../../utils/native/listItem';
-import { REASONS } from '../../utils/reasons';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { REASONS } from '../../utils/reasons';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { AccordionRootState } from '../root/AccordionRoot';

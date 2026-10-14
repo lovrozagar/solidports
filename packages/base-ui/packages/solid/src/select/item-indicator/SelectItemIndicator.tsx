@@ -33,7 +33,7 @@ export interface SelectItemIndicatorProps extends BaseUIComponentProps<
   'span',
   SelectItemIndicator.State
 > {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * Whether to keep the HTML element in the DOM when the item is not selected.
    */

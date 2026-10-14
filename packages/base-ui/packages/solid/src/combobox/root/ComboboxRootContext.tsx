@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic item values erased at the context boundary, mirrors React */
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';

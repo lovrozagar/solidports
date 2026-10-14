@@ -21,7 +21,7 @@ describe('<Tooltip.Trigger />', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Tooltip.Trigger>Trigger</Tooltip.Trigger>)).to.throw(
+      expect(() => render(() => <Tooltip.Trigger>Trigger</Tooltip.Trigger>)).toThrow(
         'Base UI: <Tooltip.Trigger> must be either used within a <Tooltip.Root> component or provided with a handle.',
       );
       await flushMicrotasks();
@@ -62,15 +62,15 @@ describe('<Tooltip.Trigger />', () => {
 
     await user.hover(trigger);
     await waitFor(() => {
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
     });
 
     await user.unhover(trigger);
     await waitFor(() => {
-      expect(trigger).not.to.have.attribute('data-popup-open');
+      expect(trigger).not.toHaveAttribute('data-popup-open');
     });
 
-    expect(screen.getByText('Content')).not.to.equal(null);
+    expect(screen.getByText('Content')).not.toBe(null);
   });
 
   it('opens when the rendered trigger element has its own id', async () => {
@@ -95,14 +95,14 @@ describe('<Tooltip.Trigger />', () => {
 
     const trigger = screen.getByTestId('trigger');
 
-    expect(trigger).to.have.attribute('id', 'custom-button');
+    expect(trigger).toHaveAttribute('id', 'custom-button');
 
     await user.hover(trigger);
 
     await waitFor(() => {
-      expect(screen.getByTestId('popup')).not.to.equal(null);
+      expect(screen.getByTestId('popup')).not.toBe(null);
     });
-    expect(trigger).to.have.attribute('data-popup-open');
+    expect(trigger).toHaveAttribute('data-popup-open');
   });
 
   it.skipIf(isJSDOM)(
@@ -128,13 +128,13 @@ describe('<Tooltip.Trigger />', () => {
 
       const trigger = screen.getByTestId('trigger');
 
-      expect(trigger).not.to.have.attribute('disabled');
-      expect(trigger).to.have.attribute('aria-disabled', 'true');
+      expect(trigger).not.toHaveAttribute('disabled');
+      expect(trigger).toHaveAttribute('aria-disabled', 'true');
 
       await user.hover(trigger);
 
       await waitFor(() => {
-        expect(screen.getByTestId('popup')).not.to.equal(null);
+        expect(screen.getByTestId('popup')).not.toBe(null);
       });
     },
   );

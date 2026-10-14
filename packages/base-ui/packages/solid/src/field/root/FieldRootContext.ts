@@ -83,7 +83,7 @@ export const DEFAULT_FIELD_ROOT_CONTEXT: FieldRootContext = {
         ? props
         : (disabledOrProps ?? props)) as UseFieldValidationReturnValue['getValidationProps'],
     getValidationSource: () =>
-      EMPTY_OBJECT as { 'aria-describedby'?: string; 'aria-invalid'?: unknown },
+      EMPTY_OBJECT as { 'aria-describedby'?: string | undefined; 'aria-invalid'?: unknown },
     getInputValidationProps: (props = EMPTY_OBJECT) => props,
     inputRef: { current: null },
     registeredInputs: new Map(),

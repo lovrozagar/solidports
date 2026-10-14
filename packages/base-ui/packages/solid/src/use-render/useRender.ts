@@ -1,8 +1,12 @@
-/* eslint-disable typescript/no-explicit-any -- generic render hook accepts arbitrary State and ValidComponent; same plumbing pattern as useRenderElement */
-import type { JSX, ComponentProps as SolidComponentProps, ValidComponent } from '@solidjs/web';
-import type { DynamicProps } from '@solidjs/web';
-import { type MaybeAccessor, access } from '../solid-helpers';
-import { StateAttributesMapping } from '../utils/getStateAttributesProps';
+import type {
+  JSX,
+  ComponentProps as SolidComponentProps,
+  ValidComponent,
+  DynamicProps,
+} from '@solidjs/web';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
+import type { StateAttributesMapping } from '../utils/getStateAttributesProps';
 import type { ComponentRenderFn, HTMLProps, UseRenderElementRef } from '../utils/types';
 import { useRenderElement } from '../utils/useRenderElement';
 
@@ -83,12 +87,12 @@ export interface UseRenderParameters<
    * This is useful for rendering a component conditionally.
    * @default true
    */
-  enabled?: MaybeAccessor<Enabled | undefined>;
+  enabled?: MaybeAccessor<Enabled | undefined> | undefined;
   /**
    * The default tag name to use for the rendered element when `render` is not provided.
    * @default 'div'
    */
-  defaultTagName?: MaybeAccessor<keyof JSX.IntrinsicElements | undefined>;
+  defaultTagName?: MaybeAccessor<keyof JSX.IntrinsicElements | undefined> | undefined;
   /**
    * The children to render.
    */

@@ -1,4 +1,5 @@
-import { getAlignment, getSide, getSideAxis, type Rect } from '@floating-ui/utils';
+import { getAlignment, getSide, getSideAxis } from '@floating-ui/utils';
+import type { Rect } from '@floating-ui/utils';
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -10,19 +11,21 @@ import {
   offset,
   shift as floatingShift,
   size,
-  type Accessorify,
-  type AutoUpdateOptions,
-  type FloatingContext,
-  type FloatingRootContext,
-  type FloatingTreeStore,
-  type Middleware,
-  type MiddlewareState,
-  type Padding,
-  type Side as PhysicalSide,
-  type Placement,
-  type UseFloatingOptions,
-  type UseFloatingReturn,
-  type VirtualElement,
+} from '../floating-ui-solid/index';
+import type {
+  Accessorify,
+  AutoUpdateOptions,
+  FloatingContext,
+  FloatingRootContext,
+  FloatingTreeStore,
+  Middleware,
+  MiddlewareState,
+  Padding,
+  Side as PhysicalSide,
+  Placement,
+  UseFloatingOptions,
+  UseFloatingReturn,
+  VirtualElement,
 } from '../floating-ui-solid/index';
 import { arrow } from '../floating-ui-solid/middleware/arrow';
 import {
@@ -30,11 +33,9 @@ import {
   createDepsRenderEffect,
   access,
   useRef,
-  type MaybeAccessor,
-  type MaybeAccessorValue,
-  type ReactLikeRef,
   shallowEqual,
 } from '../solid-helpers';
+import type { MaybeAccessor, MaybeAccessorValue, ReactLikeRef } from '../solid-helpers';
 import { DEFAULT_SIDES } from './adaptiveOriginMiddleware';
 import { hide } from './hideMiddleware';
 import { ownerDocument, ownerWindow } from './owner';
@@ -827,22 +828,22 @@ export interface UseAnchorPositioningParameters extends Accessorify<
   UseAnchorPositioningSharedParameters,
   'maybeAccessor'
 > {
-  keepMounted?: MaybeAccessor<boolean | undefined>;
-  trackCursorAxis?: MaybeAccessor<'none' | 'x' | 'y' | 'both' | undefined>;
+  keepMounted?: MaybeAccessor<boolean | undefined> | undefined;
+  trackCursorAxis?: MaybeAccessor<'none' | 'x' | 'y' | 'both' | undefined> | undefined;
   floatingRootContext?: FloatingRootContext | undefined;
   mounted: MaybeAccessor<boolean>;
   disableAnchorTracking: MaybeAccessor<boolean>;
-  nodeId?: MaybeAccessor<string | undefined>;
-  adaptiveOrigin?: MaybeAccessor<Middleware | undefined>;
+  nodeId?: MaybeAccessor<string | undefined> | undefined;
+  adaptiveOrigin?: MaybeAccessor<Middleware | undefined> | undefined;
   collisionAvoidance: MaybeAccessor<CollisionAvoidance>;
-  shift?: MaybeAccessor<UseAnchorPositioningShiftOptions | undefined>;
-  lazyFlip?: MaybeAccessor<boolean | 'placement' | undefined>;
+  shift?: MaybeAccessor<UseAnchorPositioningShiftOptions | undefined> | undefined;
+  lazyFlip?: MaybeAccessor<boolean | 'placement' | undefined> | undefined;
   externalTree?: FloatingTreeStore | undefined;
   /**
    * Optional middleware that can replace the measured reference rect before offsets and collision
    * middleware run. Used by Preview Card to position against a specific inline line box.
    */
-  inline?: MaybeAccessor<Middleware | undefined>;
+  inline?: MaybeAccessor<Middleware | undefined> | undefined;
 }
 
 export interface UseAnchorPositioningShiftOptions {

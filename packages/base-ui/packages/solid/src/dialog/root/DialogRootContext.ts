@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'solid-js';
-import { DialogStore } from '../store/DialogStore';
+import type { DialogStore } from '../store/DialogStore';
 
 export const DialogRootContext = createContext<DialogStore<unknown> | null>(null);
 

@@ -11,7 +11,7 @@ import { EMPTY_ARRAY } from '../../utils/constants';
 import { canRenderNative, composeHandler } from '../../utils/native';
 import { provideNativeContexts } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
-import { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
 import { tabsStateAttributesMapping } from '../root/stateAttributesMapping';
 import type { TabsRootState } from '../root/TabsRoot';
 import { useTabsRootContext } from '../root/TabsRootContext';

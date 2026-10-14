@@ -109,28 +109,28 @@ describe('native parity: Button', () => {
     });
     const { fastEl, slowEl } = renderBoth(make);
     same(fastEl, slowEl);
-    expect(fastEl).to.have.attribute('class', 'on');
+    expect(fastEl).toHaveAttribute('class', 'on');
     setDisabled(true);
     flush();
     same(fastEl, slowEl);
-    expect(fastEl).to.have.attribute('disabled');
-    expect(fastEl).to.have.attribute('class', 'off');
+    expect(fastEl).toHaveAttribute('disabled');
+    expect(fastEl).toHaveAttribute('class', 'off');
     setFocusable(true);
     flush();
     same(fastEl, slowEl);
-    expect(fastEl).not.to.have.attribute('disabled');
-    expect(fastEl).to.have.attribute('aria-disabled', 'true');
+    expect(fastEl).not.toHaveAttribute('disabled');
+    expect(fastEl).toHaveAttribute('aria-disabled', 'true');
     setTitle(undefined);
     flush();
     same(fastEl, slowEl);
-    expect(fastEl).not.to.have.attribute('title');
+    expect(fastEl).not.toHaveAttribute('title');
     setDisabled(false);
     setFocusable(false);
     setTitle('t2');
     flush();
     same(fastEl, slowEl);
-    expect(fastEl).to.have.attribute('title', 't2');
-    expect(fastEl).to.have.attribute('class', 'on');
+    expect(fastEl).toHaveAttribute('title', 't2');
+    expect(fastEl).toHaveAttribute('class', 'on');
   });
 
   it('calls the consumer handlers in the same order with preventable events', () => {

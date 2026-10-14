@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic toast Data erased at manager interface, mirrors React */
 import { generateId } from '../utils/generateId';
 import type {
   ToastObject,

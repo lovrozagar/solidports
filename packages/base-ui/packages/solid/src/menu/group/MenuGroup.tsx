@@ -1,7 +1,7 @@
 import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useMenuFilterImpl } from '../filter-root/MenuFilterContext';
 import { MenuGroupContext } from './MenuGroupContext';
@@ -52,7 +52,7 @@ export interface MenuGroupProps extends BaseUIComponentProps<'div', MenuGroup.St
   /**
    * The content of the component.
    */
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
 }
 
 export interface MenuGroupState {}

@@ -16,7 +16,9 @@ afterEach(() => {
 describe('hydrated Tabs', () => {
   it('wires each tab to its panel', async () => {
     const html = inject('serverHtml')['tabs.server.tsx'];
-    if (!html) throw new Error('globalSetup did not server-render tabs.server.tsx');
+    if (!html) {
+      throw new Error('globalSetup did not server-render tabs.server.tsx');
+    }
     const container = document.createElement('div');
     container.innerHTML = html;
     document.body.append(container);

@@ -1,10 +1,8 @@
 import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import {
-  ContextMenuRootContext,
-  useContextMenuRootContext,
-} from '../../context-menu/root/ContextMenuRootContext';
+import type { ContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
+import { useContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import {
   FloatingTree,
@@ -16,30 +14,33 @@ import {
   useSyncedFloatingRootContext,
   useTypeahead,
 } from '../../floating-ui-solid';
-import { MenubarContext, useMenubarContext } from '../../menubar/MenubarContext';
+import type { MenubarContext } from '../../menubar/MenubarContext';
+import { useMenubarContext } from '../../menubar/MenubarContext';
 import { mergeProps } from '../../merge-props';
 import {
   ComponentWithPayload,
   createDepsEffect,
   createDepsRenderEffect,
-  type ReactLikeRef,
   createLayoutEffect,
   isAbsentProp,
   provideContext,
 } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { TYPEAHEAD_RESET_MS } from '../../utils/constants';
 import {
   createChangeEventDetails,
   createGenericEventDetails,
-  type BaseUIChangeEventDetails,
-  type BaseUIHighlightEventDetails,
+} from '../../utils/createBaseUIEventDetails';
+import type {
+  BaseUIChangeEventDetails,
+  BaseUIHighlightEventDetails,
 } from '../../utils/createBaseUIEventDetails';
 import { EMPTY_ARRAY, EMPTY_OBJECT, NOOP } from '../../utils/empty';
+import type { PayloadChildRenderFunction } from '../../utils/popups';
 import {
   attachPreventUnmountOnClose,
   createPopupOpenState,
   FOCUSABLE_POPUP_PROPS,
-  PayloadChildRenderFunction,
   useImplicitActiveTrigger,
   useDeferredInteractions,
   useOpenStateTransitions,
@@ -52,8 +53,9 @@ import { useAnimationsFinished } from '../../utils/useAnimationsFinished';
 import { useId } from '../../utils/useId';
 import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
 import { useTimeout } from '../../utils/useTimeout';
-import { MenuHandle } from '../store/MenuHandle';
-import { MenuStore, type State as MenuStoreState } from '../store/MenuStore';
+import type { MenuHandle } from '../store/MenuHandle';
+import { MenuStore } from '../store/MenuStore';
+import type { State as MenuStoreState } from '../store/MenuStore';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
 import { isKeyboardClick, isKeyboardOpen } from '../utils/isKeyboardOpen';
 import {
@@ -1004,7 +1006,7 @@ export interface MenuRootProps<Payload = unknown> {
    * The content of the menu.
    * This can be a regular Solid node or a render function that receives the `payload` of the active trigger.
    */
-  children?: JSX.Element | PayloadChildRenderFunction<Payload>;
+  children?: JSX.Element | PayloadChildRenderFunction<Payload> | undefined;
 }
 
 export interface MenuRootActions {

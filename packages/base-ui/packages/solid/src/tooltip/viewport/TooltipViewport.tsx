@@ -1,7 +1,7 @@
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
-import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { usePopupViewport } from '../../utils/usePopupViewport';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTooltipPositionerContext } from '../positioner/TooltipPositionerContext';
@@ -74,7 +74,7 @@ export namespace TooltipViewport {
     /**
      * The content to render inside the transition container.
      */
-    children?: JSX.Element;
+    children?: JSX.Element | undefined;
   }
 
   export interface State {

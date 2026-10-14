@@ -1,6 +1,7 @@
 import { createEffect, createSignal, omit, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { animate, type DOMKeyframesDefinition } from 'motion';
+import { animate  } from 'motion';
+import type {DOMKeyframesDefinition} from 'motion';
 import { Select } from '@solidports/base-ui/select';
 import styles from './index.module.css';
 

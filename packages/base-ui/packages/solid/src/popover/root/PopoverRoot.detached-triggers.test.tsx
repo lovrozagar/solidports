@@ -62,8 +62,8 @@ describe('<Popover.Root />', () => {
     );
     consoleWarn.mockRestore();
 
-    expect(detachedWarned).to.equal(false);
-    expect(handle.isOpen).to.equal(true);
+    expect(detachedWarned).toBe(false);
+    expect(handle.isOpen).toBe(true);
     expect(screen.getByRole('button', { name: 'Trigger' })).toHaveAttribute(
       'aria-expanded',
       'true',
@@ -103,8 +103,8 @@ describe('<Popover.Root />', () => {
       </>
     ));
 
-    expect(fallbackStore.context.triggerElements.size).to.equal(0);
-    expect(handle.store.context.triggerElements.size).to.equal(2);
+    expect(fallbackStore.context.triggerElements.size).toBe(0);
+    expect(handle.store.context.triggerElements.size).toBe(2);
 
     await user.hover(screen.getByRole('button', { name: 'Trigger 1' }));
     await waitFor(() => {
@@ -150,18 +150,18 @@ describe('<Popover.Root />', () => {
     const { user } = render(() => <App />);
 
     const initialTrigger = screen.getByRole('button', { name: 'Trigger' });
-    expect(fallbackStore.context.triggerElements.size).to.equal(0);
-    expect(handle.store.context.triggerElements.getById('trigger')).to.equal(initialTrigger);
+    expect(fallbackStore.context.triggerElements.size).toBe(0);
+    expect(handle.store.context.triggerElements.getById('trigger')).toBe(initialTrigger);
 
     // Replacing the host node re-fires the retained ref callback after the migration.
     await user.click(screen.getByRole('button', { name: 'Swap node' }));
 
     const swappedTrigger = screen.getByRole('button', { name: 'Trigger' });
     // Guards the setup: without a real host swap the rest of the test proves nothing.
-    expect(swappedTrigger).not.to.equal(initialTrigger);
-    expect(initialTrigger.isConnected).to.equal(false);
-    expect(fallbackStore.context.triggerElements.size).to.equal(0);
-    expect(handle.store.context.triggerElements.getById('trigger')).to.equal(swappedTrigger);
+    expect(swappedTrigger).not.toBe(initialTrigger);
+    expect(initialTrigger.isConnected).toBe(false);
+    expect(fallbackStore.context.triggerElements.size).toBe(0);
+    expect(handle.store.context.triggerElements.getById('trigger')).toBe(swappedTrigger);
 
     // `open()` searches attached stores first, so a registration left on the wrong store would
     // anchor the popup to the removed node.
@@ -172,7 +172,7 @@ describe('<Popover.Root />', () => {
     await waitFor(() => {
       expect(screen.getByTestId('popup')).toBeVisible();
     });
-    expect(handle.store.state.activeTriggerElement).to.equal(swappedTrigger);
+    expect(handle.store.state.activeTriggerElement).toBe(swappedTrigger);
   });
 
   it('does not detach the consumer ref when the handle attaches to a root', async () => {
@@ -200,12 +200,12 @@ describe('<Popover.Root />', () => {
       </>
     ));
 
-    expect(handle.store.context.triggerElements.getById('trigger')).to.equal(
+    expect(handle.store.context.triggerElements.getById('trigger')).toBe(
       screen.getByRole('button', { name: 'Trigger' }),
     );
     // Migrating from the fallback store to the root's store must not churn the merged ref, which
     // would hand the consumer a spurious `null` and back.
-    expect(refCalls).to.deep.equal([screen.getByRole('button', { name: 'Trigger' })]);
+    expect(refCalls).toEqual([screen.getByRole('button', { name: 'Trigger' })]);
   });
 
   detachedTriggersConformanceTests({
@@ -635,7 +635,7 @@ describe('<Popover.Root />', () => {
 
       await user.click(screen.getByRole('button', { name: 'Close' }));
       await waitFor(() => {
-        expect(screen.queryByTestId('content')).to.equal(null);
+        expect(screen.queryByTestId('content')).toBe(null);
       });
       expect(fallback).toHaveFocus();
     });
@@ -1277,7 +1277,7 @@ describe('<Popover.Root />', () => {
       });
       await user.click(screen.getByText('Close'));
       await waitFor(() => {
-        expect(screen.queryByText('Popover Content')).to.equal(null);
+        expect(screen.queryByText('Popover Content')).toBe(null);
       });
     }
 
@@ -1335,19 +1335,23 @@ describe('<Popover.Root />', () => {
 
       const trigger0 = screen.getByRole('button', { name: 'Trigger 0' });
       await waitFor(() => {
-        expect(screen.getByTestId('positioner').getBoundingClientRect().left).to.be.closeTo(
-          trigger0.getBoundingClientRect().left,
-          1,
-        );
+        expect(
+          Math.abs(
+            screen.getByTestId('positioner').getBoundingClientRect().left -
+              trigger0.getBoundingClientRect().left,
+          ),
+        ).toBeLessThanOrEqual(1);
       });
 
       await user.click(screen.getByRole('button', { name: 'Toggle' }));
       const trigger0After = screen.getByRole('button', { name: 'Trigger 0' });
       await waitFor(() => {
-        expect(screen.getByTestId('positioner').getBoundingClientRect().left).to.be.closeTo(
-          trigger0After.getBoundingClientRect().left,
-          1,
-        );
+        expect(
+          Math.abs(
+            screen.getByTestId('positioner').getBoundingClientRect().left -
+              trigger0After.getBoundingClientRect().left,
+          ),
+        ).toBeLessThanOrEqual(1);
       });
     });
   });

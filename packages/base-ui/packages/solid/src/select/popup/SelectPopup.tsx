@@ -562,7 +562,7 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
 }
 
 export interface SelectPopupProps extends BaseUIComponentProps<'div', SelectPopup.State> {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * Determines the element to focus when the select popup is closed.
    *

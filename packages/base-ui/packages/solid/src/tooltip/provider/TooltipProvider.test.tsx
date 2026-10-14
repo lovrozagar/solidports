@@ -35,17 +35,17 @@ describe('<Tooltip.Provider />', () => {
       fireEvent.mouseEnter(trigger);
       fireEvent.mouseMove(trigger);
 
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
 
       clock.tick(1_000);
 
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
 
       clock.tick(9_000);
 
       await flushMicrotasks();
 
-      expect(screen.queryByText('Content')).not.to.equal(null);
+      expect(screen.queryByText('Content')).not.toBe(null);
     });
 
     it('respects delay=0', async () => {
@@ -69,7 +69,7 @@ describe('<Tooltip.Provider />', () => {
 
       clock.tick(0);
 
-      expect(screen.queryByText('Content')).not.to.equal(null);
+      expect(screen.queryByText('Content')).not.toBe(null);
     });
 
     it('respects trigger delay prop over provider delay prop', async () => {
@@ -91,17 +91,17 @@ describe('<Tooltip.Provider />', () => {
       fireEvent.mouseEnter(trigger);
       fireEvent.mouseMove(trigger);
 
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
 
       clock.tick(99);
 
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
 
       clock.tick(1);
 
       await flushMicrotasks();
 
-      expect(screen.queryByText('Content')).not.to.equal(null);
+      expect(screen.queryByText('Content')).not.toBe(null);
     });
   });
 
@@ -131,17 +131,17 @@ describe('<Tooltip.Provider />', () => {
 
       await flushMicrotasks();
 
-      expect(screen.queryByText('Content')).not.to.equal(null);
+      expect(screen.queryByText('Content')).not.toBe(null);
 
       fireEvent.mouseLeave(trigger);
 
       clock.tick(300);
 
-      expect(screen.queryByText('Content')).not.to.equal(null);
+      expect(screen.queryByText('Content')).not.toBe(null);
 
       clock.tick(300);
 
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
     });
 
     it('uses the latest closeDelay after the prop updates', async () => {
@@ -169,7 +169,7 @@ describe('<Tooltip.Provider />', () => {
 
       await tick(OPEN_DELAY);
 
-      expect(screen.queryByText('Content')).not.to.equal(null);
+      expect(screen.queryByText('Content')).not.toBe(null);
 
       act(() => setCloseDelay(1000));
 
@@ -179,11 +179,11 @@ describe('<Tooltip.Provider />', () => {
 
       await tick(999);
 
-      expect(screen.queryByText('Content')).not.to.equal(null);
+      expect(screen.queryByText('Content')).not.toBe(null);
 
       await tick(1);
 
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
     });
   });
 
@@ -224,7 +224,7 @@ describe('<Tooltip.Provider />', () => {
       await flushMicrotasks();
       await tick(100);
 
-      expect(screen.queryByText('Content One')).not.to.equal(null);
+      expect(screen.queryByText('Content One')).not.toBe(null);
 
       fireEvent.mouseLeave(first);
       fireEvent.mouseEnter(second);
@@ -232,8 +232,8 @@ describe('<Tooltip.Provider />', () => {
       await flushMicrotasks();
       await tick(0);
 
-      expect(screen.queryByText('Content Two')).not.to.equal(null);
-      expect(screen.queryByText('Content One')).to.equal(null);
+      expect(screen.queryByText('Content Two')).not.toBe(null);
+      expect(screen.queryByText('Content One')).toBe(null);
     });
 
     it('respects a trigger delay over delay=0 outside the instant phase', async () => {
@@ -247,10 +247,10 @@ describe('<Tooltip.Provider />', () => {
       await flushMicrotasks();
 
       await tick(99);
-      expect(screen.queryByText('Content One')).to.equal(null);
+      expect(screen.queryByText('Content One')).toBe(null);
 
       await tick(1);
-      expect(screen.queryByText('Content One')).not.to.equal(null);
+      expect(screen.queryByText('Content One')).not.toBe(null);
 
       fireEvent.mouseLeave(first);
       fireEvent.mouseEnter(second);
@@ -258,8 +258,8 @@ describe('<Tooltip.Provider />', () => {
       await flushMicrotasks();
       await tick(0);
 
-      expect(screen.queryByText('Content Two')).not.to.equal(null);
-      expect(screen.queryByText('Content One')).to.equal(null);
+      expect(screen.queryByText('Content Two')).not.toBe(null);
+      expect(screen.queryByText('Content One')).toBe(null);
 
       fireEvent.mouseLeave(second);
       await flushMicrotasks();
@@ -270,10 +270,10 @@ describe('<Tooltip.Provider />', () => {
       await flushMicrotasks();
 
       await tick(99);
-      expect(screen.queryByText('Content One')).to.equal(null);
+      expect(screen.queryByText('Content One')).toBe(null);
 
       await tick(1);
-      expect(screen.queryByText('Content One')).not.to.equal(null);
+      expect(screen.queryByText('Content One')).not.toBe(null);
     });
 
     it('requires the full delay again once the timeout elapses', async () => {
@@ -287,7 +287,7 @@ describe('<Tooltip.Provider />', () => {
       await flushMicrotasks();
       await tick(100);
 
-      expect(screen.queryByText('Content One')).not.to.equal(null);
+      expect(screen.queryByText('Content One')).not.toBe(null);
 
       fireEvent.mouseLeave(first);
       await flushMicrotasks();
@@ -297,11 +297,11 @@ describe('<Tooltip.Provider />', () => {
       fireEvent.mouseMove(second);
       await flushMicrotasks();
 
-      expect(screen.queryByText('Content Two')).to.equal(null);
+      expect(screen.queryByText('Content Two')).toBe(null);
 
       await tick(100);
 
-      expect(screen.queryByText('Content Two')).not.to.equal(null);
+      expect(screen.queryByText('Content Two')).not.toBe(null);
     });
   });
 });

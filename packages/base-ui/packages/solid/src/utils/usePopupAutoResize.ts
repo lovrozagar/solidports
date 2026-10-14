@@ -1,7 +1,8 @@
 import { createEffect, createMemo, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { Dimensions } from '../floating-ui-solid/types';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
 import { NOOP } from './empty';
 import { getCssDimensions } from './getCssDimensions';

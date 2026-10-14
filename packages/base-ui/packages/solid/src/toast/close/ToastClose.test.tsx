@@ -42,7 +42,7 @@ describe('<Toast.Close />', () => {
 
     await user.click(button);
 
-    expect(screen.getByTestId('title')).not.to.equal(null);
+    expect(screen.getByTestId('title')).not.toBe(null);
 
     await act(async () => {
       viewport.focus();
@@ -52,6 +52,6 @@ describe('<Toast.Close />', () => {
 
     await user.click(closeButton);
 
-    expect(screen.queryByTestId('title')).to.equal(null);
+    expect(screen.queryByTestId('title')).toBe(null);
   });
 });

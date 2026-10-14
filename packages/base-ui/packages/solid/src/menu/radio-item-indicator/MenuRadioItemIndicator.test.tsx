@@ -34,7 +34,7 @@ describe('<Menu.RadioItemIndicator />', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Menu.RadioItemIndicator />)).to.throw(
+      expect(() => render(() => <Menu.RadioItemIndicator />)).toThrow(
         'Base UI: MenuRadioItemContext is missing. MenuRadioItem parts must be placed within <Menu.RadioItem>.',
       );
       await flushMicrotasks();
@@ -78,14 +78,14 @@ describe('<Menu.RadioItemIndicator />', () => {
 
     const { user } = render(() => <Test />);
 
-    expect(screen.queryByTestId('indicator')).not.to.equal(null);
+    expect(screen.queryByTestId('indicator')).not.toBe(null);
 
     const closeButton = screen.getByText('Close');
 
     await user.click(closeButton);
 
     await waitFor(() => {
-      expect(screen.queryByTestId('indicator')).to.equal(null);
+      expect(screen.queryByTestId('indicator')).toBe(null);
     });
   });
 
@@ -147,13 +147,13 @@ describe('<Menu.RadioItemIndicator />', () => {
 
     const { user } = render(() => <Test />);
 
-    expect(screen.getByTestId('indicator')).not.to.equal(null);
+    expect(screen.getByTestId('indicator')).not.toBe(null);
 
     const closeButton = screen.getByText('Close');
     await user.click(closeButton);
 
     await waitFor(() => {
-      expect(animationFinished).to.equal(true);
+      expect(animationFinished).toBe(true);
     });
   });
 
@@ -206,14 +206,14 @@ describe('<Menu.RadioItemIndicator />', () => {
 
       render(() => <Test />);
 
-      expect(screen.getByTestId('indicator')).not.to.equal(null);
+      expect(screen.getByTestId('indicator')).not.toBe(null);
 
       fireEvent.click(screen.getByText('Select b'));
 
-      expect(screen.getByTestId('indicator')).to.have.attribute('data-ending-style');
+      expect(screen.getByTestId('indicator')).toHaveAttribute('data-ending-style');
 
       await waitFor(() => {
-        expect(screen.queryByTestId('indicator')).to.equal(null);
+        expect(screen.queryByTestId('indicator')).toBe(null);
       });
     },
   );

@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- toast Data is generic, mirrors React */
 import { createRoot } from 'solid-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ToastStore, selectors } from './store';

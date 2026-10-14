@@ -5,17 +5,15 @@ import type { AdaptiveOriginMiddleware } from '../../utils/adaptiveOriginConstan
 import { platform } from '../../utils/platform';
 import { EMPTY_OBJECT, NOOP } from '../../utils/empty';
 import { NullStore } from '../../utils/NullStore';
+import type { PopupStoreContext, PopupStoreState, PopupTriggerStoreKeys } from '../../utils/popups';
 import {
   createInitialPopupStoreState,
   createPopupFloatingRootContext,
-  PopupStoreContext,
   popupStoreSelectors,
-  PopupStoreState,
   PopupTriggerMap,
-  type PopupTriggerStoreKeys,
 } from '../../utils/popups';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
-import { HTMLProps } from '../../utils/types';
+import type { HTMLProps } from '../../utils/types';
 import type { InteractionType } from '../../utils/useEnhancedClickHandler';
 import type { MenuParent, MenuRoot } from '../root/MenuRoot';
 

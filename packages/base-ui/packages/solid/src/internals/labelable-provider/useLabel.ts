@@ -1,7 +1,8 @@
 import type { Setter } from 'solid-js';
 import { isHTMLElement, isShadowRoot } from '@floating-ui/utils/dom';
 import { closest, getTarget } from '../../floating-ui-solid/utils';
-import { access, type MaybeAccessor } from '../../solid-helpers';
+import { access } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { ownerDocument } from '../../utils/owner';
 import type { HTMLProps } from '../../utils/types';
 import { useRegisteredLabelId } from '../../utils/useRegisteredLabelId';
@@ -91,16 +92,16 @@ export function useLabel(params: UseLabelParameters = {}): UseLabelReturnValue {
 }
 
 export interface UseLabelParameters {
-  id?: MaybeAccessor<string | undefined>;
+  id?: MaybeAccessor<string | undefined> | undefined;
   /**
    * Control id used when no labelable context control id exists.
    */
-  fallbackControlId?: MaybeAccessor<string | undefined>;
+  fallbackControlId?: MaybeAccessor<string | undefined> | undefined;
   /**
    * Whether the rendered element is a native `<label>`.
    * @default false
    */
-  native?: MaybeAccessor<boolean | undefined>;
+  native?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Additional callback to sync the current label id with local component state/store.
    */

@@ -1,11 +1,10 @@
 import { createSignal, untrack } from 'solid-js';
 import { useFilterDropdownGroupContext } from '../group/FilterDropdownGroupContext';
-import {
-  useFilterDropdownItemContext,
-  type FilterDropdownItemContext,
-} from '../root/FilterDropdownRootContext';
+import { useFilterDropdownItemContext } from '../root/FilterDropdownRootContext';
+import type { FilterDropdownItemContext } from '../root/FilterDropdownRootContext';
 import { DETACHED_OWNER } from '../store';
-import { access, createLayoutEffect, useRef, type MaybeAccessor } from '../../solid-helpers';
+import { access, createLayoutEffect, useRef } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 
 /**
  * Text of the rendered children, for when the element is filtered out and has no DOM node.
@@ -34,18 +33,18 @@ function childrenText(children: unknown): string {
 
 export interface UseFilterDropdownItemParameters {
   /** A text representation of the item used for filtering. Falls back to the rendered text. */
-  label?: MaybeAccessor<string | undefined>;
+  label?: MaybeAccessor<string | undefined> | undefined;
   /** Keeps the nearest group visible while this filtered-out item must remain mounted. */
-  retainGroup?: MaybeAccessor<boolean | undefined>;
+  retainGroup?: MaybeAccessor<boolean | undefined> | undefined;
   /** The item's children, watched so a changed label re-registers against the active query. */
-  children?: MaybeAccessor<unknown>;
+  children?: MaybeAccessor<unknown> | undefined;
   /** The item's `render` prop, watched like `children` since its element can carry the text. */
   render?: unknown;
   /**
    * The dropdown that owns this item, when it isn't the nearest one. Pass `null` for none.
    * Omit the property to use the nearest dropdown.
    */
-  context?: FilterDropdownItemContext | null;
+  context?: FilterDropdownItemContext | null | undefined;
 }
 
 /**

@@ -21,7 +21,7 @@ describe('<Field.Label />', () => {
       </Field.Root>
     ));
 
-    expect(screen.getByTestId('label')).to.have.attribute('for', screen.getByRole('textbox').id);
+    expect(screen.getByTestId('label')).toHaveAttribute('for', screen.getByRole('textbox').id);
   });
 
   it('when nativeLabel={false}, clicking focuses the associated control', async () => {
@@ -37,7 +37,7 @@ describe('<Field.Label />', () => {
     const label = screen.getByTestId('label');
     const control = screen.getByTestId('control');
 
-    expect(label).to.not.have.attribute('for');
+    expect(label).not.toHaveAttribute('for');
 
     await user.click(label);
     expect(control).toHaveFocus();
@@ -65,21 +65,21 @@ describe('<Field.Label />', () => {
     it('keeps the selected control id when another control unmounts', async () => {
       const { setSecond } = renderFields();
 
-      expect(screen.getByTestId('label')).to.have.attribute('for', 'a');
+      expect(screen.getByTestId('label')).toHaveAttribute('for', 'a');
 
       await act(() => setSecond(false));
 
-      expect(screen.getByTestId('label')).to.have.attribute('for', 'a');
+      expect(screen.getByTestId('label')).toHaveAttribute('for', 'a');
     });
 
     it('falls over to the remaining control when the selected one unmounts', async () => {
       const { setFirst } = renderFields();
 
-      expect(screen.getByTestId('label')).to.have.attribute('for', 'a');
+      expect(screen.getByTestId('label')).toHaveAttribute('for', 'a');
 
       await act(() => setFirst(false));
 
-      expect(screen.getByTestId('label')).to.have.attribute('for', 'b');
+      expect(screen.getByTestId('label')).toHaveAttribute('for', 'b');
     });
   });
 
@@ -92,7 +92,7 @@ describe('<Field.Label />', () => {
       </Field.Root>
     ));
 
-    expect(screen.getByTestId('label')).to.have.attribute('data-disabled');
+    expect(screen.getByTestId('label')).toHaveAttribute('data-disabled');
   });
 
   describe('dev warnings', () => {

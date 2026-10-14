@@ -1,5 +1,6 @@
 import { act, createRenderer, isJSDOM } from '#test-utils';
-import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
+import { DirectionProvider } from '@solidports/base-ui/direction-provider';
+import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { Field } from '@solidports/base-ui/field';
 import { Fieldset } from '@solidports/base-ui/fieldset';
 import { Form } from '@solidports/base-ui/form';

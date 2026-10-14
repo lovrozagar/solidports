@@ -1,9 +1,7 @@
 import { getTabbableNearElement, isOutsideEvent } from '../../floating-ui-solid/utils';
 import type { ReactLikeRef } from '../../solid-helpers';
-import {
-  type BaseUIChangeEventDetails,
-  createChangeEventDetails,
-} from '../createBaseUIEventDetails';
+import { createChangeEventDetails } from '../createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../createBaseUIEventDetails';
 import { flushSync } from '../flushSync';
 import { REASONS } from '../reasons';
 

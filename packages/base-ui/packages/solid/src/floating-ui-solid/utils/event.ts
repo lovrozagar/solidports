@@ -62,6 +62,9 @@ export function isClickLikeEvent(event: Event) {
  * Whether a keydown belongs to an IME composition (key code 229). React reads its synthetic
  * `which`, which is the native `keyCode` on keydown; event-like objects may carry only `which`.
  */
-export function isCompositionKeyDown(event: { keyCode?: number; which?: number }) {
+export function isCompositionKeyDown(event: {
+  keyCode?: number | undefined;
+  which?: number | undefined;
+}) {
   return (event.keyCode || event.which) === 229;
 }

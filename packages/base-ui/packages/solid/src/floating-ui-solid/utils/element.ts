@@ -1,7 +1,7 @@
 import { isElement, isHTMLElement } from '@floating-ui/utils/dom';
 import { platform } from '../../utils/platform';
 import { activeElement, closest, contains, getTarget } from '../../utils/shadowDom';
-import { type PopupTriggerMap } from '../../utils/popups';
+import type { PopupTriggerMap } from '../../utils/popups';
 import { FOCUSABLE_ATTRIBUTE, TYPEABLE_SELECTOR } from './constants';
 import { createAttribute } from './createAttribute';
 
@@ -111,7 +111,7 @@ export function isRenderTreeDescendant(
       return true;
     }
     current =
-      (current as Node & { _$host?: Node | null })._$host ||
+      (current as Node & { _$host?: Node | null | undefined })._$host ||
       current.parentNode ||
       (current as Partial<ShadowRoot>).host;
   }

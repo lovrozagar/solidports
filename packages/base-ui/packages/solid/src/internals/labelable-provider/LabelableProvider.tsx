@@ -1,4 +1,5 @@
-import { createMemo, createSignal, onSettled, type Accessor } from 'solid-js';
+import { createMemo, createSignal, onSettled } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { mergeProps } from '../../solid-1-compat';
 import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';
@@ -130,7 +131,7 @@ export function LabelableProvider(props: LabelableProvider.Props) {
 export interface LabelableProviderState {}
 
 export interface LabelableProviderProps {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
 }
 
 export namespace LabelableProvider {

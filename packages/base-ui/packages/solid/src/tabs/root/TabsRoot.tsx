@@ -7,10 +7,8 @@ import { renderNativeElement } from '../../utils/native/element';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
-import {
-  createChangeEventDetails,
-  type BaseUIChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import type { Orientation as BaseOrientation, BaseUIComponentProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';

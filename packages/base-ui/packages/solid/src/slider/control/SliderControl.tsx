@@ -3,12 +3,8 @@ import { isElement } from '@floating-ui/utils/dom';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
 import type { Coords } from '../../floating-ui-solid/types';
-import {
-  splitComponentProps,
-  useRef,
-  type ReactLikeRef,
-  createLayoutEffect,
-} from '../../solid-helpers';
+import { splitComponentProps, useRef, createLayoutEffect } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { clamp } from '../../utils/clamp';
 import {

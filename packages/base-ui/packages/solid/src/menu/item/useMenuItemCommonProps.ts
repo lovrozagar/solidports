@@ -1,11 +1,10 @@
-/* eslint-disable typescript/no-explicit-any -- the store's payload type is erased for shared item logic, as in the React port */
 import { useContextMenuRootContext } from '../../context-menu/root/ContextMenuRootContext';
-import { type ReactLikeRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { platform } from '../../utils/platform';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
 import { REASONS } from '../../utils/reasons';
-import { HTMLProps } from '../../utils/types';
-import { MenuStore } from '../store/MenuStore';
+import type { HTMLProps } from '../../utils/types';
+import type { MenuStore } from '../store/MenuStore';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import type { UseMenuItemMetadata } from './useMenuItem';
 

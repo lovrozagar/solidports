@@ -252,7 +252,7 @@ export function MenuComponent(
         ref={(el) => {
           refs.setReference(el);
           item.setRef(el);
-          // eslint-disable-next-line solid/reactivity
+
           props.ref = el;
         }}
         data-open={isOpen() ? '' : undefined}

@@ -1,4 +1,4 @@
-import { FloatingTreeType } from '../../floating-ui-solid';
+import type { FloatingTreeType } from '../../floating-ui-solid';
 import { contains, getNodeChildren } from '../../floating-ui-solid/utils';
 
 interface Targets {

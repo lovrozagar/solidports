@@ -1,4 +1,5 @@
-import { createHighlighterCoreSync, type HighlighterCore } from "@shikijs/core"
+import { createHighlighterCoreSync  } from "@shikijs/core"
+import type {HighlighterCore} from "@shikijs/core";
 import { createJavaScriptRegexEngine } from "@shikijs/engine-javascript"
 import tsxLang from "@shikijs/langs/tsx"
 import jsxLang from "@shikijs/langs/jsx"

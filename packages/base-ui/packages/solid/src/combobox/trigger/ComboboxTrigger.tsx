@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo } from 'solid-js';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
@@ -14,7 +13,7 @@ import { isMouseWithinBounds } from '../../utils/getPseudoElementBounds';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
 import { resolveAriaLabelledBy } from '../../utils/resolveAriaLabelledBy';
-import { BaseUIComponentProps, NativeButtonProps, type HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, NativeButtonProps, HTMLProps } from '../../utils/types';
 import type { Side } from '../../utils/useAnchorPositioning';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';

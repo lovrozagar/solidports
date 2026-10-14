@@ -54,7 +54,7 @@ import { useTimeout } from '../../utils/useTimeout';
 import { flushSync } from '../../utils/flushSync';
 import { useNavigationMenuItemContext } from '../item/NavigationMenuItemContext';
 import { useNavigationMenuDismissContext } from '../list/NavigationMenuDismissContext';
-import { NavigationMenuRoot } from '../root/NavigationMenuRoot';
+import type { NavigationMenuRoot } from '../root/NavigationMenuRoot';
 import {
   useNavigationMenuRootContext,
   useNavigationMenuTreeContext,

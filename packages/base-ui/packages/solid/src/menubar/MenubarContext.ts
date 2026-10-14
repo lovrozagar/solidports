@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { type MenuRoot } from '../menu/root/MenuRoot';
+import type { MenuRoot } from '../menu/root/MenuRoot';
 import type { ReactLikeRef } from '../solid-helpers';
 
 export interface MenubarContext {

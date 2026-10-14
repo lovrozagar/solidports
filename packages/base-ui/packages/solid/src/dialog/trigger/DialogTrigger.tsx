@@ -1,6 +1,7 @@
 import { createMemo, untrack } from 'solid-js';
 import { useClick } from '../../floating-ui-solid';
-import { omitComponentProps, type ReactLikeRef } from '../../solid-helpers';
+import { omitComponentProps } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
 import { usePopupHandleStore, useTriggerDataForwarding } from '../../utils/popups';
@@ -11,7 +12,7 @@ import { useOpenMethodTriggerProps } from '../../utils/useOpenInteractionType';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useDialogRootContext } from '../root/DialogRootContext';
-import { DialogHandle } from '../store/DialogHandle';
+import type { DialogHandle } from '../store/DialogHandle';
 import type { DialogHandleStore } from '../store/DialogStore';
 
 /**

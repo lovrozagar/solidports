@@ -1,6 +1,4 @@
-/* eslint-disable typescript/no-explicit-any -- generic types module: Props/HTMLProps/RenderFn carry tag-generic any to bridge JSX HTMLAttributes variance */
-import type { ComponentProps, JSX, ValidComponent } from '@solidjs/web';
-import type { DynamicProps } from '@solidjs/web';
+import type { ComponentProps, JSX, ValidComponent, DynamicProps } from '@solidjs/web';
 import type { ReactLikeRef } from '../solid-helpers';
 
 export type UseRenderElementRef<T> =

@@ -44,8 +44,8 @@ export function testRenderProp(
       });
 
       expect(screen.queryAllByTestId('base-ui-wrapper')).toHaveLength(wrappingAllowed ? 1 : 0);
-      expect(screen.queryByTestId('wrapped')).not.to.equal(null);
-      expect(screen.queryByTestId('wrapped')).to.have.attribute('data-test-value', testValue);
+      expect(screen.queryByTestId('wrapped')).not.toBe(null);
+      expect(screen.queryByTestId('wrapped')).toHaveAttribute('data-test-value', testValue);
     });
 
     // Solid: React's render element is a `{ component, ...props }` render config.
@@ -57,8 +57,8 @@ export function testRenderProp(
       });
 
       expect(screen.queryAllByTestId('base-ui-wrapper')).toHaveLength(wrappingAllowed ? 1 : 0);
-      expect(screen.queryByTestId('wrapped')).not.to.equal(null);
-      expect(screen.queryByTestId('wrapped')).to.have.attribute('data-test-value', testValue);
+      expect(screen.queryByTestId('wrapped')).not.toBe(null);
+      expect(screen.queryByTestId('wrapped')).toHaveAttribute('data-test-value', testValue);
     });
 
     // Solid: a component can be passed as the render prop itself.
@@ -87,8 +87,8 @@ export function testRenderProp(
       }
 
       render(() => <Test />);
-      expect(instanceFromRef!.tagName).to.equal(Element.toUpperCase());
-      expect(instanceFromRef!).to.have.attribute('data-testid', 'wrapped');
+      expect(instanceFromRef!.tagName).toBe(Element.toUpperCase());
+      expect(instanceFromRef!).toHaveAttribute('data-testid', 'wrapped');
     });
 
     it('should merge the rendering element ref with the custom component ref', () => {
@@ -116,12 +116,12 @@ export function testRenderProp(
 
       render(() => <Test />);
 
-      expect(refA).not.to.equal(null);
-      expect(refA!.tagName).to.equal(Element.toUpperCase());
-      expect(refA!).to.have.attribute('data-testid', 'wrapped');
-      expect(refB).not.to.equal(null);
-      expect(refB!.tagName).to.equal(Element.toUpperCase());
-      expect(refB!).to.have.attribute('data-testid', 'wrapped');
+      expect(refA).not.toBe(null);
+      expect(refA!.tagName).toBe(Element.toUpperCase());
+      expect(refA!).toHaveAttribute('data-testid', 'wrapped');
+      expect(refB).not.toBe(null);
+      expect(refB!.tagName).toBe(Element.toUpperCase());
+      expect(refB!).toHaveAttribute('data-testid', 'wrapped');
     });
 
     it('should merge the rendering element className with the custom component className', () => {
@@ -146,8 +146,8 @@ export function testRenderProp(
       render(() => <Test />);
 
       const component = screen.getByTestId('test-component');
-      expect(component.classList.contains('component-classname')).to.equal(true);
-      expect(component.classList.contains('render-prop-classname')).to.equal(true);
+      expect(component.classList.contains('component-classname')).toBe(true);
+      expect(component.classList.contains('render-prop-classname')).toBe(true);
     });
 
     it('should merge the rendering element resolved className with the custom component className', () => {
@@ -172,8 +172,8 @@ export function testRenderProp(
       render(() => <Test />);
 
       const component = screen.getByTestId('test-component');
-      expect(component.classList.contains('conditional-component-classname')).to.equal(true);
-      expect(component.classList.contains('render-prop-classname')).to.equal(true);
+      expect(component.classList.contains('conditional-component-classname')).toBe(true);
+      expect(component.classList.contains('render-prop-classname')).toBe(true);
     });
   });
 }

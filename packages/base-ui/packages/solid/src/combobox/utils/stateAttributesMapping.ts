@@ -1,5 +1,5 @@
 import { pressableTriggerOpenStateMapping } from '../../utils/popupStateMapping';
-import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import type { Side } from '../../utils/useAnchorPositioning';
 import { fieldValidityMapping } from '../../field/utils/constants';
 

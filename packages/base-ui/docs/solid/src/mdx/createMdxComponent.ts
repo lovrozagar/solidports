@@ -1,4 +1,5 @@
-import { evaluate, type EvaluateOptions } from "@mdx-js/mdx"
+import { evaluate  } from "@mdx-js/mdx"
+import type {EvaluateOptions} from "@mdx-js/mdx";
 /* MDX evaluate needs a {jsx,jsxs,jsxDEV,Fragment} runtime. The docs Vite config
    aliases @solidjs/web/jsx-runtime to the local shim that routes native tags
    through Dynamic. */

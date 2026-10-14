@@ -1,5 +1,6 @@
 import { onCleanup } from 'solid-js';
-import { access, createDepsEffect, type MaybeAccessor } from '../../solid-helpers';
+import { access, createDepsEffect } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { NOOP } from '../../utils/noop';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useLabelableContext } from './LabelableContext';
@@ -81,12 +82,12 @@ export interface UseLabelableIdParameters {
    * The control's `id`. Pass `null` for a control that takes its name from `aria-labelledby`
    * instead, so that the label omits `for`.
    */
-  id?: MaybeAccessor<string | null | false | undefined>;
+  id?: MaybeAccessor<string | null | false | undefined> | undefined;
   /**
    * Whether the control owns the label association of its labelable scope.
    * @default true
    */
-  enabled?: MaybeAccessor<boolean | undefined>;
+  enabled?: MaybeAccessor<boolean | undefined> | undefined;
 }
 
 export type UseLabelableIdReturnValue = string;

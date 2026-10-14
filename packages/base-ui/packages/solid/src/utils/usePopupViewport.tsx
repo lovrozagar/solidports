@@ -1,11 +1,10 @@
-/* eslint-disable typescript/no-explicit-any -- generic store across all popup variants */
 import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from 'solid-js';
 import type { Accessor, ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider';
-import { Dimensions } from '../floating-ui-solid/types';
+import type { Dimensions } from '../floating-ui-solid/types';
 import type { SolidStore } from './store/SolidStoreV2';
-import { Side } from './useAnchorPositioning';
+import type { Side } from './useAnchorPositioning';
 import { flushSync } from './flushSync';
 import { useAnimationFrame } from './useAnimationFrame';
 import { useAnimationsFinished } from './useAnimationsFinished';
@@ -55,7 +54,7 @@ export interface UsePopupViewportParameters {
   /**
    * Viewport children to render in the current container.
    */
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
 }
 
 export interface UsePopupViewportResult {

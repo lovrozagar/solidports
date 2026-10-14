@@ -79,12 +79,12 @@ describe('native parity: Collapsible', () => {
       }),
     );
     pair.same();
-    expect(pair.fast.querySelector('button')).to.have.attribute('aria-controls', 'my-panel');
+    expect(pair.fast.querySelector('button')).toHaveAttribute('aria-controls', 'my-panel');
     pair.both(() => setOpen(false));
     expect(pair.fast.querySelector('#my-panel')).not.toBe(null);
     pair.both(() => setDisabled(true));
     pair.same();
-    expect(pair.fast.querySelector('button')).to.have.attribute('disabled');
+    expect(pair.fast.querySelector('button')).toHaveAttribute('disabled');
     pair.both((root) => fireEvent.click(trigger(root)));
     pair.both(() => setDisabled(false));
     pair.both(() => setOpen(true));
@@ -103,7 +103,7 @@ describe('native parity: Collapsible', () => {
       }),
     );
     pair.same();
-    expect(pair.fast.querySelector('[hidden]')).to.have.attribute('hidden', 'until-found');
+    expect(pair.fast.querySelector('[hidden]')).toHaveAttribute('hidden', 'until-found');
     pair.both((root) => fireEvent.click(trigger(root)));
     pair.both((root) => fireEvent.click(trigger(root)));
     pair.unmount();

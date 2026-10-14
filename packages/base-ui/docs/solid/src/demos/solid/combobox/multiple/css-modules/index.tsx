@@ -1,4 +1,5 @@
-import { createUniqueId, For, type Accessor } from 'solid-js';
+import { createUniqueId, For  } from 'solid-js';
+import type {Accessor} from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
