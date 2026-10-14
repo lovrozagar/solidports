@@ -216,11 +216,12 @@ function rewriteText(value) {
 const rewriteModule = (source) => source.replace('(docs)/react/', '(docs)/solid/');
 
 /**
- * Prop names that components declare in camelCase (Base UI's `readOnly`, `tabIndex`): on a
- * component the transform keeps them instead of writing the DOM attribute name.
+ * Prop names that components declare in camelCase (Base UI's `readOnly`, `Slider.Thumb`'s
+ * `tabIndex`), by the components that declare them (a component file's name): on those components
+ * the transform keeps them instead of writing the DOM attribute name.
  */
 function declaredComponentProps() {
-  const names = new Set();
+  const declared = new Map();
   const roots = [
     path.join(FORK, 'packages/solid/src'),
     path.join(REACT, 'src'),
@@ -230,11 +231,15 @@ function declaredComponentProps() {
     if (!/\.tsx?$/.test(file) || /\.(test|spec)\./.test(file)) {
       continue;
     }
+    const component = path.basename(file).replace(/\.tsx?$/, '');
     for (const match of fs.readFileSync(file, 'utf8').matchAll(/^\s+([a-z]+[A-Z]\w*)\??:/gm)) {
-      names.add(match[1]);
+      if (!declared.has(match[1])) {
+        declared.set(match[1], new Set());
+      }
+      declared.get(match[1]).add(component);
     }
   }
-  return [...names];
+  return Object.fromEntries([...declared].map(([prop, components]) => [prop, [...components]]));
 }
 const COMPONENT_PROPS = declaredComponentProps();
 
@@ -695,7 +700,8 @@ function generatePackageJson() {
   const pkg = {
     name: '@solidports/docs',
     private: true,
-    type: 'module',
+    // The React docs' module type: their `postcss.config.js` is CommonJS.
+    ...(reactPackage.type && { type: reactPackage.type }),
     scripts: {
       dev: `${hook} vite --port 3001`,
       build: `${hook} vite build`,

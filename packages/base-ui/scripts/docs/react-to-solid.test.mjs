@@ -117,17 +117,38 @@ export function Bar(props: { width: number }) {
     it('keeps names a component declares and renames the others', () => {
       expectTransform(
         `export function Fields() {
-  return <NumberField.Root readOnly itemProp="price" />;
+  return (
+    <>
+      <NumberField.Root readOnly itemProp="price" />
+      <Slider.Thumb tabIndex={0} />
+      <ScrollArea.Root tabIndex={0} />
+    </>
+  );
 }`,
         `export function Fields() {
-  return <NumberField.Root readOnly itemprop="price" />;
+  return (
+    <>
+      <NumberField.Root readOnly itemprop="price" />
+      <Slider.Thumb tabIndex={0} />
+      <ScrollArea.Root tabindex={0} />
+    </>
+  );
 }`,
-        { componentProps: ['readOnly'] },
+        { componentProps: { readOnly: ['NumberFieldRoot'], tabIndex: ['SliderThumb'] } },
       );
     });
   });
 
   describe('render elements', () => {
+    it('makes a config of each element a conditional render can be', () => {
+      const output = transformReactToSolid(`export function Item(props: { file: boolean }) {
+  return <Menu.Item render={props.file ? <a href="/file" /> : <Link href="/page" />} />;
+}`);
+      expect(output).toContain("component: 'a'");
+      expect(output).toContain('component: Link');
+      expect(output).not.toContain('element(');
+    });
+
     it('passes a render element as a render config', () => {
       expectTransform(
         `import * as React from 'react';
@@ -555,7 +576,7 @@ export function Counter() {
 }`,
         `import { createMemo } from 'solid-js';
 import type { Accessor } from 'solid-js';
-export function useLabel(_params: Accessor<{ prefix: string; name: string }>, _separator?) {
+export function useLabel(_params: Accessor<{ prefix: string; name: string }>, _separator?: Accessor<string | undefined>) {
   const _params2 = createMemo(() => {
     const { prefix, name } = _params();
     return { prefix, name };
@@ -1011,6 +1032,14 @@ export function Editor(props: { load: () => Promise<{ Editor: () => React.ReactN
       expect(output).toContain('<Dynamic component={_module.Editor} />');
     });
 
+    it("types a React event without a target type as an event on an Element, as React's", () => {
+      expectTransform(
+        `import * as React from 'react';
+export type Handler = (event: React.KeyboardEvent) => void;`,
+        `export type Handler = (event: KeyboardEvent & { currentTarget: Element; target: Element }) => void;`,
+      );
+    });
+
     it("types React's event handlers as the docs runtime's, and as Solid's in a demo", () => {
       const source = `import * as React from 'react';
 export type Props = { onKeyDown?: React.KeyboardEventHandler<HTMLTextAreaElement> };`;
@@ -1041,6 +1070,18 @@ export function useCount() {
 }
 export function Count(props: { count: ReturnType<ReturnType<typeof useCount>> }) {
   return <span>{props.count}</span>;
+}`,
+      );
+    });
+
+    it("gives React's capture-phase handlers to the element's ref as capture listeners", () => {
+      expectTransform(
+        `export function Panel(props: { onKey: () => void; inputRef: (el: HTMLInputElement | null) => void }) {
+  return <input ref={props.inputRef} onKeyDownCapture={props.onKey} onFocusCapture={props.onKey} />;
+}`,
+        `import { captureRef } from 'docs/src/adapters/react';
+export function Panel(props: { onKey: () => void; inputRef: (el: HTMLInputElement | null) => void }) {
+  return <input ref={captureRef(props.inputRef, { keydown: props.onKey, focusin: props.onKey })} />;
 }`,
       );
     });
@@ -1377,12 +1418,14 @@ const Dialog = lazy(async () => ({ default: (await import('./Dialog')).Dialog })
 export const Button = React.forwardRef<HTMLButtonElement, { label: string }>(function Button(props, forwardedRef) {
   return <button ref={forwardedRef}>{props.label}</button>;
 });`,
-        `import { reactRef } from 'docs/src/adapters/react';
+        `import { omit } from 'solid-js';
+import { reactRef } from 'docs/src/adapters/react';
 import type { PropsWithoutRef, Ref } from 'docs/src/adapters/react';
 export const Button = function Button(
-  props: PropsWithoutRef<{ label: string }> & { ref?: Ref<HTMLButtonElement> },
+  _props: PropsWithoutRef<{ label: string }> & { ref?: Ref<HTMLButtonElement> },
 ) {
-  return <button ref={reactRef(props.ref)}>{props.label}</button>;
+  const props = omit(_props, 'ref');
+  return <button ref={reactRef(_props.ref)}>{props.label}</button>;
 };`,
       );
     });
