@@ -15,6 +15,8 @@ import {
   resetBrowserPointer,
   waitSingleFrame,
 } from '#test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './MenuFilterRoot.ssr-fixtures';
 
 // Mainline tests assert the non-WebKit path; MenuFilterRoot.webkit.test.tsx covers its compatibility state.
 vi.mock('../../utils/platform', async () => {
@@ -4355,23 +4357,12 @@ describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider>', () => {
 
   describe('server-side rendering', () => {
     it('shows the empty state after hydration when no items are rendered', async () => {
-      // Solid: the test harness has no `renderToString`/`hydrate` renderer, so this checks the
-      // client render the hydration hands over to.
-      await render(() => (
-        <Menu.FilterProvider>
-          <Menu.Root open>
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
-                  <Menu.Input aria-label="Filter actions" />
-                  <Menu.Empty data-testid="empty">No actions found</Menu.Empty>
-                  <Menu.List />
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        </Menu.FilterProvider>
-      ));
+      // Solid: `renderServer` puts the fixture's server render in the document (`renderToString`).
+      const { hydrate } = renderServer(ssrFixtures, 'emptyState');
+
+      expect(screen.queryByTestId('empty')).toBe(null);
+
+      hydrate();
 
       await waitFor(() => {
         expect(screen.getByTestId('empty')).toHaveTextContent('No actions found');

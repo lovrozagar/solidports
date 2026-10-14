@@ -6,6 +6,8 @@ import { act, createRenderer } from '#test-utils';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
 import { useComboboxRootContext } from './root/ComboboxRootContext';
 import type { ComboboxStore } from './store';
+import { renderServer } from '../../test/ssrFixtures';
+import fixtures from './store.ssr-fixtures';
 
 /**
  * Characterization tests for how `AriaCombobox` synchronizes external values into the store.
@@ -225,17 +227,18 @@ describe('combobox store synchronization', () => {
     expect(namedControls('search')[0]).toHaveAttribute('aria-hidden', 'true');
   });
 
-  // Solid: the test harness has no `renderToString`/`hydrate` renderer, so this asserts the
-  // client-rendered ownership that hydration must reach.
   it('keeps form value ownership across hydration', () => {
-    render(() => (
-      <Autocomplete.Root items={['alpha', 'beta']} name="search">
-        <Autocomplete.Input data-testid="input" />
-        <Autocomplete.Portal>
-          <Autocomplete.Positioner />
-        </Autocomplete.Portal>
-      </Autocomplete.Root>
-    ));
+    // The complementary configuration to the test above: the input is not inside a popup, so it
+    // owns the form value itself. The existing SSR suite already covers the ARIA attributes
+    // (`ComboboxRoot.test.tsx`), so this asserts the ownership that survives into hydration.
+    // Solid: `renderServer` puts the fixture's server render in the document (`renderToString`).
+    const { hydrate } = renderServer(fixtures, 'formValueOwnership');
+
+    expect(screen.getByTestId('input')).toHaveAttribute('role', 'combobox');
+    expect(namedControls('search')).toHaveLength(1);
+    expect(namedControls('search')[0]).toBe(screen.getByTestId('input'));
+
+    hydrate();
 
     expect(screen.getByTestId('input')).toHaveAttribute('role', 'combobox');
     expect(namedControls('search')).toHaveLength(1);

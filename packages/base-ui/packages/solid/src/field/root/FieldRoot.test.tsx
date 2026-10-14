@@ -930,13 +930,14 @@ describe('<Field.Root />', () => {
 
     it('receives all form values as the 2nd argument', async () => {
       const validateSpy = vi.fn();
+      const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
 
       /**
        * For some reason, need to prevent default on submit so iframe is not
        * detached from the document in the vitest browser environment.
        */
       render(() => (
-        <Form onSubmit={(event) => event.preventDefault()}>
+        <Form onSubmit={onSubmit}>
           <Field.Root name="checkbox">
             <Checkbox.Root defaultChecked />
           </Field.Root>
@@ -1015,10 +1016,12 @@ describe('<Field.Root />', () => {
         slider: 12,
         switch: false,
       });
+      expect(onSubmit).toHaveBeenCalledTimes(1);
     });
 
     it('unmounted fields are excluded from the validate fn', async () => {
       const validateSpy = vi.fn();
+      const onSubmit = vi.fn((event: SubmitEvent) => event.preventDefault());
       function App() {
         const [checked, setChecked] = createSignal(true);
 
@@ -1027,7 +1030,7 @@ describe('<Field.Root />', () => {
          * detached from the document in the vitest browser environment.
          */
         return (
-          <Form onSubmit={(event) => event.preventDefault()}>
+          <Form onSubmit={onSubmit}>
             <input type="checkbox" checked={checked()} onChange={() => setChecked(!checked())} />
             <Show when={checked()}>
               <Field.Root name="input1">
@@ -1058,6 +1061,7 @@ describe('<Field.Root />', () => {
       expect(validateSpy.mock.lastCall?.[1]).toEqual({
         input2: 'two',
       });
+      expect(onSubmit).toHaveBeenCalledTimes(2);
     });
 
     it('submits the replacement control value when swapping field-aware controls', async () => {

@@ -199,8 +199,16 @@ describe('<Checkbox.Indicator />', () => {
       globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
 
       let transitionFinished = false;
+      const getAnimations = vi.fn((): Animation[] => []);
+
       function notifyTransitionFinished() {
         transitionFinished = true;
+      }
+
+      function handleIndicatorRef(element: HTMLSpanElement | null) {
+        if (element) {
+          element.getAnimations = getAnimations;
+        }
       }
 
       const style = `
@@ -230,6 +238,7 @@ describe('<Checkbox.Indicator />', () => {
                 class="animation-test-indicator"
                 data-testid="indicator"
                 onTransitionEnd={notifyTransitionFinished}
+                ref={handleIndicatorRef}
               />
             </Checkbox.Root>
           </div>
@@ -246,6 +255,7 @@ describe('<Checkbox.Indicator />', () => {
       });
 
       expect(screen.getByTestId('indicator')).not.toBe(null);
+      expect(getAnimations).not.toHaveBeenCalled();
     });
 
     it('applies data-ending-style before unmount', async () => {

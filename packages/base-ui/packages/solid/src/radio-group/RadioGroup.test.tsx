@@ -449,7 +449,7 @@ describe('<RadioGroup />', () => {
       );
     }
 
-    render(() => <App />);
+    const { unmount } = render(() => <App />);
 
     const input = oldRef.current;
     expect(input).toHaveAttribute('value', 'b');
@@ -463,6 +463,9 @@ describe('<RadioGroup />', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'restore' }));
     expect(newRef.current).toBe(input);
+
+    unmount();
+    expect(newRef.current).toBe(null);
   });
 
   it.each([false, true])(

@@ -218,17 +218,10 @@ describe('<Combobox.Root />', () => {
     listEnd: 'escape',
   });
 
-  // Solid: the test harness has no renderToString/hydrate renderer, so these assert the client render.
   describe('server-side rendering', () => {
     it('sets combobox aria attributes on the input', () => {
-      render(() => (
-        <Combobox.Root>
-          <Combobox.Input data-testid="input" />
-          <Combobox.Portal>
-            <Combobox.Positioner />
-          </Combobox.Portal>
-        </Combobox.Root>
-      ));
+      // Solid: `renderServer` puts the fixture's server render in the document (`renderToString`).
+      renderServer(ssrFixtures, 'inputAria');
 
       const input = screen.getByTestId('input');
 
@@ -239,14 +232,8 @@ describe('<Combobox.Root />', () => {
     });
 
     it('sets combobox aria attributes on the trigger when input is inside popup', () => {
-      render(() => (
-        <Combobox.Root>
-          <Combobox.Trigger data-testid="trigger" />
-          <Combobox.Portal>
-            <Combobox.Positioner />
-          </Combobox.Portal>
-        </Combobox.Root>
-      ));
+      // Solid: `renderServer` puts the fixture's server render in the document (`renderToString`).
+      renderServer(ssrFixtures, 'triggerAria');
 
       const trigger = screen.getByTestId('trigger');
 
