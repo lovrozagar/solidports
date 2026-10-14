@@ -1,0 +1,684 @@
+import path from 'node:path';
+import type { NextConfig } from 'next';
+import type { Configuration as WebpackConfig, RuleSetRule } from 'webpack';
+import type { OrderingConfig } from '../pipeline/loadServerTypesText/order';
+import type { DescriptionReplacement } from '../pipeline/loadServerTypesMeta/format';
+import type { InheritedExternalPropsConfig } from '../pipeline/loadServerTypesMeta/inheritedExternalProps';
+import type { EnhanceCodeEmphasisOptions } from '../pipeline/parseSource/calculateFrameRanges';
+import type { TransformHtmlCodeBlockOptions } from '../pipeline/transformHtmlCodeBlock/transformHtmlCodeBlock';
+import { DEFAULT_CACHE_DIR } from '../pipeline/cacheUtils';
+
+// Local type definition matching Next.js's internal JSONValue
+// Used for Turbopack loader options which require serializable values
+type JSONValue = string | number | boolean | JSONValue[] | { [k: string]: JSONValue };
+
+// Define webpack options interface based on Next.js webpack function signature
+export interface WebpackOptions {
+  buildId: string;
+  dev: boolean;
+  isServer: boolean;
+  nextRuntime?: 'nodejs' | 'edge';
+  config: NextConfig;
+  defaultLoaders: {
+    babel: RuleSetRule;
+  };
+}
+
+export interface WithDocsInfraOptions {
+  /**
+   * Additional page extensions to support beyond the default docs-infra extensions.
+   * Default docs-infra extensions are: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx']
+   */
+  additionalPageExtensions?: string[];
+  /**
+   * Whether to enable the export output mode.
+   * @default true
+   */
+  enableExportOutput?: boolean;
+  /**
+   * Custom demo path pattern for loader rules.
+   * @default './app/ ** /demos/ * /index.ts'
+   */
+  demoPathPattern?: string;
+  /**
+   * Custom demo path pattern for loader rules.
+   * @default './demo-data/ * /index.ts'
+   */
+  demoDataPathPattern?: string;
+  /**
+   * Custom client demo path pattern for loader rules.
+   * @default './app/ ** /demos/ * /client.ts'
+   */
+  clientDemoPathPattern?: string;
+  /**
+   * Additional demo loader patterns for both Turbopack and Webpack.
+   * Each pattern will use the appropriate code highlighter loaders.
+   */
+  additionalDemoPatterns?: {
+    /** Patterns for index files that should use loadPrecomputedCodeHighlighter */
+    index?: string[];
+    /** Patterns for client files that should use loadPrecomputedCodeHighlighterClient */
+    client?: string[];
+  };
+  /**
+   * Additional Turbopack rules to merge with the default docs-infra rules.
+   */
+  additionalTurbopackRules?: Record<string, { loaders: string[] }>;
+  /**
+   * When set, `pnpm docs-infra validate` ensures every demo `index.ts` matched by a
+   * `loadPrecomputedCodeHighlighter` demo rule has a sibling `client.ts` that imports
+   * `createDemoClient` from this path, and that the demo's `create*` factory call
+   * receives a `ClientProvider` entry in its meta object.
+   *
+   * Bare specifiers (e.g. `'@/functions/createDemoClient'`) are written into the
+   * generated `client.ts` verbatim. Relative specifiers (e.g. `'./createDemoClient'`,
+   * `'../createDemoClient'`) are resolved against the directory containing
+   * `next.config.{js,mjs,ts}` and rewritten to be relative to each generated
+   * `client.ts` so the same module is imported regardless of demo depth.
+   *
+   * Existing `client.ts` files are never overwritten.
+   */
+  requireDemoClient?: string;
+  /**
+   * When `true`, `pnpm docs-infra validate` ensures every demo `index.ts` matched by a
+   * `loadPrecomputedCodeHighlighter` demo rule has a sibling `page.tsx` that renders
+   * the demo as the route's default export, so each demo is browsable on its own page.
+   *
+   * The demo's export name is read from the `create*` factory call in `index.ts`, so the
+   * generated page imports the exact export (e.g. `import { DemoButton } from '.';`).
+   *
+   * Existing `page.tsx`/`page.ts` files are never overwritten.
+   */
+  requireDemoPage?: boolean;
+  /**
+   * Performance logging options
+   */
+  performance?: {
+    logging: boolean;
+    notableMs?: number;
+    showWrapperMeasures?: boolean;
+  };
+  /**
+   * Defer AST parsing option for code highlighter output.
+   * 'gzip' - Default, outputs gzipped HAST for best performance.
+   * 'json' - Outputs JSON HAST, requires client-side parsing.
+   * 'none' - Outputs raw HAST, requires client-side parsing and is largest size.
+   * @default 'gzip'
+   */
+  deferCodeParsing?: 'gzip' | 'json' | 'none';
+  /**
+   * Prefixes for comments that should be stripped from the source output.
+   * Comments starting with these prefixes will be removed from the returned source.
+   * They can still be collected via `notableCommentsPrefix`.
+   * @example ['@highlight', '@internal']
+   */
+  removeCommentsWithPrefix?: string[];
+  /**
+   * Prefixes for notable comments that should be collected and included in the result.
+   * Comments starting with these prefixes will be returned in the `comments` field,
+   * which can be used by sourceEnhancers to modify the highlighted output.
+   * @example ['@highlight', '@focus']
+   */
+  notableCommentsPrefix?: string[];
+  /**
+   * Options for the code emphasis enhancer used by demo loaders.
+   * Passed to `createEnhanceCodeEmphasis` in the precomputed code highlighter loader.
+   */
+  demoEmphasisOptions?: EnhanceCodeEmphasisOptions;
+  /**
+   * Options for code blocks rendered inside generated type metadata.
+   * Passed to `transformHtmlCodeBlock` through the types loader pipeline.
+   */
+  codeBlockEmphasisOptions?: TransformHtmlCodeBlockOptions;
+  /**
+   * When `true`, the demo loaders register the `TypescriptToJavascriptTransformer`
+   * so that TypeScript variants also produce a JavaScript counterpart at build time.
+   *
+   * Defaults to `false` because the transform is comparatively expensive;
+   * enable it when the rendered demos should expose both TS and JS sources.
+   */
+  transformTypescriptToJavascript?: boolean;
+  /**
+   * Name of the index file to update when syncing types metadata to parent indexes.
+   * The types loader will call syncPageIndex to update the parent directory's index
+   * with props, dataAttributes, and cssVariables extracted from component types.
+   * @default 'page.mdx'
+   */
+  typesIndexFileName?: string;
+  /**
+   * Throw an error if any types index is out of date or missing.
+   * Useful for CI environments to ensure indexes are committed.
+   * @default Boolean(process.env.CI)
+   */
+  errorIfTypesIndexOutOfDate?: boolean;
+  /**
+   * Custom ordering configuration for sorting props, data attributes, component exports,
+   * namespace parts, and type suffixes in generated documentation.
+   *
+   * Each array defines the order in which items should appear. Items not in the array
+   * are placed at the position of the `__EVERYTHING_ELSE__` marker, sorted alphabetically.
+   *
+   * All fields are optional — unspecified fields use the built-in defaults.
+   */
+  ordering?: OrderingConfig;
+  /**
+   * Pattern/replacement pairs to apply to JSDoc descriptions during type extraction.
+   * Each entry has a `pattern` (regex string) and `replacement` string.
+   *
+   * @example
+   * ```js
+   * [
+   *   { pattern: '\\n\\nDocumentation: .*$', replacement: '', flags: 'm' },
+   * ]
+   * ```
+   */
+  descriptionReplacements?: DescriptionReplacement[];
+  /**
+   * Props to re-include in component docs when they are inherited from these
+   * externally declared types, keyed by the declaring type's name. Type
+   * extraction normally drops props that are only declared inside
+   * `node_modules` (which keeps native DOM attributes out of the docs); this
+   * option re-adds the configured props when a component's props type extends
+   * one of the listed types from an installed package.
+   *
+   * Entries can also pin the package the type must come from, to disambiguate
+   * same-named types from different packages.
+   *
+   * @example
+   * ```js
+   * { BaseUIComponentProps: ['className', 'render', 'style'] }
+   * ```
+   * @example
+   * ```js
+   * { BaseUIComponentProps: { from: '@base-ui/react', props: ['className', 'render', 'style'] } }
+   * ```
+   */
+  inheritedExternalProps?: InheritedExternalPropsConfig;
+  /**
+   * Directory rooting docs-infra's build caches and coordination state — relocate it (or point it
+   * at a persistent cache) and everything under it moves together: the sha256-validated JSON caches
+   * (`pages-index-v2`, `types-text`, `types-enhanced`) and the index marker directories
+   * (`index-updates`, `types-index-updates`). The IPC socket used to coordinate the type workers
+   * lives outside the project, in the system temp directory, and is unaffected by this option.
+   * @default '.next/cache/docs-infra'
+   */
+  cacheDir?: string;
+}
+
+export interface DocsInfraMdxOptions {
+  remarkPlugins?: Array<string | [string, ...any[]]>;
+  rehypePlugins?: Array<string | [string, ...any[]]>;
+  /**
+   * Additional remark plugins to add to the default docs-infra plugins
+   */
+  additionalRemarkPlugins?: Array<string | [string, ...any[]]>;
+  /**
+   * Additional rehype plugins to add to the default docs-infra plugins
+   */
+  additionalRehypePlugins?: Array<string | [string, ...any[]]>;
+  /**
+   * Whether to automatically extract page metadata (title, description, headings) from MDX files
+   * and maintain an index in the parent directory's page.mdx file.
+   *
+   * Index files themselves (e.g., pattern/page.mdx) are automatically excluded from extraction.
+   *
+   * Can be:
+   * - `false` - Disabled
+   * - `true` - Enabled with default filter: `{ include: ['app', 'src/app'], exclude: [] }`
+   * - `{ include: string[], exclude: string[] }` - Enabled with custom path filters
+   *
+   * @default true
+   */
+  extractToIndex?:
+    | boolean
+    | {
+        /** Path prefixes that files must match to have metadata extracted */
+        include: string[];
+        /** Path prefixes to exclude from metadata extraction */
+        exclude: string[];
+      };
+  /**
+   * Base directory for path filtering. Defaults to process.cwd().
+   * Only needed when calling the plugin directly (not via withDocsInfra).
+   */
+  baseDir?: string;
+  /**
+   * Throw an error if any index is out of date or missing.
+   * Useful for CI environments to ensure indexes are committed.
+   *
+   * @default false
+   */
+  errorIfIndexOutOfDate?: boolean;
+  /**
+   * Default language for inline code syntax highlighting.
+   * Set to `false` to disable default highlighting for inline code.
+   * @default 'tsx'
+   */
+  defaultInlineCodeLanguage?: string | false;
+  /**
+   * Options for authored MDX code blocks processed by `transformHtmlCodeBlock`.
+   * Passed to `transformHtmlCodeBlock` in the default rehype plugin list.
+   */
+  codeBlockEmphasisOptions?: TransformHtmlCodeBlockOptions;
+  /**
+   * Directory rooting docs-infra's build caches and index markers. Indexes synced from MDX store
+   * the page-index cache under `{cacheDir}/pages-index-v2/` and markers under `{cacheDir}/index-updates/`.
+   * @default '.next/cache/docs-infra'
+   */
+  cacheDir?: string;
+}
+
+/**
+ * Get default MDX options for docs-infra
+ */
+export function getDocsInfraMdxOptions(
+  customOptions: DocsInfraMdxOptions = {},
+): DocsInfraMdxOptions {
+  const {
+    extractToIndex = true,
+    baseDir,
+    errorIfIndexOutOfDate = Boolean(process.env.CI),
+    defaultInlineCodeLanguage,
+    codeBlockEmphasisOptions,
+    cacheDir = DEFAULT_CACHE_DIR,
+  } = customOptions;
+
+  // Normalize extractToIndex to options object
+  let extractToIndexOptions:
+    | false
+    | {
+        include: string[];
+        exclude: string[];
+        baseDir?: string;
+        markerDir?: string | false;
+        errorIfOutOfDate?: boolean;
+        cacheDir?: string;
+      };
+
+  if (extractToIndex === false) {
+    extractToIndexOptions = false;
+  } else if (extractToIndex === true) {
+    // Default filter: include all files under app/ and src/app/
+    // Index files (pattern/page.mdx) are automatically excluded by the matching logic
+    // Use process.cwd() as default baseDir (the directory where Next.js is running)
+    extractToIndexOptions = {
+      include: ['app', 'src/app'],
+      exclude: [],
+      baseDir: baseDir ?? process.cwd(),
+      markerDir: path.posix.join(cacheDir, 'index-updates'),
+      errorIfOutOfDate: errorIfIndexOutOfDate,
+      cacheDir,
+    };
+  } else {
+    extractToIndexOptions = {
+      ...extractToIndex,
+      baseDir: baseDir ?? process.cwd(),
+      markerDir: path.posix.join(cacheDir, 'index-updates'),
+      errorIfOutOfDate: errorIfIndexOutOfDate,
+      cacheDir,
+    };
+  }
+
+  const defaultRemarkPlugins: Array<string | [string, ...any[]]> = [
+    ['remark-gfm'],
+    [
+      '@mui/internal-docs-infra/pipeline/transformMarkdownMetadata',
+      {
+        extractToIndex: extractToIndexOptions,
+      },
+    ],
+    ['@mui/internal-docs-infra/pipeline/transformMarkdownRelativePaths'],
+    ['@mui/internal-docs-infra/pipeline/transformMarkdownBlockquoteCallouts'],
+    // Only pass options if explicitly set (undefined uses plugin default of 'tsx')
+    defaultInlineCodeLanguage !== undefined
+      ? ['@mui/internal-docs-infra/pipeline/transformMarkdownCode', { defaultInlineCodeLanguage }]
+      : ['@mui/internal-docs-infra/pipeline/transformMarkdownCode'],
+    ['@mui/internal-docs-infra/pipeline/transformMarkdownMetaLinks'],
+  ];
+
+  const defaultRehypePlugins: Array<string | [string, ...any[]]> = [
+    codeBlockEmphasisOptions
+      ? ['@mui/internal-docs-infra/pipeline/transformHtmlCodeBlock', codeBlockEmphasisOptions]
+      : ['@mui/internal-docs-infra/pipeline/transformHtmlCodeBlock'],
+    ['@mui/internal-docs-infra/pipeline/transformHtmlCodeInline'],
+    // enhancers
+    ['@mui/internal-docs-infra/pipeline/enhanceCodeInline'],
+  ];
+
+  // Build final plugin arrays
+  const remarkPlugins = customOptions.remarkPlugins ?? [
+    ...defaultRemarkPlugins,
+    ...(customOptions.additionalRemarkPlugins ?? []),
+  ];
+
+  const rehypePlugins = customOptions.rehypePlugins ?? [
+    ...defaultRehypePlugins,
+    ...(customOptions.additionalRehypePlugins ?? []),
+  ];
+
+  return {
+    remarkPlugins,
+    rehypePlugins,
+  };
+}
+
+/**
+ * Next.js plugin for MUI docs infrastructure.
+ * Configures webpack loaders, turbopack rules for docs sites.
+ * Use getDocsInfraMdxOptions() with createMDX for MDX integration.
+ */
+export function withDocsInfra(options: WithDocsInfraOptions = {}) {
+  const {
+    additionalPageExtensions = [],
+    enableExportOutput = true,
+    demoPathPattern = './app/**/demos/*/index.ts',
+    demoDataPathPattern = './demo-data/*/index.ts',
+    clientDemoPathPattern = './app/**/demos/*/client.ts',
+    additionalDemoPatterns = {},
+    additionalTurbopackRules = {},
+    performance = {},
+    deferCodeParsing = 'gzip',
+    removeCommentsWithPrefix,
+    notableCommentsPrefix,
+    typesIndexFileName = 'page.mdx',
+    errorIfTypesIndexOutOfDate = Boolean(process.env.CI),
+    requireDemoClient,
+    requireDemoPage = false,
+    transformTypescriptToJavascript = false,
+    cacheDir = DEFAULT_CACHE_DIR,
+  } = options;
+
+  // Only include ordering in loader options if explicitly provided
+  const ordering = options.ordering;
+  const descriptionReplacements = options.descriptionReplacements;
+  const inheritedExternalProps = options.inheritedExternalProps;
+  const demoEmphasisOptions = options.demoEmphasisOptions;
+  const codeBlockEmphasisOptions = options.codeBlockEmphasisOptions;
+
+  // Compute updateParentIndex options similar to how transformMarkdownMetadata does
+  const updateParentIndex = {
+    baseDir: process.cwd(),
+    indexFileName: typesIndexFileName,
+    markerDir: path.posix.join(cacheDir, 'types-index-updates'),
+    onlyUpdateIndexes: true,
+    errorIfOutOfDate: errorIfTypesIndexOutOfDate,
+    cacheDir,
+  };
+
+  let output: 'hast' | 'hastJson' | 'hastCompressed' = 'hastCompressed';
+  if (deferCodeParsing === 'json') {
+    output = 'hastJson';
+  } else if (deferCodeParsing === 'none') {
+    output = 'hast';
+  }
+
+  return (nextConfig: NextConfig = {}): NextConfig => {
+    const basePageExtensions = ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'];
+    const pageExtensions = [...basePageExtensions, ...additionalPageExtensions];
+
+    // Build Turbopack rules
+    // Filter out undefined values to satisfy Turbopack's JSONValue type requirement
+    const codeHighlighterOptions: Record<string, JSONValue> = {
+      performance,
+      output,
+      ...(removeCommentsWithPrefix && { removeCommentsWithPrefix }),
+      ...(notableCommentsPrefix && { notableCommentsPrefix }),
+      ...(demoEmphasisOptions && {
+        emphasisOptions: demoEmphasisOptions as unknown as JSONValue,
+      }),
+      ...(transformTypescriptToJavascript ? { transformTypescriptToJavascript: true } : {}),
+    };
+
+    // The demo highlighter options carry `requireClient`/`requirePage` so the validate
+    // CLI can discover both the import specifier and the patterns it should ensure
+    // clients/pages for. The loader itself ignores these options.
+    const demoCodeHighlighterOptions: Record<string, JSONValue> = {
+      ...codeHighlighterOptions,
+      ...(requireDemoClient ? { requireClient: requireDemoClient } : {}),
+      ...(requireDemoPage ? { requirePage: true } : {}),
+    };
+
+    const turbopackRules: Exclude<NextConfig['turbopack'], undefined>['rules'] = {
+      [demoPathPattern]: {
+        loaders: [
+          {
+            loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighter',
+            options: demoCodeHighlighterOptions,
+          },
+        ],
+      },
+      [demoDataPathPattern]: {
+        loaders: [
+          {
+            loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighter',
+            options: codeHighlighterOptions,
+          },
+        ],
+      },
+      [clientDemoPathPattern]: {
+        loaders: [
+          {
+            loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighterClient',
+            options: { performance },
+          },
+        ],
+      },
+      './app/**/types.ts': {
+        loaders: [
+          {
+            loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedTypes',
+            options: {
+              performance,
+              updateParentIndex,
+              cacheDir,
+              ...(codeBlockEmphasisOptions
+                ? { codeBlockEmphasisOptions: codeBlockEmphasisOptions as unknown as JSONValue }
+                : {}),
+              ...(ordering ? { ordering: ordering as unknown as JSONValue } : {}),
+              ...(descriptionReplacements
+                ? { descriptionReplacements: descriptionReplacements as unknown as JSONValue }
+                : {}),
+              ...(inheritedExternalProps
+                ? { inheritedExternalProps: inheritedExternalProps as unknown as JSONValue }
+                : {}),
+            },
+          },
+        ],
+      },
+      './app/sitemap/index.ts': {
+        loaders: [
+          {
+            loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedSitemap',
+            options: { performance, cacheDir },
+          },
+        ],
+      },
+    };
+
+    // Add additional demo patterns to Turbopack rules
+    if (additionalDemoPatterns.index) {
+      additionalDemoPatterns.index.forEach((pattern) => {
+        turbopackRules[pattern] = {
+          loaders: [
+            {
+              loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighter',
+              options: demoCodeHighlighterOptions,
+            },
+          ],
+        };
+      });
+    }
+
+    if (additionalDemoPatterns.client) {
+      additionalDemoPatterns.client.forEach((pattern) => {
+        turbopackRules[pattern] = {
+          loaders: [
+            {
+              loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighterClient',
+              options: { performance },
+            },
+          ],
+        };
+      });
+    }
+
+    // Merge with additional turbopack rules
+    Object.assign(turbopackRules, additionalTurbopackRules);
+
+    const config: NextConfig = {
+      ...nextConfig,
+      pageExtensions,
+      ...(enableExportOutput && { output: 'export' }),
+      turbopack: {
+        ...nextConfig.turbopack,
+        rules: {
+          ...nextConfig.turbopack?.rules,
+          ...turbopackRules,
+        },
+      },
+      webpack: (webpackConfig: WebpackConfig, webpackOptions) => {
+        // Call existing webpack function if it exists
+        if (nextConfig.webpack) {
+          webpackConfig = nextConfig.webpack(webpackConfig, webpackOptions);
+        }
+
+        // Ensure module and rules exist
+        if (!webpackConfig.module) {
+          webpackConfig.module = {};
+        }
+        if (!webpackConfig.module.rules) {
+          webpackConfig.module.rules = [];
+        }
+
+        const { defaultLoaders } = webpackOptions;
+
+        // Add loader for demo index files
+        webpackConfig.module.rules.push({
+          test: new RegExp('[/\\\\]demos[/\\\\][^/\\\\]+[/\\\\]index\\.ts$'),
+          use: [
+            defaultLoaders.babel,
+            {
+              loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighter',
+              options: demoCodeHighlighterOptions,
+            },
+          ],
+        });
+
+        // Add loader for demo data
+        webpackConfig.module.rules.push({
+          test: new RegExp('[/\\\\]demo-data[/\\\\][^/\\\\]+[/\\\\]index\\.ts$'),
+          use: [
+            defaultLoaders.babel,
+            {
+              loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighter',
+              options: codeHighlighterOptions,
+            },
+          ],
+        });
+
+        // Client files for live demos - processes externals
+        webpackConfig.module.rules.push({
+          test: new RegExp('[/\\\\]demos[/\\\\][^/\\\\]+[/\\\\]client\\.ts$'),
+          use: [
+            defaultLoaders.babel,
+            {
+              loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighterClient',
+              options: { performance },
+            },
+          ],
+        });
+
+        // Sitemap loader
+        webpackConfig.module.rules.push({
+          test: new RegExp('[/\\\\]sitemap[/\\\\]index\\.ts$'),
+          use: [
+            defaultLoaders.babel,
+            {
+              loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedSitemap',
+              options: { performance, cacheDir },
+            },
+          ],
+        });
+
+        // Types files for type metadata
+        webpackConfig.module.rules.push({
+          test: new RegExp('[/\\\\]app[/\\\\].*[/\\\\]types\\.ts$'),
+          use: [
+            defaultLoaders.babel,
+            {
+              loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedTypes',
+              options: {
+                performance,
+                updateParentIndex,
+                cacheDir,
+                ...(codeBlockEmphasisOptions ? { codeBlockEmphasisOptions } : {}),
+                ...(ordering ? { ordering } : {}),
+                ...(descriptionReplacements ? { descriptionReplacements } : {}),
+                ...(inheritedExternalProps ? { inheritedExternalProps } : {}),
+              },
+            },
+          ],
+        });
+
+        // Add webpack rules for additional demo patterns
+        if (additionalDemoPatterns.index) {
+          additionalDemoPatterns.index.forEach((pattern) => {
+            // Convert Turbopack pattern to webpack regex
+            // Pattern like './app/**/demos/*/demo-*/index.ts'
+            // Should match paths like '/app/components/demos/Button/demo-variant/index.ts'
+            // Use placeholders to avoid corrupting character classes during replacement
+            const SEP = 'PATH_SEP_PLACEHOLDER';
+            const NOT_SEP = 'NOT_PATH_SEP_PLACEHOLDER';
+            const regexPattern = pattern
+              .replace(/^\.\//, '') // Remove leading ./
+              .replace(/\*\*\//g, 'DOUBLE_STAR_PLACEHOLDER') // Replace **/ with placeholder
+              .replace(/\*/g, NOT_SEP) // Replace single * with placeholder
+              .replace(/\./g, '\\.') // Escape dots
+              .replace(/DOUBLE_STAR_PLACEHOLDER/g, `(?:${NOT_SEP}${SEP})*`) // Replace placeholder with zero or more directories
+              .replace(/\//g, SEP) // Convert all path separators to placeholder
+              .replace(new RegExp(NOT_SEP, 'g'), '[^/\\\\]+') // Replace NOT_SEP with actual pattern
+              .replace(new RegExp(SEP, 'g'), '[/\\\\]'); // Replace SEP with actual pattern
+
+            webpackConfig.module!.rules!.push({
+              test: new RegExp(`${regexPattern}$`),
+              use: [
+                defaultLoaders.babel,
+                {
+                  loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighter',
+                  options: demoCodeHighlighterOptions,
+                },
+              ],
+            });
+          });
+        }
+
+        if (additionalDemoPatterns.client) {
+          additionalDemoPatterns.client.forEach((pattern) => {
+            // Convert Turbopack pattern to webpack regex
+            const regexPattern = pattern
+              .replace(/^\.\//, '/') // Remove leading ./
+              .replace(/\*\*\//g, 'DOUBLE_STAR_PLACEHOLDER') // Replace **/ with placeholder
+              .replace(/\*/g, '[^/\\\\]+') // Replace single * with single dir pattern
+              .replace(/\./g, '\\.') // Escape dots
+              .replace(/DOUBLE_STAR_PLACEHOLDER/g, '(?:[^/\\\\]+/)*'); // Replace placeholder with zero or more directories
+
+            webpackConfig.module!.rules!.push({
+              test: new RegExp(`${regexPattern}$`),
+              use: [
+                defaultLoaders.babel,
+                {
+                  loader: '@mui/internal-docs-infra/pipeline/loadPrecomputedCodeHighlighterClient',
+                  options: { performance },
+                },
+              ],
+            });
+          });
+        }
+
+        return webpackConfig;
+      },
+    };
+
+    return config;
+  };
+}

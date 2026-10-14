@@ -1,0 +1,141 @@
+'use client';
+
+import * as React from 'react';
+import type { ControlledCode, SourceEnhancers } from '../CodeHighlighter/types';
+
+export type Selection = { variant: string; fileName?: string; transformKey?: string };
+
+/**
+ * Context for controlling the code shown within the CodeHighlighter component.
+ *
+ * To benefit from server or build-time rendering, the initial code should not be provided
+ * to the controller context. It's recommended to only set `code` after the first `setCode`
+ * event fires.
+ */
+export interface CodeControllerContext {
+  /**
+   * Controls the code shown within the code highlighter. Unlike the CodeHighlighter component,
+   * code is always a string to simplify use. It will be highlighted when it is passed as `code`.
+   * This behavior depends on client-side highlighting and the CodeProvider component.
+   */
+  code?: ControlledCode | null;
+
+  /**
+   * Controls the state for displaying the given code. This works with build-time and client-side
+   * loading. If using server loading, the selection won't work for fallback loading and would
+   * have to be passed directly into the CodeHighlighter component within a server component.
+   */
+  selection?: Selection;
+
+  /**
+   * Setter function for updating the code. When provided in the context, this function will be
+   * called when the user interacts with the code highlighting. It's recommended to only set `code`
+   * after the first `setCode` event fires to benefit from server or build-time rendering.
+   */
+  setCode?: React.Dispatch<React.SetStateAction<ControlledCode | null>>;
+
+  /**
+   * Setter function for updating the selection state. When provided in the context, this function
+   * will be called when the user interacts with the code highlighting interface.
+   */
+  setSelection?: React.Dispatch<React.SetStateAction<Selection>>;
+
+  /**
+   * Allows overriding the preview components shown within the CodeHighlighter.
+   * It's recommended to keep this value undefined until there are any changes made to a
+   * component's code and passed as `code`. Each variant has a given component,
+   * e.g. `{ variantA: {}, variantB: {} }`.
+   */
+  components?: Record<string, React.ReactNode> | undefined;
+
+  /**
+   * Current runtime error message per variant key (or `null` when the variant
+   * rendered cleanly), as reported by the preview components. Demos surface the
+   * selected variant's error via `useDemo().error`.
+   */
+  errors?: Record<string, string | null> | undefined;
+
+  /**
+   * Additional source enhancers to apply to parsed HAST sources.
+   * These are merged with enhancers from CodeProvider and useCode opts.
+   */
+  sourceEnhancers?: SourceEnhancers;
+
+  /**
+   * Called once when a block in this controller's scope first activates for
+   * editing — immediately for `editActivation: 'eager'`, or on first engagement
+   * (hover / focus / click) for `'interaction'`. Lets the host react to "editing
+   * has begun" (e.g. fetch the editable source, light up UI, or preload its live
+   * runtime). `deps` reports which file kinds the block spans — `js` when it has any
+   * JS/TS/JSX/TSX/MJS file, `css` when it has any CSS file — so the host can warm only
+   * the engine chunks it will need. `CodeHighlighter` separately warms its own
+   * live-editing dependencies (engine, grammars, worker) at the same moment, so a host
+   * that only wants the default behavior can leave this unset.
+   */
+  onActivate?: (deps: { js: boolean; css: boolean }) => void;
+}
+
+/**
+ * Props a code-controller component receives: `children` to wrap and the optional
+ * `url` identifying the demo, plus any custom props `T` (typically a specific
+ * controller's options). Mirrors `ContentProps` — a small base extended by `T`.
+ */
+export type CodeControllerProps<T extends {} = {}> = {
+  children: React.ReactNode;
+  /**
+   * The demo's URL, supplied by the demo factory or passed explicitly so custom
+   * controllers can identify the demo they wrap.
+   */
+  url?: string;
+} & T;
+
+/**
+ * A code-controller component — the counterpart to `DemoContent`. It wraps `children`
+ * in a {@link CodeControllerContext} provider, typically sourcing the value from a hook
+ * such as `useDemoController`. Parameterize with `T` for the controller's own props
+ * (e.g. `CodeController<UseDemoControllerOptions>`).
+ */
+export type CodeController<T extends {} = {}> = React.ComponentType<CodeControllerProps<T>>;
+
+export const CodeControllerContext = React.createContext<CodeControllerContext | undefined>(
+  undefined,
+);
+
+/**
+ * Hook to access controlled code state and setters. This is useful for custom
+ * components that need to interact with the controlled code state. Use useCode
+ * instead when you need access to the code data along with control functions.
+ * Use this hook when you need direct access to the setCode and setSelection functions
+ * from the CodeControllerContext. It's worth noting that useCode and useDemo handle
+ * controlling selection in typical cases.
+ *
+ * @returns An object containing:
+ *   - code: The current code being controlled
+ *   - selection: The current selection state
+ *   - setCode: Function to update the controlled code
+ *   - setSelection: Function to update the selection
+ *   - components: Override components for the preview
+ */
+export function useControlledCode(): {
+  code: ControlledCode | null;
+  selection: Selection | undefined;
+  setCode: React.Dispatch<React.SetStateAction<ControlledCode | null>> | undefined;
+  setSelection: React.Dispatch<React.SetStateAction<Selection>> | undefined;
+  components: Record<string, React.ReactNode> | undefined;
+  errors: Record<string, string | null> | undefined;
+  sourceEnhancers: SourceEnhancers | undefined;
+  onActivate: ((deps: { js: boolean; css: boolean }) => void) | undefined;
+} {
+  const context = React.useContext(CodeControllerContext);
+
+  return {
+    code: context?.code ?? null,
+    selection: context?.selection,
+    setCode: context?.setCode,
+    setSelection: context?.setSelection,
+    components: context?.components,
+    errors: context?.errors,
+    sourceEnhancers: context?.sourceEnhancers,
+    onActivate: context?.onActivate,
+  };
+}

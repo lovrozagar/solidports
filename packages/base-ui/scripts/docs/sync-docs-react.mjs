@@ -3,6 +3,11 @@
  * Clone mui/base-ui@DOCS_TAG and copy its `docs/` tree into `docs/react` 1:1.
  * Only path/workspace overlays are applied so Next can run inside this monorepo.
  *
+ * Also copies the source of `@mui/internal-docs-infra` (the docs' React runtime: code highlighting,
+ * demos, types, search) into `docs/docs-infra`, at the mui/mui-public commit the version the docs
+ * depend on was published from. The npm package ships compiled code; the Solid docs are generated
+ * from this TypeScript source.
+ *
  *   bun run docs:sync
  */
 import { spawnSync } from 'node:child_process';
@@ -19,6 +24,13 @@ const CACHE =
   (existsSync('/tmp/base-ui-v1.9.0/docs/src') && TAG === 'v1.9.0'
     ? '/tmp/base-ui-v1.9.0'
     : `/tmp/base-ui-docs-${TAG}`);
+
+// `@mui/internal-docs-infra` 0.13.1-canary.7 (docs/react's dependency) was published from
+// mui/mui-public 73b01ccc61 (committed 13:52Z, published 13:59Z on 2026-10-02). Update both together.
+const DOCS_INFRA_VERSION = '0.13.1-canary.7';
+const DOCS_INFRA_COMMIT = '73b01ccc61d2096ec1bac12c735482f8d056c917';
+const DOCS_INFRA_DEST = join(FORK, 'docs/docs-infra');
+const DOCS_INFRA_CACHE = `/tmp/mui-public-${DOCS_INFRA_COMMIT.slice(0, 10)}`;
 
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { stdio: 'inherit', ...opts });
@@ -46,24 +58,12 @@ function ensureUpstream() {
   run('git', ['sparse-checkout', 'set', 'docs'], { cwd: CACHE });
 }
 
-function rsyncDir(from, to) {
+function rsyncDir(from, to, excludes) {
   mkdirSync(to, { recursive: true });
   run('rsync', [
     '-a',
     '--delete',
-    '--exclude',
-    'node_modules',
-    '--exclude',
-    '.next',
-    '--exclude',
-    'export',
-    // Written by `next dev` (not upstream files): leave them to Next.
-    '--exclude',
-    '/AGENTS.md',
-    '--exclude',
-    '/CLAUDE.md',
-    '--exclude',
-    '/next-env.d.ts',
+    ...excludes.flatMap((pattern) => ['--exclude', pattern]),
     `${from}/`,
     `${to}/`,
   ]);
@@ -126,6 +126,43 @@ function overlayPackageJson() {
   writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
+function syncDocsInfra() {
+  const docsPackage = JSON.parse(readFileSync(join(DEST, 'package.json'), 'utf8'));
+  const dependency = docsPackage.dependencies?.['@mui/internal-docs-infra'];
+  if (dependency !== DOCS_INFRA_VERSION) {
+    console.error(
+      `docs/react depends on @mui/internal-docs-infra ${dependency}, but the source commit is pinned for ${DOCS_INFRA_VERSION}: update DOCS_INFRA_COMMIT.`,
+    );
+    process.exit(1);
+  }
+  if (!existsSync(join(DOCS_INFRA_CACHE, 'packages/docs-infra/src'))) {
+    console.log(`fetching mui/mui-public@${DOCS_INFRA_COMMIT} → ${DOCS_INFRA_CACHE}`);
+    mkdirSync(DOCS_INFRA_CACHE, { recursive: true });
+    run('git', ['init', '-q'], { cwd: DOCS_INFRA_CACHE });
+    run('git', ['remote', 'add', 'origin', 'https://github.com/mui/mui-public.git'], {
+      cwd: DOCS_INFRA_CACHE,
+    });
+    run('git', ['sparse-checkout', 'set', 'packages/docs-infra'], { cwd: DOCS_INFRA_CACHE });
+    run('git', ['fetch', '-q', '--depth', '1', '--filter=blob:none', 'origin', DOCS_INFRA_COMMIT], {
+      cwd: DOCS_INFRA_CACHE,
+    });
+    run('git', ['checkout', '-q', 'FETCH_HEAD'], { cwd: DOCS_INFRA_CACHE });
+  }
+  // The package's own tests and their setup stay upstream: the generator reads the runtime only.
+  rsyncDir(join(DOCS_INFRA_CACHE, 'packages/docs-infra'), DOCS_INFRA_DEST, [
+    'node_modules',
+    '*.test.ts',
+    '*.test.tsx',
+    '__snapshots__',
+    '/vitest.config.mts',
+    '/vitest.setup.ts',
+  ]);
+  writeFileSync(
+    join(DOCS_INFRA_DEST, '.upstream-commit'),
+    `mui/mui-public@${DOCS_INFRA_COMMIT} (@mui/internal-docs-infra ${DOCS_INFRA_VERSION})\n`,
+  );
+}
+
 ensureUpstream();
 const src = join(CACHE, 'docs');
 if (!existsSync(join(src, 'src'))) {
@@ -134,11 +171,23 @@ if (!existsSync(join(src, 'src'))) {
 }
 
 console.log(`copy ${src} → ${DEST} (full docs tree)`);
-rsyncDir(src, DEST);
+rsyncDir(src, DEST, [
+  'node_modules',
+  '.next',
+  'export',
+  // Written by `next dev` (not upstream files): leave them to Next.
+  '/AGENTS.md',
+  '/CLAUDE.md',
+  '/next-env.d.ts',
+]);
 overlayNextConfig();
 overlayTsconfig();
 overlayVitestConfig();
 overlayPackageJson();
 writeFileSync(join(DEST, '.upstream-tag'), `${TAG}\n`);
+syncDocsInfra();
+// The copy brings upstream's `error-codes.json`; the fork's lists the Solid package's errors.
+console.log('extract-error-codes → docs/react/src/error-codes.json');
+run('bun', ['run', 'extract-error-codes'], { cwd: FORK });
 console.log(`docs/react is mui/base-ui@${TAG} docs + path overlay`);
 console.log('next: bun install && bun run docs:generate');

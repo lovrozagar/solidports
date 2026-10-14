@@ -2,7 +2,8 @@
 # tools (vale, extract-error-codes), which locate packages through pnpm, run as they do upstream.
 packages:
   - packages/*
-  - docs/*
+  - docs/react
+  - docs/solid
   - test
   - test/*
   - scripts/*
