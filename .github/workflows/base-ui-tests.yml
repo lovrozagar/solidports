@@ -215,6 +215,7 @@ jobs:
       - working-directory: packages/base-ui/packages/solid
         run: |
           bun run types
+          bun run test:built-types
           bun run test:package
       # Upstream's public type tests, ported: consumer code compiled against the built types.
       - working-directory: packages/base-ui/test/public-types-solid
