@@ -12,6 +12,7 @@ import { useDialogPortalContext } from '../portal/DialogPortalContext';
 import { useDialogRootContext } from '../root/DialogRootContext';
 import { dialogStateAttributesMapping } from '../utils/stateAttributesMapping';
 import * as DialogPopupCssVars from './DialogPopupCssVars';
+import type { ReactLikeRef } from '../../solid-helpers';
 
 /**
  * A container for the dialog contents.
@@ -149,6 +150,7 @@ export interface DialogPopupProps extends BaseUIComponentProps<'div', DialogPopu
   initialFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((openType: InteractionType) => boolean | HTMLElement | null | void)
     | undefined;
@@ -164,6 +166,7 @@ export interface DialogPopupProps extends BaseUIComponentProps<'div', DialogPopu
   finalFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((closeType: InteractionType) => boolean | HTMLElement | null | void)
     | undefined;

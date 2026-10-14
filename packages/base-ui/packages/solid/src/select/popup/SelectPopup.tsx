@@ -31,6 +31,7 @@ import { useSelectPositionerContext } from '../positioner/SelectPositionerContex
 import * as SelectPositionerCssVars from '../positioner/SelectPositionerCssVars';
 import { useSelectFloatingContext, useSelectRootContext } from '../root/SelectRootContext';
 import { clearStyles, LIST_FUNCTIONAL_STYLES } from './utils';
+import type { ReactLikeRef } from '../../solid-helpers';
 
 const stateAttributesMapping: StateAttributesMapping<SelectPopup.State> = {
   ...popupStateMapping,
@@ -578,6 +579,7 @@ export interface SelectPopupProps extends BaseUIComponentProps<'div', SelectPopu
   finalFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((closeType: InteractionType) => boolean | HTMLElement | null | undefined | void)
     | undefined;

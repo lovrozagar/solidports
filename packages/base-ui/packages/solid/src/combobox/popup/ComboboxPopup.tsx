@@ -18,6 +18,7 @@ import { useComboboxFloatingContext, useComboboxRootContext } from '../root/Comb
 import { getComboboxPopupId } from '../root/utils';
 import { ComboboxInternalDismissButton } from '../utils/ComboboxInternalDismissButton';
 import { useListEmpty } from '../utils/parts';
+import type { ReactLikeRef } from '../../solid-helpers';
 
 const stateAttributesMapping: StateAttributesMapping<ComboboxPopup.State> = {
   ...popupStateMapping,
@@ -211,6 +212,7 @@ export interface ComboboxPopupProps extends BaseUIComponentProps<'div', Combobox
   initialFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((openType: InteractionType) => void | boolean | HTMLElement | undefined | null)
     | undefined;
@@ -226,6 +228,7 @@ export interface ComboboxPopupProps extends BaseUIComponentProps<'div', Combobox
   finalFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((closeType: InteractionType) => void | boolean | HTMLElement | undefined | null)
     | undefined;

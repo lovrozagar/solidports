@@ -24,6 +24,7 @@ import type { DrawerSwipeDirection } from '../root/DrawerRootContext';
 import { getSnapPointSwipeMovement, useDrawerSnapPoints } from '../root/useDrawerSnapPoints';
 import { useDrawerViewportContext } from '../viewport/DrawerViewportContext';
 import { FOCUSABLE_POPUP_PROPS } from '../../utils/popups';
+import type { ReactLikeRef } from '../../solid-helpers';
 
 // Module-level flag to ensure we only register the CSS properties once,
 // regardless of how many Drawer components are mounted.
@@ -494,6 +495,7 @@ export interface DrawerPopupProps extends BaseUIComponentProps<'div', DrawerPopu
   initialFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((openType: InteractionType) => boolean | HTMLElement | null | undefined | void)
     | undefined;
@@ -509,6 +511,7 @@ export interface DrawerPopupProps extends BaseUIComponentProps<'div', DrawerPopu
   finalFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((closeType: InteractionType) => boolean | HTMLElement | null | undefined | void)
     | undefined;

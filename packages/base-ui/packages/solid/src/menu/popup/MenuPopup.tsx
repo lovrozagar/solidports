@@ -25,6 +25,7 @@ import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
 import { MenuFilterImplContext, useMenuFilterImpl } from '../filter-root/MenuFilterContext';
 import { useNoParentHandoff } from '../filter-root/useVirtualFocusParentHandoff';
+import type { ReactLikeRef } from '../../solid-helpers';
 
 const stateAttributesMapping: StateAttributesMapping<MenuPopup.State> = {
   ...baseMapping,
@@ -305,6 +306,7 @@ export interface MenuPopupProps extends BaseUIComponentProps<'div', MenuPopup.St
   finalFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((closeType: InteractionType) => boolean | HTMLElement | null | undefined | void)
     | undefined;
