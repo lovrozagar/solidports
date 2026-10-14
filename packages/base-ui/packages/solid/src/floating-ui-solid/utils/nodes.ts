@@ -10,7 +10,6 @@ export function getNodeChildren(
   const directChildren = nodes.filter((node) => node.parentId === id);
 
   /* recursive tree flatten — flatMap with spread is intentional here */
-  // eslint-disable-next-line oxc/no-map-spread
   return directChildren.flatMap((child) => [
     ...(!onlyOpenChildren || child.context?.open() ? [child] : []),
     ...getNodeChildren(nodes, child.id, onlyOpenChildren),

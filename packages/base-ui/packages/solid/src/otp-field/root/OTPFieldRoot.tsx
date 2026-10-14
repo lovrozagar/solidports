@@ -338,11 +338,9 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
       return;
     }
 
-    {
-      setTouched(true);
-      setFocusedState(false);
-      setFocused(false);
-    }
+    setTouched(true);
+    setFocusedState(false);
+    setFocused(false);
 
     if (validationMode() === 'onBlur') {
       validation.commit(value());

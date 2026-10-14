@@ -28,7 +28,7 @@ export function mergeProps<T extends (object | null | undefined)[]>(
     }
   }
   const read = (key: string) => {
-    for (let i = sources.length - 1; i >= 0; i--) {
+    for (let i = sources.length - 1; i >= 0; i -= 1) {
       const source = sources[i];
       if (!source) {
         continue;

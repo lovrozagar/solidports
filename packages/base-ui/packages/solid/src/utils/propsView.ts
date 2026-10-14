@@ -139,8 +139,10 @@ function lazyMemo<T>(
   equals: (a: T, b: T) => boolean,
 ): Accessor<T> {
   let memo: Accessor<T> | undefined;
-  return () =>
-    (memo ??= runWithOwner(owner, () => createMemo(compute, { equals })) as Accessor<T>)();
+  return () => {
+    memo ??= runWithOwner(owner, () => createMemo(compute, { equals })) as Accessor<T>;
+    return memo();
+  };
 }
 
 type EventHandler = (...args: any[]) => unknown;

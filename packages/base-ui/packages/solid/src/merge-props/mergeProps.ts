@@ -240,7 +240,8 @@ export function mergeProps<
         },
         get ref() {
           // The refs are fixed once collected: one chained callback, a stable identity.
-          return (mergedRefChain ??= chainRefs(mergedRefs));
+          mergedRefChain ??= chainRefs(mergedRefs);
+          return mergedRefChain;
         },
         get style() {
           return reduce(mergedStyles, 'style', combineStyle as any);
@@ -350,7 +351,8 @@ export function mergeProps<
     },
     get ref() {
       // `cacheRefs` is fixed after construction: one chained callback, a stable identity.
-      return (refChain ??= chainRefs(cacheRefs));
+      refChain ??= chainRefs(cacheRefs);
+      return refChain;
     },
     get style() {
       return reduce(cacheStyles, 'style', combineStyle as any);

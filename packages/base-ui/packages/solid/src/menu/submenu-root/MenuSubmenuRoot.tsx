@@ -26,6 +26,7 @@ export function MenuSubmenuRoot(props: MenuSubmenuRoot.Props) {
 
   if (filterProvider != null) {
     const FilterSubmenuRoot = filterProvider.SubmenuRoot;
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return provideContext(MenuFilterProviderContext, null, () => (
       <FilterSubmenuRoot {...filterProvider.options} {...props} />
     ));

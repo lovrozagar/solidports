@@ -530,8 +530,12 @@ export function useCollapsiblePanel(
   // `<Show>` memoizes its condition, so a plain function costs nothing more.
   const shouldRender = () => keepMounted() || hiddenUntilFound() || mounted() || open();
 
-  const hiddenAttribute = () =>
-    hidden() ? (hiddenUntilFound() ? 'until-found' : true) : undefined;
+  const hiddenAttribute = () => {
+    if (!hidden()) {
+      return undefined;
+    }
+    return hiddenUntilFound() ? 'until-found' : true;
+  };
 
   // Solid: a memo so the starting-style key is omitted rather than set to `undefined`, which
   // would override the transition status attribute in the merged props. A native panel writes

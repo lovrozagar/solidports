@@ -62,6 +62,11 @@ const ATTRIBUTE_ALIASES: Record<string, string> = {
   defaultValue: 'value',
 };
 const IMG_DEFAULTS = { alt: '' } as const;
+/** React's `renderTag` defaults per intrinsic tag, at the lowest priority. */
+const TAG_DEFAULTS = new Map<unknown, object>([
+  ['button', BUTTON_DEFAULTS],
+  ['img', IMG_DEFAULTS],
+]);
 const isHandlerKey = (key: string) => key.length > 2 && key[0] === 'o' && key[1] === 'n';
 
 export function useRenderElement<
@@ -273,12 +278,12 @@ export function useRenderElement<
       : createMemo(computePartSources, { equals: shallowEqual });
     // `class` and `style` exist only when the part's props have them, so an element without them
     // gets no attribute work for either.
-    const resolveClassStyle = (key: string | symbol) =>
-      key === 'class'
-        ? resolveClassName(componentProps.class, state())
-        : key === 'style'
-          ? resolveStyle(componentProps.style, state())
-          : undefined;
+    const resolveClassStyle = (key: string | symbol) => {
+      if (key === 'class') {
+        return resolveClassName(componentProps.class, state());
+      }
+      return key === 'style' ? resolveStyle(componentProps.style, state()) : undefined;
+    };
     const hasClassStyle = (key: string | symbol) =>
       (key === 'class' || key === 'style') && key in componentProps;
     const classStyleSource = new Proxy({} as Record<string, unknown>, {
@@ -296,11 +301,7 @@ export function useRenderElement<
       const intrinsicTag = access(element);
       const render = renderProp();
       return [
-        intrinsicTag === 'button'
-          ? BUTTON_DEFAULTS
-          : intrinsicTag === 'img'
-            ? IMG_DEFAULTS
-            : undefined,
+        TAG_DEFAULTS.get(intrinsicTag),
         renderProps,
         stateAttributesSource,
         ...partSources(),
@@ -571,6 +572,7 @@ export function useRenderElement<
                   reactiveKeys.add(key);
                   delete staticApplied[key];
                   const applied: Record<string, unknown> = {};
+                  // eslint-disable-next-line @typescript-eslint/no-loop-func -- reads the current `attached`, which detaching flips
                   runWithOwner(attributeOwner, () =>
                     createRenderEffect(
                       () => elementProps[key],
@@ -657,14 +659,17 @@ export function useRenderElement<
         });
         if (literalChildren) {
           const children = literalChildren.children;
+          // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
           return <Tag ref={hostRef}>{children}</Tag>;
         }
         const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
+        // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
         return <Tag ref={hostRef}>{resolvedChildren()}</Tag>;
       }
       const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
       // A plain value, not a call in the spread: the compiler wraps a call in a reactive spread.
       const tagProps = componentTagProps();
+      // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
       return <Tag {...tagProps}>{resolvedChildren()}</Tag>;
     }
 
@@ -678,6 +683,7 @@ export function useRenderElement<
           if (typeof render === 'function') {
             const fnProps = renderFnProps();
             const fnState = renderFnState();
+            // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
             return render(fnProps, fnState);
           }
           // Reading JSX children creates them: resolve them once per branch, as Solid's `children`
@@ -686,6 +692,7 @@ export function useRenderElement<
           const component = tag();
           if (isServer || typeof component !== 'string') {
             const tagProps = componentTagProps();
+            // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
             return (
               <Dynamic {...tagProps} component={component}>
                 {resolvedChildren()}

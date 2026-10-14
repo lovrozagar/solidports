@@ -213,7 +213,10 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
     },
     role: isRow ? 'gridcell' : 'option',
     get 'aria-selected'() {
-      return selectable() ? (selected() ? 'true' : 'false') : undefined;
+      if (!selectable()) {
+        return undefined;
+      }
+      return selected() ? 'true' : 'false';
     },
     // Focusable items steal focus from the input upon mouseup.
     // Warn if the user renders a natively focusable element like `<button>`,
@@ -324,6 +327,7 @@ export function ComboboxItem(componentProps: ComboboxItem.Props) {
   // `virtualized` (and whether an item provides an explicit `index`) must be stable for an
   // item's lifetime: the two branches render different components, as in React.
   if (untrack(() => virtualized() && componentProps.index == null)) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return <ComboboxItemVirtualizedIndex componentProps={componentProps} />;
   }
 

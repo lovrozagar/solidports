@@ -124,6 +124,7 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
       relayKeyboardEvent: composite.relayKeyboardEvent,
     };
     const compositeProps = composite.props as Record<string, (event: Event) => void>;
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return provideNativeContexts(
       TabsListContext,
       tabsListContextValue,

@@ -99,8 +99,8 @@ export function LabelableProvider(props: LabelableProvider.Props) {
     }
   };
 
-  const describedBy = (external: unknown) => {
-    const ids = typeof external === 'string' && external ? external.split(' ') : [];
+  const describedBy = (externalIds: unknown) => {
+    const ids = typeof externalIds === 'string' && externalIds ? externalIds.split(' ') : [];
     ids.push(...parentMessageIds(), ...messageIds());
     return Array.from(new Set(ids)).join(' ') || undefined;
   };

@@ -79,6 +79,7 @@ export function CheckboxIndicator(componentProps: CheckboxIndicator.Props) {
 
   if (native) {
     const inField = useFieldRootContext() !== DEFAULT_FIELD_ROOT_CONTEXT;
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return (
       <Show when={shouldRender()}>
         {NativeIndicator(componentProps, state, indicatorRef, inField)}

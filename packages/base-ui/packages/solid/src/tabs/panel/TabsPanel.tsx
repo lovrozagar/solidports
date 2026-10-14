@@ -43,6 +43,7 @@ export function TabsPanel(componentProps: TabsPanel.Props): JSX.Element {
   // JSX; a hidden panel creates its transition, completion and registration machinery when it
   // first renders.
   if (canRenderNative(componentProps)) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeTabsPanel(componentProps);
   }
 
@@ -171,8 +172,8 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
   const initialOpen = untrack(open);
   let transition: ReturnType<typeof useTransitionStatus> | undefined;
   let panelRef = null as HTMLDivElement | null;
-  const createTransition = () =>
-    (transition ??= runWithOwner(owner, () =>
+  const createTransition = () => {
+    transition ??= runWithOwner(owner, () =>
       untrack(() => {
         const status = useTransitionStatus(open, false, false, !initialOpen);
         // `useOpenChangeComplete({ open, ref })`: it runs on every open change; a hidden panel's
@@ -199,7 +200,9 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
         );
         return status;
       }),
-    )!);
+    )!;
+    return transition;
+  };
   const ensureTransition = () => {
     if (transition === undefined && open()) {
       createTransition();
@@ -222,8 +225,8 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
   }
 
   let listItem: NativeListItem | undefined;
-  const getListItem = () =>
-    (listItem ??= runWithOwner(owner, () =>
+  const getListItem = () => {
+    listItem ??= runWithOwner(owner, () =>
       untrack(() => {
         const item = createNativeListItem<null>(null, GUESS_INDEX);
         if (!staticRegistration) {
@@ -247,7 +250,9 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
         }
         return item;
       }),
-    )!);
+    )!;
+    return listItem;
+  };
   const setPanelRef = (el: HTMLDivElement | null) => {
     panelRef = el;
     getListItem().setRef(el);

@@ -266,7 +266,7 @@ export function usePopupViewport(parameters: UsePopupViewportParameters): UsePop
   createEffect(
     ...on(previousContentNode, (contentNode) => {
       if (!contentNode) {
-        return;
+        return undefined;
       }
 
       let cancelled = false;

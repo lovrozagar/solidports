@@ -15,6 +15,7 @@ import { access, createDepsEffect, createDepsMemo } from '../../solid-helpers';
 import type { MaybeAccessor, MaybeAccessorValue } from '../../solid-helpers';
 import { NOOP } from '../empty';
 import type { SetStoreFunction } from '../../solid-1-compat';
+
 const storeBinders = new WeakMap<
   object,
   (key: PropertyKey, source: BindingSource, clearOnCleanup: boolean) => void
@@ -132,7 +133,8 @@ export function SolidStore<
       createEffect(
         () => controlled() !== undefined,
         (currentlyControlled, previouslyControlled) => {
-          const cache = (controlledValues ??= new Map<keyof State, boolean>());
+          controlledValues ??= new Map<keyof State, boolean>();
+          const cache = controlledValues;
           if (!cache.has(key)) {
             cache.set(key, currentlyControlled);
           }
@@ -186,10 +188,13 @@ export function SolidStore<
     const compute = () => selector!(state, ...args);
     const owner = getOwner();
     let selected: Accessor<any> | undefined;
-    return () =>
-      getObserver() === null
-        ? untrack(compute)
-        : (selected ??= runWithOwner(owner, () => createMemo(compute)) as Accessor<any>)();
+    return () => {
+      if (getObserver() === null) {
+        return untrack(compute);
+      }
+      selected ??= runWithOwner(owner, () => createMemo(compute)) as Accessor<any>;
+      return selected();
+    };
   }
 
   function useContextCallback<Key extends ContextFunctionKeys<Context>>(
@@ -649,8 +654,8 @@ export function createStoreState<State extends object>(
     // key nobody reads (most popup keys while the popup is closed) costs no computation.
     const owner = getOwner();
     let derived: Signal<unknown> | undefined;
-    const signal = () =>
-      (derived ??= runWithOwner(owner, () =>
+    const signal = () => {
+      derived ??= runWithOwner(owner, () =>
         createSignal<unknown>(
           (prev: unknown) => {
             const next = source(unbound ? unbound.value : prev);
@@ -660,7 +665,9 @@ export function createStoreState<State extends object>(
           },
           { name: `store.${String(key)}` },
         ),
-      ) as Signal<unknown>);
+      ) as Signal<unknown>;
+      return derived;
+    };
     const peek = () =>
       derived ? untrack(derived[0]) : untrack(() => source(unbound ? unbound.value : undefined));
     // Read for the first time after its owner disposed (another part's teardown reading the key
@@ -702,11 +709,10 @@ export function createStoreState<State extends object>(
       }
       // Unbinding keeps the latest value (or clears it), as React's store keeps the synced value.
       // A binding never read is computed directly: nothing is created while its owner disposes.
-      const last = clearOnCleanup
-        ? undefined
-        : written.has(key)
-          ? written.get(key)
-          : binding.peek();
+      let last: unknown;
+      if (!clearOnCleanup) {
+        last = written.has(key) ? written.get(key) : binding.peek();
+      }
       bindings.delete(key);
       written.set(key, last);
       writeSlot(key, last);

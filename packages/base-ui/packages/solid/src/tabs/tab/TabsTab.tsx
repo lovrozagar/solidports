@@ -46,6 +46,7 @@ export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     untrack(() => componentProps.nativeButton ?? true) === true
   ) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeTabsTab(componentProps);
   }
 
@@ -518,6 +519,7 @@ function NativeTabsTab(props: TabsTab.Props): JSX.Element {
     },
   };
 
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
   const el = (<button type="button" />) as unknown as HTMLButtonElement;
   // React's `onKeyDownCapture`: navigation keys reach the composite root before this tab's
   // highlight sync runs, which must not undo the move.

@@ -17,7 +17,7 @@ export function deepEqual(a: unknown, b: unknown): boolean {
       if (!Array.isArray(b) || a.length !== b.length) {
         return false;
       }
-      for (let i = a.length; i-- !== 0;) {
+      for (let i = a.length - 1; i >= 0; i -= 1) {
         if (!deepEqual(a[i], b[i])) {
           return false;
         }
@@ -28,12 +28,12 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     if (keys.length !== Object.keys(b as object).length) {
       return false;
     }
-    for (let i = keys.length; i-- !== 0;) {
+    for (let i = keys.length - 1; i >= 0; i -= 1) {
       if (!Object.prototype.hasOwnProperty.call(b, keys[i])) {
         return false;
       }
     }
-    for (let i = keys.length; i-- !== 0;) {
+    for (let i = keys.length - 1; i >= 0; i -= 1) {
       const key = keys[i];
       if (!deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) {
         return false;

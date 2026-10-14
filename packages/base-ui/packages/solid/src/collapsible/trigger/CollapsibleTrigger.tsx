@@ -38,6 +38,7 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     untrack(() => componentProps.nativeButton ?? true) === true
   ) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeCollapsibleTrigger(componentProps);
   }
 
@@ -149,6 +150,7 @@ function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element 
   } = useCollapsibleRootContext();
   const disabled = () => Boolean(props.disabled ?? contextDisabled());
 
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
   return renderNativeElement((<button type="button" tabindex="0" />) as unknown as Element, props, {
     own: OWN_KEYS,
     state,

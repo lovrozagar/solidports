@@ -44,6 +44,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     untrack(() => componentProps.nativeButton ?? true) === true
   ) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeAccordionTrigger(componentProps);
   }
 
@@ -107,6 +108,7 @@ function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
 
   const registerId = createIdRegistration(props, 'id', setTriggerId, itemOwner);
 
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
   return renderNativeElement((<button type="button" tabindex="0" />) as unknown as Element, props, {
     refs: registerId ? [registerId] : undefined,
     own: OWN_KEYS,

@@ -93,6 +93,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     !untrack(() => componentProps.nativeButton)
   ) {
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeCheckboxRoot(componentProps);
   }
 
@@ -807,12 +808,12 @@ function checkboxAttributes(l: CheckboxLayout, target: Record<string, unknown>, 
   }
   if (once === Boolean(f & LABELLEDBY_STATIC)) {
     const explicit = l.props['aria-labelledby'];
-    const labelledBy =
-      typeof explicit === 'string'
-        ? explicit
-        : ariaLabelOverridesLabel(l.props['aria-label'])
-          ? undefined
-          : m.labelId();
+    let labelledBy: string | undefined;
+    if (typeof explicit === 'string') {
+      labelledBy = explicit;
+    } else if (!ariaLabelOverridesLabel(l.props['aria-label'])) {
+      labelledBy = m.labelId();
+    }
     put(l, target, once, 'aria-labelledby', labelledBy);
   }
   if (once) {

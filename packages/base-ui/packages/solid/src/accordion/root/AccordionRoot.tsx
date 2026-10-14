@@ -43,6 +43,7 @@ export function AccordionRoot<Value = any>(
   // JSX and the root context on one owner; the item list stays `CompositeList`.
   if (canRenderNative(componentProps)) {
     const root = createAccordionRoot(componentProps);
+    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return provideNativeContext(AccordionRootContext, root.contextValue, () =>
       createComponent(CompositeList, {
         refs: { elements: root.accordionItemElements },

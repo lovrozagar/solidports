@@ -128,7 +128,7 @@ export function useHoverFloatingInteraction(parameters: {
       [() => props.enabled, open, domReferenceElement, floatingElement],
       ([enabled, isOpen, domReference, floatingEl]) => {
         if (!enabled) {
-          return;
+          return undefined;
         }
         const resolvedFloatingEl = floatingEl ?? null;
         if (
@@ -177,6 +177,7 @@ export function useHoverFloatingInteraction(parameters: {
             clearSafePolygonPointerEventsMutation(appliedState);
           };
         }
+        return undefined;
       },
     ),
   );
@@ -186,7 +187,7 @@ export function useHoverFloatingInteraction(parameters: {
   createEffect(
     ...on([() => props.enabled, floatingElement], ([enabled, floating]) => {
       if (!enabled) {
-        return;
+        return undefined;
       }
 
       function hasParentChildren() {
