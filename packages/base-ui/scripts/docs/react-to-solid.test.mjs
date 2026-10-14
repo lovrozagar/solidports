@@ -243,4 +243,100 @@ export function useTheme() {
       );
     });
   });
+
+  describe('dynamic tags', () => {
+    it('renders a prop used as a tag with Dynamic', () => {
+      expectTransform(
+        `export function Box({ tag: Tag = 'span', children }: { tag?: string; children?: unknown }) {
+  return <Tag className="Box">{children}</Tag>;
+}`,
+        `import { merge } from 'solid-js';
+import { Dynamic } from '@solidjs/web';
+export function Box(_props: { tag?: string; children?: unknown }) {
+  const props = merge({ tag: 'span' }, _props);
+  return <Dynamic component={props.tag} class="Box">{props.children}</Dynamic>;
+}`,
+      );
+    });
+  });
+
+  describe('fragments and types', () => {
+    it('renders React.Fragment as a fragment', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Pair() {
+  return <React.Fragment key="a"><span /><span /></React.Fragment>;
+}`,
+        `export function Pair() {
+  return <><span /><span /></>;
+}`,
+      );
+    });
+
+    it('maps React types an interface extends', () => {
+      expectTransform(
+        `import * as React from 'react';
+interface ButtonProps extends React.ComponentProps<'button'> {
+  tone?: string;
+}
+interface PanelProps extends React.HTMLAttributes<HTMLDivElement> {}`,
+        `import type { ComponentProps, JSX } from '@solidjs/web';
+interface ButtonProps extends ComponentProps<'button'> {
+  tone?: string;
+}
+interface PanelProps extends JSX.HTMLAttributes<HTMLDivElement> {}`,
+      );
+    });
+
+    it('maps React types to Solid and DOM types', () => {
+      expectTransform(
+        `import * as React from 'react';
+type Props = React.PropsWithChildren<{ onPress: (event: React.MouseEvent<HTMLButtonElement>) => void }>;
+type Setter = React.Dispatch<React.SetStateAction<boolean>>;
+type Icon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
+type Box = React.RefObject<HTMLDivElement | null>;`,
+        `import type { Component, ParentProps, Setter as SolidSetter } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+type Props = ParentProps<{ onPress: (event: MouseEvent) => void }>;
+type Setter = SolidSetter<boolean>;
+type Icon = Component<JSX.SvgSVGAttributes<SVGSVGElement>>;
+type Box = { current: HTMLDivElement | null };`,
+      );
+    });
+  });
+
+  describe('Base UI utils hooks', () => {
+    it('returns the function of useStableCallback', () => {
+      expectTransform(
+        `import { useStableCallback } from '@base-ui/utils/useStableCallback';
+export function Logger() {
+  const log = useStableCallback(() => console.log('x'));
+  return <button onClick={log} />;
+}`,
+        `export function Logger() {
+  const log = () => console.log('x');
+  return <button onClick={log} />;
+}`,
+      );
+    });
+
+    it('runs useIsoLayoutEffect as a render effect', () => {
+      expectTransform(
+        `import { useIsoLayoutEffect } from '@base-ui/utils/useIsoLayoutEffect';
+export function Measure(props: { width: number }) {
+  useIsoLayoutEffect(() => {
+    document.body.style.width = String(props.width);
+  }, [props.width]);
+  return null;
+}`,
+        `import { createRenderEffect } from 'solid-js';
+export function Measure(props: { width: number }) {
+  createRenderEffect(() => [props.width], () => {
+    document.body.style.width = String(props.width);
+  });
+  return null;
+}`,
+      );
+    });
+  });
 });
