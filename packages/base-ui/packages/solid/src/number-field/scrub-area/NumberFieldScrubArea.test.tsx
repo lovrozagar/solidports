@@ -4,6 +4,7 @@ import { fireEvent, screen } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';
 import { act, createRenderer, describeConformance, isJSDOM, wait } from '#test-utils';
 import { platform } from '../../utils/platform';
+import { Activity } from '../../../test/activity';
 
 const isWebKit = platform.engine.webkit;
 
@@ -493,9 +494,53 @@ describe('<NumberField.ScrubArea />', () => {
     },
   );
 
+  // Solid: `Activity` (test/activity.tsx) hides its content as React's does in the DOM; Solid
+  // keeps the hidden subtree's effects, where React tears them down.
   describe('React.Activity', () => {
-    // Solid: there is no `<Activity>` that tears effects down without unmounting.
-    it.skip('does not resume scrubbing when a hidden scrub area is revealed again', () => {});
+    it('does not resume scrubbing when a hidden scrub area is revealed again', async () => {
+      const [visible, setVisible] = createSignal(true);
+
+      function App() {
+        return (
+          <Activity mode={visible() ? 'visible' : 'hidden'}>
+            <NumberField.Root defaultValue={0}>
+              <NumberField.Input />
+              <NumberField.ScrubArea data-testid="scrub-area">
+                <NumberField.ScrubAreaCursor />
+              </NumberField.ScrubArea>
+            </NumberField.Root>
+          </Activity>
+        );
+      }
+
+      render(() => <App />);
+
+      const scrubArea = screen.getByTestId('scrub-area');
+      const input = screen.getByRole('textbox');
+
+      await act(async () => {
+        scrubArea.dispatchEvent(createPointerDownEvent(scrubArea));
+        scrubArea.dispatchEvent(createPointerMoveEvent({ movementX: 10 }));
+      });
+
+      expect(input).toHaveValue('10');
+
+      // Hiding tears the effects down mid-scrub without unmounting; revealing re-runs them.
+      await act(async () => setVisible(false));
+      // Solid: React commits the hide at once and tears the effects down; here the scrub area sees
+      // the hide once it is rendered.
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      });
+      await act(async () => setVisible(true));
+
+      // No pointer is down anymore, so a bare mouse move must not change the value.
+      await act(async () => {
+        window.dispatchEvent(createPointerMoveEvent({ movementX: 10 }));
+      });
+
+      expect(screen.getByRole('textbox')).toHaveValue('10');
+    });
   });
 
   describe('prop: pixelSensitivity', () => {
