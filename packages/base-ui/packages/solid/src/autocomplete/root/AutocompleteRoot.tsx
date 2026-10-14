@@ -15,10 +15,27 @@ import { createDepsEffect } from '../../solid-helpers';
  * Doesn't render its own HTML element.
  *
  * Documentation: [Base UI Autocomplete](https://base-ui.com/react/components/autocomplete)
- *
- * Single signature instead of overloads — vite-plugin-solid's oxc TS stripper
- * rejects function overload syntax with "Identifier already declared".
  */
+export function AutocompleteRoot<Items extends readonly { items: readonly any[] }[]>(
+  props: Omit<AutocompleteRoot.Props<Items[number]['items'][number]>, 'items'> & {
+    /**
+     * The items to be displayed in the list.
+     * Can be either a flat array of items or an array of groups with items.
+     * Nullish entries are not supported: remove them from the data before passing it.
+     */
+    items: Items;
+  },
+): JSX.Element;
+export function AutocompleteRoot<ItemValue>(
+  props: Omit<AutocompleteRoot.Props<ItemValue>, 'items'> & {
+    /**
+     * The items to be displayed in the list.
+     * Can be either a flat array of items or an array of groups with items.
+     * Nullish entries are not supported: remove them from the data before passing it.
+     */
+    items?: readonly ItemValue[] | undefined;
+  },
+): JSX.Element;
 export function AutocompleteRoot<ItemValue>(props: AutocompleteRoot.Props<ItemValue>): JSX.Element {
   const [local, other] = splitProps(props, [
     'openOnInputClick',
