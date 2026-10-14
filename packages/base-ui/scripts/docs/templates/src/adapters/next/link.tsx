@@ -16,6 +16,8 @@ export interface LinkProps extends Omit<JSX.AnchorHTMLAttributes<HTMLAnchorEleme
   scroll?: boolean;
   shallow?: boolean;
   locale?: string | false;
+  /** Called on a client navigation; `preventDefault()` cancels it. */
+  onNavigate?: (event: { preventDefault: () => void }) => void;
 }
 
 /** The URL a `next/link` `href` names. */
@@ -37,7 +39,17 @@ export function formatHref(href: LinkProps['href']): string {
 }
 
 export default function Link(props: LinkProps) {
-  const rest = omit(props, 'href', 'prefetch', 'replace', 'scroll', 'shallow', 'locale');
+  const rest = omit(
+    props,
+    'href',
+    'prefetch',
+    'replace',
+    'scroll',
+    'shallow',
+    'locale',
+    'onNavigate',
+    'onClick',
+  );
   const href = createMemo(() => formatHref(props.href));
   // The router's link attributes: `replace`, `noscroll`, and `preload="false"`.
   const routerAttributes = createMemo(() => ({
@@ -45,5 +57,18 @@ export default function Link(props: LinkProps) {
     noscroll: props.scroll === false ? '' : undefined,
     preload: props.prefetch === false ? 'false' : undefined,
   }));
-  return <a {...routerAttributes()} {...rest} href={href()} />;
+  const handleClick = (
+    event: MouseEvent & { currentTarget: HTMLAnchorElement; target: Element },
+  ) => {
+    const onClick = props.onClick;
+    if (typeof onClick === 'function') {
+      onClick(event);
+    }
+    const external = event.currentTarget.origin !== window.location.origin;
+    const modified = event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    if (!event.defaultPrevented && !external && !modified && event.button === 0) {
+      props.onNavigate?.({ preventDefault: () => event.preventDefault() });
+    }
+  };
+  return <a {...routerAttributes()} {...rest} href={href()} onClick={handleClick} />;
 }
