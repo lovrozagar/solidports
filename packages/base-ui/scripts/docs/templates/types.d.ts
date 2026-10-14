@@ -1,4 +1,5 @@
 /// <reference types="gtag.js" />
+/// <reference types="vite/client" />
 // The React docs' root declarations (`docs/react/types.d.ts`), with Solid's JSX for MDX modules.
 
 declare namespace NodeJS {
