@@ -6,7 +6,8 @@
 		"packages": [
 			"packages/base-ui",
 			"packages/base-ui/packages/*",
-			"packages/base-ui/docs/*",
+			"packages/base-ui/docs/react",
+			"packages/base-ui/docs/solid",
 			"packages/base-ui/test",
 			"packages/base-ui/test/*",
 			"packages/base-ui/scripts/*",

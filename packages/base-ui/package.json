@@ -149,7 +149,7 @@
     "test:webkit:ui": "bun test:webkit --browser.headless=false",
     "typescript": "tsc -b tsconfig.json",
     "use-react-18": "code-infra set-version-overrides --pkg react@18",
-    "valelint": "bunx code-infra vale sync --vale-version $npm_package_config_valeVersion && git ls-files | grep -E \"\\.(md|mdx)$\" | xargs bunx code-infra vale --vale-version $npm_package_config_valeVersion --filter='.Level==\"error\"'"
+    "valelint": "bunx code-infra vale sync --vale-version $npm_package_config_valeVersion && git ls-files ':!docs/docs-infra' | grep -E \"\\.(md|mdx)$\" | xargs bunx code-infra vale --vale-version $npm_package_config_valeVersion --filter='.Level==\"error\"'"
   },
   "version": "1.2.0",
   "config": {

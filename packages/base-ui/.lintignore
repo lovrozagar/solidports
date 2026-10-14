@@ -13,3 +13,4 @@ build-tests
 node_modules
 pnpm-lock.yaml
 routeTree.gen.ts
+/docs/docs-infra

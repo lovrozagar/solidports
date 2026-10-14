@@ -1,0 +1,1082 @@
+import * as React from 'react';
+import { decodeHastSource } from '../pipeline/loadIsomorphicCodeVariant/decodeHastSource';
+import type {
+  Fallbacks,
+  VariantCode,
+  VariantSource,
+  Code,
+  SourceEnhancers,
+  SourceComments,
+  EditableSourceProjection,
+} from '../CodeHighlighter/types';
+import type { FallbackNode } from '../CodeHighlighter/fallbackFormat';
+import { useUrlHashState } from '../useUrlHashState';
+import { countLines } from '../pipeline/parseSource/addLineGutters';
+import { getLanguageFromExtension } from '../pipeline/loaderUtils/getLanguageFromExtension';
+import type { TransformedFiles } from './useCodeUtils';
+import { getSourceLineCounts, getVariantFileLineCounts } from './sourceLineCounts';
+import type { SetSource } from './useSourceEditing';
+import { Pre } from './Pre';
+import { useSourceEnhancing } from './useSourceEnhancing';
+import { toKebabCase } from '../pipeline/loaderUtils/toKebabCase';
+import { generateFileSlug } from '../pipeline/loaderUtils/generateFileSlug';
+
+/**
+ * Gets the language from a filename by extracting its extension.
+ * @param fileName - The filename (e.g., 'index.tsx', 'styles.css')
+ * @returns The language name or undefined
+ */
+function getLanguageFromFileName(fileName: string | undefined): string | undefined {
+  if (!fileName) {
+    return undefined;
+  }
+  const lastDotIndex = fileName.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+    return undefined;
+  }
+  const extension = fileName.substring(lastDotIndex);
+  return getLanguageFromExtension(extension);
+}
+
+/**
+ * Checks if the URL hash is relevant to a specific demo
+ * Hash format is: {mainSlug}:{variantName}:{fileName} or {mainSlug}:{fileName}
+ * @param urlHash - The URL hash (without '#')
+ * @param mainSlug - The main slug for the demo
+ * @returns true if the hash starts with the demo's slug
+ */
+export function isHashRelevantToDemo(urlHash: string | null, mainSlug?: string): boolean {
+  if (!urlHash || !mainSlug) {
+    return false;
+  }
+  const kebabSlug = toKebabCase(mainSlug);
+  return urlHash.startsWith(`${kebabSlug}:`);
+}
+
+function getPreRenderKey(
+  slug: string | undefined,
+  enhancementPhase: 'plain' | 'base' | 'enhanced' = 'plain',
+): string {
+  // Intentionally keyed only on the canonical file slug (and enhancement
+  // phase). Transforms (e.g. JS↔TS) swap the *content* of the same file —
+  // including `selectedTransform` here would unmount/remount `<Pre>` on
+  // every transform toggle, dropping scroll position, focus, and any
+  // IO/RO-driven UI state. Slugs are already built from the original
+  // (pre-transform) file name, so the key stays stable across transforms.
+  return `${slug ?? 'code'}:${enhancementPhase}`;
+}
+
+interface UseFileNavigationProps {
+  selectedVariant: VariantCode | null;
+  transformedFiles: TransformedFiles | undefined;
+  selectedTransform?: string | null;
+  mainSlug?: string;
+  selectedVariantKey?: string;
+  variantKeys?: string[];
+  shouldHighlight: boolean;
+  preClassName?: string;
+  setSource?: SetSource;
+  /**
+   * Forwarded to `<Pre>`: when the textarea editor loads for an
+   * editable block. `'eager'` (default) loads on mount; `'interaction'` defers
+   * until the user hovers/focuses/clicks. Sourced from the `editActivation`
+   * prop on `CodeHighlighter` (via `CodeHighlighterContext`).
+   */
+  editActivation?: 'eager' | 'interaction';
+  /** Forwarded to `<Pre>`: fired once when the block engages for editing. */
+  onActivate?: () => void;
+  /** Forwarded to `<Pre>`: expands focused source from textarea boundary navigation. */
+  onBoundary?: () => void;
+  /** Forwarded to `<Pre>`: whether edit mode is on. When `false` the block stays read-only. */
+  editable?: boolean;
+  effectiveCode?: Code;
+  selectVariant?: React.Dispatch<React.SetStateAction<string>>;
+  fileHashMode?: 'remove-hash' | 'remove-filename';
+  saveHashVariantToLocalStorage?: 'on-load' | 'on-interaction' | 'never';
+  saveVariantToLocalStorage?: (variant: string) => void;
+  hashVariant?: string | null;
+  /**
+   * Array of enhancer functions to apply to parsed HAST sources.
+   * Enhancers receive the HAST root, comments extracted from source, and filename.
+   */
+  sourceEnhancers?: SourceEnhancers;
+  /**
+   * Compact fallback data for the active variant, keyed by filename.
+   */
+  fallbacks?: Fallbacks;
+  /**
+   * Whether the surrounding code block is currently expanded. Forwarded to
+   * `<Pre>` so it can disable collapsed-state behaviors (e.g. `minColumn`).
+   */
+  expanded?: boolean;
+  /**
+   * Render-time "collapse to empty". Forwarded to `<Pre>`: collapses the block to an
+   * empty window (whole block hidden until expanded) by demoting collapsed-
+   * visible frame types at render. Orthogonal to `expanded`.
+   */
+  collapseToEmpty?: boolean;
+  /**
+   * Currently-selected file name. The hook is always controlled —
+   * callers (typically `useCode`) own the state so it can be read
+   * upstream of `useFileNavigation` to drive transform-management
+   * decisions.
+   */
+  selectedFileName: string | undefined;
+  /**
+   * Setter for `selectedFileName`. Called by the hook in response to
+   * hash changes, variant switches, and `selectFileName` invocations.
+   */
+  setSelectedFileName: React.Dispatch<React.SetStateAction<string | undefined>>;
+  /**
+   * Whether the reader has edited the source. Once they have, a transformed
+   * file's precomputed source projection is stale and the variant's live one
+   * wins. See `selectedFileSourceProjection`.
+   */
+  hasControlledEdits?: boolean;
+}
+
+export interface UseFileNavigationResult {
+  selectedFileName: string | undefined;
+  selectedFileOriginalName: string | undefined;
+  selectedFileUrl: string | undefined;
+  /**
+   * Slug for the currently selected file, derived from the canonical
+   * (original) file name. Transforms are a view preference applied after
+   * navigation, so transformed files do not get their own slug — the slug
+   * for `Counter.tsx` remains the same whether the `js` transform is
+   * active or not.
+   */
+  selectedFileSlug: string | undefined;
+  selectedFile: VariantSource | null;
+  /** DEFLATE dictionary for the selected file's `hastCompressed` source. */
+  selectedFileFallback: FallbackNode[] | undefined;
+  selectedFileComponent: React.ReactNode;
+  selectedFileLines: number;
+  selectedFileFocusedLines: number;
+  selectedFileCollapsible: boolean;
+  selectedFileHasFocusProjection: boolean;
+  selectedFileSourceProjection: EditableSourceProjection | undefined;
+  files: Array<{ name: string; slug?: string; component: React.ReactNode }>;
+  selectFileName: (fileName: string) => void;
+  allFilesSlugs: Array<{ fileName: string; slug: string; variantName: string }>;
+}
+
+/**
+ * Hook for managing file selection and navigation within a code variant
+ */
+export function useFileNavigation({
+  selectedVariant,
+  transformedFiles,
+  // Note: `selectedTransform` is accepted as a prop (callers spread the
+  // result of `useTransformManagement`) but intentionally not destructured
+  // here — the rendered <Pre> children come from `transformedFiles` /
+  // `selectedFile`, which already reflect the active transform. Keying or
+  // memo-deping on the transform name would only cause unnecessary
+  // remounts on transform toggles.
+  mainSlug = '',
+  selectedVariantKey = '',
+  variantKeys = [],
+  shouldHighlight,
+  preClassName,
+  setSource,
+  editActivation,
+  onActivate,
+  onBoundary,
+  editable,
+  effectiveCode,
+  selectVariant,
+  fileHashMode = 'remove-hash',
+  saveHashVariantToLocalStorage = 'on-interaction',
+  saveVariantToLocalStorage,
+  hashVariant,
+  sourceEnhancers,
+  fallbacks,
+  expanded,
+  collapseToEmpty,
+  selectedFileName: selectedFileNameInternal,
+  setSelectedFileName: setSelectedFileNameInternal,
+  hasControlledEdits = false,
+}: UseFileNavigationProps): UseFileNavigationResult {
+  // Use the simplified URL hash hook
+  const [hash, setHash] = useUrlHashState();
+
+  // Track if we're waiting for a variant switch to complete, and which file to select after
+  const pendingFileSelection = React.useRef<string | null>(null);
+  const justCompletedPendingSelection = React.useRef(false);
+
+  // Track the previous variant key to detect user-initiated changes
+  const prevVariantKeyRef = React.useRef(selectedVariantKey);
+  const [prevVariantKeyState, setPrevVariantKeyState] = React.useState(selectedVariantKey);
+  const isInitialMount = React.useRef(true);
+
+  // Detect if the current variant change was driven by a hash change
+  // A variant change is hash-driven if the hash has a variant that matches where we're going
+  // AND we weren't already on that variant (i.e., the hash is what triggered the change)
+  const isHashDrivenVariantChange =
+    hashVariant === selectedVariantKey && prevVariantKeyState !== selectedVariantKey;
+
+  // Update prevVariantKeyState when variant changes
+  React.useEffect(() => {
+    if (selectedVariantKey !== prevVariantKeyState) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- previous-value tracker; render-time rewrite changes effect ordering for the hash-update effect that reads isHashDrivenVariantChange as a dep
+      setPrevVariantKeyState(selectedVariantKey);
+    }
+  }, [selectedVariantKey, prevVariantKeyState]);
+
+  // Helper function to check URL hash and switch to matching file
+  const checkUrlHashAndSelectFile = React.useCallback(() => {
+    if (!hash) {
+      return;
+    }
+
+    // Try to find matching file - check current variant first
+    let matchingFileName: string | undefined;
+    let matchingVariantKey: string | undefined;
+
+    // Step 1: Check current variant (if we have one)
+    if (selectedVariant) {
+      // Check main file
+      if (selectedVariant.fileName) {
+        const mainFileSlug = generateFileSlug(
+          mainSlug,
+          selectedVariant.fileName,
+          selectedVariantKey,
+        );
+        if (hash === mainFileSlug) {
+          matchingFileName = selectedVariant.fileName;
+          matchingVariantKey = selectedVariantKey;
+        }
+      }
+
+      // Check extra files
+      if (!matchingFileName && selectedVariant.extraFiles) {
+        for (const fileName of Object.keys(selectedVariant.extraFiles)) {
+          const fileSlug = generateFileSlug(mainSlug, fileName, selectedVariantKey);
+          if (hash === fileSlug) {
+            matchingFileName = fileName;
+            matchingVariantKey = selectedVariantKey;
+            break;
+          }
+        }
+      }
+
+      // Check transformed files
+      if (!matchingFileName && transformedFiles) {
+        for (const file of transformedFiles.files) {
+          const fileSlug = generateFileSlug(mainSlug, file.originalName, selectedVariantKey);
+          if (hash === fileSlug) {
+            matchingFileName = file.originalName;
+            matchingVariantKey = selectedVariantKey;
+            break;
+          }
+        }
+      }
+    }
+
+    // Step 2: If no match and we can switch variants, search other variants
+    if (!matchingFileName && effectiveCode && selectVariant) {
+      for (const [variantKey, variant] of Object.entries(effectiveCode)) {
+        // Skip current variant (already checked) and invalid variants
+        if (variantKey === selectedVariantKey || !variant || typeof variant === 'string') {
+          continue;
+        }
+
+        // Check main file
+        if (variant.fileName) {
+          const mainFileSlug = generateFileSlug(mainSlug, variant.fileName, variantKey);
+          if (hash === mainFileSlug) {
+            matchingFileName = variant.fileName;
+            matchingVariantKey = variantKey;
+            break;
+          }
+        }
+
+        // Check extra files
+        if (!matchingFileName && variant.extraFiles) {
+          for (const fileName of Object.keys(variant.extraFiles)) {
+            const fileSlug = generateFileSlug(mainSlug, fileName, variantKey);
+            if (hash === fileSlug) {
+              matchingFileName = fileName;
+              matchingVariantKey = variantKey;
+              break;
+            }
+          }
+        }
+
+        if (matchingFileName) {
+          break;
+        }
+      }
+    }
+
+    if (matchingFileName && matchingVariantKey) {
+      // If the matching file is in a different variant, switch to that variant first
+      if (matchingVariantKey !== selectedVariantKey && selectVariant) {
+        // Remember which file to select after variant switch
+        pendingFileSelection.current = matchingFileName;
+        selectVariant(matchingVariantKey);
+        // Don't set the file here - it will be set after variant changes
+        return;
+      }
+
+      // Set the file if we're in the correct variant
+      pendingFileSelection.current = null;
+      setSelectedFileNameInternal(matchingFileName);
+    }
+  }, [
+    hash,
+    selectedVariant,
+    selectedVariantKey,
+    mainSlug,
+    transformedFiles,
+    effectiveCode,
+    selectVariant,
+    setSelectedFileNameInternal,
+  ]);
+
+  // Run hash check when URL hash changes to select the matching file
+  React.useEffect(() => {
+    checkUrlHashAndSelectFile();
+  }, [checkUrlHashAndSelectFile]);
+
+  // When variant switches with a pending file selection, complete the file selection
+  React.useEffect(() => {
+    if (pendingFileSelection.current && selectedVariant) {
+      const fileToSelect = pendingFileSelection.current;
+      pendingFileSelection.current = null;
+      justCompletedPendingSelection.current = true;
+      setSelectedFileNameInternal(fileToSelect);
+    } else {
+      justCompletedPendingSelection.current = false;
+    }
+  }, [selectedVariantKey, selectedVariant, setSelectedFileNameInternal]);
+
+  // Reset selectedFileName when variant changes
+  React.useEffect(() => {
+    // Skip reset if we have a pending file selection from hash navigation
+    // OR if we just completed a pending file selection
+    if (pendingFileSelection.current || justCompletedPendingSelection.current) {
+      return;
+    }
+
+    if (selectedVariant && selectedFileNameInternal !== selectedVariant.fileName) {
+      // Only reset if current selectedFileName doesn't exist in the new variant
+      const hasFile =
+        selectedVariant.fileName === selectedFileNameInternal ||
+        (selectedFileNameInternal &&
+          selectedVariant.extraFiles &&
+          selectedVariant.extraFiles[selectedFileNameInternal]);
+
+      if (!hasFile) {
+        setSelectedFileNameInternal(selectedVariant.fileName);
+      }
+    }
+  }, [selectedVariant, selectedFileNameInternal, setSelectedFileNameInternal]);
+
+  // Update hash when variant changes (user-initiated variant switch)
+  React.useEffect(() => {
+    // Skip on initial mount - let hash-driven navigation handle it
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      prevVariantKeyRef.current = selectedVariantKey;
+      return;
+    }
+
+    // Only update hash if there's already a relevant hash present
+    if (typeof window === 'undefined' || !isHashRelevantToDemo(hash, mainSlug)) {
+      prevVariantKeyRef.current = selectedVariantKey;
+      return;
+    }
+
+    // Skip if variant hasn't actually changed
+    if (prevVariantKeyRef.current === selectedVariantKey) {
+      return;
+    }
+
+    // Skip if this is a hash-driven variant change (hash is driving the variant selection)
+    if (
+      pendingFileSelection.current ||
+      justCompletedPendingSelection.current ||
+      isHashDrivenVariantChange
+    ) {
+      prevVariantKeyRef.current = selectedVariantKey;
+      return;
+    }
+
+    // User switched variants, update hash based on fileHashMode
+    // Note: localStorage is already saved by setSelectedVariantKeyAsUser
+    if (fileHashMode === 'remove-filename') {
+      // Keep variant in hash: mainSlug or mainSlug:variant (for non-Default variants)
+      const kebabMainSlug = toKebabCase(mainSlug);
+      if (selectedVariantKey === 'Default') {
+        setHash(kebabMainSlug);
+      } else {
+        const kebabVariantName = toKebabCase(selectedVariantKey);
+        setHash(`${kebabMainSlug}:${kebabVariantName}`);
+      }
+    } else {
+      // Remove entire hash
+      setHash(null);
+    }
+
+    prevVariantKeyRef.current = selectedVariantKey;
+  }, [selectedVariantKey, hash, mainSlug, fileHashMode, setHash, isHashDrivenVariantChange]);
+
+  // Compute the displayed filename (transformed if applicable)
+  const selectedFileName = React.useMemo(() => {
+    if (!selectedVariant) {
+      return undefined;
+    }
+
+    // If selectedFileNameInternal is undefined, we're selecting the main file
+    const effectiveFileName = selectedFileNameInternal || selectedVariant.fileName;
+    if (!effectiveFileName) {
+      return undefined;
+    }
+
+    // If we have transformed files, return the transformed name
+    if (transformedFiles) {
+      const file = transformedFiles.files.find((f) => f.originalName === effectiveFileName);
+      return file ? file.name : effectiveFileName;
+    }
+
+    // Otherwise, return the original filename
+    return effectiveFileName;
+  }, [selectedVariant, selectedFileNameInternal, transformedFiles]);
+
+  // Derive the URL of the currently selected file by combining the variant URL
+  // with the selected file's name and (optional) `relativeUrl`. When the
+  // selected file is the variant entry, the variant URL is used directly.
+  //
+  // For an extra file:
+  //   - string entry: it is itself a fully-qualified URL.
+  //   - object entry with `relativeUrl`: resolve `relativeUrl` against the
+  //     variant URL.
+  //   - object entry without `relativeUrl`: by the `extraFiles` contract the
+  //     key itself resolves to the file URL against the variant URL, so we
+  //     resolve the key. Authors who provide a synthetic key for an inline
+  //     entry should also avoid setting `variant.url` (or should not consume
+  //     `selectedFileUrl`).
+  const selectedFileUrl = React.useMemo<string | undefined>(() => {
+    if (!selectedVariant?.url) {
+      return undefined;
+    }
+
+    const effectiveFileName = selectedFileNameInternal || selectedVariant.fileName;
+    if (!effectiveFileName || effectiveFileName === selectedVariant.fileName) {
+      return selectedVariant.url;
+    }
+
+    const extraFile = selectedVariant.extraFiles?.[effectiveFileName];
+    if (typeof extraFile === 'string') {
+      // String form is already a fully-qualified URL.
+      return extraFile;
+    }
+
+    const relativeUrl =
+      extraFile && typeof extraFile === 'object' ? extraFile.relativeUrl : undefined;
+
+    try {
+      return new URL(relativeUrl ?? effectiveFileName, selectedVariant.url).href;
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          `useFileNavigation: failed to derive selectedFileUrl for "${effectiveFileName}" against "${selectedVariant.url}": ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      return undefined;
+    }
+  }, [selectedVariant, selectedFileNameInternal]);
+
+  // Slug for the currently selected file. Always derived from the canonical
+  // (original) file name so that transforms remain a view preference and do
+  // not produce a separate URL — clicking a permalink lands on the same
+  // file regardless of which transform the visitor has selected.
+  const selectedFileSlug = React.useMemo<string | undefined>(() => {
+    if (!selectedVariant) {
+      return undefined;
+    }
+    const effectiveFileName = selectedFileNameInternal || selectedVariant.fileName;
+    if (!effectiveFileName) {
+      return undefined;
+    }
+    return generateFileSlug(mainSlug, effectiveFileName, selectedVariantKey);
+  }, [selectedVariant, selectedFileNameInternal, mainSlug, selectedVariantKey]);
+
+  const selectedFile = React.useMemo(() => {
+    if (!selectedVariant) {
+      return null;
+    }
+
+    // If we have transformed files, use them
+    if (transformedFiles) {
+      const effectiveFileName = selectedFileNameInternal || selectedVariant.fileName;
+      const file = transformedFiles.files.find((f) => f.originalName === effectiveFileName);
+      return file ? file.source : null;
+    }
+
+    // Otherwise, use the original untransformed files
+    if (selectedFileNameInternal === selectedVariant.fileName || !selectedFileNameInternal) {
+      return selectedVariant.source ?? null;
+    }
+
+    // Look in extraFiles
+    if (
+      selectedFileNameInternal &&
+      selectedVariant.extraFiles &&
+      selectedVariant.extraFiles[selectedFileNameInternal]
+    ) {
+      const extraFile = selectedVariant.extraFiles[selectedFileNameInternal];
+      if (typeof extraFile === 'string') {
+        return extraFile;
+      }
+      if (extraFile && typeof extraFile === 'object' && 'source' in extraFile) {
+        return extraFile.source ?? null;
+      }
+    }
+
+    return null;
+  }, [selectedVariant, selectedFileNameInternal, transformedFiles]);
+
+  // Get comments for the selected file. When a transformed view is
+  // active, prefer the transformed file's own `comments` map — it has
+  // already been remapped onto the post-transform line numbers by
+  // `applyCodeTransformWithComments`, so client-side enhancers see
+  // markers that line up with the source they're being handed. Falling
+  // back to `selectedVariant.comments` would feed the enhancer the
+  // original (pre-transform) line numbers, silently mis-aligning every
+  // `@focus` / `@padding-*` marker on transformed renders.
+  const selectedFileComments = React.useMemo((): SourceComments | undefined => {
+    if (!selectedVariant) {
+      return undefined;
+    }
+
+    const effectiveFileName = selectedFileNameInternal || selectedVariant.fileName;
+    if (!effectiveFileName) {
+      return undefined;
+    }
+
+    if (transformedFiles) {
+      const transformedFile = transformedFiles.files.find(
+        (file) => file.originalName === effectiveFileName,
+      );
+      if (transformedFile) {
+        return transformedFile.comments;
+      }
+    }
+
+    // Check if it's the main file
+    if (effectiveFileName === selectedVariant.fileName) {
+      return selectedVariant.comments;
+    }
+
+    // Check extra files
+    if (selectedVariant.extraFiles?.[effectiveFileName]) {
+      const extraFile = selectedVariant.extraFiles[effectiveFileName];
+      if (typeof extraFile === 'object' && 'comments' in extraFile) {
+        return extraFile.comments;
+      }
+    }
+
+    return undefined;
+  }, [selectedVariant, selectedFileNameInternal, transformedFiles]);
+
+  // Resolve per-file DEFLATE dictionaries from both places a fallback can
+  // arrive: `fallbacks` (hoisted from a `ContentLoading` component, for files
+  // whose fallback was stripped off `Code`) and the variant's own per-file
+  // `fallback` fields (kept on `Code` for files that weren't stripped — e.g.
+  // extra files when `fallbackUsesExtraFiles` is off, the no-`ContentLoading`
+  // path, or fallbacks scattered back from the residual blob). For most files
+  // only one is populated. When both are — a `fallbackCollapsed` block hoists
+  // the *visible* window but scatters the *full* fallback onto `Code` — the
+  // `Code` copy must win, because the full text is the dictionary
+  // `hastCompressed` needs. So the variant copy takes precedence.
+  const resolvedFallbacks = React.useMemo(() => {
+    const fromVariant: Fallbacks = {};
+    if (selectedVariant) {
+      if (selectedVariant.fileName && selectedVariant.fallback) {
+        fromVariant[selectedVariant.fileName] = selectedVariant.fallback;
+      }
+      for (const [name, fileData] of Object.entries(selectedVariant.extraFiles || {})) {
+        if (typeof fileData === 'object' && fileData?.fallback) {
+          fromVariant[name] = fileData.fallback;
+        }
+      }
+    }
+    return { ...fallbacks, ...fromVariant };
+  }, [selectedVariant, fallbacks]);
+
+  // The DEFLATE dictionary for the currently selected file's `hastCompressed`
+  // source. Extra files key by name; the main file prefers its fileName-keyed
+  // entry, falling back to the variant's own `fallback` field (the only way to
+  // resolve a main file with no fileName, e.g. a bare markdown fence).
+  const selectedFileFallback = React.useMemo(() => {
+    if (selectedFileNameInternal && selectedFileNameInternal !== selectedVariant?.fileName) {
+      return resolvedFallbacks[selectedFileNameInternal];
+    }
+    return (
+      (selectedVariant?.fileName ? resolvedFallbacks[selectedVariant.fileName] : undefined) ??
+      selectedVariant?.fallback
+    );
+  }, [selectedFileNameInternal, selectedVariant, resolvedFallbacks]);
+
+  const selectedFileOriginalName = selectedFileNameInternal || selectedVariant?.fileName;
+  const selectedTransformedFile = React.useMemo(
+    () => transformedFiles?.files.find((file) => file.originalName === selectedFileOriginalName),
+    [transformedFiles, selectedFileOriginalName],
+  );
+
+  const selectedFileLineCounts = React.useMemo(() => {
+    if (!selectedVariant || !selectedFileOriginalName) {
+      return null;
+    }
+    if (selectedTransformedFile) {
+      const originalFile =
+        selectedFileOriginalName === selectedVariant.fileName
+          ? selectedVariant
+          : selectedVariant.extraFiles?.[selectedFileOriginalName];
+      const originalSource = typeof originalFile === 'string' ? originalFile : originalFile?.source;
+      if (selectedTransformedFile.source !== originalSource) {
+        return getSourceLineCounts(selectedTransformedFile.source, selectedFileFallback);
+      }
+    }
+    return getVariantFileLineCounts(selectedVariant, selectedFileOriginalName);
+  }, [selectedTransformedFile, selectedFileFallback, selectedFileOriginalName, selectedVariant]);
+
+  const selectedFileSourceProjection = React.useMemo(() => {
+    // The variant carries the LIVE projection: `setSource` recomputes it on
+    // every keystroke, so its offsets track the edited source.
+    let liveProjection: EditableSourceProjection | undefined;
+    if (selectedVariant && selectedFileOriginalName) {
+      if (selectedFileOriginalName === selectedVariant.fileName) {
+        liveProjection = selectedVariant.sourceProjection;
+      } else {
+        const file = selectedVariant.extraFiles?.[selectedFileOriginalName];
+        liveProjection =
+          typeof file === 'object' && file !== null ? file.sourceProjection : undefined;
+      }
+    }
+    if (selectedTransformedFile) {
+      // A transformed file's projection is precomputed against the untouched
+      // transform output, so it describes the pre-edit text and its offsets go
+      // stale the moment the reader types. Prefer it only while the source is
+      // pristine — otherwise the projection fails validation, the editor falls
+      // back to the whole file, and a collapsed preview expands mid-edit.
+      return hasControlledEdits
+        ? (liveProjection ?? selectedTransformedFile.sourceProjection)
+        : (selectedTransformedFile.sourceProjection ?? liveProjection);
+    }
+    return liveProjection;
+  }, [selectedTransformedFile, selectedVariant, selectedFileOriginalName, hasControlledEdits]);
+  const selectedFileHasFocusProjection = selectedFileSourceProjection !== undefined;
+
+  // Apply source enhancers to the selected file
+  const { enhancedSource, isEnhancing } = useSourceEnhancing({
+    source: selectedFile,
+    fileName: selectedFileName,
+    comments: selectedFileComments,
+    sourceEnhancers,
+    fallback: selectedFileFallback,
+  });
+
+  const selectedFileComponent = React.useMemo(() => {
+    if (!selectedVariant) {
+      return null;
+    }
+
+    // Determine the source to render:
+    // - If enhancers are present, use enhanced source (falls back to selectedFile)
+    // - Otherwise use selectedFile directly (which may be from transformed files)
+    const sourceToRender =
+      sourceEnhancers && sourceEnhancers.length > 0
+        ? (enhancedSource ?? selectedFile)
+        : selectedFile;
+
+    if (sourceToRender != null) {
+      // Determine language: use variant's language for main file, or derive from filename for extra files
+      const isMainFile =
+        !selectedFileNameInternal || selectedFileNameInternal === selectedVariant.fileName;
+      const language =
+        getLanguageFromFileName(selectedFileName) ??
+        (isMainFile ? selectedVariant.language : getLanguageFromFileName(selectedFileNameInternal));
+      const fileName = selectedFileNameInternal || selectedVariant.fileName;
+      const fileSlug = generateFileSlug(
+        mainSlug,
+        selectedFileNameInternal ?? selectedVariant.fileName ?? 'code',
+        selectedVariantKey,
+      );
+      let enhancementPhase: 'plain' | 'base' | 'enhanced' = 'plain';
+      if (sourceEnhancers && sourceEnhancers.length > 0) {
+        enhancementPhase = isEnhancing ? 'base' : 'enhanced';
+      }
+
+      return (
+        <Pre
+          key={getPreRenderKey(fileSlug, enhancementPhase)}
+          className={preClassName}
+          fileName={fileName}
+          displayFileName={selectedFileName}
+          language={language}
+          setSource={setSource}
+          editActivation={editActivation}
+          onActivate={onActivate}
+          onBoundary={onBoundary}
+          editable={editable}
+          shouldHighlight={shouldHighlight}
+          fallback={selectedFileFallback}
+          fallbackLineCounts={selectedFileLineCounts}
+          expanded={expanded}
+          collapseToEmpty={collapseToEmpty}
+          sourceProjection={selectedFileSourceProjection}
+        >
+          {sourceToRender}
+        </Pre>
+      );
+    }
+
+    return null;
+  }, [
+    selectedVariant,
+    shouldHighlight,
+    preClassName,
+    setSource,
+    editActivation,
+    onActivate,
+    onBoundary,
+    editable,
+    enhancedSource,
+    isEnhancing,
+    mainSlug,
+    selectedFile,
+    selectedVariantKey,
+    sourceEnhancers,
+    selectedFileNameInternal,
+    selectedFileFallback,
+    selectedFileLineCounts,
+    selectedFileName,
+    selectedFileSourceProjection,
+    expanded,
+    collapseToEmpty,
+  ]);
+
+  const selectedFileLines = React.useMemo(() => {
+    if (selectedFile == null) {
+      return 0;
+    }
+
+    // If it's a string, split by newlines and count.
+    if (typeof selectedFile === 'string') {
+      return selectedFile.split('\n').length;
+    }
+
+    // A compressed payload (`hastCompressed` / `hastJson`) is never a transformed
+    // tree — transforms produce live HAST — so the stored variant count is
+    // authoritative for it. Use it instead of decompressing the source just to read
+    // the count, even when OTHER files in the variant are transformed. Only a live
+    // (transformed or in-hand) tree, or a legacy payload with no stored count, falls
+    // through to read the hast below.
+    const isCompressedSource = 'hastJson' in selectedFile || 'hastCompressed' in selectedFile;
+    if (isCompressedSource && selectedFileLineCounts && selectedFileLineCounts.totalLines > 0) {
+      return selectedFileLineCounts.totalLines;
+    }
+
+    // A live HAST tree (e.g. a transformed source) carries its own up-to-date counts
+    // in `root.data`; `decodeHastSource` returns such a tree unchanged (no
+    // decompression). A compressed source with no stored count (a legacy precompute)
+    // is the only case that actually decompresses here — and it's the same tree
+    // `<Pre>` decodes to render, so the shared decode cache amortizes it. The
+    // selected file's `fallback` is forwarded as the matching DEFLATE dictionary.
+    const hastSelectedFile = decodeHastSource(selectedFile, selectedFileFallback);
+    if (hastSelectedFile) {
+      if (hastSelectedFile.data && 'totalLines' in hastSelectedFile.data) {
+        const totalLines = hastSelectedFile.data.totalLines;
+        // Check if totalLines is a valid number (not null, undefined, or NaN)
+        if (totalLines != null && !Number.isNaN(Number(totalLines))) {
+          const numLines = Number(totalLines);
+          if (numLines >= 0) {
+            return numLines;
+          }
+        }
+        // Fall through to children count if totalLines is invalid
+      }
+
+      if ('children' in hastSelectedFile) {
+        // Use countLines for more accurate line counting of HAST trees
+        return countLines(hastSelectedFile);
+      }
+    }
+
+    return 0;
+  }, [selectedFile, selectedFileFallback, selectedFileLineCounts]);
+
+  // Convert files for the return interface
+  const files = React.useMemo(() => {
+    if (!selectedVariant) {
+      return [];
+    }
+
+    // If we have transformed files, use them
+    if (transformedFiles) {
+      return transformedFiles.files.map((f) => ({
+        name: f.name,
+        slug: generateFileSlug(mainSlug, f.originalName, selectedVariantKey),
+        component: (
+          <Pre
+            key={getPreRenderKey(generateFileSlug(mainSlug, f.originalName, selectedVariantKey))}
+            className={preClassName}
+            fileName={f.originalName}
+            displayFileName={f.name}
+            language={getLanguageFromFileName(f.name)}
+            setSource={setSource}
+            editActivation={editActivation}
+            onActivate={onActivate}
+            onBoundary={onBoundary}
+            editable={editable}
+            shouldHighlight={shouldHighlight}
+            expanded={expanded}
+            sourceProjection={f.sourceProjection}
+          >
+            {f.source}
+          </Pre>
+        ),
+      }));
+    }
+
+    // Otherwise, create files from original untransformed data
+    const result: Array<{ name: string; slug?: string; component: React.ReactNode }> = [];
+
+    // Only add main file if it has a fileName
+    if (selectedVariant.fileName && selectedVariant.source) {
+      result.push({
+        name: selectedVariant.fileName,
+        slug: generateFileSlug(mainSlug, selectedVariant.fileName, selectedVariantKey),
+        component: (
+          <Pre
+            key={getPreRenderKey(
+              generateFileSlug(mainSlug, selectedVariant.fileName, selectedVariantKey),
+            )}
+            className={preClassName}
+            fileName={selectedVariant.fileName}
+            language={selectedVariant.language}
+            setSource={setSource}
+            editActivation={editActivation}
+            onActivate={onActivate}
+            onBoundary={onBoundary}
+            editable={editable}
+            shouldHighlight={shouldHighlight}
+            fallback={
+              selectedVariant.fileName ? resolvedFallbacks[selectedVariant.fileName] : undefined
+            }
+            fallbackLineCounts={getVariantFileLineCounts(selectedVariant, selectedVariant.fileName)}
+            expanded={expanded}
+            sourceProjection={selectedVariant.sourceProjection}
+          >
+            {selectedVariant.source}
+          </Pre>
+        ),
+      });
+    }
+
+    if (selectedVariant.extraFiles) {
+      Object.entries(selectedVariant.extraFiles).forEach(([fileName, fileData]) => {
+        let source: VariantSource | undefined;
+        let language: string | undefined;
+
+        if (typeof fileData === 'string') {
+          source = fileData;
+        } else if (fileData && typeof fileData === 'object' && 'source' in fileData) {
+          source = fileData.source;
+          language = fileData.language;
+        } else {
+          return; // Skip invalid entries
+        }
+
+        if (!source) {
+          return; // Skip null/undefined sources
+        }
+
+        result.push({
+          name: fileName,
+          slug: generateFileSlug(mainSlug, fileName, selectedVariantKey),
+          component: (
+            <Pre
+              key={getPreRenderKey(generateFileSlug(mainSlug, fileName, selectedVariantKey))}
+              className={preClassName}
+              fileName={fileName}
+              language={language ?? getLanguageFromFileName(fileName)}
+              setSource={setSource}
+              editActivation={editActivation}
+              onActivate={onActivate}
+              onBoundary={onBoundary}
+              editable={editable}
+              shouldHighlight={shouldHighlight}
+              fallback={resolvedFallbacks[fileName]}
+              fallbackLineCounts={getVariantFileLineCounts(selectedVariant, fileName)}
+              expanded={expanded}
+              sourceProjection={
+                typeof fileData === 'object' && fileData !== null
+                  ? fileData.sourceProjection
+                  : undefined
+              }
+            >
+              {source}
+            </Pre>
+          ),
+        });
+      });
+    }
+
+    return result;
+  }, [
+    selectedVariant,
+    transformedFiles,
+    mainSlug,
+    selectedVariantKey,
+    shouldHighlight,
+    preClassName,
+    resolvedFallbacks,
+    setSource,
+    editActivation,
+    onActivate,
+    onBoundary,
+    editable,
+    expanded,
+  ]);
+
+  // Create a wrapper for selectFileName that handles transformed filenames and URL updates
+  const selectFileName = React.useCallback(
+    (fileName: string) => {
+      if (!selectedVariant) {
+        return;
+      }
+
+      let targetFileName = fileName;
+
+      // If we have transformed files, we need to reverse-lookup the original filename
+      if (transformedFiles) {
+        // Check if the fileName is a transformed name - if so, find the original
+        const fileByTransformedName = transformedFiles.files.find((f) => f.name === fileName);
+        if (fileByTransformedName) {
+          targetFileName = fileByTransformedName.originalName;
+        } else {
+          // Check if the fileName is already an original name
+          const fileByOriginalName = transformedFiles.files.find(
+            (f) => f.originalName === fileName,
+          );
+          if (fileByOriginalName) {
+            targetFileName = fileName;
+          }
+        }
+      }
+
+      // Handle hash removal based on fileHashMode
+      if (typeof window !== 'undefined' && isHashRelevantToDemo(hash, mainSlug)) {
+        // Save variant to localStorage if on-interaction mode (clicking a tab counts as interaction)
+        if (saveVariantToLocalStorage && saveHashVariantToLocalStorage === 'on-interaction') {
+          saveVariantToLocalStorage(selectedVariantKey);
+        }
+
+        if (fileHashMode === 'remove-filename') {
+          // Keep variant in hash: mainSlug or mainSlug:variant (for non-Default variants)
+          const kebabMainSlug = toKebabCase(mainSlug);
+          if (selectedVariantKey === 'Default') {
+            setHash(kebabMainSlug);
+          } else {
+            const kebabVariantName = toKebabCase(selectedVariantKey);
+            setHash(`${kebabMainSlug}:${kebabVariantName}`);
+          }
+        } else {
+          // Remove entire hash
+          setHash(null);
+        }
+      }
+
+      setSelectedFileNameInternal(targetFileName);
+    },
+    [
+      selectedVariant,
+      transformedFiles,
+      mainSlug,
+      selectedVariantKey,
+      fileHashMode,
+      hash,
+      setHash,
+      saveHashVariantToLocalStorage,
+      saveVariantToLocalStorage,
+      setSelectedFileNameInternal,
+    ],
+  );
+
+  // Memoized array of all file slugs for all variants
+  const allFilesSlugs = React.useMemo(() => {
+    const result: Array<{ fileName: string; slug: string; variantName: string }> = [];
+
+    if (!effectiveCode || !variantKeys.length) {
+      return result;
+    }
+
+    // Iterate through all variants
+    for (const variantKey of variantKeys) {
+      const variant = effectiveCode[variantKey];
+
+      // Skip invalid variants
+      if (!variant || typeof variant === 'string') {
+        continue;
+      }
+
+      // Add variant-only slug (points to main file of the variant)
+      // Skip for Default variant since it doesn't have variant name in hash
+      if (variant.fileName && variantKey !== 'Default') {
+        const kebabMainSlug = toKebabCase(mainSlug);
+        const kebabVariantName = toKebabCase(variantKey);
+        const variantOnlySlug = `${kebabMainSlug}:${kebabVariantName}`;
+
+        result.push({
+          fileName: variant.fileName,
+          slug: variantOnlySlug,
+          variantName: variantKey,
+        });
+      }
+
+      // Add main file if it exists
+      if (variant.fileName) {
+        result.push({
+          fileName: variant.fileName,
+          slug: generateFileSlug(mainSlug, variant.fileName, variantKey),
+          variantName: variantKey,
+        });
+      }
+
+      // Add extra files
+      if (variant.extraFiles) {
+        Object.keys(variant.extraFiles).forEach((fileName) => {
+          result.push({
+            fileName,
+            slug: generateFileSlug(mainSlug, fileName, variantKey),
+            variantName: variantKey,
+          });
+        });
+      }
+    }
+
+    return result;
+  }, [effectiveCode, variantKeys, mainSlug]);
+
+  return {
+    selectedFileName,
+    selectedFileOriginalName,
+    selectedFileUrl,
+    selectedFileSlug,
+    selectedFile,
+    selectedFileFallback,
+    selectedFileComponent,
+    selectedFileLines,
+    selectedFileFocusedLines: collapseToEmpty ? 0 : (selectedFileLineCounts?.focusedLines ?? 0),
+    selectedFileCollapsible: selectedFileLineCounts?.collapsible ?? false,
+    selectedFileHasFocusProjection,
+    selectedFileSourceProjection,
+    files,
+    allFilesSlugs,
+    selectFileName,
+  };
+}
