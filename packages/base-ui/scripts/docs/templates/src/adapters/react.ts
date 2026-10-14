@@ -50,9 +50,17 @@ export function useReducer<S, A, I = S>(
   return [() => state().current, dispatch];
 }
 
-/** `React.useTransition`: Solid batches writes itself, so the update runs now and never pends. */
-export function useTransition(): [Accessor<boolean>, (callback: () => void) => void] {
-  return [() => false, (callback) => callback()];
+/**
+ * `React.useTransition`: Solid batches writes itself; the transition is pending until its callback
+ * settles (an async callback, as React 19 runs one).
+ */
+export function useTransition(): [Accessor<boolean>, (callback: () => unknown) => void] {
+  const [pending, setPending] = createSignal(0);
+  const start = (callback: () => unknown) => {
+    setPending((count) => count + 1);
+    Promise.resolve(callback()).finally(() => setPending((count) => count - 1));
+  };
+  return [() => pending() > 0, start];
 }
 
 /** `React.useActionState`: the action's latest result and whether a call is in flight. */

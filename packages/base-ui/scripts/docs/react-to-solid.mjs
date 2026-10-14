@@ -279,6 +279,23 @@ const ACCESSOR_HOOKS = new Set(['useMemo', 'useContext', 'useSyncExternalStore',
 
 const HOOK_NAME = /^use[A-Z0-9]/;
 
+// What Solid Base UI's hooks return where React's return values: an accessor, or an object with
+// accessor members.
+const BASE_UI_HOOK_RESULTS = {
+  useDirection: { accessor: true },
+  useFilteredItems: { accessor: true },
+  useMediaQuery: { accessor: true },
+  useToastManager: { members: ['toasts'] },
+};
+
+// Render-function children Solid Base UI calls with accessors (the selected value, an index).
+const ACCESSOR_CHILD_PARAMS = {
+  'Autocomplete.List': [1],
+  'Autocomplete.Value': [0],
+  'Combobox.List': [1],
+  'Combobox.Value': [0],
+};
+
 // Imports of these modules are corpus code (transformed with this file, or written for it as an
 // adapter), so their hooks follow the corpus convention.
 const CORPUS_MODULES = ['.', 'docs/', '@mui/internal-docs-infra', 'next', '@base-ui/utils/'];
@@ -557,6 +574,138 @@ function walkOwn(node, visit) {
       }
     }
   }
+}
+
+/**
+ * In code users copy (demos), a React hook without a Solid counterpart is written out where it is
+ * used: `useTransition` keeps a pending flag until its callback settles, as React 19 does with an
+ * async callback; `useActionState` keeps the action's latest result and its pending flag.
+ */
+function inlineStandaloneHook(declarator, api, fnPath, ctx) {
+  const { imports } = ctx;
+  const id = declarator.id;
+  if (!t.isArrayPattern(id)) {
+    return null;
+  }
+  const named = (index, fallback) =>
+    t.isIdentifier(id.elements[index])
+      ? t.identifier(id.elements[index].name)
+      : fnPath.scope.generateUidIdentifier(fallback);
+  const pendingSignal = (pending) => {
+    const setPending = fnPath.scope.generateUidIdentifier(
+      `set${pending.name[0].toUpperCase()}${pending.name.slice(1)}`,
+    );
+    imports.add('solid-js', 'createSignal');
+    return {
+      setPending,
+      declaration: t.variableDeclaration('const', [
+        t.variableDeclarator(
+          t.arrayPattern([pending, setPending]),
+          t.callExpression(t.identifier('createSignal'), [t.booleanLiteral(false)]),
+        ),
+      ]),
+    };
+  };
+  const settle = (setPending, promise) =>
+    t.callExpression(
+      t.memberExpression(
+        t.callExpression(t.memberExpression(t.identifier('Promise'), t.identifier('resolve')), [
+          promise,
+        ]),
+        t.identifier('finally'),
+      ),
+      [
+        t.arrowFunctionExpression(
+          [],
+          t.callExpression(t.identifier(setPending.name), [t.booleanLiteral(false)]),
+        ),
+      ],
+    );
+  if (api === 'useTransition') {
+    const pending = named(0, 'isPending');
+    const start = named(1, 'startTransition');
+    const { setPending, declaration } = pendingSignal(pending);
+    const callback = t.identifier('callback');
+    callback.typeAnnotation = t.tsTypeAnnotation(
+      t.tsFunctionType(null, [], t.tsTypeAnnotation(t.tsUnknownKeyword())),
+    );
+    return [
+      declaration,
+      constDeclaration(
+        start,
+        t.arrowFunctionExpression(
+          [callback],
+          t.blockStatement([
+            t.expressionStatement(
+              t.callExpression(t.identifier(setPending.name), [t.booleanLiteral(true)]),
+            ),
+            t.expressionStatement(
+              settle(setPending, t.callExpression(t.identifier('callback'), [])),
+            ),
+          ]),
+        ),
+      ),
+    ];
+  }
+  if (api === 'useActionState') {
+    const [action, initialState] = declarator.init.arguments;
+    const state = named(0, 'state');
+    const dispatch = named(1, 'formAction');
+    const pending = named(2, 'isPending');
+    const setState = fnPath.scope.generateUidIdentifier('setState');
+    const { setPending, declaration } = pendingSignal(pending);
+    imports.add('solid-js', 'createSignal');
+    const payload = t.identifier('payload');
+    payload.typeAnnotation = t.tsTypeAnnotation(t.tsTypeReference(t.identifier('FormData')));
+    return [
+      t.variableDeclaration('const', [
+        t.variableDeclarator(
+          t.arrayPattern([state, setState]),
+          t.callExpression(t.identifier('createSignal'), [initialState]),
+        ),
+      ]),
+      declaration,
+      constDeclaration(
+        dispatch,
+        t.arrowFunctionExpression(
+          [payload],
+          t.blockStatement([
+            t.expressionStatement(
+              t.callExpression(t.identifier(setPending.name), [t.booleanLiteral(true)]),
+            ),
+            t.expressionStatement(
+              settle(
+                setPending,
+                t.callExpression(
+                  t.memberExpression(
+                    t.callExpression(
+                      t.memberExpression(t.identifier('Promise'), t.identifier('resolve')),
+                      [
+                        t.callExpression(action, [
+                          t.callExpression(t.identifier(state.name), []),
+                          t.identifier('payload'),
+                        ]),
+                      ],
+                    ),
+                    t.identifier('then'),
+                  ),
+                  [
+                    t.arrowFunctionExpression(
+                      [t.identifier('next')],
+                      t.callExpression(t.identifier(setState.name), [
+                        t.arrowFunctionExpression([], t.identifier('next')),
+                      ]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    ];
+  }
+  return null;
 }
 
 /** Rewrites a React hook call (in a declaration or a statement) to Solid; returns the replacement. */
@@ -917,6 +1066,7 @@ function lowerFunction(fnPath, kind, ctx) {
   }
 
   const plan = new Map(); // statement node -> how it is rewritten
+  const accessorMembers = new Map(); // declaring identifier node -> accessor member names
   for (const statementPath of statementPaths.slice(0, split)) {
     const statement = statementPath.node;
     if (!t.isVariableDeclaration(statement)) {
@@ -945,11 +1095,15 @@ function lowerFunction(fnPath, kind, ctx) {
         }
         continue;
       }
+      const baseUiResult = api ? null : BASE_UI_HOOK_RESULTS[calleeName(init.callee)];
       const returnsAccessor = api
         ? ACCESSOR_HOOKS.has(api)
-        : isCorpusHook(declaratorPath.get('init'), ctx);
+        : isCorpusHook(declaratorPath.get('init'), ctx) || Boolean(baseUiResult?.accessor);
       if (returnsAccessor && t.isIdentifier(id)) {
         declare(bindingOf(declaratorPath, id.name), { kind: 'accessor', name: id.name });
+      }
+      if (baseUiResult?.members && t.isIdentifier(id)) {
+        accessorMembers.set(bindingOf(declaratorPath, id.name).identifier, baseUiResult.members);
       }
       if (
         api === 'useDeferredValue' &&
@@ -958,6 +1112,26 @@ function lowerFunction(fnPath, kind, ctx) {
       ) {
         plan.set(statement, { type: 'memo' });
         declare(bindingOf(declaratorPath, id.name), { kind: 'accessor', name: id.name });
+      }
+      continue;
+    }
+    // `const { toasts } = toastManager`: the accessor members of a Base UI hook's result.
+    const membersOf = t.isIdentifier(init)
+      ? accessorMembers.get(bindingOf(declaratorPath, init.name)?.identifier)
+      : null;
+    if (membersOf && t.isObjectPattern(id)) {
+      for (const property of id.properties) {
+        if (
+          t.isObjectProperty(property) &&
+          t.isIdentifier(property.key) &&
+          membersOf.includes(property.key.name) &&
+          t.isIdentifier(property.value)
+        ) {
+          declare(bindingOf(declaratorPath, property.value.name), {
+            kind: 'accessor',
+            name: property.value.name,
+          });
+        }
       }
       continue;
     }
@@ -1028,6 +1202,19 @@ function lowerFunction(fnPath, kind, ctx) {
 
   // References to rewrite, collected while the scope still describes the original code.
   const rewrites = new Map(); // reference node -> entry
+  for (const [identifierNode, members] of accessorMembers) {
+    const binding = fnPath.scope.getBinding(identifierNode.name);
+    for (const reference of binding?.referencePaths ?? []) {
+      const member = reference.parentPath;
+      if (
+        member?.isMemberExpression({ object: reference.node }) &&
+        t.isIdentifier(member.node.property) &&
+        members.includes(member.node.property.name)
+      ) {
+        rewrites.set(member.node, { kind: 'member-read' });
+      }
+    }
+  }
   for (const entry of reactive.values()) {
     if (entry.kind === 'source') {
       // `props.x` reads (the source itself stays an object of getters).
@@ -1055,6 +1242,33 @@ function lowerFunction(fnPath, kind, ctx) {
   for (const statement of fnPath.node.body.body.slice(0, split)) {
     if (t.isExpressionStatement(statement) && isHookCall(statement.expression, ctx)) {
       const api = reactApi(statement.expression.callee, ctx.reactNames);
+      if (api === 'useImperativeHandle' && ctx.standalone) {
+        // Code users copy hands the ref its handle itself.
+        const [ref, create] = statement.expression.arguments;
+        const handle = fnPath.scope.generateUidIdentifier('handle');
+        setup.push(
+          constDeclaration(handle, t.callExpression(create, [])),
+          t.ifStatement(
+            t.binaryExpression(
+              '===',
+              t.unaryExpression('typeof', ref),
+              t.stringLiteral('function'),
+            ),
+            t.expressionStatement(t.callExpression(ref, [t.identifier(handle.name)])),
+            t.ifStatement(
+              ref,
+              t.expressionStatement(
+                t.assignmentExpression(
+                  '=',
+                  t.memberExpression(ref, t.identifier('current')),
+                  t.identifier(handle.name),
+                ),
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
       if (api) {
         const lowered = lowerReactHook(statement.expression, api, ctx);
         if (lowered) {
@@ -1081,6 +1295,11 @@ function lowerFunction(fnPath, kind, ctx) {
       if (api) {
         if (api === 'useRef' && t.isIdentifier(declarator.id)) {
           ctx.refs.add(declarator.id.name);
+        }
+        const inline = ctx.standalone ? inlineStandaloneHook(declarator, api, fnPath, ctx) : null;
+        if (inline) {
+          setup.push(...inline);
+          continue;
         }
         declarator.init = lowerReactHook(declarator.init, api, ctx);
       } else {
@@ -1318,6 +1537,15 @@ function rewriteReads(fnPath, rewrites, imports) {
   }
   fnPath.traverse({
     MemberExpression(path) {
+      // An accessor member of a Base UI hook's result is read through a call.
+      if (rewrites.get(path.node)?.kind === 'member-read') {
+        const call = t.callExpression(path.node, []);
+        call.solidRead = null;
+        rewrites.delete(path.node);
+        path.replaceWith(call);
+        path.skip();
+        return;
+      }
       // A props read where the component sets up runs once, explicitly.
       if (rewrites.get(path.node)?.kind === 'source-read' && isSetupRead(path, fnPath)) {
         path.replaceWith(untrackCall(path.node, imports));
@@ -1326,7 +1554,7 @@ function rewriteReads(fnPath, rewrites, imports) {
     },
     'Identifier|JSXIdentifier'(path) {
       const entry = rewrites.get(path.node);
-      if (!entry || entry.kind === 'source-read') {
+      if (!entry || entry.kind === 'source-read' || entry.kind === 'member-read') {
         return;
       }
       let replacement;
@@ -2082,6 +2310,50 @@ function transformJsx(programPath, ctx) {
       );
       return;
     }
+    // React 19 calls a form's function `action` with the form's data on submit; Solid's `action`
+    // is a URL.
+    if (
+      name === 'action' &&
+      t.isJSXIdentifier(element.name, { name: 'form' }) &&
+      t.isJSXExpressionContainer(value) &&
+      !t.isStringLiteral(value.expression) &&
+      !t.isTemplateLiteral(value.expression)
+    ) {
+      const event = t.identifier('event');
+      event.typeAnnotation = t.tsTypeAnnotation(
+        t.tsIntersectionType([
+          t.tsTypeReference(t.identifier('SubmitEvent')),
+          t.tsTypeLiteral([
+            t.tsPropertySignature(
+              t.identifier('currentTarget'),
+              t.tsTypeAnnotation(t.tsTypeReference(t.identifier('HTMLFormElement'))),
+            ),
+          ]),
+        ]),
+      );
+      attribute.name = t.jsxIdentifier('onSubmit');
+      attribute.value = t.jsxExpressionContainer(
+        t.arrowFunctionExpression(
+          [event],
+          t.blockStatement([
+            t.expressionStatement(
+              t.callExpression(
+                t.memberExpression(t.identifier('event'), t.identifier('preventDefault')),
+                [],
+              ),
+            ),
+            t.expressionStatement(
+              t.callExpression(value.expression, [
+                t.newExpression(t.identifier('FormData'), [
+                  t.memberExpression(t.identifier('event'), t.identifier('currentTarget')),
+                ]),
+              ]),
+            ),
+          ]),
+        ),
+      );
+      return;
+    }
     const renamed = solidAttributeName(name, element, ctx);
     if (renamed !== name) {
       const [namespace, local] = renamed.split(':');
@@ -2143,6 +2415,37 @@ function transformJsx(programPath, ctx) {
     },
     JSXElement(path) {
       const name = path.node.openingElement.name;
+      // A render function Solid Base UI calls with accessors reads them through calls.
+      const partName =
+        t.isJSXMemberExpression(name) && t.isJSXIdentifier(name.object)
+          ? `${name.object.name}.${name.property.name}`
+          : null;
+      const accessorParams = partName ? ACCESSOR_CHILD_PARAMS[partName] : null;
+      if (accessorParams) {
+        for (const childPath of path.get('children')) {
+          const fnPath = childPath.isJSXExpressionContainer() ? childPath.get('expression') : null;
+          if (!fnPath?.isFunction()) {
+            continue;
+          }
+          for (const index of accessorParams) {
+            const param = fnPath.node.params[index];
+            if (!t.isIdentifier(param)) {
+              continue;
+            }
+            const binding = fnPath.scope.getBinding(param.name);
+            for (const reference of binding?.referencePaths ?? []) {
+              if (!inTypePosition(reference)) {
+                reference.replaceWith(t.callExpression(t.identifier(param.name), []));
+              }
+            }
+            if (param.typeAnnotation) {
+              param.typeAnnotation = t.tsTypeAnnotation(
+                accessorType(param.typeAnnotation.typeAnnotation, imports),
+              );
+            }
+          }
+        }
+      }
       // A Next root layout's `<head>` renders through the document adapter; one without a
       // `<head>` gets one, as Next adds it.
       if (t.isJSXIdentifier(name, { name: 'html' })) {
@@ -2324,10 +2627,24 @@ function transformTypes(programPath, ctx) {
           return;
         }
         const args = params(path.node);
+        // React's `MouseEvent<T>` types its `currentTarget` as `T`, as Solid's handler event does.
+        const withTarget = (eventType) =>
+          args[0]
+            ? t.tsIntersectionType([
+                eventType,
+                t.tsTypeLiteral([
+                  t.tsPropertySignature(t.identifier('currentTarget'), t.tsTypeAnnotation(args[0])),
+                  t.tsPropertySignature(
+                    t.identifier('target'),
+                    t.tsTypeAnnotation(t.tsTypeReference(t.identifier('Element'))),
+                  ),
+                ]),
+              ])
+            : eventType;
         if (DOM_EVENTS.has(name)) {
-          path.replaceWith(t.tsTypeReference(t.identifier(name)));
+          path.replaceWith(withTarget(t.tsTypeReference(t.identifier(name))));
         } else if (GENERIC_EVENTS.has(name)) {
-          path.replaceWith(t.tsTypeReference(t.identifier('Event')));
+          path.replaceWith(withTarget(t.tsTypeReference(t.identifier('Event'))));
         } else if (name === 'PropsWithChildren') {
           path.replaceWith(reference(solidType('ParentProps'), args));
         } else if (name === 'ComponentType' || name === 'FC' || name === 'FunctionComponent') {
