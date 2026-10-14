@@ -281,9 +281,16 @@ describe('FloatingFocusManager', () => {
         expect(screen.getByTestId('one')).toHaveFocus();
       });
 
-      // Solid: a real mouse press opens on the next frame in both ports, and the upstream body reads
-      // the popup before that frame runs; it fails for React under this harness as well.
-      test.skip('keeps the frame delay for a real mouse press', () => {});
+      test('keeps the frame delay for a real mouse press', async () => {
+        render(() => <MouseDownApp />);
+
+        fireEvent.mouseDown(screen.getByTestId('reference'), { detail: 1 });
+
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0);
+        await flushMicrotasks();
+
+        expect(screen.getByTestId('one')).not.toHaveFocus();
+      });
     });
 
     describe('prop: returnFocus', () => {
