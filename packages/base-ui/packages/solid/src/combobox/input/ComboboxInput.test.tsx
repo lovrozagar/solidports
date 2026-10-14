@@ -1,7 +1,7 @@
 import { expect, vi, describe, it } from 'vitest';
 import { createSignal, For } from 'solid-js';
 import { Combobox } from '@solidports/base-ui/combobox';
-import { createRenderer, describeConformance, isJSDOM, act } from '#test-utils';
+import { createRenderer, describeConformance, isJSDOM, act, flushMicrotasks } from '#test-utils';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { Field } from '@solidports/base-ui/field';
 import { renderServer } from '../../../test/ssrFixtures';
@@ -21,6 +21,20 @@ describe('<Combobox.Input />', () => {
     hydrate();
 
     expect(input?.value).toBe('Initech');
+  });
+
+  it('keeps the label of an object value in the server HTML through hydration', async () => {
+    const { html, hydrate } = renderServer(ssrFixtures, 'objectItems');
+    const input = document.querySelector<HTMLInputElement>('[data-testid="input"]');
+
+    expect(html).toContain('value="Croatia"');
+    expect(input?.value).toBe('Croatia');
+
+    hydrate();
+    await flushMicrotasks();
+
+    expect(input?.isConnected).toBe(true);
+    expect(input?.value).toBe('Croatia');
   });
 
   describeConformance(Combobox.Input, () => ({

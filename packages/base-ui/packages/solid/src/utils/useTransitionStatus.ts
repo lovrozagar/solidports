@@ -1,8 +1,9 @@
-import { createSignal, getOwner, runWithOwner, untrack } from 'solid-js';
+import { createSignal, getOwner, untrack } from 'solid-js';
 import { createEffectGroup } from './native/effectGroup';
 import { access } from '../solid-helpers';
 import type { MaybeAccessor } from '../solid-helpers';
 import { AnimationFrame } from './useAnimationFrame';
+import { runInLazyScope } from './runInLazyScope';
 
 export type TransitionStatus = 'starting' | 'ending' | 'idle' | undefined;
 
@@ -83,7 +84,7 @@ export function useTransitionStatus(
       return;
     }
     effectsCreated = true;
-    runWithOwner(owner, () => untrack(createEffects));
+    runInLazyScope(owner, () => untrack(createEffects));
   };
   const [transitionStatus, setTransitionStatus] = createSignal<TransitionStatus>((prev) => {
     const isOpen = openProp();

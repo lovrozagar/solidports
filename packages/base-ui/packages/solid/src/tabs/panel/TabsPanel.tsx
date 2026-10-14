@@ -1,4 +1,4 @@
-import { createEffect, getOwner, isStatic, onCleanup, runWithOwner, Show, untrack } from 'solid-js';
+import { createEffect, getOwner, isStatic, onCleanup, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createNativeConditional } from '../../utils/native/conditional';
 import { createEffectGroup } from '../../utils/native/effectGroup';
@@ -22,6 +22,7 @@ import type { TabsRootState } from '../root/TabsRoot';
 import { useTabsRootContext } from '../root/TabsRootContext';
 import type { TabsTab } from '../tab/TabsTab';
 import * as TabsPanelDataAttributes from './TabsPanelDataAttributes';
+import { runInLazyScope } from '../../utils/runInLazyScope';
 
 const stateAttributesMapping: StateAttributesMapping<TabsPanelState> = {
   ...tabsStateAttributesMapping,
@@ -173,7 +174,7 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
   let transition: ReturnType<typeof useTransitionStatus> | undefined;
   let panelRef = null as HTMLDivElement | null;
   const createTransition = () => {
-    transition ??= runWithOwner(owner, () =>
+    transition ??= runInLazyScope(owner, () =>
       untrack(() => {
         const status = useTransitionStatus(open, false, false, !initialOpen);
         // `useOpenChangeComplete({ open, ref })`: it runs on every open change; a hidden panel's
@@ -226,7 +227,7 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
 
   let listItem: NativeListItem | undefined;
   const getListItem = () => {
-    listItem ??= runWithOwner(owner, () =>
+    listItem ??= runInLazyScope(owner, () =>
       untrack(() => {
         const item = createNativeListItem<null>(null, GUESS_INDEX);
         if (!staticRegistration) {

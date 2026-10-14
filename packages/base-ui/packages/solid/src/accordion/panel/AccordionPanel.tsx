@@ -1,4 +1,4 @@
-import { getOwner, omit, runWithOwner, Show, untrack } from 'solid-js';
+import { getOwner, omit, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { createNativeConditional } from '../../utils/native/conditional';
@@ -22,6 +22,7 @@ import { accordionStateAttributesMapping } from '../item/stateAttributesMapping'
 import type { AccordionRoot } from '../root/AccordionRoot';
 import { useAccordionRootContext } from '../root/AccordionRootContext';
 import * as AccordionPanelCssVars from './AccordionPanelCssVars';
+import { runInLazyScope } from '../../utils/runInLazyScope';
 
 const KEEP_MOUNTED_WARNING =
   'The `keepMounted={false}` prop on an `Accordion.Panel` is ignored when `hiddenUntilFound` is enabled on the panel or root, since the panel must remain mounted while closed.';
@@ -201,7 +202,7 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
   const initialOpen = untrack(open);
   let panel: ReturnType<typeof useCollapsiblePanel> | undefined;
   const getPanel = () => {
-    panel ??= runWithOwner(owner, () =>
+    panel ??= runInLazyScope(owner, () =>
       untrack(() =>
         useCollapsiblePanel({
           dimensionCssVars: {

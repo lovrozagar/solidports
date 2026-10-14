@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import solidPlugin from '@solidjs/vite-plugin';
 import { createServer } from 'vite';
+import type * as HydrationSentinel from '../hydrationSentinel';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkg = resolve(here, '../..');
@@ -36,7 +37,7 @@ export async function serverRender(entry: string): Promise<string> {
 
 /**
  * Server-renders every fixture of the given `*.ssr-fixtures.tsx` modules (absolute paths), keyed
- * by `<path under src>#<name>`. Each fixture renders on its own, so one failing fixture reports
+ * by `<path under src>#<name>` plus the `SERVER_RENDERS` suffix of each render. Each fixture renders on its own, so one failing fixture reports
  * its error without hiding the others.
  */
 export async function renderSsrFixtures(
@@ -50,8 +51,13 @@ export async function renderSsrFixtures(
   try {
     const web = (await server.ssrLoadModule('@solidjs/web')) as {
       renderToString: (fn: () => unknown) => string;
-      createComponent: (component: () => unknown, props: object) => unknown;
+      renderToStream: (fn: () => unknown) => PromiseLike<string>;
+      createComponent: (component: (props: any) => unknown, props: object) => unknown;
     };
+    const { SERVER_RENDERS, WithHydrationSentinel, WithHydrationSentinelInBoundaries } =
+      (await server.ssrLoadModule(
+        resolve(here, '../hydrationSentinel.tsx'),
+      )) as typeof HydrationSentinel;
     for (const file of files) {
       // eslint-disable-next-line no-await-in-loop -- one Vite SSR server loads one module at a time
       const mod = (await server.ssrLoadModule(file)) as {
@@ -62,10 +68,28 @@ export async function renderSsrFixtures(
       }
       for (const [name, fixture] of Object.entries(mod.default.fixtures)) {
         const key = `${mod.default.file}#${name}`;
+        const render = (boundaries: boolean) => () =>
+          web.createComponent(
+            boundaries ? WithHydrationSentinelInBoundaries : WithHydrationSentinel,
+            { fixture },
+          );
         try {
-          result[key] = web.renderToString(() => web.createComponent(fixture, {}));
+          result[key] = web.renderToString(render(false));
         } catch (error) {
           result[key] = { error: String((error as Error)?.stack ?? error) };
+        }
+        // Streaming SSR, as a server framework renders a page: on its own, and inside the error
+        // and loading boundaries a routed page renders in.
+        for (const [suffix, boundaries] of [
+          [SERVER_RENDERS.stream, false],
+          [SERVER_RENDERS.streamBoundaries, true],
+        ] as const) {
+          try {
+            // eslint-disable-next-line no-await-in-loop -- one fixture streams at a time
+            result[`${key}${suffix}`] = await web.renderToStream(render(boundaries));
+          } catch (error) {
+            result[`${key}${suffix}`] = { error: String((error as Error)?.stack ?? error) };
+          }
         }
       }
     }

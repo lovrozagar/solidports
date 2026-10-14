@@ -9,7 +9,12 @@ function Test(props: { options: useMediaQuery.Options }) {
 }
 
 // The server has no `window.matchMedia`; each fixture's media list only matches the tested query.
-const matchingMedia = ((query: string) => ({ matches: query === QUERY })) as typeof matchMedia;
+// Hydration subscribes to it, so it has the listener methods of a `MediaQueryList`.
+const matchingMedia = ((query: string) => ({
+  matches: query === QUERY,
+  addEventListener() {},
+  removeEventListener() {},
+})) as unknown as typeof matchMedia;
 
 export default defineSsrFixtures(import.meta.url, {
   ssrMatchMedia: () => (

@@ -1,4 +1,4 @@
-import { getOwner, omit, runWithOwner, Show, untrack } from 'solid-js';
+import { getOwner, omit, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { createNativeConditional } from '../../utils/native/conditional';
@@ -20,6 +20,7 @@ import { createIdRegistration } from '../../utils/native/registration';
 import { useCollapsiblePanel } from './useCollapsiblePanel';
 import * as CollapsiblePanelCssVars from './CollapsiblePanelCssVars';
 import * as CollapsiblePanelDataAttributes from './CollapsiblePanelDataAttributes';
+import { runInLazyScope } from '../../utils/runInLazyScope';
 
 /**
  * A panel with the collapsible contents.
@@ -203,7 +204,7 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
   const initialOpen = untrack(open);
   let panel: ReturnType<typeof useCollapsiblePanel> | undefined;
   const getPanel = () => {
-    panel ??= runWithOwner(owner, () =>
+    panel ??= runInLazyScope(owner, () =>
       untrack(() =>
         useCollapsiblePanel({
           dimensionCssVars: {

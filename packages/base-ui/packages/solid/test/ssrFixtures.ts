@@ -1,7 +1,13 @@
-import { createComponent, flush } from 'solid-js';
+import { createComponent, flush, sharedConfig } from 'solid-js';
 import { hydrate } from '@solidjs/web';
 import { afterEach, inject } from 'vitest';
 import type { SsrFixtures } from './defineSsrFixtures';
+import {
+  SERVER_RENDERS,
+  WithHydrationSentinel,
+  WithHydrationSentinelInBoundaries,
+} from './hydrationSentinel';
+import type { ServerRender } from './hydrationSentinel';
 
 export { defineSsrFixtures, type SsrFixtures } from './defineSsrFixtures';
 
@@ -31,14 +37,31 @@ export interface ServerRenderResult {
   html: string;
   /** Hydrates the server HTML with the fixture's client build; returns the disposer. */
   hydrate: () => () => void;
+  /**
+   * The server-rendered nodes the last hydration left unclaimed: their hydration key missed, so
+   * the page shows the server's inert node. Nodes of a boundary still pending count too. Solid's
+   * own check (`verifyHydration`) runs once per page, after the first hydration only.
+   */
+  unclaimedNodes: () => Element[];
+}
+
+export interface RenderServerOptions {
+  /**
+   * The server render to hydrate: `renderToString` (default), `renderToStream`, or
+   * `renderToStream` inside error and loading boundaries.
+   * @default 'string'
+   */
+  render?: ServerRender | undefined;
 }
 
 /** Inserts a fixture's server HTML into the document, ready to hydrate. */
 export function renderServer<Names extends string>(
   module: SsrFixtures<Names>,
   name: Names,
+  options: RenderServerOptions = {},
 ): ServerRenderResult {
-  const key = `${module.file}#${name}`;
+  const render = options.render ?? 'string';
+  const key = `${module.file}#${name}${SERVER_RENDERS[render]}`;
   const rendered = inject('ssrFixtures')[key];
   if (rendered === undefined) {
     throw new Error(
@@ -66,9 +89,22 @@ export function renderServer<Names extends string>(
         fe() {},
         r: {},
       };
-      entry.dispose = hydrate(() => createComponent(module.fixtures[name], {}), container);
+      entry.dispose = hydrate(
+        () =>
+          createComponent(
+            render === 'streamBoundaries'
+              ? WithHydrationSentinelInBoundaries
+              : WithHydrationSentinel,
+            { fixture: module.fixtures[name] },
+          ),
+        container,
+      );
       flush();
       return entry.dispose;
+    },
+    unclaimedNodes() {
+      const registry = (sharedConfig as { registry?: Map<string, Element> }).registry;
+      return [...(registry?.values() ?? [])].filter((node) => container.contains(node));
     },
   };
 }

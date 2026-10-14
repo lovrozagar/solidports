@@ -68,6 +68,8 @@ export function useMediaQuery(
       notify();
       return addEventListener(mediaQueryList, 'change', notify);
     },
+    // The server reads its snapshot directly and creates no effect: this one takes no hydration id.
+    { transparent: true },
   );
 
   return match;
