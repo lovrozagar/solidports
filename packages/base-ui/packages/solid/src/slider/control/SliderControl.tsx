@@ -24,6 +24,7 @@ import { getMidpoint } from '../utils/getMidpoint';
 import { resolveThumbCollision } from '../utils/resolveThumbCollision';
 import { roundValueToStep } from '../utils/roundValueToStep';
 import { validateMinimumDistance } from '../utils/validateMinimumDistance';
+import { safelyChangePointerCapture } from '../../utils/pointerCapture';
 
 const INTENTIONAL_DRAG_COUNT_THRESHOLD = 2;
 
@@ -552,7 +553,9 @@ export function SliderControl(componentProps: SliderControl.Props) {
           }
 
           if (event.pointerId) {
-            control.setPointerCapture(event.pointerId);
+            // Solid: a pointer no longer active (released before this handler, or a synthetic
+            // event) makes the capture throw; the press works without it.
+            safelyChangePointerCapture(control, event.pointerId, 'setPointerCapture');
           }
 
           moveCountRef.current = 0;

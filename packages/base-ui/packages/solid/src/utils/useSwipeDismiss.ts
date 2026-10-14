@@ -8,6 +8,7 @@ import { findScrollableAncestor, findScrollableTouchTarget } from './scrollable'
 import type { ScrollAxis } from './scrollable';
 import { getElementAtPoint } from './getElementAtPoint';
 import { getElementTransform } from './getElementTransform';
+import { safelyChangePointerCapture } from './pointerCapture';
 
 export type SwipeDirection = 'up' | 'down' | 'left' | 'right';
 
@@ -70,25 +71,6 @@ function hasPrimaryMouseButton(buttons: number): boolean {
   return buttons % 2 === 1;
 }
 
-function safelyChangePointerCapture(
-  element: HTMLElement,
-  pointerId: number,
-  method: 'setPointerCapture' | 'releasePointerCapture',
-) {
-  const pointerCaptureMethod = element[method];
-  if (typeof pointerCaptureMethod !== 'function') {
-    return;
-  }
-
-  try {
-    pointerCaptureMethod.call(element, pointerId);
-  } catch (error) {
-    if (error && typeof error === 'object' && 'name' in error && error.name === 'NotFoundError') {
-      return;
-    }
-    throw error;
-  }
-}
 
 export function useSwipeDismiss(options: UseSwipeDismissOptions): UseSwipeDismissReturnValue {
   // Solid: options are read when used, so handlers see the latest values (React's stable callbacks).
