@@ -2071,6 +2071,21 @@ function transformModuleApis(programPath, ctx) {
             path.replaceWith(fnPath.node);
             break;
           }
+          case null: {
+            if (
+              ctx.tanstackUseForm &&
+              t.isIdentifier(path.node.callee, { name: ctx.tanstackUseForm })
+            ) {
+              path.node.callee = t.identifier('createForm');
+              path.node.arguments = path.node.arguments.map((arg) =>
+                t.arrowFunctionExpression([], arg),
+              );
+              if (t.isVariableDeclarator(path.parent) && t.isIdentifier(path.parent.id)) {
+                ctx.tanstackForms.add(path.parent.id.name);
+              }
+            }
+            break;
+          }
           case 'startTransition': {
             const [callback] = args;
             path.replaceWith(t.callExpression(callback, []));
@@ -2124,6 +2139,27 @@ function transformModuleApis(programPath, ctx) {
       }
     },
   });
+}
+
+/** Converts a React style object's literal keys and literal numbers to CSS (in place). */
+function convertStyleObject(style) {
+  for (const property of style.properties) {
+    if (!t.isObjectProperty(property) || property.computed || !t.isIdentifier(property.key)) {
+      continue;
+    }
+    const key = property.key.name;
+    const value = property.value;
+    const number =
+      t.isNumericLiteral(value) ||
+      (t.isUnaryExpression(value, { operator: '-' }) && t.isNumericLiteral(value.argument));
+    if (number && !UNITLESS.has(key)) {
+      const amount = t.isNumericLiteral(value) ? value.value : -value.argument.value;
+      property.value = t.stringLiteral(amount === 0 ? '0' : `${amount}px`);
+    }
+    if (/[A-Z]/.test(key)) {
+      property.key = t.stringLiteral(kebab(key));
+    }
+  }
 }
 
 /** A style object of literal keys and literal values (converted as written). */
@@ -2354,11 +2390,31 @@ function transformJsx(programPath, ctx) {
       );
       return;
     }
+    // React writes a boolean `aria-*` value as text; Solid writes `true` as an empty attribute.
+    if (/^aria-/.test(name) && t.isJSXExpressionContainer(value)) {
+      const text = (node) => {
+        if (t.isBooleanLiteral(node)) {
+          return t.stringLiteral(String(node.value));
+        }
+        if (
+          t.isLogicalExpression(node, { operator: '||' }) &&
+          t.isIdentifier(node.right, { name: 'undefined' })
+        ) {
+          return t.conditionalExpression(node.left, t.stringLiteral('true'), node.right);
+        }
+        if (t.isConditionalExpression(node)) {
+          return t.conditionalExpression(node.test, text(node.consequent), text(node.alternate));
+        }
+        return node;
+      };
+      value.expression = text(value.expression);
+    }
     // React 19 calls a form's function `action` with the form's data on submit; Solid's `action`
-    // is a URL.
+    // is a URL. Base UI's Form renders such a form.
     if (
       name === 'action' &&
-      t.isJSXIdentifier(element.name, { name: 'form' }) &&
+      (t.isJSXIdentifier(element.name, { name: 'form' }) ||
+        t.isJSXIdentifier(element.name, { name: 'Form' })) &&
       t.isJSXExpressionContainer(value) &&
       !t.isStringLiteral(value.expression) &&
       !t.isTemplateLiteral(value.expression)
@@ -2464,9 +2520,30 @@ function transformJsx(programPath, ctx) {
         t.isJSXMemberExpression(name) && t.isJSXIdentifier(name.object)
           ? `${name.object.name}.${name.property.name}`
           : null;
-      const accessorParams = partName ? ACCESSOR_CHILD_PARAMS[partName] : null;
+      // TanStack Form's Solid `form.Field` and `form.Subscribe` pass accessors too.
+      const formPart =
+        t.isJSXMemberExpression(name) &&
+        t.isJSXIdentifier(name.object) &&
+        ctx.tanstackForms.has(name.object.name) &&
+        (name.property.name === 'Field' || name.property.name === 'Subscribe');
+      let accessorParams = partName ? ACCESSOR_CHILD_PARAMS[partName] : null;
+      if (formPart) {
+        accessorParams = [0];
+      }
       if (accessorParams) {
-        for (const childPath of path.get('children')) {
+        // The render function is a child or a `children` attribute.
+        const childrenAttribute = path
+          .get('openingElement.attributes')
+          .find(
+            (attribute) =>
+              attribute.isJSXAttribute() &&
+              t.isJSXIdentifier(attribute.node.name, { name: 'children' }),
+          );
+        const containers = [
+          ...path.get('children'),
+          ...(childrenAttribute ? [childrenAttribute.get('value')] : []),
+        ];
+        for (const childPath of containers) {
           const fnPath = childPath.isJSXExpressionContainer() ? childPath.get('expression') : null;
           if (!fnPath?.isFunction()) {
             continue;
@@ -2625,12 +2702,31 @@ function freeName(programPath, name) {
 
 function transformTypes(programPath, ctx) {
   const { imports, reactNames } = ctx;
-  const reactType = (typeName) =>
-    t.isTSQualifiedName(typeName) &&
-    t.isIdentifier(typeName.left) &&
-    reactNames.namespaces.has(typeName.left.name)
-      ? typeName.right.name
-      : null;
+  const reactType = (typeName) => {
+    if (
+      t.isTSQualifiedName(typeName) &&
+      t.isIdentifier(typeName.left) &&
+      reactNames.namespaces.has(typeName.left.name)
+    ) {
+      return typeName.right.name;
+    }
+    // `import type { ReactNode } from 'react'`
+    return t.isIdentifier(typeName) ? (reactNames.named.get(typeName.name) ?? null) : null;
+  };
+  // A style object typed as React's (`const hidden: React.CSSProperties = { height: 1 }`) takes
+  // CSS property names and pixels for a number, as React writes it.
+  programPath.traverse({
+    VariableDeclarator(path) {
+      const annotation = path.node.id.typeAnnotation?.typeAnnotation;
+      if (
+        t.isTSTypeReference(annotation) &&
+        reactType(annotation.typeName) === 'CSSProperties' &&
+        t.isObjectExpression(path.node.init)
+      ) {
+        convertStyleObject(path.node.init);
+      }
+    },
+  });
   const params = (node) => node.typeParameters?.params ?? [];
   const solidType = (name) => {
     const local = freeName(programPath, name);
@@ -2789,6 +2885,7 @@ const MODULES = {
   '@base-ui/react': '@solidports/base-ui',
   '@base-ui/react/*': '@solidports/base-ui/*',
   'lucide-react': 'lucide-solid',
+  '@tanstack/react-form': '@tanstack/solid-form',
 };
 
 /** The module an import resolves to under the renames (exact names, then `prefix/*` patterns). */
@@ -2912,6 +3009,9 @@ export function transformReactToSolid(source, options = {}) {
     reactNames: { namespaces: new Set(), named: new Map() },
     corpusImports: new Set(),
     refs: new Set(),
+    // TanStack Form's `useForm` (local name), and the forms it creates.
+    tanstackUseForm: null,
+    tanstackForms: new Set(),
     // A `.ts` module has no JSX to render with.
     jsx: !options.filename?.endsWith('.ts'),
     // Code users copy (demos, samples): no imports of the docs' adapters.
@@ -2939,6 +3039,16 @@ export function transformReactToSolid(source, options = {}) {
           }
           statement.remove();
           continue;
+        }
+        if (importSource === '@tanstack/react-form') {
+          // Solid's adapter creates the form from a function of the options: `createForm`.
+          for (const specifier of statement.node.specifiers) {
+            if (t.isImportSpecifier(specifier) && specifier.imported.name === 'useForm') {
+              ctx.tanstackUseForm = specifier.local.name;
+              specifier.imported = t.identifier('createForm');
+              specifier.local = t.identifier('createForm');
+            }
+          }
         }
         if (importSource !== 'react') {
           if (isCorpus(importSource) && statement.node.importKind !== 'type') {

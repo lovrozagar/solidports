@@ -1072,6 +1072,31 @@ export function Value() {
       );
     });
 
+    it('creates a TanStack form from a function and reads its fields through calls', () => {
+      expectTransform(
+        `import { useForm } from '@tanstack/react-form';
+export function Signup() {
+  const form = useForm({ defaultValues: { name: '' } });
+  return (
+    <>
+      <form.Field name="name">{(field) => <input value={field.state.value} />}</form.Field>
+      <form.Field name="name" children={(field) => <input name={field.name} />} />
+    </>
+  );
+}`,
+        `import { createForm } from '@tanstack/solid-form';
+export function Signup() {
+  const form = createForm(() => ({ defaultValues: { name: '' } }));
+  return (
+    <>
+      <form.Field name="name">{(field) => <input value={field().state.value} />}</form.Field>
+      <form.Field name="name" children={(field) => <input name={field().name} />} />
+    </>
+  );
+}`,
+      );
+    });
+
     it('writes out useTransition in code users copy', () => {
       expectTransform(
         `import * as React from 'react';
