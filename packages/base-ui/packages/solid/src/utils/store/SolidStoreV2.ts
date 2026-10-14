@@ -15,6 +15,12 @@ import { access, createDepsEffect, createDepsMemo } from '../../solid-helpers';
 import type { MaybeAccessor, MaybeAccessorValue } from '../../solid-helpers';
 import { NOOP } from '../empty';
 import type { SetStoreFunction } from '../../solid-1-compat';
+const storeBinders = new WeakMap<
+  object,
+  (key: PropertyKey, source: BindingSource, clearOnCleanup: boolean) => void
+>();
+// Starts the derived-key notifiers of a store for the given keys (`true`: every key).
+const storeActivators = new WeakMap<object, (keys: Iterable<PropertyKey> | true) => void>();
 
 /**
  * A Store that supports controlled state keys, non-reactive values and provides utility methods for React.
@@ -274,6 +280,7 @@ export function SolidStore<
       return value;
     };
     let prevValue = selectValue(state);
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define -- the store object lists `observe` itself; the listener runs after it is built
     listener(prevValue, prevValue, store);
 
     return subscribeToStore(state, (nextState) => {
@@ -281,6 +288,7 @@ export function SolidStore<
       if (!Object.is(prevValue, nextValue)) {
         const oldValue = prevValue;
         prevValue = nextValue;
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define -- the store object lists `observe` itself; the listener runs after it is built
         listener(nextValue, oldValue, store);
       }
     });
@@ -358,8 +366,6 @@ function createInitialStore<State extends object>(
 }
 
 const storeListeners = new WeakMap<object, Set<(state: any) => void>>();
-// Starts the derived-key notifiers of a store for the given keys (`true`: every key).
-const storeActivators = new WeakMap<object, (keys: Iterable<PropertyKey> | true) => void>();
 
 /**
  * Subscribes to every write of a store created by `createStoreState`, as React's
@@ -375,6 +381,7 @@ function subscribeToStore<State extends object>(state: State, listener: (state: 
     listeners.delete(listener);
   };
 }
+const BINDING = Symbol('binding');
 
 /**
  * Creates the backing state of a Base UI store, with the semantics of React's Store:
@@ -414,6 +421,9 @@ export function createStoreState<State extends object>(
   const [keySet, setKeySet] = runWithOwner(null, () =>
     createSignal(0, { ownedWrite: true }),
   ) as Signal<number>;
+
+  // Keys derived from a source accessor (`useSyncedValue`): a writable memo per key.
+  const bindings = new Map<PropertyKey, Binding>();
 
   function slot(key: PropertyKey) {
     let current = slots.get(key);
@@ -457,8 +467,6 @@ export function createStoreState<State extends object>(
   // Latest value of every written key. Equal to the committed value once a flush applies it.
   const written = new Map<PropertyKey, unknown>();
 
-  // Keys derived from a source accessor (`useSyncedValue`): a writable memo per key.
-  const bindings = new Map<PropertyKey, Binding>();
   // Bound keys whose derived changes notify listeners; `true` once a listener reads every key.
   let watched: Set<PropertyKey> | true | undefined;
 
@@ -469,6 +477,7 @@ export function createStoreState<State extends object>(
     return untrack(() => {
       const getter = computedGetters.get(key);
       if (getter) {
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define -- the state proxy reads through `latest`; both exist before any read
         return getter.call(state);
       }
       const binding = bindings.get(key);
@@ -751,8 +760,6 @@ export function createStoreState<State extends object>(
   return [state as Store<State>, setState as unknown as SetStoreFunction<State>];
 }
 
-const BINDING = Symbol('binding');
-
 /** A synced value's source. It receives the key's previous value (or the value last `set`). */
 type BindingSource = (prev: unknown) => unknown;
 
@@ -770,11 +777,6 @@ interface Binding {
 function isBinding(value: unknown): value is Binding {
   return typeof value === 'object' && value !== null && BINDING in value;
 }
-
-const storeBinders = new WeakMap<
-  object,
-  (key: PropertyKey, source: BindingSource, clearOnCleanup: boolean) => void
->();
 
 /**
  * Derives a store key from `source` for the lifetime of the current owner.

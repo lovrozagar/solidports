@@ -252,6 +252,7 @@ export function ComponentWithPayload<Payload>(props: {
     </Show>
   );
 }
+const NOOP_APPLY = () => {};
 
 /**
  * `<Context value={value}>{render()}</Context>` that hands back `render`'s own result. Outside SSR
@@ -295,5 +296,3 @@ export function provideContext<T>(
   createRenderEffect(resolveChildren, NOOP_APPLY);
   return result;
 }
-
-const NOOP_APPLY = () => {};

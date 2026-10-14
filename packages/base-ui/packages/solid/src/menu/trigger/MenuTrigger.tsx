@@ -43,6 +43,7 @@ import { useMenuRootContext } from '../root/MenuRootContext';
 import type { MenuHandle } from '../store/MenuHandle';
 import type { MenuStore } from '../store/MenuStore';
 import { findRootOwnerId } from '../utils/findRootOwnerId';
+const TRIGGER_HASPOPUP = { 'aria-haspopup': 'menu' } as const;
 
 /**
  * A button that opens the menu.
@@ -416,8 +417,6 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
     </TriggerFocusGuards>
   );
 }
-
-const TRIGGER_HASPOPUP = { 'aria-haspopup': 'menu' } as const;
 
 export interface MenuTriggerProps<Payload = unknown>
   extends NativeButtonProps, BaseUIComponentProps<'button', MenuTriggerState> {

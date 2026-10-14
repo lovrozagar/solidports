@@ -33,6 +33,8 @@ const stateAttributesMapping: StateAttributesMapping<SelectTrigger.State> = {
     side ? { [SelectTriggerDataAttributes.popupSide]: side } : null,
   value: () => null,
 };
+/* prevent nested useButton from overwriting the combobox role, e.g. <Toolbar.Button render={<Select.Trigger />} /> */
+const COMBOBOX_ROLE = { role: 'combobox' as const };
 
 /**
  * A button that opens the select popup.
@@ -337,6 +339,3 @@ export namespace SelectTrigger {
   export type State = SelectTriggerState;
   export type Props = SelectTriggerProps;
 }
-
-/* prevent nested useButton from overwriting the combobox role, e.g. <Toolbar.Button render={<Select.Trigger />} /> */
-const COMBOBOX_ROLE = { role: 'combobox' as const };

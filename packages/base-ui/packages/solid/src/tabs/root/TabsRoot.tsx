@@ -19,6 +19,13 @@ import { TabsRootContext } from './TabsRootContext';
 import { tabsStateAttributesMapping } from './stateAttributesMapping';
 
 type TabMap = Map<Node, CompositeMetadata<TabsTab.Metadata>>;
+/** The part's own props: never forwarded to the element. */
+const OWN_KEYS: ReadonlySet<string> = new Set([
+  'defaultValue',
+  'onValueChange',
+  'orientation',
+  'value',
+]);
 
 /**
  * Groups the tabs and the corresponding panels.
@@ -68,14 +75,6 @@ export function TabsRoot(componentProps: TabsRoot.Props): JSX.Element {
     </TabsRootContext>
   );
 }
-
-/** The part's own props: never forwarded to the element. */
-const OWN_KEYS: ReadonlySet<string> = new Set([
-  'defaultValue',
-  'onValueChange',
-  'orientation',
-  'value',
-]);
 
 /** The root's value state, activation direction and context, shared by both render paths. */
 function createTabsRoot(

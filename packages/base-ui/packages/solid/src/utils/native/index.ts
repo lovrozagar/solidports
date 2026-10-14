@@ -649,7 +649,7 @@ export function createLabelFallback(
     }
   };
   void onCleanup(() => observe(false));
-  const apply = () => {
+  function apply() {
     const value = explicit();
     const named = ariaLabelOverridesLabel(ariaLabel?.());
     if (typeof value === 'string') {
@@ -674,7 +674,7 @@ export function createLabelFallback(
     } else {
       el.removeAttribute('aria-labelledby');
     }
-  };
+  }
   return () => {
     if (first) {
       first = false;

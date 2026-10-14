@@ -9,6 +9,7 @@ import type { Context, Owner } from 'solid-js';
 // `solid-js` does not re-export `setContext`; `@solidjs/signals` is a peer pinned to the solid-js
 // range, so this is the same core solid-js runs on.
 import { setContext } from '@solidjs/signals';
+const TRANSPARENT = { transparent: true };
 
 /**
  * An owner, child of the current one, that carries `context = value` for everything created under
@@ -20,8 +21,6 @@ export function createContextOwner<T>(context: Context<T>, value: T): Owner {
   setContext(context, value, owner);
   return owner;
 }
-
-const TRANSPARENT = { transparent: true };
 
 /** Runs `render` under an owner that provides `context = value` and returns its result. */
 export function provideNativeContext<T, R>(context: Context<T>, value: T, render: () => R): R {

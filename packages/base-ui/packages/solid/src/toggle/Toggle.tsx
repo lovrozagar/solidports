@@ -28,6 +28,8 @@ import { REASONS } from '../utils/reasons';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { useControlled } from '../utils/useControlled';
 import { useRenderElement } from '../utils/useRenderElement';
+/** Props the native path reads once, as the slow path reads `nativeButton`. */
+const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
 
 /**
  * A two-state button that can be on or off.
@@ -177,9 +179,6 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
     </Show>
   );
 }
-
-/** Props the native path reads once, as the slow path reads `nativeButton`. */
-const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: ReadonlySet<string> = new Set([
   'defaultPressed',

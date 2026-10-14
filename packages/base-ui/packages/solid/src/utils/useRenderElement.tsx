@@ -124,6 +124,16 @@ export function useRenderElement<
         objects.add(ref as { current: unknown });
       }
     };
+    // A plain props list without function entries never changes: build it once, no memo.
+    const staticPartSources = untrack(() => {
+      if (serverOrHydrating || Object.getOwnPropertyDescriptor(params, 'props')?.get) {
+        return undefined;
+      }
+      const entries = Array.isArray(params.props) ? params.props.flat() : [params.props];
+      return entries.some((entry) => typeof entry === 'function' && !isPropsSourceAccessor(entry))
+        ? undefined
+        : (entries as unknown[]);
+    });
     // Reads only the `ref` of each props source (the sources the element props combine), so a change to any
     // other prop does not re-run the ref sync. Tracking every prop would make a ref
     // that writes state those props read (a part registering its element) re-run its own sync.
@@ -258,16 +268,6 @@ export function useRenderElement<
       }
       return result;
     };
-    // A plain props list without function entries never changes: build it once, no memo.
-    const staticPartSources = untrack(() => {
-      if (serverOrHydrating || Object.getOwnPropertyDescriptor(params, 'props')?.get) {
-        return undefined;
-      }
-      const entries = Array.isArray(params.props) ? params.props.flat() : [params.props];
-      return entries.some((entry) => typeof entry === 'function' && !isPropsSourceAccessor(entry))
-        ? undefined
-        : (entries as unknown[]);
-    });
     const partSources = staticPartSources
       ? () => staticPartSources
       : createMemo(computePartSources, { equals: shallowEqual });

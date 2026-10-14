@@ -59,6 +59,7 @@ function scheduleDimensionWrite(write: () => void) {
   }
   pendingDimensionWrites.push(write);
 }
+const EMPTY_PROPS: Accessor<HTMLProps> = () => ({});
 
 export function useCollapsiblePanel(
   parameters: UseCollapsiblePanelParameters,
@@ -566,8 +567,6 @@ function createBox<T>(initial: T): [() => T, (value: T) => void] {
     },
   ];
 }
-
-const EMPTY_PROPS: Accessor<HTMLProps> = () => ({});
 
 function flushStyle(element: HTMLElement) {
   // Reading a computed value makes the current inline styles the transition's start values.

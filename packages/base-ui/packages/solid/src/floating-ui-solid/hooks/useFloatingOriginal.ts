@@ -130,6 +130,12 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
   let lastData: unknown = null;
 
   // Imperative (React's `update` callback): called from autoUpdate, handlers and effects.
+  // React resets `isPositioned` in a layout effect once `open` is `false`, so the next open starts
+  // unpositioned. Solid: derive it instead. Each close starts a new session, a position is only
+  // valid for the session it was computed in, and readers see the reset in the same flush.
+  const closedCount = createMemo<number>((prev) =>
+    options.open === false ? (prev ?? 0) + 1 : (prev ?? 0),
+  );
   function update() {
     untrack(computeAndUpdate);
   }
@@ -172,12 +178,6 @@ export function useFloatingOriginal<RT extends ReferenceType = ReferenceType>(
     });
   }
 
-  // React resets `isPositioned` in a layout effect once `open` is `false`, so the next open starts
-  // unpositioned. Solid: derive it instead. Each close starts a new session, a position is only
-  // valid for the session it was computed in, and readers see the reset in the same flush.
-  const closedCount = createMemo<number>((prev) =>
-    options.open === false ? (prev ?? 0) + 1 : (prev ?? 0),
-  );
   const isPositioned = () =>
     options.open !== false && data.isPositioned && data.session === closedCount();
 
