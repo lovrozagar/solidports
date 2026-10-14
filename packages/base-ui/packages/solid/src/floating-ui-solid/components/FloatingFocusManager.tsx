@@ -797,7 +797,16 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
               currentActiveElement !== elToFocus &&
               contains(floatingFocusValue, currentActiveElement);
 
-            return !focusMovedInside;
+            // Focus moved to this popup's own reference after the open, before this frame: the
+            // reference is being used (focused by a click, a key or a script), so focus stays.
+            const reference = untrack(domReference);
+            const focusMovedToReference =
+              currentActiveElement !== previouslyFocusedElement &&
+              currentActiveElement != null &&
+              reference != null &&
+              contains(reference, currentActiveElement);
+
+            return !focusMovedInside && !focusMovedToReference;
           },
         });
       });
