@@ -1,9 +1,9 @@
-import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Radio } from '@solidports/base-ui/radio';
 import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect, describe, beforeEach, it, afterEach } from 'vitest';
-import { createSignal } from 'solid-js';
+import { createSignal, flush } from 'solid-js';
 
 describe('<Radio.Indicator />', () => {
   beforeEach(() => {
@@ -216,10 +216,9 @@ describe('<Radio.Indicator />', () => {
       render(() => <Test />);
       expect(screen.getByTestId('indicator-a')).not.toBe(null);
 
+      fireEvent.click(screen.getByText('Select b'));
       // Solid: React Testing Library's `fireEvent` runs in `act`, which applies the update.
-      act(() => {
-        fireEvent.click(screen.getByText('Select b'));
-      });
+      flush();
 
       expect(screen.getByTestId('indicator-a')).toHaveAttribute('data-ending-style');
 
