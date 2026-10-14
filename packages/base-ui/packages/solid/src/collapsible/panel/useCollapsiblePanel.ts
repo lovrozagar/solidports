@@ -96,9 +96,15 @@ export function useCollapsiblePanel(
   // lifecycle until the panel has been closed once.
   // Solid: a native panel creates this hook when it first renders, so it passes the `open` the
   // panel had when it was created.
-  let shouldPreventMountAnimationRef = parameters.initialOpen ?? untrack(open);
-  // Solid: there is no React.Activity, so effects are never torn down while state is kept and
-  // React's activity-resume suppression has nothing to guard.
+  // React also suppresses the open animation once React.Activity reveals an open panel: CSS
+  // replays keyframe animations when an element stops being `display: none`. Solid has no
+  // Activity to report the reveal (its effects are never torn down), so an open panel keeps its
+  // open animation suppressed once that animation ends: revealing it after any `display: none`
+  // ancestor does not replay it. Closing clears the suppression before the close is measured.
+  const [openAnimationSuppressed, setOpenAnimationSuppressed] = createSignal(
+    parameters.initialOpen ?? untrack(open),
+    { ownedWrite: true },
+  );
   // Some open paths intentionally bypass motion, but the shared root transition
   // status still advances asynchronously. Override the panel to idle so its data
   // attributes and dimension cleanup reflect the immediate open state.
@@ -121,11 +127,7 @@ export function useCollapsiblePanel(
     const status = transitionStatus();
     return status === 'starting' && forcePanelIdle() ? 'idle' : status;
   };
-  const shouldPreventOpenAnimation = () =>
-    open() &&
-    // Safe to read here: it only changes from committed layout paths while closed, and readers
-    // re-read it when `open` flips back.
-    shouldPreventMountAnimationRef;
+  const shouldPreventOpenAnimation = () => open() && openAnimationSuppressed();
   // The size the variables show: a closing keyframe panel restores its last measured pixel size
   // after the live size has been reset back to `auto`.
   function renderedDimensions() {
@@ -185,10 +187,23 @@ export function useCollapsiblePanel(
     pendingTemporaryStyleRestoreRef = null;
   }
 
-  function setPendingTemporaryStyleRestore(restore: () => void) {
+  // React restores the temporary style when React.Activity hides the panel (its effects are torn
+  // down), so the interrupted instant open does not keep `0s` motion. Solid keeps the effects:
+  // the panel restores it when it stops rendering, as under a `display: none` ancestor.
+  function setPendingTemporaryStyleRestore(panel: HTMLElement, restore: () => void) {
     restorePendingTemporaryStyle();
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? undefined
+        : new ResizeObserver(() => {
+            if (panel.getClientRects().length === 0) {
+              restorePendingTemporaryStyle();
+            }
+          });
+    observer?.observe(panel);
     pendingTemporaryStyleRestoreRef = () => {
       pendingTemporaryStyleRestoreRef = null;
+      observer?.disconnect();
       restore();
     };
   }
@@ -220,8 +235,8 @@ export function useCollapsiblePanel(
         const isMounted = untrack(mounted);
         // A render function can remove the panel on close. Clear one-shot open animation
         // suppression even without an element, so the next open animates normally.
-        if (!isOpen) {
-          shouldPreventMountAnimationRef = false;
+        if (!isOpen && untrack(openAnimationSuppressed)) {
+          setOpenAnimationSuppressed(false);
         }
         // Solid: a render function that swaps its element for `null` does not call the ref with
         // `null`, so a detached element stands for React's cleared ref.
@@ -246,7 +261,7 @@ export function useCollapsiblePanel(
         if (
           isOpen &&
           status === 'idle' &&
-          shouldPreventMountAnimationRef &&
+          untrack(openAnimationSuppressed) &&
           animationType === 'css-animation'
         ) {
           lastMeasuredDimensionsRef = getDimensions(panel);
@@ -276,7 +291,7 @@ export function useCollapsiblePanel(
             }
 
             const restoreTransitionDuration = setTemporaryStyle(panel, 'transition-duration', '0s');
-            setPendingTemporaryStyleRestore(restoreTransitionDuration);
+            setPendingTemporaryStyleRestore(panel, restoreTransitionDuration);
             setForcePanelIdle(true);
             return restoreLayoutStyles;
           }
@@ -292,7 +307,7 @@ export function useCollapsiblePanel(
           const restoreAnimationDuration = setTemporaryStyle(panel, 'animation-duration', '0s');
 
           restoreAnimationName();
-          setPendingTemporaryStyleRestore(restoreAnimationDuration);
+          setPendingTemporaryStyleRestore(panel, restoreAnimationDuration);
           setForcePanelIdle(true);
 
           return undefined;
@@ -344,6 +359,23 @@ export function useCollapsiblePanel(
         }
 
         return undefined;
+      },
+    },
+    {
+      // Solid: once an open keyframe animation ends, keep it suppressed while the panel stays
+      // open (see `openAnimationSuppressed`). Transitions do not replay on a reveal.
+      deps: () => [panelElement(), open()] as const,
+      apply([panel, isOpen]) {
+        if (!panel || !isOpen) {
+          return undefined;
+        }
+        const suppressOpenAnimation = (event: AnimationEvent) => {
+          if (event.target === panel && untrack(open)) {
+            setOpenAnimationSuppressed(true);
+          }
+        };
+        panel.addEventListener('animationend', suppressOpenAnimation);
+        return () => panel.removeEventListener('animationend', suppressOpenAnimation);
       },
     },
     {

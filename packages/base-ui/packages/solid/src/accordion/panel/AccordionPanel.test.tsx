@@ -1,7 +1,9 @@
 import { expect, vi, describe, it } from 'vitest';
+import { createSignal } from 'solid-js';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { Activity } from '../../../test/activity';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures from './AccordionPanel.ssr-fixtures';
 
@@ -168,8 +170,86 @@ describe('<Accordion.Panel />', () => {
     });
   });
 
+  // Solid: `Activity` (test/activity.tsx) hides its content as React's does in the DOM
+  // (`display: none !important`); Solid keeps the hidden panel's effects running.
   describe.skipIf(isJSDOM)('React.Activity', () => {
-    // Solid: no React.Activity equivalent; effects are never torn down while state is kept.
-    it.skip('does not replay open keyframe animations from inline styles when revealing a panel opened by the user', () => {});
+    function getActivity() {
+      return Activity;
+    }
+
+    it('does not replay open keyframe animations from inline styles when revealing a panel opened by the user', async () => {
+      const ActivityComponent = getActivity();
+
+      function App() {
+        const [visible, setVisible] = createSignal(true);
+
+        return (
+          <>
+            <style>{`
+              @keyframes panel-slide-down {
+                from {
+                  height: 0;
+                }
+
+                to {
+                  height: var(--accordion-panel-height);
+                }
+              }
+            `}</style>
+
+            <button type="button" onClick={() => setVisible((prev) => !prev)}>
+              toggle activity
+            </button>
+
+            <ActivityComponent mode={visible() ? 'visible' : 'hidden'}>
+              <Accordion.Root>
+                <Accordion.Item value={0}>
+                  <Accordion.Header>
+                    <Accordion.Trigger>Trigger</Accordion.Trigger>
+                  </Accordion.Header>
+                  <Accordion.Panel
+                    data-testid="panel"
+                    keepMounted
+                    style={{
+                      'animation-duration': '100ms',
+                      'animation-name': 'panel-slide-down',
+                      'animation-timing-function': 'linear',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {PANEL_CONTENT}
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion.Root>
+            </ActivityComponent>
+          </>
+        );
+      }
+
+      const { user } = await render(() => <App />);
+
+      const toggle = screen.getByRole('button', { name: 'toggle activity' });
+      const trigger = screen.getByRole('button', { name: 'Trigger' });
+      const panel = screen.getByTestId('panel');
+
+      await user.click(trigger);
+
+      await waitFor(() => {
+        expect(panel).toHaveAttribute('data-open');
+      });
+
+      await waitFor(() => {
+        expect(panel.getAnimations().length).toBe(0);
+      });
+
+      await user.click(toggle);
+      await user.click(toggle);
+
+      await waitFor(() => {
+        expect(panel).toHaveAttribute('data-open');
+      });
+
+      expect(panel.getAnimations().length).toBe(0);
+    });
   });
 });
