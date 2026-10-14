@@ -1,4 +1,6 @@
-import { createComponent, flush, sharedConfig } from 'solid-js';
+import * as solid from 'solid-js';
+import { createComponent, flush } from 'solid-js';
+import type { sharedConfig as SharedConfig } from 'solid-js/internal';
 import { hydrate } from '@solidjs/web';
 import { afterEach, inject } from 'vitest';
 import type { SsrFixtures } from './defineSsrFixtures';
@@ -103,6 +105,9 @@ export function renderServer<Names extends string>(
       return entry.dispose;
     },
     unclaimedNodes() {
+      // `solid-js` exports `sharedConfig` at runtime; only `solid-js/internal` declares it, and
+      // importing that entry in the browser would load a second copy of Solid.
+      const { sharedConfig } = solid as unknown as { sharedConfig: typeof SharedConfig };
       const registry = (sharedConfig as { registry?: Map<string, Element> }).registry;
       return [...(registry?.values() ?? [])].filter((node) => container.contains(node));
     },

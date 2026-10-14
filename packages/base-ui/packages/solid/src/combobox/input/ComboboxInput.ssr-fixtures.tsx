@@ -34,7 +34,7 @@ export default defineSsrFixtures(import.meta.url, {
         defaultValue={COUNTRIES[0]}
         itemToStringLabel={(country: Country) => country.name}
         itemToStringValue={(country: Country) => country.code}
-        inputRef={() => {}}
+        inputRef={{ current: null }}
         name="country"
       >
         <CountryInput data-testid="input" />
