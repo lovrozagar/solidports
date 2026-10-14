@@ -57,7 +57,7 @@ export function useRenderedId(
         setId(registered);
       }
     });
-    onCleanup(() => {
+    void onCleanup(() => {
       if (element) {
         element = null;
         setId(undefined);

@@ -8,7 +8,7 @@ import { Accordion } from '@solidports/base-ui/accordion';
 import { fireEvent } from '@solidjs/testing-library';
 import { createSignal, flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
-import { part, renderParity } from '../../test/parityHarness';
+import { part, mountParity } from '../../test/parityHarness';
 
 describe('native parity: Accordion', () => {
   const { render } = createRenderer();
@@ -35,7 +35,7 @@ describe('native parity: Accordion', () => {
   }
 
   it('renders and toggles identically (uncontrolled, single)', () => {
-    const pair = renderParity(render, (slow) =>
+    const pair = mountParity(render, (slow) =>
       part(Accordion.Root, slow, 'div', {
         get children() {
           return items(slow);
@@ -54,7 +54,7 @@ describe('native parity: Accordion', () => {
   it('renders identically with every prop form (controlled, multiple)', () => {
     const [value, setValue] = createSignal<string[]>(['item-0']);
     const [disabled, setDisabled] = createSignal(false);
-    const pair = renderParity(render, (slow) =>
+    const pair = mountParity(render, (slow) =>
       part(Accordion.Root, slow, 'div', {
         multiple: true,
         keepMounted: true,
@@ -89,7 +89,7 @@ describe('native parity: Accordion', () => {
   });
 
   it('registers explicit trigger and panel ids identically', () => {
-    const pair = renderParity(render, (slow) =>
+    const pair = mountParity(render, (slow) =>
       part(Accordion.Root, slow, 'div', {
         defaultValue: ['a'],
         hiddenUntilFound: true,
@@ -127,7 +127,7 @@ describe('native parity: Accordion', () => {
   it('calls consumer handlers in the same order and honors preventBaseUIHandler', () => {
     const run = (slow: boolean) => {
       const calls: string[] = [];
-      const result = render(() =>
+      const view = render(() =>
         part(Accordion.Root, slow, 'div', {
           onValueChange: (value: string[]) => calls.push(`value:${value.join(',')}`),
           get children() {
@@ -157,14 +157,14 @@ describe('native parity: Accordion', () => {
           },
         }),
       );
-      const button = result.container.querySelector('button')!;
+      const button = view.container.querySelector('button')!;
       calls.push(`p:${fireEvent.click(button)}`);
       flush();
       calls.push(`p:${fireEvent.keyDown(button, { key: 'ArrowDown' })}`);
       calls.push(`p:${fireEvent.click(button)}`);
       flush();
       calls.push(`expanded:${button.getAttribute('aria-expanded')}`);
-      result.unmount();
+      view.unmount();
       return calls;
     };
     const fast = run(false);
@@ -182,7 +182,7 @@ describe('native parity: Accordion', () => {
         trigger: vi.fn(),
         panel: vi.fn(),
       };
-      const result = render(() =>
+      const view = render(() =>
         part(Accordion.Root, slow, 'div', {
           ref: refs.root,
           defaultValue: ['a'],
@@ -211,7 +211,7 @@ describe('native parity: Accordion', () => {
       const tags = Object.values(refs).map((ref) =>
         ref.mock.calls.map((call) => (call[0] as Element).tagName).join(),
       );
-      result.unmount();
+      view.unmount();
       return tags;
     };
     expect(run(false)).toEqual(['DIV', 'DIV', 'H3', 'BUTTON', 'DIV']);

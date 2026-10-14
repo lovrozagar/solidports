@@ -218,7 +218,7 @@ export function useClientPoint(parameters: {
   );
 
   // Clear virtual cursor references when the hook unmounts. Enabled flips are handled above.
-  onCleanup(() => {
+  void onCleanup(() => {
     store().set('positionReference', null);
   });
 

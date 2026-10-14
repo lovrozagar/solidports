@@ -76,9 +76,9 @@ describe('Combobox.createItems', () => {
   // `setProps` writes inside `act`.
   function renderWithProps<P extends object>(Component: (props: P) => JSX.Element, initial: P) {
     const [props, setProps] = createSignal({ current: initial });
-    const result = render(() => <Component {...props().current} />);
+    const view = render(() => <Component {...props().current} />);
     return {
-      ...result,
+      ...view,
       setProps: (next: Partial<P>) =>
         act(() => {
           setProps((prev) => ({ current: { ...prev.current, ...next } }));

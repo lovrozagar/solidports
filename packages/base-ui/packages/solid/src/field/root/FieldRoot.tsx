@@ -410,7 +410,7 @@ function createSourcedState(
   });
   function register(nextSource: Accessor<boolean>) {
     onSettled(() => {
-      setSource(() => nextSource);
+      void setSource(() => nextSource);
       return () => {
         if (untrack(source) === nextSource) {
           // Keep the value: a control replaced by a new instance (a render prop re-run) hands

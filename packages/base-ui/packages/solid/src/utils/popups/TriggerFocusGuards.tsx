@@ -34,7 +34,7 @@ export function TriggerFocusGuards(props: {
     }
   };
   createLayoutEffect(() => props.active, syncTrailingGuardRef);
-  onCleanup(() => syncTrailingGuardRef(false));
+  void onCleanup(() => syncTrailingGuardRef(false));
 
   return (
     <>
@@ -72,7 +72,7 @@ function TriggerFocusGuard(props: {
   onFocus: (event: FocusEvent) => void;
 }) {
   let guard: HTMLElement | null = null;
-  onCleanup(() => {
+  void onCleanup(() => {
     if (props.guardRef.current === guard) {
       props.guardRef.current = null;
     }

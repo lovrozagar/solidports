@@ -128,7 +128,7 @@ export function useFieldControlRegistration(params: UseFieldControlRegistrationP
   );
 
   const fields = formRef.fields;
-  onCleanup(() => {
+  void onCleanup(() => {
     const id = registrationRef?.id;
     if (id) {
       fields.delete(id);

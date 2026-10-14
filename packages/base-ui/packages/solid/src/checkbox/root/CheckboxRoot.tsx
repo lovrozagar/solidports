@@ -1,3 +1,4 @@
+/* eslint-disable no-bitwise -- the native fast path packs its static props into one flags number */
 import {
   createMemo,
   createRenderEffect,

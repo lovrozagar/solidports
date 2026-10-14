@@ -42,17 +42,17 @@ describe('server rendering', () => {
     const fixture = (await server.ssrLoadModule(resolve(here, 'default-value.fixture.tsx'))) as {
       render: () => string;
     };
-    const html = fixture.render();
-    expect(html).toMatch(/<input[^>]*value="ada@acme\.dev"/);
-    expect(html).toMatch(/<input[^>]*value="3"/);
-    expect(html.toLowerCase()).not.toContain('defaultvalue');
+    const view = fixture.render();
+    expect(view).toMatch(/<input[^>]*value="ada@acme\.dev"/);
+    expect(view).toMatch(/<input[^>]*value="3"/);
+    expect(view.toLowerCase()).not.toContain('defaultvalue');
   }, 60_000);
 
   it('renders a known input value in the server HTML', async () => {
     const fixture = (await server.ssrLoadModule(resolve(here, 'default-value.fixture.tsx'))) as {
       render: () => string;
     };
-    const html = fixture.render();
+    const view = fixture.render();
     const mismatches = [
       ['combo-query', 'initech-query'],
       ['combo-selected', 'Initech'],
@@ -67,39 +67,39 @@ describe('server rendering', () => {
       ['size-m', 'm'],
       ['toolbar-text', 'toolbar-text'],
     ].flatMap(([id, expected]) => {
-      const actual = inputValue(html, id);
+      const actual = inputValue(view, id);
       return actual === expected
         ? []
         : [`#${id}: expected "${expected}", got ${formatValue(actual)}`];
     });
-    const range = inputBy(html, (tag) => tag.includes('aria-label="Volume"'));
+    const range = inputBy(view, (tag) => tag.includes('aria-label="Volume"'));
     if (!range) {
       mismatches.push('range input: missing');
     } else if (!range.includes('value="37"')) {
       mismatches.push(`range input: expected value="37" on ${range}`);
     }
-    const fruit = inputBy(html, (tag) => tag.includes('name="fruit"'));
+    const fruit = inputBy(view, (tag) => tag.includes('name="fruit"'));
     if (!fruit) {
       mismatches.push('select input: missing');
     } else if (!fruit.includes('value="kiwi"')) {
       mismatches.push(`select input: expected value="kiwi" on ${fruit}`);
     }
-    const otpHidden = inputBy(html, (tag) => tag.includes('name="otp"'));
+    const otpHidden = inputBy(view, (tag) => tag.includes('name="otp"'));
     if (!otpHidden) {
       mismatches.push('otp hidden input: missing');
     } else if (!otpHidden.includes('value="42"')) {
       mismatches.push(`otp hidden input: expected value="42" on ${otpHidden}`);
     }
-    const company = inputBy(html, (tag) => tag.includes('name="company"'));
+    const company = inputBy(view, (tag) => tag.includes('name="company"'));
     if (!company) {
       mismatches.push('combobox hidden input: missing');
     } else if (!company.includes('value="Initech"')) {
       mismatches.push(`combobox hidden input: expected value="Initech" on ${company}`);
     }
-    if (!html.includes('kiwi')) {
+    if (!view.includes('kiwi')) {
       mismatches.push('select label: expected the selected text in the HTML');
     }
-    expect(mismatches, html).toEqual([]);
+    expect(mismatches, view).toEqual([]);
   }, 60_000);
 });
 

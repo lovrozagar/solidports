@@ -45,7 +45,7 @@ export function createEffectGroup(parts: readonly EffectGroupPart<any>[]): void 
       applied = true;
     },
   );
-  onCleanup(() => {
+  void onCleanup(() => {
     for (let i = 0; i < count; i += 1) {
       const cleanup = cleanups[i];
       cleanups[i] = undefined;

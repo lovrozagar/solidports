@@ -25,9 +25,9 @@ describe('<Popover.Positioner />', () => {
 
   // Solid: React awaits `render`, which settles Floating UI's async positioning; wait for it.
   async function renderPositioned(ui: () => JSX.Element) {
-    const result = render(ui);
+    const view = render(ui);
     await waitForPositioned(screen.getByTestId('positioner'));
-    return result;
+    return view;
   }
 
   describeConformance(Popover.Positioner, () => ({

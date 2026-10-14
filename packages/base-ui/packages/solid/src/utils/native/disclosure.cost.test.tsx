@@ -30,11 +30,11 @@ describe('native disclosure part cost', () => {
   function nodes(ui: () => JSX.Element) {
     count = 0;
     hooks.onOwner = counting;
-    const result = render(ui);
+    const view = render(ui);
     flush();
     hooks.onOwner = undefined;
     const created = count;
-    result.unmount();
+    view.unmount();
     return created;
   }
 

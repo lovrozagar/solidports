@@ -32,7 +32,7 @@ describe('native parity: Button', () => {
    * Renders `make()`'s props natively and `make()`'s props plus `render: 'button'` through the slow
    * path, in two separate trees, and returns both buttons with their props objects.
    */
-  function renderBoth(make: () => Props, wrap?: (ui: () => unknown) => unknown) {
+  function mountBoth(make: () => Props, wrap?: (ui: () => unknown) => unknown) {
     const fastProps = make();
     const slowProps = { ...Object.getOwnPropertyDescriptors(make()) };
     const slow = Object.defineProperties({}, slowProps) as Props;
@@ -43,10 +43,14 @@ describe('native parity: Button', () => {
       true,
     );
     const ui = (props: Props) => () => createComponent(Button, props as Button.Props);
-    const fastResult = render(() => (wrap ? wrap(ui(fast)) : ui(fast)()) as never);
-    const slowResult = render(() => (wrap ? wrap(ui(slow)) : ui(slow)()) as never);
-    const fastEl = fastResult.container.querySelector('button')!;
-    const slowEl = slowResult.container.querySelector('button')!;
+    const { container: fastContainer } = render(
+      () => (wrap ? wrap(ui(fast)) : ui(fast)()) as never,
+    );
+    const { container: slowContainer } = render(
+      () => (wrap ? wrap(ui(slow)) : ui(slow)()) as never,
+    );
+    const fastEl = fastContainer.querySelector('button')!;
+    const slowEl = slowContainer.querySelector('button')!;
     expect(fastEl, 'native button rendered').not.toBe(null);
     expect(slowEl, 'slow-path button rendered').not.toBe(null);
     return { fastEl, slowEl, fast, slow };
@@ -84,7 +88,7 @@ describe('native parity: Button', () => {
       () => ({ children: 'Handlers', onClick: () => {}, onMouseMove: () => {}, onclick: () => {} }),
     ];
     for (const make of cases) {
-      const { fastEl, slowEl } = renderBoth(make);
+      const { fastEl, slowEl } = mountBoth(make);
       same(fastEl, slowEl);
     }
   });
@@ -107,7 +111,7 @@ describe('native parity: Button', () => {
       class: (state: Button.State) => (state.disabled ? 'off' : 'on'),
       style: (state: Button.State) => ({ opacity: state.disabled ? '0.5' : '1' }),
     });
-    const { fastEl, slowEl } = renderBoth(make);
+    const { fastEl, slowEl } = mountBoth(make);
     same(fastEl, slowEl);
     expect(fastEl).toHaveAttribute('class', 'on');
     setDisabled(true);
@@ -154,7 +158,7 @@ describe('native parity: Button', () => {
         onMouseMove: () => calls.push('mousemove'),
         onfocus: () => calls.push('focus-lowercase'),
       });
-      const { fastEl, slowEl } = renderBoth(make);
+      const { fastEl, slowEl } = mountBoth(make);
       const el = variant === 'fast' ? fastEl : slowEl;
       calls.push(`prevented:${fireEvent.click(el)}`);
       calls.push(`prevented:${fireEvent.keyDown(el, { key: 'Enter' })}`);
@@ -187,7 +191,7 @@ describe('native parity: Button', () => {
           onPointerDown: () => calls.push('pointerdown'),
           onMouseMove: () => calls.push('mousemove'),
         });
-        const { fastEl, slowEl } = renderBoth(make);
+        const { fastEl, slowEl } = mountBoth(make);
         const el = variant === 'fast' ? fastEl : slowEl;
         calls.push(`click:${fireEvent.click(el)}`);
         calls.push(`keydown-tab:${fireEvent.keyDown(el, { key: 'Tab' })}`);
@@ -207,7 +211,7 @@ describe('native parity: Button', () => {
       const callback = vi.fn();
       const object = { current: null as Element | null };
       const make = () => ({ children: 'Refs', ref: callback });
-      const { fastEl, slowEl } = renderBoth(make);
+      const { fastEl, slowEl } = mountBoth(make);
       const el = variant === 'fast' ? fastEl : slowEl;
       expect(callback).toHaveBeenCalledTimes(2);
       expect(callback.mock.calls.map((call) => (call[0] as Element).tagName)).toEqual([
@@ -217,7 +221,7 @@ describe('native parity: Button', () => {
       expect(callback.mock.calls.some((call) => call[0] === el)).toBe(true);
       // Object refs.
       const makeObject = () => ({ children: 'Object ref', ref: object });
-      const both = renderBoth(makeObject);
+      const both = mountBoth(makeObject);
       const target = variant === 'fast' ? both.fastEl : both.slowEl;
       expect([both.fastEl, both.slowEl]).toContain(object.current);
       return target.tagName;
@@ -232,7 +236,7 @@ describe('native parity: Button', () => {
         {ui() as never}
       </Field.Root>
     );
-    const { fastEl, slowEl } = renderBoth(() => ({ children: 'In field', disabled: true }), wrap);
+    const { fastEl, slowEl } = mountBoth(() => ({ children: 'In field', disabled: true }), wrap);
     same(fastEl, slowEl);
   });
 
@@ -243,7 +247,7 @@ describe('native parity: Button', () => {
         return `Count ${count()}`;
       },
     });
-    const { fastEl, slowEl } = renderBoth(make);
+    const { fastEl, slowEl } = mountBoth(make);
     same(fastEl, slowEl);
     setCount(2);
     flush();

@@ -225,7 +225,7 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
     },
   );
 
-  onCleanup(() => {
+  void onCleanup(() => {
     mutationObserver?.disconnect();
   });
 

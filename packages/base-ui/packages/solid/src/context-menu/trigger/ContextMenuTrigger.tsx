@@ -160,7 +160,7 @@ export function ContextMenuTrigger(componentProps: ContextMenuTrigger.Props) {
     }
   }
 
-  onCleanup(() => {
+  void onCleanup(() => {
     // Abort a pending mouseup listener if the trigger unmounts before it fires.
     mouseUpAbortControllerRef?.abort();
   });

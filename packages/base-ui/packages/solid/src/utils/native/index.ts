@@ -245,7 +245,7 @@ export function elementRefs(
 ): (() => void) | undefined {
   const hasPart = partRefs !== undefined && partRefs.length > 0;
   if (hasPart) {
-    onCleanup(() => releasePartRefs(el, ...partRefs));
+    void onCleanup(() => releasePartRefs(el, ...partRefs));
   }
   if (!hasPart && consumerRef == null) {
     return undefined;
@@ -342,7 +342,7 @@ export function fieldOwnedKeys(labelable: LabelableContext, field: FieldRootCont
  */
 export function attachPartRefs(el: Element, refs: readonly unknown[]): void {
   applyRefs(el, ...refs);
-  onCleanup(() => releasePartRefs(el, ...refs));
+  void onCleanup(() => releasePartRefs(el, ...refs));
 }
 
 export interface CompositeItemRegistration {
@@ -391,7 +391,7 @@ export function createCompositeItemRegistration<Metadata>(
     );
   }
 
-  onCleanup(
+  void onCleanup(
     subscribeMapChange((map: Map<Element, CompositeMetadata<Metadata>>) => {
       const next = node ? map.get(node)?.index : null;
       if (next != null) {
@@ -399,7 +399,7 @@ export function createCompositeItemRegistration<Metadata>(
       }
     }),
   );
-  onCleanup(() => {
+  void onCleanup(() => {
     if (node) {
       unregister(node, owner);
     }
@@ -648,7 +648,7 @@ export function createLabelFallback(
       stopObserving = observeLabels(labelSource.getRootNode(), () => untrack(apply));
     }
   };
-  onCleanup(() => observe(false));
+  void onCleanup(() => observe(false));
   const apply = () => {
     const value = explicit();
     const named = ariaLabelOverridesLabel(ariaLabel?.());

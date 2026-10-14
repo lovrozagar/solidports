@@ -186,7 +186,7 @@ export function MenuStore<Payload>(
   // Set up propagation of state from parent menu if applicable.
   // Solid: selectors that read the parent store are tracked directly, so React's re-notify on
   // parent changes is not needed; only the shared mouse-up ref is wired here.
-  store.observe('parent', (parent) => {
+  void store.observe('parent', (parent) => {
     if (parent.type === 'menu') {
       store.context.allowMouseUpTriggerRef = parent.store.context.allowMouseUpTriggerRef;
       return;

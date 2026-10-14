@@ -250,7 +250,7 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
 
   // If the scrub area unmounts mid-scrub, release pointer lock and clear the root's scrubbing
   // state so it doesn't stay locked or stuck. (No commit: there's no pointer release here.)
-  onCleanup(() => {
+  void onCleanup(() => {
     if (isScrubbingRef) {
       isScrubbingRef = false;
       setRootScrubbing(false);
@@ -327,7 +327,7 @@ export function NumberFieldScrubArea(componentProps: NumberFieldScrubArea.Props)
   };
 
   let stopNativeClick: (() => void) | undefined;
-  onCleanup(() => stopNativeClick?.());
+  void onCleanup(() => stopNativeClick?.());
 
   const element = useRenderElement('span', componentProps, {
     ref: (el) => {

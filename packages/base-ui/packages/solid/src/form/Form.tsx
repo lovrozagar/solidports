@@ -168,6 +168,7 @@ export function Form<FormValues extends Record<string, any> = Record<string, any
   return provideContext(FormContext, contextValue, element);
 }
 
+/* eslint-disable no-bitwise */
 function comesBeforeInSameTree(element: Node, reference: Node) {
   const position = element.compareDocumentPosition(reference);
   return (

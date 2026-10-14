@@ -33,7 +33,7 @@ export function AvatarRoot(componentProps: AvatarRoot.Props) {
   // computation that reads the status.
   function registerImageLoadingStatus(source: Accessor<ImageLoadingStatus>) {
     onSettled(() => {
-      setImageStatusSource(() => source);
+      void setImageStatusSource(() => source);
       return () => {
         if (untrack(imageStatusSource) === source) {
           setImageStatusSource(undefined);

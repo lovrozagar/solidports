@@ -34,20 +34,24 @@ const stripIds = (container: Element) =>
 describe('native parity: Toggle', () => {
   const { render } = createRenderer();
 
-  function renderBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
+  function mountBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
     const fast = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     const slow = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     (slow as { render?: string }).render = 'button';
     expect(canRenderNative(fast, ['nativeButton']), 'fast props qualify').toBe(true);
     const ui = (props: Props) => () =>
       createComponent(Toggle, props as Toggle.Props) as unknown as JSX.Element;
-    const fastResult = render(() => (wrap ? wrap(ui(fast)) : ui(fast)()) as never);
-    const slowResult = render(() => (wrap ? wrap(ui(slow)) : ui(slow)()) as never);
+    const { container: fastContainer } = render(
+      () => (wrap ? wrap(ui(fast)) : ui(fast)()) as never,
+    );
+    const { container: slowContainer } = render(
+      () => (wrap ? wrap(ui(slow)) : ui(slow)()) as never,
+    );
     return {
-      fast: fastResult.container,
-      slow: slowResult.container,
-      fastEl: fastResult.container.querySelector('[data-testid="t"]')!,
-      slowEl: slowResult.container.querySelector('[data-testid="t"]')!,
+      fast: fastContainer,
+      slow: slowContainer,
+      fastEl: fastContainer.querySelector('[data-testid="t"]')!,
+      slowEl: slowContainer.querySelector('[data-testid="t"]')!,
     };
   }
 
@@ -69,7 +73,7 @@ describe('native parity: Toggle', () => {
       () => ({ children: 'Handlers', onClick: () => {}, onKeyDown: () => {}, onFocus: () => {} }),
     ];
     for (const make of cases) {
-      const { fast, slow } = renderBoth(() => ({ 'data-testid': 't', ...make() }));
+      const { fast, slow } = mountBoth(() => ({ 'data-testid': 't', ...make() }));
       expect(stripIds(fast)).toBe(stripIds(slow));
     }
   });
@@ -88,7 +92,7 @@ describe('native parity: Toggle', () => {
       },
       class: (state: Toggle.State) => (state.pressed ? 'on' : 'off'),
     });
-    const { fast, slow, fastEl } = renderBoth(make);
+    const { fast, slow, fastEl } = mountBoth(make);
     expect(stripIds(fast)).toBe(stripIds(slow));
     setPressed(true);
     setDisabled(true);
@@ -122,7 +126,7 @@ describe('native parity: Toggle', () => {
           onPointerDown: () => calls.push('pointerdown'),
           onMouseDown: () => calls.push('mousedown'),
         });
-        const { fastEl, slowEl } = renderBoth(make);
+        const { fastEl, slowEl } = mountBoth(make);
         const el = variant === 'fast' ? fastEl : slowEl;
         calls.push(`click:${fireEvent.click(el)}:${el.getAttribute('aria-pressed')}`);
         calls.push(`pointerdown:${fireEvent.pointerDown(el)}`);
@@ -146,7 +150,7 @@ describe('native parity: Toggle', () => {
   it('honors preventBaseUIHandler identically', () => {
     const run = (variant: 'fast' | 'slow') => {
       const calls: string[] = [];
-      const { fastEl, slowEl } = renderBoth(() => ({
+      const { fastEl, slowEl } = mountBoth(() => ({
         'data-testid': 't',
         children: 'T',
         onPressedChange: (next: boolean) => calls.push(`change:${next}`),
@@ -167,7 +171,7 @@ describe('native parity: Toggle', () => {
   it('applies refs the same way', () => {
     const run = (variant: 'fast' | 'slow') => {
       const ref = vi.fn();
-      const { fastEl, slowEl } = renderBoth(() => ({ 'data-testid': 't', children: 'T', ref }));
+      const { fastEl, slowEl } = mountBoth(() => ({ 'data-testid': 't', children: 'T', ref }));
       const el = variant === 'fast' ? fastEl : slowEl;
       expect(ref).toHaveBeenCalledTimes(2);
       expect(ref.mock.calls.some((call) => call[0] === el)).toBe(true);
@@ -195,7 +199,7 @@ describe('native parity: Toggle', () => {
             </Toggle>
           </ToggleGroup>
         );
-        const { fast, slow, fastEl, slowEl } = renderBoth(
+        const { fast, slow, fastEl, slowEl } = mountBoth(
           () => ({
             'data-testid': 't',
             value: 'b',
@@ -247,7 +251,7 @@ describe('native parity: Toggle', () => {
         <Toolbar.Button data-testid="btn">Button</Toolbar.Button>
       </Toolbar.Root>
     );
-    const { fast, slow, fastEl, slowEl } = renderBoth(
+    const { fast, slow, fastEl, slowEl } = mountBoth(
       () => ({
         'data-testid': 't',
         value: 'a',
@@ -287,16 +291,20 @@ describe('native parity: Toggle', () => {
 describe('native parity: ToggleGroup', () => {
   const { render } = createRenderer();
 
-  function renderBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
+  function mountBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
     const fast = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     const slow = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     (slow as { render?: string }).render = 'div';
     expect(canRenderNative(fast), 'fast props qualify').toBe(true);
     const ui = (props: Props) => () =>
       createComponent(ToggleGroup, props as ToggleGroup.Props) as unknown as JSX.Element;
-    const fastResult = render(() => (wrap ? wrap(ui(fast)) : ui(fast)()) as never);
-    const slowResult = render(() => (wrap ? wrap(ui(slow)) : ui(slow)()) as never);
-    return { fast: fastResult.container, slow: slowResult.container };
+    const { container: fastContainer } = render(
+      () => (wrap ? wrap(ui(fast)) : ui(fast)()) as never,
+    );
+    const { container: slowContainer } = render(
+      () => (wrap ? wrap(ui(slow)) : ui(slow)()) as never,
+    );
+    return { fast: fastContainer, slow: slowContainer };
   }
 
   it('renders the same group, alone and inside a Toolbar', () => {
@@ -338,9 +346,9 @@ describe('native parity: ToggleGroup', () => {
       }),
     ];
     for (const make of cases) {
-      const plain = renderBoth(make);
+      const plain = mountBoth(make);
       expect(stripIds(plain.fast)).toBe(stripIds(plain.slow));
-      const toolbar = renderBoth(make, (ui) => <Toolbar.Root>{ui()}</Toolbar.Root>);
+      const toolbar = mountBoth(make, (ui) => <Toolbar.Root>{ui()}</Toolbar.Root>);
       expect(stripIds(toolbar.fast)).toBe(stripIds(toolbar.slow));
     }
   });
@@ -349,7 +357,7 @@ describe('native parity: ToggleGroup', () => {
     const run = (variant: 'fast' | 'slow') => {
       const calls: string[] = [];
       const ref = vi.fn();
-      const { fast, slow } = renderBoth(() => ({
+      const { fast, slow } = mountBoth(() => ({
         ref,
         get children() {
           return (

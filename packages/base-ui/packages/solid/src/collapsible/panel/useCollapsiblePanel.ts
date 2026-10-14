@@ -191,7 +191,7 @@ export function useCollapsiblePanel(
     };
   }
 
-  onCleanup(() => {
+  void onCleanup(() => {
     restorePendingTemporaryStyle();
   });
 
@@ -445,7 +445,7 @@ export function useCollapsiblePanel(
   // with respect to paint.
   const revealDecisionTimeout = useTimeout();
   let revertRevealFrame = -1;
-  onCleanup(() => {
+  void onCleanup(() => {
     AnimationFrame.cancel(revertRevealFrame);
   });
 

@@ -138,7 +138,7 @@ export function useFilterDropdownItem(params: UseFilterDropdownItemParameters) {
       untrack(() => access(params.label)) == null
     ) {
       registeredText = text;
-      register();
+      void register();
     }
   });
 

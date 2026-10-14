@@ -34,7 +34,7 @@ export function createIdRegistration(
     ((props as Record<string, string | undefined>)[key] || undefined) as string | undefined;
   if (!(key in props) || isStatic(props, key)) {
     const registered = untrack(read);
-    onCleanup(() => {
+    void onCleanup(() => {
       if (registryOwner && isDisposed(registryOwner)) {
         return;
       }

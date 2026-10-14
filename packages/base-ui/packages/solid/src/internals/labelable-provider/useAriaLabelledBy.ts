@@ -73,7 +73,7 @@ export function useAriaLabelledBy(
   const [fallbackAriaLabelledBy, setFallbackAriaLabelledBy] = createSignal<string | undefined>();
 
   let stopObserving: (() => void) | undefined;
-  onCleanup(() => stopObserving?.());
+  void onCleanup(() => stopObserving?.());
 
   // React runs this after every render; here it runs when any input changes, and while the
   // fallback is in use, when a label in the control's tree mounts or unmounts. The DOM label

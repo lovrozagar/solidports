@@ -687,7 +687,7 @@ export function createStoreState<State extends object>(
       startNotifier(binding);
     }
 
-    onCleanup(() => {
+    void onCleanup(() => {
       if (bindings.get(key) !== binding) {
         return;
       }
@@ -799,7 +799,7 @@ function bindStoreKey<State extends object>(
     },
   );
   if (options.clearOnCleanup) {
-    onCleanup(() => (setState as any)(key, undefined));
+    void onCleanup(() => (setState as any)(key, undefined));
   }
 }
 

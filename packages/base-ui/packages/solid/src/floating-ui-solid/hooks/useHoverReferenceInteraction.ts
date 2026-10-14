@@ -163,7 +163,7 @@ export function useHoverReferenceInteraction(parameters: {
     },
   );
 
-  onCleanup(cleanupMouseMoveHandler);
+  void onCleanup(cleanupMouseMoveHandler);
 
   // When closing before opening, clear the delay timeouts to cancel it
   // from showing.

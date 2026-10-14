@@ -155,7 +155,7 @@ export function usePressAndHold(params: UsePressAndHoldParameters): UsePressAndH
     });
   }
 
-  onCleanup(() => {
+  void onCleanup(() => {
     stopAutoChange();
     unsubscribeFromGlobalPointerUpRef();
   });

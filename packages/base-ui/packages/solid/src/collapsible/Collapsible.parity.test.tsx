@@ -10,7 +10,7 @@ import { fireEvent } from '@solidjs/testing-library';
 import { createSignal, flush } from 'solid-js';
 import { describe, expect, it, vi } from 'vitest';
 import type { JSX } from '@solidjs/web';
-import { part, renderParity } from '../../test/parityHarness';
+import { part, mountParity } from '../../test/parityHarness';
 
 describe('native parity: Collapsible', () => {
   const { render } = createRenderer();
@@ -18,7 +18,7 @@ describe('native parity: Collapsible', () => {
   const trigger = (root: HTMLElement) => root.querySelector('button')!;
 
   it('renders and toggles identically (uncontrolled)', () => {
-    const pair = renderParity(render, (slow) =>
+    const pair = mountParity(render, (slow) =>
       part(Collapsible.Root, slow, 'div', {
         get children() {
           return [
@@ -40,7 +40,7 @@ describe('native parity: Collapsible', () => {
   it('renders identically with every prop form', () => {
     const [open, setOpen] = createSignal(true);
     const [disabled, setDisabled] = createSignal(false);
-    const pair = renderParity(render, (slow) =>
+    const pair = mountParity(render, (slow) =>
       part(Collapsible.Root, slow, 'div', {
         get open() {
           return open();
@@ -92,7 +92,7 @@ describe('native parity: Collapsible', () => {
   });
 
   it('keeps a hidden-until-found panel mounted identically', () => {
-    const pair = renderParity(render, (slow) =>
+    const pair = mountParity(render, (slow) =>
       part(Collapsible.Root, slow, 'div', {
         get children() {
           return [
@@ -112,7 +112,7 @@ describe('native parity: Collapsible', () => {
   it('calls consumer handlers in the same order and honors preventBaseUIHandler', () => {
     const run = (slow: boolean) => {
       const calls: string[] = [];
-      const result = render(() =>
+      const view = render(() =>
         part(Collapsible.Root, slow, 'div', {
           onOpenChange: (open: boolean) => calls.push(`open:${open}`),
           get children() {
@@ -133,7 +133,7 @@ describe('native parity: Collapsible', () => {
           },
         }),
       );
-      const button = result.container.querySelector('button')!;
+      const button = view.container.querySelector('button')!;
       calls.push(`p:${fireEvent.click(button)}`);
       flush();
       calls.push(`p:${fireEvent.keyDown(button, { key: 'Enter' })}`);
@@ -141,7 +141,7 @@ describe('native parity: Collapsible', () => {
       calls.push(`p:${fireEvent.click(button)}`);
       flush();
       calls.push(`expanded:${button.getAttribute('aria-expanded')}`);
-      result.unmount();
+      view.unmount();
       return calls;
     };
     const fast = run(false);
@@ -153,7 +153,7 @@ describe('native parity: Collapsible', () => {
   it('suppresses interactions identically when disabled', () => {
     const run = (slow: boolean) => {
       const calls: string[] = [];
-      const result = render(() =>
+      const view = render(() =>
         part(Collapsible.Root, slow, 'div', {
           disabled: true,
           onOpenChange: (open: boolean) => calls.push(`open:${open}`),
@@ -172,7 +172,7 @@ describe('native parity: Collapsible', () => {
           },
         }),
       );
-      const button = result.container.querySelector('button')!;
+      const button = view.container.querySelector('button')!;
       calls.push(`click:${fireEvent.click(button)}`);
       calls.push(`tab:${fireEvent.keyDown(button, { key: 'Tab' })}`);
       calls.push(`space:${fireEvent.keyDown(button, { key: ' ' })}`);
@@ -180,7 +180,7 @@ describe('native parity: Collapsible', () => {
       calls.push(`mousedown:${fireEvent.mouseDown(button)}`);
       calls.push(`pointerdown:${fireEvent.pointerDown(button)}`);
       flush();
-      result.unmount();
+      view.unmount();
       return calls;
     };
     expect(run(false)).toEqual(run(true));
@@ -191,7 +191,7 @@ describe('native parity: Collapsible', () => {
       const rootRef = vi.fn();
       const triggerRef = { current: null as Element | null };
       const panelRef = vi.fn();
-      const result = render(() =>
+      const view = render(() =>
         part(Collapsible.Root, slow, 'div', {
           ref: rootRef,
           defaultOpen: true,
@@ -208,7 +208,7 @@ describe('native parity: Collapsible', () => {
         triggerRef.current?.tagName,
         panelRef.mock.calls.map((call) => (call[0] as Element).tagName).join(),
       ];
-      result.unmount();
+      view.unmount();
       return tags;
     };
     expect(run(false)).toEqual(['DIV', 'BUTTON', 'DIV']);

@@ -241,7 +241,7 @@ export function renderNativeElement<State extends object>(
   const refs = spec.refs;
   if (refs && refs.length > 0) {
     const plain = applyPartRefs(el, refs);
-    onCleanup(() => {
+    void onCleanup(() => {
       if (plain) {
         runWithOwner(null, () =>
           untrack(() => {

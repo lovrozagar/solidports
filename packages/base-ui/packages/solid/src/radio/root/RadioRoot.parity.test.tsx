@@ -47,7 +47,7 @@ describe('native parity: Radio', () => {
   const { render } = createRenderer();
 
   /** Both variants inside a RadioGroup with sibling radios `a` (first) and `c` (disabled, last). */
-  function renderBoth(
+  function mountBoth(
     make: () => Props,
     group: Props = {},
     wrap?: (ui: () => JSX.Element) => JSX.Element,
@@ -68,13 +68,17 @@ describe('native parity: Radio', () => {
         <Radio.Root value="c" data-testid="c" disabled />
       </RadioGroup>
     );
-    const fastResult = render(() => (wrap ? wrap(ui(fast)) : ui(fast)()) as never);
-    const slowResult = render(() => (wrap ? wrap(ui(slow)) : ui(slow)()) as never);
+    const { container: fastContainer } = render(
+      () => (wrap ? wrap(ui(fast)) : ui(fast)()) as never,
+    );
+    const { container: slowContainer } = render(
+      () => (wrap ? wrap(ui(slow)) : ui(slow)()) as never,
+    );
     return {
-      fast: fastResult.container,
-      slow: slowResult.container,
-      fastEl: fastResult.container.querySelector('[data-testid="t"]')! as HTMLElement,
-      slowEl: slowResult.container.querySelector('[data-testid="t"]')! as HTMLElement,
+      fast: fastContainer,
+      slow: slowContainer,
+      fastEl: fastContainer.querySelector('[data-testid="t"]')! as HTMLElement,
+      slowEl: slowContainer.querySelector('[data-testid="t"]')! as HTMLElement,
     };
   }
 
@@ -97,7 +101,7 @@ describe('native parity: Radio', () => {
       [() => ({ onClick: () => {}, onKeyDown: () => {}, onFocus: () => {} }), {}],
     ];
     for (const [make, group] of cases) {
-      const { fast, slow } = renderBoth(
+      const { fast, slow } = mountBoth(
         () => withIndicator({ value: 'b', 'data-testid': 't', ...make() }),
         group,
       );
@@ -122,7 +126,7 @@ describe('native parity: Radio', () => {
         return value();
       },
     };
-    const { fast, slow, fastEl } = renderBoth(make, group);
+    const { fast, slow, fastEl } = mountBoth(make, group);
     expect(stripIds(fast)).toBe(stripIds(slow));
     setValue('b');
     flush();
@@ -143,7 +147,7 @@ describe('native parity: Radio', () => {
   it('selects identically on click, Space and arrow navigation with the same handler order', () => {
     const run = (variant: 'fast' | 'slow') => {
       const calls: string[] = [];
-      const { fast, slow, fastEl, slowEl } = renderBoth(
+      const { fast, slow, fastEl, slowEl } = mountBoth(
         () => ({
           value: 'b',
           'data-testid': 't',
@@ -196,7 +200,7 @@ describe('native parity: Radio', () => {
     for (const props of [{ disabled: true }, { readOnly: true }]) {
       const run = (variant: 'fast' | 'slow') => {
         const calls: string[] = [];
-        const { fastEl, slowEl } = renderBoth(
+        const { fastEl, slowEl } = mountBoth(
           () => ({
             value: 'b',
             'data-testid': 't',
@@ -223,7 +227,7 @@ describe('native parity: Radio', () => {
     const run = (variant: 'fast' | 'slow') => {
       const ref = vi.fn();
       const inputRef = vi.fn();
-      const { fastEl, slowEl } = renderBoth(() => ({
+      const { fastEl, slowEl } = mountBoth(() => ({
         value: 'b',
         'data-testid': 't',
         ref,
@@ -248,7 +252,7 @@ describe('native parity: Radio', () => {
         </Field.Root>
       </Form>
     );
-    const { fast, slow, fastEl, slowEl } = renderBoth(
+    const { fast, slow, fastEl, slowEl } = mountBoth(
       () => withIndicator({ value: 'b', 'data-testid': 't' }),
       {},
       wrap,
@@ -323,16 +327,20 @@ describe('native parity: Radio', () => {
 describe('native parity: RadioGroup', () => {
   const { render } = createRenderer();
 
-  function renderBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
+  function mountBoth(make: () => Props, wrap?: (ui: () => JSX.Element) => JSX.Element) {
     const fast = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     const slow = Object.defineProperties({}, Object.getOwnPropertyDescriptors(make())) as Props;
     (slow as { render?: string }).render = 'div';
     expect(canRenderNative(fast), 'fast props qualify').toBe(true);
     const ui = (props: Props) => () =>
       createComponent(RadioGroup, props as RadioGroup.Props) as unknown as JSX.Element;
-    const fastResult = render(() => (wrap ? wrap(ui(fast)) : ui(fast)()) as never);
-    const slowResult = render(() => (wrap ? wrap(ui(slow)) : ui(slow)()) as never);
-    return { fast: fastResult.container, slow: slowResult.container };
+    const { container: fastContainer } = render(
+      () => (wrap ? wrap(ui(fast)) : ui(fast)()) as never,
+    );
+    const { container: slowContainer } = render(
+      () => (wrap ? wrap(ui(slow)) : ui(slow)()) as never,
+    );
+    return { fast: fastContainer, slow: slowContainer };
   }
   const radios = () => (
     <>
@@ -385,9 +393,9 @@ describe('native parity: RadioGroup', () => {
       </Field.Root>
     );
     for (const make of cases) {
-      const plain = renderBoth(make);
+      const plain = mountBoth(make);
       expect(stripIds(plain.fast)).toBe(stripIds(plain.slow));
-      const field = renderBoth(make, inField);
+      const field = mountBoth(make, inField);
       const stripNames = (container: Element) => stripIds(container).replace(/choice-\d+/g, 'NAME');
       expect(stripNames(field.fast)).toBe(stripNames(field.slow));
     }
@@ -397,7 +405,7 @@ describe('native parity: RadioGroup', () => {
     const run = (variant: 'fast' | 'slow') => {
       const calls: string[] = [];
       const ref = vi.fn();
-      const { fast, slow } = renderBoth(() => ({
+      const { fast, slow } = mountBoth(() => ({
         ref,
         get children() {
           return radios();

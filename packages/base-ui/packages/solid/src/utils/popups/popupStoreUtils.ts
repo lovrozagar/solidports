@@ -256,7 +256,7 @@ export function usePopupInteractionProps<
 ) {
   store.useSyncedValues(statePart);
 
-  onCleanup(() => {
+  void onCleanup(() => {
     store.update({
       activeTriggerProps: EMPTY_OBJECT,
       inactiveTriggerProps: EMPTY_OBJECT,
@@ -277,7 +277,7 @@ export function usePopupRootSync<
   // stands while open, and closing resets it in the same flush.
   store.useSyncedValue('openMethod', (prev) => (open() ? prev : null));
 
-  onCleanup(() => {
+  void onCleanup(() => {
     if (store.state.openMethod !== null) {
       store.set('openMethod' as any, null);
     }

@@ -124,7 +124,7 @@ export function useCompositeListItem<Metadata>(
     },
   );
 
-  onCleanup(() => {
+  void onCleanup(() => {
     if (componentRef) {
       unregister(componentRef, owner);
     }

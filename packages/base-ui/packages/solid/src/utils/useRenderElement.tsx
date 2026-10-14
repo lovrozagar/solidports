@@ -194,7 +194,7 @@ export function useRenderElement<
     // React calls the part's refs with `null` when the element unmounts, and the ported
     // registration logic relies on it; Solid only applies refs on mount. Mirror the unmount call.
     // User refs keep Solid's contract.
-    onCleanup(() => {
+    void onCleanup(() => {
       if (attachedElement != null) {
         const previousElement = attachedElement;
         attachedElement = null;
@@ -491,7 +491,7 @@ export function useRenderElement<
     // Event handlers need no effect: each gets one listener that calls the current chain when the
     // event fires (handlers never subscribe), so only attribute values track their sources.
     let disposeAttributes: (() => void) | undefined;
-    onCleanup(() => disposeAttributes?.());
+    void onCleanup(() => disposeAttributes?.());
     const attachAttributes = (el: Element) => {
       disposeAttributes?.();
       runWithOwner(null, () =>
