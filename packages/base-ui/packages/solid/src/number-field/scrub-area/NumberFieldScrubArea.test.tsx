@@ -189,10 +189,10 @@ describe('<NumberField.ScrubArea />', () => {
 
     expect(handleClick).not.toHaveBeenCalled();
 
+    // The synthesized click is deferred by one task (20ms in Firefox, which waits for pointer lock
+    // to release first).
     await act(async () => {
-      await new Promise((resolve) => {
-        setTimeout(resolve, 0);
-      });
+      await wait(50);
     });
 
     expect(handleClick).toHaveBeenCalledTimes(1);

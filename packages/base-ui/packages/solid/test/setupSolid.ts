@@ -25,10 +25,14 @@ function isConstructible(create: () => unknown) {
   }
 }
 
+let touchPolyfilled = false;
+
 if (
   typeof window !== 'undefined' &&
   !isConstructible(() => new window.Touch({ identifier: 0, target: document.body }))
 ) {
+  touchPolyfilled = true;
+
   class Touch {
     declare readonly identifier: number;
 
@@ -72,7 +76,12 @@ if (
   (window as unknown as { Touch: unknown }).Touch = Touch;
 }
 
-if (typeof window !== 'undefined' && !isConstructible(() => new window.TouchEvent('touchstart'))) {
+// A native `TouchEvent` only accepts native `Touch` objects in its lists, so it is replaced with
+// `Touch` too (WebKit constructs a `TouchEvent` but not a `Touch`).
+if (
+  typeof window !== 'undefined' &&
+  (touchPolyfilled || !isConstructible(() => new window.TouchEvent('touchstart')))
+) {
   class TouchEvent extends UIEvent {
     declare readonly touches: readonly Touch[];
 
