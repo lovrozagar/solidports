@@ -1,5 +1,7 @@
 import { expect, vi, describe, it } from 'vitest';
-import { createRenderEffect, createSignal } from 'solid-js';
+import { createRenderEffect, createSignal, lazy, Loading, Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { fireEvent, screen } from '@solidjs/testing-library';
 import { Toast } from '@solidports/base-ui/toast';
 import { act, createRenderer, flushMicrotasks } from '#test-utils';
 import { useToastProviderContext } from './ToastProviderContext';
@@ -111,6 +113,67 @@ describe('<Toast.Provider />', () => {
     ]);
   });
 
-  // Solid: no concurrent rendering — a render cannot be abandoned by a suspended transition.
-  it.skip('does not sync provider props from an abandoned render', () => {});
+  it('does not sync provider props from an abandoned render', async () => {
+    // Solid: a never-resolving `lazy` child holds the update pending under `Loading`, the
+    // counterpart of React's suspended transition render, which never commits.
+    const onClose = vi.fn();
+    const suspendedRender = vi.fn();
+    const SuspendingChild = lazy(() => {
+      suspendedRender();
+      return new Promise<{ default: () => JSX.Element }>(() => {});
+    });
+
+    function AddToastButton() {
+      const { add } = Toast.useToastManager();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            add({ title: 'Toast', onClose });
+          }}
+        >
+          Add toast
+        </button>
+      );
+    }
+
+    const [timeout, setTimeout] = createSignal(5000);
+    const [suspend, setSuspend] = createSignal(false);
+
+    await render(() => (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            setTimeout(1000);
+            setSuspend(true);
+          }}
+        >
+          Start suspended update
+        </button>
+        <Loading fallback="Loading">
+          <Toast.Provider timeout={timeout()}>
+            <Show when={suspend()}>
+              <SuspendingChild />
+            </Show>
+            <AddToastButton />
+          </Toast.Provider>
+        </Loading>
+      </>
+    ));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start suspended update' }));
+    await flushMicrotasks();
+    expect(suspendedRender).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add toast' }));
+
+    clock.tick(1001);
+    await flushMicrotasks();
+    expect(onClose).not.toHaveBeenCalled();
+
+    clock.tick(4000);
+    await flushMicrotasks();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

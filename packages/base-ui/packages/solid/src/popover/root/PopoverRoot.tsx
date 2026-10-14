@@ -2,12 +2,13 @@ import { createEffect, onSettled, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { FloatingTree, useDismiss } from '../../floating-ui-solid';
-import { ComponentWithPayload, createDepsRenderEffect, isAbsentProp } from '../../solid-helpers';
+import { ComponentWithPayload, isAbsentProp } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import {
+  createHandleAttachment,
   useImplicitActiveTrigger,
   usePopupRootStore,
   useOpenStateTransitions,
@@ -96,14 +97,8 @@ function PopoverRootComponent<Payload>(
   // triggers.
   const shouldRenderInteractions = () => open() || mounted() || props.handle != null;
 
-  // Solid: React renders `<PopupHandleAttachment>` as the first child so its layout effect attaches
-  // the store before later siblings' effects run. Solid inserts the root's children lazily, so a
-  // sibling's render effect would run first; attaching from the root's own body keeps React's order.
   if (!isAbsentProp(props, 'handle')) {
-    createDepsRenderEffect(
-      () => props.handle,
-      (handle) => handle?.attachStore(store),
-    );
+    createHandleAttachment(() => props.handle, store);
   }
 
   const renderContent = () => (

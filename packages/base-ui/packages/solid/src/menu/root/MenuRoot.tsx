@@ -20,7 +20,6 @@ import { mergeProps } from '../../merge-props';
 import {
   ComponentWithPayload,
   createDepsEffect,
-  createDepsRenderEffect,
   createLayoutEffect,
   isAbsentProp,
   provideContext,
@@ -39,6 +38,7 @@ import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/empty';
 import type { PayloadChildRenderFunction } from '../../utils/popups';
 import {
   attachPreventUnmountOnClose,
+  createHandleAttachment,
   createPopupOpenState,
   FOCUSABLE_POPUP_PROPS,
   useImplicitActiveTrigger,
@@ -515,14 +515,8 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
     },
   );
 
-  // Solid: React renders `<PopupHandleAttachment>` as the first child so its layout effect attaches
-  // the store before later siblings' effects run. Solid inserts the root's children lazily, so a
-  // sibling's render effect would run first; attaching from the root's own body keeps React's order.
   if (!isAbsentProp(props, 'handle')) {
-    createDepsRenderEffect(
-      () => props.handle,
-      (handle) => handle?.attachStore(store),
-    );
+    createHandleAttachment(() => props.handle, store);
   }
 
   const handleImperativeClose = () => {

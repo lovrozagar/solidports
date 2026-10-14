@@ -8,7 +8,7 @@ import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import {
-  PopupHandleAttachment,
+  createHandleAttachment,
   useImplicitActiveTrigger,
   usePopupRootStore,
   useOpenStateTransitions,
@@ -156,16 +156,12 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
   const shouldRenderInteractions = () =>
     open() || mounted() || (!disabled() && trackCursorAxis() !== 'none');
 
-  // No `handle` prop: nothing to attach, so no `Show` for it.
-  const handleAttachment = isAbsentProp(props, 'handle') ? null : (
-    <Show when={props.handle}>
-      {(handle) => <PopupHandleAttachment handle={handle()} store={store} />}
-    </Show>
-  );
+  if (!isAbsentProp(props, 'handle')) {
+    createHandleAttachment(() => props.handle, store);
+  }
 
   return (
     <TooltipRootContext value={{ store } as TooltipRootContext}>
-      {handleAttachment}
       <Show when={shouldRenderInteractions()}>
         <TooltipInteractions
           store={store}
