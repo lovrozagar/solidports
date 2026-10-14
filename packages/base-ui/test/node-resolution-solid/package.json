@@ -1,0 +1,17 @@
+{
+  "name": "@solidports/base-ui-test-node-resolution",
+  "private": true,
+  "description": "Upstream's node-resolution test (test/node-resolution) for Solid: the package's exports resolve in Node, and every entry loads in a Solid app's server build.",
+  "type": "module",
+  "scripts": {
+    "test": "node ./index.mjs"
+  },
+  "dependencies": {
+    "@solidjs/signals": "catalog:",
+    "@solidjs/vite-plugin": "catalog:",
+    "@solidjs/web": "catalog:",
+    "@solidports/base-ui": "workspace:*",
+    "solid-js": "catalog:",
+    "vite": "catalog:"
+  }
+}

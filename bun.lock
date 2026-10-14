@@ -350,6 +350,17 @@
         "@base-ui/utils": "workspace:*",
       },
     },
+    "packages/base-ui/test/node-resolution-solid": {
+      "name": "@solidports/base-ui-test-node-resolution",
+      "dependencies": {
+        "@solidjs/signals": "catalog:",
+        "@solidjs/vite-plugin": "catalog:",
+        "@solidjs/web": "catalog:",
+        "@solidports/base-ui": "workspace:*",
+        "solid-js": "catalog:",
+        "vite": "catalog:",
+      },
+    },
     "packages/base-ui/test/public-types": {
       "name": "@base-ui/test-public-types",
       "dependencies": {
@@ -1904,6 +1915,8 @@
     "@solidjs/web": ["@solidjs/web@2.0.0-rc.13", "", { "dependencies": { "seroval": "~1.6.7", "seroval-plugins": "~1.6.7" }, "peerDependencies": { "solid-js": "^2.0.0-rc.13" } }, "sha512-vI/7v/XM8B/3U/oKAzCW2VjTLFkM5IArB2DFnrjxyPRYD3FX9KAXg9QuAnPIPQHC/xvg/LgxmvoVfZUfJ96gOQ=="],
 
     "@solidports/base-ui": ["@solidports/base-ui@workspace:packages/base-ui/packages/solid"],
+
+    "@solidports/base-ui-test-node-resolution": ["@solidports/base-ui-test-node-resolution@workspace:packages/base-ui/test/node-resolution-solid"],
 
     "@solidports/base-ui-test-public-types": ["@solidports/base-ui-test-public-types@workspace:packages/base-ui/test/public-types-solid"],
 
