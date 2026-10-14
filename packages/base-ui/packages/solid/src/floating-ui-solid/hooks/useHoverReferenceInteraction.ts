@@ -308,7 +308,13 @@ export function useHoverReferenceInteraction(parameters: {
 
         if (openDelay) {
           instance.openChangeTimeout.start(openDelay, () => {
-            if (shouldOpen && checkShouldOpen()) {
+            // Solid: the latest state when the delay ends. Opened another way while it was pending
+            // (a controlled `open`), the popup is not announced again. React only passes its test
+            // for this under StrictMode, whose re-run effect clears the timer.
+            const overInactiveNow =
+              triggerNode != null &&
+              isOverInactiveTrigger(store().select('domReferenceElement'), triggerNode, eventTarget);
+            if ((!store().select('open') || overInactiveNow) && checkShouldOpen()) {
               store().setOpen(
                 true,
                 createChangeEventDetails(REASONS.triggerHover, event, triggerNode),
@@ -467,9 +473,15 @@ export function useHoverReferenceInteraction(parameters: {
         return;
       }
 
+      // The latest state when the rest delay ends (see the open delay above).
       const latestOpen = store().select('open');
+      const overInactiveNow = isOverInactiveTrigger(
+        store().select('domReferenceElement'),
+        trigger,
+        event.target,
+      );
 
-      if (!instance.blockMouseMove && (!latestOpen || isOverInactive) && checkShouldOpen()) {
+      if (!instance.blockMouseMove && (!latestOpen || overInactiveNow) && checkShouldOpen()) {
         store().setOpen(true, createChangeEventDetails(REASONS.triggerHover, event, trigger));
       }
     }

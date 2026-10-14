@@ -1703,10 +1703,7 @@ describe('nested tooltips', () => {
     expect(screen.getByTestId('outer-popup')).not.toBe(null);
   });
 
-  // Solid: React passes only because StrictMode double-invokes the popup's hover effect, whose dispose
-  // clears the trigger's pending rest timer; verified 2026-10-05 that React's own test fails with
-  // `createRenderer({ strict: false })`, so production React behaves as Solid does.
-  it.skip('should not re-announce an open outer tooltip when the pending reopen fires', async () => {
+  it('should not re-announce an open outer tooltip when the pending reopen fires', async () => {
     const delay = 100;
     const onOpenChange = vi.fn();
 
