@@ -471,7 +471,7 @@
     "test": "cross-env VITEST_ENV=jsdom vitest",
     "test:package": "publint . --pack bun && cross-env NPM_CONFIG_CACHE=/tmp/base-ui-npm-cache attw --pack . --profile esm-only",
     "ts:specific": "bun --filter \"@solidports/base-ui\" exec tsc -p tsconfig.build.json --noEmit --skipLibCheck",
-    "type:check": "tsc --noEmit -p tsconfig.build.json --skipLibCheck",
+    "type:check": "tsc --noEmit -p tsconfig.build.json --skipLibCheck && tsc --noEmit -p tsconfig.test.json",
     "types": "tsc -p tsconfig.build.json && node scripts/addDeclarationExtensions.mjs",
     "typescript": "tsc -b tsconfig.json"
   },
