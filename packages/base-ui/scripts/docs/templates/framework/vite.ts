@@ -22,23 +22,63 @@ interface NextConfig {
     rules?: Record<string, { loaders?: LoaderEntry[] }>;
     resolveAlias?: Record<string, string>;
   };
-  mdxOptions?: { remarkPlugins?: PluginEntry[]; rehypePlugins?: PluginEntry[] };
+  webpack?: (config: WebpackConfig, options: Record<string, unknown>) => WebpackConfig;
+}
+
+interface MdxOptions {
+  remarkPlugins?: PluginEntry[];
+  rehypePlugins?: PluginEntry[];
+}
+
+interface WebpackRule {
+  test?: RegExp;
+  use?:
+    Array<string | { loader?: string; options?: unknown }> | { loader?: string; options?: unknown };
+}
+
+interface WebpackConfig {
+  module: { rules: WebpackRule[] };
+  resolve: { alias: Record<string, string> };
+  plugins: unknown[];
 }
 
 type Loader = (this: Record<string, unknown>, source: string) => unknown;
 
-/** The docs' `next.config.mjs`, with `@next/mdx` keeping the MDX options on the config. */
+/** The docs' `next.config.mjs`. */
 async function loadNextConfig(root: string): Promise<NextConfig> {
-  const jiti = createJiti(path.join(root, 'next.config.mjs'), {
-    alias: {
-      '@next/mdx': path.join(root, 'framework/next-mdx.mjs'),
-      docs: root,
-    },
-  });
+  const jiti = createJiti(path.join(root, 'next.config.mjs'), { alias: { docs: root } });
   const config = (await jiti.import(path.join(root, 'next.config.mjs'), {
     default: true,
   })) as NextConfig;
   return config;
+}
+
+/**
+ * The options `@next/mdx` gives its MDX loader. It adds the loader in the config's `webpack`
+ * function, as the rule for `.mdx` files.
+ */
+function mdxOptionsOf(config: NextConfig): MdxOptions {
+  const webpackConfig = config.webpack?.(
+    { module: { rules: [] }, resolve: { alias: {} }, plugins: [] },
+    {
+      defaultLoaders: { babel: 'babel-loader' },
+      dev: true,
+      isServer: false,
+      buildId: 'vite',
+      config,
+    },
+  );
+  for (const rule of webpackConfig?.module.rules ?? []) {
+    if (!rule.test?.test('page.mdx')) {
+      continue;
+    }
+    for (const use of Array.isArray(rule.use) ? rule.use : [rule.use]) {
+      if (typeof use === 'object' && use?.loader?.includes('mdx')) {
+        return (use.options ?? {}) as MdxOptions;
+      }
+    }
+  }
+  throw new Error('next.config.mjs adds no MDX loader (`@next/mdx`)');
 }
 
 async function importPlugin(entry: PluginEntry, require: NodeRequire) {
@@ -147,7 +187,7 @@ export async function nextApp(root: string): Promise<Plugin[]> {
     },
   };
 
-  const mdxOptions = config.mdxOptions ?? {};
+  const mdxOptions = mdxOptionsOf(config);
   const [remarkPlugins, rehypePlugins] = await Promise.all([
     Promise.all((mdxOptions.remarkPlugins ?? []).map((entry) => importPlugin(entry, require))),
     Promise.all((mdxOptions.rehypePlugins ?? []).map((entry) => importPlugin(entry, require))),
@@ -162,5 +202,27 @@ export async function nextApp(root: string): Promise<Plugin[]> {
     enforce: 'pre',
   };
 
-  return [env, loaders, mdxPlugin];
+  // Webpack writes a module's `import.meta.url` as its file URL, in the browser too, and docs-infra
+  // names a demo, a types file or the sitemap by it. Asset URLs (`new URL(..., import.meta.url)`)
+  // stay Vite's.
+  const moduleUrls: Plugin = {
+    name: 'next-app:import-meta-url',
+    enforce: 'pre',
+    transform(code, id) {
+      const [file] = id.split('?');
+      if (!file.startsWith(root) || file.includes(`${path.sep}node_modules${path.sep}`)) {
+        return null;
+      }
+      if (!code.includes('import.meta.url')) {
+        return null;
+      }
+      const url = JSON.stringify(pathToFileURL(file).href);
+      const replaced = code.replace(/(new URL\([^()]*?,\s*)?import\.meta\.url/g, (match, asset) =>
+        asset ? match : url,
+      );
+      return replaced === code ? null : { code: replaced, map: null };
+    },
+  };
+
+  return [env, loaders, moduleUrls, mdxPlugin];
 }
