@@ -191,6 +191,24 @@ export function MenuRootInternal<Payload>(props: MenuRootInternalProps<Payload>)
   const lastOpenChangeReason = store.useState('lastOpenChangeReason');
   const parent = store.useState('parent');
 
+  // `store.subscribeToParentMenu()`: a submenu's selectors read the parent menu's shared tree state
+  // (`rootId`, `floatingTreeRoot`, `keyboardEventRelay`), so its listeners are notified when that
+  // state changes. Owned by this root, the subscription ends when the submenu unmounts.
+  if (parentMenuStore) {
+    createEffect(
+      () => [
+        parentMenuStore.select('rootId'),
+        parentMenuStore.select('floatingTreeRoot'),
+        parentMenuStore.select('keyboardEventRelay'),
+      ],
+      (shared, previous) => {
+        if (previous !== undefined && shared.some((value, index) => value !== previous[index])) {
+          store.notifyAll();
+        }
+      },
+    );
+  }
+
   const activeIndex = store.useState('activeIndex');
   const payload = store.useState('payload') as Accessor<Payload | undefined>;
   const floatingParentNodeId = store.useState('floatingParentNodeId');

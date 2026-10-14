@@ -22,6 +22,8 @@ const storeBinders = new WeakMap<
 >();
 // Starts the derived-key notifiers of a store for the given keys (`true`: every key).
 const storeActivators = new WeakMap<object, (keys: Iterable<PropertyKey> | true) => void>();
+// Notifies a store's listeners (`observe`) without a write.
+const storeNotifiers = new WeakMap<object, () => void>();
 
 /**
  * A Store that supports controlled state keys, non-reactive values and provides utility methods for React.
@@ -301,8 +303,17 @@ export function SolidStore<
     });
   }
 
+  /**
+   * Notifies every listener (`observe`) as a write would, for state a selector derives from outside
+   * the store (React's `notifyAll()`). Solid's state is one proxy, so its reference does not change.
+   */
+  function notifyAll() {
+    storeNotifiers.get(state)?.();
+  }
+
   const store = {
     context,
+    notifyAll,
     observe,
     select,
     set: setState,
@@ -773,6 +784,7 @@ export function createStoreState<State extends object>(
     }
   });
   storeListeners.set(state, listeners);
+  storeNotifiers.set(state, notify);
   storeBinders.set(state, bind);
   return [state as Store<State>, setState as unknown as SetStoreFunction<State>];
 }
