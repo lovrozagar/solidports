@@ -1,6 +1,6 @@
 import { createMemo, Match, Switch } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import type { ComponentProps, JSX } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import { useComboboxInputValueContext } from '../../combobox/root/ComboboxRootContext';
 
 /**
@@ -11,6 +11,8 @@ import { useComboboxInputValueContext } from '../../combobox/root/ComboboxRootCo
  */
 export function AutocompleteValue(props: AutocompleteValue.Props) {
   const inputValue = useComboboxInputValueContext();
+  // The function child reads the value as text, as React passes it `String(inputValue)`.
+  const text = createMemo(() => String(inputValue()));
   // One read: each read of JSX children creates them anew.
   const children = createMemo(() => props.children);
 
@@ -20,11 +22,11 @@ export function AutocompleteValue(props: AutocompleteValue.Props) {
         keyed
         when={
           typeof children() === 'function'
-            ? (children() as (value: typeof inputValue) => JSX.Element)
+            ? (children() as (value: Accessor<string>) => JSX.Element)
             : undefined
         }
       >
-        {(renderer) => renderer(inputValue)}
+        {(renderer) => renderer(text)}
       </Match>
       <Match when={children() != null}>{children() as JSX.Element}</Match>
     </Switch>
@@ -34,8 +36,7 @@ export function AutocompleteValue(props: AutocompleteValue.Props) {
 export interface AutocompleteValueState {}
 
 export interface AutocompleteValueProps {
-  children?:
-    JSX.Element | ((value: Accessor<ComponentProps<'input'>['value']>) => JSX.Element) | undefined;
+  children?: JSX.Element | ((value: Accessor<string>) => JSX.Element) | undefined;
 }
 
 export namespace AutocompleteValue {
