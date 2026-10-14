@@ -46,8 +46,8 @@ export function Demo(props: DemoProps) {
   const location = useLocation()
 
   const demoSlug = createMemo(() => {
-    if (props.slug) return props.slug
-    if (props.name) return kebabCase(props.name)
+    if (props.slug) {return props.slug}
+    if (props.name) {return kebabCase(props.name)}
     return undefined
   })
   function onCopied() {
@@ -68,7 +68,7 @@ export function Demo(props: DemoProps) {
 
   const [fallbackToCodeSandbox, setFallbackToCodeSandbox] = createSignal(false)
   onSettled(() => {
-    if (isSafari || isEdge) setFallbackToCodeSandbox(true)
+    if (isSafari || isEdge) {setFallbackToCodeSandbox(true)}
   })
 
   function onOpenChange(nextOpen: boolean) {
@@ -110,7 +110,7 @@ export function Demo(props: DemoProps) {
     const variant = demo.selectedVariant() === "Tailwind" ? "tailwind" : "css-modules"
     const [component, ...rest] = props.path.split("/")
     const demoName = rest.join("/")
-    if (!component || !demoName) return null
+    if (!component || !demoName) {return null}
     return `https://github.com/mui/base-ui/tree/v1.9.0/docs/src/app/(docs)/react/components/${component}/demos/${demoName}/${variant}`
   })
 

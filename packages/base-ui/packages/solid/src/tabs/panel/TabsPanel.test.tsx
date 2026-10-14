@@ -2,7 +2,7 @@ import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } fr
 import { Tabs } from '@solidports/base-ui/tabs';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { createMemo, createSignal, Loading, Show } from 'solid-js';
-import { afterEach, expect, vi } from 'vitest';
+import { afterEach, expect, vi, describe, it } from 'vitest';
 
 describe('<Tabs.Panel />', () => {
   const { render } = createRenderer();

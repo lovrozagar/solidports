@@ -1,12 +1,12 @@
 import type { Accessor } from 'solid-js';
+import { isHTMLElement } from '@floating-ui/utils/dom';
 import { ownerWindow } from '../../utils/owner';
 import { EMPTY_ARRAY } from '../../utils/empty';
-import { isHTMLElement } from '@floating-ui/utils/dom';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
-import { stopEvent } from '../../floating-ui-solid/utils/event';
+import { stopEvent, isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 import { getMaxListIndex, getMinListIndex } from '../../floating-ui-solid/utils/composite';
 import {
   isCrossOrientationCloseKey,
@@ -16,7 +16,6 @@ import {
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
 import type { MenuRoot } from '../root/MenuRoot';
-import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 
 export type MenuFilterKeyAction =
   /** Native text editing in the input; list navigation and parent handlers stay out of it. */

@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { createContext, createRoot, flush, onCleanup, useContext } from 'solid-js';
 import { createStore } from './solid-1-compat';
 import { provideContext } from './solid-helpers';

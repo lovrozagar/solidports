@@ -579,7 +579,7 @@ export interface ToastRootProps extends BaseUIComponentProps<'div', ToastRoot.St
    * @default ['down', 'right']
    */
   swipeDirection?:
-    ('up' | 'down' | 'left' | 'right' | ('up' | 'down' | 'left' | 'right')[]) | undefined;
+    'up' | 'down' | 'left' | 'right' | ('up' | 'down' | 'left' | 'right')[] | undefined;
 }
 
 export namespace ToastRoot {

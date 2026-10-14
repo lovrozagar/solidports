@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { Tooltip } from '@solidports/base-ui/tooltip';

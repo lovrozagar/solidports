@@ -208,7 +208,9 @@ export function useDismiss(parameters: {
 
   const isReferencePressEnabled = () => {
     const refPress = props.referencePress;
-    if (typeof refPress === 'function') return refPress();
+    if (typeof refPress === 'function') {
+      return refPress();
+    }
     return refPress ?? false;
   };
 
@@ -548,7 +550,9 @@ export function useDismiss(parameters: {
     listener: (event: EventType) => void,
   ) {
     const target = getTarget(event);
-    if (!target) return;
+    if (!target) {
+      return;
+    }
     const unsubscribe = addEventListener(
       target as EventTarget & { addEventListener: any; removeEventListener: any },
       event.type,
@@ -856,22 +860,30 @@ export function useDismiss(parameters: {
   const reference = createMemo<ElementProps['reference']>(() => ({
     onKeyDown: closeOnEscapeKeyDown,
     [bubbleHandlerKeys[props.referencePressEvent]](event: Event) {
-      if (!isReferencePressEnabled()) return;
+      if (!isReferencePressEnabled()) {
+        return;
+      }
       store().setOpen(false, createChangeEventDetails(REASONS.triggerPress, event as any));
     },
     ...(props.referencePressEvent !== 'intentional' && {
       onClick(event: Event) {
-        if (!isReferencePressEnabled()) return;
+        if (!isReferencePressEnabled()) {
+          return;
+        }
         store().setOpen(false, createChangeEventDetails(REASONS.triggerPress, event as any));
       },
     }),
   }));
 
   const markPressStartedInsideTree = (event: PointerEvent | MouseEvent) => {
-    if (!open() || !props.enabled || event.button !== 0) return;
+    if (!open() || !props.enabled || event.button !== 0) {
+      return;
+    }
     const target = getTarget(event) as Element | null;
     /* Only treat presses that start within the floating DOM subtree as inside. */
-    if (!contains(floatingElement(), target)) return;
+    if (!contains(floatingElement(), target)) {
+      return;
+    }
     if (!pressStartedInsideRef) {
       pressStartedInsideRef = true;
       pressStartPreventedRef = false;
@@ -880,15 +892,21 @@ export function useDismiss(parameters: {
   };
 
   const markInsidePressStartPrevented = (event: PointerEvent | MouseEvent) => {
-    if (!open() || !props.enabled) return;
-    if (!(event.defaultPrevented || (event as any).nativeEvent?.defaultPrevented)) return;
+    if (!open() || !props.enabled) {
+      return;
+    }
+    if (!(event.defaultPrevented || (event as any).nativeEvent?.defaultPrevented)) {
+      return;
+    }
     if (pressStartedInsideRef) {
       pressStartPreventedRef = true;
     }
   };
 
   const markPressStartedinsidePortal = (event: PointerEvent | MouseEvent) => {
-    if (!open() || !props.enabled || !isPrimaryButtonPress(event)) return;
+    if (!open() || !props.enabled || !isPrimaryButtonPress(event)) {
+      return;
+    }
     markPressStartedInsideTree(event);
   };
 

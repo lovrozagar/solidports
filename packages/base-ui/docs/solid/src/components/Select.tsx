@@ -5,6 +5,7 @@ import "./Select.css"
 import { CheckIcon } from "../icons/CheckIcon"
 
 import { splitProps } from '../utils/solid-1-compat';
+
 export const Root = Select.Root
 
 type TriggerProps = Omit<Select.Trigger.Props, "children"> & {

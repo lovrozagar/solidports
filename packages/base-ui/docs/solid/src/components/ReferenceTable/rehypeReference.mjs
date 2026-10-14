@@ -1,11 +1,11 @@
 // @ts-check
-import { createHast } from '../../mdx/createHast.mjs';
-import { createMdxElement } from '../../mdx/createMdxElement.mjs';
-import { descriptionToHtml, withDescriptionHtml } from './descriptionHtml.mjs';
 import { kebabCase } from 'es-toolkit/string';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'path';
 import { visitParents } from 'unist-util-visit-parents';
+import { descriptionToHtml, withDescriptionHtml } from './descriptionHtml.mjs';
+import { createMdxElement } from '../../mdx/createMdxElement.mjs';
+import { createHast } from '../../mdx/createHast.mjs';
 import {
   getAttributeValue,
   isComponentDef,

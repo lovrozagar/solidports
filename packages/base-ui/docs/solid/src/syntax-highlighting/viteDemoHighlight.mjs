@@ -21,12 +21,12 @@ export function demoHighlight() {
     name: "docs:demo-highlight",
     enforce: "pre",
     resolveId(source, importer) {
-      if (!source.endsWith(QUERY) || !importer) return null
+      if (!source.endsWith(QUERY) || !importer) {return null}
       const file = resolve(dirname(importer.replace(PREFIX, "")), source.slice(0, -QUERY.length))
       return PREFIX + Buffer.from(file).toString("base64url")
     },
     load(id) {
-      if (!id.startsWith(PREFIX)) return null
+      if (!id.startsWith(PREFIX)) {return null}
       const file = Buffer.from(id.slice(PREFIX.length), "base64url").toString()
       this.addWatchFile(file)
       const text = displaySource(readFileSync(file, "utf8"))

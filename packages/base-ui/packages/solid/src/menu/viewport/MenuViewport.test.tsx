@@ -7,7 +7,7 @@ import {
 } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe } from 'vitest';
 import { For, omit } from 'solid-js';
 
 describe('<Menu.Viewport />', () => {

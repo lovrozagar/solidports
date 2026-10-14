@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createSignal, Show } from 'solid-js';
 import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';

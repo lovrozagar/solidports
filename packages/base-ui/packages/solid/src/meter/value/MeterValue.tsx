@@ -38,7 +38,7 @@ export interface MeterValueProps extends Omit<
   BaseUIComponentProps<'span', MeterValueState>,
   'children'
 > {
-  children?: (null | ((formattedValue: string, value: number) => JSX.Element)) | undefined;
+  children?: null | ((formattedValue: string, value: number) => JSX.Element) | undefined;
 }
 
 export namespace MeterValue {

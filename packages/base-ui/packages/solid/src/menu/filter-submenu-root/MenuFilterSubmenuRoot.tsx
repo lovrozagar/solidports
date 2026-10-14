@@ -6,7 +6,7 @@ import { activeElement, contains } from '../../utils/shadowDom';
 import { ownerDocument } from '../../utils/owner';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
-import { stopEvent } from '../../floating-ui-solid/utils/event';
+import { stopEvent, isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 import {
   isCrossOrientationCloseKey,
   isCrossOrientationOpenKey,
@@ -14,8 +14,7 @@ import {
 } from '../../floating-ui-solid/hooks/useListNavigation';
 import { MenuRootInternal } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import type { MenuSubmenuRoot } from '../submenu-root/MenuSubmenuRoot';
-import type { MenuSubmenuRootProps } from '../submenu-root/MenuSubmenuRoot';
+import type { MenuSubmenuRoot, MenuSubmenuRootProps } from '../submenu-root/MenuSubmenuRoot';
 import { MenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
 import type { MenuFilterProviderOptions } from '../filter-provider/MenuFilterProviderOptions';
 import { MenuFilterDropdown } from '../filter-root/MenuFilterDropdown';
@@ -23,7 +22,6 @@ import { useMenuFilterRoot } from '../filter-root/useMenuFilterRoot';
 import { moveHighlightFrom } from '../filter-root/moveHighlightFrom';
 import { isKeyboardOpen } from '../utils/isKeyboardOpen';
 import type { MenuStore } from '../store/MenuStore';
-import { isCompositionKeyDown } from '../../floating-ui-solid/utils/event';
 
 type ParentReference = { reference: HTMLElement; trigger: HTMLElement };
 

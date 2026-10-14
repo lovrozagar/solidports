@@ -1,4 +1,4 @@
-import { afterEach, expect, vi } from 'vitest';
+import { afterEach, expect, vi, describe, it } from 'vitest';
 import { createSignal, For, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Tabs } from '@solidports/base-ui/tabs';

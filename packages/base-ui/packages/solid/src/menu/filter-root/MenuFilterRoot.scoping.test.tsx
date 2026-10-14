@@ -814,7 +814,7 @@ describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider>', () => {
       const onItemHighlighted = vi.fn();
       const [testProps, setTestProps] = createSignal<Parameters<typeof InsertMenu>[0]>({
         inserted: false,
-        onItemHighlighted: onItemHighlighted,
+        onItemHighlighted,
       });
       const setProps = async (next: Partial<Parameters<typeof InsertMenu>[0]>) =>
         act(() => setTestProps((previous) => ({ ...previous, ...next })));
@@ -866,7 +866,7 @@ describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider>', () => {
       const onItemHighlighted = vi.fn();
       const [testProps, setTestProps] = createSignal<Parameters<typeof AppendMenu>[0]>({
         appended: false,
-        onItemHighlighted: onItemHighlighted,
+        onItemHighlighted,
       });
       const setProps = async (next: Partial<Parameters<typeof AppendMenu>[0]>) =>
         act(() => setTestProps((previous) => ({ ...previous, ...next })));

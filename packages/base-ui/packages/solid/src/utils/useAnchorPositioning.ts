@@ -85,14 +85,14 @@ interface SideFlipMode {
    * - `'flip'`: If there is not enough space, place the popup on the opposite side.
    * - `'none'`: Keep the preferred side even if it overflows.
    */
-  side?: ('flip' | 'none') | undefined;
+  side?: 'flip' | 'none' | undefined;
   /**
    * How to avoid collisions on the align axis.
    * - `'flip'`: If there is not enough space, swap `'start'` and `'end'` alignment.
    * - `'shift'`: Keep the alignment and shift the popup to fit within the boundary.
    * - `'none'`: Keep the preferred alignment even if it overflows.
    */
-  align?: ('flip' | 'shift' | 'none') | undefined;
+  align?: 'flip' | 'shift' | 'none' | undefined;
   /**
    * If both sides on the preferred axis do not fit, determines whether to fallback
    * to a side on the perpendicular axis and which logical side to prefer.
@@ -100,7 +100,7 @@ interface SideFlipMode {
    * - `'end'`: Prefer the logical end side on the perpendicular axis.
    * - `'none'`: Do not fallback to the perpendicular axis.
    */
-  fallbackAxisSide?: ('start' | 'end' | 'none') | undefined;
+  fallbackAxisSide?: 'start' | 'end' | 'none' | undefined;
 }
 
 interface SideShiftMode {
@@ -109,13 +109,13 @@ interface SideShiftMode {
    * - `'shift'`: Keep the preferred side and shift the popup to fit within the boundary.
    * - `'none'`: Keep the preferred side even if it overflows.
    */
-  side?: ('shift' | 'none') | undefined;
+  side?: 'shift' | 'none' | undefined;
   /**
    * How to avoid collisions on the align axis.
    * - `'shift'`: Keep the alignment and shift the popup to fit within the boundary.
    * - `'none'`: Keep the preferred alignment even if it overflows.
    */
-  align?: ('shift' | 'none') | undefined;
+  align?: 'shift' | 'none' | undefined;
   /**
    * If both sides on the preferred axis do not fit, determines whether to fallback
    * to a side on the perpendicular axis and which logical side to prefer.
@@ -123,7 +123,7 @@ interface SideShiftMode {
    * - `'end'`: Prefer the logical end side on the perpendicular axis.
    * - `'none'`: Do not fallback to the perpendicular axis.
    */
-  fallbackAxisSide?: ('start' | 'end' | 'none') | undefined;
+  fallbackAxisSide?: 'start' | 'end' | 'none' | undefined;
 }
 
 export type CollisionAvoidance = SideFlipMode | SideShiftMode;
@@ -682,13 +682,16 @@ export interface UseAnchorPositioningSharedParameters {
    * By default, the popup will be positioned against the trigger.
    */
   anchor?:
-    | (Element | null | VirtualElement | (() => Element | VirtualElement | null | undefined))
+    | Element
+    | null
+    | VirtualElement
+    | (() => Element | VirtualElement | null | undefined)
     | undefined;
   /**
    * Determines which CSS `position` property to use.
    * @default 'absolute'
    */
-  positionMethod?: ('absolute' | 'fixed') | undefined;
+  positionMethod?: 'absolute' | 'fixed' | undefined;
   /**
    * Which side of the anchor element to align the popup against.
    * May automatically change to avoid collisions.
@@ -719,7 +722,7 @@ export interface UseAnchorPositioningSharedParameters {
    *
    * @default 0
    */
-  sideOffset?: (number | OffsetFunction) | undefined;
+  sideOffset?: number | OffsetFunction | undefined;
   /**
    * How to align the popup relative to the specified side.
    * @default 'center'
@@ -749,7 +752,7 @@ export interface UseAnchorPositioningSharedParameters {
    *
    * @default 0
    */
-  alignOffset?: (number | OffsetFunction) | undefined;
+  alignOffset?: number | OffsetFunction | undefined;
   /**
    * An element or a rectangle that delimits the area that the popup is confined to.
    * @default 'clipping-ancestors'
@@ -825,7 +828,7 @@ export interface UseAnchorPositioningParameters extends Accessorify<
   'maybeAccessor'
 > {
   keepMounted?: MaybeAccessor<boolean | undefined>;
-  trackCursorAxis?: MaybeAccessor<('none' | 'x' | 'y' | 'both') | undefined>;
+  trackCursorAxis?: MaybeAccessor<'none' | 'x' | 'y' | 'both' | undefined>;
   floatingRootContext?: FloatingRootContext | undefined;
   mounted: MaybeAccessor<boolean>;
   disableAnchorTracking: MaybeAccessor<boolean>;

@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 describe('<NavigationMenu.Link />', () => {
   const { render } = createRenderer();

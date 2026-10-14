@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { createEffect } from 'solid-js';
 import { createRenderer, describeConformance } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';

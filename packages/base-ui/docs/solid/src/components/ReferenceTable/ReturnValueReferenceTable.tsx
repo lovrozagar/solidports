@@ -8,6 +8,7 @@ import type { PropDef } from './types';
 import { Description } from './Description';
 
 import { splitProps } from '../../utils/solid-1-compat';
+
 interface ReturnValueReferenceTableProps extends JSX.HTMLAttributes<HTMLDivElement> {
   data: Record<string, PropDef>;
   name?: string;

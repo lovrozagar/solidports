@@ -1854,7 +1854,7 @@ describe('<Checkbox.Root />', () => {
 
     const checkbox = screen.getByRole('checkbox');
     expect(checkbox).to.have.attribute('aria-checked', 'false');
-    // eslint-disable-next-line testing-library/no-container
+
     expect(container.querySelector('button')).to.equal(checkbox);
 
     await user.keyboard('[Tab]');

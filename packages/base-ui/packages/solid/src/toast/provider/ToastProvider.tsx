@@ -1,6 +1,6 @@
 import { createEffect, onSettled, untrack } from 'solid-js';
-import { createLayoutEffect } from '../../solid-helpers';
 import type { JSX } from '@solidjs/web';
+import { createLayoutEffect } from '../../solid-helpers';
 import type { ToastManager, ToastManagerEvent } from '../createToastManager';
 import { ToastStore } from '../store';
 import { ToastContext } from './ToastProviderContext';

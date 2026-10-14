@@ -1,4 +1,5 @@
 import type { ParentProps } from 'solid-js';
+
 type CalloutType = "note" | "warning" | "tip" | "danger"
 
 interface CalloutProps extends ParentProps {

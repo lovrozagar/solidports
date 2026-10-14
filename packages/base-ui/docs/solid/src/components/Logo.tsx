@@ -1,4 +1,5 @@
 import type { JSX } from '@solidjs/web';
+
 export function Logo(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   return (
     <svg width="17" height="24" viewBox="0 0 17 24" fill="currentcolor" {...props}>

@@ -1,6 +1,7 @@
 import { getOwner, omit, runWithOwner, Show, untrack } from 'solid-js';
-import { createNativeConditional } from '../../utils/native/conditional';
 import type { JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
+import { createNativeConditional } from '../../utils/native/conditional';
 import {
   renderNativePanel,
   warnKeepMountedIgnored,
@@ -10,7 +11,6 @@ import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRoo
 import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
-import { isServer } from '@solidjs/web';
 import { canRenderNative } from '../../utils/native';
 import { createIdRegistration } from '../../utils/native/registration';
 import { useRenderElement } from '../../utils/useRenderElement';

@@ -3,7 +3,7 @@ import { Dialog } from '@solidports/base-ui/dialog';
 import { screen } from '@solidjs/testing-library';
 import { lazy, Loading } from 'solid-js';
 import type { Component } from 'solid-js';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 
 describe('<Dialog.Portal />', () => {
   const { render } = createRenderer();

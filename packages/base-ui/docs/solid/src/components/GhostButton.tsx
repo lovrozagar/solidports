@@ -1,6 +1,6 @@
 import type { JSX } from '@solidjs/web';
-import { splitProps } from '../utils/solid-1-compat';
 import clsx from "clsx"
+import { splitProps } from '../utils/solid-1-compat';
 import "./GhostButton.css"
 
 interface GhostButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement> {

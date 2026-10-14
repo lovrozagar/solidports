@@ -1,5 +1,6 @@
 import { createMemo, For, Show, Loading } from 'solid-js';
 import type { Component } from 'solid-js';
+
 interface PropDef {
   type?: string
   default?: string
@@ -55,7 +56,7 @@ function buildFilename(component: string, part?: string): string {
 
 async function loadReference(path: string): Promise<ReferenceDef | null> {
   const loader = referenceModules[path]
-  if (!loader) return null
+  if (!loader) {return null}
   try {
     return await loader()
   } catch {
@@ -237,8 +238,8 @@ function FunctionRenderer(props: { def: FunctionDef }) {
 
   const returnEntries = () => {
     const rv = props.def.returnValue
-    if (!rv || typeof rv === "string") return []
-    if ("type" in rv || "description" in rv) return [["", rv as PropDef]] as const
+    if (!rv || typeof rv === "string") {return []}
+    if ("type" in rv || "description" in rv) {return [["", rv as PropDef]] as const}
     return Object.entries(rv as Record<string, PropDef>)
   }
 

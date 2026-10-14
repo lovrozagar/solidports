@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { For, omit } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';

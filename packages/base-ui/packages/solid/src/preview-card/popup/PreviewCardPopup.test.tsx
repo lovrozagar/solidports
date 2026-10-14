@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { screen } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 
 describe('<PreviewCard.Popup />', () => {
   const { render } = createRenderer();

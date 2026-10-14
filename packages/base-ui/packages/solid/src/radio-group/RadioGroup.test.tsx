@@ -1576,9 +1576,7 @@ describe('<RadioGroup />', () => {
           return (
             <Field.Root data-testid="field">
               <RadioGroup>
-                {(props.firstMounted ?? true) && (
-                  <Radio.Root value="a" data-testid="first-radio" />
-                )}
+                {(props.firstMounted ?? true) && <Radio.Root value="a" data-testid="first-radio" />}
                 <Radio.Root value="b" data-testid="second-radio" />
               </RadioGroup>
             </Field.Root>

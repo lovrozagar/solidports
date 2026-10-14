@@ -67,11 +67,11 @@ interface Props extends JSX.HTMLAttributes<HTMLElement> {
 }
 
 function getShortPropType(name: string, type: string | undefined) {
-  if (/^(on|get)[A-Z].*/.test(name)) return { type: 'function', detailedType: true };
-  if (type === undefined || type === null) return { type: String(type), detailedType: false };
-  if (name === 'class') return { type: 'string | function', detailedType: true };
-  if (name === 'style') return { type: 'CSSProperties | function', detailedType: true };
-  if (name === 'render') return { type: 'JSX.Element | function', detailedType: true };
+  if (/^(on|get)[A-Z].*/.test(name)) {return { type: 'function', detailedType: true };}
+  if (type === undefined || type === null) {return { type: String(type), detailedType: false };}
+  if (name === 'class') {return { type: 'string | function', detailedType: true };}
+  if (name === 'style') {return { type: 'CSSProperties | function', detailedType: true };}
+  if (name === 'render') {return { type: 'JSX.Element | function', detailedType: true };}
 
   if (
     name.endsWith('Ref') ||
@@ -93,7 +93,7 @@ function escapeRegExp(input: string) {
 }
 
 function replaceComponentPrefix(input: string | undefined, from?: string, to?: string) {
-  if (!input || !from || !to) return input ?? '';
+  if (!input || !from || !to) {return input ?? '';}
   const pattern = new RegExp(`\\b${escapeRegExp(from)}(?=\\.)`, 'g');
   return input.replace(pattern, to);
 }

@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { act, createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { screen } from '@solidjs/testing-library';

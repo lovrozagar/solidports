@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
@@ -71,7 +71,7 @@ describe('<Menu.RadioItem />', () => {
 
     function LoggingRoot(props: any & { renderSpy: () => void }) {
       const [local, other] = splitProps(props, ['renderSpy', 'state']);
-      // eslint-disable-next-line solid/reactivity
+
       local.renderSpy();
       return <li {...other} ref={props.ref} />;
     }

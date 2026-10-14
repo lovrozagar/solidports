@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, flushMicrotasks, isJSDOM, act } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { cleanup, fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 
 // Solid: local copies of React's `#test-utils` pointer helpers.

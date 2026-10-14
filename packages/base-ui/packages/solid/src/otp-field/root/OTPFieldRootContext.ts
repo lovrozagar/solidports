@@ -1,8 +1,8 @@
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import type { OTPFieldRoot, OTPFieldRootState } from './OTPFieldRoot';
 import type { OTPFieldInputState } from '../input/OTPFieldInput';
-import type { JSX } from '@solidjs/web';
 
 export interface OTPFieldRootContext {
   activeIndex: Accessor<number>;

@@ -23,7 +23,7 @@ export function DemoFileSelector(props: DemoFileSelectorProps) {
 
   function onValueChange(value: string) {
     /* Ignore value changes triggered by Ctrl/Cmd-click (user opens in new tab). */
-    if (modifierKeysPressed) return
+    if (modifierKeysPressed) {return}
     props.selectFileName(value)
     props.onTabChange?.()
   }
@@ -75,7 +75,7 @@ export function DemoFileSelector(props: DemoFileSelectorProps) {
                       onClick={(event) => {
                         /* Tabs.Tab's internal click handler triggers value change — must run BEFORE preventDefault. */
                         const innerOnClick = merged.onClick
-                        if (typeof innerOnClick === "function") innerOnClick(event)
+                        if (typeof innerOnClick === "function") {innerOnClick(event)}
                         onTabClick(event)
                       }}
                     >

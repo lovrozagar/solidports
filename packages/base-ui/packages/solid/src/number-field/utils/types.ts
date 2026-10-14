@@ -11,7 +11,7 @@ export interface IncrementValueParameters {
   direction: Direction;
   event?: Event | undefined;
   reason: DirectionalChangeReason;
-  currentValue?: (number | null) | undefined;
+  currentValue?: number | null | undefined;
 }
 
 export interface EventWithOptionalKeyState {

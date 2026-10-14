@@ -10,7 +10,7 @@ import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
-import { expect as vitestExpect, vi } from 'vitest';
+import { expect as vitestExpect, vi, describe, beforeEach, it } from 'vitest';
 import { REASONS } from '../../utils/reasons';
 import { CLOSE_DELAY, OPEN_DELAY } from '../utils/constants';
 import { splitProps } from '../../solid-1-compat';

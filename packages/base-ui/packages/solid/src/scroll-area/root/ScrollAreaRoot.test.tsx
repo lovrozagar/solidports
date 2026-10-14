@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { createEffect, createSignal, Show, useContext } from 'solid-js';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';

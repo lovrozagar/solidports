@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { ContextMenu } from '@solidports/base-ui/context-menu';
 import { fireEvent, screen } from '@solidjs/testing-library';

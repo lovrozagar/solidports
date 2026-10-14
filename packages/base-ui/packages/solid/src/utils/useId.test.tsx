@@ -1,6 +1,6 @@
 import { act, createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { createSignal } from 'solid-js';
 import { NoHydration } from '@solidjs/web';
 import { access } from '../solid-helpers';

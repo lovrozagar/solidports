@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createMemo, createRoot, createSignal } from 'solid-js';
 import { act } from '#test-utils';
 import { callEventHandler } from '../solid-helpers';

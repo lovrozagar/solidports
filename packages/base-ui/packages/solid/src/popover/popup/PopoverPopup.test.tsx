@@ -9,7 +9,7 @@ import {
 } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { Toolbar } from '@solidports/base-ui/toolbar';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import type { JSX } from '@solidjs/web';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';

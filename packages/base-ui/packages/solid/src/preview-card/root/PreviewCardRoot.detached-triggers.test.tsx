@@ -10,7 +10,7 @@ import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal, onSettled, Show } from 'solid-js';
 import { render as solidRender } from '@solidjs/web';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { OPEN_DELAY } from '../utils/constants';
 import { autofocus } from '../../solid-helpers';
 

@@ -13,7 +13,7 @@ import { Menubar } from '@solidports/base-ui/menubar';
 import { cleanup, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import { createSignal } from 'solid-js';
-import { expect, afterEach, beforeEach, vi } from 'vitest';
+import { expect, afterEach, beforeEach, vi, describe, it } from 'vitest';
 import { access } from '../../solid-helpers';
 
 const useAnchorPositioningSpy = vi.hoisted(() => vi.fn());

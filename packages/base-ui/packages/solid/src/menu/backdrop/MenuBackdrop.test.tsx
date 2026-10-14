@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { createEffect } from 'solid-js';
 import { createRenderer, describeConformance } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';

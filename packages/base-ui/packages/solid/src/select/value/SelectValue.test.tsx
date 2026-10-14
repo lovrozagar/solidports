@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal, For } from 'solid-js';
 

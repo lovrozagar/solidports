@@ -25,8 +25,8 @@ export function mergeProps<T extends (object | null | undefined)[]>(
 ): MergePropsResult<T> {
   const keys = new Set<string>();
   for (const source of sources) {
-    if (!source) continue;
-    for (const key of Object.keys(source)) keys.add(key);
+    if (!source) {continue;}
+    for (const key of Object.keys(source)) {keys.add(key);}
   }
   const target: Record<string, unknown> = {};
   for (const key of keys) {
@@ -36,9 +36,9 @@ export function mergeProps<T extends (object | null | undefined)[]>(
       get() {
         for (let i = sources.length - 1; i >= 0; i--) {
           const source = sources[i];
-          if (!source) continue;
+          if (!source) {continue;}
           const value = (source as Record<string, unknown>)[key];
-          if (value !== undefined) return value;
+          if (value !== undefined) {return value;}
         }
       },
       set() {},
@@ -80,7 +80,7 @@ export function splitProps<T extends object, const K extends (readonly (keyof T)
   const result: unknown[] = [];
   for (const group of groups) {
     const owned = group.filter((key) => {
-      if (claimed.has(key)) return false;
+      if (claimed.has(key)) {return false;}
       claimed.add(key);
       return true;
     });
@@ -158,7 +158,7 @@ export function writeStorePatch(draft: any, patch: Record<string, unknown>) {
   for (const key of Object.keys(patch)) {
     const next = patch[key];
     try {
-      if (Object.is(draft[key], next)) continue;
+      if (Object.is(draft[key], next)) {continue;}
       draft[key] = next;
     } catch (error) {
       if (error instanceof TypeError && /only a getter/i.test(error.message)) {
@@ -170,7 +170,7 @@ export function writeStorePatch(draft: any, patch: Record<string, unknown>) {
 }
 
 function applyPath(set: StoreSetter<any>, args: any[]) {
-  if (args.length === 0) return;
+  if (args.length === 0) {return;}
   if (args.length === 1) {
     const arg = args[0];
     if (typeof arg === 'function') {
@@ -195,7 +195,7 @@ function applyPath(set: StoreSetter<any>, args: any[]) {
       let parent = draft;
       for (let i = 0; i < path.length; i++) {
         const key = path[i];
-        if (parent == null) return;
+        if (parent == null) {return;}
         if (i === path.length - 1) {
           let current = parent[key];
           if (current == null) {

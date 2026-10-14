@@ -32,13 +32,13 @@ export function SearchBar(props: SearchBarProps) {
   onSettled(() => {
     const _c: Array<() => void> = [];
     (() => {
-      if (!props.enableKeyboardShortcut) return;
+      if (!props.enableKeyboardShortcut) {return;}
 
       const onKeyDown = (event: KeyboardEvent) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
           event.preventDefault();
           event.stopPropagation();
-          if (!open()) handleOpen();
+          if (!open()) {handleOpen();}
         }
       };
       window.addEventListener('keydown', onKeyDown, { capture: true });

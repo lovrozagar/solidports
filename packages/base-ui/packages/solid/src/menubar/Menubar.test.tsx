@@ -22,7 +22,7 @@ import {
 import { spy } from 'sinon';
 import { createRoot, createSignal, For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, vi, it } from 'vitest';
 import { useMenubarContext } from './MenubarContext';
 
 describe('<Menubar />', () => {
@@ -1260,7 +1260,6 @@ describe('<Menubar />', () => {
       expect(handleClick).not.toHaveBeenCalled();
     });
   });
-
 });
 
 describe('<Menubar /> provider guard', () => {

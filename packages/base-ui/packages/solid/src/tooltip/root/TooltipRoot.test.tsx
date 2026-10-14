@@ -1,7 +1,7 @@
 import { createRenderer, flushMicrotasks, isJSDOM, popupConformanceTests, act } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, beforeEach, afterEach, it } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal, For, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';

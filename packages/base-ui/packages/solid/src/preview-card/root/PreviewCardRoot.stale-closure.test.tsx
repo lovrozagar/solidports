@@ -39,7 +39,7 @@ describe('PreviewCardRoot stale-closure regression', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('positioner')).not.toBeNull();
+    expect(screen.getByTestId('positioner')).not.toBeNull();
     expect(cb1).toHaveBeenCalledTimes(1);
     expect(cb1).toHaveBeenLastCalledWith(true, expect.anything());
 

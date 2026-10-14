@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { createRenderer, describeConformance } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { screen, waitFor } from '@solidjs/testing-library';

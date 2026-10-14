@@ -1,6 +1,6 @@
 import { createSignal, untrack } from 'solid-js';
-import { closest } from './shadowDom';
 import type { JSX } from '@solidjs/web';
+import { closest } from './shadowDom';
 import { ownerDocument } from './owner';
 import { clamp } from './clamp';
 import { contains, getTarget } from '../floating-ui-solid/utils';

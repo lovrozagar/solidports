@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { expect, afterEach, beforeEach, vi } from 'vitest';
+import { expect, afterEach, beforeEach, vi, describe, it } from 'vitest';
 import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { Menu } from '@solidports/base-ui/menu';

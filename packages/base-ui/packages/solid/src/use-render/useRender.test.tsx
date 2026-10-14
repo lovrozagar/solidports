@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/render-result-naming-convention */
 import { act, createRenderer } from '#test-utils';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { createSignal } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { useRender } from './useRender';
@@ -44,7 +44,6 @@ describe('useRender', () => {
       const [local, otherProps] = splitProps(props, ['render']);
 
       const element = useRender({
-        // eslint-disable-next-line solid/reactivity
         props: otherProps,
         ref: (el: HTMLElement | null) => {
           refs[0] = el;

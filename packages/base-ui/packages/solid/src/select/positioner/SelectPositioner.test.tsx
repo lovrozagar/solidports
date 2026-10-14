@@ -6,7 +6,7 @@ import {
 } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 function Trigger(props: Select.Trigger.Props) {
   return <Select.Trigger {...props} ref={props.ref} />;

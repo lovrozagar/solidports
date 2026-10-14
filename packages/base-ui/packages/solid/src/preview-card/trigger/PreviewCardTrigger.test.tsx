@@ -1,6 +1,6 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 
 describe('<PreviewCard.Trigger />', () => {
   const { render } = createRenderer();

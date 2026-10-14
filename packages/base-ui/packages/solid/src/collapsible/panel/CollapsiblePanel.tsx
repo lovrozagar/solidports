@@ -1,10 +1,10 @@
 import { getOwner, omit, runWithOwner, Show, untrack } from 'solid-js';
-import { createNativeConditional } from '../../utils/native/conditional';
 import type { JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
+import { createNativeConditional } from '../../utils/native/conditional';
 import { createDepsEffect, createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
-import { isServer } from '@solidjs/web';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceAccessor } from '../../utils/propsView';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';

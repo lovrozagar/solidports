@@ -1,8 +1,8 @@
 import { expect, vi, it } from 'vitest';
 import { screen } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';
-import { platform } from '../../utils/platform';
 import { act, createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
+import { platform } from '../../utils/platform';
 import { NumberFieldScrubAreaContext } from '../scrub-area/NumberFieldScrubAreaContext';
 
 const isWebKit = platform.engine.webkit;

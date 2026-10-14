@@ -7,7 +7,7 @@ function languageOf(node) {
   const className = node.properties?.className
   const classes = Array.isArray(className) ? className : []
   const match = classes.map(String).find((name) => name.startsWith("language-"))
-  if (match) return match.slice("language-".length)
+  if (match) {return match.slice("language-".length)}
   const data = node.properties?.dataLanguage
   return typeof data === "string" && data ? data : "tsx"
 }
@@ -16,7 +16,7 @@ function languageOf(node) {
 export function rehypeStarryNight() {
   return (tree) => {
     visit(tree, "element", (node, _index, parent) => {
-      if (node.tagName !== "code" || parent?.tagName !== "pre") return
+      if (node.tagName !== "code" || parent?.tagName !== "pre") {return}
       const lang = languageOf(node)
       const source = toString(node).replace(/\n$/, "")
       const html = highlightInline(source, lang)
@@ -29,8 +29,8 @@ export function rehypeStarryNight() {
           children: fragment.children,
         }
       })
-      if (node.properties?.style) delete node.properties.style
-      if (parent.properties?.style) delete parent.properties.style
+      if (node.properties?.style) {delete node.properties.style}
+      if (parent.properties?.style) {delete parent.properties.style}
     })
   }
 }

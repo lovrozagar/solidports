@@ -11,7 +11,7 @@ import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { Popover } from '@solidports/base-ui/popover';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 

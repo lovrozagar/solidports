@@ -27,10 +27,7 @@ export default defineSsrFixtures(import.meta.url, {
   textarea: () => (
     <form>
       <Field.Root name="name">
-        <Field.Control
-          render={(props) => <textarea {...(props as object)} />}
-          defaultValue="Ada"
-        />
+        <Field.Control render={(props) => <textarea {...(props as object)} />} defaultValue="Ada" />
       </Field.Root>
     </form>
   ),

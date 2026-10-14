@@ -1,10 +1,10 @@
 /* eslint-disable testing-library/render-result-naming-convention */
 import { act, createRenderer, flushMicrotasks } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { createSignal, lazy, onCleanup, onSettled, Show, Loading } from 'solid-js';
-import { EMPTY_OBJECT } from '../utils/empty';
 import type { ComponentProps, JSX } from '@solidjs/web';
+import { EMPTY_OBJECT } from '../utils/empty';
 import { mergeProps as solidMergeProps } from '../merge-props';
 import type { BaseUIComponentProps, UseRenderElementRef } from '../utils/types';
 import { useRenderElement } from './useRenderElement';

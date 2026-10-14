@@ -1,8 +1,8 @@
 import { act, createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { For, flush } from 'solid-js';
+import { For, flush, createSignal } from 'solid-js';
 import { attribution } from 'solid-js/attribution';
-import { afterAll, beforeAll, beforeEach, expect, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, vi, describe, it } from 'vitest';
 import { Accordion } from '@solidports/base-ui/accordion';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
 import { Avatar } from '@solidports/base-ui/avatar';
@@ -20,7 +20,6 @@ import { Tabs } from '@solidports/base-ui/tabs';
 import { Toast } from '@solidports/base-ui/toast';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { Button } from '@solidports/base-ui/button';
-import { createSignal } from 'solid-js';
 
 /**
  * Solid's dev diagnostics (the attribution engine `vite dev` enables) must stay silent while the

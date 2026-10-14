@@ -1,4 +1,3 @@
-import { DEFAULT_LABELABLE_CONTEXT } from '../../internals/labelable-provider/LabelableContext';
 /* eslint-disable typescript/no-explicit-any -- generic radio Value erased at root */
 import {
   createEffect,
@@ -14,13 +13,22 @@ import {
 import type { Accessor } from 'solid-js';
 import { assign, insert } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
-import { DEFAULT_FIELD_ITEM_CONTEXT } from '../../field/item/FieldItemContext';
-import { DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
+import {
+  DEFAULT_LABELABLE_CONTEXT,
+  useLabelableContext,
+} from '../../internals/labelable-provider/LabelableContext';
+import { DEFAULT_FIELD_ITEM_CONTEXT, useFieldItemContext } from '../../field/item/FieldItemContext';
+import { DEFAULT_FIELD_ROOT_CONTEXT, useFieldRootContext } from '../../field/root/FieldRootContext';
 import type { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { useCompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { makeEventPreventable } from '../../merge-props';
 import { provideContext } from '../../solid-helpers';
-import type { BaseUIEvent } from '../../utils/types';
+import type {
+  BaseUIEvent,
+  BaseUIComponentProps,
+  HTMLProps,
+  NonNativeButtonProps,
+} from '../../utils/types';
 import {
   attachNativeAttributes,
   canRenderNative,
@@ -41,13 +49,10 @@ import {
   type CompositeItemRegistration,
   type NativeLayout,
 } from '../../utils/native';
-import { useFieldItemContext } from '../../field/item/FieldItemContext';
 import type { FieldRootState } from '../../field/root/FieldRoot';
-import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
-import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import {
   ariaLabelOverridesLabel,
   useAriaLabelledBy,
@@ -61,7 +66,6 @@ import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifie
 import { NOOP } from '../../utils/noop';
 import { REASONS } from '../../utils/reasons';
 import { serializeValue } from '../../utils/serializeValue';
-import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';

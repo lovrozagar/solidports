@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures from './NavigationMenuContent.ssr-fixtures';
 

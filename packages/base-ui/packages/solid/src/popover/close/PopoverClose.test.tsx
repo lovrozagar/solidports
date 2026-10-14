@@ -2,7 +2,7 @@ import { act, createRenderer, describeConformance } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createSignal } from 'solid-js';
 import { REASONS } from '../../utils/reasons';
 

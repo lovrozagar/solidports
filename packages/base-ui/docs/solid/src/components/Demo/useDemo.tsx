@@ -14,12 +14,12 @@ import { Dynamic } from '@solidjs/web';
 import { DemoVariantSelectorContext } from "./DemoVariantSelectorProvider"
 
 function fileNameToLanguage(fileName: string): string {
-  if (fileName.endsWith(".tsx") || fileName.endsWith(".ts")) return "tsx"
-  if (fileName.endsWith(".js") || fileName.endsWith(".jsx")) return "jsx"
-  if (fileName.endsWith(".json")) return "json"
-  if (fileName.endsWith(".html")) return "html"
-  if (fileName.endsWith(".css")) return "css"
-  if (fileName.endsWith(".mdx")) return "mdx"
+  if (fileName.endsWith(".tsx") || fileName.endsWith(".ts")) {return "tsx"}
+  if (fileName.endsWith(".js") || fileName.endsWith(".jsx")) {return "jsx"}
+  if (fileName.endsWith(".json")) {return "json"}
+  if (fileName.endsWith(".html")) {return "html"}
+  if (fileName.endsWith(".css")) {return "css"}
+  if (fileName.endsWith(".mdx")) {return "mdx"}
   return "tsx"
 }
 
@@ -109,9 +109,9 @@ function cachedCssSource(
   glob: Record<string, () => Promise<HighlightedSource>>,
 ): Promise<HighlightedSource> | null {
   const hit = cssSourceCache.get(key)
-  if (hit) return hit
+  if (hit) {return hit}
   const loader = glob[key]
-  if (!loader) return null
+  if (!loader) {return null}
   const promise = loadWithRetry(() => loader())
   cssSourceCache.set(key, promise)
   return promise
@@ -123,19 +123,19 @@ const availableVariantsByPath = (() => {
   for (const key of Object.keys(componentModules)) {
     /* key shape: ../../demos/solid/<path>/<variant>/index.tsx */
     const match = key.match(/^\.\.\/\.\.\/demos\/solid\/(.+)\/(css-modules|tailwind)\/index\.tsx$/)
-    if (!match) continue
+    if (!match) {continue}
     const path = match[1] ?? ""
     const variantSubdir = match[2] ?? ""
     const variantName = variantSubdir === "tailwind" ? "Tailwind" : "CssModules"
     const list = map.get(path) ?? []
-    if (!list.includes(variantName)) list.push(variantName)
+    if (!list.includes(variantName)) {list.push(variantName)}
     map.set(path, list)
   }
   /* Sort consistently: CssModules first then Tailwind */
   for (const [path, list] of map) {
     list.sort((a, b) => {
-      if (a === "CssModules") return -1
-      if (b === "CssModules") return 1
+      if (a === "CssModules") {return -1}
+      if (b === "CssModules") {return 1}
       return 0
     })
     map.set(path, list)
@@ -145,9 +145,9 @@ const availableVariantsByPath = (() => {
 
 function getVariantsForPath(path: string): string[] {
   const list = availableVariantsByPath.get(path)
-  if (list && list.length > 0) return list
+  if (list && list.length > 0) {return list}
   /* legacy single-file demos with no variant subdir */
-  if (componentModules[`../../demos/solid/${path}/index.tsx`]) return ["CssModules"]
+  if (componentModules[`../../demos/solid/${path}/index.tsx`]) {return ["CssModules"]}
   return []
 }
 
@@ -161,7 +161,7 @@ async function loadWithRetry<T>(loader: () => Promise<T>, attempts = 3, baseMs =
       return await loader()
     } catch (err) {
       lastErr = err
-      if (i < attempts - 1) await new Promise((r) => setTimeout(r, baseMs * (i + 1)))
+      if (i < attempts - 1) {await new Promise((r) => setTimeout(r, baseMs * (i + 1)))}
     }
   }
   throw lastErr
@@ -171,9 +171,9 @@ async function loadWithRetry<T>(loader: () => Promise<T>, attempts = 3, baseMs =
 const lazyCache = new Map<string, ReturnType<typeof lazy>>()
 function cachedLazy(key: string) {
   const hit = lazyCache.get(key)
-  if (hit) return hit
+  if (hit) {return hit}
   const loader = componentModules[key]
-  if (!loader) return null
+  if (!loader) {return null}
   const Lazy = lazy(async () => {
     const mod = await loadWithRetry(() => loader())
     return { default: (mod.default ?? (Object.values(mod)[0] as Component)) as Component }
@@ -185,9 +185,9 @@ function cachedLazy(key: string) {
 const sourceCache = new Map<string, Promise<HighlightedSource>>()
 function cachedSource(key: string): Promise<HighlightedSource> | null {
   const hit = sourceCache.get(key)
-  if (hit) return hit
+  if (hit) {return hit}
   const loader = sourceModules[key]
-  if (!loader) return null
+  if (!loader) {return null}
   const promise = loadWithRetry(() => loader())
   sourceCache.set(key, promise)
   return promise
@@ -206,9 +206,9 @@ function resolveLegacyKey(path: string) {
 }
 
 function countLines(text: string) {
-  if (!text) return 0
+  if (!text) {return 0}
   const parts = text.split("\n")
-  if (text.endsWith("\n")) parts.pop()
+  if (text.endsWith("\n")) {parts.pop()}
   return parts.length
 }
 
@@ -225,18 +225,18 @@ export function useDemo(props: UseDemoProps, options: UseDemoOptions = {}): Demo
   const resolvedSelectedVariant = createMemo(() => {
     const stored = ctx?.selectedVariant() ?? null
     /* If stored variant exists and is available for this demo, use it. Otherwise fall back to first available. */
-    if (stored && variants.includes(stored)) return stored
+    if (stored && variants.includes(stored)) {return stored}
     return variants[0] ?? "CssModules"
   })
 
   function applySelectVariant(value: string) {
-    if (ctx) ctx.setSelectedVariant(value)
+    if (ctx) {ctx.setSelectedVariant(value)}
   }
 
   const key = createMemo(() => {
     const variant = resolvedSelectedVariant()
     const variantKey = resolveComponentKey(props.path, variant)
-    if (componentModules[variantKey]) return variantKey
+    if (componentModules[variantKey]) {return variantKey}
     return resolveLegacyKey(props.path)
   })
 
@@ -319,9 +319,9 @@ export function useDemo(props: UseDemoProps, options: UseDemoOptions = {}): Demo
       slug: props.slug,
       text: tsx?.text ?? "",
     }
-    if (resolvedSelectedVariant() !== "CssModules") return [tsxFile]
+    if (resolvedSelectedVariant() !== "CssModules") {return [tsxFile]}
     const moduleCss = cssSources()["index.module.css"]
-    if (!moduleCss) return [tsxFile]
+    if (!moduleCss) {return [tsxFile]}
     return [tsxFile, makeCssFile("index.module.css", moduleCss)]
   })
 

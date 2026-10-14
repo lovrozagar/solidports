@@ -2,7 +2,7 @@ import { act, createRenderer, describeConformance } from '#test-utils';
 import { Field } from '@solidports/base-ui/field';
 import { screen } from '@solidjs/testing-library';
 import { createSignal, Show } from 'solid-js';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 describe('<Field.Label />', () => {
   const { render } = createRenderer();

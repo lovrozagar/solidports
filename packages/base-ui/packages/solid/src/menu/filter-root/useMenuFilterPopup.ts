@@ -1,11 +1,11 @@
 import { isElement, isHTMLElement } from '@floating-ui/utils/dom';
+import { createEffect } from 'solid-js';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { ownerDocument } from '../../utils/owner';
 import { warn } from '../../utils/warn';
 import { activeElement, contains, getTarget } from '../../utils/shadowDom';
 import { isTypeableElement } from '../../floating-ui-solid/utils/element';
 import { isCrossOrientationCloseKey } from '../../floating-ui-solid/hooks/useListNavigation';
-import { createEffect } from 'solid-js';
 import { useRef } from '../../solid-helpers';
 import { useFilterDropdownRootContext } from '../../filter-dropdown/root/FilterDropdownRootContext';
 import { isRefocusingOwner, refocusOwner } from '../../filter-dropdown/utils/refocusOwner';

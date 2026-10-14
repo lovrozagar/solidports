@@ -10,9 +10,8 @@ import {
   type Accessor,
 } from 'solid-js';
 import { isServer } from '@solidjs/web';
-import { access } from '../solid-helpers';
+import { access, shallowEqual } from '../solid-helpers';
 import { combineStyle, makeEventPreventable } from '../merge-props/mergeProps';
-import { shallowEqual } from '../solid-helpers';
 import type { BaseUIEvent } from './types';
 
 /**

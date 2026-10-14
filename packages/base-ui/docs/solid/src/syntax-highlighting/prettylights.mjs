@@ -9,7 +9,7 @@ import sourceYaml from "@wooorm/starry-night/source.yaml"
 import textHtml from "@wooorm/starry-night/text.html.basic"
 import textMd from "@wooorm/starry-night/text.md"
 import { toHtml } from "hast-util-to-html"
-import { extendSyntaxTokens } from "../../../react/node_modules/@mui/internal-docs-infra/pipeline/parseSource/extendSyntaxTokens.mjs"
+import { extendSyntaxTokens } from "@mui/internal-docs-infra/pipeline/parseSource/extendSyntaxTokens.mjs"
 
 const languageToScope = {
   js: "source.js",

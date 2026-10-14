@@ -55,7 +55,7 @@ function Root(props: ParentProps<{ closed?: boolean }>) {
           !event.altKey
         ) {
           event.preventDefault()
-          if (rootEl) window.getSelection()?.selectAllChildren(rootEl)
+          if (rootEl) {window.getSelection()?.selectAllChildren(rootEl)}
         }
       }}
     >

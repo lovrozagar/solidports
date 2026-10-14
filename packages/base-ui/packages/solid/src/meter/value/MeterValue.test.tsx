@@ -1,7 +1,7 @@
 import { act, createRenderer, describeConformance } from '#test-utils';
 import { Meter } from '@solidports/base-ui/meter';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { createSignal } from 'solid-js';
 import { spy } from 'sinon';
 

@@ -1,7 +1,7 @@
 import { createRenderer } from '#test-utils';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { AriaCombobox } from './AriaCombobox';
 
 describe('AriaCombobox call shapes', () => {
@@ -61,7 +61,7 @@ describe('AriaCombobox call shapes', () => {
 
     /* open popup then select item 'a' */
     await user.click(screen.getByTestId('input'));
-    await waitFor(() => expect(screen.queryByRole('option', { name: 'a' })).not.toBeNull());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'a' })).not.toBeNull());
     await user.click(screen.getByRole('option', { name: 'a' }));
 
     expect(onSelectedValueChange).toHaveBeenCalled();
@@ -94,11 +94,11 @@ describe('AriaCombobox call shapes', () => {
 
     /* select 'a' */
     await user.click(screen.getByTestId('input'));
-    await waitFor(() => expect(screen.queryByRole('option', { name: 'a' })).not.toBeNull());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'a' })).not.toBeNull());
     await user.click(screen.getByRole('option', { name: 'a' }));
 
     /* popup stays open in multiple mode — select 'b' */
-    await waitFor(() => expect(screen.queryByRole('option', { name: 'b' })).not.toBeNull());
+    await waitFor(() => expect(screen.getByRole('option', { name: 'b' })).not.toBeNull());
     await user.click(screen.getByRole('option', { name: 'b' }));
 
     /* last call must carry both values as an array */

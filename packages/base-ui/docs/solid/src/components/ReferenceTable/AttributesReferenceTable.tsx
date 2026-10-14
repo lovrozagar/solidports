@@ -8,6 +8,7 @@ import * as Accordion from '../Accordion';
 import { TableCode } from '../TableCode';
 
 import { splitProps } from '../../utils/solid-1-compat';
+
 interface AttributesReferenceTableProps extends JSX.HTMLAttributes<HTMLDivElement> {
   data: Record<string, AttributeDef>;
   name?: string;

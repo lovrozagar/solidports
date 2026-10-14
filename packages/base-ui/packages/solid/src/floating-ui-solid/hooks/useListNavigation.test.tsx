@@ -1,9 +1,9 @@
-import { act, flushMicrotasks } from '#test-utils';
-import { isJSDOM } from '#test-utils';
+import { act, flushMicrotasks, isJSDOM } from '#test-utils';
 import { fireEvent, render, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import { createSignal, For, Show, untrack } from 'solid-js';
-import { describe, it, vi } from 'vitest';
+import { describe, it, vi, expect } from 'vitest';
+import type { JSX } from '@solidjs/web';
 import { Main as ComplexGrid } from '../../../test/floating-ui-tests/ComplexGrid';
 import { Main as EmojiPicker } from '../../../test/floating-ui-tests/EmojiPicker';
 import { Main as Grid } from '../../../test/floating-ui-tests/Grid';
@@ -13,7 +13,6 @@ import { HorizontalMenu } from '../../../test/floating-ui-tests/MenuOrientation'
 import { useClick, useDismiss, useInteractions, useListNavigation } from '../index';
 import type { UseListNavigationProps } from '../types';
 import { gridNavigation } from './gridNavigation';
-import type { JSX } from '@solidjs/web';
 import { splitProps } from '../../solid-1-compat';
 import { useFloating } from '../../../test/floating-ui-tests/useFloating';
 
@@ -1533,7 +1532,6 @@ describe('useListNavigation', () => {
   );
 
   it('Home or End key press is ignored for typeable combobox reference', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-shadow
     function App() {
       const [open, setOpen] = createSignal(false);
       const listRef: Array<HTMLLIElement | null> = [];

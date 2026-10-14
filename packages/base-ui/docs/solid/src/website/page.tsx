@@ -76,7 +76,7 @@ export default function Homepage() {
         </div>
       </section>
       <div class="bui-gcs-1 bui-gce-9 bp3:bui-gcs-3">
-        <div class="Separator" role="separator" aria-hidden="true"></div>
+        <div class="Separator" role="separator" aria-hidden="true" />
       </div>
       <section class="bui-d-c">
         <div class="bui-gcs-1 bui-gce-9 bp2:bui-gce-3">
@@ -149,7 +149,7 @@ export default function Homepage() {
         </ul>
       </section>
       <div class="bui-gcs-1 bui-gce-9 bp3:bui-gcs-3">
-        <div class="Separator" role="separator" aria-hidden="true"></div>
+        <div class="Separator" role="separator" aria-hidden="true" />
       </div>
       <section class="bui-d-c">
         <div class="bui-gcs-1 bui-gce-9 bp2:bui-gce-3">
@@ -197,7 +197,7 @@ export default function Homepage() {
         </div>
       </section>
       <div class="bui-gcs-1 bui-gce-9 bp3:bui-gcs-3">
-        <div class="Separator" role="separator" aria-hidden="true"></div>
+        <div class="Separator" role="separator" aria-hidden="true" />
       </div>
       <section class="bui-d-c">
         <div class="bui-gcs-1 bui-gce-9 bp2:bui-gce-3">

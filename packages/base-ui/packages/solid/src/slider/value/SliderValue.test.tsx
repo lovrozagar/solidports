@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createSignal } from 'solid-js';
 import { screen } from '@solidjs/testing-library';
 import { Slider } from '@solidports/base-ui/slider';

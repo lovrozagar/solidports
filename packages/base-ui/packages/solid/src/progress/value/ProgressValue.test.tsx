@@ -2,7 +2,7 @@ import { createRenderer, describeConformance } from '#test-utils';
 import { Progress } from '@solidports/base-ui/progress';
 import { screen } from '@solidjs/testing-library';
 import { spy } from 'sinon';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 
 describe('<Progress.Value />', () => {
   const { render } = createRenderer();

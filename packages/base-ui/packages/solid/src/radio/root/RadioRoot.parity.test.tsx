@@ -59,7 +59,12 @@ describe('native parity: Radio', () => {
     const ui = (props: Props) => () => (
       <RadioGroup {...(group as RadioGroup.Props)}>
         <Radio.Root value="a" data-testid="a" />
-        {createComponent(Radio.Root, props as unknown as Radio.Root.Props) as unknown as JSX.Element}
+        {
+          createComponent(
+            Radio.Root,
+            props as unknown as Radio.Root.Props,
+          ) as unknown as JSX.Element
+        }
         <Radio.Root value="c" data-testid="c" disabled />
       </RadioGroup>
     );
@@ -278,7 +283,12 @@ describe('native parity: Radio', () => {
       const { container } = render(() => (
         <RadioGroup>
           <label>
-            {createComponent(Radio.Root, props as unknown as Radio.Root.Props) as unknown as JSX.Element}
+            {
+              createComponent(
+                Radio.Root,
+                props as unknown as Radio.Root.Props,
+              ) as unknown as JSX.Element
+            }
             Wrapped
           </label>
         </RadioGroup>

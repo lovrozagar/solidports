@@ -3,7 +3,7 @@ import { Checkbox } from '@solidports/base-ui/checkbox';
 import { CheckboxGroup } from '@solidports/base-ui/checkbox-group';
 import { Field } from '@solidports/base-ui/field';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe } from 'vitest';
 import { createSignal, Show } from 'solid-js';
 
 // Solid: ids always come from the Solid runtime, so there is no React 17 `useId` fallback to mock;

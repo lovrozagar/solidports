@@ -689,11 +689,7 @@ describe('<Autocomplete.Root />', () => {
           >
             <Autocomplete.Input data-testid="input" />
             <Autocomplete.List>
-              {(item: string) => (
-                <Autocomplete.Item value={item}>
-                  {item}
-                </Autocomplete.Item>
-              )}
+              {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
             </Autocomplete.List>
           </Autocomplete.Root>
           <button data-testid="outside">outside</button>
@@ -743,11 +739,7 @@ describe('<Autocomplete.Root />', () => {
               <Autocomplete.Positioner>
                 <Autocomplete.Popup>
                   <Autocomplete.List>
-                    {(item: string) => (
-                      <Autocomplete.Item value={item}>
-                        {item}
-                      </Autocomplete.Item>
-                    )}
+                    {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                   </Autocomplete.List>
                 </Autocomplete.Popup>
               </Autocomplete.Positioner>
@@ -782,11 +774,7 @@ describe('<Autocomplete.Root />', () => {
             <Autocomplete.Root inline defaultOpen autoHighlight items={props.items ?? []}>
               <Autocomplete.Input />
               <Autocomplete.List>
-                {(item: string) => (
-                  <Autocomplete.Item value={item}>
-                    {item}
-                  </Autocomplete.Item>
-                )}
+                {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
               </Autocomplete.List>
             </Autocomplete.Root>
           );
@@ -822,11 +810,7 @@ describe('<Autocomplete.Root />', () => {
                 >
                   <Autocomplete.Input />
                   <Autocomplete.List>
-                    {(item: string) => (
-                      <Autocomplete.Item value={item}>
-                        {item}
-                      </Autocomplete.Item>
-                    )}
+                    {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                   </Autocomplete.List>
                 </Autocomplete.Root>
                 <button type="button">Blur target</button>
@@ -876,7 +860,7 @@ describe('<Autocomplete.Root />', () => {
         'discards the request when closing with keepMounted=%s',
         async (keepMounted) => {
           const [testProps, setTestProps] = createSignal<Parameters<typeof AsyncAutocomplete>[0]>({
-            keepMounted: keepMounted,
+            keepMounted,
           });
           const setProps = async (next: Partial<Parameters<typeof AsyncAutocomplete>[0]>) =>
             act(async () => {
@@ -930,11 +914,7 @@ describe('<Autocomplete.Root />', () => {
             <Autocomplete.Positioner>
               <Autocomplete.Popup>
                 <Autocomplete.List>
-                  {(item: string) => (
-                    <Autocomplete.Item value={item}>
-                      {item}
-                    </Autocomplete.Item>
-                  )}
+                  {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                 </Autocomplete.List>
               </Autocomplete.Popup>
             </Autocomplete.Positioner>
@@ -968,11 +948,7 @@ describe('<Autocomplete.Root />', () => {
             <Autocomplete.Positioner>
               <Autocomplete.Popup>
                 <Autocomplete.List>
-                  {(item: string) => (
-                    <Autocomplete.Item value={item}>
-                      {item}
-                    </Autocomplete.Item>
-                  )}
+                  {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                 </Autocomplete.List>
               </Autocomplete.Popup>
             </Autocomplete.Positioner>
@@ -1009,11 +985,7 @@ describe('<Autocomplete.Root />', () => {
             <Autocomplete.Positioner>
               <Autocomplete.Popup>
                 <Autocomplete.List>
-                  {(item: string) => (
-                    <Autocomplete.Item value={item}>
-                      {item}
-                    </Autocomplete.Item>
-                  )}
+                  {(item: string) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                 </Autocomplete.List>
               </Autocomplete.Popup>
             </Autocomplete.Positioner>
@@ -1520,11 +1492,7 @@ describe('<Autocomplete.Root />', () => {
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -1554,11 +1522,7 @@ describe('<Autocomplete.Root />', () => {
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -1622,11 +1586,7 @@ describe('<Autocomplete.Root />', () => {
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -1668,11 +1628,7 @@ describe('<Autocomplete.Root />', () => {
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -1702,11 +1658,7 @@ describe('<Autocomplete.Root />', () => {
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
                     <Autocomplete.List data-testid="listbox">
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -1821,11 +1773,7 @@ describe('<Autocomplete.Root />', () => {
                   <Autocomplete.Popup>
                     <Autocomplete.Input render={{ component: Input, 'data-testid': 'input' }} />
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -1861,11 +1809,7 @@ describe('<Autocomplete.Root />', () => {
             <Autocomplete.Root items={['alpha', 'alpine']} inline>
               <Autocomplete.Input data-testid="input" />
               <Autocomplete.List>
-                {(item) => (
-                  <Autocomplete.Item value={item}>
-                    {item}
-                  </Autocomplete.Item>
-                )}
+                {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
               </Autocomplete.List>
             </Autocomplete.Root>
           </Field.Root>
@@ -1956,11 +1900,7 @@ describe('<Autocomplete.Root />', () => {
                   <Autocomplete.Popup>
                     <Autocomplete.Input render={{ component: Input, 'data-testid': 'input' }} />
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -2114,11 +2054,7 @@ describe('<Autocomplete.Root />', () => {
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -2147,11 +2083,7 @@ describe('<Autocomplete.Root />', () => {
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -2183,11 +2115,7 @@ describe('<Autocomplete.Root />', () => {
                 <Autocomplete.Positioner>
                   <Autocomplete.Popup>
                     <Autocomplete.List>
-                      {(item) => (
-                        <Autocomplete.Item value={item}>
-                          {item}
-                        </Autocomplete.Item>
-                      )}
+                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
                     </Autocomplete.List>
                   </Autocomplete.Popup>
                 </Autocomplete.Positioner>
@@ -2784,8 +2712,8 @@ describe('<Autocomplete.Root />', () => {
       const onOpenChangeComplete = vi.fn();
       const [testProps, setTestProps] = createSignal<Parameters<typeof Popup>[0]>({
         defaultOpen: true,
-        actionsRef: actionsRef,
-        onOpenChangeComplete: onOpenChangeComplete,
+        actionsRef,
+        onOpenChangeComplete,
         onOpenChange: (open, details) => {
           if (!open) {
             details.preventUnmountOnClose();
@@ -2817,7 +2745,7 @@ describe('<Autocomplete.Root />', () => {
       const onOpenChangeComplete = vi.fn();
       const [testProps, setTestProps] = createSignal<Parameters<typeof Popup>[0]>({
         defaultOpen: true,
-        onOpenChangeComplete: onOpenChangeComplete,
+        onOpenChangeComplete,
         onOpenChange: (open, details) => {
           if (!open) {
             details.preventUnmountOnClose();

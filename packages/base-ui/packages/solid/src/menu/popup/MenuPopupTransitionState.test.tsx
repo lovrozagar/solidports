@@ -1,10 +1,10 @@
 import { createEffect, createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitProps } from '../../solid-1-compat';
 import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { Menu } from '@solidports/base-ui/menu';
 import { createRenderer, isJSDOM } from '#test-utils';
+import { splitProps } from '../../solid-1-compat';
 
 type PopupState = Pick<Menu.Popup.State, 'open' | 'transitionStatus'>;
 

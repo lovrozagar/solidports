@@ -1,8 +1,8 @@
 import { expect, describe, it, vi, afterEach } from 'vitest';
 import { createSignal } from 'solid-js';
 import { screen } from '@solidjs/testing-library';
-import { AnimationFrame } from '../utils/useAnimationFrame';
 import { act, createRenderer } from '#test-utils';
+import { AnimationFrame } from '../utils/useAnimationFrame';
 import { useTransitionStatus } from './useTransitionStatus';
 
 describe('useTransitionStatus', () => {

@@ -31,8 +31,7 @@
     "src/**/test-utils.ts*",
     "test",
     "src/global.d.ts",
-    "package.json",
-    "eslint.config.mjs"
+    "package.json"
   ],
   "references": [
     {

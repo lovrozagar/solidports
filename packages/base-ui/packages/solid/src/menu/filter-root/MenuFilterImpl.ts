@@ -1,13 +1,16 @@
 import { children } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useFilterDropdownItem } from '../../filter-dropdown/item/useFilterDropdownItem';
-import type { MenuFilterImpl } from './MenuFilterContext';
+import type {
+  MenuFilterImpl,
+  MenuFilterItemParams,
+  MenuFilterItemResult,
+} from './MenuFilterContext';
 import { MenuFilterGroup, MenuFilterRadioGroup } from './MenuFilterGroup';
 import { MenuFilterList } from './MenuFilterList';
 import { MenuFilterPopup } from './MenuFilterPopup';
 import { useMenuFilterSubmenuTrigger } from './useMenuFilterSubmenuTrigger';
 import { useVirtualFocusParentHandoff } from './useVirtualFocusParentHandoff';
-import type { MenuFilterItemParams, MenuFilterItemResult } from './MenuFilterContext';
 
 function useItem(params: MenuFilterItemParams): MenuFilterItemResult {
   // Resolved once in the item's owner: the item renders these nodes, so a filtered-out item's

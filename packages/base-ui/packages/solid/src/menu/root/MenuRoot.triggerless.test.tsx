@@ -1,10 +1,10 @@
 import { createEffect, createSignal, onSettled, Show } from 'solid-js';
-import { splitProps } from '../../solid-1-compat';
 import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { Menu } from '@solidports/base-ui/menu';
 import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { act, createRenderer, resetBrowserPointer } from '#test-utils';
+import { splitProps } from '../../solid-1-compat';
 import { useMenuRootContext } from './MenuRootContext';
 
 function Popup(props: Menu.Portal.Props) {

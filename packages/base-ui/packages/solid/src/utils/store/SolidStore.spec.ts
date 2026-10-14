@@ -1,6 +1,6 @@
 import type { Accessor } from 'solid-js';
-import { SolidStore } from './SolidStoreV2';
 import { expectType } from '#test-utils';
+import { SolidStore } from './SolidStoreV2';
 
 interface TestState {
   count: number | undefined;

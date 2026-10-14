@@ -57,7 +57,7 @@ export function Panel(props: ParentProps<JSX.HTMLAttributes<HTMLDivElement>>) {
   async function copy() {
     const codeRoot = ctx.codeId ? document.getElementById(ctx.codeId) : null
     const code = codeRoot?.querySelector("pre code")?.textContent ?? codeRoot?.textContent
-    if (!code) return
+    if (!code) {return}
     await navigator.clipboard.writeText(code)
     window.clearTimeout(timer)
     setCopied(true)

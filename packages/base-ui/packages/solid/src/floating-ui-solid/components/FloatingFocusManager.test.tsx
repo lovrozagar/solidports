@@ -1,8 +1,7 @@
 /* eslint-disable jsx-a11y/role-has-required-aria-props */
 /* eslint-disable no-promise-executor-return */
-/* eslint-disable @typescript-eslint/no-shadow */
-import { act, flushMicrotasks } from '#test-utils';
-import { isJSDOM } from '#test-utils';
+
+import { act, flushMicrotasks, isJSDOM } from '#test-utils';
 import { fireEvent, render, screen, waitFor, within } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
 import {
@@ -16,7 +15,7 @@ import {
 import type { Component } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { delegateEvents, Dynamic, render as solidRender } from '@solidjs/web';
-import { test } from 'vitest';
+import { test, beforeEach, describe, afterEach, expect } from 'vitest';
 import { Main as Navigation } from '../../../test/floating-ui-tests/Navigation';
 import { autofocus, defaultProps } from '../../solid-helpers';
 import {

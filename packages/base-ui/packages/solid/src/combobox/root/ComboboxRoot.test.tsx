@@ -454,7 +454,7 @@ describe('<Combobox.Root />', () => {
 
         const { user } = render(() => (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={style} />
             <Combobox.Root items={['Apple', 'Banana']} defaultValue="Banana">
               <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
@@ -519,7 +519,7 @@ describe('<Combobox.Root />', () => {
 
         const { user } = render(() => (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={style} />
             <Combobox.Root items={['Apple', 'Banana']}>
               <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
@@ -3139,11 +3139,7 @@ describe('<Combobox.Root />', () => {
                 <Combobox.Positioner>
                   <Combobox.Popup>
                     <Combobox.List>
-                      {(item: string) => (
-                        <Combobox.Item value={item}>
-                          {item}
-                        </Combobox.Item>
-                      )}
+                      {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                     </Combobox.List>
                   </Combobox.Popup>
                 </Combobox.Positioner>
@@ -5587,7 +5583,7 @@ describe('<Combobox.Root />', () => {
 
         return (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={closeAnimationStyle} />
             <button type="button" data-testid="open" onClick={() => setOpen(true)}>
               Open
@@ -5651,7 +5647,7 @@ describe('<Combobox.Root />', () => {
         const [items, setItems] = createSignal(['apple', 'apricot', 'banana']);
         return (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={closeAnimationStyle} />
             <button
               type="button"
@@ -5710,7 +5706,7 @@ describe('<Combobox.Root />', () => {
 
       const { user } = render(() => (
         <>
-          {/* eslint-disable-next-line react/no-danger */}
+          {}
           <style innerHTML={closeAnimationStyle} />
           <Combobox.Root items={['apple', 'apricot', 'banana']} defaultValue="apple">
             <Combobox.Input data-testid="input" />
@@ -5761,7 +5757,7 @@ describe('<Combobox.Root />', () => {
 
       const { user } = render(() => (
         <>
-          {/* eslint-disable-next-line react/no-danger */}
+          {}
           <style innerHTML={closeAnimationStyle} />
           <Combobox.Root
             multiple
@@ -5817,7 +5813,7 @@ describe('<Combobox.Root />', () => {
         const [items, setItems] = createSignal(['apple', 'apricot', 'banana']);
         return (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={closeAnimationStyle} />
             <Combobox.Root
               items={items()}
@@ -5878,7 +5874,7 @@ describe('<Combobox.Root />', () => {
 
         return (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={closeAnimationStyle} />
             <button type="button" data-testid="reopen" onClick={() => setOpen(true)}>
               Reopen
@@ -5968,7 +5964,7 @@ describe('<Combobox.Root />', () => {
         const [inputValue, setInputValue] = createSignal('');
         return (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={closeAnimationStyle} />
             <Combobox.Root
               items={['apple', 'apricot', 'banana']}
@@ -6035,7 +6031,7 @@ describe('<Combobox.Root />', () => {
         const [inputValue, setInputValue] = createSignal('');
         return (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={closeAnimationStyle} />
             <button
               type="button"
@@ -6107,7 +6103,7 @@ describe('<Combobox.Root />', () => {
 
       const { user } = render(() => (
         <>
-          {/* eslint-disable-next-line react/no-danger */}
+          {}
           <style innerHTML={closeAnimationStyle} />
           <Combobox.Root items={['apple', 'apricot', 'banana']}>
             <Combobox.Input data-testid="input" />
@@ -7111,11 +7107,7 @@ describe('<Combobox.Root />', () => {
                   <Combobox.Popup data-testid="popup" class="animation-test-popup">
                     <Combobox.Input data-testid="input" />
                     <Combobox.List>
-                      {(item: string) => (
-                        <Combobox.Item value={item}>
-                          {item}
-                        </Combobox.Item>
-                      )}
+                      {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                     </Combobox.List>
                   </Combobox.Popup>
                 </Combobox.Positioner>
@@ -7175,7 +7167,7 @@ describe('<Combobox.Root />', () => {
 
         const { user } = render(() => (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={style} />
             <Combobox.Root multiple items={['apple', 'apricot', 'banana']}>
               <Combobox.Input data-testid="input" />
@@ -7312,7 +7304,7 @@ describe('<Combobox.Root />', () => {
         const items = ['apple', 'apricot', 'banana'];
         const { user } = render(() => (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={style} />
             <Combobox.Root multiple items={items}>
               <Combobox.Trigger data-testid="trigger">
@@ -7395,7 +7387,7 @@ describe('<Combobox.Root />', () => {
 
         const { user } = render(() => (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={style} />
             <Combobox.Root multiple items={['apple', 'apricot', 'banana']}>
               <Combobox.Trigger data-testid="trigger">Open</Combobox.Trigger>
@@ -7453,7 +7445,7 @@ describe('<Combobox.Root />', () => {
         const items = ['apple', 'apricot', 'banana'];
         const { user } = render(() => (
           <>
-            {/* eslint-disable-next-line react/no-danger */}
+            {}
             <style innerHTML={style} />
             <Combobox.Root multiple items={items}>
               <Combobox.Trigger data-testid="trigger">
@@ -7556,11 +7548,7 @@ describe('<Combobox.Root />', () => {
                     <Combobox.Popup data-testid="popup" class="animation-test-popup">
                       <Combobox.Input data-testid="input" />
                       <Combobox.List>
-                        {(item: string) => (
-                          <Combobox.Item value={item}>
-                            {item}
-                          </Combobox.Item>
-                        )}
+                        {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                       </Combobox.List>
                     </Combobox.Popup>
                   </Combobox.Positioner>
@@ -8704,9 +8692,9 @@ describe('<Combobox.Root />', () => {
           const onItemHighlighted = vi.fn();
           const onValueChange = vi.fn();
           const [testProps, setTestProps] = createSignal<Parameters<typeof AsyncCombobox>[0]>({
-            dataProp: dataProp,
-            onItemHighlighted: onItemHighlighted,
-            onValueChange: onValueChange,
+            dataProp,
+            onItemHighlighted,
+            onValueChange,
           });
           const setProps = async (next: Partial<Parameters<typeof AsyncCombobox>[0]>) =>
             act(async () => {
@@ -8779,9 +8767,7 @@ describe('<Combobox.Root />', () => {
                   <Combobox.Popup>
                     <Combobox.List>
                       {props.results.map((item) => (
-                        <Combobox.Item value={item}>
-                          {item}
-                        </Combobox.Item>
+                        <Combobox.Item value={item}>{item}</Combobox.Item>
                       ))}
                     </Combobox.List>
                   </Combobox.Popup>
@@ -8852,7 +8838,7 @@ describe('<Combobox.Root />', () => {
         const [testProps, setTestProps] = createSignal<Parameters<typeof AsyncCombobox>[0]>({
           items: ['32'],
           open: false,
-          onOpenChange: onOpenChange,
+          onOpenChange,
         });
         const setProps = async (next: Partial<Parameters<typeof AsyncCombobox>[0]>) =>
           act(async () => {
@@ -8943,7 +8929,7 @@ describe('<Combobox.Root />', () => {
           const popupRef = { current: null as HTMLDivElement | null };
           const [testProps, setTestProps] = createSignal<Parameters<typeof AsyncCombobox>[0]>({
             open: true,
-            popupRef: popupRef,
+            popupRef,
           });
           const setProps = async (next: Partial<Parameters<typeof AsyncCombobox>[0]>) =>
             act(async () => {
@@ -9795,11 +9781,7 @@ describe('<Combobox.Root />', () => {
             <Combobox.Positioner>
               <Combobox.Popup>
                 <Combobox.List>
-                  {(item: string) => (
-                    <Combobox.Item value={item}>
-                      {item}
-                    </Combobox.Item>
-                  )}
+                  {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                 </Combobox.List>
               </Combobox.Popup>
             </Combobox.Positioner>
@@ -10193,7 +10175,7 @@ describe('<Combobox.Root />', () => {
 
           return (
             <>
-              {/* eslint-disable-next-line react/no-danger */}
+              {}
               <style innerHTML={style} />
               <Combobox.Root
                 items={['Apple', 'Apricot', 'Banana']}
@@ -10945,11 +10927,7 @@ describe('<Combobox.Root />', () => {
                   >
                     <Combobox.Input />
                     <Combobox.List>
-                      {(item: string) => (
-                        <Combobox.Item value={item}>
-                          {item}
-                        </Combobox.Item>
-                      )}
+                      {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                     </Combobox.List>
                     <Dialog.Close>Done</Dialog.Close>
                   </Dialog.Popup>
@@ -11007,11 +10985,7 @@ describe('<Combobox.Root />', () => {
               <Dialog.Popup aria-label="Fruit chooser">
                 <Combobox.Input />
                 <Combobox.List>
-                  {(item: string) => (
-                    <Combobox.Item value={item}>
-                      {item}
-                    </Combobox.Item>
-                  )}
+                  {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                 </Combobox.List>
               </Dialog.Popup>
             </Dialog.Portal>
@@ -12945,11 +12919,7 @@ describe('<Combobox.Root />', () => {
                   <Combobox.Input />
                   <Combobox.Empty data-testid="empty">No countries found.</Combobox.Empty>
                   <Combobox.List>
-                    {(item: Country) => (
-                      <Combobox.Item value={item}>
-                        {item.label}
-                      </Combobox.Item>
-                    )}
+                    {(item: Country) => <Combobox.Item value={item}>{item.label}</Combobox.Item>}
                   </Combobox.List>
                 </Combobox.Popup>
               </Combobox.Positioner>
@@ -13615,11 +13585,7 @@ describe('<Combobox.Root />', () => {
             <Combobox.Positioner>
               <Combobox.Popup>
                 <Combobox.List>
-                  {(item: string) => (
-                    <Combobox.Item value={item}>
-                      {item}
-                    </Combobox.Item>
-                  )}
+                  {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                 </Combobox.List>
               </Combobox.Popup>
             </Combobox.Positioner>
@@ -13653,11 +13619,7 @@ describe('<Combobox.Root />', () => {
             <Combobox.Positioner>
               <Combobox.Popup>
                 <Combobox.List>
-                  {(item: string) => (
-                    <Combobox.Item value={item}>
-                      {item}
-                    </Combobox.Item>
-                  )}
+                  {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                 </Combobox.List>
               </Combobox.Popup>
             </Combobox.Positioner>
@@ -13741,8 +13703,8 @@ describe('<Combobox.Root />', () => {
       const onOpenChangeComplete = vi.fn();
       const [testProps, setTestProps] = createSignal<Parameters<typeof Popup>[0]>({
         defaultOpen: true,
-        actionsRef: actionsRef,
-        onOpenChangeComplete: onOpenChangeComplete,
+        actionsRef,
+        onOpenChangeComplete,
         onOpenChange: (open, details) => {
           if (!open) {
             details.preventUnmountOnClose();
@@ -13774,7 +13736,7 @@ describe('<Combobox.Root />', () => {
       const onOpenChangeComplete = vi.fn();
       const [testProps, setTestProps] = createSignal<Parameters<typeof Popup>[0]>({
         defaultOpen: true,
-        onOpenChangeComplete: onOpenChangeComplete,
+        onOpenChangeComplete,
         onOpenChange: (open, details) => {
           if (!open) {
             details.preventUnmountOnClose();
@@ -14024,11 +13986,7 @@ describe('<Combobox.Root />', () => {
           <Combobox.Positioner>
             <Combobox.Popup>
               <Combobox.List>
-                {(item: string) => (
-                  <Combobox.Item value={item}>
-                    {item}
-                  </Combobox.Item>
-                )}
+                {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
               </Combobox.List>
             </Combobox.Popup>
           </Combobox.Positioner>
