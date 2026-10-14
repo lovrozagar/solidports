@@ -131,7 +131,11 @@ jobs:
       - name: eslint
         if: ${{ !cancelled() }}
         working-directory: packages/base-ui
-        run: bunx eslint packages/solid/src docs/solid/src --max-warnings 0
+        run: bunx eslint packages/solid/src packages/solid/test docs/solid/src --report-unused-disable-directives --max-warnings 0
+      - name: eslint rule tests
+        if: ${{ !cancelled() }}
+        working-directory: packages/base-ui
+        run: bun run test:lint-rules
       - name: stylelint
         if: ${{ !cancelled() }}
         working-directory: packages/base-ui
@@ -139,9 +143,7 @@ jobs:
       - name: vale
         if: ${{ !cancelled() }}
         working-directory: packages/base-ui
-        run: |
-          bunx --package @vvago/vale vale sync
-          git ls-files docs/solid | grep -E '\.(md|mdx)$' | xargs bunx --package @vvago/vale vale --filter='.Level=="error"'
+        run: bun run valelint
 
   # Upstream "Generated files verification"
   static:
@@ -156,6 +158,8 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
+      # @mui/internal-code-infra locates the workspace packages through pnpm, as upstream runs it.
+      - run: npm install --global pnpm@10
       - name: error codes
         working-directory: packages/base-ui
         run: |

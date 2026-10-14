@@ -17,9 +17,9 @@ generator. Upstream demos belong in `docs/react` via `docs:sync`.
 ## Inputs you need
 
 - **Component name** (kebab-case for paths, PascalCase for component).
-- **Demo name** (e.g. `hero`, `controlled`, `with-arrow`). If unsure,
+- **Demo name** (for example `hero`, `controlled`, `with-arrow`). If unsure,
   default to `hero`.
-- Which **styling form**: CSS Modules, Tailwind, or both. The repo
+- Which **styling form**: CSS Modules, Tailwind, or both. The repo
   default for hero demos is **both**.
 - Whether the demo must also exist in the React docs at
   `docs/react/src/app/(docs)/react/<component>/` for parity.

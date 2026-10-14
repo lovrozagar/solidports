@@ -1,0 +1,4 @@
+.tmp/
+
+# vale downloaded config
+.github/styles/

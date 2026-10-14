@@ -5,9 +5,9 @@
 - Library is compatible with **@base-ui/react@1.8.0**
 - Docs have everything copied over from the original React-based docs so **_a lot_** of discrepancies in text are present
 
-### Please, consider supporting an awesome Base UI team directly on [OpenCollective](https://opencollective.com/mui-org). This port is a gesture of appreciation of an increadible work they've been doing.
+### Please, consider supporting an awesome Base UI team directly on [OpenCollective](https://opencollective.com/mui-org). This port is a gesture of appreciation of an increadible work they've been doing.
 
-### Link to the original library: [Base UI GitHub](https://github.com/mui/base-ui)
+### Link to the original library: [Base UI GitHub](https://github.com/mui/base-ui)
 
 <hr />
 

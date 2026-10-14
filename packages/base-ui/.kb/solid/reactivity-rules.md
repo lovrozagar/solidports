@@ -31,7 +31,7 @@ Snapshots: [`../_snapshots/cursor-solid-rules.AGENTS.md`](../_snapshots/cursor-s
 These extend (do not contradict) the Cursor sources above. Each links to
 the deeper KB file for the topic:
 
-- **Solid 2.** Effects, reads, writes, the Base UI store, refs, JSX and test rules for
+- **Solid 2.** Effects, reads, writes, the Base UI store, refs, JSX and test rules for
   Solid 2.0 → [`./solid-2.md`](./solid-2.md). Where an older file below disagrees, `solid-2.md` wins.
 - **Refs.** Project conventions on where `ref` may appear, plus render-prop
   ref forwarding pattern → [`./refs.md`](./refs.md).

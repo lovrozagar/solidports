@@ -1,8 +1,8 @@
 <!-- markdownlint-disable MD038 -->
 
-# Base UI fork (SolidPorts)
+# Base UI fork (SolidPorts)
 
-This tree is the Base UI fork inside the SolidPorts monorepo (`packages/base-ui`).
+This tree is the Base UI fork inside the SolidPorts monorepo (`packages/base-ui`).
 Repo-wide rules live in the monorepo root `AGENTS.md`. This file is the fork map.
 
 ## Layout

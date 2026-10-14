@@ -9,11 +9,11 @@
 Headless components expose state to the consumer's CSS via DOM attributes
 instead of class names. Consumers style the closed/open/disabled/animating
 states by selecting on `data-*` attributes set by the runtime — no class
-name conflicts, no JS-managed style rules.
+name conflicts, no JavaScript-managed style rules.
 
 ## Mental model
 
-The runtime maintains a state object per component (e.g. `{ open: true,
+The runtime maintains a state object per component (for example `{ open: true,
 disabled: false, transitionStatus: 'starting' }`). A mapping table converts
 state to DOM attributes; a render helper applies them.
 
@@ -25,7 +25,7 @@ state to DOM attributes; a render helper applies them.
 | `transitionStatus: 'starting'` | `data-starting-style` |
 | `transitionStatus: 'ending'` | `data-ending-style` |
 
-Mutually exclusive states (e.g. open vs closed) get one attribute each — never
+Mutually exclusive states (for example open vs closed) get one attribute each — never
 both at once.
 
 ## Invariants

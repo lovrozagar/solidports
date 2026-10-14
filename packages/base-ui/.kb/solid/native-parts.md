@@ -34,8 +34,8 @@ The choice is made **once, at setup, from static information** (`canRenderNative
 4. `ref` is static (Solid's `isStatic`; an absent key counts as static): the compiled
    `let el; <Part ref={el} />` form and plain callbacks/object refs qualify, a `ref={signal()}`
    getter does not.
-5. Every key the part reads once (`options.staticKeys`, e.g. `nativeButton`) is static.
-6. Part-specific conditions (recorded per part below), e.g. Button: not inside a composite root.
+5. Every key the part reads once (`options.staticKeys`, for example `nativeButton`) is static.
+6. Part-specific conditions (recorded per part below), for example Button: not inside a composite root.
 
 Anything else: `useRenderElement`, unchanged. Both paths are covered by the same tests; the parity
 harness renders the same props through both (`render="<tag>"` forces the slow path on the same tag).
@@ -49,7 +49,7 @@ Effective props, lowest priority first, exactly as the slow path's source order:
 1. tag defaults (`type="button"` for `<button>`, `alt=""` for `<img>`);
 2. state attributes: `data-<key>` per state key, `''` for `true`, the string for other truthy
    values, absent otherwise (custom mappers as `getStateAttributesProps`);
-3. the part's own attributes (e.g. `useButton`'s `type`/`role`, `tabindex`, `aria-disabled`,
+3. the part's own attributes (for example `useButton`'s `type`/`role`, `tabindex`, `aria-disabled`,
    `disabled`);
 4. the consumer's props (every key except `class`, `style`, `render`, `ref`, `children` and the
    part's own props) — a consumer key overrides the part's, including `undefined`;

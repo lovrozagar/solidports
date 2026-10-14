@@ -32,7 +32,7 @@ diagnostics into failures (`vitest-fail-on-console`), so they are part of correc
 - `live(fn)` (solid-helpers): an accessor that tracks inside computations and reads untracked
   elsewhere. Use it for store/context accessors read imperatively by handlers and effects.
 - A memo is React's render-time value; a raw accessor read in a handler is React's latest
-  (stable-callback) value. Pick deliberately (e.g. NavigationMenuTrigger `isActiveItem` is a memo
+  (stable-callback) value. Pick deliberately (for example NavigationMenuTrigger `isActiveItem` is a memo
   because `useClick` reads it as a render-time `toggle`).
 
 ## Writes
@@ -44,7 +44,7 @@ diagnostics into failures (`vitest-fail-on-console`), so they are part of correc
   `runWithOwner(null, () => untrack(() => write()))`.
 - `flushSync(fn)` (utils/flushSync) = `ReactDOM.flushSync`.
 
-## Base UI store (`createStoreState`, `SolidStoreV2`)
+## Base UI store (`createStoreState`, `SolidStoreV2`)
 
 Same semantics as React's `Store`:
 

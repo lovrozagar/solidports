@@ -2,7 +2,7 @@
 
 # @solidports/base-ui
 
-A Solid port of [MUI Base UI](https://github.com/mui/base-ui): headless, accessible components and
+A Solid port of [MUI Base UI](https://github.com/mui/base-ui): headless, accessible components and
 low-level hooks for [Solid 2](https://github.com/solidjs/solid). It tracks `@base-ui/react` 1.8.0
 and ports its behavior and test suite one to one.
 
@@ -51,8 +51,8 @@ re-exports all of them.
 
 ## Versioning
 
-Versions follow upstream Base UI. Prereleases add a counter (`1.8.0-1`, `1.8.0-2`, …) and are
-published under the `next` tag. The stable port of a Base UI release uses the bare upstream version
+Versions follow upstream Base UI. Prereleases add a counter (`1.8.0-1`, `1.8.0-2`, …) and are
+published under the `next` tag. The stable port of a Base UI release uses the bare upstream version
 (`1.8.0`) under `latest`.
 
 ## Content Security Policy
@@ -67,13 +67,13 @@ ways:
 
 ## Documentation
 
-The API matches Base UI. Use the [Base UI documentation](https://base-ui.com/react/overview/quick-start)
+The API matches Base UI. Use the [Base UI documentation](https://base-ui.com/react/overview/quick-start)
 for component anatomy and props. The Solid docs app lives in
 [`packages/base-ui/docs/solid`](https://github.com/lovrozagar/solidports/tree/main/packages/base-ui/docs/solid).
 
 ## Credits
 
-Base UI is built by the MUI team. Consider supporting them on
+Base UI is built by the MUI team. Consider supporting them on
 [Open Collective](https://opencollective.com/mui-org). The original Solid port was started by
 [@msviderok](https://github.com/msviderok/base-ui-solid).
 
