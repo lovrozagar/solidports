@@ -1,10 +1,12 @@
 // Compares the Solid test suite with the upstream React snapshot, test by test.
 //
-// For every upstream test file (`packages/react/src/**/*.test.*`) and its Solid counterpart
-// (`packages/solid/src`, with `floating-ui-react` renamed `floating-ui-solid`) it reports:
+// Upstream's unit run covers `packages/react` (`src` and `test`), `packages/utils` and `docs`. For
+// every upstream test or type spec file (`*.test.*`, `*.spec.*`) in those trees and its Solid
+// counterpart (see TREES) it reports:
+// - upstream files without a Solid counterpart,
 // - upstream tests whose title has no match in the Solid file,
 // - upstream tests whose Solid `skipIf` skips them in an environment upstream runs them in,
-// - Solid `.skip`, `.todo` and `.fails` anywhere under `packages/solid/src`.
+// - Solid `.skip`, `.todo` and `.fails` anywhere in the Solid trees.
 //
 // `--json <file>` writes the full report. Exits 1 when any check finds something.
 import * as fs from 'node:fs';
@@ -12,15 +14,31 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const reactSrc = path.join(root, 'packages/react/src');
-const solidSrc = path.join(root, 'packages/solid/src');
-const TEST_FILE = /\.test\.[cm]?[jt]sx?$/;
+const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+const IGNORED_DIRECTORIES = new Set(['node_modules', 'build', 'dist', '.next', '.output']);
+
+// Each upstream tree and the Solid tree its tests live in, at the same relative path.
+const TREES = [
+  {
+    react: 'packages/react/src',
+    solid: 'packages/solid/src',
+    rename: (relative) => relative.replace(/^floating-ui-react\//, 'floating-ui-solid/'),
+  },
+  { react: 'packages/react/test', solid: 'packages/solid/test' },
+  { react: 'packages/utils/src', solid: 'packages/solid/src/utils' },
+  { react: 'docs/react', solid: 'docs/solid' },
+];
 
 function walk(dir, out = []) {
+  if (!fs.existsSync(dir)) {
+    return out;
+  }
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      walk(full, out);
+      if (!IGNORED_DIRECTORIES.has(entry.name)) {
+        walk(full, out);
+      }
     } else if (TEST_FILE.test(entry.name)) {
       out.push(full);
     }
@@ -29,13 +47,12 @@ function walk(dir, out = []) {
 }
 
 /** The Solid counterparts of an upstream test file (a test can move between `.ts` and `.tsx`). */
-function solidCounterparts(reactFile) {
-  const relative = path
-    .relative(reactSrc, reactFile)
-    .replace(/^floating-ui-react\//, 'floating-ui-solid/')
-    .replace(/\.[cm]?[jt]sx?$/, '');
-  return ['.tsx', '.ts', '.jsx', '.js']
-    .map((extension) => path.join(solidSrc, relative + extension))
+function solidCounterparts(tree, reactFile) {
+  const relative = (tree.rename ?? ((name) => name))(
+    path.relative(path.join(root, tree.react), reactFile),
+  ).replace(/\.[cm]?[jt]sx?$/, '');
+  return ['.tsx', '.ts', '.jsx', '.js', '.mts', '.mjs']
+    .map((extension) => path.join(root, tree.solid, relative + extension))
     .filter((candidate) => fs.existsSync(candidate));
 }
 
@@ -223,8 +240,10 @@ const report = {
   solidOnlyConditional: [],
 };
 
-for (const reactFile of walk(reactSrc)) {
-  const solidFiles = solidCounterparts(reactFile);
+for (const [tree, reactFile] of TREES.flatMap((entry) =>
+  walk(path.join(root, entry.react)).map((file) => [entry, file]),
+)) {
+  const solidFiles = solidCounterparts(tree, reactFile);
   const reactRelative = path.relative(root, reactFile);
   if (solidFiles.length === 0) {
     report.missingFiles.push(reactRelative);
@@ -275,7 +294,7 @@ for (const reactFile of walk(reactSrc)) {
   }
 }
 
-for (const solidFile of walk(solidSrc)) {
+for (const solidFile of new Set(TREES.flatMap((tree) => walk(path.join(root, tree.solid))))) {
   for (const test of extractTests(fs.readFileSync(solidFile, 'utf8'))) {
     const markers = test.flags.filter((flag) => ['skip', 'todo', 'fails', 'only'].includes(flag));
     if (markers.length > 0) {
@@ -292,6 +311,18 @@ for (const solidFile of walk(solidSrc)) {
 const jsonIndex = process.argv.indexOf('--json');
 if (jsonIndex !== -1) {
   fs.writeFileSync(process.argv[jsonIndex + 1], `${JSON.stringify(report, null, 2)}\n`);
+}
+
+const listed = [
+  ...report.missingFiles.map((file) => `missing file: ${file}`),
+  ...report.missingTests.map((test) => `missing test: ${test.file} :: ${test.title}`),
+  ...report.extraSkips.map(
+    (test) => `extra skip (${test.environments.join(', ')}): ${test.file} :: ${test.title}`,
+  ),
+  ...report.markers.map((test) => `${test.markers.join(', ')}: ${test.file} :: ${test.title}`),
+];
+for (const line of listed) {
+  console.log(`- ${line}`);
 }
 
 console.log(
