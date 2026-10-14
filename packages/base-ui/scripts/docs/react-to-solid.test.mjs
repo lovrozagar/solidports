@@ -61,6 +61,18 @@ export function Kbd(props: ComponentProps<'kbd'>) {
       );
     });
 
+    it('converts a style it cannot read as written when it is read', () => {
+      expectTransform(
+        `export function Bar(props: { width: number }) {
+  return <div style={{ width: props.width, ...props.style }} />;
+}`,
+        `import { reactStyle } from 'docs/src/adapters/react';
+export function Bar(props: { width: number }) {
+  return <div style={reactStyle({ width: props.width, ...props.style })} />;
+}`,
+      );
+    });
+
     it('renders dangerouslySetInnerHTML as innerHTML', () => {
       expectTransform(
         `export function Html(props: { html: string }) {
@@ -68,6 +80,91 @@ export function Kbd(props: ComponentProps<'kbd'>) {
 }`,
         `export function Html(props: { html: string }) {
   return <div innerHTML={props.html} />;
+}`,
+      );
+    });
+  });
+
+  describe('DOM names', () => {
+    it('writes attributes and events under their DOM names on elements', () => {
+      expectTransform(
+        `export function Field() {
+  return (
+    <div onFocus={track} onBlur={track} onDoubleClick={track}>
+      <input tabIndex={0} readOnly autoComplete="off" onChange={track} />
+      <input type="checkbox" onChange={track} />
+      <svg xmlnsXlink="http://www.w3.org/1999/xlink"><path strokeWidth={2} /></svg>
+      <span aria-hidden />
+    </div>
+  );
+}`,
+        `export function Field() {
+  return (
+    <div onFocusIn={track} onFocusOut={track} onDblClick={track}>
+      <input tabindex={0} readonly autocomplete="off" onInput={track} />
+      <input type="checkbox" onChange={track} />
+      <svg xmlns:xlink="http://www.w3.org/1999/xlink"><path stroke-width={2} /></svg>
+      <span aria-hidden="true" />
+    </div>
+  );
+}`,
+      );
+    });
+
+    it('keeps names a component declares and renames the others', () => {
+      expectTransform(
+        `export function Fields() {
+  return <NumberField.Root readOnly itemProp="price" />;
+}`,
+        `export function Fields() {
+  return <NumberField.Root readOnly itemprop="price" />;
+}`,
+        { componentProps: ['readOnly'] },
+      );
+    });
+  });
+
+  describe('render elements', () => {
+    it('passes a render element as a render config', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Trigger(props: { label: string }) {
+  return <Menu.Trigger render={<button className="Button" disabled title={props.label} />} />;
+}`,
+        `export function Trigger(props: { label: string }) {
+  return (
+    <Menu.Trigger
+      render={{
+        component: 'button',
+        class: 'Button',
+        disabled: true,
+        get title() {
+          return props.label;
+        },
+      }}
+    />
+  );
+}`,
+      );
+    });
+
+    it('passes a component and its children', () => {
+      expectTransform(
+        `export function Item() {
+  return <Menu.Item render={<Link href="/a">Docs</Link>} />;
+}`,
+        `export function Item() {
+  return (
+    <Menu.Item
+      render={{
+        component: Link,
+        href: '/a',
+        get children() {
+          return 'Docs';
+        },
+      }}
+    />
+  );
 }`,
       );
     });
@@ -306,6 +403,53 @@ import { Dynamic } from '@solidjs/web';
 export function Editor(props: { value: string }) {
   const [module] = createSignal(loadEditor);
   return <Dynamic component={module().CodeEditor} value={props.value}></Dynamic>;
+}`,
+      );
+    });
+  });
+
+  describe('elements', () => {
+    it('renders JSX kept in a variable where it is placed', () => {
+      expectTransform(
+        `export function Search() {
+  const input = <Autocomplete.Input />;
+  return <Autocomplete.Root>{input}</Autocomplete.Root>;
+}`,
+        `import { element } from 'docs/src/adapters/react';
+export function Search() {
+  const input = element(() => <Autocomplete.Input />);
+  return <Autocomplete.Root>{input}</Autocomplete.Root>;
+}`,
+      );
+    });
+
+    it('keeps mapped JSX in a variable as elements and renders mapped JSX in place', () => {
+      expectTransform(
+        `export function List(props: { items: string[] }) {
+  const items = props.items.map((item) => <li>{item}</li>);
+  return <ul>{items}{props.items.map((item) => <li>{item}</li>)}</ul>;
+}`,
+        `import { element } from 'docs/src/adapters/react';
+import { createMemo, For } from 'solid-js';
+export function List(props: { items: string[] }) {
+  const items = createMemo(() => props.items.map((item) => element(() => <li>{item}</li>)));
+  return <ul>{items()}<For each={props.items}>{(item) => <li>{item}</li>}</For></ul>;
+}`,
+      );
+    });
+
+    it('keeps a memoized element to render later', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Icon(props: { size: number }) {
+  const icon = React.useMemo(() => <svg width={props.size} />, [props.size]);
+  return <span>{icon}</span>;
+}`,
+        `import { element } from 'docs/src/adapters/react';
+import { createMemo } from 'solid-js';
+export function Icon(props: { size: number }) {
+  const icon = createMemo(() => element(() => <svg width={props.size} />));
+  return <span>{icon()}</span>;
 }`,
       );
     });
@@ -553,6 +697,21 @@ export function useTheme() {
     });
   });
 
+  describe('providers', () => {
+    it('leaves a Provider component of another package alone', () => {
+      expectTransform(
+        `import { Tooltip } from '@base-ui/react/tooltip';
+export function Providers(props: { children: unknown }) {
+  return <Tooltip.Provider delay={350}>{props.children}</Tooltip.Provider>;
+}`,
+        `import { Tooltip } from '@solidports/base-ui/tooltip';
+export function Providers(props: { children: unknown }) {
+  return <Tooltip.Provider delay={350}>{props.children}</Tooltip.Provider>;
+}`,
+      );
+    });
+  });
+
   describe('dynamic tags', () => {
     it('renders a prop used as a tag with Dynamic', () => {
       expectTransform(
@@ -629,7 +788,7 @@ export function Logger() {
       );
     });
 
-    it('runs useIsoLayoutEffect as a render effect', () => {
+    it('runs useIsoLayoutEffect as a client layout effect', () => {
       expectTransform(
         `import { useIsoLayoutEffect } from '@base-ui/utils/useIsoLayoutEffect';
 export function Measure(props: { width: number }) {
@@ -638,9 +797,9 @@ export function Measure(props: { width: number }) {
   }, [props.width]);
   return null;
 }`,
-        `import { createRenderEffect } from 'solid-js';
+        `import { createLayoutEffect } from 'docs/src/adapters/react';
 export function Measure(props: { width: number }) {
-  createRenderEffect(() => [props.width], () => {
+  createLayoutEffect(() => [props.width], () => {
     document.body.style.width = String(props.width);
   });
   return null;
@@ -691,6 +850,22 @@ import { useCode } from 'docs/src/adapters/docs-infra/useCode';`,
             '@mui/internal-docs-infra/*': 'docs/src/adapters/docs-infra/*',
           },
         },
+      );
+    });
+  });
+
+  describe('strings', () => {
+    it('rewrites strings, template parts and JSX text but not module specifiers', () => {
+      expectTransform(
+        `import { Menu } from './react/menu';
+export function Link() {
+  return <a href="/react/overview" title={\`/react/\${'x'}\`}>Go to /react/</a>;
+}`,
+        `import { Menu } from './react/menu';
+export function Link() {
+  return <a href="/solid/overview" title={\`/solid/\${'x'}\`}>Go to /solid/</a>;
+}`,
+        { rewriteString: (value) => value.replaceAll('/react/', '/solid/') },
       );
     });
   });

@@ -36,26 +36,175 @@ const generate = generateModule.default ?? generateModule;
 const REACT_DOM = 'react-dom';
 // The docs runtime's counterparts of React APIs Solid has none of.
 const REACT_ADAPTERS = 'docs/src/adapters/react';
+// The head of a Next root layout (it writes the charset and Solid's hydration script).
+const NEXT_DOCUMENT = 'docs/src/adapters/next/document';
 
 const PARSER_OPTIONS = { sourceType: 'module', plugins: ['jsx', 'typescript'] };
 const GENERATOR_OPTIONS = { jsescOption: { minimal: true, quotes: 'single' } };
+
+/** Whether a node is `element(() => <jsx />)` (see `deferElements`). */
+const isElementCall = (node) =>
+  t.isCallExpression(node) &&
+  t.isIdentifier(node.callee, { name: 'element' }) &&
+  node.arguments.length === 1;
 
 /** Prints source through the transform's parser and printer (one formatting for comparisons). */
 export function printCode(code) {
   return generate(parse(code, PARSER_OPTIONS), GENERATOR_OPTIONS).code;
 }
 
+const kebab = (name) => name.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
 const DOM_ATTRIBUTES = { className: 'class', htmlFor: 'for' };
+// React's names for DOM attributes that Solid writes under the attribute's own name.
+const REACT_ATTRIBUTE_NAMES = Object.fromEntries([
+  ...[
+    'accessKey',
+    'autoCapitalize',
+    'autoComplete',
+    'autoCorrect',
+    'autoFocus',
+    'autoPlay',
+    'autoSave',
+    'cellPadding',
+    'cellSpacing',
+    'charSet',
+    'classID',
+    'colSpan',
+    'contentEditable',
+    'contextMenu',
+    'controlsList',
+    'crossOrigin',
+    'dateTime',
+    'encType',
+    'enterKeyHint',
+    'fetchPriority',
+    'formAction',
+    'formEncType',
+    'formMethod',
+    'formNoValidate',
+    'formTarget',
+    'frameBorder',
+    'hrefLang',
+    'inputMode',
+    'itemID',
+    'itemProp',
+    'itemRef',
+    'itemScope',
+    'itemType',
+    'marginHeight',
+    'marginWidth',
+    'maxLength',
+    'mediaGroup',
+    'minLength',
+    'noModule',
+    'noValidate',
+    'playsInline',
+    'popoverTarget',
+    'popoverTargetAction',
+    'radioGroup',
+    'readOnly',
+    'referrerPolicy',
+    'rowSpan',
+    'spellCheck',
+    'srcDoc',
+    'srcLang',
+    'srcSet',
+    'tabIndex',
+    'useMap',
+  ].map((name) => [name, name.toLowerCase()]),
+  ['acceptCharset', 'accept-charset'],
+  ['httpEquiv', 'http-equiv'],
+  ...[
+    'alignmentBaseline',
+    'baselineShift',
+    'clipPath',
+    'clipRule',
+    'colorInterpolation',
+    'colorInterpolationFilters',
+    'colorProfile',
+    'colorRendering',
+    'dominantBaseline',
+    'enableBackground',
+    'fillOpacity',
+    'fillRule',
+    'floodColor',
+    'floodOpacity',
+    'fontFamily',
+    'fontSize',
+    'fontSizeAdjust',
+    'fontStretch',
+    'fontStyle',
+    'fontVariant',
+    'fontWeight',
+    'glyphOrientationHorizontal',
+    'glyphOrientationVertical',
+    'imageRendering',
+    'letterSpacing',
+    'lightingColor',
+    'markerEnd',
+    'markerMid',
+    'markerStart',
+    'paintOrder',
+    'pointerEvents',
+    'shapeRendering',
+    'stopColor',
+    'stopOpacity',
+    'strokeDasharray',
+    'strokeDashoffset',
+    'strokeLinecap',
+    'strokeLinejoin',
+    'strokeMiterlimit',
+    'strokeOpacity',
+    'strokeWidth',
+    'textAnchor',
+    'textDecoration',
+    'textRendering',
+    'transformOrigin',
+    'unicodeBidi',
+    'vectorEffect',
+    'wordSpacing',
+    'writingMode',
+  ].map((name) => [name, kebab(name)]),
+  ['xlinkHref', 'xlink:href'],
+  ['xmlnsXlink', 'xmlns:xlink'],
+  ['xmlLang', 'xml:lang'],
+  ['xmlSpace', 'xml:space'],
+]);
+// React events Solid names after the DOM event (React's focus events are `focusin`/`focusout`).
+const REACT_EVENT_NAMES = {
+  onDoubleClick: 'onDblClick',
+  onFocus: 'onFocusIn',
+  onBlur: 'onFocusOut',
+};
 // CSS properties that take a length: a number in React's `style` means pixels.
 const UNITLESS = new Set([
   'animationIterationCount',
   'aspectRatio',
+  'borderImageOutset',
+  'borderImageSlice',
+  'borderImageWidth',
+  'boxFlex',
+  'boxFlexGroup',
+  'boxOrdinalGroup',
+  'columnCount',
+  'columns',
   'flex',
   'flexGrow',
+  'flexPositive',
   'flexShrink',
-  'fontWeight',
-  'gridColumn',
+  'flexNegative',
+  'flexOrder',
+  'gridArea',
   'gridRow',
+  'gridRowEnd',
+  'gridRowSpan',
+  'gridRowStart',
+  'gridColumn',
+  'gridColumnEnd',
+  'gridColumnSpan',
+  'gridColumnStart',
+  'fontWeight',
+  'lineClamp',
   'lineHeight',
   'opacity',
   'order',
@@ -65,6 +214,14 @@ const UNITLESS = new Set([
   'widows',
   'zIndex',
   'zoom',
+  'fillOpacity',
+  'floodOpacity',
+  'stopOpacity',
+  'strokeDasharray',
+  'strokeDashoffset',
+  'strokeMiterlimit',
+  'strokeOpacity',
+  'strokeWidth',
 ]);
 
 const REACT_TYPES = {
@@ -115,6 +272,8 @@ const TUPLE_HOOKS = new Set([
   'useOptimistic',
   'useActionState',
 ]);
+// The elements of a pair hook's result that are accessors (the others are functions).
+const TUPLE_ACCESSORS = { useActionState: [0, 2] };
 // React hooks whose result the transform reads through an accessor.
 const ACCESSOR_HOOKS = new Set(['useMemo', 'useContext', 'useSyncExternalStore', 'use']);
 
@@ -123,8 +282,6 @@ const HOOK_NAME = /^use[A-Z0-9]/;
 // Imports of these modules are corpus code (transformed with this file, or written for it as an
 // adapter), so their hooks follow the corpus convention.
 const CORPUS_MODULES = ['.', 'docs/', '@mui/internal-docs-infra', 'next', '@base-ui/utils/'];
-
-const kebab = (name) => name.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
 
 class Imports {
   constructor() {
@@ -416,7 +573,10 @@ function lowerReactHook(node, api, ctx) {
       return call;
     }
     case 'useReducer':
-    case 'useTransition': {
+    case 'useTransition':
+    case 'useActionState':
+    case 'useOptimistic':
+    case 'use': {
       imports.add(REACT_ADAPTERS, api);
       return t.callExpression(t.identifier(api), args);
     }
@@ -472,9 +632,24 @@ function lowerReactHook(node, api, ctx) {
         imports.add('solid-js', 'createTrackedEffect');
         return t.callExpression(t.identifier('createTrackedEffect'), [fn]);
       }
-      const effect = api === 'useEffect' ? 'createEffect' : 'createRenderEffect';
-      imports.add('solid-js', effect);
-      return t.callExpression(t.identifier(effect), [t.arrowFunctionExpression([], deps), fn]);
+      if (api !== 'useEffect') {
+        // React never runs a layout effect on the server; Solid's server runs a render effect.
+        imports.add(REACT_ADAPTERS, 'createLayoutEffect');
+        return t.callExpression(t.identifier('createLayoutEffect'), [
+          t.arrowFunctionExpression([], deps),
+          fn,
+        ]);
+      }
+      imports.add('solid-js', 'createEffect');
+      return t.callExpression(t.identifier('createEffect'), [
+        t.arrowFunctionExpression([], deps),
+        fn,
+      ]);
+    }
+    case 'useImperativeHandle': {
+      // Assigns the handle once: its methods read current values when called.
+      imports.add(REACT_ADAPTERS, 'useImperativeHandle');
+      return t.callExpression(t.identifier('useImperativeHandle'), args.slice(0, 2));
     }
     case 'useDebugValue':
       return null;
@@ -482,6 +657,16 @@ function lowerReactHook(node, api, ctx) {
       throw new Error(`react-to-solid: no Solid counterpart for React.${api}`);
   }
 }
+
+// Without JSX (a `.ts` module), a component returns its render memo, which Solid inserts as it
+// inserts a function child.
+const renderedMemo = (id, imports) => {
+  imports.add('@solidjs/web', 'JSX', true);
+  return t.tsAsExpression(
+    t.tsAsExpression(t.identifier(id.name), t.tsUnknownKeyword()),
+    t.tsTypeReference(t.tsQualifiedName(t.identifier('JSX'), t.identifier('Element'))),
+  );
+};
 
 const fragmentOf = (expression) =>
   t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), [
@@ -689,6 +874,11 @@ function lowerFunction(fnPath, kind, ctx) {
         // A callback a call receives runs while the value is computed; a function stored in the
         // value reads when it is called.
         const parent = inner.parentPath;
+        // An element (`element(() => <jsx />)`) renders when it is placed.
+        if (isElementCall(parent.node)) {
+          inner.skip();
+          return;
+        }
         if (!(
           parent.isCallExpression() ||
           parent.isOptionalCallExpression() ||
@@ -740,9 +930,14 @@ function lowerFunction(fnPath, kind, ctx) {
     if (t.isCallExpression(init) && isHookCall(init, ctx)) {
       const api = reactApi(init.callee, ctx.reactNames);
       if (api && TUPLE_HOOKS.has(api)) {
-        if (t.isArrayPattern(id) && t.isIdentifier(id.elements[0])) {
-          const name = id.elements[0].name;
-          declare(bindingOf(declaratorPath, name), { kind: 'accessor', name });
+        for (const index of TUPLE_ACCESSORS[api] ?? [0]) {
+          const element = t.isArrayPattern(id) ? id.elements[index] : null;
+          if (t.isIdentifier(element)) {
+            declare(bindingOf(declaratorPath, element.name), {
+              kind: 'accessor',
+              name: element.name,
+            });
+          }
         }
         continue;
       }
@@ -762,7 +957,12 @@ function lowerFunction(fnPath, kind, ctx) {
       }
       continue;
     }
-    if (statement.kind !== 'const' || isFunctionNode(init) || isJsxNode(init)) {
+    if (
+      statement.kind !== 'const' ||
+      isFunctionNode(init) ||
+      isJsxNode(init) ||
+      isElementCall(init)
+    ) {
       continue;
     }
     if (!readsReactive(declaratorPath.get('init'))) {
@@ -934,13 +1134,23 @@ function lowerFunction(fnPath, kind, ctx) {
         t.isNullLiteral(only.argument) ||
         isJsxNode(only.argument) ||
         t.isLiteral(only.argument));
-    if (!simple && render.length === 1 && t.isReturnStatement(only)) {
+    if (!simple && render.length === 1 && t.isReturnStatement(only) && ctx.jsx) {
       only.argument = fragmentOf(only.argument);
+    } else if (!simple && render.length === 1 && t.isReturnStatement(only)) {
+      const renderId = uid('render');
+      tail = [
+        constDeclaration(renderId, createMemoCall(only.argument, imports)),
+        t.returnStatement(renderedMemo(renderId, imports)),
+      ];
     } else if (!simple && render.length > 0) {
       const renderId = uid('render');
       tail = [
         constDeclaration(renderId, createMemoCall(t.blockStatement(render), imports)),
-        t.returnStatement(fragmentOf(t.callExpression(t.identifier(renderId.name), []))),
+        t.returnStatement(
+          ctx.jsx
+            ? fragmentOf(t.callExpression(t.identifier(renderId.name), []))
+            : renderedMemo(renderId, imports),
+        ),
       ];
     }
   } else if (kind === 'hook' && render.length > 0) {
@@ -1084,6 +1294,39 @@ function rewriteReads(fnPath, rewrites, imports) {
   });
 }
 
+/** Whether a function returns its `children` (a layout or a provider that renders no element). */
+function returnsChildren(path) {
+  const [param] = path.node.params;
+  const destructured =
+    t.isObjectPattern(param) &&
+    param.properties.some(
+      (property) =>
+        t.isObjectProperty(property) && t.isIdentifier(property.key, { name: 'children' }),
+    );
+  let found = false;
+  path.traverse({
+    Function(inner) {
+      inner.skip();
+    },
+    ReturnStatement(ret) {
+      const arg = ret.node.argument;
+      if (
+        (destructured && t.isIdentifier(arg, { name: 'children' })) ||
+        (t.isMemberExpression(arg) && t.isIdentifier(arg.property, { name: 'children' }))
+      ) {
+        found = true;
+      }
+    },
+  });
+  if (t.isArrowFunctionExpression(path.node) && !t.isBlockStatement(path.node.body)) {
+    const body = path.node.body;
+    found ||=
+      (destructured && t.isIdentifier(body, { name: 'children' })) ||
+      (t.isMemberExpression(body) && t.isIdentifier(body.property, { name: 'children' }));
+  }
+  return found;
+}
+
 /** Whether a function calls a hook in its own body. */
 function callsHooks(path, ctx) {
   let found = false;
@@ -1101,6 +1344,96 @@ function callsHooks(path, ctx) {
   return found;
 }
 
+/** The expression a value takes its place as (through conditionals, logical operators and casts). */
+function valuePosition(path) {
+  let current = path;
+  for (;;) {
+    const parent = current.parentPath;
+    if (
+      (parent.isConditionalExpression() && parent.node.test !== current.node) ||
+      (parent.isLogicalExpression() && parent.node.right === current.node) ||
+      parent.isParenthesizedExpression() ||
+      parent.isTSAsExpression() ||
+      parent.isTSSatisfiesExpression() ||
+      parent.isTSNonNullExpression() ||
+      (parent.isSequenceExpression() && parent.node.expressions.at(-1) === current.node)
+    ) {
+      current = parent;
+      continue;
+    }
+    return current;
+  }
+}
+
+/** Whether a function's result is rendered where the function runs (a component, a render prop). */
+function rendersWhereCalled(fnPath, ctx) {
+  const name = functionName(fnPath);
+  if (name && HOOK_NAME.test(name)) {
+    return false;
+  }
+  const position = valuePosition(fnPath);
+  const parent = position.parentPath;
+  if (parent.isCallExpression() && position.node !== parent.node.callee) {
+    const callee = parent.node.callee;
+    const api = reactApi(callee, ctx.reactNames);
+    // `useMemo(() => <x />)` keeps an element to render later.
+    if (api === 'useMemo') {
+      return false;
+    }
+    // `list.map((item) => <x />)` renders where its result is placed.
+    if (
+      t.isMemberExpression(callee) &&
+      t.isIdentifier(callee.property) &&
+      /^(map|flatMap)$/.test(callee.property.name)
+    ) {
+      return inRenderPosition(parent, ctx);
+    }
+  }
+  return true;
+}
+
+/** Whether JSX renders where it is written (a child, a prop, a component's or render prop's result). */
+function inRenderPosition(path, ctx) {
+  const position = valuePosition(path);
+  const parent = position.parentPath;
+  if (
+    parent.isJSXExpressionContainer() ||
+    parent.isJSXElement() ||
+    parent.isJSXFragment() ||
+    parent.isJSXAttribute()
+  ) {
+    return true;
+  }
+  if (parent.isArrowFunctionExpression() && parent.node.body === position.node) {
+    return rendersWhereCalled(parent, ctx);
+  }
+  if (parent.isReturnStatement()) {
+    const fnPath = parent.getFunctionParent();
+    return !fnPath || rendersWhereCalled(fnPath, ctx);
+  }
+  return false;
+}
+
+/**
+ * A React element is a description: it renders where it is placed, in that place's context. Solid
+ * JSX renders where it is written. JSX kept as a value (in a variable, an object, a hook's result)
+ * becomes `element(() => <jsx />)`, which Solid renders where it is inserted.
+ */
+function deferElements(programPath, ctx) {
+  programPath.traverse({
+    'JSXElement|JSXFragment'(path) {
+      if (inRenderPosition(path, ctx)) {
+        return;
+      }
+      ctx.imports.add(REACT_ADAPTERS, 'element');
+      path.replaceWith(
+        t.callExpression(t.identifier('element'), [t.arrowFunctionExpression([], path.node)]),
+      );
+      path.skip();
+    },
+  });
+}
+
 /** Lowers every component and corpus hook, innermost first. */
 function lowerReactiveFunctions(programPath, ctx) {
   const found = [];
@@ -1110,7 +1443,10 @@ function lowerReactiveFunctions(programPath, ctx) {
         const name = functionName(path);
         if (name && HOOK_NAME.test(name)) {
           found.push({ path, kind: 'hook' });
-        } else if (isComponentName(name) && (returnsJsx(path) || callsHooks(path, ctx))) {
+        } else if (
+          isComponentName(name) &&
+          (returnsJsx(path) || callsHooks(path, ctx) || returnsChildren(path))
+        ) {
           found.push({ path, kind: 'component' });
         } else if (!name && t.isExportDefaultDeclaration(path.parent) && returnsJsx(path)) {
           found.push({ path, kind: 'component' });
@@ -1251,90 +1587,231 @@ function transformModuleApis(programPath, ctx) {
   });
 }
 
+/** A style object of literal keys and literal values (converted as written). */
+const isStaticStyle = (style) =>
+  t.isObjectExpression(style) &&
+  style.properties.every(
+    (property) =>
+      t.isObjectProperty(property) &&
+      !property.computed &&
+      t.isIdentifier(property.key) &&
+      (t.isStringLiteral(property.value) || t.isNumericLiteral(property.value)),
+  );
+
+/**
+ * Whether a JSX name is a corpus context's `Provider` (`<ThemeContext.Provider>`), not a component
+ * of another package named `Provider` (`<Tooltip.Provider>`).
+ */
+function isContextProvider(name, path, ctx) {
+  if (
+    !t.isJSXMemberExpression(name) ||
+    name.property.name !== 'Provider' ||
+    !t.isJSXIdentifier(name.object)
+  ) {
+    return false;
+  }
+  const binding = path.scope.getBinding(name.object.name);
+  return !binding || binding.kind !== 'module' || ctx.corpusImports.has(name.object.name);
+}
+
+/** The name an attribute takes in Solid, on an intrinsic element or on a component. */
+function solidAttributeName(name, element, ctx) {
+  const tag = element.name;
+  const intrinsic = t.isJSXIdentifier(tag) && /^[a-z]/.test(tag.name);
+  // A component keeps a name its props declare (Base UI's `readOnly`, say).
+  if (!intrinsic && ctx.componentProps.has(name)) {
+    return name;
+  }
+  if (REACT_ATTRIBUTE_NAMES[name]) {
+    return REACT_ATTRIBUTE_NAMES[name];
+  }
+  if (intrinsic && REACT_EVENT_NAMES[name]) {
+    return REACT_EVENT_NAMES[name];
+  }
+  if (!intrinsic && name === 'onDoubleClick') {
+    return 'onDblClick';
+  }
+  if (intrinsic && name === 'onChange' && (tag.name === 'textarea' || tag.name === 'input')) {
+    // React's `onChange` on a text field fires on every edit: the `input` event.
+    const type = element.attributes.find(
+      (attribute) =>
+        t.isJSXAttribute(attribute) && t.isJSXIdentifier(attribute.name, { name: 'type' }),
+    )?.value;
+    const committed = t.isStringLiteral(type) && ['checkbox', 'radio', 'file'].includes(type.value);
+    return committed ? name : 'onInput';
+  }
+  return name;
+}
+
+const jsxNameToExpression = (name) =>
+  t.isJSXMemberExpression(name)
+    ? t.memberExpression(jsxNameToExpression(name.object), t.identifier(name.property.name))
+    : t.identifier(name.name);
+
+/**
+ * `render={<X a={b} />}` → `render={{ component: X, get a() { return b; } }}`: the `{ component,
+ * ...props }` config Base UI renders as React renders an element it clones (props merged).
+ */
+function renderElementToConfig(element) {
+  const name = element.openingElement.name;
+  const intrinsic = t.isJSXIdentifier(name) && /^[a-z]/.test(name.name);
+  const properties = [
+    t.objectProperty(
+      t.identifier('component'),
+      intrinsic ? t.stringLiteral(name.name) : jsxNameToExpression(name),
+    ),
+  ];
+  const key = (attributeName) =>
+    /^[A-Za-z_$][\w$]*$/.test(attributeName)
+      ? t.identifier(attributeName)
+      : t.stringLiteral(attributeName);
+  const getter = (propertyKey, expression) =>
+    t.objectMethod('get', propertyKey, [], t.blockStatement([t.returnStatement(expression)]));
+  for (const attribute of element.openingElement.attributes) {
+    if (t.isJSXSpreadAttribute(attribute)) {
+      properties.push(t.spreadElement(attribute.argument));
+      continue;
+    }
+    const attributeName = t.isJSXNamespacedName(attribute.name)
+      ? `${attribute.name.namespace.name}:${attribute.name.name.name}`
+      : attribute.name.name;
+    const value = attribute.value;
+    if (value == null) {
+      properties.push(t.objectProperty(key(attributeName), t.booleanLiteral(true)));
+    } else if (t.isStringLiteral(value)) {
+      properties.push(t.objectProperty(key(attributeName), t.stringLiteral(value.value)));
+    } else if (t.isJSXExpressionContainer(value)) {
+      const expression = value.expression;
+      properties.push(
+        t.isLiteral(expression) || isFunctionNode(expression) || t.isIdentifier(expression)
+          ? t.objectProperty(key(attributeName), expression)
+          : getter(key(attributeName), expression),
+      );
+    } else {
+      properties.push(getter(key(attributeName), value));
+    }
+  }
+  const children = element.children.filter(
+    (child) => !(t.isJSXText(child) && child.value.trim() === ''),
+  );
+  if (children.length > 0) {
+    const single = children.length === 1 ? children[0] : null;
+    let value;
+    if (single && t.isJSXExpressionContainer(single)) {
+      value = single.expression;
+    } else if (single && t.isJSXText(single)) {
+      value = t.stringLiteral(single.value.trim());
+    } else if (single) {
+      value = single;
+    } else {
+      value = t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), element.children);
+    }
+    properties.push(getter(t.identifier('children'), value));
+  }
+  return t.objectExpression(properties);
+}
+
 function transformJsx(programPath, ctx) {
   const { imports, reactNames, refs } = ctx;
-  programPath.traverse({
-    JSXAttribute(path) {
-      const name = path.node.name;
-      if (!t.isJSXIdentifier(name)) {
-        return;
-      }
-      if (name.name === 'key') {
-        path.remove();
-        return;
-      }
-      if (DOM_ATTRIBUTES[name.name]) {
-        name.name = DOM_ATTRIBUTES[name.name];
-        return;
-      }
-      const value = path.node.value;
-      if (name.name === 'dangerouslySetInnerHTML' && t.isJSXExpressionContainer(value)) {
-        const html = value.expression.properties?.find(
-          (property) => property.key?.name === '__html',
+
+  /** Rewrites one attribute to Solid's (returns false when it is removed). */
+  const convertAttribute = (attributePath, element) => {
+    const attribute = attributePath.node;
+    if (!t.isJSXIdentifier(attribute.name)) {
+      return;
+    }
+    const name = attribute.name.name;
+    const value = attribute.value;
+    // `key` is React's reconciliation hint; `suppressHydrationWarning` silences React's checks.
+    if (name === 'key' || name === 'suppressHydrationWarning') {
+      attributePath.remove();
+      return;
+    }
+    if (DOM_ATTRIBUTES[name]) {
+      attribute.name = t.jsxIdentifier(DOM_ATTRIBUTES[name]);
+      return;
+    }
+    if (name === 'dangerouslySetInnerHTML' && t.isJSXExpressionContainer(value)) {
+      const html = value.expression.properties?.find((property) => property.key?.name === '__html');
+      if (html) {
+        attributePath.replaceWith(
+          t.jsxAttribute(t.jsxIdentifier('innerHTML'), t.jsxExpressionContainer(html.value)),
         );
-        if (html) {
-          path.replaceWith(
-            t.jsxAttribute(t.jsxIdentifier('innerHTML'), t.jsxExpressionContainer(html.value)),
-          );
-        }
-        return;
       }
-      if (
-        name.name === 'style' &&
-        t.isJSXExpressionContainer(value) &&
-        t.isObjectExpression(value.expression)
-      ) {
-        for (const property of value.expression.properties) {
-          if (!t.isObjectProperty(property) || !t.isIdentifier(property.key)) {
-            continue;
-          }
+      return;
+    }
+    if (name === 'style' && t.isJSXExpressionContainer(value)) {
+      const style = value.expression;
+      if (isStaticStyle(style)) {
+        // A literal style with literal values converts as React would write it: CSS property
+        // names, and pixels for a number.
+        for (const property of style.properties) {
           const key = property.key.name;
-          if (
-            t.isNumericLiteral(property.value) &&
-            !UNITLESS.has(key) &&
-            property.value.value !== 0
-          ) {
-            property.value = t.stringLiteral(`${property.value.value}px`);
-          } else if (
-            t.isNumericLiteral(property.value) &&
-            property.value.value === 0 &&
-            !UNITLESS.has(key)
-          ) {
-            property.value = t.stringLiteral('0');
+          if (t.isNumericLiteral(property.value) && !UNITLESS.has(key)) {
+            property.value = t.stringLiteral(
+              property.value.value === 0 ? '0' : `${property.value.value}px`,
+            );
           }
           if (/[A-Z]/.test(key)) {
             property.key = t.stringLiteral(kebab(key));
           }
         }
-        return;
+      } else if (!t.isStringLiteral(style) && !t.isTemplateLiteral(style)) {
+        // Anything else (a variable, a spread, a value computed at runtime, a function of the
+        // state) converts when it is read.
+        imports.add(REACT_ADAPTERS, 'reactStyle');
+        value.expression = t.callExpression(t.identifier('reactStyle'), [style]);
       }
-      if (
-        name.name === 'ref' &&
-        t.isJSXExpressionContainer(value) &&
-        t.isIdentifier(value.expression) &&
-        refs.has(value.expression.name)
-      ) {
-        const element = t.identifier('element');
-        path.node.value = t.jsxExpressionContainer(
-          t.arrowFunctionExpression(
-            [element],
-            t.blockStatement([
-              t.expressionStatement(
-                t.assignmentExpression(
-                  '=',
-                  t.memberExpression(t.identifier(value.expression.name), t.identifier('current')),
-                  element,
-                ),
+      return;
+    }
+    if (
+      name === 'ref' &&
+      t.isJSXExpressionContainer(value) &&
+      t.isIdentifier(value.expression) &&
+      refs.has(value.expression.name)
+    ) {
+      const target = t.identifier('element');
+      attribute.value = t.jsxExpressionContainer(
+        t.arrowFunctionExpression(
+          [target],
+          t.blockStatement([
+            t.expressionStatement(
+              t.assignmentExpression(
+                '=',
+                t.memberExpression(t.identifier(value.expression.name), t.identifier('current')),
+                target,
               ),
-            ]),
-          ),
-        );
-      }
-    },
+            ),
+          ]),
+        ),
+      );
+      return;
+    }
+    const renamed = solidAttributeName(name, element, ctx);
+    if (renamed !== name) {
+      const [namespace, local] = renamed.split(':');
+      attribute.name = local
+        ? t.jsxNamespacedName(t.jsxIdentifier(namespace), t.jsxIdentifier(local))
+        : t.jsxIdentifier(renamed);
+    }
+    // React renders a bare `aria-*` as "true"; Solid renders "", which reads as unset.
+    if (value == null && /^aria-/.test(name)) {
+      attribute.value = Object.assign(t.stringLiteral('true'), {
+        extra: { raw: '"true"', rawValue: 'true' },
+      });
+    }
+  };
+
+  programPath.traverse({
     JSXOpeningElement(path) {
+      for (const attributePath of path.get('attributes')) {
+        if (attributePath.isJSXAttribute()) {
+          convertAttribute(attributePath, path.node);
+        }
+      }
       // A context provider passes its value as an accessor (see the header).
       const name = path.node.name;
-      if (!(t.isJSXMemberExpression(name) && name.property.name === 'Provider')) {
+      if (!isContextProvider(name, path, ctx)) {
         return;
       }
       for (const attribute of path.node.attributes) {
@@ -1356,8 +1833,41 @@ function transformJsx(programPath, ctx) {
         }
       }
     },
+    JSXAttribute: {
+      exit(path) {
+        // A render element becomes a render config, once its own attributes are Solid's.
+        if (!t.isJSXIdentifier(path.node.name, { name: 'render' })) {
+          return;
+        }
+        const value = path.node.value;
+        const element = t.isJSXExpressionContainer(value) ? value.expression : value;
+        if (t.isJSXElement(element)) {
+          path.node.value = t.jsxExpressionContainer(renderElementToConfig(element));
+        }
+      },
+    },
     JSXElement(path) {
       const name = path.node.openingElement.name;
+      // A Next root layout's `<head>` renders through the document adapter; one without a
+      // `<head>` gets one, as Next adds it.
+      if (t.isJSXIdentifier(name, { name: 'html' })) {
+        const hasHead = path.node.children.some(
+          (child) =>
+            t.isJSXElement(child) && t.isJSXIdentifier(child.openingElement.name, { name: 'head' }),
+        );
+        if (!hasHead) {
+          path.node.children.unshift(
+            t.jsxElement(t.jsxOpeningElement(t.jsxIdentifier('head'), [], true), null, [], true),
+          );
+        }
+      }
+      if (t.isJSXIdentifier(name, { name: 'head' }) && path.parentPath.isJSXElement()) {
+        imports.add(NEXT_DOCUMENT, 'Head');
+        name.name = 'Head';
+        if (path.node.closingElement) {
+          path.node.closingElement.name = t.jsxIdentifier('Head');
+        }
+      }
       const isFragment =
         (t.isJSXMemberExpression(name) &&
           t.isJSXIdentifier(name.object) &&
@@ -1389,7 +1899,7 @@ function transformJsx(programPath, ctx) {
     JSXMemberExpression: {
       exit(path) {
         // `<Context.Provider>` renders as `<Context>`.
-        if (path.node.property.name === 'Provider' && t.isJSXIdentifier(path.node.object)) {
+        if (isContextProvider(path.node, path, ctx)) {
           path.replaceWith(path.node.object);
         }
       },
@@ -1594,6 +2104,48 @@ const isCorpusModule = (source) =>
       (prefix === '.' && source.startsWith('.')),
   );
 
+/** Rewrites the text of string literals, template parts and JSX text (not module specifiers). */
+function rewriteStrings(programPath, rewrite) {
+  const isModuleSource = (path) =>
+    path.parentPath.isImportDeclaration() ||
+    path.parentPath.isExportDeclaration() ||
+    path.parentPath.isTSExternalModuleReference() ||
+    (path.parentPath.isCallExpression() && t.isImport(path.parent.callee)) ||
+    path.parentPath.isTSImportType();
+  programPath.traverse({
+    StringLiteral(path) {
+      if (isModuleSource(path)) {
+        return;
+      }
+      const value = rewrite(path.node.value);
+      if (value === path.node.value) {
+        return;
+      }
+      if (path.parentPath.isJSXAttribute()) {
+        // JSX attribute strings keep their double quotes.
+        path.node.value = value;
+        path.node.extra = { raw: JSON.stringify(value), rawValue: value };
+        return;
+      }
+      path.replaceWith(t.stringLiteral(value));
+      path.skip();
+    },
+    TemplateElement(path) {
+      const raw = rewrite(path.node.value.raw);
+      if (raw !== path.node.value.raw) {
+        path.node.value = { raw, cooked: rewrite(path.node.value.cooked ?? raw) };
+      }
+    },
+    JSXText(path) {
+      const value = rewrite(path.node.value);
+      if (value !== path.node.value) {
+        path.node.value = value;
+        path.node.extra = { raw: value, rawValue: value };
+      }
+    },
+  });
+}
+
 /** Renders `createPortal(children, container)` from the React DOM package as a `<Portal>`. */
 function transformPortals(programPath, imports) {
   const portalNames = new Set();
@@ -1645,12 +2197,17 @@ function transformPortals(programPath, imports) {
 export function transformReactToSolid(source, options = {}) {
   const modules = { ...MODULES, ...options.modules };
   const isCorpus = options.isCorpus ?? isCorpusModule;
+  const rewriteModule = options.rewriteModule ?? ((source) => source);
   const ast = parse(source, PARSER_OPTIONS);
   const ctx = {
     imports: new Imports(),
     reactNames: { namespaces: new Set(), named: new Map() },
     corpusImports: new Set(),
     refs: new Set(),
+    // A `.ts` module has no JSX to render with.
+    jsx: !options.filename?.endsWith('.ts'),
+    // Prop names components declare under React's attribute names (kept on components).
+    componentProps: new Set(options.componentProps ?? []),
   };
 
   traverse(ast, {
@@ -1691,6 +2248,10 @@ export function transformReactToSolid(source, options = {}) {
         statement.remove();
       }
 
+      // React's types are global in a React project: `React.ReactNode` without an import.
+      if (!programPath.scope.hasBinding('React')) {
+        ctx.reactNames.namespaces.add('React');
+      }
       transformPortals(programPath, ctx.imports);
       for (const statement of programPath.get('body')) {
         if (
@@ -1699,17 +2260,24 @@ export function transformReactToSolid(source, options = {}) {
             statement.isExportAllDeclaration()) &&
           statement.node.source
         ) {
-          statement.node.source.value = mapModule(statement.node.source.value, modules);
+          statement.node.source.value = rewriteModule(
+            mapModule(statement.node.source.value, modules),
+          );
         }
       }
 
       transformModuleApis(programPath, ctx);
+      programPath.scope.crawl();
+      deferElements(programPath, ctx);
       programPath.scope.crawl();
       lowerReactiveFunctions(programPath, ctx);
       lowerRemainingHooks(programPath, ctx);
       transformTypes(programPath, ctx);
       transformJsx(programPath, ctx);
       renameDomPropReads(programPath);
+      if (options.rewriteString) {
+        rewriteStrings(programPath, options.rewriteString);
+      }
 
       const declarations = ctx.imports.declarations();
       if (declarations.length > 0) {
