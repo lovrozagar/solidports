@@ -1200,6 +1200,7 @@ function lowerFunction(fnPath, kind, ctx) {
 
   // Reads of reactive bindings.
   rewriteReads(fnPath, rewrites, imports);
+  snapshotReads(fnPath);
 }
 
 /** Passes each argument of a corpus hook call as an accessor. */
@@ -1331,10 +1332,15 @@ function rewriteReads(fnPath, rewrites, imports) {
       let replacement;
       if (entry.kind === 'alias') {
         replacement = entry.alias();
+        if (t.isMemberExpression(replacement) && t.isCallExpression(replacement.object)) {
+          replacement.object.solidRead = replacement.object.callee.name;
+        }
       } else if (entry.optional) {
         replacement = t.optionalCallExpression(t.identifier(entry.name), [], true);
+        replacement.solidRead = entry.name;
       } else {
         replacement = t.callExpression(t.identifier(entry.name), []);
+        replacement.solidRead = entry.name;
       }
       // A read where the component or hook sets up runs once, explicitly (`untrack`).
       if (!path.isJSXIdentifier() && isSetupRead(path, fnPath)) {
@@ -1366,6 +1372,105 @@ function rewriteReads(fnPath, rewrites, imports) {
         path.parent.shorthand = false;
       }
       path.replaceWith(replacement);
+      path.skip();
+    },
+  });
+}
+
+/** The reactive reads in a node, by accessor name (outside nested functions and `skip`). */
+function readsIn(path, skip) {
+  const reads = new Map();
+  const visit = (callPath) => {
+    const name = callPath.node.solidRead;
+    if (name) {
+      reads.set(name, [...(reads.get(name) ?? []), callPath]);
+    }
+  };
+  path.traverse({
+    Function(inner) {
+      inner.skip();
+    },
+    JSXExpressionContainer(inner) {
+      if (skip === 'jsx') {
+        inner.skip();
+      }
+    },
+    'CallExpression|OptionalCallExpression'(callPath) {
+      visit(callPath);
+    },
+  });
+  return reads;
+}
+
+/**
+ * React code narrows a value it reads (`if (value) value.x`); a read through a call does not narrow
+ * in TypeScript. A statement (or a JSX expression) that reads an accessor more than once reads it
+ * once, into a local: in Solid 2 a value read twice in one synchronous pass is the same value.
+ */
+function snapshotReads(fnPath) {
+  const snapshot = (reads, scope) => {
+    const declarations = [];
+    for (const [name, paths] of reads) {
+      if (paths.length < 2) {
+        continue;
+      }
+      const id = scope.generateUidIdentifier(name);
+      declarations.push(constDeclaration(id, paths[0].node));
+      for (const readPath of paths) {
+        readPath.replaceWith(t.identifier(id.name));
+      }
+    }
+    return declarations;
+  };
+  fnPath.traverse({
+    'IfStatement|ExpressionStatement|VariableDeclaration|ReturnStatement|ThrowStatement'(path) {
+      if (!path.parentPath.isBlockStatement()) {
+        return;
+      }
+      const reads = readsIn(path, 'jsx');
+      if (
+        path.isExpressionStatement() ||
+        path.isVariableDeclaration() ||
+        path.isReturnStatement()
+      ) {
+        // Only where a read narrows: a test that the same statement reads again after.
+        let narrows = false;
+        path.traverse({
+          Function(inner) {
+            inner.skip();
+          },
+          'ConditionalExpression|LogicalExpression'(inner) {
+            narrows = true;
+            inner.stop();
+          },
+        });
+        if (!narrows) {
+          return;
+        }
+      }
+      const declarations = snapshot(reads, path.scope);
+      if (declarations.length > 0) {
+        path.insertBefore(declarations);
+      }
+    },
+    JSXExpressionContainer(path) {
+      const expression = path.node.expression;
+      if (t.isJSXEmptyExpression(expression) || isFunctionNode(expression)) {
+        return;
+      }
+      const reads = readsIn(path, null);
+      if (![...reads.values()].some((paths) => paths.length > 1)) {
+        return;
+      }
+      // Inside a function the insert calls, so the expression stays reactive.
+      const declarations = snapshot(reads, path.scope);
+      path.node.expression = t.callExpression(
+        t.arrowFunctionExpression(
+          [],
+          t.blockStatement([...declarations, t.returnStatement(path.node.expression)]),
+        ),
+        [],
+      );
       path.skip();
     },
   });
