@@ -1226,24 +1226,8 @@ describe('<Slider.Thumb />', () => {
   });
 
   describe.skipIf(isJSDOM)('server-side rendering', () => {
-    // Solid: positions come from the client render; there is no `renderToString` in the browser build.
     it('single thumb', async () => {
-      render(() => (
-        <Slider.Root
-          defaultValue={30}
-          style={{
-            width: '100px',
-          }}
-        >
-          <Slider.Value />
-          <Slider.Control>
-            <Slider.Track>
-              <Slider.Indicator />
-              <Slider.Thumb data-testid="thumb" />
-            </Slider.Track>
-          </Slider.Control>
-        </Slider.Root>
-      ));
+      renderServer(ssrFixtures, 'singleThumb');
 
       expect(getComputedStyle(screen.getByTestId('thumb')).getPropertyValue('left')).toBe('30px');
     });
@@ -1266,24 +1250,8 @@ describe('<Slider.Thumb />', () => {
       expect(thumbs[thumbs.length - 1].contains(scripts[0])).toBe(true);
     });
 
-    // Solid: positions come from the client render; there is no `renderToString` in the browser build.
     it('multiple thumbs', async () => {
-      render(() => (
-        <Slider.Root
-          defaultValue={[30, 40]}
-          style={{
-            width: '100px',
-          }}
-        >
-          <Slider.Value />
-          <Slider.Control>
-            <Slider.Track>
-              <Slider.Thumb index={0} data-testid="thumb" />
-              <Slider.Thumb index={1} data-testid="thumb" />
-            </Slider.Track>
-          </Slider.Control>
-        </Slider.Root>
-      ));
+      renderServer(ssrFixtures, 'multipleThumbs');
 
       const [thumb0, thumb1] = Array.from(await screen.findAllByTestId('thumb'));
 

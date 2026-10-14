@@ -1,33 +1,18 @@
 import { expect, describe, it } from 'vitest';
-import { Menu } from '@solidports/base-ui/menu';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { createRenderer } from '#test-utils';
+import { renderServer } from '../../../test/ssrFixtures';
+import ssrFixtures from './MenuFilterRoot.ssr-fixtures';
 
-// Solid: ids always come from the Solid runtime, so there is no React 17 `useId` fallback to mock,
-// and the test harness has no `renderToString`/`hydrate` renderer; these cases render on the client.
+// Solid: ids always come from the Solid runtime, so there is no React 17 `useId` fallback to mock.
+// The server render (`renderServer`, the `renderToString` counterpart) carries the runtime's ids,
+// and hydration keeps them.
 describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider> with the React 17 id fallback', () => {
-  const { render } = createRenderer();
-
   it('omits partial ids during SSR and wires relationships after hydration', async () => {
-    render(() => (
-      <Menu.FilterProvider>
-        <Menu.Root defaultOpen>
-          <Menu.Trigger>Actions</Menu.Trigger>
-          <Menu.Portal keepMounted>
-            <Menu.Positioner>
-              <Menu.Popup>
-                <Menu.Input aria-label="Filter actions" />
-                <Menu.List>
-                  <Menu.Item>Rename</Menu.Item>
-                </Menu.List>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      </Menu.FilterProvider>
-    ));
+    const { hydrate } = renderServer(ssrFixtures, 'relationships');
 
     expect(document.querySelector('[id*="undefined"]')).toBe(null);
+
+    hydrate();
 
     const trigger = screen.getByRole('button', { name: 'Actions' });
     const popup = screen.getByRole('dialog');
@@ -43,38 +28,9 @@ describe('<Menu.FilterProvider><Menu.Root/></Menu.FilterProvider> with the React
   });
 
   it('registers a submenu trigger after fallback ids resolve', async () => {
-    const { user } = render(() => (
-      <Menu.FilterProvider>
-        <Menu.Root defaultOpen>
-          <Menu.Trigger>Actions</Menu.Trigger>
-          <Menu.Portal keepMounted>
-            <Menu.Positioner>
-              <Menu.Popup>
-                <Menu.Input aria-label="Filter actions" />
-                <Menu.List>
-                  <Menu.FilterProvider>
-                    <Menu.SubmenuRoot>
-                      <Menu.SubmenuTrigger>More actions</Menu.SubmenuTrigger>
-                      <Menu.Portal keepMounted>
-                        <Menu.Positioner>
-                          <Menu.Popup>
-                            <Menu.Input aria-label="Filter more actions" />
-                            <Menu.List>
-                              <Menu.Item>Share</Menu.Item>
-                            </Menu.List>
-                          </Menu.Popup>
-                        </Menu.Positioner>
-                      </Menu.Portal>
-                    </Menu.SubmenuRoot>
-                  </Menu.FilterProvider>
-                </Menu.List>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      </Menu.FilterProvider>
-    ));
+    const { hydrate } = renderServer(ssrFixtures, 'submenu');
 
+    const { user } = hydrate();
     const input = screen.getByRole('searchbox', { name: 'Filter actions' });
 
     await waitFor(() => {

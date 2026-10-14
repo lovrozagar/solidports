@@ -3,6 +3,7 @@ import { createComponent, flush } from 'solid-js';
 import type { sharedConfig as SharedConfig } from 'solid-js/internal';
 import { hydrate } from '@solidjs/web';
 import { afterEach, inject } from 'vitest';
+import { userEvent } from '@testing-library/user-event';
 import type { SsrFixtures } from './defineSsrFixtures';
 import {
   SERVER_RENDERS,
@@ -37,8 +38,11 @@ export interface ServerRenderResult {
   container: HTMLElement;
   /** The server HTML as rendered. */
   html: string;
-  /** Hydrates the server HTML with the fixture's client build; returns the disposer. */
-  hydrate: () => () => void;
+  /**
+   * Hydrates the server HTML with the fixture's client build. Returns the disposer and a
+   * user-event instance, as the React renderer's `hydrate()` returns its render result.
+   */
+  hydrate: () => { dispose: () => void; user: ReturnType<typeof userEvent.setup> };
   /**
    * The server-rendered nodes the last hydration left unclaimed: their hydration key missed, so
    * the page shows the server's inert node. Nodes of a boundary still pending count too. Solid's
@@ -102,7 +106,7 @@ export function renderServer<Names extends string>(
         container,
       );
       flush();
-      return entry.dispose;
+      return { dispose: entry.dispose, user: userEvent.setup() };
     },
     unclaimedNodes() {
       // `solid-js` exports `sharedConfig` at runtime; only `solid-js/internal` declares it, and

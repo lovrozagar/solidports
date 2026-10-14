@@ -890,6 +890,10 @@ describe('<Popover.Root />', () => {
           ));
 
           const comboboxInput = screen.getByTestId('combobox-input');
+          await waitFor(() => {
+            expect(comboboxInput).toHaveFocus();
+          });
+
           await user.click(comboboxInput);
           await flushMicrotasks();
 

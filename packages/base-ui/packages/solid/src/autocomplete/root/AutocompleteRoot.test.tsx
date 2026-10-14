@@ -1830,20 +1830,8 @@ describe('<Autocomplete.Root />', () => {
     });
 
     it('server-renders only the inline input name for native FormData', () => {
-      // Solid: the test harness has no renderToString/hydrate renderer; assert the client-rendered markup.
-      render(() => (
-        <Form>
-          <Field.Root name="search">
-            <Autocomplete.Root items={['alpha', 'alpine']} inline>
-              <Autocomplete.Input data-testid="input" />
-              <Autocomplete.List>
-                {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
-              </Autocomplete.List>
-            </Autocomplete.Root>
-          </Field.Root>
-          <button type="submit">Submit</button>
-        </Form>
-      ));
+      // Solid: `renderServer` puts the fixture's server render in the document (`renderToString`).
+      renderServer(ssrFixtures, 'inlineFormName');
 
       const namedInputs = screen
         .getAllByDisplayValue('')
@@ -1853,29 +1841,8 @@ describe('<Autocomplete.Root />', () => {
     });
 
     it('server-renders only the outside-popup input name for native FormData', () => {
-      // Solid: the test harness has no renderToString/hydrate renderer; assert the client-rendered markup.
-      render(() => (
-        <Form>
-          <Field.Root name="search">
-            <Autocomplete.Root items={['alpha', 'alpine']}>
-              <Autocomplete.InputGroup>
-                <Autocomplete.Input data-testid="input" />
-                <Autocomplete.Trigger>Open</Autocomplete.Trigger>
-              </Autocomplete.InputGroup>
-              <Autocomplete.Portal>
-                <Autocomplete.Positioner>
-                  <Autocomplete.Popup>
-                    <Autocomplete.List>
-                      {(item) => <Autocomplete.Item value={item}>{item}</Autocomplete.Item>}
-                    </Autocomplete.List>
-                  </Autocomplete.Popup>
-                </Autocomplete.Positioner>
-              </Autocomplete.Portal>
-            </Autocomplete.Root>
-          </Field.Root>
-          <button type="submit">Submit</button>
-        </Form>
-      ));
+      // Solid: `renderServer` puts the fixture's server render in the document (`renderToString`).
+      renderServer(ssrFixtures, 'outsidePopupFormName');
 
       const namedInputs = screen
         .getAllByDisplayValue('')

@@ -2742,6 +2742,9 @@ describe('<Menu.Root />', () => {
         expect(openChangeSpy.mock.calls[0][0]).toBe(true);
         expect(openChangeSpy.mock.lastCall?.[0]).toBe(false);
         expect(openChangeSpy.mock.lastCall?.[1].reason).toBe(REASONS.itemPress);
+        // The synthesized drag-release click must carry `detail: 1` so MenuRoot does
+        // not classify it as a keyboard (`detail === 0`) activation.
+        expect((openChangeSpy.mock.lastCall?.[1].event as MouseEvent).detail).toBe(1);
       });
 
       it('closes the menu on click, drag outside, release', async () => {

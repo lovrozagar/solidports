@@ -4,6 +4,8 @@ import { act, createRenderer, flushMicrotasks } from '#test-utils';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createMemo, createSignal, For, onSettled } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures from './createItems.ssr-fixtures';
 
 interface User {
   id: number;
@@ -1457,17 +1459,8 @@ describe('Combobox.createItems', () => {
     });
 
     it('resolves a server-rendered defaultValue label from the external window', () => {
-      // Solid: the test harness has no renderToString/hydrate renderer; the client render covers
-      // the initial label.
-      render(() => (
-        <Combobox.Root
-          items={sharedPersonItems}
-          filteredItems={[{ id: 'user-1', name: 'Alice' }]}
-          defaultValue="user-1"
-        >
-          <Combobox.Input data-testid="input" />
-        </Combobox.Root>
-      ));
+      // Solid: `renderServer` puts the fixture's server render in the document (`renderToString`).
+      renderServer(fixtures, 'externalWindowLabel');
 
       expect(screen.getByTestId('input')).toHaveValue('Alice');
     });

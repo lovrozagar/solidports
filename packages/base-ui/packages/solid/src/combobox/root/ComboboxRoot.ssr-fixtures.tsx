@@ -4,6 +4,22 @@ import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
 const FRUITS = ['Apple', 'Banana', 'Cherry'];
 
 export default defineSsrFixtures(import.meta.url, {
+  inputAria: () => (
+    <Combobox.Root>
+      <Combobox.Input data-testid="input" />
+      <Combobox.Portal>
+        <Combobox.Positioner />
+      </Combobox.Portal>
+    </Combobox.Root>
+  ),
+  triggerAria: () => (
+    <Combobox.Root>
+      <Combobox.Trigger data-testid="trigger" />
+      <Combobox.Portal>
+        <Combobox.Positioner />
+      </Combobox.Portal>
+    </Combobox.Root>
+  ),
   label: () => (
     <Combobox.Root inline>
       <Combobox.Label data-testid="label">Food</Combobox.Label>
