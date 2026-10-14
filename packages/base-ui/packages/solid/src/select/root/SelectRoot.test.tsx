@@ -848,11 +848,8 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       const option = screen.getByRole('option', { name: 'b' });
-      clock.tick(400);
-      await flushMicrotasks();
-      fireEvent.mouseMove(option);
-      fireEvent.click(option);
-      await flushMicrotasks();
+      await clock.tickAsync(200);
+      await user.click(option);
 
       expect(handleValueChange.mock.calls[0][0]).toBe('b');
     });
@@ -882,11 +879,8 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       const option = screen.getByRole('option', { name: 'b' });
-      clock.tick(400);
-      await flushMicrotasks();
-      fireEvent.mouseMove(option);
-      fireEvent.click(option);
-      await flushMicrotasks();
+      await clock.tickAsync(200);
+      await user.click(option);
 
       expect(handleValueChange.mock.calls.length).toBe(1);
     });
@@ -936,7 +930,6 @@ describe('<Select.Root />', () => {
 
       const optionB = screen.getByRole('option', { name: 'b' });
 
-      fireEvent.mouseMove(optionB);
       await user.click(optionB);
       await flushMicrotasks();
 
@@ -3378,13 +3371,6 @@ describe('<Select.Root />', () => {
 
     clock.withFakeTimers();
 
-    async function selectUnselectedOption(option: HTMLElement) {
-      clock.tick(400);
-      await flushMicrotasks();
-      fireEvent.mouseMove(option);
-      fireEvent.click(option);
-      await flushMicrotasks();
-    }
 
     it('submits stringified value to onFormSubmit when itemToStringValue is provided', async () => {
       const items = [
@@ -3561,7 +3547,8 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       const option = screen.getByRole('option', { name: 'b' });
-      await selectUnselectedOption(option);
+      await clock.tickAsync(200);
+      await user.click(option);
 
       expect(screen.queryByTestId('error')).toBe(null);
       expect(trigger).not.toHaveAttribute('aria-invalid');
@@ -3603,7 +3590,8 @@ describe('<Select.Root />', () => {
 
       await user.click(trigger);
       await flushMicrotasks();
-      await selectUnselectedOption(screen.getByRole('option', { name: 'b' }));
+      await clock.tickAsync(200);
+      await user.click(screen.getByRole('option', { name: 'b' }));
 
       expect(screen.queryByTestId('error')).toBe(null);
       expect(trigger).not.toHaveAttribute('aria-invalid');
@@ -3619,19 +3607,7 @@ describe('<Select.Root />', () => {
 
     clock.withFakeTimers();
 
-    async function selectUnselectedOption(option: HTMLElement) {
-      clock.tick(400);
-      await flushMicrotasks();
-      fireEvent.mouseMove(option);
-      fireEvent.click(option);
-      await flushMicrotasks();
-    }
 
-    async function toggleMultipleOption(option: HTMLElement) {
-      fireEvent.mouseMove(option);
-      fireEvent.click(option);
-      await flushMicrotasks();
-    }
 
     it('[data-touched]', async () => {
       render(() => (
@@ -3685,9 +3661,14 @@ describe('<Select.Root />', () => {
 
       await user.click(trigger);
       await flushMicrotasks();
+      await clock.tickAsync(200);
 
       const option = screen.getByRole('option', { name: 'Option 1' });
-      await selectUnselectedOption(option);
+
+      // Arrow Down to focus the Option 1
+      await user.keyboard('{ArrowDown}');
+      await user.click(option);
+      await flushMicrotasks();
 
       expect(trigger).toHaveAttribute('data-dirty', '');
     });
@@ -3716,9 +3697,14 @@ describe('<Select.Root />', () => {
 
         await user.click(trigger);
         await flushMicrotasks();
+        await clock.tickAsync(200);
 
         const option = screen.getByRole('option', { name: 'Option 1' });
-        await selectUnselectedOption(option);
+
+        // Arrow Down to focus the Option 1
+        await user.keyboard('{ArrowDown}');
+        await user.click(option);
+        await flushMicrotasks();
 
         expect(trigger).toHaveAttribute('data-filled', '');
 
@@ -3821,16 +3807,17 @@ describe('<Select.Root />', () => {
 
         await user.click(trigger);
         await flushMicrotasks();
-        clock.tick(400);
-        await flushMicrotasks();
+        await clock.tickAsync(200);
 
         const option = screen.getByRole('option', { name: 'Option 1' });
 
-        await toggleMultipleOption(option);
+        await user.click(option);
+        await flushMicrotasks();
 
         expect(trigger).toHaveAttribute('data-filled', '');
 
-        await toggleMultipleOption(option);
+        await user.click(option);
+        await flushMicrotasks();
 
         expect(trigger).not.toHaveAttribute('data-filled');
       });
@@ -3858,16 +3845,17 @@ describe('<Select.Root />', () => {
 
         await user.click(trigger);
         await flushMicrotasks();
-        clock.tick(400);
-        await flushMicrotasks();
+        await clock.tickAsync(200);
 
         const option = screen.getByRole('option', { name: 'Option 1' });
 
-        await toggleMultipleOption(option);
+        await user.click(option);
+        await flushMicrotasks();
 
         expect(trigger).toHaveAttribute('data-filled', '');
 
-        await toggleMultipleOption(option);
+        await user.click(option);
+        await flushMicrotasks();
 
         expect(trigger).not.toHaveAttribute('data-filled');
       });
@@ -5562,11 +5550,6 @@ describe('<Select.Root />', () => {
   });
 
   describe('prop: multiple', () => {
-    async function toggleMultipleOption(option: HTMLElement) {
-      fireEvent.mouseMove(option);
-      fireEvent.click(option);
-      await flushMicrotasks();
-    }
 
     it('removes selections that no longer exist', async () => {
       function Test() {
@@ -5752,13 +5735,15 @@ describe('<Select.Root />', () => {
       await flushMicrotasks();
 
       const optionA = await screen.findByRole('option', { name: 'a' });
-      await toggleMultipleOption(optionA);
+      await user.click(optionA);
+      await flushMicrotasks();
 
       expect(handleValueChange.mock.calls[0][0]).toEqual(['a']);
       expect(optionA).toHaveAttribute('data-selected', '');
 
       const optionB = screen.getByRole('option', { name: 'b' });
-      await toggleMultipleOption(optionB);
+      await user.click(optionB);
+      await flushMicrotasks();
 
       expect(handleValueChange.mock.calls[1][0]).toEqual(['a', 'b']);
       expect(optionA).toHaveAttribute('data-selected', '');
@@ -6588,12 +6573,14 @@ describe('<Select.Root />', () => {
       });
 
       const optionA = await screen.findByRole('option', { name: 'a' });
-      await toggleMultipleOption(optionA);
+      await user.click(optionA);
+      await flushMicrotasks();
 
       expect(screen.getByRole('listbox')).not.toBe(null);
 
       const optionB = screen.getByRole('option', { name: 'b' });
-      await toggleMultipleOption(optionB);
+      await user.click(optionB);
+      await flushMicrotasks();
 
       expect(screen.getByRole('listbox')).not.toBe(null);
     });
