@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -27,7 +28,7 @@ export default function ExampleNavigationMenu() {
             >
               <div class={styles.SubmenuLayout}>
                 <NavigationMenu.List class={styles.SubmenuList}>
-                  {audienceMenus.map((menu) => (
+                  <For each={audienceMenus}>{(menu) => (
                     <NavigationMenu.Item value={menu.value}>
                       <NavigationMenu.Trigger class={styles.SubmenuTrigger}>
                         <span class={styles.SubmenuLabel}>{menu.label}</span>
@@ -39,18 +40,18 @@ export default function ExampleNavigationMenu() {
                           <p class={styles.SubmenuDescription}>{menu.description}</p>
                         </div>
                         <ul class={styles.LinkList}>
-                          {menu.links.map((link) => (
+                          <For each={menu.links}>{(link) => (
                             <li>
                               <Link class={styles.LinkCard} href={link.href}>
                                 <h5 class={styles.LinkTitle}>{link.title}</h5>
                                 <p class={styles.LinkDescription}>{link.description}</p>
                               </Link>
                             </li>
-                          ))}
+                          )}</For>
                         </ul>
                       </NavigationMenu.Content>
                     </NavigationMenu.Item>
-                  ))}
+                  )}</For>
                 </NavigationMenu.List>
 
                 <NavigationMenu.Viewport class={styles.SubmenuViewport} />
@@ -73,14 +74,14 @@ export default function ExampleNavigationMenu() {
                 <p class={styles.SubmenuDescription}>{guidesPanel.description}</p>
               </div>
               <ul class={styles.LinkList}>
-                {guideLinks.map((link) => (
+                <For each={guideLinks}>{(link) => (
                   <li>
                     <Link class={styles.LinkCard} href={link.href}>
                       <h5 class={styles.LinkTitle}>{link.title}</h5>
                       <p class={styles.LinkDescription}>{link.description}</p>
                     </Link>
                   </li>
-                ))}
+                )}</For>
               </ul>
             </div>
           </NavigationMenu.Content>

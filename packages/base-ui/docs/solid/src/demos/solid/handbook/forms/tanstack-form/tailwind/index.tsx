@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 
@@ -252,7 +253,7 @@ function TanstackForm() {
                     <Select.Popup>
                       <Select.ScrollUpArrow />
                       <Select.List>
-                        {SERVER_TYPES.map(({ label, value }) => {
+                        <For each={SERVER_TYPES}>{({ label, value }) => {
                           return (
                             <Select.Item value={value}>
                               <Select.ItemIndicator>
@@ -261,7 +262,7 @@ function TanstackForm() {
                               <Select.ItemText>{label}</Select.ItemText>
                             </Select.Item>
                           );
-                        })}
+                        }}</For>
                       </Select.List>
                       <Select.ScrollDownArrow />
                     </Select.Popup>
@@ -382,7 +383,7 @@ function TanstackForm() {
                 }
               >
                 <Fieldset.Legend class="-mt-px">Storage type</Fieldset.Legend>
-                {['ssd', 'hdd'].map((radioValue) => (
+                <For each={['ssd', 'hdd']}>{(radioValue) => (
                   <Field.Item>
                     <Field.Label class="uppercase">
                       <Radio.Root value={radioValue}>
@@ -391,7 +392,7 @@ function TanstackForm() {
                       {radioValue}
                     </Field.Label>
                   </Field.Item>
-                ))}
+                )}</For>
               </Fieldset.Root>
               <Field.Error match={!field().state.meta.isValid}>
                 {field().state.meta.errors.join(',')}
@@ -446,7 +447,7 @@ function TanstackForm() {
               >
                 <Fieldset.Legend class="mb-2">Allowed network protocols</Fieldset.Legend>
                 <div class="flex gap-4">
-                  {['http', 'https', 'ssh'].map((checkboxValue) => {
+                  <For each={['http', 'https', 'ssh']}>{(checkboxValue) => {
                     return (
                       <Field.Item>
                         <Field.Label class="uppercase">
@@ -459,7 +460,7 @@ function TanstackForm() {
                         </Field.Label>
                       </Field.Item>
                     );
-                  })}
+                  }}</For>
                 </div>
               </Fieldset.Root>
               <Field.Error match={!field().state.meta.isValid}>

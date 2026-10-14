@@ -32,6 +32,7 @@ export default function Page() {
     <Form
       class="flex w-full max-w-64 flex-col gap-4"
       errors={errors()}
+      // eslint-disable-next-line solid/reactivity -- an event handler, not a tracked scope
       onFormSubmit={async (formValues) => {
         const response = await submitForm(formValues);
         setErrors(response.errors);

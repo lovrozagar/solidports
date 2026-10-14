@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 import { Select } from '@solidports/base-ui/select';
@@ -30,13 +31,13 @@ export default function ExampleSelectGrouped() {
                 <CaretUpIcon />
               </Select.ScrollUpArrow>
               <Select.List class="relative py-1 scroll-pt-6 scroll-pb-6 overflow-y-auto max-h-[var(--available-height)]">
-                {groupedProduce.map((group, index) => (
+                <For each={groupedProduce}>{(group, index) => (
                   <>
                     <Select.Group class="block pb-0.5 last:pb-0">
                       <Select.GroupLabel class="py-1.5 pr-4 pl-[2.125rem] text-sm leading-5 text-neutral-500 select-none dark:text-neutral-400">
                         {group.value}
                       </Select.GroupLabel>
-                      {group.items.map((item) => (
+                      <For each={group.items}>{(item) => (
                         <Select.Item
                           value={item.value}
                           class="grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 py-1.5 pr-4 pl-2.5 text-sm outline-hidden select-none group-data-[side=none]:pr-12 data-highlighted:bg-neutral-950 data-highlighted:text-white dark:data-highlighted:bg-white dark:data-highlighted:text-neutral-950"
@@ -46,13 +47,13 @@ export default function ExampleSelectGrouped() {
                           </Select.ItemIndicator>
                           <Select.ItemText class="col-start-2">{item.label}</Select.ItemText>
                         </Select.Item>
-                      ))}
+                      )}</For>
                     </Select.Group>
-                    {index < groupedProduce.length - 1 ? (
+                    {index() < groupedProduce.length - 1 ? (
                       <Select.Separator class="mx-4 my-1 h-px bg-neutral-950 dark:bg-white" />
                     ) : null}
                   </>
-                ))}
+                )}</For>
               </Select.List>
               <Select.ScrollDownArrow class="bottom-0 z-[2] flex h-4 w-full cursor-default items-center justify-center bg-white text-center text-xs before:absolute before:left-0 before:h-full before:w-full before:content-[''] data-[side=none]:before:bottom-[-100%] dark:bg-neutral-950">
                 <CaretDownIcon />

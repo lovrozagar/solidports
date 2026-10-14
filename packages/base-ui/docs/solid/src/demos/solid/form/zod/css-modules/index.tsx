@@ -33,6 +33,7 @@ export default function Page() {
     <Form
       class={styles.Form}
       errors={errors()}
+      // eslint-disable-next-line solid/reactivity -- an event handler, not a tracked scope
       onFormSubmit={async (formValues) => {
         const response = await submitForm(formValues);
         setErrors(response.errors);

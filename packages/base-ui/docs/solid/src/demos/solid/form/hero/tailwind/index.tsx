@@ -13,6 +13,7 @@ export default function ExampleForm() {
     <Form
       class="flex w-full max-w-64 flex-col gap-4"
       errors={errors()}
+      // eslint-disable-next-line solid/reactivity -- an event handler, not a tracked scope
       onSubmit={async (event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);

@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -29,24 +30,24 @@ export default function OutsideScrollDialog() {
                   </div>
 
                   <div class={styles.Body}>
-                    {CONTENT_SECTIONS.map((item) => (
+                    <For each={CONTENT_SECTIONS}>{(item) => (
                       <section class={styles.Section}>
                         <h3 class={styles.SectionTitle}>{item.title}</h3>
                         <p class={styles.SectionBody}>{item.body}</p>
                       </section>
-                    ))}
+                    )}</For>
                   </div>
 
                   <p class={styles.FooterNote}>
                     Related docs:{' '}
-                    {RELATED_LINKS.map((item, index) => (
+                    <For each={RELATED_LINKS}>{(item, index) => (
                       <>
-                        {index > 0 ? ', ' : null}
+                        {index() > 0 ? ', ' : null}
                         <a class={styles.FooterLink} href={item.href}>
                           {item.label}
                         </a>
                       </>
-                    ))}
+                    )}</For>
                     .
                   </p>
                 </Dialog.Popup>

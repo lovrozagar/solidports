@@ -1,3 +1,4 @@
+import { For } from "solid-js";
 import type { JSX } from '@solidjs/web';
 
 import { Select } from '@solidports/base-ui/select';
@@ -29,14 +30,14 @@ export default function ExampleSelect() {
                 <CaretUpIcon />
               </Select.ScrollUpArrow>
               <Select.List class={styles.List}>
-                {apples.map(({ label, value }) => (
+                <For each={apples}>{({ label, value }) => (
                   <Select.Item value={value} class={styles.Item}>
                     <Select.ItemIndicator class={styles.ItemIndicator}>
                       <CheckIcon />
                     </Select.ItemIndicator>
                     <Select.ItemText class={styles.ItemText}>{label}</Select.ItemText>
                   </Select.Item>
-                ))}
+                )}</For>
               </Select.List>
               <Select.ScrollDownArrow class={styles.ScrollArrow}>
                 <CaretDownIcon />

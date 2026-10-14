@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -49,14 +50,14 @@ export default function MultiSelectExample() {
             alignItemWithTrigger={false}
           >
             <Select.Popup class={styles.Popup}>
-              {values.map((value) => (
+              <For each={values}>{(value) => (
                 <Select.Item value={value} class={styles.Item}>
                   <Select.ItemIndicator class={styles.ItemIndicator}>
                     <CheckIcon />
                   </Select.ItemIndicator>
                   <Select.ItemText class={styles.ItemText}>{languages[value]}</Select.ItemText>
                 </Select.Item>
-              ))}
+              )}</For>
             </Select.Popup>
           </Select.Positioner>
         </Select.Portal>

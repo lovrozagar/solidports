@@ -20,6 +20,7 @@ import {
   lstatSync,
 } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
+import ts from 'typescript';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -369,11 +370,13 @@ function objectStyleSvgProps(text) {
  * rendered children track the selection. Type the parameter as one and call it where it is read.
  */
 /**
- * `{items().map((item) => (<Item />))}` in JSX recreates every item whenever the list changes in
- * Solid (React reconciles them by key). Render reactive lists with `<For>`, which keeps each item.
+ * `{items.map((item, index) => (<Item />))}` in JSX recreates every item whenever the list changes
+ * in Solid (React reconciles them by key). Render lists with `<For>`, which keeps each item. `<For>`
+ * passes the index as an accessor: a body that reads it calls it, and an index only React's `key`
+ * read (dropped for Solid) is dropped too.
  */
-function reactiveMapChildrenToFor(text) {
-  const pattern = /\{(\w+)\(\)\.map\(\((\w+)\) => \(/g;
+function mapChildrenToFor(text) {
+  const pattern = /\{([^{}]+?)\.map\(\((\w+)(?:,\s*(\w+))?\) => \(/g;
   let result = '';
   let last = 0;
   for (const match of text.matchAll(pattern)) {
@@ -389,9 +392,18 @@ function reactiveMapChildrenToFor(text) {
     }
     // `index` is just past the body's closing paren; the map call and the JSX brace follow.
     if (text.slice(index, index + 2) !== ')}') continue;
-    const body = text.slice(bodyStart, index - 1);
+    const [, list, item, indexName] = match;
+    let body = text.slice(bodyStart, index - 1);
+    let params = item;
+    if (indexName) {
+      const reads = new RegExp(`(?<![.\\w$])${indexName}(?![\\w$:])`, 'g');
+      if (reads.test(body)) {
+        body = body.replace(reads, `${indexName}()`);
+        params = `${item}, ${indexName}`;
+      }
+    }
     result += text.slice(last, match.index);
-    result += `<For each={${match[1]}()}>{(${match[2]}) => (${body})}</For>`;
+    result += `<For each={${list.trim()}}>{(${params}) => (${body})}</For>`;
     last = index + 2;
   }
   return result + text.slice(last);
@@ -823,7 +835,7 @@ function transformDemoTsx(src) {
     'return (\n    <For each={toasts()}>\n      {($1) => $2}\n    </For>\n  );',
   );
   text = accessorValueChildren(text);
-  text = reactiveMapChildrenToFor(text);
+  text = mapChildrenToFor(text);
   text = text.replace(/import\s+\{[^}]+\}\s+from\s+'motion\/react';\n*/g, '');
   text = text.replace(/<motion\.div\b[\s\S]*?\/>/g, '<div />');
   text = text.replace(/<motion\.div\b([^>]*)>/g, '<div$1>');
@@ -864,8 +876,55 @@ function transformDemoTsx(src) {
   if (/\bomit\(/.test(text)) text = addSolidImport(text, 'omit');
   if (/<Component>/.test(text)) text = addSolidImport(text, 'type Component');
 
+  // Base UI's `Form` submit callbacks are event handlers, not tracked scopes.
+  text = text.replace(
+    /(\n([ \t]*))(onSubmit|onFormSubmit)=\{async /g,
+    '$1// eslint-disable-next-line solid/reactivity -- an event handler, not a tracked scope$1$3={async ',
+  );
+  return dropUnusedTrailingParams(text);
+}
 
-  return text;
+/**
+ * React demos read a list index for `key`, which Solid drops. A trailing callback parameter that
+ * nothing reads is removed, as it changes nothing.
+ */
+function dropUnusedTrailingParams(text) {
+  const source = ts.createSourceFile('demo.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const edits = [];
+  const reads = (node, name) => {
+    let found = false;
+    const visit = (child) => {
+      if (found) return;
+      if (ts.isIdentifier(child) && child.text === name) {
+        found = true;
+        return;
+      }
+      ts.forEachChild(child, visit);
+    };
+    visit(node);
+    return found;
+  };
+  const visit = (node) => {
+    if ((ts.isArrowFunction(node) || ts.isFunctionExpression(node)) && node.parameters.length > 0) {
+      let keep = node.parameters.length;
+      while (keep > 0) {
+        const param = node.parameters[keep - 1];
+        if (!ts.isIdentifier(param.name) || reads(node.body, param.name.text)) break;
+        keep -= 1;
+      }
+      if (keep < node.parameters.length) {
+        const start = keep === 0 ? node.parameters[0].getStart(source) : node.parameters[keep - 1].getEnd();
+        edits.push({ start, end: node.parameters.at(-1).getEnd() });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  let out = text;
+  for (const edit of edits.sort((a, b) => b.start - a.start)) {
+    out = out.slice(0, edit.start) + out.slice(edit.end);
+  }
+  return out;
 }
 
 /** Drops a heading's section (up to the next heading of the same or a higher level) and its mentions. */
@@ -1320,4 +1379,20 @@ const pages = generatePages();
 console.log('generating homepage…');
 generateWebsite();
 patchSolidCssImport();
+console.log('applying the docs lint autofixes…');
+await lintFixGenerated();
 console.log(`wrote ${pages} MDX pages and ${demos} demo files`);
+
+/**
+ * The generated sources take the docs' lint autofixes (type-only imports, self-closing elements,
+ * `<For>` lists), so the output is what the lint expects and regenerating changes nothing.
+ */
+async function lintFixGenerated() {
+  const { ESLint } = await import('eslint');
+  const eslint = new ESLint({ cwd: FORK, fix: true });
+  const results = await eslint.lintFiles([
+    relative(FORK, join(SOLID_DEMOS, '**/*.{ts,tsx}')),
+    relative(FORK, join(SOLID, 'src/website/**/*.{ts,tsx}')),
+  ]);
+  await ESLint.outputFixes(results);
+}

@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import { Slider } from '@solidports/base-ui/slider';
 import styles from './index.module.css';
 
@@ -11,25 +12,25 @@ export default function MarksSlider() {
       <Slider.Control class={styles.Control}>
         <Slider.Track class={styles.Track}>
           <Slider.Indicator class={styles.Indicator} />
-          {MARKS.map((mark) => (
+          <For each={MARKS}>{(mark) => (
             <div
               aria-hidden="true"
               class={styles.Mark}
               style={{ left: `${valueToPercent(mark)}%` }}
             />
-          ))}
+          )}</For>
           <Slider.Thumb aria-label="Volume" class={styles.Thumb} />
         </Slider.Track>
       </Slider.Control>
       <div class={styles.MarkLabels} aria-hidden="true">
-        {MARKS.map((mark) => (
+        <For each={MARKS}>{(mark) => (
           <span
             class={styles.MarkLabel}
             style={{ left: `${valueToPercent(mark)}%` }}
           >
             {mark}
           </span>
-        ))}
+        )}</For>
       </div>
     </Slider.Root>
   );

@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 
 
 import { Menu } from '@solidports/base-ui/menu';
@@ -88,12 +88,12 @@ export default function MenuDetachedTriggersControlledDemo() {
           <Menu.Portal>
             <Menu.Positioner class={styles.Positioner} sideOffset={8} align="start">
               <Menu.Popup class={styles.Popup}>
-                {payload &&
-                  itemGroups[payload].map((item, index) => (
+                <For each={payload &&
+                  itemGroups[payload]}>{(item) => (
                     <Menu.Item class={styles.Item} onClick={item.onClick}>
                       {item.label}
                     </Menu.Item>
-                  ))}
+                  )}</For>
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>

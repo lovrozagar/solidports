@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 
 
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -89,9 +89,9 @@ export default function ExampleEmojiPicker() {
                           {group.label}
                         </Autocomplete.GroupLabel>
                         <div class="px-2 pb-1 pt-0" role="presentation">
-                          {chunkArray(group.items, COLUMNS).map((row, rowIdx) => (
+                          <For each={chunkArray(group.items, COLUMNS)}>{(row) => (
                             <Autocomplete.Row class="grid grid-cols-5">
-                              {row.map((rowItem) => (
+                              <For each={row}>{(rowItem) => (
                                 <Autocomplete.Item
                                   value={rowItem}
                                   class="group flex h-10 min-w-[var(--anchor-width)] cursor-default flex-col items-center justify-center bg-transparent px-0.5 py-2 text-neutral-950 outline-0 select-none data-highlighted:relative data-highlighted:z-0 data-highlighted:text-white data-highlighted:before:absolute data-highlighted:before:inset-0 data-highlighted:before:z-[-1] data-highlighted:before:bg-neutral-100 dark:text-white dark:data-highlighted:text-neutral-950 dark:data-highlighted:before:bg-neutral-800"
@@ -102,9 +102,9 @@ export default function ExampleEmojiPicker() {
                                 >
                                   <span class="text-2xl leading-none">{rowItem.emoji}</span>
                                 </Autocomplete.Item>
-                              ))}
+                              )}</For>
                             </Autocomplete.Row>
-                          ))}
+                          )}</For>
                         </div>
                       </Autocomplete.Group>
                     )}

@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 import { NavigationMenu } from '@solidports/base-ui/navigation-menu';
@@ -16,7 +17,7 @@ export default function ExampleNavigationMenu() {
 
           <NavigationMenu.Content class={contentClassName}>
             <ul class="m-0 grid list-none grid-cols-2 p-0 min-[640px]:grid-cols-[12rem_12rem]">
-              {overviewLinks.map((item) => (
+              <For each={overviewLinks}>{(item) => (
                 <li>
                   <Link href={item.href} class={linkCardClassName}>
                     <h3 class="m-0 mb-1 text-sm leading-4 font-normal">{item.title}</h3>
@@ -25,7 +26,7 @@ export default function ExampleNavigationMenu() {
                     </p>
                   </Link>
                 </li>
-              ))}
+              )}</For>
               <li>
                 <NavigationMenu.Root orientation="vertical">
                   <NavigationMenu.List>
@@ -41,7 +42,7 @@ export default function ExampleNavigationMenu() {
                       </NavigationMenu.Trigger>
                       <NavigationMenu.Content class={contentClassName}>
                         <ul class="m-0 flex max-w-[400px] list-none flex-col justify-center p-0">
-                          {handbookLinks.map((item) => (
+                          <For each={handbookLinks}>{(item) => (
                             <li>
                               <Link href={item.href} class={linkCardClassName}>
                                 <h3 class="m-0 mb-1 text-sm leading-4 font-normal">
@@ -52,7 +53,7 @@ export default function ExampleNavigationMenu() {
                                 </p>
                               </Link>
                             </li>
-                          ))}
+                          )}</For>
                         </ul>
                       </NavigationMenu.Content>
                     </NavigationMenu.Item>

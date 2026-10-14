@@ -68,7 +68,7 @@ function highlightText(text: string, query: string): JSX.Element {
   const escaped = limited.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`(${escaped})`, 'gi');
 
-  return text.split(regex).map((part, idx) =>
+  return text.split(regex).map((part) =>
     regex.test(part) ? (
       <mark class="bg-transparent font-bold text-blue-800 dark:text-blue-500">
         {part}

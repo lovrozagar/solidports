@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 
 import { Dialog } from '@solidports/base-ui/dialog';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
@@ -20,12 +21,12 @@ export default function InsideScrollDialog() {
             <ScrollArea.Root class={styles.Body}>
               <ScrollArea.Viewport class={styles.BodyViewport}>
                 <ScrollArea.Content class={styles.BodyContent}>
-                  {CONTENT_SECTIONS.map((item) => (
+                  <For each={CONTENT_SECTIONS}>{(item) => (
                     <section class={styles.Section}>
                       <h3 class={styles.SectionTitle}>{item.title}</h3>
                       <p class={styles.SectionBody}>{item.body}</p>
                     </section>
-                  ))}
+                  )}</For>
                 </ScrollArea.Content>
               </ScrollArea.Viewport>
               <ScrollArea.Scrollbar class={styles.Scrollbar}>

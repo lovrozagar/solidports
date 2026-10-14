@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -31,7 +32,7 @@ export default function ObjectValueSelect() {
                 <CaretUpIcon />
               </Select.ScrollUpArrow>
               <Select.List class={styles.List}>
-                {shippingMethods.map((method) => (
+                <For each={shippingMethods}>{(method) => (
                   <Select.Item value={method} class={styles.Item}>
                     <Select.ItemIndicator class={styles.ItemIndicator}>
                       <CheckIcon />
@@ -43,7 +44,7 @@ export default function ObjectValueSelect() {
                       </span>
                     </Select.ItemText>
                   </Select.Item>
-                ))}
+                )}</For>
               </Select.List>
               <Select.ScrollDownArrow class={styles.ScrollArrow}>
                 <CaretDownIcon />
