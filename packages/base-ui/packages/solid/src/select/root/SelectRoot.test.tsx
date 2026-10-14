@@ -930,6 +930,7 @@ describe('<Select.Root />', () => {
 
       const optionB = screen.getByRole('option', { name: 'b' });
 
+      fireEvent.mouseMove(optionB);
       await user.click(optionB);
       await flushMicrotasks();
 
