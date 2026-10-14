@@ -1323,11 +1323,13 @@ function lowerFunction(fnPath, kind, ctx) {
         const refType = declarator.init.typeParameters?.params[0];
         if (api === 'useRef' && refType && t.isIdentifier(declarator.id) && !annotation) {
           const [init] = declarator.init.arguments;
-          const missing = !init
-            ? t.tsUndefinedKeyword()
-            : t.isNullLiteral(init)
-              ? t.tsNullKeyword()
-              : null;
+          // `useRef<T>()` holds `T | undefined`, `useRef<T>(null)` holds `T | null`.
+          let missing = null;
+          if (!init) {
+            missing = t.tsUndefinedKeyword();
+          } else if (t.isNullLiteral(init)) {
+            missing = t.tsNullKeyword();
+          }
           const includes = (type) =>
             t.isTSUnionType(refType)
               ? refType.types.some((member) => member.type === type.type)
