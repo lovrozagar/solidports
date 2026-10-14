@@ -235,6 +235,10 @@ const TITLE_ALIASES = {
   '@base-ui/react': '@solidports/base-ui',
   // React 17 has no server id, so upstream asserts none; Solid's `createUniqueId` renders one.
   'returns undefined on the server': 'renders the generated id on the server',
+  // React 17 has no `useId`, so upstream asserts the server markup has no slot ids; Solid's ids
+  // come from the runtime on the server too.
+  'omits generated slot ids during SSR until the client fallback is assigned':
+    'renders generated slot ids during SSR',
 };
 
 // Upstream tests of a React mechanism Solid does not have, so they have nothing to port. Each is

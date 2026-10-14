@@ -448,7 +448,8 @@ export function NumberFieldInput(componentProps: NumberFieldInput.Props) {
         /* istanbul ignore else -- `process.env.NODE_ENV` is a build-time constant under test */
         if (process.env.NODE_ENV !== 'production') {
           // Solid: there is no owner stack to append.
-          warn('<NumberField.Input> could not read clipboard text during paste handling.');
+          // Solid: no owner stack exists, so the message carries upstream's empty one.
+          warn('<NumberField.Input> could not read clipboard text during paste handling.', '');
         }
 
         return;

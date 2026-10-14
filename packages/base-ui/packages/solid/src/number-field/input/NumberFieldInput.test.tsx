@@ -1423,8 +1423,30 @@ describe('<NumberField.Input />', () => {
     }
   });
 
-  // Solid: there is no owner stack to capture.
-  it.skip('warns without an owner stack when React cannot provide one', () => {});
+  // Solid: there is never an owner stack to capture, so every warning takes this path.
+  it('warns without an owner stack when React cannot provide one', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      render(() => (
+        <NumberField.Root defaultValue={12}>
+          <NumberField.Input />
+        </NumberField.Root>
+      ));
+
+      const input = screen.getByRole('textbox');
+      act(() => input.focus());
+
+      pasteWithError(input, new DOMException('Blocked', 'SecurityError'));
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0]?.[0]).toBe(
+        'Base UI: <NumberField.Input> could not read clipboard text during paste handling. ',
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 
   it('reports an unchanged value once when a paste event carries no clipboard data', async () => {
     const onValueChange = vi.fn();
