@@ -58,41 +58,45 @@ const REACT_TYPES = {
   HTMLAttributes: { name: 'JSX', member: 'HTMLAttributes' },
 };
 
+// Base UI utils hooks with a direct Solid counterpart: their imports go, and their calls are rewritten.
+const BASE_UI_UTILS_HOOKS = new Set([
+  '@base-ui/utils/useStableCallback',
+  '@base-ui/utils/useIsoLayoutEffect',
+]);
+
 const kebab = (name) => name.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
 
 class Imports {
   constructor() {
-    this.values = new Map(); // source -> Set(names)
+    this.values = new Map(); // source -> Map(imported -> local)
     this.types = new Map();
   }
 
-  add(source, name, type = false) {
+  add(source, name, type = false, local = name) {
     const map = type ? this.types : this.values;
     if (!map.has(source)) {
-      map.set(source, new Set());
+      map.set(source, new Map());
     }
-    map.get(source).add(name);
+    map.get(source).set(name, local);
   }
 
   declarations() {
-    const out = [];
-    for (const [source, names] of this.values) {
-      out.push(
-        t.importDeclaration(
-          [...names].sort().map((name) => t.importSpecifier(t.identifier(name), t.identifier(name))),
-          t.stringLiteral(source),
-        ),
-      );
-    }
-    for (const [source, names] of this.types) {
-      const declaration = t.importDeclaration(
-        [...names].sort().map((name) => t.importSpecifier(t.identifier(name), t.identifier(name))),
+    const declaration = (source, names, type) => {
+      const node = t.importDeclaration(
+        [...names]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([imported, local]) => t.importSpecifier(t.identifier(local), t.identifier(imported))),
         t.stringLiteral(source),
       );
-      declaration.importKind = 'type';
-      out.push(declaration);
-    }
-    return out;
+      if (type) {
+        node.importKind = 'type';
+      }
+      return node;
+    };
+    return [
+      ...[...this.values].map(([source, names]) => declaration(source, names, false)),
+      ...[...this.types].map(([source, names]) => declaration(source, names, true)),
+    ];
   }
 }
 
@@ -214,10 +218,26 @@ function rewriteDestructuredProps(path, imports) {
   path.get('body').unshiftContainer('body', statements);
 
   for (const { key, paths } of references) {
+    const propKey = DOM_ATTRIBUTES[key] ?? key;
     for (const reference of paths) {
-      reference.replaceWith(
-        t.memberExpression(t.identifier(propsName), t.identifier(DOM_ATTRIBUTES[key] ?? key)),
-      );
+      if (t.isJSXIdentifier(reference.node)) {
+        // A prop used as a tag renders through `<Dynamic component={props.tag}>`.
+        const element = reference.parentPath;
+        if (element.isJSXOpeningElement()) {
+          imports.add('@solidjs/web', 'Dynamic');
+          element.node.attributes.unshift(
+            t.jsxAttribute(
+              t.jsxIdentifier('component'),
+              t.jsxExpressionContainer(
+                t.memberExpression(t.identifier(propsName), t.identifier(propKey)),
+              ),
+            ),
+          );
+        }
+        reference.replaceWith(t.jsxIdentifier('Dynamic'));
+        continue;
+      }
+      reference.replaceWith(t.memberExpression(t.identifier(propsName), t.identifier(propKey)));
     }
   }
   for (const reference of restReferences) {
@@ -284,7 +304,8 @@ function transformHooks(programPath, reactNames, imports) {
           }
           break;
         }
-        case 'useCallback': {
+        case 'useCallback':
+        case 'useStableCallback': {
           path.replaceWith(args[0]);
           break;
         }
@@ -304,7 +325,8 @@ function transformHooks(programPath, reactNames, imports) {
           break;
         }
         case 'useEffect':
-        case 'useLayoutEffect': {
+        case 'useLayoutEffect':
+        case 'useIsoLayoutEffect': {
           const [fn, deps] = args;
           const fnPath = path.get('arguments.0');
           cleanupReturns(fnPath, imports);
@@ -312,7 +334,7 @@ function transformHooks(programPath, reactNames, imports) {
             imports.add('solid-js', 'onSettled');
             path.replaceWith(t.callExpression(t.identifier('onSettled'), [fn]));
           } else if (t.isArrayExpression(deps)) {
-            const effect = api === 'useLayoutEffect' ? 'createRenderEffect' : 'createEffect';
+            const effect = api === 'useEffect' ? 'createEffect' : 'createRenderEffect';
             imports.add('solid-js', effect);
             path.replaceWith(
               t.callExpression(t.identifier(effect), [
@@ -321,7 +343,7 @@ function transformHooks(programPath, reactNames, imports) {
               ]),
             );
           } else {
-            const effect = api === 'useLayoutEffect' ? 'createRenderEffect' : 'createEffect';
+            const effect = api === 'useEffect' ? 'createEffect' : 'createRenderEffect';
             imports.add('solid-js', effect);
             path.replaceWith(
               t.callExpression(t.identifier(effect), [
@@ -360,7 +382,7 @@ function transformHooks(programPath, reactNames, imports) {
   return refs;
 }
 
-function transformJsx(programPath, refs, imports) {
+function transformJsx(programPath, refs, imports, reactNames) {
   programPath.traverse({
     JSXAttribute(path) {
       const name = path.node.name;
@@ -423,6 +445,20 @@ function transformJsx(programPath, refs, imports) {
         );
       }
     },
+    JSXElement(path) {
+      const name = path.node.openingElement.name;
+      const isFragment =
+        (t.isJSXMemberExpression(name) &&
+          t.isJSXIdentifier(name.object) &&
+          reactNames.namespaces.has(name.object.name) &&
+          name.property.name === 'Fragment') ||
+        (t.isJSXIdentifier(name) && reactNames.named.get(name.name) === 'Fragment');
+      if (isFragment) {
+        path.replaceWith(
+          t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), path.node.children),
+        );
+      }
+    },
     JSXMemberExpression(path) {
       // `<Context.Provider>` renders as `<Context>`.
       if (path.node.property.name === 'Provider' && t.isJSXIdentifier(path.node.object)) {
@@ -459,22 +495,123 @@ function transformJsx(programPath, refs, imports) {
   });
 }
 
+// DOM events React's synthetic events wrap; a Solid handler receives the native event.
+const DOM_EVENTS = new Set([
+  'AnimationEvent',
+  'ClipboardEvent',
+  'DragEvent',
+  'FocusEvent',
+  'KeyboardEvent',
+  'MouseEvent',
+  'PointerEvent',
+  'TouchEvent',
+  'TransitionEvent',
+  'UIEvent',
+  'WheelEvent',
+]);
+const GENERIC_EVENTS = new Set(['ChangeEvent', 'FormEvent', 'SyntheticEvent', 'BaseSyntheticEvent']);
+
+/** A local name for an imported type that does not clash with a declaration in the file. */
+function freeName(programPath, name) {
+  const declared = programPath.node.body.some(
+    (statement) =>
+      ((t.isTSTypeAliasDeclaration(statement) || t.isTSInterfaceDeclaration(statement)) &&
+        statement.id.name === name) ||
+      ((t.isExportNamedDeclaration(statement) &&
+        (t.isTSTypeAliasDeclaration(statement.declaration) ||
+          t.isTSInterfaceDeclaration(statement.declaration)) &&
+        statement.declaration.id.name === name)),
+  );
+  return declared || programPath.scope.hasBinding(name) ? `Solid${name}` : name;
+}
+
 function transformTypes(programPath, reactNames, imports) {
+  const reactType = (typeName) =>
+    t.isTSQualifiedName(typeName) &&
+    t.isIdentifier(typeName.left) &&
+    reactNames.namespaces.has(typeName.left.name)
+      ? typeName.right.name
+      : null;
+  const params = (node) => node.typeParameters?.params ?? [];
+  const solidType = (name) => {
+    const local = freeName(programPath, name);
+    imports.add('solid-js', name, true, local);
+    return t.identifier(local);
+  };
+  const jsxType = (member) => {
+    imports.add('@solidjs/web', 'JSX', true);
+    return t.tsQualifiedName(t.identifier('JSX'), t.identifier(member));
+  };
+  const reference = (typeName, typeParams) =>
+    t.tsTypeReference(
+      typeName,
+      typeParams.length ? t.tsTypeParameterInstantiation(typeParams) : null,
+    );
+
   programPath.traverse({
-    TSQualifiedName(path) {
-      if (!t.isIdentifier(path.node.left) || !reactNames.namespaces.has(path.node.left.name)) {
+    // `interface X extends React.ComponentProps<'button'>`
+    TSExpressionWithTypeArguments(path) {
+      const name = reactType(path.node.expression);
+      if (!name) {
         return;
       }
-      const mapped = REACT_TYPES[path.node.right.name];
-      if (!mapped) {
-        return;
-      }
-      imports.add('@solidjs/web', mapped.name, true);
-      path.replaceWith(
-        mapped.member
+      if (name.endsWith('HTMLAttributes')) {
+        path.node.expression = jsxType(name);
+      } else if (REACT_TYPES[name]) {
+        const mapped = REACT_TYPES[name];
+        imports.add('@solidjs/web', mapped.name, true);
+        path.node.expression = mapped.member
           ? t.tsQualifiedName(t.identifier(mapped.name), t.identifier(mapped.member))
-          : t.identifier(mapped.name),
-      );
+          : t.identifier(mapped.name);
+      }
+    },
+    TSTypeReference: {
+      exit(path) {
+        const name = reactType(path.node.typeName);
+        if (!name) {
+          return;
+        }
+        const args = params(path.node);
+        if (DOM_EVENTS.has(name)) {
+          path.replaceWith(t.tsTypeReference(t.identifier(name)));
+        } else if (GENERIC_EVENTS.has(name)) {
+          path.replaceWith(t.tsTypeReference(t.identifier('Event')));
+        } else if (name === 'PropsWithChildren') {
+          path.replaceWith(reference(solidType('ParentProps'), args));
+        } else if (name === 'ComponentType' || name === 'FC' || name === 'FunctionComponent') {
+          path.replaceWith(reference(solidType('Component'), args));
+        } else if (name === 'Dispatch' && args.length === 1) {
+          const inner = args[0];
+          const value =
+            t.isTSTypeReference(inner) && reactType(inner.typeName) === 'SetStateAction'
+              ? params(inner)
+              : [inner];
+          path.replaceWith(reference(solidType('Setter'), value));
+        } else if (name === 'SetStateAction') {
+          path.replaceWith(args[0]);
+        } else if (name === 'RefObject' || name === 'MutableRefObject') {
+          path.replaceWith(
+            t.tsTypeLiteral([
+              t.tsPropertySignature(t.identifier('current'), t.tsTypeAnnotation(args[0])),
+            ]),
+          );
+        } else if (name === 'SVGProps') {
+          path.replaceWith(reference(jsxType('SvgSVGAttributes'), args));
+        } else if (name.endsWith('HTMLAttributes')) {
+          path.replaceWith(reference(jsxType(name), args));
+        } else if (REACT_TYPES[name]) {
+          const mapped = REACT_TYPES[name];
+          imports.add('@solidjs/web', mapped.name, true);
+          path.replaceWith(
+            reference(
+              mapped.member
+                ? t.tsQualifiedName(t.identifier(mapped.name), t.identifier(mapped.member))
+                : t.identifier(mapped.name),
+              args,
+            ),
+          );
+        }
+      },
     },
   });
 }
@@ -517,7 +654,20 @@ export function transformReactToSolid(source) {
         (directive) => directive.value.value !== 'use client',
       );
       for (const statement of programPath.get('body')) {
-        if (!statement.isImportDeclaration() || statement.node.source.value !== 'react') {
+        if (!statement.isImportDeclaration()) {
+          continue;
+        }
+        const source = statement.node.source.value;
+        if (BASE_UI_UTILS_HOOKS.has(source)) {
+          for (const specifier of statement.node.specifiers) {
+            if (t.isImportSpecifier(specifier)) {
+              reactNames.named.set(specifier.local.name, specifier.imported.name);
+            }
+          }
+          statement.remove();
+          continue;
+        }
+        if (source !== 'react') {
           continue;
         }
         for (const specifier of statement.node.specifiers) {
@@ -534,7 +684,7 @@ export function transformReactToSolid(source) {
       programPath.scope.crawl();
       const refs = transformHooks(programPath, reactNames, imports);
       transformTypes(programPath, reactNames, imports);
-      transformJsx(programPath, refs, imports);
+      transformJsx(programPath, refs, imports, reactNames);
       renameDomPropReads(programPath);
 
       const declarations = imports.declarations();
