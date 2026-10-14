@@ -80,6 +80,7 @@ import { INITIAL_LAST_HIGHLIGHT, NO_ACTIVE_VALUE } from './utils/constants';
 import { useCoreFilter } from './utils/useFilter';
 import { on } from '../../solid-1-compat';
 import { restoreValueWhileDisabled } from '../../utils/restoreValueWhileDisabled';
+import { releaseServerFormState } from '../../utils/releaseServerFormState';
 
 type InternalAriaComboboxProps<Value, Mode extends SelectionMode, Item = Value> = AriaComboboxProps<
   Value,
@@ -1923,6 +1924,7 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
                   }
                   validation.inputRef.current = el;
                   restoreValueWhileDisabled(el, disabled, serializedValue);
+            releaseServerFormState(el);
                 }}
                 style={hiddenInputName() ? visuallyHiddenInput : visuallyHidden}
                 tabindex={-1}

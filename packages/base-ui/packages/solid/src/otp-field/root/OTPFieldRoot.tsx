@@ -30,6 +30,7 @@ import {
 } from '../utils/otp';
 import type { OTPValidationType } from '../utils/otp';
 import type { FieldRootState } from '../../field/root/FieldRoot';
+import { releaseServerFormState } from '../../utils/releaseServerFormState';
 
 /**
  * Groups all OTP field parts and manages their state.
@@ -488,6 +489,7 @@ export function OTPFieldRoot(componentProps: OTPFieldRoot.Props) {
             {...(hiddenInputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)}
             ref={(el) => {
               validation.inputRef.current = el;
+              releaseServerFormState(el);
             }}
             type="text"
             id={id() && name() == null ? `${id()}-hidden-input` : undefined}

@@ -40,6 +40,7 @@ import { getSliderValue } from '../utils/getSliderValue';
 import { getDecimalPrecision, roundValueToStep } from '../utils/roundValueToStep';
 import { script as prehydrationScript } from './prehydrationScript.min';
 import * as SliderThumbDataAttributes from './SliderThumbDataAttributes';
+import { releaseServerFormState } from '../../utils/releaseServerFormState';
 
 const ALL_KEYS = new Set([...COMPOSITE_KEYS, PAGE_UP, PAGE_DOWN]);
 
@@ -542,6 +543,7 @@ export function SliderThumb(componentProps: SliderThumb.Props) {
 
   // Solid: React's `useMergedRefs(inputRef, validation.inputRef, inputRefProp)`.
   function mergedInputRef(element: HTMLInputElement) {
+    releaseServerFormState(element);
     inputRef.current = element;
     validation.inputRef.current = element;
     const inputRefProp = local.inputRef;

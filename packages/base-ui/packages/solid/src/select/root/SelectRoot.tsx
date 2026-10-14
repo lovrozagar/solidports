@@ -52,6 +52,7 @@ import { on } from '../../solid-1-compat';
 import type { HTMLProps } from '../../utils/types';
 import { createPropsView, propsSourceAccessor } from '../../utils/propsView';
 import { restoreValueWhileDisabled } from '../../utils/restoreValueWhileDisabled';
+import { releaseServerFormState } from '../../utils/releaseServerFormState';
 
 /**
  * Groups all parts of the select.
@@ -744,6 +745,7 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
             }
             validation.inputRef.current = el;
             restoreValueWhileDisabled(el, disabled, serializedValue);
+            releaseServerFormState(el);
           }}
           style={name() ? visuallyHiddenInput : visuallyHidden}
           tabindex={-1}
