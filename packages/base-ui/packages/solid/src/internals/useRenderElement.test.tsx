@@ -1,8 +1,8 @@
 /* eslint-disable testing-library/render-result-naming-convention */
-import { act, createRenderer, flushMicrotasks } from '#test-utils';
+import { act, createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
 import { expect, describe, it } from 'vitest';
-import { createSignal, lazy, onCleanup, onSettled, Show, Loading } from 'solid-js';
+import { createSignal, lazy, Loading } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { EMPTY_OBJECT } from '../utils/empty';
 import { mergeProps as solidMergeProps } from '../merge-props';

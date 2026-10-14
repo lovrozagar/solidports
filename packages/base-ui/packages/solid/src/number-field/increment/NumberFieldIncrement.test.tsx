@@ -1,8 +1,8 @@
-import { createSignal, Show } from 'solid-js';
-import { expect, vi, describe, it } from 'vitest';
+import { createSignal } from 'solid-js';
+import { expect, describe, it } from 'vitest';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';
-import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
+import { createRenderer, describeConformance } from '#test-utils';
 import { CHANGE_VALUE_TICK_DELAY, START_AUTO_CHANGE_DELAY } from '../utils/constants';
 
 const TOUCH_TIMEOUT = 50;
@@ -21,7 +21,7 @@ describe('<NumberField.Increment />', () => {
     clock.withFakeTimers();
 
     // Solid: props change through a signal instead of `setProps`.
-    const [disabled, setDisabled] = createSignal(false);
+    const [disabled] = createSignal(false);
 
     function TestNumberField() {
       return (

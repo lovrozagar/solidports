@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { createEvent, fireEvent, screen } from '@solidjs/testing-library';
+import { fireEvent, screen } from '@solidjs/testing-library';
 import { act, createRenderer, firePointer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { useSwipeDismiss } from './useSwipeDismiss';
 
@@ -52,29 +52,6 @@ function SwipeProgressBox(props: { onProgress: (progress: number) => void }) {
       {...swipe.getPointerProps()}
     />
   );
-}
-
-function fireRejectedPointerMove(
-  element: Element,
-  point: {
-    clientX: number;
-    clientY: number;
-    movementX: number;
-    movementY: number;
-    pointerId?: number;
-  },
-) {
-  const event = createEvent.pointerMove(element, {
-    pointerId: point.pointerId ?? 1,
-    buttons: 1,
-    bubbles: true,
-    clientX: point.clientX,
-    clientY: point.clientY,
-    movementX: point.movementX,
-    movementY: point.movementY,
-  });
-  Object.defineProperty(event, 'timeStamp', { value: Number.NaN });
-  fireEvent(element, event);
 }
 
 function createTouch(target: EventTarget, point: { clientX: number; clientY: number }) {

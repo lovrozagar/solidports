@@ -1,12 +1,5 @@
-import {
-  act,
-  createRenderer,
-  describeConformance,
-  isJSDOM,
-  viewportConformanceTests,
-} from '#test-utils';
+import { createRenderer, describeConformance, viewportConformanceTests } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
-import { screen, waitFor } from '@solidjs/testing-library';
 import { expect, vi, describe, it } from 'vitest';
 import { For, omit } from 'solid-js';
 

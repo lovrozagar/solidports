@@ -49,7 +49,6 @@ export function SelectItem(componentProps: SelectItem.Props) {
     getItemProps,
     setOpen,
     setValue,
-    popupRef,
     selectionRef,
     typingRef,
     valuesRef,

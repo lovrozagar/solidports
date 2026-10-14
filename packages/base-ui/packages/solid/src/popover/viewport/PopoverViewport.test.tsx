@@ -1,13 +1,6 @@
-import {
-  act,
-  createRenderer,
-  describeConformance,
-  isJSDOM,
-  viewportConformanceTests,
-} from '#test-utils';
+import { createRenderer, describeConformance, viewportConformanceTests } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
-import { screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi, describe } from 'vitest';
+import { describe } from 'vitest';
 import { For, omit } from 'solid-js';
 
 describe('<Popover.Viewport />', () => {

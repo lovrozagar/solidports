@@ -35,7 +35,7 @@ import type {
   BaseUIChangeEventDetails,
   BaseUIHighlightEventDetails,
 } from '../../utils/createBaseUIEventDetails';
-import { EMPTY_ARRAY, EMPTY_OBJECT, NOOP } from '../../utils/empty';
+import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/empty';
 import type { PayloadChildRenderFunction } from '../../utils/popups';
 import {
   attachPreventUnmountOnClose,
@@ -56,7 +56,6 @@ import { useTimeout } from '../../utils/useTimeout';
 import type { MenuHandle } from '../store/MenuHandle';
 import { MenuStore } from '../store/MenuStore';
 import type { State as MenuStoreState } from '../store/MenuStore';
-import { useMenuSubmenuRootContext } from '../submenu-root/MenuSubmenuRootContext';
 import { isKeyboardClick, isKeyboardOpen } from '../utils/isKeyboardOpen';
 import {
   MenuFilterProviderContext,

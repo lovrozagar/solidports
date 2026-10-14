@@ -1,6 +1,5 @@
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { createRenderEffect, createSignal } from 'solid-js';
-import { screen } from '@solidjs/testing-library';
 import { act, createRenderer } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { useSelectRootContext } from './root/SelectRootContext';

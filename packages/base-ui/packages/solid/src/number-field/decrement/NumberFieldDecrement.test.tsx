@@ -1,12 +1,10 @@
-import { createSignal } from 'solid-js';
-import { expect, vi, describe, it } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { NumberField } from '@solidports/base-ui/number-field';
-import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
-import { CHANGE_VALUE_TICK_DELAY, START_AUTO_CHANGE_DELAY } from '../utils/constants';
+import { createRenderer, describeConformance } from '#test-utils';
 
 describe('<NumberField.Decrement />', () => {
-  const { render, clock } = createRenderer();
+  const { render } = createRenderer();
 
   describeConformance(NumberField.Decrement, () => ({
     refInstanceof: window.HTMLButtonElement,

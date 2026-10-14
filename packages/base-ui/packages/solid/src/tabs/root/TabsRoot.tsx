@@ -6,7 +6,7 @@ import { provideNativeContext } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
-import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
+import { splitComponentProps } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';

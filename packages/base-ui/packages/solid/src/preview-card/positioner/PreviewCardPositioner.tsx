@@ -3,7 +3,7 @@ import { usePositioner } from '../../utils/usePositioner';
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
 import { splitComponentProps, createLayoutEffect } from '../../solid-helpers';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
-import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { createInlineMiddleware } from '../../utils/popups';

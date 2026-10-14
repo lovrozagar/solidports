@@ -1,6 +1,5 @@
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { createSignal, untrack } from 'solid-js';
-import type { JSX } from '@solidjs/web';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { act, createRenderer, flushMicrotasks, isJSDOM, createFormDataSpy } from '#test-utils';
 import {

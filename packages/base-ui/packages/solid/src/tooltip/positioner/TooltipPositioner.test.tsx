@@ -1,15 +1,11 @@
 import { expect, vi, describe, it } from 'vitest';
-import { createSignal, Show } from 'solid-js';
 import {
   createRenderer,
   describeConformance,
   flushMicrotasks,
-  isJSDOM,
-  waitForPositioned,
   positionerConformanceTests,
 } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';
-import { screen, waitFor } from '@solidjs/testing-library';
 
 // Solid: local copy of React's `#test-utils` helper.
 function Trigger(props: Tooltip.Trigger.Props) {

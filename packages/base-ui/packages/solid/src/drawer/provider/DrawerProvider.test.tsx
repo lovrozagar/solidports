@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { createRenderEffect, createSignal, Show } from 'solid-js';
+import { describe, expect, it } from 'vitest';
+import { createSignal, Show } from 'solid-js';
 import { Drawer } from '@solidports/base-ui/drawer';
 import { screen } from '@solidjs/testing-library';
 import { act, createRenderer, isJSDOM } from '#test-utils';
@@ -69,21 +69,6 @@ function ProviderControls() {
       </button>
     </>
   );
-}
-
-// Solid: stands in for `React.Profiler`; it re-runs whenever the provider's registry notifies.
-function ProviderRenderProbe(props: { onRender: () => void }) {
-  const context = useDrawerProviderContext();
-
-  createRenderEffect(
-    () => {
-      props.onRender();
-      return context?.active();
-    },
-    () => {},
-  );
-
-  return null;
 }
 
 function MultipleDrawers(props: { firstOpen: boolean; secondOpen: boolean; showSecond: boolean }) {

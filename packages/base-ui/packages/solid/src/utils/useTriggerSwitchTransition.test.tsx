@@ -2,7 +2,6 @@ import { createSignal, flush } from 'solid-js';
 import { describe, expect, it } from 'vitest';
 import { createRenderer } from '#test-utils';
 import { useTriggerSwitchTransition } from './useTriggerSwitchTransition';
-import type { TriggerSwitchStore } from './useTriggerSwitchTransition';
 
 describe('useTriggerSwitchTransition', () => {
   const { render } = createRenderer();

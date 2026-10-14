@@ -119,7 +119,6 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     setDirty,
     validityData,
     registerFilledSource,
-    setFocused,
     validationMode,
     disabled: fieldDisabled,
     name: fieldName,
@@ -713,7 +712,6 @@ function NativeSwitchRoot(props: SwitchRoot.Props): JSX.Element {
   createRenderEffect(inputAttributes, (attributes) => {
     assign(input, attributes, true, previousInput, true);
   });
-  const inputRef = useRef<HTMLInputElement | null | undefined>(input);
   validation.inputRef.current = input;
   const externalInputRef = props.inputRef;
   if (externalInputRef) {

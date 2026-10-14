@@ -1,6 +1,6 @@
 import { getAlignment, getSide, getSideAxis } from '@floating-ui/utils';
 import type { Rect } from '@floating-ui/utils';
-import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
+import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider/DirectionContext';
@@ -28,13 +28,7 @@ import type {
   VirtualElement,
 } from '../floating-ui-solid/index';
 import { arrow } from '../floating-ui-solid/middleware/arrow';
-import {
-  createDepsEffect,
-  createDepsRenderEffect,
-  access,
-  useRef,
-  shallowEqual,
-} from '../solid-helpers';
+import { createDepsEffect, access, useRef, shallowEqual } from '../solid-helpers';
 import type { MaybeAccessor, MaybeAccessorValue, ReactLikeRef } from '../solid-helpers';
 import { DEFAULT_SIDES } from './adaptiveOriginMiddleware';
 import { hide } from './hideMiddleware';
@@ -510,7 +504,6 @@ export function useAnchorPositioningWithHook(
   );
 
   const {
-    refs,
     elements,
     x,
     y,

@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from 'solid-js';
+import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
 import type { Accessor, ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider';

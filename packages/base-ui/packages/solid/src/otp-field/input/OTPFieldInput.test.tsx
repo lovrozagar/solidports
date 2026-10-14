@@ -1,6 +1,5 @@
 import { expect, vi, describe, it } from 'vitest';
 import { createSignal } from 'solid-js';
-import { userEvent } from '@testing-library/user-event';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { OTPField } from '@solidports/base-ui/otp-field';
 import { Field } from '@solidports/base-ui/field';

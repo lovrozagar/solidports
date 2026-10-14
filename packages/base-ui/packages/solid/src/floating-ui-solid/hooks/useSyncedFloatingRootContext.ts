@@ -5,7 +5,7 @@ import type { MaybeAccessor } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../types';
 import type { PopupStoreContext, PopupStoreSelectors, PopupStoreState } from '../../utils/popups';
 import type { SolidStore } from '../../utils/store/SolidStoreV2';
-import { FloatingRootState, FloatingRootStore } from '../components/FloatingRootStoreV2';
+import { FloatingRootStore } from '../components/FloatingRootStoreV2';
 
 /**
  * Narrowed to the store members this hook uses so consumers do not need to provide

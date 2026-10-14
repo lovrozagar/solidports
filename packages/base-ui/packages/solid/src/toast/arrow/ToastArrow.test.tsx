@@ -2,7 +2,7 @@ import { expect, vi, describe, it } from 'vitest';
 import { For } from 'solid-js';
 import { Toast } from '@solidports/base-ui/toast';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { act, createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
+import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';
 
 const toast: Toast.Root.ToastObject = {
   id: 'test',

@@ -8,7 +8,7 @@ import {
 } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { createSignal, onSettled, Show } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import { render as solidRender } from '@solidjs/web';
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { OPEN_DELAY } from '../utils/constants';
@@ -26,7 +26,7 @@ describe('<PreviewCard.Root />', () => {
     globalThis.BASE_UI_ANIMATIONS_DISABLED = true;
   });
 
-  const { render, clock } = createRenderer();
+  const { render } = createRenderer();
 
   detachedTriggersConformanceTests({
     render,
@@ -162,8 +162,6 @@ describe('<PreviewCard.Root />', () => {
   });
 
   describe.skipIf(isJSDOM)('handle-backed root ownership', () => {
-    type NumberPayload = { payload: number | undefined };
-
     it('keeps a default-open root open while a detached trigger migrates after the initial commit', async () => {
       const handle = PreviewCard.createHandle();
       const onOpenChange = vi.fn();

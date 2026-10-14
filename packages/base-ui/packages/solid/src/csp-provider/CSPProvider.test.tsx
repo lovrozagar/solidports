@@ -2,7 +2,6 @@ import { createRenderer } from '#test-utils';
 import { CSPProvider } from '@solidports/base-ui/csp-provider';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { Select } from '@solidports/base-ui/select';
-import { screen } from '@solidjs/testing-library';
 import { expect, describe, it } from 'vitest';
 
 function queryDisableScrollbarStyle() {

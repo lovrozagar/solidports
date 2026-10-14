@@ -3,10 +3,7 @@ import { useItemRegistry } from '../../internals/useItemRegistry';
 import { createLayoutEffect } from '../../solid-helpers';
 import { useFilterDropdownItemContext } from '../root/FilterDropdownRootContext';
 import type { State as StoreState } from '../store';
-import {
-  FilterDropdownGroupContext,
-  useFilterDropdownGroupContext,
-} from './FilterDropdownGroupContext';
+import { useFilterDropdownGroupContext } from './FilterDropdownGroupContext';
 import type { FilterDropdownGroupContext as FilterDropdownGroupContextValue } from './FilterDropdownGroupContext';
 
 function isGroupHidden(

@@ -8,7 +8,7 @@ import {
 } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { createRenderEffect, createSignal, For, Match, Show, Switch, untrack } from 'solid-js';
+import { createRenderEffect, createSignal, For, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
@@ -513,8 +513,6 @@ describe('<Popover.Root />', () => {
   });
 
   describe.skipIf(isJSDOM)('multiple triggers within Root', () => {
-    type NumberPayload = { payload: number | undefined };
-
     it('returns focus to the active trigger when opening programmatically from body focus', async () => {
       function Test() {
         const [open, setOpen] = createSignal(false);
@@ -1215,71 +1213,6 @@ describe('<Popover.Root />', () => {
       expect(onOpenChange.mock.calls[1][0]).toBe(false);
       expect(onOpenChange.mock.calls[1][1].trigger).toBe(trigger2);
     });
-
-    function TriggerWithNesting(props: {
-      handle: ReturnType<typeof Popover.createHandle>;
-      nesting: 0 | 1 | 2 | 3;
-    }) {
-      const trigger = () => (
-        <Popover.Trigger handle={props.handle} id="trigger">
-          Trigger
-        </Popover.Trigger>
-      );
-
-      return (
-        <Switch
-          fallback={
-            <div>
-              <div>
-                <div>{trigger()}</div>
-              </div>
-            </div>
-          }
-        >
-          <Match when={props.nesting === 0}>{trigger()}</Match>
-          <Match when={props.nesting === 1}>
-            <div>{trigger()}</div>
-          </Match>
-          <Match when={props.nesting === 2}>
-            <div>
-              <div>{trigger()}</div>
-            </div>
-          </Match>
-        </Switch>
-      );
-    }
-
-    function DetachedTriggerReparentingTest(props: {
-      handle: ReturnType<typeof Popover.createHandle>;
-      nesting: 0 | 1 | 2 | 3;
-    }) {
-      return (
-        <>
-          <TriggerWithNesting handle={props.handle} nesting={props.nesting} />
-          <Popover.Root handle={props.handle}>
-            <Popover.Portal>
-              <Popover.Positioner>
-                <Popover.Popup>
-                  Popover Content
-                  <Popover.Close>Close</Popover.Close>
-                </Popover.Popup>
-              </Popover.Positioner>
-            </Popover.Portal>
-          </Popover.Root>
-        </>
-      );
-    }
-
-    async function openAndClosePopover(user: any) {
-      await user.click(screen.getByRole('button', { name: 'Trigger' }));
-      await waitFor(() => {
-        expect(screen.getByText('Popover Content')).toBeVisible();
-      });
-      await user.click(screen.getByText('Close'));
-      await waitFor(() => {
-        expect(screen.queryByText('Popover Content')).toBe(null);
-      });
-    }
 
     it('keeps positioning correct when conditional triggers unmount and the tree remounts', async () => {
       const testPopover = Popover.createHandle();

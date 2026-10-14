@@ -8,7 +8,6 @@ import type {
   ConformantComponentProps,
 } from '../describeConformance';
 import { throwMissingPropError } from './utils';
-import { splitProps } from '../../src/solid-1-compat';
 
 export function testRenderProp(
   element: Component<ConformantComponentProps>,

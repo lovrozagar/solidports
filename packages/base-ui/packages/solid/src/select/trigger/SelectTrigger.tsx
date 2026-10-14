@@ -16,7 +16,7 @@ import { ownerDocument } from '../../utils/owner';
 import { pressableTriggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
 import { resolveAriaLabelledBy } from '../../utils/resolveAriaLabelledBy';
-import type { BaseUIComponentProps, NativeButtonProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { useSelectRootContext } from '../root/SelectRootContext';
