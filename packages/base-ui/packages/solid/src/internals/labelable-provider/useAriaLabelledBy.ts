@@ -24,11 +24,22 @@ function findAssociatedLabel(labelSource?: LabelSource | null) {
     }
   }
 
-  // `labels` resolves `<label for>` across the document (a lookup per control); a document
-  // without any `<label>` has none to find (the collection is live and cached by the browser).
+  // A document without any `<label>` has none to find (the collection is live and cached by the
+  // browser).
   if (labelSource.ownerDocument.getElementsByTagName('label').length === 0) {
     return undefined;
   }
+  // `<label for>` across the document. Queried rather than read from `labels`: Firefox keeps
+  // returning the previous label from `labels` after the control's `id` changes.
+  if (controlId) {
+    const forLabel = labelSource.ownerDocument.querySelector<HTMLLabelElement>(
+      `label[for="${CSS.escape(controlId)}"]`,
+    );
+    if (forLabel) {
+      return forLabel;
+    }
+  }
+  // An ancestor `<label>` that is not the direct parent.
   const labels = labelSource.labels;
   return labels && labels[0];
 }
