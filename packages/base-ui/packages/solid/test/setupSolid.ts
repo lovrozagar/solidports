@@ -16,19 +16,19 @@ let isCleaningUp = false;
  */
 if (typeof window !== 'undefined' && typeof window.TouchEvent === 'undefined') {
   class TouchEvent extends UIEvent {
-    readonly touches: readonly Touch[];
+    declare readonly touches: readonly Touch[];
 
-    readonly targetTouches: readonly Touch[];
+    declare readonly targetTouches: readonly Touch[];
 
-    readonly changedTouches: readonly Touch[];
+    declare readonly changedTouches: readonly Touch[];
 
-    readonly altKey: boolean;
+    declare readonly altKey: boolean;
 
-    readonly ctrlKey: boolean;
+    declare readonly ctrlKey: boolean;
 
-    readonly metaKey: boolean;
+    declare readonly metaKey: boolean;
 
-    readonly shiftKey: boolean;
+    declare readonly shiftKey: boolean;
 
     constructor(type: string, init: TouchEventInit = {}) {
       super(type, init);
