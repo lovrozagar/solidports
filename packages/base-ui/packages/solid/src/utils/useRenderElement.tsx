@@ -16,6 +16,7 @@ import type { Accessor } from 'solid-js';
 import type { JSX, ValidComponent, DynamicProps } from '@solidjs/web';
 import { assign, Dynamic, dynamic, isServer } from '@solidjs/web';
 import { MERGED_REFS } from '../merge-props/mergeProps';
+import { getReactElementRef } from './getReactElementRef';
 import { access, autofocus, shallowEqual, createLayoutEffect } from '../solid-helpers';
 import type { MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
@@ -156,10 +157,7 @@ export function useRenderElement<
       const objects = new Set<{ current: unknown }>();
       collectRefs(componentProps.ref, callbacks, objects);
       collectRefs((renderProps as { ref?: unknown }).ref, callbacks, objects);
-      const render = renderProp();
-      if (render != null && typeof render === 'object') {
-        collectRefs((render as { ref?: unknown }).ref, callbacks, objects);
-      }
+      collectRefs(getReactElementRef(renderProp()), callbacks, objects);
       // A fixed props list is read from its one build, not from the `props` parameter again.
       const partProps =
         staticPartSources ?? (Array.isArray(params.props) ? params.props.flat() : [params.props]);
