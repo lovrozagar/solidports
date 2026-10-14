@@ -19,6 +19,8 @@ const traverse = traverseModule.default ?? traverseModule;
 const generate = generateModule.default ?? generateModule;
 
 const REACT_DOM = 'react-dom';
+// The docs runtime's counterparts of React APIs Solid has none of.
+const REACT_ADAPTERS = 'docs/src/adapters/react';
 
 const PARSER_OPTIONS = { sourceType: 'module', plugins: ['jsx', 'typescript'] };
 
@@ -373,6 +375,55 @@ function transformHooks(programPath, reactNames, imports) {
           path.node.callee = t.identifier(api);
           break;
         }
+        case 'lazy': {
+          imports.add('solid-js', 'lazy');
+          path.node.callee = t.identifier('lazy');
+          break;
+        }
+        case 'useSyncExternalStore': {
+          // A docs runtime adapter: an accessor over the store's snapshot.
+          imports.add(REACT_ADAPTERS, 'useSyncExternalStore');
+          path.node.callee = t.identifier('useSyncExternalStore');
+          if (t.isIdentifier(path.parent.id)) {
+            memos.push({ scope: path.scope, name: path.parent.id.name });
+          }
+          break;
+        }
+        case 'forwardRef': {
+          const fnPath = path.get('arguments.0');
+          if (!fnPath.isFunction()) {
+            break;
+          }
+          const [propsParam, refParam] = fnPath.node.params;
+          const [refType, propsType] = path.node.typeParameters?.params ?? [];
+          if (t.isIdentifier(propsParam) && !propsParam.typeAnnotation && propsType) {
+            const refProp = t.tsPropertySignature(
+              t.identifier('ref'),
+              t.tsTypeAnnotation(
+                t.tsTypeReference(
+                  t.identifier('Ref'),
+                  refType ? t.tsTypeParameterInstantiation([refType]) : null,
+                ),
+              ),
+            );
+            refProp.optional = true;
+            imports.add('solid-js', 'Ref', true);
+            propsParam.typeAnnotation = t.tsTypeAnnotation(
+              t.tsIntersectionType([propsType, t.tsTypeLiteral([refProp])]),
+            );
+          }
+          if (t.isIdentifier(refParam) && t.isIdentifier(propsParam)) {
+            const binding = fnPath.scope.getBinding(refParam.name);
+            for (const reference of binding?.referencePaths ?? []) {
+              reference.replaceWith(
+                t.memberExpression(t.identifier(propsParam.name), t.identifier('ref')),
+              );
+            }
+          }
+          fnPath.node.params = fnPath.node.params.slice(0, 1);
+          path.replaceWith(fnPath.node);
+          break;
+        }
         case 'useId': {
           imports.add('solid-js', 'createUniqueId');
           path.node.callee = t.identifier('createUniqueId');
@@ -466,10 +517,26 @@ function transformJsx(programPath, refs, imports, reactNames) {
           reactNames.namespaces.has(name.object.name) &&
           name.property.name === 'Fragment') ||
         (t.isJSXIdentifier(name) && reactNames.named.get(name.name) === 'Fragment');
-      if (isFragment) {
+      const component = (() => {
+        if (
+          t.isJSXMemberExpression(name) &&
+          t.isJSXIdentifier(name.object) &&
+          reactNames.namespaces.has(name.object.name)
+        ) {
+          return name.property.name;
+        }
+        return t.isJSXIdentifier(name) ? (reactNames.named.get(name.name) ?? null) : null;
+      })();
+      if (isFragment || component === 'StrictMode') {
         path.replaceWith(
           t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), path.node.children),
         );
+      } else if (component === 'Suspense') {
+        imports.add('solid-js', 'Loading');
+        path.node.openingElement.name = t.jsxIdentifier('Loading');
+        if (path.node.closingElement) {
+          path.node.closingElement.name = t.jsxIdentifier('Loading');
+        }
       }
     },
     JSXMemberExpression(path) {

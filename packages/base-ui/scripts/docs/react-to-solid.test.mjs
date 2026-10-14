@@ -396,4 +396,57 @@ import { useCode } from 'docs/src/adapters/docs-infra/useCode';`,
       );
     });
   });
+
+  describe('React runtime APIs', () => {
+    it('renders Suspense as Loading and StrictMode as a fragment', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function App(props: { children: React.ReactNode }) {
+  return <React.StrictMode><React.Suspense fallback={null}>{props.children}</React.Suspense></React.StrictMode>;
+}`,
+        `import { Loading } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+export function App(props: { children: JSX.Element }) {
+  return <><Loading fallback={null}>{props.children}</Loading></>;
+}`,
+      );
+    });
+
+    it('loads lazy components with Solid lazy', () => {
+      expectTransform(
+        `import * as React from 'react';
+const Dialog = React.lazy(async () => ({ default: (await import('./Dialog')).Dialog }));`,
+        `import { lazy } from 'solid-js';
+const Dialog = lazy(async () => ({ default: (await import('./Dialog')).Dialog }));`,
+      );
+    });
+
+    it('reads a forwarded ref from props', () => {
+      expectTransform(
+        `import * as React from 'react';
+export const Button = React.forwardRef<HTMLButtonElement, { label: string }>(function Button(props, forwardedRef) {
+  return <button ref={forwardedRef}>{props.label}</button>;
+});`,
+        `import type { Ref } from 'solid-js';
+export const Button = function Button(props: { label: string } & { ref?: Ref<HTMLButtonElement> }) {
+  return <button ref={props.ref}>{props.label}</button>;
+};`,
+      );
+    });
+
+    it('reads an external store through an accessor', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Platform() {
+  const isMac = React.useSyncExternalStore(subscribe, () => navigator.platform === 'MacIntel', () => false);
+  return <span>{isMac ? 'Cmd' : 'Ctrl'}</span>;
+}`,
+        `import { useSyncExternalStore } from 'docs/src/adapters/react';
+export function Platform() {
+  const isMac = useSyncExternalStore(subscribe, () => navigator.platform === 'MacIntel', () => false);
+  return <span>{isMac() ? 'Cmd' : 'Ctrl'}</span>;
+}`,
+      );
+    });
+  });
 });
