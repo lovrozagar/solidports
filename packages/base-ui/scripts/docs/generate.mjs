@@ -1,0 +1,459 @@
+#!/usr/bin/env node
+/**
+ * Generates the Solid docs from the React docs, file for file: `docs/react` → `docs/solid`.
+ *
+ * - Source: every file under the React docs' `src` and `public`, and its root files. React code
+ *   (`.ts`, `.tsx`) goes through `react-to-solid.mjs`; MDX pages transform their ESM, their JSX
+ *   and their code samples; everything else is copied. Routes move from `/react/` to `/solid/`.
+ * - Source packages: the upstream React packages the docs import (`@mui/internal-docs-infra`,
+ *   `@base-ui/utils`) are generated from their source, as far as the docs reach into them.
+ * - Templates: `templates/` holds what the React docs get from Next.js and React that Solid does
+ *   not have (the app router, the docs-infra loaders, `next/*`, React runtime APIs). It is copied
+ *   over the output.
+ *
+ *   bun run docs:generate                          # writes docs/solid
+ *   node scripts/docs/generate.mjs --out <dir>     # writes elsewhere
+ */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as prettier from 'prettier';
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkMdx from 'remark-mdx';
+import remarkGfm from 'remark-gfm';
+import { visit } from 'unist-util-visit';
+import { printCode, transformReactToSolid } from './react-to-solid.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const FORK = path.join(HERE, '../..');
+const REACT = path.join(FORK, 'docs/react');
+const TEMPLATES = path.join(HERE, 'templates');
+
+const outFlag = process.argv.indexOf('--out');
+const OUT =
+  outFlag === -1 ? path.join(FORK, 'docs/solid') : path.resolve(process.argv[outFlag + 1]);
+
+// The React docs files the Solid docs are generated from (paths under `docs/react`).
+const SOURCES = ['src', 'public', 'postcss.config.js', 'next.config.mjs'];
+const SKIP = new Set(['node_modules', '.next', 'export']);
+// Output folders the generator does not own (build output, local state, hand-ported overrides).
+const KEEP = new Set([
+  'node_modules',
+  'dist',
+  '.output',
+  'test-results',
+  'playwright-report',
+  'overrides',
+]);
+
+const ROUTE_RENAMES = [['src/app/(docs)/react/', 'src/app/(docs)/solid/']];
+
+/** Upstream React packages the docs import, generated from their source into `<dest>/src`. */
+const SOURCE_PACKAGES = [
+  {
+    name: '@mui/internal-docs-infra',
+    root: path.join(FORK, 'docs/docs-infra'),
+    dest: 'docs-infra',
+  },
+  { name: '@base-ui/utils', root: path.join(FORK, 'packages/utils'), dest: 'base-ui-utils' },
+];
+
+// Modules the Solid docs import instead (the `docs/src/adapters` ones come from `templates/`).
+const MODULES = {
+  next: 'docs/src/adapters/next',
+  'next/types': 'docs/src/adapters/next',
+  'next/link': 'docs/src/adapters/next/link',
+  'next/navigation': 'docs/src/adapters/next/navigation',
+  'next/script': 'docs/src/adapters/next/script',
+  'next/image': 'docs/src/adapters/next/image',
+  'react/jsx-runtime': 'docs/src/adapters/jsx-runtime',
+  'react-error-boundary': 'docs/src/adapters/react-error-boundary',
+  'react-simple-code-editor': 'docs/src/adapters/react-simple-code-editor',
+  '@tanstack/react-form': '@tanstack/solid-form',
+  'hast-util-to-jsx-runtime': 'docs/src/adapters/hast-util-to-jsx-runtime',
+  'server-only': 'docs/src/adapters/server-only',
+};
+
+/**
+ * Solid-specific edits to generated files, each with its reason. Everything else is generated as
+ * the transform writes it.
+ */
+const ADAPTATIONS = [
+  {
+    file: 'next.config.mjs',
+    from: "include: ['src/app/react']",
+    to: "include: ['src/app/solid']",
+    reason: 'The page index covers the Solid routes.',
+  },
+];
+
+/** The Solid docs' wording for the package and its routes. */
+function rewriteText(value) {
+  return value
+    .replaceAll('@base-ui/react', '@solidports/base-ui')
+    .replaceAll('(docs)/react', '(docs)/solid')
+    .replaceAll('/react/', '/solid/');
+}
+
+/** Imports of a renamed route folder follow it. */
+const rewriteModule = (source) => source.replace('(docs)/react/', '(docs)/solid/');
+
+/**
+ * Prop names that components declare in camelCase (Base UI's `readOnly`, `tabIndex`): on a
+ * component the transform keeps them instead of writing the DOM attribute name.
+ */
+function declaredComponentProps() {
+  const names = new Set();
+  const roots = [
+    path.join(FORK, 'packages/solid/src'),
+    path.join(REACT, 'src'),
+    ...SOURCE_PACKAGES.map((pkg) => path.join(pkg.root, 'src')),
+  ];
+  for (const file of roots.flatMap((root) => walk(root))) {
+    if (!/\.tsx?$/.test(file) || /\.(test|spec)\./.test(file)) {
+      continue;
+    }
+    for (const match of fs.readFileSync(file, 'utf8').matchAll(/^\s+([a-z]+[A-Z]\w*)\??:/gm)) {
+      names.add(match[1]);
+    }
+  }
+  return [...names];
+}
+const COMPONENT_PROPS = declaredComponentProps();
+
+const written = new Set();
+let prettierConfig;
+
+function write(file, content) {
+  written.add(file);
+  const body = Buffer.isBuffer(content) ? content : Buffer.from(content);
+  if (fs.existsSync(file) && fs.readFileSync(file).equals(body)) {
+    return;
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, body);
+}
+
+function walk(dir, acc = []) {
+  if (!fs.existsSync(dir)) {
+    return acc;
+  }
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (SKIP.has(entry.name)) {
+      continue;
+    }
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walk(full, acc);
+    } else {
+      acc.push(full);
+    }
+  }
+  return acc;
+}
+
+function outPath(rel) {
+  for (const [from, to] of ROUTE_RENAMES) {
+    if (rel.startsWith(from)) {
+      return to + rel.slice(from.length);
+    }
+  }
+  return rel;
+}
+
+async function format(code, file) {
+  prettierConfig ??= await prettier.resolveConfig(path.join(FORK, 'prettier.config.mjs'));
+  return prettier.format(code, { ...prettierConfig, filepath: file });
+}
+
+/** Whether a module needs the transform (React, JSX or hooks), or is plain code to copy. */
+function needsTransform(code, file) {
+  return (
+    /from ['"]react(-dom)?(\/[^'"]*)?['"]/.test(code) ||
+    /\buse[A-Z]\w*\s*\(/.test(code) ||
+    (file.endsWith('.tsx') && /<[A-Za-z>]/.test(code))
+  );
+}
+
+async function transformCode(code, file, options) {
+  return format(
+    transformReactToSolid(code, {
+      modules: MODULES,
+      filename: file,
+      componentProps: COMPONENT_PROPS,
+      rewriteModule,
+      ...options,
+    }),
+    file,
+  );
+}
+
+/**
+ * A code sample in an MDX page: transformed when it parses as a module, renamed as text when not
+ * (a fragment with placeholders, say). An unchanged sample keeps its text.
+ */
+async function transformSample(code, lang) {
+  const file = `sample.${lang === 'js' || lang === 'jsx' ? 'jsx' : 'tsx'}`;
+  let output;
+  try {
+    output = transformReactToSolid(code, { modules: MODULES, componentProps: COMPONENT_PROPS });
+    if (printCode(output) === printCode(code)) {
+      return code;
+    }
+    output = await format(output, file);
+  } catch {
+    return code.replace(/\bclassName=/g, 'class=').replace(/\bhtmlFor=/g, 'for=');
+  }
+  // A sample that ends in an expression without a semicolon keeps it that way.
+  if (!/;\s*$/.test(code)) {
+    output = output.replace(/;\n$/, '\n');
+  }
+  return output.replace(/\n$/, '');
+}
+
+async function transformMdx(code) {
+  const tree = unified().use(remarkParse).use(remarkMdx).use(remarkGfm).parse(code);
+  const edits = [];
+  const jobs = [];
+  visit(tree, (node) => {
+    const start = node.position?.start.offset;
+    const end = node.position?.end.offset;
+    if (node.type === 'mdxjsEsm') {
+      jobs.push(
+        (async () => {
+          const output = transformReactToSolid(node.value, {
+            modules: MODULES,
+            componentProps: COMPONENT_PROPS,
+          });
+          edits.push({ start, end, text: output });
+        })(),
+      );
+    } else if (node.type === 'code' && /^(tsx|jsx|ts|js)$/.test(node.lang ?? '')) {
+      const text = code.slice(start, end);
+      const open = text.indexOf('\n') + 1;
+      const close = text.lastIndexOf('\n');
+      if (open <= 0 || close < open) {
+        return;
+      }
+      const inner = text.slice(open, close);
+      jobs.push(
+        (async () => {
+          const output = await transformSample(inner, node.lang);
+          if (output !== inner) {
+            edits.push({ start: start + open, end: start + close, text: output });
+          }
+        })(),
+      );
+    } else if (node.type === 'mdxJsxFlowElement' || node.type === 'mdxJsxTextElement') {
+      for (const attribute of node.attributes ?? []) {
+        const renamed = { className: 'class', htmlFor: 'for' }[attribute.name];
+        if (renamed && attribute.position) {
+          const offset = attribute.position.start.offset;
+          edits.push({ start: offset, end: offset + attribute.name.length, text: renamed });
+        }
+      }
+    }
+  });
+  await Promise.all(jobs);
+  let output = code;
+  for (const edit of edits.sort((a, b) => b.start - a.start)) {
+    output = output.slice(0, edit.start) + edit.text + output.slice(edit.end);
+  }
+  return rewriteText(output);
+}
+
+async function generateSource(file, rel) {
+  const code = fs.readFileSync(file, 'utf8');
+  if (/\.(tsx?|mts)$/.test(file) && !file.endsWith('.d.ts')) {
+    return transformCode(code, file, { rewriteString: rewriteText });
+  }
+  if (file.endsWith('.mdx')) {
+    return transformMdx(code);
+  }
+  if (/\.(css|md|json|txt|mjs|js|d\.ts)$/.test(file)) {
+    return rel.startsWith('src/') || rel === 'next.config.mjs' ? rewriteText(code) : code;
+  }
+  return fs.readFileSync(file);
+}
+
+async function generateDocs() {
+  const files = SOURCES.flatMap((source) => {
+    const full = path.join(REACT, source);
+    return fs.statSync(full).isDirectory() ? walk(full) : [full];
+  });
+  const failures = [];
+  await Promise.all(
+    files.map(async (file) => {
+      const rel = path.relative(REACT, file);
+      try {
+        write(path.join(OUT, outPath(rel)), await generateSource(file, rel));
+      } catch (error) {
+        failures.push(`${rel}: ${String(error.message).split('\n')[0]}`);
+      }
+    }),
+  );
+  return { count: files.length, failures };
+}
+
+const IMPORT_PATTERN =
+  /(?:import|export)\s(?:[^'";]*?\sfrom\s)?['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+function resolveRelative(base) {
+  for (const candidate of [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    `${base}/index.ts`,
+    `${base}/index.tsx`,
+  ]) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+/** The file a package specifier resolves to through the package's `exports`. */
+function resolveExport(pkg, specifier) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(pkg.root, 'package.json'), 'utf8'));
+  const subpath = `.${specifier.slice(pkg.name.length)}`;
+  const exports = manifest.exports ?? {};
+  if (typeof exports[subpath] === 'string') {
+    return resolveRelative(path.join(pkg.root, exports[subpath]));
+  }
+  for (const [pattern, target] of Object.entries(exports)) {
+    if (
+      pattern.endsWith('*') &&
+      typeof target === 'string' &&
+      subpath.startsWith(pattern.slice(0, -1))
+    ) {
+      const rest = subpath.slice(pattern.length - 1);
+      return (
+        resolveRelative(path.join(pkg.root, target.replace('*', rest)).replace(/\.ts$/, '')) ??
+        resolveRelative(path.join(pkg.root, target.replace('*', rest)))
+      );
+    }
+  }
+  return null;
+}
+
+function importsOf(code) {
+  return [...code.matchAll(IMPORT_PATTERN)].map((match) => match[1] ?? match[2]);
+}
+
+/** Generates each source package's files the docs reach (their import closure). */
+async function generateSourcePackages() {
+  const docsFiles = [...written].filter((file) => /\.(tsx?|mdx)$/.test(file));
+  const queue = [];
+  const seen = new Set();
+  const owner = (file) => SOURCE_PACKAGES.find((pkg) => file.startsWith(`${pkg.root}${path.sep}`));
+  const enqueueSpecifier = (specifier, from) => {
+    const pkg = SOURCE_PACKAGES.find(
+      (candidate) => specifier === candidate.name || specifier.startsWith(`${candidate.name}/`),
+    );
+    if (pkg) {
+      const file = resolveExport(pkg, specifier);
+      if (file) {
+        queue.push(file);
+      } else {
+        console.warn(`unresolved ${specifier} (from ${path.relative(FORK, from)})`);
+      }
+      return;
+    }
+    if (specifier.startsWith('.') && owner(from)) {
+      const file = resolveRelative(path.resolve(path.dirname(from), specifier));
+      if (file) {
+        queue.push(file);
+      }
+    }
+  };
+  for (const file of docsFiles) {
+    for (const specifier of importsOf(fs.readFileSync(file, 'utf8'))) {
+      enqueueSpecifier(specifier, file);
+    }
+  }
+  const failures = [];
+  while (queue.length > 0) {
+    const file = queue.pop();
+    if (seen.has(file)) {
+      continue;
+    }
+    seen.add(file);
+    const code = fs.readFileSync(file, 'utf8');
+    for (const specifier of importsOf(code)) {
+      enqueueSpecifier(specifier, file);
+    }
+  }
+  await Promise.all(
+    [...seen].map(async (file) => {
+      const pkg = owner(file);
+      const dest = path.join(OUT, pkg.dest, path.relative(pkg.root, file));
+      const code = fs.readFileSync(file, 'utf8');
+      try {
+        write(dest, needsTransform(code, file) ? await transformCode(code, file) : code);
+      } catch (error) {
+        failures.push(`${path.relative(FORK, file)}: ${String(error.message).split('\n')[0]}`);
+        write(dest, code);
+      }
+    }),
+  );
+  return { count: seen.size, failures };
+}
+
+function applyAdaptations() {
+  for (const adaptation of ADAPTATIONS) {
+    const file = path.join(OUT, adaptation.file);
+    const code = fs.readFileSync(file, 'utf8');
+    if (!code.includes(adaptation.from)) {
+      throw new Error(`adaptation no longer applies to ${adaptation.file}: ${adaptation.from}`);
+    }
+    write(file, code.replaceAll(adaptation.from, adaptation.to));
+  }
+}
+
+function copyTemplates() {
+  for (const file of walk(TEMPLATES)) {
+    write(path.join(OUT, path.relative(TEMPLATES, file)), fs.readFileSync(file));
+  }
+}
+
+/** Deletes files the run did not write, then empty folders (outside the folders it keeps). */
+function pruneStale(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (KEEP.has(entry.name)) {
+      continue;
+    }
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      pruneStale(full);
+      if (fs.readdirSync(full).length === 0) {
+        fs.rmdirSync(full);
+      }
+    } else if (!written.has(full)) {
+      fs.rmSync(full);
+    }
+  }
+}
+
+if (!fs.existsSync(path.join(REACT, 'src'))) {
+  console.error('docs/react is missing. Run `bun run docs:sync` first.');
+  process.exit(1);
+}
+fs.mkdirSync(OUT, { recursive: true });
+const docs = await generateDocs();
+const packages = await generateSourcePackages();
+applyAdaptations();
+copyTemplates();
+pruneStale(OUT);
+// eslint-disable-next-line no-console -- the generator's report
+console.log(
+  `generated ${docs.count} docs files and ${packages.count} source package files into ${path.relative(process.cwd(), OUT) || '.'}`,
+);
+const failures = [...docs.failures, ...packages.failures];
+for (const failure of failures) {
+  console.error(`FAIL ${failure}`);
+}
+if (failures.length > 0) {
+  process.exitCode = 1;
+}

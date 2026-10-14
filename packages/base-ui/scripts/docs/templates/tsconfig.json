@@ -1,0 +1,34 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "src",
+    "docs-infra/src",
+    "base-ui-utils/src",
+    "framework",
+    "types.d.ts",
+    "vite.config.ts"
+  ],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "allowJs": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "strictNullChecks": true,
+    "jsx": "preserve",
+    "jsxImportSource": "@solidjs/web",
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@solidports/base-ui": ["../../packages/solid/src/index.ts"],
+      "@solidports/base-ui/*": ["../../packages/solid/src/*/index.ts"],
+      "@mui/internal-docs-infra/*": ["./docs-infra/src/*"],
+      "@base-ui/utils/*": ["./base-ui-utils/src/*"],
+      "docs/*": ["./*"]
+    }
+  }
+}
