@@ -102,11 +102,7 @@ function isValidRenderProp(render: unknown) {
   }
   // A rendered node (`render={<div />}` evaluates to one) has no props to merge into: it would be
   // dropped for the default element.
-  if (
-    typeof render !== 'object' ||
-    Array.isArray(render) ||
-    isDomNode(render)
-  ) {
+  if (typeof render !== 'object' || Array.isArray(render) || isDomNode(render)) {
     return false;
   }
   if (!('component' in render)) {
@@ -414,9 +410,7 @@ export function useRenderElement<
         stateAttributesSource,
         ...partSources(),
         // The render element's own props win over the part's, as React merges `render.props` last.
-        render != null && typeof render === 'object' && !isDomNode(render)
-          ? render
-          : undefined,
+        render != null && typeof render === 'object' && !isDomNode(render) ? render : undefined,
         classStyleSource,
       ];
     };
@@ -492,12 +486,7 @@ export function useRenderElement<
       const render = renderProp();
       /* `<a/>`-style JSX renders to an HTMLElement at evaluation time; HTMLElement always has a (live) `children` HTMLCollection, so the old
          `'children' in render` check trapped here and returned an empty collection — dropping the consumer's actual children. Only honor `render.children` for plain config objects ({component, children}). */
-      if (
-        render &&
-        typeof render === 'object' &&
-        !isDomNode(render) &&
-        'children' in render
-      ) {
+      if (render && typeof render === 'object' && !isDomNode(render) && 'children' in render) {
         return (render as { children?: JSX.Element | undefined }).children;
       }
       // Parts that forward children through `params.props` (e.g. NavigationMenu.Link via
@@ -787,11 +776,12 @@ export function useRenderElement<
         // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
         return <Tag ref={hostRef}>{resolvedChildren()}</Tag>;
       }
-      const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
       // A plain value, not a call in the spread: the compiler wraps a call in a reactive spread.
       const tagProps = componentTagProps();
+      // A component creates its children where it reads them, under its own context providers
+      // (as React renders a `render={<Component />}` element's children inside it).
       // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
-      return <Tag {...tagProps}>{resolvedChildren()}</Tag>;
+      return <Tag {...tagProps}>{resolveChildren()}</Tag>;
     }
 
     // The branch follows the `render` prop, as React re-evaluates it every render. A render
@@ -810,11 +800,22 @@ export function useRenderElement<
             // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
             return render(fnProps, fnState);
           }
+          const component = tag();
+          if (typeof component !== 'string') {
+            const tagProps = componentTagProps();
+            // A component creates its children where it reads them, under its own context
+            // providers (as React renders a `render={<Component />}` element's children inside it).
+            // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+            return (
+              <Dynamic {...tagProps} component={component}>
+                {resolveChildren()}
+              </Dynamic>
+            );
+          }
           // Reading JSX children creates them: resolve them once per branch, as Solid's `children`
           // helper, here inside the part's context providers.
           const resolvedChildren = createMemo(resolveChildren) as Accessor<JSX.Element>;
-          const component = tag();
-          if (isServer || typeof component !== 'string') {
+          if (isServer) {
             const tagProps = componentTagProps();
             // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
             return (

@@ -1,13 +1,51 @@
 /* eslint-disable testing-library/render-result-naming-convention */
 import { act, createRenderer, flushMicrotasks } from '#test-utils';
+import { screen } from '@solidjs/testing-library';
 import { expect, describe, it } from 'vitest';
-import { createSignal, onCleanup, onSettled, Show } from 'solid-js';
+import { createContext, createSignal, onCleanup, onSettled, Show, useContext } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { BaseUIComponentProps } from './types';
 import { useRenderElement } from './useRenderElement';
+import { provideContext } from '../solid-helpers';
 
 describe('useRenderElement', () => {
   const { render } = createRenderer();
+
+  describe('render config', () => {
+    // React renders a `render={<Provider />}` element's children inside it; the config form
+    // creates them inside the component too, so they read its context.
+    it("creates the children inside the config's component, under its context", async () => {
+      const Context = createContext('outside');
+      function Provider(props: { children?: JSX.Element }) {
+        return provideContext(Context, 'inside', () => <div>{props.children}</div>);
+      }
+      function Reader() {
+        return <span data-testid="reader">{useContext(Context)}</span>;
+      }
+      function Part(props: BaseUIComponentProps<'div', {}>) {
+        const element = useRenderElement('div', props, { props: [props], state: {} });
+        return <>{element()}</>;
+      }
+
+      const [wide, setWide] = createSignal(false);
+      await render(() => (
+        <div>
+          <Part render={{ component: Provider }}>
+            <Reader />
+          </Part>
+          <Part render={wide() ? { component: Provider, class: 'wide' } : { component: Provider }}>
+            <span data-testid="changing">{useContext(Context)}</span>
+          </Part>
+        </div>
+      ));
+
+      expect(screen.getByTestId('reader')).toHaveTextContent('inside');
+      expect(screen.getByTestId('changing')).toHaveTextContent('inside');
+      setWide(true);
+      await flushMicrotasks();
+      expect(screen.getByTestId('changing')).toHaveTextContent('inside');
+    });
+  });
   describe('fine-grained reactivity', () => {
     function ReactiveTestComponent(props: {
       active: () => boolean;

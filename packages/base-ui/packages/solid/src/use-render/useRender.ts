@@ -32,7 +32,9 @@ export type UseRenderRenderProp<
   RenderFunctionProps = JSX.HTMLAttributes<any>,
 > =
   | keyof JSX.IntrinsicElements
-  | DynamicProps<ElementType>
+  // Any element, as React's `render` takes any `ReactElement`: `ElementType` types the part's own
+  // props, not the element that replaces it.
+  | DynamicProps<ValidComponent>
   | ComponentRenderFn<RenderFunctionProps, State>
   | null;
 
