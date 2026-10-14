@@ -441,11 +441,50 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
         });
       }
 
+      // The element last focused inside the popup, to restore focus when it is removed.
+      let lastFocusedInside: Element | null = null;
+
       function handleFocusIn(event: FocusEvent) {
         const target = getTarget(event) as FocusableElement | null;
+        lastFocusedInside = target;
         if (isTabbable(target)) {
           lastFocusedTabbableRef = target;
         }
+      }
+
+      // Restores focus lost to the body (the focused element was hidden or removed) to the
+      // previously focused tabbable element, so it does not leave the floating tree. Returns
+      // whether the popup itself took focus (`restoreFocus: 'popup'`).
+      function restoreLostFocus() {
+        // Let `FloatingPortal` effect knows that focus is still inside the
+        // floating tree.
+        if (isHTMLElement(floatingFocusValue)) {
+          floatingFocusValue.focus();
+          // If explicitly requested to restore focus to the popup container, do not search
+          // for the next/previous tabbable element.
+          if (deps.restoreFocus === 'popup') {
+            // If the focused element is removed on pointerdown, the browser
+            // tries to move focus to it right after the `.focus()` call above,
+            // but because it's removed in the same tick, focus is lost instead.
+            // Re-focusing asynchronously (next frame) wins that race.
+            restoreFocusFrame.request(() => {
+              floatingFocusValue.focus();
+            });
+            return true;
+          }
+        }
+
+        const tabbableContent = getTabbableContent() as Array<Element | null>;
+        const prevTabbable = lastFocusedTabbableRef;
+        const nodeToFocus =
+          (prevTabbable && tabbableContent.includes(prevTabbable) ? prevTabbable : null) ||
+          tabbableContent[tabbableContent.length - 1] ||
+          floatingFocusValue;
+
+        if (isHTMLElement(nodeToFocus)) {
+          nodeToFocus.focus();
+        }
+        return false;
       }
 
       function handleFocusOutside(event: FocusEvent) {
@@ -518,36 +557,10 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
             deps.restoreFocus &&
             currentTarget !== domReferenceValue &&
             !isElementVisible(target) &&
-            activeElement(doc) === doc.body
+            activeElement(doc) === doc.body &&
+            restoreLostFocus()
           ) {
-            // Let `FloatingPortal` effect knows that focus is still inside the
-            // floating tree.
-            if (isHTMLElement(floatingFocusValue)) {
-              floatingFocusValue.focus();
-              // If explicitly requested to restore focus to the popup container, do not search
-              // for the next/previous tabbable element.
-              if (deps.restoreFocus === 'popup') {
-                // If the focused element is removed on pointerdown, the browser
-                // tries to move focus to it right after the `.focus()` call above,
-                // but because it's removed in the same tick, focus is lost instead.
-                // Re-focusing asynchronously (next frame) wins that race.
-                restoreFocusFrame.request(() => {
-                  floatingFocusValue.focus();
-                });
-                return;
-              }
-            }
-
-            const tabbableContent = getTabbableContent() as Array<Element | null>;
-            const prevTabbable = lastFocusedTabbableRef;
-            const nodeToFocus =
-              (prevTabbable && tabbableContent.includes(prevTabbable) ? prevTabbable : null) ||
-              tabbableContent[tabbableContent.length - 1] ||
-              floatingFocusValue;
-
-            if (isHTMLElement(nodeToFocus)) {
-              nodeToFocus.focus();
-            }
+            return;
           }
 
           // https://github.com/floating-ui/floating-ui/issues/3060
@@ -591,7 +604,28 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
         return undefined;
       }
 
+      // Solid: Chrome fires `focusout` when the focused element is removed, Firefox does not (its
+      // focus moves to the body silently). Restore focus on the removal itself as well; whichever
+      // runs second finds focus already restored.
+      const removalObserver =
+        deps.restoreFocus && floatingValue && typeof MutationObserver !== 'undefined'
+          ? new MutationObserver(() => {
+              if (
+                lastFocusedInside != null &&
+                !lastFocusedInside.isConnected &&
+                activeElement(doc) === doc.body
+              ) {
+                lastFocusedInside = null;
+                restoreLostFocus();
+              }
+            })
+          : undefined;
+      if (removalObserver && floatingValue) {
+        removalObserver.observe(floatingValue, { childList: true, subtree: true });
+      }
+
       return mergeCleanups(
+        () => removalObserver?.disconnect(),
         domReferenceElement &&
           addEventListener(domReferenceElement, 'focusout', handleFocusOutside),
         domReferenceElement &&
