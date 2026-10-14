@@ -5,6 +5,7 @@ import type { FilterDropdownItemContext } from '../root/FilterDropdownRootContex
 import { DETACHED_OWNER } from '../store';
 import { access, createLayoutEffect, useRef } from '../../solid-helpers';
 import type { MaybeAccessor } from '../../solid-helpers';
+import { isDomNode } from '../../utils/isDomNode';
 
 /**
  * Text of the rendered children, for when the element is filtered out and has no DOM node.
@@ -21,7 +22,7 @@ function childrenText(children: unknown): string {
   if (typeof children === 'function') {
     return childrenText((children as () => unknown)());
   }
-  if (typeof Node !== 'undefined' && children instanceof Node) {
+  if (isDomNode(children)) {
     return children.textContent ?? '';
   }
   // A `render` config object carries its element's children.

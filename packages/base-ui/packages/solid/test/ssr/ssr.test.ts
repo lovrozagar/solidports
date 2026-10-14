@@ -38,6 +38,16 @@ describe('server rendering', () => {
     expect(fixture.render()).toContain('page');
   }, 60_000);
 
+  it('renders parts with a render config', async () => {
+    const fixture = (await server.ssrLoadModule(resolve(here, 'render-config.fixture.tsx'))) as {
+      render: () => string;
+    };
+    const view = fixture.render();
+    expect(view).toMatch(/<a[^>]*href="\/docs"[^>]*>Docs<\/a>/);
+    expect(view).toMatch(/<button[^>]*id="menu-trigger"/);
+    expect(view).toMatch(/<span[^>]*data-kind="tool"/);
+  }, 60_000);
+
   it('renders uncontrolled defaults as the value attribute', async () => {
     const fixture = (await server.ssrLoadModule(resolve(here, 'default-value.fixture.tsx'))) as {
       render: () => string;

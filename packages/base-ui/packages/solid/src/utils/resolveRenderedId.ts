@@ -1,6 +1,7 @@
 import { createEffect, createMemo, onCleanup, untrack } from 'solid-js';
 import { access } from '../solid-helpers';
 import type { MaybeAccessor } from '../solid-helpers';
+import { isDomNode } from './isDomNode';
 
 interface ResolveRenderedIdProps {
   id?: string | undefined;
@@ -8,7 +9,7 @@ interface ResolveRenderedIdProps {
 }
 
 function renderedOwnId(render: unknown): string | undefined | false {
-  if (render == null || typeof render !== 'object' || render instanceof Node) {
+  if (render == null || typeof render !== 'object' || isDomNode(render)) {
     return false;
   }
   if (!Object.hasOwn(render, 'id')) {

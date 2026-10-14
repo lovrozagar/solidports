@@ -1,3 +1,5 @@
+import { isDomNode } from './isDomNode';
+
 interface PopupLabelProps {
   'aria-label'?: string | undefined;
   'aria-labelledby'?: string | undefined;
@@ -15,7 +17,7 @@ export function resolvePopupLabel(
 ) {
   const render = props.render;
   const renderedElementProps =
-    render != null && typeof render === 'object' && !(render instanceof Node)
+    render != null && typeof render === 'object' && !isDomNode(render)
       ? (render as { 'aria-label'?: string | undefined; 'aria-labelledby'?: string | undefined })
       : undefined;
   const ariaLabel = props['aria-label'] ?? renderedElementProps?.['aria-label'];

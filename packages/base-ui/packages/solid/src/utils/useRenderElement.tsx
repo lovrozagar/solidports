@@ -41,6 +41,7 @@ import type {
   IntrinsicRefElement,
   UseRenderElementRef,
 } from './types';
+import { isDomNode } from './isDomNode';
 
 /**
  * Renders a Base UI element.
@@ -104,7 +105,7 @@ function isValidRenderProp(render: unknown) {
   if (
     typeof render !== 'object' ||
     Array.isArray(render) ||
-    (typeof Node !== 'undefined' && render instanceof Node)
+    isDomNode(render)
   ) {
     return false;
   }
@@ -413,7 +414,7 @@ export function useRenderElement<
         stateAttributesSource,
         ...partSources(),
         // The render element's own props win over the part's, as React merges `render.props` last.
-        render != null && typeof render === 'object' && !(render instanceof Node)
+        render != null && typeof render === 'object' && !isDomNode(render)
           ? render
           : undefined,
         classStyleSource,
@@ -454,7 +455,7 @@ export function useRenderElement<
         return false;
       }
       const render = componentProps.render;
-      return typeof render !== 'function' && !(render instanceof Node);
+      return typeof render !== 'function' && !isDomNode(render);
     });
     const staticComponent = staticRender ? untrack(tag) : undefined;
 
@@ -494,7 +495,7 @@ export function useRenderElement<
       if (
         render &&
         typeof render === 'object' &&
-        !(render instanceof Node) &&
+        !isDomNode(render) &&
         'children' in render
       ) {
         return (render as { children?: JSX.Element | undefined }).children;

@@ -1,3 +1,5 @@
+import { isDomNode } from './isDomNode';
+
 /**
  * Extracts the `ref` from a render element: a `{ component, ...props }` config, the Solid
  * counterpart of a React element. A rendered node, a function, an array (a fragment) or any other
@@ -8,7 +10,7 @@ export function getReactElementRef(element: unknown): unknown {
     element == null ||
     typeof element !== 'object' ||
     Array.isArray(element) ||
-    (typeof Node !== 'undefined' && element instanceof Node)
+    isDomNode(element)
   ) {
     return null;
   }

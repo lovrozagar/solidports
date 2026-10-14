@@ -2,13 +2,14 @@ import { children as resolveChildren, createMemo } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isRenderableNode } from './isRenderableNode';
+import { isDomNode } from '../../utils/isDomNode';
 
 /**
  * The children the part's element ends up with, as React's render merge resolves them: a render
  * config's own `children` replace the part's content.
  */
 export function getRenderContent(render: unknown, content: JSX.Element): JSX.Element {
-  if (render != null && typeof render === 'object' && !(render instanceof Node)) {
+  if (render != null && typeof render === 'object' && !isDomNode(render)) {
     return (render as { children?: JSX.Element | undefined }).children ?? content;
   }
   return content;
@@ -17,7 +18,7 @@ export function getRenderContent(render: unknown, content: JSX.Element): JSX.Ele
 function hasRenderedContent(nodes: unknown[]) {
   return nodes.some(
     (node) =>
-      node instanceof Node &&
+      isDomNode(node) &&
       (node.nodeType === Node.TEXT_NODE ? node.textContent !== '' : node.hasChildNodes()),
   );
 }
