@@ -1,7 +1,7 @@
 import { act, createRenderer, describeConformance } from '#test-utils';
 import { Toast } from '@solidports/base-ui/toast';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { Button, List } from '../utils/test-utils';
 
 describe('<Toast.Close />', () => {

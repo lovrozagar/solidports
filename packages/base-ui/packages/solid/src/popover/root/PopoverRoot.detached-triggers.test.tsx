@@ -10,7 +10,7 @@ import { Popover } from '@solidports/base-ui/popover';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createRenderEffect, createSignal, For, Match, Show, Switch, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { splitProps } from '../../solid-1-compat';
 

@@ -125,7 +125,7 @@ export function PopoverPopup(componentProps: PopoverPopup.Props) {
 
   const focusManagerModal = createMemo(() => modal() !== false && hasClosePart());
   /* useSyncedValue tracks via createEffect — accessor passed correctly */
-  // eslint-disable-next-line solid/reactivity
+
   store.useSyncedValue('focusManagerModal', focusManagerModal);
 
   const setPopupElement = store.useStateSetter('popupElement');
@@ -211,12 +211,10 @@ export interface PopoverPopupProps extends BaseUIComponentProps<'div', PopoverPo
    *   Return an element to focus, `true` to use the default behavior, `null` to fall back to the default behavior, or `false`/`undefined` to do nothing.
    */
   initialFocus?:
-    | (
-        | boolean
-        | HTMLElement
-        | null
-        | ((openType: InteractionType) => void | boolean | HTMLElement | null)
-      )
+    | boolean
+    | HTMLElement
+    | null
+    | ((openType: InteractionType) => void | boolean | HTMLElement | null)
     | undefined;
   /**
    * Determines the element to focus when the popover is closed.
@@ -228,12 +226,10 @@ export interface PopoverPopupProps extends BaseUIComponentProps<'div', PopoverPo
    *   Return an element to focus, `true` to use the default behavior, `null` to fall back to the default behavior, or `false`/`undefined` to do nothing.
    */
   finalFocus?:
-    | (
-        | boolean
-        | HTMLElement
-        | null
-        | ((closeType: InteractionType) => void | boolean | HTMLElement | null)
-      )
+    | boolean
+    | HTMLElement
+    | null
+    | ((closeType: InteractionType) => void | boolean | HTMLElement | null)
     | undefined;
 }
 

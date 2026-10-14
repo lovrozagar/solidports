@@ -1,6 +1,6 @@
 import { render } from '@solidjs/testing-library';
 import { untrack } from 'solid-js';
-import { vi } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 import { useInteractions } from '../index';
 
 describe('useInteractions', () => {

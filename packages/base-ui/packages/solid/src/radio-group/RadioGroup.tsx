@@ -2,10 +2,13 @@
 import { createEffect, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider/DirectionContext';
-import { DEFAULT_FIELD_ROOT_CONTEXT } from '../field/root/FieldRootContext';
-import { DEFAULT_LABELABLE_CONTEXT } from '../internals/labelable-provider/LabelableContext';
+import { DEFAULT_FIELD_ROOT_CONTEXT, useFieldRootContext } from '../field/root/FieldRootContext';
+import {
+  DEFAULT_LABELABLE_CONTEXT,
+  useLabelableContext,
+} from '../internals/labelable-provider/LabelableContext';
 import { makeEventPreventable } from '../merge-props';
-import type { BaseUIEvent } from '../utils/types';
+import type { BaseUIEvent, BaseUIComponentProps, HTMLProps } from '../utils/types';
 import {
   canRenderNative,
   createNativeElement,
@@ -18,7 +21,6 @@ import {
   stateAttr,
 } from '../utils/native';
 import type { FieldRootState } from '../field/root/FieldRoot';
-import { useFieldRootContext } from '../field/root/FieldRootContext';
 import { isEligibleInput } from '../field/root/useFieldValidation';
 import { fieldValidityMapping } from '../field/utils/constants';
 import { useFieldsetRootContext } from '../fieldset/root/FieldsetRootContext';
@@ -27,12 +29,10 @@ import { useFormContext } from '../form/FormContext';
 import { SHIFT } from '../internals/composite/composite';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
 import { useRegisterFieldControl } from '../internals/field-register-control/useRegisterFieldControl';
-import { useLabelableContext } from '../internals/labelable-provider/LabelableContext';
 import { useValueChanged } from '../internals/useValueChanged';
 import { splitComponentProps, type ReactLikeRef } from '../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import { REASONS } from '../utils/reasons';
-import type { BaseUIComponentProps, HTMLProps } from '../utils/types';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { useControlled } from '../utils/useControlled';
 import { withCaptureListeners } from '../utils/withCaptureListeners';

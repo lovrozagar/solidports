@@ -2,7 +2,7 @@ import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Button, ButtonDataAttributes } from '@solidports/base-ui/button';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
 

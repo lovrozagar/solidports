@@ -7,7 +7,7 @@ import {
 } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { For, omit } from 'solid-js';
 
 describe('<PreviewCard.Viewport />', () => {

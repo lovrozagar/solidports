@@ -8,6 +8,7 @@ import * as Accordion from '../Accordion';
 import { TableCode } from '../TableCode';
 
 import { splitProps } from '../../utils/solid-1-compat';
+
 interface CssVariablesReferenceTableProps extends JSX.HTMLAttributes<HTMLDivElement> {
   data: Record<string, CssVariableDef>;
   name?: string;

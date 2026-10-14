@@ -1,3 +1,4 @@
+import { describe } from 'vitest';
 import { createRenderer, describeConformance } from '#test-utils';
 import { Dialog } from '@solidports/base-ui/dialog';
 

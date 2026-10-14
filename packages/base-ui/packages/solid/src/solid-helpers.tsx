@@ -221,7 +221,6 @@ export function defaultProps<
   D extends Partial<P>,
   C extends { [K in Extract<keyof D, keyof P> as keyof D]?: D[K] },
 >(props: P, defaults: D extends C ? D : C) {
-  // eslint-disable-next-line solid/reactivity
   return solidMergeProps(defaults, props) as PropsMergeWithDefault<P, D>;
 }
 

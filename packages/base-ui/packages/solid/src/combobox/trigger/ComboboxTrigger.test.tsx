@@ -1200,11 +1200,7 @@ describe('<Combobox.Trigger />', () => {
             <Combobox.Positioner>
               <Combobox.Popup>
                 <Combobox.List>
-                  {(item: string) => (
-                    <Combobox.Item value={item}>
-                      {item}
-                    </Combobox.Item>
-                  )}
+                  {(item: string) => <Combobox.Item value={item}>{item}</Combobox.Item>}
                 </Combobox.List>
               </Combobox.Popup>
             </Combobox.Positioner>

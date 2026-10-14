@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Progress } from '@solidports/base-ui/progress';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 describe('<Progress.Indicator />', () => {
   const { render } = createRenderer();

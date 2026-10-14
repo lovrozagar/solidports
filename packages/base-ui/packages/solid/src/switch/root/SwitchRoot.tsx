@@ -10,10 +10,18 @@ import {
 import type { Accessor } from 'solid-js';
 import { assign, insert } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
-import { DEFAULT_LABELABLE_CONTEXT } from '../../internals/labelable-provider/LabelableContext';
-import { makeEventPreventable } from '../../merge-props';
+import {
+  DEFAULT_LABELABLE_CONTEXT,
+  useLabelableContext,
+} from '../../internals/labelable-provider/LabelableContext';
+import { makeEventPreventable, mergeProps } from '../../merge-props';
 import { NOOP } from '../../utils/noop';
-import type { BaseUIEvent } from '../../utils/types';
+import type {
+  BaseUIEvent,
+  BaseUIComponentProps,
+  HTMLProps,
+  NonNativeButtonProps,
+} from '../../utils/types';
 import {
   attachNativeAttributes,
   canRenderNative,
@@ -37,7 +45,6 @@ import { useFieldRootContext, DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/roo
 import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { useFormContext } from '../../form/FormContext';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
-import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import {
   ariaLabelOverridesLabel,
   useAriaLabelledBy,
@@ -45,7 +52,6 @@ import {
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useButton } from '../../internals/use-button';
 import { useValueChanged } from '../../internals/useValueChanged';
-import { mergeProps } from '../../merge-props';
 import {
   provideContext,
   splitComponentProps,
@@ -57,7 +63,6 @@ import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
 import { EMPTY_OBJECT } from '../../utils/constants';
 import { REASONS } from '../../utils/reasons';
-import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';

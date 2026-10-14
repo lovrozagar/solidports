@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Meter } from '@solidports/base-ui/meter';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 describe('<Meter.Indicator />', () => {
   const { render } = createRenderer();

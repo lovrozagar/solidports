@@ -4,7 +4,7 @@ import type { JSX } from '@solidjs/web';
 import { DemoErrorFallback } from "./DemoErrorFallback"
 
 function kebabCase(value?: string) {
-  if (!value) return ""
+  if (!value) {return ""}
   return value
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
     .replace(/[_\s]+/g, "-")

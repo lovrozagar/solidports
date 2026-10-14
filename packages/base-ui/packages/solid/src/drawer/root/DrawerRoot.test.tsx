@@ -514,7 +514,6 @@ function SnapPointGestureCase(props: {
 }) {
   const snapPoints = ['100px', '300px', 1];
   const [snapPoint, setSnapPoint] = createSignal<Drawer.Root.SnapPoint | null>(
-    // eslint-disable-next-line solid/reactivity -- initial value, read once
     props.initialSnapPoint,
   );
   const [open, setOpen] = createSignal(true);

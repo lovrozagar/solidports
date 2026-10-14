@@ -10,7 +10,7 @@ import {
 import { useToolbarRootContext } from '../toolbar/root/ToolbarRootContext';
 import { makeEventPreventable } from '../merge-props';
 import { dispatchClickWithModifiers } from '../utils/dispatchClickWithModifiers';
-import type { BaseUIEvent } from '../utils/types';
+import type { BaseUIEvent, BaseUIComponentProps, NativeButtonProps } from '../utils/types';
 import {
   canRenderNative,
   createNativeElement,
@@ -30,7 +30,6 @@ import {
 } from '../utils/createBaseUIEventDetails';
 import { error } from '../utils/error';
 import { REASONS } from '../utils/reasons';
-import type { BaseUIComponentProps, NativeButtonProps } from '../utils/types';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { useControlled } from '../utils/useControlled';
 import { useRenderElement } from '../utils/useRenderElement';

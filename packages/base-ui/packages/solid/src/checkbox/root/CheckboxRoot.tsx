@@ -10,8 +10,11 @@ import {
 import type { Accessor } from 'solid-js';
 import { assign, insert } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
-import { DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
-import { DEFAULT_LABELABLE_CONTEXT } from '../../internals/labelable-provider/LabelableContext';
+import { DEFAULT_FIELD_ROOT_CONTEXT, useFieldRootContext } from '../../field/root/FieldRootContext';
+import {
+  DEFAULT_LABELABLE_CONTEXT,
+  useLabelableContext,
+} from '../../internals/labelable-provider/LabelableContext';
 import { NOOP } from '../../utils/noop';
 import {
   attachNativeAttributes,
@@ -49,14 +52,12 @@ import type {
 import { makeEventPreventable, mergeProps } from '../../merge-props';
 import { useButton } from '../../internals/use-button/useButton';
 import type { FieldRootState } from '../../field/root/FieldRoot';
-import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { createFieldPropSources } from '../../field/root/fieldPropSources';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
 import { DEFAULT_FIELD_ITEM_CONTEXT, useFieldItemContext } from '../../field/item/FieldItemContext';
 import { useFormContext } from '../../form/FormContext';
-import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import {
   ariaLabelOverridesLabel,
   useAriaLabelledBy,

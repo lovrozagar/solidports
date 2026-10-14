@@ -1,3 +1,4 @@
+import { describe } from 'vitest';
 import { createRenderer, describeConformance } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 

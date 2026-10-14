@@ -22,7 +22,7 @@ import { createSignal, flush, For, onSettled, Show } from 'solid-js';
 import type { Component } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { CDPSession } from '@vitest/browser-playwright';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, beforeEach, it, afterEach } from 'vitest';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { REASONS } from '../../utils/reasons';
 import { splitProps } from '../../solid-1-compat';

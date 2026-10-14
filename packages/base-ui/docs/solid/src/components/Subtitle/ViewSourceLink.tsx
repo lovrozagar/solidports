@@ -7,9 +7,9 @@ const SOURCE_PATH_PREFIXES = ["/solid/components/", "/solid/utils/"] as const
 
 function getSourceUrl(pathname: string) {
   const sourcePathPrefix = SOURCE_PATH_PREFIXES.find((prefix) => pathname.startsWith(prefix))
-  if (sourcePathPrefix == null) return null
+  if (sourcePathPrefix == null) {return null}
   const sourceSlug = pathname.slice(sourcePathPrefix.length).split("/").filter(Boolean)
-  if (sourceSlug.length !== 1) return null
+  if (sourceSlug.length !== 1) {return null}
   return `${SOURCE_CODE_REPO}/tree/${SOURCE_CODE_REF}/packages/solid/src/${sourceSlug[0]}`
 }
 

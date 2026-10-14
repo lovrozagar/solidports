@@ -2,7 +2,7 @@ import { act, createRenderer } from '#test-utils';
 import { Drawer } from '@solidports/base-ui/drawer';
 import { screen } from '@mui/internal-test-utils';
 import { createSignal } from 'solid-js';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 interface TestCaseProps {
   open: boolean;

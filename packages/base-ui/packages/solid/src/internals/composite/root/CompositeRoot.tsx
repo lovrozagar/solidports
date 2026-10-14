@@ -149,7 +149,7 @@ export interface CompositeRootProps<Metadata, State extends Record<string, any>>
       >
     | undefined;
   tag?: keyof JSX.IntrinsicElements | undefined;
-  orientation?: ('horizontal' | 'vertical' | 'both') | undefined;
+  orientation?: 'horizontal' | 'vertical' | 'both' | undefined;
   grid?: CompositeGridNavigator | undefined;
   loopFocus?: boolean | undefined;
   onLoop?:

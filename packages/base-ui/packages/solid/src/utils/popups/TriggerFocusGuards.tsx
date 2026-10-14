@@ -1,6 +1,6 @@
 import { Show, onCleanup } from 'solid-js';
-import { createLayoutEffect } from '../../solid-helpers';
 import type { JSX } from '@solidjs/web';
+import { createLayoutEffect } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { FocusGuard, useSafariGuardRole } from '../FocusGuard';
 import { visuallyHidden } from '../visuallyHidden';

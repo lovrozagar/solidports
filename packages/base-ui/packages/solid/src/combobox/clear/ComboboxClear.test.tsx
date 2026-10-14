@@ -273,7 +273,7 @@ describe('<Combobox.Clear />', () => {
 
       const { user } = render(() => (
         <div>
-          {/* eslint-disable-next-line react/no-danger */}
+          {}
           <style innerHTML={style} />
           <Combobox.Root>
             <Combobox.Input data-testid="input" />
@@ -329,7 +329,7 @@ describe('<Combobox.Clear />', () => {
 
       const { user } = render(() => (
         <div>
-          {/* eslint-disable-next-line react/no-danger */}
+          {}
           <style innerHTML={style} />
           <Combobox.Root defaultValue="a">
             <Combobox.Input data-testid="input" />

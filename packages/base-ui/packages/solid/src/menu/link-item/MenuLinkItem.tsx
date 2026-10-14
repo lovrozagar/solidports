@@ -1,9 +1,9 @@
 import { Show } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { useButton } from '../../internals/use-button';
 import { omitComponentProps, useRef } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
-import type { JSX } from '@solidjs/web';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceMemo } from '../../utils/propsView';

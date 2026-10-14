@@ -3,7 +3,7 @@ import { CSPProvider } from '@solidports/base-ui/csp-provider';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { Select } from '@solidports/base-ui/select';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 function queryDisableScrollbarStyle() {
   const styles = Array.from(document.querySelectorAll('style'));

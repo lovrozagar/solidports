@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance, act } from '#test-utils';
 import { Toggle } from '@solidports/base-ui/toggle';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
 import type { ComponentProps } from '@solidjs/web';

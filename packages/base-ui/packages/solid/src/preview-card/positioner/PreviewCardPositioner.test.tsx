@@ -9,7 +9,7 @@ import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { afterEach, expect as vitestExpect, vi } from 'vitest';
+import { afterEach, expect as vitestExpect, vi, describe, it } from 'vitest';
 
 // Solid: local copy of React's `#test-utils` helper.
 function Trigger(props: PreviewCard.Trigger.Props) {

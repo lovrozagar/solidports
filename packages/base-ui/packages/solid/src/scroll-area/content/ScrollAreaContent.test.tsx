@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createSignal, omit } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { screen, waitFor } from '@solidjs/testing-library';

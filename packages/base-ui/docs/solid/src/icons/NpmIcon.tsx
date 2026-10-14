@@ -1,4 +1,5 @@
 import type { JSX } from '@solidjs/web';
+
 export function NpmIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   return (
     <svg

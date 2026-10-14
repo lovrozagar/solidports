@@ -1,6 +1,6 @@
 import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
-import { closest } from '../../utils/shadowDom';
 import type { JSX } from '@solidjs/web';
+import { closest } from '../../utils/shadowDom';
 import { CompositeItem } from '../../internals/composite/item/CompositeItem';
 import {
   safePolygon,

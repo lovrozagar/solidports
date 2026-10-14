@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
 import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 

@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { screen, waitFor } from '@solidjs/testing-library';

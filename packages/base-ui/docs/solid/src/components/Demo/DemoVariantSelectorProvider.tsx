@@ -1,5 +1,6 @@
 import { createContext, createSignal, onSettled, useContext } from 'solid-js';
 import type { Accessor, ParentProps } from 'solid-js';
+
 export interface DemoVariantSelectorContextValue {
   selectedVariant: Accessor<string | null>
   setSelectedVariant: (value: string | null) => void
@@ -12,7 +13,7 @@ export const DemoVariantSelectorContext =
 
 export function useDemoVariantSelectorContext() {
   const ctx = useContext(DemoVariantSelectorContext)
-  if (!ctx) throw new Error("Missing DemoVariantSelectorContext")
+  if (!ctx) {throw new Error("Missing DemoVariantSelectorContext")}
   return ctx
 }
 
@@ -52,11 +53,11 @@ export function DemoVariantSelectorProvider(props: Props) {
     if (variantPref) {
       /* migrate legacy kebab-case stored value from earlier release */
       let normalized = variantPref
-      if (variantPref === "css-modules") normalized = "CssModules"
-      else if (variantPref === "tailwind") normalized = "Tailwind"
+      if (variantPref === "css-modules") {normalized = "CssModules"}
+      else if (variantPref === "tailwind") {normalized = "Tailwind"}
       setSelectedVariantRaw(normalized)
     }
-    if (languagePref) setSelectedLanguageRaw(languagePref)
+    if (languagePref) {setSelectedLanguageRaw(languagePref)}
   })
 
   return (

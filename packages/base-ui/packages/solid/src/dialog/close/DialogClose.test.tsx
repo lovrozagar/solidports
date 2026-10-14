@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { spy } from 'sinon';
 
 describe('<Dialog.Close />', () => {

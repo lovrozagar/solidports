@@ -573,12 +573,10 @@ export interface SelectPopupProps extends BaseUIComponentProps<'div', SelectPopu
    *   Return an element to focus, `true` to use the default behavior, or `false`/`undefined` to do nothing.
    */
   finalFocus?:
-    | (
-        | boolean
-        | HTMLElement
-        | null
-        | ((closeType: InteractionType) => boolean | HTMLElement | null | undefined | void)
-      )
+    | boolean
+    | HTMLElement
+    | null
+    | ((closeType: InteractionType) => boolean | HTMLElement | null | undefined | void)
     | undefined;
 }
 

@@ -1,8 +1,8 @@
 import { createContext, createSignal, useContext } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitProps } from '../utils/solid-1-compat';
 import { Dynamic } from '@solidjs/web';
 import clsx from "clsx"
+import { splitProps } from '../utils/solid-1-compat';
 
 const ARROW_UP = "ArrowUp"
 const ARROW_DOWN = "ArrowDown"
@@ -42,14 +42,14 @@ export function Trigger(props: TriggerProps) {
 
   const onKeyDown: JSX.EventHandlerUnion<HTMLElement, KeyboardEvent> = (event) => {
     if (!ctx || !SUPPORTED_KEYS.has(event.key)) {
-      if (typeof local.onKeyDown === "function") local.onKeyDown(event as never)
+      if (typeof local.onKeyDown === "function") {local.onKeyDown(event as never)}
       return
     }
     event.preventDefault()
     event.stopPropagation()
 
     const rootElement = ctx.getRoot()
-    if (!rootElement) return
+    if (!rootElement) {return}
 
     const triggers = rootElement.querySelectorAll<HTMLElement>("summary")
     const lastIndex = triggers.length - 1
@@ -72,19 +72,19 @@ export function Trigger(props: TriggerProps) {
         break
     }
 
-    if (nextIndex > -1) triggers.item(nextIndex).focus()
-    if (typeof local.onKeyDown === "function") local.onKeyDown(event as never)
+    if (nextIndex > -1) {triggers.item(nextIndex).focus()}
+    if (typeof local.onKeyDown === "function") {local.onKeyDown(event as never)}
   }
 
   const onClick: JSX.EventHandlerUnion<HTMLElement, MouseEvent> = (event) => {
     const selection = window.getSelection()
-    if (!selection?.isCollapsed) event.preventDefault()
-    if (typeof local.onClick === "function") local.onClick(event as never)
+    if (!selection?.isCollapsed) {event.preventDefault()}
+    if (typeof local.onClick === "function") {local.onClick(event as never)}
   }
 
   const onMouseDown: JSX.EventHandlerUnion<HTMLElement, MouseEvent> = (event) => {
-    if (!event.defaultPrevented && event.detail > 1) event.preventDefault()
-    if (typeof local.onMouseDown === "function") local.onMouseDown(event as never)
+    if (!event.defaultPrevented && event.detail > 1) {event.preventDefault()}
+    if (typeof local.onMouseDown === "function") {local.onMouseDown(event as never)}
   }
 
   return (
@@ -117,11 +117,11 @@ export function Item(props: ItemProps) {
 
   /* Chrome auto-opens <details> when hash matches <summary> id; Safari/Firefox need manual handling. */
   const handleRef = (element: HTMLDetailsElement | null) => {
-    if (!element) return
+    if (!element) {return}
     const trigger = element.querySelector<HTMLElement>("summary")
     const triggerId = trigger?.getAttribute("id")
     const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : ""
-    if (triggerId && hash && triggerId === hash) setOpen(true)
+    if (triggerId && hash && triggerId === hash) {setOpen(true)}
   }
 
   return (
@@ -130,7 +130,7 @@ export function Item(props: ItemProps) {
       open={open() || undefined}
       class={clsx("AccordionItem", local.class)}
       onToggle={(event: ToggleEvent & { currentTarget: HTMLDetailsElement }) => {
-        if (typeof local.onToggle === "function") local.onToggle(event as never)
+        if (typeof local.onToggle === "function") {local.onToggle(event as never)}
         setOpen(event.currentTarget.open)
       }}
       {...rest}

@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { screen } from '@solidjs/testing-library';
 import { createRenderer, describeConformance } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';

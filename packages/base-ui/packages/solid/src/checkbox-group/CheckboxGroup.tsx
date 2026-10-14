@@ -1,6 +1,9 @@
-import { DEFAULT_LABELABLE_CONTEXT } from '../internals/labelable-provider/LabelableContext';
 import { untrack } from 'solid-js';
-import { DEFAULT_FIELD_ROOT_CONTEXT } from '../field/root/FieldRootContext';
+import {
+  DEFAULT_LABELABLE_CONTEXT,
+  useLabelableContext,
+} from '../internals/labelable-provider/LabelableContext';
+import { DEFAULT_FIELD_ROOT_CONTEXT, useFieldRootContext } from '../field/root/FieldRootContext';
 import {
   canRenderNative,
   createNativeElement,
@@ -18,9 +21,7 @@ import { useRenderElement } from '../utils/useRenderElement';
 import { CheckboxGroupContext } from './CheckboxGroupContext';
 import type { FieldRootState } from '../field/root/FieldRoot';
 import { isEligibleInput } from '../field/root/useFieldValidation';
-import { useFieldRootContext } from '../field/root/FieldRootContext';
 import { useRegisterFieldControl } from '../internals/field-register-control/useRegisterFieldControl';
-import { useLabelableContext } from '../internals/labelable-provider/LabelableContext';
 import { useLabelableId } from '../internals/labelable-provider/useLabelableId';
 import type { BaseUIComponentProps } from '../utils/types';
 import { fieldValidityMapping } from '../field/utils/constants';

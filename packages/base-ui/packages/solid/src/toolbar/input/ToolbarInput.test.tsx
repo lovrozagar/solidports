@@ -3,7 +3,7 @@ import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { NumberField } from '@solidports/base-ui/number-field';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
 import { ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, ARROW_UP } from '../../internals/composite/composite';

@@ -113,7 +113,7 @@ export function useAriaLabelledBy(
   );
 
   /* returned accessor — caller invokes in their tracked scope */
-  // eslint-disable-next-line solid/reactivity
+
   return () => {
     const explicit = explicitAriaLabelledBy();
     if (typeof explicit === 'string') {

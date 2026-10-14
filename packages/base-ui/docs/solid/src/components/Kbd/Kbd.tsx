@@ -1,6 +1,6 @@
 import type { JSX } from '@solidjs/web';
-import { splitProps } from '../../utils/solid-1-compat';
 import clsx from "clsx"
+import { splitProps } from '../../utils/solid-1-compat';
 import "./Kbd.css"
 
 export function Kbd(props: JSX.HTMLAttributes<HTMLElement>) {

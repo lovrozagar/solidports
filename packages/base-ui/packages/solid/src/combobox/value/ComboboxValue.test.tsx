@@ -1,7 +1,7 @@
 import { createRenderer } from '#test-utils';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { createSignal, For } from 'solid-js';
 
 describe('<Combobox.Value />', () => {
@@ -74,7 +74,7 @@ describe('<Combobox.Value />', () => {
       expect(screen.getByTestId('value')).to.have.text('Test (1)');
     });
 
-    it('renders function child ');
+    it('renders function child');
 
     it('overrides the value display when children is a static ReactNode', async () => {
       render(() => (

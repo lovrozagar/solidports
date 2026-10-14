@@ -1,7 +1,7 @@
 /* 10-line UA sniff in place of @base-ui/utils/detectBrowser (React-coupled). */
 
 function ua() {
-  if (typeof navigator === "undefined") return ""
+  if (typeof navigator === "undefined") {return ""}
   return navigator.userAgent
 }
 

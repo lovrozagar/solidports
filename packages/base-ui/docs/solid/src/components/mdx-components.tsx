@@ -1,6 +1,7 @@
 import type { ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import "../css/mdx-components.css"
+import clsx from "clsx"
 import * as CodeBlock from "./CodeBlock"
 import * as Table from "./Table"
 import * as QuickNav from "./QuickNav"
@@ -17,10 +18,9 @@ import { Kbd } from "./Kbd/Kbd"
 import { Demo } from "./Demo"
 import { Callout } from "./Callout"
 import { PropTable } from "./PropTable"
-import clsx from "clsx"
 
 import { splitProps } from '../utils/solid-1-compat';
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 interface MDXComponents {
   [key: string]: ((props: any) => JSX.Element) | MDXComponents
 }

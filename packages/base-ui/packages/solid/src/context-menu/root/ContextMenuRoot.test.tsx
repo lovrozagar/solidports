@@ -1,7 +1,7 @@
 import { createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { ContextMenu } from '@solidports/base-ui/context-menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, beforeEach, it } from 'vitest';
 import { spy } from 'sinon';
 import { REASONS } from '../../utils/reasons';
 

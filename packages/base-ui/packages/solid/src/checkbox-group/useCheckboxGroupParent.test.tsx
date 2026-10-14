@@ -2,7 +2,7 @@ import { act, createRenderer } from '#test-utils';
 import { Checkbox } from '@solidports/base-ui/checkbox';
 import { CheckboxGroup } from '@solidports/base-ui/checkbox-group';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { spy } from 'sinon';
 import { createSignal, For, Show } from 'solid-js';
 

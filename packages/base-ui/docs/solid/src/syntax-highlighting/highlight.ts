@@ -35,8 +35,8 @@ export function highlightInline(code: string, _lang = "tsx"): string {
     const quote = rest[0]
     if (quote === '"' || quote === "'" || quote === "`") {
       let j = 1
-      while (j < rest.length && rest[j] !== quote) j += 1
-      if (j < rest.length) j += 1
+      while (j < rest.length && rest[j] !== quote) {j += 1}
+      if (j < rest.length) {j += 1}
       html += span("s", escapeHtml(rest.slice(0, j)))
       i += j
       continue

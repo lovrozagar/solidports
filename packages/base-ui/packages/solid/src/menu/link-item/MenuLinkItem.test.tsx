@@ -2,7 +2,7 @@ import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { createRouter, memoryHistory, useLocation } from '@solidjs/router';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe } from 'vitest';
 
 describe('<Menu.LinkItem />', () => {
   const { render } = createRenderer();

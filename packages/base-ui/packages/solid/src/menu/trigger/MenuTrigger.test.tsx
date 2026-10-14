@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createRenderer, describeConformance, flushMicrotasks, act, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { Popover } from '@solidports/base-ui/popover';

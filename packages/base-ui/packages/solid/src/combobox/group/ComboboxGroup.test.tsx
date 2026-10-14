@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 describe('<Combobox.Group />', () => {
   const { render } = createRenderer();

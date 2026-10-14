@@ -1,7 +1,5 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import type { CDPSession } from '@vitest/browser-playwright';
-import { platform } from '../../utils/platform';
-import { ownerDocument } from '../../utils/owner';
 import { createSignal, Show } from 'solid-js';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { DirectionProvider } from '@solidports/base-ui/direction-provider';
@@ -14,6 +12,8 @@ import {
   waitSingleFrame,
 } from '#test-utils';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
+import { ownerDocument } from '../../utils/owner';
+import { platform } from '../../utils/platform';
 import { flushSync } from '../../utils/flushSync';
 import { SCROLL_TIMEOUT } from '../constants';
 

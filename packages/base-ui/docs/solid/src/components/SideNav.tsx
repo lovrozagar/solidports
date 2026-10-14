@@ -4,16 +4,16 @@ import clsx from "clsx"
 import { useLocation } from "@solidjs/router"
 import { ScrollArea } from "@solidports/base-ui/scroll-area"
 import scrollIntoView from "scroll-into-view-if-needed"
+import { HEADER_HEIGHT_DESKTOP } from "./Header"
+
+import { splitProps } from '../utils/solid-1-compat';
+import "./SideNav.css"
 
 interface ScrollActionLike {
   top: number
   left: number
   el: Element
 }
-import { HEADER_HEIGHT_DESKTOP } from "./Header"
-
-import { splitProps } from '../utils/solid-1-compat';
-import "./SideNav.css"
 
 export function Root(props: JSX.HTMLAttributes<HTMLElement>) {
   const [local, rest] = splitProps(props, ["class", "children"])

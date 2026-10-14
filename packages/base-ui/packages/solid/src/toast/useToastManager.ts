@@ -103,7 +103,7 @@ export interface ToastManagerPositionerProps extends Omit<
   /**
    * An element to position the toast against.
    */
-  anchor?: (Element | null) | undefined;
+  anchor?: Element | null | undefined;
 }
 
 export interface UseToastManagerReturnValue<Data extends object = any> {

@@ -1,5 +1,5 @@
 import { createSignal, flush } from 'solid-js';
-import { screen } from '@solidjs/testing-library';
+import { screen, fireEvent } from '@solidjs/testing-library';
 import { describe, expect, it } from 'vitest';
 import { Checkbox } from '@solidports/base-ui/checkbox';
 import { Combobox } from '@solidports/base-ui/combobox';
@@ -11,7 +11,6 @@ import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { Select } from '@solidports/base-ui/select';
 import { Slider } from '@solidports/base-ui/slider';
 import { Switch } from '@solidports/base-ui/switch';
-import { fireEvent } from '@solidjs/testing-library';
 import { createRenderer } from '#test-utils';
 
 /**

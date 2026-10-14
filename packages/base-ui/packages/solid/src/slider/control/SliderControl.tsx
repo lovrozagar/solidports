@@ -343,7 +343,6 @@ export function SliderControl(componentProps: SliderControl.Props) {
 
     // Cancel move in case some other element consumed a pointerup event and it was not fired.
     if (nativeEvent.type === 'pointermove' && (nativeEvent as PointerEvent).buttons === 0) {
-      // eslint-disable-next-line @typescript-eslint/no-use-before-define
       handleTouchEnd(nativeEvent);
       return;
     }
@@ -397,7 +396,7 @@ export function SliderControl(componentProps: SliderControl.Props) {
     }
 
     pressedThumbIndexRef.current = -1;
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     stopListening();
   }
 

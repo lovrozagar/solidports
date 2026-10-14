@@ -1,9 +1,8 @@
-import { createRenderer, flushMicrotasks } from '#test-utils';
+import { createRenderer, flushMicrotasks, act } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { createSignal, For } from 'solid-js';
-import { act } from '#test-utils';
 import { OPEN_DELAY } from '../utils/constants';
 
 describe('<Tooltip.Provider />', () => {

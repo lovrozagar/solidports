@@ -9,7 +9,7 @@ import {
   type Accessor,
 } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import type { BaseUIEvent } from './types';
 import { useRenderElement } from './useRenderElement';
 

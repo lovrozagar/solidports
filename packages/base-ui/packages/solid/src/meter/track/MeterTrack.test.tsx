@@ -1,3 +1,4 @@
+import { describe } from 'vitest';
 import { createRenderer, describeConformance } from '#test-utils';
 import { Meter } from '@solidports/base-ui/meter';
 

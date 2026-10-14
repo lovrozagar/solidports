@@ -7,7 +7,7 @@ import {
 } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe } from 'vitest';
 import { For, omit } from 'solid-js';
 
 describe('<Popover.Viewport />', () => {

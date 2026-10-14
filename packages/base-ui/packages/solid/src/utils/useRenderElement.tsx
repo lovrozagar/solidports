@@ -14,9 +14,8 @@ import {
   untrack,
   type Accessor,
 } from 'solid-js';
-import type { JSX, ValidComponent } from '@solidjs/web';
+import type { JSX, ValidComponent, DynamicProps } from '@solidjs/web';
 import { assign, Dynamic, dynamic, isServer } from '@solidjs/web';
-import type { DynamicProps } from '@solidjs/web';
 import { MERGED_REFS } from '../merge-props/mergeProps';
 import {
   access,
@@ -384,7 +383,9 @@ export function useRenderElement<
 
     const resolveChildren = () => {
       // A part that supplies `children` owns them, even when they resolve to nothing.
-      if ('children' in params) return params.children;
+      if ('children' in params) {
+        return params.children;
+      }
       const render = renderProp();
       /* `<a/>`-style JSX renders to an HTMLElement at evaluation time; HTMLElement always has a (live) `children` HTMLCollection, so the old
          `'children' in render` check trapped here and returned an empty collection — dropping the consumer's actual children. Only honor `render.children` for plain config objects ({component, children}). */
@@ -811,7 +812,7 @@ export interface UseRenderElementComponentProps<
    * The class name to apply to the rendered element.
    * Can be a string or a function that accepts the state and returns a string.
    */
-  class?: (string | ((state: State) => string | undefined)) | undefined;
+  class?: string | ((state: State) => string | undefined) | undefined;
   /**
    * The render prop or Solid element to override the default element.
    */
@@ -825,7 +826,7 @@ export interface UseRenderElementComponentProps<
    * The style to apply to the rendered element.
    * Can be a style object or a function that accepts the state and returns a style object.
    */
-  style?: (JSX.CSSProperties | ((state: State) => JSX.CSSProperties | undefined)) | undefined;
+  style?: JSX.CSSProperties | ((state: State) => JSX.CSSProperties | undefined) | undefined;
   /**
    * The children to render.
    */

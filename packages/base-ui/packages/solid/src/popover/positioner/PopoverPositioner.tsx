@@ -1,6 +1,6 @@
 /* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { usePositioner } from '../../utils/usePositioner';
 import { Show } from 'solid-js';
+import { usePositioner } from '../../utils/usePositioner';
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
 import { splitComponentProps } from '../../solid-helpers';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';

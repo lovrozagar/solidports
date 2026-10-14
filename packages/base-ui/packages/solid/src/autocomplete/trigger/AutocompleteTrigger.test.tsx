@@ -1,7 +1,7 @@
 import { createRenderer } from '#test-utils';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 
 describe('<Autocomplete.Trigger />', () => {
   const { render } = createRenderer();

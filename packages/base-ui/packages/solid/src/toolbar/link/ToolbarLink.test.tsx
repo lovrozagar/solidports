@@ -1,7 +1,7 @@
 import { createRenderer, describeConformance } from '#test-utils';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { screen } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { NOOP } from '../../utils/noop';
 import { ToolbarRootContext } from '../root/ToolbarRootContext';

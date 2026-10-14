@@ -1,3 +1,4 @@
+import { describe } from 'vitest';
 import { createRenderer, describeConformance } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 

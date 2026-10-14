@@ -7,7 +7,7 @@ import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { screen } from '@solidjs/testing-library';
 import type { JSX } from '@solidjs/web';
 import { spy } from 'sinon';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { describeConformance } from '../../../test/describeConformance';
 
 describe('<Field.Item />', () => {

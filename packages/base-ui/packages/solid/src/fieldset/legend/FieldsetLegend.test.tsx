@@ -93,7 +93,9 @@ describe('<Fieldset.Legend />', () => {
     const [rows, setRows] = createSignal(['a']);
     render(() => (
       <Fieldset.Root>
-        <For each={rows()}>{(item) => <Fieldset.Legend id={`legend-${item}`}>Legend</Fieldset.Legend>}</For>
+        <For each={rows()}>
+          {(item) => <Fieldset.Legend id={`legend-${item}`}>Legend</Fieldset.Legend>}
+        </For>
       </Fieldset.Root>
     ));
 

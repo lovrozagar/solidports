@@ -8,11 +8,11 @@ import {
 } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
-import { renderServer } from '../../../test/ssrFixtures';
-import fixtures, { fixtureState } from './TooltipRoot.detached-triggers.ssr-fixtures';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { createSignal, onSettled, Show } from 'solid-js';
 import { render as renderSolid } from '@solidjs/web';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures, { fixtureState } from './TooltipRoot.detached-triggers.ssr-fixtures';
 import { autofocus } from '../../solid-helpers';
 
 // do not treeshake autofocus

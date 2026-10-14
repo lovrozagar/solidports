@@ -11,7 +11,7 @@ import { Toolbar } from '@solidports/base-ui/toolbar';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { createSignal } from 'solid-js';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { NOOP } from '../../utils/noop';
 import { ToolbarRootContext } from '../root/ToolbarRootContext';

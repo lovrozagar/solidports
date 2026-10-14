@@ -1,11 +1,11 @@
 /* eslint-disable no-bitwise */
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
-import { createLayoutEffect } from '../../../solid-helpers';
 import type { JSX } from '@solidjs/web';
+import { createLayoutEffect } from '../../../solid-helpers';
 import { CompositeListContext, type CompositeListRegistration } from './CompositeListContext';
 
 export type CompositeMetadata<CustomMetadata> = {
-  index?: (number | null) | undefined;
+  index?: number | null | undefined;
 } & CustomMetadata;
 
 interface CompositeListItem<Metadata> {

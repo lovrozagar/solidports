@@ -1,7 +1,7 @@
 import { createEffect, getOwner, isStatic, onCleanup, runWithOwner, Show, untrack } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import { createNativeConditional } from '../../utils/native/conditional';
 import { createEffectGroup } from '../../utils/native/effectGroup';
-import type { JSX } from '@solidjs/web';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';

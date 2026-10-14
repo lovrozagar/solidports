@@ -1,7 +1,6 @@
 import solid from 'eslint-plugin-solid/configs/typescript';
-// @ts-expect-error relative import
 // eslint-disable-next-line import/no-relative-packages
-import defaultConfig from '../../eslint.config.d.mts';
+import defaultConfig from '../../eslint.config.mjs';
 
 const configWithDisabledReactRules = defaultConfig
   .flatMap((config) =>
@@ -30,6 +29,12 @@ const config = [
        * to be named appropriately.
        */
       'no-underscore-dangle': 'off',
+    },
+  },
+  {
+    // The TypeScript plugin is registered for TypeScript files only.
+    files: ['**/*.{ts,tsx,mts,cts}'],
+    rules: {
       '@typescript-eslint/naming-convention': [
         'warn',
         {

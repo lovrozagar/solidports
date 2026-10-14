@@ -1,4 +1,4 @@
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { createSignal, For, Show } from 'solid-js';
 import { fireEvent, screen } from '@solidjs/testing-library';
 import { act, createRenderer, describeConformance, flushMicrotasks } from '#test-utils';

@@ -6,6 +6,7 @@ import { Dialog } from "@solidports/base-ui/dialog"
 import { HEADER_HEIGHT } from "./Header"
 
 import { splitProps } from '../utils/solid-1-compat';
+
 const MobileNavStateCallback = createContext<(open: boolean) => void>(() => undefined)
 
 export function Root(props: Dialog.Root.Props) {

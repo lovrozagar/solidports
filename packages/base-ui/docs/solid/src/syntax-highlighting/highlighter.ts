@@ -9,9 +9,9 @@ import { theme } from "./theme"
    es2019 by default and TLA breaks the final Nitro step. Oniguruma WASM is
    async-only, so we use the JavaScript regex engine (no WASM load required). */
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __shiki__: HighlighterCore | undefined
-  // eslint-disable-next-line no-var
+   
   var __shikiVersion__: number | undefined
 }
 

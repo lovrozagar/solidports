@@ -10,9 +10,8 @@ import {
   runWithOwner,
   untrack,
 } from 'solid-js';
-import type { Accessor, Signal } from 'solid-js';
+import type { Accessor, Signal, Store } from 'solid-js';
 import { isServer } from '@solidjs/web';
-import type { Store } from 'solid-js';
 import {
   access,
   createDepsEffect,

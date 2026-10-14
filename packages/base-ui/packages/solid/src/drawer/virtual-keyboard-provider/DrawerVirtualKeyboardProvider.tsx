@@ -1,6 +1,6 @@
 import type { JSX } from '@solidjs/web';
-import { closest } from '../../utils/shadowDom';
 import { getComputedStyle, getParentNode, isHTMLElement } from '@floating-ui/utils/dom';
+import { closest } from '../../utils/shadowDom';
 import { addEventListener } from '../../utils/addEventListener';
 import { ownerDocument, ownerWindow } from '../../utils/owner';
 import { useAnimationFrame } from '../../utils/useAnimationFrame';

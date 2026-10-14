@@ -21,7 +21,7 @@ import {
   useTypeahead,
 } from '../../floating-ui-solid';
 import type { ElementProps } from '../../floating-ui-solid/types';
-import { useTriggerInteractions } from '../../utils/popups';
+import { useTriggerInteractions, attachPreventUnmountOnClose } from '../../utils/popups';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { createDepsEffect, createDepsMemo, useRef, type ReactLikeRef } from '../../solid-helpers';
@@ -40,7 +40,6 @@ import { isElementDisabled } from '../../utils/isElementDisabled';
 import { type Group, stringifyAsLabel, stringifyAsValue } from '../../utils/resolveValueLabel';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { useControlled } from '../../utils/useControlled';
-import { attachPreventUnmountOnClose } from '../../utils/popups';
 import { useUnmountAfterClose } from '../../utils/useUnmountAfterClose';
 import { useOpenInteractionType } from '../../utils/useOpenInteractionType';
 import { usePreviousValue } from '../../utils/usePreviousValue';
@@ -902,11 +901,11 @@ export interface SelectRootProps<Value, Multiple extends boolean | undefined = f
    *
    * To render a controlled select, use the `value` prop instead.
    */
-  defaultValue?: (SelectInputValue<Value, Multiple> | null) | undefined;
+  defaultValue?: SelectInputValue<Value, Multiple> | null | undefined;
   /**
    * The value of the select. Use when controlled.
    */
-  value?: (SelectInputValue<Value, Multiple> | null) | undefined;
+  value?: SelectInputValue<Value, Multiple> | null | undefined;
   /**
    * Event handler called when the value of the select changes.
    */

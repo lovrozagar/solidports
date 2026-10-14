@@ -1,4 +1,5 @@
 import type { JSX } from '@solidjs/web';
+
 export function ThickCheckIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
   return (
     <svg fill="currentcolor" width="12" height="12" viewBox="0 0 10 10" {...props}>

@@ -97,7 +97,7 @@ describe('popup preventUnmountOnClose', () => {
       await user.click(screen.getByRole('option', { name: 'apple' }));
       await flushMicrotasks();
       expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('listbox')).not.toBeNull();
+      expect(screen.getByRole('listbox')).not.toBeNull();
       expect(onOpenChangeComplete).not.toHaveBeenCalledWith(false);
 
       act(() => actionsRef.current?.unmount());
@@ -138,7 +138,7 @@ describe('popup preventUnmountOnClose', () => {
       await flushMicrotasks();
       expect(reasons).toEqual(['imperative-action']);
       expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('listbox')).not.toBeNull();
+      expect(screen.getByRole('listbox')).not.toBeNull();
 
       act(() => actionsRef.current!.unmount());
       flush();
@@ -234,7 +234,7 @@ describe('popup preventUnmountOnClose', () => {
       await user.click(screen.getByRole('option', { name: 'apple' }));
       await flushMicrotasks();
       expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.queryByRole('listbox')).not.toBeNull();
+      expect(screen.getByRole('listbox')).not.toBeNull();
 
       cancel = false;
       setOpen(false);
@@ -274,7 +274,7 @@ describe('popup preventUnmountOnClose', () => {
       await user.click(screen.getByRole('option', { name: 'alpha' }));
       await flushMicrotasks();
       expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('listbox')).not.toBeNull();
+      expect(screen.getByRole('listbox')).not.toBeNull();
 
       act(() => actionsRef.current?.unmount());
       flush();
@@ -313,7 +313,7 @@ describe('popup preventUnmountOnClose', () => {
       await flushMicrotasks();
       expect(reasons).toEqual(['imperative-action']);
       expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('listbox')).not.toBeNull();
+      expect(screen.getByRole('listbox')).not.toBeNull();
 
       act(() => actionsRef.current!.unmount());
       flush();
@@ -393,7 +393,7 @@ describe('popup preventUnmountOnClose', () => {
       await user.click(screen.getByRole('option', { name: 'A' }));
       await flushMicrotasks();
       expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('listbox')).not.toBeNull();
+      expect(screen.getByRole('listbox')).not.toBeNull();
 
       act(() => actionsRef.current?.unmount());
       flush();
@@ -430,7 +430,7 @@ describe('popup preventUnmountOnClose', () => {
       await flushMicrotasks();
       expect(reasons).toEqual(['imperative-action']);
       expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByRole('listbox')).not.toBeNull();
+      expect(screen.getByRole('listbox')).not.toBeNull();
 
       act(() => actionsRef.current!.unmount());
       flush();
@@ -598,7 +598,7 @@ describe('popup preventUnmountOnClose', () => {
       fireEvent.keyDown(trigger, { key: 'Escape' });
       await flushMicrotasks();
       expect(trigger).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByTestId('popup')).not.toBeNull();
+      expect(screen.getByTestId('popup')).not.toBeNull();
 
       act(() => actionsRef.current?.unmount());
       flush();
@@ -680,7 +680,7 @@ describe('popup preventUnmountOnClose', () => {
         'aria-expanded',
         'false',
       );
-      expect(screen.queryByTestId('popup')).not.toBeNull();
+      expect(screen.getByTestId('popup')).not.toBeNull();
       expect(onOpenChangeComplete).not.toHaveBeenCalledWith(false);
 
       act(() => actionsRef.current!.unmount());

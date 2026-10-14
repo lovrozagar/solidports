@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any` to mirror upstream React combobox API; tightening to `unknown` breaks consumer ergonomics for unspecified-Value usage */
 import { createEffect, createMemo, createSignal, onSettled, untrack } from 'solid-js';
-import { closest } from '../../utils/shadowDom';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { isHTMLElement } from '@floating-ui/utils/dom';
+import { closest } from '../../utils/shadowDom';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { useField } from '../../field/useField';
 import {

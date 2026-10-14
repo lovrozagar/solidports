@@ -1,4 +1,4 @@
-import order from "../../../../../scripts/api-docs-builder/src/order.json"
+import order from "api-docs-builder/src/order.json"
 
 const PROP_ORDER = order.props
 const EVERYTHING_ELSE = "__EVERYTHING_ELSE__"

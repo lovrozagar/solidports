@@ -15,11 +15,11 @@ import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { spy } from 'sinon';
 import { createSignal, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 import { OPEN_DELAY } from '../utils/constants';
 import { splitProps } from '../../solid-1-compat';
 import { REASONS } from '../../utils/reasons';
-import { expect, vi } from 'vitest';
 
 describe('<Popover.Root />', () => {
   beforeEach(() => {

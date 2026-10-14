@@ -1,7 +1,7 @@
 import type { ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitProps } from '../utils/solid-1-compat';
 import clsx from "clsx"
+import { splitProps } from '../utils/solid-1-compat';
 
 export function Root(props: JSX.HTMLAttributes<HTMLDivElement> & ParentProps) {
   const [local, rest] = splitProps(props, ["class", "children"])

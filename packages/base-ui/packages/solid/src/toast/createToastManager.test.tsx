@@ -1,7 +1,7 @@
 import { createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { Toast } from '@solidports/base-ui/toast';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { expect, vi } from 'vitest';
+import { expect, vi, describe, it } from 'vitest';
 import { List } from './utils/test-utils';
 import type { ToastObject } from './useToastManager';
 

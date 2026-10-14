@@ -1,5 +1,5 @@
-import { flushMicrotasks } from '#test-utils';
-import { isJSDOM } from '#test-utils';
+import { test, expect } from 'vitest';
+import { flushMicrotasks, isJSDOM } from '#test-utils';
 import { fireEvent, render, screen } from '@solidjs/testing-library';
 import { createSignal, onSettled } from 'solid-js';
 import { FloatingPortalLite } from '../../utils/FloatingPortalLite';

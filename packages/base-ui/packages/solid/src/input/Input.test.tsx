@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { flush } from 'solid-js';
 import { waitFor } from '@solidjs/testing-library';
 import { createRenderer, describeConformance, isJSDOM } from '#test-utils';

@@ -48,7 +48,7 @@ export interface ProgressValueProps extends Omit<
   'children'
 > {
   children?:
-    (null | ((formattedValue: string | null, value: number | null) => JSX.Element)) | undefined;
+    null | ((formattedValue: string | null, value: number | null) => JSX.Element) | undefined;
 }
 
 export namespace ProgressValue {

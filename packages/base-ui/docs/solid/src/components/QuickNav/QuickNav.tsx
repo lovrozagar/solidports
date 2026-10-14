@@ -1,8 +1,8 @@
 import { onSettled, onCleanup } from 'solid-js';
 import type { ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { splitProps } from '../../utils/solid-1-compat';
 import clsx from "clsx"
+import { splitProps } from '../../utils/solid-1-compat';
 import "./QuickNav.css"
 
 export function Container(props: JSX.HTMLAttributes<HTMLDivElement>) {
@@ -18,7 +18,7 @@ export function Root(props: JSX.HTMLAttributes<HTMLElement> & ParentProps) {
     const _c: Array<() => void> = [];
     (() => {
 
-    if (!ref) return
+    if (!ref) {return}
     const cleanup = attachStickyBehavior(ref)
     _c.push(cleanup)
       })();
@@ -63,7 +63,7 @@ function attachStickyBehavior(root: HTMLElement) {
   } | null = null
 
   function getCachedPositions() {
-    if (cachedPositions === null) cachedPositions = getNaturalPositions()
+    if (cachedPositions === null) {cachedPositions = getNaturalPositions()}
     return cachedPositions
   }
 
@@ -97,7 +97,7 @@ function attachStickyBehavior(root: HTMLElement) {
     root.style.bottom = initialStyles.bottom
     root.style.marginTop = initialStyles.marginTop
     root.style.marginBottom = initialStyles.marginBottom
-    if (root.style.length === 0) root.removeAttribute("style")
+    if (root.style.length === 0) {root.removeAttribute("style")}
 
     return { absoluteTop, staticTop, absoluteBottom }
   }
@@ -152,7 +152,7 @@ function attachStickyBehavior(root: HTMLElement) {
     cancelAnimationFrame(raf)
     raf = requestAnimationFrame(() => {
       const isScrollLocked = document.documentElement.hasAttribute("data-base-ui-scroll-locked")
-      if (isScrollLocked) return
+      if (isScrollLocked) {return}
 
       const delta = window.scrollY - prevScrollY
       prevScrollY = window.scrollY
@@ -161,10 +161,10 @@ function attachStickyBehavior(root: HTMLElement) {
       top = rect.top
       bottom = rect.bottom
 
-      if ((delta > 0 && state === "StickyBottom") || (delta < 0 && state === "StickyTop")) return
+      if ((delta > 0 && state === "StickyBottom") || (delta < 0 && state === "StickyTop")) {return}
 
       if (rect.height + cssTop <= window.innerHeight) {
-        if (state !== "StickyTop") stickToTop()
+        if (state !== "StickyTop") {stickToTop()}
         return
       }
 

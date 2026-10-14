@@ -1,7 +1,7 @@
 import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
 import { Menu } from '@solidports/base-ui/menu';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { expect } from 'vitest';
+import { expect, describe, it } from 'vitest';
 import { spy } from 'sinon';
 import { splitProps } from '../../solid-1-compat';
 
@@ -31,7 +31,7 @@ describe('<Menu.CheckboxItem />', () => {
 
     function LoggingRoot(props: any & { renderSpy: () => void }) {
       const [local, other] = splitProps(props, ['renderSpy', 'state']);
-      // eslint-disable-next-line solid/reactivity
+
       local.renderSpy();
       return <li {...other} ref={props.ref} />;
     }

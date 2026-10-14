@@ -1,6 +1,6 @@
 import { floor } from '@floating-ui/utils';
-import { closest } from '../../utils/shadowDom';
 import { getComputedStyle } from '@floating-ui/utils/dom';
+import { closest } from '../../utils/shadowDom';
 
 import type { Dimensions } from '../types';
 import { stopEvent } from './event';
