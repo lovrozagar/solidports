@@ -3,7 +3,6 @@ import {
   createEffect,
   createMemo,
   createRenderEffect,
-  createRoot,
   getObserver,
   isHydrating,
   isStatic,

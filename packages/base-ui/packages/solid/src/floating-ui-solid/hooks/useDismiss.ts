@@ -8,7 +8,7 @@ import {
   isShadowRoot,
   isWebKit,
 } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, onCleanup, untrack } from 'solid-js';
+import { createEffect, createMemo, untrack } from 'solid-js';
 import { createDepsEffect, access, defaultProps, live } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import { withCaptureListeners } from '../../utils/withCaptureListeners';

@@ -2,7 +2,7 @@ import { buildQueries } from '@solidjs/testing-library';
 import type { BoundFunction, queries, Queries, render } from '@solidjs/testing-library';
 import type { userEvent } from '@testing-library/user-event';
 import type { Component, Ref } from 'solid-js';
-import type { JSX, ValidComponent, DynamicProps } from '@solidjs/web';
+import type { JSX, DynamicProps } from '@solidjs/web';
 import type { ComponentRenderFn } from '../src/utils/types';
 import { testClassName } from './conformanceTests/className';
 import { testPropForwarding } from './conformanceTests/propForwarding';

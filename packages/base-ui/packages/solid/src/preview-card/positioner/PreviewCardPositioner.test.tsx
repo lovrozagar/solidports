@@ -2,7 +2,6 @@ import {
   createRenderer,
   describeConformance,
   isJSDOM,
-  waitForPositioned,
   positionerConformanceTests,
 } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';

@@ -4,12 +4,11 @@ import {
   detachedTriggersConformanceTests,
   flushMicrotasks,
   isJSDOM,
-  randomStringValue,
 } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect, vi, describe, beforeEach, it } from 'vitest';
-import { createSignal, onSettled, Show } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import { render as renderSolid } from '@solidjs/web';
 import { renderServer } from '../../../test/ssrFixtures';
 import fixtures, { fixtureState } from './TooltipRoot.detached-triggers.ssr-fixtures';
@@ -31,7 +30,7 @@ describe('<Tooltip.Root />', () => {
     });
   });
 
-  const { render, clock } = createRenderer();
+  const { render } = createRenderer();
 
   it.skipIf(!isJSDOM)(
     'keeps a default-open root open until its detached trigger hydrates',
@@ -271,8 +270,6 @@ describe('<Tooltip.Root />', () => {
   });
 
   describe.skipIf(isJSDOM)('handle-backed root ownership', () => {
-    type NumberPayload = { payload: number | undefined };
-
     it('keeps a default-open root open while a detached trigger migrates after the initial commit', async () => {
       const handle = Tooltip.createHandle();
       const onOpenChange = vi.fn();

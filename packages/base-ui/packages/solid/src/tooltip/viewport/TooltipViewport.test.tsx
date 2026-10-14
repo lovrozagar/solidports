@@ -7,7 +7,7 @@ import {
 } from '#test-utils';
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { screen, waitFor } from '@solidjs/testing-library';
-import { expect, vi, describe } from 'vitest';
+import { expect, describe } from 'vitest';
 import { For, omit } from 'solid-js';
 
 describe('<Tooltip.Viewport />', () => {

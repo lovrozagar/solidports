@@ -1,5 +1,4 @@
 import { Show } from 'solid-js';
-import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { DROPDOWN_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';

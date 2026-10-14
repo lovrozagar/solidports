@@ -3,7 +3,7 @@ import { Field } from '@solidports/base-ui/field';
 import { Form } from '@solidports/base-ui/form';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect, describe, it, afterEach } from 'vitest';
-import { createSignal, Show } from 'solid-js';
+import { createSignal } from 'solid-js';
 
 describe('<Field.Error />', () => {
   const { render } = createRenderer();

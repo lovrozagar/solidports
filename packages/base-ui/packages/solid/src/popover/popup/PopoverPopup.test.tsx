@@ -3,7 +3,6 @@ import {
   describeConformance,
   flushMicrotasks,
   isJSDOM,
-  waitSingleFrame,
   act,
   popupFocusPropsTests,
 } from '#test-utils';

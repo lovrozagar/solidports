@@ -1,5 +1,4 @@
 import {
-  act,
   createRenderer,
   detachedTriggersConformanceTests,
   dialogRootSharedTests,
@@ -9,12 +8,10 @@ import {
 } from '#test-utils';
 import { AlertDialog } from '@solidports/base-ui/alert-dialog';
 import { screen, waitFor, within } from '@solidjs/testing-library';
-import type { UserEvent } from '@testing-library/user-event';
 import type { JSX } from '@solidjs/web';
-import { createSignal, Match, Show, Switch } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
-import { REASONS } from '../../utils/reasons';
 
 describe('<AlertDialog.Root />', () => {
   const { render } = createRenderer();

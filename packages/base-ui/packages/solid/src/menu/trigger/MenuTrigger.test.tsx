@@ -4,12 +4,10 @@ import { createRenderer, describeConformance, flushMicrotasks, act, isJSDOM } fr
 import { Menu } from '@solidports/base-ui/menu';
 import { Popover } from '@solidports/base-ui/popover';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import userEvent from '@testing-library/user-event';
 import { PATIENT_CLICK_THRESHOLD } from '../../utils/constants';
 
 describe('<Menu.Trigger />', () => {
   const { render } = createRenderer();
-  const user = userEvent.setup();
   describeConformance(Menu.Trigger, () => ({
     button: true,
     refInstanceof: window.HTMLButtonElement,

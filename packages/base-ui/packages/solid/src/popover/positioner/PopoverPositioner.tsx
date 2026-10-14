@@ -5,7 +5,7 @@ import { splitComponentProps } from '../../solid-helpers';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import { REASONS } from '../../utils/reasons';
-import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
 import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { useAnchoredPopupScrollLock } from '../../utils/useAnchoredPopupScrollLock';

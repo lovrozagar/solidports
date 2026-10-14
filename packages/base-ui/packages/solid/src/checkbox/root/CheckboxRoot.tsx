@@ -132,7 +132,6 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     registerDirtySource,
     registerFilledSource,
     setDirty,
-    setFocused,
     setTouched,
     state: fieldState,
     validationMode,

@@ -261,11 +261,11 @@ describe('<Tabs.Root />', () => {
       await render(() => (
         <Tabs.Root>
           <Tabs.List>
-            {tabValues.map((value, index) => (
+            {tabValues.map((value) => (
               <Tabs.Tab value={value} />
             ))}
           </Tabs.List>
-          {tabValues.map((value, index) => (
+          {tabValues.map((value) => (
             <Tabs.Panel value={value} keepMounted />
           ))}
         </Tabs.Root>

@@ -5245,7 +5245,7 @@ describe('<Combobox.Root />', () => {
 
     it.each([false, true])(
       'does not force-mount the list when controlled value changes externally (strict: %s)',
-      async (strict) => {
+      async (_strict) => {
         const items = ['apple', 'banana'];
         const labels: Record<string, string> = {
           apple: 'Apple',

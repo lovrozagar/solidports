@@ -1,7 +1,6 @@
 import { expect, vi, describe, beforeEach, it } from 'vitest';
-import type { UserEvent } from '@testing-library/user-event';
 import { fireEvent, screen, waitFor, within } from '@solidjs/testing-library';
-import { createSignal, lazy, Loading, Match, onSettled, Show, Switch } from 'solid-js';
+import { createSignal, lazy, Loading, onSettled, Show } from 'solid-js';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { act, createRenderer, detachedTriggersConformanceTests, isJSDOM } from '#test-utils';
 import { Popover } from '@solidports/base-ui/popover';
@@ -1021,65 +1020,6 @@ describe('<Dialog.Root />', () => {
 
   describe.skipIf(isJSDOM)('multiple detached triggers', () => {
     type NumberPayload = { payload: number | undefined };
-
-    function TriggerWithNesting(props: {
-      handle: ReturnType<typeof Dialog.createHandle>;
-      nesting: 0 | 1 | 2 | 3;
-    }) {
-      const trigger = () => <Dialog.Trigger handle={props.handle}>Trigger</Dialog.Trigger>;
-
-      return (
-        <Switch
-          fallback={
-            <div>
-              <div>
-                <div>{trigger()}</div>
-              </div>
-            </div>
-          }
-        >
-          <Match when={props.nesting === 0}>{trigger()}</Match>
-          <Match when={props.nesting === 1}>
-            <div>{trigger()}</div>
-          </Match>
-          <Match when={props.nesting === 2}>
-            <div>
-              <div>{trigger()}</div>
-            </div>
-          </Match>
-        </Switch>
-      );
-    }
-
-    function DetachedTriggerReparentingTest(props: {
-      handle: ReturnType<typeof Dialog.createHandle>;
-      nesting: 0 | 1 | 2 | 3;
-    }) {
-      return (
-        <>
-          <TriggerWithNesting handle={props.handle} nesting={props.nesting} />
-          <Dialog.Root handle={props.handle}>
-            <Dialog.Portal>
-              <Dialog.Popup>
-                Dialog Content
-                <Dialog.Close>Close</Dialog.Close>
-              </Dialog.Popup>
-            </Dialog.Portal>
-          </Dialog.Root>
-        </>
-      );
-    }
-
-    async function openAndCloseDialog(user: UserEvent) {
-      await user.click(screen.getByRole('button', { name: 'Trigger' }));
-      await waitFor(() => {
-        expect(screen.getByText('Dialog Content')).toBeVisible();
-      });
-      await user.click(screen.getByText('Close'));
-      await waitFor(() => {
-        expect(screen.queryByText('Dialog Content')).toBe(null);
-      });
-    }
 
     it('attaches fresh root state when the root remounts after being unmounted while open', async () => {
       const testDialog = Dialog.createHandle();

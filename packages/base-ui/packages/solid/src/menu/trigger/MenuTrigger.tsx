@@ -86,7 +86,6 @@ export function MenuTrigger<Payload>(componentProps: MenuTrigger.Props<Payload>)
   const isOpenedByThisTrigger = createMemo(() =>
     store().select('isOpenedByTrigger', thisTriggerId),
   );
-  const popupId = createMemo(() => store().select('triggerPopupId', thisTriggerId));
 
   const triggerElementRef: ReactLikeRef<HTMLElement | null | undefined> = { current: null };
   // Solid: a signal mirror of `triggerElementRef` so the hover hook re-attaches its listeners once

@@ -1,7 +1,6 @@
-import { expect, vi, describe, it } from 'vitest';
+import { describe } from 'vitest';
 import { Select } from '@solidports/base-ui/select';
-import { fireEvent, screen } from '@solidjs/testing-library';
-import { act, createRenderer, describeConformance } from '#test-utils';
+import { createRenderer, describeConformance } from '#test-utils';
 
 describe('<Select.ScrollDownArrow />', () => {
   const { render } = createRenderer();

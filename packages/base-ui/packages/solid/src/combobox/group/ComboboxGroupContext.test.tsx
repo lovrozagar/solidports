@@ -1,5 +1,5 @@
 import { expect, vi, describe, it } from 'vitest';
-import { createRenderer, flushMicrotasks } from '#test-utils';
+import { createRenderer } from '#test-utils';
 import { useComboboxGroupContext } from './ComboboxGroupContext';
 
 describe('ComboboxGroupContext', () => {
@@ -13,12 +13,11 @@ describe('ComboboxGroupContext', () => {
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     // Solid: the dev runtime follows the uncaught render error with a console footer one microtask later.
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
     // Solid: the uncaught render error also reaches `reportError` where the platform has one.
-    const reportErrorSpy =
-      typeof globalThis.reportError === 'function'
-        ? vi.spyOn(globalThis, 'reportError').mockImplementation(() => {})
-        : undefined;
+    typeof globalThis.reportError === 'function'
+      ? vi.spyOn(globalThis, 'reportError').mockImplementation(() => {})
+      : undefined;
 
     try {
       expect(() => render(Consumer)).toThrow(

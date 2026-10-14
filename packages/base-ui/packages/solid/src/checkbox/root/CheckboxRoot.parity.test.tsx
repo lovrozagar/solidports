@@ -71,8 +71,6 @@ describe('native parity: Checkbox', () => {
     };
   }
 
-  const same = (a: Element, b: Element) => expect(normalized(a)).toBe(normalized(b));
-
   it('renders the same root, hidden input and indicator for the props matrix', () => {
     const cases: Array<() => Props> = [
       () => ({}),

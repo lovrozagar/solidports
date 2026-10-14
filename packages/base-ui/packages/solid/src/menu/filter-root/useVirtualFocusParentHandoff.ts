@@ -1,5 +1,4 @@
 import type { Accessor } from 'solid-js';
-import { isHTMLElement } from '@floating-ui/utils/dom';
 import { ownerDocument } from '../../utils/owner';
 import { activeElement, contains } from '../../utils/shadowDom';
 import { createLayoutEffect } from '../../solid-helpers';

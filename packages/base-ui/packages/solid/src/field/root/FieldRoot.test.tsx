@@ -12,7 +12,7 @@ import { useRef } from '@solidports/base-ui/solid-helpers';
 import { Switch } from '@solidports/base-ui/switch';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import type { JSX } from '@solidjs/web';
-import { createSignal, For, Show, untrack } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
 import { useFieldRootContext } from '../../internals/field-root-context/FieldRootContext';
 import { splitProps } from '../../solid-1-compat';
