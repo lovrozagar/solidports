@@ -62,10 +62,11 @@ export function useImageLoadingStatus(
     if (current.referrerPolicy) {
       image.referrerPolicy = current.referrerPolicy;
     }
-    // Solid: JSX allows `true` (the empty, anonymous value) and `false` (no attribute).
+    // Solid: JSX allows `true` (the empty, anonymous value) and `false` (no attribute). The empty
+    // value is set as the attribute: the DOM's `crossOrigin` property type leaves it out.
     const crossOrigin = current.crossOrigin;
-    if (crossOrigin === true) {
-      image.crossOrigin = '';
+    if (crossOrigin === true || crossOrigin === '') {
+      image.setAttribute('crossorigin', '');
     } else if (crossOrigin === false || crossOrigin == null) {
       image.crossOrigin = null;
     } else {
