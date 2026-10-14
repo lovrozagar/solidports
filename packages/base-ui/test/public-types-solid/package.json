@@ -1,0 +1,13 @@
+{
+  "name": "@solidports/base-ui-test-public-types",
+  "private": true,
+  "description": "Upstream's public type tests (test/public-types), ported to Solid: consumer code compiled against the published types.",
+  "scripts": {
+    "release:test": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@solidjs/web": "catalog:",
+    "@solidports/base-ui": "workspace:*",
+    "solid-js": "catalog:"
+  }
+}

@@ -213,6 +213,9 @@ jobs:
         run: |
           bun run types
           bun run test:package
+      # Upstream's public type tests, ported: consumer code compiled against the built types.
+      - working-directory: packages/base-ui/test/public-types-solid
+        run: bun run release:test
 
   # Upstream "Validating Docs": build, then the docs Playwright suite against the dev server
   docs:

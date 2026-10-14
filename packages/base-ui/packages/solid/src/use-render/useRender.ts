@@ -18,7 +18,7 @@ import { useRenderElement } from '../utils/useRenderElement';
 export function useRender<
   State extends Record<string, MaybeAccessor<any>>,
   RenderedElementType extends Element,
-  Enabled extends boolean | undefined,
+  Enabled extends boolean | undefined = undefined,
 >(
   params: useRender.Parameters<State, RenderedElementType, Enabled>,
 ): useRender.ReturnValue<Enabled> {
@@ -27,12 +27,13 @@ export function useRender<
 }
 
 export type UseRenderRenderProp<
-  State extends Record<string, MaybeAccessor<any>> = Record<string, unknown>,
+  State = Record<string, unknown>,
   ElementType extends ValidComponent = ValidComponent,
+  RenderFunctionProps = JSX.HTMLAttributes<any>,
 > =
   | keyof JSX.IntrinsicElements
   | DynamicProps<ElementType>
-  | ComponentRenderFn<JSX.HTMLAttributes<any>, State>
+  | ComponentRenderFn<RenderFunctionProps, State>
   | null;
 
 export type UseRenderElementProps<ElementType extends ValidComponent> =
@@ -40,7 +41,8 @@ export type UseRenderElementProps<ElementType extends ValidComponent> =
 
 export type UseRenderComponentProps<
   ElementType extends ValidComponent,
-  State extends Record<string, MaybeAccessor<any>> = {},
+  State = {},
+  RenderFunctionProps = HTMLProps,
 > = SolidComponentProps<ElementType> & {
   /**
    * Allows you to replace the component's HTML element
@@ -48,11 +50,11 @@ export type UseRenderComponentProps<
    *
    * Accepts a `JSX.Element` or a function that returns the element to render.
    */
-  render?: UseRenderRenderProp<State, ElementType> | undefined;
+  render?: UseRenderRenderProp<State, ElementType, RenderFunctionProps> | undefined;
 };
 
 export interface UseRenderParameters<
-  State extends Record<string, MaybeAccessor<any>>,
+  State,
   RenderedElementType extends Element,
   Enabled extends boolean | undefined,
 > {
@@ -109,7 +111,7 @@ export namespace useRender {
   export type State = UseRenderState;
 
   export type RenderProp<
-    TState extends Record<string, MaybeAccessor<any>> = Record<string, unknown>,
+    TState = Record<string, unknown>,
     ElementType extends ValidComponent = ValidComponent,
   > = UseRenderRenderProp<TState, ElementType>;
 
@@ -117,11 +119,12 @@ export namespace useRender {
 
   export type ComponentProps<
     ElementType extends ValidComponent,
-    TState extends Record<string, MaybeAccessor<any>> = {},
-  > = UseRenderComponentProps<ElementType, TState>;
+    TState = {},
+    RenderFunctionProps = HTMLProps,
+  > = UseRenderComponentProps<ElementType, TState, RenderFunctionProps>;
 
   export type Parameters<
-    TState extends Record<string, MaybeAccessor<any>>,
+    TState,
     RenderedElementType extends Element,
     Enabled extends boolean | undefined,
   > = UseRenderParameters<TState, RenderedElementType, Enabled>;
