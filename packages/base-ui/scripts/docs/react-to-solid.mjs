@@ -53,6 +53,15 @@ export function printCode(code) {
   return generate(parse(code, PARSER_OPTIONS), GENERATOR_OPTIONS).code;
 }
 
+// The `JSX.*HTMLAttributes` interfaces Solid declares; React's others are the generic one.
+const SOLID_HTML_ATTRIBUTES = new Set(
+  'Anchor Audio Area Base Bdo Blockquote Body Button Canvas Caption Col Colgroup Data Embed Fieldset Form Iframe Img Input Mod Keygen Label Li Link Map Media Menu Meta Meter Quote Object Ol Optgroup Option Output Param Progress Script Select Source Style Td Template Textarea Th Time Title Track Video WebView'
+    .split(' ')
+    .map((name) => `${name}HTMLAttributes`),
+);
+const solidHtmlAttributes = (name) =>
+  SOLID_HTML_ATTRIBUTES.has(name) || name === 'HTMLAttributes' ? name : 'HTMLAttributes';
+
 const kebab = (name) => name.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
 const DOM_ATTRIBUTES = { className: 'class', htmlFor: 'for' };
 // React's names for DOM attributes that Solid writes under the attribute's own name.
@@ -226,6 +235,9 @@ const UNITLESS = new Set([
 
 const REACT_TYPES = {
   ReactNode: { name: 'JSX', member: 'Element' },
+  ReactPortal: { name: 'JSX', member: 'Element' },
+  ElementType: { name: 'ValidComponent' },
+  JSXElementConstructor: { name: 'ValidComponent' },
   ReactElement: { name: 'JSX', member: 'Element' },
   JSX: { name: 'JSX', member: 'Element' },
   CSSProperties: { name: 'JSX', member: 'CSSProperties' },
@@ -1301,7 +1313,13 @@ function lowerFunction(fnPath, kind, ctx) {
           setup.push(...inline);
           continue;
         }
+        const annotation = declarator.id.typeAnnotation?.typeAnnotation;
         declarator.init = lowerReactHook(declarator.init, api, ctx);
+        // `const value: T = useMemo(...)` types the memo's value.
+        if (api === 'useMemo' && annotation && t.isIdentifier(declarator.id)) {
+          declarator.id.typeAnnotation = null;
+          declarator.init.typeParameters ??= t.tsTypeParameterInstantiation([annotation]);
+        }
       } else {
         wrapHookArguments(declarator.init, fnPath, ctx, rewrites);
       }
@@ -1572,7 +1590,12 @@ function rewriteReads(fnPath, rewrites, imports) {
       }
       // A read where the component or hook sets up runs once, explicitly (`untrack`).
       if (!path.isJSXIdentifier() && isSetupRead(path, fnPath)) {
-        if (entry.kind === 'alias' && t.isMemberExpression(replacement)) {
+        if (
+          entry.kind === 'alias' &&
+          t.isMemberExpression(replacement) &&
+          t.isCallExpression(replacement.object)
+        ) {
+          // `_value().name`: the memo read is untracked, the member read off it.
           replacement.object = untrackCall(replacement.object, imports);
         } else {
           replacement = untrackCall(replacement, imports);
@@ -2065,7 +2088,28 @@ function transformModuleApis(programPath, ctx) {
         }
       },
     },
+    AssignmentExpression(path) {
+      // A context has no `displayName` in Solid.
+      const left = path.node.left;
+      if (
+        t.isMemberExpression(left) &&
+        t.isIdentifier(left.object) &&
+        t.isIdentifier(left.property, { name: 'displayName' }) &&
+        path.parentPath.isExpressionStatement()
+      ) {
+        const binding = path.scope.getBinding(left.object.name);
+        const init = binding?.path.isVariableDeclarator() ? binding.path.node.init : null;
+        if (t.isCallExpression(init) && reactApi(init.callee, reactNames) === 'createContext') {
+          path.parentPath.remove();
+        }
+      }
+    },
     MemberExpression(path) {
+      // A Solid handler gets the native event: React's `event.nativeEvent` is the event.
+      if (t.isIdentifier(path.node.property, { name: 'nativeEvent' }) && !path.node.computed) {
+        path.replaceWith(path.node.object);
+        return;
+      }
       // `React.Children.map(...)` and friends read from the adapter.
       const { object, property } = path.node;
       if (
@@ -2611,7 +2655,7 @@ function transformTypes(programPath, ctx) {
         return;
       }
       if (name.endsWith('HTMLAttributes')) {
-        path.node.expression = jsxType(name);
+        path.node.expression = jsxType(solidHtmlAttributes(name));
       } else if (REACT_TYPES[name]) {
         const mapped = REACT_TYPES[name];
         imports.add('@solidjs/web', mapped.name, true);
@@ -2658,6 +2702,8 @@ function transformTypes(programPath, ctx) {
           path.replaceWith(reference(solidType('Setter'), value));
         } else if (name === 'SetStateAction') {
           path.replaceWith(args[0]);
+        } else if (name === 'Ref' || name === 'ForwardedRef' || name === 'RefCallback') {
+          path.replaceWith(reference(solidType('Ref'), args));
         } else if (name === 'RefObject' || name === 'MutableRefObject') {
           path.replaceWith(
             t.tsTypeLiteral([
@@ -2667,7 +2713,7 @@ function transformTypes(programPath, ctx) {
         } else if (name === 'SVGProps') {
           path.replaceWith(reference(jsxType('SvgSVGAttributes'), args));
         } else if (name.endsWith('HTMLAttributes')) {
-          path.replaceWith(reference(jsxType(name), args));
+          path.replaceWith(reference(jsxType(solidHtmlAttributes(name)), args));
         } else if (REACT_TYPES[name]) {
           const mapped = REACT_TYPES[name];
           imports.add('@solidjs/web', mapped.name, true);
@@ -2676,7 +2722,8 @@ function transformTypes(programPath, ctx) {
               mapped.member
                 ? t.tsQualifiedName(t.identifier(mapped.name), t.identifier(mapped.member))
                 : t.identifier(mapped.name),
-              args,
+              // `ValidComponent` takes no props type.
+              mapped.name === 'ValidComponent' ? [] : args,
             ),
           );
         }

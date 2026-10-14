@@ -3,6 +3,7 @@
 // Their arguments are values, as the React APIs take them; a result React re-reads on each render
 // is an accessor.
 import {
+  createComponent,
   createMemo,
   createRenderEffect,
   createSignal,
@@ -12,8 +13,8 @@ import {
   useContext,
 } from 'solid-js';
 import type { Accessor, Context } from 'solid-js';
-import { isServer } from '@solidjs/web';
-import type { JSX } from '@solidjs/web';
+import { Dynamic, isServer, mergeProps } from '@solidjs/web';
+import type { JSX, ValidComponent } from '@solidjs/web';
 
 /**
  * `React.useSyncExternalStore` as an accessor: the server snapshot on the server and through
@@ -220,4 +221,17 @@ export function element(render: () => JSX.Element): JSX.Element {
 /** `React.isValidElement`: a value made by `element()`. */
 export function isValidElement(value: unknown): value is JSX.Element {
   return typeof value === 'function' && ELEMENT in value;
+}
+
+/**
+ * `React.cloneElement`: a render element is a `{ component, ...props }` config in the Solid docs
+ * (the transform writes `render={<X />}` as one); its clone renders the component with the props
+ * merged, as React's does. Another element renders as it is.
+ */
+export function cloneElement(element: unknown, props?: Record<string, unknown>): JSX.Element {
+  if (element != null && typeof element === 'object' && 'component' in element) {
+    const { component, ...elementProps } = element as { component: ValidComponent };
+    return createComponent(Dynamic, mergeProps(elementProps, props ?? {}, { component }));
+  }
+  return element as JSX.Element;
 }
