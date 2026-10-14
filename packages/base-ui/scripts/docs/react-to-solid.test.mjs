@@ -904,7 +904,7 @@ export const Input = React.forwardRef<HTMLInputElement, { className?: string }>(
 });`,
         `import { omit } from 'solid-js';
 import type { Ref } from 'solid-js';
-export const Input = function Input(props: { className?: string } & { ref?: Ref<HTMLInputElement> }) {
+export const Input = function Input(props: { class?: string } & { ref?: Ref<HTMLInputElement> }) {
   const rest = omit(props, 'class', 'ref');
   return <input ref={props.ref} class={props.class} {...rest} />;
 };`,
@@ -929,7 +929,7 @@ export function List(props: { items: string[] }) {
   return <div id={id} className={rest.className} />;
 }`,
         `import { omit } from 'solid-js';
-export function Box(props: { id: string; className?: string }) {
+export function Box(props: { id: string; class?: string }) {
   const rest = omit(props, 'id');
   return <div id={props.id} class={rest.class} />;
 }`,
@@ -977,6 +977,34 @@ export function User() {
     }
   };
   return <button onClick={greet}>Greet</button>;
+}`,
+      );
+    });
+
+    it('reads a value a guard narrows once, for the statements after it', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function useName() {
+  const [user] = React.useState<{ name: string } | null>(null);
+  const read = () => {
+    if (!user) {
+      return '';
+    }
+    return user.name;
+  };
+  return read;
+}`,
+        `import { createMemo, createSignal } from 'solid-js';
+export function useName() {
+  const [user] = createSignal<{ name: string } | null>(null);
+  const read = () => {
+    const _user = user();
+    if (!_user) {
+      return '';
+    }
+    return _user.name;
+  };
+  return createMemo(() => read);
 }`,
       );
     });
