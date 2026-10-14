@@ -1,5 +1,5 @@
 import { expect, vi, describe, it } from 'vitest';
-import { createMemo, createSignal, For, Show, untrack } from 'solid-js';
+import { createMemo, createSignal, For, Loading, Show, untrack } from 'solid-js';
 import { Portal } from '@solidjs/web';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { act, createRenderer } from '#test-utils';
@@ -947,10 +947,112 @@ describe('<CompositeList />', () => {
     });
   });
 
-  // Solid: there is no thrown-promise Suspense; async rendering suspends through `Loading`
-  // boundaries without discarding the subtree, so the React scenario has no equivalent.
-  describe.skip('Suspense integration', () => {
-    it('does not publish an empty registry when an outer boundary repeatedly suspends', () => {});
+  // Solid: an item suspends by reading a pending async value under `Loading` (React throws a
+  // promise). A boundary already showing content keeps it while the item is pending (React shows
+  // its fallback), so the test waits for each resolution instead of the fallback.
+  describe('Suspense integration', () => {
+    it('does not publish an empty registry when an outer boundary repeatedly suspends', async () => {
+      function createSuspender() {
+        let resolvePromise = () => {};
+        const promise = new Promise<void>((resolve) => {
+          resolvePromise = resolve;
+        });
+
+        return {
+          read: () => promise.then(() => true),
+          resolve() {
+            resolvePromise();
+          },
+        };
+      }
+
+      const suspenders = [createSuspender(), createSuspender()];
+      const refs = createRefs();
+      const snapshots: Array<{
+        elements: Array<HTMLElement | null | undefined>;
+        labels: Array<string | null>;
+        mapElements: Element[];
+      }> = [];
+
+      function SuspendingItem(props: { attempt?: number; label: string }) {
+        const { setRef, index } = useCompositeListItem({
+          indexGuessBehavior: IndexGuessBehavior.GuessFromOrder,
+          label: () => props.label,
+        });
+        const ready = createMemo(() =>
+          props.attempt != null && props.attempt >= 0 ? suspenders[props.attempt].read() : true,
+        );
+        return (
+          <div ref={setRef} data-testid={props.label} data-index={index()}>
+            {ready() && props.label}
+          </div>
+        );
+      }
+
+      function App() {
+        const [attempt, setAttempt] = createSignal(-1);
+        return (
+          <>
+            <button type="button" onClick={() => setAttempt((value) => value + 1)}>
+              Suspend
+            </button>
+            <Loading fallback={<div>Loading</div>}>
+              <CompositeList
+                refs={refs}
+                onMapChange={(map) => {
+                  snapshots.push({
+                    elements: [...refs.elements],
+                    labels: [...refs.labels],
+                    mapElements: map.map((item) => item.element),
+                  });
+                }}
+              >
+                <SuspendingItem label="a" />
+                <SuspendingItem label="b" attempt={attempt()} />
+                <SuspendingItem label="c" />
+              </CompositeList>
+            </Loading>
+          </>
+        );
+      }
+
+      await render(() => <App />);
+
+      async function suspendAndResolve(attempt: number) {
+        act(() => {
+          screen.getByRole('button', { name: 'Suspend' }).click();
+        });
+
+        await act(async () => {
+          suspenders[attempt].resolve();
+          await Promise.resolve();
+        });
+        await waitFor(() => {
+          expect(screen.getByTestId('b')).toHaveTextContent('b');
+        });
+        expect(screen.queryByText('Loading')).toBe(null);
+
+        expect(refs.elements).toEqual([
+          screen.getByTestId('a'),
+          screen.getByTestId('b'),
+          screen.getByTestId('c'),
+        ]);
+        expect(refs.labels).toEqual(['a', 'b', 'c']);
+        expect(screen.getByTestId('a')).toHaveAttribute('data-index', '0');
+        expect(screen.getByTestId('b')).toHaveAttribute('data-index', '1');
+        expect(screen.getByTestId('c')).toHaveAttribute('data-index', '2');
+      }
+
+      await suspendAndResolve(0);
+      await suspendAndResolve(1);
+
+      expect(snapshots.length).toBeGreaterThan(0);
+      snapshots.forEach((snapshot) => {
+        expect(snapshot.mapElements).toHaveLength(3);
+        expect(snapshot.elements).toEqual(snapshot.mapElements);
+        expect(snapshot.labels).toEqual(['a', 'b', 'c']);
+      });
+    });
   });
 
   describe('server-side rendering', () => {
