@@ -2036,6 +2036,96 @@ function snapshotReads(fnPath) {
   });
 }
 
+/**
+ * React creates an element where it is written, so a value a condition narrows (`file.name &&
+ * <Pre name={file.name} />`) is narrowed in the element. An element value here is a function
+ * (`element(() => <Pre />)`), where TypeScript does not narrow a property: a property path the
+ * condition tests and the element reads is read once before the statement, as React reads it.
+ */
+function snapshotElementPaths(programPath) {
+  const isPath = (node) =>
+    t.isIdentifier(node) ||
+    (t.isMemberExpression(node) &&
+      (!node.computed || t.isStringLiteral(node.property) || t.isNumericLiteral(node.property)) &&
+      isPath(node.object));
+  const rootOf = (node) => (t.isMemberExpression(node) ? rootOf(node.object) : node);
+  programPath.traverse({
+    CallExpression(callPath) {
+      if (!isElementCall(callPath.node)) {
+        return;
+      }
+      // The member paths the element reads, of bindings that never change.
+      const reads = [];
+      callPath.get('arguments.0').traverse({
+        MemberExpression(memberPath) {
+          if (!isPath(memberPath.node)) {
+            return;
+          }
+          const root = rootOf(memberPath.node);
+          if (callPath.scope.getBinding(root.name)?.constant) {
+            reads.push(memberPath);
+          }
+        },
+      });
+      if (reads.length === 0) {
+        return;
+      }
+      // The tests the element is written under, up to its statement's function.
+      for (let current = callPath; current && !current.isFunction(); current = current.parentPath) {
+        const parent = current.parentPath;
+        let test = null;
+        if (parent?.isConditionalExpression() && parent.node.test !== current.node) {
+          test = parent.get('test');
+        } else if (
+          parent?.isLogicalExpression({ operator: '&&' }) &&
+          parent.node.right === current.node
+        ) {
+          test = parent.get('left');
+        } else if (parent?.isIfStatement() && parent.node.consequent === current.node) {
+          test = parent.get('test');
+        }
+        if (!test) {
+          continue;
+        }
+        const statement = parent.isStatement() ? parent : parent.getStatementParent();
+        for (const read of reads) {
+          if (read.removed || !read.node) {
+            continue;
+          }
+          const tested = [];
+          const visit = (path) => {
+            if (t.isNodesEquivalent(path.node, read.node)) {
+              tested.push(path);
+            }
+          };
+          visit(test);
+          test.traverse({ MemberExpression: visit });
+          if (tested.length === 0) {
+            continue;
+          }
+          const id = statement.scope.generateUidIdentifier(
+            t.isIdentifier(read.node.property) ? read.node.property.name : 'value',
+          );
+          statement.insertBefore(constDeclaration(id, t.cloneNode(read.node, true)));
+          const same = [];
+          statement.traverse({
+            MemberExpression(path) {
+              if (t.isNodesEquivalent(path.node, read.node)) {
+                same.push(path);
+              }
+            },
+          });
+          for (const path of [...tested, ...same]) {
+            if (!path.removed && path.node) {
+              path.replaceWith(t.identifier(id.name));
+            }
+          }
+        }
+      }
+    },
+  });
+}
+
 /** Whether a function returns its `children` (a layout or a provider that renders no element). */
 function returnsChildren(path) {
   const [param] = path.node.params;
@@ -3840,6 +3930,7 @@ export function transformReactToSolid(source, options = {}) {
       }
       programPath.scope.crawl();
       lowerReactiveFunctions(programPath, ctx);
+      snapshotElementPaths(programPath);
       lowerRemainingHooks(programPath, ctx);
       transformTypes(programPath, ctx);
       transformJsx(programPath, ctx);

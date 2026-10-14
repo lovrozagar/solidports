@@ -1203,6 +1203,17 @@ export function useHandler() {
       );
     });
 
+    it('reads a property a condition narrows once, before the element that reads it', () => {
+      const output = transformReactToSolid(`export function code(converted: { source?: string }) {
+  const node = converted.source ? <code>{converted.source.length}</code> : null;
+  return { node };
+}`);
+      expect(output).toContain('const _source = converted.source;');
+      expect(output).toContain(
+        'const node = _source ? element(() => <code>{_source.length}</code>) : null;',
+      );
+    });
+
     it('reads a guarded value once into the elements a memo creates', () => {
       const output = transformReactToSolid(
         `import * as React from 'react';
