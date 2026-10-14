@@ -1,21 +1,10 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "module": "es2022",
     "moduleResolution": "bundler",
-    "types": [
-      "vite/client",
-      "vitest/globals",
-      "@testing-library/jest-dom"
-    ]
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom/vitest"]
   },
-  "exclude": [
-    "node_modules",
-    "build"
-  ],
-  "extends": "../tsconfig.base.json",
-  "include": [
-    "e2e/**/*",
-    "regressions/**/*",
-    "./*.ts"
-  ]
+  "include": ["e2e/**/*", "regressions/**/*", "screen-reader/**/*", "./*.ts"],
+  "exclude": ["node_modules", "build"]
 }
