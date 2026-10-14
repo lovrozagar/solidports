@@ -315,6 +315,7 @@ const report = {
   solidOnlyConditional: [],
   notPorted: [],
   notApplicable: [],
+  clientRenderedServerTests: [],
 };
 
 for (const [tree, reactFile] of TREES.flatMap((entry) =>
@@ -349,8 +350,22 @@ for (const [tree, reactFile] of TREES.flatMap((entry) =>
     continue;
   }
   const solidRelative = solidFiles.map((file) => path.relative(root, file)).join(', ');
-  const reactTests = extractTests(fs.readFileSync(reactFile, 'utf8'));
+  const reactSource = fs.readFileSync(reactFile, 'utf8');
+  const reactTests = extractTests(reactSource);
   const solidTests = solidFiles.flatMap((file) => extractTests(fs.readFileSync(file, 'utf8')));
+  // Each upstream server render (`renderToString`) has a Solid one (`renderServer`), so a test of
+  // the server markup does not quietly become a client render.
+  const serverRenders = (source) => (source.match(/\brenderToString\(/g) ?? []).length;
+  const solidServerRenders = solidFiles
+    .map((file) => (fs.readFileSync(file, 'utf8').match(/\brenderServer\(/g) ?? []).length)
+    .reduce((sum, count) => sum + count, 0);
+  if (solidServerRenders < serverRenders(reactSource)) {
+    report.clientRenderedServerTests.push({
+      file: solidRelative,
+      upstream: serverRenders(reactSource),
+      solid: solidServerRenders,
+    });
+  }
   const solidByTitle = new Map();
   for (const test of solidTests) {
     const list = solidByTitle.get(test.title) ?? [];
@@ -435,6 +450,10 @@ const listed = [
     (test) => `extra skip (${test.environments.join(', ')}): ${test.file} :: ${test.title}`,
   ),
   ...report.markers.map((test) => `${test.markers.join(', ')}: ${test.file} :: ${test.title}`),
+  ...report.clientRenderedServerTests.map(
+    (entry) =>
+      `server renders: ${entry.file} has ${entry.solid}, upstream has ${entry.upstream} (renderToString)`,
+  ),
 ];
 for (const line of listed) {
   console.log(`- ${line}`);
@@ -452,6 +471,7 @@ console.log(
     `upstream tests missing from their Solid file: ${report.missingTests.length}`,
     `upstream tests Solid skips in an environment upstream runs them: ${report.extraSkips.length}`,
     `Solid .skip/.todo/.fails/.only markers: ${report.markers.length}`,
+    `upstream server-render tests Solid renders on the client: ${report.clientRenderedServerTests.length}`,
     `Solid-only tests with a skip condition (not counted): ${report.solidOnlyConditional.length}`,
     `upstream test files of modules nothing upstream uses, not ported: ${report.notPorted.length}`,
     `upstream tests of React mechanisms Solid does not have, not ported: ${report.notApplicable.length}`,
@@ -462,5 +482,6 @@ const failed =
   report.missingFiles.length +
   report.missingTests.length +
   report.extraSkips.length +
-  report.markers.length;
+  report.markers.length +
+  report.clientRenderedServerTests.length;
 process.exitCode = failed > 0 ? 1 : 0;

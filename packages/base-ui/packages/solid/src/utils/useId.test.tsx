@@ -1,47 +1,38 @@
 import { act, createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
 import { expect, describe, it } from 'vitest';
-import { createSignal } from 'solid-js';
-import { NoHydration } from '@solidjs/web';
 import { access } from '../solid-helpers';
 import { useId } from './useId';
+import { renderServer } from '../../test/ssrFixtures';
+import fixtures, { setOverrideId, setProvidedId } from './useId.ssr-fixtures';
 
-interface TestComponentProps {
-  id?: string;
-}
 
 describe('useId', () => {
   const { render } = createRenderer();
 
   it('returns the provided ID', () => {
-    const [id, setId] = createSignal('some-id');
+    // Solid: `renderServer` is the `renderToString` counterpart; its fixture reads the id from a
+    // signal the test sets, as React's `setProps` does.
+    setProvidedId('some-id');
+    const { hydrate } = renderServer(fixtures, 'providedId');
+    hydrate();
 
-    function TestComponent(props: TestComponentProps) {
-      const implicitId = useId(() => props.id);
-      return <span data-testid="target" id={implicitId()} />;
-    }
+    expect(screen.getByTestId('target')).toHaveProperty('id', 'some-id');
 
-    render(() => <TestComponent id={id()} />);
+    act(() => setProvidedId('another-id'));
 
-    expect(screen.getByTestId('target')).toHaveProperty(['id'], 'some-id');
-
-    act(() => setId('another-id'));
-
-    expect(screen.getByTestId('target')).toHaveProperty(['id'], 'another-id');
+    expect(screen.getByTestId('target')).toHaveProperty('id', 'another-id');
   });
 
   it("generates an ID if one isn't provided", () => {
-    const [id, setId] = createSignal<string | undefined>();
-
-    function TestComponent(props: TestComponentProps) {
-      const implicitId = useId(() => props.id);
-      return <span data-testid="target" id={implicitId()} />;
-    }
-    render(() => <TestComponent id={id()} />);
+    setOverrideId(undefined);
+    const { hydrate } = renderServer(fixtures, 'generatedId');
+    hydrate();
 
     expect(screen.getByTestId('target').id).not.toBe('');
-    act(() => setId('another-id'));
-    expect(screen.getByTestId('target')).toHaveProperty(['id'], 'another-id');
+
+    act(() => setOverrideId('another-id'));
+    expect(screen.getByTestId('target')).toHaveProperty('id', 'another-id');
   });
 
   it('can be suffixed', () => {
@@ -96,15 +87,7 @@ describe('useId', () => {
 
   // Solid: React's title; rendered under NoHydration as the server-render counterpart.
   it('provides an ID on server in React 18', () => {
-    function TestComponent() {
-      const id = useId();
-      return <span data-testid="target" id={access(id)} />;
-    }
-    render(() => (
-      <NoHydration>
-        <TestComponent />
-      </NoHydration>
-    ));
+    renderServer(fixtures, 'serverId');
 
     expect(screen.getByTestId('target').id).not.toBe('');
   });
