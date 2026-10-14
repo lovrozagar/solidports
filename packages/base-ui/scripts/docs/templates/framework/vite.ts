@@ -133,6 +133,16 @@ function runLoader(
 
 export async function nextApp(root: string): Promise<Plugin[]> {
   const config = await loadNextConfig(root);
+  // docs-infra writes the pages' index sections (and a component page's index entry) while it
+  // loads them, which Next tolerates; a write here reloads the server program in the middle of a
+  // render. `docs-infra validate` maintains them (committed, checked in CI): the app only reads.
+  for (const rule of Object.values(config.turbopack?.rules ?? {})) {
+    for (const entry of rule.loaders ?? []) {
+      if (typeof entry === 'object' && entry.options) {
+        delete entry.options.updateParentIndex;
+      }
+    }
+  }
   const require = createRequire(path.join(root, 'package.json'));
   const rules = Object.entries(config.turbopack?.rules ?? {}).map(([pattern, rule]) => ({
     match: picomatch(pattern.replace(/^\.\//, ''), { dot: true }),
@@ -188,6 +198,11 @@ export async function nextApp(root: string): Promise<Plugin[]> {
   };
 
   const mdxOptions = mdxOptionsOf(config);
+  for (const entry of mdxOptions.remarkPlugins ?? []) {
+    if (Array.isArray(entry) && entry[1] && typeof entry[1] === 'object') {
+      delete (entry[1] as { extractToIndex?: unknown }).extractToIndex;
+    }
+  }
   const [remarkPlugins, rehypePlugins] = await Promise.all([
     Promise.all((mdxOptions.remarkPlugins ?? []).map((entry) => importPlugin(entry, require))),
     Promise.all((mdxOptions.rehypePlugins ?? []).map((entry) => importPlugin(entry, require))),
