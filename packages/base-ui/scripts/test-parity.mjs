@@ -150,12 +150,13 @@ function extractTests(rawSource) {
     if (!title) {
       continue;
     }
-    tests.push({
-      kind,
-      title: title[2],
-      condition,
-      flags: flagText.split('.').filter(Boolean),
-    });
+    const flags = flagText.split('.').filter(Boolean);
+    // A test with a title and no body is a todo.
+    const afterTitle = cursor + call[0].length + title[0].length;
+    if (kind !== 'describe' && /^\s*\)/.test(source.slice(afterTitle))) {
+      flags.push('todo');
+    }
+    tests.push({ kind, title: title[2], condition, flags });
   }
   return tests;
 }

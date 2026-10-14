@@ -74,8 +74,6 @@ describe('<Combobox.Value />', () => {
       expect(screen.getByTestId('value').textContent).toBe('Test (1)');
     });
 
-    it('renders function child');
-
     it('overrides the value display when children is a static ReactNode', async () => {
       render(() => (
         <Combobox.Root defaultValue="test-value">

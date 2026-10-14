@@ -58,7 +58,8 @@ export function ComboboxList(componentProps: ComboboxList.Props) {
   const floatingId = floatingRootContext.useState('floatingId');
   // Solid: the element's `id` attribute is not reactive, so the list publishes it for the
   // `aria-controls` of the combobox element (see `State.listId`).
-  const listId = () => local.id ?? floatingId();
+  // `id={false}` renders no id, so the list has none to point at.
+  const listId = () => (local.id === false ? undefined : (local.id ?? floatingId()));
 
   createEffect(listId, (id) => {
     store.set('listId', id);

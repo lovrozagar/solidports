@@ -52,13 +52,14 @@ export function SelectList(componentProps: SelectList.Props) {
   };
 
   createEffect(
-    () => elementProps.id ?? `${id()}-list`,
+    // `id={false}` renders no id, so the listbox has none to point at.
+    () => (elementProps.id === false ? undefined : (elementProps.id ?? `${id()}-list`)),
     (listboxId) => {
       store.set('listboxId', listboxId);
     },
   );
 
-  const setListElement = (element: HTMLElement | null | undefined) => {
+  const setListElement = (element: HTMLDivElement | null | undefined) => {
     store.set('listElement', element);
   };
 

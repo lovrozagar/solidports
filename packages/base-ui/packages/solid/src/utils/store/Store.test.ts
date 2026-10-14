@@ -40,8 +40,24 @@ describe('Store', () => {
       expect(second.state.value).toBe(0);
     });
 
-    // Solid: SolidStore is a factory; stores extend it by composition (e.g. MenuStore), not subclassing.
-    it.skip('constructs an instance of the subclass it is called on', () => {});
+    it('constructs an instance of the subclass it is called on', () => {
+      // Solid: `SolidStore` is a factory; a store extends it by composition, as `MenuStore` does.
+      // The extended store is the base store itself, so its methods act on the same state.
+      function SubStore(initialState: { count: number }) {
+        const store = SolidStore(initialState);
+        return Object.assign(store, {
+          increment() {
+            store.set('count', store.state.count + 1);
+          },
+        });
+      }
+
+      const store = SubStore({ count: 1 });
+
+      expect(store.increment).toBeTypeOf('function');
+      store.increment();
+      expect(store.state.count).toBe(2);
+    });
   });
 
   it('notifies subscribers with the new state', () => {

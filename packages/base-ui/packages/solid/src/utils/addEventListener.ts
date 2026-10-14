@@ -50,13 +50,13 @@ export function addEventListener<
 export function addEventListener(
   target: EventTargetWithListeners,
   type: string,
-  listener: EventListenerOrEventListenerObject | ((event: any) => void),
+  listener: EventListenerOrEventListenerObject,
   options?: boolean | AddEventListenerOptions,
 ): () => void;
 export function addEventListener(
   target: EventTargetWithListeners,
   type: string,
-  listener: EventListenerOrEventListenerObject | ((event: any) => void),
+  listener: EventListenerOrEventListenerObject,
   options?: boolean | AddEventListenerOptions,
 ) {
   const untrackedListener = (event: Event) =>

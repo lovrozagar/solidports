@@ -471,7 +471,10 @@ export function SelectPopup(componentProps: SelectPopup.Props) {
 
   // Solid: the trigger reads the listbox id from the store (React reads it from the DOM).
   createEffect(
-    () => (listElement() ? undefined : (elementProps.id ?? `${id()}-list`)),
+    () =>
+      listElement() || elementProps.id === false
+        ? undefined
+        : (elementProps.id ?? `${id()}-list`),
     (listboxId) => {
       if (listboxId !== undefined) {
         store.set('listboxId', listboxId);

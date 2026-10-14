@@ -41,8 +41,12 @@ export function SolidStore<
   const context = initialContext;
   const [state, setState] = createInitialStore(initialState);
 
-  function update(statePart: Partial<State>) {
+  function update<const Key extends keyof State>(statePart: Pick<State, Key>) {
     setState(statePart as any);
+  }
+
+  function set<Key extends keyof State>(key: Key, value: State[Key]) {
+    setState(key as any, value as any);
   }
 
   /**
@@ -64,8 +68,8 @@ export function SolidStore<
     bindStoreKey(state, setState, key, value, { clearOnCleanup: true });
   }
 
-  function useSyncedValues<Keys extends keyof State>(
-    statePart: Accessor<Partial<State>> | Partial<{ [Key in Keys]: MaybeAccessor<State[Key]> }>,
+  function useSyncedValues<const Keys extends keyof State>(
+    statePart: Accessor<Pick<State, Keys>> | { [Key in Keys]: MaybeAccessor<State[Key]> },
   ) {
     if (process.env.NODE_ENV !== 'production') {
       createEffect(
@@ -117,7 +121,7 @@ export function SolidStore<
   }
 
   function useControlledProp<Key extends keyof State, Value extends State[Key]>(
-    key: keyof State,
+    key: Key,
     controlledProp: Value | Accessor<Value | undefined> | undefined,
   ): void {
     // The binding below is the key's only derivation, so the prop is read there directly.
@@ -316,7 +320,7 @@ export function SolidStore<
     notifyAll,
     observe,
     select,
-    set: setState,
+    set,
     setState,
     state,
     update,
