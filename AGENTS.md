@@ -65,7 +65,10 @@ From the repo root; CI runs the same set, with `fmt:check` in place of `fmt`.
     bun run typecheck
     bun run test         # @solidports/recharts unit
 
-Touched Base UI Solid? Also `bun run test:base-ui`.
+Touched Base UI Solid? Also `bun run test:base-ui:all`: every suite the Base UI
+tests workflow runs, one after another. It ends with a table of what passed,
+failed, or did not run. Report all three; a suite that did not run is not a pass.
+`--only <suite>,…` reruns some suites, and `--list` names them.
 
 Package-local oxlint/prettier/eslint configs stay. Do not reformat a restored
 upstream tree to make root oxfmt happy.
