@@ -4,6 +4,7 @@ import { Dialog } from '@solidports/base-ui/dialog';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { createSignal, Show } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
+import { useRef } from '@solidports/base-ui/solid-helpers';
 
 describe('<Dialog.Popup />', () => {
   const { render } = createRenderer();
@@ -197,11 +198,16 @@ describe('<Dialog.Popup />', () => {
   describe('prop: finalFocus', () => {
     it('respects finalFocus when initialFocus points outside the popup', async () => {
       function TestComponent() {
-        let initialRef: HTMLInputElement | undefined;
-        let finalRef: HTMLInputElement | undefined;
+        const initialRef = useRef<HTMLInputElement | null>(null);
+        const finalRef = useRef<HTMLInputElement | null>(null);
         return (
           <div>
-            <input data-testid="initial-outside" ref={initialRef} />
+            <input
+              data-testid="initial-outside"
+              ref={(element) => {
+                initialRef.current = element;
+              }}
+            />
             <Dialog.Root>
               <Dialog.Backdrop />
               <Dialog.Trigger>Open</Dialog.Trigger>
@@ -211,7 +217,12 @@ describe('<Dialog.Popup />', () => {
                 </Dialog.Popup>
               </Dialog.Portal>
             </Dialog.Root>
-            <input data-testid="final-outside" ref={finalRef} />
+            <input
+              data-testid="final-outside"
+              ref={(element) => {
+                finalRef.current = element;
+              }}
+            />
           </div>
         );
       }
@@ -233,11 +244,16 @@ describe('<Dialog.Popup />', () => {
 
     it('moves final focus to trigger if initialFocus points outside the popup and finalFocus is not specified', async () => {
       function TestComponent() {
-        let initialRef: HTMLInputElement | undefined;
-        let finalRef: HTMLInputElement | undefined;
+        const initialRef = useRef<HTMLInputElement | null>(null);
+        const finalRef = useRef<HTMLInputElement | null>(null);
         return (
           <div>
-            <input data-testid="initial-outside" ref={initialRef} />
+            <input
+              data-testid="initial-outside"
+              ref={(element) => {
+                initialRef.current = element;
+              }}
+            />
             <Dialog.Root>
               <Dialog.Backdrop />
               <Dialog.Trigger>Open</Dialog.Trigger>
@@ -247,7 +263,12 @@ describe('<Dialog.Popup />', () => {
                 </Dialog.Popup>
               </Dialog.Portal>
             </Dialog.Root>
-            <input data-testid="final-outside" ref={finalRef} />
+            <input
+              data-testid="final-outside"
+              ref={(element) => {
+                finalRef.current = element;
+              }}
+            />
           </div>
         );
       }

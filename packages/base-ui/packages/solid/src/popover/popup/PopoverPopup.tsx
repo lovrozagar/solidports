@@ -20,6 +20,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { usePopoverPositionerContext } from '../positioner/PopoverPositionerContext';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
+import type { ReactLikeRef } from '../../solid-helpers';
 
 const stateAttributesMapping: StateAttributesMapping<PopoverPopup.State> = {
   ...baseMapping,
@@ -213,6 +214,7 @@ export interface PopoverPopupProps extends BaseUIComponentProps<'div', PopoverPo
   initialFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((openType: InteractionType) => void | boolean | HTMLElement | null)
     | undefined;
@@ -228,6 +230,7 @@ export interface PopoverPopupProps extends BaseUIComponentProps<'div', PopoverPo
   finalFocus?:
     | boolean
     | HTMLElement
+    | ReactLikeRef<HTMLElement | null>
     | null
     | ((closeType: InteractionType) => void | boolean | HTMLElement | null)
     | undefined;
