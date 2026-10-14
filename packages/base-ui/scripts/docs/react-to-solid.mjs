@@ -1531,6 +1531,32 @@ function lowerReactiveFunctions(programPath, ctx) {
       },
     },
   });
+  // A hook's overload signatures take and return accessors too.
+  const hookNames = new Set(
+    found.filter(({ kind }) => kind === 'hook').map(({ path }) => functionName(path)),
+  );
+  programPath.traverse({
+    TSDeclareFunction(path) {
+      if (!path.node.id || !hookNames.has(path.node.id.name)) {
+        return;
+      }
+      path.node.params = path.node.params.map((param, index) => {
+        const id = t.isIdentifier(param)
+          ? param
+          : t.identifier(index === 0 ? 'params' : `arg${index}`);
+        const annotation = param.typeAnnotation?.typeAnnotation;
+        if (annotation) {
+          id.typeAnnotation = t.tsTypeAnnotation(accessorType(annotation, ctx.imports));
+        }
+        id.optional = Boolean(param.optional);
+        return id;
+      });
+      const returnType = path.node.returnType?.typeAnnotation;
+      if (returnType && !t.isTSVoidKeyword(returnType)) {
+        path.node.returnType = t.tsTypeAnnotation(accessorType(returnType, ctx.imports));
+      }
+    },
+  });
   for (const { path, kind } of found) {
     if (kind === 'component') {
       rewriteDestructuredProps(path, ctx.imports);
@@ -1602,6 +1628,41 @@ function transformModuleApis(programPath, ctx) {
             }
             const [propsParam, refParam] = fnPath.node.params;
             const [refType, propsType] = path.node.typeParameters?.params ?? [];
+            if (t.isObjectPattern(propsParam) && t.isIdentifier(refParam)) {
+              // `({ className, ...props }, ref)` reads the ref from the props, before their rest.
+              const restAt = propsParam.properties.findIndex((property) =>
+                t.isRestElement(property),
+              );
+              const refProperty = t.objectProperty(
+                t.identifier('ref'),
+                t.identifier(refParam.name),
+              );
+              propsParam.properties.splice(
+                restAt === -1 ? propsParam.properties.length : restAt,
+                0,
+                refProperty,
+              );
+              const annotation = propsParam.typeAnnotation?.typeAnnotation ?? propsType;
+              if (annotation) {
+                const refProp = t.tsPropertySignature(
+                  t.identifier('ref'),
+                  t.tsTypeAnnotation(
+                    t.tsTypeReference(
+                      t.identifier('Ref'),
+                      refType ? t.tsTypeParameterInstantiation([refType]) : null,
+                    ),
+                  ),
+                );
+                refProp.optional = true;
+                imports.add('solid-js', 'Ref', true);
+                propsParam.typeAnnotation = t.tsTypeAnnotation(
+                  t.tsIntersectionType([annotation, t.tsTypeLiteral([refProp])]),
+                );
+              }
+              fnPath.node.params = [propsParam];
+              path.replaceWith(fnPath.node);
+              break;
+            }
             if (t.isIdentifier(propsParam) && !propsParam.typeAnnotation && propsType) {
               const refProp = t.tsPropertySignature(
                 t.identifier('ref'),
@@ -2023,6 +2084,18 @@ function transformJsx(programPath, ctx) {
           t.isFunctionExpression(expression.arguments[0]))
       ) {
         imports.add('solid-js', 'For');
+        // `<For>` passes the index as an accessor.
+        const callbackPath = path.get('expression.arguments.0');
+        const indexParam = callbackPath.node.params[1];
+        if (t.isIdentifier(indexParam)) {
+          const binding = callbackPath.scope.getBinding(indexParam.name);
+          for (const reference of binding?.referencePaths ?? []) {
+            if (!inTypePosition(reference)) {
+              reference.replaceWith(t.callExpression(t.identifier(indexParam.name), []));
+            }
+          }
+          indexParam.typeAnnotation = null;
+        }
         const forElement = t.jsxElement(
           t.jsxOpeningElement(t.jsxIdentifier('For'), [
             t.jsxAttribute(
@@ -2167,13 +2240,37 @@ function transformTypes(programPath, ctx) {
 }
 
 /** Renames `props.className` and `props.htmlFor` reads. */
+/** Whether a binding holds a component's props (its parameter, or `merge`/`omit` of them). */
+function isPropsBinding(binding) {
+  if (!binding) {
+    return false;
+  }
+  if (binding.kind === 'param') {
+    const fn = binding.path.parentPath;
+    return (
+      binding.path.listKey === 'params' &&
+      binding.path.key === 0 &&
+      isComponentName(functionName(fn))
+    );
+  }
+  const init = binding.path.isVariableDeclarator() ? binding.path.node.init : null;
+  return (
+    t.isCallExpression(init) &&
+    t.isIdentifier(init.callee) &&
+    (init.callee.name === 'omit' || init.callee.name === 'merge')
+  );
+}
+
 function renameDomPropReads(programPath) {
   programPath.traverse({
     MemberExpression(path) {
       if (
-        t.isIdentifier(path.node.object, { name: 'props' }) &&
+        t.isIdentifier(path.node.object) &&
         t.isIdentifier(path.node.property) &&
-        DOM_ATTRIBUTES[path.node.property.name]
+        !path.node.computed &&
+        DOM_ATTRIBUTES[path.node.property.name] &&
+        (path.node.object.name === 'props' ||
+          isPropsBinding(path.scope.getBinding(path.node.object.name)))
       ) {
         path.node.property = t.identifier(DOM_ATTRIBUTES[path.node.property.name]);
       }

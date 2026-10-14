@@ -436,6 +436,14 @@ async function generateSourcePackages() {
       enqueueSpecifier(specifier, file);
     }
   }
+  // A folder's ambient declarations (`hast.d.ts` augmenting `hast`) come with its modules.
+  for (const dir of new Set([...seen].map((file) => path.dirname(file)))) {
+    for (const entry of fs.readdirSync(dir)) {
+      if (entry.endsWith('.d.ts')) {
+        seen.add(path.join(dir, entry));
+      }
+    }
+  }
   await Promise.all(
     [...seen].map(async (file) => {
       const pkg = owner(file);
