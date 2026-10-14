@@ -1,5 +1,6 @@
 import type { JSX } from '@solidjs/web';
-import { provideContext, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
+import { provideContext, splitComponentProps } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { getTarget } from '../../utils/shadowDom';

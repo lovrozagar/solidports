@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'solid-js';
-import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
+import type { useAnchorPositioning } from '../../utils/useAnchorPositioning';
 
 export type NavigationMenuPositionerContext = ReturnType<typeof useAnchorPositioning>;
 

@@ -38,7 +38,7 @@ describe('<Menu.Popup />', () => {
             <Menu.Popup />
           </Menu.Root>
         )),
-      ).to.throw(
+      ).toThrow(
         'Base UI: MenuPositionerContext is missing. MenuPositioner parts must be placed within <Menu.Positioner>.',
       );
       await flushMicrotasks();
@@ -110,7 +110,7 @@ describe('<Menu.Popup />', () => {
 
     fireEvent(popup, new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'F1' }));
     expect(onParentKeyDown).toHaveBeenCalled();
-    expect(onParentKeyDown.mock.calls.every(([event]) => event.key === 'F1')).to.equal(true);
+    expect(onParentKeyDown.mock.calls.every(([event]) => event.key === 'F1')).toBe(true);
   });
 
   it('enters the items at the list boundary when an arrow key leaves custom popup content', async () => {

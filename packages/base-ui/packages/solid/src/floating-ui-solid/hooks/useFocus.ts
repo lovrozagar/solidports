@@ -43,7 +43,7 @@ export interface UseFocusProps {
  */
 export function useFocus(parameters: {
   context: FloatingRootContext | FloatingContext;
-  props?: UseFocusProps;
+  props?: UseFocusProps | undefined;
 }): ElementProps {
   const props = defaultProps(parameters.props ?? {}, { enabled: true });
 

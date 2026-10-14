@@ -1,8 +1,10 @@
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { access, type MaybeAccessor, createLayoutEffect } from '../../../solid-helpers';
+import { access, createLayoutEffect } from '../../../solid-helpers';
+import type { MaybeAccessor } from '../../../solid-helpers';
 import type { CompositeMetadata } from './CompositeList';
-import { useCompositeListContext, type CompositeListRegistration } from './CompositeListContext';
+import { useCompositeListContext } from './CompositeListContext';
+import type { CompositeListRegistration } from './CompositeListContext';
 
 export interface UseCompositeListItemParameters<Metadata> {
   /**
@@ -11,13 +13,13 @@ export interface UseCompositeListItemParameters<Metadata> {
    * @default IndexGuessBehavior.None
    */
   indexGuessBehavior?: IndexGuessBehavior | undefined;
-  index?: MaybeAccessor<number | undefined>;
-  label?: MaybeAccessor<string | null | undefined>;
+  index?: MaybeAccessor<number | undefined> | undefined;
+  label?: MaybeAccessor<string | null | undefined> | undefined;
   /**
    * Metadata published with the item.
    */
-  metadata?: MaybeAccessor<Metadata | undefined>;
-  textRef?: MaybeAccessor<HTMLElement | null | undefined>;
+  metadata?: MaybeAccessor<Metadata | undefined> | undefined;
+  textRef?: MaybeAccessor<HTMLElement | null | undefined> | undefined;
 }
 
 interface UseCompositeListItemReturnValue {

@@ -1,8 +1,8 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { access, MaybeAccessor, useRef } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
+import { access, useRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import type { UseButtonSources } from '../../internals/use-button/useButton';
-import { MenuStore } from '../store/MenuStore';
+import type { MenuStore } from '../store/MenuStore';
 import { useMenuItemCommonProps } from './useMenuItemCommonProps';
 
 export const REGULAR_ITEM = {
@@ -120,7 +120,8 @@ export interface UseMenuItemParameters {
    * Whether a typeahead session is in progress.
    * @default store.context.typingRef
    */
-  typingRef?: MaybeAccessor<import('../../solid-helpers').ReactLikeRef<boolean> | undefined>;
+  typingRef?:
+    MaybeAccessor<import('../../solid-helpers').ReactLikeRef<boolean> | undefined> | undefined;
   /**
    * The menu store.
    */

@@ -1,13 +1,10 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo } from 'solid-js';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
-import {
-  NavigationMenuItemContext,
-  NavigationMenuItemContextValue,
-} from './NavigationMenuItemContext';
+import type { NavigationMenuItemContextValue } from './NavigationMenuItemContext';
+import { NavigationMenuItemContext } from './NavigationMenuItemContext';
 
 /**
  * An individual navigation menu item.

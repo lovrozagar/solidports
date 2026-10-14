@@ -23,11 +23,11 @@ describe('useId', () => {
 
     render(() => <TestComponent id={id()} />);
 
-    expect(screen.getByTestId('target')).to.have.property('id', 'some-id');
+    expect(screen.getByTestId('target')).toHaveProperty(['id'], 'some-id');
 
     act(() => setId('another-id'));
 
-    expect(screen.getByTestId('target')).to.have.property('id', 'another-id');
+    expect(screen.getByTestId('target')).toHaveProperty(['id'], 'another-id');
   });
 
   it("generates an ID if one isn't provided", () => {
@@ -39,9 +39,9 @@ describe('useId', () => {
     }
     render(() => <TestComponent id={id()} />);
 
-    expect(screen.getByTestId('target').id).not.to.equal('');
+    expect(screen.getByTestId('target').id).not.toBe('');
     act(() => setId('another-id'));
-    expect(screen.getByTestId('target')).to.have.property('id', 'another-id');
+    expect(screen.getByTestId('target')).toHaveProperty(['id'], 'another-id');
   });
 
   it('can be suffixed', () => {
@@ -60,7 +60,7 @@ describe('useId', () => {
     }
     render(() => <Widget />);
 
-    expect(screen.getByTestId('labelable')).to.have.attr(
+    expect(screen.getByTestId('labelable')).toHaveAttribute(
       'aria-labelledby',
       screen.getByTestId('label').id,
     );
@@ -88,7 +88,7 @@ describe('useId', () => {
     }
     render(() => <Widget />);
 
-    expect(screen.getByTestId('labelable')).to.have.attr(
+    expect(screen.getByTestId('labelable')).toHaveAttribute(
       'aria-labelledby',
       `${screen.getByTestId('labelA').id} ${screen.getByTestId('labelB').id}`,
     );
@@ -106,7 +106,7 @@ describe('useId', () => {
       </NoHydration>
     ));
 
-    expect(screen.getByTestId('target').id).not.to.equal('');
+    expect(screen.getByTestId('target').id).not.toBe('');
   });
 
   it('can be prefixed', () => {
@@ -125,8 +125,8 @@ describe('useId', () => {
     }
     render(() => <Widget />);
 
-    expect(screen.getByTestId('label').id.slice(0, 8)).to.equal(`${PREFIX}-`);
-    expect(screen.getByTestId('labelable')).to.have.attr(
+    expect(screen.getByTestId('label').id.slice(0, 8)).toBe(`${PREFIX}-`);
+    expect(screen.getByTestId('labelable')).toHaveAttribute(
       'aria-labelledby',
       screen.getByTestId('label').id,
     );

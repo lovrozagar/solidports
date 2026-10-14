@@ -36,7 +36,7 @@ describe('<Popover.Trigger />', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Popover.Trigger>Toggle</Popover.Trigger>)).to.throw(
+      expect(() => render(() => <Popover.Trigger>Toggle</Popover.Trigger>)).toThrow(
         'Base UI: <Popover.Trigger> must be either used within a <Popover.Root> component or provided with a handle.',
       );
     } finally {
@@ -58,14 +58,14 @@ describe('<Popover.Trigger />', () => {
       ));
 
       const trigger = screen.getByRole('button');
-      expect(trigger).to.have.attribute('disabled');
-      expect(trigger).to.have.attribute('data-disabled');
+      expect(trigger).toHaveAttribute('disabled');
+      expect(trigger).toHaveAttribute('data-disabled');
 
       await user.click(trigger);
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
 
       await user.keyboard('[Tab]');
-      expect(document.activeElement).not.to.equal(trigger);
+      expect(document.activeElement).not.toBe(trigger);
     });
 
     it('custom element', async () => {
@@ -81,15 +81,15 @@ describe('<Popover.Trigger />', () => {
       ));
 
       const trigger = screen.getByRole('button');
-      expect(trigger).to.not.have.attribute('disabled');
-      expect(trigger).to.have.attribute('data-disabled');
-      expect(trigger).to.have.attribute('aria-disabled', 'true');
+      expect(trigger).not.toHaveAttribute('disabled');
+      expect(trigger).toHaveAttribute('data-disabled');
+      expect(trigger).toHaveAttribute('aria-disabled', 'true');
 
       await user.click(trigger);
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
 
       await user.keyboard('[Tab]');
-      expect(document.activeElement).not.to.equal(trigger);
+      expect(document.activeElement).not.toBe(trigger);
     });
 
     it('does not open on hover when disabled', async () => {
@@ -110,7 +110,7 @@ describe('<Popover.Trigger />', () => {
       await user.hover(trigger);
       await flushMicrotasks();
 
-      expect(screen.queryByText('Content')).to.equal(null);
+      expect(screen.queryByText('Content')).toBe(null);
       expect(trigger).not.toHaveAttribute('data-popup-open');
     });
   });
@@ -215,8 +215,8 @@ describe('<Popover.Trigger />', () => {
       const trigger = screen.getByRole('button');
 
       act(() => trigger.click());
-      expect(trigger).to.have.attribute('data-popup-open');
-      expect(trigger).to.have.attribute('data-pressed');
+      expect(trigger).toHaveAttribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-pressed');
     });
 
     it('should have the data-popup-open but not the data-pressed attribute when open by hover', async () => {
@@ -235,8 +235,8 @@ describe('<Popover.Trigger />', () => {
 
       await user.hover(trigger);
 
-      expect(trigger).to.have.attribute('data-popup-open');
-      expect(trigger).not.to.have.attribute('data-pressed');
+      expect(trigger).toHaveAttribute('data-popup-open');
+      expect(trigger).not.toHaveAttribute('data-pressed');
     });
 
     it('should not have the data-popup-open and data-pressed attributes when open by click when `openOnHover=true` and `delay=0`', async () => {
@@ -256,7 +256,7 @@ describe('<Popover.Trigger />', () => {
       await user.hover(trigger);
 
       act(() => trigger.click());
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
     });
 
     it('should have the data-popup-open and data-pressed attributes when open by click when `openOnHover=true`', async () => {
@@ -275,8 +275,8 @@ describe('<Popover.Trigger />', () => {
 
       await user.hover(trigger);
       act(() => trigger.click());
-      expect(trigger).to.have.attribute('data-popup-open');
-      expect(trigger).to.have.attribute('data-pressed');
+      expect(trigger).toHaveAttribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-pressed');
     });
   });
 
@@ -305,7 +305,7 @@ describe('<Popover.Trigger />', () => {
 
       fireEvent.click(trigger);
 
-      expect(trigger).not.to.have.attribute('data-popup-open');
+      expect(trigger).not.toHaveAttribute('data-popup-open');
 
       // Leaving the trigger afterwards doesn't reopen it.
       fireEvent.mouseLeave(trigger);
@@ -340,11 +340,11 @@ describe('<Popover.Trigger />', () => {
 
       fireEvent.mouseLeave(trigger);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
 
       clock.tick(1);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
     });
 
     it('sticks when clicked before the hover delay completes', async () => {
@@ -371,11 +371,11 @@ describe('<Popover.Trigger />', () => {
       // User clicks impatiently to open
       fireEvent.click(trigger);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
 
       fireEvent.mouseLeave(trigger);
 
-      expect(trigger).to.have.attribute('data-popup-open');
+      expect(trigger).toHaveAttribute('data-popup-open');
     });
 
     it('should keep the popover open when re-hovered and clicked within the patient threshold', async () => {
@@ -400,7 +400,7 @@ describe('<Popover.Trigger />', () => {
       clock.tick(100);
       await flushMicrotasks();
 
-      expect(screen.getByText('Content')).not.to.equal(null);
+      expect(screen.getByText('Content')).not.toBe(null);
 
       clock.tick(PATIENT_CLICK_THRESHOLD);
 
@@ -409,7 +409,7 @@ describe('<Popover.Trigger />', () => {
       fireEvent.mouseMove(trigger);
 
       fireEvent.click(trigger);
-      expect(screen.getByText('Content')).not.to.equal(null);
+      expect(screen.getByText('Content')).not.toBe(null);
     });
   });
 
@@ -440,33 +440,33 @@ describe('<Popover.Trigger />', () => {
 
         await act(async () => trigger.focus());
         await user.keyboard('[Enter]');
-        expect(screen.queryByText('Content')).not.to.equal(null);
+        expect(screen.queryByText('Content')).not.toBe(null);
 
         await user.tab({ shift: true });
-        expect(document.activeElement).to.equal(trigger);
+        expect(document.activeElement).toBe(trigger);
 
         await user.keyboard('[Enter]');
         await waitFor(() => {
-          expect(screen.queryByText('Content')).to.equal(null);
+          expect(screen.queryByText('Content')).toBe(null);
         });
 
         await user.keyboard('[Enter]');
-        expect(screen.queryByText('Content')).not.to.equal(null);
+        expect(screen.queryByText('Content')).not.toBe(null);
 
         await user.tab({ shift: true });
-        expect(document.activeElement).to.equal(trigger);
+        expect(document.activeElement).toBe(trigger);
 
         await user.keyboard('[Space]');
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
 
         await user.keyboard('[Space]');
-        expect(screen.queryByText('Content')).not.to.equal(null);
+        expect(screen.queryByText('Content')).not.toBe(null);
 
         await user.tab({ shift: true });
-        expect(document.activeElement).to.equal(trigger);
+        expect(document.activeElement).toBe(trigger);
 
         await user.keyboard('[Space]');
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       } finally {
         cleanup();
       }

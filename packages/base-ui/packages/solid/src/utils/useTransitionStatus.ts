@@ -1,6 +1,7 @@
 import { createSignal, getOwner, runWithOwner, untrack } from 'solid-js';
 import { createEffectGroup } from './native/effectGroup';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { AnimationFrame } from './useAnimationFrame';
 
 export type TransitionStatus = 'starting' | 'ending' | 'idle' | undefined;

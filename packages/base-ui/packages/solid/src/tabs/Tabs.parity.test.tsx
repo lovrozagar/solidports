@@ -61,18 +61,22 @@ describe('native parity: Tabs', () => {
     const pair = renderParity(render, (slow) => tree(slow));
     pair.same();
     expect(pair.fast.querySelectorAll('[role="tabpanel"]').length).toBe(1);
-    expect(pair.fast.querySelector('[role="tab"][aria-selected="true"]')).to.have.text('Tab 0');
+    expect(pair.fast.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
+      'Tab 0',
+    );
     pair.both((root) => fireEvent.click(tabs(root)[2]));
-    expect(pair.fast.querySelector('[role="tab"][aria-selected="true"]')).to.have.text('Tab 2');
+    expect(pair.fast.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe(
+      'Tab 2',
+    );
     await pair.bothAsync((root) => {
       tabs(root)[2].focus();
       fireEvent.keyDown(tabs(root)[2], { key: 'ArrowLeft' });
     });
-    expect(pair.fast.querySelector('[role="tab"][tabindex="0"]')).to.have.text('Tab 1');
+    expect(pair.fast.querySelector('[role="tab"][tabindex="0"]')?.textContent).toBe('Tab 1');
     await pair.bothAsync((root) =>
       fireEvent.keyDown(root.querySelector('[role="tablist"]')!, { key: 'Home' }),
     );
-    expect(pair.fast.querySelector('[role="tab"][tabindex="0"]')).to.have.text('Tab 0');
+    expect(pair.fast.querySelector('[role="tab"][tabindex="0"]')?.textContent).toBe('Tab 0');
     pair.unmount();
   });
 
@@ -107,7 +111,7 @@ describe('native parity: Tabs', () => {
     );
     pair.same();
     expect(pair.fast.querySelectorAll('[role="tabpanel"]').length).toBe(3);
-    expect(pair.fast.querySelector('[role="tablist"]')).to.have.attribute(
+    expect(pair.fast.querySelector('[role="tablist"]')).toHaveAttribute(
       'aria-orientation',
       'vertical',
     );

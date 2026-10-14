@@ -1,4 +1,5 @@
-import { createSignal, type ComponentProps } from 'solid-js';
+import { createSignal } from 'solid-js';
+import type { ComponentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { screen } from '@solidjs/testing-library';

@@ -1,25 +1,19 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any`, mirrors React */
 import { isHTMLElement } from '@floating-ui/utils/dom';
-import { createEffect, createMemo, createSignal, onSettled, Show, type Accessor } from 'solid-js';
+import { createEffect, createMemo, createSignal, onSettled, Show } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
   FloatingNode,
   FloatingTree,
   useFloatingNodeId,
   useFloatingParentNodeId,
-  type FloatingRootContext,
 } from '../../floating-ui-solid';
+import type { FloatingRootContext } from '../../floating-ui-solid';
 import { activeElement, contains } from '../../floating-ui-solid/utils';
-import {
-  createDepsRenderEffect,
-  splitComponentProps,
-  useRef,
-  type ReactLikeRef,
-} from '../../solid-helpers';
-import {
-  createChangeEventDetails,
-  type BaseUIChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { createDepsRenderEffect, splitComponentProps, useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { attachPreventUnmountOnClose } from '../../utils/popups';
 import { useUnmountAfterClose } from '../../utils/useUnmountAfterClose';
 import { ownerDocument } from '../../utils/owner';
@@ -31,11 +25,11 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import * as NavigationMenuPositionerCssVars from '../positioner/NavigationMenuPositionerCssVars';
 import { setSharedFixedSize } from '../utils/setSharedFixedSize';
 import {
-  type NavigationMenuPopupAutoSizeResetState,
   NavigationMenuRootContext,
   NavigationMenuTreeContext,
   useNavigationMenuRootContext,
 } from './NavigationMenuRootContext';
+import type { NavigationMenuPopupAutoSizeResetState } from './NavigationMenuRootContext';
 import { splitProps } from '../../solid-1-compat';
 
 const blockedReturnFocusReasons = new Set<string>([

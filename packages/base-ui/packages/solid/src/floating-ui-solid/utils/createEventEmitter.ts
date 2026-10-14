@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- emitter event payloads are arbitrary, mirrors @floating-ui/react */
 import type { FloatingEvents } from '../types';
 
 export function createEventEmitter(): FloatingEvents {

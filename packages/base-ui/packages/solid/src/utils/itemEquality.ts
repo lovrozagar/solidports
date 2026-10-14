@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { areArraysEqual } from './areArraysEqual';
 
 export type ItemEqualityComparer<Item = any, Value = Item> = (

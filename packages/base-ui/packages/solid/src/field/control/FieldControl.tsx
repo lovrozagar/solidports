@@ -1,5 +1,6 @@
 import { createEffect, createSignal, onSettled, untrack } from 'solid-js';
-import { isServer, type JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import { activeElement } from '../../floating-ui-solid/utils';
 import { useFormContext } from '../../form/FormContext';
 import { useRegisterFieldControl } from '../../internals/field-register-control/useRegisterFieldControl';
@@ -11,11 +12,11 @@ import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDeta
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
-import { BaseUIComponentProps, type HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
-import { type FieldRootState } from '../root/FieldRoot';
+import type { FieldRootState } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
 import { useSetFieldFocused } from '../root/useSetFieldFocused';
 import { fieldValidityMapping } from '../utils/constants';

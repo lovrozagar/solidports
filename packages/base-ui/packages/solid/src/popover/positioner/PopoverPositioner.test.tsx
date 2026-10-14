@@ -53,7 +53,7 @@ describe('<Popover.Positioner />', () => {
             <Popover.Positioner />
           </Popover.Root>
         )),
-      ).to.throw('Base UI: <Popover.Portal> is missing.');
+      ).toThrow('Base UI: <Popover.Portal> is missing.');
     } finally {
       errorSpy.mockRestore();
     }
@@ -109,17 +109,17 @@ describe('<Popover.Positioner />', () => {
     const final = { x: 5, y: 200 };
 
     await waitFor(() => {
-      expect(positioner.getBoundingClientRect()).to.include(initial);
+      expect(positioner.getBoundingClientRect().toJSON()).toMatchObject(initial);
     });
 
     act(() => setTop(100));
 
     await waitFor(() => {
-      expect(positioner.getBoundingClientRect()).not.to.include(initial);
+      expect(positioner.getBoundingClientRect().toJSON()).not.toMatchObject(initial);
     });
 
     await waitFor(() => {
-      expect(positioner.getBoundingClientRect()).to.include(final);
+      expect(positioner.getBoundingClientRect().toJSON()).toMatchObject(final);
     });
   });
 
@@ -149,17 +149,17 @@ describe('<Popover.Positioner />', () => {
     const final = { x: 5, y: 200 };
 
     await waitFor(() => {
-      expect(positioner.getBoundingClientRect()).to.include(initial);
+      expect(positioner.getBoundingClientRect().toJSON()).toMatchObject(initial);
     });
 
     act(() => setTop(100));
 
     await waitFor(() => {
-      expect(positioner.getBoundingClientRect()).not.to.include(initial);
+      expect(positioner.getBoundingClientRect().toJSON()).not.toMatchObject(initial);
     });
 
     await waitFor(() => {
-      expect(positioner.getBoundingClientRect()).to.include(final);
+      expect(positioner.getBoundingClientRect().toJSON()).toMatchObject(final);
     });
   });
 
@@ -193,8 +193,8 @@ describe('<Popover.Positioner />', () => {
       await waitSingleFrame();
     });
 
-    expect(trigger.getBoundingClientRect().y).to.equal(initialTriggerY - 20);
-    expect(positioner.getBoundingClientRect().y).to.equal(initialPositionerY);
+    expect(trigger.getBoundingClientRect().y).toBe(initialTriggerY - 20);
+    expect(positioner.getBoundingClientRect().y).toBe(initialPositionerY);
   });
 
   it.skipIf(isJSDOM)('observes a custom anchor for keepMounted auto-updates', async () => {
@@ -241,7 +241,7 @@ describe('<Popover.Positioner />', () => {
       const anchor = screen.getByTestId('custom-anchor');
 
       await waitFor(() => {
-        expect(observedElements).to.include(anchor);
+        expect(observedElements).toContain(anchor);
       });
     } finally {
       window.ResizeObserver = originalResizeObserver;
@@ -314,8 +314,8 @@ describe('<Popover.Positioner />', () => {
       });
 
       const closingRect = positioner.getBoundingClientRect();
-      expect(Math.abs(closingRect.x - initialRect.x)).to.be.at.most(1);
-      expect(Math.abs(closingRect.y - initialRect.y)).to.be.at.most(1);
+      expect(Math.abs(closingRect.x - initialRect.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(closingRect.y - initialRect.y)).toBeLessThanOrEqual(1);
     },
   );
 
@@ -336,7 +336,7 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       ));
 
-      expect(getTransformOrigin()).to.equal(`${popupWidth / 2}px 0px`);
+      expect(getTransformOrigin()).toBe(`${popupWidth / 2}px 0px`);
     });
 
     it('points to the popup start edge for start alignment', async () => {
@@ -351,7 +351,7 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       ));
 
-      expect(getTransformOrigin()).to.equal('0% 0px');
+      expect(getTransformOrigin()).toBe('0% 0px');
     });
 
     it('points to the popup logical start edge for start alignment in RTL', async () => {
@@ -370,7 +370,7 @@ describe('<Popover.Positioner />', () => {
         </div>
       ));
 
-      expect(getTransformOrigin()).to.equal('100% 0px');
+      expect(getTransformOrigin()).toBe('100% 0px');
     });
 
     it('uses the floating element direction for RTL alignment', async () => {
@@ -385,7 +385,7 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       ));
 
-      expect(getTransformOrigin()).to.equal('100% 0px');
+      expect(getTransformOrigin()).toBe('100% 0px');
     });
 
     it('points to the popup end edge for end alignment', async () => {
@@ -400,7 +400,7 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       ));
 
-      expect(getTransformOrigin()).to.equal('100% 0px');
+      expect(getTransformOrigin()).toBe('100% 0px');
     });
 
     it('points to the popup logical end edge for end alignment in RTL', async () => {
@@ -419,7 +419,7 @@ describe('<Popover.Positioner />', () => {
         </div>
       ));
 
-      expect(getTransformOrigin()).to.equal('0% 0px');
+      expect(getTransformOrigin()).toBe('0% 0px');
     });
 
     it('places the side coordinate first for horizontal sides', async () => {
@@ -434,7 +434,7 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       ));
 
-      expect(getTransformOrigin()).to.equal('0px 0%');
+      expect(getTransformOrigin()).toBe('0px 0%');
     });
 
     it('points to the popup end edge for horizontal end alignment', async () => {
@@ -451,7 +451,7 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       ));
 
-      expect(getTransformOrigin()).to.equal('calc(100% + 7px) 100%');
+      expect(getTransformOrigin()).toBe('calc(100% + 7px) 100%');
     });
 
     it('accounts for sideOffset', async () => {
@@ -466,7 +466,7 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       ));
 
-      expect(getTransformOrigin()).to.equal('0% -7px');
+      expect(getTransformOrigin()).toBe('0% -7px');
     });
 
     it('accounts for sideOffset on top side', async () => {
@@ -483,7 +483,7 @@ describe('<Popover.Positioner />', () => {
         </Popover.Root>
       ));
 
-      expect(getTransformOrigin()).to.equal('0% calc(100% + 7px)');
+      expect(getTransformOrigin()).toBe('0% calc(100% + 7px)');
     });
 
     it('keeps the popup start edge as the origin with alignOffset', async () => {
@@ -504,8 +504,8 @@ describe('<Popover.Positioner />', () => {
       const anchorRect = trigger.getBoundingClientRect();
       const positionerRect = positioner.getBoundingClientRect();
 
-      expect(positionerRect.left - anchorRect.left).to.equal(alignOffset);
-      expect(getTransformOrigin()).to.equal('0% 0px');
+      expect(positionerRect.left - anchorRect.left).toBe(alignOffset);
+      expect(getTransformOrigin()).toBe('0% 0px');
     });
 
     it('does not let the virtual arrow displace the popup on a narrow anchor', async () => {
@@ -528,10 +528,8 @@ describe('<Popover.Positioner />', () => {
       const positioner = screen.getByTestId('positioner');
 
       // The arrow padding must not move a popup that has no arrow to keep off its corners.
-      expect(positioner.getBoundingClientRect().left).to.equal(
-        trigger.getBoundingClientRect().left,
-      );
-      expect(getTransformOrigin()).to.equal('0% 0px');
+      expect(positioner.getBoundingClientRect().left).toBe(trigger.getBoundingClientRect().left);
+      expect(getTransformOrigin()).toBe('0% 0px');
     });
 
     it('points to the flipped edge when the alignment flips', async () => {
@@ -554,8 +552,8 @@ describe('<Popover.Positioner />', () => {
 
       const positioner = screen.getByTestId('positioner');
 
-      expect(positioner.getAttribute('data-align')).to.equal('end');
-      expect(getTransformOrigin()).to.equal('100% 0px');
+      expect(positioner.getAttribute('data-align')).toBe('end');
+      expect(getTransformOrigin()).toBe('100% 0px');
     });
 
     it('keeps the popup start edge as the origin for a 1px cross-axis shift', async () => {
@@ -589,8 +587,8 @@ describe('<Popover.Positioner />', () => {
       const anchorRect = trigger.getBoundingClientRect();
       const positionerRect = positioner.getBoundingClientRect();
 
-      expect(Math.round(positionerRect.left - anchorRect.left)).to.equal(-1);
-      expect(getTransformOrigin()).to.equal('0% 0px');
+      expect(Math.round(positionerRect.left - anchorRect.left)).toBe(-1);
+      expect(getTransformOrigin()).toBe('0% 0px');
     });
 
     it('points to the anchor center when start alignment is shifted on the cross axis', async () => {
@@ -619,8 +617,8 @@ describe('<Popover.Positioner />', () => {
       const anchorRect = trigger.getBoundingClientRect();
       const positionerRect = positioner.getBoundingClientRect();
 
-      expect(positionerRect.left).to.be.lessThan(anchorRect.left);
-      expect(getTransformOrigin()).to.equal(
+      expect(positionerRect.left).toBeLessThan(anchorRect.left);
+      expect(getTransformOrigin()).toBe(
         `${anchorRect.x + anchorWidth / 2 - positionerRect.x}px 0px`,
       );
     });
@@ -651,8 +649,8 @@ describe('<Popover.Positioner />', () => {
       const anchorRect = trigger.getBoundingClientRect();
       const positionerRect = positioner.getBoundingClientRect();
 
-      expect(positionerRect.right).to.be.greaterThan(anchorRect.right);
-      expect(getTransformOrigin()).to.equal(
+      expect(positionerRect.right).toBeGreaterThan(anchorRect.right);
+      expect(getTransformOrigin()).toBe(
         `${anchorRect.x + anchorWidth / 2 - positionerRect.x}px 0px`,
       );
     });
@@ -684,8 +682,8 @@ describe('<Popover.Positioner />', () => {
       const anchorRect = trigger.getBoundingClientRect();
       const positionerRect = positioner.getBoundingClientRect();
 
-      expect(positionerRect.top).to.be.lessThan(anchorRect.top);
-      expect(getTransformOrigin()).to.equal(
+      expect(positionerRect.top).toBeLessThan(anchorRect.top);
+      expect(getTransformOrigin()).toBe(
         `0px ${anchorRect.y + anchorHeight / 2 - positionerRect.y}px`,
       );
     });
@@ -707,7 +705,7 @@ describe('<Popover.Positioner />', () => {
       ));
 
       // With start alignment the anchor's center sits half an anchor width into the popup.
-      expect(getTransformOrigin()).to.equal(`${anchorWidth / 2}px 0px`);
+      expect(getTransformOrigin()).toBe(`${anchorWidth / 2}px 0px`);
     });
 
     it('points to the anchor center when the popup is shifted to overlap the anchor', async () => {
@@ -729,8 +727,8 @@ describe('<Popover.Positioner />', () => {
       const anchorRect = trigger.getBoundingClientRect();
       const positionerRect = positioner.getBoundingClientRect();
 
-      expect(positionerRect.top).to.be.lessThan(anchorRect.bottom);
-      expect(getTransformOrigin()).to.equal(
+      expect(positionerRect.top).toBeLessThan(anchorRect.bottom);
+      expect(getTransformOrigin()).toBe(
         `${popupWidth / 2}px ${anchorRect.y + anchorHeight / 2 - positionerRect.y}px`,
       );
     });

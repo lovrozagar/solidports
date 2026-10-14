@@ -6,7 +6,8 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import solidPlugin from '@solidjs/vite-plugin';
-import { createServer, type ViteDevServer } from 'vite';
+import { createServer } from 'vite';
+import type { ViteDevServer } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const here = dirname(fileURLToPath(import.meta.url));

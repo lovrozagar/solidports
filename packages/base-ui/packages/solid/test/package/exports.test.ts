@@ -48,26 +48,24 @@ describe.skipIf(!isJSDOM)('package exports', () => {
   const entries = Object.entries(packageJson.exports);
 
   it('maps every subpath to a source file and a declaration file', () => {
-    expect(entries.length).to.be.at.least(80);
+    expect(entries.length).toBeGreaterThanOrEqual(80);
     entries.forEach(([subpath, target]) => {
-      expect(target.default, `${subpath} default`).to.match(/^\.\/src\/.+\.tsx?$/);
-      expect(existsSync(join(PACKAGE_ROOT, target.default)), `${subpath} default exists`).to.equal(
+      expect(target.default, `${subpath} default`).toMatch(/^\.\/src\/.+\.tsx?$/);
+      expect(existsSync(join(PACKAGE_ROOT, target.default)), `${subpath} default exists`).toBe(
         true,
       );
       // The `solid` condition marks the package as Solid source for bundler plugins
       // (`@solidjs/vite-plugin` compiles it instead of pre-bundling it).
-      expect(target.solid, `${subpath} solid`).to.equal(target.default);
-      expect(Object.keys(target), `${subpath} condition order`).to.deep.equal([
+      expect(target.solid, `${subpath} solid`).toBe(target.default);
+      expect(Object.keys(target), `${subpath} condition order`).toEqual([
         'types',
         'solid',
         'default',
       ]);
-      expect(target.types, `${subpath} types`).to.equal(
+      expect(target.types, `${subpath} types`).toBe(
         target.default.replace(/^\.\/src\//, './types/').replace(/\.tsx?$/, '.d.ts'),
       );
-      expect(existsSync(join(PACKAGE_ROOT, target.types)), `${subpath} types exists`).to.equal(
-        true,
-      );
+      expect(existsSync(join(PACKAGE_ROOT, target.types)), `${subpath} types exists`).toBe(true);
     });
   });
 
@@ -78,19 +76,19 @@ describe.skipIf(!isJSDOM)('package exports', () => {
         .map(async ([subpath]) => {
           const specifier = `@solidports/base-ui${subpath.slice(1)}`;
           const module = await import(/* @vite-ignore */ specifier);
-          expect(Object.keys(module).length, `${specifier} exports`).to.be.greaterThan(0);
+          expect(Object.keys(module).length, `${specifier} exports`).toBeGreaterThan(0);
         }),
     );
   });
 
   it('has no dependencies of its own: every package it needs is a peer, installed for development', () => {
-    expect(packageJson.dependencies, 'dependencies').to.equal(undefined);
-    expect(packageJson.optionalDependencies, 'optionalDependencies').to.equal(undefined);
-    expect(packageJson.bundleDependencies, 'bundleDependencies').to.equal(undefined);
-    expect(packageJson.bundledDependencies, 'bundledDependencies').to.equal(undefined);
+    expect(packageJson.dependencies, 'dependencies').toBe(undefined);
+    expect(packageJson.optionalDependencies, 'optionalDependencies').toBe(undefined);
+    expect(packageJson.bundleDependencies, 'bundleDependencies').toBe(undefined);
+    expect(packageJson.bundledDependencies, 'bundledDependencies').toBe(undefined);
     const devDependencies = Object.keys(packageJson.devDependencies ?? {});
     Object.keys(packageJson.peerDependencies ?? {}).forEach((peer) => {
-      expect(devDependencies, `${peer} in devDependencies`).to.include(peer);
+      expect(devDependencies, `${peer} in devDependencies`).toContain(peer);
     });
   });
 
@@ -129,6 +127,6 @@ describe.skipIf(!isJSDOM)('package exports', () => {
       }
     });
 
-    expect(violations).to.deep.equal([]);
+    expect(violations).toEqual([]);
   });
 });

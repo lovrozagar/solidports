@@ -12,12 +12,8 @@ import { closest, getTarget } from '../../utils/shadowDom';
 import { isMouseLikePointerType } from '../../floating-ui-solid/utils/event';
 import { useHoverInteractionSharedState } from '../../floating-ui-solid/hooks/useHoverInteractionSharedState';
 import { getDelay } from '../../floating-ui-solid/hooks/useHoverShared';
-import {
-  live,
-  splitComponentProps,
-  type ReactLikeRef,
-  createLayoutEffect,
-} from '../../solid-helpers';
+import { live, splitComponentProps, createLayoutEffect } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import {
   usePopupHandleStore,
@@ -33,7 +29,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { useTimeout } from '../../utils/useTimeout';
 import { useTooltipProviderContext } from '../provider/TooltipProviderContext';
 import { useTooltipRootContext } from '../root/TooltipRootContext';
-import { TooltipHandle } from '../store/TooltipHandle';
+import type { TooltipHandle } from '../store/TooltipHandle';
 import type { TooltipHandleStore } from '../store/TooltipStore';
 import { OPEN_DELAY } from '../utils/constants';
 import * as TooltipTriggerDataAttributes from './TooltipTriggerDataAttributes';

@@ -1,7 +1,7 @@
 import type { DialogRoot } from '../../dialog/root/DialogRoot';
 import { useRenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
-import { type ReactLikeRef } from '../../solid-helpers';
-import { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { ReactLikeRef } from '../../solid-helpers';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { AlertDialogHandle } from '../handle';
 
 /**

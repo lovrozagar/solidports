@@ -3,7 +3,8 @@ import type { JSX } from '@solidjs/web';
 import { describe, expect, it } from 'vitest';
 import { act, createRenderer } from '#test-utils';
 import { createLayoutEffect } from '../solid-helpers';
-import { useItemRegistry, type ItemRegistry } from './useItemRegistry';
+import { useItemRegistry } from './useItemRegistry';
+import type { ItemRegistry } from './useItemRegistry';
 
 describe('useItemRegistry', () => {
   const { render } = createRenderer();

@@ -1,5 +1,6 @@
 import { isOverflowElement } from '@floating-ui/utils/dom';
-import { access, createDepsRenderEffect, type MaybeAccessor } from '../solid-helpers';
+import { access, createDepsRenderEffect } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { addEventListener } from './addEventListener';
 import { platform } from './platform';
 import { ownerDocument, ownerWindow } from './owner';
@@ -310,7 +311,7 @@ const SCROLL_LOCKER = new ScrollLocker();
  */
 export function useScrollLock(params: {
   enabled: MaybeAccessor<boolean>;
-  referenceElement?: MaybeAccessor<Element | null | undefined>;
+  referenceElement?: MaybeAccessor<Element | null | undefined> | undefined;
 }) {
   createDepsRenderEffect(
     () => ({

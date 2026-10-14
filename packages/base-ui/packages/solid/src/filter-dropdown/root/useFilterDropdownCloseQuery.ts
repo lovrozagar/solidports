@@ -1,5 +1,6 @@
 import { createSignal, untrack } from 'solid-js';
-import { access, createLayoutEffect, type MaybeAccessor } from '../../solid-helpers';
+import { access, createLayoutEffect } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import type { FilterDropdownRoot } from './FilterDropdownRootContext';

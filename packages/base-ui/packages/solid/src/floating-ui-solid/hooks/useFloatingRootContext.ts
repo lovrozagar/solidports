@@ -1,17 +1,18 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isElement } from '@floating-ui/utils/dom';
 import { createEffect } from 'solid-js';
 import { defaultProps } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { PopupTriggerMap } from '../../utils/popups';
 import { useId } from '../../utils/useId';
-import { FloatingRootStore, type FloatingRootState } from '../components/FloatingRootStoreV2';
+import { FloatingRootStore } from '../components/FloatingRootStoreV2';
+import type { FloatingRootState } from '../components/FloatingRootStoreV2';
 import { useFloatingParentNodeId } from '../components/FloatingTree';
 import type { ReferenceType } from '../types';
 
 export interface UseFloatingRootContextOptions {
   open?: boolean | undefined;
-  onOpenChange?: (open: boolean, eventDetails: BaseUIChangeEventDetails<string>) => void;
+  onOpenChange?:
+    ((open: boolean, eventDetails: BaseUIChangeEventDetails<string>) => void) | undefined;
   elements?:
     | {
         reference?: ReferenceType | null | undefined;

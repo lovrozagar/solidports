@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'solid-js';
-import { type MaybeAccessor } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 
 export const SelectPortalContext = createContext<MaybeAccessor<boolean> | null>(null);
 

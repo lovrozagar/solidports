@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic prop merger handles arbitrary handler shapes */
 import { createMemo, merge, omit } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { mergeProps } from '../../merge-props';

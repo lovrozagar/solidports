@@ -9,14 +9,15 @@ import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useAnchoredPopupScrollLock } from '../../utils/useAnchoredPopupScrollLock';
-import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
+import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
+import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { useTriggerSwitchTransition } from '../../utils/useTriggerSwitchTransition';
 import { usePositioner } from '../../utils/usePositioner';
 import { useTimeout } from '../../utils/useTimeout';
 import { useMenuPortalContext } from '../portal/MenuPortalContext';
 import type { MenuRoot } from '../root/MenuRoot';
 import { useMenuRootContext } from '../root/MenuRootContext';
-import { MenuOpenEventDetails } from '../utils/types';
+import type { MenuOpenEventDetails } from '../utils/types';
 import { MenuPositionerContext } from './MenuPositionerContext';
 
 /**

@@ -1,5 +1,6 @@
 import { untrack } from 'solid-js';
-import { access, createLayoutEffect, type MaybeAccessor } from '../solid-helpers';
+import { access, createLayoutEffect } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { useOpenChangeComplete } from './useOpenChangeComplete';
 import { useTransitionStatus } from './useTransitionStatus';
 
@@ -29,7 +30,7 @@ export interface UseUnmountAfterCloseParameters {
   /**
    * Whether a popup that mounts already open should still play its enter transition.
    */
-  animateInitialOpen?: MaybeAccessor<boolean | undefined>;
+  animateInitialOpen?: MaybeAccessor<boolean | undefined> | undefined;
 }
 
 /**

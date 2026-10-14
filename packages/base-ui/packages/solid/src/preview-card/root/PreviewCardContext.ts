@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'solid-js';
-import { PreviewCardStore } from '../store/PreviewCardStore';
+import type { PreviewCardStore } from '../store/PreviewCardStore';
 
 export type PreviewCardRootContext<Payload = unknown> = {
   store: PreviewCardStore<Payload>;

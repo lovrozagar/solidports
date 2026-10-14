@@ -1,7 +1,6 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createSignal, Show } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { GroupCollectionProvider } from '../collection/GroupCollectionContext';
 import { useComboboxRootContext } from '../root/ComboboxRootContext';

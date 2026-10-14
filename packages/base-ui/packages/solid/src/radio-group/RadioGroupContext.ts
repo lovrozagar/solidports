@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic radio Value erased at the context boundary */
 import { createContext, useContext } from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type { UseFieldValidationReturnValue } from '../field/root/useFieldValidation';

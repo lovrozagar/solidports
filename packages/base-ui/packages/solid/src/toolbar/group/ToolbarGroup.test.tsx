@@ -40,7 +40,7 @@ describe('<Toolbar.Group />', () => {
         </Toolbar.Root>
       ));
 
-      expect(screen.getByTestId('group')).to.equal(screen.getByRole('group'));
+      expect(screen.getByTestId('group')).toBe(screen.getByRole('group'));
     });
   });
 
@@ -57,12 +57,12 @@ describe('<Toolbar.Group />', () => {
       ));
 
       [screen.getByRole('button'), screen.getByRole('textbox')].forEach((toolbarItem) => {
-        expect(toolbarItem).to.have.attribute('aria-disabled', 'true');
-        expect(toolbarItem).to.have.attribute('data-disabled');
+        expect(toolbarItem).toHaveAttribute('aria-disabled', 'true');
+        expect(toolbarItem).toHaveAttribute('data-disabled');
       });
 
-      expect(screen.getByText('Link')).to.not.have.attribute('data-disabled');
-      expect(screen.getByText('Link')).to.not.have.attribute('aria-disabled');
+      expect(screen.getByText('Link')).not.toHaveAttribute('data-disabled');
+      expect(screen.getByText('Link')).not.toHaveAttribute('aria-disabled');
     });
   });
 });

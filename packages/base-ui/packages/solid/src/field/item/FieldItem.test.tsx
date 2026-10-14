@@ -6,7 +6,6 @@ import { Radio } from '@solidports/base-ui/radio';
 import { RadioGroup } from '@solidports/base-ui/radio-group';
 import { screen } from '@solidjs/testing-library';
 import type { JSX } from '@solidjs/web';
-import { spy } from 'sinon';
 import { expect, vi, describe, it } from 'vitest';
 import { describeConformance } from '../../../test/describeConformance';
 
@@ -34,12 +33,12 @@ describe('<Field.Item />', () => {
         </Field.Root>
       ));
 
-      expect(screen.getByTestId('item')).to.have.attribute('data-disabled');
-      expect(renderItem.mock.lastCall?.[0].disabled).to.equal(true);
+      expect(screen.getByTestId('item')).toHaveAttribute('data-disabled');
+      expect(renderItem.mock.lastCall?.[0].disabled).toBe(true);
     });
 
     it('disables a wrapped checkbox', async () => {
-      const onValueChange = spy();
+      const onValueChange = vi.fn();
       const { user } = render(() => (
         <Field.Root name="apple">
           <CheckboxGroup defaultValue={[]} onValueChange={onValueChange}>
@@ -54,13 +53,13 @@ describe('<Field.Item />', () => {
       ));
       const [checkbox1, checkbox2] = screen.getAllByRole('checkbox');
       await user.click(checkbox1);
-      expect(onValueChange.callCount).to.equal(0);
+      expect(onValueChange.mock.calls.length).toBe(0);
       await user.click(checkbox2);
-      expect(onValueChange.callCount).to.equal(1);
+      expect(onValueChange.mock.calls.length).toBe(1);
     });
 
     it('disables a wrapped radio', async () => {
-      const onValueChange = spy();
+      const onValueChange = vi.fn();
       const { user } = render(() => (
         <Field.Root name="apple">
           <RadioGroup defaultValue="" onValueChange={onValueChange}>
@@ -75,9 +74,9 @@ describe('<Field.Item />', () => {
       ));
       const [radio1, radio2] = screen.getAllByRole('radio');
       await user.click(radio1);
-      expect(onValueChange.callCount).to.equal(0);
+      expect(onValueChange.mock.calls.length).toBe(0);
       await user.click(radio2);
-      expect(onValueChange.callCount).to.equal(1);
+      expect(onValueChange.mock.calls.length).toBe(1);
     });
   });
 
@@ -100,11 +99,11 @@ describe('<Field.Item />', () => {
     const label = screen.getByText('Toggle all').closest('label') as HTMLLabelElement;
     const parent = screen.getByTestId('parent');
 
-    expect(label).to.have.attribute('for');
-    expect(label.control).to.have.attribute('type', 'checkbox');
+    expect(label).toHaveAttribute('for');
+    expect(label.control).toHaveAttribute('type', 'checkbox');
     await user.click(screen.getByText('Toggle all'));
-    expect(parent).to.have.attribute('aria-checked', 'true');
-    expect(screen.getByTestId('a')).to.have.attribute('aria-checked', 'true');
-    expect(screen.getByTestId('b')).to.have.attribute('aria-checked', 'true');
+    expect(parent).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('a')).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('b')).toHaveAttribute('aria-checked', 'true');
   });
 });

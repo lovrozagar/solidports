@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- Solid event-handler bridge requires casts at mergeProps boundaries (currentTarget shape mismatch) */
 import { createEffect, createMemo, createSignal, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import {
@@ -20,8 +19,10 @@ import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { contains } from '../../floating-ui-solid/utils';
 import { matchesFocusVisible } from '../../floating-ui-solid/utils/element';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
-import { mergeProps, type MergablePropsCallback } from '../../merge-props';
-import { splitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
+import { mergeProps } from '../../merge-props';
+import type { MergablePropsCallback } from '../../merge-props';
+import { splitComponentProps, useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
 import { formatNumber } from '../../utils/formatNumber';
 import { ownerWindow } from '../../utils/owner';

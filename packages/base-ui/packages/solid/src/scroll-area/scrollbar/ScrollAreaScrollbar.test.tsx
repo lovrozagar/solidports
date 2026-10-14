@@ -1,7 +1,8 @@
 import { expect, vi, describe, it } from 'vitest';
 import { For, omit } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
+import { DirectionProvider } from '@solidports/base-ui/direction-provider';
+import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
 import { screen, fireEvent, waitFor } from '@solidjs/testing-library';
 import { createRenderer, describeConformance, flushMicrotasks, isJSDOM } from '#test-utils';

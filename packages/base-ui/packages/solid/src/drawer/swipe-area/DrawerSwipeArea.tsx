@@ -8,23 +8,20 @@ import type { StateAttributesMapping } from '../../utils/getStateAttributesProps
 import { NOOP } from '../../utils/empty';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
-import { getDisplacement, useSwipeDismiss, type SwipeDirection } from '../../utils/useSwipeDismiss';
+import { getDisplacement, useSwipeDismiss } from '../../utils/useSwipeDismiss';
+import type { SwipeDirection } from '../../utils/useSwipeDismiss';
 import { getElementTransform } from '../../utils/getElementTransform';
 import * as DrawerPopupCssVars from '../popup/DrawerPopupCssVars';
 import * as DrawerPopupDataAttributes from '../popup/DrawerPopupDataAttributes';
 import * as DrawerBackdropCssVars from '../backdrop/DrawerBackdropCssVars';
-import { useDrawerRootContext, type DrawerSwipeDirection } from '../root/DrawerRootContext';
+import { useDrawerRootContext } from '../root/DrawerRootContext';
+import type { DrawerSwipeDirection } from '../root/DrawerRootContext';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useTriggerRegistration } from '../../utils/popups';
 import { useDrawerProviderContext } from '../provider/DrawerProviderContext';
 import { isVirtualClick } from '../../floating-ui-solid/utils/event';
-import {
-  createDepsRenderEffect,
-  live,
-  splitComponentProps,
-  useRef,
-  type ReactLikeRef,
-} from '../../solid-helpers';
+import { createDepsRenderEffect, live, splitComponentProps, useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import * as DrawerSwipeAreaDataAttributes from './DrawerSwipeAreaDataAttributes';
 
 const DEFAULT_SWIPE_OPEN_RATIO = 0.5;

@@ -42,7 +42,7 @@ describe('<Checkbox.Indicator />', () => {
         : undefined;
 
     try {
-      expect(() => render(() => <Checkbox.Indicator />)).to.throw(
+      expect(() => render(() => <Checkbox.Indicator />)).toThrow(
         'Base UI: CheckboxRootContext is missing. Checkbox parts must be placed within <Checkbox.Root>.',
       );
     } finally {
@@ -60,7 +60,7 @@ describe('<Checkbox.Indicator />', () => {
       </Checkbox.Root>
     ));
     const indicator = screen.queryByTestId('indicator');
-    expect(indicator).to.equal(null);
+    expect(indicator).toBe(null);
   });
 
   it('should render indicator when checked', async () => {
@@ -70,7 +70,7 @@ describe('<Checkbox.Indicator />', () => {
       </Checkbox.Root>
     ));
     const indicator = screen.getByTestId('indicator');
-    expect(indicator).not.to.equal(null);
+    expect(indicator).not.toBe(null);
   });
 
   describe('prop: keepMounted', () => {
@@ -81,7 +81,7 @@ describe('<Checkbox.Indicator />', () => {
         </Checkbox.Root>
       ));
       const indicator = screen.getByTestId('indicator');
-      expect(indicator).not.to.equal(null);
+      expect(indicator).not.toBe(null);
     });
 
     it('should keep indicator mounted when checked', async () => {
@@ -91,7 +91,7 @@ describe('<Checkbox.Indicator />', () => {
         </Checkbox.Root>
       ));
       const indicator = screen.getByTestId('indicator');
-      expect(indicator).not.to.equal(null);
+      expect(indicator).not.toBe(null);
     });
 
     it('should keep indicator mounted when indeterminate', async () => {
@@ -101,7 +101,7 @@ describe('<Checkbox.Indicator />', () => {
         </Checkbox.Root>
       ));
       const indicator = screen.getByTestId('indicator');
-      expect(indicator).not.to.equal(null);
+      expect(indicator).not.toBe(null);
     });
   });
 
@@ -124,14 +124,14 @@ describe('<Checkbox.Indicator />', () => {
 
     const { user } = render(() => <Test />);
 
-    expect(screen.getByTestId('indicator')).not.to.equal(null);
+    expect(screen.getByTestId('indicator')).not.toBe(null);
 
     const closeButton = screen.getByText('Close');
 
     await user.click(closeButton);
 
     await waitFor(() => {
-      expect(screen.queryByTestId('indicator')).to.equal(null);
+      expect(screen.queryByTestId('indicator')).toBe(null);
     });
   });
 
@@ -179,13 +179,13 @@ describe('<Checkbox.Indicator />', () => {
     }
 
     const { user } = render(() => <Test />);
-    expect(screen.getByTestId('indicator')).not.to.equal(null);
+    expect(screen.getByTestId('indicator')).not.toBe(null);
 
     const closeButton = screen.getByText('Close');
     await user.click(closeButton);
 
     await waitFor(() => {
-      expect(animationFinished).to.equal(true);
+      expect(animationFinished).toBe(true);
     });
   });
 
@@ -237,15 +237,15 @@ describe('<Checkbox.Indicator />', () => {
       }
 
       const { user } = render(() => <Test />);
-      expect(screen.queryByTestId('indicator')).to.equal(null);
+      expect(screen.queryByTestId('indicator')).toBe(null);
 
       await user.click(screen.getByText('Check'));
 
       await waitFor(() => {
-        expect(transitionFinished).to.equal(true);
+        expect(transitionFinished).toBe(true);
       });
 
-      expect(screen.getByTestId('indicator')).not.to.equal(null);
+      expect(screen.getByTestId('indicator')).not.toBe(null);
     });
 
     it('applies data-ending-style before unmount', async () => {
@@ -349,15 +349,15 @@ describe('<Checkbox.Indicator />', () => {
         await user.click(screen.getByText('Uncheck'));
 
         await waitFor(() => {
-          expect(screen.queryByTestId('indicator-0')).to.equal(null);
+          expect(screen.queryByTestId('indicator-0')).toBe(null);
         });
-        expect(screen.queryByTestId('indicator-9')).to.equal(null);
+        expect(screen.queryByTestId('indicator-9')).toBe(null);
       } finally {
         observer.disconnect();
       }
 
-      expect(indicatorCounts).to.include(0);
-      expect(indicatorCounts.every((count) => count === 0 || count === 10)).to.equal(true);
+      expect(indicatorCounts).toContain(0);
+      expect(indicatorCounts.every((count) => count === 0 || count === 10)).toBe(true);
     });
   });
 });

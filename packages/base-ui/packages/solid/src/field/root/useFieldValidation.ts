@@ -1,10 +1,11 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { untrack, type Accessor } from 'solid-js';
+import { untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { Form } from '../../form';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { mergeProps } from '../../merge-props';
-import { useRef, type ReactLikeRef } from '../../solid-helpers';
+import { useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/empty';
 import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';
 import { useTimeout } from '../../utils/useTimeout';

@@ -1,9 +1,8 @@
 import { act, createRenderer, describeConformance } from '#test-utils';
 import { Meter } from '@solidports/base-ui/meter';
 import { screen } from '@solidjs/testing-library';
-import { expect, describe, it } from 'vitest';
+import { expect, describe, it, vi } from 'vitest';
 import { createSignal } from 'solid-js';
-import { spy } from 'sinon';
 
 describe('<Meter.Value />', () => {
   const { render } = createRenderer();
@@ -22,7 +21,7 @@ describe('<Meter.Value />', () => {
       ));
 
       const value = screen.getByTestId('value');
-      expect(value).to.have.text((0.3).toLocaleString(undefined, { style: 'percent' }));
+      expect(value.textContent).toBe((0.3).toLocaleString(undefined, { style: 'percent' }));
     });
 
     it('renders a formatted value when a format is provided', async () => {
@@ -40,11 +39,11 @@ describe('<Meter.Value />', () => {
       ));
 
       const value = screen.getByTestId('value');
-      expect(value).to.have.text(formatValue(30));
+      expect(value.textContent).toBe(formatValue(30));
     });
 
     it('accepts a render function', async () => {
-      const renderSpy = spy();
+      const renderSpy = vi.fn();
       const format: Intl.NumberFormatOptions = {
         currency: 'USD',
         style: 'currency',
@@ -58,12 +57,12 @@ describe('<Meter.Value />', () => {
         </Meter.Root>
       ));
 
-      expect(renderSpy.lastCall.args[0]).to.deep.equal(formatValue(30));
-      expect(renderSpy.lastCall.args[1]).to.deep.equal(30);
+      expect(renderSpy.mock.lastCall?.[0]).toEqual(formatValue(30));
+      expect(renderSpy.mock.lastCall?.[1]).toEqual(30);
     });
 
     it('passes updated arguments to the render function when value changes', async () => {
-      const renderSpy = spy();
+      const renderSpy = vi.fn();
       const [value, setValue] = createSignal(30);
 
       render(() => (
@@ -72,17 +71,17 @@ describe('<Meter.Value />', () => {
         </Meter.Root>
       ));
 
-      expect(renderSpy.lastCall.args[0]).to.deep.equal(
+      expect(renderSpy.mock.lastCall?.[0]).toEqual(
         (0.3).toLocaleString(undefined, { style: 'percent' }),
       );
-      expect(renderSpy.lastCall.args[1]).to.deep.equal(30);
+      expect(renderSpy.mock.lastCall?.[1]).toEqual(30);
 
       act(() => setValue(60));
 
-      expect(renderSpy.lastCall.args[0]).to.deep.equal(
+      expect(renderSpy.mock.lastCall?.[0]).toEqual(
         (0.6).toLocaleString(undefined, { style: 'percent' }),
       );
-      expect(renderSpy.lastCall.args[1]).to.deep.equal(60);
+      expect(renderSpy.mock.lastCall?.[1]).toEqual(60);
     });
   });
 });

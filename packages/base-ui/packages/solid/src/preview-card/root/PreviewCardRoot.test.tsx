@@ -8,7 +8,6 @@ import {
 } from '#test-utils';
 import { PreviewCard } from '@solidports/base-ui/preview-card';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
-import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
 import { expect as vitestExpect, vi, describe, beforeEach, it } from 'vitest';
 import { REASONS } from '../../utils/reasons';
@@ -62,7 +61,7 @@ describe('<PreviewCard.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
 
       it('should close when the trigger is unhovered', async () => {
@@ -82,7 +81,7 @@ describe('<PreviewCard.Root />', () => {
 
         clock.tick(CLOSE_DELAY);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('should open when the trigger is focused', async () => {
@@ -101,7 +100,7 @@ describe('<PreviewCard.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
 
       it('should close when the trigger is blurred', async () => {
@@ -116,7 +115,7 @@ describe('<PreviewCard.Root />', () => {
         trigger.blur();
         clock.tick(CLOSE_DELAY);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
     });
 
@@ -126,7 +125,7 @@ describe('<PreviewCard.Root />', () => {
       clock.withFakeTimers();
 
       it('should call onOpenChange when the open state changes', async () => {
-        const handleChange = spy();
+        const handleChange = vi.fn();
 
         function App() {
           const [open, setOpen] = createSignal(false);
@@ -146,7 +145,7 @@ describe('<PreviewCard.Root />', () => {
 
         renderFakeTimers(() => <App />);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
 
         const trigger = screen.getByRole('link', { name: 'Link' });
 
@@ -157,16 +156,16 @@ describe('<PreviewCard.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.mouseLeave(trigger);
 
         clock.tick(CLOSE_DELAY);
 
-        expect(screen.queryByText('Content')).to.equal(null);
-        expect(handleChange.callCount).to.equal(2);
-        expect(handleChange.firstCall.args[0]).to.equal(false);
-        expect(handleChange.secondCall.args[0]).to.equal(true);
+        expect(screen.queryByText('Content')).toBe(null);
+        expect(handleChange.mock.calls.length).toBe(2);
+        expect(handleChange.mock.calls[0][0]).toBe(false);
+        expect(handleChange.mock.calls[1][0]).toBe(true);
       });
       it('does not close after hovering out of a popup opened externally', async () => {
         function App() {
@@ -186,7 +185,7 @@ describe('<PreviewCard.Root />', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Show' }));
 
-        expect(screen.queryByText('Content')).not.to.equal(null);
+        expect(screen.queryByText('Content')).not.toBe(null);
 
         const positioner = screen.getByTestId('positioner');
 
@@ -199,7 +198,7 @@ describe('<PreviewCard.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).not.to.equal(null);
+        expect(screen.queryByText('Content')).not.toBe(null);
       });
 
       it('closes after hovering out of a popup opened by its trigger', async () => {
@@ -219,7 +218,7 @@ describe('<PreviewCard.Root />', () => {
         clock.tick(OPEN_DELAY);
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).not.to.equal(null);
+        expect(screen.queryByText('Content')).not.toBe(null);
 
         const positioner = screen.getByTestId('positioner');
 
@@ -231,7 +230,7 @@ describe('<PreviewCard.Root />', () => {
         clock.tick(CLOSE_DELAY);
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('does not call onOpenChange again when the trigger is re-hovered while open', async () => {
@@ -297,7 +296,7 @@ describe('<PreviewCard.Root />', () => {
           />
         ));
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         const positioner = screen.getByTestId('positioner');
 
@@ -309,7 +308,7 @@ describe('<PreviewCard.Root />', () => {
         clock.tick(CLOSE_DELAY);
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
 
       it('closes when the trigger is unhovered after opening by default', async () => {
@@ -350,13 +349,13 @@ describe('<PreviewCard.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
 
         clock.tick(100);
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
     });
 
@@ -377,15 +376,15 @@ describe('<PreviewCard.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.mouseLeave(trigger);
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         clock.tick(100);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
     });
 
@@ -406,12 +405,12 @@ describe('<PreviewCard.Root />', () => {
         clock.tick(100);
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.keyDown(document.body, { key: 'Escape' });
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
 
         // Re-enter with mouse events only. A fresh pointerenter can be missed
         // after the click-driven close, but hover should still work.
@@ -421,7 +420,7 @@ describe('<PreviewCard.Root />', () => {
         clock.tick(100);
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
     });
 
@@ -429,8 +428,8 @@ describe('<PreviewCard.Root />', () => {
       it('unmounts the preview card when the `unmount` method is called', async () => {
         const actionsRef = {
           current: {
-            close: spy(),
-            unmount: spy(),
+            close: vi.fn(),
+            unmount: vi.fn(),
           },
         };
 
@@ -453,19 +452,19 @@ describe('<PreviewCard.Root />', () => {
         await user.hover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).not.to.equal(null);
+          expect(screen.queryByTestId('positioner')).not.toBe(null);
         });
 
         await user.unhover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).not.to.equal(null);
+          expect(screen.queryByTestId('positioner')).not.toBe(null);
         });
 
         await act(async () => actionsRef.current.unmount());
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).to.equal(null);
+          expect(screen.queryByTestId('positioner')).toBe(null);
         });
       });
 
@@ -481,13 +480,13 @@ describe('<PreviewCard.Root />', () => {
         await user.hover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('popup')).not.to.equal(null);
+          expect(screen.queryByTestId('popup')).not.toBe(null);
         });
 
         await act(async () => actionsRef.current?.close());
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).to.equal(null);
+          expect(screen.queryByTestId('positioner')).toBe(null);
         });
 
         vitestExpect(trigger).not.toHaveAttribute('data-popup-open');
@@ -527,7 +526,7 @@ describe('<PreviewCard.Root />', () => {
 
       render(() => <Test />);
 
-      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+      expect(screen.queryByTestId('parent-popup')).not.toBe(null);
 
       const childTrigger = screen.getByRole('link', { name: 'Child' });
 
@@ -536,7 +535,7 @@ describe('<PreviewCard.Root />', () => {
       await flushMicrotasks();
 
       // Parent popup should still be open after clicking the child trigger
-      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+      expect(screen.queryByTestId('parent-popup')).not.toBe(null);
     });
 
     it('keeps the parent preview card open when press starts in nested popup and ends outside', async () => {
@@ -572,8 +571,8 @@ describe('<PreviewCard.Root />', () => {
 
       render(() => <Test />);
 
-      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
-      expect(screen.queryByTestId('child-popup')).not.to.equal(null);
+      expect(screen.queryByTestId('parent-popup')).not.toBe(null);
+      expect(screen.queryByTestId('child-popup')).not.toBe(null);
 
       const childPopup = screen.getByTestId('child-popup');
       const outside = screen.getByTestId('outside');
@@ -582,9 +581,9 @@ describe('<PreviewCard.Root />', () => {
       fireEvent.click(outside);
 
       await waitFor(() => {
-        expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+        expect(screen.queryByTestId('parent-popup')).not.toBe(null);
       });
-      expect(screen.queryByTestId('child-popup')).not.to.equal(null);
+      expect(screen.queryByTestId('child-popup')).not.toBe(null);
     });
 
     it('keeps the parent preview card open when hovering nested trigger', async () => {
@@ -617,7 +616,7 @@ describe('<PreviewCard.Root />', () => {
 
       render(() => <Test />);
 
-      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+      expect(screen.queryByTestId('parent-popup')).not.toBe(null);
 
       const childTrigger = screen.getByTestId('child-trigger');
 
@@ -629,7 +628,7 @@ describe('<PreviewCard.Root />', () => {
       await flushMicrotasks();
 
       // Parent popup should still be open after hovering the child trigger
-      expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+      expect(screen.queryByTestId('parent-popup')).not.toBe(null);
     });
 
     describe('race condition between close timers and hover-open logic', () => {
@@ -698,8 +697,8 @@ describe('<PreviewCard.Root />', () => {
         await flushMicrotasks();
 
         // Parent should still be open
-        expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
-        expect(screen.queryByTestId('child-popup')).to.equal(null);
+        expect(screen.queryByTestId('parent-popup')).not.toBe(null);
+        expect(screen.queryByTestId('child-popup')).toBe(null);
 
         // Step 5: Hover child trigger again to re-open child
         fireEvent.mouseEnter(childTrigger);
@@ -709,7 +708,7 @@ describe('<PreviewCard.Root />', () => {
         await flushMicrotasks();
 
         // Parent and child should be open
-        expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
+        expect(screen.queryByTestId('parent-popup')).not.toBe(null);
         childPopup = screen.getByTestId('child-popup').parentElement!;
 
         fireEvent.mouseLeave(childTrigger, { relatedTarget: childPopup });
@@ -718,8 +717,8 @@ describe('<PreviewCard.Root />', () => {
 
         clock.tick(CLOSE_DELAY);
 
-        expect(screen.queryByTestId('parent-popup')).not.to.equal(null);
-        expect(screen.queryByTestId('child-popup')).not.to.equal(null);
+        expect(screen.queryByTestId('parent-popup')).not.toBe(null);
+        expect(screen.queryByTestId('child-popup')).not.toBe(null);
       });
     });
 
@@ -784,8 +783,8 @@ describe('<PreviewCard.Root />', () => {
         clock.tick(CLOSE_DELAY + 10);
         await flushMicrotasks();
 
-        expect(screen.queryByTestId('child-popup')).to.equal(null);
-        expect(screen.queryByTestId('parent-popup')).to.equal(null);
+        expect(screen.queryByTestId('child-popup')).toBe(null);
+        expect(screen.queryByTestId('parent-popup')).toBe(null);
       });
     });
   });

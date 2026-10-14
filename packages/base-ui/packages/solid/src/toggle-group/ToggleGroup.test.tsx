@@ -1,10 +1,10 @@
 import { act, createRenderer, describeConformance, isJSDOM } from '#test-utils';
-import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
+import { DirectionProvider } from '@solidports/base-ui/direction-provider';
+import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { Toggle } from '@solidports/base-ui/toggle';
 import { ToggleGroup } from '@solidports/base-ui/toggle-group';
 import { Toolbar } from '@solidports/base-ui/toolbar';
 import { screen } from '@solidjs/testing-library';
-import { spy } from 'sinon';
 import { createSignal } from 'solid-js';
 import { expect, vi, describe, it } from 'vitest';
 import type { Orientation } from '../utils/types';
@@ -20,7 +20,7 @@ describe('<ToggleGroup />', () => {
   it('renders a `group`', async () => {
     render(() => <ToggleGroup aria-label="My Toggle Group" />);
 
-    expect(screen.queryByRole('group', { name: 'My Toggle Group' })).not.to.equal(null);
+    expect(screen.queryByRole('group', { name: 'My Toggle Group' })).not.toBe(null);
   });
 
   describe('uncontrolled', () => {
@@ -38,20 +38,20 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button1).to.have.attribute('aria-pressed', 'false');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       await user.pointer({ keys: '[MouseLeft]', target: button1 });
 
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button1).to.have.attribute('data-pressed');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('data-pressed');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       await user.pointer({ keys: '[MouseLeft]', target: button2 });
 
-      expect(button2).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('data-pressed');
-      expect(button1).to.have.attribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('data-pressed');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
     });
 
     it('prop: defaultValue', async () => {
@@ -64,15 +64,15 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button2).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('data-pressed');
-      expect(button1).to.have.attribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('data-pressed');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
 
       await user.pointer({ keys: '[MouseLeft]', target: button1 });
 
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button1).to.have.attribute('data-pressed');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('data-pressed');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
     });
 
     it('when Toggles omit value', async () => {
@@ -85,16 +85,16 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button2).to.have.attribute('aria-pressed', 'false');
-      expect(button1).to.have.attribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
 
       await user.click(button1);
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       await user.click(button2);
-      expect(button1).to.have.attribute('aria-pressed', 'false');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('should warn if Toggle value is not set and ToggleGroup value is defined', async () => {
@@ -127,21 +127,21 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button1).to.have.attribute('aria-pressed', 'false');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('data-pressed');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('data-pressed');
 
       act(() => setValue(['one']));
 
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button1).to.have.attribute('data-pressed');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('data-pressed');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       act(() => setValue(['two']));
 
-      expect(button2).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('data-pressed');
-      expect(button1).to.have.attribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('data-pressed');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
     });
 
     it('prop: value', async () => {
@@ -155,15 +155,15 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button2).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('data-pressed');
-      expect(button1).to.have.attribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('data-pressed');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
 
       act(() => setValue(['one']));
 
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button1).to.have.attribute('data-pressed');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('data-pressed');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
     });
   });
 
@@ -178,10 +178,10 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button1).to.have.attribute('aria-disabled', 'true');
-      expect(button1).to.have.attribute('data-disabled');
-      expect(button2).to.have.attribute('aria-disabled', 'true');
-      expect(button2).to.have.attribute('data-disabled');
+      expect(button1).toHaveAttribute('aria-disabled', 'true');
+      expect(button1).toHaveAttribute('data-disabled');
+      expect(button2).toHaveAttribute('aria-disabled', 'true');
+      expect(button2).toHaveAttribute('data-disabled');
     });
 
     it('can disable individual items', async () => {
@@ -194,10 +194,10 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button1).to.have.attribute('aria-disabled', 'false');
-      expect(button1).to.not.have.attribute('data-disabled');
-      expect(button2).to.have.attribute('aria-disabled', 'true');
-      expect(button2).to.have.attribute('data-disabled');
+      expect(button1).toHaveAttribute('aria-disabled', 'false');
+      expect(button1).not.toHaveAttribute('data-disabled');
+      expect(button2).toHaveAttribute('aria-disabled', 'true');
+      expect(button2).toHaveAttribute('data-disabled');
     });
   });
 
@@ -211,7 +211,7 @@ describe('<ToggleGroup />', () => {
       ));
 
       const group = screen.queryByRole('group');
-      expect(group).to.have.attribute('data-orientation', 'vertical');
+      expect(group).toHaveAttribute('data-orientation', 'vertical');
     });
 
     it('does not render aria-orientation on role="group"', async () => {
@@ -223,7 +223,7 @@ describe('<ToggleGroup />', () => {
       ));
 
       const group = screen.queryByRole('group');
-      expect(group).not.to.have.attribute('aria-orientation');
+      expect(group).not.toHaveAttribute('aria-orientation');
     });
   });
 
@@ -238,13 +238,13 @@ describe('<ToggleGroup />', () => {
       ));
 
       const group = screen.getByRole('group');
-      expect(group).not.to.have.attribute('data-multiple');
+      expect(group).not.toHaveAttribute('data-multiple');
 
       act(() => setMultiple(true));
-      expect(group).to.have.attribute('data-multiple');
+      expect(group).toHaveAttribute('data-multiple');
 
       act(() => setMultiple(false));
-      expect(group).not.to.have.attribute('data-multiple');
+      expect(group).not.toHaveAttribute('data-multiple');
     });
 
     it('multiple items can be pressed when true', async () => {
@@ -257,13 +257,13 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       await user.pointer({ keys: '[MouseLeft]', target: button2 });
 
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('only one item can be pressed when false', async () => {
@@ -276,13 +276,13 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       await user.pointer({ keys: '[MouseLeft]', target: button2 });
 
-      expect(button1).to.have.attribute('aria-pressed', 'false');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('when Toggles omit value', async () => {
@@ -295,20 +295,20 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(button2).to.have.attribute('aria-pressed', 'false');
-      expect(button1).to.have.attribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
 
       await user.click(button1);
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       await user.click(button2);
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
 
       await user.click(button1);
-      expect(button1).to.have.attribute('aria-pressed', 'false');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
     });
   });
 
@@ -340,34 +340,34 @@ describe('<ToggleGroup />', () => {
       const group = screen.getByTestId('toggle-group');
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(group).not.to.have.attribute('data-multiple');
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(group).not.toHaveAttribute('data-multiple');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       await user.keyboard('[Tab][ArrowRight]');
       expect(button2).toHaveFocus();
 
       await user.click(button2);
-      expect(button1).to.have.attribute('aria-pressed', 'false');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
 
       act(() => setMultiple(true));
-      expect(group).to.have.attribute('data-multiple');
+      expect(group).toHaveAttribute('data-multiple');
 
       await user.click(button1);
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
 
       await user.click(button2);
-      expect(button1).to.have.attribute('aria-pressed', 'true');
-      expect(button2).to.have.attribute('aria-pressed', 'false');
+      expect(button1).toHaveAttribute('aria-pressed', 'true');
+      expect(button2).toHaveAttribute('aria-pressed', 'false');
 
       act(() => setMultiple(false));
-      expect(group).not.to.have.attribute('data-multiple');
+      expect(group).not.toHaveAttribute('data-multiple');
 
       await user.click(button2);
-      expect(button1).to.have.attribute('aria-pressed', 'false');
-      expect(button2).to.have.attribute('aria-pressed', 'true');
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
+      expect(button2).toHaveAttribute('aria-pressed', 'true');
 
       await user.keyboard('[ArrowLeft]');
       expect(button1).toHaveFocus();
@@ -562,7 +562,7 @@ describe('<ToggleGroup />', () => {
 
   describe('prop: onValueChange', () => {
     it('fires when an Item is clicked', async () => {
-      const onValueChange = spy();
+      const onValueChange = vi.fn();
 
       const { user } = render(() => (
         <ToggleGroup onValueChange={onValueChange}>
@@ -573,21 +573,21 @@ describe('<ToggleGroup />', () => {
 
       const [button1, button2] = screen.getAllByRole('button');
 
-      expect(onValueChange.callCount).to.equal(0);
+      expect(onValueChange.mock.calls.length).toBe(0);
 
       await user.pointer({ keys: '[MouseLeft]', target: button1 });
 
-      expect(onValueChange.callCount).to.equal(1);
-      expect(onValueChange.args[0][0]).to.deep.equal(['one']);
+      expect(onValueChange.mock.calls.length).toBe(1);
+      expect(onValueChange.mock.calls[0][0]).toEqual(['one']);
 
       await user.pointer({ keys: '[MouseLeft]', target: button2 });
 
-      expect(onValueChange.callCount).to.equal(2);
-      expect(onValueChange.args[1][0]).to.deep.equal(['two']);
+      expect(onValueChange.mock.calls.length).toBe(2);
+      expect(onValueChange.mock.calls[1][0]).toEqual(['two']);
     });
 
     it('does not change the value when the event is canceled', async () => {
-      const onValueChange = spy(
+      const onValueChange = vi.fn(
         (_value: string[], eventDetails: ToggleGroup.ChangeEventDetails) => {
           eventDetails.cancel();
         },
@@ -604,8 +604,8 @@ describe('<ToggleGroup />', () => {
 
       await user.pointer({ keys: '[MouseLeft]', target: button1 });
 
-      expect(onValueChange.callCount).to.equal(1);
-      expect(button1).to.have.attribute('aria-pressed', 'false');
+      expect(onValueChange.mock.calls.length).toBe(1);
+      expect(button1).toHaveAttribute('aria-pressed', 'false');
     });
 
     it.skipIf(isJSDOM).each([{ key: 'Enter' }, { key: 'Space' }])(

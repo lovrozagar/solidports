@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- the kit bridges arbitrary consumer props and Solid's untyped `assign`; values pass through as the props hold them */
 /*
  * Native kit (plan 8): the plain functions a Solid-native part uses to render its element with
  * direct JSX instead of `useRenderElement`. Nothing here creates a reactive node of its own; the
@@ -12,24 +11,19 @@ import {
   getOwner,
   onCleanup,
   onSettled,
-  type Accessor,
-  type Owner,
   isHydrating,
   isStatic,
   runWithOwner,
   untrack,
 } from 'solid-js';
+import type { Accessor, Owner } from 'solid-js';
 import { assign, createComponent, insert, isServer } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
-import {
-  CompositeRootContext,
-  type CompositeRootContext as CompositeRootContextValue,
-} from '../../internals/composite/root/CompositeRootContext';
-import {
-  useCompositeRoot,
-  type UseCompositeRootParameters,
-} from '../../internals/composite/root/useCompositeRoot';
+import { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
+import type { CompositeRootContext as CompositeRootContextValue } from '../../internals/composite/root/CompositeRootContext';
+import { useCompositeRoot } from '../../internals/composite/root/useCompositeRoot';
+import type { UseCompositeRootParameters } from '../../internals/composite/root/useCompositeRoot';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
 import {
   ariaLabelOverridesLabel,
@@ -40,18 +34,12 @@ import { resolveClassName } from '../resolveClassName';
 import { resolveStyle as resolveStyleProp } from '../resolveStyle';
 import type { BaseUIEvent } from '../types';
 import type { FieldRootState } from '../../field/root/FieldRoot';
-import {
-  DEFAULT_FIELD_ROOT_CONTEXT,
-  type FieldRootContext,
-} from '../../field/root/FieldRootContext';
-import {
-  DEFAULT_LABELABLE_CONTEXT,
-  type LabelableContext,
-} from '../../internals/labelable-provider/LabelableContext';
-import {
-  useCompositeListContext,
-  type CompositeListRegistration,
-} from '../../internals/composite/list/CompositeListContext';
+import { DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
+import type { FieldRootContext } from '../../field/root/FieldRootContext';
+import { DEFAULT_LABELABLE_CONTEXT } from '../../internals/labelable-provider/LabelableContext';
+import type { LabelableContext } from '../../internals/labelable-provider/LabelableContext';
+import { useCompositeListContext } from '../../internals/composite/list/CompositeListContext';
+import type { CompositeListRegistration } from '../../internals/composite/list/CompositeListContext';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { classifyConsumerProps, composeHandler, readHandler, readReactiveProps } from './consumer';
 
@@ -131,7 +119,7 @@ export function collectRefs(
   objects: Set<{ current: unknown }>,
 ): void {
   if (typeof ref === 'function') {
-    const chained = (ref as { [MERGED_REFS]?: Function[] })[MERGED_REFS];
+    const chained = (ref as { [MERGED_REFS]?: Function[] | undefined })[MERGED_REFS];
     if (chained) {
       chained.forEach((callback) => collectRefs(callback, callbacks, objects));
     } else {
@@ -586,7 +574,7 @@ export interface NativeCompositeRoot<Metadata> {
   setRootRef: (element: HTMLElement | null | undefined) => void;
   highlightedIndex: Accessor<number>;
   onMapChange: (map: Array<{ element: Element; metadata: Record<string, unknown> | null }>) => void;
-  metadata?: Metadata;
+  metadata?: Metadata | undefined;
 }
 
 /**

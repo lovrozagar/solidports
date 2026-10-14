@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value type erased at root level */
 import {
   createEffect,
   createMemo,
@@ -24,12 +23,11 @@ import type { ElementProps } from '../../floating-ui-solid/types';
 import { useTriggerInteractions, attachPreventUnmountOnClose } from '../../utils/popups';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
-import { createDepsEffect, createDepsMemo, useRef, type ReactLikeRef } from '../../solid-helpers';
+import { createDepsEffect, createDepsMemo, useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
-import {
-  createChangeEventDetails,
-  type BaseUIChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import {
   defaultItemEquality,
   findSelectionIndex,
@@ -37,7 +35,8 @@ import {
 } from '../../utils/itemEquality';
 import { REASONS } from '../../utils/reasons';
 import { isElementDisabled } from '../../utils/isElementDisabled';
-import { type Group, stringifyAsLabel, stringifyAsValue } from '../../utils/resolveValueLabel';
+import { stringifyAsLabel, stringifyAsValue } from '../../utils/resolveValueLabel';
+import type { Group } from '../../utils/resolveValueLabel';
 import { SolidStore } from '../../utils/store/SolidStoreV2';
 import { useControlled } from '../../utils/useControlled';
 import { useUnmountAfterClose } from '../../utils/useUnmountAfterClose';
@@ -46,7 +45,8 @@ import { usePreviousValue } from '../../utils/usePreviousValue';
 
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import { getMaxScrollOffset, normalizeScrollOffset } from '../../utils/scrollEdges';
-import { selectors, type State as StoreState } from '../store';
+import { selectors } from '../store';
+import type { State as StoreState } from '../store';
 import { SelectFloatingContext, SelectRootContext } from './SelectRootContext';
 import { on } from '../../solid-1-compat';
 import type { HTMLProps } from '../../utils/types';
@@ -776,7 +776,7 @@ type SelectOutputValue<Value, Multiple extends boolean | undefined> = Multiple e
   : Value;
 
 export interface SelectRootProps<Value, Multiple extends boolean | undefined = false> {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * A ref to access the hidden input element.
    */

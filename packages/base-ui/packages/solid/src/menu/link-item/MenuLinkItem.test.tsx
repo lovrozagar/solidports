@@ -64,9 +64,9 @@ describe('<Menu.LinkItem />', () => {
 
       const locationDisplay = screen.getByTestId('location');
 
-      expect(screen.getByText(/page one/i)).not.to.equal(null);
+      expect(screen.getByText(/page one/i)).not.toBe(null);
 
-      expect(locationDisplay).to.have.text('/');
+      expect(locationDisplay.textContent).toBe('/');
 
       await act(() => {
         link2().focus();
@@ -78,9 +78,9 @@ describe('<Menu.LinkItem />', () => {
 
       await user.keyboard('[Enter]');
 
-      expect(locationDisplay).to.have.text('/two');
+      expect(locationDisplay.textContent).toBe('/two');
 
-      expect(screen.getByText(/page two/i)).not.to.equal(null);
+      expect(screen.getByText(/page two/i)).not.toBe(null);
 
       await act(() => {
         link1().focus();
@@ -92,9 +92,9 @@ describe('<Menu.LinkItem />', () => {
 
       await user.keyboard('[Enter]');
 
-      expect(screen.getByText(/page one/i)).not.to.equal(null);
+      expect(screen.getByText(/page one/i)).not.toBe(null);
 
-      expect(locationDisplay).to.have.text('/');
+      expect(locationDisplay.textContent).toBe('/');
 
       await act(() => {
         link2().focus();
@@ -106,9 +106,9 @@ describe('<Menu.LinkItem />', () => {
 
       await user.keyboard('[Space]');
 
-      expect(locationDisplay).to.have.text('/two');
+      expect(locationDisplay.textContent).toBe('/two');
 
-      expect(screen.getByText(/page two/i)).not.to.equal(null);
+      expect(screen.getByText(/page two/i)).not.toBe(null);
 
       await act(() => {
         link1().focus();
@@ -120,9 +120,9 @@ describe('<Menu.LinkItem />', () => {
 
       await user.keyboard('[Space]');
 
-      expect(screen.getByText(/page one/i)).not.to.equal(null);
+      expect(screen.getByText(/page one/i)).not.toBe(null);
 
-      expect(locationDisplay).to.have.text('/');
+      expect(locationDisplay.textContent).toBe('/');
     });
 
     it.skipIf(isJSDOM)(
@@ -176,10 +176,10 @@ describe('<Menu.LinkItem />', () => {
           expect(link2).toHaveFocus();
         });
 
-        expect(locationDisplay).to.have.text('/');
+        expect(locationDisplay.textContent).toBe('/');
 
         await user.keyboard('[Space]');
-        expect(locationDisplay).to.have.text('/');
+        expect(locationDisplay.textContent).toBe('/');
       },
     );
   });

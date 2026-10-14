@@ -1,6 +1,6 @@
 import { createEffect } from 'solid-js';
 import { splitComponentProps } from '../../solid-helpers';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useComboboxGroupContext } from '../group/ComboboxGroupContext';

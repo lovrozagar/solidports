@@ -2,7 +2,11 @@ import { createMemo, createSignal } from 'solid-js';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { splitComponentProps } from '../../solid-helpers';
-import { Orientation as BaseOrientation, BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type {
+  Orientation as BaseOrientation,
+  BaseUIComponentProps,
+  HTMLProps,
+} from '../../utils/types';
 import { ToolbarRootContext } from './ToolbarRootContext';
 
 /**

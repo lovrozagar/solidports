@@ -2,8 +2,7 @@ import { act, createRenderer } from '#test-utils';
 import { Checkbox } from '@solidports/base-ui/checkbox';
 import { CheckboxGroup } from '@solidports/base-ui/checkbox-group';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { expect, describe, it } from 'vitest';
-import { spy } from 'sinon';
+import { expect, describe, it, vi } from 'vitest';
 import { createSignal, For, Show } from 'solid-js';
 
 describe('useCheckboxGroupParent', () => {
@@ -11,8 +10,8 @@ describe('useCheckboxGroupParent', () => {
   const allValues = ['a', 'b', 'c'];
 
   it('should control child checkboxes', () => {
-    const parentCheckedChange = spy();
-    const childCheckedChange = spy();
+    const parentCheckedChange = vi.fn();
+    const childCheckedChange = vi.fn();
     function App() {
       const [value, setValue] = createSignal<string[]>([]);
       return (
@@ -33,32 +32,32 @@ describe('useCheckboxGroupParent', () => {
     const parent = screen.getByTestId('parent');
 
     checkboxes.forEach((checkbox) => {
-      expect(checkbox).to.have.attribute('aria-checked', 'false');
+      expect(checkbox).toHaveAttribute('aria-checked', 'false');
     });
 
     fireEvent.click(parent);
-    expect(parent).to.have.attribute('aria-checked', 'true');
+    expect(parent).toHaveAttribute('aria-checked', 'true');
 
     checkboxes.forEach((checkbox) => {
-      expect(checkbox).to.have.attribute('aria-checked', 'true');
+      expect(checkbox).toHaveAttribute('aria-checked', 'true');
     });
 
-    expect(parentCheckedChange.callCount).to.equal(1);
-    expect(childCheckedChange.callCount).to.equal(0);
+    expect(parentCheckedChange.mock.calls.length).toBe(1);
+    expect(childCheckedChange.mock.calls.length).toBe(0);
 
     fireEvent.click(parent);
-    expect(parent).to.have.attribute('aria-checked', 'false');
+    expect(parent).toHaveAttribute('aria-checked', 'false');
 
     checkboxes.forEach((checkbox) => {
-      expect(checkbox).to.have.attribute('aria-checked', 'false');
+      expect(checkbox).toHaveAttribute('aria-checked', 'false');
     });
 
-    expect(parentCheckedChange.callCount).to.equal(2);
-    expect(childCheckedChange.callCount).to.equal(0);
+    expect(parentCheckedChange.mock.calls.length).toBe(2);
+    expect(childCheckedChange.mock.calls.length).toBe(0);
   });
 
   it('parent should be marked as mixed if some children are checked', () => {
-    const childCheckedChange = spy();
+    const childCheckedChange = vi.fn();
     function App() {
       const [value, setValue] = createSignal<string[]>([]);
       return (
@@ -78,16 +77,16 @@ describe('useCheckboxGroupParent', () => {
       .filter((v) => v.getAttribute('data-parent') == null);
 
     checkboxes.forEach((checkbox) => {
-      expect(checkbox).to.have.attribute('aria-checked', 'false');
+      expect(checkbox).toHaveAttribute('aria-checked', 'false');
     });
     fireEvent.click(checkboxes[0]);
-    expect(childCheckedChange.callCount).to.equal(1);
+    expect(childCheckedChange.mock.calls.length).toBe(1);
 
-    expect(screen.getByTestId('parent')).to.have.attribute('aria-checked', 'mixed');
+    expect(screen.getByTestId('parent')).toHaveAttribute('aria-checked', 'mixed');
   });
 
   it('updates uncontrolled parent-enabled groups from child clicks without duplicate callbacks', () => {
-    const handleValueChange = spy();
+    const handleValueChange = vi.fn();
 
     render(() => (
       <CheckboxGroup allValues={allValues} onValueChange={handleValueChange}>
@@ -105,29 +104,29 @@ describe('useCheckboxGroupParent', () => {
 
     fireEvent.click(checkboxA);
 
-    expect(handleValueChange.callCount).to.equal(1);
-    expect(handleValueChange.getCall(0).args[0]).to.deep.equal(['a']);
-    expect(parent).to.have.attribute('aria-checked', 'mixed');
-    expect(checkboxA).to.have.attribute('aria-checked', 'true');
-    expect(checkboxB).to.have.attribute('aria-checked', 'false');
+    expect(handleValueChange.mock.calls.length).toBe(1);
+    expect(handleValueChange.mock.calls[0][0]).toEqual(['a']);
+    expect(parent).toHaveAttribute('aria-checked', 'mixed');
+    expect(checkboxA).toHaveAttribute('aria-checked', 'true');
+    expect(checkboxB).toHaveAttribute('aria-checked', 'false');
 
     fireEvent.click(parent);
 
-    expect(handleValueChange.callCount).to.equal(2);
-    expect(handleValueChange.getCall(1).args[0]).to.deep.equal(['a', 'b', 'c']);
-    expect(parent).to.have.attribute('aria-checked', 'true');
-    expect(checkboxA).to.have.attribute('aria-checked', 'true');
-    expect(checkboxB).to.have.attribute('aria-checked', 'true');
-    expect(checkboxC).to.have.attribute('aria-checked', 'true');
+    expect(handleValueChange.mock.calls.length).toBe(2);
+    expect(handleValueChange.mock.calls[1][0]).toEqual(['a', 'b', 'c']);
+    expect(parent).toHaveAttribute('aria-checked', 'true');
+    expect(checkboxA).toHaveAttribute('aria-checked', 'true');
+    expect(checkboxB).toHaveAttribute('aria-checked', 'true');
+    expect(checkboxC).toHaveAttribute('aria-checked', 'true');
 
     fireEvent.click(parent);
 
-    expect(handleValueChange.callCount).to.equal(3);
-    expect(handleValueChange.getCall(2).args[0]).to.deep.equal([]);
-    expect(parent).to.have.attribute('aria-checked', 'false');
-    expect(checkboxA).to.have.attribute('aria-checked', 'false');
-    expect(checkboxB).to.have.attribute('aria-checked', 'false');
-    expect(checkboxC).to.have.attribute('aria-checked', 'false');
+    expect(handleValueChange.mock.calls.length).toBe(3);
+    expect(handleValueChange.mock.calls[2][0]).toEqual([]);
+    expect(parent).toHaveAttribute('aria-checked', 'false');
+    expect(checkboxA).toHaveAttribute('aria-checked', 'false');
+    expect(checkboxB).toHaveAttribute('aria-checked', 'false');
+    expect(checkboxC).toHaveAttribute('aria-checked', 'false');
   });
 
   it('should correctly initialize the values array', () => {
@@ -145,9 +144,9 @@ describe('useCheckboxGroupParent', () => {
 
     render(() => <App />);
 
-    expect(screen.getByTestId('parent')).to.have.attribute('aria-checked', 'mixed');
+    expect(screen.getByTestId('parent')).toHaveAttribute('aria-checked', 'mixed');
 
-    expect(screen.getByTestId('checkboxA')).to.have.attribute('aria-checked', 'true');
+    expect(screen.getByTestId('checkboxA')).toHaveAttribute('aria-checked', 'true');
   });
 
   it('should update the values array when a child checkbox is clicked', () => {
@@ -165,14 +164,14 @@ describe('useCheckboxGroupParent', () => {
 
     render(() => <App />);
 
-    expect(screen.getByTestId('parent')).to.have.attribute('aria-checked', 'mixed');
+    expect(screen.getByTestId('parent')).toHaveAttribute('aria-checked', 'mixed');
 
     const checkboxes = screen
       .getAllByRole('checkbox')
       .filter((v) => v.getAttribute('data-parent') == null);
 
     const checkboxA = screen.getByTestId('checkboxA');
-    expect(checkboxA).to.have.attribute('aria-checked', 'true');
+    expect(checkboxA).toHaveAttribute('aria-checked', 'true');
 
     checkboxes.forEach((checkbox) => {
       if (checkbox !== checkboxA) {
@@ -180,7 +179,7 @@ describe('useCheckboxGroupParent', () => {
       }
     });
 
-    expect(screen.getByTestId('parent')).to.have.attribute('aria-checked', 'true');
+    expect(screen.getByTestId('parent')).toHaveAttribute('aria-checked', 'true');
   });
 
   it('should apply space-separated aria-controls attribute with child names', () => {
@@ -196,7 +195,7 @@ describe('useCheckboxGroupParent', () => {
 
     render(() => <App />);
 
-    expect(screen.getByTestId('parent')).to.have.attribute(
+    expect(screen.getByTestId('parent')).toHaveAttribute(
       'aria-controls',
       allValues.map((v) => screen.getByTestId(v).id).join(' '),
     );
@@ -210,8 +209,8 @@ describe('useCheckboxGroupParent', () => {
       </CheckboxGroup>
     ));
 
-    expect(screen.getByTestId('a')).to.have.attribute('id', 'custom');
-    expect(screen.getByTestId('parent')).to.have.attribute('aria-controls', 'custom');
+    expect(screen.getByTestId('a')).toHaveAttribute('id', 'custom');
+    expect(screen.getByTestId('parent')).toHaveAttribute('aria-controls', 'custom');
   });
 
   it.each([false, true])(
@@ -235,7 +234,7 @@ describe('useCheckboxGroupParent', () => {
         </CheckboxGroup>
       ));
 
-      expect(screen.getByTestId('parent')).to.have.attribute('aria-controls', 'rendered');
+      expect(screen.getByTestId('parent')).toHaveAttribute('aria-controls', 'rendered');
     },
   );
 
@@ -249,9 +248,9 @@ describe('useCheckboxGroupParent', () => {
 
     // The custom `id` lands on the hidden input, so `aria-controls` has to name the exposed
     // element instead.
-    expect(document.querySelector('input[type="checkbox"][id="custom"]')).not.to.equal(null);
-    expect(screen.getByTestId('a').id).not.to.equal('custom');
-    expect(screen.getByTestId('parent')).to.have.attribute(
+    expect(document.querySelector('input[type="checkbox"][id="custom"]')).not.toBe(null);
+    expect(screen.getByTestId('a').id).not.toBe('custom');
+    expect(screen.getByTestId('parent')).toHaveAttribute(
       'aria-controls',
       screen.getByTestId('a').id,
     );
@@ -265,7 +264,7 @@ describe('useCheckboxGroupParent', () => {
       </CheckboxGroup>
     ));
 
-    expect(screen.getByTestId('parent')).to.have.attribute(
+    expect(screen.getByTestId('parent')).toHaveAttribute(
       'aria-controls',
       screen.getByTestId('a').id,
     );
@@ -288,7 +287,7 @@ describe('useCheckboxGroupParent', () => {
     render(() => <App showB={showB()} />);
     act(() => setShowB(false));
 
-    expect(screen.getByTestId('parent')).to.have.attribute(
+    expect(screen.getByTestId('parent')).toHaveAttribute(
       'aria-controls',
       screen.getByTestId('a').id,
     );
@@ -311,14 +310,14 @@ describe('useCheckboxGroupParent', () => {
 
     render(() => <App showSecondB={showSecondB()} />);
 
-    expect(screen.getByTestId('parent')).to.have.attribute(
+    expect(screen.getByTestId('parent')).toHaveAttribute(
       'aria-controls',
       `${screen.getByTestId('a').id} ${screen.getByTestId('b').id} ${screen.getByTestId('second-b').id}`,
     );
 
     act(() => setShowSecondB(false));
 
-    expect(screen.getByTestId('parent')).to.have.attribute(
+    expect(screen.getByTestId('parent')).toHaveAttribute(
       'aria-controls',
       `${screen.getByTestId('a').id} ${screen.getByTestId('b').id}`,
     );
@@ -339,10 +338,10 @@ describe('useCheckboxGroupParent', () => {
 
     fireEvent.click(parent);
 
-    expect(parent).to.have.attribute('aria-checked', 'true');
-    expect(checkboxA).to.have.attribute('aria-checked', 'true');
-    expect(noValue).to.have.attribute('aria-checked', 'false');
-    expect(noValue.nextElementSibling).to.have.attribute('id', 'standalone');
+    expect(parent).toHaveAttribute('aria-checked', 'true');
+    expect(checkboxA).toHaveAttribute('aria-checked', 'true');
+    expect(noValue).toHaveAttribute('aria-checked', 'false');
+    expect(noValue.nextElementSibling).toHaveAttribute('id', 'standalone');
   });
 
   it('preserves initial state if mixed when parent is clicked', () => {
@@ -368,32 +367,32 @@ describe('useCheckboxGroupParent', () => {
 
     fireEvent.click(checkboxA);
 
-    expect(screen.getByTestId('parent')).to.have.attribute('aria-checked', 'mixed');
+    expect(screen.getByTestId('parent')).toHaveAttribute('aria-checked', 'mixed');
 
     fireEvent.click(parent);
 
     checkboxes.forEach((checkbox) => {
-      expect(checkbox).to.have.attribute('aria-checked', 'true');
+      expect(checkbox).toHaveAttribute('aria-checked', 'true');
     });
 
     fireEvent.click(parent);
 
     checkboxes.forEach((checkbox) => {
-      expect(checkbox).to.have.attribute('aria-checked', 'false');
+      expect(checkbox).toHaveAttribute('aria-checked', 'false');
     });
 
     fireEvent.click(parent);
 
-    expect(parent).to.have.attribute('aria-checked', 'mixed');
-    expect(checkboxA).to.have.attribute('aria-checked', 'true');
+    expect(parent).toHaveAttribute('aria-checked', 'mixed');
+    expect(checkboxA).toHaveAttribute('aria-checked', 'true');
     checkboxes.forEach((checkbox) => {
-      expect(checkbox).to.have.attribute('aria-checked', checkbox === checkboxA ? 'true' : 'false');
+      expect(checkbox).toHaveAttribute('aria-checked', checkbox === checkboxA ? 'true' : 'false');
     });
   });
 
   it('lets a parent checkbox cancel a parent-enabled group change', () => {
-    const handleValueChange = spy();
-    const handleParentChange = spy((_, eventDetails: Checkbox.Root.ChangeEventDetails) => {
+    const handleValueChange = vi.fn();
+    const handleParentChange = vi.fn((_, eventDetails: Checkbox.Root.ChangeEventDetails) => {
       eventDetails.cancel();
     });
 
@@ -408,17 +407,17 @@ describe('useCheckboxGroupParent', () => {
 
     fireEvent.click(screen.getByTestId('parent'));
 
-    expect(handleParentChange.callCount).to.equal(1);
-    expect(handleValueChange.callCount).to.equal(0);
-    expect(screen.getByTestId('parent')).to.have.attribute('aria-checked', 'false');
-    expect(screen.getByTestId('checkboxA')).to.have.attribute('aria-checked', 'false');
-    expect(screen.getByTestId('checkboxB')).to.have.attribute('aria-checked', 'false');
-    expect(screen.getByTestId('checkboxC')).to.have.attribute('aria-checked', 'false');
+    expect(handleParentChange.mock.calls.length).toBe(1);
+    expect(handleValueChange.mock.calls.length).toBe(0);
+    expect(screen.getByTestId('parent')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByTestId('checkboxA')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByTestId('checkboxB')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByTestId('checkboxC')).toHaveAttribute('aria-checked', 'false');
   });
 
   it('lets a child checkbox cancel a parent-enabled group change', () => {
-    const handleValueChange = spy();
-    const handleChildChange = spy((_, eventDetails: Checkbox.Root.ChangeEventDetails) => {
+    const handleValueChange = vi.fn();
+    const handleChildChange = vi.fn((_, eventDetails: Checkbox.Root.ChangeEventDetails) => {
       eventDetails.cancel();
     });
 
@@ -433,14 +432,14 @@ describe('useCheckboxGroupParent', () => {
 
     fireEvent.click(screen.getByTestId('checkboxA'));
 
-    expect(handleChildChange.callCount).to.equal(1);
-    expect(handleValueChange.callCount).to.equal(0);
-    expect(screen.getByTestId('parent')).to.have.attribute('aria-checked', 'false');
-    expect(screen.getByTestId('checkboxA')).to.have.attribute('aria-checked', 'false');
+    expect(handleChildChange.mock.calls.length).toBe(1);
+    expect(handleValueChange.mock.calls.length).toBe(0);
+    expect(screen.getByTestId('parent')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByTestId('checkboxA')).toHaveAttribute('aria-checked', 'false');
   });
 
   it('does not advance the parent toggle cycle when the group cancels a parent change', () => {
-    const handleValueChange = spy((_, eventDetails: CheckboxGroup.ChangeEventDetails) => {
+    const handleValueChange = vi.fn((_, eventDetails: CheckboxGroup.ChangeEventDetails) => {
       eventDetails.cancel();
     });
 
@@ -462,13 +461,13 @@ describe('useCheckboxGroupParent', () => {
     // skipping ahead to 'on -> off' and proposing an empty value.
     fireEvent.click(parent);
 
-    expect(handleValueChange.callCount).to.equal(2);
-    expect(handleValueChange.getCall(0).args[0]).to.deep.equal(allValues);
-    expect(handleValueChange.getCall(1).args[0]).to.deep.equal(allValues);
+    expect(handleValueChange.mock.calls.length).toBe(2);
+    expect(handleValueChange.mock.calls[0][0]).toEqual(allValues);
+    expect(handleValueChange.mock.calls[1][0]).toEqual(allValues);
   });
 
   it('does not pollute the parent snapshot when the group cancels a child change', () => {
-    const handleValueChange = spy((_, eventDetails: CheckboxGroup.ChangeEventDetails) => {
+    const handleValueChange = vi.fn((_, eventDetails: CheckboxGroup.ChangeEventDetails) => {
       eventDetails.cancel();
     });
 
@@ -488,9 +487,9 @@ describe('useCheckboxGroupParent', () => {
     // snapshot would make it propose checking everything again.
     fireEvent.click(screen.getByTestId('parent'));
 
-    expect(handleValueChange.callCount).to.equal(2);
-    expect(handleValueChange.getCall(0).args[0]).to.deep.equal(['b', 'c']);
-    expect(handleValueChange.getCall(1).args[0]).to.deep.equal([]);
+    expect(handleValueChange.mock.calls.length).toBe(2);
+    expect(handleValueChange.mock.calls[0][0]).toEqual(['b', 'c']);
+    expect(handleValueChange.mock.calls[1][0]).toEqual([]);
   });
 
   it('handles unchecked disabled checkboxes', () => {
@@ -511,8 +510,8 @@ describe('useCheckboxGroupParent', () => {
     const parent = screen.getByTestId('parent');
     fireEvent.click(parent);
 
-    expect(parent).to.have.attribute('aria-checked', 'mixed');
-    expect(screen.getByTestId('checkboxA')).to.have.attribute('aria-checked', 'false');
+    expect(parent).toHaveAttribute('aria-checked', 'mixed');
+    expect(screen.getByTestId('checkboxA')).toHaveAttribute('aria-checked', 'false');
   });
 
   it('handles checked disabled checkboxes', () => {
@@ -535,11 +534,11 @@ describe('useCheckboxGroupParent', () => {
     const parent = screen.getByTestId('parent');
 
     fireEvent.click(parent);
-    expect(checkboxA).to.have.attribute('aria-checked', 'true');
-    expect(checkboxB).to.have.attribute('aria-checked', 'true');
+    expect(checkboxA).toHaveAttribute('aria-checked', 'true');
+    expect(checkboxB).toHaveAttribute('aria-checked', 'true');
 
     fireEvent.click(parent);
-    expect(checkboxA).to.have.attribute('aria-checked', 'true');
-    expect(checkboxB).to.have.attribute('aria-checked', 'false');
+    expect(checkboxA).toHaveAttribute('aria-checked', 'true');
+    expect(checkboxB).toHaveAttribute('aria-checked', 'false');
   });
 });

@@ -1,5 +1,6 @@
 import { createEffect, untrack } from 'solid-js';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { useAnimationsFinished } from './useAnimationsFinished';
 import { on } from '../solid-1-compat';
 
@@ -50,11 +51,11 @@ export interface UseOpenChangeCompleteParameters {
    * Whether the hook is enabled.
    * @default true
    */
-  enabled?: MaybeAccessor<boolean | undefined>;
+  enabled?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Whether the element is open.
    */
-  open?: MaybeAccessor<boolean | undefined>;
+  open?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Ref to the element being closed.
    */
@@ -64,7 +65,7 @@ export interface UseOpenChangeCompleteParameters {
    * Only safe when `onComplete` doesn't read state that another completion can change.
    * @default false
    */
-  batch?: MaybeAccessor<boolean | undefined>;
+  batch?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Function to call when the animation completes (or there is no animation).
    */

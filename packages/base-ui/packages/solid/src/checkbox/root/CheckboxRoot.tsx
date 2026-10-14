@@ -32,8 +32,8 @@ import {
   put,
   runConsumerHandler,
   stateAttr,
-  type NativeLayout,
 } from '../../utils/native';
+import type { NativeLayout } from '../../utils/native';
 import { useControlled } from '../../utils/useControlled';
 import { visuallyHidden, visuallyHiddenInput } from '../../utils/visuallyHidden';
 import { ownerWindow } from '../../utils/owner';
@@ -65,19 +65,12 @@ import {
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useCheckboxGroupContext } from '../../checkbox-group/CheckboxGroupContext';
 import { CheckboxRootContext } from './CheckboxRootContext';
-import {
-  BaseUIChangeEventDetails,
-  createChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { useValueChanged } from '../../internals/useValueChanged';
-import {
-  createDepsEffect,
-  omitComponentProps,
-  provideContext,
-  useRef,
-  type ReactLikeRef,
-} from '../../solid-helpers';
+import { createDepsEffect, omitComponentProps, provideContext, useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { mergeProps as solidMergeProps } from '../../solid-1-compat';
 
 export const PARENT_CHECKBOX = 'data-parent';

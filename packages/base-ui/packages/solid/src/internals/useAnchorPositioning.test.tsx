@@ -3,10 +3,8 @@ import { createSignal } from 'solid-js';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { createRenderer, isJSDOM } from '#test-utils';
 import { useFloating } from '../../test/floating-ui-tests/useFloating';
-import {
-  useAnchorPositioningWithHook,
-  type UseAnchorPositioningParameters,
-} from './useAnchorPositioning';
+import { useAnchorPositioningWithHook } from './useAnchorPositioning';
+import type { UseAnchorPositioningParameters } from './useAnchorPositioning';
 
 const shiftSpy = vi.hoisted(() => vi.fn());
 

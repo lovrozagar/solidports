@@ -1,6 +1,7 @@
 import { createSignal, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { useRef, type ReactLikeRef } from '../solid-helpers';
+import { useRef } from '../solid-helpers';
+import type { ReactLikeRef } from '../solid-helpers';
 import { EMPTY_ARRAY } from '../utils/empty';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { BaseUIEventReasons } from '../utils/reasons';

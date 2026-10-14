@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createEffect, createMemo, isStatic, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';

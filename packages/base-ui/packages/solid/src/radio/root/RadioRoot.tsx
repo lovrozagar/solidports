@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic radio Value erased at root */
 import {
   createEffect,
   createRenderEffect,
@@ -22,7 +21,7 @@ import { DEFAULT_FIELD_ROOT_CONTEXT, useFieldRootContext } from '../../field/roo
 import type { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { useCompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import { makeEventPreventable } from '../../merge-props';
-import { provideContext } from '../../solid-helpers';
+import { provideContext, omitComponentProps, useRef } from '../../solid-helpers';
 import type {
   BaseUIEvent,
   BaseUIComponentProps,
@@ -46,9 +45,8 @@ import {
   put,
   runConsumerHandler,
   stateAttr,
-  type CompositeItemRegistration,
-  type NativeLayout,
 } from '../../utils/native';
+import type { CompositeItemRegistration, NativeLayout } from '../../utils/native';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
 import { ACTIVE_COMPOSITE_ITEM } from '../../internals/composite/constants';
@@ -60,7 +58,7 @@ import {
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useButton } from '../../internals/use-button';
 import { useRadioGroupContext } from '../../radio-group/RadioGroupContext';
-import { omitComponentProps, useRef, type ReactLikeRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
 import { NOOP } from '../../utils/noop';

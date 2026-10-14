@@ -1,6 +1,7 @@
 import { createEffect, omit } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { animate, type DOMKeyframesDefinition } from 'motion';
+import { animate  } from 'motion';
+import type {DOMKeyframesDefinition} from 'motion';
 import { Popover } from '@solidports/base-ui/popover';
 import styles from './index.module.css';
 

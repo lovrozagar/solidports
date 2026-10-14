@@ -17,7 +17,6 @@ import { DirectionProvider } from '@solidports/base-ui/direction-provider';
 import { Menu } from '@solidports/base-ui/menu';
 import { cleanup, fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import userEvent from '@testing-library/user-event';
-import { spy } from 'sinon';
 import { createSignal, flush, For, onSettled, Show } from 'solid-js';
 import type { Component } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -352,14 +351,14 @@ describe('<Menu.Root />', () => {
     it('sets aria-orientation on a horizontal popup', async () => {
       render(() => <TestMenu rootProps={{ defaultOpen: true, orientation: 'horizontal' }} />);
 
-      expect(screen.getByRole('menu')).to.have.attribute('aria-orientation', 'horizontal');
+      expect(screen.getByRole('menu')).toHaveAttribute('aria-orientation', 'horizontal');
     });
 
     it('does not render aria-orientation on a vertical popup', async () => {
       render(() => <TestMenu rootProps={{ defaultOpen: true }} />);
 
       // `menu` is implicitly vertical.
-      expect(screen.getByRole('menu')).not.to.have.attribute('aria-orientation');
+      expect(screen.getByRole('menu')).not.toHaveAttribute('aria-orientation');
     });
 
     describe('keyboard navigation', () => {
@@ -468,13 +467,13 @@ describe('<Menu.Root />', () => {
         await userEvent.keyboard('[Enter]');
 
         await waitFor(() => {
-          expect(openChangeSpy.mock.lastCall?.[0]).to.equal(false);
+          expect(openChangeSpy.mock.lastCall?.[0]).toBe(false);
         });
 
-        expect(openChangeSpy.mock.lastCall?.[1].reason).to.equal(REASONS.itemPress);
+        expect(openChangeSpy.mock.lastCall?.[1].reason).toBe(REASONS.itemPress);
         // Keyboard activation clicks carry `detail === 0`, which MenuRoot classifies
         // as a keyboard (instant) activation.
-        expect((openChangeSpy.mock.lastCall?.[1].event as MouseEvent).detail).to.equal(0);
+        expect((openChangeSpy.mock.lastCall?.[1].event as MouseEvent).detail).toBe(0);
       });
 
       it('changes the highlighted item using the Home and End keys', async () => {
@@ -532,7 +531,7 @@ describe('<Menu.Root />', () => {
           expect(disabledItem3).toHaveFocus();
         });
 
-        expect(disabledItem3).to.have.attribute('aria-disabled', 'true');
+        expect(disabledItem3).toHaveAttribute('aria-disabled', 'true');
       });
 
       it.skipIf(isJSDOM)('skips items hidden with CSS during keyboard navigation', async () => {
@@ -568,7 +567,7 @@ describe('<Menu.Root />', () => {
         await waitFor(() => {
           expect(item2).toHaveFocus();
         });
-        expect(hiddenItem).to.have.attribute('tabindex', '-1');
+        expect(hiddenItem).toHaveAttribute('tabindex', '-1');
 
         await userEvent.keyboard('{ArrowDown}');
         await waitFor(() => {
@@ -616,14 +615,14 @@ describe('<Menu.Root />', () => {
             expect(screen.getByText('Ca')).toHaveFocus();
           });
 
-          expect(screen.getByText('Ca')).to.have.attribute('tabindex', '0');
+          expect(screen.getByText('Ca')).toHaveAttribute('tabindex', '0');
 
           await user.keyboard('d');
           await waitFor(() => {
             expect(screen.getByText('Cd')).toHaveFocus();
           });
 
-          expect(screen.getByText('Cd')).to.have.attribute('tabindex', '0');
+          expect(screen.getByText('Cd')).toHaveAttribute('tabindex', '0');
         });
 
         it.skipIf(isJSDOM)('skips items hidden with CSS in text navigation', async () => {
@@ -657,7 +656,7 @@ describe('<Menu.Root />', () => {
             expect(apricotItem).toHaveFocus();
           });
 
-          expect(hiddenItem).to.have.attribute('tabindex', '-1');
+          expect(hiddenItem).toHaveAttribute('tabindex', '-1');
         });
 
         it.skipIf(isJSDOM)('skips natively disabled items in text navigation', async () => {
@@ -695,8 +694,8 @@ describe('<Menu.Root />', () => {
             expect(blueberryItem).toHaveFocus();
           });
 
-          expect(bananaItem).to.have.attribute('tabindex', '-1');
-          expect(bananaItem).not.to.have.attribute('data-highlighted');
+          expect(bananaItem).toHaveAttribute('tabindex', '-1');
+          expect(bananaItem).not.toHaveAttribute('data-highlighted');
         });
 
         it('changes the highlighted item using text navigation on label prop', async ({ skip }) => {
@@ -733,7 +732,7 @@ describe('<Menu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(items[1]).to.have.attribute('tabindex', '0');
+            expect(items[1]).toHaveAttribute('tabindex', '0');
           });
 
           await user.keyboard('b');
@@ -742,7 +741,7 @@ describe('<Menu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(items[2]).to.have.attribute('tabindex', '0');
+            expect(items[2]).toHaveAttribute('tabindex', '0');
           });
 
           await user.keyboard('b');
@@ -751,7 +750,7 @@ describe('<Menu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(items[2]).to.have.attribute('tabindex', '0');
+            expect(items[2]).toHaveAttribute('tabindex', '0');
           });
         });
 
@@ -791,13 +790,13 @@ describe('<Menu.Root />', () => {
           await waitFor(() => {
             expect(screen.getByText('Ba')).toHaveFocus();
           });
-          expect(screen.getByText('Ba')).to.have.attribute('tabindex', '0');
+          expect(screen.getByText('Ba')).toHaveAttribute('tabindex', '0');
 
           await user.keyboard('c');
           await waitFor(() => {
             expect(screen.getByText('Bc')).toHaveFocus();
           });
-          expect(screen.getByText('Bc')).to.have.attribute('tabindex', '0');
+          expect(screen.getByText('Bc')).toHaveAttribute('tabindex', '0');
         });
 
         it('navigate to options with diacritic characters', async ({ skip }) => {
@@ -831,13 +830,13 @@ describe('<Menu.Root />', () => {
           await waitFor(() => {
             expect(screen.getByText('Ba')).toHaveFocus();
           });
-          expect(screen.getByText('Ba')).to.have.attribute('tabindex', '0');
+          expect(screen.getByText('Ba')).toHaveAttribute('tabindex', '0');
 
           await user.keyboard('ą');
           await waitFor(() => {
             expect(screen.getByText('Bą')).toHaveFocus();
           });
-          expect(screen.getByText('Bą')).to.have.attribute('tabindex', '0');
+          expect(screen.getByText('Bą')).toHaveAttribute('tabindex', '0');
         });
 
         it('navigate to next options that begin with diacritic characters', async ({ skip }) => {
@@ -871,13 +870,13 @@ describe('<Menu.Root />', () => {
           await waitFor(() => {
             expect(screen.getByText('ąa')).toHaveFocus();
           });
-          expect(screen.getByText('ąa')).to.have.attribute('tabindex', '0');
+          expect(screen.getByText('ąa')).toHaveAttribute('tabindex', '0');
         });
 
         it.skipIf(isJSDOM)(
           'does not trigger the onClick event when Space is pressed during text navigation',
           async () => {
-            const handleClick = spy();
+            const handleClick = vi.fn();
 
             const { user } = render(() => (
               <TestMenu
@@ -900,7 +899,7 @@ describe('<Menu.Root />', () => {
 
             await user.keyboard('Item T');
 
-            expect(handleClick.called).to.equal(false);
+            expect(handleClick.mock.calls.length > 0).toBe(false);
 
             await waitFor(() => {
               expect(items[1]).toHaveFocus();
@@ -948,10 +947,10 @@ describe('<Menu.Root />', () => {
             });
 
             await user.keyboard('[Space]');
-            expect(screen.queryByTestId('submenu')).to.equal(null);
+            expect(screen.queryByTestId('submenu')).toBe(null);
 
             await user.keyboard('[Space]');
-            expect(screen.queryByTestId('submenu')).to.equal(null);
+            expect(screen.queryByTestId('submenu')).toBe(null);
           },
         );
 
@@ -965,7 +964,7 @@ describe('<Menu.Root />', () => {
           });
 
           await user.keyboard('[Space]');
-          expect(screen.queryByTestId('submenu')).not.to.equal(null);
+          expect(screen.queryByTestId('submenu')).not.toBe(null);
         });
 
         it.skipIf(isJSDOM)(
@@ -1040,7 +1039,7 @@ describe('<Menu.Root />', () => {
 
             await user.keyboard('Item 2');
             expect(submenuTrigger).toHaveFocus();
-            expect(screen.queryByTestId('submenu')).to.equal(null);
+            expect(screen.queryByTestId('submenu')).toBe(null);
           },
         );
       });
@@ -1095,13 +1094,13 @@ describe('<Menu.Root />', () => {
         await user.click(mainTrigger);
 
         const menu = await screen.findByTestId('menu');
-        expect(screen.queryByTestId('submenu')).to.equal(null);
+        expect(screen.queryByTestId('submenu')).toBe(null);
 
         const submenuTrigger = await screen.findByTestId('submenu-trigger');
         await user.click(submenuTrigger);
 
-        expect(menu).not.to.equal(null);
-        expect(await screen.findByTestId('item-4_1')).to.have.text('Item 4.1');
+        expect(menu).not.toBe(null);
+        expect((await screen.findByTestId('item-4_1')).textContent).toBe('Item 4.1');
       });
 
       it('renders root menu portal ownership without an accessibility role', async () => {
@@ -1115,9 +1114,9 @@ describe('<Menu.Root />', () => {
         const menuPortalId = menuPortal?.id ?? '';
         const owner = menu.ownerDocument.querySelector('span[aria-owns]');
 
-        expect(menuPortalId).not.to.equal('');
-        expect(owner).to.have.attribute('aria-owns', menuPortalId);
-        expect(owner).not.to.have.attribute('role');
+        expect(menuPortalId).not.toBe('');
+        expect(owner).toHaveAttribute('aria-owns', menuPortalId);
+        expect(owner).not.toHaveAttribute('role');
       });
 
       it('renders submenu portal ownership as an allowed menu child', async () => {
@@ -1135,10 +1134,10 @@ describe('<Menu.Root />', () => {
         const submenuPortalId = submenuPortal?.id ?? '';
         const owner = menu.querySelector('span[aria-owns]');
 
-        expect(submenuPortalId).not.to.equal('');
-        expect(owner).to.have.attribute('role', 'group');
-        expect(owner).to.have.attribute('aria-owns', submenuPortalId);
-        expect(submenuTrigger).not.to.have.attribute('aria-owns');
+        expect(submenuPortalId).not.toBe('');
+        expect(owner).toHaveAttribute('role', 'group');
+        expect(owner).toHaveAttribute('aria-owns', submenuPortalId);
+        expect(submenuTrigger).not.toHaveAttribute('aria-owns');
       });
 
       it('keeps the root menu open when a submenu opens and the trigger `render` element has a custom id', async () => {
@@ -1161,7 +1160,7 @@ describe('<Menu.Root />', () => {
 
         await screen.findByTestId('submenu');
 
-        expect(screen.getByTestId('menu')).not.to.equal(null);
+        expect(screen.getByTestId('menu')).not.toBe(null);
         expect(onOpenChange).not.toHaveBeenCalledWith(
           false,
           expect.objectContaining({ reason: REASONS.siblingOpen }),
@@ -1175,13 +1174,13 @@ describe('<Menu.Root />', () => {
         await user.click(mainTrigger);
 
         await screen.findByTestId('menu');
-        expect(screen.queryByTestId('submenu')).to.equal(null);
+        expect(screen.queryByTestId('submenu')).toBe(null);
 
         const submenuTrigger = await screen.findByTestId('submenu-trigger');
         await user.hover(submenuTrigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('submenu')).not.to.equal(null);
+          expect(screen.queryByTestId('submenu')).not.toBe(null);
         });
 
         const submenuItem = await screen.findByTestId('item-4_1');
@@ -1196,7 +1195,7 @@ describe('<Menu.Root />', () => {
         await user.keyboard('{Shift>}{Tab}{/Shift}');
 
         await waitFor(() => {
-          expect(screen.queryByTestId('submenu')).to.equal(null);
+          expect(screen.queryByTestId('submenu')).toBe(null);
         });
 
         expect(submenuTrigger).toHaveFocus();
@@ -1278,7 +1277,7 @@ describe('<Menu.Root />', () => {
           await user.hover(submenuTrigger);
 
           await waitFor(() => {
-            expect(screen.queryByTestId('submenu')).not.to.equal(null);
+            expect(screen.queryByTestId('submenu')).not.toBe(null);
           });
 
           // Schedule a delayed hover close, then click the item before it fires.
@@ -1286,7 +1285,7 @@ describe('<Menu.Root />', () => {
           fireEvent.click(screen.getByTestId('item-4_1'));
 
           await waitFor(() => {
-            expect(screen.queryByTestId('menu')).to.equal(null);
+            expect(screen.queryByTestId('menu')).toBe(null);
           });
 
           // Wait out pending hover close timers; they must not refire a close.
@@ -1299,9 +1298,9 @@ describe('<Menu.Root />', () => {
           const staleHoverCloseCalls = submenuCloseCalls.filter(
             (args) => args[1].reason === REASONS.triggerHover,
           );
-          expect(rootCloseCalls.length).to.equal(1);
-          expect(submenuCloseCalls.length).to.equal(1);
-          expect(staleHoverCloseCalls.length).to.equal(0);
+          expect(rootCloseCalls.length).toBe(1);
+          expect(submenuCloseCalls.length).toBe(1);
+          expect(staleHoverCloseCalls.length).toBe(0);
         },
       );
 
@@ -1351,14 +1350,14 @@ describe('<Menu.Root />', () => {
           await user.keyboard('[ArrowLeft]');
 
           await waitFor(() => {
-            expect(screen.queryByTestId('nested-submenu')).to.equal(null);
+            expect(screen.queryByTestId('nested-submenu')).toBe(null);
           });
           expect(nestedSubmenuTrigger).toHaveFocus();
 
           await user.keyboard('[ArrowLeft]');
 
           await waitFor(() => {
-            expect(screen.queryByTestId('submenu')).to.equal(null);
+            expect(screen.queryByTestId('submenu')).toBe(null);
           });
           expect(submenuTrigger).toHaveFocus();
         },
@@ -1406,14 +1405,14 @@ describe('<Menu.Root />', () => {
         await user.click(menuTrigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('menu-popup')).not.to.equal(null);
+          expect(screen.queryByTestId('menu-popup')).not.toBe(null);
         });
 
         const dialogTrigger = screen.getByTestId('dialog-trigger');
         await user.click(dialogTrigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('dialog-popup')).not.to.equal(null);
+          expect(screen.queryByTestId('dialog-popup')).not.toBe(null);
         });
 
         const dialogButton = screen.getByTestId('dialog-button');
@@ -1482,7 +1481,7 @@ describe('<Menu.Root />', () => {
           const alertDialogPopup = await screen.findByTestId('alert-dialog-popup');
 
           await waitFor(() => {
-            expect(alertDialogPopup.contains(document.activeElement)).to.equal(true);
+            expect(alertDialogPopup.contains(document.activeElement)).toBe(true);
           });
 
           fireEvent.pointerLeave(alertDialogTrigger, {
@@ -1491,9 +1490,9 @@ describe('<Menu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(alertDialogPopup.contains(document.activeElement)).to.equal(true);
+            expect(alertDialogPopup.contains(document.activeElement)).toBe(true);
           });
-          expect(menuPopup.contains(document.activeElement)).to.equal(false);
+          expect(menuPopup.contains(document.activeElement)).toBe(false);
         },
       );
 
@@ -1563,7 +1562,7 @@ describe('<Menu.Root />', () => {
             const dialogClose = await screen.findByTestId('dialog-close');
 
             await waitFor(() => {
-              expect(frameCallbacks.size).to.be.greaterThan(0);
+              expect(frameCallbacks.size).toBeGreaterThan(0);
             });
 
             await act(() => {
@@ -1576,9 +1575,7 @@ describe('<Menu.Root />', () => {
               expect(dialogClose).toHaveFocus();
             });
 
-            expect(screen.getByTestId('menu-popup').contains(document.activeElement)).to.equal(
-              false,
-            );
+            expect(screen.getByTestId('menu-popup').contains(document.activeElement)).toBe(false);
           } finally {
             requestAnimationFrameSpy.mockRestore();
             cancelAnimationFrameSpy.mockRestore();
@@ -1599,10 +1596,10 @@ describe('<Menu.Root />', () => {
 
         const [firstItem, ...otherItems] = screen.getAllByRole('menuitem');
         await waitFor(() => {
-          expect(firstItem.tabIndex).to.equal(0);
+          expect(firstItem.tabIndex).toBe(0);
         });
         otherItems.forEach((item) => {
-          expect(item.tabIndex).to.equal(-1);
+          expect(item.tabIndex).toBe(-1);
         });
       });
 
@@ -1617,9 +1614,9 @@ describe('<Menu.Root />', () => {
 
         const [firstItem, ...otherItems] = screen.getAllByRole('menuitem');
         await waitFor(() => expect(firstItem).toHaveFocus());
-        expect(firstItem.tabIndex).to.equal(0);
+        expect(firstItem.tabIndex).toBe(0);
         otherItems.forEach((item) => {
-          expect(item.tabIndex).to.equal(-1);
+          expect(item.tabIndex).toBe(-1);
         });
       });
 
@@ -1637,9 +1634,9 @@ describe('<Menu.Root />', () => {
           expect(items[4]).toHaveFocus();
         });
 
-        expect(items[4].tabIndex).to.equal(0);
+        expect(items[4].tabIndex).toBe(0);
         [items[0], items[1], items[2], items[3]].forEach((item) => {
-          expect(item.tabIndex).to.equal(-1);
+          expect(item.tabIndex).toBe(-1);
         });
       });
 
@@ -1705,7 +1702,7 @@ describe('<Menu.Root />', () => {
           });
 
           await waitFor(() => {
-            expect(screen.queryByRole('menu')).to.equal(null);
+            expect(screen.queryByRole('menu')).toBe(null);
           });
           expect(button).toHaveFocus();
         },
@@ -1761,7 +1758,7 @@ describe('<Menu.Root />', () => {
 
         expect(screen.getByTestId('after')).toHaveFocus();
         await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
+          expect(screen.queryByTestId('menu')).toBe(null);
         });
       });
 
@@ -1791,7 +1788,7 @@ describe('<Menu.Root />', () => {
         });
 
         await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
+          expect(screen.queryByTestId('menu')).toBe(null);
         });
       });
     });
@@ -1833,10 +1830,10 @@ describe('<Menu.Root />', () => {
 
         const menus = screen.queryAllByRole('menu', { hidden: false });
         await waitFor(() => {
-          expect(menus.length).to.equal(1);
+          expect(menus.length).toBe(1);
         });
 
-        expect(menus[0].dataset.testid).to.equal('menu');
+        expect(menus[0].dataset.testid).toBe('menu');
       });
 
       it('closes the parent menu when the Escape key is pressed  if `closeParentOnEsc=true`', async () => {
@@ -1874,7 +1871,7 @@ describe('<Menu.Root />', () => {
         await user.keyboard('[Escape]');
         await flushMicrotasks();
 
-        expect(screen.queryByRole('menu', { hidden: false })).to.equal(null);
+        expect(screen.queryByRole('menu', { hidden: false })).toBe(null);
       });
     });
 
@@ -1892,12 +1889,12 @@ describe('<Menu.Root />', () => {
         await user.click(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         const positioner = screen.getByTestId('menu-positioner');
 
-        expect(positioner.previousElementSibling).to.have.attribute('role', 'presentation');
+        expect(positioner.previousElementSibling).toHaveAttribute('role', 'presentation');
       });
 
       it('should not render an internal backdrop when `false`', async () => {
@@ -1913,12 +1910,12 @@ describe('<Menu.Root />', () => {
         await user.click(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         const positioner = screen.getByTestId('menu-positioner');
 
-        expect(positioner.previousElementSibling).to.equal(null);
+        expect(positioner.previousElementSibling).toBe(null);
       });
     });
 
@@ -1927,7 +1924,7 @@ describe('<Menu.Root />', () => {
         render(() => <TestMenu rootProps={{ defaultOpen: true }} />);
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         const positioner = screen.getByTestId('menu-positioner');
@@ -1935,7 +1932,7 @@ describe('<Menu.Root />', () => {
         fireEvent.mouseEnter(positioner);
         fireEvent.mouseLeave(positioner);
 
-        expect(screen.queryByRole('menu')).not.to.equal(null);
+        expect(screen.queryByRole('menu')).not.toBe(null);
       });
     });
 
@@ -1969,13 +1966,13 @@ describe('<Menu.Root />', () => {
         await user.click(opener);
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         await user.click(screen.getByRole('menuitem', { name: 'Close menu' }));
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).to.equal(null);
+          expect(screen.queryByRole('menu')).toBe(null);
         });
         expect(opener).toHaveFocus();
       });
@@ -2005,7 +2002,7 @@ describe('<Menu.Root />', () => {
         await user.click(screen.getByRole('button', { name: 'Show' }));
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         const positioner = screen.getByTestId('menu-positioner');
@@ -2013,7 +2010,7 @@ describe('<Menu.Root />', () => {
         fireEvent.mouseEnter(positioner);
         fireEvent.mouseLeave(positioner);
 
-        expect(screen.queryByRole('menu')).not.to.equal(null);
+        expect(screen.queryByRole('menu')).not.toBe(null);
       });
 
       it('closes after hovering out of a popup opened by its trigger', async () => {
@@ -2041,14 +2038,14 @@ describe('<Menu.Root />', () => {
         fireEvent.mouseEnter(trigger);
         fireEvent.mouseMove(trigger);
 
-        expect(screen.queryByRole('menu')).not.to.equal(null);
+        expect(screen.queryByRole('menu')).not.toBe(null);
 
         const positioner = screen.getByTestId('menu-positioner');
 
         fireEvent.mouseEnter(positioner);
         fireEvent.mouseLeave(positioner);
 
-        expect(screen.queryByRole('menu')).to.equal(null);
+        expect(screen.queryByRole('menu')).toBe(null);
       });
     });
 
@@ -2151,8 +2148,8 @@ describe('<Menu.Root />', () => {
       it('unmounts the menu when the `unmount` method is called', async () => {
         const actionsRef = {
           current: {
-            close: spy(),
-            unmount: spy(),
+            close: vi.fn(),
+            unmount: vi.fn(),
           },
         };
 
@@ -2174,13 +2171,13 @@ describe('<Menu.Root />', () => {
         await user.keyboard('{Enter}');
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         await user.click(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         await new Promise((resolve) => {
@@ -2190,7 +2187,7 @@ describe('<Menu.Root />', () => {
         actionsRef.current.unmount();
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).to.equal(null);
+          expect(screen.queryByRole('menu')).toBe(null);
         });
       });
     });
@@ -2231,7 +2228,7 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(submenuTrigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('submenu')).not.to.equal(null);
+          expect(screen.queryByTestId('submenu')).not.toBe(null);
         });
       });
 
@@ -2247,7 +2244,7 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(submenuTrigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('submenu')).not.to.equal(null);
+          expect(screen.queryByTestId('submenu')).not.toBe(null);
         });
 
         const previousBodyPointerEvents = document.body.style.pointerEvents;
@@ -2259,10 +2256,10 @@ describe('<Menu.Root />', () => {
           fireEvent.mouseMove(sibling);
 
           await waitFor(() => {
-            expect(screen.queryByTestId('submenu')).to.equal(null);
+            expect(screen.queryByTestId('submenu')).toBe(null);
           });
 
-          expect(document.body.style.pointerEvents).to.equal('none');
+          expect(document.body.style.pointerEvents).toBe('none');
         } finally {
           document.body.style.pointerEvents = previousBodyPointerEvents;
         }
@@ -2301,15 +2298,15 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(submenuTrigger);
 
         await waitFor(() => {
-          expect(screen.getByTestId('submenu')).not.to.equal(null);
+          expect(screen.getByTestId('submenu')).not.toBe(null);
         });
 
         const menu = screen.getByTestId('menu');
         const submenuPositioner = screen.getByTestId('submenu-positioner');
 
-        expect(menu.style.pointerEvents).to.equal('none');
-        expect(submenuPositioner.style.pointerEvents).to.equal('auto');
-        expect(screen.getByTestId('item-3').style.pointerEvents).to.equal('');
+        expect(menu.style.pointerEvents).toBe('none');
+        expect(submenuPositioner.style.pointerEvents).toBe('auto');
+        expect(screen.getByTestId('item-3').style.pointerEvents).toBe('');
       });
 
       it('should not close when submenu is hovered after root menu is hovered', async () => {
@@ -2327,7 +2324,7 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(trigger);
 
         await waitFor(() => {
-          expect(screen.getByTestId('menu')).not.to.equal(null);
+          expect(screen.getByTestId('menu')).not.toBe(null);
         });
 
         const menu = screen.getByTestId('menu');
@@ -2339,10 +2336,10 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(submenuTrigger);
 
         await waitFor(() => {
-          expect(screen.getByTestId('menu')).not.to.equal(null);
+          expect(screen.getByTestId('menu')).not.toBe(null);
         });
         await waitFor(() => {
-          expect(screen.getByTestId('submenu')).not.to.equal(null);
+          expect(screen.getByTestId('submenu')).not.toBe(null);
         });
 
         const submenu = screen.getByTestId('submenu');
@@ -2353,10 +2350,10 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(submenu);
 
         await waitFor(() => {
-          expect(screen.getByTestId('menu')).not.to.equal(null);
+          expect(screen.getByTestId('menu')).not.toBe(null);
         });
         await waitFor(() => {
-          expect(screen.getByTestId('submenu')).not.to.equal(null);
+          expect(screen.getByTestId('submenu')).not.toBe(null);
         });
       });
 
@@ -2375,7 +2372,7 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(trigger);
 
         await waitFor(() => {
-          expect(screen.getByTestId('menu')).not.to.equal(null);
+          expect(screen.getByTestId('menu')).not.toBe(null);
         });
 
         // Open first-level submenu
@@ -2383,7 +2380,7 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(level1Trigger);
 
         await waitFor(() => {
-          expect(screen.getByTestId('submenu')).not.to.equal(null);
+          expect(screen.getByTestId('submenu')).not.toBe(null);
         });
 
         // Open second-level submenu
@@ -2391,7 +2388,7 @@ describe('<Menu.Root />', () => {
         await userEvent.hover(level2Trigger);
 
         await waitFor(() => {
-          expect(screen.getByTestId('nested-submenu')).not.to.equal(null);
+          expect(screen.getByTestId('nested-submenu')).not.toBe(null);
         });
 
         // Hover a sibling item in the parent submenu to close the second-level submenu
@@ -2400,7 +2397,7 @@ describe('<Menu.Root />', () => {
         fireEvent.mouseMove(parentSibling);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('nested-submenu')).to.equal(null);
+          expect(screen.queryByTestId('nested-submenu')).toBe(null);
         });
 
         // Now unhover the parent submenu container; it should remain open
@@ -2409,7 +2406,7 @@ describe('<Menu.Root />', () => {
 
         // Parent submenu should still be open
         await waitFor(() => {
-          expect(screen.getByTestId('submenu')).not.to.equal(null);
+          expect(screen.getByTestId('submenu')).not.toBe(null);
         });
       });
 
@@ -2430,7 +2427,7 @@ describe('<Menu.Root />', () => {
           clock.tick(100);
           await flushMicrotasks();
 
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
 
           clock.tick(PATIENT_CLICK_THRESHOLD - 1);
           fireEvent.click(trigger);
@@ -2441,7 +2438,7 @@ describe('<Menu.Root />', () => {
 
           await flushMicrotasks();
 
-          expect(screen.queryByRole('menu')).to.equal(null);
+          expect(screen.queryByRole('menu')).toBe(null);
 
           // Re-enter with mouse events only. A fresh pointerenter can be
           // missed after the click-driven close, but hover should still work.
@@ -2451,7 +2448,7 @@ describe('<Menu.Root />', () => {
           clock.tick(100);
           await flushMicrotasks();
 
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         it('treats hover-opened menus as modal after a click', async () => {
@@ -2476,16 +2473,16 @@ describe('<Menu.Root />', () => {
           fireEvent.mouseMove(trigger);
 
           await flushMicrotasks();
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
 
           const positioner = screen.getByTestId('positioner');
-          expect(positioner.previousElementSibling).to.equal(null);
+          expect(positioner.previousElementSibling).toBe(null);
 
           clock.tick(PATIENT_CLICK_THRESHOLD - 1);
           fireEvent.click(trigger);
 
           await flushMicrotasks();
-          expect(positioner.previousElementSibling).to.have.attribute('role', 'presentation');
+          expect(positioner.previousElementSibling).toHaveAttribute('role', 'presentation');
         });
       });
     });
@@ -2507,17 +2504,17 @@ describe('<Menu.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Item 1')).not.to.equal(null);
+        expect(screen.getByText('Item 1')).not.toBe(null);
 
         fireEvent.mouseLeave(anchor);
 
         clock.tick(50);
 
-        expect(screen.getByText('Item 1')).not.to.equal(null);
+        expect(screen.getByText('Item 1')).not.toBe(null);
 
         clock.tick(50);
 
-        expect(screen.queryByText('Item 1')).to.equal(null);
+        expect(screen.queryByText('Item 1')).toBe(null);
       });
 
       it('should close submenu after delay when hovering a sibling item', async () => {
@@ -2542,7 +2539,7 @@ describe('<Menu.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByTestId('submenu')).not.to.equal(null);
+        expect(screen.queryByTestId('submenu')).not.toBe(null);
 
         // Hover a sibling item in the parent menu
         const siblingItem = screen.getByRole('menuitem', { name: 'Item 1' });
@@ -2550,11 +2547,11 @@ describe('<Menu.Root />', () => {
 
         // Submenu should still be open after partial delay
         clock.tick(50);
-        expect(screen.queryByTestId('submenu')).not.to.equal(null);
+        expect(screen.queryByTestId('submenu')).not.toBe(null);
 
         // Submenu should close after the full delay
         clock.tick(50);
-        expect(screen.queryByTestId('submenu')).to.equal(null);
+        expect(screen.queryByTestId('submenu')).toBe(null);
       });
 
       it('should not restart closeDelay on repeated mousemove over sibling items', async () => {
@@ -2579,7 +2576,7 @@ describe('<Menu.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByTestId('submenu')).not.to.equal(null);
+        expect(screen.queryByTestId('submenu')).not.toBe(null);
 
         // Hover a sibling item in the parent menu
         const siblingItem = screen.getByRole('menuitem', { name: 'Item 1' });
@@ -2587,14 +2584,14 @@ describe('<Menu.Root />', () => {
 
         // Wait 80ms (most of the delay), then move again over the sibling
         clock.tick(80);
-        expect(screen.queryByTestId('submenu')).not.to.equal(null);
+        expect(screen.queryByTestId('submenu')).not.toBe(null);
 
         // Move again - this should NOT restart the timer
         fireEvent.mouseMove(siblingItem);
 
         // After 20 more ms (100ms total from first move), the submenu should close
         clock.tick(20);
-        expect(screen.queryByTestId('submenu')).to.equal(null);
+        expect(screen.queryByTestId('submenu')).toBe(null);
       });
     });
 
@@ -2626,7 +2623,7 @@ describe('<Menu.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByTestId('submenu')).not.to.equal(null);
+        expect(screen.queryByTestId('submenu')).not.toBe(null);
       });
 
       it('cancels a pending submenu hover-open when the pointer leaves via mouseout', async () => {
@@ -2653,7 +2650,7 @@ describe('<Menu.Root />', () => {
         clock.tick(200);
         await flushMicrotasks();
 
-        expect(screen.queryByTestId('submenu')).to.equal(null);
+        expect(screen.queryByTestId('submenu')).toBe(null);
       });
 
       it('keeps a pending submenu hover-open when mouseout stays within the trigger', async () => {
@@ -2678,7 +2675,7 @@ describe('<Menu.Root />', () => {
         clock.tick(200);
         await flushMicrotasks();
 
-        expect(screen.queryByTestId('submenu')).not.to.equal(null);
+        expect(screen.queryByTestId('submenu')).not.toBe(null);
       });
     });
 
@@ -2688,8 +2685,8 @@ describe('<Menu.Root />', () => {
       });
 
       it('triggers a menu item and closes the menu on click, drag, release', async () => {
-        const openChangeSpy = spy();
-        const clickSpy = spy();
+        const openChangeSpy = vi.fn();
+        const clickSpy = vi.fn();
 
         render(() => (
           <div>
@@ -2715,7 +2712,7 @@ describe('<Menu.Root />', () => {
         fireEvent.mouseDown(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('menu')).not.to.equal(null);
+          expect(screen.queryByTestId('menu')).not.toBe(null);
         });
 
         await wait(200);
@@ -2724,21 +2721,21 @@ describe('<Menu.Root />', () => {
         fireEvent.mouseUp(item2);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
+          expect(screen.queryByTestId('menu')).toBe(null);
         });
 
-        expect(clickSpy.callCount).to.equal(1);
+        expect(clickSpy.mock.calls.length).toBe(1);
 
-        expect(openChangeSpy.callCount).to.equal(2);
-        expect(openChangeSpy.firstCall.args[0]).to.equal(true);
-        expect(openChangeSpy.lastCall.args[0]).to.equal(false);
-        expect(openChangeSpy.lastCall.args[1].reason).to.equal(REASONS.itemPress);
+        expect(openChangeSpy.mock.calls.length).toBe(2);
+        expect(openChangeSpy.mock.calls[0][0]).toBe(true);
+        expect(openChangeSpy.mock.lastCall?.[0]).toBe(false);
+        expect(openChangeSpy.mock.lastCall?.[1].reason).toBe(REASONS.itemPress);
       });
 
       it('closes the menu on click, drag outside, release', async () => {
         const { userEvent: user, page } = await import('vitest/browser');
 
-        const openChangeSpy = spy();
+        const openChangeSpy = vi.fn();
 
         render(() => (
           <div>
@@ -2765,13 +2762,13 @@ describe('<Menu.Root />', () => {
         await user.dragAndDrop(trigger, backdrop);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('menu')).to.equal(null);
+          expect(screen.queryByTestId('menu')).toBe(null);
         });
 
-        expect(openChangeSpy.callCount).to.equal(2);
-        expect(openChangeSpy.firstCall.args[0]).to.equal(true);
-        expect(openChangeSpy.lastCall.args[0]).to.equal(false);
-        expect(openChangeSpy.lastCall.args[1].reason).to.equal(REASONS.cancelOpen);
+        expect(openChangeSpy.mock.calls.length).toBe(2);
+        expect(openChangeSpy.mock.calls[0][0]).toBe(true);
+        expect(openChangeSpy.mock.lastCall?.[0]).toBe(false);
+        expect(openChangeSpy.mock.lastCall?.[1].reason).toBe(REASONS.cancelOpen);
       });
     });
 
@@ -2795,23 +2792,23 @@ describe('<Menu.Root />', () => {
 
         await user.click(trigger);
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         await user.click(trigger);
         await waitFor(() => {
-          expect(trigger).not.to.have.attribute('data-popup-open');
+          expect(trigger).not.toHaveAttribute('data-popup-open');
         });
-        expect(screen.queryByRole('menu')).not.to.equal(null);
+        expect(screen.queryByRole('menu')).not.toBe(null);
 
         await user.click(trigger);
         await waitFor(() => {
-          expect(trigger).to.have.attribute('data-popup-open');
+          expect(trigger).toHaveAttribute('data-popup-open');
         });
 
         await user.click(trigger);
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).to.equal(null);
+          expect(screen.queryByRole('menu')).toBe(null);
         });
       });
     });
@@ -2846,7 +2843,7 @@ describe('<Menu.Root />', () => {
     await waitFor(() => {
       expect(menuItem).toHaveFocus();
     });
-    expect(menuItem).to.have.attribute('tabindex', '0');
+    expect(menuItem).toHaveAttribute('tabindex', '0');
 
     await user.tab();
 
@@ -2859,9 +2856,9 @@ describe('<Menu.Root />', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('menu')).not.to.have.attribute('data-open');
+      expect(screen.getByTestId('menu')).not.toHaveAttribute('data-open');
     });
-    expect(menuItem).to.have.attribute('tabindex', '-1');
+    expect(menuItem).toHaveAttribute('tabindex', '-1');
   });
 
   describe.skipIf(isJSDOM || !isBlink)('opening a dialog from an item', () => {
@@ -2948,7 +2945,7 @@ describe('<Menu.Root />', () => {
         });
 
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).not.to.equal(null);
+          expect(screen.queryByRole('menu')).not.toBe(null);
         });
 
         // Exceed the impatient-click threshold so releasing over the item
@@ -2974,20 +2971,20 @@ describe('<Menu.Root />', () => {
 
         // The item activates on release: the menu closes and the dialog opens.
         await waitFor(() => {
-          expect(screen.queryByRole('menu')).to.equal(null);
+          expect(screen.queryByRole('menu')).toBe(null);
         });
         await waitFor(() => {
-          expect(screen.queryByTestId('dialog-popup')).not.to.equal(null);
+          expect(screen.queryByTestId('dialog-popup')).not.toBe(null);
         });
 
         // The browser fires the gesture's native click on the common ancestor
         // of the press and release targets after the dialog is open. It must
         // not be treated as an intentional outside press on the dialog.
         await waitFor(() => {
-          expect(documentClicks.some((event) => event.isTrusted)).to.equal(true);
+          expect(documentClicks.some((event) => event.isTrusted)).toBe(true);
         });
 
-        expect(screen.queryByTestId('dialog-popup')).not.to.equal(null);
+        expect(screen.queryByTestId('dialog-popup')).not.toBe(null);
         expect(dialogOpenChangeSpy).not.toHaveBeenCalledWith(false, REASONS.outsidePress);
       } finally {
         document.removeEventListener('click', recordClick, true);
@@ -3076,7 +3073,7 @@ describe('<Menu.Root />', () => {
 
       await flushMicrotasks();
 
-      expect(submenuTrigger).not.to.have.attribute('data-highlighted');
+      expect(submenuTrigger).not.toHaveAttribute('data-highlighted');
       expect(submenuTrigger).not.toHaveFocus();
     });
   });
@@ -3104,9 +3101,9 @@ describe('<Menu.Root />', () => {
         />
       ));
 
-      expect(screen.getByTestId('item')).to.have.attribute('data-disabled');
-      expect(screen.getByTestId('checkbox-item')).to.have.attribute('data-disabled');
-      expect(screen.getByTestId('radio-item')).to.have.attribute('data-disabled');
+      expect(screen.getByTestId('item')).toHaveAttribute('data-disabled');
+      expect(screen.getByTestId('checkbox-item')).toHaveAttribute('data-disabled');
+      expect(screen.getByTestId('radio-item')).toHaveAttribute('data-disabled');
     });
 
     it('does not highlight items with text navigation when controlled open', async () => {
@@ -3136,7 +3133,7 @@ describe('<Menu.Root />', () => {
       await user.keyboard('b');
       await flushMicrotasks();
 
-      expect(beta).not.to.have.attribute('data-highlighted');
+      expect(beta).not.toHaveAttribute('data-highlighted');
       expect(beta).not.toHaveFocus();
     });
 
@@ -3191,11 +3188,11 @@ describe('<Menu.Root />', () => {
 
       const submenuTrigger = screen.getByTestId('submenu-trigger');
 
-      expect(submenuTrigger).to.have.attribute('data-disabled');
+      expect(submenuTrigger).toHaveAttribute('data-disabled');
 
       await user.click(submenuTrigger);
 
-      expect(screen.queryByTestId('submenu-popup')).to.equal(null);
+      expect(screen.queryByTestId('submenu-popup')).toBe(null);
     });
   });
 
@@ -3257,7 +3254,7 @@ describe('<Menu.Root />', () => {
       await user.keyboard('{ArrowDown}');
 
       await waitFor(() => {
-        expect(screen.queryByRole('menu')).not.to.equal(null);
+        expect(screen.queryByRole('menu')).not.toBe(null);
       });
 
       await user.keyboard('{ArrowDown}');

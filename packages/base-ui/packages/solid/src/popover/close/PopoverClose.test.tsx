@@ -45,7 +45,7 @@ describe('<Popover.Close />', () => {
       </Popover.Root>
     ));
 
-    expect(screen.queryByRole('button', { name: 'Close popover' })).not.to.equal(null);
+    expect(screen.queryByRole('button', { name: 'Close popover' })).not.toBe(null);
   });
 
   it('should close popover when clicked', async () => {
@@ -63,11 +63,11 @@ describe('<Popover.Close />', () => {
       </Popover.Root>
     ));
 
-    expect(screen.queryByText('Content')).not.to.equal(null);
+    expect(screen.queryByText('Content')).not.toBe(null);
 
     fireEvent.click(screen.getByTestId('close'));
 
-    expect(screen.queryByText('Content')).to.equal(null);
+    expect(screen.queryByText('Content')).toBe(null);
   });
 
   it('keeps the trigger when closing with a tooltip trigger close button', async () => {
@@ -99,14 +99,14 @@ describe('<Popover.Close />', () => {
       </Popover.Root>
     ));
 
-    expect(screen.queryByText('Content')).not.to.equal(null);
+    expect(screen.queryByText('Content')).not.toBe(null);
 
     fireEvent.click(screen.getByTestId('close'));
 
-    expect(screen.queryByText('Content')).to.equal(null);
-    expect(handleOpenChange.mock.calls[0][0]).to.equal(false);
-    expect(handleOpenChange.mock.calls[0][1].reason).to.equal(REASONS.closePress);
-    expect(handleOpenChange.mock.calls[0][1].trigger?.id).to.equal('trigger-1');
+    expect(screen.queryByText('Content')).toBe(null);
+    expect(handleOpenChange.mock.calls[0][0]).toBe(false);
+    expect(handleOpenChange.mock.calls[0][1].reason).toBe(REASONS.closePress);
+    expect(handleOpenChange.mock.calls[0][1].trigger?.id).toBe('trigger-1');
   });
 
   // `triggerId` can point at a trigger that isn't mounted (for example while a controlled id is
@@ -144,8 +144,8 @@ describe('<Popover.Close />', () => {
     fireEvent.click(screen.getByTestId('close'));
 
     expect(handleOpenChange).toHaveBeenCalledTimes(1);
-    expect(handleOpenChange.mock.calls[0][1].reason).to.equal(REASONS.closePress);
-    expect(handleOpenChange.mock.calls[0][1].trigger).to.equal(
+    expect(handleOpenChange.mock.calls[0][1].reason).toBe(REASONS.closePress);
+    expect(handleOpenChange.mock.calls[0][1].trigger).toBe(
       screen.getByRole('button', {
         name: 'Trigger',
       }),
@@ -170,10 +170,10 @@ describe('<Popover.Close />', () => {
 
     fireEvent.click(screen.getByTestId('close'));
 
-    expect(screen.queryByText('Content')).to.equal(null);
+    expect(screen.queryByText('Content')).toBe(null);
     expect(handleOpenChange).toHaveBeenCalledTimes(1);
-    expect(handleOpenChange.mock.calls[0][1].reason).to.equal(REASONS.closePress);
-    expect(handleOpenChange.mock.calls[0][1].trigger).to.equal(undefined);
+    expect(handleOpenChange.mock.calls[0][1].reason).toBe(REASONS.closePress);
+    expect(handleOpenChange.mock.calls[0][1].trigger).toBe(undefined);
   });
 
   it.each([true, 'trap-focus'] as const)(

@@ -28,8 +28,8 @@ describe('<Combobox.Group />', () => {
       </Combobox.Root>
     ));
 
-    expect(screen.getByRole('group')).to.have.attribute('aria-labelledby');
-    expect(screen.queryByText('Fruits')).not.to.equal(null);
+    expect(screen.getByRole('group')).toHaveAttribute('aria-labelledby');
+    expect(screen.queryByText('Fruits')).not.toBe(null);
   });
 
   it('should associate label with group', async () => {
@@ -49,6 +49,6 @@ describe('<Combobox.Group />', () => {
 
     const Group = screen.getByRole('group');
     const label = screen.getByText('Vegetables');
-    expect(Group).to.have.attribute('aria-labelledby', label.id);
+    expect(Group).toHaveAttribute('aria-labelledby', label.id);
   });
 });

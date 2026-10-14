@@ -27,7 +27,7 @@ describe('<Tooltip.Root />', () => {
     // Wait for all tooltips to unmount
     await waitFor(() => {
       const tooltips = document.querySelectorAll('[data-open]');
-      expect(tooltips.length).to.equal(0);
+      expect(tooltips.length).toBe(0);
     });
   });
 
@@ -522,14 +522,14 @@ describe('<Tooltip.Root />', () => {
 
       trigger1.focus();
       await flushMicrotasks();
-      expect(screen.getByTestId('content').textContent).to.equal('1');
+      expect(screen.getByTestId('content').textContent).toBe('1');
 
       trigger2.focus();
       await flushMicrotasks();
       await waitFor(() => {
-        expect(screen.queryByTestId('content')).to.equal(null);
+        expect(screen.queryByTestId('content')).toBe(null);
       });
-      expect(trigger2).not.to.have.attribute('data-popup-open');
+      expect(trigger2).not.toHaveAttribute('data-popup-open');
     });
 
     it('should close when the active detached trigger unmounts', async () => {
@@ -610,14 +610,14 @@ describe('<Tooltip.Root />', () => {
 
       await user.hover(trigger1);
       await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('1');
+        expect(screen.getByTestId('content').textContent).toBe('1');
       });
 
       await user.hover(trigger2);
       await waitFor(() => {
-        expect(screen.queryByTestId('content')).to.equal(null);
+        expect(screen.queryByTestId('content')).toBe(null);
       });
-      expect(trigger2).not.to.have.attribute('data-popup-open');
+      expect(trigger2).not.toHaveAttribute('data-popup-open');
     });
 
     it('should switch to a rendered disabled button trigger when trigger hover is enabled', async () => {
@@ -657,14 +657,14 @@ describe('<Tooltip.Root />', () => {
 
       await user.hover(trigger1);
       await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('1');
+        expect(screen.getByTestId('content').textContent).toBe('1');
       });
 
       await user.hover(trigger2);
       await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('2');
+        expect(screen.getByTestId('content').textContent).toBe('2');
       });
-      expect(trigger2).to.have.attribute('data-popup-open');
+      expect(trigger2).toHaveAttribute('data-popup-open');
     });
   });
 });

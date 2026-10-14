@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { createMemo, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -9,13 +8,13 @@ import {
   defaultProps,
   useRef,
   createLayoutEffect,
-  type ReactLikeRef,
 } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { ownerDocument } from '../../utils/owner';
 import { REASONS } from '../../utils/reasons';
 import { useFloatingParentNodeId, useFloatingTreeAccessor } from '../components/FloatingTree';
-import { FloatingTreeStore } from '../components/FloatingTreeStore';
+import type { FloatingTreeStore } from '../components/FloatingTreeStore';
 import type { ElementProps, FloatingContext, FloatingRootContext } from '../types';
 import {
   activeElement,

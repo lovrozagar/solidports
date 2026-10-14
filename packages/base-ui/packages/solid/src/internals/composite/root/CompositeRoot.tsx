@@ -1,21 +1,18 @@
-/* eslint-disable typescript/no-explicit-any -- generic Metadata/State across composite items; State extends Record<string, any> mirrors React port */
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../../../direction-provider/DirectionContext';
-import {
-  access,
-  defaultProps,
-  splitComponentProps,
-  type ReactLikeRef,
-} from '../../../solid-helpers';
+import { access, defaultProps, splitComponentProps } from '../../../solid-helpers';
+import type { ReactLikeRef } from '../../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../../utils/constants';
-import { StateAttributesMapping } from '../../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../../utils/getStateAttributesProps';
 import type { BaseUIComponentProps, UseRenderElementRef } from '../../../utils/types';
 import { useRenderElement } from '../../../utils/useRenderElement';
 import type { ModifierKey } from '../composite';
 import type { CompositeGridNavigator } from './gridNavigation';
-import { CompositeList, type CompositeMetadata } from '../list/CompositeList';
+import { CompositeList } from '../list/CompositeList';
+import type { CompositeMetadata } from '../list/CompositeList';
 import { CompositeRootContext } from './CompositeRootContext';
-import { useCompositeRoot, type CompositeElementsRef } from './useCompositeRoot';
+import { useCompositeRoot } from './useCompositeRoot';
+import type { CompositeElementsRef } from './useCompositeRoot';
 
 /**
  * @internal
@@ -133,7 +130,7 @@ export function CompositeRoot<Metadata extends {}, State extends Record<string, 
   );
 }
 
-type AllowedProps = Record<string, any> & { children?: never };
+type AllowedProps = Record<string, any> & { children?: never | undefined };
 
 export interface CompositeRootProps<Metadata, State extends Record<string, any>> extends Pick<
   BaseUIComponentProps<'div', State>,

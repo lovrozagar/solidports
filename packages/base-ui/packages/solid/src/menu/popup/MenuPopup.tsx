@@ -288,7 +288,7 @@ export function MenuPopup(props: MenuPopup.Props) {
 }
 
 export interface MenuPopupProps extends BaseUIComponentProps<'div', MenuPopup.State> {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * @ignore
    */

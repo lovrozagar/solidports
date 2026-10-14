@@ -115,7 +115,7 @@ describe('<Tooltip.Viewport />', () => {
     await act(async () => trigger.focus());
 
     await waitFor(() => {
-      expect(screen.getByTestId('viewport')).to.have.attribute('data-instant', 'focus');
+      expect(screen.getByTestId('viewport')).toHaveAttribute('data-instant', 'focus');
     });
   });
 });

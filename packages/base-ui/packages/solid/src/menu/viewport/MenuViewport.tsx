@@ -89,7 +89,7 @@ export interface MenuViewportProps extends BaseUIComponentProps<'div', MenuViewp
   /**
    * The content to render inside the transition container.
    */
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
 }
 
 export namespace MenuViewport {

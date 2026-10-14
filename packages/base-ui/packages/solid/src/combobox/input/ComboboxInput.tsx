@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo, createSignal } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { useDirection } from '../../internals/direction-context/DirectionContext';
@@ -13,7 +12,7 @@ import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { platform } from '../../utils/platform';
 import { REASONS } from '../../utils/reasons';
 import { getHighlightReason } from '../../utils/getHighlightReason';
-import { BaseUIComponentProps, type HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import type { Side } from '../../utils/useAnchorPositioning';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { propsSourceAccessor } from '../../utils/propsView';

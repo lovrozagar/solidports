@@ -1,5 +1,6 @@
 import { untrack } from 'solid-js';
-import { DialogStore, createNullDialogStore, type DialogHandleStore } from './DialogStore';
+import type { DialogStore, DialogHandleStore } from './DialogStore';
+import { createNullDialogStore } from './DialogStore';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { BasePopupHandle } from '../../utils/popups/popupHandle';

@@ -6,8 +6,8 @@ import type { State as StoreState } from '../store';
 import {
   FilterDropdownGroupContext,
   useFilterDropdownGroupContext,
-  type FilterDropdownGroupContext as FilterDropdownGroupContextValue,
 } from './FilterDropdownGroupContext';
+import type { FilterDropdownGroupContext as FilterDropdownGroupContextValue } from './FilterDropdownGroupContext';
 
 function isGroupHidden(
   visibleItemIds: ReadonlySet<symbol> | null,

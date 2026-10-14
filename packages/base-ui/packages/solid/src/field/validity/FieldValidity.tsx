@@ -1,8 +1,9 @@
 import { createMemo } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { Dynamic } from '@solidjs/web';
-import { type TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
-import { FieldValidityData } from '../root/FieldRoot';
+import { useTransitionStatus } from '../../utils/useTransitionStatus';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
+import type { FieldValidityData } from '../root/FieldRoot';
 import { useFieldRootContext } from '../root/FieldRootContext';
 import { getCombinedFieldValidityData } from '../utils/getCombinedFieldValidityData';
 

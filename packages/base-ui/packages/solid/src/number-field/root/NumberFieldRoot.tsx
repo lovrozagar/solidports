@@ -1,5 +1,6 @@
 import { createEffect, createSignal, untrack } from 'solid-js';
-import { isServer, type JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import type { FieldRoot } from '../../field/root/FieldRoot';
 import { useFieldRootContext } from '../../field/root/FieldRootContext';
 import { activeElement } from '../../floating-ui-solid/utils';
@@ -10,16 +11,18 @@ import {
   createDepsEffect,
   splitComponentProps,
   useRef,
-  type ReactLikeRef,
   createLayoutEffect,
 } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import {
   createChangeEventDetails,
   createGenericEventDetails,
-  type BaseUIChangeEventDetails,
-  type BaseUIGenericEventDetails,
-  type ReasonToEvent,
+} from '../../utils/createBaseUIEventDetails';
+import type {
+  BaseUIChangeEventDetails,
+  BaseUIGenericEventDetails,
+  ReasonToEvent,
 } from '../../utils/createBaseUIEventDetails';
 import { formatNumber } from '../../utils/formatNumber';
 import { ownerDocument } from '../../utils/owner';
@@ -46,7 +49,8 @@ import type {
   IncrementValueParameters,
 } from '../utils/types';
 import { toValidatedNumber } from '../utils/validate';
-import { type InputMode, NumberFieldRootContext } from './NumberFieldRootContext';
+import { NumberFieldRootContext } from './NumberFieldRootContext';
+import type { InputMode } from './NumberFieldRootContext';
 
 /**
  * Groups all parts of the number field and manages its state.

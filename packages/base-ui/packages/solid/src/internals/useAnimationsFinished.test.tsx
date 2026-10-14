@@ -1,5 +1,6 @@
 import { expect, vi, describe, it } from 'vitest';
-import { createEffect, createRenderEffect, createSignal, Show, type Setter } from 'solid-js';
+import { createEffect, createRenderEffect, createSignal, Show } from 'solid-js';
+import type { Setter } from 'solid-js';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { act, createRenderer, flushMicrotasks } from '#test-utils';
 import { useAnimationsFinished } from './useAnimationsFinished';

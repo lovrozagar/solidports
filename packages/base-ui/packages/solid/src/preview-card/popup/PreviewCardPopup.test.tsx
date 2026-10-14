@@ -24,7 +24,7 @@ describe('<PreviewCard.Popup />', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <PreviewCard.Popup />)).to.throw(
+      expect(() => render(() => <PreviewCard.Popup />)).toThrow(
         'Base UI: PreviewCardRootContext is missing. PreviewCard parts must be placed within <PreviewCard.Root>.',
       );
     } finally {
@@ -46,7 +46,7 @@ describe('<PreviewCard.Popup />', () => {
             </PreviewCard.Portal>
           </PreviewCard.Root>
         )),
-      ).to.throw(
+      ).toThrow(
         'Base UI: PreviewCardPositionerContext is missing. PreviewCardPositioner parts must be placed within <PreviewCard.Positioner>.',
       );
     } finally {
@@ -65,6 +65,6 @@ describe('<PreviewCard.Popup />', () => {
       </PreviewCard.Root>
     ));
 
-    expect(screen.getByText('Content')).not.to.equal(null);
+    expect(screen.getByText('Content')).not.toBe(null);
   });
 });

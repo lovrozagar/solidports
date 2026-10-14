@@ -5,12 +5,13 @@ import { FloatingNode } from '../../floating-ui-solid';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
 import { splitComponentProps, useRef, createLayoutEffect } from '../../solid-helpers';
 import { EMPTY_OBJECT } from '../../utils/empty';
-import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { popupStateMapping } from '../../utils/popupStateMapping';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps, UseRenderElementRef } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
-import { TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
+import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import { useNavigationMenuItemContext } from '../item/NavigationMenuItemContext';
 import {
   useNavigationMenuRootContext,

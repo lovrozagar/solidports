@@ -1,4 +1,5 @@
-import { createContext, useContext, type ParentProps } from "solid-js"
+import { createContext, useContext  } from "solid-js"
+import type {ParentProps} from "solid-js";
 import type { JSX } from "@solidjs/web"
 import { dynamic } from "@solidjs/web"
 import { mdxComponents } from "../components/mdx-components"

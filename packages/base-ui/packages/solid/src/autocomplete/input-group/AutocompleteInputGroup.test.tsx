@@ -16,7 +16,7 @@ describe('<Autocomplete.InputGroup />', () => {
       </Autocomplete.Root>
     ));
 
-    expect(screen.getByTestId('group').contains(screen.getByTestId('input'))).to.equal(true);
-    expect(screen.getByTestId('group').contains(screen.getByTestId('trigger'))).to.equal(true);
+    expect(screen.getByTestId('group').contains(screen.getByTestId('input'))).toBe(true);
+    expect(screen.getByTestId('group').contains(screen.getByTestId('trigger'))).toBe(true);
   });
 });

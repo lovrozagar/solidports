@@ -1,9 +1,9 @@
 import type { JSX } from '@solidjs/web';
 import type { BaseUIComponentProps } from '../../utils/types';
-import {
-  MenuPositioner,
-  type MenuPositionerProps,
-  type MenuPositionerState,
+import { MenuPositioner } from '../../menu/positioner/MenuPositioner';
+import type {
+  MenuPositionerProps,
+  MenuPositionerState,
 } from '../../menu/positioner/MenuPositioner';
 
 export interface ContextMenuPositionerState extends MenuPositionerState {}

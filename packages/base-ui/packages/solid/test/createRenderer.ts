@@ -3,8 +3,10 @@ import { queries, render as testingLibraryRender } from '@solidjs/testing-librar
 import { userEvent } from '@testing-library/user-event';
 import type { Component } from 'solid-js';
 import { dynamic } from '@solidjs/web';
-import { createClock, type Clock, type ClockConfig } from './createClock';
-import { customQueries, type MuiRenderResult, type RenderOptions } from './describeConformance';
+import { createClock } from './createClock';
+import type { Clock, ClockConfig } from './createClock';
+import { customQueries } from './describeConformance';
+import type { MuiRenderResult, RenderOptions } from './describeConformance';
 
 /**
  * The render result. Awaiting it settles the render the way React's `await render()` does: the

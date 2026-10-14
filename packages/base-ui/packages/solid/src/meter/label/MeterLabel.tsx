@@ -1,5 +1,5 @@
 import { splitComponentProps } from '../../solid-helpers';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useRegisteredLabelId } from '../../utils/useRegisteredLabelId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { MeterRootState } from '../root/MeterRoot';

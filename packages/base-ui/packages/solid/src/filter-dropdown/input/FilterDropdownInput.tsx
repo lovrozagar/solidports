@@ -1,5 +1,6 @@
 import { createSignal } from 'solid-js';
-import { isServer, type JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import { createLayoutEffect, splitComponentProps, useRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { platform } from '../../utils/platform';

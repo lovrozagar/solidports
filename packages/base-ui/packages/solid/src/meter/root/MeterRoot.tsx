@@ -3,7 +3,7 @@ import type { JSX } from '@solidjs/web';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import { clamp } from '../../utils/clamp';
 import { formatNumber } from '../../utils/formatNumber';
-import { BaseUIComponentProps, HTMLProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { valueToPercent } from '../../utils/valueToPercent';
 import { visuallyHidden } from '../../utils/visuallyHidden';

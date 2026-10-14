@@ -2,7 +2,6 @@ import { createRenderer, flushMicrotasks, isJSDOM, popupConformanceTests, act } 
 import { Tooltip } from '@solidports/base-ui/tooltip';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
 import { expect, vi, describe, beforeEach, afterEach, it } from 'vitest';
-import { spy } from 'sinon';
 import { createSignal, For, Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { REASONS } from '../../utils/reasons';
@@ -12,7 +11,7 @@ import { splitProps } from '../../solid-1-compat';
 // Solid: local copy of React's `#test-utils` helper.
 async function waitForPositioned(positioner: HTMLElement) {
   await waitFor(() => {
-    expect(positioner.style.opacity).not.to.equal('0');
+    expect(positioner.style.opacity).not.toBe('0');
   });
   await waitFor(() => {
     expect(positioner).toBeVisible();
@@ -110,7 +109,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
 
       it('should close when the trigger is unhovered', async () => {
@@ -129,7 +128,7 @@ describe('<Tooltip.Root />', () => {
         fireEvent.mouseLeave(trigger);
 
         await flushMicrotasks();
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('should open when the trigger is focused', async ({ skip }) => {
@@ -145,7 +144,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
 
       it('should close when the trigger is blurred', async () => {
@@ -163,7 +162,7 @@ describe('<Tooltip.Root />', () => {
 
         clock.tick(OPEN_DELAY);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('does not open when a touch pointer hovers the trigger', async () => {
@@ -189,7 +188,7 @@ describe('<Tooltip.Root />', () => {
       clock.withFakeTimers();
 
       it('should call onOpenChange when the open state changes', async () => {
-        const handleChange = spy();
+        const handleChange = vi.fn();
 
         function App() {
           const [open, setOpen] = createSignal(false);
@@ -209,7 +208,7 @@ describe('<Tooltip.Root />', () => {
 
         renderFakeTimers(() => <App />);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
 
         const trigger = screen.getByRole('button', { name: 'Toggle' });
 
@@ -220,14 +219,14 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.mouseLeave(trigger);
 
-        expect(screen.queryByText('Content')).to.equal(null);
-        expect(handleChange.callCount).to.equal(2);
-        expect(handleChange.firstCall.args[0]).to.equal(false);
-        expect(handleChange.secondCall.args[0]).to.equal(true);
+        expect(screen.queryByText('Content')).toBe(null);
+        expect(handleChange.mock.calls.length).toBe(2);
+        expect(handleChange.mock.calls[0][0]).toBe(false);
+        expect(handleChange.mock.calls[1][0]).toBe(true);
       });
 
       it('does not call onOpenChange again when the trigger is re-hovered while open', async () => {
@@ -309,13 +308,13 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
 
         clock.tick(100);
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
     });
 
@@ -336,15 +335,15 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.mouseLeave(trigger);
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         clock.tick(100);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
     });
 
@@ -372,25 +371,25 @@ describe('<Tooltip.Root />', () => {
         await user.hover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).not.to.equal(null);
+          expect(screen.queryByTestId('positioner')).not.toBe(null);
         });
 
         await user.unhover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).not.to.equal(null);
+          expect(screen.queryByTestId('positioner')).not.toBe(null);
         });
 
         await user.hover(trigger);
 
         await waitFor(() => {
-          expect(trigger).to.have.attribute('data-popup-open');
+          expect(trigger).toHaveAttribute('data-popup-open');
         });
 
         await user.unhover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).to.equal(null);
+          expect(screen.queryByTestId('positioner')).toBe(null);
         });
       });
     });
@@ -399,8 +398,8 @@ describe('<Tooltip.Root />', () => {
       it('unmounts the tooltip when the `unmount` method is called', async () => {
         const actionsRef = {
           current: {
-            close: spy(),
-            unmount: spy(),
+            close: vi.fn(),
+            unmount: vi.fn(),
           },
         };
 
@@ -419,28 +418,28 @@ describe('<Tooltip.Root />', () => {
         await user.hover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).not.to.equal(null);
+          expect(screen.queryByTestId('positioner')).not.toBe(null);
         });
 
         await user.unhover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).not.to.equal(null);
+          expect(screen.queryByTestId('positioner')).not.toBe(null);
         });
 
         act(() => actionsRef.current.unmount());
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).to.equal(null);
+          expect(screen.queryByTestId('positioner')).toBe(null);
         });
       });
 
       it('closes the tooltip when the `close` method is called', async () => {
-        const onOpenChange = spy();
+        const onOpenChange = vi.fn();
         const actionsRef = {
           current: {
-            close: spy(),
-            unmount: spy(),
+            close: vi.fn(),
+            unmount: vi.fn(),
           },
         };
 
@@ -452,18 +451,18 @@ describe('<Tooltip.Root />', () => {
         await user.hover(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('popup')).not.to.equal(null);
+          expect(screen.queryByTestId('popup')).not.toBe(null);
         });
 
         act(() => actionsRef.current.close());
 
         await waitFor(() => {
-          expect(screen.queryByTestId('positioner')).to.equal(null);
+          expect(screen.queryByTestId('positioner')).toBe(null);
         });
 
-        expect(trigger).not.to.have.attribute('data-popup-open');
-        expect(onOpenChange.lastCall.args[0]).to.equal(false);
-        expect(onOpenChange.lastCall.args[1].reason).to.equal(REASONS.imperativeAction);
+        expect(trigger).not.toHaveAttribute('data-popup-open');
+        expect(onOpenChange.mock.lastCall?.[0]).toBe(false);
+        expect(onOpenChange.mock.lastCall?.[1].reason).toBe(REASONS.imperativeAction);
       });
     });
 
@@ -523,7 +522,7 @@ describe('<Tooltip.Root />', () => {
         await user.hover(firstTrigger);
 
         const firstPopup = await screen.findByTestId('popup-1');
-        expect(firstPopup.dataset.instant).to.equal(undefined);
+        expect(firstPopup.dataset.instant).toBe(undefined);
 
         await user.unhover(firstTrigger);
         await user.hover(secondTrigger);
@@ -531,9 +530,9 @@ describe('<Tooltip.Root />', () => {
         const secondPopup = await screen.findByTestId('popup-2');
 
         await waitFor(() => {
-          expect(secondPopup.dataset.instant).to.equal('delay');
+          expect(secondPopup.dataset.instant).toBe('delay');
         });
-        expect(secondPopup.getAnimations().length).to.equal(0);
+        expect(secondPopup.getAnimations().length).toBe(0);
         // Closing from the starting style would exit from `opacity: 0` and never start a transition.
         await waitFor(() => {
           expect(secondPopup).not.toHaveAttribute('data-starting-style');
@@ -542,10 +541,10 @@ describe('<Tooltip.Root />', () => {
         await user.unhover(secondTrigger);
 
         await waitFor(() => {
-          expect(secondPopup.dataset.endingStyle).to.equal('');
+          expect(secondPopup.dataset.endingStyle).toBe('');
         });
-        expect(secondPopup.dataset.instant).to.equal(undefined);
-        expect(secondPopup.getAnimations().length).to.equal(1);
+        expect(secondPopup.dataset.instant).toBe(undefined);
+        expect(secondPopup.getAnimations().length).toBe(1);
       });
 
       it('unmounts an exiting tooltip when another tooltip opens', async () => {
@@ -594,14 +593,14 @@ describe('<Tooltip.Root />', () => {
         await user.unhover(firstTrigger);
 
         await waitFor(() => {
-          expect(firstPopup.getAnimations().length).to.equal(1);
+          expect(firstPopup.getAnimations().length).toBe(1);
         });
 
         await user.hover(secondTrigger);
         await screen.findByTestId('popup-2');
 
         await waitFor(() => {
-          expect(screen.queryByTestId('popup-1')).to.equal(null);
+          expect(screen.queryByTestId('popup-1')).toBe(null);
         });
       });
 
@@ -665,11 +664,11 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
 
         trigger.focus();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('should not open on focus when the trigger is disabled', async () => {
@@ -680,7 +679,7 @@ describe('<Tooltip.Root />', () => {
         trigger.focus();
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('should close if open when becoming disabled', async () => {
@@ -704,24 +703,24 @@ describe('<Tooltip.Root />', () => {
 
         render(() => <App />);
 
-        expect(screen.queryByText('Content')).not.to.equal(null);
+        expect(screen.queryByText('Content')).not.toBe(null);
 
         const disabledButton = screen.getByTestId('disabled');
         fireEvent.click(disabledButton);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('does not throw error when combined with defaultOpen', async () => {
         render(() => <TestTooltip rootProps={{ defaultOpen: true, disabled: true }} />);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('marks the trigger as disabled when the root is disabled', async () => {
         render(() => <TestTooltip rootProps={{ disabled: true }} />);
 
-        expect(screen.getByRole('button', { name: 'Toggle' })).to.have.attribute(
+        expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute(
           'data-trigger-disabled',
         );
       });
@@ -736,7 +735,7 @@ describe('<Tooltip.Root />', () => {
 
         const trigger = screen.getByRole('button', { name: 'Toggle' });
 
-        expect(trigger).not.to.have.attribute('data-trigger-disabled');
+        expect(trigger).not.toHaveAttribute('data-trigger-disabled');
 
         fireEvent.pointerDown(trigger, { pointerType: 'mouse' });
         fireEvent.mouseEnter(trigger);
@@ -744,7 +743,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
     });
 
@@ -762,7 +761,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByTestId('positioner').style.pointerEvents).to.equal('none');
+        expect(screen.getByTestId('positioner').style.pointerEvents).toBe('none');
       });
 
       it('does not apply pointer-events: none to the positioner when `disableHoverablePopup = false`', async () => {
@@ -778,7 +777,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByTestId('positioner').style.pointerEvents).to.equal('');
+        expect(screen.getByTestId('positioner').style.pointerEvents).toBe('');
       });
     });
 
@@ -796,7 +795,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByTestId('positioner').style.pointerEvents).to.equal('none');
+        expect(screen.getByTestId('positioner').style.pointerEvents).toBe('none');
       });
 
       it('keeps the positioner hoverable when tracking a single axis', async () => {
@@ -812,7 +811,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByTestId('positioner').style.pointerEvents).to.equal('');
+        expect(screen.getByTestId('positioner').style.pointerEvents).toBe('');
       });
     });
 
@@ -825,11 +824,11 @@ describe('<Tooltip.Root />', () => {
         act(() => trigger.focus());
         await flushMicrotasks();
 
-        expect(screen.getByTestId('popup')).to.have.attribute('data-instant', 'focus');
+        expect(screen.getByTestId('popup')).toHaveAttribute('data-instant', 'focus');
 
         act(() => trigger.blur());
         await waitFor(() => {
-          expect(screen.queryByTestId('popup')).to.equal(null);
+          expect(screen.queryByTestId('popup')).toBe(null);
         });
 
         fireEvent.pointerDown(trigger, { pointerType: 'mouse' });
@@ -837,16 +836,16 @@ describe('<Tooltip.Root />', () => {
         fireEvent.mouseMove(trigger);
 
         await waitFor(() => {
-          expect(screen.queryByTestId('popup')).not.to.equal(null);
+          expect(screen.queryByTestId('popup')).not.toBe(null);
         });
 
-        expect(screen.getByTestId('popup')).not.to.have.attribute('data-instant');
+        expect(screen.getByTestId('popup')).not.toHaveAttribute('data-instant');
       });
     });
 
     describe('BaseUIChangeEventDetails', () => {
       it('allowPropagation() prevents stopPropagation on Escape while still closing', async () => {
-        const stopPropagationSpy = spy(Event.prototype as any, 'stopPropagation');
+        const stopPropagationSpy = vi.spyOn(Event.prototype as any, 'stopPropagation');
 
         render(() => (
           <TestTooltip
@@ -862,16 +861,16 @@ describe('<Tooltip.Root />', () => {
           />
         ));
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.keyDown(document.body, { key: 'Escape' });
 
         await waitFor(() => {
-          expect(screen.queryByText('Content')).to.equal(null);
+          expect(screen.queryByText('Content')).toBe(null);
         });
 
-        expect(stopPropagationSpy.called).to.equal(false);
-        stopPropagationSpy.restore();
+        expect(stopPropagationSpy.mock.calls.length > 0).toBe(false);
+        stopPropagationSpy.mockRestore();
       });
     });
 
@@ -881,7 +880,7 @@ describe('<Tooltip.Root />', () => {
       clock.withFakeTimers();
 
       it('should close when Escape is pressed', async () => {
-        const onOpenChange = spy();
+        const onOpenChange = vi.fn();
         renderFakeTimers(() => (
           <TestTooltip
             rootProps={{ defaultOpen: true, onOpenChange }}
@@ -889,14 +888,17 @@ describe('<Tooltip.Root />', () => {
           />
         ));
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.keyDown(document.body, { key: 'Escape' });
 
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
-        expect(onOpenChange.calledWithMatch(false, { reason: REASONS.escapeKey })).to.equal(true);
+        expect(screen.queryByText('Content')).toBe(null);
+        expect(onOpenChange).toHaveBeenCalledWith(
+          false,
+          expect.objectContaining({ reason: REASONS.escapeKey }),
+        );
       });
 
       it('should not open when the trigger was clicked before delay duration', async () => {
@@ -916,7 +918,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('should not open when the trigger receives pointerdown before delay duration', async () => {
@@ -936,7 +938,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('should open when the trigger was clicked before delay duration and closeOnClick is false', async () => {
@@ -956,7 +958,7 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
 
       it('should close when the trigger is clicked after delay duration', async () => {
@@ -972,11 +974,11 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.click(trigger);
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
       });
 
       it('should not close when the trigger is clicked after delay duration and closeOnClick is false', async () => {
@@ -992,11 +994,11 @@ describe('<Tooltip.Root />', () => {
 
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.click(trigger);
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
 
       it('reopens on hover after the trigger is clicked closed', async () => {
@@ -1011,12 +1013,12 @@ describe('<Tooltip.Root />', () => {
         clock.tick(100);
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
 
         fireEvent.click(trigger);
         await flushMicrotasks();
 
-        expect(screen.queryByText('Content')).to.equal(null);
+        expect(screen.queryByText('Content')).toBe(null);
 
         // Re-enter with mouse events only. A fresh pointerenter can be missed
         // after the click-driven close, but hover should still work.
@@ -1026,7 +1028,7 @@ describe('<Tooltip.Root />', () => {
         clock.tick(100);
         await flushMicrotasks();
 
-        expect(screen.getByText('Content')).not.to.equal(null);
+        expect(screen.getByText('Content')).not.toBe(null);
       });
     });
   });
@@ -1091,27 +1093,27 @@ describe('<Tooltip.Root />', () => {
 
       await user.click(screen.getByRole('button', { name: 'Open tooltip' }));
       await waitFor(() => {
-        expect(screen.queryByTestId('positioner')).not.to.equal(null);
+        expect(screen.queryByTestId('positioner')).not.toBe(null);
       });
 
       await user.click(screen.getByRole('button', { name: 'Close tooltip' }));
       await waitFor(() => {
-        expect(trigger).not.to.have.attribute('data-popup-open');
+        expect(trigger).not.toHaveAttribute('data-popup-open');
       });
-      expect(screen.queryByTestId('positioner')).not.to.equal(null);
+      expect(screen.queryByTestId('positioner')).not.toBe(null);
 
       await user.click(screen.getByRole('button', { name: 'Unmount root' }));
-      expect(screen.queryByTestId('positioner')).to.equal(null);
+      expect(screen.queryByTestId('positioner')).toBe(null);
 
       await user.click(screen.getByRole('button', { name: 'Remount open' }));
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Toggle' })).to.have.attribute('data-popup-open');
+        expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute('data-popup-open');
       });
-      expect(screen.queryByTestId('positioner')).not.to.equal(null);
+      expect(screen.queryByTestId('positioner')).not.toBe(null);
 
       await user.click(screen.getByRole('button', { name: 'Close tooltip' }));
       await waitFor(() => {
-        expect(screen.queryByTestId('positioner')).to.equal(null);
+        expect(screen.queryByTestId('positioner')).toBe(null);
       });
     });
   });
@@ -1148,7 +1150,7 @@ describe('<Tooltip.Root />', () => {
       await waitFor(() => {
         const positionerRect = positioner.getBoundingClientRect();
         const positionerCenterX = positionerRect.left + positionerRect.width / 2;
-        expect(Math.abs(positionerCenterX - cursorX)).to.be.lessThanOrEqual(2);
+        expect(Math.abs(positionerCenterX - cursorX)).toBeLessThanOrEqual(2);
       });
     },
   );
@@ -1192,12 +1194,12 @@ describe('<Tooltip.Root />', () => {
       await waitFor(() => {
         const positionerRect = trackedPositioner.getBoundingClientRect();
         const positionerCenterX = positionerRect.left + positionerRect.width / 2;
-        expect(Math.abs(positionerCenterX - cursorX)).to.be.lessThanOrEqual(2);
+        expect(Math.abs(positionerCenterX - cursorX)).toBeLessThanOrEqual(2);
       });
 
       fireEvent.mouseLeave(trigger);
       await waitFor(() => {
-        expect(screen.queryByTestId('positioner')).to.equal(null);
+        expect(screen.queryByTestId('positioner')).toBe(null);
       });
 
       await user.click(screen.getByRole('button', { name: 'Disable tracking' }));
@@ -1212,7 +1214,7 @@ describe('<Tooltip.Root />', () => {
         const positionerCenterX = positionerRect.left + positionerRect.width / 2;
         const triggerCenterX = triggerRect.left + triggerRect.width / 2;
 
-        expect(Math.abs(positionerCenterX - triggerCenterX)).to.be.lessThanOrEqual(2);
+        expect(Math.abs(positionerCenterX - triggerCenterX)).toBeLessThanOrEqual(2);
       });
     },
   );
@@ -1254,12 +1256,12 @@ describe('<Tooltip.Root />', () => {
       await waitFor(() => {
         const positionerRect = firstPositioner.getBoundingClientRect();
         const positionerCenterX = positionerRect.left + positionerRect.width / 2;
-        expect(Math.abs(positionerCenterX - firstCursorX)).to.be.lessThanOrEqual(2);
+        expect(Math.abs(positionerCenterX - firstCursorX)).toBeLessThanOrEqual(2);
       });
 
       fireEvent.mouseLeave(trigger);
       await waitFor(() => {
-        expect(screen.queryByTestId('positioner')).to.equal(null);
+        expect(screen.queryByTestId('positioner')).toBe(null);
       });
 
       fireEvent.mouseEnter(trigger, { clientX: secondCursorX, clientY: cursorY });
@@ -1270,7 +1272,7 @@ describe('<Tooltip.Root />', () => {
       await waitFor(() => {
         const positionerRect = secondPositioner.getBoundingClientRect();
         const positionerCenterX = positionerRect.left + positionerRect.width / 2;
-        expect(Math.abs(positionerCenterX - secondCursorX)).to.be.lessThanOrEqual(2);
+        expect(Math.abs(positionerCenterX - secondCursorX)).toBeLessThanOrEqual(2);
       });
     },
   );
@@ -1324,7 +1326,7 @@ describe('<Tooltip.Root />', () => {
       fireEvent.mouseEnter(popup);
       await flushMicrotasks();
 
-      expect(screen.queryByTestId('popup')).not.to.equal(null);
+      expect(screen.queryByTestId('popup')).not.toBe(null);
 
       fireEvent.mouseLeave(popup, {
         relatedTarget: document.body,
@@ -1332,7 +1334,7 @@ describe('<Tooltip.Root />', () => {
       });
 
       await waitFor(() => {
-        expect(screen.queryByTestId('popup')).to.equal(null);
+        expect(screen.queryByTestId('popup')).toBe(null);
       });
     });
 
@@ -1345,7 +1347,7 @@ describe('<Tooltip.Root />', () => {
       fireEvent.mouseEnter(popup);
       await flushMicrotasks();
 
-      expect(screen.queryByTestId('popup')).to.equal(null);
+      expect(screen.queryByTestId('popup')).toBe(null);
     });
   });
 
@@ -1443,8 +1445,8 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('inner-popup')).not.to.equal(null);
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.getByTestId('inner-popup')).not.toBe(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should not open the outer tooltip when moving between sibling nested triggers', async () => {
@@ -1491,9 +1493,9 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('inner-a-popup')).not.to.equal(null);
-    expect(screen.queryByTestId('inner-b-popup')).to.equal(null);
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.getByTestId('inner-a-popup')).not.toBe(null);
+    expect(screen.queryByTestId('inner-b-popup')).toBe(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
 
     fireEvent.mouseOut(innerATrigger, { relatedTarget: innerBTrigger });
     fireEvent.pointerEnter(innerBTrigger, { pointerType: 'mouse', clientX: 50, clientY: 10 });
@@ -1504,9 +1506,9 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('inner-a-popup')).to.equal(null);
-    expect(screen.getByTestId('inner-b-popup')).not.to.equal(null);
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('inner-a-popup')).toBe(null);
+    expect(screen.getByTestId('inner-b-popup')).not.toBe(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should not open ancestor tooltips when hovering over a third-level nested trigger', async () => {
@@ -1561,9 +1563,9 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('child-popup')).not.to.equal(null);
-    expect(screen.queryByTestId('parent-popup')).to.equal(null);
-    expect(screen.queryByTestId('grandparent-popup')).to.equal(null);
+    expect(screen.getByTestId('child-popup')).not.toBe(null);
+    expect(screen.queryByTestId('parent-popup')).toBe(null);
+    expect(screen.queryByTestId('grandparent-popup')).toBe(null);
   });
 
   it('should open the outer tooltip when moving from a nested trigger to the parent area with zero delay', async () => {
@@ -1598,14 +1600,14 @@ describe('nested tooltips', () => {
 
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
 
     fireEvent.mouseOut(innerTrigger, { relatedTarget: outerArea });
     fireEvent.mouseOver(outerArea);
 
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
   });
 
   it('should not open a disabled outer tooltip when moving from a nested trigger to the parent area with zero delay', async () => {
@@ -1640,14 +1642,14 @@ describe('nested tooltips', () => {
 
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
 
     fireEvent.mouseOut(innerTrigger, { relatedTarget: outerArea });
     fireEvent.mouseOver(outerArea);
 
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should reopen the delayed outer tooltip when moving from a nested trigger to the parent area', async () => {
@@ -1692,7 +1694,7 @@ describe('nested tooltips', () => {
     clock.tick(delay);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
 
     fireEvent.mouseOut(innerTrigger, { relatedTarget: outerArea });
     fireEvent.mouseOver(outerArea);
@@ -1700,7 +1702,7 @@ describe('nested tooltips', () => {
     clock.tick(delay);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
   });
 
   // Solid: React passes only because StrictMode double-invokes the popup's hover effect, whose dispose
@@ -1708,7 +1710,7 @@ describe('nested tooltips', () => {
   // `createRenderer({ strict: false })`, so production React behaves as Solid does.
   it.skip('should not re-announce an open outer tooltip when the pending reopen fires', async () => {
     const delay = 100;
-    const onOpenChange = spy();
+    const onOpenChange = vi.fn();
 
     function App() {
       const [open, setOpen] = createSignal(false);
@@ -1769,13 +1771,13 @@ describe('nested tooltips', () => {
     fireEvent.click(screen.getByTestId('open-outer'));
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
 
     clock.tick(delay);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
-    expect(onOpenChange.callCount).to.equal(0);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
+    expect(onOpenChange.mock.calls.length).toBe(0);
   });
 
   it('should support nested triggers inside a detached parent trigger', async () => {
@@ -1824,8 +1826,8 @@ describe('nested tooltips', () => {
     clock.tick(delay);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('inner-popup')).not.to.equal(null);
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.getByTestId('inner-popup')).not.toBe(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
 
     fireEvent.mouseOut(innerTrigger, { relatedTarget: outerArea });
     fireEvent.mouseOver(outerArea);
@@ -1833,7 +1835,7 @@ describe('nested tooltips', () => {
     clock.tick(delay);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup').textContent).to.equal('Row tooltip');
+    expect(screen.getByTestId('outer-popup').textContent).toBe('Row tooltip');
   });
 
   it('should not reopen the outer tooltip when rapidly moving back to a nested trigger', async () => {
@@ -1885,7 +1887,7 @@ describe('nested tooltips', () => {
     clock.tick(delay / 2);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should not reopen the outer tooltip when hovering the nested tooltip popup', async () => {
@@ -1928,14 +1930,14 @@ describe('nested tooltips', () => {
     await flushMicrotasks();
 
     const innerPopup = screen.getByTestId('inner-popup');
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
 
     fireEvent.mouseOver(innerPopup);
 
     clock.tick(delay);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should cancel the pending parent reopen when the pointer leaves the parent trigger', async () => {
@@ -1986,7 +1988,7 @@ describe('nested tooltips', () => {
     clock.tick(delay);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should not open the outer tooltip when the pointer moves onto a nested trigger before the delay expires', async () => {
@@ -2030,7 +2032,7 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should restart the parent delay when moving from a nested trigger to the parent area', async () => {
@@ -2074,7 +2076,7 @@ describe('nested tooltips', () => {
     fireEvent.mouseOver(innerTrigger);
 
     await flushMicrotasks();
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
 
     fireEvent.mouseOut(innerTrigger, { relatedTarget: outerArea });
     fireEvent.mouseOver(outerArea);
@@ -2082,12 +2084,12 @@ describe('nested tooltips', () => {
     clock.tick(delay / 2);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
 
     clock.tick(delay / 2);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
   });
 
   it('should close the outer tooltip when the pointer moves from outer area onto a nested trigger', async () => {
@@ -2124,7 +2126,7 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
 
     // Now move onto the inner trigger — mouseover bubbles to the outer trigger,
     // which detects the nested trigger and closes itself.
@@ -2135,7 +2137,7 @@ describe('nested tooltips', () => {
     await flushMicrotasks();
 
     // The outer tooltip should close
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should keep a focus-opened outer tooltip open when hovering over a nested trigger', async () => {
@@ -2173,7 +2175,7 @@ describe('nested tooltips', () => {
     });
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
 
     fireEvent.pointerEnter(innerTrigger, { pointerType: 'mouse', clientX: 50, clientY: 10 });
     fireEvent.mouseEnter(innerTrigger);
@@ -2183,11 +2185,11 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
   });
 
   it('should keep a controlled-open outer tooltip open when hovering over a nested trigger', async () => {
-    const onOpenChange = spy();
+    const onOpenChange = vi.fn();
 
     render(() => (
       <Tooltip.Root open onOpenChange={onOpenChange}>
@@ -2214,7 +2216,7 @@ describe('nested tooltips', () => {
 
     const innerTrigger = screen.getByTestId('inner-trigger');
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
 
     fireEvent.pointerEnter(innerTrigger, { pointerType: 'mouse', clientX: 50, clientY: 10 });
     fireEvent.mouseEnter(innerTrigger);
@@ -2224,8 +2226,8 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
-    expect(onOpenChange.callCount).to.equal(0);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
+    expect(onOpenChange.mock.calls.length).toBe(0);
   });
 
   it('should not open the outer tooltip when focusing a nested tooltip trigger', async () => {
@@ -2259,8 +2261,8 @@ describe('nested tooltips', () => {
     });
     await flushMicrotasks();
 
-    expect(screen.getByTestId('inner-popup')).not.to.equal(null);
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.getByTestId('inner-popup')).not.toBe(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should close a focus-opened inner tooltip when the inner trigger loses focus', async () => {
@@ -2296,7 +2298,7 @@ describe('nested tooltips', () => {
     });
     await flushMicrotasks();
 
-    expect(screen.getByTestId('inner-popup')).not.to.equal(null);
+    expect(screen.getByTestId('inner-popup')).not.toBe(null);
 
     await act(async () => {
       after.focus();
@@ -2304,7 +2306,7 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('inner-popup')).to.equal(null);
+    expect(screen.queryByTestId('inner-popup')).toBe(null);
   });
 
   it('should allow the parent tooltip to open when a nested trigger is disabled', async () => {
@@ -2346,8 +2348,8 @@ describe('nested tooltips', () => {
     await flushMicrotasks();
 
     // The outer tooltip should open since the nested trigger is disabled
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
-    expect(screen.queryByTestId('inner-popup')).to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
+    expect(screen.queryByTestId('inner-popup')).toBe(null);
   });
 
   it('should not open the outer tooltip when hovering over a nested trigger inside a shadow root', async () => {
@@ -2416,7 +2418,7 @@ describe('nested tooltips', () => {
       clock.tick(OPEN_DELAY);
       await flushMicrotasks();
 
-      expect(screen.queryByTestId('outer-popup')).to.equal(null);
+      expect(screen.queryByTestId('outer-popup')).toBe(null);
     } finally {
       await act(async () => {
         host.remove();
@@ -2470,7 +2472,7 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should open the outer tooltip when hovering over the non-nested area', async () => {
@@ -2505,8 +2507,8 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
-    expect(screen.queryByTestId('inner-popup')).to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
+    expect(screen.queryByTestId('inner-popup')).toBe(null);
   });
 
   it('should not reopen the outer tooltip via the local reopen path for touch pointers', async () => {
@@ -2550,7 +2552,7 @@ describe('nested tooltips', () => {
 
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should allow mouse hover after leaving a touch interaction', async () => {
@@ -2590,7 +2592,7 @@ describe('nested tooltips', () => {
 
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
   });
 
   it('should not open the outer tooltip when moving from the outer popup to a nested trigger', async () => {
@@ -2630,7 +2632,7 @@ describe('nested tooltips', () => {
     await flushMicrotasks();
 
     const outerPopup = screen.getByTestId('outer-popup');
-    expect(outerPopup).not.to.equal(null);
+    expect(outerPopup).not.toBe(null);
 
     // Hover the outer popup (it's portaled outside the trigger).
     fireEvent.pointerEnter(outerPopup, { pointerType: 'mouse', clientX: 200, clientY: 200 });
@@ -2646,7 +2648,7 @@ describe('nested tooltips', () => {
 
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should suppress the safePolygon-driven open while a nested trigger is hovered', async () => {
@@ -2692,7 +2694,7 @@ describe('nested tooltips', () => {
     clock.tick(OPEN_DELAY);
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
   });
 
   it('should support nested triggers with a Provider delay={0}', async () => {
@@ -2731,15 +2733,15 @@ describe('nested tooltips', () => {
 
     await flushMicrotasks();
 
-    expect(screen.queryByTestId('outer-popup')).to.equal(null);
-    expect(screen.getByTestId('inner-popup')).not.to.equal(null);
+    expect(screen.queryByTestId('outer-popup')).toBe(null);
+    expect(screen.getByTestId('inner-popup')).not.toBe(null);
 
     fireEvent.mouseOut(innerTrigger, { relatedTarget: outerArea });
     fireEvent.mouseOver(outerArea);
 
     await flushMicrotasks();
 
-    expect(screen.getByTestId('outer-popup')).not.to.equal(null);
+    expect(screen.getByTestId('outer-popup')).not.toBe(null);
   });
 
   it('falls back to the event target when the composed path is empty', async () => {

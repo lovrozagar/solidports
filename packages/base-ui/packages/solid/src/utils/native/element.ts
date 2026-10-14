@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- the helper bridges arbitrary consumer props and Solid's untyped `assign`; values pass through as the props hold them */
 /*
  * Native element renderer (plan 8 step 3.2): the one routine a Solid-native part runs to turn an
  * element it created with direct JSX into its rendered element. It generalizes the Button pilot:

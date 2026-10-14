@@ -2,7 +2,7 @@ import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { canRenderNative } from '../../utils/native';
 import { renderNativeElement } from '../../utils/native/element';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { AccordionItemState } from '../item/AccordionItem';
 import { useAccordionItemContext } from '../item/AccordionItemContext';

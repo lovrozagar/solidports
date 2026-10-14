@@ -68,9 +68,9 @@ describe('<Dialog.Portal />', () => {
         </Loading>
       ));
 
-      expect(await screen.findByText('Loading…')).not.to.equal(null);
+      expect(await screen.findByText('Loading…')).not.toBe(null);
       resolve({ default: () => <p>Greetings</p> });
-      expect(await screen.findByText('Greetings')).not.to.equal(null);
+      expect(await screen.findByText('Greetings')).not.toBe(null);
     });
 
     // Solid 2 runtime: `Portal` resolves pending content to nothing (`loadingValue`) instead of
@@ -107,9 +107,9 @@ describe('<Dialog.Portal />', () => {
         </Dialog.Root>
       ));
 
-      expect(await screen.findByText('Loading...')).not.to.equal(null);
+      expect(await screen.findByText('Loading...')).not.toBe(null);
       resolve({ default: () => <p>Greetings</p> });
-      expect(await screen.findByText('Greetings')).not.to.equal(null);
+      expect(await screen.findByText('Greetings')).not.toBe(null);
     });
   });
 });

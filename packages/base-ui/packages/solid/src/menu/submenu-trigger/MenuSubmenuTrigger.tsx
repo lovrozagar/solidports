@@ -14,7 +14,7 @@ import { isElementDisabled } from '../../utils/isElementDisabled';
 import { useTriggerRegistration } from '../../utils/popups';
 import { triggerOpenStateMapping } from '../../utils/popupStateMapping';
 import { REASONS } from '../../utils/reasons';
-import { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps, NonNativeButtonProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';

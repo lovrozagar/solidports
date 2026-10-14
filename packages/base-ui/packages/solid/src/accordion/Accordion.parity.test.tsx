@@ -114,13 +114,13 @@ describe('native parity: Accordion', () => {
       }),
     );
     pair.same();
-    expect(pair.fast.querySelector('button')).to.have.attribute('aria-controls', 'my-panel');
-    expect(pair.fast.querySelector('[role="region"]')).to.have.attribute(
+    expect(pair.fast.querySelector('button')).toHaveAttribute('aria-controls', 'my-panel');
+    expect(pair.fast.querySelector('[role="region"]')).toHaveAttribute(
       'aria-labelledby',
       'my-trigger',
     );
     pair.both((root) => fireEvent.click(triggers(root)[0]));
-    expect(pair.fast.querySelector('[hidden]')).to.have.attribute('hidden', 'until-found');
+    expect(pair.fast.querySelector('[hidden]')).toHaveAttribute('hidden', 'until-found');
     pair.unmount();
   });
 

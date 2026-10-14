@@ -1,15 +1,15 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo, createSignal, onSettled, untrack } from 'solid-js';
 import type { ParentProps } from 'solid-js';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
 import { FloatingNode, FloatingTree, useFloatingNodeId } from '../floating-ui-solid';
-import { type MenuRoot } from '../menu/root/MenuRoot';
+import type { MenuRoot } from '../menu/root/MenuRoot';
 import { splitComponentProps, useRef } from '../solid-helpers';
-import { StateAttributesMapping } from '../utils/getStateAttributesProps';
-import { BaseUIComponentProps } from '../utils/types';
+import type { StateAttributesMapping } from '../utils/getStateAttributesProps';
+import type { BaseUIComponentProps } from '../utils/types';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { REASONS } from '../utils/reasons';
-import { MenubarContext, type MenubarMenu } from './MenubarContext';
+import { MenubarContext } from './MenubarContext';
+import type { MenubarMenu } from './MenubarContext';
 import * as MenubarDataAttributes from './MenubarDataAttributes';
 
 const menubarStateAttributesMapping: StateAttributesMapping<Menubar.State> = {

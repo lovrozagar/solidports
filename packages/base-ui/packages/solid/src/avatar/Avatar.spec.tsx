@@ -1,6 +1,7 @@
 import type { JSX } from '@solidjs/web';
 import { expectType } from '#test-utils';
-import { Avatar, type ImageLoadingStatus } from '@solidports/base-ui/avatar';
+import { Avatar } from '@solidports/base-ui/avatar';
+import type { ImageLoadingStatus } from '@solidports/base-ui/avatar';
 
 // Solid: native attribute names and types come from the `@solidjs/web` JSX namespace.
 // `Avatar.Image` accepts and forwards the native responsive/loading `<img>` props.

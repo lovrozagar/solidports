@@ -36,7 +36,7 @@ describe('<Tooltip.Positioner />', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Tooltip.Positioner />)).to.throw(
+      expect(() => render(() => <Tooltip.Positioner />)).toThrow(
         'Base UI: TooltipRootContext is missing. Tooltip parts must be placed within <Tooltip.Root>.',
       );
       await flushMicrotasks();
@@ -58,7 +58,7 @@ describe('<Tooltip.Positioner />', () => {
             <Tooltip.Positioner />
           </Tooltip.Root>
         )),
-      ).to.throw('Base UI: <Tooltip.Portal> is missing.');
+      ).toThrow('Base UI: <Tooltip.Portal> is missing.');
       await flushMicrotasks();
     } finally {
       errorSpy.mockRestore();

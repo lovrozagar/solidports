@@ -36,7 +36,7 @@ describe('<Menu.CheckboxItemIndicator />', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Menu.CheckboxItemIndicator />)).to.throw(
+      expect(() => render(() => <Menu.CheckboxItemIndicator />)).toThrow(
         'Base UI: MenuCheckboxItemContext is missing. MenuCheckboxItem parts must be placed within <Menu.CheckboxItem>.',
       );
       await flushMicrotasks();
@@ -73,14 +73,14 @@ describe('<Menu.CheckboxItemIndicator />', () => {
 
     const { user } = render(() => <Test />);
 
-    expect(screen.queryByTestId('indicator')).not.to.equal(null);
+    expect(screen.queryByTestId('indicator')).not.toBe(null);
 
     const closeButton = screen.getByText('Close');
 
     await user.click(closeButton);
 
     await waitFor(() => {
-      expect(screen.queryByTestId('indicator')).to.equal(null);
+      expect(screen.queryByTestId('indicator')).toBe(null);
     });
   });
 
@@ -137,13 +137,13 @@ describe('<Menu.CheckboxItemIndicator />', () => {
 
     const { user } = render(() => <Test />);
 
-    expect(screen.getByTestId('indicator')).not.to.have.attribute('hidden');
+    expect(screen.getByTestId('indicator')).not.toHaveAttribute('hidden');
 
     const closeButton = screen.getByText('Close');
     await user.click(closeButton);
 
     await waitFor(() => {
-      expect(animationFinished).to.equal(true);
+      expect(animationFinished).toBe(true);
     });
   });
 
@@ -191,14 +191,14 @@ describe('<Menu.CheckboxItemIndicator />', () => {
 
       render(() => <Test />);
 
-      expect(screen.getByTestId('indicator')).not.to.equal(null);
+      expect(screen.getByTestId('indicator')).not.toBe(null);
 
       fireEvent.click(screen.getByText('Close'));
 
-      expect(screen.getByTestId('indicator')).to.have.attribute('data-ending-style');
+      expect(screen.getByTestId('indicator')).toHaveAttribute('data-ending-style');
 
       await waitFor(() => {
-        expect(screen.queryByTestId('indicator')).to.equal(null);
+        expect(screen.queryByTestId('indicator')).toBe(null);
       });
     },
   );

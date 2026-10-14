@@ -1,9 +1,8 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
-import { type VirtualElement } from '@floating-ui/dom';
+import type { VirtualElement } from '@floating-ui/dom';
 import { isElement } from '@floating-ui/utils/dom';
 import { createMemo, createSignal } from 'solid-js';
 import { createDepsEffect, access, live } from '../../solid-helpers';
-import { FloatingRootStore } from '../components/FloatingRootStoreV2';
+import type { FloatingRootStore } from '../components/FloatingRootStoreV2';
 import { useFloatingTreeAccessor } from '../components/FloatingTree';
 import type {
   FloatingContext,

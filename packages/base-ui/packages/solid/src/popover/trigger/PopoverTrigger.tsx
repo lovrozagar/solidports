@@ -1,10 +1,11 @@
 import { createMemo, createSignal, untrack } from 'solid-js';
 import { safePolygon, useClick, useHoverReferenceInteraction } from '../../floating-ui-solid';
-import { live, omitComponentProps, type ReactLikeRef } from '../../solid-helpers';
+import { live, omitComponentProps } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button/useButton';
 import { CLICK_TRIGGER_IDENTIFIER } from '../../utils/constants';
 import { TriggerFocusGuards } from '../../utils/popups/TriggerFocusGuards';
-import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { usePopupHandleStore, useTriggerDataForwarding } from '../../utils/popups';
 import { useTriggerFocusGuards } from '../../utils/popups/useTriggerFocusGuards';
 import {
@@ -17,7 +18,7 @@ import { useOpenMethodTriggerProps } from '../../utils/useOpenInteractionType';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
-import { PopoverHandle } from '../store/PopoverHandle';
+import type { PopoverHandle } from '../store/PopoverHandle';
 import type { PopoverHandleStore } from '../store/PopoverStore';
 import { OPEN_DELAY } from '../utils/constants';
 

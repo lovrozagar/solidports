@@ -1,12 +1,14 @@
 import { createSignal, getOwner, runWithOwner, untrack } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access, type MaybeAccessor } from '../../solid-helpers';
+import { access } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { REASONS } from '../../utils/reasons';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useControlled } from '../../utils/useControlled';
-import { TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
+import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import type { CollapsibleRoot } from './CollapsibleRoot';
 
 export function useCollapsibleRoot(
@@ -109,14 +111,14 @@ export interface UseCollapsibleRootParameters {
    *
    * To render an uncontrolled collapsible, use the `defaultOpen` prop instead.
    */
-  open?: MaybeAccessor<boolean | undefined>;
+  open?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Whether the collapsible panel is initially open.
    *
    * To render a controlled collapsible, use the `open` prop instead.
    * @default false
    */
-  defaultOpen?: MaybeAccessor<boolean | undefined>;
+  defaultOpen?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Event handler called when the panel is opened or closed.
    */

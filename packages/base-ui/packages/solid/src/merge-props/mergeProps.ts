@@ -8,7 +8,6 @@
 /* eslint-disable no-cond-assign */
 /* eslint-disable curly */
 /* eslint-disable guard-for-in */
-/* eslint-disable typescript/no-explicit-any -- generic prop merger handles arbitrary element types and event handler shapes; `unknown` would force casts at every cache slot and break variance with consumer prop types */
 
 import { $PROXY, untrack } from 'solid-js';
 import type { Ref } from 'solid-js';
@@ -25,7 +24,7 @@ export interface MergePropsOptions {
    * When false/omitted, uses the default preventable chaining where
    * `event.preventBaseUIHandler()` can stop earlier handlers.
    */
-  callAllHandlers?: boolean;
+  callAllHandlers?: boolean | undefined;
 }
 
 function isMergePropsOptions(value: unknown): value is MergePropsOptions {
@@ -204,7 +203,7 @@ export function mergeProps<
   let cacheStyles = [] as JSX.HTMLAttributes<any>[];
   let cacheRefs = [] as Array<Ref<any>>;
   let cacheClasses = [] as JSX.HTMLAttributes<any>[];
-  let cacheClassList = [] as Array<{ classList?: Record<string, boolean | undefined> }>;
+  let cacheClassList = [] as Array<{ classList?: Record<string, boolean | undefined> | undefined }>;
   const lastDescriptor = {} as Record<string, PropertyDescriptor | undefined>;
 
   /*

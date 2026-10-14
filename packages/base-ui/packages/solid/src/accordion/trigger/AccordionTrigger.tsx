@@ -13,7 +13,7 @@ import { accordionStateAttributesMapping } from '../item/stateAttributesMapping'
 import { canRenderNative } from '../../utils/native';
 import { renderNativeElement } from '../../utils/native/element';
 import { createIdRegistration } from '../../utils/native/registration';
-import { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
+import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { AccordionItemState } from '../item/AccordionItem';
 import { useAccordionItemContext } from '../item/AccordionItemContext';

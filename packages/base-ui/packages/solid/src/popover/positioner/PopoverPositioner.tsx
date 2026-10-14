@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { Show } from 'solid-js';
 import { usePositioner } from '../../utils/usePositioner';
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
@@ -7,7 +6,8 @@ import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
-import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
+import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
+import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { useAnchoredPopupScrollLock } from '../../utils/useAnchoredPopupScrollLock';
 import { useTriggerSwitchTransition } from '../../utils/useTriggerSwitchTransition';
 import { usePopoverPortalContext } from '../portal/PopoverPortalContext';

@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value defaults to `any`, mirrors React */
 import { createComponent } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
@@ -6,10 +5,10 @@ import { canRenderNative } from '../../utils/native';
 import { provideNativeContext } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
 import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
-import { type BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { EMPTY_ARRAY } from '../../utils/empty';
-import { REASONS } from '../../utils/reasons';
-import { BaseUIComponentProps, Orientation } from '../../utils/types';
+import type { REASONS } from '../../utils/reasons';
+import type { BaseUIComponentProps, Orientation } from '../../utils/types';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { warn } from '../../utils/warn';

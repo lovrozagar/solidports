@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createEffect, createMemo, Show } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
@@ -161,7 +160,7 @@ export interface ComboboxListProps extends Omit<
   BaseUIComponentProps<'div', ComboboxList.State>,
   'children'
 > {
-  children?: JSX.Element | ((item: any, index: Accessor<number>) => JSX.Element);
+  children?: JSX.Element | ((item: any, index: Accessor<number>) => JSX.Element) | undefined;
 }
 
 export namespace ComboboxList {

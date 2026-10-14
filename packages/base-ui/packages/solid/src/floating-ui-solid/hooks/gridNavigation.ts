@@ -1,8 +1,5 @@
-import {
-  getGridNavigatedIndex,
-  isIndexOutOfListBounds,
-  type DisabledIndices,
-} from '../utils/composite';
+import { getGridNavigatedIndex, isIndexOutOfListBounds } from '../utils/composite';
+import type { DisabledIndices } from '../utils/composite';
 
 /**
  * Positional arguments are deliberate: property names of an options object

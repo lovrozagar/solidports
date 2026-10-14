@@ -1,7 +1,8 @@
 import { createContext, useContext, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access, live, type MaybeAccessor, createLayoutEffect } from '../../solid-helpers';
+import { access, live, createLayoutEffect } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { useId } from '../../utils/useId';
 import type { FloatingContext, FloatingNodeType, FloatingTreeType } from '../types';
 import { FloatingTreeStore } from './FloatingTreeStore';
@@ -9,7 +10,7 @@ import { FloatingTreeStore } from './FloatingTreeStore';
 const FloatingNodeContext = createContext<{
   id: Accessor<string | undefined>;
   parentId: Accessor<string | null>;
-  context?: FloatingContext;
+  context?: FloatingContext | undefined;
 } | null>(null);
 const FloatingTreeContext = createContext<Accessor<FloatingTreeType | null> | null>(null);
 
@@ -95,7 +96,7 @@ export function useFloatingNodeId(
 }
 
 export interface FloatingNodeProps {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   id: string | undefined;
 }
 
@@ -112,7 +113,7 @@ export function FloatingNode(props: FloatingNodeProps): JSX.Element {
 }
 
 export interface FloatingTreeProps {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   externalTree?: FloatingTreeStore | undefined;
 }
 

@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Data type erased at root */
 import { createEffect, createMemo, createSignal, onCleanup, untrack } from 'solid-js';
 import { closest } from '../../utils/shadowDom';
 import { activeElement, contains, getTarget } from '../../floating-ui-solid/utils';
@@ -7,7 +6,7 @@ import { addEventListener } from '../../utils/addEventListener';
 import { BASE_UI_SWIPE_IGNORE_SELECTOR, LEGACY_SWIPE_IGNORE_SELECTOR } from '../../utils/constants';
 import { flushSync as flushSyncUpdate } from '../../utils/flushSync';
 import { getElementTransform } from '../../utils/getElementTransform';
-import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { ownerDocument } from '../../utils/owner';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';

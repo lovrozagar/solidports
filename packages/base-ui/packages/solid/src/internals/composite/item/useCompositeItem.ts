@@ -1,9 +1,7 @@
 import { createSignal } from 'solid-js';
 import type { HTMLProps } from '../../../utils/types';
-import {
-  useCompositeListItem,
-  type UseCompositeListItemParameters,
-} from '../list/useCompositeListItem';
+import { useCompositeListItem } from '../list/useCompositeListItem';
+import type { UseCompositeListItemParameters } from '../list/useCompositeListItem';
 import { useCompositeRootContext } from '../root/CompositeRootContext';
 
 export interface UseCompositeItemParameters<Metadata> extends Pick<

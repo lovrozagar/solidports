@@ -1,20 +1,15 @@
-/* eslint-disable typescript/no-explicit-any -- Solid `JSX.EventHandlerUnion` requires casts to bridge native Event to Solid's currentTarget-augmented event shape; BaseUIEvent extension fields also need any-casts at handler boundaries */
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { createEffect, untrack } from 'solid-js';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import { useCompositeRootContext } from '../composite/root/CompositeRootContext';
 import { makeEventPreventable } from '../../merge-props';
 import type { mergeProps } from '../../merge-props/mergeProps';
-import {
-  createPropsView,
-  propsSourceMemo,
-  wrapHandler,
-  type WrappedHandler,
-} from '../../utils/propsView';
-import { access, callEventHandler, type MaybeAccessor } from '../../solid-helpers';
+import { createPropsView, propsSourceMemo, wrapHandler } from '../../utils/propsView';
+import type { WrappedHandler } from '../../utils/propsView';
+import { access, callEventHandler } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { error } from '../../utils/error';
-import type { BaseUIEvent } from '../../utils/types';
-import { HTMLProps } from '../../utils/types';
+import type { BaseUIEvent, HTMLProps } from '../../utils/types';
 import { useFocusableWhenDisabled } from '../../utils/useFocusableWhenDisabled';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';
 import { splitProps } from '../../solid-1-compat';
@@ -364,23 +359,23 @@ export interface UseButtonParameters {
    * When `true`, keyboard activation for Space occurs on keydown rather than keyup.
    * @default inferred from CompositeRoot context
    */
-  composite?: MaybeAccessor<boolean | undefined>;
+  composite?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Whether the component should ignore user interaction.
    * @default false
    */
-  disabled?: MaybeAccessor<boolean | '' | undefined>;
+  disabled?: MaybeAccessor<boolean | '' | undefined> | undefined;
   /**
    * Whether the button may receive focus even if it is disabled.
    * @default false
    */
-  focusableWhenDisabled?: MaybeAccessor<boolean | '' | undefined>;
-  tabIndex?: MaybeAccessor<string | number | undefined>;
+  focusableWhenDisabled?: MaybeAccessor<boolean | '' | undefined> | undefined;
+  tabIndex?: MaybeAccessor<string | number | undefined> | undefined;
   /**
    * Whether the component is being rendered as a native button.
    * @default true
    */
-  native?: MaybeAccessor<boolean | '' | undefined>;
+  native?: MaybeAccessor<boolean | '' | undefined> | undefined;
 }
 
 export interface UseButtonSources {
@@ -398,7 +393,6 @@ export interface UseButtonReturnValue {
    * @param externalProps additional props for the button
    * @returns props that should be spread on the button
    */
-  /* eslint-disable-next-line typescript/no-explicit-any -- accepts arbitrary tag props; consumers pass merged BaseUIHTMLProps with various event handler shapes */
   getButtonProps: (externalProps?: ComponentProps<any>) => ComponentProps<any>;
   /**
    * A ref to the button DOM element. This ref should be passed to the rendered element.

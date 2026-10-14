@@ -1,5 +1,6 @@
 import { expect, describe, it } from 'vitest';
-import { createSignal, Show, type Setter } from 'solid-js';
+import { createSignal, Show } from 'solid-js';
+import type { Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { screen } from '@solidjs/testing-library';
 import { act, createRenderer } from '#test-utils';

@@ -24,7 +24,7 @@ describe('<Dialog.Trigger />', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      expect(() => render(() => <Dialog.Trigger />)).to.throw(
+      expect(() => render(() => <Dialog.Trigger />)).toThrow(
         'Base UI: <Dialog.Trigger> must be used within <Dialog.Root> or provided with a handle.',
       );
     } finally {
@@ -47,14 +47,14 @@ describe('<Dialog.Trigger />', () => {
       ));
 
       const trigger = screen.getByRole('button');
-      expect(trigger).to.have.attribute('disabled');
-      expect(trigger).to.have.attribute('data-disabled');
+      expect(trigger).toHaveAttribute('disabled');
+      expect(trigger).toHaveAttribute('data-disabled');
 
       await user.click(trigger);
-      expect(screen.queryByText('title text')).to.equal(null);
+      expect(screen.queryByText('title text')).toBe(null);
 
       await user.keyboard('[Tab]');
-      expect(document.activeElement).not.to.equal(trigger);
+      expect(document.activeElement).not.toBe(trigger);
     });
 
     it('custom element', async () => {
@@ -71,15 +71,15 @@ describe('<Dialog.Trigger />', () => {
       ));
 
       const trigger = screen.getByRole('button');
-      expect(trigger).to.not.have.attribute('disabled');
-      expect(trigger).to.have.attribute('data-disabled');
-      expect(trigger).to.have.attribute('aria-disabled', 'true');
+      expect(trigger).not.toHaveAttribute('disabled');
+      expect(trigger).toHaveAttribute('data-disabled');
+      expect(trigger).toHaveAttribute('aria-disabled', 'true');
 
       await user.click(trigger);
-      expect(screen.queryByText('title text')).to.equal(null);
+      expect(screen.queryByText('title text')).toBe(null);
 
       await user.keyboard('[Tab]');
-      expect(document.activeElement).not.to.equal(trigger);
+      expect(document.activeElement).not.toBe(trigger);
     });
   });
 });

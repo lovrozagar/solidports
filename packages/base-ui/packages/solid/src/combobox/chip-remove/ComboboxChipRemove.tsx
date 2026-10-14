@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { stopEvent } from '../../floating-ui-solid/utils';
 import { omitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
@@ -6,7 +5,7 @@ import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { findItemIndex } from '../../utils/itemEquality';
 import { REASONS } from '../../utils/reasons';
 import { getHighlightReason } from '../../utils/getHighlightReason';
-import { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
+import type { BaseUIComponentProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { useComboboxChipContext } from '../chip/ComboboxChipContext';
 import { useComboboxRootContext } from '../root/ComboboxRootContext';

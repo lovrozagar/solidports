@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic render-element handles arbitrary State and tag types; tightening to unknown forces consumers to assert at every state-attribute mapping */
 import {
   $PROXY,
   Show,
@@ -12,20 +11,15 @@ import {
   onCleanup,
   runWithOwner,
   untrack,
-  type Accessor,
 } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import type { JSX, ValidComponent, DynamicProps } from '@solidjs/web';
 import { assign, Dynamic, dynamic, isServer } from '@solidjs/web';
 import { MERGED_REFS } from '../merge-props/mergeProps';
-import {
-  access,
-  autofocus,
-  shallowEqual,
-  type MaybeAccessor,
-  createLayoutEffect,
-} from '../solid-helpers';
+import { access, autofocus, shallowEqual, createLayoutEffect } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
-import { type StateAttributesMapping } from './getStateAttributesProps';
+import type { StateAttributesMapping } from './getStateAttributesProps';
 import {
   createPropsView,
   createStateAttributesSource,
@@ -118,7 +112,7 @@ export function useRenderElement<
       objects: Set<{ current: unknown }>,
     ) => {
       if (typeof ref === 'function') {
-        const chained = (ref as { [MERGED_REFS]?: Function[] })[MERGED_REFS];
+        const chained = (ref as { [MERGED_REFS]?: Function[] | undefined })[MERGED_REFS];
         if (chained) {
           chained.forEach((callback) => collectRefs(callback, callbacks, objects));
         } else {
@@ -192,7 +186,7 @@ export function useRenderElement<
       if (
         el instanceof HTMLElement &&
         (el.hasAttribute('autofocus') ||
-          untrack(() => Boolean((componentProps as { autofocus?: boolean }).autofocus)))
+          untrack(() => Boolean((componentProps as { autofocus?: boolean | undefined }).autofocus)))
       ) {
         autofocus(el);
       }
@@ -395,7 +389,7 @@ export function useRenderElement<
         !(render instanceof Node) &&
         'children' in render
       ) {
-        return (render as { children?: JSX.Element }).children;
+        return (render as { children?: JSX.Element | undefined }).children;
       }
       // Parts that forward children through `params.props` (e.g. NavigationMenu.Link via
       // CompositeItem) only carry them in the element props. The JSX child below overrides the
@@ -740,7 +734,7 @@ export type UseRenderElementParameters<
    * This is useful for rendering a component conditionally.
    * @default true
    */
-  enabled?: MaybeAccessor<Enabled | undefined>;
+  enabled?: MaybeAccessor<Enabled | undefined> | undefined;
   /**
    * @deprecated
    */

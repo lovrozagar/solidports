@@ -34,7 +34,8 @@ export function AutocompleteValue(props: AutocompleteValue.Props) {
 export interface AutocompleteValueState {}
 
 export interface AutocompleteValueProps {
-  children?: JSX.Element | ((value: Accessor<ComponentProps<'input'>['value']>) => JSX.Element);
+  children?:
+    JSX.Element | ((value: Accessor<ComponentProps<'input'>['value']>) => JSX.Element) | undefined;
 }
 
 export namespace AutocompleteValue {

@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic item types for filter/label functions */
 import { stringifyAsLabel } from '../../../utils/resolveValueLabel';
 import type { Filter } from './useFilter';
 

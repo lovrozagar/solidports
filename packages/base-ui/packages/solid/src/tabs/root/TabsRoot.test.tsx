@@ -1,7 +1,8 @@
 import { expect, vi, describe, beforeEach, it } from 'vitest';
 import { createSignal, For, Show } from 'solid-js';
 import { fireEvent, screen, waitFor, within } from '@solidjs/testing-library';
-import { DirectionProvider, type TextDirection } from '@solidports/base-ui/direction-provider';
+import { DirectionProvider } from '@solidports/base-ui/direction-provider';
+import type { TextDirection } from '@solidports/base-ui/direction-provider';
 import { Popover } from '@solidports/base-ui/popover';
 import { Dialog } from '@solidports/base-ui/dialog';
 import { Tabs } from '@solidports/base-ui/tabs';

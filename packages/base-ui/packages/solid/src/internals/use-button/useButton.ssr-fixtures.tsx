@@ -3,7 +3,9 @@ import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
 import { splitProps } from '../../solid-1-compat';
 import { useButton } from './useButton';
 
-function NonNativeButton(props: JSX.HTMLAttributes<HTMLSpanElement> & { disabled?: boolean }) {
+function NonNativeButton(
+  props: JSX.HTMLAttributes<HTMLSpanElement> & { disabled?: boolean | undefined },
+) {
   const [local, otherProps] = splitProps(props, ['disabled']);
   const { getButtonProps } = useButton({ disabled: () => local.disabled, native: false });
 

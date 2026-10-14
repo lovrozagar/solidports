@@ -19,7 +19,7 @@ describe('@solidports/base-ui', () => {
       internalKeys.map(async (subpath) => {
         const importSpecifier = `@solidports/base-ui/${subpath.replace('./', '')}`;
         const module = await import(/* @vite-ignore */ importSpecifier);
-        expect(module, `${subpath} failed to resolve`).to.not.equal(undefined);
+        expect(module, `${subpath} failed to resolve`).not.toBe(undefined);
       }),
     );
   });
@@ -41,10 +41,10 @@ describe('@solidports/base-ui', () => {
           const module = await import(/* @vite-ignore */ importSpecifier);
 
           Object.keys(module).forEach((exportKey) => {
-            expect((BaseUI as Record<string, unknown>)[exportKey]).not.to.equal(
-              undefined,
+            expect(
+              (BaseUI as Record<string, unknown>)[exportKey],
               `${exportKey} (from ${importSpecifier}) was not found in root exports`,
-            );
+            ).not.toBe(undefined);
           });
         }),
     );

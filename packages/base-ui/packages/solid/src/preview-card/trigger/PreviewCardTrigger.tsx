@@ -1,7 +1,8 @@
 import { createMemo, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { safePolygon, useFocus, useHoverReferenceInteraction } from '../../floating-ui-solid';
-import { live, splitComponentProps, type ReactLikeRef } from '../../solid-helpers';
+import { live, splitComponentProps } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import {
   getInlineRectTriggerProps,
   usePopupHandleStore,
@@ -14,7 +15,7 @@ import { useBaseUiId } from '../../utils/useBaseUiId';
 import { propsSourceAccessor } from '../../utils/propsView';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { usePreviewCardRootContext } from '../root/PreviewCardContext';
-import { PreviewCardHandle } from '../store/PreviewCardHandle';
+import type { PreviewCardHandle } from '../store/PreviewCardHandle';
 import type { PreviewCardHandleStore } from '../store/PreviewCardStore';
 import { CLOSE_DELAY, OPEN_DELAY } from '../utils/constants';
 

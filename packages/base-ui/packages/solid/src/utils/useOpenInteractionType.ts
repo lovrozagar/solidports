@@ -1,7 +1,9 @@
 import { createSignal, untrack } from 'solid-js';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { platform } from './platform';
-import { InteractionType, useEnhancedClickHandler } from './useEnhancedClickHandler';
+import type { InteractionType } from './useEnhancedClickHandler';
+import { useEnhancedClickHandler } from './useEnhancedClickHandler';
 
 export function useOpenMethodTriggerProps(
   open: MaybeAccessor<boolean>,

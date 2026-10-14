@@ -2,7 +2,8 @@ import { expect, describe, it } from 'vitest';
 import { createSignal, onSettled, Show } from 'solid-js';
 import { act, createRenderer } from '#test-utils';
 import { screen } from '@solidjs/testing-library';
-import { access, type MaybeAccessor } from '../../solid-helpers';
+import { access } from '../../solid-helpers';
+import type { MaybeAccessor } from '../../solid-helpers';
 import { createStore } from '../../solid-1-compat';
 import { SolidStore } from './SolidStoreV2';
 

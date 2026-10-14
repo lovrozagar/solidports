@@ -16,10 +16,8 @@ import {
 import { findScrollableTouchTarget } from '../../utils/scrollable';
 import { getElementAtPoint } from '../../utils/getElementAtPoint';
 import * as DrawerViewportCssVars from '../viewport/DrawerViewportCssVars';
-import {
-  DrawerVirtualKeyboardContext,
-  type DrawerVirtualKeyboardContext as DrawerVirtualKeyboardContextValue,
-} from './DrawerVirtualKeyboardContext';
+import { DrawerVirtualKeyboardContext } from './DrawerVirtualKeyboardContext';
+import type { DrawerVirtualKeyboardContext as DrawerVirtualKeyboardContextValue } from './DrawerVirtualKeyboardContext';
 import { createDepsEffect } from '../../solid-helpers';
 
 const KEYBOARD_RESIZE_THRESHOLD = 60;
@@ -731,7 +729,7 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
 export interface DrawerVirtualKeyboardProviderState {}
 
 export interface DrawerVirtualKeyboardProviderProps {
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
 }
 
 export namespace DrawerVirtualKeyboardProvider {

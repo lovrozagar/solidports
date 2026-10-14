@@ -38,8 +38,8 @@ import {
   put,
   runConsumerHandler,
   stateAttr,
-  type NativeLayout,
 } from '../../utils/native';
+import type { NativeLayout } from '../../utils/native';
 import type { FieldRootState } from '../../field/root/FieldRoot';
 import { useFieldRootContext, DEFAULT_FIELD_ROOT_CONTEXT } from '../../field/root/FieldRootContext';
 import { useSetFieldFocused } from '../../field/root/useSetFieldFocused';
@@ -52,12 +52,8 @@ import {
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
 import { useButton } from '../../internals/use-button';
 import { useValueChanged } from '../../internals/useValueChanged';
-import {
-  provideContext,
-  splitComponentProps,
-  useRef,
-  type ReactLikeRef,
-} from '../../solid-helpers';
+import { provideContext, splitComponentProps, useRef } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../types';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { dispatchClickWithModifiers } from '../../utils/dispatchClickWithModifiers';

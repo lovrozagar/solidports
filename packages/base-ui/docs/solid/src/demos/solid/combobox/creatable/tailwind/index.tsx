@@ -1,4 +1,5 @@
-import { createSignal, createMemo, createUniqueId, For, type Accessor } from 'solid-js';
+import { createSignal, createMemo, createUniqueId, For  } from 'solid-js';
+import type {Accessor} from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 

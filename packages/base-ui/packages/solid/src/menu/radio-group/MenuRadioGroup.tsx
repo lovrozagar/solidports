@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic radio Value erased at radio-group context boundary */
 import { createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
@@ -97,7 +96,7 @@ export interface MenuRadioGroupProps extends BaseUIComponentProps<'div', MenuRad
   /**
    * The content of the component.
    */
-  children?: JSX.Element;
+  children?: JSX.Element | undefined;
   /**
    * The controlled value of the radio item that should be currently selected.
    *

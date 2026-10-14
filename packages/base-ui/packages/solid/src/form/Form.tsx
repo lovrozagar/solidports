@@ -1,22 +1,16 @@
-/* eslint-disable typescript/no-explicit-any -- generic FormValues plus SubmitEvent / Solid JSX handler bridge requires `any` casts; tightening would force redundant SolidJSXEvent shape conversions */
 import { createEffect, createSignal, onSettled, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
-import {
-  callEventHandler,
-  splitComponentProps,
-  type ReactLikeRef,
-  provideContext,
-} from '../solid-helpers';
+import { callEventHandler, splitComponentProps, provideContext } from '../solid-helpers';
+import type { ReactLikeRef } from '../solid-helpers';
 import { EMPTY_OBJECT } from '../utils/constants';
-import {
-  createGenericEventDetails,
-  type BaseUIGenericEventDetails,
-} from '../utils/createBaseUIEventDetails';
+import { createGenericEventDetails } from '../utils/createBaseUIEventDetails';
+import type { BaseUIGenericEventDetails } from '../utils/createBaseUIEventDetails';
 import { REASONS } from '../utils/reasons';
 import type { BaseUIComponentProps } from '../utils/types';
 import { useRenderElement } from '../utils/useRenderElement';
-import { FormContext, type Errors } from './FormContext';
+import { FormContext } from './FormContext';
+import type { Errors } from './FormContext';
 
 /**
  * A native form element with consolidated error handling.

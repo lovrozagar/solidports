@@ -1,5 +1,6 @@
-import { createContext, useContext, type Accessor } from 'solid-js';
-import { type MenuStore } from '../store/MenuStore';
+import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import type { MenuStore } from '../store/MenuStore';
 import type { MenuParent, MenuRoot } from './MenuRoot';
 
 export type InstantType = 'dismiss' | 'click' | 'group';

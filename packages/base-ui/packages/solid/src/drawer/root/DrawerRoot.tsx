@@ -1,19 +1,12 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDialogRootContext } from '../../dialog/root/DialogRootContext';
 import { RenderDialogRoot } from '../../dialog/root/useRenderDialogRoot';
 import type { DrawerHandle } from '../handle';
-import {
-  createDepsEffect,
-  ComponentWithPayload,
-  type ReactLikeRef,
-  createLayoutEffect,
-} from '../../solid-helpers';
-import {
-  createChangeEventDetails,
-  type BaseUIChangeEventDetails,
-} from '../../utils/createBaseUIEventDetails';
+import { createDepsEffect, ComponentWithPayload, createLayoutEffect } from '../../solid-helpers';
+import type { ReactLikeRef } from '../../solid-helpers';
+import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
+import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { addEventListener } from '../../utils/addEventListener';
 import { NOOP } from '../../utils/empty';
 import { platform } from '../../utils/platform';
@@ -22,12 +15,11 @@ import type { PayloadChildRenderFunction } from '../../utils/popups';
 import { REASONS } from '../../utils/reasons';
 import { useControlled } from '../../utils/useControlled';
 import { useDrawerProviderContext } from '../provider/DrawerProviderContext';
-import {
-  DrawerRootContext,
-  useDrawerRootContext,
-  type DrawerNestedSwipeProgressStore,
-  type DrawerSnapPoint,
-  type DrawerSwipeDirection,
+import { DrawerRootContext, useDrawerRootContext } from './DrawerRootContext';
+import type {
+  DrawerNestedSwipeProgressStore,
+  DrawerSnapPoint,
+  DrawerSwipeDirection,
 } from './DrawerRootContext';
 
 /**
@@ -277,7 +269,7 @@ export interface DrawerRootProps<Payload = unknown> {
   /**
    * The content of the drawer.
    */
-  children?: JSX.Element | PayloadChildRenderFunction<Payload>;
+  children?: JSX.Element | PayloadChildRenderFunction<Payload> | undefined;
   /**
    * The swipe direction used to dismiss the drawer.
    * @default 'down'

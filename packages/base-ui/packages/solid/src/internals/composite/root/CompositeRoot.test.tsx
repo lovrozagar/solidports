@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- render-prop props are spread onto nested composite items */
 import { expect, vi, describe, it } from 'vitest';
 import { act, createRenderer, flushMicrotasks, isJSDOM } from '#test-utils';
 import { fireEvent, screen, waitFor } from '@solidjs/testing-library';
@@ -8,7 +7,7 @@ import { DirectionProvider } from '../../../direction-provider';
 import { useRef } from '../../../solid-helpers';
 import type { UseRenderElementRef } from '../../../utils/types';
 import { CompositeItem } from '../item/CompositeItem';
-import { type CompositeMetadata } from '../list/CompositeList';
+import type { CompositeMetadata } from '../list/CompositeList';
 import { useCompositeListItem } from '../list/useCompositeListItem';
 import { CompositeRoot } from './CompositeRoot';
 import { gridNavigation } from './gridNavigation';

@@ -36,6 +36,6 @@ describe('<Popover.Title />', () => {
     ));
 
     const id = document.querySelector('h2')?.id;
-    expect(screen.getByRole('dialog')).to.have.attribute('aria-labelledby', id);
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-labelledby', id);
   });
 });

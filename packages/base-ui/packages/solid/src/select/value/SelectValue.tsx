@@ -1,8 +1,7 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value erased at value renderer */
 import { createMemo, Match, Switch } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
-import { StateAttributesMapping } from '../../utils/getStateAttributesProps';
+import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { resolveMultipleLabels, resolveSelectedLabel } from '../../utils/resolveValueLabel';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -96,12 +95,12 @@ export interface SelectValueProps extends Omit<
    * </Select.Value>
    * ```
    */
-  children?: JSX.Element | ((value: any) => JSX.Element);
+  children?: JSX.Element | ((value: any) => JSX.Element) | undefined;
   /**
    * The placeholder value to display when no value is selected.
    * This is overridden by `children` if specified, or by a null item's label in `items`.
    */
-  placeholder?: JSX.Element;
+  placeholder?: JSX.Element | undefined;
 }
 
 export namespace SelectValue {

@@ -1,10 +1,6 @@
-/* eslint-disable typescript/no-explicit-any -- generic item type for filter callback */
 import { createCollatorItemFilter, createSingleSelectionCollatorFilter } from './index';
-import {
-  type Filter,
-  type GetFilterParameters as UseFilterOptions,
-  getFilter,
-} from '../../../internals/filter';
+import { getFilter } from '../../../internals/filter';
+import type { Filter, GetFilterParameters as UseFilterOptions } from '../../../internals/filter';
 import { splitProps } from '../../../solid-1-compat';
 
 export type { Filter, UseFilterOptions };

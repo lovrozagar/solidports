@@ -14,7 +14,7 @@ import { useToolbarRootContext } from '../toolbar/root/ToolbarRootContext';
 import { useToolbarGroupContext } from '../toolbar/group/ToolbarGroupContext';
 import { EMPTY_ARRAY } from '../utils/empty';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
-import { REASONS } from '../utils/reasons';
+import type { REASONS } from '../utils/reasons';
 import type { BaseUIComponentProps, HTMLProps, Orientation } from '../utils/types';
 import { useControlled } from '../utils/useControlled';
 import { useRenderElement } from '../utils/useRenderElement';

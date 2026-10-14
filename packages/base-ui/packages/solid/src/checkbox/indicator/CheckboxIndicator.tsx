@@ -19,7 +19,8 @@ import { getCheckboxStateAttributesMapping } from '../utils/getCheckboxStateAttr
 import type { CheckboxRootState } from '../root/CheckboxRoot';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
-import { type TransitionStatus, useTransitionStatus } from '../../utils/useTransitionStatus';
+import { useTransitionStatus } from '../../utils/useTransitionStatus';
+import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import { splitComponentProps, useRef } from '../../solid-helpers';

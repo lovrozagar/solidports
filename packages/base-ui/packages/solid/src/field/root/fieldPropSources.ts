@@ -1,7 +1,8 @@
 import { DEFAULT_LABELABLE_CONTEXT } from '../../internals/labelable-provider/LabelableContext';
 import type { LabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import type { BaseUIHTMLProps } from '../../utils/types';
-import { DEFAULT_FIELD_ROOT_CONTEXT, type FieldRootContext } from './FieldRootContext';
+import { DEFAULT_FIELD_ROOT_CONTEXT } from './FieldRootContext';
+import type { FieldRootContext } from './FieldRootContext';
 
 /**
  * The description and validation prop sources of a labelable control, for its props list. Outside a

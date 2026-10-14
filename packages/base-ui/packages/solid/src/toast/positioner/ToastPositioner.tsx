@@ -1,11 +1,11 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { isElement } from '@floating-ui/utils/dom';
 import { createSignal } from 'solid-js';
 import { useFloatingRootContext } from '../../floating-ui-solid';
 import { EMPTY_OBJECT, POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { NOOP } from '../../utils/noop';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useAnchorPositioning, type Align, type Side } from '../../utils/useAnchorPositioning';
+import { useAnchorPositioning } from '../../utils/useAnchorPositioning';
+import type { Align, Side } from '../../utils/useAnchorPositioning';
 import { usePositioner } from '../../utils/usePositioner';
 import { useToastProviderContext } from '../provider/ToastProviderContext';
 import * as ToastRootCssVars from '../root/ToastRootCssVars';

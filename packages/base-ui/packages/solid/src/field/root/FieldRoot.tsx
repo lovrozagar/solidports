@@ -9,11 +9,11 @@ import {
   live,
   splitComponentProps,
   useRef,
-  type ReactLikeRef,
   provideContext,
   createLayoutEffect,
 } from '../../solid-helpers';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { ReactLikeRef } from '../../solid-helpers';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { DEFAULT_VALIDITY_STATE, fieldValidityMapping } from '../utils/constants';
 import { FieldRootContext } from './FieldRootContext';

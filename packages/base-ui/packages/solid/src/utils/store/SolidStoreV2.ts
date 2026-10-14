@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic store accepts arbitrary state/context/selector shapes; `unknown` would force casts at every internal write */
 import {
   isDisposed,
   createEffect,
@@ -12,13 +11,8 @@ import {
 } from 'solid-js';
 import type { Accessor, Signal, Store } from 'solid-js';
 import { isServer } from '@solidjs/web';
-import {
-  access,
-  createDepsEffect,
-  createDepsMemo,
-  type MaybeAccessor,
-  type MaybeAccessorValue,
-} from '../../solid-helpers';
+import { access, createDepsEffect, createDepsMemo } from '../../solid-helpers';
+import type { MaybeAccessor, MaybeAccessorValue } from '../../solid-helpers';
 import { NOOP } from '../empty';
 import type { SetStoreFunction } from '../../solid-1-compat';
 
@@ -769,8 +763,8 @@ interface Binding {
   /** The current value, untracked, without creating the derived signal. */
   peek: () => unknown;
   /** The owner the key was bound under; its notifier is created there on demand. */
-  owner?: ReturnType<typeof getOwner>;
-  notifying?: boolean;
+  owner?: ReturnType<typeof getOwner> | undefined;
+  notifying?: boolean | undefined;
 }
 
 function isBinding(value: unknown): value is Binding {
@@ -790,7 +784,7 @@ function bindStoreKey<State extends object>(
   setState: SetStoreFunction<State>,
   key: keyof State,
   source: BindingSource,
-  options: { clearOnCleanup?: boolean } = {},
+  options: { clearOnCleanup?: boolean | undefined } = {},
 ) {
   const bind = storeBinders.get(state);
   if (bind) {

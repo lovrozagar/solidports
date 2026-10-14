@@ -48,9 +48,9 @@ describe('<Checkbox.Root /> with the React 17 id fallback', () => {
       act(() => setCheckboxId(undefined));
 
       const control = getLabelControl(nativeButton);
-      expect(control.id).not.to.equal('');
-      expect(control).not.to.have.attribute('id', 'explicit');
-      expect(screen.getByTestId('label')).to.have.attribute('for', control.id);
+      expect(control.id).not.toBe('');
+      expect(control).not.toHaveAttribute('id', 'explicit');
+      expect(screen.getByTestId('label')).toHaveAttribute('for', control.id);
     },
   );
 
@@ -72,9 +72,9 @@ describe('<Checkbox.Root /> with the React 17 id fallback', () => {
       act(() => setProps({ checkboxKey: 'generated' }));
 
       const control = getLabelControl(nativeButton);
-      expect(control.id).not.to.equal('');
-      expect(control).not.to.have.attribute('id', 'explicit');
-      expect(screen.getByTestId('label')).to.have.attribute('for', control.id);
+      expect(control.id).not.toBe('');
+      expect(control).not.toHaveAttribute('id', 'explicit');
+      expect(screen.getByTestId('label')).toHaveAttribute('for', control.id);
     },
   );
 
@@ -115,7 +115,7 @@ describe('<Checkbox.Root /> with the React 17 id fallback', () => {
       ));
 
       await waitFor(() => {
-        expect(screen.getByTestId('parent')).to.have.attribute(
+        expect(screen.getByTestId('parent')).toHaveAttribute(
           'aria-controls',
           `${screen.getByTestId('fuji').id} ${screen.getByTestId('gala').id}`,
         );

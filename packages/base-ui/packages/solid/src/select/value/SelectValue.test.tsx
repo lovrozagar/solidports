@@ -1,8 +1,7 @@
 import { createRenderer, describeConformance, flushMicrotasks } from '#test-utils';
 import { Select } from '@solidports/base-ui/select';
 import { fireEvent, screen } from '@solidjs/testing-library';
-import { expect, describe, it } from 'vitest';
-import { spy } from 'sinon';
+import { expect, describe, it, vi } from 'vitest';
 import { createSignal, For } from 'solid-js';
 
 describe('<Select.Value />', () => {
@@ -17,7 +16,7 @@ describe('<Select.Value />', () => {
 
   describe('prop: children', () => {
     it('accepts a function with a value parameter', async () => {
-      const children = spy();
+      const children = vi.fn();
       render(() => (
         <Select.Root value="1">
           <Select.Trigger>
@@ -41,8 +40,8 @@ describe('<Select.Value />', () => {
       fireEvent.click(screen.getByText('1'));
       await flushMicrotasks();
 
-      expect(children.firstCall.firstArg).to.equal('1');
-      expect(children.firstCall.lastArg).to.equal('1');
+      expect(children.mock.calls[0][0]).toBe('1');
+      expect(children.mock.calls[0].at(-1)).toBe('1');
     });
 
     it('overrides the text when children is a string', async () => {
@@ -52,7 +51,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByText('one')).not.to.equal(null);
+      expect(screen.getByText('one')).not.toBe(null);
     });
   });
 
@@ -81,7 +80,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Sans-serif');
+      expect(screen.getByTestId('value').textContent).toBe('Sans-serif');
     });
 
     it('updates the label when value changes with items object', async () => {
@@ -117,13 +116,13 @@ describe('<Select.Value />', () => {
 
       const { user } = render(() => <App />);
 
-      expect(screen.getByTestId('value')).to.have.text('Sans-serif');
+      expect(screen.getByTestId('value').textContent).toBe('Sans-serif');
 
       await user.click(screen.getByRole('button', { name: 'serif' }));
-      expect(screen.getByTestId('value')).to.have.text('Serif');
+      expect(screen.getByTestId('value').textContent).toBe('Serif');
 
       await user.click(screen.getByRole('button', { name: 'mono' }));
-      expect(screen.getByTestId('value')).to.have.text('Monospace');
+      expect(screen.getByTestId('value').textContent).toBe('Monospace');
     });
 
     it('falls back to raw value when value is not in items object', async () => {
@@ -138,7 +137,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('unknown');
+      expect(screen.getByTestId('value').textContent).toBe('unknown');
     });
 
     it('supports ReactNode labels in items object', async () => {
@@ -153,7 +152,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value').querySelector('span')).to.have.text('Sans-serif');
+      expect(screen.getByTestId('value').querySelector('span')?.textContent).toBe('Sans-serif');
     });
 
     it('can lookup null value', async () => {
@@ -169,7 +168,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Null');
+      expect(screen.getByTestId('value').textContent).toBe('Null');
     });
   });
 
@@ -198,7 +197,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Serif');
+      expect(screen.getByTestId('value').textContent).toBe('Serif');
     });
 
     it('updates the label when value changes with items array', async () => {
@@ -234,13 +233,13 @@ describe('<Select.Value />', () => {
 
       const { user } = render(() => <App />);
 
-      expect(screen.getByTestId('value')).to.have.text('Sans-serif');
+      expect(screen.getByTestId('value').textContent).toBe('Sans-serif');
 
       await user.click(screen.getByRole('button', { name: 'serif' }));
-      expect(screen.getByTestId('value')).to.have.text('Serif');
+      expect(screen.getByTestId('value').textContent).toBe('Serif');
 
       await user.click(screen.getByRole('button', { name: 'mono' }));
-      expect(screen.getByTestId('value')).to.have.text('Monospace');
+      expect(screen.getByTestId('value').textContent).toBe('Monospace');
     });
 
     it('falls back to raw value when value is not in items array', async () => {
@@ -255,7 +254,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('unknown');
+      expect(screen.getByTestId('value').textContent).toBe('unknown');
     });
 
     it('supports JSX.Element labels in items array', async () => {
@@ -270,7 +269,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value').querySelector('strong')).to.have.text('Bold Text');
+      expect(screen.getByTestId('value').querySelector('strong')?.textContent).toBe('Bold Text');
     });
 
     it('is not stale after being updated', async () => {
@@ -313,15 +312,15 @@ describe('<Select.Value />', () => {
 
       const { user } = render(() => <App />);
 
-      expect(screen.getByTestId('value')).to.have.text('a');
+      expect(screen.getByTestId('value').textContent).toBe('a');
 
       await user.click(screen.getByRole('button', { name: 'update' }));
 
-      expect(screen.getByTestId('value')).to.have.text('a new');
+      expect(screen.getByTestId('value').textContent).toBe('a new');
 
       await user.click(screen.getByRole('button', { name: 'select c' }));
 
-      expect(screen.getByTestId('value')).to.have.text('c');
+      expect(screen.getByTestId('value').textContent).toBe('c');
     });
   });
 
@@ -351,7 +350,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Canada');
+      expect(screen.getByTestId('value').textContent).toBe('Canada');
     });
 
     it('falls back to label/value properties when functions are not provided', async () => {
@@ -380,7 +379,7 @@ describe('<Select.Value />', () => {
       const hiddenInput = screen.getByRole('textbox', {
         hidden: true,
       });
-      expect(hiddenInput).to.have.value('CA');
+      expect((hiddenInput as HTMLInputElement).value).toBe('CA');
     });
   });
 
@@ -397,7 +396,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Custom Text');
+      expect(screen.getByTestId('value').textContent).toBe('Custom Text');
     });
 
     it('uses children function over items array', async () => {
@@ -412,7 +411,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Custom: sans');
+      expect(screen.getByTestId('value').textContent).toBe('Custom: sans');
     });
   });
 
@@ -447,13 +446,13 @@ describe('<Select.Value />', () => {
     await flushMicrotasks();
 
     await user.click(screen.getByRole('button', { name: '1' }));
-    expect(screen.getByTestId('value')).to.have.text('1');
+    expect(screen.getByTestId('value').textContent).toBe('1');
 
     await user.click(screen.getByRole('button', { name: '2' }));
-    expect(screen.getByTestId('value')).to.have.text('2');
+    expect(screen.getByTestId('value').textContent).toBe('2');
 
     await user.click(screen.getByRole('button', { name: 'null' }));
-    expect(screen.getByTestId('value')).to.have.text('initial');
+    expect(screen.getByTestId('value').textContent).toBe('initial');
   });
 
   describe('prop: multiple', () => {
@@ -474,7 +473,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Sans-serif, Serif');
+      expect(screen.getByTestId('value').textContent).toBe('Sans-serif, Serif');
     });
 
     it('displays comma-separated labels for multiple values with items array', async () => {
@@ -493,7 +492,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Serif, Monospace');
+      expect(screen.getByTestId('value').textContent).toBe('Serif, Monospace');
     });
 
     it('supports ReactNode labels for multiple selections', async () => {
@@ -513,9 +512,9 @@ describe('<Select.Value />', () => {
       ));
 
       const value = screen.getByTestId('value');
-      expect(value.querySelector('strong')).to.have.text('Bold Text');
-      expect(value.querySelector('em')).to.have.text('Italic Text');
-      expect(value).to.have.text('Bold Text, Italic Text');
+      expect(value.querySelector('strong')?.textContent).toBe('Bold Text');
+      expect(value.querySelector('em')?.textContent).toBe('Italic Text');
+      expect(value.textContent).toBe('Bold Text, Italic Text');
     });
 
     it('falls back to raw values when no items are provided', async () => {
@@ -529,7 +528,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('serif, mono');
+      expect(screen.getByTestId('value').textContent).toBe('serif, mono');
     });
 
     it('displays single value when only one value is selected in multiple mode', async () => {
@@ -539,7 +538,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('sans');
+      expect(screen.getByTestId('value').textContent).toBe('sans');
     });
 
     it('displays empty when no values are selected in multiple mode', async () => {
@@ -549,11 +548,11 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('');
+      expect(screen.getByTestId('value').textContent).toBe('');
     });
 
     it('children function receives array of values in multiple mode', async () => {
-      const children = spy();
+      const children = vi.fn();
       const items = {
         sans: 'Sans-serif',
         serif: 'Serif',
@@ -570,8 +569,8 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(children.firstCall.firstArg).to.deep.equal(['sans', 'serif']);
-      expect(screen.getByText('Selected: sans + serif')).not.to.equal(null);
+      expect(children.mock.calls[0][0]).toEqual(['sans', 'serif']);
+      expect(screen.getByText('Selected: sans + serif')).not.toBe(null);
     });
 
     it('children prop takes precedence over items in multiple mode', async () => {
@@ -586,11 +585,11 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Custom Multiple Text');
+      expect(screen.getByTestId('value').textContent).toBe('Custom Multiple Text');
     });
 
     it('defaults to empty array when no value is provided', async () => {
-      const renderValue = spy();
+      const renderValue = vi.fn();
 
       render(() => (
         <Select.Root multiple>
@@ -598,7 +597,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(renderValue.firstCall.firstArg).to.deep.equal([]);
+      expect(renderValue.mock.calls[0][0]).toEqual([]);
     });
   });
 
@@ -610,7 +609,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Select an option');
+      expect(screen.getByTestId('value').textContent).toBe('Select an option');
     });
 
     it('displays placeholder when value is null', async () => {
@@ -620,7 +619,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Select an option');
+      expect(screen.getByTestId('value').textContent).toBe('Select an option');
     });
 
     it('does not display placeholder when value is selected', async () => {
@@ -637,7 +636,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('option1');
+      expect(screen.getByTestId('value').textContent).toBe('option1');
     });
 
     it('children prop takes precedence over placeholder', async () => {
@@ -649,7 +648,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Custom Text');
+      expect(screen.getByTestId('value').textContent).toBe('Custom Text');
     });
 
     it('children function takes precedence over placeholder', async () => {
@@ -661,7 +660,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Function fallback');
+      expect(screen.getByTestId('value').textContent).toBe('Function fallback');
     });
 
     it('null item label in items takes precedence over placeholder', async () => {
@@ -684,7 +683,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('None');
+      expect(screen.getByTestId('value').textContent).toBe('None');
     });
 
     it('uses placeholder when items have null value without label', async () => {
@@ -707,7 +706,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('value')).to.have.text('Select an option');
+      expect(screen.getByTestId('value').textContent).toBe('Select an option');
     });
 
     it('supports ReactNode as placeholder', async () => {
@@ -720,7 +719,7 @@ describe('<Select.Value />', () => {
         </Select.Root>
       ));
 
-      expect(screen.getByTestId('placeholder')).to.have.text('Select an option');
+      expect(screen.getByTestId('placeholder').textContent).toBe('Select an option');
     });
   });
 

@@ -1,8 +1,9 @@
 import { createMemo } from 'solid-js';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import { EMPTY_OBJECT } from './constants';
 import { ownerDocument } from './owner';
-import { BaseUIEvent } from './types';
+import type { BaseUIEvent } from './types';
 
 /**
  * Returns `click` and `mousedown` handlers that fix the behavior of triggers of popups that are toggled by different events.
@@ -17,8 +18,8 @@ export function useMixedToggleClickHandler(params: UseMixedToggleClickHandlerPar
   let ignoreClickRef = false;
   const result = createMemo(
     (): {
-      onMouseDown?: (event: MouseEvent) => void;
-      onClick?: (event: BaseUIEvent<MouseEvent>) => void;
+      onMouseDown?: ((event: MouseEvent) => void) | undefined;
+      onClick?: ((event: BaseUIEvent<MouseEvent>) => void) | undefined;
     } => {
       if (!enabled()) {
         return EMPTY_OBJECT;
@@ -59,7 +60,7 @@ export interface UseMixedToggleClickHandlerParameters {
    * Whether the mixed toggle click handler is enabled.
    * @default true
    */
-  enabled?: MaybeAccessor<boolean | undefined>;
+  enabled?: MaybeAccessor<boolean | undefined> | undefined;
   /**
    * Determines what action is performed on mousedown.
    */

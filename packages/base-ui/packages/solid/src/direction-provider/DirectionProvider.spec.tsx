@@ -1,10 +1,6 @@
 import { expectType } from '#test-utils';
-import {
-  DirectionProvider,
-  useDirection,
-  type DirectionProviderProps,
-  type TextDirection,
-} from '@solidports/base-ui/direction-provider';
+import { DirectionProvider, useDirection } from '@solidports/base-ui/direction-provider';
+import type { DirectionProviderProps, TextDirection } from '@solidports/base-ui/direction-provider';
 
 // Solid: `useDirection` returns an accessor.
 const direction = null as unknown as ReturnType<ReturnType<typeof useDirection>>;

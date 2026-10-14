@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic radio Value erased at group level */
 import { createEffect, createSignal, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../direction-provider/DirectionContext';
@@ -30,9 +29,10 @@ import { SHIFT } from '../internals/composite/composite';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
 import { useRegisterFieldControl } from '../internals/field-register-control/useRegisterFieldControl';
 import { useValueChanged } from '../internals/useValueChanged';
-import { splitComponentProps, type ReactLikeRef } from '../solid-helpers';
+import { splitComponentProps } from '../solid-helpers';
+import type { ReactLikeRef } from '../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
-import { REASONS } from '../utils/reasons';
+import type { REASONS } from '../utils/reasons';
 import { useBaseUiId } from '../utils/useBaseUiId';
 import { useControlled } from '../utils/useControlled';
 import { withCaptureListeners } from '../utils/withCaptureListeners';

@@ -31,7 +31,7 @@ const componentRoleToAriaRoleMap = new Map<AriaRole | ComponentRole, AriaRole | 
  */
 export function useRole(parameters: {
   context: FloatingRootContext | FloatingContext;
-  props?: UseRoleProps;
+  props?: UseRoleProps | undefined;
 }): ElementProps {
   const props = defaultProps(parameters.props ?? {}, { role: 'dialog' });
 

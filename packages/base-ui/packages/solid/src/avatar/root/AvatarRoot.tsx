@@ -1,6 +1,7 @@
-import { createMemo, createSignal, onSettled, untrack, type Accessor } from 'solid-js';
+import { createMemo, createSignal, onSettled, untrack } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
-import { BaseUIComponentProps } from '../../utils/types';
+import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { AvatarRootContext } from './AvatarRootContext';
 import { avatarStateAttributesMapping } from './stateAttributesMapping';

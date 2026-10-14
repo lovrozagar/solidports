@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import type { Derivable, Middleware, Padding } from '@floating-ui/dom';
 import {
   clamp,

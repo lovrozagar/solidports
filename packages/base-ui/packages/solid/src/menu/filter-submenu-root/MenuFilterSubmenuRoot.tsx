@@ -223,7 +223,9 @@ function MenuFilterSubmenuNavigation(props: {
     const currentTarget = event.currentTarget as HTMLElement;
     if (isMainOrientationKey(event.key, props.parentOrientation())) {
       moveInParent(currentTarget, event);
-      (event as KeyboardEvent & { preventBaseUIHandler?: () => void }).preventBaseUIHandler?.();
+      (
+        event as KeyboardEvent & { preventBaseUIHandler?: (() => void) | undefined }
+      ).preventBaseUIHandler?.();
       stopEvent(event);
       return;
     }

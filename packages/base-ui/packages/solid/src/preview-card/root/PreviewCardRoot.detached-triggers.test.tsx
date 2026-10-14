@@ -262,11 +262,11 @@ describe('<PreviewCard.Root />', () => {
 
       await user.hover(trigger1);
       expect(screen.queryByTestId(popupId)).toBeVisible();
-      expect(screen.getByTestId(popupId).textContent).to.equal('Content: 1');
+      expect(screen.getByTestId(popupId).textContent).toBe('Content: 1');
 
       await user.hover(trigger2);
       expect(screen.queryByTestId(popupId)).toBeVisible();
-      expect(screen.getByTestId(popupId).textContent).to.equal('Content: 2');
+      expect(screen.getByTestId(popupId).textContent).toBe('Content: 2');
     });
 
     it('should open again after escape when focusing another trigger', async () => {
@@ -299,7 +299,7 @@ describe('<PreviewCard.Root />', () => {
 
       await user.keyboard('{Escape}');
       await waitFor(() => {
-        expect(screen.queryByTestId(popupId)).to.equal(null);
+        expect(screen.queryByTestId(popupId)).toBe(null);
       });
 
       trigger2.focus();
@@ -339,13 +339,13 @@ describe('<PreviewCard.Root />', () => {
       trigger1.focus();
       await flushMicrotasks();
       await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('1');
+        expect(screen.getByTestId('content').textContent).toBe('1');
       });
 
       trigger2.focus();
       await flushMicrotasks();
       await waitFor(() => {
-        expect(screen.getByTestId('content').textContent).to.equal('2');
+        expect(screen.getByTestId('content').textContent).toBe('2');
       });
     });
 

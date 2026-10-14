@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic render-element bridge, mirrors useRenderElement plumbing */
 import {
   createContext,
   createMemo,

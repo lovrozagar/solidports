@@ -1,4 +1,5 @@
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 import type { CustomStyleHookMapping } from './getStyleHookProps';
 import type { TransitionStatus } from './useTransitionStatus';
 

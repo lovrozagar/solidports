@@ -1,5 +1,6 @@
 import { createEffect, createMemo, onCleanup, untrack } from 'solid-js';
-import { access, type MaybeAccessor } from '../solid-helpers';
+import { access } from '../solid-helpers';
+import type { MaybeAccessor } from '../solid-helpers';
 
 interface ResolveRenderedIdProps {
   id?: string | undefined;

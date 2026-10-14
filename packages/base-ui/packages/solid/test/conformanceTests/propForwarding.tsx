@@ -34,8 +34,8 @@ export function testPropForwarding(
       await flushMicrotasks();
 
       const customRoot = screen.getByTestId('root');
-      expect(customRoot).to.have.attribute('lang', otherProps.lang);
-      expect(customRoot).to.have.attribute('data-foobar', otherProps['data-foobar']);
+      expect(customRoot).toHaveAttribute('lang', otherProps.lang);
+      expect(customRoot).toHaveAttribute('data-foobar', otherProps['data-foobar']);
     });
 
     it('forwards custom props to the customized element defined with a function', async () => {
@@ -53,8 +53,8 @@ export function testPropForwarding(
       await flushMicrotasks();
 
       const customRoot = screen.getByTestId('custom-root');
-      expect(customRoot).to.have.attribute('lang', otherProps.lang);
-      expect(customRoot).to.have.attribute('data-foobar', otherProps['data-foobar']);
+      expect(customRoot).toHaveAttribute('lang', otherProps.lang);
+      expect(customRoot).toHaveAttribute('data-foobar', otherProps['data-foobar']);
     });
 
     /**
@@ -76,8 +76,8 @@ export function testPropForwarding(
       await flushMicrotasks();
 
       const customRoot = screen.getByTestId('custom-root');
-      expect(customRoot).to.have.attribute('lang', otherProps.lang);
-      expect(customRoot).to.have.attribute('data-foobar', otherProps['data-foobar']);
+      expect(customRoot).toHaveAttribute('lang', otherProps.lang);
+      expect(customRoot).toHaveAttribute('data-foobar', otherProps['data-foobar']);
     });
 
     it('forwards the custom `style` attribute defined on the component', async () => {
@@ -89,8 +89,8 @@ export function testPropForwarding(
       await flushMicrotasks();
 
       const customRoot = screen.getByTestId('custom-root');
-      expect(customRoot).to.have.attribute('style');
-      expect(customRoot.getAttribute('style')).to.contain('color: green');
+      expect(customRoot).toHaveAttribute('style');
+      expect(customRoot.getAttribute('style')).toContain('color: green');
     });
 
     // Solid: React's render element is a `{ component, ...props }` render config.
@@ -103,8 +103,8 @@ export function testPropForwarding(
       await flushMicrotasks();
 
       const customRoot = screen.getByTestId('custom-root');
-      expect(customRoot).to.have.attribute('style');
-      expect(customRoot.getAttribute('style')).to.contain('color: green');
+      expect(customRoot).toHaveAttribute('style');
+      expect(customRoot.getAttribute('style')).toContain('color: green');
     });
   });
 }

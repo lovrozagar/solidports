@@ -1,11 +1,11 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value erased at store boundary; mirrors combobox/store pattern */
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { compareItemEquality } from '../utils/itemEquality';
-import { type Group, hasNullItemLabel, stringifyAsValue } from '../utils/resolveValueLabel';
+import { hasNullItemLabel, stringifyAsValue } from '../utils/resolveValueLabel';
+import type { Group } from '../utils/resolveValueLabel';
 import type { SolidStore } from '../utils/store/SolidStoreV2';
 import type { HTMLProps } from '../utils/types';
-import { type InteractionType } from '../utils/useEnhancedClickHandler';
+import type { InteractionType } from '../utils/useEnhancedClickHandler';
 import type { Side } from '../utils/useAnchorPositioning';
 import type { TransitionStatus } from '../utils/useTransitionStatus';
 

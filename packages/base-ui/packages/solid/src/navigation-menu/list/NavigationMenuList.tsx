@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value/State/event-handler bridge erased at boundary, mirrors React port */
 import { createMemo, Show } from 'solid-js';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
 import { useDismiss, useHoverFloatingInteraction } from '../../floating-ui-solid';

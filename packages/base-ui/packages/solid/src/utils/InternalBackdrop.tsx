@@ -51,7 +51,7 @@ export interface InternalBackdropProps extends JSX.HTMLAttributes<HTMLDivElement
   /**
    * Whether the backdrop is managed by Base UI.
    */
-  managed?: boolean;
+  managed?: boolean | undefined;
 }
 
 export namespace InternalBackdrop {

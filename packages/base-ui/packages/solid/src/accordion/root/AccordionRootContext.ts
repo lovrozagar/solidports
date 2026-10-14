@@ -1,4 +1,3 @@
-/* eslint-disable typescript/no-explicit-any -- generic Value bridge erased at the context boundary, mirrors React */
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { AccordionRoot } from './AccordionRoot';

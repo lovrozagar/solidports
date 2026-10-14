@@ -1,4 +1,5 @@
-import { Mock, vi, expect, describe, beforeEach, afterEach, it } from 'vitest';
+import type { Mock } from 'vitest';
+import { vi, expect, describe, beforeEach, afterEach, it } from 'vitest';
 import { createSignal, Show } from 'solid-js';
 import { Avatar } from '@solidports/base-ui/avatar';
 import { waitFor, screen } from '@solidjs/testing-library';

@@ -15,15 +15,11 @@ import {
   closestSnapPointIndex,
   getSnapPointSwipeMovement,
   useDrawerSnapPoints,
-  type ResolvedDrawerSnapPoint,
 } from '../root/useDrawerSnapPoints';
+import type { ResolvedDrawerSnapPoint } from '../root/useDrawerSnapPoints';
 import { useDrawerProviderContext } from '../provider/DrawerProviderContext';
-import {
-  getDisplacement,
-  useSwipeDismiss,
-  type SwipeDirection,
-  type UseSwipeDismissProgressDetails,
-} from '../../utils/useSwipeDismiss';
+import { getDisplacement, useSwipeDismiss } from '../../utils/useSwipeDismiss';
+import type { SwipeDirection, UseSwipeDismissProgressDetails } from '../../utils/useSwipeDismiss';
 import * as DrawerPopupCssVars from '../popup/DrawerPopupCssVars';
 import * as DrawerPopupDataAttributes from '../popup/DrawerPopupDataAttributes';
 import * as DrawerBackdropCssVars from '../backdrop/DrawerBackdropCssVars';
@@ -33,7 +29,8 @@ import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { activeElement, closest, contains, getTarget } from '../../floating-ui-solid/utils';
 import { DrawerViewportContext } from './DrawerViewportContext';
 import { TransitionStatusDataAttributes } from '../../utils/stateAttributesMapping';
-import { findScrollableTouchTarget, type ScrollAxis } from '../../utils/scrollable';
+import { findScrollableTouchTarget } from '../../utils/scrollable';
+import type { ScrollAxis } from '../../utils/scrollable';
 import {
   BASE_UI_SWIPE_IGNORE_ATTRIBUTE,
   BASE_UI_SWIPE_IGNORE_SELECTOR,

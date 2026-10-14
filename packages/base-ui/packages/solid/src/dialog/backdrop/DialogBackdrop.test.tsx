@@ -24,7 +24,7 @@ describe('<Dialog.Backdrop />', () => {
       </Dialog.Root>
     ));
 
-    expect(screen.getByTestId('backdrop')).to.have.attribute('role', 'presentation');
+    expect(screen.getByTestId('backdrop')).toHaveAttribute('role', 'presentation');
   });
 
   describe('prop: forceRender', () => {
@@ -52,8 +52,8 @@ describe('<Dialog.Backdrop />', () => {
 
       render(() => <App />);
 
-      expect(screen.getByTestId('root-backdrop')).not.to.equal(null);
-      expect(screen.queryByTestId('nested-backdrop')).to.equal(null);
+      expect(screen.getByTestId('root-backdrop')).not.toBe(null);
+      expect(screen.queryByTestId('nested-backdrop')).toBe(null);
     });
 
     it('always renders by default when not nested', async () => {
@@ -66,7 +66,7 @@ describe('<Dialog.Backdrop />', () => {
         </Dialog.Root>
       ));
 
-      expect(screen.getByTestId('backdrop')).not.to.equal(null);
+      expect(screen.getByTestId('backdrop')).not.toBe(null);
     });
 
     it('renders only the root backdrop with multiple nesting levels', async () => {
@@ -102,9 +102,9 @@ describe('<Dialog.Backdrop />', () => {
 
       render(() => <App />);
 
-      expect(screen.getByTestId('level-1-backdrop')).not.to.equal(null);
-      expect(screen.queryByTestId('level-2-backdrop')).to.equal(null);
-      expect(screen.queryByTestId('level-3-backdrop')).to.equal(null);
+      expect(screen.getByTestId('level-1-backdrop')).not.toBe(null);
+      expect(screen.queryByTestId('level-2-backdrop')).toBe(null);
+      expect(screen.queryByTestId('level-3-backdrop')).toBe(null);
     });
 
     it('always renders when true', async () => {
@@ -140,9 +140,9 @@ describe('<Dialog.Backdrop />', () => {
 
       render(() => <App />);
 
-      expect(screen.getByTestId('level-1-backdrop')).not.to.equal(null);
-      expect(screen.getByTestId('level-2-backdrop')).not.to.equal(null);
-      expect(screen.getByTestId('level-3-backdrop')).not.to.equal(null);
+      expect(screen.getByTestId('level-1-backdrop')).not.toBe(null);
+      expect(screen.getByTestId('level-2-backdrop')).not.toBe(null);
+      expect(screen.getByTestId('level-3-backdrop')).not.toBe(null);
     });
   });
 });
