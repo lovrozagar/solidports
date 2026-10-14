@@ -48,6 +48,7 @@
   "devDependencies": {
     "@playwright/test": "catalog:",
     "@types/mdx": "catalog:",
+    "@typescript/native": "catalog:",
     "typescript": "catalog:"
   },
   "name": "@solidports/docs",

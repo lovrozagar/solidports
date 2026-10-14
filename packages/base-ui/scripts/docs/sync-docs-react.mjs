@@ -125,9 +125,6 @@ function overlayPackageJson() {
   if (pkg.scripts?.dev && !pkg.scripts.dev.includes('--webpack')) {
     pkg.scripts.dev = 'next dev --webpack --port 3005';
   }
-  // typescript6 is ESM-only; Next's CJS loader sees an empty module (no sys / readConfigFile).
-  pkg.devDependencies = pkg.devDependencies ?? {};
-  pkg.devDependencies.typescript = '5.9.2';
   writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
 }
 
