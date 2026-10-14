@@ -104,17 +104,25 @@ export function use<T>(usable: PromiseLike<T> | Context<Accessor<T>>): Accessor<
   return useContext(usable as Context<Accessor<T>>);
 }
 
-/** `React.useImperativeHandle`: hands the ref its handle. */
-export function useImperativeHandle<T>(
-  ref: ((handle: T) => void) | { current: T | null } | null | undefined,
-  create: () => T,
-) {
-  const handle = create();
+/** `React.Ref`: a callback, or an object whose `current` takes the instance. */
+export type Ref<T> = ((instance: T) => void) | { current: T | null } | null | undefined;
+
+function assignRef<T>(ref: Ref<T>, instance: T) {
   if (typeof ref === 'function') {
-    ref(handle);
+    ref(instance);
   } else if (ref) {
-    ref.current = handle;
+    ref.current = instance;
   }
+}
+
+/** A `React.Ref` as a Solid `ref`: an object's `current` takes the element. */
+export function reactRef<T>(ref: Ref<T>): (instance: T) => void {
+  return (instance) => assignRef(ref, instance);
+}
+
+/** `React.useImperativeHandle`: hands the ref its handle. */
+export function useImperativeHandle<T>(ref: Ref<T>, create: () => T) {
+  assignRef(ref, create());
 }
 
 // CSS properties that take a number as is; React writes any other number in pixels.

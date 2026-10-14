@@ -40,6 +40,11 @@ const REACT_ADAPTERS = 'docs/src/adapters/react';
 const NEXT_DOCUMENT = 'docs/src/adapters/next/document';
 
 const PARSER_OPTIONS = { sourceType: 'module', plugins: ['jsx', 'typescript'] };
+// A `.ts` module has no JSX: `<T>value` is a type assertion there.
+const parserOptions = (filename) =>
+  /\.[cm]?ts$/.test(filename ?? '')
+    ? { ...PARSER_OPTIONS, plugins: ['typescript'] }
+    : PARSER_OPTIONS;
 const GENERATOR_OPTIONS = { jsescOption: { minimal: true, quotes: 'single' } };
 
 /** Whether a node is `element(() => <jsx />)` (see `deferElements`). */
@@ -49,8 +54,8 @@ const isElementCall = (node) =>
   node.arguments.length === 1;
 
 /** Prints source through the transform's parser and printer (one formatting for comparisons). */
-export function printCode(code) {
-  return generate(parse(code, PARSER_OPTIONS), GENERATOR_OPTIONS).code;
+export function printCode(code, filename) {
+  return generate(parse(code, parserOptions(filename)), GENERATOR_OPTIONS).code;
 }
 
 // The `JSX.*HTMLAttributes` interfaces Solid declares; React's others are the generic one.
@@ -1314,6 +1319,28 @@ function lowerFunction(fnPath, kind, ctx) {
           continue;
         }
         const annotation = declarator.id.typeAnnotation?.typeAnnotation;
+        // `const ref = useRef<T>(init)` is a `{ current: T }` that `init` initializes.
+        const refType = declarator.init.typeParameters?.params[0];
+        if (api === 'useRef' && refType && t.isIdentifier(declarator.id) && !annotation) {
+          const [init] = declarator.init.arguments;
+          const missing = !init
+            ? t.tsUndefinedKeyword()
+            : t.isNullLiteral(init)
+              ? t.tsNullKeyword()
+              : null;
+          const includes = (type) =>
+            t.isTSUnionType(refType)
+              ? refType.types.some((member) => member.type === type.type)
+              : refType.type === type.type;
+          const currentType =
+            missing && !includes(missing) ? t.tsUnionType([refType, missing]) : refType;
+          declarator.id.typeAnnotation = t.tsTypeAnnotation(
+            t.tsTypeLiteral([
+              t.tsPropertySignature(t.identifier('current'), t.tsTypeAnnotation(currentType)),
+            ]),
+          );
+          declarator.init.typeParameters = null;
+        }
         declarator.init = lowerReactHook(declarator.init, api, ctx);
         // `const value: T = useMemo(...)` types the memo's value.
         if (api === 'useMemo' && annotation && t.isIdentifier(declarator.id)) {
@@ -1549,6 +1576,16 @@ const untrackCall = (expression, imports) => {
   ]);
 };
 
+/**
+ * Marks a reactive read for `snapshotReads`: `key` groups reads of one value, `name` names its
+ * local, and a setup read runs once (so closures after it read the live value, not a snapshot).
+ */
+function markRead(node, key, name, setup) {
+  node.solidRead = key;
+  node.solidReadName = name ?? key;
+  node.solidSetup = setup;
+}
+
 function rewriteReads(fnPath, rewrites, imports) {
   if (rewrites.size === 0) {
     return;
@@ -1566,7 +1603,11 @@ function rewriteReads(fnPath, rewrites, imports) {
       }
       // A props read where the component sets up runs once, explicitly.
       if (rewrites.get(path.node)?.kind === 'source-read' && isSetupRead(path, fnPath)) {
-        path.replaceWith(untrackCall(path.node, imports));
+        const call = untrackCall(path.node, imports);
+        if (!path.node.computed && t.isIdentifier(path.node.property)) {
+          markRead(call, `props.${path.node.property.name}`, path.node.property.name, true);
+        }
+        path.replaceWith(call);
         path.skip();
       }
     },
@@ -1576,20 +1617,36 @@ function rewriteReads(fnPath, rewrites, imports) {
         return;
       }
       let replacement;
+      const setupRead = !path.isJSXIdentifier() && isSetupRead(path, fnPath);
       if (entry.kind === 'alias') {
         replacement = entry.alias();
-        if (t.isMemberExpression(replacement) && t.isCallExpression(replacement.object)) {
-          replacement.object.solidRead = replacement.object.callee.name;
+        // `_value().name` reads as one value, as the destructured `name` did.
+        if (
+          (t.isMemberExpression(replacement) || t.isOptionalMemberExpression(replacement)) &&
+          t.isCallExpression(replacement.object) &&
+          t.isIdentifier(replacement.object.callee)
+        ) {
+          const member = replacement.computed ? null : replacement.property.name;
+          if (member) {
+            markRead(
+              replacement,
+              `${replacement.object.callee.name}.${member}`,
+              path.node.name,
+              setupRead,
+            );
+          } else {
+            markRead(replacement.object, replacement.object.callee.name, null, setupRead);
+          }
         }
       } else if (entry.optional) {
         replacement = t.optionalCallExpression(t.identifier(entry.name), [], true);
-        replacement.solidRead = entry.name;
+        markRead(replacement, entry.name, null, false);
       } else {
         replacement = t.callExpression(t.identifier(entry.name), []);
-        replacement.solidRead = entry.name;
+        markRead(replacement, entry.name, null, false);
       }
       // A read where the component or hook sets up runs once, explicitly (`untrack`).
-      if (!path.isJSXIdentifier() && isSetupRead(path, fnPath)) {
+      if (setupRead) {
         if (
           entry.kind === 'alias' &&
           t.isMemberExpression(replacement) &&
@@ -1599,6 +1656,7 @@ function rewriteReads(fnPath, rewrites, imports) {
           replacement.object = untrackCall(replacement.object, imports);
         } else {
           replacement = untrackCall(replacement, imports);
+          markRead(replacement, entry.name, null, true);
         }
       }
       if (path.isJSXIdentifier()) {
@@ -1641,29 +1699,79 @@ function exits(statement) {
   );
 }
 
-/** The reactive reads in a node, by accessor name (outside nested functions and `skip`). */
-function readsIn(path, skip) {
+/**
+ * The reactive reads in a node, by key: those outside nested functions, and with `nested`, those
+ * in the closures it creates (outside `skip`).
+ */
+function readsIn(path, skip, nested) {
   const reads = new Map();
-  const visit = (callPath) => {
-    const name = callPath.node.solidRead;
-    if (name) {
-      reads.set(name, [...(reads.get(name) ?? []), callPath]);
+  path.traverse({
+    Function(inner) {
+      if (!nested) {
+        inner.skip();
+      }
+    },
+    JSXExpressionContainer(inner) {
+      // Rendered JSX stays reactive; an element value (`element(() => <jsx />)`) is a description
+      // of the values it closes over, as React's is.
+      const element = inner.findParent(
+        (parent) => parent === path || (parent.isCallExpression() && isElementCall(parent.node)),
+      );
+      if (skip === 'jsx' && !(element && element !== path && nested)) {
+        inner.skip();
+      }
+    },
+    'CallExpression|OptionalCallExpression|MemberExpression|OptionalMemberExpression'(readPath) {
+      const key = readPath.node.solidRead;
+      if (!key) {
+        return;
+      }
+      const inClosure = Boolean(
+        readPath.findParent((parent) => parent === path || parent.isFunction())?.isFunction(),
+      );
+      if (inClosure && !nested) {
+        return;
+      }
+      const entry = reads.get(key) ?? { direct: [], nested: [] };
+      (inClosure ? entry.nested : entry.direct).push(readPath);
+      reads.set(key, entry);
+      // A read's own parts are not reads of their own (`_value()` in `_value().name`).
+      readPath.skip();
+    },
+  });
+  return reads;
+}
+
+/** Merges the reads of `more` into `reads`, for the keys `only` has (all keys without it). */
+function mergeReads(reads, more, only) {
+  for (const [key, entry] of more) {
+    if (only && !only.has(key)) {
+      continue;
     }
-  };
+    const target = reads.get(key) ?? { direct: [], nested: [] };
+    target.direct.push(...entry.direct);
+    target.nested.push(...entry.nested);
+    reads.set(key, target);
+  }
+  return reads;
+}
+
+/** Whether an expression tests a value it may read again (a condition or a logical operator). */
+function narrows(path) {
+  if (path.isConditionalExpression() || path.isLogicalExpression()) {
+    return true;
+  }
+  let found = false;
   path.traverse({
     Function(inner) {
       inner.skip();
     },
-    JSXExpressionContainer(inner) {
-      if (skip === 'jsx') {
-        inner.skip();
-      }
-    },
-    'CallExpression|OptionalCallExpression'(callPath) {
-      visit(callPath);
+    'ConditionalExpression|LogicalExpression'(inner) {
+      found = true;
+      inner.stop();
     },
   });
-  return reads;
+  return found;
 }
 
 /**
@@ -1672,69 +1780,90 @@ function readsIn(path, skip) {
  * once, into a local: in Solid 2 a value read twice in one synchronous pass is the same value.
  */
 function snapshotReads(fnPath) {
+  // A value read more than once (a test, then the read it narrows) reads once into a local. The
+  // closures the statement creates read that local too, as they read the React value they close
+  // over; after a setup read they read the live value instead.
   const snapshot = (reads, scope) => {
     const declarations = [];
-    for (const [name, paths] of reads) {
-      if (paths.length < 2) {
+    for (const entry of reads.values()) {
+      const [first] = entry.direct;
+      const closures = first && !first.node.solidSetup ? entry.nested : [];
+      const paths = [...entry.direct, ...closures];
+      if (!first || paths.length < 2) {
         continue;
       }
-      const id = scope.generateUidIdentifier(name);
-      declarations.push(constDeclaration(id, paths[0].node));
+      const id = scope.generateUidIdentifier(first.node.solidReadName);
+      declarations.push(constDeclaration(id, t.cloneNode(first.node, true)));
       for (const readPath of paths) {
         readPath.replaceWith(t.identifier(id.name));
       }
     }
     return declarations;
   };
+  const repeats = (reads) =>
+    [...reads.values()].some(
+      (entry) =>
+        entry.direct.length > 0 &&
+        entry.direct.length + (entry.direct[0].node.solidSetup ? 0 : entry.nested.length) > 1,
+    );
   fnPath.traverse({
     'IfStatement|ExpressionStatement|VariableDeclaration|ReturnStatement|ThrowStatement'(path) {
       if (!path.parentPath.isBlockStatement()) {
         return;
       }
-      const reads = readsIn(path, 'jsx');
+      const reads = readsIn(path, 'jsx', true);
       // A guard (`if (!value) return;`) narrows the statements after it too.
       if (path.isIfStatement() && !path.node.alternate && exits(path.node.consequent)) {
-        const tested = readsIn(path.get('test'), 'jsx');
+        const tested = readsIn(path.get('test'), 'jsx', false);
         for (const sibling of path.getAllNextSiblings()) {
-          for (const [name, paths] of readsIn(sibling, 'jsx')) {
-            if (tested.has(name)) {
-              reads.set(name, [...(reads.get(name) ?? []), ...paths]);
-            }
-          }
+          mergeReads(reads, readsIn(sibling, 'jsx', true), tested);
         }
       }
+      // Only where a read narrows: a test that the same statement reads again after.
       if (
-        path.isExpressionStatement() ||
-        path.isVariableDeclaration() ||
-        path.isReturnStatement()
+        (path.isExpressionStatement() ||
+          path.isVariableDeclaration() ||
+          path.isReturnStatement()) &&
+        !narrows(path)
       ) {
-        // Only where a read narrows: a test that the same statement reads again after.
-        let narrows = false;
-        path.traverse({
-          Function(inner) {
-            inner.skip();
-          },
-          'ConditionalExpression|LogicalExpression'(inner) {
-            narrows = true;
-            inner.stop();
-          },
-        });
-        if (!narrows) {
-          return;
-        }
+        return;
+      }
+      if (!repeats(reads)) {
+        return;
       }
       const declarations = snapshot(reads, path.scope);
       if (declarations.length > 0) {
         path.insertBefore(declarations);
       }
     },
+    ArrowFunctionExpression(path) {
+      // `() => value ? use(value) : null`, as a block that reads the value once.
+      const body = path.get('body');
+      if (
+        body.isBlockStatement() ||
+        body.isJSXElement() ||
+        body.isJSXFragment() ||
+        !narrows(body)
+      ) {
+        return;
+      }
+      const wrapper = t.blockStatement([t.returnStatement(body.node)]);
+      const reads = readsIn(body, 'jsx', true);
+      if (!repeats(reads)) {
+        return;
+      }
+      body.replaceWith(wrapper);
+      const returnPath = path.get('body.body.0');
+      const declarations = snapshot(readsIn(returnPath, 'jsx', true), returnPath.scope);
+      returnPath.insertBefore(declarations);
+    },
     JSXExpressionContainer(path) {
       const expression = path.node.expression;
       if (t.isJSXEmptyExpression(expression) || isFunctionNode(expression)) {
         return;
       }
-      const reads = readsIn(path, null);
-      if (![...reads.values()].some((paths) => paths.length > 1)) {
+      const reads = readsIn(path, null, true);
+      if (!repeats(reads)) {
         return;
       }
       // Inside a function the insert calls, so the expression stays reactive.
@@ -2034,7 +2163,7 @@ function transformModuleApis(programPath, ctx) {
                   ),
                 );
                 refProp.optional = true;
-                imports.add('solid-js', 'Ref', true);
+                imports.add(ctx.standalone ? 'solid-js' : REACT_ADAPTERS, 'Ref', true);
                 propsParam.typeAnnotation = t.tsTypeAnnotation(
                   t.tsIntersectionType([annotation, t.tsTypeLiteral([refProp])]),
                 );
@@ -2054,7 +2183,7 @@ function transformModuleApis(programPath, ctx) {
                 ),
               );
               refProp.optional = true;
-              imports.add('solid-js', 'Ref', true);
+              imports.add(ctx.standalone ? 'solid-js' : REACT_ADAPTERS, 'Ref', true);
               propsParam.typeAnnotation = t.tsTypeAnnotation(
                 t.tsIntersectionType([propsType, t.tsTypeLiteral([refProp])]),
               );
@@ -2388,6 +2517,18 @@ function transformJsx(programPath, ctx) {
           ]),
         ),
       );
+      return;
+    }
+    // Any other React ref may be an object (`{ current }`), which Solid's `ref` does not assign.
+    if (
+      name === 'ref' &&
+      !ctx.standalone &&
+      t.isJSXExpressionContainer(value) &&
+      !t.isJSXEmptyExpression(value.expression) &&
+      !isFunctionNode(value.expression)
+    ) {
+      imports.add(REACT_ADAPTERS, 'reactRef');
+      value.expression = t.callExpression(t.identifier('reactRef'), [value.expression]);
       return;
     }
     // React writes a boolean `aria-*` value as text; Solid writes `true` as an empty attribute.
@@ -2798,6 +2939,10 @@ function transformTypes(programPath, ctx) {
           path.replaceWith(reference(solidType('Setter'), value));
         } else if (name === 'SetStateAction') {
           path.replaceWith(args[0]);
+        } else if ((name === 'Ref' || name === 'ForwardedRef') && !ctx.standalone) {
+          // A React ref may be an object; the docs runtime's `Ref` keeps React's shape.
+          imports.add(REACT_ADAPTERS, 'Ref', true);
+          path.replaceWith(reference(t.identifier('Ref'), args));
         } else if (name === 'Ref' || name === 'ForwardedRef' || name === 'RefCallback') {
           path.replaceWith(reference(solidType('Ref'), args));
         } else if (name === 'RefObject' || name === 'MutableRefObject') {
@@ -2999,11 +3144,55 @@ function transformPortals(programPath, imports) {
   });
 }
 
+// Identifiers that start a TypeScript declaration where they start a statement.
+const DECLARATION_KEYWORDS = new Set([
+  'abstract',
+  'declare',
+  'enum',
+  'interface',
+  'module',
+  'namespace',
+  'type',
+]);
+
+/**
+ * Parenthesizes an expression statement that starts with a TypeScript declaration keyword
+ * (`(type satisfies Node);`), as the source did: the printer drops the parentheses, and without
+ * them the statement parses as a declaration.
+ */
+function keepStatementParentheses(programPath) {
+  programPath.traverse({
+    ExpressionStatement(path) {
+      let first = path.node.expression;
+      for (;;) {
+        if (t.isMemberExpression(first) || t.isOptionalMemberExpression(first)) {
+          first = first.object;
+        } else if (t.isCallExpression(first) || t.isOptionalCallExpression(first)) {
+          first = first.callee;
+        } else if (
+          t.isTSSatisfiesExpression(first) ||
+          t.isTSAsExpression(first) ||
+          t.isTSNonNullExpression(first)
+        ) {
+          first = first.expression;
+        } else if (t.isBinaryExpression(first) || t.isLogicalExpression(first)) {
+          first = first.left;
+        } else {
+          break;
+        }
+      }
+      if (t.isIdentifier(first) && DECLARATION_KEYWORDS.has(first.name)) {
+        path.node.expression = t.parenthesizedExpression(path.node.expression);
+      }
+    },
+  });
+}
+
 export function transformReactToSolid(source, options = {}) {
   const modules = { ...MODULES, ...options.modules };
   const isCorpus = options.isCorpus ?? isCorpusModule;
   const rewriteModule = options.rewriteModule ?? ((source) => source);
-  const ast = parse(source, PARSER_OPTIONS);
+  const ast = parse(source, parserOptions(options.filename));
   const ctx = {
     imports: new Imports(),
     reactNames: { namespaces: new Set(), named: new Map() },
@@ -3105,6 +3294,7 @@ export function transformReactToSolid(source, options = {}) {
       if (declarations.length > 0) {
         programPath.unshiftContainer('body', declarations);
       }
+      keepStatementParentheses(programPath);
       programPath.stop();
     },
   });
