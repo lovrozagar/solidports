@@ -694,7 +694,7 @@ describe('useRenderElement', () => {
       ])('reports a wrapper that unwraps to %s as an invalid render element', (_, payload) => {
         const originalEnv = process.env.NODE_ENV;
 
-        let error: Error | null = null;
+        let error = null as Error | null;
         try {
           process.env.NODE_ENV = 'development';
           // Solid: a render error reaches the nearest error boundary, as React's render throws.
@@ -722,7 +722,7 @@ describe('useRenderElement', () => {
     it('throws error for invalid render element in development', () => {
       const originalEnv = process.env.NODE_ENV;
 
-      let error: Error | null = null;
+      let error = null as Error | null;
       try {
         process.env.NODE_ENV = 'development';
         // Solid: a render error reaches the nearest error boundary, as React's render throws.
