@@ -9,11 +9,56 @@ import { resetBrowserPointer } from './resetBrowserPointer';
 let isCleaningUp = false;
 
 /*
- * Desktop Firefox has no `TouchEvent` constructor, so testing-library builds a test's touch
- * events (`fireEvent.touchStart(el, { touches })`) as plain `Event`s without their touch lists,
- * and a touch handler reading `event.touches` throws. Provide the constructor those events need:
- * a `UIEvent` that carries the touch lists of its init. Library code never detects `TouchEvent`.
+ * Desktop Firefox has no `Touch` or `TouchEvent` constructor, so the tests' `new Touch(...)` throws
+ * and testing-library builds their touch events (`fireEvent.touchStart(el, { touches })`) as plain
+ * `Event`s without their touch lists, and a touch handler reading `event.touches` throws. Provide
+ * the constructors those tests need: a `Touch` with the fields of its init, and a `UIEvent` that
+ * carries the touch lists of its init. Library code never detects `Touch` or `TouchEvent`.
  */
+if (typeof window !== 'undefined' && typeof window.Touch === 'undefined') {
+  class Touch {
+    declare readonly identifier: number;
+
+    declare readonly target: EventTarget;
+
+    declare readonly clientX: number;
+
+    declare readonly clientY: number;
+
+    declare readonly pageX: number;
+
+    declare readonly pageY: number;
+
+    declare readonly screenX: number;
+
+    declare readonly screenY: number;
+
+    declare readonly radiusX: number;
+
+    declare readonly radiusY: number;
+
+    declare readonly rotationAngle: number;
+
+    declare readonly force: number;
+
+    constructor(init: TouchInit) {
+      this.identifier = init.identifier;
+      this.target = init.target;
+      this.clientX = init.clientX ?? 0;
+      this.clientY = init.clientY ?? 0;
+      this.pageX = init.pageX ?? this.clientX;
+      this.pageY = init.pageY ?? this.clientY;
+      this.screenX = init.screenX ?? 0;
+      this.screenY = init.screenY ?? 0;
+      this.radiusX = init.radiusX ?? 0;
+      this.radiusY = init.radiusY ?? 0;
+      this.rotationAngle = init.rotationAngle ?? 0;
+      this.force = init.force ?? 0;
+    }
+  }
+  (window as unknown as { Touch: unknown }).Touch = Touch;
+}
+
 if (typeof window !== 'undefined' && typeof window.TouchEvent === 'undefined') {
   class TouchEvent extends UIEvent {
     declare readonly touches: readonly Touch[];
