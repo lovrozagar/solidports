@@ -178,8 +178,284 @@ export function Focus() {
     });
   });
 
+  describe('reactivity', () => {
+    it('turns a derived const into a memo', () => {
+      expectTransform(
+        `export function Greeting(props: { name: string }) {
+  const label = \`Hello, \${props.name}\`;
+  return <span title={label}>{label}</span>;
+}`,
+        `import { createMemo } from 'solid-js';
+export function Greeting(props: { name: string }) {
+  const label = createMemo(() => \`Hello, \${props.name}\`);
+  return <span title={label()}>{label()}</span>;
+}`,
+      );
+    });
+
+    it('keeps a const that reads nothing reactive', () => {
+      expectTransform(
+        `export function Static() {
+  const label = 'Static';
+  const onClick = () => console.log(label);
+  return <button onClick={onClick}>{label}</button>;
+}`,
+        `export function Static() {
+  const label = 'Static';
+  const onClick = () => console.log(label);
+  return <button onClick={onClick}>{label}</button>;
+}`,
+      );
+    });
+
+    it('renders control flow after the hooks through a memo', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Toggle() {
+  const [open, setOpen] = React.useState(false);
+  if (!open) {
+    return <button onClick={() => setOpen(true)}>Open</button>;
+  }
+  return <div>Open</div>;
+}`,
+        `import { createMemo, createSignal } from 'solid-js';
+export function Toggle() {
+  const [open, setOpen] = createSignal(false);
+  const _render = createMemo(() => {
+    if (!open()) {
+      return <button onClick={() => setOpen(true)}>Open</button>;
+    }
+    return <div>Open</div>;
+  });
+  return <>{_render()}</>;
+}`,
+      );
+    });
+
+    it('renders a returned expression that is not JSX reactively', () => {
+      expectTransform(
+        `export function Maybe(props: { show: boolean; children: unknown }) {
+  return props.show ? props.children : null;
+}`,
+        `export function Maybe(props: { show: boolean; children: unknown }) {
+  return <>{props.show ? props.children : null}</>;
+}`,
+      );
+    });
+
+    it('reads destructured props from props in the body', () => {
+      expectTransform(
+        `export function Link(props: { href: string; label: string; target?: string }) {
+  const { href, label, ...rest } = props;
+  return <a href={href} {...rest}>{label}</a>;
+}`,
+        `import { omit } from 'solid-js';
+export function Link(props: { href: string; label: string; target?: string }) {
+  const rest = omit(props, 'href', 'label');
+  return <a href={props.href} {...rest}>{props.label}</a>;
+}`,
+      );
+    });
+
+    it('destructures a reactive object in one memo', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Size() {
+  const [size, setSize] = React.useState({ width: 0, height: 0 });
+  const { width, height } = size;
+  return <span>{width}x{height}</span>;
+}`,
+        `import { createMemo, createSignal } from 'solid-js';
+export function Size() {
+  const [size, setSize] = createSignal({ width: 0, height: 0 });
+  const _size = createMemo(() => {
+    const { width, height } = size();
+    return { width, height };
+  });
+  return <span>{_size().width}x{_size().height}</span>;
+}`,
+      );
+    });
+
+    it('runs a lazy state initializer once', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Lazy() {
+  const [value] = React.useState(() => compute());
+  return <span>{value}</span>;
+}`,
+        `import { createSignal } from 'solid-js';
+export function Lazy() {
+  const [value] = createSignal((() => compute())());
+  return <span>{value()}</span>;
+}`,
+      );
+    });
+  });
+
+  describe('reactive components', () => {
+    it('renders a component read from state with Dynamic', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Editor(props: { value: string }) {
+  const [module] = React.useState(loadEditor);
+  return <module.CodeEditor value={props.value}></module.CodeEditor>;
+}`,
+        `import { createSignal } from 'solid-js';
+import { Dynamic } from '@solidjs/web';
+export function Editor(props: { value: string }) {
+  const [module] = createSignal(loadEditor);
+  return <Dynamic component={module().CodeEditor} value={props.value}></Dynamic>;
+}`,
+      );
+    });
+  });
+
+  describe('corpus hooks', () => {
+    it('reads parameters through accessors and returns a memo', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function useDouble(value: number): number {
+  const [factor] = React.useState(2);
+  return value * factor;
+}`,
+        `import { createMemo, createSignal } from 'solid-js';
+import type { Accessor } from 'solid-js';
+export function useDouble(value: Accessor<number>): Accessor<number> {
+  const [factor] = createSignal(2);
+  return createMemo(() => value() * factor());
+}`,
+      );
+    });
+
+    it('passes arguments as accessors and reads the result through a call', () => {
+      expectTransform(
+        `import { useDouble } from './useDouble';
+export function Double(props: { value: number }) {
+  const doubled = useDouble(props.value);
+  return <span>{doubled}</span>;
+}`,
+        `import { useDouble } from './useDouble';
+export function Double(props: { value: number }) {
+  const doubled = useDouble(() => props.value);
+  return <span>{doubled()}</span>;
+}`,
+      );
+    });
+
+    it('destructures a hook result in one memo', () => {
+      expectTransform(
+        `import { useCounter } from './useCounter';
+export function Counter() {
+  const { count, increment } = useCounter(1);
+  return <button onClick={increment}>{count}</button>;
+}`,
+        `import { createMemo } from 'solid-js';
+import { useCounter } from './useCounter';
+export function Counter() {
+  const _useCounter = useCounter(() => 1);
+  const _useCounter2 = createMemo(() => {
+    const { count, increment } = _useCounter();
+    return { count, increment };
+  });
+  return <button onClick={_useCounter2().increment}>{_useCounter2().count}</button>;
+}`,
+      );
+    });
+
+    it('reads destructured and defaulted parameters through accessors', () => {
+      expectTransform(
+        `export function useLabel({ prefix, name }: { prefix: string; name: string }, separator = ': ') {
+  return prefix + separator + name;
+}`,
+        `import { createMemo } from 'solid-js';
+import type { Accessor } from 'solid-js';
+export function useLabel(_params: Accessor<{ prefix: string; name: string }>, _separator?) {
+  const _params2 = createMemo(() => {
+    const { prefix, name } = _params();
+    return { prefix, name };
+  });
+  const separator = createMemo(() => (_separator?.() === undefined ? ': ' : _separator?.()));
+  return createMemo(() => _params2().prefix + separator() + _params2().name);
+}`,
+      );
+    });
+
+    it('leaves the hooks of other packages alone', () => {
+      expectTransform(
+        `import { useRender } from '@base-ui/react/use-render';
+export function Box(props: { render?: unknown }) {
+  const element = useRender({ render: props.render });
+  return element;
+}`,
+        `import { useRender } from '@solidports/base-ui/use-render';
+export function Box(props: { render?: unknown }) {
+  const element = useRender({ render: props.render });
+  return <>{element}</>;
+}`,
+      );
+    });
+  });
+
+  describe('context values', () => {
+    it('reads a context value through its accessor', () => {
+      expectTransform(
+        `import * as React from 'react';
+const ThemeContext = React.createContext<string>('light');
+export function Themed() {
+  const theme = React.useContext(ThemeContext);
+  return <div data-theme={theme} />;
+}`,
+        `import { createContext, useContext } from 'solid-js';
+import type { Accessor } from 'solid-js';
+const ThemeContext = createContext<Accessor<string>>(() => 'light');
+export function Themed() {
+  const theme = useContext(ThemeContext);
+  return <div data-theme={theme()} />;
+}`,
+      );
+    });
+
+    it('provides a state value as its accessor', () => {
+      expectTransform(
+        `import * as React from 'react';
+import { ThemeContext } from './ThemeContext';
+export function Theme(props: { children: React.ReactNode }) {
+  const [theme] = React.useState('dark');
+  return <ThemeContext.Provider value={theme}>{props.children}</ThemeContext.Provider>;
+}`,
+        `import { createSignal } from 'solid-js';
+import type { JSX } from '@solidjs/web';
+import { ThemeContext } from './ThemeContext';
+export function Theme(props: { children: JSX.Element }) {
+  const [theme] = createSignal('dark');
+  return <ThemeContext value={theme}>{props.children}</ThemeContext>;
+}`,
+      );
+    });
+  });
+
+  describe('async components', () => {
+    it('renders an async component when its memo settles', () => {
+      expectTransform(
+        `export async function Source(props: { url: string }) {
+  const code = await load(props.url);
+  return <pre>{code}</pre>;
+}`,
+        `import { createMemo } from 'solid-js';
+export function Source(props: { url: string }) {
+  const _rendered = createMemo(async () => {
+    const code = await load(props.url);
+    return () => <pre>{code}</pre>;
+  });
+  return <>{_rendered()()}</>;
+}`,
+      );
+    });
+  });
+
   describe('effects', () => {
-    it('runs a mount effect once with its cleanup', () => {
+    it('runs a mount effect once and keeps its cleanup', () => {
       expectTransform(
         `import * as React from 'react';
 export function Listener() {
@@ -189,11 +465,30 @@ export function Listener() {
   }, []);
   return null;
 }`,
-        `import { onCleanup, onSettled } from 'solid-js';
+        `import { onSettled } from 'solid-js';
 export function Listener() {
   onSettled(() => {
     window.addEventListener('hashchange', check);
-    onCleanup(() => window.removeEventListener('hashchange', check));
+    return () => window.removeEventListener('hashchange', check);
+  });
+  return null;
+}`,
+      );
+    });
+
+    it('reruns an effect without dependencies when what it reads changes', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Title(props: { title: string }) {
+  React.useEffect(() => {
+    document.title = props.title;
+  });
+  return null;
+}`,
+        `import { createTrackedEffect } from 'solid-js';
+export function Title(props: { title: string }) {
+  createTrackedEffect(() => {
+    document.title = props.title;
   });
   return null;
 }`,
@@ -247,9 +542,9 @@ export function useTheme() {
 }`,
         `import { createContext, useContext } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-const ThemeContext = createContext('light');
+const ThemeContext = createContext(() => 'light');
 export function Theme(props: { children: JSX.Element }) {
-  return <ThemeContext value="dark">{props.children}</ThemeContext>;
+  return <ThemeContext value={() => 'dark'}>{props.children}</ThemeContext>;
 }
 export function useTheme() {
   return useContext(ThemeContext);
@@ -365,7 +660,10 @@ import { Popover } from '@solidports/base-ui';`,
     });
 
     it('imports the Solid build of icon libraries', () => {
-      expectTransform(`import { Copy } from 'lucide-react';`, `import { Copy } from 'lucide-solid';`);
+      expectTransform(
+        `import { Copy } from 'lucide-react';`,
+        `import { Copy } from 'lucide-solid';`,
+      );
     });
 
     it('renders createPortal as a Portal', () => {
