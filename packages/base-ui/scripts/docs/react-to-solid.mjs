@@ -441,6 +441,12 @@ function patternNames(pattern) {
   return Object.keys(t.getBindingIdentifiers(pattern));
 }
 
+/** `props.key`, or `props['data-key']` for a key that is not an identifier. */
+const propMember = (objectName, key) =>
+  /^[A-Za-z_$][\w$]*$/.test(key)
+    ? t.memberExpression(t.identifier(objectName), t.identifier(key))
+    : t.memberExpression(t.identifier(objectName), t.stringLiteral(key), true);
+
 /** Rewrites a component's destructured props parameter to `props` reads. */
 function rewriteDestructuredProps(path, imports) {
   const [param] = path.node.params;
@@ -519,9 +525,7 @@ function rewriteDestructuredProps(path, imports) {
           element.node.attributes.unshift(
             t.jsxAttribute(
               t.jsxIdentifier('component'),
-              t.jsxExpressionContainer(
-                t.memberExpression(t.identifier(propsName), t.identifier(propKey)),
-              ),
+              t.jsxExpressionContainer(propMember(propsName, propKey)),
             ),
           );
         }
@@ -531,7 +535,7 @@ function rewriteDestructuredProps(path, imports) {
       if (reference.parentPath.isObjectProperty({ shorthand: true, value: reference.node })) {
         reference.parent.shorthand = false;
       }
-      reference.replaceWith(t.memberExpression(t.identifier(propsName), t.identifier(propKey)));
+      reference.replaceWith(propMember(propsName, propKey));
     }
   }
   for (const reference of restReferences) {
@@ -995,8 +999,7 @@ function lowerFunction(fnPath, kind, ctx) {
         declare(bindingOf(declaratorPath, property.value.name), {
           kind: 'alias',
           name: property.value.name,
-          alias: () =>
-            t.memberExpression(t.identifier(init.name), t.identifier(DOM_ATTRIBUTES[key] ?? key)),
+          alias: () => propMember(init.name, DOM_ATTRIBUTES[key] ?? key),
         });
       }
       const rest = id.properties.find((property) => t.isRestElement(property));
