@@ -213,6 +213,17 @@ export function Drawer({ open }: { open: boolean }) {
       );
     });
 
+    it('reads a destructured prop with a string key by index', () => {
+      expectTransform(
+        `export function Badge({ 'data-badge': badge }: { 'data-badge'?: string }) {
+  return <span>{badge}</span>;
+}`,
+        `export function Badge(props: { 'data-badge'?: string }) {
+  return <span>{props['data-badge']}</span>;
+}`,
+      );
+    });
+
     it('merges destructuring defaults', () => {
       expectTransform(
         `export function Badge({ tone = 'info' }: { tone?: string }) {

@@ -24,8 +24,8 @@
     "jsxImportSource": "@solidjs/web",
     "types": ["vite/client", "node"],
     "paths": {
-      "@solidports/base-ui": ["../../packages/solid/src/index.ts"],
-      "@solidports/base-ui/*": ["../../packages/solid/src/*/index.ts"],
+      "@solidports/base-ui": ["../../packages/solid/src"],
+      "@solidports/base-ui/*": ["../../packages/solid/src/*"],
       "@mui/internal-docs-infra/*": ["./docs-infra/src/*"],
       "@base-ui/utils/*": ["./base-ui-utils/src/*"],
       "docs/*": ["./*"]

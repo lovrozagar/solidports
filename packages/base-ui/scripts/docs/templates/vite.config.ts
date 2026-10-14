@@ -17,7 +17,7 @@ export default defineConfig(async () => ({
         app: 'framework/App.tsx',
         document: 'framework/Document.tsx',
         // A page's metadata reaches the head before the document is sent.
-        renderMode: 'stream',
+        renderMode: 'async',
       },
       ssr: true,
       extensions: ['.mdx', '.md'],
@@ -39,8 +39,14 @@ export default defineConfig(async () => ({
       { find: /^solid-js\/store$/, replacement: 'solid-js' },
     ],
   },
-  // Bundled for the server too, so its `solid-js/web` imports take the alias.
-  ssr: { noExternal: ['lucide-solid'] },
+  // Bundled for the server too: the Solid packages share the app's `solid-js` (one context
+  // registry), and `lucide-solid`'s `solid-js/web` imports take the alias.
+  ssr: { noExternal: ['@solidjs/router', 'lucide-solid'] },
   optimizeDeps: { exclude: ['lucide-solid'] },
-  server: { port: 3001 },
+  server: {
+    port: 3001,
+    // docs-infra writes a component's `types.md` as it loads its types; the file is its output,
+    // not a module.
+    watch: { ignored: ['**/types.md'] },
+  },
 }));

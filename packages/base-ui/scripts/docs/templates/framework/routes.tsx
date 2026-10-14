@@ -1,7 +1,7 @@
 // Next's app router for the Solid docs: the route tree from the file conventions under `src/app`
 // (route groups, layouts, `page.tsx`/`page.mdx`, dynamic and catch-all segments, private `_`
 // folders, `global-not-found.tsx`), on the Solid router.
-import { Errored, createComponent, lazy } from 'solid-js';
+import { Errored, Loading, createComponent, lazy } from 'solid-js';
 import type { Component } from 'solid-js';
 import type { RouteDefinition } from '@solidjs/router';
 import type { JSX } from '@solidjs/web';
@@ -83,7 +83,7 @@ function segment(module: RouteModule, withChildren: boolean): Component<RoutePro
 }
 
 function lazySegment(load: () => Promise<RouteModule>): Component<RouteProps> {
-  return lazy(async () => {
+  const Page = lazy(async () => {
     const module = await load();
     // The page module's client manifest key, which a server-side `lazy()` reads to preload the
     // page's assets for hydration.
@@ -92,6 +92,9 @@ function lazySegment(load: () => Promise<RouteModule>): Component<RouteProps> {
       $$moduleUrl: (module as { $$moduleUrl?: string }).$$moduleUrl,
     };
   });
+  // A page loads behind a boundary: the server render waits for it there (the document is sent
+  // complete, see `renderMode` in the Vite config) and the client loads it on navigation.
+  return (props) => <Loading>{createComponent(Page, props)}</Loading>;
 }
 
 function segmentPath(name: string) {
