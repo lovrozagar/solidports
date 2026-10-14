@@ -5,6 +5,12 @@ import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
 const OTP_LENGTH = 6;
 
 export default defineSsrFixtures(import.meta.url, {
+  twoSlots: () => (
+    <OTPFieldBase.Root length={2}>
+      <OTPFieldBase.Input />
+      <OTPFieldBase.Input />
+    </OTPFieldBase.Root>
+  ),
   alphanumeric: () => (
     <OTPFieldBase.Root name="otp" required length={OTP_LENGTH} validationType="alphanumeric">
       <OTPFieldBase.Input />

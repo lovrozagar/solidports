@@ -5,6 +5,8 @@ import { Field } from '@solidports/base-ui/field';
 import { screen, waitFor } from '@solidjs/testing-library';
 import { expect, describe } from 'vitest';
 import { createSignal, Show } from 'solid-js';
+import { renderServer } from '../../../test/ssrFixtures';
+import fixtures from './CheckboxRoot.ssr-fixtures';
 
 // Solid: ids always come from the Solid runtime, so there is no React 17 `useId` fallback to mock;
 // these cases run against the regular id path.
@@ -78,12 +80,27 @@ describe('<Checkbox.Root /> with the React 17 id fallback', () => {
     },
   );
 
-  // Solid: asserts the server markup has no ids because React 17 has no `useId` and assigns ids only
-  // on the client; Solid generates ids during the server render, so that markup cannot exist (the
-  // hydrated label association is covered by CheckboxGroup's "during SSR" tests).
-  it.skip.each([false, true])(
+  // Solid: React 17 assigns ids only after the client mount, so upstream first asserts the server
+  // markup has none. Solid's ids arrive with the server render, so the association is in the server
+  // markup already, and hydration keeps it.
+  it.each([false, true])(
     'assigns the label association once the fallback ids arrive (nativeButton=%s)',
-    () => {},
+    async (nativeButton) => {
+      const { hydrate } = renderServer(
+        fixtures,
+        nativeButton ? 'groupItem-nativeButton=true' : 'groupItem-nativeButton=false',
+      );
+
+      expect(getLabelControl(nativeButton).id).not.toBe('');
+      expect(screen.getByTestId('label')).toHaveAttribute('for', getLabelControl(nativeButton).id);
+
+      hydrate();
+
+      await waitFor(() => {
+        expect(getLabelControl(nativeButton).id).not.toBe('');
+      });
+      expect(screen.getByTestId('label')).toHaveAttribute('for', getLabelControl(nativeButton).id);
+    },
   );
 
   it.each([false, true])(
