@@ -39,7 +39,6 @@ describe('Solid dev diagnostics', () => {
   beforeAll(() => {
     attribution.enable();
     animationsDisabled = globalThis.BASE_UI_ANIMATIONS_DISABLED;
-    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
     if (!hadGetAnimations) {
       Object.defineProperty(Element.prototype, 'getAnimations', {
         configurable: true,
@@ -56,8 +55,9 @@ describe('Solid dev diagnostics', () => {
     }
   });
 
-  // Per test: the shared setup resets every mock after each test.
+  // Per test: the shared setup resets every mock, and disables animations again, after each test.
   beforeEach(() => {
+    globalThis.BASE_UI_ANIMATIONS_DISABLED = false;
     warnings.length = 0;
     const original = console.warn;
     vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
