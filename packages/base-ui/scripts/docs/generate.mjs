@@ -24,7 +24,7 @@ import remarkParse from 'remark-parse';
 import remarkMdx from 'remark-mdx';
 import remarkGfm from 'remark-gfm';
 import { visit } from 'unist-util-visit';
-import { printCode, transformReactToSolid } from './react-to-solid.mjs';
+import { mapsModule, printCode, transformReactToSolid } from './react-to-solid.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FORK = path.join(HERE, '../..');
@@ -307,12 +307,13 @@ async function format(code, file) {
 }
 
 /**
- * Whether a module needs the transform (React, its global types, JSX or hooks), or is plain code
- * to copy.
+ * Whether a module needs the transform (React, its global types, JSX, hooks, or a module the Solid
+ * docs import instead), or is plain code to copy.
  */
 function needsTransform(code, file) {
   return (
     /from ['"]react(-dom)?(\/[^'"]*)?['"]/.test(code) ||
+    importsOf(code).some((specifier) => mapsModule(specifier, MODULES)) ||
     /\bReact\.[A-Z]/.test(code) ||
     /\buse[A-Z]\w*\s*\(/.test(code) ||
     (file.endsWith('.tsx') && /<[A-Za-z>]/.test(code))

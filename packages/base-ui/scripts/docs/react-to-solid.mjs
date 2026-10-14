@@ -733,11 +733,22 @@ function lowerReactHook(node, api, ctx) {
     case 'useState': {
       imports.add('solid-js', 'createSignal');
       const [init] = args;
-      // A lazy initializer runs once, as React runs it on the first render.
-      const value =
-        init && (t.isArrowFunctionExpression(init) || t.isFunctionExpression(init))
-          ? t.callExpression(init, [])
-          : init;
+      // React stores the initial value as it is (a function too), and runs a lazy initializer
+      // once. Solid's `createSignal` runs a function it is passed: anything that may be one goes
+      // in a function whose reads run once, as setup reads do.
+      let value = init;
+      const untracked = (fn) => {
+        imports.add('solid-js', 'untrack');
+        return t.arrowFunctionExpression([], t.callExpression(t.identifier('untrack'), [fn]));
+      };
+      if (init && (t.isArrowFunctionExpression(init) || t.isFunctionExpression(init))) {
+        value = untracked(init);
+      } else if (init && isReference(init)) {
+        value = t.arrowFunctionExpression([], init);
+        value.solidSetupScope = true;
+      } else if (init && !isNonFunctionLiteral(init)) {
+        value = untracked(t.arrowFunctionExpression([], init));
+      }
       const call = t.callExpression(t.identifier('createSignal'), value ? [value] : []);
       call.typeParameters = node.typeParameters;
       return call;
@@ -871,12 +882,17 @@ function lowerFunction(fnPath, kind, ctx) {
   const prelude = [];
   const accessorParams = new Map(); // name -> optional
   if (kind === 'hook') {
+    // An optional parameter takes `undefined` too, as the value its caller's accessor returns.
+    const valueType = (type, optional) =>
+      optional && !t.isTSUndefinedKeyword(type)
+        ? t.tsUnionType([type, t.tsUndefinedKeyword()])
+        : type;
     fnPath.node.params = fnPath.node.params.map((param, index) => {
       if (t.isIdentifier(param)) {
         accessorParams.set(param.name, Boolean(param.optional));
         if (param.typeAnnotation) {
           param.typeAnnotation = t.tsTypeAnnotation(
-            accessorType(param.typeAnnotation.typeAnnotation, imports),
+            accessorType(valueType(param.typeAnnotation.typeAnnotation, param.optional), imports),
           );
         }
         return param;
@@ -888,11 +904,13 @@ function lowerFunction(fnPath, kind, ctx) {
       const fallback = t.isAssignmentPattern(param) ? param.right : null;
       const id = t.isIdentifier(pattern) ? uid(pattern.name) : uid(index === 0 ? 'params' : 'arg');
       const annotation = pattern.typeAnnotation?.typeAnnotation;
+      id.optional = Boolean(fallback) || Boolean(pattern.optional);
       if (annotation) {
-        id.typeAnnotation = t.tsTypeAnnotation(accessorType(annotation, imports));
+        id.typeAnnotation = t.tsTypeAnnotation(
+          accessorType(valueType(annotation, id.optional), imports),
+        );
         pattern.typeAnnotation = null;
       }
-      id.optional = Boolean(fallback) || Boolean(pattern.optional);
       accessorParams.set(id.name, id.optional);
       // The reads of the accessor become calls with the others.
       const read = () => t.identifier(id.name);
@@ -1343,6 +1361,11 @@ function lowerFunction(fnPath, kind, ctx) {
           );
           declarator.init.typeParameters = null;
         }
+        // `useState<P>()` of a type parameter: Solid's setter cannot tell a `P` value from an
+        // updater, so the setter is passed the value through one, which stores it.
+        if (api === 'useState' && t.isArrayPattern(declarator.id)) {
+          storeGenericValues(fnPath, declarator);
+        }
         // `useCallback<T>(fn)` types the function as `T`.
         const callbackType = declarator.init.typeParameters?.params[0];
         if (api === 'useCallback' && callbackType && t.isIdentifier(declarator.id) && !annotation) {
@@ -1565,11 +1588,90 @@ function lowerAsyncComponent(fnPath, render, uid, imports) {
  */
 function isSetupRead(path, fnPath) {
   for (let current = path.parentPath; current && current !== fnPath; current = current.parentPath) {
+    // A signal's initial value (see `useState`) reads once, where the component sets up.
+    if (current.isFunction() && current.node.solidSetupScope) {
+      continue;
+    }
     if (current.isFunction() || current.isJSXElement() || current.isJSXFragment()) {
       return false;
     }
   }
   return true;
+}
+
+/**
+ * Passes a `useState<P>()` setter (where `P` is a type parameter in scope) the values it is called
+ * with through an updater (`setData(() => result)`), as Solid's setter types a `P` value.
+ */
+function storeGenericValues(fnPath, declarator) {
+  const [stateType] = declarator.init.typeParameters?.params ?? [];
+  const setter = declarator.id.elements[1];
+  if (!stateType || !t.isIdentifier(setter)) {
+    return;
+  }
+  const typeParameters = new Set();
+  for (let current = fnPath; current; current = current.parentPath) {
+    for (const param of current.node.typeParameters?.params ?? []) {
+      typeParameters.add(param.name);
+    }
+  }
+  const mentionsTypeParameter = (node) => {
+    if (!node || typeof node !== 'object') {
+      return false;
+    }
+    if (Array.isArray(node)) {
+      return node.some(mentionsTypeParameter);
+    }
+    if (
+      t.isTSTypeReference(node) &&
+      t.isIdentifier(node.typeName) &&
+      typeParameters.has(node.typeName.name)
+    ) {
+      return true;
+    }
+    return t.VISITOR_KEYS[node.type]?.some((key) => mentionsTypeParameter(node[key])) ?? false;
+  };
+  if (!mentionsTypeParameter(stateType)) {
+    return;
+  }
+  for (const reference of fnPath.scope.getBinding(setter.name)?.referencePaths ?? []) {
+    const call = reference.parentPath;
+    const [value] = call.isCallExpression({ callee: reference.node }) ? call.node.arguments : [];
+    if (value && !isFunctionNode(value) && !isNonFunctionLiteral(value)) {
+      call.node.arguments = [t.arrowFunctionExpression([], value)];
+    }
+  }
+}
+
+/** Whether an expression names a value (`value`, `props.value`, `items[0].key`) and calls nothing. */
+function isReference(node) {
+  if (t.isIdentifier(node)) {
+    return true;
+  }
+  return (
+    (t.isMemberExpression(node) || t.isOptionalMemberExpression(node)) &&
+    isReference(node.object) &&
+    (!node.computed || t.isLiteral(node.property) || t.isIdentifier(node.property))
+  );
+}
+
+/** Whether an expression is a literal that cannot be a function (`0`, `''`, `[]`, `null`). */
+function isNonFunctionLiteral(node) {
+  return (
+    t.isNumericLiteral(node) ||
+    t.isStringLiteral(node) ||
+    t.isBooleanLiteral(node) ||
+    t.isNullLiteral(node) ||
+    t.isBigIntLiteral(node) ||
+    t.isTemplateLiteral(node) ||
+    t.isArrayExpression(node) ||
+    t.isObjectExpression(node) ||
+    t.isNewExpression(node) ||
+    t.isIdentifier(node, { name: 'undefined' }) ||
+    (t.isUnaryExpression(node) && t.isNumericLiteral(node.argument)) ||
+    ((t.isTSAsExpression(node) || t.isTSSatisfiesExpression(node)) &&
+      isNonFunctionLiteral(node.expression))
+  );
 }
 
 const untrackCall = (expression, imports) => {
@@ -3018,14 +3120,35 @@ function transformTypes(programPath, ctx) {
         } else if (name === 'ComponentType' || name === 'FC' || name === 'FunctionComponent') {
           path.replaceWith(reference(solidType('Component'), args));
         } else if (name === 'Dispatch' && args.length === 1) {
-          const inner = args[0];
-          const value =
-            t.isTSTypeReference(inner) && reactType(inner.typeName) === 'SetStateAction'
-              ? params(inner)
-              : [inner];
-          path.replaceWith(reference(solidType('Setter'), value));
-        } else if (name === 'SetStateAction') {
-          path.replaceWith(args[0]);
+          // React's own shapes: a function implements them, and a Solid setter is one.
+          path.replaceWith(
+            t.tsFunctionType(
+              null,
+              [
+                Object.assign(t.identifier('value'), {
+                  typeAnnotation: t.tsTypeAnnotation(args[0]),
+                }),
+              ],
+              t.tsTypeAnnotation(t.tsVoidKeyword()),
+            ),
+          );
+        } else if (name === 'SetStateAction' && args.length === 1) {
+          path.replaceWith(
+            t.tsUnionType([
+              args[0],
+              t.tsParenthesizedType(
+                t.tsFunctionType(
+                  null,
+                  [
+                    Object.assign(t.identifier('prev'), {
+                      typeAnnotation: t.tsTypeAnnotation(t.cloneNode(args[0], true)),
+                    }),
+                  ],
+                  t.tsTypeAnnotation(t.cloneNode(args[0], true)),
+                ),
+              ),
+            ]),
+          );
         } else if ((name === 'Ref' || name === 'ForwardedRef') && !ctx.standalone) {
           // A React ref may be an object; the docs runtime's `Ref` keeps React's shape.
           imports.add(REACT_ADAPTERS, 'Ref', true);
@@ -3122,6 +3245,12 @@ const MODULES = {
   'lucide-react': 'lucide-solid',
   '@tanstack/react-form': '@tanstack/solid-form',
 };
+
+/** Whether the transform imports `source` from another module (with the extra `modules`). */
+export function mapsModule(source, modules = {}) {
+  const all = { ...MODULES, ...modules };
+  return mapModule(source, all) !== source;
+}
 
 /** The module an import resolves to under the renames (exact names, then `prefix/*` patterns). */
 function mapModule(source, modules) {
