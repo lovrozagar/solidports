@@ -15,7 +15,7 @@ import {
 import type { Component } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { delegateEvents, Dynamic, render as solidRender } from '@solidjs/web';
-import { test, beforeEach, describe, afterEach, expect } from 'vitest';
+import { test, beforeEach, describe, afterEach, expect, vi } from 'vitest';
 import { Main as Navigation } from '../../../test/floating-ui-tests/Navigation';
 import { autofocus, defaultProps } from '../../solid-helpers';
 import {
@@ -2290,6 +2290,47 @@ describe('FloatingFocusManager', () => {
         await userEvent.unhover(screen.getByText('Product'));
         expect(screen.queryByTestId('subnavigation')).not.toBeInTheDocument();
       });
+    });
+  });
+
+  // Solid-only: initial focus lands a frame after the open. A reference focused in between (by a
+  // click, a key or a script) keeps focus. The frames are held so the order is deterministic.
+  describe('initial focus after the reference is focused', () => {
+    function holdFrames(onTestFinished: (fn: () => void) => void) {
+      const frames: FrameRequestCallback[] = [];
+      const spy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+        frames.push(callback);
+        return frames.length;
+      });
+      onTestFinished(() => spy.mockRestore());
+      return () => {
+        act(() => {
+          frames.splice(0).forEach((callback) => callback(performance.now()));
+        });
+      };
+    }
+
+    test('moves focus into the floating element when nothing else moved it', async ({
+      onTestFinished,
+    }) => {
+      const runFrames = holdFrames(onTestFinished);
+      render(() => <App modal={false} />);
+      fireEvent.click(screen.getByTestId('reference'));
+      await flushMicrotasks();
+      runFrames();
+
+      expect(screen.getByTestId('one')).toHaveFocus();
+    });
+
+    test('keeps focus on the reference focused before the frame', async ({ onTestFinished }) => {
+      const runFrames = holdFrames(onTestFinished);
+      render(() => <App modal={false} />);
+      fireEvent.click(screen.getByTestId('reference'));
+      await flushMicrotasks();
+      act(() => screen.getByTestId('reference').focus());
+      runFrames();
+
+      expect(screen.getByTestId('reference')).toHaveFocus();
     });
   });
 
