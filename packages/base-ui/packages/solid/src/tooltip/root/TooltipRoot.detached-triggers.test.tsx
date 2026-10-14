@@ -581,12 +581,22 @@ describe('<Tooltip.Root />', () => {
 
     it('should close when hovering a disabled trigger while another trigger is open', async () => {
       const testTooltip = Tooltip.createHandle<number>();
-      const { user } = render(() => (
+      render(() => (
         <div>
-          <Tooltip.Trigger handle={testTooltip} payload={1} delay={0}>
+          <Tooltip.Trigger
+            handle={testTooltip}
+            payload={1}
+            delay={0}
+            style={{ 'pointer-events': 'none' }}
+          >
             Trigger 1
           </Tooltip.Trigger>
-          <Tooltip.Trigger handle={testTooltip} payload={2} disabled>
+          <Tooltip.Trigger
+            handle={testTooltip}
+            payload={2}
+            disabled
+            style={{ 'pointer-events': 'none' }}
+          >
             Trigger 2
           </Tooltip.Trigger>
 
@@ -607,12 +617,15 @@ describe('<Tooltip.Root />', () => {
       const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
       const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
 
-      await user.hover(trigger1);
+      fireEvent.mouseEnter(trigger1);
+      fireEvent.mouseMove(trigger1);
       await waitFor(() => {
         expect(screen.getByTestId('content').textContent).toBe('1');
       });
 
-      await user.hover(trigger2);
+      fireEvent.mouseLeave(trigger1);
+      fireEvent.mouseEnter(trigger2);
+      fireEvent.mouseMove(trigger2);
       await waitFor(() => {
         expect(screen.queryByTestId('content')).toBe(null);
       });
@@ -621,15 +634,21 @@ describe('<Tooltip.Root />', () => {
 
     it('should switch to a rendered disabled button trigger when trigger hover is enabled', async () => {
       const testTooltip = Tooltip.createHandle<number>();
-      const { user } = render(() => (
+      render(() => (
         <div>
-          <Tooltip.Trigger handle={testTooltip} payload={1} delay={0}>
+          <Tooltip.Trigger
+            handle={testTooltip}
+            payload={1}
+            delay={0}
+            style={{ 'pointer-events': 'none' }}
+          >
             Trigger 1
           </Tooltip.Trigger>
           <Tooltip.Trigger
             handle={testTooltip}
             payload={2}
             delay={0}
+            style={{ 'pointer-events': 'none' }}
             render={(props) => (
               <button {...props} type="button" disabled>
                 Trigger 2
@@ -654,12 +673,15 @@ describe('<Tooltip.Root />', () => {
       const trigger1 = screen.getByRole('button', { name: 'Trigger 1' });
       const trigger2 = screen.getByRole('button', { name: 'Trigger 2' });
 
-      await user.hover(trigger1);
+      fireEvent.mouseEnter(trigger1);
+      fireEvent.mouseMove(trigger1);
       await waitFor(() => {
         expect(screen.getByTestId('content').textContent).toBe('1');
       });
 
-      await user.hover(trigger2);
+      fireEvent.mouseLeave(trigger1);
+      fireEvent.mouseEnter(trigger2);
+      fireEvent.mouseMove(trigger2);
       await waitFor(() => {
         expect(screen.getByTestId('content').textContent).toBe('2');
       });
