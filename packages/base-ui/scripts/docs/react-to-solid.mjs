@@ -18,6 +18,8 @@ import * as t from '@babel/types';
 const traverse = traverseModule.default ?? traverseModule;
 const generate = generateModule.default ?? generateModule;
 
+const REACT_DOM = 'react-dom';
+
 const PARSER_OPTIONS = { sourceType: 'module', plugins: ['jsx', 'typescript'] };
 
 /** Prints source through the transform's parser and printer (one formatting for comparisons). */
@@ -643,7 +645,77 @@ function renameDomPropReads(programPath) {
   });
 }
 
-export function transformReactToSolid(source) {
+// Module renames that hold for every docs file.
+const MODULES = {
+  '@base-ui/react': '@solidports/base-ui',
+  '@base-ui/react/*': '@solidports/base-ui/*',
+  'lucide-react': 'lucide-solid',
+};
+
+/** The module an import resolves to under the renames (exact names, then `prefix/*` patterns). */
+function mapModule(source, modules) {
+  if (Object.hasOwn(modules, source)) {
+    return modules[source];
+  }
+  for (const [pattern, target] of Object.entries(modules)) {
+    if (pattern.endsWith('/*') && source.startsWith(pattern.slice(0, -1))) {
+      return target.replace('*', source.slice(pattern.length - 1));
+    }
+  }
+  return source;
+}
+
+/** Renders `createPortal(children, container)` from the React DOM package as a `<Portal>`. */
+function transformPortals(programPath, imports) {
+  const portalNames = new Set();
+  for (const statement of programPath.get('body')) {
+    if (!statement.isImportDeclaration() || statement.node.source.value !== REACT_DOM) {
+      continue;
+    }
+    const isPortal = (specifier) =>
+      t.isImportSpecifier(specifier) && specifier.imported.name === 'createPortal';
+    for (const specifier of statement.node.specifiers) {
+      if (isPortal(specifier)) {
+        portalNames.add(specifier.local.name);
+      }
+    }
+    statement.node.specifiers = statement.node.specifiers.filter((specifier) => !isPortal(specifier));
+    if (statement.node.specifiers.length === 0) {
+      statement.remove();
+    }
+  }
+  if (portalNames.size === 0) {
+    return;
+  }
+  programPath.traverse({
+    CallExpression(path) {
+      if (!t.isIdentifier(path.node.callee) || !portalNames.has(path.node.callee.name)) {
+        return;
+      }
+      imports.add('@solidjs/web', 'Portal');
+      const [children, container] = path.node.arguments;
+      const child =
+        t.isJSXElement(children) || t.isJSXFragment(children)
+          ? children
+          : t.jsxExpressionContainer(children);
+      path.replaceWith(
+        t.jsxElement(
+          t.jsxOpeningElement(
+            t.jsxIdentifier('Portal'),
+            container
+              ? [t.jsxAttribute(t.jsxIdentifier('mount'), t.jsxExpressionContainer(container))]
+              : [],
+          ),
+          t.jsxClosingElement(t.jsxIdentifier('Portal')),
+          [child],
+        ),
+      );
+    },
+  });
+}
+
+export function transformReactToSolid(source, options = {}) {
+  const modules = { ...MODULES, ...options.modules };
   const ast = parse(source, PARSER_OPTIONS);
   const imports = new Imports();
   const reactNames = { namespaces: new Set(), named: new Map() };
@@ -678,6 +750,18 @@ export function transformReactToSolid(source) {
           }
         }
         statement.remove();
+      }
+
+      transformPortals(programPath, imports);
+      for (const statement of programPath.get('body')) {
+        if (
+          (statement.isImportDeclaration() ||
+            statement.isExportNamedDeclaration() ||
+            statement.isExportAllDeclaration()) &&
+          statement.node.source
+        ) {
+          statement.node.source.value = mapModule(statement.node.source.value, modules);
+        }
       }
 
       transformComponents(programPath, imports);

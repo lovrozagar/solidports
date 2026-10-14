@@ -6,8 +6,8 @@ function normalize(code) {
   return printCode(code);
 }
 
-function expectTransform(input, output) {
-  expect(normalize(transformReactToSolid(input))).toBe(normalize(output));
+function expectTransform(input, output, options) {
+  expect(normalize(transformReactToSolid(input, options))).toBe(normalize(output));
 }
 
 describe('transformReactToSolid', () => {
@@ -336,6 +336,49 @@ export function Measure(props: { width: number }) {
   });
   return null;
 }`,
+      );
+    });
+  });
+
+  describe('modules', () => {
+    it('imports the Solid package for Base UI', () => {
+      expectTransform(
+        `import { Menu } from '@base-ui/react/menu';
+import { Popover } from '@base-ui/react';`,
+        `import { Menu } from '@solidports/base-ui/menu';
+import { Popover } from '@solidports/base-ui';`,
+      );
+    });
+
+    it('imports the Solid build of icon libraries', () => {
+      expectTransform(`import { Copy } from 'lucide-react';`, `import { Copy } from 'lucide-solid';`);
+    });
+
+    it('renders createPortal as a Portal', () => {
+      expectTransform(
+        `import { createPortal } from 'react-dom';
+export function Overlay(props: { container: HTMLElement; children: unknown }) {
+  return createPortal(<div class="Overlay">{props.children}</div>, props.container);
+}`,
+        `import { Portal } from '@solidjs/web';
+export function Overlay(props: { container: HTMLElement; children: unknown }) {
+  return <Portal mount={props.container}><div class="Overlay">{props.children}</div></Portal>;
+}`,
+      );
+    });
+
+    it('redirects mapped modules by exact name and prefix', () => {
+      expectTransform(
+        `import { usePathname } from 'next/navigation';
+import { useCode } from '@mui/internal-docs-infra/useCode';`,
+        `import { usePathname } from 'docs/src/adapters/next/navigation';
+import { useCode } from 'docs/src/adapters/docs-infra/useCode';`,
+        {
+          modules: {
+            'next/navigation': 'docs/src/adapters/next/navigation',
+            '@mui/internal-docs-infra/*': 'docs/src/adapters/docs-infra/*',
+          },
+        },
       );
     });
   });
