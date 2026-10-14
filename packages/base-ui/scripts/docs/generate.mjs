@@ -16,6 +16,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import * as prettier from 'prettier';
 import { unified } from 'unified';
@@ -85,6 +86,14 @@ function keepDocsInfraSection(file, generated) {
 }
 
 /** Upstream React packages the docs import, generated from their source into `<dest>/src`. */
+const requireFromFork = createRequire(path.join(FORK, 'package.json'));
+const packageRoot = (name) => {
+  let dir = path.dirname(requireFromFork.resolve(name));
+  while (!fs.existsSync(path.join(dir, 'package.json'))) {
+    dir = path.dirname(dir);
+  }
+  return dir;
+};
 const SOURCE_PACKAGES = [
   {
     name: '@mui/internal-docs-infra',
@@ -92,6 +101,13 @@ const SOURCE_PACKAGES = [
     dest: 'docs-infra',
   },
   { name: '@base-ui/utils', root: path.join(FORK, 'packages/utils'), dest: 'base-ui-utils' },
+  // docs-infra's code editor (a React component that ships its source).
+  {
+    name: 'react-simple-code-editor',
+    root: packageRoot('react-simple-code-editor'),
+    dest: 'react-simple-code-editor',
+    entry: 'src/index.tsx',
+  },
 ];
 
 // Modules the Solid docs import instead (the `docs/src/adapters` ones come from `templates/`).
@@ -104,7 +120,7 @@ const MODULES = {
   'next/image': 'docs/src/adapters/next/image',
   'react/jsx-runtime': 'docs/src/adapters/jsx-runtime',
   'react-error-boundary': 'docs/src/adapters/react-error-boundary',
-  'react-simple-code-editor': 'docs/src/adapters/react-simple-code-editor',
+  'react-simple-code-editor': 'docs/react-simple-code-editor/src/index',
   '@tanstack/react-form': '@tanstack/solid-form',
   'hast-util-to-jsx-runtime': 'docs/src/adapters/hast-util-to-jsx-runtime',
   'server-only': 'docs/src/adapters/server-only',
@@ -369,6 +385,9 @@ function resolveRelative(base) {
 function resolveExport(pkg, specifier) {
   const manifest = JSON.parse(fs.readFileSync(path.join(pkg.root, 'package.json'), 'utf8'));
   const subpath = `.${specifier.slice(pkg.name.length)}`;
+  if (subpath === '.' && pkg.entry) {
+    return path.join(pkg.root, pkg.entry);
+  }
   const exports = manifest.exports ?? {};
   if (typeof exports[subpath] === 'string') {
     return resolveRelative(path.join(pkg.root, exports[subpath]));

@@ -1377,6 +1377,19 @@ function rewriteReads(fnPath, rewrites, imports) {
   });
 }
 
+/** Whether a statement always leaves its block (`return`, `throw`, `break`, `continue`). */
+function exits(statement) {
+  if (t.isBlockStatement(statement)) {
+    return statement.body.length > 0 && exits(statement.body.at(-1));
+  }
+  return (
+    t.isReturnStatement(statement) ||
+    t.isThrowStatement(statement) ||
+    t.isBreakStatement(statement) ||
+    t.isContinueStatement(statement)
+  );
+}
+
 /** The reactive reads in a node, by accessor name (outside nested functions and `skip`). */
 function readsIn(path, skip) {
   const reads = new Map();
@@ -1428,6 +1441,17 @@ function snapshotReads(fnPath) {
         return;
       }
       const reads = readsIn(path, 'jsx');
+      // A guard (`if (!value) return;`) narrows the statements after it too.
+      if (path.isIfStatement() && !path.node.alternate && exits(path.node.consequent)) {
+        const tested = readsIn(path.get('test'), 'jsx');
+        for (const sibling of path.getAllNextSiblings()) {
+          for (const [name, paths] of readsIn(sibling, 'jsx')) {
+            if (tested.has(name)) {
+              reads.set(name, [...(reads.get(name) ?? []), ...paths]);
+            }
+          }
+        }
+      }
       if (
         path.isExpressionStatement() ||
         path.isVariableDeclaration() ||
@@ -2368,6 +2392,19 @@ function isPropsBinding(binding) {
 
 function renameDomPropReads(programPath) {
   programPath.traverse({
+    // Props types declare the names the props are read by.
+    TSPropertySignature(path) {
+      const key = path.node.key;
+      let name = null;
+      if (t.isIdentifier(key)) {
+        name = key.name;
+      } else if (t.isStringLiteral(key)) {
+        name = key.value;
+      }
+      if (name && DOM_ATTRIBUTES[name]) {
+        path.node.key = t.identifier(DOM_ATTRIBUTES[name]);
+      }
+    },
     MemberExpression(path) {
       if (
         t.isIdentifier(path.node.object) &&
