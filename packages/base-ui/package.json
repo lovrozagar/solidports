@@ -135,7 +135,7 @@
     "test:screen-reader:setup": "guidepup setup",
     "pretest:screen-reader:solid": "guidepup install",
     "test:screen-reader:solid": "playwright test --config test/screen-reader-solid/playwright.config.ts",
-    "test:solid:_unit": "cross-env TZ=UTC vitest --hideSkippedTests --project @solidports/base-ui --project @solidports/base-ui:ssr",
+    "test:solid:_unit": "cross-env TZ=UTC vitest --hideSkippedTests --project @solidports/base-ui --project @solidports/base-ui:ssr --project @solidports/docs",
     "test:solid:browsers": "cross-env VITEST_ENV=all-browsers bun test:solid:_unit",
     "test:solid:chromium": "cross-env VITEST_ENV=chromium bun test:solid:_unit",
     "test:solid:chromium:ui": "bun test:solid:chromium --browser.headless=false",
