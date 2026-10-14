@@ -42,10 +42,11 @@ function resolveTitle(title: TemplateString | null | undefined, parentTemplate: 
     return { title: title.absolute, template: title.template ?? parentTemplate };
   }
   const base = 'default' in title ? title.default : null;
-  return {
-    title: base == null ? null : parentTemplate ? parentTemplate.replace('%s', base) : base,
-    template: title.template ?? parentTemplate,
-  };
+  let resolved = base;
+  if (base != null && parentTemplate) {
+    resolved = parentTemplate.replace('%s', base);
+  }
+  return { title: resolved, template: title.template ?? parentTemplate };
 }
 
 /** Resolves a segment's metadata against its parent's, for its subtree. */

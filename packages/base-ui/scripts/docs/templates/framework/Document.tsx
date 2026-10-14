@@ -2,5 +2,5 @@
 import type { ParentProps } from 'solid-js';
 
 export default function Document(props: ParentProps) {
-  return props.children;
+  return <>{props.children}</>;
 }

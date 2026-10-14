@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+/* eslint-disable no-console */
 /**
  * Clone mui/base-ui@DOCS_TAG and copy its `docs/` tree into `docs/react` 1:1.
  * Only path/workspace overlays are applied so Next can run inside this monorepo.
@@ -34,7 +35,9 @@ const DOCS_INFRA_CACHE = `/tmp/mui-public-${DOCS_INFRA_COMMIT.slice(0, 10)}`;
 
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { stdio: 'inherit', ...opts });
-  if (r.status !== 0) process.exit(r.status ?? 1);
+  if (r.status !== 0) {
+    process.exit(r.status ?? 1);
+  }
 }
 
 function ensureUpstream() {
@@ -103,7 +106,9 @@ function overlayTsconfig() {
 
 function overlayVitestConfig() {
   const file = join(DEST, 'vitest.config.mts');
-  if (!existsSync(file)) return;
+  if (!existsSync(file)) {
+    return;
+  }
   let t = readFileSync(file, 'utf8');
   t = t.replace("from '../vitest.shared.mts'", "from '../../vitest.shared.mts'");
   writeFileSync(file, t);
