@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -56,11 +57,11 @@ export default function ExampleMenuFilter() {
                       >
                         <Menu.Popup class={popupClass}>
                           <Menu.List class={submenuListClass}>
-                            {sharingOptions.map((option) => (
+                            <For each={sharingOptions}>{(option) => (
                               <Menu.Item class={itemClass}>
                                 {option}
                               </Menu.Item>
-                            ))}
+                            )}</For>
                           </Menu.List>
                         </Menu.Popup>
                       </Menu.Positioner>
@@ -80,18 +81,18 @@ export default function ExampleMenuFilter() {
                 <Menu.RadioGroup data-filter-section defaultValue="date">
                   <Menu.Separator data-filter-separator class={separatorClass} />
                   <Menu.GroupLabel class={groupLabelClass}>Sort by</Menu.GroupLabel>
-                  {[
+                  <For each={[
                     ['date', 'Date modified'],
                     ['name', 'Name'],
                     ['size', 'Size'],
-                  ].map(([value, label]) => (
+                  ]}>{([value, label]) => (
                     <Menu.RadioItem class={choiceItemClass} value={value}>
                       <Menu.RadioItemIndicator class="col-start-1">
                         <CheckIcon />
                       </Menu.RadioItemIndicator>
                       <span class="col-start-2 min-w-0">{label}</span>
                     </Menu.RadioItem>
-                  ))}
+                  )}</For>
                 </Menu.RadioGroup>
 
                 <Menu.Group data-filter-section>
@@ -160,11 +161,11 @@ function FilterableSubmenu(props: FilterableSubmenuProps) {
               </div>
               <Menu.Empty class={emptyClass}>{props.emptyText}</Menu.Empty>
               <Menu.List class={submenuListClass}>
-                {props.options.map((option) => (
+                <For each={props.options}>{(option) => (
                   <Menu.Item class={itemClass}>
                     {option}
                   </Menu.Item>
-                ))}
+                )}</For>
               </Menu.List>
             </Menu.Popup>
           </Menu.Positioner>

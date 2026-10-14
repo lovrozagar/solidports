@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 
 import { Dialog } from '@solidports/base-ui/dialog';
 import { ScrollArea } from '@solidports/base-ui/scroll-area';
@@ -21,12 +22,12 @@ export default function InsideScrollDialog() {
             <ScrollArea.Root class="relative flex min-h-0 flex-auto overflow-hidden has-[>_:first-child:focus-visible]:outline-2 has-[>_:first-child:focus-visible]:outline-offset-0 has-[>_:first-child:focus-visible]:outline-neutral-950 dark:has-[>_:first-child:focus-visible]:outline-white">
               <ScrollArea.Viewport class="flex-auto min-h-0 overflow-y-auto overscroll-contain outline-none">
                 <ScrollArea.Content class="flex flex-col">
-                  {CONTENT_SECTIONS.map((item) => (
+                  <For each={CONTENT_SECTIONS}>{(item) => (
                     <section class="flex flex-col gap-1 p-4">
                       <h3 class="text-sm font-bold">{item.title}</h3>
                       <p class="text-sm text-neutral-700 dark:text-neutral-300">{item.body}</p>
                     </section>
-                  ))}
+                  )}</For>
                 </ScrollArea.Content>
               </ScrollArea.Viewport>
               <ScrollArea.Scrollbar class="pointer-events-none flex w-4 justify-center bg-black/12 dark:bg-white/12 opacity-0 transition-opacity duration-150 data-hovering:pointer-events-auto data-hovering:opacity-100 data-scrolling:pointer-events-auto data-scrolling:opacity-100 data-scrolling:duration-0">

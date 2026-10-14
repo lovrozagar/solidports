@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 
 
 import { Menu } from '@solidports/base-ui/menu';
@@ -60,26 +61,26 @@ export default function MenuDetachedTriggersFullDemo() {
             >
               <Menu.Popup class={`${styles.Popup} ${transitionStyles.Popup}`}>
                 <Menu.Viewport class={transitionStyles.Viewport}>
-                  {payload &&
-                    MENUS[payload].groups.map((group, groupIndex) => (
+                  <For each={payload &&
+                    MENUS[payload].groups}>{(group, groupIndex) => (
                       <>
                         <Menu.Group>
-                          {groupIndex === 0 && (
+                          {groupIndex() === 0 && (
                             <Menu.GroupLabel class={styles.Label}>
                               {MENUS[payload].heading}
                             </Menu.GroupLabel>
                           )}
-                          {group.map((item) => (
+                          <For each={group}>{(item) => (
                             <Menu.Item class={styles.Item}>
                               {item}
                             </Menu.Item>
-                          ))}
+                          )}</For>
                         </Menu.Group>
-                        {groupIndex < MENUS[payload].groups.length - 1 && (
+                        {groupIndex() < MENUS[payload].groups.length - 1 && (
                           <Menu.Separator class={styles.Separator} />
                         )}
                       </>
-                    ))}
+                    )}</For>
                 </Menu.Viewport>
               </Menu.Popup>
             </Menu.Positioner>

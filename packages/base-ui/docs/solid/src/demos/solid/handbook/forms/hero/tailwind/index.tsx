@@ -1,3 +1,4 @@
+import { For } from "solid-js";
 import type { JSX } from '@solidjs/web';
 import { mergeProps } from '@solidports/base-ui/merge-props';
 
@@ -129,7 +130,7 @@ function ExampleForm() {
               <Select.Popup>
                 <Select.ScrollUpArrow />
                 <Select.List>
-                  {SERVER_TYPES.map(({ label, value }) => {
+                  <For each={SERVER_TYPES}>{({ label, value }) => {
                     return (
                       <Select.Item value={value}>
                         <Select.ItemIndicator>
@@ -138,7 +139,7 @@ function ExampleForm() {
                         <Select.ItemText>{label}</Select.ItemText>
                       </Select.Item>
                     );
-                  })}
+                  }}</For>
                 </Select.List>
                 <Select.ScrollDownArrow />
               </Select.Popup>
@@ -227,7 +228,7 @@ function ExampleForm() {
         <Fieldset.Root render={(props) => <CheckboxGroup {...props} defaultValue={[]} />}>
           <Fieldset.Legend class="mb-2">Allowed network protocols</Fieldset.Legend>
           <div class="flex gap-4">
-            {['http', 'https', 'ssh'].map((val) => {
+            <For each={['http', 'https', 'ssh']}>{(val) => {
               return (
                 <Field.Item>
                   <Field.Label class="uppercase">
@@ -240,7 +241,7 @@ function ExampleForm() {
                   </Field.Label>
                 </Field.Item>
               );
-            })}
+            }}</For>
           </div>
         </Fieldset.Root>
       </Field.Root>

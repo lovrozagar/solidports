@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 
 
 import { Drawer } from '@solidports/base-ui/drawer';
@@ -23,9 +23,9 @@ export default function ExampleDrawerUncontained() {
               </Drawer.Description>
 
               <ul class={styles.Actions} aria-label="Profile actions">
-                {ACTIONS.map((action, index) => (
+                <For each={ACTIONS}>{(action, index) => (
                   <li class={styles.Action}>
-                    {index === 0 && (
+                    {index() === 0 && (
                       <Drawer.Close class={styles.VisuallyHidden}>
                         Close action sheet
                       </Drawer.Close>
@@ -38,7 +38,7 @@ export default function ExampleDrawerUncontained() {
                       {action}
                     </button>
                   </li>
-                ))}
+                )}</For>
               </ul>
             </Drawer.Content>
             <div class={styles.DangerSurface}>

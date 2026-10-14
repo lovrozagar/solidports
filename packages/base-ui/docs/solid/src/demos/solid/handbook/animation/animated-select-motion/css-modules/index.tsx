@@ -1,4 +1,4 @@
-import { createEffect, createSignal, omit, Show } from 'solid-js';
+import { createEffect, createSignal, omit, Show, For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { animate  } from 'motion';
 import type {DOMKeyframesDefinition} from 'motion';
@@ -50,14 +50,14 @@ export default function AnimatedSelectMotionDemo() {
             >
               <Select.ScrollUpArrow class={styles.ScrollArrow} />
               <Select.List class={styles.List}>
-                {fonts.map(({ label, value }) => (
+                <For each={fonts}>{({ label, value }) => (
                   <Select.Item value={value} class={styles.Item}>
                     <Select.ItemIndicator class={styles.ItemIndicator}>
                       <CheckIcon />
                     </Select.ItemIndicator>
                     <Select.ItemText class={styles.ItemText}>{label}</Select.ItemText>
                   </Select.Item>
-                ))}
+                )}</For>
               </Select.List>
               <Select.ScrollDownArrow class={styles.ScrollArrow} />
             </Select.Popup>

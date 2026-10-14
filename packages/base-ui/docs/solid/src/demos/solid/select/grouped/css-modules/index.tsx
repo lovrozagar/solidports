@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 import { Select } from '@solidports/base-ui/select';
@@ -24,13 +25,13 @@ export default function ExampleSelectGrouped() {
                 <CaretUpIcon />
               </Select.ScrollUpArrow>
               <Select.List class={styles.List}>
-                {groupedProduce.map((group, index) => (
+                <For each={groupedProduce}>{(group, index) => (
                   <>
                     <Select.Group class={styles.Group}>
                       <Select.GroupLabel class={styles.GroupLabel}>
                         {group.value}
                       </Select.GroupLabel>
-                      {group.items.map((item) => (
+                      <For each={group.items}>{(item) => (
                         <Select.Item value={item.value} class={styles.Item}>
                           <Select.ItemIndicator class={styles.ItemIndicator}>
                             <CheckIcon />
@@ -39,13 +40,13 @@ export default function ExampleSelectGrouped() {
                             {item.label}
                           </Select.ItemText>
                         </Select.Item>
-                      ))}
+                      )}</For>
                     </Select.Group>
-                    {index < groupedProduce.length - 1 ? (
+                    {index() < groupedProduce.length - 1 ? (
                       <Select.Separator class={styles.Separator} />
                     ) : null}
                   </>
-                ))}
+                )}</For>
               </Select.List>
               <Select.ScrollDownArrow class={styles.ScrollArrow}>
                 <CaretDownIcon />

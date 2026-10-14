@@ -63,7 +63,7 @@ function highlightText(text: string, query: string): JSX.Element {
 
   return text
     .split(regex)
-    .map((part, idx) => (regex.test(part) ? <mark>{part}</mark> : part));
+    .map((part) => (regex.test(part) ? <mark>{part}</mark> : part));
 }
 
 function fuzzyFilter(item: FuzzyItem, query: string): boolean {

@@ -34,7 +34,7 @@ export default function ExampleDrawerSnapPoints() {
                   Drag the sheet to snap between a compact peek and a near full-height view.
                 </Drawer.Description>
                 <div class={styles.Cards} aria-hidden="true">
-                  {Array.from({ length: 20 }, (_, index) => (
+                  {Array.from({ length: 20 }, () => (
                     <div class={styles.Card} />
                   ))}
                 </div>

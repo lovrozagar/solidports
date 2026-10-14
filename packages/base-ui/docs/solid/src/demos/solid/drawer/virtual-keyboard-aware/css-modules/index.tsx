@@ -1,4 +1,5 @@
 
+import { For } from "solid-js";
 import { Drawer } from '@solidports/base-ui/drawer';
 import styles from './index.module.css';
 
@@ -37,12 +38,12 @@ export default function ExampleDrawerVirtualKeyboardAware() {
 
               <Drawer.Content class={styles.Scroll}>
                 <div class={styles.Form}>
-                  {fields.map(([label, placeholder]) => (
+                  <For each={fields}>{([label, placeholder]) => (
                     <label class={styles.Field}>
                       <span class={styles.FieldLabel}>{label}</span>
                       <input class={styles.Input} placeholder={placeholder} type="text" />
                     </label>
-                  ))}
+                  )}</For>
 
                   <label class={styles.Field}>
                     <span class={styles.FieldLabel}>Instructions</span>

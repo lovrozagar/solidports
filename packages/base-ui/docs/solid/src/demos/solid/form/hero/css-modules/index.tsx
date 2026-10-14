@@ -14,6 +14,7 @@ export default function ExampleForm() {
     <Form
       class={styles.Form}
       errors={errors()}
+      // eslint-disable-next-line solid/reactivity -- an event handler, not a tracked scope
       onSubmit={async (event) => {
         event.preventDefault();
         const formData = new FormData(event.currentTarget);

@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -90,7 +91,7 @@ export default function ExampleDrawerMobileNav() {
 
                       <div class="pb-8">
                         <ul class="grid list-none gap-1 p-0 m-0">
-                          {ITEMS.map((item) => (
+                          <For each={ITEMS}>{(item) => (
                             <li class="flex">
                               <a
                                 class="flex h-12 w-full items-center border border-neutral-950 bg-white px-4 text-sm text-neutral-950 no-underline hover:bg-neutral-100 active:bg-neutral-200 dark:border-white dark:bg-neutral-950 dark:text-white dark:hover:bg-neutral-800 dark:active:bg-neutral-700 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white"
@@ -99,14 +100,14 @@ export default function ExampleDrawerMobileNav() {
                                 {item.label}
                               </a>
                             </li>
-                          ))}
+                          )}</For>
                         </ul>
 
                         <ul
                           aria-label="Component links"
                           class="mt-6 grid list-none gap-1 p-0 m-0"
                         >
-                          {LONG_LIST.map((item) => (
+                          <For each={LONG_LIST}>{(item) => (
                             <li class="flex">
                               <a
                                 class="flex h-12 w-full items-center border border-neutral-950 bg-white px-4 text-sm text-neutral-950 no-underline hover:bg-neutral-100 active:bg-neutral-200 dark:border-white dark:bg-neutral-950 dark:text-white dark:hover:bg-neutral-800 dark:active:bg-neutral-700 focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-neutral-950 dark:focus-visible:outline-white"
@@ -115,7 +116,7 @@ export default function ExampleDrawerMobileNav() {
                                 {item.label}
                               </a>
                             </li>
-                          ))}
+                          )}</For>
                         </ul>
                       </div>
                     </Drawer.Content>

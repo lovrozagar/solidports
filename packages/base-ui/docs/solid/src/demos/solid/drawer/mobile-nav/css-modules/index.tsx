@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -80,23 +81,23 @@ export default function ExampleDrawerMobileNav() {
 
                       <div class={styles.ScrollArea}>
                         <ul class={styles.List}>
-                          {ITEMS.map((item) => (
+                          <For each={ITEMS}>{(item) => (
                             <li class={styles.Item}>
                               <a class={styles.Link} href={item.href}>
                                 {item.label}
                               </a>
                             </li>
-                          ))}
+                          )}</For>
                         </ul>
 
                         <ul class={styles.LongList} aria-label="Component links">
-                          {LONG_LIST.map((item) => (
+                          <For each={LONG_LIST}>{(item) => (
                             <li class={styles.Item}>
                               <a class={styles.Link} href={item.href}>
                                 {item.label}
                               </a>
                             </li>
-                          ))}
+                          )}</For>
                         </ul>
                       </div>
                     </Drawer.Content>

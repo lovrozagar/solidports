@@ -1,4 +1,4 @@
-import { For } from 'solid-js';
+import { For, createMemo } from 'solid-js';
 
 import { Toast } from '@solidports/base-ui/toast';
 import styles from './index.module.css';
@@ -43,18 +43,19 @@ function ToastList() {
   );
 }
 
-function PulseToastItem({ toast }: { toast: Toast.Root.ToastObject }) {
-  let pulseClassName: string | null = null;
-
-  // New toasts start with `updateKey: 0`, so the first add skips the replay pulse.
-  if (toast.updateKey) {
-    pulseClassName = toast.updateKey % 2 === 0 ? styles.PulseEven : styles.PulseOdd;
-  }
-
-  const className = [styles.Toast, pulseClassName].filter(Boolean).join(' ');
+function PulseToastItem(props: { toast: Toast.Root.ToastObject }) {
+  // Each update of a deduplicated toast replays the pulse, alternating its class so the animation
+  // restarts. New toasts start with `updateKey: 0`, so the first add skips the replay pulse.
+  const className = createMemo(() => {
+    const updateKey = props.toast.updateKey;
+    if (!updateKey) {
+      return styles.Toast;
+    }
+    return [styles.Toast, updateKey % 2 === 0 ? styles.PulseEven : styles.PulseOdd].join(' ');
+  });
 
   return (
-    <Toast.Root toast={toast} class={className}>
+    <Toast.Root toast={props.toast} class={className()}>
       <Toast.Content class={styles.Content}>
         <div class={styles.Text}>
           <Toast.Title class={styles.Title} />

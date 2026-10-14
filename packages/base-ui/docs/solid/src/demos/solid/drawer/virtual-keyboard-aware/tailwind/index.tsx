@@ -1,4 +1,5 @@
 
+import { For } from "solid-js";
 import { Drawer } from '@solidports/base-ui/drawer';
 
 const fields = [
@@ -40,7 +41,7 @@ export default function ExampleDrawerVirtualKeyboardAware() {
 
               <Drawer.Content class="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-auto px-6 pt-4 pb-6">
                 <div class="mx-auto grid w-full max-w-90 gap-3">
-                  {fields.map(([label, placeholder]) => (
+                  <For each={fields}>{([label, placeholder]) => (
                     <label class="flex w-full flex-col items-start gap-1">
                       <span class="text-sm font-bold text-neutral-950 dark:text-white">
                         {label}
@@ -51,7 +52,7 @@ export default function ExampleDrawerVirtualKeyboardAware() {
                         type="text"
                       />
                     </label>
-                  ))}
+                  )}</For>
 
                   <label class="flex w-full flex-col items-start gap-1">
                     <span class="text-sm font-bold text-neutral-950 dark:text-white">

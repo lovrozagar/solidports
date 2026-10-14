@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -40,21 +41,21 @@ export default function OutsideScrollDialog() {
                   </div>
 
                   <div class="flex flex-col gap-4">
-                    {CONTENT_SECTIONS.map((item) => (
+                    <For each={CONTENT_SECTIONS}>{(item) => (
                       <section class="flex flex-col gap-1">
                         <h3 class="text-sm font-bold">{item.title}</h3>
                         <p class="text-sm text-neutral-700 dark:text-neutral-300">
                           {item.body}
                         </p>
                       </section>
-                    ))}
+                    )}</For>
                   </div>
 
                   <p class="text-sm text-neutral-600 dark:text-neutral-400">
                     Related docs:{' '}
-                    {RELATED_LINKS.map((item, index) => (
+                    <For each={RELATED_LINKS}>{(item, index) => (
                       <>
-                        {index > 0 ? ', ' : null}
+                        {index() > 0 ? ', ' : null}
                         <a
                           class="text-neutral-950 dark:text-white underline underline-offset-[0.16em] decoration-[1px] hover:no-underline focus-visible:outline-2 focus-visible:outline-neutral-950 dark:focus-visible:outline-white focus-visible:outline-offset-2"
                           href={item.href}
@@ -62,7 +63,7 @@ export default function OutsideScrollDialog() {
                           {item.label}
                         </a>
                       </>
-                    ))}
+                    )}</For>
                     .
                   </p>
                 </Dialog.Popup>

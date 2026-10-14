@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createSignal, For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -87,9 +87,9 @@ export default function ExampleEmojiPicker() {
                           {group.label}
                         </Autocomplete.GroupLabel>
                         <div class={styles.Grid} role="presentation">
-                          {chunkArray(group.items, COLUMNS).map((row, rowIdx) => (
+                          <For each={chunkArray(group.items, COLUMNS)}>{(row) => (
                             <Autocomplete.Row class={styles.Row}>
-                              {row.map((rowItem) => (
+                              <For each={row}>{(rowItem) => (
                                 <Autocomplete.Item
                                   value={rowItem}
                                   class={styles.Item}
@@ -100,9 +100,9 @@ export default function ExampleEmojiPicker() {
                                 >
                                   <span class={styles.Emoji}>{rowItem.emoji}</span>
                                 </Autocomplete.Item>
-                              ))}
+                              )}</For>
                             </Autocomplete.Row>
-                          ))}
+                          )}</For>
                         </div>
                       </Autocomplete.Group>
                     )}

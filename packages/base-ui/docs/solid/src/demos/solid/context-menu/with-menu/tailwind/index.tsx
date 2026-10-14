@@ -1,3 +1,4 @@
+import { For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 
 
@@ -57,16 +58,17 @@ const itemClass =
 
 const actions = ['Preview', 'Download', 'Copy link', 'Rename'];
 
-function SharedMenuItems({ type = 'menu' }: { type?: 'menu' | 'context-menu' }) {
-  const Item = type === 'context-menu' ? ContextMenu.Item : Menu.Item;
-  const Separator = type === 'context-menu' ? ContextMenu.Separator : Menu.Separator;
+function SharedMenuItems(_props: { type?: 'menu' | 'context-menu' }) {
+    const props = mergeProps({ type: 'menu' }, _props);
+const Item = props.type === 'context-menu' ? ContextMenu.Item : Menu.Item;
+  const Separator = props.type === 'context-menu' ? ContextMenu.Separator : Menu.Separator;
   return (
     <>
-      {actions.map((action) => (
+      <For each={actions}>{(action) => (
         <Item class={itemClass}>
           {action}
         </Item>
-      ))}
+      )}</For>
       <Separator class="mx-1 my-1 h-px bg-neutral-950 dark:bg-white" />
       <Item class={`${itemClass} text-red-700`}>Delete</Item>
     </>

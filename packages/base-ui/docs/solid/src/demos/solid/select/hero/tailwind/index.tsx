@@ -1,3 +1,4 @@
+import { For } from "solid-js";
 import type { JSX } from '@solidjs/web';
 
 import { Select } from '@solidports/base-ui/select';
@@ -33,7 +34,7 @@ export default function ExampleSelect() {
                 <CaretUpIcon />
               </Select.ScrollUpArrow>
               <Select.List class="relative py-1 scroll-py-6 overflow-y-auto max-h-[var(--available-height)]">
-                {apples.map(({ label, value }) => (
+                <For each={apples}>{({ label, value }) => (
                   <Select.Item
                     value={value}
                     class="grid cursor-default grid-cols-[1rem_1fr] items-center gap-2 py-1.5 pr-4 pl-2.5 text-sm outline-hidden select-none data-highlighted:bg-neutral-950 data-highlighted:text-white dark:data-highlighted:bg-white dark:data-highlighted:text-neutral-950"
@@ -43,7 +44,7 @@ export default function ExampleSelect() {
                     </Select.ItemIndicator>
                     <Select.ItemText class="col-start-2">{label}</Select.ItemText>
                   </Select.Item>
-                ))}
+                )}</For>
               </Select.List>
               <Select.ScrollDownArrow class="bottom-0 z-[1] flex h-4 w-full cursor-default items-center justify-center bg-white text-center text-xs before:absolute before:left-0 before:h-full before:w-full before:content-[''] data-[side=none]:before:bottom-[-100%] dark:bg-neutral-950">
                 <CaretDownIcon />
