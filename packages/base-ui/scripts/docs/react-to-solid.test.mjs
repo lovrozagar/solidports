@@ -806,7 +806,7 @@ type Icon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 type Box = React.RefObject<HTMLDivElement | null>;`,
         `import type { Component, ParentProps, Setter as SolidSetter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-type Props = ParentProps<{ onPress: (event: MouseEvent) => void }>;
+type Props = ParentProps<{ onPress: (event: MouseEvent & { currentTarget: HTMLButtonElement; target: Element }) => void }>;
 type Setter = SolidSetter<boolean>;
 type Icon = Component<JSX.SvgSVGAttributes<SVGSVGElement>>;
 type Box = { current: HTMLDivElement | null };`,
@@ -1024,6 +1024,71 @@ export function User() {
     return _user && _user.name;
   })()}</p>;
 }`,
+      );
+    });
+  });
+
+  describe('Solid Base UI APIs', () => {
+    it('reads the toasts of the toast manager through a call', () => {
+      expectTransform(
+        `import { Toast } from '@base-ui/react/toast';
+export function List() {
+  const { toasts } = Toast.useToastManager();
+  return <ul>{toasts.map((toast) => <li>{toast.title}</li>)}</ul>;
+}`,
+        `import { For } from 'solid-js';
+import { Toast } from '@solidports/base-ui/toast';
+export function List() {
+  const _useToastManager = Toast.useToastManager();
+  const { toasts } = _useToastManager;
+  return <ul><For each={toasts()}>{(toast) => <li>{toast.title}</li>}</For></ul>;
+}`,
+      );
+    });
+
+    it('reads the selected value Combobox.Value passes through a call', () => {
+      expectTransform(
+        `export function Value() {
+  return <Combobox.Value>{(value: string[]) => value.join(', ')}</Combobox.Value>;
+}`,
+        `import type { Accessor } from 'solid-js';
+export function Value() {
+  return <Combobox.Value>{(value: Accessor<string[]>) => value().join(', ')}</Combobox.Value>;
+}`,
+      );
+    });
+
+    it('submits a form with a function action as React 19 does', () => {
+      expectTransform(
+        `export function Subscribe(props: { save: (data: FormData) => void }) {
+  return <form action={props.save} />;
+}`,
+        `export function Subscribe(props: { save: (data: FormData) => void }) {
+  return <form onSubmit={(event: SubmitEvent & { currentTarget: HTMLFormElement }) => {
+    event.preventDefault();
+    props.save(new FormData(event.currentTarget));
+  }} />;
+}`,
+      );
+    });
+
+    it('writes out useTransition in code users copy', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Search() {
+  const [isPending, startTransition] = React.useTransition();
+  return <button disabled={isPending} onClick={() => startTransition(async () => {})} />;
+}`,
+        `import { createSignal } from 'solid-js';
+export function Search() {
+  const [isPending, _setIsPending] = createSignal(false);
+  const startTransition = (callback: () => unknown) => {
+    _setIsPending(true);
+    Promise.resolve(callback()).finally(() => _setIsPending(false));
+  };
+  return <button disabled={isPending()} onClick={() => startTransition(async () => {})} />;
+}`,
+        { standalone: true },
       );
     });
   });
