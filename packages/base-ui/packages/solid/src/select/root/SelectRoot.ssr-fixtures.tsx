@@ -28,7 +28,7 @@ export default defineSsrFixtures(import.meta.url, {
         <Select.Positioner>
           <Select.Popup>
             <For each={FONTS}>
-              {(font) => <Select.Item value={font().value}>{font().label}</Select.Item>}
+              {(font) => <Select.Item value={font.value}>{font.label}</Select.Item>}
             </For>
           </Select.Popup>
         </Select.Positioner>

@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /*
  * Hydration: every `*.ssr-fixtures.tsx` fixture, server-rendered and hydrated, must leave the
  * server's nodes claimed and its form controls' state as the server rendered it. The harness
@@ -19,9 +20,14 @@ import type { ServerRender } from '../hydrationSentinel';
 import { renderServer } from '../ssrFixtures';
 import type { SsrFixtures } from '../ssrFixtures';
 
-/** Each form control's live state: what the user sees and submits. */
-function formState(root: HTMLElement) {
-  return [...root.querySelectorAll('input, textarea, option')].map((control) => {
+/** The form controls in the document. */
+function formControls() {
+  return [...document.body.querySelectorAll('input, textarea, option')];
+}
+
+/** Each control's live state: what the user sees and submits. */
+function formState(controls: Element[]) {
+  return controls.map((control) => {
     const element = control as HTMLInputElement & HTMLOptionElement;
     return { value: element.value, checked: element.checked, selected: element.selected };
   });
@@ -40,7 +46,8 @@ describe.for(Object.keys(SERVER_RENDERS) as ServerRender[])('hydration (%s)', (r
           const { hydrate, unclaimedNodes } = renderServer(module, name, { render });
           const sentinel = screen.getByTestId('hydration-sentinel');
           expect(sentinel).toHaveAttribute(HYDRATION_SENTINEL, '0');
-          const serverFormState = formState(document.body);
+          const serverControls = formControls();
+          const serverFormState = formState(serverControls);
 
           hydrate();
 
@@ -50,9 +57,10 @@ describe.for(Object.keys(SERVER_RENDERS) as ServerRender[])('hydration (%s)', (r
           flush();
           expect(sentinel).toHaveAttribute(HYDRATION_SENTINEL, String(currentHydrationSentinel()));
 
-          // After the post-hydration attribute pass (a microtask).
+          // The server's controls, after the post-hydration attribute pass (a microtask). Controls
+          // only the client renders (a portal's content) have no server state to keep.
           await flushMicrotasks();
-          expect(formState(document.body)).toEqual(serverFormState);
+          expect(formState(serverControls)).toEqual(serverFormState);
         });
       }
     });
