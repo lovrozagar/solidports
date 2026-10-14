@@ -129,18 +129,21 @@ export type ReactEventHandler<T, E extends Event> = {
 
 /**
  * Props as React types them: an event handler prop is a function (Solid's also take a
- * `[handler, data]` pair), and DOM handlers and the ref are bivariant, as React declares them. React
- * code spreads one element's props onto another (`ComponentProps<'div'>` onto a `<nav>`), which
- * Solid's strict handler and ref types take only for any element.
+ * `[handler, data]` pair), `style` is an object (Solid's also takes a string), and DOM handlers and
+ * the ref are bivariant, as React declares them. React code spreads one element's props onto
+ * another (`ComponentProps<'div'>` onto a `<nav>`), which Solid's strict handler and ref types take
+ * only for any element.
  */
 export type ReactProps<P> = {
   [K in keyof P]: K extends 'ref'
     ? ReactRefCallback | undefined
-    : K extends `on${infer Initial}${string}`
-      ? Initial extends Uppercase<Initial>
-        ? ReactHandler<CallableHandler<P[K]>>
-        : P[K]
-      : P[K];
+    : K extends 'style'
+      ? Exclude<P[K], string>
+      : K extends `on${infer Initial}${string}`
+        ? Initial extends Uppercase<Initial>
+          ? ReactHandler<CallableHandler<P[K]>>
+          : P[K]
+        : P[K];
 };
 
 type CallableHandler<H> = H extends (...args: never) => unknown
@@ -164,7 +167,7 @@ type ReactHandler<H> =
       : H
     : H;
 
-type ReactRefCallback = { bivarianceHack(instance: Element): void }['bivarianceHack'];
+type ReactRefCallback = { bivarianceHack(instance: Element | null): void }['bivarianceHack'];
 
 /** `React.PropsWithoutRef`: a `forwardRef` component's props without their own `ref`. */
 export type PropsWithoutRef<P> = P extends any ? ('ref' extends keyof P ? Omit<P, 'ref'> : P) : P;
@@ -178,8 +181,29 @@ function assignRef<T>(ref: Ref<T>, instance: T | null) {
 }
 
 /** A `React.Ref` as a Solid `ref`: an object's `current` takes the element. */
-export function reactRef<T>(ref: Ref<T>): (instance: T) => void {
+export function reactRef<T>(ref: Ref<T>): (instance: T | null) => void {
   return (instance) => assignRef(ref, instance);
+}
+
+/**
+ * React's capture-phase handlers (`onKeyDownCapture`), which Solid's JSX has none of: listeners on
+ * the element in the capture phase, given with the element's ref.
+ */
+export function captureRef<T extends Element>(
+  ref: Ref<T>,
+  handlers: Record<string, ((event: any) => void) | undefined>,
+): (instance: T | null) => void {
+  return (instance) => {
+    assignRef(ref, instance);
+    if (!instance) {
+      return;
+    }
+    for (const [type, handler] of Object.entries(handlers)) {
+      if (handler) {
+        instance.addEventListener(type, handler, true);
+      }
+    }
+  };
 }
 
 /** `React.useImperativeHandle`: hands the ref its handle. */
@@ -235,16 +259,21 @@ const UNITLESS = new Set([
   'strokeWidth',
 ]);
 
+/** What `reactStyle` makes of a value: a style of the state stays a function. */
+type ReactStyle<T> = T extends (...args: infer A) => unknown
+  ? (...args: A) => JSX.CSSProperties | undefined
+  : T extends string
+    ? string
+    : T extends null | undefined
+      ? undefined
+      : JSX.CSSProperties;
+
 /**
  * A React `style` value as Solid takes it: CSS property names (custom properties as they are),
  * pixels for a number, and no entry for `null`. A function (a Base UI style of the state) returns
  * its result converted.
  */
-export function reactStyle<T>(
-  style: T,
-): T extends (...args: infer A) => unknown
-  ? (...args: A) => JSX.CSSProperties | undefined
-  : JSX.CSSProperties | string | undefined;
+export function reactStyle<T>(style: T): ReactStyle<T>;
 export function reactStyle(style: unknown): unknown {
   if (typeof style === 'function') {
     return (...args: unknown[]) => reactStyle(style(...args));

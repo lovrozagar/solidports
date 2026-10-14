@@ -53,9 +53,9 @@ export default function Link(props: LinkProps) {
   const href = createMemo(() => formatHref(props.href));
   // The router's link attributes: `replace`, `noscroll`, and `preload="false"`.
   const routerAttributes = createMemo(() => ({
-    replace: props.replace ? '' : undefined,
-    noscroll: props.scroll === false ? '' : undefined,
-    preload: props.prefetch === false ? 'false' : undefined,
+    replace: props.replace ? ('' as const) : undefined,
+    noscroll: props.scroll === false ? ('' as const) : undefined,
+    preload: props.prefetch === false ? ('false' as const) : undefined,
   }));
   const handleClick = (
     event: MouseEvent & { currentTarget: HTMLAnchorElement; target: Element },
