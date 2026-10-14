@@ -2917,6 +2917,20 @@ function transformTypes(programPath, ctx) {
     },
   });
 
+  // React types an element's event handler props as functions; Solid's also take a
+  // `[handler, data]` pair. The docs runtime's `ReactProps` keeps React's.
+  const isPropsType = (name) =>
+    name.endsWith('HTMLAttributes') ||
+    name === 'SVGProps' ||
+    name === 'DOMAttributes' ||
+    name.startsWith('ComponentProps');
+  const reactProps = (name, typeNode) => {
+    if (ctx.standalone || !isPropsType(name)) {
+      return typeNode;
+    }
+    imports.add(REACT_ADAPTERS, 'ReactProps', true);
+    return reference(t.identifier('ReactProps'), [typeNode]);
+  };
   programPath.traverse({
     // `interface X extends React.ComponentProps<'button'>`
     TSExpressionWithTypeArguments(path) {
@@ -2924,14 +2938,25 @@ function transformTypes(programPath, ctx) {
       if (!name) {
         return;
       }
+      let expression = null;
       if (name.endsWith('HTMLAttributes')) {
-        path.node.expression = jsxType(solidHtmlAttributes(name));
+        expression = jsxType(solidHtmlAttributes(name));
       } else if (REACT_TYPES[name]) {
         const mapped = REACT_TYPES[name];
         imports.add('@solidjs/web', mapped.name, true);
-        path.node.expression = mapped.member
+        expression = mapped.member
           ? t.tsQualifiedName(t.identifier(mapped.name), t.identifier(mapped.member))
           : t.identifier(mapped.name);
+      }
+      if (!expression) {
+        return;
+      }
+      const mapped = reactProps(name, reference(expression, params(path.node)));
+      if (t.isTSTypeReference(mapped) && mapped.typeName !== expression) {
+        path.node.expression = mapped.typeName;
+        path.node.typeParameters = mapped.typeParameters;
+      } else {
+        path.node.expression = expression;
       }
     },
     TSTypeReference: {
@@ -3014,19 +3039,22 @@ function transformTypes(programPath, ctx) {
             ]),
           );
         } else if (name === 'SVGProps') {
-          path.replaceWith(reference(jsxType('SvgSVGAttributes'), args));
+          path.replaceWith(reactProps(name, reference(jsxType('SvgSVGAttributes'), args)));
         } else if (name.endsWith('HTMLAttributes')) {
-          path.replaceWith(reference(jsxType(solidHtmlAttributes(name)), args));
+          path.replaceWith(reactProps(name, reference(jsxType(solidHtmlAttributes(name)), args)));
         } else if (REACT_TYPES[name]) {
           const mapped = REACT_TYPES[name];
           imports.add('@solidjs/web', mapped.name, true);
           path.replaceWith(
-            reference(
-              mapped.member
-                ? t.tsQualifiedName(t.identifier(mapped.name), t.identifier(mapped.member))
-                : t.identifier(mapped.name),
-              // `ValidComponent` takes no props type.
-              mapped.name === 'ValidComponent' ? [] : args,
+            reactProps(
+              name,
+              reference(
+                mapped.member
+                  ? t.tsQualifiedName(t.identifier(mapped.name), t.identifier(mapped.member))
+                  : t.identifier(mapped.name),
+                // `ValidComponent` takes no props type.
+                mapped.name === 'ValidComponent' ? [] : args,
+              ),
             ),
           );
         }
@@ -3269,6 +3297,7 @@ export function transformReactToSolid(source, options = {}) {
     standalone: Boolean(options.standalone),
     // Prop names components declare under React's attribute names (kept on components).
     componentProps: new Set(options.componentProps ?? []),
+    baseUiHookAliases: new Set(options.baseUiHookAliases ?? []),
   };
 
   traverse(ast, {
@@ -3304,7 +3333,11 @@ export function transformReactToSolid(source, options = {}) {
         if (importSource !== 'react') {
           if (isCorpus(importSource) && statement.node.importKind !== 'type') {
             for (const specifier of statement.node.specifiers) {
-              ctx.corpusImports.add(specifier.local.name);
+              // A docs module's alias of a Base UI hook returns what the Base UI hook does.
+              const imported = t.isImportSpecifier(specifier) ? specifier.imported.name : null;
+              if (!ctx.baseUiHookAliases.has(imported)) {
+                ctx.corpusImports.add(specifier.local.name);
+              }
             }
           }
           continue;

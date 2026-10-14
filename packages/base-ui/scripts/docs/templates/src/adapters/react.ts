@@ -127,6 +127,45 @@ export type ReactEventHandler<T, E extends Event> = {
   bivarianceHack(event: E & { currentTarget: T; target: Element }): void;
 }['bivarianceHack'];
 
+/**
+ * Props as React types them: an event handler prop is a function (Solid's also take a
+ * `[handler, data]` pair), and DOM handlers and the ref are bivariant, as React declares them. React
+ * code spreads one element's props onto another (`ComponentProps<'div'>` onto a `<nav>`), which
+ * Solid's strict handler and ref types take only for any element.
+ */
+export type ReactProps<P> = {
+  [K in keyof P]: K extends 'ref'
+    ? ReactRefCallback | undefined
+    : K extends `on${infer Initial}${string}`
+      ? Initial extends Uppercase<Initial>
+        ? ReactHandler<CallableHandler<P[K]>>
+        : P[K]
+      : P[K];
+};
+
+type CallableHandler<H> = H extends (...args: never) => unknown
+  ? H
+  : H extends null | undefined
+    ? H
+    : never;
+
+type ReactHandler<H> =
+  NonNullable<H> extends (event: infer E) => void
+    ? E extends Event & { currentTarget: unknown }
+      ? | {
+            bivarianceHack(
+              event: Omit<E, 'currentTarget' | 'target'> & {
+                currentTarget: Element;
+                target: Element;
+              },
+            ): void;
+          }['bivarianceHack']
+        | Extract<H, undefined>
+      : H
+    : H;
+
+type ReactRefCallback = { bivarianceHack(instance: Element): void }['bivarianceHack'];
+
 /** `React.PropsWithoutRef`: a `forwardRef` component's props without their own `ref`. */
 export type PropsWithoutRef<P> = P extends any ? ('ref' extends keyof P ? Omit<P, 'ref'> : P) : P;
 

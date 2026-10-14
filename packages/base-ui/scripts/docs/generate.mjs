@@ -238,6 +238,29 @@ function declaredComponentProps() {
 }
 const COMPONENT_PROPS = declaredComponentProps();
 
+/**
+ * Hooks the docs' modules export as Base UI's own (`export const useToastManager =
+ * Toast.useToastManager`): their callers read the Base UI hook's result, not a lowered hook's.
+ */
+function baseUiHookAliases() {
+  const aliases = new Set();
+  const defined = new Set();
+  for (const file of walk(path.join(REACT, 'src'))) {
+    if (!/\.tsx?$/.test(file)) {
+      continue;
+    }
+    const code = fs.readFileSync(file, 'utf8');
+    for (const match of code.matchAll(/^export const (use\w+) = \w+\.(use\w+);$/gm)) {
+      aliases.add(match[1]);
+    }
+    for (const match of code.matchAll(/^export (?:default )?function (use\w+)/gm)) {
+      defined.add(match[1]);
+    }
+  }
+  return [...aliases].filter((name) => !defined.has(name));
+}
+const BASE_UI_HOOK_ALIASES = baseUiHookAliases();
+
 const written = new Set();
 let prettierConfig;
 
@@ -302,6 +325,7 @@ async function transformCode(code, file, options) {
       modules: MODULES,
       filename: file,
       componentProps: COMPONENT_PROPS,
+      baseUiHookAliases: BASE_UI_HOOK_ALIASES,
       rewriteModule,
       ...options,
     }),
@@ -320,6 +344,7 @@ async function transformSample(code, lang) {
     output = transformReactToSolid(code, {
       modules: MODULES,
       componentProps: COMPONENT_PROPS,
+      baseUiHookAliases: BASE_UI_HOOK_ALIASES,
       standalone: true,
     });
     if (printCode(output) === printCode(code)) {
@@ -355,6 +380,7 @@ async function transformMdx(source, rel) {
           const output = transformReactToSolid(node.value, {
             modules: MODULES,
             componentProps: COMPONENT_PROPS,
+            baseUiHookAliases: BASE_UI_HOOK_ALIASES,
           });
           edits.push({ start, end, text: output });
         })(),
