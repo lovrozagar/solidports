@@ -261,7 +261,7 @@ export function usePopupInteractionProps<
       activeTriggerProps: EMPTY_OBJECT,
       inactiveTriggerProps: EMPTY_OBJECT,
       popupProps: EMPTY_OBJECT,
-    } as Partial<State>);
+    });
   });
 }
 
@@ -387,7 +387,7 @@ export function useTriggerDataForwarding<
         targetStore.update({
           activeTriggerElement: element,
           ...(open ? readStateUpdates() : null),
-        } as Partial<State>);
+        });
         return;
       }
 
@@ -400,7 +400,7 @@ export function useTriggerDataForwarding<
           activeTriggerId: id ?? null,
           activeTriggerElement: element,
           ...readStateUpdates(),
-        } as Partial<State>);
+        } as Pick<Readonly<State>, Key | 'activeTriggerId' | 'activeTriggerElement'>);
       }
     });
 
@@ -429,7 +429,7 @@ export function useTriggerDataForwarding<
         (targetStore as PopupTriggerDataStore<State>).update({
           activeTriggerElement: triggerElementRef.current,
           ...untrack(readStateUpdates),
-        } as Partial<State>);
+        } as Pick<Readonly<State>, Key | 'activeTriggerElement'>);
       }
     },
   );
@@ -512,7 +512,7 @@ export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(
       }
 
       const triggerCount = store.context.triggerElements.size;
-      const stateUpdates = {} as Partial<Pick<State, 'activeTriggerId' | 'activeTriggerElement'>>;
+      const stateUpdates = {} as Pick<State, 'activeTriggerId' | 'activeTriggerElement'>;
 
       const currentActiveTriggerId = store.select('activeTriggerId');
       let lostActiveTriggerId: string | null = null;
@@ -565,7 +565,7 @@ export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(
         stateUpdates.activeTriggerId !== undefined ||
         stateUpdates.activeTriggerElement !== undefined
       ) {
-        store.update(stateUpdates as Partial<State>);
+        store.update(stateUpdates);
       }
 
       if (lostActiveTriggerId && closeOnActiveTriggerUnmount) {
@@ -584,7 +584,7 @@ export function useImplicitActiveTrigger<State extends PopupStoreState<any>>(
               store.update({
                 activeTriggerId: null,
                 activeTriggerElement: null,
-              } as Partial<State>);
+              });
             }
           }
         });
@@ -634,7 +634,7 @@ export function useOpenStateTransitions<State extends PopupStoreState<any>>(
         activeTriggerId: null,
         activeTriggerElement: null,
         preventUnmountingOnClose: false,
-      } as Partial<State>);
+      });
       onUnmount?.();
       store.context.onOpenChangeComplete?.(false);
     },

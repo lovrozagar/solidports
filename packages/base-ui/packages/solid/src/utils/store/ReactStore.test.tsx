@@ -201,6 +201,7 @@ describe('ReactStore', () => {
     function Test(props: { props: Partial<TestState> }) {
       const store = SolidStore<TestState>({ value: 0, label: '' });
       // This intentionally violates the stable-key contract to verify the development warning.
+      // @ts-expect-error A broad partial can explicitly contain undefined state values.
       store.useSyncedValues(() => props.props);
       return null;
     }

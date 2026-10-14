@@ -75,7 +75,9 @@ export function useFloatingRootContext(options: UseFloatingRootContextOptions): 
       const ref = props.elements?.reference;
       // Read for its change: reopening re-syncs the elements.
       void props.open;
-      const valuesToSync: Writeable<Partial<FloatingRootState>> = {};
+      const valuesToSync = {} as Writeable<
+        Pick<FloatingRootState, 'referenceElement' | 'domReferenceElement' | 'floatingElement'>
+      >;
 
       // Only sync elements that are defined to avoid overwriting existing ones
       if (ref !== undefined) {

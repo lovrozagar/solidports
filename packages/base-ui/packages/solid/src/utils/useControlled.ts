@@ -23,7 +23,19 @@ export interface UseControlledProps<T = unknown> {
   state?: string | undefined;
 }
 
-export function useControlled<T = unknown>(props: UseControlledProps<T>) {
+export type ControlledSetter<T> = (newValue: T | ((prevValue: T) => T)) => void;
+
+// A defined default guarantees a defined value. Otherwise, preserve `undefined`,
+// including when callers pass an explicit generic argument.
+export function useControlled<T = unknown>(
+  props: Omit<UseControlledProps<T>, 'default'> & { default: MaybeAccessor<T> },
+): [Accessor<T>, ControlledSetter<T>];
+export function useControlled<T = unknown>(
+  props: UseControlledProps<T>,
+): [Accessor<T | undefined>, ControlledSetter<T | undefined>];
+export function useControlled<T = unknown>(
+  props: UseControlledProps<T>,
+): [Accessor<T | undefined>, ControlledSetter<T | undefined>] {
   const controlledProp = () => access(props.controlled);
   const defaultProp = () => access(props.default);
   const state = () => props.state ?? 'value';
@@ -102,10 +114,7 @@ export function useControlled<T = unknown>(props: UseControlledProps<T>) {
     }
   }
 
-  return [value, setValueIfUncontrolled] as [
-    Accessor<T>,
-    (newValue: T | ((prevValue: T) => T)) => void,
-  ];
+  return [value, setValueIfUncontrolled as ControlledSetter<T | undefined>];
 }
 
 /** Stable dev-only comparison of default values, so equal object literals do not warn. */

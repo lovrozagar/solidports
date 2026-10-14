@@ -72,8 +72,6 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
   const groupContext = useToggleGroupContext();
   const groupValue = () => groupContext?.value() ?? [];
 
-  const defaultPressed = () => (groupContext ? undefined : defaultPressedProp());
-
   const disabled = () => (disabledProp() || groupContext?.disabled()) ?? false;
 
   if (process.env.NODE_ENV !== 'production') {
@@ -96,7 +94,7 @@ export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>
 
   const [pressed, setPressedState] = useControlled({
     controlled: () => (groupContext ? groupValue()?.indexOf(value()) > -1 : pressedProp()),
-    default: defaultPressed,
+    default: defaultPressedProp,
     name: 'Toggle',
     state: 'pressed',
   });
@@ -345,7 +343,7 @@ function NativeToggle(props: Toggle.Props<string>): JSX.Element {
 
   const [pressed, setPressedState] = useControlled({
     controlled: () => (groupContext ? groupValue()?.indexOf(value()!) > -1 : props.pressed),
-    default: () => (groupContext ? undefined : (props.defaultPressed ?? false)),
+    default: () => props.defaultPressed ?? false,
     name: 'Toggle',
     state: 'pressed',
   });

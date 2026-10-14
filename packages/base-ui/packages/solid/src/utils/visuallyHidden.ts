@@ -13,9 +13,10 @@ const visuallyHiddenBase: JSX.CSSProperties = {
 
 export const visuallyHidden: JSX.CSSProperties = {
   ...visuallyHiddenBase,
-  left: 0,
   position: 'fixed',
+  margin: 0,
   top: 0,
+  left: 0,
 };
 
 export const visuallyHiddenInput: JSX.CSSProperties = {

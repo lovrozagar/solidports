@@ -4,6 +4,7 @@ import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { act, createRenderer } from '#test-utils';
 import { useControlled } from './useControlled';
+import type { ControlledSetter } from './useControlled';
 
 interface TestComponentChildrenArgument {
   value: Accessor<number | string | object | null | undefined>;
@@ -89,7 +90,7 @@ describe('useControlled', () => {
   it('warns and falls back to the default when switching from controlled to uncontrolled', () => {
     // Solid: renderHook counterpart; the hook runs in a component and exposes its result.
     const [controlled, setControlled] = createSignal<string | undefined>('foobar');
-    let result!: ReturnType<typeof useControlled<string>>;
+    let result!: [Accessor<string>, ControlledSetter<string>];
 
     function TestHook() {
       result = useControlled<string>({
@@ -122,6 +123,25 @@ describe('useControlled', () => {
   });
 
   describe('prop: defaultValue', () => {
+    it('stores a function default value instead of calling it', () => {
+      // Solid: `default` takes an accessor, so a function value is passed through one.
+      const defaultValue = () => 'called';
+      let result!: [Accessor<() => string>, ControlledSetter<() => string>];
+
+      function TestHook() {
+        result = useControlled<() => string>({
+          controlled: undefined,
+          default: () => defaultValue,
+          name: 'TestComponent',
+        });
+        return null;
+      }
+
+      render(() => <TestHook />);
+
+      expect(result[0]()).toBe(defaultValue);
+    });
+
     it('warns when changed after initial rendering', () => {
       let setProps!: (newProps: TestProps) => void;
 
