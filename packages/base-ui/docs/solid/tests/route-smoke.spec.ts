@@ -21,8 +21,13 @@ for (const route of ROUTES) {
     const consoleErrors: string[] = []
 
     page.on("pageerror", (e) => pageErrors.push(e.message))
+    const hydrationWarnings: string[] = []
     page.on("console", (msg) => {
       if (msg.type() === "error") consoleErrors.push(msg.text())
+      // Solid reports a server/client tree mismatch as a warning; the page still looks right but
+      // the mismatched nodes are detached copies that never become interactive.
+      else if (msg.type() === "warning" && /^Hydration (key miss|completed with)/.test(msg.text()))
+        hydrationWarnings.push(msg.text().slice(0, 200))
     })
 
     const response = await page.goto(route, { waitUntil: "networkidle" })
@@ -36,5 +41,6 @@ for (const route of ROUTES) {
 
     const unexpected = consoleErrors.filter((e) => !isNoise(e))
     expect(unexpected, `console errors on ${route}`).toEqual([])
+    expect(hydrationWarnings, `hydration mismatches on ${route}`).toEqual([])
   })
 }
