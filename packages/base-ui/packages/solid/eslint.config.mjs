@@ -106,4 +106,12 @@ export default defineConfig(
     },
   },
   solid,
+  {
+    rules: {
+      // `solid/reactivity` (not an upstream rule) is written for application code. The library reads
+      // props through views, creates memos conditionally, and reads props its native paths verify as
+      // static; a review of all 122 library findings found no reactivity bug. The docs keep it on.
+      'solid/reactivity': 'off',
+    },
+  },
 );

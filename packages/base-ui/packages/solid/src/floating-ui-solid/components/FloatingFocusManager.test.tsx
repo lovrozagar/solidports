@@ -182,7 +182,6 @@ interface DialogProps {
 }
 
 function Dialog(props: DialogProps) {
-  // eslint-disable-next-line solid/reactivity
   const [open, setOpen] = createSignal(props.open ?? false);
   const nodeId = useFloatingNodeId();
 
@@ -2500,7 +2499,7 @@ describe('FloatingFocusManager', () => {
             get open() {
               return props.open;
             },
-            // eslint-disable-next-line solid/reactivity
+
             onOpenChange: props.onOpenChange,
           });
           const dismiss = useDismiss({ context });

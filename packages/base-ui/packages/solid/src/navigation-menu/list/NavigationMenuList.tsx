@@ -157,7 +157,6 @@ export function NavigationMenuList(componentProps: NavigationMenuList.Props) {
               if (typeof componentProps.ref === 'function') {
                 componentProps.ref(el as HTMLUListElement);
               } else {
-                // eslint-disable-next-line solid/reactivity
                 componentProps.ref = el as any;
               }
             },

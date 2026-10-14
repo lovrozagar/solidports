@@ -130,7 +130,6 @@ describe('<Toggle />', () => {
       const renderSpy = vi.fn();
 
       function ToggleRenderComponent(props: { renderProps: ComponentProps<'button'> }) {
-        // eslint-disable-next-line solid/reactivity
         renderSpy(props.renderProps);
         return <button type="button" {...props.renderProps} />;
       }

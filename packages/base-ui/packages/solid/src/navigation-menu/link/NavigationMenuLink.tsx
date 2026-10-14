@@ -75,7 +75,6 @@ export function NavigationMenuLink(componentProps: NavigationMenuLink.Props) {
           if (typeof componentProps.ref === 'function') {
             componentProps.ref(el as HTMLAnchorElement);
           } else {
-            // eslint-disable-next-line solid/reactivity
             componentProps.ref = el as any;
           }
         },
