@@ -123,13 +123,15 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
     },
   };
 
+  // An accessor source: its keys change with the panel's state without rebuilding the props. Made
+  // once, so reading the props (an effect re-syncing refs, say) creates no memo.
+  const panelProps = propsSourceAccessor(panel.props);
   const element = useRenderElement('div', omit(componentProps, 'style'), {
     state: panelState,
     ref: panel.ref,
     get props() {
       return [
-        // An accessor source: its keys change with the panel's state without rebuilding these props.
-        propsSourceAccessor(panel.props),
+        panelProps,
         {
           get 'aria-labelledby'() {
             return triggerId?.();

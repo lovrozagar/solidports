@@ -42,6 +42,7 @@ import type {
   UseRenderElementRef,
 } from './types';
 import { isDomNode } from './isDomNode';
+import { isEventHandlerKey } from './isEventHandlerKey';
 
 /**
  * Renders a Base UI element.
@@ -51,6 +52,11 @@ import { isDomNode } from './isDomNode';
  * @param params Additional parameters for rendering the element.
  */
 const BUTTON_DEFAULTS = { type: 'button' } as const;
+
+// The owner of the attribute roots (see `attachAttributes`). A ref attaches them in the effect
+// phase, which has no owner, and Solid creates no computation there without one; the part's own
+// owner would dispose them too early. A root that is disposed leaves this owner's children.
+const attributeRootOwner = createRoot(() => getOwner()!);
 /** The views drop a `render={{ component }}` config's `component` (one shared `omit` array). */
 const OMIT_COMPONENT = ['component'] as const;
 /** A previous value no prop equals, so `assign` removes or rewrites a server attribute. */
@@ -78,7 +84,7 @@ const TAG_DEFAULTS = new Map<unknown, object>([
   ['button', BUTTON_DEFAULTS],
   ['img', IMG_DEFAULTS],
 ]);
-const isHandlerKey = (key: string) => key.length > 2 && key[0] === 'o' && key[1] === 'n';
+const isHandlerKey = isEventHandlerKey;
 
 const COMPONENT_IDENTIFIER_PATTERN = /^[A-Z][A-Za-z0-9$]*$/;
 const LOWERCASE_CHARACTER_PATTERN = /[a-z]/;
@@ -580,15 +586,15 @@ export function useRenderElement<
     // every prop. Keys that appear later get their effect then; a key that goes away is removed
     // from the element. Detaching (unmount or a new element) leaves the old element as it was, as
     // React does. The server renders the element props as one spread.
-    // The attribute root is unowned so the component's cleanup marks it detached before it
-    // disposes (an owned child root would dispose first and strip the detached element).
+    // The attribute root is not the part's child, so the component's cleanup marks it detached
+    // before it disposes (an owned child root would dispose first and strip the detached element).
     // Event handlers need no effect: each gets one listener that calls the current chain when the
     // event fires (handlers never subscribe), so only attribute values track their sources.
     let disposeAttributes: (() => void) | undefined;
     void onCleanup(() => disposeAttributes?.());
     const attachAttributes = (el: Element) => {
       disposeAttributes?.();
-      runWithOwner(null, () =>
+      runWithOwner(attributeRootOwner, () =>
         createRoot((dispose) => {
           let attached = true;
           disposeAttributes = () => {
@@ -703,7 +709,7 @@ export function useRenderElement<
               const current: Record<string, unknown> = {};
               const previous: Record<string, unknown> = {};
               for (const key of untrack(attributeKeys)) {
-                if (!(key.length > 2 && key[0] === 'o' && key[1] === 'n')) {
+                if (!isHandlerKey(key)) {
                   current[key] = untrack(() => elementProps[key]);
                   if (current[key] == null && serverAttributes.get(key) === el.getAttribute(key)) {
                     previous[key] = SERVER_ATTRIBUTE;

@@ -5,6 +5,7 @@
  */
 import { isStatic, untrack } from 'solid-js';
 import { makeEventPreventable } from '../../merge-props/mergeProps';
+import { isEventHandlerKey } from '../isEventHandlerKey';
 import type { BaseUIEvent } from '../types';
 
 type AnyProps = Record<string, any>;
@@ -22,10 +23,8 @@ const RESERVED: ReadonlySet<string> = new Set(NATIVE_RESERVED_KEYS);
 const EMPTY_KEYS: ReadonlySet<string> = new Set();
 const EMPTY_LIST: readonly string[] = [];
 
-/** Whether `key` names an event handler prop (`on*`). */
-export function isHandlerKey(key: string): boolean {
-  return key.length > 2 && key[0] === 'o' && key[1] === 'n';
-}
+/** Whether `key` names an event handler prop (`onClick`). */
+export const isHandlerKey = isEventHandlerKey;
 
 function toHandler(value: unknown): Handler | undefined {
   if (typeof value === 'function') {

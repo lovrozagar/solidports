@@ -294,7 +294,10 @@ export function FloatingFocusManager(componentProps: FloatingFocusManagerProps):
     () => isTypeableCombobox(domReference()) && props.initialFocus === false,
   );
 
-  const getTree = useFloatingTreeAccessor(() => props.externalTree);
+  // A memo of the prop, so the effects that read the tree read a value rather than the prop's getter
+  // (which may compute, and so create a memo, where the effect phase has no owner).
+  const externalTree = createMemo(() => props.externalTree);
+  const getTree = useFloatingTreeAccessor(externalTree);
   const portalContext = usePortalContext();
 
   let preventReturnFocusRef = false;
