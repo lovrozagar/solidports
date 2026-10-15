@@ -3,7 +3,7 @@
 # @solidports/base-ui
 
 A Solid port of [MUI Base UI](https://github.com/mui/base-ui): headless, accessible components and
-low-level hooks for [Solid 2](https://github.com/solidjs/solid). It tracks `@base-ui/react` 1.8.0
+low-level hooks for [Solid 2](https://github.com/solidjs/solid). It tracks `@base-ui/react` 1.9.0
 and ports its behavior and test suite one to one.
 
 > Prerelease. Solid 2 is a release candidate, and so is this package.
@@ -51,9 +51,9 @@ re-exports all of them.
 
 ## Versioning
 
-Versions follow upstream Base UI. Prereleases add a counter (`1.8.0-1`, `1.8.0-2`, …) and are
+Versions follow upstream Base UI. Prereleases add a counter (`1.9.0-1`, `1.9.0-2`, …) and are
 published under the `next` tag. The stable port of a Base UI release uses the bare upstream version
-(`1.8.0`) under `latest`.
+(`1.9.0`) under `latest`.
 
 ## Content Security Policy
 
