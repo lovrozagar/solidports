@@ -5,7 +5,7 @@
 // Logs go to .tmp/base-ui-test-all/<suite>.log at the monorepo root.
 //
 // Usage (from the monorepo root): bun run test:base-ui:all [--only <suite>,<suite>] [--list]
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,6 @@ const logDir = path.join(root, '.tmp/base-ui-test-all');
 
 // One entry per workflow step, grouped by job. `generated` fails the step when it changes the
 // working tree (the workflow's `git diff --exit-code`, without discarding local changes first).
-// `server` starts a background process and waits for `url` before the commands run.
 const suites = [
   { job: 'Linting', name: 'format', cwd: '.', run: ['bun run fmt:check'] },
   { job: 'Linting', name: 'oxlint', cwd: '.', run: ['bun run lint'] },
@@ -65,6 +64,12 @@ const suites = [
     name: 'typecheck-solid',
     cwd: solid,
     run: ['bun run typescript', 'bunx tsc -p tsconfig.test.json --noEmit'],
+  },
+  {
+    job: 'Typechecking',
+    name: 'typecheck-docs',
+    cwd: 'packages/base-ui/docs/solid',
+    run: ['bun run typescript --noEmit'],
   },
   {
     job: 'Typechecking (typescript@next)',
@@ -132,14 +137,14 @@ const suites = [
       'bunx playwright test --config test/screen-reader-solid/playwright.config.ts',
     ],
   },
-  { job: 'Validating Docs', name: 'docs-build', cwd: baseUi, run: ['bun run docs:build'] },
   {
     job: 'Validating Docs',
-    name: 'docs-playwright',
-    cwd: 'packages/base-ui/docs/solid',
-    server: { command: 'bun run dev', url: 'http://localhost:3001/' },
-    run: ['bunx playwright test --reporter=line'],
+    name: 'docs-validate',
+    cwd: baseUi,
+    generated: true,
+    run: ['bun run docs:validate'],
   },
+  { job: 'Validating Docs', name: 'docs-build', cwd: baseUi, run: ['bun run docs:build'] },
   {
     job: 'Benchmark tests',
     name: 'benchmark',
@@ -187,57 +192,17 @@ function runCommand(command, cwd, log) {
   return result.status === 0;
 }
 
-async function waitFor(url, attempts) {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      if ((await fetch(url)).ok) {
-        return true;
-      }
-    } catch {
-      // Not listening yet.
-    }
-    // eslint-disable-next-line no-await-in-loop
-    await new Promise((resolve) => {
-      setTimeout(resolve, 2000);
-    });
-  }
-  return false;
-}
-
-async function runSuite(suite) {
+function runSuite(suite) {
   const log = path.join(logDir, `${suite.name}.log`);
   fs.writeFileSync(log, '');
   if (suite.unavailable) {
     return { status: 'not run', detail: suite.unavailable };
   }
 
-  let server;
-  if (suite.server) {
-    const fd = fs.openSync(log, 'a');
-    server = spawn(suite.server.command, {
-      cwd: path.join(root, suite.cwd),
-      shell: true,
-      detached: true,
-      stdio: ['ignore', fd, fd],
-    });
-    fs.closeSync(fd);
-    if (!(await waitFor(suite.server.url, 90))) {
-      process.kill(-server.pid, 'SIGTERM');
-      return { status: 'fail', detail: `${suite.server.url} never answered` };
-    }
-  }
-
   const before = suite.generated ? treeState() : null;
-  try {
-    for (const command of suite.run) {
-      if (!runCommand(command, suite.cwd, log)) {
-        return { status: 'fail', detail: `\`${command}\` failed` };
-      }
-    }
-  } finally {
-    if (server) {
-      process.kill(-server.pid, 'SIGTERM');
+  for (const command of suite.run) {
+    if (!runCommand(command, suite.cwd, log)) {
+      return { status: 'fail', detail: `\`${command}\` failed` };
     }
   }
   if (before !== null) {
@@ -275,8 +240,7 @@ for (const suite of suites) {
   }
   console.log(`▶ ${suite.job} / ${suite.name}`);
   const start = Date.now();
-  // eslint-disable-next-line no-await-in-loop
-  const result = await runSuite(suite);
+  const result = runSuite(suite);
   const seconds = Math.round((Date.now() - start) / 1000);
   results.push({ suite, ...result, seconds });
   console.log(`  ${result.status}${result.detail ? ` (${result.detail})` : ''} in ${seconds}s`);

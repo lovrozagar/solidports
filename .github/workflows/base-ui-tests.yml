@@ -214,6 +214,8 @@ jobs:
         run: |
           bun run typescript
           bunx tsc -p tsconfig.test.json --noEmit
+      - working-directory: packages/base-ui/docs/solid
+        run: bun run typescript --noEmit
 
   # Upstream "Package verification"
   package:
@@ -240,7 +242,8 @@ jobs:
       - working-directory: packages/base-ui/test/node-resolution-solid
         run: bun run test
 
-  # Upstream "Validating Docs": build, then the docs Playwright suite against the dev server
+  # Upstream "Validating Docs": docs-infra's validation of the generated docs (their API tables and
+  # indexes are committed), then the production build upstream's deploy previews run
   docs:
     name: Validating Docs
     runs-on: ubuntu-latest
@@ -253,20 +256,15 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
+      - name: validate
+        working-directory: packages/base-ui
+        run: |
+          bun run docs:validate
+          git diff --exit-code
       - name: build
+        if: ${{ !cancelled() }}
         working-directory: packages/base-ui
         run: bun run docs:build
-      - name: playwright
-        if: ${{ !cancelled() }}
-        working-directory: packages/base-ui/docs/solid
-        run: |
-          bun run dev > /tmp/docs-dev.log 2>&1 &
-          for attempt in $(seq 1 90); do
-            node -e 'fetch("http://localhost:3001/").then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))' && break
-            sleep 2
-          done
-          npx playwright test --reporter=line
 
   # Upstream "Benchmark tests"
   benchmark:
