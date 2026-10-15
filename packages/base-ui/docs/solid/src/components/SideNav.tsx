@@ -1,148 +1,131 @@
-import { createEffect, onSettled } from 'solid-js';
-import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { useLocation } from "@solidjs/router"
-import { ScrollArea } from "@solidports/base-ui/scroll-area"
-import scrollIntoView from "scroll-into-view-if-needed"
-import { HEADER_HEIGHT_DESKTOP } from "./Header"
+import { createEffect, createMemo, omit, onSettled } from 'solid-js';
+import { Dynamic } from '@solidjs/web';
+import type { ComponentProps, JSX } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
+import NextLink from 'docs/src/adapters/next/link';
+import { usePathname } from 'docs/src/adapters/next/navigation';
+import { ScrollArea } from '@solidports/base-ui/scroll-area';
+import scrollIntoView from 'scroll-into-view-if-needed';
+import { HEADER_HEIGHT_DESKTOP } from './Header';
+import './SideNav.css';
 
-import { splitProps } from '../utils/solid-1-compat';
-import "./SideNav.css"
-
-interface ScrollActionLike {
-  top: number
-  left: number
-  el: Element
-}
-
-export function Root(props: JSX.HTMLAttributes<HTMLElement>) {
-  const [local, rest] = splitProps(props, ["class", "children"])
+export function Root(props: ReactProps<ComponentProps<'div'>>) {
   return (
-    <nav aria-label="Main navigation" {...rest} class={clsx("SideNavRoot", local.class)}>
+    <nav aria-label="Main navigation" {...props} class={clsx('SideNavRoot', props.class)}>
       <ScrollArea.Root>
         <ScrollArea.Viewport data-side-nav-viewport class="SideNavViewport">
-          {local.children}
+          {props.children}
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar class="SideNavScrollbar" orientation="vertical">
           <ScrollArea.Thumb class="SideNavScrollbarThumb" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </nav>
-  )
+  );
 }
-
-export function Section(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <div {...rest} class={clsx("SideNavSection", local.class)} />
+export function Section(props: ReactProps<ComponentProps<'div'>>) {
+  return <div {...props} class={clsx('SideNavSection', props.class)} />;
 }
-
-export function Heading(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <div {...rest} class={clsx("SideNavHeading", local.class)} />
+export function Heading(props: ReactProps<ComponentProps<'div'>>) {
+  return <div {...props} class={clsx('SideNavHeading', props.class)} />;
 }
-
-export function Separator(props: JSX.HTMLAttributes<HTMLHRElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <hr {...rest} class={clsx("SideNavSeparator", local.class)} />
+export function Separator(props: ReactProps<ComponentProps<'hr'>>) {
+  return <hr {...props} class={clsx('SideNavSeparator', props.class)} />;
 }
-
-export function List(props: JSX.HTMLAttributes<HTMLUListElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <ul {...rest} class={clsx("SideNavList", local.class)} />
+export function List(props: ReactProps<ComponentProps<'ul'>>) {
+  return <ul {...props} class={clsx('SideNavList', props.class)} />;
 }
-
-export function Badge(props: JSX.HTMLAttributes<HTMLSpanElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <span {...rest} class={clsx("SideNavBadge", local.class)} />
+export function Badge(props: ReactProps<ComponentProps<'span'>>) {
+  return <span {...props} class={clsx('SideNavBadge', props.class)} />;
 }
-
-interface ItemProps extends JSX.LiHTMLAttributes<HTMLLIElement> {
-  active?: boolean
-  href: string
-  isNew?: boolean
-  external?: boolean
-  icon?: JSX.Element | ((props: JSX.SvgSVGAttributes<SVGSVGElement>) => JSX.Element)
+interface ItemProps extends ReactProps<ComponentProps<'li'>> {
+  active?: boolean;
+  href: string;
+  isNew?: boolean;
+  external?: boolean;
+  icon?: JSX.Element;
 }
-
-const SCROLL_MARGIN = 48
-
+const SCROLL_MARGIN = 48;
 export function Item(props: ItemProps) {
-  const [local, rest] = splitProps(props, ["children", "class", "href", "external", "icon"])
-  let ref: HTMLLIElement | undefined
-  const location = useLocation()
-  const active = () => location.pathname === local.href
-  let rem = 16
-
+  const other = omit(props, 'children', 'class', 'href', 'external', 'icon');
+  const ref: {
+    current: HTMLLIElement | null;
+  } = {
+    current: null,
+  };
+  const pathname = usePathname();
+  const exactActive = createMemo(() => pathname() === props.href);
+  const active = createMemo(() => exactActive() || pathname().startsWith(`${props.href}/`));
+  const rem = {
+    current: 16,
+  };
   onSettled(() => {
-    rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
-  })
-
+    rem.current = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  });
   createEffect(
-    () => active(),
-    (isActive) => {
-      if (!ref || !isActive) {
-        return
-      }
-      const scrollMargin = (SCROLL_MARGIN * rem) / 16
-      const headerHeight = (HEADER_HEIGHT_DESKTOP * rem) / 16
-      const viewport = document.querySelector("[data-side-nav-viewport]")
-
-      if (!viewport) {
-        return
-      }
-
-      scrollIntoView(ref, {
-        block: "nearest",
-        scrollMode: "if-needed",
-        boundary: (parent: Element) => viewport.contains(parent),
-        behavior: (actions: ScrollActionLike[]) => {
-          actions.forEach(({ top }) => {
-            const dir = viewport.scrollTop > top ? -1 : 1
-            const offset = Math.max(0, headerHeight - Math.max(0, window.scrollY))
-            viewport.scrollTop = top + offset + scrollMargin * dir
-          })
-        },
-      })
-    },
-  )
-
-  const commonAttrs = () =>
-    active()
-      ? {
-          "aria-current": "true" as const,
-          "data-active": "" as const,
-          onClick: () => {
-            /* Scroll to top smoothly when clicking on the currently active item. */
-            window.scrollTo({ top: 0, behavior: "smooth" })
-          },
+    () => [active()],
+    () => {
+      if (ref.current && active()) {
+        const scrollMargin = (SCROLL_MARGIN * rem.current) / 16;
+        const headerHeight = (HEADER_HEIGHT_DESKTOP * rem.current) / 16;
+        const viewport = document.querySelector('[data-side-nav-viewport]');
+        if (!viewport) {
+          return;
         }
-      : {}
-
+        scrollIntoView(ref.current, {
+          block: 'nearest',
+          scrollMode: 'if-needed',
+          boundary: (parent) => viewport.contains(parent),
+          behavior: (actions) => {
+            actions.forEach(({ top }) => {
+              const dir = viewport.scrollTop > top ? -1 : 1;
+              const offset = Math.max(0, headerHeight - Math.max(0, window.scrollY));
+              viewport.scrollTop = top + offset + scrollMargin * dir;
+            });
+          },
+        });
+      }
+    },
+  );
+  const LinkComponent = createMemo(() => (props.external ? 'a' : NextLink));
+  const ariaCurrent = createMemo(() => (exactActive() ? 'page' : 'location'));
   return (
-    <li ref={ref} {...rest} class={clsx("SideNavItem", local.class)}>
-      {local.external ? (
-        <a class="SideNavLink" href={local.href} {...commonAttrs()}>
-          {local.icon ? (
-            <div class="SideNavLinkIconContainer">
-              {typeof local.icon === "function" ? local.icon({}) : local.icon}
-              {local.children}
-            </div>
-          ) : (
-            local.children
-          )}
-        </a>
-      ) : (
-        <a class="SideNavLink" href={local.href} noscroll={active()} {...commonAttrs()}>
-          {local.icon ? (
-            <div class="SideNavLinkIconContainer">
-              {typeof local.icon === "function" ? local.icon({}) : local.icon}
-              {local.children}
-            </div>
-          ) : (
-            local.children
-          )}
-        </a>
-      )}
+    <li
+      ref={(element) => {
+        ref.current = element;
+      }}
+      {...other}
+      class={clsx('SideNavItem', props.class)}
+    >
+      <Dynamic
+        component={LinkComponent()}
+        class="SideNavLink"
+        href={props.href}
+        scroll={props.external ? undefined : !exactActive()}
+        data-active={active() || undefined}
+        aria-current={active() ? ariaCurrent() : undefined}
+        {...(exactActive()
+          ? {
+              onClick: () => {
+                // Scroll to top smoothly when clicking on the currently active item
+                window.scrollTo({
+                  top: 0,
+                  behavior: 'smooth',
+                });
+              },
+            }
+          : {})}
+      >
+        {props.icon ? (
+          <div class="SideNavLinkIconContainer">
+            {props.icon}
+            {props.children}
+          </div>
+        ) : (
+          props.children
+        )}
+      </Dynamic>
     </li>
-  )
+  );
 }

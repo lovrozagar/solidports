@@ -5,7 +5,6 @@ export interface Release {
   highlights: string[];
   latest?: true;
 }
-
 export const releases: Release[] = [
   {
     latest: true,

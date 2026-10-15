@@ -28,6 +28,32 @@ export function Kbd(props: ReactProps<ComponentProps<'kbd'>>) {
 }`,
       );
     });
+
+    it('adds imports after the leading stylesheet imports', () => {
+      expectTransform(
+        `import './index.css';
+import * as React from 'react';
+export function Count() {
+  const [count] = React.useState(0);
+  return <p>{count}</p>;
+}`,
+        `import './index.css';
+import { createSignal } from 'solid-js';
+export function Count() {
+  const [count] = createSignal(0);
+  return <p>{count()}</p>;
+}`,
+      );
+    });
+
+    it('keeps a blank line after the imports', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+import { Button } from '@base-ui/react/button';
+export function Save(props: React.ComponentProps<'button'>) {
+  return <Button {...props} />;
+}`);
+      expect(output).toMatch(/from '@solidports\/base-ui\/button';\n\nexport function Save/);
+    });
   });
 
   describe('JSX attributes', () => {
@@ -42,13 +68,14 @@ export function Kbd(props: ReactProps<ComponentProps<'kbd'>>) {
       );
     });
 
-    it('removes keys', () => {
+    it('remounts a returned element whose key changes, as React does', () => {
       expectTransform(
         `export function Item(props: { id: string }) {
   return <li key={props.id}>{props.id}</li>;
 }`,
-        `export function Item(props: { id: string }) {
-  return <li>{props.id}</li>;
+        `import { For } from 'solid-js';
+export function Item(props: { id: string }) {
+  return <For each={[props.id]}>{() => <li>{props.id}</li>}</For>;
 }`,
       );
     });
@@ -83,6 +110,29 @@ export function Bar(props: { width: number }) {
 }`,
         `export function Html(props: { html: string }) {
   return <div innerHTML={props.html} />;
+}`,
+      );
+    });
+  });
+
+  describe('event handlers', () => {
+    it("marks a component's async event handler for the Solid lint, in linted files", () => {
+      const source = `export function Submit(props: { save: () => Promise<void> }) {
+  return <Form onSubmit={async () => { await props.save(); }} />;
+}`;
+      expect(transformReactToSolid(source, { linted: true })).toContain(
+        '// eslint-disable-next-line solid/reactivity -- an event handler (eslint-plugin-solid#168)\n',
+      );
+      expect(transformReactToSolid(source)).not.toContain('eslint-disable');
+    });
+
+    it("calls a handler prop an element binds when the event fires, as the prop's value then", () => {
+      expectTransform(
+        `export function Retry(props: { onRetry: (event: MouseEvent) => void }) {
+  return <button onClick={props.onRetry}>Retry</button>;
+}`,
+        `export function Retry(props: { onRetry: (event: MouseEvent) => void }) {
+  return <button onClick={(event) => props.onRetry?.(event)}>Retry</button>;
 }`,
       );
     });
@@ -139,6 +189,26 @@ export function Bar(props: { width: number }) {
     });
   });
 
+  describe('element refs', () => {
+    it("gives an element's props spread onto a component React's element ref", () => {
+      const output = transformReactToSolid(
+        `import * as React from 'react';
+import { Button as BaseButton } from '@base-ui/react/button';
+export function Button(props: React.ComponentProps<'button'>) {
+  return <BaseButton {...props} />;
+}
+export function Icon(props: React.ComponentProps<'svg'>) {
+  return <svg {...props} />;
+}`,
+        { standalone: true },
+      );
+      expect(output).toMatch(
+        /Button\(props: Omit<ComponentProps<'button'>, 'ref' \| 'style'> & \{\s*ref\?: \(el: HTMLElementTagNameMap\['button'\] \| null\) => void;\s*style\?: JSX\.CSSProperties;\s*\}\)/,
+      );
+      expect(output).toContain("Icon(props: ComponentProps<'svg'>)");
+    });
+  });
+
   describe('props objects', () => {
     it("writes an element props object's attribute names as Solid's", () => {
       expectTransform(
@@ -166,6 +236,146 @@ export const classOf = (node: { properties: unknown }) =>
 export const classOf = (node: { properties: unknown }) =>
   (node.properties as { className?: string }).className;`,
       );
+    });
+  });
+
+  describe('lists', () => {
+    it("renders a list callback that computes values from a memo of its body, as React's re-runs", () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+export function Table(props: { items: string[] }) {
+  const [results] = React.useState<Record<string, number>>({});
+  return <ul>{props.items.map((item) => {
+    const value = results[item];
+    return <li>{value}</li>;
+  })}</ul>;
+}`);
+      expect(output).toContain('const _row = createMemo(() => {');
+      expect(output).toContain('const value = results()[item];');
+      expect(output).toContain('return <>{_row()}</>;');
+    });
+
+    it('renders a list of an optional chain with For, reading the list for its third argument', () => {
+      expectTransform(
+        `export function Crumbs(props: { title?: string }) {
+  return <p>{props.title?.split('/').map((part, i, arr) => (
+    <span key={i}>{part}{i !== arr.length - 1 && '/'}</span>
+  ))}</p>;
+}`,
+        `import { For } from 'solid-js';
+export function Crumbs(props: { title?: string }) {
+  return <p><For each={props.title?.split('/')}>{(part, i) => (
+    <span>{part}{i() !== (props.title?.split('/') ?? []).length - 1 && '/'}</span>
+  )}</For></p>;
+}`,
+      );
+    });
+
+    it('drops the callback parameters only the dropped key read', () => {
+      expectTransform(
+        `export function highlight(text: string) {
+  return text.split(' ').map((part, idx) => <mark key={idx}>{part}</mark>);
+}`,
+        `export function highlight(text: string) {
+  return text.split(' ').map((part) => <mark>{part}</mark>);
+}`,
+      );
+    });
+  });
+
+  describe('keys', () => {
+    it('remounts an element whose identity key changes, and keeps list keys to For', () => {
+      expectTransform(
+        `export function Remount(props: { generation: number; items: string[] }) {
+  return (
+    <div>
+      <Panel key={props.generation} />
+      {props.items.map((item) => <span key={item}>{item}</span>)}
+    </div>
+  );
+}`,
+        `import { For } from 'solid-js';
+export function Remount(props: { generation: number; items: string[] }) {
+  return (
+    <div>
+      <For each={[props.generation]}>{() => <Panel />}</For>
+      <For each={props.items}>{(item) => <span>{item}</span>}</For>
+    </div>
+  );
+}`,
+      );
+    });
+  });
+
+  describe('tests', () => {
+    it('writes a props signal property that a variable of its name sets as shorthand', () => {
+      const output = transformReactToSolid(`export async function test(render, Panel, variants) {
+  const { rerender } = await render(<Panel variants={variants} />);
+  rerender(<Panel variants={[]} />);
+}`);
+      expect(output).toMatch(/createSignal\(\{\s*variants\s*\}\)/);
+    });
+
+    it('rerenders an element through a props signal, keeping its state', () => {
+      const output = transformReactToSolid(`export async function test(render, Counter) {
+  const { rerender } = await render(<Counter step={1} label="a" />);
+  rerender(<Counter step={2} label="b" />);
+}`);
+      expect(output).toContain(
+        "const [_props, _setProps] = createSignal({\n    step: 1,\n    label: 'a'\n  });",
+      );
+      expect(output).toContain('await render(element(() => <Counter {..._props()} />));');
+      expect(output).toContain("_setProps({\n    step: 2,\n    label: 'b'\n  });");
+    });
+  });
+
+  describe('comments', () => {
+    it("keeps the file's header comments above the imports it adds", () => {
+      const output = transformReactToSolid(`// @vitest-environment jsdom
+import * as React from 'react';
+import { helper } from './helper';
+export function Counter() {
+  const [count] = React.useState(0);
+  return <span>{helper(count)}</span>;
+}`);
+      expect(output.startsWith('// @vitest-environment jsdom\n')).toBe(true);
+    });
+
+    it('maps lint directives to the Solid rules, dropping rules Solid code has no counterpart for', () => {
+      expectTransform(
+        `export function Head(props: { json: string; label: string }) {
+  /* eslint-disable react/no-children-prop */
+  return (
+    <script
+      title={props.label}
+      // eslint-disable-next-line react/no-danger
+      dangerouslySetInnerHTML={{ __html: props.json }}
+    />
+  );
+}`,
+        `export function Head(props: { json: string; label: string }) {
+  return (
+    <script
+      title={props.label}
+      // eslint-disable-next-line solid/no-innerhtml
+      innerHTML={props.json}
+    />
+  );
+}`,
+      );
+    });
+
+    it("drops element lint rules from a render element's directive once it is a render config", () => {
+      const output = transformReactToSolid(`import { Tabs } from '@base-ui/react/tabs';
+export function Tab(props: { href: string }) {
+  return (
+    <Tabs.Tab
+      // eslint-disable-next-line jsx-a11y/control-has-associated-label
+      render={<a href={props.href} />}
+      value="a"
+    />
+  );
+}`);
+      expect(output).not.toContain('eslint-disable');
     });
   });
 
@@ -374,6 +584,20 @@ export function Focus() {
   });
 
   describe('reactivity', () => {
+    it('turns a const a local function derives from reactive values into a memo', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+export function Status() {
+  const [error] = React.useState<string | null>(null);
+  function getMessage() {
+    return error ? 'Failed' : 'OK';
+  }
+  const message = getMessage();
+  return <p>{message}</p>;
+}`);
+      expect(output).toContain('const message = createMemo(() => getMessage());');
+      expect(output).toContain('<p>{message()}</p>');
+    });
+
     it('turns a derived const into a memo', () => {
       expectTransform(
         `export function Greeting(props: { name: string }) {
@@ -515,6 +739,99 @@ export function Lazy() {
     });
   });
 
+  describe('parameter names', () => {
+    it("names a function's props parameter params when it is not a component's", () => {
+      expectTransform(
+        `export const headTemplate = (props: { variantName: string }) => {
+  return props.variantName === 'Tailwind' ? '<script></script>' : '';
+};`,
+        `export const headTemplate = (params: { variantName: string }) => {
+  return params.variantName === 'Tailwind' ? '<script></script>' : '';
+};`,
+      );
+    });
+  });
+
+  describe('environment hooks', () => {
+    it('runs the hook an environment picks in an owner of its own, keyed alike on both sides', () => {
+      const output = transformReactToSolid(`function useStoreServer() {
+  return null;
+}
+function useStoreBrowser() {
+  return window.localStorage.getItem('key');
+}
+export default typeof window === 'undefined' ? useStoreServer : useStoreBrowser;`);
+      expect(output).toContain("import { environmentHook } from 'docs/src/adapters/react';");
+      expect(output).toContain('export default environmentHook(useStoreServer, useStoreBrowser);');
+    });
+  });
+
+  describe('element props', () => {
+    it("passes JSX a component's prop takes as an element, which reading it does not render", () => {
+      const output = transformReactToSolid(`export function Nav() {
+  return <Item icon={<Icon />} render={<a />}>Home</Item>;
+}`);
+      expect(output).toContain('icon={element(() => <Icon />)}');
+      expect(output).not.toContain('render={element(');
+    });
+  });
+
+  describe('element values', () => {
+    it('places an element value in JSX through a call, which scopes its hydration keys', () => {
+      const output = transformReactToSolid(`export function Toolbar(props: { wide: boolean }) {
+  const actions = props.wide ? <b>Wide</b> : <i>Narrow</i>;
+  const help = <i>Help</i>;
+  return <div>{actions}{help}<span>{help}</span></div>;
+}`);
+      expect(output).toContain("import { element, place } from 'docs/src/adapters/react';");
+      expect(output).toContain('<div>{actions()}{place(help)}<span>{place(help)}</span></div>');
+    });
+  });
+
+  describe('module elements', () => {
+    it('creates the elements a module declares in each function that renders them', () => {
+      expectTransform(
+        `const contents = { a: <p>A</p> };
+export default function Demo() {
+  return <div>{contents.a}</div>;
+}`,
+        `export default function Demo() {
+  const contents = { a: <p>A</p> };
+  return <div>{contents.a}</div>;
+}`,
+        { standalone: true },
+      );
+    });
+  });
+
+  describe('MDX components', () => {
+    it('lowers the components of an MDX components map, as the components they are', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+import type { MDXComponents } from 'mdx/types';
+export const components: MDXComponents = {
+  pre: ({ tabIndex, ...props }: React.ComponentProps<'pre'>) => {
+    if ('data-precompute' in props) {
+      return <figure><code {...props} /></figure>;
+    }
+    return <pre {...props} />;
+  },
+};`);
+      expect(output).toContain("const rest = omit(props, 'tabIndex');");
+      expect(output).toContain('const _render = createMemo(() => {');
+    });
+
+    it('reads a badge prop in the memo that renders it', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+function Heading({ children, 'data-heading-badge': headingBadge }: { children?: React.ReactNode; 'data-heading-badge'?: string }) {
+  const badge = headingBadge ? <b>{headingBadge}</b> : null;
+  return <h2>{children}{badge}</h2>;
+}`);
+      expect(output).toMatch(
+        /const badge = createMemo\(\(\) => \{\s*const _value = props\['data-heading-badge'\];/,
+      );
+    });
+  });
+
   describe('reactive components', () => {
     it('renders a component read from state with Dynamic', () => {
       expectTransform(
@@ -541,10 +858,10 @@ export function Editor(props: { value: string }) {
   const input = <Autocomplete.Input />;
   return <Autocomplete.Root>{input}</Autocomplete.Root>;
 }`,
-        `import { element } from 'docs/src/adapters/react';
+        `import { element, place } from 'docs/src/adapters/react';
 export function Search() {
   const input = element(() => <Autocomplete.Input />);
-  return <Autocomplete.Root>{input}</Autocomplete.Root>;
+  return <Autocomplete.Root>{place(input)}</Autocomplete.Root>;
 }`,
       );
     });
@@ -772,6 +1089,24 @@ export function Title(props: { title: string }) {
       );
     });
 
+    it("reads a value an effect's deferred callback uses when the effect runs, as React's closure does", () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+export function Notice(props: { delay: number }) {
+  const [message] = React.useState('');
+  const [shown, setShown] = React.useState('');
+  React.useEffect(() => {
+    const timeout = setTimeout(() => {
+      setShown(message);
+    }, props.delay);
+    return () => clearTimeout(timeout);
+  }, [message, props.delay]);
+  return <p>{shown}</p>;
+}`);
+      expect(output).toMatch(
+        /const (_message) = message\(\);\s*const timeout = setTimeout\(\(\) => \{\s*setShown\(\1\);/,
+      );
+    });
+
     it('reruns an effect when its dependencies change', () => {
       expectTransform(
         `import * as React from 'react';
@@ -912,13 +1247,36 @@ type Props = React.PropsWithChildren<{ onPress: (event: React.MouseEvent<HTMLBut
 type Setter = React.Dispatch<React.SetStateAction<boolean>>;
 type Icon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 type Box = React.RefObject<HTMLDivElement | null>;`,
-        `import type { Component, ParentProps } from 'solid-js';
+        `import type { ParentProps } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import type { ReactProps } from 'docs/src/adapters/react';
+import type { ComponentType, ReactProps } from 'docs/src/adapters/react';
 type Props = ParentProps<{ onPress: (event: MouseEvent & { currentTarget: HTMLButtonElement; target: Element }) => void }>;
 type Setter = (value: boolean | ((prev: boolean) => boolean)) => void;
-type Icon = Component<ReactProps<JSX.SvgSVGAttributes<SVGSVGElement>>>;
+type Icon = ComponentType<ReactProps<JSX.SvgSVGAttributes<SVGSVGElement>>>;
 type Box = { current: HTMLDivElement | null };`,
+      );
+    });
+
+    it('imports nothing for a type argument the Solid type drops', () => {
+      expectTransform(
+        `import * as React from 'react';
+export interface Props {
+  render?: React.ReactElement<React.ComponentPropsWithRef<'button'>>;
+}`,
+        `import type { JSX } from '@solidjs/web';
+export interface Props {
+  render?: JSX.Element;
+}`,
+      );
+    });
+
+    it('maps React effect callback and dependency list types to their shapes', () => {
+      expectTransform(
+        `import * as React from 'react';
+type Effect = React.EffectCallback;
+type Deps = React.DependencyList;`,
+        `type Effect = () => void | (() => void);
+type Deps = readonly unknown[];`,
       );
     });
   });
@@ -971,7 +1329,7 @@ import { Popover } from '@solidports/base-ui';`,
     it('imports the Solid build of icon libraries', () => {
       expectTransform(
         `import { Copy } from 'lucide-react';`,
-        `import { Copy } from 'lucide-solid';`,
+        `import { Copy } from '@lucide/solid';`,
       );
     });
 
@@ -1323,19 +1681,61 @@ export function useFirst(params: Accessor<{ code?: Record<string, string>; name:
       );
     });
 
-    it('reads a value a JSX expression narrows once, in the expression', () => {
+    it('renders a value a JSX expression tests and then uses with Show, which narrows it', () => {
       expectTransform(
         `import * as React from 'react';
 export function User() {
   const [user] = React.useState<{ name: string } | null>(null);
   return <p>{user && user.name}</p>;
 }`,
+        `import { createSignal, Show } from 'solid-js';
+export function User() {
+  const [user] = createSignal<{ name: string } | null>(null);
+  return <p><Show when={user()}>{(_user) => _user().name}</Show></p>;
+}`,
+      );
+    });
+
+    it('reads a value again where a JSX expression narrows nothing it uses', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function Count() {
+  const [count] = React.useState(0);
+  const [error] = React.useState<string | null>(null);
+  return <p>{count > 0 ? <b>{count}</b> : null}{error && <i>{error}</i>}</p>;
+}`,
+        `import { createSignal } from 'solid-js';
+export function Count() {
+  const [count] = createSignal(0);
+  const [error] = createSignal<string | null>(null);
+  return <p>{count() > 0 ? <b>{count()}</b> : null}{error() && <i>{error()}</i>}</p>;
+}`,
+      );
+    });
+
+    it("keeps reading a value the component's returned JSX tests, which re-renders it", () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+export function Item(props: { href: string; pathname: string }) {
+  const active = props.pathname === props.href;
+  return <a href={props.href} data-scroll={!active} {...(active ? { onClick: () => scrollTo(0, 0) } : {})} />;
+}`);
+      expect(output).not.toMatch(/const _active = active\(\);/);
+      expect(output).toContain('data-scroll={!active()}');
+    });
+
+    it('reads a value once where a JSX expression narrows it by a comparison', () => {
+      expectTransform(
+        `import * as React from 'react';
+export function User() {
+  const [user] = React.useState<{ name: string } | null>(null);
+  return <p>{user !== null && user.name}</p>;
+}`,
         `import { createSignal } from 'solid-js';
 export function User() {
   const [user] = createSignal<{ name: string } | null>(null);
   return <p>{(() => {
     const _user = user();
-    return _user && _user.name;
+    return _user !== null && _user.name;
   })()}</p>;
 }`,
       );
@@ -1518,6 +1918,16 @@ export const Button = function Button(
   return <button ref={reactRef(_props.ref)}>{props.label}</button>;
 };`,
       );
+    });
+
+    it('reads the props a forwarded-ref component destructures as props', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+export const Button = React.forwardRef<HTMLButtonElement, { label: string; tone?: string }>(function Button(props, forwardedRef) {
+  const { label, ...other } = props;
+  return <button ref={forwardedRef} {...other}>{label}</button>;
+});`);
+      expect(output).not.toContain('const { label');
+      expect(output).toContain('{props.label}');
     });
 
     it('reads an external store through an accessor', () => {

@@ -1,55 +1,53 @@
-import type { ParentProps } from 'solid-js';
-import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { splitProps } from '../utils/solid-1-compat';
+import { omit } from 'solid-js';
+import { reactRef } from 'docs/src/adapters/react';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
+import { observeScrollableInner } from '../utils/observeScrollableInner';
 
-export function Root(props: JSX.HTMLAttributes<HTMLDivElement> & ParentProps) {
-  const [local, rest] = splitProps(props, ["class", "children"])
+export function Root(props: ReactProps<ComponentProps<'div'>>) {
+  const rest = omit(props, 'class', 'children');
   return (
-    <div class={clsx("TableRoot", local.class)} {...rest}>
-      <table class="TableRootTable">{local.children}</table>
+    <div class={clsx('TableRoot', props.class)} {...rest}>
+      <table class="TableRootTable">{props.children}</table>
     </div>
-  )
+  );
 }
-
-export function Head(props: JSX.HTMLAttributes<HTMLTableSectionElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <thead class={clsx("TableHead", local.class)} {...rest} />
+export function Head(props: ReactProps<ComponentProps<'thead'>>) {
+  return <thead {...props} class={clsx('TableHead', props.class)} />;
 }
-
-export function Body(props: JSX.HTMLAttributes<HTMLTableSectionElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <tbody class={clsx("TableBody", local.class)} {...rest} />
+export function Body(props: ReactProps<ComponentProps<'tbody'>>) {
+  return <tbody {...props} class={clsx('TableBody', props.class)} />;
 }
-
-export function Row(props: JSX.HTMLAttributes<HTMLTableRowElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <tr class={clsx("TableRow", local.class)} {...rest} />
+export function Row(props: ReactProps<ComponentProps<'tr'>>) {
+  return <tr {...props} class={clsx('TableRow', props.class)} />;
 }
-
-export function ColumnHeader(props: JSX.ThHTMLAttributes<HTMLTableCellElement>) {
-  const [local, rest] = splitProps(props, ["class", "children"])
+export function ColumnHeader(props: Omit<ReactProps<ComponentProps<'th'>>, 'scope'>) {
+  const rest = omit(props, 'children', 'class');
   return (
-    <th scope="col" class={clsx("TableColumnHeader", local.class)} {...rest}>
-      <span class="TableCellInner">{local.children}</span>
+    <th scope="col" class={clsx('TableColumnHeader', props.class)} {...rest}>
+      <div class="TableCellInner">{props.children}</div>
     </th>
-  )
+  );
 }
-
-export function RowHeader(props: JSX.ThHTMLAttributes<HTMLTableCellElement>) {
-  const [local, rest] = splitProps(props, ["class", "children"])
+export function RowHeader(props: Omit<ReactProps<ComponentProps<'th'>>, 'scope'>) {
+  const rest = omit(props, 'children', 'class');
   return (
-    <th scope="row" class={clsx("TableCell", local.class)} {...rest}>
-      <span class="TableCellInner">{local.children}</span>
+    <th
+      scope="row"
+      ref={reactRef(observeScrollableInner)}
+      class={clsx('TableCell', props.class)}
+      {...rest}
+    >
+      <div class="TableCellInner">{props.children}</div>
     </th>
-  )
+  );
 }
-
-export function Cell(props: JSX.TdHTMLAttributes<HTMLTableCellElement>) {
-  const [local, rest] = splitProps(props, ["class", "children"])
+export function Cell(props: ReactProps<ComponentProps<'td'>>) {
+  const rest = omit(props, 'children', 'class');
   return (
-    <td class={clsx("TableCell", local.class)} {...rest}>
-      <span class="TableCellInner">{local.children}</span>
+    <td ref={reactRef(observeScrollableInner)} class={clsx('TableCell', props.class)} {...rest}>
+      <div class="TableCellInner">{props.children}</div>
     </td>
-  )
+  );
 }

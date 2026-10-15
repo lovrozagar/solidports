@@ -82,6 +82,25 @@ export interface Viewport {
 
 export interface ResolvingMetadata extends Promise<Metadata> {}
 
+/** What `next build` passes the config's webpack hook. */
+export interface WebpackConfigContext {
+  dev: boolean;
+  isServer: boolean;
+  [key: string]: any;
+}
+
+/** `next.config`'s shape, for what the docs' config and docs-infra's `withDocsInfra` read. */
+export interface NextConfig {
+  env?: Record<string, string | undefined>;
+  experimental?: Record<string, unknown>;
+  pageExtensions?: string[];
+  typescript?: { ignoreBuildErrors?: boolean; tsconfigPath?: string };
+  turbopack?: { rules?: Record<string, unknown>; [key: string]: unknown };
+  // Next types the webpack config as `any`.
+  webpack?: ((config: any, context: WebpackConfigContext) => any) | null;
+  [key: string]: unknown;
+}
+
 export namespace MetadataRoute {
   export interface Robots {
     rules:

@@ -1,3 +1,5 @@
+@import 'docs/src/css/custom-media.css';
+
 /* Keep layer order stable when this file is emitted from a client CSS chunk. */
 @layer all, base, theme, components, utilities;
 
@@ -24,14 +26,14 @@
     background: var(--color-content);
     z-index: 2;
 
-    @media (min-width: 64rem) {
+    @media (--show-side-nav) {
       /* Keep the fixed header content aligned with the centered layout container */
       max-width: var(--breakpoint-max-layout-width);
       margin-inline: auto;
       padding-inline: var(--root-layout-padding-x);
     }
 
-    @media (min-width: 84rem) {
+    @media (--show-quick-nav) {
       background: none;
       /* The header is transparent here, so let clicks fall through to the
          content scrolling under it while keeping its own controls interactive. */
@@ -68,7 +70,7 @@
     display: flex;
     align-items: center;
 
-    @media (min-width: 84rem) {
+    @media (--show-quick-nav) {
       /* Align the search trigger's text with the right sidebar (quick nav) text.
          2rem matches the quick nav's --quick-nav-margin-x; the extra 0.5rem
          matches the quick nav link's left padding. */
@@ -79,7 +81,7 @@
   .HeaderSearch .HeaderSearchDesktopTrigger {
     display: none;
 
-    @media (min-width: 64rem) {
+    @media (--show-side-nav) {
       display: inline-flex;
     }
   }
@@ -87,7 +89,7 @@
   .HeaderSearch .HeaderSearchMobileTrigger {
     display: inline-flex;
 
-    @media (min-width: 64rem) {
+    @media (--show-side-nav) {
       display: none;
     }
   }

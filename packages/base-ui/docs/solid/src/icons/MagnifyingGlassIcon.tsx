@@ -1,6 +1,7 @@
-import type { JSX } from '@solidjs/web';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
 
-export function MagnifyingGlassIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+export function MagnifyingGlassIcon(props: ReactProps<ComponentProps<'svg'>>) {
   return (
     <svg
       width="16"
@@ -15,5 +16,5 @@ export function MagnifyingGlassIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) 
       <path d="m11 11 3.5 3.5" />
       <circle cx="7" cy="7" r="5.5" />
     </svg>
-  )
+  );
 }

@@ -1,5 +1,7 @@
-export default {
+module.exports = {
   plugins: {
-    "postcss-custom-media": {},
+    'postcss-import': {},
+    '@tailwindcss/postcss': {},
+    'postcss-custom-media': {},
   },
-}
+};

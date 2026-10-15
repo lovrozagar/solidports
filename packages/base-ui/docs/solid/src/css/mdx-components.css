@@ -56,7 +56,7 @@
     text-wrap: balance;
   }
 
-  @media (min-width: 84rem) {
+  @media (--show-quick-nav) {
     .MdH2,
     .MdH3,
     .MdH4,

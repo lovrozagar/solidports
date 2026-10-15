@@ -1,0 +1,367 @@
+// The docs runtime's counterparts of React APIs Solid has none of. `react-to-solid.mjs` points the
+// transformed docs here; the generator copies this file to `docs/solid/src/adapters/react.ts`.
+// Their arguments are values, as the React APIs take them; a result React re-reads on each render
+// is an accessor.
+import {
+  createComponent,
+  createMemo,
+  createRenderEffect,
+  createOwner,
+  createSignal,
+  isHydrating,
+  onCleanup,
+  onSettled,
+  runWithOwner,
+  untrack,
+  useContext,
+} from 'solid-js';
+import type { Accessor, Context } from 'solid-js';
+import { Dynamic, isServer, mergeProps } from '@solidjs/web';
+import type { JSX, ValidComponent } from '@solidjs/web';
+
+/**
+ * A hook React picks by environment (`typeof window === 'undefined' ? server : browser`). It runs
+ * in an owner of its own: the server and the client allocate that owner's hydration id alike, so
+ * what each variant creates inside it leaves the keys after it in step.
+ */
+export function environmentHook<Hook extends (...args: any[]) => any>(
+  server: Hook,
+  browser: Hook,
+): Hook {
+  return ((...args: Parameters<Hook>) =>
+    runWithOwner(createOwner(), () => (isServer ? server : browser)(...args))) as Hook;
+}
+
+/**
+ * `React.useSyncExternalStore` as an accessor: the server snapshot on the server and through
+ * hydration (so the markup matches), then the client snapshot, kept current by `subscribe`. The
+ * server creates what the client does, so the hydration keys after it agree.
+ */
+export function useSyncExternalStore<T>(
+  subscribe: (onStoreChange: () => void) => () => void,
+  getSnapshot: () => T,
+  getServerSnapshot?: () => T,
+): Accessor<T> {
+  const initial =
+    (isServer || isHydrating()) && getServerSnapshot ? getServerSnapshot() : getSnapshot();
+  const [value, setValue] = createSignal<{ current: T }>({ current: initial });
+  onSettled(() => {
+    const update = () => setValue({ current: getSnapshot() });
+    update();
+    onCleanup(subscribe(update));
+  });
+  return () => value().current;
+}
+
+/** `React.useReducer`: state as an accessor and a dispatch that applies the reducer. */
+export function useReducer<S>(reducer: (state: S) => S, initialArg: S): [Accessor<S>, () => void];
+export function useReducer<S, A, I = S>(
+  reducer: (state: S, action: A) => S,
+  initialArg: I,
+  init?: (arg: I) => S,
+): [Accessor<S>, (action: A) => void];
+export function useReducer<S, A, I = S>(
+  reducer: (state: S, action: A) => S,
+  initialArg: I,
+  init?: (arg: I) => S,
+): [Accessor<S>, (action: A) => void] {
+  const initial = init ? init(initialArg) : (initialArg as unknown as S);
+  const [state, setState] = createSignal<{ current: S }>({ current: initial });
+  const dispatch = (action: A) => setState((prev) => ({ current: reducer(prev.current, action) }));
+  const current = createMemo(() => state().current);
+  return [current, dispatch];
+}
+
+/**
+ * `React.useTransition`: Solid batches writes itself; the transition is pending until its callback
+ * settles (an async callback, as React 19 runs one).
+ */
+export function useTransition(): [Accessor<boolean>, (callback: () => unknown) => void] {
+  const [pending, setPending] = createSignal(0);
+  const start = (callback: () => unknown) => {
+    setPending((count) => count + 1);
+    Promise.resolve(callback()).finally(() => setPending((count) => count - 1));
+  };
+  const isPending = createMemo(() => pending() > 0);
+  return [isPending, start];
+}
+
+/** `React.useActionState`: the action's latest result and whether a call is in flight. */
+export function useActionState<S, P>(
+  action: (state: S, payload: P) => S | Promise<S>,
+  initialState: S,
+): [Accessor<S>, (payload: P) => void, Accessor<boolean>] {
+  const [state, setState] = createSignal<{ current: S }>({ current: initialState });
+  const [pending, setPending] = createSignal(0);
+  const dispatch = (payload: P) => {
+    setPending((count) => count + 1);
+    Promise.resolve(action(untrack(state).current, payload))
+      .then((next) => setState({ current: next }))
+      .finally(() => setPending((count) => count - 1));
+  };
+  const current = createMemo(() => state().current);
+  const isPending = createMemo(() => pending() > 0);
+  return [current, dispatch, isPending];
+}
+
+/** `React.useOptimistic`: the passed state, or the optimistic one until the state changes. */
+export function useOptimistic<S, A>(
+  state: S,
+  update: (state: S, action: A) => S = (_state, action) => action as unknown as S,
+): [Accessor<S>, (action: A) => void] {
+  const [optimistic, setOptimistic] = createSignal<{ current: S }>({ current: state });
+  const current = createMemo(() => optimistic().current);
+  return [current, (action) => setOptimistic({ current: update(state, action) })];
+}
+
+/**
+ * `React.use`: a context's value (a docs context holds an accessor, which is returned as it is),
+ * or a promise's, read through an async memo that suspends to the nearest `<Loading>`.
+ */
+export function use<T>(usable: PromiseLike<T> | Context<Accessor<T>>): Accessor<T> {
+  if (typeof (usable as PromiseLike<T>).then === 'function') {
+    const promise = usable as PromiseLike<T>;
+    return createMemo(() => promise);
+  }
+  return useContext(usable as Context<Accessor<T>>);
+}
+
+/**
+ * `React.Ref`: a callback, or an object whose `current` takes the instance (`null` when React
+ * detaches it).
+ */
+export type Ref<T> = ((instance: T | null) => void) | { current: T | null } | null | undefined;
+
+/**
+ * React's `MouseEventHandler<T>` and its kind: a handler of the event on `T`, bivariant in its event
+ * as React declares it (a prop typed for one element takes a handler typed for another).
+ */
+export type ReactEventHandler<T, E extends Event> = {
+  bivarianceHack(event: E & { currentTarget: T; target: Element }): void;
+}['bivarianceHack'];
+
+/**
+ * Props as React types them: an event handler prop is a function (Solid's also take a
+ * `[handler, data]` pair), `style` is an object (Solid's also takes a string), an attribute holds
+ * its value (Solid's also take a server-serializable one), and DOM handlers and the ref are
+ * bivariant, as React declares them. React code spreads one element's props onto
+ * another (`ComponentProps<'div'>` onto a `<nav>`), which Solid's strict handler and ref types take
+ * only for any element.
+ */
+export type ReactProps<P> = {
+  [K in keyof P]: K extends 'ref'
+    ? ReactRefCallback | undefined
+    : K extends 'style'
+      ? Exclude<P[K], string>
+      : K extends `on${infer Initial}${string}`
+        ? Initial extends Uppercase<Initial>
+          ? ReactHandler<CallableHandler<P[K]>>
+          : P[K]
+        : Exclude<P[K], JSX.SerializableAttributeValue>;
+};
+
+type CallableHandler<H> = H extends (...args: never) => unknown
+  ? H
+  : H extends null | undefined
+    ? H
+    : never;
+
+type ReactHandler<H> =
+  NonNullable<H> extends (event: infer E) => void
+    ? E extends Event & { currentTarget: unknown }
+      ? | {
+            bivarianceHack(
+              event: Omit<E, 'currentTarget' | 'target'> & {
+                currentTarget: Element;
+                target: Element;
+              },
+            ): void;
+          }['bivarianceHack']
+        | Extract<H, undefined>
+      : H
+    : H;
+
+type ReactRefCallback = { bivarianceHack(instance: Element | null): void }['bivarianceHack'];
+
+/** `React.ComponentType`: a component of any props type, as React's (Solid's takes objects). */
+export type ComponentType<P = {}> = (props: P) => JSX.Element;
+
+/** `React.PropsWithoutRef`: a `forwardRef` component's props without their own `ref`. */
+export type PropsWithoutRef<P> = P extends any ? ('ref' extends keyof P ? Omit<P, 'ref'> : P) : P;
+
+function assignRef<T>(ref: Ref<T>, instance: T | null) {
+  if (typeof ref === 'function') {
+    ref(instance);
+  } else if (ref) {
+    ref.current = instance;
+  }
+}
+
+/** A `React.Ref` as a Solid `ref`: an object's `current` takes the element. */
+export function reactRef<T>(ref: Ref<T>): (instance: T | null) => void {
+  return (instance) => assignRef(ref, instance);
+}
+
+/**
+ * React's capture-phase handlers (`onKeyDownCapture`), which Solid's JSX has none of: listeners on
+ * the element in the capture phase, given with the element's ref.
+ */
+export function captureRef<T extends Element>(
+  ref: Ref<T>,
+  handlers: Record<string, ((event: any) => void) | undefined>,
+): (instance: T | null) => void {
+  return (instance) => {
+    assignRef(ref, instance);
+    if (!instance) {
+      return;
+    }
+    for (const [type, handler] of Object.entries(handlers)) {
+      if (handler) {
+        instance.addEventListener(type, handler, true);
+      }
+    }
+  };
+}
+
+/** `React.useImperativeHandle`: hands the ref its handle. */
+export function useImperativeHandle<T>(ref: Ref<T>, create: () => T) {
+  assignRef(ref, create());
+}
+
+// CSS properties that take a number as is; React writes any other number in pixels.
+const UNITLESS = new Set([
+  'animationIterationCount',
+  'aspectRatio',
+  'borderImageOutset',
+  'borderImageSlice',
+  'borderImageWidth',
+  'boxFlex',
+  'boxFlexGroup',
+  'boxOrdinalGroup',
+  'columnCount',
+  'columns',
+  'flex',
+  'flexGrow',
+  'flexPositive',
+  'flexShrink',
+  'flexNegative',
+  'flexOrder',
+  'gridArea',
+  'gridRow',
+  'gridRowEnd',
+  'gridRowSpan',
+  'gridRowStart',
+  'gridColumn',
+  'gridColumnEnd',
+  'gridColumnSpan',
+  'gridColumnStart',
+  'fontWeight',
+  'lineClamp',
+  'lineHeight',
+  'opacity',
+  'order',
+  'orphans',
+  'scale',
+  'tabSize',
+  'widows',
+  'zIndex',
+  'zoom',
+  'fillOpacity',
+  'floodOpacity',
+  'stopOpacity',
+  'strokeDasharray',
+  'strokeDashoffset',
+  'strokeMiterlimit',
+  'strokeOpacity',
+  'strokeWidth',
+]);
+
+/** What `reactStyle` makes of a value: a style of the state stays a function. */
+type ReactStyle<T> = T extends (...args: infer A) => unknown
+  ? (...args: A) => JSX.CSSProperties | undefined
+  : T extends string
+    ? string
+    : T extends null | undefined
+      ? undefined
+      : JSX.CSSProperties;
+
+/**
+ * A React `style` value as Solid takes it: CSS property names (custom properties as they are),
+ * pixels for a number, and no entry for `null`. A function (a Base UI style of the state) returns
+ * its result converted.
+ */
+export function reactStyle<T>(style: T): ReactStyle<T>;
+export function reactStyle(style: unknown): unknown {
+  if (typeof style === 'function') {
+    return (...args: unknown[]) => reactStyle(style(...args));
+  }
+  if (style == null || typeof style !== 'object') {
+    return style ?? undefined;
+  }
+  const converted: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(style)) {
+    if (value == null || typeof value === 'boolean') {
+      continue;
+    }
+    const name = key.startsWith('--')
+      ? key
+      : key.replace(/[A-Z]/g, (char) => `-${char.toLowerCase()}`);
+    converted[name] =
+      typeof value === 'number' && value !== 0 && !UNITLESS.has(key) ? `${value}px` : value;
+  }
+  return converted;
+}
+
+/**
+ * React's `useLayoutEffect`: render effect timing on the client. On the server the computation is
+ * still created (hydration ids stay aligned) and its compute runs, but the effect does not: React
+ * never runs layout effects on the server, and Solid's server runs a render effect's.
+ */
+export function createLayoutEffect<T>(
+  compute: Parameters<typeof createRenderEffect<T>>[0],
+  effect: Parameters<typeof createRenderEffect<T>>[1],
+): void {
+  createRenderEffect<T>(compute, isServer ? (undefined as never) : effect);
+}
+
+const ELEMENT = Symbol.for('docs.element');
+
+/**
+ * A React element: JSX kept as a value, rendered where it is placed (Solid inserts a function by
+ * calling it there, in that place's context).
+ */
+export function element(render: () => JSX.Element): JSX.Element {
+  return Object.assign(render, { [ELEMENT]: true }) as unknown as JSX.Element;
+}
+
+/**
+ * Renders an element value where JSX places it (`{place(actions)}`): the call scopes the hole, so
+ * the content it builds takes the same hydration keys on the server and the client.
+ */
+export function place(value: JSX.Element): JSX.Element {
+  return typeof value === 'function' ? (value as () => JSX.Element)() : value;
+}
+
+/** `React.useState`'s initial value: a function is its initializer, called once. */
+export function initialState<S>(initial: S | (() => S)): S {
+  return typeof initial === 'function' ? (initial as () => S)() : initial;
+}
+
+/** `React.isValidElement`: a value made by `element()`. `P` types its props, as React's does. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function isValidElement<P = unknown>(value: unknown): value is JSX.Element {
+  return typeof value === 'function' && ELEMENT in value;
+}
+
+/**
+ * `React.cloneElement`: a render element is a `{ component, ...props }` config in the Solid docs
+ * (the transform writes `render={<X />}` as one); its clone renders the component with the props
+ * merged, as React's does. Another element renders as it is.
+ */
+export function cloneElement(element: unknown, props?: Record<string, unknown>): JSX.Element {
+  if (element != null && typeof element === 'object' && 'component' in element) {
+    const { component, ...elementProps } = element as { component: ValidComponent };
+    return createComponent(Dynamic, mergeProps(elementProps, props ?? {}, { component }));
+  }
+  return element as JSX.Element;
+}

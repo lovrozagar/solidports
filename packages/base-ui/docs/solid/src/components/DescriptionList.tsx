@@ -1,37 +1,39 @@
-import type { ParentProps } from 'solid-js';
-import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { splitProps } from '../utils/solid-1-compat';
+import { merge, omit } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
 
-export function Root(props: JSX.HTMLAttributes<HTMLDListElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <dl class={clsx("DescriptionList", local.class)} {...rest} />
+export function Root(props: ReactProps<ComponentProps<'dl'>>) {
+  return <dl {...props} class={clsx('DescriptionList', props.class)} />;
 }
-
-export function Term(props: JSX.HTMLAttributes<HTMLElement> & { separator?: boolean } & ParentProps) {
-  const [local, rest] = splitProps(props, ["class", "separator", "children"])
+export function Term(
+  _props: ReactProps<ComponentProps<'dt'>> & {
+    separator?: boolean;
+  },
+) {
+  const props = merge(
+    {
+      separator: false,
+    },
+    _props,
+  );
+  const rest = omit(props, 'separator');
   return (
-    <dt class={clsx("DescriptionTerm", local.separator && "separator", local.class)} {...rest}>
-      <Inner>{local.children}</Inner>
+    <dt {...rest} class={clsx('DescriptionTerm', props.separator && 'separator', rest.class)}>
+      <Inner>{rest.children}</Inner>
     </dt>
-  )
+  );
 }
-
-export function Details(props: JSX.HTMLAttributes<HTMLElement> & ParentProps) {
-  const [local, rest] = splitProps(props, ["class", "children"])
+export function Details(props: ReactProps<ComponentProps<'dd'>>) {
   return (
-    <dd class={clsx("DescriptionListDetails", local.class)} {...rest}>
-      <Inner>{local.children}</Inner>
+    <dd {...props} class={clsx('DescriptionListDetails', props.class)}>
+      <Inner>{props.children}</Inner>
     </dd>
-  )
+  );
 }
-
-export function Item(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <div class={clsx("DescriptionListItem", local.class)} {...rest} />
+export function Item(props: ReactProps<ComponentProps<'div'>>) {
+  return <div {...props} class={clsx('DescriptionListItem', props.class)} />;
 }
-
-function Inner(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <div class={clsx("DescriptionListInner", local.class)} {...rest} />
+function Inner(props: ReactProps<ComponentProps<'div'>>) {
+  return <div {...props} class={clsx('DescriptionListInner', props.class)} />;
 }

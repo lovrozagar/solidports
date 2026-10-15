@@ -1,207 +1,317 @@
-import { createMemo, createSignal, onSettled, For } from 'solid-js';
-import type { JSX } from '@solidjs/web';
-import { useLocation } from "@solidjs/router"
-import { Collapsible } from "@solidports/base-ui/collapsible"
-import { ScrollArea } from "@solidports/base-ui/scroll-area"
-import clsx from "clsx"
-import { CopyIcon } from "../../icons/CopyIcon"
-import { CheckIcon } from "../../icons/CheckIcon"
-import { ExternalLinkIcon } from "../../icons/ExternalLinkIcon"
-import { GitHubIcon } from "../../icons/GitHubIcon"
-import { MoreVertIcon } from "../../icons/MoreVertIcon"
-import { isSafari, isEdge } from "../../utils/detect-browser"
-import * as Menu from "../Menu"
-import { DemoVariantSelector } from "./DemoVariantSelector"
-import { DemoFileSelector } from "./DemoFileSelector"
-import { DemoCodeBlock } from "./DemoCodeBlock"
-import { DemoPlayground } from "./DemoPlayground"
-import { GhostButton } from "../GhostButton"
-import { useDemo } from "./useDemo"
-import "./Demo.css"
+import { captureRef, element, place } from 'docs/src/adapters/react';
+import { createMemo, createSignal, For, omit, onSettled, Show } from 'solid-js';
+import * as ReactDOM from 'docs/src/adapters/react-dom';
+import { Collapsible } from '@solidports/base-ui/collapsible';
+import { ScrollArea } from '@solidports/base-ui/scroll-area';
+import * as Menu from 'docs/src/components/Menu';
+import { usePathname } from 'docs/src/adapters/next/navigation';
+import type { ContentProps } from '@mui/internal-docs-infra/CodeHighlighter/types';
+import { useDemo } from '@mui/internal-docs-infra/useDemo';
+import { CopyIcon } from 'docs/src/icons/CopyIcon';
+import copy from 'clipboard-copy';
+import clsx from 'clsx';
+import kebabCase from 'es-toolkit/compat/kebabCase';
+import { CheckIcon } from 'docs/src/icons/CheckIcon';
+import { ExternalLinkIcon } from 'docs/src/icons/ExternalLinkIcon';
+import { GitHubIcon } from 'docs/src/icons/GitHubIcon';
+import { MoreVertIcon } from 'docs/src/icons/MoreVertIcon';
+import { exportCodeSandbox, exportOpts } from 'docs/src/utils/demoExportOptions';
+import { getGitHubDemoUrl } from 'docs/src/utils/getGitHubDemoUrl';
+import { platform } from '@base-ui/utils/platform';
+import { useTimeout } from '@base-ui/utils/useTimeout';
+import { ownerWindow } from '@base-ui/utils/owner';
+import { useGoogleAnalytics } from 'docs/src/blocks/GoogleAnalyticsProvider';
+import { DemoVariantSelector } from './DemoVariantSelector';
+import { DemoFileSelector } from './DemoFileSelector';
+import { DemoCodeBlock } from './DemoCodeBlock';
+import { GhostButton } from '../GhostButton';
+import { DemoPlayground } from './DemoPlayground';
+import './Demo.css';
 
-function kebabCase(input: string) {
-  return input
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/[_\s]+/g, "-")
-    .toLowerCase()
-}
-
-export interface DemoProps {
-  name?: string
-  slug?: string
-  /** Relative path to src/demos/solid/<path>, e.g. "accordion/hero". */
-  path: string
-  defaultOpen?: boolean
-  compact?: boolean
-  class?: string
-  showExtraPlaygroundLink?: boolean
-}
-
-/** Upstream `Demo.tsx` ported 1:1 at syntax level — tab switcher, copy button,
-    show-code Collapsible, StackBlitz/CodeSandbox link (disabled stubs),
-    variant selector. Load pipeline defined in `useDemo.tsx`. */
+export type DemoProps = ContentProps<{
+  class?: string;
+}>;
 export function Demo(props: DemoProps) {
-  let collapsibleTriggerRef: HTMLElement | undefined
-  const [copyTimeout, setCopyTimeout] = createSignal<number>(0)
-  const location = useLocation()
+  const rest = omit(props, 'class');
+  const collapsibleTriggerRef: {
+    current: HTMLSpanElement | null;
+  } = {
+    current: null,
+  };
+  const [copyTimeout, setCopyTimeout] = createSignal<number>(0);
+  const [sourceLinkCopied, setSourceLinkCopied] = createSignal(false);
+  const sourceLinkCopyResetTimeout = useTimeout();
+  const ga = useGoogleAnalytics();
+  const pathname = usePathname();
+  const demoSlug = createMemo(() => rest.slug || (rest.name ? kebabCase(rest.name) : undefined));
+  const demoId = createMemo(() => {
+    const _demoSlug = demoSlug();
+    const _pathname = pathname();
+    return _demoSlug ? `${_pathname}#${_demoSlug}` : _pathname;
+  });
+  const hasLoggedInteraction = {
+    current: false,
+  };
+  const onPlaygroundInteraction = () => {
+    const _demoId = demoId();
+    if (!hasLoggedInteraction.current) {
+      hasLoggedInteraction.current = true;
+      ga()?.trackEvent({
+        category: 'demo',
+        action: 'interaction',
+        label: _demoId,
+        params: {
+          interaction: _demoId,
+          slug: demoSlug() || '',
+        },
+      });
+    }
+  };
+  const onCopied = () => {
+    const _demoId2 = demoId();
+    ga()?.trackEvent({
+      category: 'demo',
+      action: 'copy',
+      label: _demoId2,
+      params: {
+        copy: _demoId2,
+        slug: demoSlug() || '',
+      },
+    });
 
-  const demoSlug = createMemo(() => {
-    if (props.slug) {return props.slug}
-    if (props.name) {return kebabCase(props.name)}
-    return undefined
-  })
-  function onCopied() {
     /* eslint-disable no-restricted-syntax */
     const newTimeout = window.setTimeout(() => {
-      window.clearTimeout(newTimeout)
-      setCopyTimeout(0)
-    }, 2000)
-    window.clearTimeout(copyTimeout())
-    setCopyTimeout(newTimeout)
+      window.clearTimeout(newTimeout);
+      setCopyTimeout(0);
+    }, 2000);
+    window.clearTimeout(copyTimeout());
+    setCopyTimeout(newTimeout);
     /* eslint-enable no-restricted-syntax */
-  }
-
+  };
   const demo = useDemo(
-    { name: props.name, path: props.path, slug: props.slug },
-    { copy: { onCopied }, defaultOpen: props.defaultOpen },
-  )
-
-  const [fallbackToCodeSandbox, setFallbackToCodeSandbox] = createSignal(false)
-  onSettled(() => {
-    if (isSafari || isEdge) {setFallbackToCodeSandbox(true)}
-  })
-
-  function onOpenChange(nextOpen: boolean) {
-    /* Upstream uses ReactDOM.flushSync to read the trigger rect before/after close so
-       the scroll-adjust runs in the same frame. Solid's updates are synchronous in
-       event handlers so we can read rects directly around setExpanded. */
-    if (!nextOpen && collapsibleTriggerRef !== null && collapsibleTriggerRef !== undefined) {
-      const triggerEl = collapsibleTriggerRef
-      const rectTopBeforeClose = triggerEl.getBoundingClientRect().top
-      demo.setExpanded(nextOpen)
-      const rectTopAfterClose = triggerEl.getBoundingClientRect().top
-      const delta = rectTopAfterClose - rectTopBeforeClose
-      if (rectTopAfterClose < 0) {
-        window.scrollBy({ behavior: "instant" as ScrollBehavior, top: delta })
-      }
-      return
+    () => rest,
+    () => ({
+      copy: {
+        onCopied,
+      },
+      export: exportOpts,
+      exportCodeSandbox,
+    }),
+  );
+  const githubUrl = createMemo(() => getGitHubDemoUrl(rest.url, demo().selectedVariant));
+  const onViewSource = () => {
+    const _demoId3 = demoId();
+    ga()?.trackEvent({
+      category: 'demo',
+      action: 'open_github',
+      label: _demoId3,
+      params: {
+        github: _demoId3,
+        slug: demoSlug() || '',
+      },
+    });
+  };
+  const onCopySourceLink = async () => {
+    const _githubUrl = githubUrl();
+    if (!_githubUrl) {
+      return;
     }
-    demo.setExpanded(nextOpen)
-  }
-
-  function onSelectFile(fileName: string) {
-    demo.selectFileName(fileName)
-  }
-
-  const externalPlaygroundLink = () =>
-    fallbackToCodeSandbox() ? (
-      <GhostButton aria-label="Open in CodeSandbox" type="button" onClick={demo.openCodeSandbox}>
-        CodeSandbox
-        <ExternalLinkIcon />
-      </GhostButton>
-    ) : (
-      <GhostButton aria-label="Open in StackBlitz" type="button" onClick={demo.openStackBlitz}>
-        StackBlitz
-        <ExternalLinkIcon />
-      </GhostButton>
-    )
-
-  const githubUrl = createMemo(() => {
-    const variant = demo.selectedVariant() === "Tailwind" ? "tailwind" : "css-modules"
-    const [component, ...rest] = props.path.split("/")
-    const demoName = rest.join("/")
-    if (!component || !demoName) {return null}
-    return `https://github.com/mui/base-ui/tree/v1.9.0/docs/src/app/(docs)/react/components/${component}/demos/${demoName}/${variant}`
-  })
-
-  const toolbarActions = () => (
+    await copy(_githubUrl);
+    setSourceLinkCopied(true);
+    const _demoId4 = demoId();
+    ga()?.trackEvent({
+      category: 'demo',
+      action: 'copy_source_link',
+      label: _demoId4,
+      params: {
+        copy_source_link: _demoId4,
+        slug: demoSlug() || '',
+      },
+    });
+    sourceLinkCopyResetTimeout().start(2000, () => setSourceLinkCopied(false));
+  };
+  const onOpenChange = (nextOpen: boolean) => {
+    const action = nextOpen ? 'expand' : 'collapse';
+    const _demoId5 = demoId();
+    ga()?.trackEvent({
+      category: 'demo',
+      action,
+      label: _demoId5,
+      params: {
+        [action]: _demoId5,
+        slug: demoSlug() || '',
+      },
+    });
+    if (!nextOpen && collapsibleTriggerRef.current != null) {
+      const buttonVisualEl = collapsibleTriggerRef.current;
+      const rectTopBeforeClose = buttonVisualEl.getBoundingClientRect().top;
+      ReactDOM.flushSync(() => demo().setExpanded(nextOpen));
+      const rectTopAfterClose = buttonVisualEl.getBoundingClientRect().top;
+      const delta = rectTopAfterClose - rectTopBeforeClose;
+      // Don't scroll if the collapse button is still in the viewport after closing.
+      if (rectTopAfterClose < 0) {
+        ownerWindow(buttonVisualEl).scrollBy({
+          top: delta,
+          behavior: 'instant',
+        });
+      }
+      return;
+    }
+    demo().setExpanded(nextOpen);
+  };
+  const onSelectFile = (fileName: string) => {
+    ga()?.trackEvent({
+      category: 'demo',
+      action: 'file_select',
+      label: demoId(),
+      params: {
+        file_select: fileName,
+        slug: demoSlug() || '',
+      },
+    });
+    demo().selectFileName(fileName);
+  };
+  const [fallbackToCodeSandbox, setFallbackToCodeSandbox] = createSignal(false);
+  onSettled(() => {
+    if (platform.engine.webkit) {
+      setFallbackToCodeSandbox(true);
+    }
+  });
+  const externalPlaygroundLink = createMemo(() =>
+    fallbackToCodeSandbox()
+      ? element(() => (
+          <GhostButton
+            aria-label="Open in CodeSandbox"
+            type="button"
+            onClick={demo().openCodeSandbox}
+          >
+            CodeSandbox
+            <ExternalLinkIcon />
+          </GhostButton>
+        ))
+      : element(() => (
+          <GhostButton
+            aria-label="Open in StackBlitz"
+            type="button"
+            onClick={demo().openStackBlitz}
+          >
+            StackBlitz
+            <ExternalLinkIcon />
+          </GhostButton>
+        )),
+  );
+  const toolbarActions = element(() => (
     <>
-      {demo.variants.length > 1 ? (
+      {demo().variants.length > 1 && (
         <DemoVariantSelector
-          onVariantChange={demo.expand}
-          variants={demo.variants}
-          selectedVariant={demo.selectedVariant}
-          selectVariant={demo.selectVariant as (value: string | null) => void}
-          availableTransforms={demo.availableTransforms}
-          selectedTransform={demo.selectedTransform}
-          selectTransform={demo.selectTransform}
+          onVariantChange={demo().expand}
+          variants={demo().variants}
+          selectedVariant={demo().selectedVariant}
+          selectVariant={demo().selectVariant as any}
         />
-      ) : null}
+      )}
       {externalPlaygroundLink()}
-      {githubUrl() ? (
-        <Menu.Root>
-          <Menu.Trigger
-            render={(triggerProps) => (
-              <GhostButton
-                {...(triggerProps as JSX.ButtonHTMLAttributes<HTMLButtonElement>)}
-                layout="icon"
-                aria-label="More actions"
+      <Show when={githubUrl()}>
+        {(_githubUrl2) => (
+          <Menu.Root>
+            <Menu.Trigger
+              render={{
+                component: GhostButton,
+                layout: 'icon',
+                'aria-label': 'More actions',
+                get children() {
+                  return <MoreVertIcon aria-hidden="true" />;
+                },
+              }}
+            />
+            <Menu.Popup align="end" alignOffset={-5}>
+              <Menu.LinkItem
+                href={_githubUrl2()}
+                target="_blank"
+                rel="noopener"
+                onClick={onViewSource}
               >
-                <MoreVertIcon aria-hidden="true" />
-              </GhostButton>
-            )}
-          />
-          <Menu.Popup align="end" alignOffset={-5}>
-            <Menu.LinkItem href={githubUrl()!} target="_blank" rel="noopener">
-              <GitHubIcon aria-hidden="true" />
-              View source on GitHub
-              <ExternalLinkIcon aria-hidden="true" />
-            </Menu.LinkItem>
-            <Menu.Item closeOnClick={false} onClick={() => void navigator.clipboard.writeText(githubUrl()!)}>
-              {copyTimeout() ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-              Copy link to source
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.Root>
-      ) : null}
-    </>
-  )
+                <GitHubIcon aria-hidden="true" />
+                View source on GitHub
+                <ExternalLinkIcon aria-hidden="true" />
+              </Menu.LinkItem>
 
+              <Menu.Item closeOnClick={false} onClick={onCopySourceLink}>
+                {sourceLinkCopied() ? (
+                  <CheckIcon aria-hidden="true" />
+                ) : (
+                  <CopyIcon aria-hidden="true" />
+                )}
+                Copy link to source
+                <span class="sr-only" aria-live="polite">
+                  {sourceLinkCopied() && 'Link copied!'}
+                </span>
+              </Menu.Item>
+            </Menu.Popup>
+          </Menu.Root>
+        )}
+      </Show>
+    </>
+  ));
   return (
-    <div class={clsx("DemoRoot", props.class)}>
-      <For each={demo.allFilesSlugs()}>
-        {(entry) => <span id={entry.slug} class="bui-scroll-mt-4" />}
+    <div class={clsx('DemoRoot', props.class)}>
+      <For each={demo().allFilesSlugs}>
+        {({ slug }) => <span id={slug} class="bui-scroll-mt-4" />}
       </For>
-      <div>
-        <DemoPlayground component={demo.component} variant={demo.selectedVariant()} />
+      <div
+        onPointerDown={onPlaygroundInteraction}
+        ref={captureRef(undefined, {
+          keydown: onPlaygroundInteraction,
+        })}
+      >
+        <DemoPlayground component={demo().component} variant={demo().selectedVariant} />
       </div>
-      <Collapsible.Root class="DemoCollapsibleRoot" open={demo.expanded()} onOpenChange={onOpenChange}>
-        <div role="figure" aria-label="Component demo code">
+      <Collapsible.Root
+        class="DemoCollapsibleRoot"
+        open={demo().expanded}
+        onOpenChange={onOpenChange}
+      >
+        <figure aria-label="Component demo code">
           <div class="DemoToolbar">
+            {/* One ScrollArea drives the edge-fade indicators at every viewport.
+                Below --sm the actions sit inside it (they scroll with the tabs);
+                at --sm+ the in-scroll copy is hidden and the sticky copy outside
+                takes over. Both copies stay mounted so state survives a resize. */}
             <ScrollArea.Root class="DemoToolbarScrollAreaRoot">
               <ScrollArea.Viewport class="DemoToolbarViewport">
                 <DemoFileSelector
-                  files={demo.files()}
-                  selectedFileName={demo.selectedFileName()}
+                  files={demo().files}
+                  selectedFileName={demo().selectedFileName}
                   selectFileName={onSelectFile}
-                  onTabChange={demo.expand}
+                  onTabChange={demo().expand}
                 />
-                <div class="DemoToolbarActions DemoToolbarActionsMobile">{toolbarActions()}</div>
+                <div class="DemoToolbarActions DemoToolbarActionsMobile">
+                  {place(toolbarActions)}
+                </div>
               </ScrollArea.Viewport>
             </ScrollArea.Root>
-            <div class="DemoToolbarActions DemoToolbarActionsDesktop">{toolbarActions()}</div>
+
+            <div class="DemoToolbarActions DemoToolbarActionsDesktop">{place(toolbarActions)}</div>
           </div>
 
           <DemoCodeBlock
-            selectedFile={demo.selectedFile()}
-            selectedFileLines={demo.selectedFileLines()}
-            collapsibleOpen={demo.expanded()}
-            collapsibleTriggerRef={(el) => {
-              collapsibleTriggerRef = el ?? undefined
-            }}
-            copyButton={
+            selectedFile={demo().selectedFile}
+            selectedFileLines={demo().selectedFileLines}
+            collapsibleOpen={demo().expanded}
+            collapsibleTriggerRef={collapsibleTriggerRef}
+            copyButton={element(() => (
               <GhostButton
                 layout="icon"
                 aria-label="Copy code"
-                onClick={demo.copy}
+                onClick={demo().copy}
                 class="DemoCodeBlockCopyButton"
               >
                 {copyTimeout() ? <CheckIcon /> : <CopyIcon />}
               </GhostButton>
-            }
+            ))}
           />
-        </div>
+        </figure>
       </Collapsible.Root>
     </div>
-  )
+  );
 }

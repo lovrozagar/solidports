@@ -1,6 +1,8 @@
 /* Keep layer order stable when this file is emitted from a client CSS chunk. */
 @layer all, base, theme, components, utilities;
 
+@import 'docs/src/css/custom-media.css';
+
 @layer components {
   .SideNavRoot {
     --side-nav-item-height: 1.75rem;
@@ -25,7 +27,7 @@
 
     display: none;
 
-    @media (min-width: 64rem) {
+    @media (--show-side-nav) {
       display: block;
       position: fixed;
       top: var(--header-height);

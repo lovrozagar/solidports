@@ -1,23 +1,26 @@
-import { useLocation } from "@solidjs/router"
-import { MarkdownIcon } from "../../icons/MarkdownIcon"
+import { createMemo } from 'solid-js';
+import { usePathname } from 'docs/src/adapters/next/navigation';
+import { MarkdownIcon } from '../../icons/MarkdownIcon';
 
 export function MarkdownLink() {
-  const location = useLocation()
-
+  const pathname = usePathname();
+  const markdownUrl = createMemo(() => `${pathname()}.md`);
   return (
-    <a
-      href={`${location.pathname}.md`}
-      class="SubtitleLink"
-      aria-label="View markdown source"
-      /* `external` opts out of Solid Router's click intercept — `.md` URLs are static files in
-         `public/`, not SPA routes; without this, router catches the click and shows blank. */
-      rel="external alternate"
-      type="text/markdown"
-    >
-      <span class="SubtitleLinkText">
-        <MarkdownIcon />
-        View as Markdown
-      </span>
-    </a>
-  )
+    <>
+      {/* Hoisted to <head> by React so crawlers and AI agents discover the Markdown twin */}
+      <link rel="alternate" type="text/markdown" href={markdownUrl()} />
+      <a
+        href={markdownUrl()}
+        class="SubtitleLink"
+        aria-label="View markdown source"
+        rel="alternate"
+        type="text/markdown"
+      >
+        <span class="SubtitleLinkText">
+          <MarkdownIcon />
+          View as Markdown
+        </span>
+      </a>
+    </>
+  );
 }

@@ -39,22 +39,19 @@
 @import '../components/ReferenceTable/ReferenceTable.css';
 
 @import './syntax.css';
-@import '../syntax-highlighting/index.css';
 
 @import './utilities/index.css';
 
 /* ═══ Safelist to generate Tailwind classes ═══ */
 
 /* Tailwind demos */
-@source '../demos/solid/**/*.{ts,tsx}';
-@source '../components/**/*.{ts,tsx}';
-@source '../routes/**/*.{ts,tsx,mdx}';
+@source '../app/(docs)/**/demos/**/*.{ts,tsx}';
 
 /* Enable all CSS files in the docs to ensure that all Tailwind CSS vars are available e.g. `--font-serif` */
 @source '../**/*.css';
 
 /* Disable Tailwind CSS vars in CSS Modules demos */
-@source not '../demos/solid/**/*.css';
+@source not '../app/(docs)/**/demos/**/*.css';
 
 /* ═══ Tailwind theme ═══ */
 /* Register demo-relevant tokens so Tailwind can generate utility classes. */
@@ -253,7 +250,7 @@
     --header-height: 3rem;
   }
 
-  @media (min-width: 64rem) {
+  @media (--show-side-nav) {
     :root {
       --header-height: 4rem;
     }

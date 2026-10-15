@@ -1,90 +1,48 @@
-import { defineConfig } from "vite"
-import solid from "@solidjs/vite-plugin"
-import { fileRoutes } from "filesystem-routing/vite"
-import mdx from "@mdx-js/rollup"
-import remarkGfm from "remark-gfm"
-import remarkTypography from "remark-typography"
-import rehypeExtractToc from "@stefanprobst/rehype-extract-toc"
-import tailwindcss from "@tailwindcss/vite"
-import { fileURLToPath } from "node:url"
-import { readFileSync } from "node:fs"
-import { rehypeSlug } from "./src/components/QuickNav/rehypeSlug.mjs"
-import { rehypeConcatHeadings } from "./src/components/QuickNav/rehypeConcatHeadings.mjs"
-import { rehypeQuickNav } from "./src/components/QuickNav/rehypeQuickNav.mjs"
-import { rehypeSubtitle } from "./src/components/Subtitle/rehypeSubtitle.mjs"
-import { rehypeKbd } from "./src/components/Kbd/rehypeKbd.mjs"
-import { rehypeReference } from "./src/components/ReferenceTable/rehypeReference.mjs"
-import { rehypeSyntaxHighlighting } from "./src/syntax-highlighting/index.mjs"
-import { demoHighlight } from "./src/syntax-highlighting/viteDemoHighlight.mjs"
+// The Solid docs: the generated sources (`src`, `docs-infra`, `base-ui-utils`) served by Solid's
+// start mode, with Next's app router and the docs' `next.config.mjs` applied by `framework/vite`.
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vite';
+import solid from '@solidjs/vite-plugin';
+import { nextApp } from './framework/vite';
 
-const libPkg = JSON.parse(
-	readFileSync(fileURLToPath(new URL("../../packages/solid/package.json", import.meta.url)), "utf-8"),
-) as { version: string }
+const root = fileURLToPath(new URL('.', import.meta.url));
+const at = (relative: string) => fileURLToPath(new URL(relative, import.meta.url));
 
-const jsxRuntime = fileURLToPath(new URL("./src/shims/solid-jsx-runtime.ts", import.meta.url))
-const jsxDevRuntime = fileURLToPath(new URL("./src/shims/solid-jsx-dev-runtime.ts", import.meta.url))
-const solidJsWeb = fileURLToPath(new URL("./src/shims/solid-js-web.ts", import.meta.url))
-const solidMdx = fileURLToPath(new URL("./src/shims/solid-mdx.tsx", import.meta.url))
-
-export default defineConfig({
-	css: {
-		postcss: fileURLToPath(new URL("./postcss.config.js", import.meta.url)),
-	},
-	define: {
-		"import.meta.env.VITE_LIB_VERSION": JSON.stringify(libPkg.version),
-	},
-	plugins: [
-		demoHighlight(),
-		// MDX must run before Solid: both are `enforce: "pre"`, so array order
-		// is the transform order. Solid compiling raw markdown throws
-		// `Invalid Character`. `jsx: true` leaves JSX for the Solid compiler.
-		{
-			...mdx({
-				jsxImportSource: "@solidjs/web",
-				providerImportSource: solidMdx,
-				remarkPlugins: [remarkGfm, remarkTypography],
-				rehypePlugins: [
-					rehypeReference,
-					...rehypeSyntaxHighlighting,
-					rehypeSlug,
-					rehypeConcatHeadings,
-					rehypeExtractToc,
-					rehypeQuickNav,
-					rehypeSubtitle,
-					rehypeKbd,
-				],
-			}),
-			enforce: "pre",
-		},
-		solid({
-			start: true,
-			ssr: true,
-			extensions: [".jsx", ".tsx", ".mdx", ".md"],
-			// The docs compile the library from source, where HMR wraps its components; packages
-			// in node_modules never get those wrappers. `DOCS_NO_REFRESH=1` renders the library as
-			// apps consume it (used by the dev diagnostics crawl).
-			refresh: { disabled: process.env.DOCS_NO_REFRESH === "1" },
-		}),
-		fileRoutes({
-			types: true,
-			extensions: ["js", "jsx", "ts", "tsx", "md", "mdx"],
-		}),
-		tailwindcss(),
-	],
-	resolve: {
-		alias: {
-			"@solidports/base-ui": fileURLToPath(new URL("../../packages/solid/src", import.meta.url)),
-			docs: fileURLToPath(new URL(".", import.meta.url)),
-			"solid-js/jsx-dev-runtime": jsxDevRuntime,
-			"solid-js/jsx-runtime": jsxRuntime,
-			"solid-js/web": solidJsWeb,
-			"solid-js/store": "solid-js",
-			"solid-mdx": solidMdx,
-			"@solidjs/web/jsx-dev-runtime": jsxDevRuntime,
-			"@solidjs/web/jsx-runtime": jsxRuntime,
-		},
-	},
-	optimizeDeps: {
-		exclude: ["solid-mdx", "lucide-solid"],
-	},
-})
+export default defineConfig(async () => ({
+  root,
+  plugins: [
+    ...(await nextApp(root)),
+    solid({
+      start: {
+        app: 'framework/App.tsx',
+        document: 'framework/Document.tsx',
+        // A page's metadata reaches the head before the document is sent.
+        renderMode: 'async',
+      },
+      ssr: true,
+      extensions: ['.mdx', '.md'],
+    }),
+  ],
+  resolve: {
+    alias: [
+      { find: /^docs\//, replacement: root },
+      { find: /^@mui\/internal-docs-infra\/(.*)$/, replacement: `${at('./docs-infra/src/')}$1` },
+      { find: /^@base-ui\/utils\/(.*)$/, replacement: `${at('./base-ui-utils/src/')}$1` },
+      { find: /^@solidports\/base-ui$/, replacement: at('../../packages/solid/src/index.ts') },
+      { find: /^@solidports\/base-ui\/(.*)$/, replacement: `${at('../../packages/solid/src/')}$1` },
+      {
+        find: /^@solidjs\/web\/jsx-(dev-)?runtime$/,
+        replacement: at('./src/adapters/jsx-runtime.ts'),
+      },
+    ],
+  },
+  // Bundled for the server too: the Solid packages share the app's `solid-js` (one context
+  // registry).
+  ssr: { noExternal: ['@solidjs/router'] },
+  server: {
+    port: 3001,
+    // docs-infra writes a component's `types.md` as it loads its types; the file is its output,
+    // not a module.
+    watch: { ignored: ['**/types.md'] },
+  },
+}));

@@ -1,9 +1,10 @@
-import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { splitProps } from '../../utils/solid-1-compat';
-import "./Kbd.css"
+import { omit } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
+import './Kbd.css';
 
-export function Kbd(props: JSX.HTMLAttributes<HTMLElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <kbd class={clsx("Kbd", local.class)} {...rest} />
+export function Kbd(props: ReactProps<ComponentProps<'kbd'>>) {
+  const rest = omit(props, 'class');
+  return <kbd class={clsx('Kbd', props.class)} {...rest} />;
 }
