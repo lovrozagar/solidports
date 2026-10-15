@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
-import { initialState } from 'docs/src/adapters/react';
+import { useResetState } from 'docs/src/adapters/react';
 import type { Accessor } from 'solid-js';
 import type { Code, VariantCode } from '../CodeHighlighter/types';
 import { usePreference } from '../usePreference';
@@ -129,15 +129,11 @@ export function useVariantSelection(
       variantKeys(),
     ),
   );
-  const [selection, setSelection] = createSignal(() => untrack(() => resolvedValue()));
-  const [lastResolvedValue, setLastResolvedValue] = createSignal(() =>
-    untrack(() => initialState(resolvedValue())),
+  const [selection, setSelection] = useResetState(
+    () => resolvedValue(),
+    () => resolvedValue(),
+    () => resolvedValue(),
   );
-  const _resolvedValue = untrack(resolvedValue);
-  if (untrack(lastResolvedValue) !== _resolvedValue) {
-    setLastResolvedValue(_resolvedValue);
-    setSelection(_resolvedValue);
-  }
   const selectedVariantKey = createMemo(() => {
     const _selection = selection();
     return variantKeys().includes(_selection) ? _selection : resolvedValue();

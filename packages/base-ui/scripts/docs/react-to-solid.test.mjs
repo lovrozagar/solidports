@@ -138,6 +138,41 @@ export function Bar(props: { width: number }) {
     });
   });
 
+  describe('render-phase state updates', () => {
+    it('makes state a render seeds the state that computes the seed', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+export function useFile(props: { main?: string }) {
+  const [file, setFile] = React.useState<string | undefined>(undefined);
+  const variant = React.useMemo(() => props.main, [props.main]);
+  if (file === undefined && variant) {
+    setFile(variant);
+  }
+  return file;
+}`);
+      expect(output).toMatch(
+        /const variant = createMemo\(\(\) => props\(\)\.main\);\s*const \[file, setFile\] = useRenderState<string \| undefined>\(undefined, \(?(_file)\)? => \{\s*const (_variant) = variant\(\);\s*return \1 === undefined && \2 \? \2 : \1;/,
+      );
+      expect(output).not.toContain('setFile(');
+    });
+
+    it('makes state a render resets when a value changes reset with the value', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+export function useVisible(props: { mode: string }) {
+  const [visible, setVisible] = React.useState(props.mode !== 'visible');
+  const [prevMode, setPrevMode] = React.useState(props.mode);
+  if (prevMode !== props.mode) {
+    setPrevMode(props.mode);
+    setVisible(props.mode !== 'visible');
+  }
+  return visible;
+}`);
+      expect(output).toContain(
+        "const [visible, setVisible] = useResetState(untrack(props).mode !== 'visible', () => props().mode, () => props().mode !== 'visible');",
+      );
+      expect(output).not.toContain('prevMode');
+    });
+  });
+
   describe('element props objects', () => {
     it('writes the DOM names of an object typed as element props or merged as props', () => {
       const output = transformReactToSolid(`import { mergeProps } from '@base-ui/react/merge-props';

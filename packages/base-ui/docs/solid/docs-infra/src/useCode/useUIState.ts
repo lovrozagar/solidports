@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
-import { initialState } from 'docs/src/adapters/react';
+import { initialState, useRenderState } from 'docs/src/adapters/react';
 import type { Accessor } from 'solid-js';
 import { useUrlHashState } from '../useUrlHashState';
 import { isHashRelevantToDemo } from './useFileNavigation';
@@ -42,9 +42,6 @@ export function useUIState(_params: Accessor<UseUIStateProps>): Accessor<UseUISt
   const hasRelevantHash = createMemo(() =>
     isHashRelevantToDemo(_useUrlHashState2().hash, _params2().mainSlug),
   );
-  const [expanded, setExpanded] = createSignal(() =>
-    untrack(() => initialState(_params2().initialExpanded || hasRelevantHash())),
-  );
   const expand = () => setExpanded(true);
 
   // Edit-mode toggle. Starts on unless the block opted into `initialDisabled`; the host
@@ -52,12 +49,10 @@ export function useUIState(_params: Accessor<UseUIStateProps>): Accessor<UseUISt
   const [editable, setEditable] = createSignal(() =>
     untrack(() => initialState(!_params2().initialDisabled)),
   );
-  if (untrack(hasRelevantHash) && !untrack(expanded) && !untrack(_params2).onExpand) {
-    setExpanded(true);
-  }
-
-  // Route post-mount deep links through the host's expansion policy. An initially
-  // relevant hash is already represented by the state initializer above.
+  const [expanded, setExpanded] = useRenderState(
+    untrack(_params2).initialExpanded || untrack(hasRelevantHash),
+    (_expanded) => (hasRelevantHash() && !_expanded && !_params2().onExpand ? true : _expanded),
+  );
   createEffect(
     () => [expanded(), hasRelevantHash(), _params2().onExpand],
     () => {

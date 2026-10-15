@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
-import { initialState } from 'docs/src/adapters/react';
+import { initialState, useRenderState } from 'docs/src/adapters/react';
 import type { Accessor } from 'solid-js';
 import type { Code, VariantCode } from '../CodeHighlighter/types';
 import { decodeHastSource } from '../pipeline/loadIsomorphicCodeVariant/decodeHastSource';
@@ -209,19 +209,18 @@ export function useTransformManagement(
           : undefined,
     };
   });
-  const [lastApplied, setLastApplied] = createSignal<AppliedTransform | null>(() =>
-    untrack(() => initialState(nextApplied())),
+  const [lastApplied, setLastApplied] = useRenderState<AppliedTransform | null>(
+    untrack(nextApplied),
+    (_lastApplied) => {
+      const _nextApplied = nextApplied();
+      return _nextApplied &&
+        (_lastApplied?.variant !== _nextApplied.variant ||
+          _lastApplied.transform !== _nextApplied.transform ||
+          _lastApplied.result !== _nextApplied.result)
+        ? _nextApplied
+        : _lastApplied;
+    },
   );
-  const _nextApplied = untrack(nextApplied);
-  const _lastApplied = untrack(lastApplied);
-  if (
-    _nextApplied &&
-    (_lastApplied?.variant !== _nextApplied.variant ||
-      _lastApplied.transform !== _nextApplied.transform ||
-      _lastApplied.result !== _nextApplied.result)
-  ) {
-    setLastApplied(_nextApplied);
-  }
   const transformedFiles = createMemo(() =>
     transformApplicable() ? (nextApplied() ?? lastApplied())?.result : undefined,
   );

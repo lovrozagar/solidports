@@ -772,8 +772,16 @@ function lowerReactHook(node, api, ctx) {
   const args = node.arguments;
   switch (api) {
     case 'useState': {
-      imports.add('solid-js', 'createSignal');
       const [init] = args;
+      // State a render updates (see `renderPhaseUpdates`): its functions follow the initial value.
+      if (node.solidRenderState) {
+        const name = node.solidRenderState === 'update' ? 'useRenderState' : 'useResetState';
+        imports.add(REACT_ADAPTERS, name);
+        const call = t.callExpression(t.identifier(name), args);
+        call.typeParameters = node.typeParameters;
+        return call;
+      }
+      imports.add('solid-js', 'createSignal');
       // React runs a lazy initializer once and calls an initial value that is a function; Solid's
       // `createSignal` runs a function it is passed (tracking its reads). A lazy initializer runs
       // untracked; a value that may be a function goes through the docs runtime's
@@ -899,6 +907,159 @@ const fragmentOf = (expression) =>
   ]);
 
 /**
+ * React state a render updates (`if (test) setState(value)` in a component's body) reruns that
+ * update on each render; Solid 2 writes no signal while it renders. Two shapes become the state's
+ * own compute, where the `if` was (after what it reads):
+ * - a seed, `if (test(state)) setState(value)`: `useRenderState(initial, (state) => ...)`;
+ * - a reset, `if (prev !== key) { setPrev(key); setState(value); }` (React's "store information
+ *   from previous renders"): `useResetState(initial, () => key, () => value)`, and `prev` goes.
+ * Other render-phase updates stay as they are.
+ */
+function renderPhaseUpdates(fnPath, ctx) {
+  const body = fnPath.get('body.body');
+  // `const [value, setValue] = useState(...)` declarations, by setter and by value name.
+  const states = new Map();
+  for (const statement of body) {
+    if (!statement.isVariableDeclaration() || statement.node.declarations.length !== 1) {
+      continue;
+    }
+    const { id, init } = statement.node.declarations[0];
+    if (
+      !t.isCallExpression(init) ||
+      reactApi(init.callee, ctx.reactNames) !== 'useState' ||
+      !t.isArrayPattern(id) ||
+      id.elements.length !== 2 ||
+      !t.isIdentifier(id.elements[0]) ||
+      !t.isIdentifier(id.elements[1])
+    ) {
+      continue;
+    }
+    const state = { statement, init, value: id.elements[0].name, setter: id.elements[1].name };
+    states.set(state.setter, state);
+    states.set(state.value, state);
+  }
+  if (states.size === 0) {
+    return;
+  }
+  const setterCall = (statement) => {
+    const expression = t.isExpressionStatement(statement) ? statement.expression : null;
+    return t.isCallExpression(expression) &&
+      t.isIdentifier(expression.callee) &&
+      expression.arguments.length === 1 &&
+      states.get(expression.callee.name)?.setter === expression.callee.name
+      ? { state: states.get(expression.callee.name), value: expression.arguments[0] }
+      : null;
+  };
+  // Whether a binding is read where the body runs (not in a closure) between two statements.
+  const readBetween = (name, from, to) =>
+    (fnPath.scope.getBinding(name)?.referencePaths ?? []).some((reference) => {
+      const statement = reference.find((path) => path.parentPath === fnPath.get('body'));
+      return (
+        statement &&
+        statement.key > from.key &&
+        statement.key < to.key &&
+        reference.getFunctionParent() === fnPath
+      );
+    });
+  const replaceName = (node, name, replacement) => {
+    const copy = t.cloneNode(node, true);
+    t.traverseFast(copy, (inner) => {
+      for (const key of t.VISITOR_KEYS[inner.type] ?? []) {
+        const child = inner[key];
+        if (
+          t.isIdentifier(child, { name }) &&
+          !(t.isMemberExpression(inner) && key === 'property' && !inner.computed)
+        ) {
+          inner[key] = t.identifier(replacement);
+        }
+      }
+    });
+    return t.isIdentifier(copy, { name }) ? t.identifier(replacement) : copy;
+  };
+  // Moves a state's declaration to `ifPath` (after what the update reads). The update's functions
+  // join the `useState` call's arguments, so the lowering reads them as the body's own code.
+  const moveTo = (state, ifPath, kind, functions) => {
+    if (
+      readBetween(state.value, state.statement, ifPath) ||
+      readBetween(state.setter, state.statement, ifPath)
+    ) {
+      return false;
+    }
+    state.init.solidRenderState = kind;
+    state.init.arguments = [state.init.arguments[0] ?? t.identifier('undefined'), ...functions];
+    ifPath.insertBefore(t.cloneNode(state.statement.node, false));
+    state.statement.remove();
+    return true;
+  };
+  for (const ifPath of body) {
+    if (!ifPath.isIfStatement() || ifPath.node.alternate || ifPath.removed) {
+      continue;
+    }
+    const { test, consequent } = ifPath.node;
+    const statements = t.isBlockStatement(consequent) ? consequent.body : [consequent];
+    const calls = statements.map(setterCall);
+    if (calls.length === 0 || calls.some((call) => !call)) {
+      continue;
+    }
+    // A reset: `prev !== key`, with `setPrev(key)` among the updates.
+    const prev =
+      t.isBinaryExpression(test) &&
+      (test.operator === '!==' || test.operator === '!=') &&
+      t.isIdentifier(test.left)
+        ? states.get(test.left.name)
+        : null;
+    const prevUpdate =
+      prev?.value === test.left.name
+        ? calls.find((call) => call.state === prev && t.isNodesEquivalent(call.value, test.right))
+        : null;
+    if (prevUpdate) {
+      const references = fnPath.scope.getBinding(prev.value)?.referencePaths ?? [];
+      const others = calls.filter((call) => call !== prevUpdate);
+      if (references.length !== 1 || others.some((call) => call.state === prev)) {
+        continue;
+      }
+      if (
+        others.every((call) =>
+          moveTo(call.state, ifPath, 'reset', [
+            t.arrowFunctionExpression([], t.cloneNode(test.right, true)),
+            t.arrowFunctionExpression([], t.cloneNode(call.value, true)),
+          ]),
+        )
+      ) {
+        prev.statement.remove();
+        ifPath.remove();
+      }
+      continue;
+    }
+    // A seed: one update of a state the test reads.
+    if (calls.length !== 1) {
+      continue;
+    }
+    const [{ state, value }] = calls;
+    let readsState = false;
+    t.traverseFast(test, (node) => {
+      readsState ||= t.isIdentifier(node, { name: state.value });
+    });
+    if (!readsState) {
+      continue;
+    }
+    const current = fnPath.scope.generateUid(state.value);
+    const update = t.arrowFunctionExpression(
+      [t.identifier(current)],
+      t.conditionalExpression(
+        replaceName(test, state.value, current),
+        replaceName(value, state.value, current),
+        t.identifier(current),
+      ),
+    );
+    if (moveTo(state, ifPath, 'update', [update])) {
+      ifPath.remove();
+    }
+  }
+  fnPath.scope.crawl();
+}
+
+/**
  * Lowers a component or a corpus hook to Solid's reactivity (see the header): splits setup from
  * render, turns derived consts into memos, and reads reactive bindings through calls.
  */
@@ -907,6 +1068,9 @@ function lowerFunction(fnPath, kind, ctx) {
   const expressionBody = !t.isBlockStatement(fnPath.node.body);
   if (expressionBody) {
     fnPath.get('body').replaceWith(t.blockStatement([t.returnStatement(fnPath.node.body)]));
+  }
+  if (!ctx.standalone) {
+    renderPhaseUpdates(fnPath, ctx);
   }
   const uid = (name) => fnPath.scope.generateUidIdentifier(name);
   const isAsync = fnPath.node.async;
