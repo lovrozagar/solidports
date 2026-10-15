@@ -19,7 +19,7 @@ function walk(dir) {
 
 // React demo `<section>/<name>/demos/<demo>/<variant>/index.tsx` is routed as
 // `/docs-<section>-<name>-demos-<demo>-<variant>/index.tsx` (the React host's naming); the
-// generated Solid demo lives at `<name>/<demo>/<variant>` (`handbook/<name>/...` for handbook pages).
+// generated Solid demo lives at the same path under `(docs)/solid`.
 const routes = {};
 for (const file of walk(reactDocs)) {
   const relative = path.relative(reactDocs, file).split(path.sep);
@@ -27,10 +27,8 @@ for (const file of walk(reactDocs)) {
     continue;
   }
   const [section, name, , demo, variant] = relative;
-  const solidDir = [section === 'handbook' ? 'handbook' : null, name, demo, variant]
-    .filter(Boolean)
-    .join('/');
-  routes[solidDir] = `/docs-${section}-${name}-demos-${demo}-${variant}/index.tsx`;
+  routes[relative.slice(0, 5).join('/')] =
+    `/docs-${section}-${name}-demos-${demo}-${variant}/index.tsx`;
 }
 
 export default defineConfig({
