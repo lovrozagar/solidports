@@ -359,7 +359,7 @@ export class SocketClient {
 
       this.socket!.write(`${JSON.stringify(message)}\n`);
 
-      // Timeout after 5 minutes
+      // Timeout after 20 minutes
       setTimeout(
         () => {
           if (this.pendingRequests.has(id)) {
@@ -367,7 +367,7 @@ export class SocketClient {
             reject(new Error('Request timeout'));
           }
         },
-        5 * 60 * 1000,
+        20 * 60 * 1000,
       );
     });
   }
