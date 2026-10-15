@@ -20,7 +20,7 @@
 
 - React (read-only): `packages/react/src/select/`
 - Solid (target):    `packages/solid/src/select/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/select.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/select/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/select/`
 
 ## Open issues

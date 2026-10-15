@@ -53,7 +53,7 @@ How the Solid-native version matches it (`packages/solid/src/button/Button.tsx`)
 
 - React (read-only): `packages/react/src/button/`
 - Solid (target):    `packages/solid/src/button/`, `packages/solid/src/utils/native/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/button.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/button/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/button/`
 
 ## Open issues

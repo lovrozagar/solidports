@@ -14,7 +14,7 @@
 
 - React (read-only): `packages/react/src/tabs/`
 - Solid (target):    `packages/solid/src/tabs/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/tabs.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/tabs/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/tabs/`
 
 ## Parity note (plan 8, native fast path)

@@ -20,7 +20,7 @@
 
 - React (read-only): `packages/react/src/tooltip/`
 - Solid (target):    `packages/solid/src/tooltip/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/tooltip.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/tooltip/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/tooltip/`
 
 ## Open issues

@@ -23,7 +23,7 @@
 
 - React (read-only): `packages/react/src/collapsible/`
 - Solid (target):    `packages/solid/src/collapsible/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/collapsible.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/collapsible/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/collapsible/`
 
 ## Parity note (plan 8, native fast path)

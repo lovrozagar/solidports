@@ -21,7 +21,7 @@
 
 - React (read-only): `packages/react/src/navigation-menu/`
 - Solid (target):    `packages/solid/src/navigation-menu/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/navigation-menu.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/navigation-menu/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/navigation-menu/`
 
 ## Open issues
