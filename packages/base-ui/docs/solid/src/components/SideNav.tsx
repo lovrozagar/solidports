@@ -1,5 +1,6 @@
 import { createEffect, createMemo, omit, onSettled } from 'solid-js';
 import { Dynamic } from '@solidjs/web';
+import { place } from 'docs/src/adapters/react';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import type { ReactProps } from 'docs/src/adapters/react';
 import clsx from 'clsx';
@@ -119,7 +120,7 @@ export function Item(props: ItemProps) {
       >
         {props.icon ? (
           <div class="SideNavLinkIconContainer">
-            {props.icon}
+            {place(props.icon)}
             {props.children}
           </div>
         ) : (

@@ -1,4 +1,5 @@
-import { createEffect, createMemo } from 'solid-js';
+// docs-infra's `useTypes`, kept by hand for Solid.
+import { onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { EnhancedProperty, EnhancedTypesMeta } from '../abstractCreateTypes/typesToJsx';
 import { useTypesDataContext } from '../useType/TypesDataContext';
@@ -74,39 +75,28 @@ export function useTypes<T extends {}>(
   contentProps: Accessor<TypesTableProps<T>>,
 ): Accessor<TypesTableProps<T>> {
   const context = useTypesDataContext();
-  const registerTypes = createMemo(() => context()?.registerTypes);
-  const registerTypeProps = createMemo(() => context()?.registerTypeProps);
-  const _contentProps = createMemo(() => {
-    const { type, additionalTypes } = contentProps();
-    return {
-      type,
-      additionalTypes,
-    };
-  });
-  createEffect(
-    () => [registerTypes(), _contentProps().type, _contentProps().additionalTypes],
-    () => {
-      const _registerTypes = registerTypes();
-      if (!_registerTypes) {
-        return;
-      }
+  // Registered once mounted, as upstream registers in effects: the server and the client's first
+  // render see no registered types, so they render the same type references.
+  onSettled(() => {
+    const value = untrack(context);
+    const { type, additionalTypes } = untrack(contentProps);
+    if (value?.registerTypes) {
       const entries: Array<{
         name: string;
         data: TypeData;
       }> = [];
-      const _type = _contentProps().type;
-      if (_type) {
+      if (type) {
         const typeData: TypeData = {
-          meta: _type,
-          href: _type.slug ? `#${_type.slug}` : `#${_type.name.toLowerCase()}`,
+          meta: type,
+          href: type.slug ? `#${type.slug}` : `#${type.name.toLowerCase()}`,
         };
         entries.push({
-          name: _type.name,
+          name: type.name,
           data: typeData,
         });
         // Also register under alias names (e.g., flat export name like "AccordionRootProps")
-        if (_type.aliases) {
-          for (const alias of _type.aliases) {
+        if (type.aliases) {
+          for (const alias of type.aliases) {
             entries.push({
               name: alias,
               data: typeData,
@@ -114,7 +104,7 @@ export function useTypes<T extends {}>(
           }
         }
       }
-      for (const additional of _contentProps().additionalTypes) {
+      for (const additional of additionalTypes) {
         const additionalData: TypeData = {
           meta: additional,
           href: additional.slug ? `#${additional.slug}` : `#${additional.name.toLowerCase()}`,
@@ -134,32 +124,24 @@ export function useTypes<T extends {}>(
         }
       }
       if (entries.length > 0) {
-        _registerTypes(entries);
+        value.registerTypes(entries);
       }
-    },
-  );
-  createEffect(
-    () => [registerTypeProps(), _contentProps().type, _contentProps().additionalTypes],
-    () => {
-      const _registerTypeProps = registerTypeProps();
-      if (!_registerTypeProps) {
-        return;
-      }
+    }
+    if (value?.registerTypeProps) {
       const propEntries: Array<{
         key: string;
         data: TypePropData;
       }> = [];
-      const _type2 = _contentProps().type;
-      if (_type2) {
-        propEntries.push(...collectTypeProps(_type2));
+      if (type) {
+        propEntries.push(...collectTypeProps(type));
       }
-      for (const additional of _contentProps().additionalTypes) {
+      for (const additional of additionalTypes) {
         propEntries.push(...collectTypeProps(additional));
       }
       if (propEntries.length > 0) {
-        _registerTypeProps(propEntries);
+        value.registerTypeProps(propEntries);
       }
-    },
-  );
+    }
+  });
   return contentProps;
 }

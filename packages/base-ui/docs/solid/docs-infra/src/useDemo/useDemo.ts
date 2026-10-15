@@ -1,9 +1,12 @@
-import { createMemo, useContext } from 'solid-js';
+// docs-infra's `useDemo`, kept by hand for Solid: `useCode` plus the selected variant's demo and
+// the StackBlitz and CodeSandbox exports. Like `useCode`, it returns one object of getters.
+import { createMemo, untrack, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 import kebabCase from 'kebab-case';
 import { useCode } from '../useCode';
-import type { UseCodeOpts } from '../useCode';
-import type { ContentProps } from '../CodeHighlighter/types';
+import type { UseCodeOpts, UseCodeResult } from '../useCode';
+import type { ContentProps, VariantCode } from '../CodeHighlighter/types';
 import { CodeHighlighterContext } from '../CodeHighlighter/CodeHighlighterContext';
 import { createStackBlitz } from './createStackBlitz';
 import { createCodeSandbox } from './createCodeSandbox';
@@ -11,57 +14,28 @@ import { exportVariant } from './exportVariant';
 import type { ExportConfig } from './exportVariant';
 import { exportVariantAsCra } from './exportVariantAsCra';
 import { flattenCodeVariant } from '../pipeline/loadIsomorphicCodeVariant/flattenCodeVariant';
-import { useCodeContext } from '../CodeProvider/CodeContext';
-import { resolveActionVariant } from '../useCode/resolveActionVariant';
-import type { ResolvedActionVariant } from '../useCode/resolveActionVariant';
-
-/**
- * Demo templates use the exportVariant/exportVariantAsCra with flattenCodeVariant pattern:
- *
- * For StackBlitz:
- * const { exported: exportedVariant, entrypoint } = exportVariant(variantCode);
- * const flattenedFiles = flattenCodeVariant(exportedVariant);
- * createStackBlitzDemo({ title, description, flattenedFiles, useTypescript, initialFile: entrypoint })
- *
- * For CodeSandbox:
- * const { exported: craExport, entrypoint } = exportVariantAsCra(variantCode, { title, description, useTypescript });
- * const flattenedFiles = flattenCodeVariant(craExport);
- * createCodeSandboxDemo({ title, description, flattenedFiles, useTypescript, initialFile: entrypoint })
- * createCodeSandboxDemo({ title, description, flattenedFiles, useTypescript })
- */
 
 export type UseDemoOpts = UseCodeOpts & {
-  codeSandboxUrlPrefix?: string;
-  stackBlitzPrefix?: string;
-  /** Common export configuration applied to both StackBlitz and CodeSandbox */
+  /** Export settings shared by StackBlitz and CodeSandbox. */
   export?: ExportConfig;
-  /** StackBlitz-specific export configuration (merged with common export config) */
   exportStackBlitz?: ExportConfig;
-  /** CodeSandbox-specific export configuration (merged with common export config) */
   exportCodeSandbox?: ExportConfig;
 };
 
-/** Reports whether an action variant still contains TypeScript source files. */
-function usesTypescript(variant: ResolvedActionVariant['variant']): boolean {
+export type UseDemoResult<T extends {} = {}> = UseCodeResult<T> & {
+  /** The selected variant's demo, rendered where it is placed. */
+  readonly component: JSX.Element;
+  openStackBlitz: () => void;
+  openCodeSandbox: () => void;
+  readonly name: string | undefined;
+  readonly slug: string | undefined;
+};
+
+function usesTypescript(variant: VariantCode): boolean {
   const fileNames = [variant.fileName, ...Object.keys(variant.extraFiles ?? {})];
   return fileNames.some((fileName) => fileName?.endsWith('.ts') || fileName?.endsWith('.tsx'));
 }
 
-/** Runs an action synchronously when transforms are warm, or after their lazy engine loads. */
-function runResolvedAction(
-  resolved: ResolvedActionVariant | Promise<ResolvedActionVariant>,
-  action: (value: ResolvedActionVariant) => void,
-): void {
-  if (resolved instanceof Promise) {
-    void (async () => action(await resolved))();
-  } else {
-    action(resolved);
-  }
-}
-
-/**
- * Helper to create HTML form element with hidden inputs
- */
 export function addHiddenInput(form: HTMLFormElement, name: string, value: string): void {
   const input = document.createElement('input');
   input.type = 'hidden';
@@ -70,10 +44,7 @@ export function addHiddenInput(form: HTMLFormElement, name: string, value: strin
   form.appendChild(input);
 }
 
-/**
- * Generic function to create and submit a form for opening online demo platforms
- * This function creates HTML elements and should be used in browser contexts
- */
+/** Posts `formData` to `url` in a new tab through a temporary form. */
 export function openWithForm({
   url,
   formData,
@@ -97,162 +68,80 @@ export function openWithForm({
   document.body.removeChild(form);
 }
 
-// TODO: take initialVariant and initialTransforms as parameters
 export function useDemo<T extends {} = {}>(
   contentProps: Accessor<ContentProps<T>>,
-  opts?: Accessor<UseDemoOpts | undefined>,
-) {
-  const code = useCode(contentProps, () => opts?.());
-
-  // Extract export configuration options
-  const _value = createMemo(() => {
-    const {
-      export: commonExportConfig = {},
-      exportStackBlitz: stackBlitzExportConfig = {},
-      exportCodeSandbox: codeSandboxExportConfig = {},
-    } = opts?.() || {};
-    return {
-      commonExportConfig,
-      stackBlitzExportConfig,
-      codeSandboxExportConfig,
-    };
-  });
-  // Get context to access components if available (using React.useContext to avoid import conflicts)
+  opts: Accessor<UseDemoOpts | undefined> = () => undefined,
+): Accessor<UseDemoResult<T>> {
+  const code = useCode(contentProps, opts)();
   const context = useContext(CodeHighlighterContext);
-  const _useCodeContext = useCodeContext();
-  const _useCodeContext2 = createMemo(() => {
-    const { transformEngineLoader } = _useCodeContext();
-    return {
-      transformEngineLoader,
-    };
-  });
-  const fallbacks = createMemo(() => context()?.fallbacks);
+
   const slug = createMemo(() => {
-    const _contentProps = contentProps();
-    return (
-      _contentProps.slug || (_contentProps.name ? kebabCase(_contentProps.name, false) : undefined)
-    );
+    const { slug: contentSlug, name } = contentProps();
+    return contentSlug || (name ? kebabCase(name, false) : undefined);
   });
-
-  // Get the effective components object - context overrides contentProps
-  const effectiveComponents = createMemo(() => {
-    return context()?.components || contentProps().components || {};
-  });
-
-  // Get the component for the current variant
   const component = createMemo(() => {
-    return effectiveComponents()[code().selectedVariant] || null;
+    const components = context?.components || contentProps().components || {};
+    return components[code.selectedVariant] ?? null;
   });
 
-  // Surface the selected variant's runtime error, reported by its preview
-  // component (e.g. `DemoRunner`) and bridged through `CodeHighlighterContext`.
-  const error = createMemo(() => context()?.errors?.[code().selectedVariant] ?? null);
-
-  // Demo-specific ref and focus management. Typed as `HTMLButtonElement` since
-  // the typical pattern is an invisible focus-target button rendered inside the
-  // demo. `resetFocus` simply calls `.focus()` on it.
-  const focusRef: {
-    current: HTMLButtonElement | null;
-  } = {
-    current: null,
-  };
-  const resetFocus = () => {
-    focusRef.current?.focus();
+  /** The selected variant's code, as the exports take it. */
+  const selectedVariantCode = (): VariantCode | null => {
+    const variantCode = (context?.code || contentProps().code || {})[code.selectedVariant];
+    return variantCode && typeof variantCode === 'object' ? variantCode : null;
   };
 
-  // Get the effective code - context overrides contentProps if available
-  const effectiveCode = createMemo(() => {
-    return context()?.code || contentProps().code || {};
-  });
-  const initialCode = createMemo(() => {
-    const _context = context();
-    return contentProps().code ?? _context?.initialCode ?? _context?.code;
-  });
-  const actionCode = createMemo(() =>
-    opts?.()?.actionSource === 'initial' ? initialCode() || {} : effectiveCode(),
-  );
-  const resolveSelectedAction = () => {
-    const variantCode = actionCode()[code().selectedVariant];
-    if (!variantCode || typeof variantCode === 'string') {
-      return null;
-    }
-    return resolveActionVariant(
-      variantCode,
-      code().selectedTransform,
-      _useCodeContext2().transformEngineLoader,
-      fallbacks(),
-    );
-  };
-
-  // Create StackBlitz demo callback
-  const openStackBlitz = () => {
-    const resolvedAction = resolveSelectedAction();
-    if (!resolvedAction) {
-      console.warn('No valid variant code available for StackBlitz demo');
+  const open = (
+    target: 'StackBlitz' | 'CodeSandbox',
+    defaultExport: typeof exportVariant,
+    create: (
+      title: string,
+      description: string,
+      exported: ReturnType<typeof exportVariant>,
+    ) => Parameters<typeof openWithForm>[0],
+  ) => {
+    const variant = untrack(selectedVariantCode);
+    if (!variant) {
+      console.warn(`No valid variant code available for ${target} demo`);
       return;
     }
-    const title = contentProps().name || 'Demo';
+    const options = untrack(opts) ?? {};
+    const title = untrack(contentProps).name || 'Demo';
     const description = `${title} demo`;
-    runResolvedAction(resolvedAction, ({ variant }) => {
-      const mergedConfig: ExportConfig = {
-        ..._value().commonExportConfig,
-        ..._value().stackBlitzExportConfig,
-        variantName: code().selectedVariant,
-        title,
-        description,
-        useTypescript: usesTypescript(variant),
-      };
-      const exportFunction = mergedConfig.exportFunction || exportVariant;
-      const { exported, rootFile } = exportFunction(variant, mergedConfig);
-      const flattenedFiles = flattenCodeVariant(exported);
-      const stackBlitzDemo = createStackBlitz({
-        title,
-        description,
-        flattenedFiles,
-        rootFile,
-      });
-      openWithForm(stackBlitzDemo);
-    });
+    const config: ExportConfig = {
+      ...options.export,
+      ...(target === 'StackBlitz' ? options.exportStackBlitz : options.exportCodeSandbox),
+      variantName: untrack(() => code.selectedVariant),
+      title,
+      description,
+      useTypescript: usesTypescript(variant),
+    };
+    const exportFunction = config.exportFunction || defaultExport;
+    openWithForm(create(title, description, exportFunction(variant, config)));
   };
 
-  // Create CodeSandbox demo callback
-  const openCodeSandbox = () => {
-    const resolvedAction = resolveSelectedAction();
-    if (!resolvedAction) {
-      console.warn('No valid variant code available for CodeSandbox demo');
-      return;
-    }
-    const title = contentProps().name || 'Demo';
-    const description = `${title} demo`;
-    runResolvedAction(resolvedAction, ({ variant }) => {
-      const mergedConfig: ExportConfig = {
-        ..._value().commonExportConfig,
-        ..._value().codeSandboxExportConfig,
-        variantName: code().selectedVariant,
-        title,
-        description,
-        useTypescript: usesTypescript(variant),
-      };
-      const exportFunction = mergedConfig.exportFunction || exportVariantAsCra;
-      const { exported: craExport, rootFile } = exportFunction(variant, mergedConfig);
-      const flattenedFiles = flattenCodeVariant(craExport);
-      const codeSandboxDemo = createCodeSandbox({
-        flattenedFiles,
-        rootFile,
-      });
-      openWithForm(codeSandboxDemo);
-    });
-  };
-  return createMemo(() => ({
-    ...code(),
-    // Demo-specific additions
-    component: component(),
-    error: error(),
-    focusRef,
-    resetFocus,
-    openStackBlitz,
-    openCodeSandbox,
-    name: contentProps().name,
-    slug: slug(),
-  }));
+  const result = Object.create(code, {
+    component: { get: component, enumerable: true },
+    openStackBlitz: {
+      value: () =>
+        open('StackBlitz', exportVariant, (title, description, { exported, rootFile }) =>
+          createStackBlitz({
+            title,
+            description,
+            flattenedFiles: flattenCodeVariant(exported),
+            rootFile,
+          }),
+        ),
+      enumerable: true,
+    },
+    openCodeSandbox: {
+      value: () =>
+        open('CodeSandbox', exportVariantAsCra, (_title, _description, { exported, rootFile }) =>
+          createCodeSandbox({ flattenedFiles: flattenCodeVariant(exported), rootFile }),
+        ),
+      enumerable: true,
+    },
+    name: { get: () => contentProps().name, enumerable: true },
+    slug: { get: slug, enumerable: true },
+  }) as UseDemoResult<T>;
+  return () => result;
 }

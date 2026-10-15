@@ -1,3 +1,4 @@
+// docs-infra's `usePreference`, kept by hand for Solid.
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 

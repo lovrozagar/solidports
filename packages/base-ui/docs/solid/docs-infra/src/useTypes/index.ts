@@ -1,3 +1,4 @@
+// docs-infra's `useTypes`, kept by hand for Solid.
 export * from './useTypes';
 
 export type {

@@ -1,3 +1,4 @@
+// docs-infra's `useType`, kept by hand for Solid.
 import { createMemo, createSignal } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { TypesDataContext } from './TypesDataContext';

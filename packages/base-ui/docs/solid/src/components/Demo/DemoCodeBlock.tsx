@@ -1,5 +1,5 @@
 import { createMemo, merge } from 'solid-js';
-import { reactRef } from 'docs/src/adapters/react';
+import { place, reactRef } from 'docs/src/adapters/react';
 import type { ComponentProps, JSX } from '@solidjs/web';
 import type { ReactProps, Ref } from 'docs/src/adapters/react';
 import { Collapsible } from '@solidports/base-ui/collapsible';
@@ -51,12 +51,12 @@ export function DemoCodeBlock(_props: DemoCodeBlockProps) {
       return (
         <Root>
           <ScrollArea.Viewport>
-            <div class="DemoSourceBrowser">{props.selectedFile}</div>
+            <div class="DemoSourceBrowser">{place(props.selectedFile)}</div>
           </ScrollArea.Viewport>
           <ScrollArea.Corner />
           <ScrollArea.Scrollbar orientation="vertical" />
           <ScrollArea.Scrollbar orientation="horizontal" />
-          {props.copyButton}
+          {place(props.copyButton)}
         </Root>
       );
     }
@@ -83,7 +83,7 @@ export function DemoCodeBlock(_props: DemoCodeBlockProps) {
               }),
             }}
           >
-            <div class="DemoSourceBrowser">{props.selectedFile}</div>
+            <div class="DemoSourceBrowser">{place(props.selectedFile)}</div>
           </Collapsible.Panel>
 
           {props.collapsibleOpen && (
@@ -93,7 +93,7 @@ export function DemoCodeBlock(_props: DemoCodeBlockProps) {
               <ScrollArea.Scrollbar orientation="horizontal" />
             </>
           )}
-          {props.copyButton}
+          {place(props.copyButton)}
 
           <Collapsible.Trigger
             class="DemoCollapseButton"

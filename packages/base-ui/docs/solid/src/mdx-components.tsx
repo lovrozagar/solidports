@@ -1,4 +1,4 @@
-import { element } from 'docs/src/adapters/react';
+import { element, place } from 'docs/src/adapters/react';
 import { createMemo, merge, omit } from 'solid-js';
 import { Dynamic } from '@solidjs/web';
 import type { Accessor } from 'solid-js';
@@ -48,12 +48,12 @@ function Heading(
       {props.link ? (
         <HeadingLink id={props.id}>
           {props.children}
-          {badge()}
+          {place(badge())}
         </HeadingLink>
       ) : (
         <>
           {props.children}
-          {badge()}
+          {place(badge())}
         </>
       )}
     </Dynamic>

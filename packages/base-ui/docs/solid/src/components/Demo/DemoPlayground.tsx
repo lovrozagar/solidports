@@ -1,3 +1,4 @@
+import { place } from 'docs/src/adapters/react';
 import type { JSX } from '@solidjs/web';
 import { ErrorBoundary } from 'docs/src/adapters/react-error-boundary';
 import kebabCase from 'es-toolkit/compat/kebabCase';
@@ -16,7 +17,7 @@ export function DemoPlayground(props: DemoPlaygroundProps) {
           data-demo={kebabCase(props.variant)}
           class="DemoPlaygroundInner"
         >
-          {props.component}
+          {place(props.component)}
         </figure>
       </div>
     </ErrorBoundary>

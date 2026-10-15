@@ -16,7 +16,6 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import * as prettier from 'prettier';
 import { unified } from 'unified';
@@ -99,28 +98,22 @@ function keepDocsInfraSection(file, generated) {
 }
 
 /** Upstream React packages the docs import, generated from their source into `<dest>/src`. */
-const requireFromFork = createRequire(path.join(FORK, 'package.json'));
-const packageRoot = (name) => {
-  let dir = path.dirname(requireFromFork.resolve(name));
-  while (!fs.existsSync(path.join(dir, 'package.json'))) {
-    dir = path.dirname(dir);
-  }
-  return dir;
+const DOCS_INFRA_SOURCE = {
+  name: '@mui/internal-docs-infra',
+  root: path.join(FORK, 'docs/docs-infra'),
+  dest: 'docs-infra',
 };
+
+/**
+ * docs-infra's runtime (the hooks and components the docs render with) is kept by hand for Solid
+ * in `templates/docs-infra/src`: a module there replaces the docs-infra module at the same path,
+ * and what it imports from docs-infra (the pipeline, types, pure helpers) is generated.
+ */
+const HAND_WRITTEN_DOCS_INFRA = path.join(TEMPLATES, 'docs-infra/src');
+
 const SOURCE_PACKAGES = [
-  {
-    name: '@mui/internal-docs-infra',
-    root: path.join(FORK, 'docs/docs-infra'),
-    dest: 'docs-infra',
-  },
+  DOCS_INFRA_SOURCE,
   { name: '@base-ui/utils', root: path.join(FORK, 'packages/utils'), dest: 'base-ui-utils' },
-  // docs-infra's code editor (a React component that ships its source).
-  {
-    name: 'react-simple-code-editor',
-    root: packageRoot('react-simple-code-editor'),
-    dest: 'react-simple-code-editor',
-    entry: 'src/index.tsx',
-  },
 ];
 
 // Modules the Solid docs import instead (the `docs/src/adapters` ones come from `templates/`).
@@ -135,7 +128,6 @@ const MODULES = {
   'react-dom': 'docs/src/adapters/react-dom',
   '@mui/internal-test-utils': 'docs/src/adapters/test-utils',
   'react-error-boundary': 'docs/src/adapters/react-error-boundary',
-  'react-simple-code-editor': 'docs/react-simple-code-editor/src/index',
   'hast-util-to-jsx-runtime': 'docs/src/adapters/hast-util-to-jsx-runtime',
   'mdx/types': 'docs/src/adapters/mdx-types',
   'server-only': 'docs/src/adapters/server-only',
@@ -537,7 +529,18 @@ async function generateSourcePackages() {
   const docsFiles = [...written].filter((file) => /\.(tsx?|mts|mjs|js|mdx)$/.test(file));
   const queue = [];
   const seen = new Set();
+  const followed = new Set();
   const owner = (file) => SOURCE_PACKAGES.find((pkg) => file.startsWith(`${pkg.root}${path.sep}`));
+  const docsInfraSrc = path.join(DOCS_INFRA_SOURCE.root, 'src');
+  // The hand-written module that replaces a docs-infra module, if any.
+  const handWrittenFor = (file) => {
+    if (!file.startsWith(`${docsInfraSrc}${path.sep}`)) {
+      return null;
+    }
+    const template = path.join(HAND_WRITTEN_DOCS_INFRA, path.relative(docsInfraSrc, file));
+    return fs.existsSync(template) ? template : null;
+  };
+  let followTemplate;
   const enqueueSpecifier = (specifier, from) => {
     const pkg = SOURCE_PACKAGES.find(
       (candidate) => specifier === candidate.name || specifier.startsWith(`${candidate.name}/`),
@@ -551,13 +554,49 @@ async function generateSourcePackages() {
       }
       return;
     }
-    if (specifier.startsWith('.') && owner(from)) {
+    if (!specifier.startsWith('.')) {
+      return;
+    }
+    if (from.startsWith(`${HAND_WRITTEN_DOCS_INFRA}${path.sep}`)) {
+      // A hand-written module imports its hand-written siblings, or the upstream modules beside
+      // the one it replaces.
+      const template = resolveRelative(path.resolve(path.dirname(from), specifier));
+      if (template) {
+        followTemplate(template);
+        return;
+      }
+      const upstreamDir = path.join(
+        docsInfraSrc,
+        path.relative(HAND_WRITTEN_DOCS_INFRA, path.dirname(from)),
+      );
+      const file = resolveRelative(path.resolve(upstreamDir, specifier));
+      if (file) {
+        queue.push(file);
+      }
+      return;
+    }
+    if (owner(from)) {
       const file = resolveRelative(path.resolve(path.dirname(from), specifier));
       if (file) {
         queue.push(file);
       }
     }
   };
+  // A hand-written module is copied with the templates: generate what it imports instead.
+  followTemplate = (template) => {
+    if (followed.has(template)) {
+      return;
+    }
+    followed.add(template);
+    for (const specifier of importsOf(fs.readFileSync(template, 'utf8'))) {
+      enqueueSpecifier(specifier, template);
+    }
+  };
+  for (const template of walk(HAND_WRITTEN_DOCS_INFRA)) {
+    if (/\.(tsx?|mts)$/.test(template)) {
+      followTemplate(template);
+    }
+  }
   for (const file of docsFiles) {
     for (const specifier of importsOf(fs.readFileSync(file, 'utf8'))) {
       enqueueSpecifier(specifier, file);
@@ -567,6 +606,11 @@ async function generateSourcePackages() {
   while (queue.length > 0) {
     const file = queue.pop();
     if (seen.has(file)) {
+      continue;
+    }
+    const template = handWrittenFor(file);
+    if (template) {
+      followTemplate(template);
       continue;
     }
     seen.add(file);
@@ -692,7 +736,7 @@ function generatePackageJson() {
   const infraDependencies = Object.fromEntries(
     Object.entries(infraPackage.dependencies).filter(
       // `typescript` comes with the React docs' own (TypeScript 6's API, as docs-infra's); the
-      // editor is an adapter.
+      // code editor goes with live editing, which the hand-written runtime leaves out.
       ([name]) => name !== 'typescript' && name !== 'react-simple-code-editor',
     ),
   );

@@ -210,7 +210,7 @@ export function Demo(props: DemoProps) {
           selectVariant={demo().selectVariant as any}
         />
       )}
-      {externalPlaygroundLink()}
+      {place(externalPlaygroundLink())}
       <Show when={githubUrl()}>
         {(_githubUrl2) => (
           <Menu.Root>

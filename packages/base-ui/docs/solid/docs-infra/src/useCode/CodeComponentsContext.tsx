@@ -1,11 +1,13 @@
+// docs-infra's `CodeComponentsContext`, kept by hand for Solid: the components highlighted code
+// renders its elements with (links, type references).
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import type { Components } from 'docs/src/adapters/hast-util-to-jsx-runtime';
+import type { HastComponents } from '../pipeline/hastToSolid';
 
-type CodeComponents = Partial<Components>;
-export const CodeComponentsContext = createContext<Accessor<CodeComponents | undefined>>(
+export const CodeComponentsContext = createContext<Accessor<HastComponents | undefined>>(
   () => undefined,
 );
-export function useCodeComponents(): Accessor<CodeComponents | undefined> {
+
+export function useCodeComponents(): Accessor<HastComponents | undefined> {
   return useContext(CodeComponentsContext);
 }

@@ -1,134 +1,92 @@
-import { createMemo, createSignal, untrack } from 'solid-js';
-import { environmentHook, initialState, useSyncExternalStore } from 'docs/src/adapters/react';
+// docs-infra's `useLocalStorageState`, kept by hand for Solid: `null` on the server and through
+// hydration (as React's server snapshot), then the stored value (or the initializer's), kept
+// current by `storage` events and by writes from this tab.
+import { createSignal, onSettled, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 
-/**
- * Copied from https://github.com/mui/material-ui/blob/9dfc2b12f3fc5c41071da5e10b0088fb04045a26/packages/mui-utils/src/useLocalStorageState/useLocalStorageState.ts
- */
-
-// storage events only work across tabs, we'll use an event emitter to announce within the current tab
 const currentTabChangeListeners = new Map<string, Set<() => void>>();
-function onCurrentTabStorageChange(key: string, handler: () => void) {
+
+function emitCurrentTabStorageChange(key: string) {
+  currentTabChangeListeners.get(key)?.forEach((listener) => listener());
+}
+
+function subscribe(key: string, callback: () => void): () => void {
+  const storageHandler = (event: StorageEvent) => {
+    if (event.storageArea === window.localStorage && event.key === key) {
+      callback();
+    }
+  };
+  window.addEventListener('storage', storageHandler);
   let listeners = currentTabChangeListeners.get(key);
   if (!listeners) {
     listeners = new Set();
     currentTabChangeListeners.set(key, listeners);
   }
-  listeners.add(handler);
-}
-function offCurrentTabStorageChange(key: string, handler: () => void) {
-  const listeners = currentTabChangeListeners.get(key);
-  if (!listeners) {
-    return;
-  }
-  listeners.delete(handler);
-  if (listeners.size === 0) {
-    currentTabChangeListeners.delete(key);
-  }
-}
-function emitCurrentTabStorageChange(key: string) {
-  const listeners = currentTabChangeListeners.get(key);
-  if (listeners) {
-    listeners.forEach((listener) => listener());
-  }
-}
-function subscribe(area: Storage, key: string | null, callback: () => void): () => void {
-  if (!key) {
-    return () => {};
-  }
-  const storageHandler = (event: StorageEvent) => {
-    if (event.storageArea === area && event.key === key) {
-      callback();
-    }
-  };
-  window.addEventListener('storage', storageHandler);
-  onCurrentTabStorageChange(key, callback);
+  listeners.add(callback);
   return () => {
     window.removeEventListener('storage', storageHandler);
-    offCurrentTabStorageChange(key, callback);
+    listeners.delete(callback);
+    if (listeners.size === 0) {
+      currentTabChangeListeners.delete(key);
+    }
   };
 }
-function getSnapshot(area: Storage, key: string | null): string | null {
-  if (!key) {
-    return null;
-  }
+
+function readStorage(key: string): string | null {
   try {
-    return area.getItem(key);
+    return window.localStorage.getItem(key);
   } catch {
-    // ignore
-    // See https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API#feature-detecting_localstorage
     return null;
   }
 }
-function setValue(area: Storage, key: string | null, value: string | null) {
-  if (!key) {
-    return;
-  }
+
+function writeStorage(key: string, value: string | null) {
   try {
     if (value === null) {
-      area.removeItem(key);
+      window.localStorage.removeItem(key);
     } else {
-      area.setItem(key, String(value));
+      window.localStorage.setItem(key, String(value));
     }
   } catch {
-    // ignore
-    // See https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API#feature-detecting_localstorage
     return;
   }
   emitCurrentTabStorageChange(key);
 }
+
 type Initializer = () => string | null;
-type UseStorageStateHookResult = [
-  string | null,
-  (value: string | null | ((prev: string | null) => string | null)) => void,
-];
-const serverValue: UseStorageStateHookResult = [null, () => {}];
-function useLocalStorageStateServer(): Accessor<UseStorageStateHookResult> {
-  return createMemo(() => serverValue);
-}
+type SetValue = (value: string | null | ((previous: string | null) => string | null)) => void;
 
 /**
- * Sync state to local storage so that it persists through a page refresh. Usage is
- * similar to useState except we pass in a storage key so that we can default
- * to that value on page load instead of the specified initial value.
- *
- * Since the storage API isn't available in server-rendering environments, we
- * return null during SSR and hydration.
- *
- * @param key - localStorage key. If null, persistence is disabled and
- *   the hook behaves like regular useState.
- * @param initializer - Initial value or function returning initial value
- * @returns A tuple of [value, setValue] where value is the current value
- *   from localStorage (or the initial value) and setValue updates it
+ * A value kept in `localStorage` under `key`. Without a key, a plain state seeded by the
+ * initializer.
  */
-function useLocalStorageStateBrowser(
+export default function useLocalStorageState(
   key: Accessor<string | null>,
-  _initializer?: Accessor<string | null | Initializer | undefined>,
-): Accessor<UseStorageStateHookResult> {
-  const initializer = createMemo(() => {
-    const _initializer2 = _initializer?.();
-    return _initializer2 === undefined ? null : _initializer2;
+  initializer: Accessor<string | null | Initializer> = () => null,
+): Accessor<[string | null, SetValue]> {
+  const initial = untrack(() => {
+    const value = initializer();
+    return typeof value === 'function' ? value() : value;
   });
-  const [initialValue] = createSignal(() => untrack(() => initialState(initializer())));
-  const area = window.localStorage;
-  const subscribeKey = (callback: () => void) => subscribe(area, key(), callback);
-  const getKeySnapshot = () => getSnapshot(area, key()) ?? initialValue();
-
-  // Start with null for the hydration, and then switch to the actual value.
-  const getKeyServerSnapshot = () => null;
-  const storedValue = useSyncExternalStore(subscribeKey, getKeySnapshot, getKeyServerSnapshot);
-  const setStoredValue = (value: string | null | ((prev: string | null) => string | null)) => {
-    const valueToStore = value instanceof Function ? value(storedValue()) : value;
-    setValue(area, key(), valueToStore);
-  };
-  const [nonStoredValue, setNonStoredValue] = createSignal(() =>
-    untrack(() => initialState(initialValue())),
-  );
-  return createMemo(() => {
-    if (!key()) {
-      return [nonStoredValue(), setNonStoredValue];
+  const [stored, setStored] = createSignal<string | null>(null);
+  const [nonStored, setNonStored] = createSignal<string | null>(initial);
+  onSettled(() => {
+    const storageKey = untrack(key);
+    if (!storageKey) {
+      return undefined;
     }
-    return [storedValue(), setStoredValue];
+    const update = () => setStored(readStorage(storageKey) ?? initial);
+    update();
+    return subscribe(storageKey, update);
   });
+  const setValue: SetValue = (value) => {
+    const storageKey = untrack(key);
+    if (!storageKey) {
+      setNonStored(value as never);
+      return;
+    }
+    const next = typeof value === 'function' ? value(untrack(stored)) : value;
+    writeStorage(storageKey, next);
+  };
+  return () => [key() ? stored() : nonStored(), setValue];
 }
-export default environmentHook(useLocalStorageStateServer, useLocalStorageStateBrowser);

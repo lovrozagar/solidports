@@ -2906,27 +2906,140 @@ function holdsElement(node) {
 
 /**
  * An element value is a function Solid calls where it is inserted. Inserted by name
- * (`{actions}`), the compiler takes it for a value and leaves the hole unscoped, so the server and
- * the client key its content differently; inserted through a call (`{place(actions)}`), the hole is
- * scoped and the keys agree.
+ * (`{actions}`), the compiler takes it for a value and leaves the hole unscoped; inserted as a
+ * memo's value (`{actions()}`), the client calls the returned function in a computation of its own
+ * and the server calls it in place. Either way the server and the client key its content
+ * differently; placed (`{place(actions)}`, `{place(actions())}`), the hole renders it itself and the
+ * keys agree. A prop holding an element (`{props.icon}`) is placed too: inserted bare, Solid calls
+ * it in the hole's inner computation, which also tracks what the element renders, so any update
+ * inside the element would call it again and rebuild it.
  */
 function placeElements(programPath, imports) {
   programPath.traverse({
     JSXExpressionContainer(path) {
       const { expression } = path.node;
-      if (
-        !t.isIdentifier(expression) ||
-        !(path.parentPath.isJSXElement() || path.parentPath.isJSXFragment())
-      ) {
+      if (!(path.parentPath.isJSXElement() || path.parentPath.isJSXFragment())) {
         return;
       }
-      const declarator = path.scope.getBinding(expression.name)?.path;
-      if (declarator?.isVariableDeclarator() && holdsElement(declarator.node.init)) {
+      // `{props.icon}`: a prop declared to hold an element.
+      if (isElementProp(path, expression, programPath)) {
+        imports.add(REACT_ADAPTERS, 'place');
+        path.node.expression = t.callExpression(t.identifier('place'), [expression]);
+        return;
+      }
+      // `{actions}`: a variable holding an element; `{actions()}`: a memo whose value is one.
+      const read = t.isCallExpression(expression) && expression.arguments.length === 0;
+      const name = read ? expression.callee : expression;
+      if (!t.isIdentifier(name)) {
+        return;
+      }
+      const declarator = path.scope.getBinding(name.name)?.path;
+      if (!declarator?.isVariableDeclarator()) {
+        return;
+      }
+      const value = read ? memoValue(declarator.node.init) : declarator.node.init;
+      if (value && holdsElement(value)) {
         imports.add(REACT_ADAPTERS, 'place');
         path.node.expression = t.callExpression(t.identifier('place'), [expression]);
       }
     },
   });
+}
+
+/** Whether a type is (or may be) an element: `JSX.Element`, alone or in a union. */
+function isElementType(type) {
+  if (t.isTSUnionType(type)) {
+    return type.types.some(isElementType);
+  }
+  return (
+    t.isTSTypeReference(type) &&
+    t.isTSQualifiedName(type.typeName) &&
+    t.isIdentifier(type.typeName.left, { name: 'JSX' }) &&
+    t.isIdentifier(type.typeName.right, { name: 'Element' })
+  );
+}
+
+/** The members of a props type: an inline type literal, or an interface or alias in the file. */
+function propsTypeMembers(type, programPath) {
+  if (t.isTSTypeLiteral(type)) {
+    return type.members;
+  }
+  if (!t.isTSTypeReference(type) || !t.isIdentifier(type.typeName)) {
+    return null;
+  }
+  const { name } = type.typeName;
+  for (const statement of programPath.node.body) {
+    const declaration = t.isExportNamedDeclaration(statement) ? statement.declaration : statement;
+    if (t.isTSInterfaceDeclaration(declaration) && declaration.id.name === name) {
+      return declaration.body.body;
+    }
+    if (t.isTSTypeAliasDeclaration(declaration) && declaration.id.name === name) {
+      return propsTypeMembers(declaration.typeAnnotation, programPath);
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether `props.name` reads a prop the component's props type declares as an element (`children`
+ * aside: JSX children arrive rendered). `props` is the component's parameter, or the defaults
+ * merged over it (`merge({...}, _props)`).
+ */
+function isElementProp(path, expression, programPath) {
+  if (
+    !t.isMemberExpression(expression) ||
+    expression.computed ||
+    !t.isIdentifier(expression.object) ||
+    !t.isIdentifier(expression.property) ||
+    expression.property.name === 'children'
+  ) {
+    return false;
+  }
+  // The component: the nearest enclosing function with a typed props parameter.
+  let fnPath = path.getFunctionParent();
+  while (fnPath && !(t.isIdentifier(fnPath.node.params[0]) && fnPath.node.params[0].typeAnnotation)) {
+    fnPath = fnPath.parentPath.getFunctionParent();
+  }
+  const param = fnPath?.node.params[0];
+  if (!param) {
+    return false;
+  }
+  const objectName = expression.object.name;
+  if (objectName !== param.name) {
+    const declarator = path.scope.getBinding(objectName)?.path;
+    const init = declarator?.isVariableDeclarator() ? declarator.node.init : null;
+    const merged =
+      t.isCallExpression(init) &&
+      t.isIdentifier(init.callee, { name: 'merge' }) &&
+      init.arguments.some((argument) => t.isIdentifier(argument, { name: param.name }));
+    if (!merged) {
+      return false;
+    }
+  }
+  const members = propsTypeMembers(param.typeAnnotation.typeAnnotation, programPath);
+  const member = members?.find(
+    (candidate) =>
+      t.isTSPropertySignature(candidate) &&
+      t.isIdentifier(candidate.key, { name: expression.property.name }),
+  );
+  return Boolean(member?.typeAnnotation && isElementType(member.typeAnnotation.typeAnnotation));
+}
+
+/** The value a `createMemo(() => value)` computes, or nothing for any other initializer. */
+function memoValue(init) {
+  if (
+    !t.isCallExpression(init) ||
+    !t.isIdentifier(init.callee, { name: 'createMemo' }) ||
+    !t.isArrowFunctionExpression(init.arguments[0])
+  ) {
+    return null;
+  }
+  const { body } = init.arguments[0];
+  if (!t.isBlockStatement(body)) {
+    return body;
+  }
+  const last = body.body.at(-1);
+  return t.isReturnStatement(last) ? last.argument : null;
 }
 
 /** Lowers every component and corpus hook, innermost first. */
