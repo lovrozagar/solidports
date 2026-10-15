@@ -2,7 +2,6 @@
 name: tmp
 description: Dump a one-off convo artifact under .tmp/grunt/.
 ---
-
 # tmp
 
 One turn. Author from this session (email/script/note). Write once. Recap path. Stop.

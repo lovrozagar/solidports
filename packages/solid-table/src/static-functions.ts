@@ -1,1 +1,1 @@
-export * from "@tanstack/table-core/static-functions";
+export * from "@tanstack/table-core/static-functions"

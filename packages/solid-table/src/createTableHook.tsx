@@ -1,10 +1,10 @@
-import { createColumnHelper as coreCreateColumnHelper } from "@tanstack/table-core";
-import { createContext, merge, untrack, useContext } from "solid-js";
-import { createTable } from "./createTable";
-import { FlexRender } from "./FlexRender";
-import type { SolidTable } from "./createTable";
-import type { JSX } from "@solidjs/web";
-import type { Component } from "solid-js";
+import { createColumnHelper as coreCreateColumnHelper } from "@tanstack/table-core"
+import { createContext, merge, untrack, useContext } from "solid-js"
+import { createTable } from "./createTable"
+import { FlexRender } from "./FlexRender"
+import type { SolidTable } from "./createTable"
+import type { JSX } from "@solidjs/web"
+import type { Component } from "solid-js"
 import type {
 	AccessorFn,
 	AccessorFnColumnDef,
@@ -26,9 +26,9 @@ import type {
 	Table,
 	TableFeatures,
 	TableOptions,
-} from "@tanstack/table-core";
+} from "@tanstack/table-core"
 
-export type ComponentType<T extends Record<string, any>> = Component<T>;
+export type ComponentType<T extends Record<string, any>> = Component<T>
 
 // =============================================================================
 // Enhanced Context Types with Pre-bound Components
@@ -44,13 +44,13 @@ export type AppCellContext<
 	TValue extends CellData,
 	TCellComponents extends Record<string, ComponentType<any>>,
 > = {
-	cell: Cell<TFeatures, TData, TValue> & TCellComponents & { FlexRender: () => JSX.Element };
-	column: Column<TFeatures, TData, TValue>;
-	getValue: CellContext<TFeatures, TData, TValue>["getValue"];
-	renderValue: CellContext<TFeatures, TData, TValue>["renderValue"];
-	row: Row<TFeatures, TData>;
-	table: Table<TFeatures, TData>;
-};
+	cell: Cell<TFeatures, TData, TValue> & TCellComponents & { FlexRender: () => JSX.Element }
+	column: Column<TFeatures, TData, TValue>
+	getValue: CellContext<TFeatures, TData, TValue>["getValue"]
+	renderValue: CellContext<TFeatures, TData, TValue>["renderValue"]
+	row: Row<TFeatures, TData>
+	table: Table<TFeatures, TData>
+}
 
 /**
  * Enhanced HeaderContext with pre-bound header components.
@@ -62,10 +62,10 @@ export type AppHeaderContext<
 	TValue extends CellData,
 	THeaderComponents extends Record<string, ComponentType<any>>,
 > = {
-	column: Column<TFeatures, TData, TValue>;
-	header: Header<TFeatures, TData, TValue> & THeaderComponents & { FlexRender: () => JSX.Element };
-	table: Table<TFeatures, TData>;
-};
+	column: Column<TFeatures, TData, TValue>
+	header: Header<TFeatures, TData, TValue> & THeaderComponents & { FlexRender: () => JSX.Element }
+	table: Table<TFeatures, TData>
+}
 
 // =============================================================================
 // Enhanced Column Definition Types
@@ -74,7 +74,7 @@ export type AppHeaderContext<
 /**
  * Template type for column definitions that can be a string or a function.
  */
-export type AppColumnDefTemplate<TProps extends object> = string | ((props: TProps) => any);
+export type AppColumnDefTemplate<TProps extends object> = string | ((props: TProps) => any)
 
 /**
  * Enhanced column definition base with pre-bound components in cell/header/footer contexts.
@@ -86,10 +86,10 @@ export type AppColumnDefBase<
 	TCellComponents extends Record<string, ComponentType<any>>,
 	THeaderComponents extends Record<string, ComponentType<any>>,
 > = Omit<IdentifiedColumnDef<TFeatures, TData, TValue>, "cell" | "header" | "footer"> & {
-	cell?: AppColumnDefTemplate<AppCellContext<TFeatures, TData, TValue, TCellComponents>>;
-	header?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, TValue, THeaderComponents>>;
-	footer?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, TValue, THeaderComponents>>;
-};
+	cell?: AppColumnDefTemplate<AppCellContext<TFeatures, TData, TValue, TCellComponents>>
+	header?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, TValue, THeaderComponents>>
+	footer?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, TValue, THeaderComponents>>
+}
 
 /**
  * Enhanced display column definition with pre-bound components.
@@ -100,10 +100,10 @@ export type AppDisplayColumnDef<
 	TCellComponents extends Record<string, ComponentType<any>>,
 	THeaderComponents extends Record<string, ComponentType<any>>,
 > = Omit<DisplayColumnDef<TFeatures, TData, unknown>, "cell" | "header" | "footer"> & {
-	cell?: AppColumnDefTemplate<AppCellContext<TFeatures, TData, unknown, TCellComponents>>;
-	header?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, unknown, THeaderComponents>>;
-	footer?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, unknown, THeaderComponents>>;
-};
+	cell?: AppColumnDefTemplate<AppCellContext<TFeatures, TData, unknown, TCellComponents>>
+	header?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, unknown, THeaderComponents>>
+	footer?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, unknown, THeaderComponents>>
+}
 
 /**
  * Enhanced group column definition with pre-bound components.
@@ -114,11 +114,11 @@ export type AppGroupColumnDef<
 	TCellComponents extends Record<string, ComponentType<any>>,
 	THeaderComponents extends Record<string, ComponentType<any>>,
 > = Omit<GroupColumnDef<TFeatures, TData, unknown>, "cell" | "header" | "footer" | "columns"> & {
-	cell?: AppColumnDefTemplate<AppCellContext<TFeatures, TData, unknown, TCellComponents>>;
-	header?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, unknown, THeaderComponents>>;
-	footer?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, unknown, THeaderComponents>>;
-	columns?: ReadonlyArray<ColumnDef<TFeatures, TData, unknown>>;
-};
+	cell?: AppColumnDefTemplate<AppCellContext<TFeatures, TData, unknown, TCellComponents>>
+	header?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, unknown, THeaderComponents>>
+	footer?: AppColumnDefTemplate<AppHeaderContext<TFeatures, TData, unknown, THeaderComponents>>
+	columns?: ReadonlyArray<ColumnDef<TFeatures, TData, unknown>>
+}
 
 // =============================================================================
 // Enhanced Column Helper Type
@@ -152,14 +152,14 @@ export type AppColumnHelper<
 			: AppColumnDefBase<TFeatures, TData, TValue, TCellComponents, THeaderComponents>,
 	) => TAccessor extends AccessorFn<TData>
 		? AccessorFnColumnDef<TFeatures, TData, TValue>
-		: AccessorKeyColumnDef<TFeatures, TData, TValue>;
+		: AccessorKeyColumnDef<TFeatures, TData, TValue>
 
 	/**
 	 * Wraps an array of column definitions to preserve each column's individual TValue type.
 	 */
 	columns: <TColumns extends ReadonlyArray<ColumnDef<TFeatures, TData, any>>>(
 		columns: [...TColumns],
-	) => Array<ColumnDef<TFeatures, TData, any>> & [...TColumns];
+	) => Array<ColumnDef<TFeatures, TData, any>> & [...TColumns]
 
 	/**
 	 * Creates a display column definition for non-data columns.
@@ -167,7 +167,7 @@ export type AppColumnHelper<
 	 */
 	display: (
 		column: AppDisplayColumnDef<TFeatures, TData, TCellComponents, THeaderComponents>,
-	) => DisplayColumnDef<TFeatures, TData, unknown>;
+	) => DisplayColumnDef<TFeatures, TData, unknown>
 
 	/**
 	 * Creates a group column definition with nested child columns.
@@ -175,8 +175,8 @@ export type AppColumnHelper<
 	 */
 	group: (
 		column: AppGroupColumnDef<TFeatures, TData, TCellComponents, THeaderComponents>,
-	) => GroupColumnDef<TFeatures, TData, unknown>;
-};
+	) => GroupColumnDef<TFeatures, TData, unknown>
+}
 
 // =============================================================================
 // CreateTableHook Options and Props
@@ -198,25 +198,25 @@ export type CreateTableHookOptions<
 	 * Use `useTableContext()` inside these components.
 	 * @example { PaginationControls, GlobalFilter, RowCount }
 	 */
-	tableComponents?: TTableComponents;
+	tableComponents?: TTableComponents
 	/**
 	 * Cell-level components that need access to the cell instance.
 	 * These are available on the cell object passed to AppCell's children.
 	 * Use `useCellContext()` inside these components.
 	 * @example { TextCell, NumberCell, DateCell, CurrencyCell }
 	 */
-	cellComponents?: TCellComponents;
+	cellComponents?: TCellComponents
 	/**
 	 * Header-level components that need access to the header instance.
 	 * These are available on the header object passed to AppHeader/AppFooter's children.
 	 * Use `useHeaderContext()` inside these components.
 	 * @example { SortIndicator, ColumnFilter, ResizeHandle }
 	 */
-	headerComponents?: THeaderComponents;
-};
+	headerComponents?: THeaderComponents
+}
 
 export interface AppTableProps {
-	children: JSX.Element;
+	children: JSX.Element
 }
 
 /**
@@ -228,8 +228,8 @@ export interface AppCellProps<
 	TValue extends CellData,
 	TCellComponents extends Record<string, ComponentType<any>>,
 > {
-	cell: Cell<TFeatures, TData, TValue>;
-	children: (cell: Cell<TFeatures, TData, TValue> & TCellComponents & { FlexRender: () => JSX.Element }) => JSX.Element;
+	cell: Cell<TFeatures, TData, TValue>
+	children: (cell: Cell<TFeatures, TData, TValue> & TCellComponents & { FlexRender: () => JSX.Element }) => JSX.Element
 }
 
 /**
@@ -241,10 +241,10 @@ export interface AppHeaderProps<
 	TValue extends CellData,
 	THeaderComponents extends Record<string, ComponentType<any>>,
 > {
-	header: Header<TFeatures, TData, TValue>;
+	header: Header<TFeatures, TData, TValue>
 	children: (
 		header: Header<TFeatures, TData, TValue> & THeaderComponents & { FlexRender: () => JSX.Element },
-	) => JSX.Element;
+	) => JSX.Element
 }
 
 /**
@@ -255,7 +255,7 @@ export interface AppCellComponent<
 	TData extends RowData,
 	TCellComponents extends Record<string, ComponentType<any>>,
 > {
-	<TValue extends CellData = CellData>(props: AppCellProps<TFeatures, TData, TValue, TCellComponents>): JSX.Element;
+	<TValue extends CellData = CellData>(props: AppCellProps<TFeatures, TData, TValue, TCellComponents>): JSX.Element
 }
 
 /**
@@ -266,14 +266,14 @@ export interface AppHeaderComponent<
 	TData extends RowData,
 	THeaderComponents extends Record<string, ComponentType<any>>,
 > {
-	<TValue extends CellData = CellData>(props: AppHeaderProps<TFeatures, TData, TValue, THeaderComponents>): JSX.Element;
+	<TValue extends CellData = CellData>(props: AppHeaderProps<TFeatures, TData, TValue, THeaderComponents>): JSX.Element
 }
 
 /**
  * Component type for AppTable - root wrapper with optional Subscribe
  */
 export interface AppTableComponent<_TFeatures extends TableFeatures> {
-	(props: AppTableProps): JSX.Element;
+	(props: AppTableProps): JSX.Element
 }
 
 /**
@@ -296,7 +296,7 @@ export type AppSolidTable<
 		 * </table.AppTable>
 		 * ```
 		 */
-		AppTable: AppTableComponent<TFeatures>;
+		AppTable: AppTableComponent<TFeatures>
 		/**
 		 * Wraps a cell and provides cell context with pre-bound cellComponents.
 		 * @example
@@ -306,7 +306,7 @@ export type AppSolidTable<
 		 * </table.AppCell>
 		 * ```
 		 */
-		AppCell: AppCellComponent<TFeatures, TData, NoInfer<TCellComponents>>;
+		AppCell: AppCellComponent<TFeatures, TData, NoInfer<TCellComponents>>
 		/**
 		 * Wraps a header and provides header context with pre-bound headerComponents.
 		 * @example
@@ -316,7 +316,7 @@ export type AppSolidTable<
 		 * </table.AppHeader>
 		 * ```
 		 */
-		AppHeader: AppHeaderComponent<TFeatures, TData, NoInfer<THeaderComponents>>;
+		AppHeader: AppHeaderComponent<TFeatures, TData, NoInfer<THeaderComponents>>
 		/**
 		 * Wraps a footer and provides header context with pre-bound headerComponents.
 		 * @example
@@ -326,7 +326,7 @@ export type AppSolidTable<
 		 * </table.AppFooter>
 		 * ```
 		 */
-		AppFooter: AppHeaderComponent<TFeatures, TData, NoInfer<THeaderComponents>>;
+		AppFooter: AppHeaderComponent<TFeatures, TData, NoInfer<THeaderComponents>>
 		/**
 		 * Convenience FlexRender component attached to the table instance.
 		 * Renders cell, header, or footer content from column definitions.
@@ -337,8 +337,8 @@ export type AppSolidTable<
 		 * <table.FlexRender footer={footer} />
 		 * ```
 		 */
-		FlexRender: typeof FlexRender;
-	};
+		FlexRender: typeof FlexRender
+	}
 
 export interface CreateTableHookResult<
 	TFeatures extends TableFeatures,
@@ -347,7 +347,7 @@ export interface CreateTableHookResult<
 	THeaderComponents extends Record<string, ComponentType<any>>,
 > {
 	/** The features object that was passed to `createTableHook`. */
-	appFeatures: TFeatures;
+	appFeatures: TFeatures
 	/**
 	 * A column helper pre-bound to `TFeatures` and the registered components, so
 	 * the cell/header/footer render props expose the bound components.
@@ -357,14 +357,14 @@ export interface CreateTableHookResult<
 		TData,
 		TCellComponents,
 		THeaderComponents
-	>;
+	>
 	/**
 	 * Creates a table with the `App*` wrapper components and registered
 	 * `tableComponents` attached. `TData` is inferred from the `data` option.
 	 */
 	createAppTable: <TData extends RowData>(
 		tableOptions: Omit<TableOptions<TFeatures, TData>, "features">,
-	) => AppSolidTable<TFeatures, TData, TTableComponents, TCellComponents, THeaderComponents>;
+	) => AppSolidTable<TFeatures, TData, TTableComponents, TCellComponents, THeaderComponents>
 	/**
 	 * Reads the table provided by the nearest `<table.AppTable>`. This is the same
 	 * extended instance `createAppTable` returns, so the `App*` components and your
@@ -376,20 +376,20 @@ export interface CreateTableHookResult<
 		TTableComponents,
 		TCellComponents,
 		THeaderComponents
-	>;
+	>
 	/**
 	 * Reads the cell provided by the nearest `<table.AppCell>`, extended with your
 	 * `cellComponents` and a context-bound `FlexRender`.
 	 */
 	useCellContext: <TValue extends CellData = CellData>() => Cell<TFeatures, any, TValue> &
-		TCellComponents & { FlexRender: () => JSX.Element };
+		TCellComponents & { FlexRender: () => JSX.Element }
 	/**
 	 * Reads the header provided by the nearest `<table.AppHeader>` /
 	 * `<table.AppFooter>`, extended with your `headerComponents` and a
 	 * context-bound `FlexRender`.
 	 */
 	useHeaderContext: <TValue extends CellData = CellData>() => Header<TFeatures, any, TValue> &
-		THeaderComponents & { FlexRender: () => JSX.Element };
+		THeaderComponents & { FlexRender: () => JSX.Element }
 }
 
 /**
@@ -509,12 +509,12 @@ export function createTableHook<
 	THeaderComponents
 > {
 	// Create contexts internally with TFeatures baked in
-	const TableContext = createContext<SolidTable<TFeatures, any>>(null as never);
-	const CellContext = createContext<Cell<TFeatures, any, any>>(null as never);
-	const HeaderContext = createContext<Header<TFeatures, any, any>>(null as never);
+	const TableContext = createContext<SolidTable<TFeatures, any>>(null as never)
+	const CellContext = createContext<Cell<TFeatures, any, any>>(null as never)
+	const HeaderContext = createContext<Header<TFeatures, any, any>>(null as never)
 	/* Header and footer of a leaf column are the same instance, so the bound FlexRender
 	   cannot differ per role. The role travels through context instead. */
-	const HeaderRoleContext = createContext<"header" | "footer">("header");
+	const HeaderRoleContext = createContext<"header" | "footer">("header")
 
 	/**
 	 * Create a column helper pre-bound to the features and components configured in this table hook.
@@ -548,7 +548,7 @@ export function createTableHook<
 			TData,
 			TCellComponents,
 			THeaderComponents
-		>;
+		>
 	}
 
 	/**
@@ -583,19 +583,19 @@ export function createTableHook<
 		TCellComponents,
 		THeaderComponents
 	> {
-		const table = useContext(TableContext);
+		const table = useContext(TableContext)
 
 		if (!table) {
 			throw new Error(
 				"`useTableContext` must be used within an `AppTable` component. " +
 					"Make sure your component is wrapped with `<table.AppTable>...</table.AppTable>`.",
-			);
+			)
 		}
 
 		// The value provided by `<table.AppTable>` is the extended table (the App*
 		// wrapper components and `tableComponents` are Object.assign-ed onto the same
 		// instance `createAppTable` returns), so this asserts the runtime shape.
-		return table as unknown as AppSolidTable<TFeatures, TData, TTableComponents, TCellComponents, THeaderComponents>;
+		return table as unknown as AppSolidTable<TFeatures, TData, TTableComponents, TCellComponents, THeaderComponents>
 	}
 
 	/**
@@ -618,18 +618,18 @@ export function createTableHook<
 	 */
 	function useCellContext<TValue extends CellData = CellData>(): Cell<TFeatures, any, TValue> &
 		TCellComponents & { FlexRender: () => JSX.Element } {
-		const cell = useContext(CellContext);
+		const cell = useContext(CellContext)
 
 		if (!cell) {
 			throw new Error(
 				"`useCellContext` must be used within an `AppCell` component. " +
 					"Make sure your component is wrapped with `<table.AppCell cell={cell}>...</table.AppCell>`.",
-			);
+			)
 		}
 
 		// `<table.AppCell>` Object.assign-es `cellComponents` and `FlexRender` onto
 		// the same cell instance it provides, so this asserts the runtime shape.
-		return cell as unknown as Cell<TFeatures, any, TValue> & TCellComponents & { FlexRender: () => JSX.Element };
+		return cell as unknown as Cell<TFeatures, any, TValue> & TCellComponents & { FlexRender: () => JSX.Element }
 	}
 
 	/**
@@ -660,15 +660,15 @@ export function createTableHook<
 	 */
 	function useHeaderContext<TValue extends CellData = CellData>(): Header<TFeatures, any, TValue> &
 		THeaderComponents & { FlexRender: () => JSX.Element } {
-		const header = useContext(HeaderContext);
+		const header = useContext(HeaderContext)
 
 		if (!header) {
-			throw new Error("`useHeaderContext` must be used within an `AppHeader` or `AppFooter` component.");
+			throw new Error("`useHeaderContext` must be used within an `AppHeader` or `AppFooter` component.")
 		}
 
 		// `<table.AppHeader>` / `<table.AppFooter>` Object.assign `headerComponents`
 		// and `FlexRender` onto the same header instance they provide.
-		return header as unknown as Header<TFeatures, any, TValue> & THeaderComponents & { FlexRender: () => JSX.Element };
+		return header as unknown as Header<TFeatures, any, TValue> & THeaderComponents & { FlexRender: () => JSX.Element }
 	}
 
 	/**
@@ -676,8 +676,8 @@ export function createTableHook<
 	 * Uses the cell from context, so no need to pass cell prop.
 	 */
 	function CellFlexRender() {
-		const cell = useCellContext();
-		return <FlexRender cell={cell} />;
+		const cell = useCellContext()
+		return <FlexRender cell={cell} />
 	}
 
 	/**
@@ -685,8 +685,8 @@ export function createTableHook<
 	 * Uses the header from context, so no need to pass a header or footer prop.
 	 */
 	function HeaderFlexRender() {
-		const header = useHeaderContext();
-		return useContext(HeaderRoleContext) === "footer" ? <FlexRender footer={header} /> : <FlexRender header={header} />;
+		const header = useHeaderContext()
+		return useContext(HeaderRoleContext) === "footer" ? <FlexRender footer={header} /> : <FlexRender header={header} />
 	}
 
 	/**
@@ -702,68 +702,68 @@ export function createTableHook<
 		tableOptions: Omit<TableOptions<TFeatures, TData>, "features">,
 	): AppSolidTable<TFeatures, TData, TTableComponents, TCellComponents, THeaderComponents> {
 		// Merge default options with provided options (provided takes precedence)
-		const mergedProps = merge(defaultTableOptions, tableOptions);
-		const table = createTable<TFeatures, TData>(mergedProps as TableOptions<TFeatures, TData>);
+		const mergedProps = merge(defaultTableOptions, tableOptions)
+		const table = createTable<TFeatures, TData>(mergedProps as TableOptions<TFeatures, TData>)
 
 		// AppTable - Root wrapper that provides table context
 		function AppTable(props: AppTableProps): JSX.Element {
-			return <TableContext value={table}>{props.children}</TableContext>;
+			return <TableContext value={table}>{props.children}</TableContext>
 		}
 
 		// AppCell - Wraps cell with context and pre-bound cellComponents
 		function AppCell<TValue extends CellData = CellData>(
 			props: AppCellProps<TFeatures, TData, TValue, TCellComponents>,
-		): JSX.Element;
+		): JSX.Element
 		function AppCell<TValue extends CellData = CellData>(
 			props: AppCellProps<TFeatures, TData, TValue, TCellComponents>,
 		): JSX.Element {
-			const cell = untrack(() => props.cell);
+			const cell = untrack(() => props.cell)
 			const extendedCell = Object.assign(cell, {
 				FlexRender: CellFlexRender,
 				...cellComponents,
-			}) as Cell<TFeatures, TData, TValue> & TCellComponents & { FlexRender: () => JSX.Element };
+			}) as Cell<TFeatures, TData, TValue> & TCellComponents & { FlexRender: () => JSX.Element }
 
-			return <CellContext value={cell}>{props.children(extendedCell)}</CellContext>;
+			return <CellContext value={cell}>{props.children(extendedCell)}</CellContext>
 		}
 
 		// AppHeader - Wraps header with context and pre-bound headerComponents
 		function AppHeader<TValue extends CellData = CellData>(
 			props: AppHeaderProps<TFeatures, TData, TValue, THeaderComponents>,
-		): JSX.Element;
+		): JSX.Element
 		function AppHeader<TValue extends CellData = CellData>(
 			props: AppHeaderProps<TFeatures, TData, TValue, THeaderComponents>,
 		): JSX.Element {
-			const header = untrack(() => props.header);
+			const header = untrack(() => props.header)
 			const extendedHeader = Object.assign(header, {
 				FlexRender: HeaderFlexRender,
 				...headerComponents,
-			}) as Header<TFeatures, TData, TValue> & THeaderComponents & { FlexRender: () => JSX.Element };
+			}) as Header<TFeatures, TData, TValue> & THeaderComponents & { FlexRender: () => JSX.Element }
 
 			return (
 				<HeaderContext value={header}>
 					<HeaderRoleContext value="header">{props.children(extendedHeader)}</HeaderRoleContext>
 				</HeaderContext>
-			);
+			)
 		}
 
 		// AppFooter - Same as AppHeader with the footer role (footers use Header type)
 		function AppFooter<TValue extends CellData = CellData>(
 			props: AppHeaderProps<TFeatures, TData, TValue, THeaderComponents>,
-		): JSX.Element;
+		): JSX.Element
 		function AppFooter<TValue extends CellData = CellData>(
 			props: AppHeaderProps<TFeatures, TData, TValue, THeaderComponents>,
 		): JSX.Element {
-			const header = untrack(() => props.header);
+			const header = untrack(() => props.header)
 			const extendedHeader = Object.assign(header, {
 				FlexRender: HeaderFlexRender,
 				...headerComponents,
-			}) as Header<TFeatures, TData, TValue> & THeaderComponents & { FlexRender: () => JSX.Element };
+			}) as Header<TFeatures, TData, TValue> & THeaderComponents & { FlexRender: () => JSX.Element }
 
 			return (
 				<HeaderContext value={header}>
 					<HeaderRoleContext value="footer">{props.children(extendedHeader)}</HeaderRoleContext>
 				</HeaderContext>
-			);
+			)
 		}
 
 		// Combine everything into the extended table API
@@ -774,7 +774,7 @@ export function createTableHook<
 			AppFooter,
 			FlexRender,
 			...tableComponents,
-		}) as AppSolidTable<TFeatures, TData, TTableComponents, TCellComponents, THeaderComponents>;
+		}) as AppSolidTable<TFeatures, TData, TTableComponents, TCellComponents, THeaderComponents>
 	}
 
 	return {
@@ -784,5 +784,5 @@ export function createTableHook<
 		useTableContext,
 		useCellContext,
 		useHeaderContext,
-	};
+	}
 }

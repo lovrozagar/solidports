@@ -7,45 +7,45 @@
  * package.json versions count (default: this repo), so the workflow's own copy of this script can
  * resolve a tag cut before it existed.
  */
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { publishedPackages } from "./packages.ts";
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { publishedPackages } from "./packages.ts"
 
 export interface ReleaseTarget {
-	dir: string;
-	distTag: "latest" | "next";
-	id: string;
-	name: string;
-	version: string;
+	dir: string
+	distTag: "latest" | "next"
+	id: string
+	name: string
+	version: string
 }
 
 export function releaseTarget(ref: string, readVersion: (dir: string) => string): ReleaseTarget {
-	const tag = ref.replace(/^refs\/tags\//, "");
-	const pkg = publishedPackages.find((candidate) => tag.startsWith(candidate.tag));
+	const tag = ref.replace(/^refs\/tags\//, "")
+	const pkg = publishedPackages.find((candidate) => tag.startsWith(candidate.tag))
 	if (!pkg) {
-		const prefixes = publishedPackages.map((candidate) => `${candidate.tag}<version>`).join(", ");
-		throw new Error(`tag ${tag} names no published package (expected ${prefixes})`);
+		const prefixes = publishedPackages.map((candidate) => `${candidate.tag}<version>`).join(", ")
+		throw new Error(`tag ${tag} names no published package (expected ${prefixes})`)
 	}
-	const version = tag.slice(pkg.tag.length);
-	if (!version) throw new Error(`tag ${tag} has no version`);
-	const current = readVersion(pkg.dir);
+	const version = tag.slice(pkg.tag.length)
+	if (!version) throw new Error(`tag ${tag} has no version`)
+	const current = readVersion(pkg.dir)
 	if (version !== current) {
-		throw new Error(`tag ${tag} does not match ${pkg.dir}/package.json version ${current}`);
+		throw new Error(`tag ${tag} does not match ${pkg.dir}/package.json version ${current}`)
 	}
-	return { dir: pkg.dir, distTag: version.includes("-") ? "next" : "latest", id: pkg.id, name: pkg.name, version };
+	return { dir: pkg.dir, distTag: version.includes("-") ? "next" : "latest", id: pkg.id, name: pkg.name, version }
 }
 
 if (import.meta.main) {
-	const ref = process.argv[2];
+	const ref = process.argv[2]
 	if (!ref) {
-		console.error("usage: release-target <tag> [root]");
-		process.exit(1);
+		console.error("usage: release-target <tag> [root]")
+		process.exit(1)
 	}
-	const root = process.argv[3] ?? join(import.meta.dir, "..");
+	const root = process.argv[3] ?? join(import.meta.dir, "..")
 	const readVersion = (dir: string) =>
-		(JSON.parse(readFileSync(join(root, dir, "package.json"), "utf8")) as { version: string }).version;
+		(JSON.parse(readFileSync(join(root, dir, "package.json"), "utf8")) as { version: string }).version
 	try {
-		const target = releaseTarget(ref, readVersion);
+		const target = releaseTarget(ref, readVersion)
 		console.log(
 			[
 				`name=${target.name}`,
@@ -54,9 +54,9 @@ if (import.meta.main) {
 				`version=${target.version}`,
 				`dist_tag=${target.distTag}`,
 			].join("\n"),
-		);
+		)
 	} catch (error) {
-		console.error(error instanceof Error ? error.message : String(error));
-		process.exit(1);
+		console.error(error instanceof Error ? error.message : String(error))
+		process.exit(1)
 	}
 }

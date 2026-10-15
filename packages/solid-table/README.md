@@ -15,18 +15,18 @@ bun add @solidports/solid-table @tanstack/table-core
 ## Usage
 
 ```tsx
-import { For } from "solid-js";
-import { FlexRender, createTable, stockFeatures } from "@solidports/solid-table";
+import { For } from "solid-js"
+import { FlexRender, createTable, stockFeatures } from "@solidports/solid-table"
 
 const table = createTable({
 	features: stockFeatures,
 	columns,
 	get data() {
-		return data();
+		return data()
 	},
-});
+})
 
-<For each={table.getRowModel().rows}>
+;<For each={table.getRowModel().rows}>
 	{(row) => (
 		<tr>
 			<For each={row.getVisibleCells()}>
@@ -38,7 +38,7 @@ const table = createTable({
 			</For>
 		</tr>
 	)}
-</For>;
+</For>
 ```
 
 Entry points mirror upstream: `.`, `./flex-render`, `./static-functions`, `./experimental-worker-plugin`.

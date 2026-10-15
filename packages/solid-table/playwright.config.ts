@@ -1,7 +1,7 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test"
 
-const DEV_PORT = 4110;
-const PROD_PORT = 4111;
+const DEV_PORT = 4110
+const PROD_PORT = 4111
 
 /* Same specs against the dev server (Solid dev build + diagnostics) and a production build. */
 export default defineConfig({
@@ -28,4 +28,4 @@ export default defineConfig({
 			timeout: 60_000,
 		},
 	],
-});
+})

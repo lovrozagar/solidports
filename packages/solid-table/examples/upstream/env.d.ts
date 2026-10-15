@@ -1,1 +1,1 @@
-declare const __TABLE_SOURCE__: string;
+declare const __TABLE_SOURCE__: string

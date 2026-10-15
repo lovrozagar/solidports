@@ -2,7 +2,6 @@
 name: pickup
 description: "Continue a handoff under .tmp/grunt/handoffs/."
 ---
-
 # pickup
 
 Voice: `.rulesync/reference/output.md`.

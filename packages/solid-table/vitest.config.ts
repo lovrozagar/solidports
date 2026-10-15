@@ -1,8 +1,8 @@
-import solid from "@solidjs/vite-plugin";
-import { defineConfig } from "vitest/config";
+import solid from "@solidjs/vite-plugin"
+import { defineConfig } from "vitest/config"
 
 /* `test:prod` resolves Solid's production builds, which skip dev-only checks and diagnostics. */
-const production = process.env.NODE_ENV === "production";
+const production = process.env.NODE_ENV === "production"
 
 export default defineConfig({
 	plugins: [solid({ hot: false, dev: !production })],
@@ -15,4 +15,4 @@ export default defineConfig({
 		exclude: ["tests/ssr/**", "tests/hydration/**"],
 		setupFiles: ["tests/setup.ts"],
 	},
-});
+})

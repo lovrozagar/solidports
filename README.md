@@ -54,7 +54,7 @@ pnpm add @solidports/solid-table @tanstack/table-core solid-js @solidjs/web
 Headless, unstyled Solid components. Public API tracks `@base-ui/react@1.8.0`.
 
 ```tsx
-import { Dialog } from "@solidports/base-ui/dialog";
+import { Dialog } from "@solidports/base-ui/dialog"
 
 export function Example() {
 	return (
@@ -68,7 +68,7 @@ export function Example() {
 				</Dialog.Popup>
 			</Dialog.Portal>
 		</Dialog.Root>
-	);
+	)
 }
 ```
 
@@ -81,13 +81,13 @@ Please support the Base UI team on [OpenCollective](https://opencollective.com/m
 Drop-in Solid charting. Public API tracks recharts v3.10.1.
 
 ```tsx
-import { LineChart, XAxis, Line } from "@solidports/recharts";
+import { LineChart, XAxis, Line } from "@solidports/recharts"
 
 const data = [
 	{ name: "Jan", uv: 400 },
 	{ name: "Feb", uv: 300 },
 	{ name: "Mar", uv: 600 },
-];
+]
 
 export function MyChart() {
 	return (
@@ -95,7 +95,7 @@ export function MyChart() {
 			<XAxis dataKey="name" />
 			<Line type="monotone" dataKey="uv" stroke="#8884d8" />
 		</LineChart>
-	);
+	)
 }
 ```
 
@@ -120,9 +120,9 @@ component re-renders only the cells whose data it reads. Construction writes no 
 server-rendered table hydrates in place.
 
 ```tsx
-import { createTable, FlexRender, stockFeatures } from "@solidports/solid-table";
+import { createTable, FlexRender, stockFeatures } from "@solidports/solid-table"
 
-const table = createTable({ columns, data, features: stockFeatures });
+const table = createTable({ columns, data, features: stockFeatures })
 // <FlexRender header={header} /> and <FlexRender cell={cell} /> render the column templates.
 ```
 
