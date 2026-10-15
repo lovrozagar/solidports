@@ -144,15 +144,6 @@ const ADAPTATIONS = [
     to: "include: ['src/app/solid']",
     reason: 'The page index covers the Solid routes.',
   },
-  {
-    file: 'docs-infra/src/pipeline/loadServerTypesMeta/socketClient.ts',
-    from: '// Timeout after 5 minutes\n      setTimeout(\n        () => {\n          if (this.pendingRequests.has(id)) {\n            this.pendingRequests.delete(id);\n            reject(new Error(\'Request timeout\'));\n          }\n        },\n        5 * 60 * 1000,',
-    to: '// Timeout after 20 minutes\n      setTimeout(\n        () => {\n          if (this.pendingRequests.has(id)) {\n            this.pendingRequests.delete(id);\n            reject(new Error(\'Request timeout\'));\n          }\n        },\n        20 * 60 * 1000,',
-    reason:
-      "Every types.ts request queues at the one type worker, which runs them in turn: on CI's " +
-      '4-core runner the last of the 42 component pages waits more than 5 minutes (the whole ' +
-      'pass takes about 11), so its request timed out although nothing failed.',
-  },
 ];
 
 /** The Solid docs' wording for the package and its routes. */
@@ -762,7 +753,8 @@ function generatePackageJson() {
       preview: 'vite preview --port 3001',
       'docs-infra': 'node framework/docs-infra.mjs',
       validate: 'bun internal-validate --command "bun validate"',
-      'internal-validate': 'node framework/docs-infra.mjs validate',
+      // One types.ts page per worker per run (see `framework/validate.mjs`).
+      'internal-validate': 'node framework/validate.mjs',
       typescript: 'tsc -p tsconfig.json',
       'link-check': reactPackage.scripts['link-check'],
       'generate-llms': reactPackage.scripts['generate-llms'],
