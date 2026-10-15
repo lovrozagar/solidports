@@ -27,7 +27,9 @@ Unless the request says otherwise, implement only in `packages/solid/` or
 `docs/solid` is generated output: pages under `docs/solid/src/app/(docs)/solid/`
 come from `docs/react/src/app/(docs)/react/`. Fix the docs in the generator
 (`scripts/docs/react-to-solid.mjs`, `scripts/docs/templates/`), then run
-`bun run docs:generate` and `bun run docs:validate`.
+`bun run docs:generate` and `bun run docs:validate`. docs-infra's runtime (the
+hooks and components pages render with) is the exception: it is kept by hand in
+`scripts/docs/templates/docs-infra/src` (see `scripts/docs/README.md`).
 
 React docs reference: `docs/react/src/app/(docs)/react/`. Experiments in the
 snapshot live at `docs/react/src/app/(private)/experiments/`.
@@ -48,6 +50,7 @@ From `packages/base-ui`:
 ```bash
 bun run docs:dev
 bun run docs:build
+bun run docs:check-hydration --serve   # crawl the build: parity, hydration, demos
 bun run docs:api              # docs-infra API tables (types.md)
 bun run docs:react:dev
 bun run test:solid:jsdom NumberField --no-watch
