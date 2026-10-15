@@ -1,6 +1,8 @@
 /* Keep layer order stable when this file is emitted from a client CSS chunk. */
 @layer all, base, theme, components, utilities;
 
+@import 'docs/src/css/custom-media.css';
+
 @layer components {
   .QuickNavContainer {
     /* Quick Nav's container shouldn't have any paddings to maintain correct positioning */
@@ -12,7 +14,7 @@
     padding-top: 1.5rem;
     padding-bottom: 4rem;
 
-    @media (min-width: 64rem) {
+    @media (--show-side-nav) {
       padding-top: 0;
     }
   }
@@ -34,7 +36,7 @@
     z-index: 1;
     display: none;
 
-    @media (min-width: 84rem) {
+    @media (--show-quick-nav) {
       display: block;
       position: fixed;
       top: var(--header-height);

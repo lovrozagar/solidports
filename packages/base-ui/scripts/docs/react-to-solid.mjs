@@ -331,10 +331,12 @@ class Imports {
     map.get(source).set(name, local);
   }
 
-  declarations() {
+  /** The import declarations, of the names in `used` (a mapping can drop a type it imported). */
+  declarations(used) {
     const declaration = (source, names, type) => {
       const node = t.importDeclaration(
         [...names]
+          .filter(([, local]) => used.has(local))
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([imported, local]) =>
             t.importSpecifier(t.identifier(local), t.identifier(imported)),
@@ -349,8 +351,42 @@ class Imports {
     return [
       ...[...this.values].map(([source, names]) => declaration(source, names, false)),
       ...[...this.types].map(([source, names]) => declaration(source, names, true)),
-    ];
+    ].filter((node) => node.specifiers.length > 0);
   }
+}
+
+/** The names a program's code refers to (not property names or attribute names). */
+function usedNames(programPath) {
+  const used = new Set();
+  programPath.traverse({
+    'Identifier|JSXIdentifier'(path) {
+      const { node, parent } = path;
+      const property =
+        (t.isMemberExpression(parent) ||
+          t.isOptionalMemberExpression(parent) ||
+          t.isJSXMemberExpression(parent)) &&
+        parent.property === node &&
+        !parent.computed;
+      const key =
+        (t.isObjectProperty(parent) ||
+          t.isObjectMethod(parent) ||
+          t.isClassProperty(parent) ||
+          t.isClassMethod(parent) ||
+          t.isTSPropertySignature(parent) ||
+          t.isTSMethodSignature(parent)) &&
+        parent.key === node &&
+        !parent.computed;
+      if (
+        !property &&
+        !key &&
+        !(t.isTSQualifiedName(parent) && parent.right === node) &&
+        !t.isJSXAttribute(parent)
+      ) {
+        used.add(node.name);
+      }
+    },
+  });
+  return used;
 }
 
 /** The React hook or API a call expression names (`React.useState`, `useState`), or null. */
@@ -868,7 +904,8 @@ const fragmentOf = (expression) =>
  */
 function lowerFunction(fnPath, kind, ctx) {
   const { imports } = ctx;
-  if (!t.isBlockStatement(fnPath.node.body)) {
+  const expressionBody = !t.isBlockStatement(fnPath.node.body);
+  if (expressionBody) {
     fnPath.get('body').replaceWith(t.blockStatement([t.returnStatement(fnPath.node.body)]));
   }
   const uid = (name) => fnPath.scope.generateUidIdentifier(name);
@@ -1054,11 +1091,37 @@ function lowerFunction(fnPath, kind, ctx) {
   const reactive = new Map(); // declaring identifier node -> { kind, name, binding, optional, alias }
   const declare = (binding, entry) => reactive.set(binding.identifier, { ...entry, binding });
   const bindingOf = (path, name) => path.scope.getBinding(name);
+  // A call of a function the component declares reads what the function's body reads.
+  const visiting = new Set();
+  const callReadsReactive = (binding) => {
+    if (binding.scope !== fnPath.scope || visiting.has(binding)) {
+      return false;
+    }
+    let body = null;
+    if (binding.path.isFunctionDeclaration()) {
+      body = binding.path.get('body');
+    } else if (binding.path.isVariableDeclarator() && isFunctionNode(binding.path.node.init)) {
+      body = binding.path.get('init.body');
+    }
+    if (!body) {
+      return false;
+    }
+    visiting.add(binding);
+    const result = readsReactive(body);
+    visiting.delete(binding);
+    return result;
+  };
   const readsReactive = (path) => {
     let found = false;
     const visit = (refPath) => {
       const binding = bindingOf(refPath, refPath.node.name);
-      if (binding && reactive.has(binding.identifier)) {
+      if (
+        binding &&
+        (reactive.has(binding.identifier) ||
+          (refPath.parentPath.isCallExpression() &&
+            refPath.parent.callee === refPath.node &&
+            callReadsReactive(binding)))
+      ) {
         found = true;
         refPath.stop();
       }
@@ -1511,7 +1574,12 @@ function lowerFunction(fnPath, kind, ctx) {
 
   // Reads of reactive bindings.
   rewriteReads(fnPath, rewrites, imports);
-  snapshotReads(fnPath);
+  snapshotReads(fnPath, imports);
+  // A function written as an expression stays one when it is still just its return.
+  const [only, ...others] = fnPath.node.body.body;
+  if (expressionBody && others.length === 0 && t.isReturnStatement(only) && only.argument) {
+    fnPath.node.body = only.argument;
+  }
 }
 
 /**
@@ -1930,12 +1998,184 @@ function narrows(path) {
   return found;
 }
 
+const isNothing = (node) =>
+  t.isNullLiteral(node) ||
+  t.isIdentifier(node, { name: 'undefined' }) ||
+  t.isBooleanLiteral(node, { value: false });
+
+/** Whether a read is a test TypeScript narrows the value by (`value &&`, `value != null`). */
+function narrowingTest(readPath) {
+  const { node, parentPath } = readPath;
+  const parent = parentPath.node;
+  if (parentPath.isConditionalExpression() || parentPath.isIfStatement()) {
+    return parent.test === node;
+  }
+  if (parentPath.isLogicalExpression()) {
+    return parent.left === node;
+  }
+  if (parentPath.isUnaryExpression()) {
+    return parent.operator === '!' || parent.operator === 'typeof';
+  }
+  if (parentPath.isBinaryExpression()) {
+    const other = parent.left === node ? parent.right : parent.left;
+    return (
+      (['==', '!=', '===', '!=='].includes(parent.operator) && isNothing(other)) ||
+      (parent.operator === 'instanceof' && parent.left === node) ||
+      (parent.operator === 'in' && parent.right === node)
+    );
+  }
+  return false;
+}
+
+/** Whether a read is used where its type matters: a member, an argument, a prop, a value. */
+function typedUse(readPath) {
+  const { node, parentPath } = readPath;
+  const parent = parentPath.node;
+  return (
+    ((parentPath.isMemberExpression() || parentPath.isOptionalMemberExpression()) &&
+      parent.object === node) ||
+    ((parentPath.isCallExpression() ||
+      parentPath.isOptionalCallExpression() ||
+      parentPath.isNewExpression()) &&
+      parent.arguments.includes(node)) ||
+    (parentPath.isJSXExpressionContainer() && parentPath.parentPath.isJSXAttribute()) ||
+    (parentPath.isObjectProperty() && parent.value === node) ||
+    parentPath.isSpreadElement() ||
+    parentPath.isJSXSpreadAttribute() ||
+    parentPath.isReturnStatement() ||
+    (parentPath.isVariableDeclarator() && parent.init === node) ||
+    (parentPath.isAssignmentExpression() && parent.right === node)
+  );
+}
+
+/** The test an expression starts with: `test ? a : b`, `test && rest`. */
+function leadingTest(node) {
+  if (t.isConditionalExpression(node)) {
+    return node.test;
+  }
+  if (t.isLogicalExpression(node, { operator: '&&' })) {
+    return t.isLogicalExpression(node.left, { operator: '&&' })
+      ? leadingTest(node.left)
+      : node.left;
+  }
+  return null;
+}
+
+/** `test && rest` without its leading `test`. */
+function withoutLeadingTest(node, test) {
+  return node.left === test
+    ? node.right
+    : t.logicalExpression('&&', withoutLeadingTest(node.left, test), node.right);
+}
+
+// Calls that run the callback they take before they return.
+const SYNC_CALLBACK_METHODS = new Set([
+  'every',
+  'filter',
+  'find',
+  'findIndex',
+  'findLast',
+  'findLastIndex',
+  'flatMap',
+  'forEach',
+  'map',
+  'reduce',
+  'reduceRight',
+  'some',
+  'sort',
+  'toSorted',
+]);
+const SIGNAL_CREATORS = new Set(['createSignal', 'createStore', 'createOptimistic']);
+
+/** Whether a function runs before the call it is passed to returns. */
+function runsInCall(fnPath) {
+  const call = fnPath.parentPath;
+  if (
+    !(call.isCallExpression() || call.isOptionalCallExpression()) ||
+    fnPath.listKey !== 'arguments'
+  ) {
+    return false;
+  }
+  const { callee } = call.node;
+  if (t.isMemberExpression(callee) || t.isOptionalMemberExpression(callee)) {
+    return !callee.computed && SYNC_CALLBACK_METHODS.has(callee.property.name);
+  }
+  if (!t.isIdentifier(callee)) {
+    return false;
+  }
+  if (callee.name === 'untrack') {
+    return true;
+  }
+  // A signal's setter calls an updater it is passed.
+  const declarator = call.scope.getBinding(callee.name)?.path;
+  return Boolean(
+    declarator?.isVariableDeclarator() &&
+    t.isArrayPattern(declarator.node.id) &&
+    t.isCallExpression(declarator.node.init) &&
+    t.isIdentifier(declarator.node.init.callee) &&
+    SIGNAL_CREATORS.has(declarator.node.init.callee.name),
+  );
+}
+
+/**
+ * The effect callback (`createEffect`'s second function) a statement runs in, directly or in its
+ * blocks, or null.
+ */
+function effectCallbackOf(path) {
+  const fn = path.getFunctionParent();
+  const call = fn?.parentPath;
+  return call?.isCallExpression() &&
+    t.isIdentifier(call.node.callee) &&
+    ['createEffect', 'createRenderEffect'].includes(call.node.callee.name) &&
+    call.node.arguments[1] === fn.node
+    ? fn
+    : null;
+}
+
+/**
+ * A callback an effect leaves to run later (a timer's, a listener's, its cleanup) reads the values
+ * the effect saw, as React's closure does: they are read when the statement runs. When they change
+ * the effect reruns, and its cleanup cancels what the callback was for.
+ */
+function captureDeferredReads(path) {
+  if (path.isIfStatement() || !effectCallbackOf(path)) {
+    return;
+  }
+  const deferred = (readPath) => {
+    for (
+      let current = readPath.parentPath;
+      current && current !== path;
+      current = current.parentPath
+    ) {
+      if (current.isFunction() && !runsInCall(current)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const declarations = [];
+  for (const entry of readsIn(path, true).values()) {
+    const reads = entry.nested.filter(deferred);
+    if (reads.length === 0) {
+      continue;
+    }
+    const id = path.scope.generateUidIdentifier(reads[0].node.solidReadName);
+    declarations.push(constDeclaration(id, t.cloneNode(reads[0].node, true)));
+    for (const read of reads) {
+      read.replaceWith(t.identifier(id.name));
+    }
+  }
+  if (declarations.length > 0) {
+    path.insertBefore(declarations);
+  }
+}
+
 /**
  * React code narrows a value it reads (`if (value) value.x`); a read through a call does not narrow
  * in TypeScript. A statement (or a JSX expression) that reads an accessor more than once reads it
  * once, into a local: in Solid 2 a value read twice in one synchronous pass is the same value.
  */
-function snapshotReads(fnPath) {
+function snapshotReads(fnPath, imports) {
   // A value read more than once (a test, then the read it narrows) reads once into a local. The
   // closures the statement creates read that local too, as they read the React value they close
   // over; after a setup read they read the live value instead.
@@ -1965,6 +2205,12 @@ function snapshotReads(fnPath) {
   fnPath.traverse({
     'IfStatement|ExpressionStatement|VariableDeclaration|ReturnStatement|ThrowStatement'(path) {
       if (!path.parentPath.isBlockStatement()) {
+        return;
+      }
+      captureDeferredReads(path);
+      // What a component or hook returns where it sets up stays reactive: its JSX expressions
+      // narrow on their own (below), and a snapshot here would be read once.
+      if (path.isReturnStatement() && path.getFunctionParent() === fnPath) {
         return;
       }
       const reads = readsIn(path, true);
@@ -2022,6 +2268,52 @@ function snapshotReads(fnPath) {
       if (!repeats(reads)) {
         return;
       }
+      // A value narrowed for nothing reads again: in one pass it is the same value.
+      const narrowing = [...reads.values()].filter(
+        (entry) =>
+          [...entry.direct, ...entry.nested].some(narrowingTest) &&
+          [...entry.direct, ...entry.nested].some((read) => !narrowingTest(read) && typedUse(read)),
+      );
+      if (narrowing.length === 0) {
+        return;
+      }
+      // `value && use(value)`, `value ? use(value) : other`: Solid's `<Show>` narrows the value.
+      const test = leadingTest(expression);
+      const shown =
+        narrowing.length === 1 && narrowing[0].direct.find((read) => read.node === test);
+      if (shown && (path.parentPath.isJSXElement() || path.parentPath.isJSXFragment())) {
+        imports.add('solid-js', 'Show');
+        const value = path.scope.generateUidIdentifier(test.solidReadName);
+        for (const read of [...narrowing[0].direct, ...narrowing[0].nested]) {
+          if (read.node !== test) {
+            read.replaceWith(t.callExpression(t.identifier(value.name), []));
+          }
+        }
+        const current = path.node.expression;
+        const conditional = t.isConditionalExpression(current);
+        const fallback = conditional && !isNothing(current.alternate) ? current.alternate : null;
+        path.replaceWith(
+          t.jsxElement(
+            t.jsxOpeningElement(t.jsxIdentifier('Show'), [
+              t.jsxAttribute(t.jsxIdentifier('when'), t.jsxExpressionContainer(test)),
+              ...(fallback
+                ? [t.jsxAttribute(t.jsxIdentifier('fallback'), t.jsxExpressionContainer(fallback))]
+                : []),
+            ]),
+            t.jsxClosingElement(t.jsxIdentifier('Show')),
+            [
+              t.jsxExpressionContainer(
+                t.arrowFunctionExpression(
+                  [value],
+                  conditional ? current.consequent : withoutLeadingTest(current, test),
+                ),
+              ),
+            ],
+          ),
+        );
+        path.skip();
+        return;
+      }
       // Inside a function the insert calls, so the expression stays reactive.
       const declarations = snapshot(reads, path.scope);
       path.node.expression = t.callExpression(
@@ -2068,6 +2360,19 @@ function snapshotElementPaths(programPath) {
         },
       });
       if (reads.length === 0) {
+        return;
+      }
+      // In a function written as an expression (a memo's), the read goes in the function: its
+      // body becomes a block, which the traversal visits again.
+      const fn = callPath.getFunctionParent();
+      const underTest = Boolean(
+        callPath.findParent(
+          (parent) =>
+            parent === fn || parent.isConditionalExpression() || parent.isLogicalExpression(),
+        ) !== fn,
+      );
+      if (fn?.isArrowFunctionExpression() && !fn.get('body').isBlockStatement() && underTest) {
+        fn.get('body').replaceWith(t.blockStatement([t.returnStatement(fn.node.body)]));
         return;
       }
       // The tests the element is written under, up to its statement's function.
@@ -2228,6 +2533,18 @@ function rendersWhereCalled(fnPath, ctx) {
 function inRenderPosition(path, ctx) {
   const position = valuePosition(path);
   const parent = position.parentPath;
+  // A component's prop (`icon={<GitHubIcon />}`) is a value the component reads, maybe more than
+  // once (`props.icon ? <div>{props.icon}</div> : null`), as React's element is; a render element
+  // becomes a render config (see `renderElementToConfig`).
+  const attribute = parent.isJSXExpressionContainer() ? parent.parentPath : parent;
+  if (
+    attribute.isJSXAttribute() &&
+    t.isJSXIdentifier(attribute.node.name) &&
+    !['render', 'children'].includes(attribute.node.name.name) &&
+    isComponentElement(attribute.parentPath.node)
+  ) {
+    return false;
+  }
   if (
     parent.isJSXExpressionContainer() ||
     parent.isJSXElement() ||
@@ -2244,6 +2561,12 @@ function inRenderPosition(path, ctx) {
     return !fnPath || rendersWhereCalled(fnPath, ctx);
   }
   return false;
+}
+
+/** Whether an opening element is a component's (`<Item>`, `<Menu.Item>`), not a DOM element's. */
+function isComponentElement(opening) {
+  const { name } = opening;
+  return !(t.isJSXIdentifier(name) && /^[a-z]/.test(name.name)) && !t.isJSXNamespacedName(name);
 }
 
 /**
@@ -2266,6 +2589,182 @@ function deferElements(programPath, ctx) {
   });
 }
 
+/** Whether a function is a value of an MDX components map (`const c: MDXComponents = {...}`). */
+function inComponentMap(path) {
+  const property = path.parentPath;
+  if (!property.isObjectProperty() || property.node.value !== path.node) {
+    return false;
+  }
+  const declarator = property.parentPath.parentPath;
+  const type = declarator?.isVariableDeclarator()
+    ? declarator.node.id.typeAnnotation?.typeAnnotation
+    : null;
+  return Boolean(
+    t.isTSTypeReference(type) && t.isIdentifier(type.typeName, { name: 'MDXComponents' }),
+  );
+}
+
+/** Whether a function renders: it has JSX, or an element (`element(() => <jsx />)`). */
+function containsJsx(path) {
+  let found = false;
+  path.traverse({
+    'JSXElement|JSXFragment'(inner) {
+      found = true;
+      inner.stop();
+    },
+  });
+  return found;
+}
+
+/**
+ * Solid code names a component's props `props` (its lint reads them as reactive): another
+ * function's `props` parameter is `params`, as docs-infra names the ones it declares.
+ */
+function renameNonComponentProps(programPath) {
+  programPath.traverse({
+    Function(path) {
+      const [param] = path.node.params;
+      const name = functionName(path);
+      if (
+        !t.isIdentifier(param, { name: 'props' }) ||
+        isComponentName(name) ||
+        (name && HOOK_NAME.test(name)) ||
+        inComponentMap(path) ||
+        containsJsx(path)
+      ) {
+        return;
+      }
+      path.scope.rename(
+        'props',
+        path.scope.hasBinding('params') ? path.scope.generateUid('params') : 'params',
+      );
+    },
+  });
+}
+
+/**
+ * React's elements are descriptions: a module declares them once (`const contents = { a: <p /> }`)
+ * and every render reuses them. Solid's JSX creates the elements, under the render that runs it,
+ * and an element renders in one place: a module const holding elements moves into each function
+ * that uses it.
+ */
+function moveModuleElements(programPath) {
+  for (const statement of programPath.get('body')) {
+    if (
+      !statement.isVariableDeclaration({ kind: 'const' }) ||
+      statement.node.declarations.length !== 1
+    ) {
+      continue;
+    }
+    const declarator = statement.get('declarations.0');
+    if (!declarator.get('id').isIdentifier() || !declarator.node.init) {
+      continue;
+    }
+    let createsElements = false;
+    declarator.get('init').traverse({
+      Function(inner) {
+        inner.skip();
+      },
+      'JSXElement|JSXFragment'(inner) {
+        createsElements = true;
+        inner.stop();
+      },
+    });
+    const binding = statement.scope.getBinding(declarator.node.id.name);
+    if (!createsElements || !binding || binding.referencePaths.length === 0) {
+      continue;
+    }
+    // The functions of the module that use it.
+    const functions = new Set();
+    let moduleUse = false;
+    for (const reference of binding.referencePaths) {
+      const fn = reference.findParent(
+        (parent) => parent.isFunction() && parent.getFunctionParent() === null,
+      );
+      if (fn) {
+        functions.add(fn);
+      } else {
+        moduleUse = true;
+      }
+    }
+    if (moduleUse) {
+      continue;
+    }
+    for (const fn of functions) {
+      if (!fn.get('body').isBlockStatement()) {
+        fn.get('body').replaceWith(t.blockStatement([t.returnStatement(fn.node.body)]));
+      }
+      fn.get('body').unshiftContainer('body', t.cloneNode(statement.node, true));
+    }
+    statement.remove();
+  }
+  programPath.scope.crawl();
+}
+
+/**
+ * React picks a hook by environment (`typeof window === 'undefined' ? useServer : useBrowser`):
+ * its hooks key nothing. Solid keys hydration by the owners a render creates, so the hook runs in an
+ * owner of its own (`environmentHook`), one id on both sides whatever the variant creates.
+ */
+function environmentHooks(programPath, imports) {
+  const isServerTest = (node) =>
+    t.isBinaryExpression(node, { operator: '===' }) &&
+    t.isUnaryExpression(node.left, { operator: 'typeof' }) &&
+    t.isIdentifier(node.left.argument, { name: 'window' }) &&
+    t.isStringLiteral(node.right, { value: 'undefined' });
+  const isHook = (node) => t.isIdentifier(node) && HOOK_NAME.test(node.name);
+  programPath.traverse({
+    ConditionalExpression(path) {
+      const { test, consequent, alternate } = path.node;
+      if (isServerTest(test) && isHook(consequent) && isHook(alternate)) {
+        imports.add(REACT_ADAPTERS, 'environmentHook');
+        path.replaceWith(
+          t.callExpression(t.identifier('environmentHook'), [consequent, alternate]),
+        );
+      }
+    },
+  });
+}
+
+/** Whether a value is an element (`element(...)`), or one of several (`a ? element(...) : null`). */
+function holdsElement(node) {
+  if (isElementCall(node)) {
+    return true;
+  }
+  if (t.isConditionalExpression(node)) {
+    return holdsElement(node.consequent) || holdsElement(node.alternate);
+  }
+  if (t.isLogicalExpression(node)) {
+    return holdsElement(node.left) || holdsElement(node.right);
+  }
+  return false;
+}
+
+/**
+ * An element value is a function Solid calls where it is inserted. Inserted by name
+ * (`{actions}`), the compiler takes it for a value and leaves the hole unscoped, so the server and
+ * the client key its content differently; inserted through a call (`{place(actions)}`), the hole is
+ * scoped and the keys agree.
+ */
+function placeElements(programPath, imports) {
+  programPath.traverse({
+    JSXExpressionContainer(path) {
+      const { expression } = path.node;
+      if (
+        !t.isIdentifier(expression) ||
+        !(path.parentPath.isJSXElement() || path.parentPath.isJSXFragment())
+      ) {
+        return;
+      }
+      const declarator = path.scope.getBinding(expression.name)?.path;
+      if (declarator?.isVariableDeclarator() && holdsElement(declarator.node.init)) {
+        imports.add(REACT_ADAPTERS, 'place');
+        path.node.expression = t.callExpression(t.identifier('place'), [expression]);
+      }
+    },
+  });
+}
+
 /** Lowers every component and corpus hook, innermost first. */
 function lowerReactiveFunctions(programPath, ctx) {
   const found = [];
@@ -2281,6 +2780,8 @@ function lowerReactiveFunctions(programPath, ctx) {
         ) {
           found.push({ path, kind: 'component' });
         } else if (!name && t.isExportDefaultDeclaration(path.parent) && returnsJsx(path)) {
+          found.push({ path, kind: 'component' });
+        } else if (inComponentMap(path)) {
           found.push({ path, kind: 'component' });
         }
       },
@@ -2455,15 +2956,16 @@ function transformModuleApis(programPath, ctx) {
                 fnPath.node.body = t.blockStatement([t.returnStatement(fnPath.node.body)]);
               }
               imports.add('solid-js', 'omit');
-              fnPath.node.body.body.unshift(
-                constDeclaration(
-                  t.identifier(propsParam.name),
-                  t.callExpression(t.identifier('omit'), [
-                    t.identifier(all.name),
-                    t.stringLiteral('ref'),
-                  ]),
-                ),
+              const withoutRef = constDeclaration(
+                t.identifier(propsParam.name),
+                t.callExpression(t.identifier('omit'), [
+                  t.identifier(all.name),
+                  t.stringLiteral('ref'),
+                ]),
               );
+              // The component reads these as its props.
+              withoutRef.solidProps = true;
+              fnPath.node.body.body.unshift(withoutRef);
               all.typeAnnotation = propsParam.typeAnnotation;
               fnPath.node.params[0] = all;
             }
@@ -2783,8 +3285,69 @@ function renderElementToConfig(element, imports) {
   );
 }
 
+/** `list.method(...)`, also on an optional chain (`value?.split(' ').map(...)`). */
+function isMethodCall(node, method) {
+  return (
+    (t.isCallExpression(node) || t.isOptionalCallExpression(node)) &&
+    (t.isMemberExpression(node.callee) || t.isOptionalMemberExpression(node.callee)) &&
+    !node.callee.computed &&
+    t.isIdentifier(node.callee.property, { name: method })
+  );
+}
+
+/**
+ * React's `key` on an element that is not a list's item remounts the element when the key
+ * changes. A one-item keyed list does that in Solid: `<For each={[key]}>{() => <Element />}</For>`.
+ * A list's items (a `.map` callback's or a render function's result) keep `For`'s own keys.
+ */
+function identityKeysToFor(programPath, imports) {
+  const isListItem = (path) => {
+    const fn = path.getFunctionParent();
+    if (!fn) {
+      return false;
+    }
+    const parent = fn.parentPath;
+    const mapped = isMethodCall(parent.node, 'map') || isMethodCall(parent.node, 'flatMap');
+    return mapped || parent.isJSXExpressionContainer() || parent.isJSXAttribute();
+  };
+  programPath.traverse({
+    JSXElement: {
+      exit(path) {
+        const opening = path.node.openingElement;
+        const key = opening.attributes.find(
+          (attribute) =>
+            t.isJSXAttribute(attribute) &&
+            t.isJSXIdentifier(attribute.name, { name: 'key' }) &&
+            t.isJSXExpressionContainer(attribute.value),
+        );
+        if (!key || isListItem(path)) {
+          return;
+        }
+        opening.attributes = opening.attributes.filter((attribute) => attribute !== key);
+        imports.add('solid-js', 'For');
+        path.replaceWith(
+          t.jsxElement(
+            t.jsxOpeningElement(t.jsxIdentifier('For'), [
+              t.jsxAttribute(
+                t.jsxIdentifier('each'),
+                t.jsxExpressionContainer(t.arrayExpression([key.value.expression])),
+              ),
+            ]),
+            t.jsxClosingElement(t.jsxIdentifier('For')),
+            [t.jsxExpressionContainer(t.arrowFunctionExpression([], path.node))],
+          ),
+        );
+        path.skip();
+      },
+    },
+  });
+}
+
 function transformJsx(programPath, ctx) {
   const { imports, reactNames, refs } = ctx;
+  identityKeysToFor(programPath, imports);
+  // The callbacks whose parameters a removed `key` read.
+  const keyCallbacks = new Set();
 
   /** Rewrites one attribute to Solid's (returns false when it is removed). */
   const convertAttribute = (attributePath, element) => {
@@ -2796,6 +3359,14 @@ function transformJsx(programPath, ctx) {
     const value = attribute.value;
     // `key` is React's reconciliation hint; `suppressHydrationWarning` silences React's checks.
     if (name === 'key' || name === 'suppressHydrationWarning') {
+      attributePath.traverse({
+        Identifier(identifierPath) {
+          const binding = identifierPath.scope.getBinding(identifierPath.node.name);
+          if (binding?.kind === 'param') {
+            keyCallbacks.add(binding.scope.block);
+          }
+        },
+      });
       attributePath.remove();
       return;
     }
@@ -2982,11 +3553,73 @@ function transformJsx(programPath, ctx) {
     }
   };
 
+  // A component's props: its first parameter, or the props it reads without the ref.
+  const isProps = (binding) =>
+    Boolean(
+      binding &&
+      ((binding.kind === 'param' &&
+        binding.path.key === 0 &&
+        isComponentName(functionName(binding.path.parentPath))) ||
+        binding.path.parentPath?.node.solidProps),
+    );
+  // A native element binds its handler once, where React binds the current one each render: a
+  // handler prop is called when the event fires, as its value then.
+  const bindHandlerProp = (attributePath, element) => {
+    const { name, value } = attributePath.node;
+    if (
+      !t.isJSXIdentifier(element.name) ||
+      !/^[a-z]/.test(element.name.name) ||
+      !t.isJSXIdentifier(name) ||
+      !/^on[A-Z]/.test(name.name) ||
+      !t.isJSXExpressionContainer(value)
+    ) {
+      return;
+    }
+    const handler = value.expression;
+    if (
+      t.isMemberExpression(handler) &&
+      !handler.computed &&
+      t.isIdentifier(handler.object) &&
+      isProps(attributePath.scope.getBinding(handler.object.name))
+    ) {
+      value.expression = t.arrowFunctionExpression(
+        [t.identifier('event')],
+        t.optionalCallExpression(handler, [t.identifier('event')], true),
+      );
+    }
+  };
+
+  // eslint-plugin-solid takes a component's async event handler for an async tracked scope; the
+  // component calls it as a handler, untracked.
+  const allowAsyncHandler = (attributePath, element) => {
+    const { name, value } = attributePath.node;
+    if (
+      ctx.linted &&
+      !(t.isJSXIdentifier(element.name) && /^[a-z]/.test(element.name.name)) &&
+      t.isJSXIdentifier(name) &&
+      /^on[A-Z]/.test(name.name) &&
+      t.isJSXExpressionContainer(value) &&
+      isFunctionNode(value.expression) &&
+      value.expression.async
+    ) {
+      t.addComment(
+        attributePath.node,
+        'leading',
+        ' eslint-disable-next-line solid/reactivity -- an event handler (eslint-plugin-solid#168)',
+        true,
+      );
+    }
+  };
+
   programPath.traverse({
     JSXOpeningElement(path) {
       for (const attributePath of path.get('attributes')) {
         if (attributePath.isJSXAttribute()) {
           convertAttribute(attributePath, path.node);
+          if (!attributePath.removed) {
+            bindHandlerProp(attributePath, path.node);
+            allowAsyncHandler(attributePath, path.node);
+          }
         }
       }
       // A context provider passes its value as an accessor (see the header).
@@ -3044,6 +3677,12 @@ function transformJsx(programPath, ctx) {
         };
         if (element && !t.isJSXEmptyExpression(element)) {
           path.node.value = t.jsxExpressionContainer(toConfig(element));
+          // The element's lint rules have no element left to check.
+          rewriteLintDirectives(
+            path.node,
+            (rule) => (rule.startsWith('jsx-a11y/') ? null : rule),
+            programPath.node,
+          );
         }
       },
     },
@@ -3186,16 +3825,30 @@ function transformJsx(programPath, ctx) {
         return;
       }
       if (
-        t.isCallExpression(expression) &&
-        t.isMemberExpression(expression.callee) &&
-        t.isIdentifier(expression.callee.property, { name: 'map' }) &&
+        isMethodCall(expression, 'map') &&
         expression.arguments.length >= 1 &&
         (t.isArrowFunctionExpression(expression.arguments[0]) ||
           t.isFunctionExpression(expression.arguments[0]))
       ) {
         imports.add('solid-js', 'For');
-        // `<For>` passes the index as an accessor.
         const callbackPath = path.get('expression.arguments.0');
+        // `<For>` passes no list: the callback's third argument reads the list it renders.
+        const listParam = callbackPath.node.params[2];
+        if (t.isIdentifier(listParam)) {
+          for (const reference of callbackPath.scope.getBinding(listParam.name)?.referencePaths ??
+            []) {
+            const list = t.cloneNode(expression.callee.object, true);
+            // The callback runs for an item of the list, so an optional chain's list is there; the
+            // fallback only types it so.
+            reference.replaceWith(
+              t.isOptionalCallExpression(list) || t.isOptionalMemberExpression(list)
+                ? t.logicalExpression('??', list, t.arrayExpression([]))
+                : list,
+            );
+          }
+          callbackPath.node.params.splice(2);
+        }
+        // `<For>` passes the index as an accessor.
         const indexParam = callbackPath.node.params[1];
         if (t.isIdentifier(indexParam)) {
           const binding = callbackPath.scope.getBinding(indexParam.name);
@@ -3205,6 +3858,26 @@ function transformJsx(programPath, ctx) {
             }
           }
           indexParam.typeAnnotation = null;
+        }
+        // React runs the callback on every render; `For` runs it once per item. A callback that
+        // computes values before its JSX renders from a memo of its body, so they stay current.
+        const callback = callbackPath.node;
+        if (t.isBlockStatement(callback.body) && callback.body.body.length > 1) {
+          imports.add('solid-js', 'createMemo');
+          const row = callbackPath.scope.generateUidIdentifier('row');
+          callback.body = t.blockStatement([
+            constDeclaration(
+              row,
+              t.callExpression(t.identifier('createMemo'), [
+                t.arrowFunctionExpression([], callback.body),
+              ]),
+            ),
+            t.returnStatement(
+              t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), [
+                t.jsxExpressionContainer(t.callExpression(t.identifier(row.name), [])),
+              ]),
+            ),
+          ]);
         }
         const forElement = t.jsxElement(
           t.jsxOpeningElement(t.jsxIdentifier('For'), [
@@ -3220,6 +3893,26 @@ function transformJsx(programPath, ctx) {
       }
     },
   });
+
+  // A callback parameter only the removed `key` read is unused now; trailing ones go.
+  if (keyCallbacks.size > 0) {
+    programPath.scope.crawl();
+    programPath.traverse({
+      Function(path) {
+        if (!keyCallbacks.has(path.node)) {
+          return;
+        }
+        const { params } = path.node;
+        while (
+          params.length > 0 &&
+          t.isIdentifier(params.at(-1)) &&
+          !path.scope.getBinding(params.at(-1).name)?.referenced
+        ) {
+          params.pop();
+        }
+      },
+    });
+  }
 }
 
 // DOM events React's synthetic events wrap; a Solid handler receives the native event.
@@ -3468,6 +4161,13 @@ function transformTypes(programPath, ctx) {
           path.replaceWith(withTarget(t.tsTypeReference(t.identifier('Event'))));
         } else if (name === 'PropsWithChildren') {
           path.replaceWith(reference(solidType('ParentProps'), args));
+        } else if (
+          (name === 'ComponentType' || name === 'FC' || name === 'FunctionComponent') &&
+          !ctx.standalone
+        ) {
+          // React's takes any props type; Solid's `Component` only an object type.
+          imports.add(REACT_ADAPTERS, 'ComponentType', true);
+          path.replaceWith(reference(t.identifier('ComponentType'), args));
         } else if (name === 'ComponentType' || name === 'FC' || name === 'FunctionComponent') {
           path.replaceWith(reference(solidType('Component'), args));
         } else if (name === 'Dispatch' && args.length === 1) {
@@ -3483,6 +4183,24 @@ function transformTypes(programPath, ctx) {
               t.tsTypeAnnotation(t.tsVoidKeyword()),
             ),
           );
+        } else if (name === 'EffectCallback') {
+          // React's: `() => void | Destructor`.
+          path.replaceWith(
+            t.tsFunctionType(
+              null,
+              [],
+              t.tsTypeAnnotation(
+                t.tsUnionType([
+                  t.tsVoidKeyword(),
+                  t.tsParenthesizedType(
+                    t.tsFunctionType(null, [], t.tsTypeAnnotation(t.tsVoidKeyword())),
+                  ),
+                ]),
+              ),
+            ),
+          );
+        } else if (name === 'DependencyList') {
+          path.replaceWith(t.tsTypeOperator(t.tsArrayType(t.tsUnknownKeyword()), 'readonly'));
         } else if (name === 'SetStateAction' && args.length === 1) {
           path.replaceWith(
             t.tsUnionType([
@@ -3557,6 +4275,95 @@ function isPropsBinding(binding) {
     t.isIdentifier(init.callee) &&
     (init.callee.name === 'omit' || init.callee.name === 'merge')
   );
+}
+
+/**
+ * A component typed with an element's props (`ComponentProps<'button'>`) that spreads them onto
+ * another component (a Base UI part) types them as React does: the ref a callback of the element or
+ * `null` (React and Base UI parts call refs so; Solid's element ref never gets `null`), and `style`
+ * an object (Solid's element style also takes a string). The docs runtime's `ReactProps` already
+ * types them so.
+ */
+function typeSpreadElementRefs(programPath, ctx) {
+  if (!ctx.standalone) {
+    return;
+  }
+  programPath.traverse({
+    Function(fnPath) {
+      const [param] = fnPath.node.params;
+      const annotation = t.isIdentifier(param) ? param.typeAnnotation?.typeAnnotation : null;
+      const [tag] = annotation?.typeParameters?.params ?? [];
+      if (
+        !t.isTSTypeReference(annotation) ||
+        !t.isIdentifier(annotation.typeName, { name: 'ComponentProps' }) ||
+        !t.isTSLiteralType(tag) ||
+        !t.isStringLiteral(tag.literal)
+      ) {
+        return;
+      }
+      let spreadOntoComponent = false;
+      fnPath.traverse({
+        JSXSpreadAttribute(spreadPath) {
+          const name = spreadPath.parentPath.node.name;
+          const component = !(t.isJSXIdentifier(name) && /^[a-z]/.test(name.name));
+          const argument = spreadPath.node.argument;
+          const binding = t.isIdentifier(argument)
+            ? spreadPath.scope.getBinding(argument.name)
+            : null;
+          if (component && (argument.name === param.name || isPropsBinding(binding))) {
+            spreadOntoComponent = true;
+            spreadPath.stop();
+          }
+        },
+      });
+      if (!spreadOntoComponent) {
+        return;
+      }
+      const element = t.tsIndexedAccessType(
+        t.tsTypeReference(t.identifier('HTMLElementTagNameMap')),
+        t.tsLiteralType(t.stringLiteral(tag.literal.value)),
+      );
+      const ref = t.tsPropertySignature(
+        t.identifier('ref'),
+        t.tsTypeAnnotation(
+          t.tsFunctionType(
+            null,
+            [
+              Object.assign(t.identifier('el'), {
+                typeAnnotation: t.tsTypeAnnotation(t.tsUnionType([element, t.tsNullKeyword()])),
+              }),
+            ],
+            t.tsTypeAnnotation(t.tsVoidKeyword()),
+          ),
+        ),
+      );
+      ref.optional = true;
+      // React's `style` is an object; Solid's element style also takes a string.
+      ctx.imports.add('@solidjs/web', 'JSX', true);
+      const style = t.tsPropertySignature(
+        t.identifier('style'),
+        t.tsTypeAnnotation(
+          t.tsTypeReference(t.tsQualifiedName(t.identifier('JSX'), t.identifier('CSSProperties'))),
+        ),
+      );
+      style.optional = true;
+      param.typeAnnotation = t.tsTypeAnnotation(
+        t.tsIntersectionType([
+          t.tsTypeReference(
+            t.identifier('Omit'),
+            t.tsTypeParameterInstantiation([
+              annotation,
+              t.tsUnionType([
+                t.tsLiteralType(t.stringLiteral('ref')),
+                t.tsLiteralType(t.stringLiteral('style')),
+              ]),
+            ]),
+          ),
+          t.tsTypeLiteral([ref, style]),
+        ]),
+      );
+    },
+  });
 }
 
 /** Whether a type member is in a props type: one named `...Props`, or a component's parameter's. */
@@ -3660,7 +4467,7 @@ function renameDomPropReads(programPath) {
 const MODULES = {
   '@base-ui/react': '@solidports/base-ui',
   '@base-ui/react/*': '@solidports/base-ui/*',
-  'lucide-react': 'lucide-solid',
+  'lucide-react': '@lucide/solid',
   '@tanstack/react-form': '@tanstack/solid-form',
 };
 
@@ -3793,6 +4600,168 @@ const DECLARATION_KEYWORDS = new Set([
 ]);
 
 /**
+ * React Testing Library's `rerender(<Component {...next} />)` gives the rendered element new props
+ * and keeps its state. Here the rendered element reads its props from a signal, and a rerender of
+ * the same component sets it.
+ */
+function rerendersToSignals(programPath, ctx) {
+  const toProps = (element) =>
+    t.objectExpression(
+      element.openingElement.attributes.map((attribute) => {
+        if (t.isJSXSpreadAttribute(attribute)) {
+          return t.spreadElement(attribute.argument);
+        }
+        const name = attribute.name.name;
+        const key = /^[A-Za-z_$][\w$]*$/.test(name) ? t.identifier(name) : t.stringLiteral(name);
+        let value = t.booleanLiteral(true);
+        if (t.isStringLiteral(attribute.value)) {
+          value = t.stringLiteral(attribute.value.value);
+        } else if (t.isJSXExpressionContainer(attribute.value)) {
+          value = attribute.value.expression;
+        }
+        return t.objectProperty(key, value);
+      }),
+    );
+  programPath.traverse({
+    VariableDeclarator(path) {
+      const { id } = path.node;
+      const call = t.isAwaitExpression(path.node.init) ? path.node.init.argument : path.node.init;
+      if (!t.isObjectPattern(id) || !t.isCallExpression(call)) {
+        return;
+      }
+      const property = id.properties.find(
+        (candidate) =>
+          t.isObjectProperty(candidate) &&
+          t.isIdentifier(candidate.key, { name: 'rerender' }) &&
+          t.isIdentifier(candidate.value),
+      );
+      const [rendered] = call.arguments;
+      if (!property || !t.isJSXElement(rendered)) {
+        return;
+      }
+      const sameComponent = (element) =>
+        t.isJSXElement(element) &&
+        t.isNodesEquivalent(element.openingElement.name, rendered.openingElement.name);
+      const rerenders = (path.scope.getBinding(property.value.name)?.referencePaths ?? []).map(
+        (reference) => reference.parentPath,
+      );
+      if (
+        rerenders.some(
+          (callPath) =>
+            !callPath.isCallExpression() ||
+            callPath.node.arguments.length !== 1 ||
+            !sameComponent(callPath.node.arguments[0]),
+        )
+      ) {
+        return;
+      }
+      ctx.imports.add('solid-js', 'createSignal');
+      const props = path.scope.generateUidIdentifier('props');
+      const setProps = path.scope.generateUidIdentifier('setProps');
+      path.parentPath.insertBefore(
+        t.variableDeclaration('const', [
+          t.variableDeclarator(
+            t.arrayPattern([props, setProps]),
+            t.callExpression(t.identifier('createSignal'), [toProps(rendered)]),
+          ),
+        ]),
+      );
+      for (const callPath of rerenders) {
+        callPath.replaceWith(
+          t.callExpression(t.identifier(setProps.name), [toProps(callPath.node.arguments[0])]),
+        );
+      }
+      rendered.openingElement.attributes = [
+        t.jsxSpreadAttribute(t.callExpression(t.identifier(props.name), [])),
+      ];
+      id.properties = id.properties.filter((candidate) => candidate !== property);
+      if (id.properties.length === 0) {
+        path.parentPath.replaceWith(t.expressionStatement(path.node.init));
+      }
+    },
+  });
+}
+
+// React lint rules and the Solid rules that check the same thing. Other React rules have no
+// counterpart for Solid code.
+const SOLID_LINT_RULES = { 'react/no-danger': 'solid/no-innerhtml' };
+const REACT_LINT_RULE = /^(react|react-hooks|react-compiler|@next\/next)\//;
+const LINT_DIRECTIVE =
+  /^(\s*eslint-(?:disable|enable)(?:-next-line|-line)?\s+)(.*?)(\s+--.*?)?(\s*)$/s;
+
+/**
+ * Renames the rules of the ESLint directives in `root`'s comments with `rename` (null drops a
+ * rule), and removes a directive left with none from `tree` (a comment can sit on several nodes).
+ */
+function rewriteLintDirectives(root, rename, tree = root) {
+  const removed = new Set();
+  t.traverseFast(root, (node) => {
+    for (const key of ['leadingComments', 'trailingComments', 'innerComments']) {
+      for (const comment of node[key] ?? []) {
+        const match = LINT_DIRECTIVE.exec(comment.value);
+        if (!match || removed.has(comment)) {
+          continue;
+        }
+        const rules = match[2]
+          .split(',')
+          .map((rule) => rule.trim())
+          .filter(Boolean);
+        const renamed = rules.map(rename).filter(Boolean);
+        if (rules.length > 0 && renamed.length === 0) {
+          removed.add(comment);
+        } else if (rules.length > 0) {
+          comment.value = `${match[1]}${renamed.join(', ')}${match[3] ?? ''}${match[4]}`;
+        }
+      }
+    }
+  });
+  if (removed.size > 0) {
+    t.traverseFast(tree, (node) => {
+      for (const key of ['leadingComments', 'trailingComments', 'innerComments']) {
+        if (node[key]) {
+          node[key] = node[key].filter((comment) => !removed.has(comment));
+        }
+      }
+    });
+  }
+}
+
+/** Writes `{ name: name }`, which the rewrites build, as `{ name }`, as the source writes it. */
+function shorthandProperties(programPath) {
+  programPath.traverse({
+    ObjectProperty(path) {
+      const { node } = path;
+      if (
+        !node.computed &&
+        t.isIdentifier(node.key) &&
+        t.isIdentifier(node.value) &&
+        node.key.name === node.value.name &&
+        !t.isObjectPattern(path.parent)
+      ) {
+        node.shorthand = true;
+      }
+    },
+  });
+}
+
+/** Moves the file's header comments back above its first statement (imports go above them). */
+function keepHeaderComments(programPath, header) {
+  const [first] = programPath.node.body;
+  if (header.length === 0 || !first) {
+    return;
+  }
+  const comments = new Set(header);
+  t.traverseFast(programPath.node, (node) => {
+    for (const key of ['leadingComments', 'trailingComments', 'innerComments']) {
+      if (node[key]) {
+        node[key] = node[key].filter((comment) => !comments.has(comment));
+      }
+    }
+  });
+  first.leadingComments = [...header, ...(first.leadingComments ?? [])];
+}
+
+/**
  * Parenthesizes an expression statement that starts with a TypeScript declaration keyword
  * (`(type satisfies Node);`), as the source did: the printer drops the parentheses, and without
  * them the statement parses as a declaration.
@@ -3842,6 +4811,8 @@ export function transformReactToSolid(source, options = {}) {
     jsx: !options.filename?.endsWith('.ts'),
     // Code users copy (demos, samples): no imports of the docs' adapters.
     standalone: Boolean(options.standalone),
+    // Code the Solid docs lint.
+    linted: Boolean(options.linted),
     // Prop names components declare under React's attribute names (kept on components).
     componentProps: new Map(
       Object.entries(options.componentProps ?? {}).map(([prop, components]) => [
@@ -3854,6 +4825,8 @@ export function transformReactToSolid(source, options = {}) {
 
   traverse(ast, {
     Program(programPath) {
+      // The file's header comments (a `@vitest-environment` pragma, say) stay at its top.
+      const header = [...(programPath.node.body[0]?.leadingComments ?? [])];
       programPath.node.directives = programPath.node.directives.filter(
         (directive) =>
           directive.value.value !== 'use client' && directive.value.value !== 'use server',
@@ -3925,28 +4898,69 @@ export function transformReactToSolid(source, options = {}) {
       transformModuleApis(programPath, ctx);
       dropDisplayNames(programPath);
       programPath.scope.crawl();
+      moveModuleElements(programPath);
+      rerendersToSignals(programPath, ctx);
       if (!ctx.standalone) {
         deferElements(programPath, ctx);
       }
       programPath.scope.crawl();
       lowerReactiveFunctions(programPath, ctx);
+      renameNonComponentProps(programPath);
       snapshotElementPaths(programPath);
       lowerRemainingHooks(programPath, ctx);
       transformTypes(programPath, ctx);
       transformJsx(programPath, ctx);
+      placeElements(programPath, ctx.imports);
+      environmentHooks(programPath, ctx.imports);
       renameDomPropReads(programPath);
+      typeSpreadElementRefs(programPath, ctx);
       if (options.rewriteString) {
         rewriteStrings(programPath, options.rewriteString);
       }
 
-      const declarations = ctx.imports.declarations();
+      const declarations = ctx.imports.declarations(usedNames(programPath));
       if (declarations.length > 0) {
-        programPath.unshiftContainer('body', declarations);
+        // After the leading stylesheet imports, which come first for the CSS order.
+        const body = programPath.get('body');
+        const stylesheets = body.findIndex(
+          (statement) => !statement.isImportDeclaration() || statement.node.specifiers.length > 0,
+        );
+        const count = stylesheets === -1 ? body.length : stylesheets;
+        if (count === 0) {
+          programPath.unshiftContainer('body', declarations);
+        } else {
+          body[count - 1].insertAfter(declarations);
+        }
       }
+      shorthandProperties(programPath);
+      rewriteLintDirectives(
+        programPath.node,
+        (rule) => SOLID_LINT_RULES[rule] ?? (REACT_LINT_RULE.test(rule) ? null : rule),
+      );
+      keepHeaderComments(programPath, header);
       keepStatementParentheses(programPath);
       programPath.stop();
     },
   });
 
-  return generate(ast, GENERATOR_OPTIONS).code;
+  return separateImports(generate(ast, GENERATOR_OPTIONS).code, options.filename);
+}
+
+/**
+ * Puts a blank line between the imports and the code after them, as the source has: the printer
+ * keeps a source's blank lines only between the statements it did not replace.
+ */
+function separateImports(code, filename) {
+  const { body } = parse(code, parserOptions(filename)).program;
+  const index = body.findLastIndex((statement) => statement.type === 'ImportDeclaration');
+  const next = body[index + 1];
+  if (index === -1 || !next) {
+    return code;
+  }
+  const lineEnd = code.indexOf('\n', body[index].end);
+  const nextStart = next.leadingComments?.[0]?.start ?? next.start;
+  if (lineEnd === -1 || /\n[ \t]*\n/.test(code.slice(body[index].end, nextStart))) {
+    return code;
+  }
+  return `${code.slice(0, lineEnd)}\n${code.slice(lineEnd)}`;
 }

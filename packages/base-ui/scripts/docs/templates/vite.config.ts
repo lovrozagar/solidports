@@ -34,15 +34,11 @@ export default defineConfig(async () => ({
         find: /^@solidjs\/web\/jsx-(dev-)?runtime$/,
         replacement: at('./src/adapters/jsx-runtime.ts'),
       },
-      // Packages built for Solid 1 (`lucide-solid`).
-      { find: /^solid-js\/web$/, replacement: at('./src/adapters/solid-js-web.ts') },
-      { find: /^solid-js\/store$/, replacement: 'solid-js' },
     ],
   },
   // Bundled for the server too: the Solid packages share the app's `solid-js` (one context
-  // registry), and `lucide-solid`'s `solid-js/web` imports take the alias.
-  ssr: { noExternal: ['@solidjs/router', 'lucide-solid'] },
-  optimizeDeps: { exclude: ['lucide-solid'] },
+  // registry).
+  ssr: { noExternal: ['@solidjs/router'] },
   server: {
     port: 3001,
     // docs-infra writes a component's `types.md` as it loads its types; the file is its output,

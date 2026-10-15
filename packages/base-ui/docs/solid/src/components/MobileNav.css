@@ -1,6 +1,8 @@
 /* Keep layer order stable when this file is emitted from a client CSS chunk. */
 @layer all, base, theme, components, utilities;
 
+@import 'docs/src/css/custom-media.css';
+
 @layer components {
   .MobileNavTriggerIcon {
     width: var(--space-16);
@@ -97,7 +99,7 @@
       transition-duration: calc(var(--drawer-swipe-strength, 1) * 400ms);
     }
 
-    @media (min-width: 40rem) {
+    @media (--sm) {
       width: calc(100% - 6rem);
       max-width: 40rem;
     }
@@ -461,7 +463,7 @@
     opacity: 0.7;
     white-space: nowrap;
 
-    @media (min-width: 40rem) {
+    @media (--sm) {
       display: inline;
     }
   }

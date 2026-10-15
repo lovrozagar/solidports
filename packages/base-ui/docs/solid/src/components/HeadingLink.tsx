@@ -1,15 +1,10 @@
-import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { splitProps } from '../utils/solid-1-compat';
-import "./HeadingLink.css"
+import { omit } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
+import './HeadingLink.css';
 
-export function HeadingLink(props: JSX.AnchorHTMLAttributes<HTMLAnchorElement>) {
-  const [local, rest] = splitProps(props, ["class", "id"])
-  return (
-    <a
-      class={clsx("HeadingLink", local.class)}
-      href={local.id ? `#${local.id}` : undefined}
-      {...rest}
-    />
-  )
+export function HeadingLink(props: ReactProps<ComponentProps<'a'>>) {
+  const rest = omit(props, 'class', 'id');
+  return <a class={clsx('HeadingLink', props.class)} href={`#${props.id}`} {...rest} />;
 }

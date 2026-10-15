@@ -1,0 +1,191 @@
+// Keep CSS imports first to ensure CSS layer order is correct
+import 'docs/src/css/index.css';
+import './layout.css';
+import { element } from 'docs/src/adapters/react';
+import { Head } from 'docs/src/adapters/next/document';
+import { createMemo, For } from 'solid-js';
+import type { ParentProps } from 'solid-js';
+import type { Metadata, Viewport } from 'docs/src/adapters/next';
+import { GoogleAnalytics } from 'docs/src/components/GoogleAnalytics';
+import { DocsProviders } from 'docs/src/components/DocsProviders';
+import * as SideNav from 'docs/src/components/SideNav';
+import * as QuickNav from 'docs/src/components/QuickNav/QuickNav';
+import { Header } from 'docs/src/components/Header';
+import { MAIN_CONTENT_ID } from 'docs/src/components/SkipNav';
+import { sitemap } from 'docs/src/app/sitemap';
+import { GitHubIcon } from 'docs/src/icons/GitHubIcon';
+import { NpmIcon } from 'docs/src/icons/NpmIcon';
+import { getDisplayTitle } from 'docs/src/utils/getDisplayTitle';
+import { getSitemapPageInfo, isSitemapPageVisible } from 'docs/src/utils/sitemapPage';
+
+export default function Layout(props: ParentProps) {
+  return (
+    // Use suppressHydrationWarning to avoid https://github.com/react/react/issues/24430
+    <html lang="en">
+      <Head>
+        <link
+          rel="preload"
+          href="/fonts/die-grotesk-a-regular.woff2"
+          as="font"
+          type="font/woff2"
+          crossorigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/die-grotesk-a-bold.woff2"
+          as="font"
+          type="font/woff2"
+          crossorigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/die-grotesk-b-bold.woff2"
+          as="font"
+          type="font/woff2"
+          crossorigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/paper-mono.woff2"
+          as="font"
+          type="font/woff2"
+          crossorigin="anonymous"
+        />
+      </Head>
+      <body>
+        <GoogleAnalytics>
+          <DocsProviders>
+            <div class="RootLayout">
+              <div class="RootLayoutContainer">
+                <div class="RootLayoutContent">
+                  <div class="ContentLayoutRoot">
+                    <Header />
+                    <SideNav.Root>
+                      {sitemap &&
+                        Object.entries(sitemap.data).map(([name, section]) => (
+                          <SideNav.Section>
+                            <SideNav.Heading>{name}</SideNav.Heading>
+                            <SideNav.List>
+                              <For each={section.pages.filter(isSitemapPageVisible)}>
+                                {(page) => {
+                                  const _row = createMemo(() => {
+                                    const pageInfo = getSitemapPageInfo(section, page);
+                                    return (
+                                      <SideNav.Item
+                                        href={pageInfo.href}
+                                        external={pageInfo.external}
+                                      >
+                                        {getDisplayTitle(page.title)}
+                                        <For each={pageInfo.badges}>
+                                          {(badge) => <SideNav.Badge>{badge}</SideNav.Badge>}
+                                        </For>
+                                      </SideNav.Item>
+                                    );
+                                  });
+                                  return <>{_row()}</>;
+                                }}
+                              </For>
+                            </SideNav.List>
+                          </SideNav.Section>
+                        ))}
+                      <SideNav.Separator />
+                      <SideNav.Section>
+                        <SideNav.List>
+                          <SideNav.Item
+                            href="https://github.com/mui/base-ui"
+                            icon={element(() => (
+                              <GitHubIcon />
+                            ))}
+                            external
+                          >
+                            GitHub
+                          </SideNav.Item>
+                          <SideNav.Item
+                            href="https://www.npmjs.com/package/@solidports/base-ui"
+                            icon={element(() => (
+                              <NpmIcon />
+                            ))}
+                            external
+                          >
+                            <span>
+                              npm
+                              <span class="SideNavVersion">{process.env.LIB_VERSION}</span>
+                            </span>
+                          </SideNav.Item>
+                        </SideNav.List>
+                      </SideNav.Section>
+                    </SideNav.Root>
+
+                    <main class="ContentLayoutMain" id={MAIN_CONTENT_ID}>
+                      <QuickNav.Container>{props.children}</QuickNav.Container>
+                    </main>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DocsProviders>
+        </GoogleAnalytics>
+      </body>
+    </html>
+  );
+}
+export const metadata: Metadata = {
+  // Title and description are pulled from <h1> and <Subtitle> in the MDX.
+  title: null,
+  description: null,
+  twitter: {
+    site: '@base_ui',
+    card: 'summary_large_image',
+  },
+  openGraph: {
+    // 'article' is more semantically correct for documentation pages and
+    // unlocks article-specific OG properties.
+    type: 'article',
+    locale: 'en_US',
+    url: './',
+    authors: ['https://base-ui.com'],
+    ttl: 604800,
+  },
+  metadataBase: process.env.BASE_URL,
+  alternates: {
+    canonical: './',
+  },
+  icons: {
+    // Based on https://evilmartians.com/chronicles/how-to-favicon-in-2021-six-files-that-fit-most-needs
+    icon: [
+      {
+        rel: 'icon',
+        url:
+          process.env.NODE_ENV !== 'production' ? '/static/favicon-dev.ico' : '/static/favicon.ico',
+        sizes: '32x32',
+      },
+      {
+        rel: 'icon',
+        type: 'image/svg+xml',
+        url:
+          process.env.NODE_ENV !== 'production' ? '/static/favicon-dev.svg' : '/static/favicon.svg',
+      },
+    ],
+    apple: [
+      {
+        rel: 'apple-touch-icon',
+        url: '/static/apple-touch-icon.png',
+      },
+    ],
+  },
+};
+export const viewport: Viewport = {
+  initialScale: 1,
+  width: 'device-width',
+  themeColor: [
+    // Safari header background: match the page background (--color-content)
+    {
+      media: '(prefers-color-scheme: light)',
+      color: 'white',
+    },
+    {
+      media: '(prefers-color-scheme: dark)',
+      color: 'black',
+    },
+  ],
+};

@@ -1,25 +1,32 @@
-import { Show } from 'solid-js';
-import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { MarkdownLink } from "./MarkdownLink"
-import { ViewSourceLink } from "./ViewSourceLink"
-
-import { splitProps } from '../../utils/solid-1-compat';
-import "./Subtitle.css"
+import { merge, omit } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
+import { MarkdownLink } from './MarkdownLink';
+import { ViewSourceLink } from './ViewSourceLink';
+import './Subtitle.css';
 
 export function Subtitle(
-  props: JSX.HTMLAttributes<HTMLParagraphElement> & { skipLinks?: boolean },
+  _props: ReactProps<ComponentProps<'p'>> & {
+    skipLinks?: boolean;
+  },
 ) {
-  const [local, rest] = splitProps(props, ["class", "skipLinks"])
+  const props = merge(
+    {
+      skipLinks: false,
+    },
+    _props,
+  );
+  const rest = omit(props, 'class', 'skipLinks');
   return (
-    <div class={clsx("Subtitle", local.class)}>
+    <div class={clsx('Subtitle', props.class)}>
       <p {...rest} />
-      <Show when={!local.skipLinks}>
+      {!props.skipLinks && (
         <div class="SubtitleLinks">
           <MarkdownLink />
           <ViewSourceLink />
         </div>
-      </Show>
+      )}
     </div>
-  )
+  );
 }

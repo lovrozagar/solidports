@@ -1,32 +1,25 @@
-import { Logo } from "./Logo"
-import { SkipNav } from "./SkipNav"
-import { Search } from "./Search"
-import "./Header.css"
+import NextLink from 'docs/src/adapters/next/link';
+import { Logo } from './Logo';
+import { SearchControls } from './SearchControls';
+import { SkipNav } from './SkipNav';
+import './Header.css';
 
-export const titleMap: Record<string, string> = {
-  "About Base\xa0UI": "About",
-}
-
-export const HEADER_HEIGHT = 64
-export const HEADER_HEIGHT_DESKTOP = 64
-
+export const HEADER_HEIGHT_DESKTOP = 64;
 export function Header() {
   return (
     <header class="Header">
       <div class="HeaderInner">
         <SkipNav>Skip to contents</SkipNav>
-        <a href="/" class="HeaderLogoLink" aria-label="Go to the homepage">
-          <Logo aria-label="Base UI" />
-        </a>
+        <NextLink href="/" class="HeaderLogoLink" aria-label="Go to the homepage">
+          <Logo aria-label="Base UI" />
+        </NextLink>
         <div class="HeaderSearch">
-          <Search
-            containedScroll
-            enableKeyboardShortcut
-            desktopTriggerClass="HeaderSearchDesktopTrigger"
-            mobileTriggerClass="HeaderSearchMobileTrigger"
+          <SearchControls
+            desktopTriggerClassName="HeaderSearchDesktopTrigger"
+            mobileTriggerClassName="HeaderSearchMobileTrigger"
           />
         </div>
       </div>
     </header>
-  )
+  );
 }

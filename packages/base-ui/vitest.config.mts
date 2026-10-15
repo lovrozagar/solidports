@@ -19,6 +19,7 @@ export default defineConfig({
 			"packages/solid/vitest.ssr.config.mts",
 			"docs/react/vitest.config.mts",
 			"docs/solid/vitest.config.mts",
+			"docs/solid/vitest.dom.config.mts",
 			"test/e2e/vitest.config.mts",
 			"test/regressions/vitest.config.mts",
 		],

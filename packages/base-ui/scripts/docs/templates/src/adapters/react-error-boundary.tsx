@@ -5,7 +5,7 @@ import type { JSX } from '@solidjs/web';
 
 export interface FallbackProps {
   error: unknown;
-  resetErrorBoundary: () => void;
+  resetErrorBoundary: (...args: unknown[]) => void;
 }
 
 export interface ErrorBoundaryProps {

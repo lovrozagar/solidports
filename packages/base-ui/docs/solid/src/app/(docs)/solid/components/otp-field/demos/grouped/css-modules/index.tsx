@@ -1,0 +1,52 @@
+import { createUniqueId, For } from 'solid-js';
+import { OTPField } from '@solidports/base-ui/otp-field';
+import styles from './index.module.css';
+
+const OTP_LENGTH = 6;
+export default function OTPFieldGroupedDemo() {
+  const id = createUniqueId();
+  return (
+    <div class={styles.Field}>
+      <label for={id} class={styles.Label}>
+        Verification code
+      </label>
+      <OTPField.Root id={id} length={OTP_LENGTH} class={styles.Root}>
+        <div class={styles.Group}>
+          {Array.from(
+            {
+              length: 3,
+            },
+            (_, index) => (
+              <For each={[index]}>
+                {() => (
+                  <OTPField.Input
+                    class={styles.Input}
+                    aria-label={index === 0 ? undefined : `Character ${index + 1} of ${OTP_LENGTH}`}
+                  />
+                )}
+              </For>
+            ),
+          )}
+        </div>
+        <OTPField.Separator class={styles.Separator} />
+        <div class={styles.Group}>
+          {Array.from(
+            {
+              length: 3,
+            },
+            (_, index) => (
+              <For each={[index + 3]}>
+                {() => (
+                  <OTPField.Input
+                    class={styles.Input}
+                    aria-label={`Character ${index + 4} of ${OTP_LENGTH}`}
+                  />
+                )}
+              </For>
+            ),
+          )}
+        </div>
+      </OTPField.Root>
+    </div>
+  );
+}

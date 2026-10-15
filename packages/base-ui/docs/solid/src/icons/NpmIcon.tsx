@@ -1,16 +1,12 @@
-import type { JSX } from '@solidjs/web';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
 
-export function NpmIcon(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
+export function NpmIcon(props: ReactProps<ComponentProps<'svg'>>) {
   return (
-    <svg
-      fill="currentcolor"
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      xmlns="http://www.w3.org/2000/svg"
-      {...props}
-    >
-      <path fill-rule="evenodd" clip-rule="evenodd" d="M0 0V16H16V0H0ZM13 3H3V13H8V5H11V13H13V3Z" />
+    <svg fill="currentColor" width="16" height="16" viewBox="0 0 16 16" {...props}>
+      <rect width="16" height="16" fill="black" />
+      <rect x="3" y="3" width="10" height="10" fill="white" />
+      <path d="M8 5H11V13H8V5Z" fill="black" />
     </svg>
-  )
+  );
 }

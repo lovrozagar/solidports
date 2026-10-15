@@ -1,0 +1,162 @@
+# Animation
+
+<Subtitle>A guide to animating Base UI components.</Subtitle>
+<Meta name="description" content="A guide to animating Base UI components." />
+
+Base UI components can be animated using CSS transitions, CSS animations, or JavaScript animation libraries. Each component provides a number of data attributes to target its states, as well as a few attributes specifically for animation.
+
+## CSS transitions
+
+Use the following Base UI attributes for creating transitions when a component becomes visible or hidden:
+
+- `[data-starting-style]` corresponds to the initial style to transition from.
+- `[data-ending-style]` corresponds to the final style to transition to.
+
+Transitions are recommended over CSS animations, because a transition can be smoothly cancelled midway.
+For example, if the user closes a popup before it finishes opening, with CSS transitions it will smoothly animate to its closed state without any abrupt changes.
+
+```css title="popover.css"
+.Popup {
+  box-sizing: border-box;
+  padding: 1rem 1.5rem;
+  background-color: canvas;
+  transform-origin: var(--transform-origin);
+  transition:
+    transform 150ms,
+    opacity 150ms;
+
+  /* @highlight-start */
+  &[data-starting-style],
+  &[data-ending-style] {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  /* @highlight-end */
+}
+```
+
+## CSS animations
+
+Use the following Base UI attributes for creating CSS animations when a component becomes visible or hidden:
+
+- `[data-open]` corresponds to the style applied when a component becomes visible.
+- `[data-closed]` corresponds to the style applied before a component becomes hidden.
+
+```css title="popover.css"
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.Popup[data-open] {
+  animation: scaleIn 250ms ease-out;
+}
+
+.Popup[data-closed] {
+  animation: scaleOut 250ms ease-in;
+}
+```
+
+## JavaScript animations
+
+JavaScript animation libraries such as [Motion](https://motion.dev) need the popup to stay rendered while its exit animation plays, and Base UI to know when that animation is over.
+
+When a popup closes, `open` becomes `false` right away, but the popup stays rendered in a closing phase until its closing animation finishes.
+Base UI detects animations on the popup element. CSS animations are always detected, and so are Motion animations that include `opacity`.
+Once the animation ends, the popup is removed from the DOM, or hidden if the `<Portal>` has `keepMounted`, and `onOpenChangeComplete(false)` fires.
+
+This leaves two choices:
+
+- **Where does the popup go when closed?** Removed from the DOM with `<AnimatePresence>`, or kept in the DOM with `keepMounted`.
+- **Who ends the closing phase?** Base UI, when it can detect the animation, or you, with [manual unmounting](#manual-unmounting).
+
+The examples below animate `opacity`, so Base UI ends the closing phase on its own.
+
+### Manual unmounting
+
+Use this when Base UI can't detect your closing animation, for example when it doesn't animate `opacity`, or when the popup should stay in its closing phase until something other than an animation completes.
+
+Call `eventDetails.preventUnmountOnClose()` in `onOpenChange` when the component closes, then call `unmount()` on the `actionsRef` passed to the `<Root>` once the animation finishes.
+This ends the closing phase, and `onOpenChangeComplete(false)` fires. Whether the popup leaves the DOM is still decided by `keepMounted`.
+
+```jsx title="manual-unmount.tsx"
+import { createSignal } from 'solid-js';
+
+function App() {
+  const [open, setOpen] = createSignal(false);
+  const actionsRef = {
+    current: null,
+  }; // @highlight-text "actionsRef"
+
+  return (
+    <Popover.Root
+      open={open()}
+      onOpenChange={(nextOpen, eventDetails) => {
+        if (!nextOpen) {
+          eventDetails.preventUnmountOnClose(); // @highlight-text "preventUnmountOnClose"
+        }
+        setOpen(nextOpen);
+      }}
+      actionsRef={actionsRef} // @highlight-text "actionsRef"
+    >
+      <Popover.Trigger>Trigger</Popover.Trigger>
+      <AnimatePresence>
+        {open() && (
+          <Popover.Portal keepMounted>
+            <Popover.Positioner>
+              <Popover.Popup
+                render={{
+                  component: motion.div,
+                  get initial() {
+                    return {
+                      scale: 0,
+                    };
+                  },
+                  get animate() {
+                    return {
+                      scale: 1,
+                    };
+                  },
+                  get exit() {
+                    return {
+                      scale: 0,
+                    };
+                  },
+                  onAnimationComplete: () => {
+                    if (!open()) {
+                      actionsRef.current.unmount(); // @highlight-text "actionsRef"
+                    }
+                  },
+                }}
+              >
+                Popup
+              </Popover.Popup>
+            </Popover.Positioner>
+          </Popover.Portal>
+        )}
+      </AnimatePresence>
+    </Popover.Root>
+  );
+}
+```
+
+export const metadata = {
+  keywords: ['Base UI Animation', 'React Component Animations', 'CSS Transition Guide', 'Animation Data Attributes', 'Handbook Animation', 'Spring Animations', 'Enter Exit Animations', 'Transition Hooks', 'Animated Components', 'Keyframe Animations']
+};

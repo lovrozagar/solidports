@@ -1,99 +1,97 @@
-import { createMemo, For, Show } from 'solid-js';
+import { createMemo, For } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { Tabs } from "@solidports/base-ui/tabs"
-
-interface DemoFileSelectorFile {
-  name: string
-  slug?: string
-}
+import { Tabs } from '@solidports/base-ui/tabs';
 
 interface DemoFileSelectorProps {
-  files: DemoFileSelectorFile[]
-  selectedFileName: string | undefined
-  selectFileName: (fileName: string) => void
-  onTabChange?: () => void
+  files: Array<{
+    name: string;
+    slug?: string;
+    component: JSX.Element;
+  }>;
+  selectedFileName: string | undefined;
+  selectFileName: (fileName: string) => void;
+  onTabChange?: () => void;
 }
-
+type Tab = {
+  id: string;
+  name: string;
+  slug?: string;
+};
 export function DemoFileSelector(props: DemoFileSelectorProps) {
-  let modifierKeysPressed = false
-
-  const tabs = createMemo(() =>
-    props.files.map(({ name, slug }) => ({ id: name, name, slug })),
-  )
-
-  function onValueChange(value: string) {
-    /* Ignore value changes triggered by Ctrl/Cmd-click (user opens in new tab). */
-    if (modifierKeysPressed) {return}
-    props.selectFileName(value)
-    props.onTabChange?.()
-  }
-
-  function onTabPointerDown(event: PointerEvent) {
-    modifierKeysPressed = event.ctrlKey || event.metaKey
-  }
-
-  function onTabClick(event: MouseEvent) {
-    if (event.ctrlKey || event.metaKey) {
-      queueMicrotask(() => {
-        modifierKeysPressed = false
-      })
-    } else {
-      event.preventDefault()
-      modifierKeysPressed = false
+  const tabs = createMemo<Tab[]>(() =>
+    props.files.map(({ name, slug }) => ({
+      id: name,
+      name,
+      slug,
+    })),
+  );
+  const modifierKeysRef = {
+    current: false,
+  };
+  const onValueChange = (value: string) => {
+    // Don't change tab if modifier keys were pressed (user is opening in new tab)
+    if (modifierKeysRef.current) {
+      return;
     }
-  }
-
-  return (
-    <Show
-      when={props.files.length > 1}
-      fallback={
-        <Show when={props.files[0]}>
-          {(file) => (
-            <a class="DemoFilename" href={file().slug ? `#${file().slug}` : undefined}>
-              {file().name}
-            </a>
-          )}
-        </Show>
-      }
-    >
-      <Tabs.Root
-        class="DemoTabsRoot"
-        value={props.selectedFileName}
-        onValueChange={onValueChange}
-      >
+    props.selectFileName(value);
+    props.onTabChange?.();
+  };
+  const onTabPointerDown = (
+    event: PointerEvent & {
+      currentTarget: Element;
+      target: Element;
+    },
+  ) => {
+    // Track modifier keys before focus event fires
+    modifierKeysRef.current = event.ctrlKey || event.metaKey;
+  };
+  const onTabClick = (
+    event: MouseEvent & {
+      currentTarget: HTMLAnchorElement;
+      target: Element;
+    },
+  ) => {
+    // Allow Ctrl+Click (or Cmd+Click on Mac) to open in new tab
+    if (event.ctrlKey || event.metaKey) {
+      // Reset modifier keys flag after all event handlers complete
+      queueMicrotask(() => {
+        modifierKeysRef.current = false;
+      });
+    } else {
+      // Prevent scroll jump to anchor
+      event.preventDefault();
+      modifierKeysRef.current = false;
+    }
+  };
+  const _render = createMemo(() => {
+    if (props.files.length <= 1) {
+      return null;
+    }
+    return (
+      <Tabs.Root class="DemoTabsRoot" value={props.selectedFileName} onValueChange={onValueChange}>
         <Tabs.List class="DemoTabsList" aria-label="Files">
-          {/* Keyed by file name: the tab list is rebuilt from the files, and a tab keeps its element. */}
-          <For each={tabs()} keyed={(tab) => tab.id}>
-            {(tab) => (
+          <For each={tabs()}>
+            {(tab: Tab) => (
               <Tabs.Tab
-                render={(tabProps) => {
-                  const merged = tabProps as JSX.AnchorHTMLAttributes<HTMLAnchorElement>
-                  return (
-                    <a
-                      {...merged}
-                      href={tab().slug ? `#${tab().slug}` : undefined}
-                      onClick={(event) => {
-                        /* Tabs.Tab's internal click handler triggers value change — must run BEFORE preventDefault. */
-                        const innerOnClick = merged.onClick
-                        if (typeof innerOnClick === "function") {innerOnClick(event)}
-                        onTabClick(event)
-                      }}
-                    >
-                      {/* Span paints above the active tab's ::before fill. */}
-                      <span>{tab().name}</span>
-                    </a>
-                  )
+                render={{
+                  component: 'a',
+                  get href() {
+                    return tab.slug ? `#${tab.slug}` : undefined;
+                  },
+                  onClick: onTabClick,
                 }}
                 class="DemoTab"
-                value={tab().id}
+                value={tab.id}
                 nativeButton={false}
                 onPointerDown={onTabPointerDown}
-              />
-
+              >
+                <span>{tab.name}</span>
+              </Tabs.Tab>
             )}
           </For>
         </Tabs.List>
       </Tabs.Root>
-    </Show>
-  )
+    );
+  });
+  return <>{_render()}</>;
 }

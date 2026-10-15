@@ -1,8 +1,7 @@
-import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { splitProps } from '../utils/solid-1-compat';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
 
-export function Code(props: JSX.HTMLAttributes<HTMLElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <code class={clsx("Code", local.class)} {...rest} />
+export function Code(props: ReactProps<ComponentProps<'code'>>) {
+  return <code {...props} class={clsx('Code', props.class)} />;
 }

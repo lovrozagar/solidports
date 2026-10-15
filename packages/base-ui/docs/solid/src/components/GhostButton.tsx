@@ -1,21 +1,26 @@
-import type { JSX } from '@solidjs/web';
-import clsx from "clsx"
-import { splitProps } from '../utils/solid-1-compat';
-import "./GhostButton.css"
+import { merge, omit } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
+import './GhostButton.css';
 
-interface GhostButtonProps extends JSX.ButtonHTMLAttributes<HTMLButtonElement> {
-  layout?: "text" | "icon"
+interface GhostButtonProps extends ReactProps<ComponentProps<'button'>> {
+  layout?: 'text' | 'icon';
 }
-
-export function GhostButton(props: GhostButtonProps) {
-  const [local, rest] = splitProps(props, ["class", "layout", "type"])
-  const layout = () => local.layout ?? "text"
+export function GhostButton(_props: GhostButtonProps) {
+  const props = merge(
+    {
+      layout: 'text',
+    },
+    _props,
+  );
+  const rest = omit(props, 'class', 'layout');
   return (
     <button
-      data-layout={layout()}
-      type={local.type ?? "button"}
-      class={clsx("GhostButton", local.class)}
+      data-layout={props.layout}
+      type="button"
+      class={clsx('GhostButton', props.class)}
       {...rest}
     />
-  )
+  );
 }

@@ -1,273 +1,199 @@
-import { createMemo, createSignal, For, Show } from 'solid-js';
-import type { JSX } from '@solidjs/web';
+import { createMemo, createUniqueId, For, merge, omit } from 'solid-js';
+import { reactStyle } from 'docs/src/adapters/react';
+import type { ComponentProps, JSX } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
 import clsx from 'clsx';
-import { Link } from '../Link';
-import * as CodeBlock from '../CodeBlock';
+import { visuallyHidden } from '@base-ui/utils/visuallyHidden';
+import type { EnhancedProperty } from '@mui/internal-docs-infra/useTypes';
+import { stringOrHastToString } from '@mui/internal-docs-infra/pipeline/hastUtils';
+import { Link } from 'docs/src/components/Link';
 import * as Accordion from '../Accordion';
-import { highlightInline } from '../../syntax-highlighting/highlight';
+import * as CodeBlock from '../CodeBlock';
 import * as DescriptionList from '../DescriptionList';
-import type { PropDef as BasePropDef } from './types';
-import { Description } from './Description';
 import { TableCode } from '../TableCode';
-import * as ReferenceTableTooltip from './ReferenceTableTooltip';
-import { sortPropEntries } from './propOrder';
 
-import { splitProps } from '../../utils/solid-1-compat';
-/* The tooltip mounts on the first hover or focus of the cell: SSR and hydration emit plain
-   <TableCode> (Tooltip.Portal moves its subtree to body, so its markers would not line up), and a
-   page with many props does not build every tooltip at once after mounting. */
-function TypeCell(props: {
-  detailedDisplayType: string | undefined;
-  displayType: string | undefined;
-  shortPropTypeName: string | undefined;
-  hasExpandedType: boolean;
-  showTooltip: boolean;
-}) {
-  const [active, setActive] = createSignal(false);
-  const activate = () => setActive(true);
-  return (
-    <Show
-      when={active() && props.showTooltip}
-      fallback={
-        <TableCode
-          onPointerEnter={props.showTooltip ? activate : undefined}
-          onFocusIn={props.showTooltip ? activate : undefined}
-        >
-          {props.shortPropTypeName}
-        </TableCode>
-      }
-    >
-      <ReferenceTableTooltip.Root disableHoverablePopup>
-        <ReferenceTableTooltip.Trigger delay={300}>
-          <TableCode>{props.shortPropTypeName}</TableCode>
-        </ReferenceTableTooltip.Trigger>
-        <ReferenceTableTooltip.Popup>
-          <TableCode>
-            {props.hasExpandedType ? props.detailedDisplayType : props.displayType}
-          </TableCode>
-        </ReferenceTableTooltip.Popup>
-      </ReferenceTableTooltip.Root>
-    </Show>
-  );
+/** Workaround for strange Server -> Client Component behavior */
+function TableDefault(props: { children: JSX.Element }) {
+  return <>{props.children}</>;
 }
-
-interface PropDef extends BasePropDef {
-  detailedType?: string;
-  example?: string;
-}
-
-interface Props extends JSX.HTMLAttributes<HTMLElement> {
-  data: Record<string, PropDef>;
-  type?: 'props' | 'return';
+interface Props extends ReactProps<ComponentProps<any>> {
+  data: Record<string, EnhancedProperty>;
   name: string;
-  renameFrom?: string;
-  renameTo?: string;
   nameLabel?: string;
   caption?: string;
+  /** Hide the required indicator (red star) - useful for return values where "required" doesn't apply */
+  hideRequired?: boolean;
+  /** Hide the default value column - useful for return values that don't have defaults */
+  hideDefault?: boolean;
 }
-
-function getShortPropType(name: string, type: string | undefined) {
-  if (/^(on|get)[A-Z].*/.test(name)) {return { type: 'function', detailedType: true };}
-  if (type === undefined || type === null) {return { type: String(type), detailedType: false };}
-  if (name === 'class') {return { type: 'string | function', detailedType: true };}
-  if (name === 'style') {return { type: 'CSSProperties | function', detailedType: true };}
-  if (name === 'render') {return { type: 'JSX.Element | function', detailedType: true };}
-
-  if (
-    name.endsWith('Ref') ||
-    name === 'children' ||
-    type === 'boolean' ||
-    type === 'string' ||
-    type === 'number' ||
-    type.indexOf(' | ') === -1 ||
-    (type.split('|').length < 3 && type.length < 30)
-  ) {
-    return { type, detailedType: false };
-  }
-
-  return { type: 'Union', detailedType: true };
-}
-
-function escapeRegExp(input: string) {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function replaceComponentPrefix(input: string | undefined, from?: string, to?: string) {
-  if (!input || !from || !to) {return input ?? '';}
-  const pattern = new RegExp(`\\b${escapeRegExp(from)}(?=\\.)`, 'g');
-  return input.replace(pattern, to);
-}
-
-const visuallyHidden: JSX.CSSProperties = {
-  border: 0,
-  clip: 'rect(0 0 0 0)',
-  height: '1px',
-  margin: '-1px',
-  overflow: 'hidden',
-  padding: 0,
-  position: 'absolute',
-  'white-space': 'nowrap',
-  width: '1px',
-};
-
-/** Prop reference accordion. Each row is a `<details>` with the prop name, short
-    type, and default in the trigger, full description/type/default/example
-    inside. Upstream's async `createMdxComponent` calls for rendering MDX-escaped
-    types + descriptions are replaced with plain text until Wave V3 lands the
-    Solid MDX renderer. */
-export function ReferenceAccordion(props: Props) {
-  const [local, rest] = splitProps(props, [
-    'data',
-    'name',
-    'renameFrom',
-    'renameTo',
-    'nameLabel',
-    'caption',
-    'class',
-    'style',
-  ]);
-  const captionId = () => `${local.name}-caption`;
-  const nameLabel = () => local.nameLabel ?? 'Prop';
-  const caption = () => local.caption ?? 'Component props table';
-  const entries = createMemo(() =>
-    nameLabel() === 'Prop' ? sortPropEntries(local.data) : Object.entries(local.data),
+export function ReferenceAccordion(_props: Props) {
+  const props = merge(
+    {
+      nameLabel: 'Prop',
+      caption: 'Component props table',
+      hideRequired: false,
+      hideDefault: false,
+    },
+    _props,
   );
-  const rowsStyle = createMemo((): JSX.CSSProperties => ({
-    '--rows': String(Object.keys(local.data).length),
-    ...(typeof local.style === 'object' && local.style ? local.style : {}),
-  }));
-
+  const rest = omit(props, 'data', 'name', 'nameLabel', 'caption', 'hideRequired', 'hideDefault');
+  const captionId = createUniqueId();
   return (
     <Accordion.Root
-      aria-describedby={captionId()}
+      aria-describedby={captionId}
+      data-hide-default={props.hideDefault || undefined}
       {...rest}
-      class={clsx('ReferenceAccordionRoot', local.class)}
-      style={rowsStyle()}
+      class={clsx('ReferenceAccordionRoot', rest.class)}
+      // Lets CSS compute the minimum closed height for `contain-intrinsic-height`;
+      // wrapped row content may be taller.
+      style={reactStyle({
+        '--rows': Object.keys(props.data).length,
+        ...rest.style,
+      } as JSX.CSSProperties)}
     >
-      <span id={captionId()} style={visuallyHidden} aria-hidden="true">
-        {caption()}
+      <span id={captionId} style={reactStyle(visuallyHidden)} aria-hidden="true">
+        {props.caption}
       </span>
       <Accordion.HeaderRow class="ReferenceHeaderRow">
-        <Accordion.HeaderCell>{nameLabel()}</Accordion.HeaderCell>
+        <Accordion.HeaderCell>{props.nameLabel}</Accordion.HeaderCell>
         <Accordion.HeaderCell class="ReferenceHeaderTypeCell">Type</Accordion.HeaderCell>
-        <Accordion.HeaderCell class="ReferenceHeaderDefaultCell">Default</Accordion.HeaderCell>
+        {!props.hideDefault && (
+          <Accordion.HeaderCell class="ReferenceHeaderDefaultCell">Default</Accordion.HeaderCell>
+        )}
         <Accordion.HeaderCell class="ReferenceHeaderIconCell" />
       </Accordion.HeaderRow>
-      <For each={entries()}>
-        {([name, prop], index) => {
-          const displayType = replaceComponentPrefix(prop.type, local.renameFrom, local.renameTo);
-          const detailedDisplayType = replaceComponentPrefix(
-            prop.detailedType ?? prop.type,
-            local.renameFrom,
-            local.renameTo,
-          );
-          const { type: shortPropTypeName, detailedType } = getShortPropType(name, displayType);
-          const hasExpandedType = Boolean(prop.detailedType);
-          const id = `${local.name}-${name}`;
+      <For each={Object.keys(props.data)}>
+        {(name) => {
+          const _row = createMemo(() => {
+            const prop = props.data[name];
 
-          return (
-            <Accordion.Item>
-              <Accordion.Trigger
-                id={id}
-                index={index()}
-                aria-label={`${nameLabel()}: ${name},${prop.required ? ' required,' : ''} type: ${shortPropTypeName} ${prop.default !== undefined ? `(default: ${prop.default})` : ''}`}
-                class="ReferenceTrigger"
+            // Use shortType if available (set by useTypes), otherwise use the full type
+            const displayShortType = prop.shortType ?? prop.type;
+            const displayDetailedType = prop.detailedType ?? prop.type;
+
+            // anchor hash for each prop
+            const id = `${props.name.replace('.', '')}-${name}`;
+            const shortTypeText = prop.shortType
+              ? stringOrHastToString(prop.shortType as string)
+              : 'type';
+            const defaultText = prop.defaultText;
+            return (
+              <Accordion.Item
+                gaCategory="reference"
+                gaLabel={`${props.nameLabel}: ${id}`}
+                gaParams={{
+                  type: props.nameLabel.toLowerCase(),
+                  slug: id,
+                  part_name: props.name,
+                }}
               >
-                <Accordion.Scrollable class="ReferenceNameCell">
-                  <TableCode class="bui-ws-nw" style={{ color: 'var(--color-navy)' }}>
-                    {name}
-                  </TableCode>
-                  <sup
-                    class="ReferenceRequired"
-                    style={{ display: prop.required ? 'inline' : 'none' }}
-                  >
-                    *
-                  </sup>
-                </Accordion.Scrollable>
-                <Show when={prop.type}>
-                  <Accordion.Scrollable class="ReferenceTypeCell">
-                    <TypeCell
-                      detailedDisplayType={detailedDisplayType}
-                      displayType={displayType}
-                      shortPropTypeName={shortPropTypeName}
-                      hasExpandedType={hasExpandedType}
-                      showTooltip={hasExpandedType || detailedType}
-                    />
+                <Accordion.Trigger
+                  id={id}
+                  aria-label={`${props.nameLabel}: ${name},${!props.hideRequired && prop.required ? ' required,' : ''} type: ${shortTypeText} ${defaultText !== undefined ? `(default: ${defaultText})` : ''}`}
+                  class="ReferenceTrigger"
+                >
+                  <Accordion.Scrollable class="ReferenceNameCell">
+                    <TableCode
+                      class="bui-ws-nw"
+                      style={{
+                        color: 'var(--color-navy)',
+                      }}
+                    >
+                      {name}
+                      {!props.hideRequired && prop.required ? (
+                        <sup class="ReferenceRequired">*</sup>
+                      ) : (
+                        ''
+                      )}
+                    </TableCode>
                   </Accordion.Scrollable>
-                </Show>
-                <Accordion.Scrollable class="ReferenceDefaultCell">
-                  <Show
-                    when={!(prop.required || prop.default === undefined)}
-                    fallback={
-                      <TableCode style={{ color: 'var(--color-docs-infra-syntax-nullish)' }}>
-                        —
-                      </TableCode>
-                    }
-                  >
-                    <TableCode>{prop.default}</TableCode>
-                  </Show>
-                </Accordion.Scrollable>
-                <span class="ReferenceIconWrap">
-                  <svg
-                    class="AccordionIcon ReferenceIcon"
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path d="M1 3.5L5 7.5L9 3.5" stroke="currentcolor" />
-                  </svg>
-                </span>
-              </Accordion.Trigger>
-              <Accordion.Panel>
-                <Accordion.Content>
-                  <DescriptionList.Root class="ReferenceContent" aria-label="Info">
-                    <DescriptionList.Item>
-                      <DescriptionList.Term>Name</DescriptionList.Term>
-                      <DescriptionList.Details>
-                        <Link href={`#${id}`}>
-                          <TableCode class="text-(--color-blue)">{name}</TableCode>
-                        </Link>
-                      </DescriptionList.Details>
-                    </DescriptionList.Item>
-                    <Show when={prop.description}>
+                  {prop.type && (
+                    <Accordion.Scrollable class="ReferenceTypeCell">
+                      {displayShortType}
+                    </Accordion.Scrollable>
+                  )}
+                  {!props.hideDefault && (
+                    <Accordion.Scrollable class="ReferenceDefaultCell">
+                      {prop.required || prop.default === undefined ? (
+                        <TableCode
+                          style={{
+                            color: 'var(--color-docs-infra-syntax-nullish)',
+                          }}
+                        >
+                          —
+                        </TableCode>
+                      ) : (
+                        <TableDefault>{prop.default}</TableDefault>
+                      )}
+                    </Accordion.Scrollable>
+                  )}
+                  <span class="ReferenceIconWrap">
+                    <svg
+                      class="AccordionIcon ReferenceIcon"
+                      width="10"
+                      height="10"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                    >
+                      <path d="M1 3.5L5 7.5L9 3.5" stroke="currentColor" />
+                    </svg>
+                  </span>
+                </Accordion.Trigger>
+                <Accordion.Panel>
+                  <Accordion.Content>
+                    <DescriptionList.Root class="ReferenceContent" aria-label="Info">
                       <DescriptionList.Item>
-                        <DescriptionList.Term separator>Description</DescriptionList.Term>
-                        <DescriptionList.Details class="ReferenceDescription">
-                          <Description html={prop.descriptionHtml} text={prop.description} />
-                        </DescriptionList.Details>
-                      </DescriptionList.Item>
-                    </Show>
-                    <DescriptionList.Item>
-                      <DescriptionList.Term separator>Type</DescriptionList.Term>
-                      <DescriptionList.Details>
-                        <CodeBlock.Root>
-                          <code innerHTML={highlightInline(detailedDisplayType, 'tsx')} />
-                        </CodeBlock.Root>
-                      </DescriptionList.Details>
-                    </DescriptionList.Item>
-                    <Show when={prop.default !== undefined}>
-                      <DescriptionList.Item>
-                        <DescriptionList.Term separator>Default</DescriptionList.Term>
+                        <DescriptionList.Term>Name</DescriptionList.Term>
                         <DescriptionList.Details>
-                          <TableCode>{prop.default}</TableCode>
+                          <Link href={`#${id}`}>
+                            <TableCode
+                              style={{
+                                color: 'var(--color-blue)',
+                              }}
+                            >
+                              {name}
+                            </TableCode>
+                          </Link>
                         </DescriptionList.Details>
                       </DescriptionList.Item>
-                    </Show>
-                    <Show when={prop.example}>
+
+                      {prop.description && (
+                        <DescriptionList.Item>
+                          <DescriptionList.Term separator>Description</DescriptionList.Term>
+                          {/* one-off override of the default mt/mb on CodeBlock.Root */}
+                          <DescriptionList.Details class="ReferenceDescription">
+                            {prop.description}
+                          </DescriptionList.Details>
+                        </DescriptionList.Item>
+                      )}
                       <DescriptionList.Item>
-                        <DescriptionList.Term separator>Example</DescriptionList.Term>
-                        <DescriptionList.Details class="ReferenceExampleReset">
-                          <TableCode>{prop.example}</TableCode>
+                        <DescriptionList.Term separator>Type</DescriptionList.Term>
+                        <DescriptionList.Details>
+                          <CodeBlock.Root>{displayDetailedType}</CodeBlock.Root>
                         </DescriptionList.Details>
                       </DescriptionList.Item>
-                    </Show>
-                  </DescriptionList.Root>
-                </Accordion.Content>
-              </Accordion.Panel>
-            </Accordion.Item>
-          );
+                      {!props.hideDefault && prop.default !== undefined && (
+                        <DescriptionList.Item>
+                          <DescriptionList.Term separator>Default</DescriptionList.Term>
+                          <DescriptionList.Details>{prop.default}</DescriptionList.Details>
+                        </DescriptionList.Item>
+                      )}
+
+                      {prop.example && (
+                        <DescriptionList.Item>
+                          <DescriptionList.Term separator>Example</DescriptionList.Term>
+                          <DescriptionList.Details class="ReferenceExampleReset">
+                            {prop.example}
+                          </DescriptionList.Details>
+                        </DescriptionList.Item>
+                      )}
+                    </DescriptionList.Root>
+                  </Accordion.Content>
+                </Accordion.Panel>
+              </Accordion.Item>
+            );
+          });
+          return <>{_row()}</>;
         }}
       </For>
     </Accordion.Root>

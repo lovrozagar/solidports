@@ -1,190 +1,148 @@
-import { createContext, createSignal, useContext } from 'solid-js';
-import type { JSX } from '@solidjs/web';
+import { createEffect, createSignal, merge, omit } from 'solid-js';
 import { Dynamic } from '@solidjs/web';
-import clsx from "clsx"
-import { splitProps } from '../utils/solid-1-compat';
+import { reactRef, reactStyle } from 'docs/src/adapters/react';
+import type { ComponentProps, JSX, ValidComponent } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import clsx from 'clsx';
+import { useGoogleAnalytics } from 'docs/src/blocks/GoogleAnalyticsProvider';
+import { observeScrollableInner } from '../utils/observeScrollableInner';
 
-const ARROW_UP = "ArrowUp"
-const ARROW_DOWN = "ArrowDown"
-const ARROW_LEFT = "ArrowLeft"
-const ARROW_RIGHT = "ArrowRight"
-
-const SUPPORTED_KEYS = new Set([ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT, "Home", "End"])
-
-interface AccordionContextValue {
-  getRoot: () => HTMLElement | undefined
+export function Root(props: ReactProps<ComponentProps<'section'>>) {
+  return <section {...props} class={clsx('AccordionRoot', props.class)} />;
 }
-
-const AccordionContext = createContext<AccordionContextValue | null>(null)
-
-export function Root(props: JSX.HTMLAttributes<HTMLElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  let rootRef: HTMLElement | undefined
-  return (
-    <AccordionContext value={{ getRoot: () => rootRef }}>
-      <section
-        ref={(el) => (rootRef = el)}
-        class={clsx("AccordionRoot", local.class)}
-        {...rest}
-      />
-    </AccordionContext>
-  )
-}
-
-type TriggerProps = JSX.HTMLAttributes<HTMLElement> & {
-  index: number
-  id?: string
-}
-
-export function Trigger(props: TriggerProps) {
-  const [local, rest] = splitProps(props, ["class", "index", "id", "onKeyDown", "onClick", "onMouseDown"])
-  const ctx = useContext(AccordionContext)
-
-  const onKeyDown: JSX.EventHandlerUnion<HTMLElement, KeyboardEvent> = (event) => {
-    if (!ctx || !SUPPORTED_KEYS.has(event.key)) {
-      if (typeof local.onKeyDown === "function") {local.onKeyDown(event as never)}
-      return
-    }
-    event.preventDefault()
-    event.stopPropagation()
-
-    const rootElement = ctx.getRoot()
-    if (!rootElement) {return}
-
-    const triggers = rootElement.querySelectorAll<HTMLElement>("summary")
-    const lastIndex = triggers.length - 1
-    let nextIndex = -1
-
-    switch (event.key) {
-      case ARROW_LEFT:
-      case ARROW_UP:
-        nextIndex = local.index === 0 ? lastIndex : local.index - 1
-        break
-      case ARROW_RIGHT:
-      case ARROW_DOWN:
-        nextIndex = local.index + 1 > lastIndex ? 0 : local.index + 1
-        break
-      case "Home":
-        nextIndex = 0
-        break
-      case "End":
-        nextIndex = lastIndex
-        break
-    }
-
-    if (nextIndex > -1) {triggers.item(nextIndex).focus()}
-    if (typeof local.onKeyDown === "function") {local.onKeyDown(event as never)}
-  }
-
-  const onClick: JSX.EventHandlerUnion<HTMLElement, MouseEvent> = (event) => {
-    const selection = window.getSelection()
-    if (!selection?.isCollapsed) {event.preventDefault()}
-    if (typeof local.onClick === "function") {local.onClick(event as never)}
-  }
-
-  const onMouseDown: JSX.EventHandlerUnion<HTMLElement, MouseEvent> = (event) => {
-    if (!event.defaultPrevented && event.detail > 1) {event.preventDefault()}
-    if (typeof local.onMouseDown === "function") {local.onMouseDown(event as never)}
-  }
-
+export function Trigger(props: ReactProps<ComponentProps<'summary'>>) {
   return (
     <summary
-      id={local.id}
-      class={clsx("AccordionTrigger", local.class)}
-      onKeyDown={onKeyDown}
-      onClick={onClick}
-      onMouseDown={onMouseDown}
-      {...rest}
+      {...props}
+      class={clsx('AccordionTrigger', props.class)}
+      onClick={(event) => {
+        const selection = window.getSelection();
+        if (!selection?.isCollapsed) {
+          event.preventDefault();
+        }
+        props.onClick?.(event);
+      }}
+      onMouseDown={(event) => {
+        if (!event.defaultPrevented && event.detail > 1) {
+          event.preventDefault();
+        }
+      }}
     />
-  )
+  );
 }
+export function Item(
+  props: ReactProps<ComponentProps<'details'>> & {
+    gaCategory?: string;
+    gaLabel?: string;
+    gaParams?: Record<string, string | number | boolean>;
+  },
+) {
+  const rest = omit(props, 'gaCategory', 'gaLabel', 'gaParams');
+  const [open, setOpen] = createSignal<boolean>(false);
+  const detailsRef: {
+    current: HTMLDetailsElement | null;
+  } = {
+    current: null,
+  };
+  const ga = useGoogleAnalytics();
 
-type ItemProps = JSX.HTMLAttributes<HTMLDetailsElement> & {
-  gaCategory?: string
-  gaLabel?: string
-  gaParams?: Record<string, string | number | boolean>
-}
-
-export function Item(props: ItemProps) {
-  const [local, rest] = splitProps(props, [
-    "class",
-    "gaCategory",
-    "gaLabel",
-    "gaParams",
-    "onToggle",
-  ])
-  const [open, setOpen] = createSignal(false)
-
-  /* Chrome auto-opens <details> when hash matches <summary> id; Safari/Firefox need manual handling. */
-  const handleRef = (element: HTMLDetailsElement | null) => {
-    if (!element) {return}
-    const trigger = element.querySelector<HTMLElement>("summary")
-    const triggerId = trigger?.getAttribute("id")
-    const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : ""
-    if (triggerId && hash && triggerId === hash) {setOpen(true)}
-  }
-
+  // in Chrome, the <details> opens automatically when the hash part of a URL
+  // matches the `id` on <summary> but needs to be manually handled for Safari
+  // and Firefox
+  const checkHash = () => {
+    const element = detailsRef.current;
+    if (element) {
+      const trigger = element.querySelector<HTMLElement>('summary');
+      const triggerId = trigger?.getAttribute('id');
+      const hash = window.location.hash.slice(1);
+      if (triggerId && hash && triggerId === hash) {
+        setOpen(true);
+      }
+    }
+  };
+  createEffect(
+    () => [checkHash],
+    () => {
+      checkHash();
+      window.addEventListener('hashchange', checkHash);
+      return () => {
+        window.removeEventListener('hashchange', checkHash);
+      };
+    },
+  );
   return (
     <details
-      ref={handleRef}
-      open={open() || undefined}
-      class={clsx("AccordionItem", local.class)}
-      onToggle={(event: ToggleEvent & { currentTarget: HTMLDetailsElement }) => {
-        if (typeof local.onToggle === "function") {local.onToggle(event as never)}
-        setOpen(event.currentTarget.open)
-      }}
       {...rest}
+      ref={(element) => {
+        detailsRef.current = element;
+      }}
+      open={open() || undefined}
+      class={clsx('AccordionItem', rest.class)}
+      onToggle={(event) => {
+        rest.onToggle?.(event);
+        setOpen(event.currentTarget.open);
+        if (props.gaCategory && event.currentTarget.open && event.isTrusted) {
+          ga()?.trackEvent({
+            category: props.gaCategory,
+            action: 'expand',
+            label: props.gaLabel,
+            params: props.gaParams,
+          });
+        }
+      }}
     />
-  )
+  );
+}
+export function Panel(props: ReactProps<ComponentProps<'div'>>) {
+  return <div {...props} class={clsx('AccordionPanel', props.class)} />;
+}
+export function Content(props: ReactProps<ComponentProps<'div'>>) {
+  return <div {...props} class={clsx('AccordionContent', props.class)} />;
 }
 
-export function Panel(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <div class={clsx("AccordionPanel", local.class)} {...rest} />
-}
-
-export function Content(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <div class={clsx("AccordionContent", local.class)} {...rest} />
-}
-
-interface ScrollableProps extends JSX.HTMLAttributes<HTMLElement> {
-  gradientColor?: string
-  tag?: "span" | "div"
-}
-
-/** Scroll container with overscroll overlay for overflowing trigger content. */
-export function Scrollable(props: ScrollableProps) {
-  const [local, rest] = splitProps(props, ["class", "children", "gradientColor", "tag", "style"])
-  const tag = () => local.tag ?? "span"
-  const style = () => ({
-    ...(typeof local.style === "object" && local.style ? local.style : {}),
-    "--scrollable-gradient-color": local.gradientColor ?? "var(--color-content)",
-  })
+/* Scroll container with an overscroll overlay graphic for overflowing content inside the trigger */
+export function Scrollable(
+  _props: ReactProps<ComponentProps<'span'>> & {
+    gradientColor?: string;
+    tag?: ValidComponent;
+  },
+) {
+  const props = merge(
+    {
+      tag: 'span',
+      gradientColor: 'var(--color-content)',
+    },
+    _props,
+  );
+  const rest = omit(props, 'children', 'class', 'tag', 'gradientColor');
   return (
     <Dynamic
-      component={tag()}
-      class={clsx("AccordionScrollable", local.class)}
-      style={style() as JSX.CSSProperties}
+      component={props.tag}
+      ref={reactRef(observeScrollableInner)}
+      class={clsx('AccordionScrollable', props.class)}
+      style={reactStyle({
+        '--scrollable-gradient-color': props.gradientColor,
+      } as JSX.CSSProperties)}
       {...rest}
     >
-      <Dynamic component={tag()} class="AccordionScrollableInner">
-        {local.children}
+      <Dynamic component={props.tag} class="AccordionScrollableInner">
+        {props.children}
       </Dynamic>
     </Dynamic>
-  )
+  );
 }
 
-export function HeaderRow(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class"])
-  return <div aria-hidden="true" class={clsx("AccordionHeaderRow", local.class)} {...rest} />
+/* Fake <tr> */
+export function HeaderRow(props: ReactProps<ComponentProps<'div'>>) {
+  return <div {...props} aria-hidden="true" class={clsx('AccordionHeaderRow', props.class)} />;
 }
 
-export function HeaderCell(props: JSX.HTMLAttributes<HTMLDivElement>) {
-  const [local, rest] = splitProps(props, ["class", "children"])
+/* Fake <th scope="col"> */
+export function HeaderCell(props: ReactProps<ComponentProps<'div'>>) {
+  const rest = omit(props, 'children', 'class');
   return (
-    <div class={clsx("AccordionHeaderCell", local.class)} {...rest}>
-      <span class="AccordionHeaderCellInner">{local.children}</span>
+    <div {...rest} class={clsx('AccordionHeaderCell', props.class)}>
+      <span class="AccordionHeaderCellInner">{props.children}</span>
     </div>
-  )
+  );
 }

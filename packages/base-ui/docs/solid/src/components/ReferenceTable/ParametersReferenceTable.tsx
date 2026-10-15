@@ -1,37 +1,36 @@
-import { ReferenceAccordion } from "./ReferenceAccordion"
-import type { FunctionParamDef, PropDef } from "./types"
+import { omit } from 'solid-js';
+import type { ComponentProps } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
+import type { EnhancedParameter, EnhancedProperty } from '@mui/internal-docs-infra/useTypes';
+import { ReferenceAccordion } from './ReferenceAccordion';
 
-interface ParametersReferenceTableProps {
-  data: Record<string, FunctionParamDef>
-  name: string
-  renameFrom?: string
-  renameTo?: string
-  class?: string
+interface ParametersReferenceTableProps extends ReactProps<ComponentProps<any>> {
+  data: EnhancedParameter[];
+  name: string;
 }
-
-function normalizeParameters(data: Record<string, FunctionParamDef>) {
+function normalizeParameters(data: EnhancedParameter[]) {
   return Object.fromEntries(
-    Object.entries(data).map(([name, param]) => {
-      const { optional, ...rest } = param
-      const normalized: PropDef = {
-        ...rest,
-        required: optional ? undefined : true,
-      }
-      return [name, normalized]
+    data.map((param) => {
+      const { optional, name, ...rest } = param;
+      return [
+        name,
+        {
+          ...rest,
+          required: optional ? undefined : true,
+        },
+      ];
     }),
-  )
+  ) as Record<string, EnhancedProperty>;
 }
-
 export function ParametersReferenceTable(props: ParametersReferenceTableProps) {
+  const rest = omit(props, 'data', 'name');
   return (
     <ReferenceAccordion
-      class={props.class}
+      {...rest}
       name={props.name}
       data={normalizeParameters(props.data)}
-      renameFrom={props.renameFrom}
-      renameTo={props.renameTo}
       nameLabel="Parameter"
       caption="Function parameters table"
     />
-  )
+  );
 }

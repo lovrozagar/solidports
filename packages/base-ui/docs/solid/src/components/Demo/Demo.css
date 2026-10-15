@@ -1,6 +1,8 @@
 /* Keep layer order stable when this file is emitted from a client CSS chunk. */
 @layer all, base, theme, components, utilities;
 
+@import 'docs/src/css/custom-media.css';
+
 @layer components {
   .DemoRoot {
     --demo-radius: var(--radius-12);
@@ -175,7 +177,7 @@
     flex: 0 0 auto;
     margin-left: auto;
 
-    @media (min-width: 40rem) {
+    @media (--sm) {
       display: none;
     }
   }
@@ -184,7 +186,7 @@
   .DemoToolbarActionsDesktop {
     display: none;
 
-    @media (min-width: 40rem) {
+    @media (--sm) {
       display: flex;
       flex: 0 0 auto;
       padding-inline-start: 1rem;
@@ -401,7 +403,7 @@
     right: 0.5rem;
     background-color: color-mix(in srgb, var(--gray-s1), transparent 10%);
 
-    @media (min-width: 48rem) {
+    @media (--md) {
       background-color: transparent;
       box-shadow: none;
     }

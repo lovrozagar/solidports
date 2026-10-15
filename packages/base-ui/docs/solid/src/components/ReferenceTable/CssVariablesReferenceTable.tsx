@@ -1,98 +1,126 @@
-import { For, Show } from 'solid-js';
-import type { JSX } from '@solidjs/web';
+import { createMemo, For, omit } from 'solid-js';
+import { reactStyle } from 'docs/src/adapters/react';
+import type { ComponentProps, JSX } from '@solidjs/web';
+import type { ReactProps } from 'docs/src/adapters/react';
 import clsx from 'clsx';
-import type { CssVariableDef } from './types';
-import { Description } from './Description';
-import * as Table from '../Table';
+import type { EnhancedEnumMember } from '@mui/internal-docs-infra/useTypes';
 import * as Accordion from '../Accordion';
+import * as Table from '../Table';
 import { TableCode } from '../TableCode';
 
-import { splitProps } from '../../utils/solid-1-compat';
-
-interface CssVariablesReferenceTableProps extends JSX.HTMLAttributes<HTMLDivElement> {
-  data: Record<string, CssVariableDef>;
+interface CssVariablesReferenceTableProps extends ReactProps<ComponentProps<typeof Table.Root>> {
+  data: Record<string, EnhancedEnumMember>;
   name?: string;
 }
-
 export function CssVariablesReferenceTable(props: CssVariablesReferenceTableProps) {
-  const [local, rest] = splitProps(props, ['data', 'name', 'class']);
-  const entries = () => Object.entries(local.data);
-
+  const rest = omit(props, 'data', 'name');
+  // Lets CSS compute the minimum closed height for `contain-intrinsic-height`;
+  // wrapped row content may be taller.
+  const rowsStyle = createMemo(
+    () =>
+      ({
+        '--rows': Object.keys(props.data).length,
+        ...rest.style,
+      }) as JSX.CSSProperties,
+  );
   return (
     <>
       <Accordion.Root
-        {...(rest as JSX.HTMLAttributes<HTMLElement>)}
-        class={clsx(local.class, 'xs:hidden')}
+        {...rest}
+        class={clsx('ReferenceAccordionRoot', 'bp0:bui-d-n', rest.class)}
+        style={reactStyle(rowsStyle())}
       >
         <Accordion.HeaderRow>
           <Accordion.HeaderCell>CSS Variable</Accordion.HeaderCell>
         </Accordion.HeaderRow>
-        <For each={entries()}>
-          {([name, cssVariable], index) => (
-            <Accordion.Item>
-              <Accordion.Trigger index={index()}>
-                <TableCode class="text-navy">{name}</TableCode>
-                <AccordionChevron />
-              </Accordion.Trigger>
-              <Accordion.Panel>
-                <Accordion.Content class="flex flex-col gap-3 p-4 text-md text-pretty">
-                  <Description html={cssVariable.descriptionHtml} text={cssVariable.description} />
-                </Accordion.Content>
-              </Accordion.Panel>
-            </Accordion.Item>
-          )}
+        <For each={Object.keys(props.data)}>
+          {(name) => {
+            const _row = createMemo(() => {
+              const attribute = props.data[name];
+              return (
+                <Accordion.Item
+                  gaCategory="reference"
+                  gaLabel={`CSS variable: ${props.name ? `${props.name}-` : ''}${name}`}
+                  gaParams={{
+                    type: 'css_variable',
+                    slug: `${props.name ? `${props.name}-` : ''}${name}`,
+                    part_name: props.name || '',
+                  }}
+                >
+                  <Accordion.Trigger>
+                    <TableCode
+                      style={{
+                        color: 'var(--color-navy)',
+                      }}
+                    >
+                      {name}
+                    </TableCode>
+                    <svg
+                      class="AccordionIcon bui-ml-a bui-mr-1"
+                      width="10"
+                      height="10"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                    >
+                      <path d="M1 3.5L5 7.5L9 3.5" stroke="currentColor" />
+                    </svg>
+                  </Accordion.Trigger>
+                  <Accordion.Panel>
+                    <Accordion.Content class="ReferenceCompactPanel">
+                      {attribute.description}
+                    </Accordion.Content>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              );
+            });
+            return <>{_row()}</>;
+          }}
         </For>
       </Accordion.Root>
 
-      <Table.Root {...rest} class={clsx('hidden xs:block', local.class)}>
+      <Table.Root
+        {...rest}
+        class={clsx('ReferenceTableRoot', 'bui-d-n', 'bp0:bui-d-b', rest.class)}
+        style={reactStyle(rowsStyle())}
+      >
         <Table.Head>
           <Table.Row>
-            <Table.ColumnHeader class="w-full xs:w-48 sm:w-56 md:w-[calc(5/16.5*100%)]">
-              CSS Variable
+            {/* widths must match the props table grid layout */}
+            <Table.ColumnHeader class="ReferenceWideNameColumn">CSS Variable</Table.ColumnHeader>
+            <Table.ColumnHeader class="ReferenceWideDescriptionColumn">
+              Description
             </Table.ColumnHeader>
-            <Table.ColumnHeader class="xs:w-2/3 md:w-[calc(11.5/16.5*100%)]">
-              <span class="sr-only xs:not-sr-only xs:contents">Description</span>
-            </Table.ColumnHeader>
-            <Table.ColumnHeader class="w-10 max-xs:hidden" aria-hidden="true">
-              <span class="invisible">{'-'}</span>
+            {/* A cell to maintain a layout consistent with the props table */}
+            <Table.ColumnHeader class="bui-w-10" aria-hidden="true">
+              <span class="bui-v-h">{'-'}</span>
             </Table.ColumnHeader>
           </Table.Row>
         </Table.Head>
         <Table.Body>
-          <For each={entries()}>
-            {([name, cssVariable]) => (
-              <Table.Row>
-                <Table.RowHeader>
-                  <TableCode class="text-navy">{name}</TableCode>
-                </Table.RowHeader>
-                <Table.Cell colspan={2}>
-                  <Show when={cssVariable.description}>
-                    <Description
-                      html={cssVariable.descriptionHtml}
-                      text={cssVariable.description}
-                    />
-                  </Show>
-                </Table.Cell>
-              </Table.Row>
-            )}
+          <For each={Object.keys(props.data)}>
+            {(name) => {
+              const _row2 = createMemo(() => {
+                const cssVariable = props.data[name];
+                return (
+                  <Table.Row>
+                    <Table.RowHeader>
+                      <TableCode
+                        style={{
+                          color: 'var(--color-navy)',
+                        }}
+                      >
+                        {name}
+                      </TableCode>
+                    </Table.RowHeader>
+                    <Table.Cell colspan={2}>{cssVariable.description}</Table.Cell>
+                  </Table.Row>
+                );
+              });
+              return <>{_row2()}</>;
+            }}
           </For>
         </Table.Body>
       </Table.Root>
     </>
-  );
-}
-
-function AccordionChevron() {
-  return (
-    <svg
-      class="AccordionIcon ml-auto mr-1"
-      width="10"
-      height="10"
-      viewBox="0 0 10 10"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M1 3.5L5 7.5L9 3.5" stroke="currentcolor" />
-    </svg>
   );
 }

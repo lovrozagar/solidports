@@ -1,27 +1,49 @@
-import { createContext, createSignal, useContext } from 'solid-js';
-import type { Accessor, ParentProps } from 'solid-js';
-/* V1 minimal provider. Full snippet rendering lives in V2. */
+import { createContext, createMemo, createSignal, onSettled, untrack, useContext } from 'solid-js';
+import { initialState } from 'docs/src/adapters/react';
+import type { Accessor } from 'solid-js';
+import type { JSX } from '@solidjs/web';
 
-export type PackageManager = "npm" | "pnpm" | "yarn" | "bun"
-
-export interface PackageManagerSnippetContextValue {
-  value: Accessor<PackageManager>
-  setValue: (v: PackageManager) => void
+export interface PackageManagerSnippetContext {
+  packageManager: string;
+  setPackageManager: (variant: string) => void;
 }
-
-const Context = createContext<PackageManagerSnippetContextValue | null>(null)
-
-export function usePackageManagerSnippet() {
-  return useContext(Context)
+export const PackageManagerSnippetContext = createContext<
+  Accessor<PackageManagerSnippetContext | null>
+>(() => null);
+export const usePackageManagerSnippetContext = () => {
+  const context = useContext(PackageManagerSnippetContext);
+  return createMemo(() => {
+    const _context = context();
+    if (!_context) {
+      throw new Error('Missing PackageManagerSnippetContext');
+    }
+    return _context;
+  });
+};
+interface PackageManagerSnippetProviderProps {
+  children: JSX.Element;
+  defaultValue: string;
 }
-
-interface ProviderProps extends ParentProps {
-  defaultValue?: PackageManager
-}
-
-export function PackageManagerSnippetProvider(props: ProviderProps) {
-  const [value, setValue] = createSignal<PackageManager>(props.defaultValue ?? "npm")
+const STORAGE_KEY = 'preferredPackageManager';
+export function PackageManagerSnippetProvider(props: PackageManagerSnippetProviderProps) {
+  const [value, setValue] = createSignal(() => untrack(() => initialState(props.defaultValue)));
+  const handleValueChange = (newValue: string) => {
+    setValue(newValue);
+    localStorage.setItem(STORAGE_KEY, newValue);
+  };
+  onSettled(() => {
+    const savedValue = localStorage.getItem(STORAGE_KEY);
+    if (savedValue) {
+      setValue(savedValue);
+    }
+  });
+  const contextValue = createMemo(() => ({
+    packageManager: value(),
+    setPackageManager: handleValueChange,
+  }));
   return (
-    <Context value={{ value, setValue }}>{props.children}</Context>
-  )
+    <PackageManagerSnippetContext value={contextValue}>
+      {props.children}
+    </PackageManagerSnippetContext>
+  );
 }

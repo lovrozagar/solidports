@@ -1,0 +1,62 @@
+/**
+ * Flatten variant utility to convert a VariantCode into a flat files list
+ * Handles relative path resolution and metadata file scoping
+ * Uses addPathsToVariant for the core logic, then flattens the result
+ */
+
+import type { VariantCode } from '../../CodeHighlighter/types';
+import { decodeSourceToText } from './decodeSourceToText';
+import { addPathsToVariant } from './addCodeVariantPaths';
+
+export interface FlatFile {
+  source: string;
+  metadata?: boolean;
+}
+
+export interface FlattenedFiles {
+  [filePath: string]: FlatFile;
+}
+
+/**
+ * Flatten a VariantCode into a flat files structure
+ * Resolves relative paths and handles metadata file scoping
+ * Uses addPathsToVariant for path resolution logic
+ */
+export function flattenCodeVariant(variant: VariantCode): FlattenedFiles {
+  const result: FlattenedFiles = {};
+
+  // Use addPathsToVariant to get the structured paths
+  const variantWithPaths = addPathsToVariant(variant);
+
+  // Add main file if it exists
+  if (variantWithPaths.path && variantWithPaths.source !== undefined) {
+    result[variantWithPaths.path] = {
+      // The source may be `hastCompressed`; its `fallback` is the DEFLATE
+      // dictionary needed to decode it back to text. `decodeSourceToText` reuses
+      // the shared decode cache rather than re-inflating on every export.
+      source: decodeSourceToText(variantWithPaths.source, variantWithPaths.fallback),
+    };
+  }
+
+  // Add extra files if they exist
+  if (variantWithPaths.extraFiles) {
+    for (const fileWithPath of Object.values(variantWithPaths.extraFiles)) {
+      // Skip files that are just URLs or missing a path
+      if (typeof fileWithPath === 'string' || !fileWithPath.path) {
+        continue;
+      }
+
+      // Skip files with no source content
+      if (!fileWithPath.source && fileWithPath.source !== '') {
+        continue;
+      }
+
+      result[fileWithPath.path] = {
+        source: decodeSourceToText(fileWithPath.source, fileWithPath.fallback),
+        ...(fileWithPath.metadata && { metadata: fileWithPath.metadata }),
+      };
+    }
+  }
+
+  return result;
+}

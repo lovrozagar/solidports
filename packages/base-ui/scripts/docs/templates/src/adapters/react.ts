@@ -6,10 +6,12 @@ import {
   createComponent,
   createMemo,
   createRenderEffect,
+  createOwner,
   createSignal,
   isHydrating,
   onCleanup,
   onSettled,
+  runWithOwner,
   untrack,
   useContext,
 } from 'solid-js';
@@ -18,19 +20,30 @@ import { Dynamic, isServer, mergeProps } from '@solidjs/web';
 import type { JSX, ValidComponent } from '@solidjs/web';
 
 /**
+ * A hook React picks by environment (`typeof window === 'undefined' ? server : browser`). It runs
+ * in an owner of its own: the server and the client allocate that owner's hydration id alike, so
+ * what each variant creates inside it leaves the keys after it in step.
+ */
+export function environmentHook<Hook extends (...args: any[]) => any>(
+  server: Hook,
+  browser: Hook,
+): Hook {
+  return ((...args: Parameters<Hook>) =>
+    runWithOwner(createOwner(), () => (isServer ? server : browser)(...args))) as Hook;
+}
+
+/**
  * `React.useSyncExternalStore` as an accessor: the server snapshot on the server and through
- * hydration (so the markup matches), then the client snapshot, kept current by `subscribe`.
+ * hydration (so the markup matches), then the client snapshot, kept current by `subscribe`. The
+ * server creates what the client does, so the hydration keys after it agree.
  */
 export function useSyncExternalStore<T>(
   subscribe: (onStoreChange: () => void) => () => void,
   getSnapshot: () => T,
   getServerSnapshot?: () => T,
 ): Accessor<T> {
-  if (isServer) {
-    const value = (getServerSnapshot ?? getSnapshot)();
-    return () => value;
-  }
-  const initial = isHydrating() && getServerSnapshot ? getServerSnapshot() : getSnapshot();
+  const initial =
+    (isServer || isHydrating()) && getServerSnapshot ? getServerSnapshot() : getSnapshot();
   const [value, setValue] = createSignal<{ current: T }>({ current: initial });
   onSettled(() => {
     const update = () => setValue({ current: getSnapshot() });
@@ -169,6 +182,9 @@ type ReactHandler<H> =
     : H;
 
 type ReactRefCallback = { bivarianceHack(instance: Element | null): void }['bivarianceHack'];
+
+/** `React.ComponentType`: a component of any props type, as React's (Solid's takes objects). */
+export type ComponentType<P = {}> = (props: P) => JSX.Element;
 
 /** `React.PropsWithoutRef`: a `forwardRef` component's props without their own `ref`. */
 export type PropsWithoutRef<P> = P extends any ? ('ref' extends keyof P ? Omit<P, 'ref'> : P) : P;
@@ -316,6 +332,14 @@ const ELEMENT = Symbol.for('docs.element');
  */
 export function element(render: () => JSX.Element): JSX.Element {
   return Object.assign(render, { [ELEMENT]: true }) as unknown as JSX.Element;
+}
+
+/**
+ * Renders an element value where JSX places it (`{place(actions)}`): the call scopes the hole, so
+ * the content it builds takes the same hydration keys on the server and the client.
+ */
+export function place(value: JSX.Element): JSX.Element {
+  return typeof value === 'function' ? (value as () => JSX.Element)() : value;
 }
 
 /** `React.useState`'s initial value: a function is its initializer, called once. */

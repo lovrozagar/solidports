@@ -36,8 +36,8 @@ export default {
     {
       files: [
         'docs/react/src/app/[(]docs[)]/**/demos/**/*.css',
-        // The Solid docs demos, generated from the React ones.
-        'docs/solid/src/demos/solid/**/*.css',
+        // The Solid docs, generated from the React ones, at the same paths.
+        'docs/solid/src/app/[(]docs[)]/**/demos/**/*.css',
       ],
       rules: {
         [noUnknownDemoColorsRuleName]: true,
@@ -45,14 +45,17 @@ export default {
       },
     },
     {
-      files: ['docs/react/src/app/[(]private[)]/**/*'],
+      files: ['docs/react/src/app/[(]private[)]/**/*', 'docs/solid/src/app/[(]private[)]/**/*'],
       rules: {
         'selector-pseudo-class-disallowed-list': null,
       },
     },
     {
       // Not fixing experiments for now
-      files: ['docs/react/src/app/[(]private[)]/experiments/**/*'],
+      files: [
+        'docs/react/src/app/[(]private[)]/experiments/**/*',
+        'docs/solid/src/app/[(]private[)]/experiments/**/*',
+      ],
       rules: {
         'block-no-redundant-nested-style-rules': null,
         'no-descending-specificity': null,
