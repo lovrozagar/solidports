@@ -7,7 +7,7 @@
     "preview": "vite preview --port 3001",
     "docs-infra": "node framework/docs-infra.mjs",
     "validate": "bun internal-validate --command \"bun validate\"",
-    "internal-validate": "node framework/docs-infra.mjs validate",
+    "internal-validate": "node framework/validate.mjs",
     "typescript": "tsc -p tsconfig.json",
     "link-check": "tsx ./scripts/reportBrokenLinks.mts",
     "generate-llms": "node --experimental-strip-types ./scripts/generateLlmTxt/index.mjs"
