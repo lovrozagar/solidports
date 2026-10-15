@@ -1,7 +1,7 @@
 // Next's app router for the Solid docs: the route tree from the file conventions under `src/app`
 // (route groups, layouts, `page.tsx`/`page.mdx`, dynamic and catch-all segments, private `_`
 // folders, `global-not-found.tsx`), on the Solid router.
-import { Errored, Loading, createComponent, lazy } from 'solid-js';
+import { Errored, Loading, createComponent, createMemo, lazyModule } from 'solid-js';
 import type { Component } from 'solid-js';
 import type { RouteDefinition } from '@solidjs/router';
 import type { JSX } from '@solidjs/web';
@@ -83,18 +83,18 @@ function segment(module: RouteModule, withChildren: boolean): Component<RoutePro
   };
 }
 
-function lazySegment(load: () => Promise<RouteModule>): Component<RouteProps> {
-  const Page = lazy(async () => {
-    const module = await load();
-    // The page module's client manifest key, which a server-side `lazy()` reads to preload the
-    // page's assets for hydration.
-    return {
-      default: segment(module, false),
-      $$moduleUrl: (module as { $$moduleUrl?: string }).$$moduleUrl,
-    };
-  });
-  // A page loads behind a boundary: the server render waits for it there (the document is sent
-  // complete, see `renderMode` in the Vite config) and the client loads it on navigation.
+/**
+ * A page, loaded on demand. Solid's `lazy()` hydrates a module's default export as it is, so the
+ * page module loads through `lazyModule` (preloaded for hydration by its id) and renders inside its
+ * segment here: the server waits for it, hydration reads the module the server preloaded, and a
+ * client navigation loads it behind the boundary.
+ */
+function lazySegment(load: () => Promise<RouteModule>, moduleUrl: string): Component<RouteProps> {
+  const page = lazyModule(load, moduleUrl);
+  function Page(props: RouteProps) {
+    const module = createMemo(() => page.peek() ?? page());
+    return <>{createComponent(segment(module(), false), props)}</>;
+  }
   return (props) => <Loading>{createComponent(Page, props)}</Loading>;
 }
 
@@ -113,7 +113,7 @@ function segmentPath(name: string) {
 
 interface Folder {
   layout?: RouteModule;
-  page?: () => Promise<RouteModule>;
+  page?: { load: () => Promise<RouteModule>; moduleUrl: string };
   children: Map<string, Folder>;
 }
 
@@ -144,14 +144,21 @@ for (const [file, module] of Object.entries(layouts)) {
 }
 for (const [file, load] of Object.entries(pages)) {
   if (!isPrivate(file)) {
-    folderAt(root, file.slice(APP.length).split('/').slice(0, -1)).page = load;
+    // The bundler's module id: the file's path from the docs root.
+    folderAt(root, file.slice(APP.length).split('/').slice(0, -1)).page = {
+      load,
+      moduleUrl: file.slice(1),
+    };
   }
 }
 
 function routesOf(folder: Folder, name: string | null): RouteDefinition {
   const children: RouteDefinition[] = [];
   if (folder.page) {
-    children.push({ path: '/', component: lazySegment(folder.page) });
+    children.push({
+      path: '/',
+      component: lazySegment(folder.page.load, folder.page.moduleUrl),
+    });
   }
   for (const [childName, child] of folder.children) {
     children.push(routesOf(child, childName));

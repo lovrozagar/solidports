@@ -14,7 +14,7 @@ import {
   untrack,
   useContext,
 } from 'solid-js';
-import type { Accessor, Context } from 'solid-js';
+import type { Accessor, Context, Signal } from 'solid-js';
 import { Dynamic, isServer, mergeProps } from '@solidjs/web';
 import type { JSX, ValidComponent } from '@solidjs/web';
 
@@ -314,13 +314,20 @@ export function reactStyle(style: unknown): unknown {
 /**
  * React's `useLayoutEffect`: render effect timing on the client. On the server the computation is
  * still created (hydration ids stay aligned) and its compute runs, but the effect does not: React
- * never runs layout effects on the server, and Solid's server runs a render effect's.
+ * never runs layout effects on the server, and Solid's server runs a render effect's. The effect
+ * runs with no owner, as a later run does: Solid runs the first one where the effect is created,
+ * inside the component, where it writes no state.
  */
 export function createLayoutEffect<T>(
   compute: Parameters<typeof createRenderEffect<T>>[0],
   effect: Parameters<typeof createRenderEffect<T>>[1],
 ): void {
-  createRenderEffect<T>(compute, isServer ? (undefined as never) : effect);
+  createRenderEffect<T>(
+    compute,
+    isServer
+      ? (undefined as never)
+      : (value, previous) => runWithOwner(null, () => effect(value, previous)),
+  );
 }
 
 const ELEMENT = Symbol.for('docs.element');
@@ -339,6 +346,47 @@ export function element(render: () => JSX.Element): JSX.Element {
  */
 export function place(value: JSX.Element): JSX.Element {
   return typeof value === 'function' ? (value as () => JSX.Element)() : value;
+}
+
+/**
+ * State a render adjusts (`if (test) setState(value)` in a component's body), as a signal whose
+ * value is `update(current)` whenever what `update` reads changes: React reruns the update on each
+ * render. Solid 2 writes no signal while it renders, so the update is the signal's own compute.
+ */
+export function useRenderState<S>(initial: S | (() => S), update: (current: S) => S): Signal<S> {
+  let seeded = false;
+  return createSignal<S>((previous) => {
+    const current = seeded ? (previous as S) : untrack(() => initialState(initial));
+    seeded = true;
+    return update(current);
+  });
+}
+
+/**
+ * State a render resets when a value changes (`if (prev !== key) { setPrev(key); setState(value) }`,
+ * React's "store information from previous renders"): `next()` when `key()` changes, the state's own
+ * value otherwise.
+ */
+export function useResetState<S, K>(
+  initial: S | (() => S),
+  key: () => K,
+  next: () => S,
+): Signal<S> {
+  let seeded = false;
+  let last: K;
+  return createSignal<S>((previous) => {
+    const current = key();
+    if (!seeded) {
+      seeded = true;
+      last = current;
+      return untrack(() => initialState(initial));
+    }
+    if (Object.is(current, last)) {
+      return previous as S;
+    }
+    last = current;
+    return next();
+  });
 }
 
 /** `React.useState`'s initial value: a function is its initializer, called once. */

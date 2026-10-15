@@ -1,5 +1,5 @@
 import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
-import { initialState, reactRef } from 'docs/src/adapters/react';
+import { reactRef, useResetState } from 'docs/src/adapters/react';
 import type { Root as HastRoot, Element as HastElement } from 'hast';
 import { decompressHast, hastToJsx } from '../pipeline/hastUtils';
 import { useCodeComponents } from '../useCode/CodeComponentsContext';
@@ -70,24 +70,17 @@ export function TypeCode(props: TypeCodeProps) {
       : props.highlightAt,
   );
   const [hast, setHast] = createSignal<HastRoot | null>(null);
-  const [isVisible, setIsVisible] = createSignal(() =>
-    untrack(() => initialState(effectiveMode() !== 'visible')),
-  );
   const [codeElement, setCodeElement] = createSignal<HTMLElement | null>(null);
 
   // Re-seed visibility state during render when the effective mode changes
   // (the 'store previous prop value, set state during render' pattern). The
   // IntersectionObserver effect still owns runtime true/false toggling because
   // it runs after this render-time seed.
-  const [prevEffectiveMode, setPrevEffectiveMode] = createSignal(() =>
-    untrack(() => initialState(effectiveMode())),
+  const [isVisible, setIsVisible] = useResetState(
+    untrack(effectiveMode) !== 'visible',
+    () => effectiveMode(),
+    () => effectiveMode() !== 'visible',
   );
-  const _effectiveMode = untrack(effectiveMode);
-  if (untrack(prevEffectiveMode) !== _effectiveMode) {
-    setPrevEffectiveMode(_effectiveMode);
-    setIsVisible(_effectiveMode !== 'visible');
-  }
-
   // Convert compact fallback to HAST for rendering.
   const fallbackHastRoot = createMemo(() =>
     props.fallback ? fallbackToHast(props.fallback) : undefined,

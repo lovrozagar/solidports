@@ -1,5 +1,5 @@
-import { createMemo, createSignal, createTrackedEffect, untrack } from 'solid-js';
-import { createLayoutEffect } from 'docs/src/adapters/react';
+import { createMemo, createTrackedEffect, untrack } from 'solid-js';
+import { createLayoutEffect, useRenderState } from 'docs/src/adapters/react';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useCodeHighlighterContextOptional } from '../CodeHighlighter/CodeHighlighterContext';
@@ -399,9 +399,6 @@ export function useCode<T extends {} = {}>(
 
   // `useFileNavigation` consumes this value as controlled state so the
   // selected file survives transform renames and variant updates.
-  const [selectedFileNameState, setSelectedFileNameState] = createSignal<string | undefined>(
-    undefined,
-  );
 
   // Sub-hook: Variant Selection
   const variantSelection = useVariantSelection(() => ({
@@ -422,10 +419,15 @@ export function useCode<T extends {} = {}>(
   // `useUrlHashState` / `usePreference` hooks that already live
   // inside `useVariantSelection`. Duplicating them at this level
   // would be worse than the extra render.
-  const _variantSelection = untrack(variantSelection);
-  if (untrack(selectedFileNameState) === undefined && _variantSelection.selectedVariant?.fileName) {
-    setSelectedFileNameState(_variantSelection.selectedVariant.fileName);
-  }
+  const [selectedFileNameState, setSelectedFileNameState] = useRenderState<string | undefined>(
+    undefined,
+    (_selectedFileNameState) => {
+      const _variantSelection = variantSelection();
+      return _selectedFileNameState === undefined && _variantSelection.selectedVariant?.fileName
+        ? _variantSelection.selectedVariant.fileName
+        : _selectedFileNameState;
+    },
+  );
   const shouldHighlight = createMemo(() =>
     shouldHighlightForRender({
       deferHighlight: context()?.deferHighlight,
