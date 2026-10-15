@@ -87,15 +87,20 @@ function segment(module: RouteModule, withChildren: boolean): Component<RoutePro
  * A page, loaded on demand. Solid's `lazy()` hydrates a module's default export as it is, so the
  * page module loads through `lazyModule` (preloaded for hydration by its id) and renders inside its
  * segment here: the server waits for it, hydration reads the module the server preloaded, and a
- * client navigation loads it behind the boundary.
+ * client navigation loads it behind the boundary. Its `preload` is what the router calls to load it
+ * ahead of a navigation (a link's preload).
  */
-function lazySegment(load: () => Promise<RouteModule>, moduleUrl: string): Component<RouteProps> {
+function lazySegment(
+  load: () => Promise<RouteModule>,
+  moduleUrl: string,
+): Component<RouteProps> & { preload: () => Promise<RouteModule> } {
   const page = lazyModule(load, moduleUrl);
   function Page(props: RouteProps) {
     const module = createMemo(() => page.peek() ?? page());
     return <>{createComponent(segment(module(), false), props)}</>;
   }
-  return (props) => <Loading>{createComponent(Page, props)}</Loading>;
+  const component = (props: RouteProps) => <Loading>{createComponent(Page, props)}</Loading>;
+  return Object.assign(component, { preload: page.preload });
 }
 
 function segmentPath(name: string) {

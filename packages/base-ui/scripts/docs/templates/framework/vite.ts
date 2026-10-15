@@ -196,7 +196,9 @@ export async function nextApp(root: string): Promise<Plugin[]> {
           this.addWatchFile(dependency),
         );
       }
-      return { code: source, map: null };
+      // The loaders generate the module (precomputed code and types, megabytes in dev), so it maps
+      // to no source: an empty map keeps Vite from inlining one into every dev response.
+      return { code: source, map: { mappings: '' } };
     },
   };
 
