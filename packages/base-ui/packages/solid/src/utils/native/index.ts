@@ -454,23 +454,14 @@ export function renderNativeElement<State>(spec: NativeElementSpec<State>): JSX.
   const source = props as AnyProps;
   const partHandlers = spec.handlers;
   // A tuple part handler calls the consumer itself; a plain function runs after the consumer's
-  // handler (React's `mergeProps` order) unless the consumer prevented it. Keys are matched as
-  // given; a consumer's other casing (`onclick`) falls back to a case-insensitive scan.
+  // handler (React's `mergeProps` order) unless the consumer prevented it. Keys match as given: a
+  // lowercase `onclick` is an attribute in Solid 2, not this handler.
   const consumer = classifyConsumerProps(
     props,
     spec.own,
     partHandlers
       ? (key, read) => {
-          let part = partHandlers[key];
-          if (part === undefined) {
-            const lower = key.toLowerCase();
-            for (const name in partHandlers) {
-              if (name.toLowerCase() === lower) {
-                part = partHandlers[name];
-                break;
-              }
-            }
-          }
+          const part = partHandlers[key];
           return typeof part === 'function'
             ? composeHandler(read, part as (event: never) => void)
             : part;
@@ -491,7 +482,7 @@ export function renderNativeElement<State>(spec: NativeElementSpec<State>): JSX.
   }
   if (partHandlers) {
     for (const key in partHandlers) {
-      if (!hasKeys || (!keys.has(key) && !keys.has(key.toLowerCase()))) {
+      if (!hasKeys || !keys.has(key)) {
         literal[key] = partHandlers[key];
       }
     }
@@ -729,9 +720,9 @@ export function createLayout<Model>(
   };
 }
 
-/** Whether the consumer passes `key` (any casing for a handler). */
+/** Whether the consumer passes `key`. */
 export function consumerHas(l: NativeLayout<unknown>, key: string): boolean {
-  return l.hasKeys && (l.keys.has(key) || l.keys.has(key.toLowerCase()));
+  return l.hasKeys && l.keys.has(key);
 }
 
 /**

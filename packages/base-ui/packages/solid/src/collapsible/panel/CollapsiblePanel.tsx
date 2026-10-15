@@ -105,13 +105,15 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
     },
   };
 
+  // An accessor source: its keys change with the panel's state without rebuilding the props. Made
+  // once, so reading the props (an effect re-syncing refs, say) creates no memo.
+  const panelProps = propsSourceAccessor(panel.props);
   const element = useRenderElement('div', omit(componentProps, 'style'), {
     state: panelState,
     ref: panel.ref,
     get props() {
       return [
-        // An accessor source: its keys change with the panel's state without rebuilding these props.
-        propsSourceAccessor(panel.props),
+        panelProps,
         {
           // The client writes measured sizes to these variables directly (see
           // `useCollapsiblePanel`); the server renders their initial `auto`.

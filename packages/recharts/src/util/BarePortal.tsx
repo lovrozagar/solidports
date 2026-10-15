@@ -27,12 +27,15 @@ export function BarePortal(props: {
 			const marker = document.createTextNode("")
 			target.appendChild(start)
 			target.appendChild(marker)
-			const dispose = createRoot((d) => {
-				/* eslint-disable-next-line solid/reactivity -- createMemo inside runWithOwner must be assigned inline; owner-tree placement is the invariant */
-				const content = runWithOwner(owner, () => createMemo(() => props.children))
-				insert(target, content, marker)
-				return d
-			})
+			/* The effect callback has no owner, and Solid 2 creates no root without one: the root
+			   belongs to the component, which disposes it with itself. */
+			const dispose = runWithOwner(owner, () =>
+				createRoot((d) => {
+					const content = createMemo(() => props.children)
+					insert(target, content, marker)
+					return d
+				}),
+			)
 			return () => {
 				dispose()
 				let node = start.nextSibling

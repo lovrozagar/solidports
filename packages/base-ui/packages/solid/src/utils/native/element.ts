@@ -145,7 +145,7 @@ export function renderNativeElement<State extends object>(
   Object.assign(literal, consumer.literal);
   if (wrap && spec.handlerKeys) {
     for (const key of spec.handlerKeys) {
-      if (!keys.has(key) && !keys.has(key.toLowerCase())) {
+      if (!keys.has(key)) {
         const handler = wrap(key, undefined);
         if (handler) {
           literal[key] = handler;

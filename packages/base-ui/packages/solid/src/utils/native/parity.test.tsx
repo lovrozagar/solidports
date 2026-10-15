@@ -86,7 +86,7 @@ describe('native parity: Button', () => {
         hidden: true,
       }),
       () => ({ children: 'Undefined wins', title: undefined, type: undefined }),
-      () => ({ children: 'Handlers', onClick: () => {}, onMouseMove: () => {}, onclick: () => {} }),
+      () => ({ children: 'Handlers', onClick: () => {}, onMouseMove: () => {} }),
     ];
     for (const make of cases) {
       const { fastEl, slowEl } = mountBoth(make);
@@ -157,7 +157,7 @@ describe('native parity: Button', () => {
         onMouseDown: () => calls.push('mousedown'),
         onPointerDown: () => calls.push('pointerdown'),
         onMouseMove: () => calls.push('mousemove'),
-        onfocus: () => calls.push('focus-lowercase'),
+        onFocus: () => calls.push('focus'),
       });
       const { fastEl, slowEl } = mountBoth(make);
       const el = variant === 'fast' ? fastEl : slowEl;

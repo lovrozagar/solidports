@@ -12,6 +12,7 @@
 import { $PROXY, untrack } from 'solid-js';
 import type { Ref } from 'solid-js';
 import type { ComponentProps, JSX, ValidComponent } from '@solidjs/web';
+import { isEventHandlerKey } from '../utils/isEventHandlerKey';
 import type { BaseUIEvent, WithBaseUIEvent } from '../utils/types';
 import { mergeProps as solidMergeProps } from '../solid-1-compat';
 
@@ -253,7 +254,7 @@ export function mergeProps<
           if (typeof key !== 'string') return Reflect.get(target, key, receiver);
           if (key in localMerged) return localMerged[key as keyof typeof localMerged];
 
-          if (key[0] === 'o' && key[1] === 'n' && key[2]) {
+          if (isEventHandlerKey(key)) {
             const name = key.toLowerCase();
             if (name in mergedListeners) return mergedListeners[name];
           }
@@ -303,7 +304,7 @@ export function mergeProps<
       }
 
       // event listeners
-      if (key[0] === 'o' && key[1] === 'n' && key[2]) {
+      if (isEventHandlerKey(key)) {
         const v = props[key];
         const name = key.toLowerCase();
 
@@ -365,7 +366,7 @@ export function mergeProps<
         if (typeof key !== 'string') return Reflect.get(merge, key);
         if (key in localMerged) return localMerged[key as keyof typeof localMerged];
 
-        if (key[0] === 'o' && key[1] === 'n' && key[2]) {
+        if (isEventHandlerKey(key)) {
           const name = key.toLowerCase();
           if (name in mergedListeners) return mergedListeners[name];
         }

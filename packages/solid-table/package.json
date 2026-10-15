@@ -135,7 +135,7 @@
 		"@babel/core": "7.29.7",
 		"@babel/preset-typescript": "7.29.7",
 		"@playwright/test": "catalog:",
-		"@solidjs/babel-plugin": "2.0.0-rc.13",
+		"@solidjs/babel-plugin": "2.0.0-rc.15",
 		"@solidjs/testing-library": "catalog:",
 		"@solidjs/vite-plugin": "catalog:",
 		"@solidjs/web": "catalog:",

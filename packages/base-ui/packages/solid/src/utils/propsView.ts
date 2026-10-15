@@ -1,14 +1,8 @@
-import {
-  $PROXY,
-  createMemo,
-  getOwner,
-  isStatic,
-  runWithOwner,
-  untrack,
-} from 'solid-js';
+import { $PROXY, createMemo, getOwner, isStatic, runWithOwner, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { access, shallowEqual } from '../solid-helpers';
 import { combineStyle, makeEventPreventable } from '../merge-props/mergeProps';
+import { isEventHandlerKey } from './isEventHandlerKey';
 import type { BaseUIEvent } from './types';
 
 /**
@@ -52,9 +46,7 @@ function resolve(source: unknown): Record<string, any> | undefined {
   return value != null && typeof value === 'object' ? (value as Record<string, any>) : undefined;
 }
 
-function isHandlerKey(key: string) {
-  return key.length > 2 && key[0] === 'o' && key[1] === 'n';
-}
+const isHandlerKey = isEventHandlerKey;
 
 /**
  * Mixed-case spellings of attribute keys seen by any view (`tabIndex`), by lowercase name.

@@ -102,7 +102,9 @@ export function AriaCombobox<Value = any, Mode extends SelectionMode = 'none', I
   const idProp = () => props.id;
   const defaultSelectedValue = () => props.defaultSelectedValue ?? null;
   const selectedValueProp = () => props.selectedValue;
-  const inputValueProp = () => props.inputValue;
+  // A memo: effects read the controlled value, and a consumer's conditional prop creates a memo
+  // each time it is read, which an effect callback cannot hold (Solid 2).
+  const inputValueProp = createMemo(() => props.inputValue);
   const defaultInputValue = () => props.defaultInputValue;
   const selectionMode = () => props.selectionMode ?? 'none';
   const nameProp = () => props.name;

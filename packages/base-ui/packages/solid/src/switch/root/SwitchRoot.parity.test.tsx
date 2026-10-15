@@ -143,7 +143,7 @@ describe('native parity: Switch', () => {
         ],
         onPointerDown: () => calls.push('pointerdown'),
         onMouseDown: () => calls.push('mousedown'),
-        onfocus: () => calls.push('focus'),
+        onFocus: () => calls.push('focus'),
         onBlur: () => calls.push('blur'),
       });
       const { fastEl, slowEl } = mountBoth(make);
