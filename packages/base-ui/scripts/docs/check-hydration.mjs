@@ -9,6 +9,8 @@
  *   detached copy, and the element on the page never becomes interactive).
  * - The first collapsed trigger in the page content (not a text input, which opens as the user
  *   types) opens on click and stays the same element.
+ * - A link preloads its page: hovering a side-nav link loads the page's code, and clicking it then
+ *   shows the page without loading more.
  *
  *   node scripts/docs/check-hydration.mjs --serve            # serves the build with docs:preview
  *   node scripts/docs/check-hydration.mjs --origin <url> [route…]
@@ -147,6 +149,46 @@ async function checkRoute(browser, route) {
   return { route, demo, problems };
 }
 
+const NAVIGATION_FROM = '/solid/components/accordion';
+const NAVIGATION_TO = 'Menu';
+
+/** Hovers a side-nav link, then clicks it: the hover loads the page, so the click loads nothing. */
+async function checkNavigation(browser) {
+  const page = await browser.newPage();
+  const problems = [];
+  let scripts = 0;
+  page.on('request', (request) => {
+    if (request.resourceType() === 'script') {
+      scripts += 1;
+    }
+  });
+  try {
+    await page.goto(origin + NAVIGATION_FROM, { waitUntil: 'networkidle', timeout: 120000 });
+    const link = page.locator('nav a', { hasText: new RegExp(`^${NAVIGATION_TO}$`) }).first();
+    scripts = 0;
+    await link.hover();
+    await page.waitForTimeout(200);
+    await page.waitForLoadState('networkidle');
+    if (scripts === 0) {
+      problems.push(`hovering the ${NAVIGATION_TO} link loads none of its page`);
+    }
+    scripts = 0;
+    await link.click();
+    await page.waitForFunction(
+      (title) => document.querySelector('h1')?.textContent?.trim() === title,
+      NAVIGATION_TO,
+      { timeout: 60000 },
+    );
+    if (scripts > 0) {
+      problems.push(`clicking the ${NAVIGATION_TO} link loads ${scripts} more scripts`);
+    }
+  } catch (error) {
+    problems.push(`check failed: ${error.message.split('\n')[0]}`);
+  }
+  await page.close();
+  return { route: `${NAVIGATION_FROM} → ${NAVIGATION_TO}`, demo: 'navigation', problems };
+}
+
 /** Serves the build with `docs:preview` and resolves once it answers. */
 async function startPreview() {
   const busy = await fetch(origin).then(
@@ -186,6 +228,7 @@ const routes = only.length > 0 ? only : solidRoutes();
 const server = serve ? await startPreview() : null;
 const browser = await chromium.launch();
 const results = [];
+let navigation;
 try {
   const queue = [...routes];
   await Promise.all(
@@ -202,6 +245,11 @@ try {
       }
     }),
   );
+  navigation = await checkNavigation(browser);
+  console.log(`${navigation.problems.length ? 'FAIL' : 'ok  '} ${navigation.route} (preload)`);
+  for (const problem of navigation.problems) {
+    console.log(`     ${problem}`);
+  }
 } finally {
   await browser.close();
   if (server) {
@@ -212,6 +260,8 @@ try {
 const failed = results.filter((result) => result.problems.length > 0).length;
 console.log(
   `\n${results.length - failed} of ${results.length} routes ok, ${failed} failed; ` +
-    `${missing.length} React pages without a Solid page`,
+    `${missing.length} React pages without a Solid page; link preload ${
+      navigation?.problems.length === 0 ? 'ok' : 'failed'
+    }`,
 );
-process.exit(failed > 0 || missing.length > 0 ? 1 : 0);
+process.exit(failed > 0 || missing.length > 0 || navigation?.problems.length !== 0 ? 1 : 0);
