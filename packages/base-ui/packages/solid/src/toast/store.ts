@@ -639,8 +639,7 @@ export function ToastStore(initialState: InitialState) {
     }
   }
 
-  return {
-    ...base,
+  return Object.assign(base, {
     setViewport,
     syncProviderProps,
     disposeEffect,
@@ -654,7 +653,7 @@ export function ToastStore(initialState: InitialState) {
     resumeTimers,
     restoreFocusToPrevElement,
     handleDocumentPointerDown,
-  };
+  });
 }
 
 interface TimerInfo {
