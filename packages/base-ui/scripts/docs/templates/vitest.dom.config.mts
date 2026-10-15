@@ -6,7 +6,8 @@ import { docsAliases } from './vitest.config.mts';
 // The docs' component tests (`*.test.tsx`), in jsdom with Solid's client output: the files
 // upstream's `docs` project runs with `@vitest-environment jsdom`.
 export default defineProject({
-  plugins: [solidPlugin() as any],
+  // Hydratable output, as the docs app compiles it: the runtime's tests hydrate server HTML.
+  plugins: [solidPlugin({ solid: { hydratable: true } }) as any],
   resolve: { alias: docsAliases },
   server: {
     // Test packages (jest-dom, which Solid's plugin adds) resolve into the monorepo's install.
@@ -17,6 +18,8 @@ export default defineProject({
     root: resolve(import.meta.dirname, '../..'),
     include: ['docs/solid/**/*.test.tsx'],
     exclude: [...configDefaults.exclude, 'docs/solid/dist/**', 'docs/solid/.output/**'],
+    // The docs-infra runtime's hydration tests hydrate server HTML rendered before the run.
+    globalSetup: [resolve(import.meta.dirname, 'docs-infra/src/__fixtures__/globalSetup.ts')],
     environment: 'jsdom',
     env: {
       VITEST_ENV: 'jsdom',

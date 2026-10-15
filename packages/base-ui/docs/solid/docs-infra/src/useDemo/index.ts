@@ -1,3 +1,4 @@
+// docs-infra's `useDemo` entry, kept by hand for Solid.
 export * from './useDemo';
 export * from './createStackBlitz';
 export * from './createCodeSandbox';

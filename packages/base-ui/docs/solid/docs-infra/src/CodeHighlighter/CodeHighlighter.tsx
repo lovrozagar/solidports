@@ -1,188 +1,101 @@
+// docs-infra's `CodeHighlighter`, kept by hand for Solid. The docs precompute every code block and
+// demo at build time (docs-infra's loaders), so this renders precomputed code only: no client
+// loading, parsing, transforms, enhancing or editing.
+import { createComponent, createSignal, merge, onSettled, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import type { Code, CodeHighlighterProps } from './types';
-import type { CompressedFallback } from './fallbackFormat';
-import { maybeCodeInitialData } from '../pipeline/loadIsomorphicCodeVariant/maybeCodeInitialData';
-import { getFileNameFromUrl, getLanguageFromExtension } from '../pipeline/loaderUtils';
-import { buildCodeHighlighterChunkProps } from './buildCodeHighlighterChunkProps';
-import { prepareInitialSource } from './prepareInitialSource';
-import { CodeHighlighterChunk } from './CodeHighlighterChunk';
-import type { CodeHighlighterChunkUserProps } from './CodeHighlighterChunk';
-import * as Errors from './errors';
+import type { CodeHighlighterProps, ContentProps } from './types';
+import { CodeHighlighterContext } from './CodeHighlighterContext';
+import type { CodeHighlighterContextType } from './CodeHighlighterContext';
+import { resolveFallbackCritical } from './resolveFallbackCritical';
+import { requestIdle } from '../useCoordinated/scheduleTasks';
 
-const DEBUG = false; // Set to true for debugging purposes
+// How long an `idle` highlight waits for the browser to go idle before it shows anyway.
+const IDLE_SWAP_TIMEOUT_MS = 10_000;
 
 /**
- * Isomorphic entry for a code block. Validates and normalizes props, then maps them
- * onto the generic {@link CodeHighlighterChunk} (a `createCoordinatedLazy` chunk):
- * the decision inputs (`controlled`/`isInitial`/`forceClient`) computed by
- * {@link buildCodeHighlighterChunkProps} route between rendering the client directly
- * (precomputed content), dynamically importing the server `Loader` (load all
- * variants), or the server `InitialLoader` (load a quick initial first). When a
- * `ContentLoading` and an initial paint are available, the loading fallback +
- * compressed residual are prepared up front via {@link prepareInitialSource}.
- *
- * The heavy load/parse pipeline lives behind the dynamically-imported loaders, so it
- * never reaches the path that renders precomputed content.
+ * Renders `Content` with precomputed code. The highlighting shows from the first render
+ * (`highlightAfter: 'init'`), once mounted (`'hydration'`), or once the browser is idle (`'idle'`,
+ * the default); until then `Content` renders the plain fallback the loader built.
  */
 export function CodeHighlighter<T extends {}>(props: CodeHighlighterProps<T>): JSX.Element {
-  // Validate mutually exclusive props
-  if (props.children && (props.code || props.precompute)) {
-    throw new Errors.ErrorCodeHighlighterServerInvalidProps();
+  const precompute = untrack(() => props.precompute);
+  if (!precompute || typeof precompute !== 'object') {
+    throw new Error(
+      `Base UI docs: CodeHighlighter got no precomputed code${props.url ? ` for ${props.url}` : ''}. ` +
+        'The Solid docs render precomputed code only: precompute it with docs-infra\'s loaders ' +
+        '(`loadPrecomputedCodeHighlighter` for demos, `transformHtmlCodeBlock` for code blocks).',
+    );
   }
+  const highlightAfter = untrack(() =>
+    props.highlightAfter === 'stream' ? 'init' : (props.highlightAfter ?? 'idle'),
+  );
+  const collapseToEmpty = untrack(
+    () =>
+      props.collapseToEmpty ??
+      (props.contentProps as { collapseToEmpty?: boolean } | undefined)?.collapseToEmpty ??
+      false,
+  );
+  // `init` shows the highlighted visible frames (`fallbackCritical`) in the first render.
+  const code = resolveFallbackCritical(precompute, highlightAfter, collapseToEmpty);
 
-  // Handle children as string -> Default variant
-  let code = props.code;
-  if (props.children && typeof props.children === 'string') {
-    const fileName =
-      props.fileName || (props.url ? getFileNameFromUrl(props.url).fileName : undefined);
-    // Derive language: use explicit prop, or derive from fileName extension
-    let language = props.language;
-    if (!language && fileName) {
-      const extension = fileName.slice(fileName.lastIndexOf('.'));
-      language = getLanguageFromExtension(extension);
+  const [highlightReady, setHighlightReady] = createSignal(highlightAfter === 'init');
+  onSettled(() => {
+    if (highlightAfter === 'hydration') {
+      setHighlightReady(true);
+      return undefined;
     }
-    code = {
-      Default: {
-        fileName,
-        language,
-        source: props.children,
-        url: props.url,
-      },
-    };
-  }
-  const variants =
-    props.variants || Object.keys(props.components || code || props.precompute || {});
-  if (variants.length === 0) {
-    throw new Errors.ErrorCodeHighlighterServerMissingData();
-  }
-
-  // Validate fileName is provided when extraFiles are present
-  if (code) {
-    for (const [variantName, variantCode] of Object.entries(code)) {
-      if (
-        typeof variantCode === 'object' &&
-        variantCode?.extraFiles &&
-        Object.keys(variantCode.extraFiles).length > 0 &&
-        !variantCode.fileName &&
-        !variantCode.url
-      ) {
-        throw new Errors.ErrorCodeHighlighterServerMissingFileName(variantName);
-      }
+    if (highlightAfter === 'idle') {
+      return requestIdle(() => setHighlightReady(true), { timeout: IDLE_SWAP_TIMEOUT_MS });
     }
-  }
-  const ContentLoading = props.ContentLoading;
-  const initialKey = props.initialVariant || props.variant || props.defaultVariant || variants[0];
-
-  // Map the props onto the chunk decision inputs (replaces the bespoke
-  // renderCodeHighlighter/renderWithInitialSource branching).
-  const { controlled, isInitial, forceClient } = buildCodeHighlighterChunkProps({
-    ...props,
-    code,
+    return undefined;
   });
 
-  // Render the chunk. `controlled`/`isInitial`/`forceClient` drive the decision; a
-  // prepared `fallback`/`residualFallbacks` (and the wire `Code` as `preloaded`) are
-  // threaded through when an initial paint was available up front.
-  const renderChunk = (options: {
-    preloaded?: Code;
-    fallback?: JSX.Element;
-    residualFallbacks?: CompressedFallback;
-  }): JSX.Element => {
-    const userProps = {
-      ...props,
-      code: props.loadPrecompute ? undefined : options.preloaded,
-      precompute: props.loadPrecompute ? options.preloaded : props.precompute,
-      ContentLoading,
-      initialVariant: initialKey,
-      fallback: options.fallback,
-      residualFallbacks: options.residualFallbacks,
-      // The user's content generic is erased at the chunk boundary; the real props
-      // ride through `Content`/`contentProps` and are rebuilt by `createClientProps`.
-    } as unknown as CodeHighlighterChunkUserProps;
-    return (
-      <CodeHighlighterChunk
-        preloaded={options.preloaded}
-        controlled={controlled}
-        isInitial={isInitial}
-        forceClient={forceClient}
-        // No ContentLoading -> no fallback to paint an initial into, so skip the
-        // initial-loader stage and load the full content directly.
-        skipInitialLoad={!ContentLoading}
-        // Stream the fallback (Suspense) only when streaming the full load behind an
-        // already-in-hand initial; otherwise block on the loader so its content is in
-        // the initial HTML (the server-initial loader streams its own 2nd stage).
-        awaitServerLoad={!(isInitial && props.highlightAfter === 'stream')}
-        userProps={userProps}
-      />
-    );
+  const context: CodeHighlighterContextType = {
+    code,
+    initialCode: code,
+    get components() {
+      return props.components;
+    },
+    get url() {
+      return props.url;
+    },
+    deferHighlight: false,
+    get highlightReady() {
+      return highlightReady();
+    },
+    highlightAfter,
   };
 
-  // No ContentLoading: render the content/full-load directly, with no loading
-  // fallback (the client shows nothing until content is ready). For
-  // `highlightAfter: 'init'`, `createClientProps` folds each variant's highlighted-visible
-  // `fallbackCritical` over its plain `fallback`, so `<Pre>` paints the visible frames
-  // highlighted on the first render (no decompression) and decodes the full tree after
-  // paint (the `decodeAllowed` latch).
-  if (!ContentLoading) {
-    if (props.highlightAfter === 'stream') {
-      // `highlightAfter: 'stream'` needs a ContentLoading component to stream into.
-      throw new Errors.ErrorCodeHighlighterServerMissingContentLoading();
-    }
-    return renderChunk({
-      preloaded: code,
-    });
-  }
-  const initial = code?.[initialKey] || props.precompute?.[initialKey];
-  if (!initial && !props.components?.[initialKey]) {
-    throw new Errors.ErrorCodeHighlighterServerMissingVariant(initialKey);
-  }
+  const contentProps = merge(
+    () => props.contentProps ?? {},
+    {
+      code,
+      get components() {
+        return props.components;
+      },
+      get name() {
+        return props.name;
+      },
+      get slug() {
+        return props.slug;
+      },
+      get url() {
+        return props.url;
+      },
+      get variantType() {
+        return props.variantType;
+      },
+    },
+    () => ({
+      ...(props.collapseToEmpty !== undefined && { collapseToEmpty: props.collapseToEmpty }),
+      ...(props.initialExpanded !== undefined && { initialExpanded: props.initialExpanded }),
+      ...(props.initialDisabled !== undefined && { initialDisabled: props.initialDisabled }),
+    }),
+  ) as ContentProps<T>;
 
-  // TODO: use initial.filesOrder to determine which source to use
-  const { initialData, reason } = maybeCodeInitialData(
-    variants,
-    initialKey,
-    code || props.precompute,
-    undefined,
-    // TODO: use initial.filesOrder if provided?
-    props.highlightAfter === 'init',
-    props.fallbackUsesExtraFiles,
-    props.fallbackUsesAllVariants,
+  return (
+    <CodeHighlighterContext value={context}>
+      {createComponent(props.Content, contentProps)}
+    </CodeHighlighterContext>
   );
-
-  // No initial paint in hand: either the client takes over (no loader fns / forced
-  // client), or the server initial loader fetches a quick initial first.
-  if (!initialData) {
-    if (DEBUG) {
-      // eslint-disable-next-line no-console
-      console.log('Initial data not found:', reason);
-    }
-    if (forceClient && props.highlightAfter === 'init') {
-      throw new Errors.ErrorCodeHighlighterServerInvalidClientMode();
-    }
-    return renderChunk({
-      preloaded: code,
-    });
-  }
-
-  // Initial paint in hand: prepare the loading fallback + compressed residual, and
-  // send the wire `Code` as the preloaded value.
-  const { fallback, residualFallbacks, codeForClient } = prepareInitialSource({
-    ...props,
-    code: initialData.code,
-    initialVariant: initialKey,
-    initialFilename: initialData.initialFilename,
-    initialSource: initialData.initialSource,
-    initialExtraFiles: initialData.initialExtraFiles,
-    ContentLoading,
-    // Compressing the residual fallbacks only shrinks the server→client payload. This
-    // entry is isomorphic, so when it runs on the client (e.g. a Pages-Router app that
-    // renders everything client-side) there is no wire — skip the compress and keep the
-    // fallbacks inline rather than compressing them only to decompress them right back.
-    compressResidual: typeof window === 'undefined',
-  });
-  return renderChunk({
-    preloaded: codeForClient,
-    fallback,
-    residualFallbacks,
-  });
 }

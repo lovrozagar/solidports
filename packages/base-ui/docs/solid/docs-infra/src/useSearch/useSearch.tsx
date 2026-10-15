@@ -1,3 +1,5 @@
+// docs-infra's `useSearch`, kept by hand for Solid: the index builds once mounted (an effect),
+// and the result is one object of getters.
 import { createEffect, createMemo, createSignal } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { create, insertMultiple, search as oramaSearch } from '@orama/orama';
@@ -717,11 +719,18 @@ export function useSearch(
     }
     return url;
   };
-  return createMemo(() => ({
-    results: results(),
-    isReady: index() !== null,
+  const result = {
+    get results() {
+      return results();
+    },
+    get isReady() {
+      return index() !== null;
+    },
     search,
-    defaultResults: defaultResults(),
+    get defaultResults() {
+      return defaultResults();
+    },
     buildResultUrl,
-  }));
+  };
+  return () => result;
 }

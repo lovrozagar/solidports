@@ -1,67 +1,47 @@
-import { createMemo, createSignal } from 'solid-js';
+// docs-infra's `useCopier`, kept by hand for Solid.
+import { createSignal, onCleanup } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import copyToClipboard from 'clipboard-copy';
 
-type OnCopied = () => void;
-type OnCopyError = (error: unknown) => void;
-type OnCopyClick = (
-  event: MouseEvent & {
-    currentTarget: Element;
-    target: Element;
-  },
-) => void;
 export type UseCopierOpts = {
-  onCopied?: OnCopied;
-  onError?: OnCopyError;
-  onClick?: OnCopyClick;
+  onCopied?: () => void;
+  onError?: (error: unknown) => void;
+  onClick?: (event: MouseEvent) => void;
+  /** How long `recentlySuccessful` stays true after a copy, in milliseconds. */
   timeout?: number;
 };
+
+/** Copies `contents` (or what it returns) to the clipboard. */
 export function useCopier(
   contents: Accessor<(() => string | undefined) | string>,
-  opts?: Accessor<UseCopierOpts | undefined>,
-) {
-  const _value = createMemo(() => {
-    const { onCopied, onError, onClick, timeout = 2000 } = opts?.() || {};
-    return {
-      onCopied,
-      onError,
-      onClick,
-      timeout,
-    };
-  });
-  const copyTimeoutRef: {
-    current: ReturnType<typeof setTimeout> | undefined;
-  } = {
-    current: undefined,
-  };
+  opts: Accessor<UseCopierOpts | undefined> = () => undefined,
+): Accessor<{ copy: (event: MouseEvent) => Promise<void>; recentlySuccessful: boolean }> {
   const [recentlySuccessful, setRecentlySuccessful] = createSignal(false);
-  const copy = async (
-    event: MouseEvent & {
-      currentTarget: Element;
-      target: Element;
-    },
-  ) => {
-    clearTimeout(copyTimeoutRef.current);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(timeout));
+  const copy = async (event: MouseEvent) => {
+    const { onCopied, onError, onClick, timeout: duration = 2000 } = opts() ?? {};
+    clearTimeout(timeout);
     setRecentlySuccessful(false);
     try {
-      const _contents = contents();
-      const content = typeof _contents === 'function' ? _contents() : _contents;
+      const value = contents();
+      const content = typeof value === 'function' ? value() : value;
       if (content) {
         await copyToClipboard(content);
       }
       setRecentlySuccessful(true);
-      _value().onCopied?.();
-      copyTimeoutRef.current = setTimeout(() => {
-        clearTimeout(copyTimeoutRef.current);
-        setRecentlySuccessful(false);
-      }, _value().timeout);
+      onCopied?.();
+      timeout = setTimeout(() => setRecentlySuccessful(false), duration);
     } catch (error) {
-      _value().onError?.(error);
+      onError?.(error);
     }
-    _value().onClick?.(event);
+    onClick?.(event);
   };
-  return createMemo(() => ({
+  const result = {
     copy,
-    recentlySuccessful: recentlySuccessful(),
-  }));
+    get recentlySuccessful() {
+      return recentlySuccessful();
+    },
+  };
+  return () => result;
 }

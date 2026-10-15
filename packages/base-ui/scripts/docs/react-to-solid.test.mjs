@@ -837,7 +837,52 @@ export default typeof window === 'undefined' ? useStoreServer : useStoreBrowser;
   return <div>{actions}{help}<span>{help}</span></div>;
 }`);
       expect(output).toContain("import { element, place } from 'docs/src/adapters/react';");
-      expect(output).toContain('<div>{actions()}{place(help)}<span>{place(help)}</span></div>');
+      expect(output).toContain(
+        '<div>{place(actions())}{place(help)}<span>{place(help)}</span></div>',
+      );
+    });
+
+    it('places a prop that holds an element, which a re-render inside it does not rebuild', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+interface FrameProps {
+  preview: React.ReactNode;
+  title?: string;
+  children?: React.ReactNode;
+}
+export function Frame({ preview, title, children }: FrameProps) {
+  return <figure aria-label={title}>{preview}<span>{title}</span>{children}</figure>;
+}`);
+      expect(output).toContain(
+        '<figure aria-label={props.title}>{place(props.preview)}<span>{props.title}</span>{props.children}</figure>',
+      );
+    });
+
+    it('places an element prop read through merged defaults', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+interface BlockProps {
+  copyButton: React.ReactNode;
+  lines?: number;
+}
+export function Block({ copyButton, lines = 8 }: BlockProps) {
+  return <div data-lines={lines}>{copyButton}</div>;
+}`);
+      expect(output).toContain('{place(props.copyButton)}');
+    });
+
+    it('places an element prop inside a branch the component renders', () => {
+      const output = transformReactToSolid(`import * as React from 'react';
+interface BlockProps {
+  copyButton: React.ReactNode;
+  lines: number;
+}
+export function Block({ copyButton, lines }: BlockProps) {
+  if (lines < 8) {
+    return <pre>{copyButton}</pre>;
+  }
+  return <div>{copyButton}</div>;
+}`);
+      expect(output).toContain('<pre>{place(props.copyButton)}</pre>');
+      expect(output).toContain('<div>{place(props.copyButton)}</div>');
     });
   });
 
@@ -941,11 +986,11 @@ export function Icon(props: { size: number }) {
   const icon = React.useMemo(() => <svg width={props.size} />, [props.size]);
   return <span>{icon}</span>;
 }`,
-        `import { element } from 'docs/src/adapters/react';
+        `import { element, place } from 'docs/src/adapters/react';
 import { createMemo } from 'solid-js';
 export function Icon(props: { size: number }) {
   const icon = createMemo(() => element(() => <svg width={props.size} />));
-  return <span>{icon()}</span>;
+  return <span>{place(icon())}</span>;
 }`,
       );
     });

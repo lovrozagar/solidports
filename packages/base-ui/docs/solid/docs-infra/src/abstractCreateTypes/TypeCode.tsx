@@ -1,30 +1,23 @@
-import { createEffect, createMemo, createSignal, untrack } from 'solid-js';
-import { reactRef, useResetState } from 'docs/src/adapters/react';
-import type { Root as HastRoot, Element as HastElement } from 'hast';
-import { decompressHast, hastToJsx } from '../pipeline/hastUtils';
-import { useCodeComponents } from '../useCode/CodeComponentsContext';
+// docs-infra's `abstractCreateTypes/TypeCode`, kept by hand for Solid: the server and the client's
+// first render show the links-only fallback; the highlighted code replaces it once mounted.
+import { createSignal, onSettled, Show } from 'solid-js';
+import type { Element as HastElement, Root as HastRoot } from 'hast';
 import type { FallbackNode } from '../pipeline/hastUtils/fallbackFormat';
-import { fallbackToHast, fallbackToText } from '../pipeline/hastUtils/fallbackFormat';
+import { fallbackToHast } from '../pipeline/hastUtils/fallbackFormat';
+import { renderHast } from '../pipeline/hastToSolid';
+import { useCodeComponents } from '../useCode/CodeComponentsContext';
 import { requestIdle } from '../useCoordinated/scheduleTasks';
 
 type HighlightAt = 'hydration' | 'idle' | 'visible';
+
 interface TypeCodeProps {
-  /** JSON-serialized HAST tree (root > pre > code > children). */
+  /** JSON-serialized HAST tree (root > pre > code > children), after its enhancers ran. */
   hastJson?: string;
-  /** DEFLATE-compressed, base64-encoded HAST tree. */
-  hastCompressed?: string;
   /** When to replace the fallback with the fully-highlighted version. */
   highlightAt: HighlightAt;
-  /**
-   * Links-only fallback (code children with highlighting spans stripped),
-   * in compact `FallbackNode[]` format.
-   * Serves two purposes:
-   * 1. Rendered as the initial display until the full highlight is ready.
-   * 2. Its text content is used as a DEFLATE dictionary for decompression
-   *    when `hastCompressed` was compressed with that same text dictionary.
-   */
+  /** Links-only fallback (code children with highlighting spans stripped). */
   fallback?: FallbackNode[];
-  /** Props for the `<code>` element wrapper (className, etc.). */
+  /** Props for the `<code>` element (`class`, data attributes). */
   codeProps?: Record<string, unknown>;
 }
 
@@ -37,7 +30,7 @@ function findCodeChildren(node: HastRoot | HastElement): HastRoot['children'] | 
   }
   for (const child of node.children) {
     if (child.type === 'element') {
-      const found = findCodeChildren(child as HastElement);
+      const found = findCodeChildren(child);
       if (found) {
         return found;
       }
@@ -47,166 +40,85 @@ function findCodeChildren(node: HastRoot | HastElement): HastRoot['children'] | 
 }
 
 /**
- * Renders a links-only fallback on the server and replaces it with the
- * fully syntax-highlighted version on the client at the configured time.
+ * Renders a links-only fallback, then the fully syntax-highlighted version at the configured time:
  *
- * When `fallback` is provided, it is converted to HAST and rendered for the
- * initial display. Its text content is derived (via `fallbackToText`) to serve
- * as the DEFLATE dictionary for decompressing `hastCompressed`.
- *
- * - `'hydration'`: parse immediately on mount.
- * - `'idle'`: defer to `requestIdleCallback` regardless of visibility.
- * - `'visible'`: wait until the element enters the viewport (IntersectionObserver),
- *   then defer to `requestIdleCallback` to avoid blocking scroll or paint.
+ * - `'hydration'`: once mounted.
+ * - `'idle'`: when the browser is idle.
+ * - `'visible'`: when the element enters the viewport, then when the browser is idle; the
+ *   highlighted version is released again when it leaves.
  */
 export function TypeCode(props: TypeCodeProps) {
   const components = useCodeComponents();
-  // Determine the effective mode: fall back to 'idle' when IntersectionObserver
-  // is unavailable (progressive enhancement for older browsers/runtimes).
-  const effectiveMode = createMemo(() =>
-    props.highlightAt === 'visible' &&
-    (typeof IntersectionObserver === 'undefined' || typeof ResizeObserver === 'undefined')
-      ? 'idle'
-      : props.highlightAt,
-  );
   const [hast, setHast] = createSignal<HastRoot | null>(null);
-  const [codeElement, setCodeElement] = createSignal<HTMLElement | null>(null);
+  let code: HTMLElement | undefined;
 
-  // Re-seed visibility state during render when the effective mode changes
-  // (the 'store previous prop value, set state during render' pattern). The
-  // IntersectionObserver effect still owns runtime true/false toggling because
-  // it runs after this render-time seed.
-  const [isVisible, setIsVisible] = useResetState(
-    untrack(effectiveMode) !== 'visible',
-    () => effectiveMode(),
-    () => effectiveMode() !== 'visible',
-  );
-  // Convert compact fallback to HAST for rendering.
-  const fallbackHastRoot = createMemo(() =>
-    props.fallback ? fallbackToHast(props.fallback) : undefined,
-  );
-
-  // Derive text dictionary from fallback for decompression.
-  const textDictionary = createMemo(() =>
-    props.fallback ? fallbackToText(props.fallback) : undefined,
-  );
-
-  // Render fallback HAST as JSX for initial display.
-  const fallbackJsx = createMemo(() => {
-    const _fallbackHastRoot = fallbackHastRoot();
-    return _fallbackHastRoot ? hastToJsx(_fallbackHastRoot, components()) : null;
-  });
-
-  // Observe visibility for 'visible' mode: decompress when scrolled into view,
-  // release expanded HAST when scrolled away to reduce memory pressure.
-  //
-  // Three complementary observers cover different visibility triggers:
-  // - IntersectionObserver: scroll-based viewport entry/exit.
-  // - ResizeObserver: ancestor layout changes (CSS-based tabs, accordions)
-  //   that resize the element without necessarily triggering IO.
-  // - Document 'toggle' listener (capture phase): native <details> elements
-  //   whose toggle event does not bubble and may not trigger IO or RO.
-  createEffect(
-    () => [effectiveMode(), codeElement()],
-    () => {
-      const _codeElement = codeElement();
-      if (effectiveMode() !== 'visible' || !_codeElement) {
-        return undefined;
-      }
-      const updateVisibility = (inViewport: boolean) => {
-        if (inViewport) {
-          setIsVisible(true);
-        } else {
-          setIsVisible(false);
-          setHast(null);
-        }
-      };
-      const io = new IntersectionObserver(([entry]) => {
-        updateVisibility(entry.isIntersecting);
-      });
-      io.observe(_codeElement);
-
-      // Force IO to re-evaluate without a synchronous getBoundingClientRect call.
-      const nudgeObserver = () => {
-        io.unobserve(_codeElement);
-        io.observe(_codeElement);
-      };
-      const ro = new ResizeObserver(nudgeObserver);
-      ro.observe(_codeElement);
-
-      // Native <details> toggle events don't bubble, but capture-phase
-      // listeners on the document still intercept them. Re-check visibility
-      // whenever any <details> on the page opens or closes.
-      document.addEventListener('toggle', nudgeObserver, true);
-      return () => {
-        io.disconnect();
-        ro.disconnect();
-        document.removeEventListener('toggle', nudgeObserver, true);
-      };
-    },
-  );
-  createEffect(
-    () => [isVisible(), props.hastJson, props.hastCompressed, effectiveMode(), textDictionary()],
-    () => {
-      if (!isVisible()) {
-        return undefined;
-      }
-      const _textDictionary = textDictionary();
-      const parse = () => {
-        if (props.hastCompressed == null && props.hastJson == null) {
-          return;
-        }
-        try {
-          const raw = props.hastCompressed
-            ? decompressHast(props.hastCompressed, _textDictionary)
-            : props.hastJson!;
-          const parsed = JSON.parse(raw);
-
-          // Extract code element's children from the full tree.
-          const root: HastRoot =
-            parsed.type === 'root'
-              ? parsed
-              : {
-                  type: 'root',
-                  children: Array.isArray(parsed) ? parsed : [parsed],
-                };
-          const codeChildren = findCodeChildren(root);
-          const hastRoot: HastRoot = {
-            type: 'root',
-            children: codeChildren ?? root.children,
-          };
-          setHast(hastRoot);
-        } catch (error) {
-          console.warn('Failed to parse highlighted code HAST; rendering fallback instead.', error);
-        }
-      };
-      if (effectiveMode() === 'hydration') {
-        parse();
-        return undefined;
-      }
-
-      // 'idle' and 'visible' both defer to idle time to avoid blocking the main thread.
-      return requestIdle(parse, {
-        timeout: 2000,
-      });
-    },
-  );
-  const highlighted = createMemo(() => {
-    const _hast = hast();
-    return _hast !== null ? hastToJsx(_hast, components()) : null;
-  });
-  const content = createMemo(() => highlighted() ?? fallbackJsx());
-
-  // 'hydration' and 'idle' parse without visibility gating — no observer needed.
-  const _render = createMemo(() => {
-    if (effectiveMode() !== 'visible') {
-      return <code {...props.codeProps}>{content()}</code>;
+  const parse = () => {
+    if (props.hastJson == null) {
+      return;
     }
-    return (
-      <code {...props.codeProps} ref={reactRef(setCodeElement)}>
-        {content()}
-      </code>
-    );
+    try {
+      const parsed = JSON.parse(props.hastJson);
+      const root: HastRoot =
+        parsed.type === 'root'
+          ? parsed
+          : { type: 'root', children: Array.isArray(parsed) ? parsed : [parsed] };
+      setHast({ type: 'root', children: findCodeChildren(root) ?? root.children });
+    } catch (error) {
+      console.warn('Failed to parse highlighted code HAST; rendering fallback instead.', error);
+    }
+  };
+
+  onSettled(() => {
+    // Fall back to 'idle' when the observers are unavailable.
+    const mode =
+      props.highlightAt === 'visible' &&
+      (typeof IntersectionObserver === 'undefined' || typeof ResizeObserver === 'undefined')
+        ? 'idle'
+        : props.highlightAt;
+    if (mode === 'hydration') {
+      parse();
+      return undefined;
+    }
+    if (mode === 'idle' || !code) {
+      return requestIdle(parse, { timeout: 2000 });
+    }
+    const element = code;
+    let cancel: (() => void) | undefined;
+    const io = new IntersectionObserver(([entry]) => {
+      cancel?.();
+      cancel = undefined;
+      if (entry.isIntersecting) {
+        cancel = requestIdle(parse, { timeout: 2000 });
+      } else {
+        setHast(null);
+      }
+    });
+    io.observe(element);
+    // Ancestor layout changes (tabs, accordions) and native <details> toggles (whose events do not
+    // bubble) can show the element without a scroll: make the observer re-evaluate.
+    const nudge = () => {
+      io.unobserve(element);
+      io.observe(element);
+    };
+    const ro = new ResizeObserver(nudge);
+    ro.observe(element);
+    document.addEventListener('toggle', nudge, true);
+    return () => {
+      cancel?.();
+      io.disconnect();
+      ro.disconnect();
+      document.removeEventListener('toggle', nudge, true);
+    };
   });
-  return <>{_render()}</>;
+
+  return (
+    <code {...props.codeProps} ref={code}>
+      <Show
+        when={hast()}
+        fallback={props.fallback ? renderHast(fallbackToHast(props.fallback), components()) : null}
+      >
+        {(highlighted) => renderHast(highlighted(), components())}
+      </Show>
+    </code>
+  );
 }

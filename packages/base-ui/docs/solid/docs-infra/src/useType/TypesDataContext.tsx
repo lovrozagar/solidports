@@ -1,3 +1,4 @@
+// docs-infra's `useType`, kept by hand for Solid.
 import { createContext, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { EnhancedTypesMeta, EnhancedProperty } from '../abstractCreateTypes/typesToJsx';

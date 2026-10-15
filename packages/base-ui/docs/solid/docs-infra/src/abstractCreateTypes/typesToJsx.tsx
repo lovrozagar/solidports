@@ -1,11 +1,16 @@
-import { Dynamic } from '@solidjs/web';
+// docs-infra's `abstractCreateTypes/typesToJsx`, kept by hand for Solid: the type data mapping
+// follows upstream line for line; every HAST field becomes an `element()` that renders where the
+// table places it (`hastToJsx`, `hastToJsxDeferred`), instead of DOM built where the data is.
 import type { ComponentType } from 'docs/src/adapters/react';
-import type { JSX, ValidComponent } from '@solidjs/web';
+import type { JSX } from '@solidjs/web';
 import type { Nodes as HastNodes, Element as HastElement } from 'hast';
 import type { PluggableList } from 'unified';
 import { unified } from 'unified';
-import { compressHast, decompressHast, hastToJsx as hastToJsxBase } from '../pipeline/hastUtils';
-import { hastToFallback, fallbackToText } from '../pipeline/hastUtils/fallbackFormat';
+import { element } from 'docs/src/adapters/react';
+import { jsx } from 'docs/src/adapters/jsx-runtime';
+import { decompressHast } from '../pipeline/hastUtils';
+import { hastToFallback } from '../pipeline/hastUtils/fallbackFormat';
+import { hastPropsToSolidProps, renderHast } from '../pipeline/hastToSolid';
 import type {
   HighlightedComponentTypeMeta,
   HighlightedHookTypeMeta,
@@ -535,24 +540,45 @@ function deserializeHast(input: SerializedHastInput): {
     freshCopy: false,
   };
 }
+/** A value computed on first use, then kept. */
+function once<T>(compute: () => T): () => T {
+  let done = false;
+  let value: T;
+  return () => {
+    if (!done) {
+      value = compute();
+      done = true;
+    }
+    return value;
+  };
+}
+
+/** A field's HAST after its enhancers ran, computed when a render first needs it. */
+function enhancedHast(hastOrJson: SerializedHastInput, enhancers?: PluggableList) {
+  return once(() => {
+    const { hast, freshCopy } = deserializeHast(hastOrJson);
+    if (!enhancers || enhancers.length === 0) {
+      return hast;
+    }
+    // Deep clone only when the HAST tree is shared (not freshly parsed from JSON)
+    const input = freshCopy ? hast : structuredClone(hast);
+    // Reuse the unified processor for the same enhancers reference
+    return getOrCreateProcessor(enhancers).runSync(input as HastRoot) as HastNodes;
+  });
+}
+
+/**
+ * A HAST field as an element that renders where JSX places it. React builds element descriptions
+ * here; Solid builds DOM, which must be created at its place so it takes that place's hydration
+ * keys.
+ */
 function hastToJsx(
   hastOrJson: SerializedHastInput,
   components?: ComponentMap,
   enhancers?: PluggableList,
 ): JSX.Element {
-  const { hast: parsedHast, freshCopy } = deserializeHast(hastOrJson);
-  const hast = parsedHast;
-  if (!enhancers || enhancers.length === 0) {
-    return hastToJsxBase(hast, components);
-  }
-
-  // Deep clone only when the HAST tree is shared (not freshly parsed from JSON)
-  const input = freshCopy ? hast : structuredClone(hast);
-
-  // Reuse the unified processor for the same enhancers reference
-  const processor = getOrCreateProcessor(enhancers);
-  const enhanced = processor.runSync(input as HastRoot) as HastNodes;
-  return hastToJsxBase(enhanced, components);
+  const hast = enhancedHast(hastOrJson, enhancers);
+  return element(() => renderHast(hast(), components));
 }
 
 /**
@@ -603,29 +629,10 @@ function findPreElement(node: HastNodes): HastElement | null {
 }
 
 /**
- * Convert HAST element properties to React-compatible props.
- * Handles className array → string conversion.
- */
-function hastPropsToReactProps(properties: Record<string, unknown> = {}): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(properties)) {
-    if (key === 'className' && Array.isArray(value)) {
-      result[key] = value.join(' ');
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
-/**
  * Deferred HAST-to-JSX conversion for expensive fields (detailedType, formattedCode).
- * Server-renders a links-only fallback inside an explicit pre > code wrapper
- * and injects a TypeCode that replaces the inner
- * code content with the fully-highlighted version on the client.
- *
- * Passes the original serialized HAST directly to the client component
- * to avoid unnecessary re-serialization.
+ * Renders a links-only fallback inside an explicit pre > code wrapper, on the server and in the
+ * client's first render alike, and a TypeCode that replaces the inner code content with the
+ * fully-highlighted version once mounted.
  */
 function hastToJsxDeferred(
   hastOrJson: SerializedHastInput,
@@ -633,74 +640,51 @@ function hastToJsxDeferred(
   enhancers: PluggableList | undefined,
   highlightAt: 'hydration' | 'idle' | 'visible',
 ): JSX.Element {
-  // Deserialize and run enhancers to produce the enhanced HAST
-  const { hast: parsedHast, freshCopy } = deserializeHast(hastOrJson);
-  let hast = parsedHast;
-
-  // Run enhancers (adds TypeRef links, inline code, etc.)
-  if (enhancers && enhancers.length > 0) {
-    const input = freshCopy ? hast : structuredClone(hast);
-    const processor = getOrCreateProcessor(enhancers);
-    hast = processor.runSync(input as HastRoot) as HastNodes;
-  } else if (!freshCopy) {
-    hast = structuredClone(hast);
-  }
-
-  // Find the <code> element and extract its children
-  const codeElement = findCodeElement(hast);
-  if (!codeElement) {
-    // No code element — fall back to eager rendering
-    return hastToJsxBase(hast, components);
-  }
-
-  // Build links-only fallback from enhanced inner children.
-  // This is passed to the client component as a prop in compact format,
-  // serving two purposes:
-  // 1. Converted to HAST and rendered as the initial display until the full highlight is ready.
-  // 2. Its text is used as DEFLATE dictionary for decompression.
-  const linksOnlyRoot = stripHighlightingSpans({
-    type: 'root',
-    children: [...codeElement.children] as HastRoot['children'],
+  const parts = once(() => {
+    // Run enhancers (adds TypeRef links, inline code, etc.) on a copy of the field's HAST
+    const { hast: parsedHast, freshCopy } = deserializeHast(hastOrJson);
+    let hast = parsedHast;
+    if (enhancers && enhancers.length > 0) {
+      const input = freshCopy ? hast : structuredClone(hast);
+      hast = getOrCreateProcessor(enhancers).runSync(input as HastRoot) as HastNodes;
+    } else if (!freshCopy) {
+      hast = structuredClone(hast);
+    }
+    const codeElement = findCodeElement(hast);
+    if (!codeElement) {
+      return { hast, codeElement };
+    }
+    // The links-only fallback: the enhanced code children without highlighting spans.
+    const fallback = hastToFallback(
+      stripHighlightingSpans({
+        type: 'root',
+        children: [...codeElement.children] as HastRoot['children'],
+      }),
+    );
+    // The client consumes the enhanced HAST in-process: there is no wire to compress it for.
+    return { hast, codeElement, fallback, hastJson: JSON.stringify(hast) };
   });
-  const fallback = hastToFallback(linksOnlyRoot);
-
-  // Derive dictionary text from the fallback, then compress the full
-  // highlighted HAST with that dictionary. On the client, TypeCode
-  // calls fallbackToText(fallback) to reconstruct the same dictionary.
-  // Serialize the enhanced HAST (post-enhancer) for the client. DEFLATE-compressing it
-  // (with the fallback text as the dictionary) only shrinks the server→client wire, so
-  // do it ONLY on the server. On the client there is no wire — the JSON is consumed
-  // in-process by TypeCode — so skip the synchronous, main-thread compress and hand it
-  // the JSON directly; TypeCode reads `hastJson` without decompressing (it only rebuilds
-  // the DEFLATE dictionary from `fallback` when it actually has a `hastCompressed`
-  // payload). `typeof window` is the isomorphic server check.
-  const enhancedJson = JSON.stringify(hast);
-  const hastPayload =
-    typeof window === 'undefined'
-      ? {
-          hastCompressed: compressHast(enhancedJson, fallbackToText(fallback)),
-        }
-      : {
-          hastJson: enhancedJson,
-        };
-
-  // Find the <pre> element for wrapper props
-  const preElement = findPreElement(hast);
-  const PreComponent = (components?.pre ?? 'pre') as ValidComponent;
-
-  // Build pre > TypeCode wrapper explicitly.
-  // fallback crosses the boundary as a serialized prop — no separate
-  // text dictionary string is needed.
-  return (
-    <Dynamic component={PreComponent} {...hastPropsToReactProps(preElement?.properties)}>
-      <TypeCode
-        {...hastPayload}
-        highlightAt={highlightAt}
-        fallback={fallback}
-        codeProps={hastPropsToReactProps(codeElement.properties)}
-      />
-    </Dynamic>
-  );
+  return element(() => {
+    const { hast, codeElement, fallback, hastJson } = parts();
+    if (!codeElement) {
+      // No code element — fall back to eager rendering
+      return renderHast(hast, components);
+    }
+    const preElement = findPreElement(hast);
+    return jsx(components?.pre ?? 'pre', {
+      ...hastPropsToSolidProps(preElement?.properties),
+      get children() {
+        return (
+          <TypeCode
+            hastJson={hastJson}
+            highlightAt={highlightAt}
+            fallback={fallback}
+            codeProps={hastPropsToSolidProps(codeElement.properties)}
+          />
+        );
+      },
+    });
+  });
 }
 
 /**

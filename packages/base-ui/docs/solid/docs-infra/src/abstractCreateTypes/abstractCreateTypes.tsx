@@ -1,4 +1,5 @@
-import { createMemo } from 'solid-js';
+// docs-infra's `abstractCreateTypes`, kept by hand for Solid: a table component maps its type data
+// in its body (no memo: the data holds elements, rendered where the table places them).
 import type { ComponentType } from 'docs/src/adapters/react';
 import type { PluggableList } from 'unified';
 import type { HighlightedTypesMeta } from '@mui/internal-docs-infra/pipeline/loadServerTypes';
@@ -395,40 +396,32 @@ export function abstractCreateTypes<T extends {}>(
       ? precompute.variantOnlyAdditionalTypes[targetExportName]
       : precompute.additionalTypes;
   function TypesComponent(props: T) {
-    const _useMemo = createMemo(() =>
-      typeToJsx(
-        precompute.exports[targetExportName],
-        filteredAdditionalTypes,
-        {
-          components,
-          TypePre,
-          ShortTypePre,
-          DetailedTypePre,
-          ShortTypeCode,
-          DefaultCode,
-          RawTypePre,
-          enhancers,
-          enhancersInline,
-          highlightAt,
-        },
-        // Include additionalTypes for:
-        // 1. Single component mode (createTypes)
-        // 2. Multiple mode when export doesn't exist (namespace import on types-only module)
-        !isMultipleMode || !exportExists,
-      ),
+    // The type data, with its HAST fields as elements the table renders where it places them.
+    const { type, additionalTypes } = typeToJsx(
+      precompute.exports[targetExportName],
+      filteredAdditionalTypes,
+      {
+        components,
+        TypePre,
+        ShortTypePre,
+        DetailedTypePre,
+        ShortTypeCode,
+        DefaultCode,
+        RawTypePre,
+        enhancers,
+        enhancersInline,
+        highlightAt,
+      },
+      // Include additionalTypes for:
+      // 1. Single component mode (createTypes)
+      // 2. Multiple mode when export doesn't exist (namespace import on types-only module)
+      !isMultipleMode || !exportExists,
     );
-    const _useMemo2 = createMemo(() => {
-      const { type, additionalTypes } = _useMemo();
-      return {
-        type,
-        additionalTypes,
-      };
-    });
     return (
       <options.TypesTable
         {...props}
-        type={_useMemo2().type}
-        additionalTypes={_useMemo2().additionalTypes}
+        type={type}
+        additionalTypes={additionalTypes}
         multiple={isMultipleMode}
       />
     );
@@ -579,8 +572,7 @@ function createAdditionalTypesComponent<T extends {}>(
     ? [...precompute.additionalTypes, ...precompute.variantOnlyAdditionalTypes.Default]
     : precompute.additionalTypes;
   function AdditionalTypesComponent(props: T) {
-    const additionalTypes = createMemo(() =>
-      additionalTypesToJsx(allAdditionalTypes, {
+    const additionalTypes = additionalTypesToJsx(allAdditionalTypes, {
         components,
         TypePre,
         ShortTypePre,
@@ -591,13 +583,12 @@ function createAdditionalTypesComponent<T extends {}>(
         enhancers,
         enhancersInline,
         highlightAt,
-      }),
-    );
+    });
     return (
       <options.TypesTable
         {...props}
         type={undefined}
-        additionalTypes={additionalTypes()}
+        additionalTypes={additionalTypes}
         multiple
       />
     );
