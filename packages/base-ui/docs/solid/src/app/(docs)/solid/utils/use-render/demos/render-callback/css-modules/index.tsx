@@ -15,7 +15,7 @@ function Counter(props: CounterProps) {
     odd: odd(),
   }));
   const defaultProps = createMemo<useRender.ElementProps<'button'>>(() => ({
-    className: styles.Button,
+    class: styles.Button,
     type: 'button',
     children: (
       <>

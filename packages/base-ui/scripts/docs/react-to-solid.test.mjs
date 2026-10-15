@@ -138,6 +138,24 @@ export function Bar(props: { width: number }) {
     });
   });
 
+  describe('element props objects', () => {
+    it('writes the DOM names of an object typed as element props or merged as props', () => {
+      const output = transformReactToSolid(`import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
+export function Counter(props: { label: string }) {
+  const defaultProps: useRender.ElementProps<'button'> = { className: 'Button', title: props.label };
+  const merged = mergeProps<'label'>({ htmlFor: 'id', className: 'Label' }, props);
+  const hast = { properties: { className: ['token'] } };
+  return <span>{String(defaultProps)}{String(merged)}{String(hast)}</span>;
+}`);
+      expect(output).toMatch(
+        /createMemo<useRender\.ElementProps<'button'>>\(\(\) => \(\{\s*class: 'Button',/,
+      );
+      expect(output).toMatch(/mergeProps<'label'>\(\{\s*for: 'id',\s*class: 'Label'\s*\}/);
+      expect(output).toContain("className: ['token']");
+    });
+  });
+
   describe('DOM names', () => {
     it('writes attributes and events under their DOM names on elements', () => {
       expectTransform(
