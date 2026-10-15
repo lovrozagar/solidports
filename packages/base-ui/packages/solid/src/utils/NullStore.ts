@@ -17,8 +17,7 @@ export function NullStore<
   const store = SolidStore<State, Context, Selectors>(initialState, initialContext, selectors);
   // Solid: the synced-value hooks write through the store's own setter rather than `set`, so every
   // mutator is overridden to keep the store inert (React's subclass routes them all through `set`).
-  return {
-    ...store,
+  return Object.assign(store, {
     set() {},
     setState() {},
     update() {},
@@ -27,5 +26,5 @@ export function NullStore<
     useSyncedValues() {},
     useControlledProp() {},
     useStateSetter: () => NOOP,
-  } as typeof store;
+  }) as typeof store;
 }

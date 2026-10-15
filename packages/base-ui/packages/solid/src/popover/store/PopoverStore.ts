@@ -179,7 +179,7 @@ export function PopoverStore<Payload>(
     store.set('instantType', instantType);
   };
 
-  return { ...store, setOpen };
+  return Object.assign(store, { setOpen });
 }
 
 export type PopoverStore<Payload> = ReturnType<typeof PopoverStore<Payload>>;
@@ -200,7 +200,7 @@ export function createNullPopoverStore<Payload>(): PopoverHandleStore<Payload> {
     Object.freeze(createInitialContext(triggerElements)),
     selectors,
   );
-  return { ...store, setOpen: NOOP };
+  return Object.assign(store, { setOpen: NOOP });
 }
 
 function createInitialState<Payload>(

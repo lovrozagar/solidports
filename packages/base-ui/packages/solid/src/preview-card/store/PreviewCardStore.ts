@@ -96,7 +96,7 @@ export function PreviewCardStore<Payload>(
     });
   };
 
-  return { ...store, setOpen };
+  return Object.assign(store, { setOpen });
 }
 
 export type PreviewCardStore<Payload> = ReturnType<typeof PreviewCardStore<Payload>>;

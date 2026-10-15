@@ -95,7 +95,7 @@ export function TooltipStore<Payload>(
     );
   };
 
-  return { ...store, setOpen, cancelPendingOpen };
+  return Object.assign(store, { setOpen, cancelPendingOpen });
 }
 
 export type TooltipStore<Payload> = ReturnType<typeof TooltipStore<Payload>>;
@@ -116,7 +116,7 @@ export function createNullTooltipStore<Payload>(): TooltipHandleStore<Payload> {
     Object.freeze(createInitialContext(triggerElements)),
     selectors,
   );
-  return { ...store, setOpen: NOOP, cancelPendingOpen: NOOP };
+  return Object.assign(store, { setOpen: NOOP, cancelPendingOpen: NOOP });
 }
 
 function createInitialState<Payload>(

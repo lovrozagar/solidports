@@ -864,63 +864,76 @@ export type SelectorArgs<Selector> = Selector extends (...params: infer Params) 
  * A store `SolidStore` creates. Declared rather than inferred: `observe` hands its listener the
  * store itself, and an inferred type that refers to itself cannot be written into declarations.
  */
-export interface SolidStore<
+export type SolidStore<
+  State extends object,
+  Context extends object = Record<string, never>,
+  Selectors extends Record<string, SelectorFunction<State>> = Record<string, never>,
+> = SolidStoreInstance<State, Context, Selectors>;
+
+/**
+ * The store's shape, typed as a class as React's `ReactStore` is (a type only: the factory builds
+ * a plain object). Type tools treat a class's methods as behavior rather than data: docs-infra's
+ * API extraction expands a store's data members but not its methods, so a prop typed by a store
+ * handle (`Menu.Trigger`'s `handle`) no longer expands every method's signature, each of which
+ * names the store again. A spread copy (`{ ...store }`) is typed without the methods, so stores add
+ * members with `Object.assign(store, ...)`, keeping one object as React keeps one instance.
+ */
+export declare class SolidStoreInstance<
   State extends object,
   Context extends object = Record<string, never>,
   Selectors extends Record<string, SelectorFunction<State>> = Record<string, never>,
 > {
   context: Context;
-  notifyAll: () => void;
-  observe: {
-    <Key extends keyof Selectors>(
-      selector: Key,
-      listener: (
-        newValue: ReturnType<Selectors[Key]>,
-        oldValue: ReturnType<Selectors[Key]>,
-        store: SolidStore<State, Context, Selectors>,
-      ) => void,
-    ): () => void;
-    <Selector extends ObserveSelector<State>>(
-      selector: Selector,
-      listener: (
-        newValue: ReturnType<Selector>,
-        oldValue: ReturnType<Selector>,
-        store: SolidStore<State, Context, Selectors>,
-      ) => void,
-    ): () => void;
-  };
-  select: <Key extends keyof Selectors>(
+  notifyAll(): void;
+  observe<Key extends keyof Selectors>(
+    selector: Key,
+    listener: (
+      newValue: ReturnType<Selectors[Key]>,
+      oldValue: ReturnType<Selectors[Key]>,
+      store: SolidStore<State, Context, Selectors>,
+    ) => void,
+  ): () => void;
+  observe<Selector extends ObserveSelector<State>>(
+    selector: Selector,
+    listener: (
+      newValue: ReturnType<Selector>,
+      oldValue: ReturnType<Selector>,
+      store: SolidStore<State, Context, Selectors>,
+    ) => void,
+  ): () => void;
+  select<Key extends keyof Selectors>(
     key: Key,
     ...args: SelectorArgs<Selectors[Key]>
-  ) => ReturnType<Selectors[Key]>;
-  set: <Key extends keyof State>(key: Key, value: State[Key]) => void;
+  ): ReturnType<Selectors[Key]>;
+  set<Key extends keyof State>(key: Key, value: State[Key]): void;
   setState: SetStoreFunction<State>;
   state: State;
-  update: <const Key extends keyof State>(statePart: Pick<State, Key>) => void;
-  useContextCallback: <Key extends ContextFunctionKeys<Context>>(
+  update<const Key extends keyof State>(statePart: Pick<State, Key>): void;
+  useContextCallback<Key extends ContextFunctionKeys<Context>>(
     key: Key,
     fn: NoInfer<ContextFunction<Context, Key>> | undefined,
-  ) => void;
-  useControlledProp: <Key extends keyof State, Value extends State[Key]>(
+  ): void;
+  useControlledProp<Key extends keyof State, Value extends State[Key]>(
     key: Key,
     controlledProp: Value | Accessor<Value | undefined> | undefined,
-  ) => void;
-  useState: <Key extends keyof Selectors>(
+  ): void;
+  useState<Key extends keyof Selectors>(
     key: Key,
     ...args: SelectorArgs<Selectors[Key]>
-  ) => Accessor<MaybeAccessorValue<ReturnType<Selectors[Key]>>>;
-  useStateSetter: <const Key extends keyof State, Value extends State[Key]>(
+  ): Accessor<MaybeAccessorValue<ReturnType<Selectors[Key]>>>;
+  useStateSetter<const Key extends keyof State, Value extends State[Key]>(
     key: Key,
-  ) => (value: Value) => void;
-  useSyncedValue: <Key extends keyof State>(
+  ): (value: Value) => void;
+  useSyncedValue<Key extends keyof State>(
     key: Key,
     value: Accessor<State[Key]> | ((prev: State[Key]) => State[Key]),
-  ) => void;
-  useSyncedValueWithCleanup: <Key extends KeysAllowingUndefined<State>>(
+  ): void;
+  useSyncedValueWithCleanup<Key extends KeysAllowingUndefined<State>>(
     key: Key,
     value: Accessor<State[Key]>,
-  ) => void;
-  useSyncedValues: <const Keys extends keyof State>(
+  ): void;
+  useSyncedValues<const Keys extends keyof State>(
     statePart: Accessor<Pick<State, Keys>> | { [Key in Keys]: MaybeAccessor<State[Key]> },
-  ) => void;
+  ): void;
 }
+
