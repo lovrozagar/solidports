@@ -1,10 +1,10 @@
-import { createMemo, For } from "solid-js";
-import { createTable, FlexRender, stockFeatures } from "../../src/index.ts";
+import { createMemo, For } from "solid-js"
+import { createTable, FlexRender, stockFeatures } from "../../src/index.ts"
 
 /* A header template that is a component (it owns a memo), beside a plain string header. */
 function Probe() {
-	const label = createMemo(() => "probe");
-	return <span data-probe="">{label()}</span>;
+	const label = createMemo(() => "probe")
+	return <span data-probe="">{label()}</span>
 }
 
 export function HeaderTemplateFixture() {
@@ -15,7 +15,7 @@ export function HeaderTemplateFixture() {
 		],
 		data: [{ name: "Ada" }],
 		features: stockFeatures,
-	});
+	})
 	return (
 		<table>
 			<thead>
@@ -49,5 +49,5 @@ export function HeaderTemplateFixture() {
 				</For>
 			</tbody>
 		</table>
-	);
+	)
 }

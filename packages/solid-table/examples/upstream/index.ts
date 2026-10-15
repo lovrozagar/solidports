@@ -24,16 +24,16 @@ const examples = [
 	"row-selection",
 	"sorting",
 	"sub-components",
-];
+]
 
-document.getElementById("source")!.textContent = __TABLE_SOURCE__;
+document.getElementById("source")!.textContent = __TABLE_SOURCE__
 document.getElementById("list")!.append(
 	...examples.map((name) => {
-		const li = document.createElement("li");
-		const a = document.createElement("a");
-		a.href = `./examples/${name}/`;
-		a.textContent = name;
-		li.append(a);
-		return li;
+		const li = document.createElement("li")
+		const a = document.createElement("a")
+		a.href = `./examples/${name}/`
+		a.textContent = name
+		li.append(a)
+		return li
 	}),
-);
+)

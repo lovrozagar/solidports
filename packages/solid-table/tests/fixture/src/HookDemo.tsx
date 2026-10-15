@@ -1,26 +1,26 @@
-import { For, createSignal } from "solid-js";
-import { createSortedRowModel, createTableHook, sortFns, stockFeatures } from "@solidports/solid-table";
-import { people } from "./data";
-import type { SortingState } from "@solidports/solid-table";
-import type { Person } from "./data";
+import { For, createSignal } from "solid-js"
+import { createSortedRowModel, createTableHook, sortFns, stockFeatures } from "@solidports/solid-table"
+import { people } from "./data"
+import type { SortingState } from "@solidports/solid-table"
+import type { Person } from "./data"
 
 function SortIndicator() {
-	const header = hook.useHeaderContext();
+	const header = hook.useHeaderContext()
 	return (
 		<span data-sort-indicator>
 			{({ asc: "▲", desc: "▼" } as Record<string, string>)[header.column.getIsSorted() || ""] ?? ""}
 		</span>
-	);
+	)
 }
 
 function SelectedBadge() {
-	const cell = hook.useCellContext();
-	return <span data-selected={String(cell.row.getIsSelected())}>{cell.row.getIsSelected() ? "✓" : ""}</span>;
+	const cell = hook.useCellContext()
+	return <span data-selected={String(cell.row.getIsSelected())}>{cell.row.getIsSelected() ? "✓" : ""}</span>
 }
 
 function RowCount() {
-	const table = hook.useTableContext<Person>();
-	return <output aria-label="Row count">{table.getRowModel().rows.length}</output>;
+	const table = hook.useTableContext<Person>()
+	return <output aria-label="Row count">{table.getRowModel().rows.length}</output>
 }
 
 const hook = createTableHook({
@@ -29,9 +29,9 @@ const hook = createTableHook({
 	tableComponents: { RowCount },
 	cellComponents: { SelectedBadge },
 	headerComponents: { SortIndicator },
-});
+})
 
-const helper = hook.createAppColumnHelper<Person>();
+const helper = hook.createAppColumnHelper<Person>()
 const columns = helper.columns([
 	helper.accessor("name", { header: "Name", footer: "names", cell: (info) => info.getValue() }),
 	helper.accessor("age", {
@@ -39,20 +39,20 @@ const columns = helper.columns([
 		footer: ({ table }) => `rows ${table.getRowModel().rows.length}`,
 		cell: (info) => String(info.getValue()),
 	}),
-]);
+])
 
 export function HookDemo() {
-	const [sorting, setSorting] = createSignal<SortingState>([]);
+	const [sorting, setSorting] = createSignal<SortingState>([])
 	const table = hook.createAppTable({
 		columns,
 		data: people,
 		state: {
 			get sorting() {
-				return sorting();
+				return sorting()
 			},
 		},
 		onSortingChange: setSorting,
-	});
+	})
 
 	return (
 		<table.AppTable>
@@ -120,5 +120,5 @@ export function HookDemo() {
 			<table.RowCount />
 			<output aria-label="Sorting">{JSON.stringify(sorting())}</output>
 		</table.AppTable>
-	);
+	)
 }

@@ -1,5 +1,5 @@
-import solid from "@solidjs/vite-plugin";
-import { defineConfig } from "vitest/config";
+import solid from "@solidjs/vite-plugin"
+import { defineConfig } from "vitest/config"
 
 /* Hydration: server HTML (rendered in Node by each test) hydrated in jsdom. The client code is
    compiled hydratable, as an SSR app's client bundle is; the plugin's test posture is
@@ -14,4 +14,4 @@ export default defineConfig({
 		include: ["tests/hydration/**/*.test.ts?(x)"],
 		setupFiles: ["tests/setup.ts"],
 	},
-});
+})

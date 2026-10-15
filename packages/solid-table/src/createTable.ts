@@ -1,16 +1,16 @@
-import { constructTable } from "@tanstack/table-core";
-import { getOwner, merge, onCleanup, untrack } from "solid-js";
-import { FlexRender } from "./FlexRender";
-import { solidReactivity } from "./reactivity";
-import type { RowData, Table, TableFeatures, TableOptions } from "@tanstack/table-core";
-import type { JSX } from "@solidjs/web";
+import { constructTable } from "@tanstack/table-core"
+import { getOwner, merge, onCleanup, untrack } from "solid-js"
+import { FlexRender } from "./FlexRender"
+import { solidReactivity } from "./reactivity"
+import type { RowData, Table, TableFeatures, TableOptions } from "@tanstack/table-core"
+import type { JSX } from "@solidjs/web"
 
 export type SolidTable<TFeatures extends TableFeatures, TData extends RowData> = Table<TFeatures, TData> & {
 	/**
 	 * Creates a reactive render boundary. The child function reads the table
 	 * atoms it needs, so Solid only tracks those atom reads.
 	 */
-	Subscribe: (props: { children: (atoms: Table<TFeatures, TData>["atoms"]) => JSX.Element }) => JSX.Element;
+	Subscribe: (props: { children: (atoms: Table<TFeatures, TData>["atoms"]) => JSX.Element }) => JSX.Element
 	/**
 	 * Convenience FlexRender component attached to the table instance for
 	 * rendering headers, cells, or footers with custom markup. Mirrors the
@@ -21,8 +21,8 @@ export type SolidTable<TFeatures extends TableFeatures, TData extends RowData> =
 	 * <table.FlexRender cell={cell} />
 	 * <table.FlexRender footer={footer} />
 	 */
-	FlexRender: typeof FlexRender;
-};
+	FlexRender: typeof FlexRender
+}
 
 /**
  * Creates a Solid table instance backed by Solid signals and memos.
@@ -48,14 +48,14 @@ export function createTable<TFeatures extends TableFeatures, TData extends RowDa
 ): SolidTable<TFeatures, TData> {
 	/* The reactive options: the caller's getters (data, columns, callbacks, state) plus this adapter's
 	   reactivity feature. Assigned before construction reads them through `seedOptions`. */
-	let liveOptions: TableOptions<TFeatures, TData>;
+	let liveOptions: TableOptions<TFeatures, TData>
 	const reactivity = solidReactivity(getOwner(), () => tableOptions.state as Record<string, unknown> | undefined, {
 		/* constructTable spreads the options into the options store, freezing getter values. Seed
 		   the store with a lazy merge instead of writing one after construction: a construction
 		   write lands on the next flush and re-runs every first read, which under hydration
 		   re-renders and discards the claimed server DOM. */
 		seedOptions: (constructed) => merge(constructed, liveOptions),
-	});
+	})
 
 	/* Construction reads options and atoms once by design; keep those reads out of the caller's scope. */
 	const table = untrack(() => {
@@ -64,7 +64,7 @@ export function createTable<TFeatures extends TableFeatures, TData extends RowDa
 				coreReactivityFeature: reactivity,
 				...tableOptions.features,
 			},
-		}) as TableOptions<TFeatures, TData>;
+		}) as TableOptions<TFeatures, TData>
 
 		const resolvedOptions = merge(
 			{
@@ -72,15 +72,15 @@ export function createTable<TFeatures extends TableFeatures, TData extends RowDa
 					merge(defaultOptions, options),
 			},
 			liveOptions,
-		) as TableOptions<TFeatures, TData>;
+		) as TableOptions<TFeatures, TData>
 
-		return constructTable(resolvedOptions) as unknown as SolidTable<TFeatures, TData>;
-	});
+		return constructTable(resolvedOptions) as unknown as SolidTable<TFeatures, TData>
+	})
 
-	onCleanup(() => reactivity.unmount?.());
+	onCleanup(() => reactivity.unmount?.())
 
-	table.Subscribe = (props) => props.children(table.atoms as Table<TFeatures, TData>["atoms"]);
-	table.FlexRender = FlexRender;
+	table.Subscribe = (props) => props.children(table.atoms as Table<TFeatures, TData>["atoms"])
+	table.FlexRender = FlexRender
 
-	return table;
+	return table
 }

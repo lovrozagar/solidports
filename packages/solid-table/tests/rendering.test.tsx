@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, test, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { createSignal, untrack } from "solid-js";
-import { stockFeatures } from "@tanstack/table-core";
-import { FlexRender } from "../src/FlexRender";
-import { createTable } from "../src/createTable";
-import { createTableHook } from "../src/createTableHook";
-import type { ColumnDef } from "@tanstack/table-core";
+import { afterEach, describe, expect, test, vi } from "vitest"
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library"
+import { createSignal, untrack } from "solid-js"
+import { stockFeatures } from "@tanstack/table-core"
+import { FlexRender } from "../src/FlexRender"
+import { createTable } from "../src/createTable"
+import { createTableHook } from "../src/createTableHook"
+import type { ColumnDef } from "@tanstack/table-core"
 
-afterEach(() => cleanup());
+afterEach(() => cleanup())
 
 describe("FlexRender", () => {
-	type Data = { id: string; name: string };
-	type CellMode = "aggregate" | "normal" | "placeholder";
+	type Data = { id: string; name: string }
+	type CellMode = "aggregate" | "normal" | "placeholder"
 	const columns: Array<ColumnDef<typeof stockFeatures, Data>> = [
 		{
 			id: "name",
@@ -23,7 +23,7 @@ describe("FlexRender", () => {
 			aggregatedCell: ({ getValue }) => `aggregate:${getValue()}`,
 			footer: ({ column }) => `footer:${column.id}`,
 		},
-	];
+	]
 
 	function CellHarness(props: { mode: CellMode }) {
 		const table = createTable({
@@ -31,23 +31,23 @@ describe("FlexRender", () => {
 			columns,
 			features: stockFeatures,
 			getRowId: (row) => row.id,
-		});
-		const cell = untrack(() => table.getRowModel().rows[0]!.getAllCells()[0]!);
+		})
+		const cell = untrack(() => table.getRowModel().rows[0]!.getAllCells()[0]!)
 
 		if (props.mode === "aggregate") {
-			vi.spyOn(cell, "getIsAggregated").mockReturnValue(true);
+			vi.spyOn(cell, "getIsAggregated").mockReturnValue(true)
 		}
 
 		if (props.mode === "placeholder") {
-			vi.spyOn(cell, "getIsAggregated").mockReturnValue(false);
-			vi.spyOn(cell, "getIsPlaceholder").mockReturnValue(true);
+			vi.spyOn(cell, "getIsAggregated").mockReturnValue(false)
+			vi.spyOn(cell, "getIsPlaceholder").mockReturnValue(true)
 		}
 
 		return (
 			<output aria-label={`${props.mode} cell`}>
 				<FlexRender cell={cell} />
 			</output>
-		);
+		)
 	}
 
 	function HeaderFooterHarness() {
@@ -56,9 +56,9 @@ describe("FlexRender", () => {
 			columns,
 			features: stockFeatures,
 			getRowId: (row) => row.id,
-		});
-		const header = untrack(() => table.getHeaderGroups()[0]!.headers[0]!);
-		const footer = untrack(() => table.getFooterGroups()[0]!.headers[0]!);
+		})
+		const header = untrack(() => table.getHeaderGroups()[0]!.headers[0]!)
+		const footer = untrack(() => table.getFooterGroups()[0]!.headers[0]!)
 
 		return (
 			<>
@@ -69,7 +69,7 @@ describe("FlexRender", () => {
 					<FlexRender footer={footer} />
 				</output>
 			</>
-		);
+		)
 	}
 
 	test("renders cell, aggregate, placeholder, header, and footer templates", () => {
@@ -80,28 +80,28 @@ describe("FlexRender", () => {
 				<CellHarness mode="placeholder" />
 				<HeaderFooterHarness />
 			</>
-		));
+		))
 
-		expect(screen.getByRole("status", { name: "normal cell" }).textContent).toBe("cell:Ada");
-		expect(screen.getByRole("status", { name: "aggregate cell" }).textContent).toBe("aggregate:Ada");
-		expect(screen.getByRole("status", { name: "placeholder cell" }).textContent).toBe("");
-		expect(screen.getByRole("status", { name: "header" }).textContent).toBe("header:name");
-		expect(screen.getByRole("status", { name: "footer" }).textContent).toBe("footer:name");
-	});
+		expect(screen.getByRole("status", { name: "normal cell" }).textContent).toBe("cell:Ada")
+		expect(screen.getByRole("status", { name: "aggregate cell" }).textContent).toBe("aggregate:Ada")
+		expect(screen.getByRole("status", { name: "placeholder cell" }).textContent).toBe("")
+		expect(screen.getByRole("status", { name: "header" }).textContent).toBe("header:name")
+		expect(screen.getByRole("status", { name: "footer" }).textContent).toBe("footer:name")
+	})
 
 	test("reacts when a cell changes grouping mode", () => {
 		function GroupingCellHarness() {
-			const [mode, setMode] = createSignal<CellMode>("normal");
+			const [mode, setMode] = createSignal<CellMode>("normal")
 			const table = createTable({
 				data: [{ id: "1", name: "Ada" }],
 				columns,
 				features: stockFeatures,
 				getRowId: (row) => row.id,
-			});
-			const cell = untrack(() => table.getRowModel().rows[0]!.getAllCells()[0]!);
+			})
+			const cell = untrack(() => table.getRowModel().rows[0]!.getAllCells()[0]!)
 
-			vi.spyOn(cell, "getIsAggregated").mockImplementation(() => mode() === "aggregate");
-			vi.spyOn(cell, "getIsPlaceholder").mockImplementation(() => mode() === "placeholder");
+			vi.spyOn(cell, "getIsAggregated").mockImplementation(() => mode() === "aggregate")
+			vi.spyOn(cell, "getIsPlaceholder").mockImplementation(() => mode() === "placeholder")
 
 			return (
 				<>
@@ -112,36 +112,36 @@ describe("FlexRender", () => {
 					<button onClick={() => setMode("placeholder")}>Show placeholder</button>
 					<button onClick={() => setMode("normal")}>Show normal</button>
 				</>
-			);
+			)
 		}
 
-		render(() => <GroupingCellHarness />);
+		render(() => <GroupingCellHarness />)
 
-		const renderedCell = () => screen.getByRole("status", { name: "grouping cell" }).textContent;
+		const renderedCell = () => screen.getByRole("status", { name: "grouping cell" }).textContent
 
-		expect(renderedCell()).toBe("cell:Ada");
+		expect(renderedCell()).toBe("cell:Ada")
 
-		fireEvent.click(screen.getByRole("button", { name: "Show aggregate" }));
-		expect(renderedCell()).toBe("aggregate:Ada");
+		fireEvent.click(screen.getByRole("button", { name: "Show aggregate" }))
+		expect(renderedCell()).toBe("aggregate:Ada")
 
-		fireEvent.click(screen.getByRole("button", { name: "Show placeholder" }));
-		expect(renderedCell()).toBe("");
+		fireEvent.click(screen.getByRole("button", { name: "Show placeholder" }))
+		expect(renderedCell()).toBe("")
 
-		fireEvent.click(screen.getByRole("button", { name: "Show normal" }));
-		expect(renderedCell()).toBe("cell:Ada");
-	});
+		fireEvent.click(screen.getByRole("button", { name: "Show normal" }))
+		expect(renderedCell()).toBe("cell:Ada")
+	})
 
 	test("updates when a truthy cell prop is replaced with a new instance", () => {
 		function ReactiveCellHarness() {
-			const [data, setData] = createSignal<Array<Data>>([{ id: "1", name: "Ada" }]);
+			const [data, setData] = createSignal<Array<Data>>([{ id: "1", name: "Ada" }])
 			const table = createTable({
 				get data() {
-					return data();
+					return data()
 				},
 				columns,
 				features: stockFeatures,
 				getRowId: (row) => row.id,
-			});
+			})
 
 			return (
 				<>
@@ -150,18 +150,18 @@ describe("FlexRender", () => {
 					</output>
 					<button onClick={() => setData([{ id: "1", name: "Grace" }])}>Replace cell</button>
 				</>
-			);
+			)
 		}
 
-		render(() => <ReactiveCellHarness />);
+		render(() => <ReactiveCellHarness />)
 
-		expect(screen.getByRole("status", { name: "rendered cell" }).textContent).toBe("cell:Ada");
+		expect(screen.getByRole("status", { name: "rendered cell" }).textContent).toBe("cell:Ada")
 
-		fireEvent.click(screen.getByRole("button", { name: "Replace cell" }));
+		fireEvent.click(screen.getByRole("button", { name: "Replace cell" }))
 
-		expect(screen.getByRole("status", { name: "rendered cell" }).textContent).toBe("cell:Grace");
-	});
-});
+		expect(screen.getByRole("status", { name: "rendered cell" }).textContent).toBe("cell:Grace")
+	})
+})
 
 describe("table.Subscribe", () => {
 	test("updates mounted content for the atom read by its child", () => {
@@ -171,7 +171,7 @@ describe("table.Subscribe", () => {
 				columns: [{ id: "id", accessorKey: "id" }],
 				features: stockFeatures,
 				getRowId: (row) => row.id,
-			});
+			})
 
 			return (
 				<>
@@ -182,24 +182,24 @@ describe("table.Subscribe", () => {
 					</output>
 					<button onClick={() => table.getRow("1").toggleSelected(true)}>Select subscribed row</button>
 				</>
-			);
+			)
 		}
 
-		render(() => <SubscribeHarness />);
+		render(() => <SubscribeHarness />)
 
-		expect(screen.getByRole("status", { name: "subscribed selection" }).textContent).toBe("false");
+		expect(screen.getByRole("status", { name: "subscribed selection" }).textContent).toBe("false")
 
-		fireEvent.click(screen.getByRole("button", { name: "Select subscribed row" }));
+		fireEvent.click(screen.getByRole("button", { name: "Select subscribed row" }))
 
-		expect(screen.getByRole("status", { name: "subscribed selection" }).textContent).toBe("true");
-	});
-});
+		expect(screen.getByRole("status", { name: "subscribed selection" }).textContent).toBe("true")
+	})
+})
 
 describe("createTableHook runtime", () => {
-	type Data = { id: string; name: string };
-	const TableBadge = () => <span>table-badge</span>;
-	const CellBadge = () => <span>cell-badge</span>;
-	const HeaderBadge = () => <span>header-badge</span>;
+	type Data = { id: string; name: string }
+	const TableBadge = () => <span>table-badge</span>
+	const CellBadge = () => <span>cell-badge</span>
+	const HeaderBadge = () => <span>header-badge</span>
 
 	function createTestHook() {
 		return createTableHook({
@@ -209,78 +209,78 @@ describe("createTableHook runtime", () => {
 			tableComponents: { TableBadge },
 			cellComponents: { CellBadge },
 			headerComponents: { HeaderBadge },
-		});
+		})
 	}
 
 	test("binds features and components while per-table options override defaults", () => {
-		const hook = createTestHook();
-		const columnHelper = hook.createAppColumnHelper<Data>();
+		const hook = createTestHook()
+		const columnHelper = hook.createAppColumnHelper<Data>()
 		const columns = columnHelper.columns([
 			columnHelper.accessor("name", {
 				header: "Name",
 				cell: ({ getValue }) => getValue(),
 			}),
-		]);
-		let tableRef: ReturnType<typeof hook.createAppTable<Data>> | undefined;
+		])
+		let tableRef: ReturnType<typeof hook.createAppTable<Data>> | undefined
 
 		function Harness() {
 			const table = hook.createAppTable({
 				data: [{ id: "1", name: "Ada" }],
 				columns,
 				enableRowSelection: true,
-			});
-			tableRef = table;
+			})
+			tableRef = table
 
 			return (
 				<table.AppTable>
 					<output aria-label="row can be selected">{String(table.getRow("1").getCanSelect())}</output>
 					<table.TableBadge />
 				</table.AppTable>
-			);
+			)
 		}
 
-		render(() => <Harness />);
+		render(() => <Harness />)
 
-		expect(screen.getByRole("status", { name: "row can be selected" }).textContent).toBe("true");
-		expect(screen.getByText("table-badge").textContent).toBe("table-badge");
-		expect(hook.appFeatures).toBe(stockFeatures);
-		expect(tableRef?.TableBadge).toBe(TableBadge);
-		expect(tableRef?.FlexRender).toBe(FlexRender);
-		expect(tableRef?.AppTable).toEqual(expect.any(Function));
-		expect(tableRef?.AppCell).toEqual(expect.any(Function));
-		expect(tableRef?.AppHeader).toEqual(expect.any(Function));
-		expect(tableRef?.AppFooter).toEqual(expect.any(Function));
-	});
+		expect(screen.getByRole("status", { name: "row can be selected" }).textContent).toBe("true")
+		expect(screen.getByText("table-badge").textContent).toBe("table-badge")
+		expect(hook.appFeatures).toBe(stockFeatures)
+		expect(tableRef?.TableBadge).toBe(TableBadge)
+		expect(tableRef?.FlexRender).toBe(FlexRender)
+		expect(tableRef?.AppTable).toEqual(expect.any(Function))
+		expect(tableRef?.AppCell).toEqual(expect.any(Function))
+		expect(tableRef?.AppHeader).toEqual(expect.any(Function))
+		expect(tableRef?.AppFooter).toEqual(expect.any(Function))
+	})
 
 	test("provides table, cell, and header contexts with bound render helpers", () => {
-		const hook = createTestHook();
-		const columnHelper = hook.createAppColumnHelper<Data>();
+		const hook = createTestHook()
+		const columnHelper = hook.createAppColumnHelper<Data>()
 		const columns = columnHelper.columns([
 			columnHelper.accessor("name", {
 				header: ({ column }) => `header:${column.id}`,
 				cell: ({ getValue }) => `cell:${getValue()}`,
 				footer: ({ column }) => `footer:${column.id}`,
 			}),
-		]);
-		let tableFromContext: unknown;
-		let cellFromContext: unknown;
-		let headerFromContext: unknown;
-		let footerFromContext: unknown;
-		let tableRef: ReturnType<typeof hook.createAppTable<Data>> | undefined;
+		])
+		let tableFromContext: unknown
+		let cellFromContext: unknown
+		let headerFromContext: unknown
+		let footerFromContext: unknown
+		let tableRef: ReturnType<typeof hook.createAppTable<Data>> | undefined
 
 		function Harness() {
 			const table = hook.createAppTable({
 				data: [{ id: "1", name: "Ada" }],
 				columns,
-			});
-			tableRef = table;
-			const cell = untrack(() => table.getRow("1").getAllCells()[0]!);
-			const header = untrack(() => table.getHeaderGroups()[0]!.headers[0]!);
-			const footer = untrack(() => table.getFooterGroups()[0]!.headers[0]!);
+			})
+			tableRef = table
+			const cell = untrack(() => table.getRow("1").getAllCells()[0]!)
+			const header = untrack(() => table.getHeaderGroups()[0]!.headers[0]!)
+			const footer = untrack(() => table.getFooterGroups()[0]!.headers[0]!)
 
 			function TableContextProbe() {
-				tableFromContext = hook.useTableContext<Data>();
-				return <output aria-label="table context matches">{String(tableFromContext === table)}</output>;
+				tableFromContext = hook.useTableContext<Data>()
+				return <output aria-label="table context matches">{String(tableFromContext === table)}</output>
 			}
 
 			return (
@@ -289,7 +289,7 @@ describe("createTableHook runtime", () => {
 					<table.TableBadge />
 					<table.AppCell cell={cell}>
 						{(value) => {
-							cellFromContext = hook.useCellContext<string>();
+							cellFromContext = hook.useCellContext<string>()
 							return (
 								<>
 									<output aria-label="cell context matches">{String(cellFromContext === cell)}</output>
@@ -299,12 +299,12 @@ describe("createTableHook runtime", () => {
 										<value.FlexRender />
 									</output>
 								</>
-							);
+							)
 						}}
 					</table.AppCell>
 					<table.AppHeader header={header}>
 						{(value) => {
-							headerFromContext = hook.useHeaderContext<string>();
+							headerFromContext = hook.useHeaderContext<string>()
 							return (
 								<>
 									<output aria-label="header context matches">{String(headerFromContext === header)}</output>
@@ -314,12 +314,12 @@ describe("createTableHook runtime", () => {
 										<value.FlexRender />
 									</output>
 								</>
-							);
+							)
 						}}
 					</table.AppHeader>
 					<table.AppFooter header={footer}>
 						{(value) => {
-							footerFromContext = hook.useHeaderContext<string>();
+							footerFromContext = hook.useHeaderContext<string>()
 							return (
 								<>
 									<output aria-label="footer context matches">{String(footerFromContext === footer)}</output>
@@ -327,58 +327,58 @@ describe("createTableHook runtime", () => {
 										<value.FlexRender />
 									</output>
 								</>
-							);
+							)
 						}}
 					</table.AppFooter>
 				</table.AppTable>
-			);
+			)
 		}
 
-		render(() => <Harness />);
+		render(() => <Harness />)
 
-		expect(screen.getByRole("status", { name: "table context matches" }).textContent).toBe("true");
-		expect(screen.getByRole("status", { name: "cell context matches" }).textContent).toBe("true");
-		expect(screen.getByRole("status", { name: "header context matches" }).textContent).toBe("true");
-		expect(screen.getByRole("status", { name: "footer context matches" }).textContent).toBe("true");
-		expect(screen.getByRole("status", { name: "cell component is bound" }).textContent).toBe("true");
-		expect(screen.getByRole("status", { name: "header component is bound" }).textContent).toBe("true");
-		expect(screen.getByText("table-badge").textContent).toBe("table-badge");
-		expect(screen.getByText("cell-badge").textContent).toBe("cell-badge");
-		expect(screen.getByText("header-badge").textContent).toBe("header-badge");
-		expect(screen.getByRole("status", { name: "rendered cell" }).textContent).toBe("cell:Ada");
-		expect(screen.getByRole("status", { name: "rendered header" }).textContent).toBe("header:name");
-		expect(screen.getByRole("status", { name: "rendered footer" }).textContent).toBe("footer:name");
-		expect(tableFromContext).toBe(tableRef);
-	});
+		expect(screen.getByRole("status", { name: "table context matches" }).textContent).toBe("true")
+		expect(screen.getByRole("status", { name: "cell context matches" }).textContent).toBe("true")
+		expect(screen.getByRole("status", { name: "header context matches" }).textContent).toBe("true")
+		expect(screen.getByRole("status", { name: "footer context matches" }).textContent).toBe("true")
+		expect(screen.getByRole("status", { name: "cell component is bound" }).textContent).toBe("true")
+		expect(screen.getByRole("status", { name: "header component is bound" }).textContent).toBe("true")
+		expect(screen.getByText("table-badge").textContent).toBe("table-badge")
+		expect(screen.getByText("cell-badge").textContent).toBe("cell-badge")
+		expect(screen.getByText("header-badge").textContent).toBe("header-badge")
+		expect(screen.getByRole("status", { name: "rendered cell" }).textContent).toBe("cell:Ada")
+		expect(screen.getByRole("status", { name: "rendered header" }).textContent).toBe("header:name")
+		expect(screen.getByRole("status", { name: "rendered footer" }).textContent).toBe("footer:name")
+		expect(tableFromContext).toBe(tableRef)
+	})
 
 	test("context hooks fail with actionable errors outside their providers", () => {
-		const hook = createTestHook();
+		const hook = createTestHook()
 
 		function TableContextFailure() {
-			hook.useTableContext();
-			return null;
+			hook.useTableContext()
+			return null
 		}
 
 		function CellContextFailure() {
-			hook.useCellContext();
-			return null;
+			hook.useCellContext()
+			return null
 		}
 
 		function HeaderContextFailure() {
-			hook.useHeaderContext();
-			return null;
+			hook.useHeaderContext()
+			return null
 		}
 
 		expect(() => render(() => <TableContextFailure />)).toThrow(
 			"`useTableContext` must be used within an `AppTable` component",
-		);
-		cleanup();
+		)
+		cleanup()
 		expect(() => render(() => <CellContextFailure />)).toThrow(
 			"`useCellContext` must be used within an `AppCell` component",
-		);
-		cleanup();
+		)
+		cleanup()
 		expect(() => render(() => <HeaderContextFailure />)).toThrow(
 			"`useHeaderContext` must be used within an `AppHeader` or `AppFooter` component",
-		);
-	});
-});
+		)
+	})
+})

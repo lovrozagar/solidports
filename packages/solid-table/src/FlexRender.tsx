@@ -1,6 +1,6 @@
-import { Match, Show, Switch, createComponent, untrack } from "solid-js";
-import type { JSX } from "@solidjs/web";
-import type { Cell, CellData, Header, RowData, TableFeatures } from "@tanstack/table-core";
+import { Match, Show, Switch, createComponent, untrack } from "solid-js"
+import type { JSX } from "@solidjs/web"
+import type { Cell, CellData, Header, RowData, TableFeatures } from "@tanstack/table-core"
 
 /**
  * Renders a Solid table template value with the provided context props.
@@ -18,7 +18,7 @@ export function flexRender<TProps>(
 	Comp: ((_props: TProps) => JSX.Element) | JSX.Element | undefined,
 	props: TProps,
 ): JSX.Element {
-	if (Comp === null || Comp === undefined) return null;
+	if (Comp === null || Comp === undefined) return null
 
 	if (typeof Comp === "function") {
 		/* Templates read table APIs at their top level (`info.getValue()`) and run once per
@@ -28,10 +28,10 @@ export function flexRender<TProps>(
 			(p: Record<string, any>) => untrack(() => Comp(p as TProps)),
 			props as Record<string, any>,
 			Comp.name,
-		);
+		)
 	}
 
-	return Comp;
+	return Comp
 }
 
 /**
@@ -48,15 +48,15 @@ export type FlexRenderProps<
 > =
 	| { cell: Cell<TFeatures, TData, TValue>; header?: never; footer?: never }
 	| {
-			header: Header<TFeatures, TData, TValue>;
-			cell?: never;
-			footer?: never;
+			header: Header<TFeatures, TData, TValue>
+			cell?: never
+			footer?: never
 	  }
 	| {
-			footer: Header<TFeatures, TData, TValue>;
-			cell?: never;
-			header?: never;
-	  };
+			footer: Header<TFeatures, TData, TValue>
+			cell?: never
+			header?: never
+	  }
 
 /**
  * Simplified component wrapper of `flexRender`. Use this utility component to render headers, cells, or footers with custom markup.
@@ -85,7 +85,7 @@ export function FlexRender<TFeatures extends TableFeatures, TData extends RowDat
           item). Non-keyed Match only re-runs children on truthiness changes. */}
 			<Match keyed when={"cell" in props && props.cell}>
 				{(c) => {
-					const def = c.column.columnDef;
+					const def = c.column.columnDef
 					// When the column-grouping feature is registered, a cell can be in
 					// one of three special modes that should not render `columnDef.cell`
 					// directly:
@@ -98,12 +98,12 @@ export function FlexRender<TFeatures extends TableFeatures, TData extends RowDat
 					// The optional-chaining + cast keeps this safe when the grouping
 					// feature is not registered.
 					const groupingCell = c as typeof c & {
-						getIsAggregated?: () => boolean;
-						getIsPlaceholder?: () => boolean;
-					};
+						getIsAggregated?: () => boolean
+						getIsPlaceholder?: () => boolean
+					}
 					const groupingDef = def as typeof def & {
-						aggregatedCell?: typeof def.cell;
-					};
+						aggregatedCell?: typeof def.cell
+					}
 
 					return (
 						<Show
@@ -116,7 +116,7 @@ export function FlexRender<TFeatures extends TableFeatures, TData extends RowDat
 						>
 							{flexRender(groupingDef.aggregatedCell ?? def.cell, c.getContext())}
 						</Show>
-					);
+					)
 				}}
 			</Match>
 			<Match keyed when={"header" in props && props.header}>
@@ -129,5 +129,5 @@ export function FlexRender<TFeatures extends TableFeatures, TData extends RowDat
 				{(footer) => untrack(() => flexRender(footer.column.columnDef.footer, footer.getContext()))}
 			</Match>
 		</Switch>
-	);
+	)
 }

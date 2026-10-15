@@ -1,5 +1,5 @@
-import solid from "@solidjs/vite-plugin";
-import { defineConfig } from "vitest/config";
+import solid from "@solidjs/vite-plugin"
+import { defineConfig } from "vitest/config"
 
 /* Server rendering: node environment, Solid's server build, SSR JSX transform. */
 export default defineConfig({
@@ -11,4 +11,4 @@ export default defineConfig({
 		environment: "node",
 		include: ["tests/ssr/**/*.test.ts?(x)"],
 	},
-});
+})

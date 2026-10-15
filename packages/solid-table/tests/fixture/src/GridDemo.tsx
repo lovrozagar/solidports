@@ -1,4 +1,4 @@
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createSignal } from "solid-js"
 import {
 	FlexRender,
 	aggregationFns,
@@ -11,10 +11,10 @@ import {
 	filterFns,
 	sortFns,
 	stockFeatures,
-} from "@solidports/solid-table";
-import { people } from "./data";
-import type { ColumnDef, RowSelectionState } from "@solidports/solid-table";
-import type { Person } from "./data";
+} from "@solidports/solid-table"
+import { people } from "./data"
+import type { ColumnDef, RowSelectionState } from "@solidports/solid-table"
+import type { Person } from "./data"
 
 const features = {
 	...stockFeatures,
@@ -26,7 +26,7 @@ const features = {
 	paginatedRowModel: createPaginatedRowModel(),
 	sortFns,
 	sortedRowModel: createSortedRowModel(),
-};
+}
 
 const columns: Array<ColumnDef<typeof features, Person>> = [
 	{
@@ -86,11 +86,11 @@ const columns: Array<ColumnDef<typeof features, Person>> = [
 		aggregationFn: "max",
 		aggregatedCell: (info) => `max ${info.getValue()}`,
 	},
-];
+]
 
 export function GridDemo() {
 	/* Selection is controlled from outside the table to exercise options.state + on*Change. */
-	const [rowSelection, setRowSelection] = createSignal<RowSelectionState>({});
+	const [rowSelection, setRowSelection] = createSignal<RowSelectionState>({})
 
 	const table = createTable({
 		features,
@@ -101,12 +101,12 @@ export function GridDemo() {
 		columnResizeMode: "onChange",
 		state: {
 			get rowSelection() {
-				return rowSelection();
+				return rowSelection()
 			},
 		},
 		onRowSelectionChange: setRowSelection,
 		initialState: { pagination: { pageIndex: 0, pageSize: 4 } },
-	});
+	})
 
 	return (
 		<section>
@@ -214,10 +214,10 @@ export function GridDemo() {
 				<output aria-label="Selection">{Object.keys(rowSelection()).sort().join(",")}</output>
 			</div>
 		</section>
-	);
+	)
 }
 
 function pinRank(item: { column: { getIsPinned: () => false | "start" | "end" } }) {
-	const pinned = item.column.getIsPinned();
-	return pinned === "start" ? 0 : pinned === "end" ? 2 : 1;
+	const pinned = item.column.getIsPinned()
+	return pinned === "start" ? 0 : pinned === "end" ? 2 : 1
 }
