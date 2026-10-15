@@ -52,9 +52,17 @@ bun run docs:generate    # write docs/solid from docs/react
 bun run docs:validate    # docs-infra API tables and page indexes
 bun run docs:dev         # Solid site, http://localhost:3001
 bun run docs:react:dev   # React snapshot, http://localhost:3005
+bun run docs:build && bun run docs:check-hydration --serve   # every route hydrates
 ```
 
-Do not hand-edit `docs/solid`; fix the generator. See `scripts/docs/README.md`.
+Do not hand-edit `docs/solid`; fix the generator. docs-infra's runtime is kept by hand in
+`scripts/docs/templates/docs-infra/src`; its build-time pipeline is generated. See
+`scripts/docs/README.md`.
+
+An element kept as a value (`element(() => …)`) must be placed with `place()`: inserted
+bare, Solid calls it in the hole's inner computation, which also tracks what it renders, so
+an update inside it rebuilds it. The converter places local element values, element memos
+and props typed `JSX.Element`.
 
 ## Commands
 
