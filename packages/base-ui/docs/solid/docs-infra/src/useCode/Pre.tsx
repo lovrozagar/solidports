@@ -1,7 +1,16 @@
 // docs-infra's `useCode/Pre`, kept by hand for Solid: the read-only code view. Every element is
 // created where it is placed (`renderHast` in the frame that shows it), so the server and the
 // client key it alike; the decoded tree and the per-frame highlighting swap in once mounted.
-import { createEffect, createMemo, createSignal, For, onSettled, Show, untrack } from 'solid-js';
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  onCleanup,
+  onSettled,
+  Show,
+  untrack,
+} from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { Element as HastElement, ElementContent, Root as HastRoot, RootContent } from 'hast';
 import type { VariantSource } from '../CodeHighlighter/types';
@@ -143,17 +152,16 @@ export function Pre(props: PreProps): JSX.Element {
     }
   };
 
-  const observeFrame = (node: HTMLSpanElement) => {
-    // The frame's index among the `.frame` siblings: the markup carries no index.
-    let index = 0;
-    for (let sibling = node.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
-      if (sibling.classList.contains('frame')) {
-        index += 1;
-      }
-    }
+  // React reads a frame's index from its position among the `.frame` siblings; Solid runs a ref
+  // before the element is inserted, so the index comes from the decoded tree instead.
+  const observeFrame = (node: HTMLSpanElement, index: number) => {
     frameIndices.set(node, index);
     observedFrames.add(node);
     observer?.observe(node);
+  };
+  const unobserveFrame = (node: HTMLSpanElement) => {
+    observedFrames.delete(node);
+    observer?.unobserve(node);
   };
 
   onSettled(() => {
@@ -254,6 +262,13 @@ export function Pre(props: PreProps): JSX.Element {
     }
     const highlighted = () => Boolean(props.shouldHighlight && visibleFrames()[frameIndex]);
     const properties = child.properties;
+    // A ref runs without an owner, so the frame's scope stops observing it.
+    let frameNode: HTMLSpanElement | undefined;
+    onCleanup(() => {
+      if (frameNode) {
+        unobserveFrame(frameNode);
+      }
+    });
     return (
       <span
         class="frame"
@@ -272,7 +287,10 @@ export function Pre(props: PreProps): JSX.Element {
           properties.dataFrameDescription ? String(properties.dataFrameDescription) : undefined
         }
         data-frame-focus-target={properties.dataFrameFocusTarget != null ? '' : undefined}
-        ref={observeFrame}
+        ref={(node: HTMLSpanElement) => {
+          frameNode = node;
+          observeFrame(node, frameIndex);
+        }}
       >
         <Show when={highlighted()} fallback={renderFrameCode(child, false)}>
           {renderFrameCode(child, true)}
