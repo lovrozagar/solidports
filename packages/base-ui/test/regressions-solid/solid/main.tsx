@@ -14,14 +14,15 @@ interface Fixture {
   path: string;
 }
 
+// `?docs?` matches the `(docs)` route group, as the React host globs it.
 const demos = import.meta.glob<{ default?: Component }>(
-  '../../../docs/solid/src/demos/solid/**/index.tsx',
+  '../../../docs/solid/src/app/?docs?/solid/**/demos/*/*/index.tsx',
   { eager: true },
 );
 
 const fixtures: Fixture[] = [];
 for (const file in demos) {
-  const dir = file.replace(/^.*\/demos\/solid\//, '').replace(/\/index\.tsx$/, '');
+  const dir = file.split('(docs)/solid/')[1].replace(/\/index\.tsx$/, '');
   const route = __REGRESSION_ROUTES__[dir];
   const DemoComponent = demos[file].default;
   // Solid-only demos have no React counterpart to compare with.

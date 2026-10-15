@@ -6,7 +6,7 @@
  * Each component renders in its own process: Solid reports a write category once per process.
  */
 import { execFile } from 'node:child_process';
-import { readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -14,7 +14,8 @@ import { describe, expect, it } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
-const demos = resolve(here, '../../../../docs/solid/src/demos/solid');
+// The generated docs' component pages, each with its `demos` folder.
+const demos = resolve(here, '../../../../docs/solid/src/app/(docs)/solid/components');
 
 function demoFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -26,7 +27,7 @@ function demoFiles(dir: string): string[] {
   });
 }
 
-const components = readdirSync(demos).filter((entry) => statSync(join(demos, entry)).isDirectory());
+const components = readdirSync(demos).filter((entry) => existsSync(join(demos, entry, 'demos')));
 
 describe('server render purity', () => {
   it.each(components)(
@@ -34,7 +35,7 @@ describe('server render purity', () => {
     async (component) => {
       const { stdout } = await execFileAsync(
         'node',
-        [join(here, 'serverWrites.mjs'), ...demoFiles(join(demos, component))],
+        [join(here, 'serverWrites.mjs'), ...demoFiles(join(demos, component, 'demos'))],
         { maxBuffer: 64 * 1024 * 1024 },
       );
       const writes = JSON.parse(stdout) as Record<string, { message: string; frames: string[] }[]>;
