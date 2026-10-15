@@ -146,6 +146,12 @@ const suites = [
   },
   { job: 'Validating Docs', name: 'docs-build', cwd: baseUi, run: ['bun run docs:build'] },
   {
+    job: 'Validating Docs',
+    name: 'docs-hydration',
+    cwd: baseUi,
+    run: ['bun run docs:check-hydration --serve'],
+  },
+  {
     job: 'Benchmark tests',
     name: 'benchmark',
     cwd: baseUi,
