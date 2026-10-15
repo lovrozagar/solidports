@@ -248,7 +248,8 @@ jobs:
   docs:
     name: Validating Docs
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The runner takes about 11 minutes for the API tables, 15 for the build, then the crawl.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
