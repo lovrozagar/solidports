@@ -12,7 +12,7 @@ packages/base-ui/
   packages/utils/     snapshot
   packages/solid/     living library
   docs/react/         docs snapshot
-  docs/solid/         living docs
+  docs/solid/         generated docs
   .kb/                this tree
 ```
 
@@ -48,12 +48,13 @@ Inventory: [`./INDEX.md`](./INDEX.md).
 
 ```bash
 bun run docs:sync        # refresh docs/react from GitHub
-bun run docs:generate    # write docs/solid MDX + demos + chrome CSS
+bun run docs:generate    # write docs/solid from docs/react
+bun run docs:validate    # docs-infra API tables and page indexes
 bun run docs:dev         # Solid site, http://localhost:3001
 bun run docs:react:dev   # React snapshot, http://localhost:3005
 ```
 
-Do not hand-edit generated Solid MDX or `docs/solid/src/demos/solid/**`. Hand ports go in `docs/solid/overrides/demos/**`; see `scripts/docs/README.md`.
+Do not hand-edit `docs/solid`; fix the generator. See `scripts/docs/README.md`.
 
 ## Commands
 

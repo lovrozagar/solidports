@@ -18,7 +18,7 @@ No dedicated Solid topic file yet — issues below are component-specific.
 
 - React (read-only): `packages/react/src/toast/`
 - Solid (target):    `packages/solid/src/toast/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/toast.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/toast/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/toast/`
 
 ## Open issues

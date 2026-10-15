@@ -32,7 +32,7 @@ template.
 
 - React (read-only): `packages/react/src/<component>/`
 - Solid (target):    `packages/solid/src/<component>/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/<component>.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/<component>/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/<component>/`
 
 ## Open issues

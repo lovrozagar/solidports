@@ -20,7 +20,7 @@
 
 - React (read-only): `packages/react/src/popover/`
 - Solid (target):    `packages/solid/src/popover/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/popover.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/popover/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/popover/`
 
 ## Open issues

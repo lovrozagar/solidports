@@ -87,7 +87,7 @@ Tests:
 
 Docs/demos:
 
-- `docs/solid/src/routes/(docs)/solid/components/collapsible.mdx`
+- `docs/solid/src/app/(docs)/solid/components/collapsible/page.mdx`
 - `docs/solid/src/demos/solid/collapsible/hero/{css-modules,tailwind}/`
 
 ## Test commands

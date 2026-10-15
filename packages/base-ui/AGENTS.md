@@ -12,7 +12,7 @@ packages/react/     @base-ui/react snapshot — read, replace on version bump
 packages/utils/     @base-ui/utils snapshot — same
 packages/solid/     @solidports/base-ui — only living library
 docs/react/         mui/base-ui `docs/` at the same tag — snapshot
-docs/solid/         Solid docs app (`@solidjs/vite-plugin` start mode) — only living docs
+docs/solid/         Solid docs app, generated from docs/react by scripts/docs
 .kb/                maintainer/agent notes for the Solid port
 ```
 
@@ -22,12 +22,12 @@ Snapshot in, Solid out. Do not rewrite `packages/react`, `packages/utils`, or
 ## Scope
 
 Unless the request says otherwise, implement only in `packages/solid/` or
-`docs/solid/`.
+`scripts/docs/`.
 
-Public docs and demos: `docs/solid/src/routes/(docs)/solid/` and
-`docs/solid/src/demos/solid/<component>/<demo>/{css-modules,tailwind}/`.
-Use the component's `hero` demo as the styling reference. Add only the layout
-styles the demo needs.
+`docs/solid` is generated output: pages under `docs/solid/src/app/(docs)/solid/`
+come from `docs/react/src/app/(docs)/react/`. Fix the docs in the generator
+(`scripts/docs/react-to-solid.mjs`, `scripts/docs/templates/`), then run
+`bun run docs:generate` and `bun run docs:validate`.
 
 React docs reference: `docs/react/src/app/(docs)/react/`. Experiments in the
 snapshot live at `docs/react/src/app/(private)/experiments/`.
@@ -48,7 +48,7 @@ From `packages/base-ui`:
 ```bash
 bun run docs:dev
 bun run docs:build
-bun run docs:api              # Solid API reference JSON
+bun run docs:api              # docs-infra API tables (types.md)
 bun run docs:react:dev
 bun run test:solid:jsdom NumberField --no-watch
 bun run test:solid:chromium NumberField --no-watch

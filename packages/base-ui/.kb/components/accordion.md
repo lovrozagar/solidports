@@ -14,7 +14,7 @@
 
 - React (read-only): `packages/react/src/accordion/`
 - Solid (target):    `packages/solid/src/accordion/`
-- Docs (target):     `docs/solid/src/routes/(docs)/solid/components/accordion.mdx`
+- Docs (target):     `docs/solid/src/app/(docs)/solid/components/accordion/page.mdx`
 - Demos (target):    `docs/solid/src/demos/solid/accordion/`
 
 ## Parity note (plan 8, native fast path)
