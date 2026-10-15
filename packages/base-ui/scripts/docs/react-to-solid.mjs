@@ -4391,11 +4391,22 @@ function isPropsObject(path) {
   if (parent.isCallExpression() && t.isIdentifier(parent.node.callee, { name: 'mergeProps' })) {
     return path.listKey === 'arguments';
   }
-  if (parent.isVariableDeclarator() && path.key === 'init') {
-    const annotation = parent.node.id.typeAnnotation?.typeAnnotation;
+  const isPropsType = (annotation) => {
     const typeName = t.isTSTypeReference(annotation) ? annotation.typeName : null;
     const last = t.isTSQualifiedName(typeName) ? typeName.right : typeName;
     return t.isIdentifier(last) && /Props$/.test(last.name);
+  };
+  if (parent.isVariableDeclarator() && path.key === 'init') {
+    return isPropsType(parent.node.id.typeAnnotation?.typeAnnotation);
+  }
+  // The same value as a memo (`createMemo<useRender.ElementProps<'button'>>(() => ({ ... }))`).
+  if (parent.isArrowFunctionExpression() && path.key === 'body') {
+    const call = parent.parentPath;
+    return Boolean(
+      call.isCallExpression() &&
+      t.isIdentifier(call.node.callee, { name: 'createMemo' }) &&
+      isPropsType(call.node.typeParameters?.params[0]),
+    );
   }
   if (
     parent.isObjectProperty() &&

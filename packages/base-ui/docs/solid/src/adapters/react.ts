@@ -9,7 +9,6 @@ import {
   createOwner,
   createSignal,
   isHydrating,
-  onCleanup,
   onSettled,
   runWithOwner,
   untrack,
@@ -48,7 +47,7 @@ export function useSyncExternalStore<T>(
   onSettled(() => {
     const update = () => setValue({ current: getSnapshot() });
     update();
-    onCleanup(subscribe(update));
+    return subscribe(update);
   });
   return () => value().current;
 }
