@@ -753,8 +753,7 @@ function generatePackageJson() {
       preview: 'vite preview --port 3001',
       'docs-infra': 'node framework/docs-infra.mjs',
       validate: 'bun internal-validate --command "bun validate"',
-      // One types.ts page per worker per run (see `framework/validate.mjs`).
-      'internal-validate': 'node framework/validate.mjs',
+      'internal-validate': 'node framework/docs-infra.mjs validate',
       typescript: 'tsc -p tsconfig.json',
       'link-check': reactPackage.scripts['link-check'],
       'generate-llms': reactPackage.scripts['generate-llms'],
