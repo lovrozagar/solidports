@@ -243,7 +243,8 @@ jobs:
         run: bun run test
 
   # Upstream "Validating Docs": docs-infra's validation of the generated docs (their API tables and
-  # indexes are committed), then the production build upstream's deploy previews run
+  # indexes are committed), then the production build upstream's deploy previews run, then a crawl
+  # of that build: route parity with the React docs, hydration, and each page's first demo
   docs:
     name: Validating Docs
     runs-on: ubuntu-latest
@@ -265,6 +266,13 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: packages/base-ui
         run: bun run docs:build
+      # Solid only: upstream's docs run on React's own runtime; ours runs on a Solid one.
+      - name: hydration
+        if: ${{ !cancelled() }}
+        working-directory: packages/base-ui
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run docs:check-hydration --serve
 
   # Upstream "Benchmark tests"
   benchmark:

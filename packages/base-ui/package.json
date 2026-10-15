@@ -72,6 +72,7 @@
     "build": "lerna run --no-private build",
     "docs:api": "bun --filter @solidports/docs internal-validate --command 'bun docs:validate' --types",
     "docs:build": "bun --filter @solidports/docs build",
+    "docs:check-hydration": "node scripts/docs/check-hydration.mjs",
     "docs:dev": "bun --filter @solidports/docs dev",
     "docs:generate": "node scripts/docs/generate.mjs",
     "docs:preview": "bun --filter @solidports/docs preview",
