@@ -9,7 +9,7 @@ import {
 import { useCollapsiblePanel } from '../../collapsible/panel/useCollapsiblePanel';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { panelRootParameters } from '../../collapsible/root/useCollapsibleRoot';
-import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
+import { createDepsRenderEffect, isStaticProp, splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
 import { canRenderNative } from '../../utils/native';
@@ -171,7 +171,14 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
   const id = () => props.id ?? root.defaultPanelId();
 
   if (process.env.NODE_ENV !== 'production') {
-    warnKeepMountedIgnored(hiddenUntilFound, () => props.keepMounted, KEEP_MOUNTED_WARNING);
+    // The warning needs the panel's own `keepMounted={false}`: when that prop is static and not
+    // `false`, it can never fire, whatever `hiddenUntilFound` becomes.
+    warnKeepMountedIgnored(
+      hiddenUntilFound,
+      () => props.keepMounted,
+      KEEP_MOUNTED_WARNING,
+      !isStaticProp(props, 'keepMounted') || untrack(() => props.keepMounted) === false,
+    );
   }
 
   const registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
