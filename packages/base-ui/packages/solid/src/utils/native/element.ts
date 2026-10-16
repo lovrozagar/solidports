@@ -6,8 +6,16 @@
  * Contract: `context/architecture/render-pipeline.md`. Nothing here creates a reactive node beyond
  * the one attribute effect (when needed) and the children insert.
  */
-import { createRenderEffect, getOwner, isStatic, onCleanup, runWithOwner, untrack } from 'solid-js';
-import { assign, insert } from '@solidjs/web';
+import {
+  createRenderEffect,
+  getOwner,
+  isHydrating,
+  isStatic,
+  onCleanup,
+  runWithOwner,
+  untrack,
+} from 'solid-js';
+import { assign, insert, isServer, ssrElement } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
@@ -22,6 +30,26 @@ import {
 } from './index';
 
 type Handler = (...args: any[]) => unknown;
+
+/**
+ * A part's element as a template: `create` makes it from compiled JSX on the client (claiming the
+ * server's node while hydrating), and the server renders `tag` with the same attributes instead.
+ */
+export interface NativeElementTemplate {
+  tag: string;
+  /** The template's static attributes, which the compiled JSX holds on the client. */
+  attributes?: Record<string, unknown> | undefined;
+  create: () => Element;
+}
+
+const isTemplate = (value: Element | NativeElementTemplate): value is NativeElementTemplate =>
+  typeof (value as NativeElementTemplate).create === 'function';
+
+/** Event handler props (`onClick`), which the server does not render and hydration attaches. */
+const isHandlerKey = (key: string) => {
+  const c = key.charCodeAt(2);
+  return key.startsWith('on') && c > 64 && c < 91;
+};
 
 /** Writes one attribute below the consumer's props (a consumer key always wins). */
 export type SetAttribute = (key: string, value: unknown) => void;
@@ -116,13 +144,24 @@ function applyPartRefs(el: Element, refs: readonly unknown[]): boolean {
   return true;
 }
 
+/** An element's attributes as the server rendered them (hydration keys aside). */
+function readServerAttributes(el: Element): Map<string, string> {
+  const attributes = new Map<string, string>();
+  for (const name of el.getAttributeNames()) {
+    if (name !== '_hk' && name !== 'data-hk') {
+      attributes.set(name, el.getAttribute(name)!);
+    }
+  }
+  return attributes;
+}
+
 /**
  * Renders `el` as the part's element for `props`: the consumer's literal keys and the handler
  * dispatchers once, the part's and the reactive keys from one effect (none when nothing can
  * change), refs, then the children. Returns `el`.
  */
 export function renderNativeElement<State extends object>(
-  el: Element,
+  element: Element | NativeElementTemplate,
   props: object,
   spec: NativeElementSpec<State>,
 ): Element {
@@ -206,17 +245,50 @@ export function renderNativeElement<State extends object>(
     return target;
   };
 
+  const consumerChildren = spec.consumerChildren !== false && 'children' in props;
+
+  if (isServer) {
+    // One pass, as the client's first write: the same attributes, no handlers, refs or effect.
+    // `ssrElement` prints the hydration key the client's compiled template claims.
+    if (!isTemplate(element)) {
+      throw new Error(
+        'Base UI: a native part rendered on the server needs an element template ({ tag, create }), not an element. Pass a template so the server can render the tag.',
+      );
+    }
+    const attributes: Record<string, unknown> = { ...element.attributes };
+    for (const key in literal) {
+      if (key !== 'ref' && typeof literal[key] !== 'function' && !isHandlerKey(key)) {
+        attributes[key] = literal[key];
+      }
+    }
+    write(attributes, false);
+    let children: unknown;
+    if (spec.children) {
+      children = spec.children;
+    } else if (consumerChildren) {
+      children = isStatic(props, 'children') ? source.children : () => source.children;
+    }
+    return ssrElement(element.tag, attributes, children as never, true) as unknown as Element;
+  }
+
+  const el = isTemplate(element) ? element.create() : element;
+  const hydrating = isHydrating();
+  // The server's attributes as claimed, to remove the ones the client no longer renders once
+  // hydration is over (see the reconcile below).
+  const serverAttributes = hydrating ? readServerAttributes(el) : undefined;
+
   if (!needsEffect) {
     write(literal, false);
   }
   attachNativeAttributes(el, literal, undefined, owner);
+  const previous: Record<string, unknown> = {};
   if (needsEffect) {
     // As `attachNativeAttributes`' effect, with one difference: Solid's `assign` re-sets a string
     // `style` as `cssText` on every run (no equality check), which would wipe properties a part
     // writes to the element directly (a panel's measured CSS variables) whenever any other input
     // changes. The slow path's per-key view only re-writes `style` when its sources change, so an
     // unchanged string style is left out of the write here.
-    const previous: Record<string, unknown> = {};
+    // Transparent: the server has no counterpart, so it takes no hydration id.
     runWithOwner(owner, () =>
       createRenderEffect(
         () => write({}, true),
@@ -231,8 +303,47 @@ export function renderNativeElement<State extends object>(
           }
           assign(el, next, true, previous, true);
         },
+        { transparent: true },
       ),
     );
+  }
+
+  if (serverAttributes) {
+    // Solid skips attribute writes for the whole synchronous `hydrate()` call (it trusts the server
+    // markup) but records them as applied, so a value that differs from the server's, or changed
+    // inside that call, would be lost. A microtask runs once `hydrate()` has returned: re-apply the
+    // current attributes then, and remove server attributes the client no longer renders (only
+    // those still holding their server value). Handlers attached during hydration stay.
+    let disposed = false;
+    void onCleanup(() => {
+      disposed = true;
+    });
+    queueMicrotask(() => {
+      if (disposed) {
+        return;
+      }
+      const all = untrack(() => (needsEffect ? write({}, true) : literal));
+      const current: Record<string, unknown> = {};
+      for (const key in all) {
+        if (
+          key !== 'ref' &&
+          key !== 'children' &&
+          !isHandlerKey(key) &&
+          typeof all[key] !== 'function'
+        ) {
+          current[key] = all[key];
+        }
+      }
+      const rendered = new Set(Object.keys(current).map((key) => key.toLowerCase()));
+      const stale: Record<string, unknown> = {};
+      for (const [name, value] of serverAttributes) {
+        if (!rendered.has(name) && el.getAttribute(name) === value) {
+          stale[name] = value;
+        }
+      }
+      assign(el, current, true, stale, true);
+      Object.assign(previous, current);
+    });
   }
 
   if (source.ref != null) {
@@ -258,7 +369,7 @@ export function renderNativeElement<State extends object>(
 
   if (spec.children) {
     insert(el, spec.children);
-  } else if (spec.consumerChildren !== false && 'children' in props) {
+  } else if (consumerChildren) {
     if (isStatic(props, 'children')) {
       insert(el, source.children);
     } else {
