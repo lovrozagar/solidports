@@ -16,7 +16,12 @@ async function press(ctx: StepContext, name: string, times: number) {
 }
 
 const arrowSteps = (forward: string): Step[] => [
-  { name: 'click tab 150', run: () => click(qa('[role="tab"]')[150]), settle: true, verify: selected },
+  {
+    name: 'click tab 150',
+    run: () => click(qa('[role="tab"]')[150]),
+    settle: true,
+    verify: selected,
+  },
   {
     name: `${forward} x50`,
     run: (ctx) => press(ctx, forward, 50),
@@ -31,8 +36,15 @@ const scenarios: Scenario[] = [
   {
     id: 'tabs/200',
     fixture: 'tabs/200',
+    components: ['tabs'],
+    tags: ['scale-100', 'controlled', 'reactive-props', 'pointer', 'keyboard'],
     steps: [
-      { name: 'switch tab', run: (ctx) => ctx.lib.set('value', 'item-150'), settle: true, verify: selected },
+      {
+        name: 'switch tab',
+        run: (ctx) => ctx.lib.set('value', 'item-150'),
+        settle: true,
+        verify: selected,
+      },
       {
         name: 'arrow x50',
         run: async (ctx) => {
@@ -45,8 +57,20 @@ const scenarios: Scenario[] = [
       ...arrowSteps('ArrowRight').filter((step) => step.name !== 'ArrowRight x50'),
     ],
   },
-  { id: 'tabs/200-keepmounted', fixture: 'tabs/200-keepmounted', steps: arrowSteps('ArrowRight') },
-  { id: 'tabs/200-vertical', fixture: 'tabs/200-vertical', steps: arrowSteps('ArrowDown') },
+  {
+    id: 'tabs/200-keepmounted',
+    fixture: 'tabs/200-keepmounted',
+    components: ['tabs'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard'],
+    steps: arrowSteps('ArrowRight'),
+  },
+  {
+    id: 'tabs/200-vertical',
+    fixture: 'tabs/200-vertical',
+    components: ['tabs'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard'],
+    steps: arrowSteps('ArrowDown'),
+  },
 ];
 
 export default scenarios;

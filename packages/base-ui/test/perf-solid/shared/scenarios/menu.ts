@@ -36,6 +36,8 @@ const scenarios: Scenario[] = [
   {
     id: 'menu/500',
     fixture: 'menu/500',
+    components: ['menu'],
+    tags: ['scale-100', 'controlled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
       openStep,
       {
@@ -96,6 +98,8 @@ const scenarios: Scenario[] = [
   {
     id: 'menu/checkbox-radio',
     fixture: 'menu/checkbox-radio',
+    components: ['menu'],
+    tags: ['scale-100', 'pointer', 'open', 'portal'],
     steps: [
       openStep,
       {
@@ -127,6 +131,8 @@ const scenarios: Scenario[] = [
   {
     id: 'menu/submenus',
     fixture: 'menu/submenus',
+    components: ['menu'],
+    tags: ['scale-1', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal', 'nested'],
     steps: [
       openStep,
       {
@@ -171,7 +177,13 @@ const scenarios: Scenario[] = [
       },
     ],
   },
-  { id: 'menu/many-roots-500', fixture: 'menu/many-roots', steps: [] },
+  {
+    id: 'menu/many-roots-500',
+    fixture: 'menu/many-roots',
+    components: ['menu'],
+    tags: ['scale-100', 'static-props'],
+    steps: [],
+  },
 ];
 
 export default scenarios;

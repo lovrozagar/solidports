@@ -5,8 +5,14 @@ const scenarios: Scenario[] = [
   {
     id: 'composition/direction-500',
     fixture: 'composition/direction',
+    components: ['direction-provider', 'toggle-group', 'toggle'],
+    tags: ['scale-100', 'reactive-props', 'keyboard'],
     steps: [
-      { name: 'switch to rtl', run: (ctx) => ctx.lib.set('direction', 'rtl'), verify: () => q('[data-testid="dir"]').getAttribute('dir') },
+      {
+        name: 'switch to rtl',
+        run: (ctx) => ctx.lib.set('direction', 'rtl'),
+        verify: () => q('[data-testid="dir"]').getAttribute('dir'),
+      },
       {
         name: 'ArrowLeft x20 (rtl forward)',
         run: async (ctx) => {
@@ -24,16 +30,35 @@ const scenarios: Scenario[] = [
   {
     id: 'composition/csp-100',
     fixture: 'composition/csp',
+    components: ['csp-provider', 'scroll-area'],
+    tags: ['scale-100', 'static-props'],
     steps: [],
     verifyMount: () => ({ styles: qa('style').length, nonced: qa('style[nonce]').length }),
   },
   {
     id: 'composition/nested-portals',
     fixture: 'composition/nested-portals',
+    components: ['popover', 'dialog', 'select'],
+    tags: ['scale-1', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal', 'nested'],
     steps: [
-      { name: 'open popover', run: () => click(q('[data-testid="popover-trigger"]')), settle: true, verify: () => qa('[data-testid="popover-popup"]').length },
-      { name: 'open dialog', run: () => click(q('[data-testid="dialog-trigger"]')), settle: true, verify: () => qa('[role="dialog"]').length },
-      { name: 'open select', run: () => click(q('[data-testid="select-trigger"]')), settle: true, verify: () => qa('[role="option"]').length },
+      {
+        name: 'open popover',
+        run: () => click(q('[data-testid="popover-trigger"]')),
+        settle: true,
+        verify: () => qa('[data-testid="popover-popup"]').length,
+      },
+      {
+        name: 'open dialog',
+        run: () => click(q('[data-testid="dialog-trigger"]')),
+        settle: true,
+        verify: () => qa('[role="dialog"]').length,
+      },
+      {
+        name: 'open select',
+        run: () => click(q('[data-testid="select-trigger"]')),
+        settle: true,
+        verify: () => qa('[role="option"]').length,
+      },
       {
         name: 'escape x3',
         run: async (ctx) => {
@@ -44,13 +69,18 @@ const scenarios: Scenario[] = [
           }
         },
         settle: true,
-        verify: () => ({ options: qa('[role="option"]').length, dialogs: qa('[role="dialog"]').length }),
+        verify: () => ({
+          options: qa('[role="option"]').length,
+          dialogs: qa('[role="dialog"]').length,
+        }),
       },
     ],
   },
   {
     id: 'composition/render-fn-1000',
     fixture: 'composition/render-fn',
+    components: ['toggle'],
+    tags: ['scale-1000', 'uncontrolled', 'pointer', 'render-fn'],
     steps: [
       {
         name: 'click 100',

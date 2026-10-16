@@ -21,6 +21,8 @@ const scenarios: Scenario[] = [
   {
     id: 'autocomplete/1000',
     fixture: 'autocomplete/1000',
+    components: ['autocomplete'],
+    tags: ['scale-1000', 'uncontrolled', 'typing', 'keyboard', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'type "Item 5"',
@@ -48,6 +50,8 @@ const scenarios: Scenario[] = [
   {
     id: 'autocomplete/both-1000',
     fixture: 'autocomplete/both-1000',
+    components: ['autocomplete'],
+    tags: ['scale-1000', 'uncontrolled', 'typing', 'keyboard', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'type "Item 12"',

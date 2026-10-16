@@ -40,6 +40,8 @@ const scenarios: Scenario[] = [
   {
     id: 'drawer/content-500',
     fixture: 'drawer/content',
+    components: ['drawer'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal', 'nested'],
     steps: [
       open,
       { name: 'close via Escape', run: () => key('Escape'), settle: true, verify: summary },

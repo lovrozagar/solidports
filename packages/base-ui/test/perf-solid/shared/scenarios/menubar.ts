@@ -11,6 +11,8 @@ const scenarios: Scenario[] = [
   {
     id: 'menubar/10x50',
     fixture: 'menubar/10x50',
+    components: ['menubar', 'menu'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'open first',

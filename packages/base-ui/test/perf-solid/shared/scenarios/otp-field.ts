@@ -69,8 +69,20 @@ function steps(length: number): Scenario['steps'] {
 }
 
 const scenarios: Scenario[] = [
-  { id: 'otp-field/6', fixture: 'otp-field/6', steps: steps(6) },
-  { id: 'otp-field/12', fixture: 'otp-field/12', steps: steps(12) },
+  {
+    id: 'otp-field/6',
+    fixture: 'otp-field/6',
+    components: ['otp-field'],
+    tags: ['scale-1', 'uncontrolled', 'typing', 'keyboard'],
+    steps: steps(6),
+  },
+  {
+    id: 'otp-field/12',
+    fixture: 'otp-field/12',
+    components: ['otp-field'],
+    tags: ['scale-1', 'uncontrolled', 'typing', 'keyboard'],
+    steps: steps(12),
+  },
 ];
 
 export default scenarios;

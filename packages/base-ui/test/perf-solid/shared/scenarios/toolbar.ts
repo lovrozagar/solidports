@@ -11,6 +11,8 @@ const scenarios: Scenario[] = [
   {
     id: 'toolbar/200',
     fixture: 'toolbar/200',
+    components: ['toolbar', 'menu'],
+    tags: ['scale-100', 'pointer', 'keyboard', 'render-fn', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'ArrowRight x100',
@@ -31,7 +33,12 @@ const scenarios: Scenario[] = [
         settle: true,
         verify: focused,
       },
-      { name: 'close menu', run: () => key('Escape'), settle: true, verify: () => !!document.querySelector('[role="menu"]') },
+      {
+        name: 'close menu',
+        run: () => key('Escape'),
+        settle: true,
+        verify: () => !!document.querySelector('[role="menu"]'),
+      },
     ],
   },
 ];

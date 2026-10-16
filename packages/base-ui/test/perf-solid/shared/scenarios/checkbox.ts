@@ -9,10 +9,18 @@ const parentState = () => ({
 });
 
 const scenarios: Scenario[] = [
-  { id: 'checkbox/raw-1000', fixture: 'checkbox/raw', steps: [] },
+  {
+    id: 'checkbox/raw-1000',
+    fixture: 'checkbox/raw',
+    components: ['checkbox'],
+    tags: ['scale-1000', 'static-props', 'raw'],
+    steps: [],
+  },
   {
     id: 'checkbox/uncontrolled-1000',
     fixture: 'checkbox/uncontrolled',
+    components: ['checkbox'],
+    tags: ['scale-1000', 'uncontrolled', 'pointer', 'keyboard'],
     steps: [
       { name: 'click 1', run: () => click(qa('[role="checkbox"]')[500]), verify: () => checked() },
       {
@@ -41,15 +49,23 @@ const scenarios: Scenario[] = [
   {
     id: 'checkbox/controlled-1000',
     fixture: 'checkbox/controlled',
+    components: ['checkbox'],
+    tags: ['scale-1000', 'controlled', 'reactive-props', 'toggle-all'],
     steps: [
       { name: 'toggle all', run: (ctx) => ctx.lib.set('checked', true), verify: () => checked() },
-      { name: 'toggle all back', run: (ctx) => ctx.lib.set('checked', false), verify: () => checked() },
+      {
+        name: 'toggle all back',
+        run: (ctx) => ctx.lib.set('checked', false),
+        verify: () => checked(),
+      },
       { name: 'state of one', run: () => {}, verify: () => stateOf(qa('[role="checkbox"]')[0]) },
     ],
   },
   {
     id: 'checkbox/group-500-parent',
     fixture: 'checkbox/group-500-parent',
+    components: ['checkbox', 'checkbox-group'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'toggle-all'],
     steps: [
       {
         name: 'parent all/none x10',
@@ -68,7 +84,11 @@ const scenarios: Scenario[] = [
         run: () => click(qa('[role="checkbox"]')[250]),
         verify: parentState,
       },
-      { name: 'parent select all', run: () => click(qa('[data-testid="parent"]')[0]), verify: parentState },
+      {
+        name: 'parent select all',
+        run: () => click(qa('[data-testid="parent"]')[0]),
+        verify: parentState,
+      },
     ],
   },
 ];

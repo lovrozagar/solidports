@@ -1,12 +1,31 @@
 ---
 tags: [perf, benchmark, ssr, cost]
-sources: [packages/base-ui/test/perf-solid/run.mjs, packages/base-ui/test/perf-solid/shared/harness.ts, packages/base-ui/test/perf-solid/shared/scenarios, packages/base-ui/test/perf-solid/known-differences.json, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/test/perf-solid/profile.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
+sources: [packages/base-ui/test/perf-solid/run.mjs, packages/base-ui/test/perf-solid/shared/manifest.ts, scripts/base-ui-perf-manifest.test.ts, packages/base-ui/test/perf-solid/shared/harness.ts, packages/base-ui/test/perf-solid/shared/scenarios, packages/base-ui/test/perf-solid/known-differences.json, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/test/perf-solid/profile.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
 verified: 2026-10-16
 ---
 
 # Perf method
 
 Three instruments: the Chromium benchmark (React vs Solid production builds, in CI with no thresholds), the local-only SSR bench, and `*.cost.test.tsx` reactive-node budgets counted in dev mode.
+
+## Scenario manifest
+
+Every scenario declares `components` (primary first; the id prefix names it, except `static/` and `composition/`) and `tags`, both from closed unions in `shared/manifest.ts`, so a typo fails typecheck.
+
+- `COMPONENTS` must equal the `packages/solid/package.json` export subpaths minus `NON_COMPONENT_EXPORTS`, each listed with a reason (the barrel, `merge-props`, `types`, `utils`, `internals/*`).
+- Tags are the coverage axes of the per-component matrix: one `scale-*` bucket (up to 30, 31 to 600, above 600), `controlled`/`uncontrolled`, `static-props`/`reactive-props`, `wrapper`, `render-fn`/`render-element`, `open`/`close`/`toggle-all`, `keyboard`/`pointer`/`typing`, `animated`, `portal`, `nested`, `raw` (the hand-written floor), `ssr`/`hydrate`.
+- Every component needs a non-`raw` scenario or a `PENDING_COVERAGE` entry naming the leaf that adds it; a pending entry for a covered component fails.
+- `bun run test:scripts` runs `scripts/base-ui-perf-manifest.test.ts`, which imports each scenario file in Bun and typechecks `test/perf-solid/tsconfig.json`.
+
+## Planned instruments (plan 3, phase 1)
+
+The spec for the tooling phase 1 builds. Each item moves into the sections below when it lands.
+
+- Component-scoped run: `bun run bench:component <name>[,...]` builds once, then runs the scenarios whose `components` include a name, that component's SSR fixtures (`ssr/run.mjs` takes the same filter as `run.mjs`) and its cost tests. It writes one report (md plus json) to the gitignored results folder.
+- Baseline and compare: `--save-baseline <label>` stores the SHA, the build hash and the results. `--compare <label>` builds the baseline SHA from a worktree copy through `SOLID_SRC` and runs it interleaved with the working tree and React in one session. A step regresses when its ratio is worse than the baseline's by more than the p90 spread of both sides.
+- Engines: `ENGINE=chromium|firefox|webkit` in `run.mjs`. Outside Chromium only `sync` and `paint` exist (`performance.now`), and the CDP columns are marked absent. `--remote mac` serves the builds on 0.0.0.0 and drives real Safari over `ssh mac`. Chromium gates every iteration; the other engines run at family milestones. Never mix machines in one ratio.
+- Floor: a hand-written Solid `floor/` app per pilot component runs as a third `VARIANTS` entry, so every report shows React, the port and the floor.
+- Warning census: the dev bench build (`BENCH_DEV=1`) records every `console.warn`, `console.error` and `pageerror` per scenario, and fails on any entry missing from `known-warnings.json` (each entry with a reason). The unit setup reports warnings per suite, including the `FLUSH_IN_EFFECT_CALLBACK` hits that `setupSolid.ts` swallows, split into library and harness frames. The docs hydration crawl collects console output the same way. Counts live in the Warnings section of [baseline](baseline.md) and may only go down.
 
 ## Chromium benchmark (`test/perf-solid`)
 
@@ -19,7 +38,7 @@ bun run bench:solid                    # 8 measured runs, every scenario
 node test/perf-solid/run.mjs 8 select,menu   # scenario id prefixes
 ```
 
-- Scenarios: `shared/scenarios/*.ts`, one file per component (32 files plus `index.ts`), 77 scenarios and 387 steps in CI. Each `Scenario` has `id`, `fixture`, `steps`, optional `verifyMount`; `mount` and `unmount` steps are added and timed automatically (`shared/harness.ts`).
+- Scenarios: `shared/scenarios/*.ts`, one file per component (32 files plus `index.ts`), 77 scenarios and 387 steps in CI. Each `Scenario` has `id`, `fixture`, `components`, `tags`, `steps`, optional `verifyMount`; `mount` and `unmount` steps are added and timed automatically (`shared/harness.ts`).
 - Env: `VARIANTS=name:lib:dir,...` (A/B of several builds), `THROTTLE=4` (CPU throttling), `SIZE=large` (5x fixture sizes), `WARMUP` (default 2). Build env: `SOLID_SRC=<abs path>` builds the Solid app from a copy of the source, `OUT=<dir>`, `MINIFY=0`, `BENCH_DEV=1` (dev runtime).
 - Builds and results go to gitignored folders named in `vite.config.mjs` and `run.mjs`.
 
