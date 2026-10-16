@@ -53,6 +53,13 @@ describe("test:base-ui:all plan", () => {
 		})
 	})
 
+	test("jsdom generates the declaration files before its run, as the workflow does", () => {
+		expect(byName(planSuites({}), "jsdom").run).toEqual([
+			"bun run --cwd packages/solid types",
+			"bun run test:solid:jsdom --run --maxWorkers=2",
+		])
+	})
+
 	test("--changed selects jsdom and chromium only, running vitest on the module-graph diff", () => {
 		const suites = planSuites({ changed: "main~3" })
 		expect(suites.filter((s) => s.selected).map((s) => s.name)).toEqual(["jsdom", "chromium"])

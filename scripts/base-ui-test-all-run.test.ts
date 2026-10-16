@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { mkdtempSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, readdirSync, readlinkSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { acquireRunLock, planSuites, runDirFor } from "../packages/base-ui/scripts/test-all.mjs"
@@ -22,6 +22,32 @@ describe("test:base-ui:all run isolation", () => {
 		const again = await acquireRunLock(lock)
 		await again.release()
 	})
+
+	// Processes with an open descriptor on `file` (Linux /proc).
+	const holdersOf = (file: string) =>
+		readdirSync("/proc")
+			.filter((pid) => /^\d+$/.test(pid))
+			.filter((pid) => {
+				try {
+					return readdirSync(`/proc/${pid}/fd`).some((fd) => readlinkSync(`/proc/${pid}/fd/${fd}`) === file)
+				} catch {
+					return false
+				}
+			})
+
+	test.skipIf(!existsSync("/proc/self/fd"))(
+		"only the holder keeps the lock, so it is free as soon as release resolves",
+		async () => {
+			const dir = mkdtempSync(join(tmpdir(), "test-all-run-"))
+			temps.push(dir)
+			const lock = join(dir, "run.lock")
+			const run = await acquireRunLock(lock)
+			// The shell the holder starts must not inherit the lock: a shell still exiting would keep it.
+			expect(holdersOf(lock)).toHaveLength(1)
+			await run.release()
+			expect(holdersOf(lock)).toEqual([])
+		},
+	)
 
 	test("a run that dies without releasing does not strand the lock", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "test-all-run-"))
