@@ -1,8 +1,5 @@
 import { For } from 'solid-js';
 import { Dialog } from '@solidports/base-ui/dialog';
-import { fixtures as basics } from '../../solid/fixtures/basics';
-import { fixtures as popups } from '../../solid/fixtures/popups';
-import { fixtures as forms } from '../../solid/fixtures/forms';
 
 const lines = Array.from({ length: 500 }, (_, i) => i);
 
@@ -22,12 +19,6 @@ function DialogPage() {
   );
 }
 
-/** SSR fixtures, shared keys with `../react/fixtures.tsx`. */
-export const ssrFixtures: Record<string, () => unknown> = {
-  'select/1000': popups['select/1000'],
-  'checkbox/1000': basics['checkbox/uncontrolled'],
+export const fixtures: Record<string, () => unknown> = {
   'dialog/page': DialogPage,
-  'form/50': forms['form/50'],
-  'accordion/300': basics['accordion/300'],
-  'tabs/200': basics['tabs/200'],
 };

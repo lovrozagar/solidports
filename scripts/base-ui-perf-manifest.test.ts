@@ -8,6 +8,7 @@ import {
 	SCENARIO_TAGS,
 } from "../packages/base-ui/test/perf-solid/shared/manifest.ts"
 import type { Scenario } from "../packages/base-ui/test/perf-solid/shared/types.ts"
+import { ssrCases } from "../packages/base-ui/test/perf-solid/ssr/cases.ts"
 
 const BASE_UI = resolve(import.meta.dir, "../packages/base-ui")
 const PERF = join(BASE_UI, "test/perf-solid")
@@ -96,6 +97,49 @@ describe("base-ui perf scenario manifest", () => {
 		const missing = COMPONENTS.filter((c) => !covered.has(c) && !(c in PENDING_COVERAGE))
 		const stalePending = Object.keys(PENDING_COVERAGE).filter((c) => covered.has(c))
 		expect({ missing, stalePending }).toEqual({ missing: [], stalePending: [] })
+	})
+
+	test("every SSR case declares known components and tags, including ssr and hydrate", () => {
+		const known = new Set<string>(COMPONENTS)
+		const tags = new Set<string>(SCENARIO_TAGS)
+		const problems: string[] = []
+		const ids = new Set<string>()
+		for (const c of ssrCases) {
+			if (ids.has(c.id)) problems.push(`${c.id}: duplicate id`)
+			ids.add(c.id)
+			if (c.components.length === 0) problems.push(`${c.id}: missing components`)
+			for (const name of c.components) if (!known.has(name)) problems.push(`${c.id}: unknown component ${name}`)
+			if (c.id.split("/")[0] !== c.components[0]) problems.push(`${c.id}: id prefix must name ${c.components[0]}`)
+			for (const t of c.tags) if (!tags.has(t)) problems.push(`${c.id}: unknown tag ${t}`)
+			for (const t of ["ssr", "hydrate"]) if (!c.tags.includes(t as never)) problems.push(`${c.id}: missing tag ${t}`)
+			if (c.tags.filter((t) => t.startsWith("scale-")).length !== 1)
+				problems.push(`${c.id}: needs exactly one scale-* tag`)
+		}
+		expect(problems).toEqual([])
+	})
+
+	test("each library's SSR fixture files register exactly the SSR case ids, one file per primary component", () => {
+		const expected = Object.groupBy(ssrCases, (c) => c.components[0])
+		for (const lib of ["react", "solid"]) {
+			const dir = join(PERF, "ssr", lib, "fixtures")
+			const files = [...new Bun.Glob("*.tsx").scanSync(dir)].sort()
+			expect({ lib, files }).toEqual({
+				lib,
+				files: Object.keys(expected)
+					.sort()
+					.map((c) => `${c}.tsx`),
+			})
+			for (const file of files) {
+				const source = readFileSync(join(dir, file), "utf8")
+				const registered = [...source.matchAll(/^\s*'([^']+)':/gm)].map((m) => m[1]).sort()
+				const component = file.replace(/\.tsx$/, "")
+				expect({ lib, file, registered }).toEqual({
+					lib,
+					file,
+					registered: (expected[component] ?? []).map((c) => c.id).sort(),
+				})
+			}
+		}
 	})
 
 	test("scenario sources typecheck, so a tag or component typo fails", () => {

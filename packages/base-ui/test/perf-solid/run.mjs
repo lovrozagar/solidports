@@ -4,7 +4,8 @@
 // are comparable within one session.
 //
 // Usage (from packages/base-ui, after `bun run bench:solid:build`):
-//   node test/perf-solid/run.mjs [runs=8] [filter,...]     filter: scenario id prefixes
+//   node test/perf-solid/run.mjs [runs=8] [filter,...]     filter: `shared/filter.mjs` terms
+//   (id prefix, component:<name>, tag:<tag>, ! to exclude)
 // Env: VARIANTS=name:lib:dir,...  THROTTLE=4  SIZE=large  WARMUP=2
 // Exit code 1 when a step errors or a variant's DOM summary differs from the first variant's.
 import fs from 'node:fs';
@@ -12,12 +13,13 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+import { matchesFilter, parseFilter } from './shared/filter.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const builds = path.resolve(here, '../../../../.tmp/grunt/bench-builds');
 const resultsDir = path.resolve(here, '../../../../.tmp/grunt/bench-results');
 const RUNS = Number(process.argv[2] ?? 8);
-const FILTERS = process.argv[3]?.split(',').filter(Boolean);
+const FILTER = parseFilter(process.argv[3]);
 const WARMUP = Number(process.env.WARMUP ?? 2);
 const THROTTLE = Number(process.env.THROTTLE ?? 1);
 const QUERY = process.env.SIZE === 'large' ? '?size=large' : '';
@@ -35,7 +37,8 @@ const server = http
   .createServer((req, res) => {
     const [name, ...rest] = req.url.split('?')[0].slice(1).split('/');
     const variant = VARIANTS[name];
-    const file = variant && path.join(builds, variant.lib, variant.dir, rest.join('/') || 'index.html');
+    const file =
+      variant && path.join(builds, variant.lib, variant.dir, rest.join('/') || 'index.html');
     if (!file || !fs.existsSync(file)) {
       res.writeHead(404).end();
       return;
@@ -69,15 +72,24 @@ async function openPage(browser, name) {
 
 async function metrics(cdp) {
   const { metrics: list } = await cdp.send('Performance.getMetrics');
-  return Object.fromEntries(list.filter((m) => METRICS.includes(m.name)).map((m) => [m.name, m.value]));
+  return Object.fromEntries(
+    list.filter((m) => METRICS.includes(m.name)).map((m) => [m.name, m.value]),
+  );
 }
 
-const browser = await chromium.launch({ args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'] });
+const browser = await chromium.launch({
+  args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
+});
 const probe = await openPage(browser, NAMES[0]);
-const list = (await probe.page.evaluate(() => window.bench.list())).filter(
-  (scenario) => !FILTERS || FILTERS.some((filter) => scenario.id.startsWith(filter)),
+const list = (await probe.page.evaluate(() => window.bench.list())).filter((scenario) =>
+  matchesFilter(scenario, FILTER),
 );
 await probe.page.close();
+if (list.length === 0) {
+  console.error(`No scenario matches "${process.argv[3]}"`);
+  await browser.close();
+  process.exit(1);
+}
 
 const results = {};
 const problems = [];
@@ -93,15 +105,21 @@ for (const { id, steps } of list) {
         const heapBefore = await page.evaluate('performance.memory.usedJSHeapSize');
         for (let index = 0; index < steps.length; index += 1) {
           const before = await metrics(cdp);
-          const result = await page.evaluate(([scenario, step]) => window.bench.step(scenario, step), [
-            id,
-            index,
-          ]);
+          const result = await page.evaluate(
+            ([scenario, step]) => window.bench.step(scenario, step),
+            [id, index],
+          );
           const after = await metrics(cdp);
           if (result.error) entry.errors.push(`${steps[index]}: ${result.error}`);
           if (run === WARMUP && round === 0) entry.summaries[steps[index]] = result.summary;
           if (run >= WARMUP) {
-            const step = (entry.steps[steps[index]] ??= { sync: [], paint: [], script: [], layout: [], style: [] });
+            const step = (entry.steps[steps[index]] ??= {
+              sync: [],
+              paint: [],
+              script: [],
+              layout: [],
+              style: [],
+            });
             step.sync.push(result.sync);
             step.paint.push(result.paint);
             step.script.push((after.ScriptDuration - before.ScriptDuration) * 1000);
@@ -110,7 +128,9 @@ for (const { id, steps } of list) {
           }
           if (index === 0 && run >= WARMUP) {
             await page.evaluate('gc()');
-            entry.heapKB.push(((await page.evaluate('performance.memory.usedJSHeapSize')) - heapBefore) / 1024);
+            entry.heapKB.push(
+              ((await page.evaluate('performance.memory.usedJSHeapSize')) - heapBefore) / 1024,
+            );
           }
         }
       }
@@ -145,7 +165,8 @@ for (const { id, steps } of list) {
     }
   }
   for (const name of NAMES) {
-    for (const error of new Set(results[id][name].errors)) problems.push(`${id} [${name}] ${error}`);
+    for (const error of new Set(results[id][name].errors))
+      problems.push(`${id} [${name}] ${error}`);
   }
 }
 await browser.close();
@@ -175,27 +196,47 @@ for (const [id, byName] of Object.entries(results)) {
       ...Object.fromEntries(
         NAMES.map((name) => {
           const s = byName[name].steps[step];
-          return [name, { sync: median(s.sync), syncP90: p90(s.sync), paint: median(s.paint), script: median(s.script), layout: median(s.layout), style: median(s.style) }];
+          return [
+            name,
+            {
+              sync: median(s.sync),
+              syncP90: p90(s.sync),
+              paint: median(s.paint),
+              script: median(s.script),
+              layout: median(s.layout),
+              style: median(s.style),
+            },
+          ];
         }),
       ),
       syncRatio,
       scriptRatio,
     };
-    lines.push(`| ${id} › ${step} | ${cells.join(' | ')} | ${syncRatio?.toFixed(2) ?? '-'}x | ${scriptRatio?.toFixed(2) ?? '-'}x |`);
+    lines.push(
+      `| ${id} › ${step} | ${cells.join(' | ')} | ${syncRatio?.toFixed(2) ?? '-'}x | ${scriptRatio?.toFixed(2) ?? '-'}x |`,
+    );
   }
   lines.push(
     `| ${id} › heap after mount KB | ${NAMES.map((name) => fmt(median(byName[name].heapKB))).join(' | ')} | | |`,
   );
 }
 if (knownHits.length) {
-  lines.push('', '## Known differences (known-differences.json)', '', ...knownHits.map((hit) => `- ${hit}`));
+  lines.push(
+    '',
+    '## Known differences (known-differences.json)',
+    '',
+    ...knownHits.map((hit) => `- ${hit}`),
+  );
 }
 if (problems.length) {
   lines.push('', '## Problems', '', ...problems.map((problem) => `- ${problem}`));
 }
 fs.mkdirSync(resultsDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-fs.writeFileSync(path.join(resultsDir, `${stamp}.json`), JSON.stringify({ summary, problems }, null, 2));
+fs.writeFileSync(
+  path.join(resultsDir, `${stamp}.json`),
+  JSON.stringify({ summary, problems }, null, 2),
+);
 fs.writeFileSync(path.join(resultsDir, `${stamp}.md`), lines.join('\n'));
 console.log(lines.join('\n'));
 console.log(`\nwritten ${path.join(resultsDir, stamp)}.{md,json}`);

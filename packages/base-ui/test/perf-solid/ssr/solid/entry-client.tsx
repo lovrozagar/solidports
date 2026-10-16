@@ -1,6 +1,6 @@
 import { createComponent, flush } from 'solid-js';
 import { hydrate } from '@solidjs/web';
-import { ssrFixtures } from './fixtures';
+import { ssrFixtures } from './fixtures/index';
 
 (window as unknown as { __hydrate: (key: string) => number }).__hydrate = (key) => {
   const Fixture = ssrFixtures[key] as () => any;
