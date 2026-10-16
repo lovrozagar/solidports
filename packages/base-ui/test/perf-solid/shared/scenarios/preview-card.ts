@@ -9,6 +9,8 @@ const scenarios: Scenario[] = [
   {
     id: 'preview-card/roots-200',
     fixture: 'preview-card/roots',
+    components: ['preview-card'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'hover open',

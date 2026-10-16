@@ -16,6 +16,8 @@ const scenarios: Scenario[] = [
   {
     id: 'navigation-menu/8x100',
     fixture: 'navigation-menu/8x100',
+    components: ['navigation-menu'],
+    tags: ['scale-1000', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'hover open',

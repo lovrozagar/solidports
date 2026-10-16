@@ -46,6 +46,8 @@ const scenarios: Scenario[] = [
   {
     id: 'context-menu/200',
     fixture: 'context-menu/200',
+    components: ['context-menu'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'right-click open',

@@ -13,6 +13,8 @@ const scenarios: Scenario[] = [
   {
     id: 'scroll-area/1000-rows',
     fixture: 'scroll-area/rows',
+    components: ['scroll-area'],
+    tags: ['scale-1000', 'reactive-props', 'pointer'],
     steps: [
       {
         name: 'scroll x100',

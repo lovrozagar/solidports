@@ -7,10 +7,18 @@ const state = () => ({
 });
 
 const scenarios: Scenario[] = [
-  { id: 'radio/raw-300', fixture: 'radio/raw', steps: [] },
+  {
+    id: 'radio/raw-300',
+    fixture: 'radio/raw',
+    components: ['radio', 'radio-group'],
+    tags: ['scale-100', 'static-props', 'raw'],
+    steps: [],
+  },
   {
     id: 'radio/300',
     fixture: 'radio/300',
+    components: ['radio', 'radio-group'],
+    tags: ['scale-100', 'controlled', 'reactive-props', 'pointer', 'keyboard'],
     steps: [
       { name: 'click 1', run: () => click(qa('[role="radio"]')[150]), verify: state },
       {

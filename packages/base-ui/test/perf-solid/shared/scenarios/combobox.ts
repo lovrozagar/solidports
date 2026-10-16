@@ -19,6 +19,8 @@ const scenarios: Scenario[] = [
   {
     id: 'combobox/1000',
     fixture: 'combobox/1000',
+    components: ['combobox'],
+    tags: ['scale-1000', 'controlled', 'typing', 'open', 'close', 'portal'],
     steps: [
       { name: 'open', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: rows },
       {
@@ -70,6 +72,18 @@ scenarios.push(
   {
     id: 'combobox/full-1000',
     fixture: 'combobox/full-1000',
+    components: ['combobox'],
+    tags: [
+      'scale-1000',
+      'controlled',
+      'reactive-props',
+      'typing',
+      'keyboard',
+      'pointer',
+      'open',
+      'close',
+      'portal',
+    ],
     steps: [
       {
         name: 'open by trigger',
@@ -142,6 +156,8 @@ scenarios.push(
   {
     id: 'combobox/5000',
     fixture: 'combobox/5000',
+    components: ['combobox'],
+    tags: ['scale-1000', 'controlled', 'typing', 'open', 'close', 'portal'],
     steps: [
       { name: 'open', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: view },
       {
@@ -157,6 +173,8 @@ scenarios.push(
   {
     id: 'combobox/multiple-1000',
     fixture: 'combobox/multiple-1000',
+    components: ['combobox'],
+    tags: ['scale-1000', 'controlled', 'keyboard', 'pointer', 'open', 'portal'],
     steps: [
       {
         name: 'open',

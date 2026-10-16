@@ -8,9 +8,21 @@ const scenarios: Scenario[] = [
   {
     id: 'accordion/300',
     fixture: 'accordion/300',
+    components: ['accordion'],
+    tags: ['scale-100', 'controlled', 'reactive-props', 'open', 'close', 'toggle-all', 'keyboard'],
     steps: [
-      { name: 'open one', run: (ctx) => ctx.lib.set('value', ['item-150']), settle: true, verify: expanded },
-      { name: 'open all', run: (ctx) => ctx.lib.set('value', all()), settle: true, verify: expanded },
+      {
+        name: 'open one',
+        run: (ctx) => ctx.lib.set('value', ['item-150']),
+        settle: true,
+        verify: expanded,
+      },
+      {
+        name: 'open all',
+        run: (ctx) => ctx.lib.set('value', all()),
+        settle: true,
+        verify: expanded,
+      },
       { name: 'close all', run: (ctx) => ctx.lib.set('value', []), settle: true, verify: expanded },
       {
         name: 'ArrowDown x50',
@@ -29,6 +41,8 @@ const scenarios: Scenario[] = [
   {
     id: 'accordion/300-animated',
     fixture: 'accordion/300-animated',
+    components: ['accordion'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'open', 'close', 'animated'],
     steps: [
       {
         name: 'toggle x20',

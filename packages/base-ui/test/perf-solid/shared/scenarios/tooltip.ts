@@ -24,6 +24,8 @@ const scenarios: Scenario[] = [
   {
     id: 'tooltip/roots-500',
     fixture: 'tooltip/roots',
+    components: ['tooltip'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'hover open one',
@@ -43,6 +45,8 @@ const scenarios: Scenario[] = [
   {
     id: 'tooltip/handle-500',
     fixture: 'tooltip/handle',
+    components: ['tooltip'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'open', 'close', 'portal'],
     steps: [sweep('[data-testid="tooltip-trigger"]')],
   },
 ];

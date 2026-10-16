@@ -17,6 +17,8 @@ const scenarios: Scenario[] = [
   {
     id: 'field/controlled-typing',
     fixture: 'field/controlled',
+    components: ['field'],
+    tags: ['scale-1', 'controlled', 'reactive-props', 'typing'],
     steps: [
       { name: 'type 100 chars', run: (ctx) => type(input(), text, ctx.lib.flush), verify: typed },
     ],
@@ -24,6 +26,8 @@ const scenarios: Scenario[] = [
   {
     id: 'field/uncontrolled-typing',
     fixture: 'field/uncontrolled',
+    components: ['field'],
+    tags: ['scale-1', 'uncontrolled', 'typing'],
     steps: [
       { name: 'type 100 chars', run: (ctx) => type(input(), text, ctx.lib.flush), verify: typed },
     ],
@@ -31,6 +35,8 @@ const scenarios: Scenario[] = [
   {
     id: 'field/validate-on-change',
     fixture: 'field/validate-on-change',
+    components: ['field'],
+    tags: ['scale-1', 'uncontrolled', 'typing'],
     steps: [
       {
         name: 'type 50 chars',

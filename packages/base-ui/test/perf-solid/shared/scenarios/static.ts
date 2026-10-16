@@ -10,11 +10,27 @@ async function until(predicate: () => boolean, frames = 120) {
 }
 
 const scenarios: Scenario[] = [
-  { id: 'static/button-nonnative-1000', fixture: 'static/button-nonnative', steps: [], verifyMount: count('[role="button"]') },
-  { id: 'static/button-render-fn-1000', fixture: 'static/button-render-fn', steps: [], verifyMount: count('[role="button"]') },
+  {
+    id: 'static/button-nonnative-1000',
+    fixture: 'static/button-nonnative',
+    components: ['button'],
+    tags: ['scale-1000', 'static-props', 'render-element'],
+    steps: [],
+    verifyMount: count('[role="button"]'),
+  },
+  {
+    id: 'static/button-render-fn-1000',
+    fixture: 'static/button-render-fn',
+    components: ['button'],
+    tags: ['scale-1000', 'static-props', 'render-fn'],
+    steps: [],
+    verifyMount: count('[role="button"]'),
+  },
   {
     id: 'static/avatar-1000',
     fixture: 'static/avatar',
+    components: ['avatar'],
+    tags: ['scale-1000', 'reactive-props'],
     steps: [
       {
         name: 'images load',
@@ -34,6 +50,8 @@ const scenarios: Scenario[] = [
   {
     id: 'static/progress-meter-1000',
     fixture: 'static/progress-meter',
+    components: ['progress', 'meter'],
+    tags: ['scale-1000', 'controlled', 'reactive-props'],
     steps: [
       {
         name: '50 updates',
@@ -50,6 +68,8 @@ const scenarios: Scenario[] = [
   {
     id: 'static/separator-input-1000',
     fixture: 'static/separator-input',
+    components: ['input', 'separator'],
+    tags: ['scale-1000', 'uncontrolled', 'typing'],
     steps: [
       {
         name: 'type 20 chars',
@@ -61,6 +81,8 @@ const scenarios: Scenario[] = [
   {
     id: 'static/use-render-1000',
     fixture: 'static/use-render',
+    components: ['use-render'],
+    tags: ['scale-1000', 'pointer'],
     steps: [
       {
         name: 'click 100',

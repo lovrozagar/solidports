@@ -10,6 +10,8 @@ const scenarios: Scenario[] = [
   {
     id: 'alert-dialog/content-500',
     fixture: 'alert-dialog/content',
+    components: ['alert-dialog'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'open via trigger',

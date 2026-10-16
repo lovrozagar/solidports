@@ -16,6 +16,8 @@ const scenarios: Scenario[] = [
   {
     id: 'form/50-fields',
     fixture: 'form/50',
+    components: ['form', 'field'],
+    tags: ['scale-100', 'reactive-props', 'keyboard', 'typing'],
     steps: [
       {
         name: 'tab through 50',

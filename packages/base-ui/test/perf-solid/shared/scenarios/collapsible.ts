@@ -7,16 +7,30 @@ const scenarios: Scenario[] = [
   {
     id: 'collapsible/300',
     fixture: 'collapsible/300',
+    components: ['collapsible'],
+    tags: ['scale-100', 'controlled', 'reactive-props', 'open', 'close', 'toggle-all'],
     steps: [
       { name: 'open all', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: expanded },
-      { name: 'close all', run: (ctx) => ctx.lib.set('open', false), settle: true, verify: expanded },
+      {
+        name: 'close all',
+        run: (ctx) => ctx.lib.set('open', false),
+        settle: true,
+        verify: expanded,
+      },
     ],
   },
   {
     id: 'collapsible/300-uncontrolled',
     fixture: 'collapsible/300-uncontrolled',
+    components: ['collapsible'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'open', 'close'],
     steps: [
-      { name: 'click 1', run: () => click(qa('[aria-expanded]')[150]), settle: true, verify: expanded },
+      {
+        name: 'click 1',
+        run: () => click(qa('[aria-expanded]')[150]),
+        settle: true,
+        verify: expanded,
+      },
       {
         name: 'click 100',
         run: async (ctx) => {

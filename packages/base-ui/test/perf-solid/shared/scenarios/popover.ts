@@ -11,6 +11,8 @@ const scenarios: Scenario[] = [
   {
     id: 'popover/content-200',
     fixture: 'popover/content',
+    components: ['popover'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'open by click',
@@ -49,10 +51,18 @@ const scenarios: Scenario[] = [
       },
     ],
   },
-  { id: 'popover/roots-500', fixture: 'popover/roots', steps: [] },
+  {
+    id: 'popover/roots-500',
+    fixture: 'popover/roots',
+    components: ['popover'],
+    tags: ['scale-100', 'static-props'],
+    steps: [],
+  },
   {
     id: 'popover/handle-20',
     fixture: 'popover/handle',
+    components: ['popover'],
+    tags: ['scale-1', 'uncontrolled', 'pointer', 'open', 'portal'],
     steps: [
       {
         name: 'switch triggers x20',

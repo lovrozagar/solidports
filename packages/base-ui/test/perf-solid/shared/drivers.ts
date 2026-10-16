@@ -19,8 +19,10 @@ export function q<T extends Element = HTMLElement>(selector: string, root: Paren
   return element;
 }
 
-export const qa = <T extends Element = HTMLElement>(selector: string, root: ParentNode = document) =>
-  Array.from(root.querySelectorAll<T>(selector));
+export const qa = <T extends Element = HTMLElement>(
+  selector: string,
+  root: ParentNode = document,
+) => Array.from(root.querySelectorAll<T>(selector));
 
 function center(element: Element) {
   const rect = element.getBoundingClientRect();
@@ -81,12 +83,16 @@ export function key(name: string, target: Element = document.activeElement ?? do
   target.dispatchEvent(new KeyboardEvent('keyup', init));
 }
 
-const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+// Looked up on first use so the scenario modules load outside a browser (the manifest test).
+let valueSetter: ((this: HTMLInputElement, value: string) => void) | undefined;
 
 /** Sets an input's value as typing does: native setter + `input` event. */
 export function setInputValue(input: HTMLInputElement, value: string) {
+  valueSetter ??= Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
   valueSetter.call(input, value);
-  input.dispatchEvent(new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }));
+  input.dispatchEvent(
+    new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }),
+  );
 }
 
 /** Types `text` one character at a time, yielding a task between characters. */
@@ -117,7 +123,9 @@ export async function drag(
       clientX: start.clientX + (dx * i) / moves,
       clientY: start.clientY + (dy * i) / moves,
     });
-    (pointerType === 'touch' ? element : document).dispatchEvent(new PointerEvent('pointermove', init));
+    (pointerType === 'touch' ? element : document).dispatchEvent(
+      new PointerEvent('pointermove', init),
+    );
     flush();
     await yieldTask();
   }
@@ -154,6 +162,8 @@ export function stateOf(element: Element | null) {
     'data-disabled',
   ];
   return Object.fromEntries(
-    names.filter((name) => element.hasAttribute(name)).map((name) => [name, element.getAttribute(name)]),
+    names
+      .filter((name) => element.hasAttribute(name))
+      .map((name) => [name, element.getAttribute(name)]),
   );
 }

@@ -22,6 +22,8 @@ const scenarios: Scenario[] = [
   {
     id: 'select/1000',
     fixture: 'select/1000',
+    components: ['select'],
+    tags: ['scale-1000', 'controlled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
       openStep,
       {
@@ -88,6 +90,8 @@ scenarios.push(
   {
     id: 'select/full-1000',
     fixture: 'select/full-1000',
+    components: ['select'],
+    tags: ['scale-1000', 'controlled', 'pointer', 'keyboard', 'open', 'close', 'portal'],
     steps: [
       { name: 'open by click', run: () => click(trigger()), settle: true, verify: openState },
       { name: 'close by Escape', run: () => key('Escape'), settle: true, verify: openState },
@@ -173,6 +177,8 @@ scenarios.push(
   {
     id: 'select/preselected-800',
     fixture: 'select/preselected-800',
+    components: ['select'],
+    tags: ['scale-1000', 'controlled', 'open', 'close', 'portal'],
     steps: [
       {
         name: 'open (scroll selected into view)',
@@ -196,6 +202,8 @@ scenarios.push(
   {
     id: 'select/multiple-1000',
     fixture: 'select/multiple-1000',
+    components: ['select'],
+    tags: ['scale-1000', 'controlled', 'pointer', 'open', 'portal'],
     steps: [
       {
         name: 'open',

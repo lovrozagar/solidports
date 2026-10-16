@@ -26,6 +26,8 @@ const scenarios: Scenario[] = [
   {
     id: 'dialog/content-500',
     fixture: 'dialog/content',
+    components: ['dialog'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard', 'open', 'close', 'portal', 'nested'],
     steps: [
       openByTrigger,
       { name: 'close via Escape', run: () => key('Escape'), settle: true, verify: summary },
@@ -71,7 +73,13 @@ const scenarios: Scenario[] = [
       },
     ],
   },
-  { id: 'dialog/roots-200', fixture: 'dialog/roots', steps: [] },
+  {
+    id: 'dialog/roots-200',
+    fixture: 'dialog/roots',
+    components: ['dialog'],
+    tags: ['scale-100', 'static-props'],
+    steps: [],
+  },
 ];
 
 export default scenarios;

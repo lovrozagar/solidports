@@ -27,6 +27,8 @@ const scenarios: Scenario[] = [
   {
     id: 'toast/50',
     fixture: 'toast/viewport',
+    components: ['toast'],
+    tags: ['scale-100', 'reactive-props', 'pointer'],
     steps: [
       {
         name: 'add 50',

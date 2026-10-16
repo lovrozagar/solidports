@@ -8,6 +8,8 @@ const scenarios: Scenario[] = [
   {
     id: 'number-field/100',
     fixture: 'number-field/100',
+    components: ['number-field'],
+    tags: ['scale-100', 'uncontrolled', 'pointer', 'keyboard', 'typing'],
     steps: [
       {
         name: 'increment x100',
