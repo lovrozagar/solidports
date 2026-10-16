@@ -50,8 +50,13 @@ export function summarize(results, names, timers) {
   return summary;
 }
 
-/** Judges every gated metric of `cur` against `base` (1.6 rule); one verdict per key and metric. */
-export function compareVariants(summary, base, cur) {
+/**
+ * Judges every gated metric of `cur` against `base` (1.6 rule); one verdict per key and metric.
+ * Raw floor scenarios (`options.raw`, scenario ids) never use the library, so their difference is
+ * session noise: they are reported, not judged.
+ */
+export function compareVariants(summary, base, cur, options = {}) {
+  const raw = new Set(options.raw ?? []);
   const verdicts = [];
   for (const [key, entry] of Object.entries(summary)) {
     const metrics = key.endsWith(HEAP) ? ['heapKB'] : ['sync', 'script', 'settled'];
@@ -59,7 +64,14 @@ export function compareVariants(summary, base, cur) {
       const a = entry[base].samples[metric];
       const b = entry[cur].samples[metric];
       if (!a?.length && !b?.length) continue;
-      verdicts.push({ key, metric, ...judge(a, b, GATED[metric]) });
+      const judged = judge(a, b, GATED[metric]);
+      const id = key.slice(0, key.indexOf(' › '));
+      verdicts.push({
+        key,
+        metric,
+        ...judged,
+        ...(raw.has(id) ? { verdict: 'unjudged (raw floor)' } : {}),
+      });
     }
   }
   return verdicts;

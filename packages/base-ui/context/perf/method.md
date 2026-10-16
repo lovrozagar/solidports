@@ -107,7 +107,7 @@ Per step and metric, from one interleaved session: `cur` regresses when `median(
 | `sync`, `script`, `settled`, SSR `serverMs` and `hydrateSyncMs` | 0.1 ms | `performance.now` is coarsened to 100 µs without cross-origin isolation |
 | heap after mount | 0 | judged only when both medians exceed 100 KB |
 
-`paint` (frame-aligned) and layout/style (noise at these sizes) are reported, not gated. Hydration is judged only `base` against `cur`, never against React. `scripts/base-ui-perf-regression.test.ts` and `scripts/base-ui-perf-report.test.ts` cover the rule and the summary.
+Below `MIN_SAMPLES` (10) on either side the verdict is `insufficient`, never a pass or a fail: with 4 samples p90 is the maximum, the spread collapses onto the floor, and an A/A run of identical code flagged a 0.2 ms shift. Use `--runs 5` or more (two rounds give 10 samples). Raw floor scenarios (tag `raw`) never use the library, so their base/cur difference is session noise; they are reported as `unjudged (raw floor)`. `paint` (frame-aligned) and layout/style (noise at these sizes) are reported, not gated. Hydration is judged only `base` against `cur`, never against React. `scripts/base-ui-perf-regression.test.ts` and `scripts/base-ui-perf-report.test.ts` cover the rule and the summary.
 
 ## Reactive-node cost tests
 

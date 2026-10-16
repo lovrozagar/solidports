@@ -222,7 +222,14 @@ fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(
   `${out}.json`,
   JSON.stringify(
-    { variants: NAMES, runs: RUNS, filter: process.argv[3] ?? null, summary, problems },
+    {
+      variants: NAMES,
+      runs: RUNS,
+      filter: process.argv[3] ?? null,
+      raw: list.filter((scenario) => scenario.tags.includes('raw')).map((scenario) => scenario.id),
+      summary,
+      problems,
+    },
     null,
     2,
   ),

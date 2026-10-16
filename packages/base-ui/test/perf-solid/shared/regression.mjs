@@ -3,6 +3,9 @@
 // summed p90 spread of both sides, and never by less than an absolute floor (`performance.now` is
 // coarsened to 100 µs without cross-origin isolation, so near-zero steps would flag on one quantum).
 
+/** Below this many samples on either side, p90 is the maximum and the rule decides nothing. */
+export const MIN_SAMPLES = 10;
+
 /** The upper middle sample, as the runners report it. @param {number[]} values */
 export const median = (values) => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -33,7 +36,7 @@ export const GATED = {
 /**
  * @param {number[]} base @param {number[]} cur
  * @param {{ floor: number, minBoth?: number }} rule
- * @returns {{ verdict: 'regressed' | 'improved' | 'same' | 'ungated', delta: number, tolerance: number, base: number, cur: number }}
+ * @returns {{ verdict: 'regressed' | 'improved' | 'same' | 'ungated' | 'insufficient', delta: number, tolerance: number, base: number, cur: number }}
  */
 export function judge(base, cur, rule) {
   if (base.length === 0 || cur.length === 0) {
@@ -45,6 +48,9 @@ export function judge(base, cur, rule) {
   const tolerance = Math.max(spread, rule.floor);
   const delta = curMedian - baseMedian;
   const result = { delta, tolerance, base: baseMedian, cur: curMedian };
+  if (base.length < MIN_SAMPLES || cur.length < MIN_SAMPLES) {
+    return { verdict: 'insufficient', ...result };
+  }
   if (rule.minBoth !== undefined && (baseMedian <= rule.minBoth || curMedian <= rule.minBoth)) {
     return { verdict: 'ungated', ...result };
   }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { GATED, judge, median, p90 } from "../packages/base-ui/test/perf-solid/shared/regression.mjs"
+import { GATED, judge, MIN_SAMPLES, median, p90 } from "../packages/base-ui/test/perf-solid/shared/regression.mjs"
 
 const repeat = (value: number, count = 10) => Array.from({ length: count }, () => value)
 
@@ -41,6 +41,12 @@ describe("perf regression rule", () => {
 	test("a metric with a minimum is ungated unless both medians exceed it", () => {
 		expect(judge(repeat(40), repeat(90), { floor: 0, minBoth: 100 }).verdict).toBe("ungated")
 		expect(judge(repeat(150), repeat(400), { floor: 0, minBoth: 100 }).verdict).toBe("regressed")
+	})
+
+	test("fewer than MIN_SAMPLES on either side is insufficient, never a verdict", () => {
+		expect(MIN_SAMPLES).toBe(10)
+		expect(judge([1, 1, 1, 1], [2, 2, 2, 2], { floor: 0.1 })).toMatchObject({ verdict: "insufficient" })
+		expect(judge(repeat(1, 10), repeat(2, 10), { floor: 0.1 }).verdict).toBe("regressed")
 	})
 
 	test("empty samples throw instead of passing", () => {

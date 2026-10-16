@@ -369,7 +369,7 @@ async function main() {
   const regressions = [];
   const verdicts = { browser: [], ssr: [] };
   if (base && browser) {
-    verdicts.browser = compareVariants(browser.summary, 'base', 'cur');
+    verdicts.browser = compareVariants(browser.summary, 'base', 'cur', { raw: browser.raw });
   }
   if (base && ssr) {
     for (const [key, row] of Object.entries(ssr.results)) {
