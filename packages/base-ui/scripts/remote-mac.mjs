@@ -57,8 +57,8 @@ export const quote = (value) => `'${String(value).replace(/'/g, `'\\''`)}'`;
 
 export const FLOCK_SHIM = `#!/usr/bin/env python3
 # flock [-n] [-o] [-E code] <file> [command...]: an fcntl lock on <file>, held while the command
-# runs; the command inherits it unless -o.
-import fcntl, os, subprocess, sys
+# runs; the command inherits it unless -o. TERM, INT and HUP pass on to the command.
+import fcntl, os, signal, subprocess, sys
 args = sys.argv[1:]
 block = True
 inherit = True
@@ -80,11 +80,17 @@ except BlockingIOError:
     sys.exit(conflict)
 os.ftruncate(fd, 0)
 os.write(fd, str(os.getpid()).encode())
-sys.exit(subprocess.call(args[1:], pass_fds=(fd,) if inherit else ()) if len(args) > 1 else 0)
+if len(args) == 1:
+    sys.exit(0)
+child = subprocess.Popen(args[1:], pass_fds=(fd,) if inherit else ())
+for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(sig, lambda signum, frame: child.send_signal(signum))
+sys.exit(child.wait())
 `;
 
 export const TIMEOUT_SHIM = `#!/usr/bin/env python3
-# timeout [-k grace] <seconds> <command...>: TERM the command's process group at <seconds>, KILL after grace.
+# timeout [-k grace] <seconds> <command...>: TERM the command's process group at <seconds>, KILL after
+# grace. TERM, INT and HUP end the command's process group the same way.
 import os, signal, subprocess, sys
 args = sys.argv[1:]
 grace = 0
@@ -93,17 +99,25 @@ if args[0] == '-k':
     args = args[2:]
 limit = float(args[0])
 child = subprocess.Popen(args[1:], start_new_session=True)
-try:
-    sys.exit(child.wait(timeout=limit))
-except subprocess.TimeoutExpired:
-    os.killpg(child.pid, signal.SIGTERM)
+
+def end(code, reason):
     try:
+        os.killpg(child.pid, signal.SIGTERM)
         child.wait(timeout=grace or None)
     except subprocess.TimeoutExpired:
         os.killpg(child.pid, signal.SIGKILL)
         child.wait()
-    print(f'timeout: killed after {limit:g}s', file=sys.stderr)
-    sys.exit(124)
+    except ProcessLookupError:
+        pass
+    print(f'timeout: {reason}', file=sys.stderr)
+    sys.exit(code)
+
+for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    signal.signal(sig, lambda signum, frame: end(128 + signum, f'stopped by signal {signum}'))
+try:
+    sys.exit(child.wait(timeout=limit))
+except subprocess.TimeoutExpired:
+    end(124, f'killed after {limit:g}s')
 `;
 
 /** The remote script: shims, checkout, install, then the command under the lock. */
@@ -124,7 +138,29 @@ git checkout -q --detach ${quote(sha)} || exit 1
 echo "remote-mac: at $(git log --oneline -1)"
 bun install --frozen-lockfile > /tmp/solidports-install.log 2>&1 || { tail -20 /tmp/solidports-install.log; exit 1; }
 flock -n ~/.gates/heavy.flock true || echo "remote-mac: waiting for ~/.gates/heavy.flock ($(cat ~/.gates/heavy.flock 2>/dev/null) holds it)"
-GATES_LOCK=~/.gates/solidports-suites.flock flock ~/.gates/heavy.flock timeout -k 30 ${timeout} sh -c ${quote(command.map(quote).join(' '))}
+${lockedRun(timeout, command)}`;
+}
+
+/**
+ * Runs `command` under the Mac's machine-wide lock with a hard timeout, and ends it when the ssh
+ * session that started it goes away (its parent, or `$REMOTE_MAC_WATCH`): a run stopped on this
+ * machine must not go on holding the lock there.
+ */
+export function lockedRun(timeout, command) {
+  return `GATES_LOCK=~/.gates/solidports-suites.flock flock ~/.gates/heavy.flock timeout -k 30 ${timeout} sh -c ${quote(command.map(quote).join(' '))} &
+RUN=$!
+WATCH=\${REMOTE_MAC_WATCH:-$PPID}
+(
+  while kill -0 "$RUN" 2>/dev/null; do
+    if ! kill -0 "$WATCH" 2>/dev/null; then
+      echo "remote-mac: the session that started this run is gone; stopping it" >&2
+      kill -TERM "$RUN"
+      break
+    fi
+    sleep 2
+  done
+) &
+wait "$RUN"
 `;
 }
 
