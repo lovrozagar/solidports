@@ -1,4 +1,5 @@
 import {
+  $PROXY,
   children,
   createEffect,
   createMemo,
@@ -11,6 +12,8 @@ import {
   untrack,
 } from 'solid-js';
 import type { Accessor, Context } from 'solid-js';
+// `solid-js` does not re-export `hasStaticKeys`; `@solidjs/signals` is the same core.
+import { hasStaticKeys } from '@solidjs/signals';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import type { PayloadChildRenderFunction } from './utils/popups';
@@ -132,9 +135,16 @@ export function createDepsRenderEffect<T>(deps: () => T, effect: DepsEffectFn<T>
   createLayoutEffect(createMemo(deps, { equals: shallowEqual }), effect);
 }
 
-/** Whether `props[key]` is absent or a plain value: there is no getter, so it never changes. */
+/**
+ * Whether `props[key]` can never change: a plain value, or a key that is absent from props whose
+ * key set is fixed. A Solid proxy (a `merge` result, a dynamic spread) with a changing key set can
+ * gain the key later, so an absent key there is not static.
+ */
 export function isStaticProp(props: object, key: string) {
-  return !(key in props) || isStatic(props, key);
+  if (key in props) {
+    return isStatic(props, key);
+  }
+  return !(props as Record<PropertyKey, unknown>)[$PROXY] || hasStaticKeys(props);
 }
 
 /**
