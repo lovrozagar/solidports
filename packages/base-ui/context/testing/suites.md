@@ -12,13 +12,27 @@ Base UI has 27 suites, one per step of the "Base UI tests" workflow plus Firef
 
 From the repo root: `bun run test:base-ui:all` (`packages/base-ui/scripts/test-all.mjs`).
 
-- Runs each suite with the workflow's own commands, in order, then prints a pass / fail / not run table. A suite that cannot run here (screen reader off Windows) is "not run", never omitted. Report all three states; "not run" is not a pass.
-- `--list` prints the 27 suites; `--only a,b` reruns some (the rest show "not run").
-- Generated-file suites fail when they change the tree, compared against the tree state before the suite (local edits are not discarded).
-- Each suite's log goes to a gitignored folder at the repo root, one `<suite>.log` per suite; a failing row prints its path.
+- Runs each suite with the workflow's own commands, then prints a pass / fail / not run table in suite order. A suite that cannot run here (screen reader off Windows) is "not run", never omitted. Report all three states; "not run" is not a pass.
+- Suites run concurrently: light ones (lint, typecheck, package, generated files) up to `GATES_LIGHT` at a time (default 4), heavy ones (test runners, browsers, docs builds, benchmark) up to `GATES_HEAVY` (default 2), and at most one `exclusive` suite (browsers, fixed ports) at a time on top of the machine lock below. `after` keeps chains ordered: package → public-types → node-resolution, docs-validate → docs-build → docs-hydration.
+- `--list` prints the 27 suites; `--only a,b` reruns some (the rest show "not run"). `--changed [ref]` runs only jsdom and chromium on vitest's module-graph diff against HEAD (uncommitted changes) or the ref, with `--passWithNoTests`: a one-line change to `utils/useRenderElement.tsx` selects 369 test files, an untouched tree none. `--full-bench` runs the measured benchmark instead of the gate's one-run check.
+- Generated-file suites fail when they change the paths they declare (`generated`), compared against those paths before the suite (local edits are not discarded); scoping keeps suites running beside them from being blamed on them.
+- One run per tree: a second `test:base-ui:all` is refused, naming the PID that holds `.tmp/base-ui-test-all/run.lock`; a crashed run's lock frees itself within seconds. Each run logs to its own `.tmp/base-ui-test-all/<stamp>/` folder (one `<suite>.log` per suite, parity reports beside them), `latest` points at the newest, and a failing row prints its log path.
+
+## Gate tiers
+
+User-approved 2026-10-16 for the perf rewrite (plan 3):
+
+| change | gate |
+| --- | --- |
+| phase 1 tooling (bench, scripts, context) | `bun run verify`, `bun run test:scripts`, a filtered smoke bench; one full table at plan leaf 1.15 |
+| library code (`packages/solid`) | `bun run verify` and the full `test:base-ui:all` table, whose benchmark is the one-run correctness check |
+| milestones (`b0`, each family end, the final gate) | the measured benchmark (`--full-bench`, `bench:component`) |
+
+The benchmark suite's gate form is `WARMUP=0 node test/perf-solid/run.mjs 1`: the same DOM summaries and known differences, without the 8-run timing (about 28 minutes in the measured form).
 
 ## Local setup
 
+- Load robustness (deferred): under heavy machine load (load average above 13 on 16 cores) the chromium suite has lost iframes with "Failed to fetch dynamically imported module" and "Cannot connect to the iframe ... unknown due to CORS" (vitest's orchestrator rejects an iframe whose navigation ended on Chrome's cross-origin error page). The named causes so far were concurrent runs in the same tree and files written into `packages/solid/src` mid-run (a new test file is collected and the module graph invalidated). Run audits and probes in a separate worktree. If it recurs without such a cause, capture Chrome's NetLog (`--log-net-log`) through the Playwright launch args to name the failing request's network error before changing timeouts or worker counts.
 - Other repos' gates on the same machine: suites that launch browsers or bind fixed ports (`chromium`, both parity suites, `e2e`, `regressions`, `screen-reader`, `docs-hydration`, `benchmark`) take an exclusive flock on the gate lock that flare's gates also take (`~/.cache/flare-gates/heavy.lock`, `GATES_LOCK` overrides it), and log when they wait for it. Ports fail instead of drifting. The fixed-port test servers use `scripts/serve-strict.mjs`, which binds 127.0.0.1 and ::1 on 5173 and exits naming the port when either is taken; `serve` 14 moves to a random port when 5173 is taken even with `--no-port-switching`, and the specs target `localhost:5173`, which either family can answer. The vitest browser server binds `127.0.0.1:63315` with `strictPort`; with only a port, Vite binds `localhost` beside a process holding the other address family, and the test iframe can load that process ("Cannot connect to the iframe ... unknown due to CORS", "Failed to fetch dynamically imported module"). A process outside any gate (a dev server on 5173) still fails these suites, now with a message naming the port.
 - Playwright browsers: CI installs them per job (`bunx playwright install --with-deps chromium` in the workflows), and nothing installs them locally. After `bun install` or any Playwright bump, run `bunx playwright install chromium firefox webkit` from `packages/base-ui`. `regressions` launches full Chromium (`~/.cache/ms-playwright/chromium-<rev>`), not only the headless shell; when that is missing it fails with "Executable doesn't exist" and the runner then throws `ENOENT` renaming `screenshots/chrome`.
 - `/tmp` quota: on this machine `/tmp` (and `/dev/shm`) is a tmpfs mounted with `usrquota`, and uid 1000 has a 12.18 GiB block limit shared by every process of the user, every Claude session included. Playwright writes its browser profiles and artifacts there. Near the limit, `chromium` dies about 30 files in, with `Unknown system error -122` (EDQUOT) on writes, `Failed to fetch dynamically imported module`, and `Cannot connect to the iframe`; the files pass when run alone. The disk itself has room, so `df` hides this. Read usage against the limit with the `quotactl_fd` syscall (no quota tools are installed), and delete stale test scratch in `/tmp` before a full run.
