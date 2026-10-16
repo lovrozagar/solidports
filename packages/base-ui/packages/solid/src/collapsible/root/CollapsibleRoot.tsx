@@ -101,11 +101,10 @@ function NativeCollapsibleRoot(props: CollapsibleRoot.Props) {
     },
   };
 
-  const contextValue: CollapsibleRootContext = {
-    ...collapsible,
-    onOpenChange,
-    state,
-  };
+  // The hook's own object becomes the context: no copy of its members per root.
+  const contextValue = collapsible as CollapsibleRootContext;
+  contextValue.onOpenChange = onOpenChange;
+  contextValue.state = state;
 
   return provideNativeContext(CollapsibleRootContext, contextValue, () =>
     renderNativeElement(DIV, props, {

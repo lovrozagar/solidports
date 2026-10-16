@@ -222,6 +222,100 @@ function readServerAttributes(el: Element): Map<string, string> {
   return attributes;
 }
 
+// The server writes one element's attributes at a time: one writer serves every element (saved and
+// restored around each write, in case a state getter renders).
+let serverTarget: Record<string, unknown> = {};
+let serverKeys: ReadonlySet<string> = new Set();
+const setServerAttribute: SetAttribute = (key, value) => {
+  if (value !== undefined && !serverKeys.has(key)) {
+    serverTarget[key] = value;
+  }
+};
+
+/** A literal the server renders as an attribute: no ref, handler or function. */
+const isServerAttribute = (key: string, value: unknown) =>
+  key !== 'ref' && typeof value !== 'function' && !isHandlerKey(key);
+
+/**
+ * `renderNativeElement` on the server: one pass with the same attributes as the client's first
+ * write, and no handlers, refs or effect. `ssrElement` prints the hydration key the client's
+ * compiled template claims.
+ */
+function renderServerElement<State extends object>(
+  element: Element | NativeElementTemplate,
+  props: object,
+  spec: NativeElementSpec<State>,
+): Element {
+  if (!isTemplate(element)) {
+    throw new Error(
+      'Base UI: a native part rendered on the server needs an element template ({ tag, create }), not an element. Pass a template so the server can render the tag.',
+    );
+  }
+  const source = props as Record<string, any>;
+  const consumer = classifyConsumerProps(props, spec.own);
+  const keys = consumer.keys;
+  const attributes: Record<string, unknown> = { ...element.attributes };
+  const partLiteral = spec.literal;
+  if (partLiteral) {
+    for (const key in partLiteral) {
+      if (!keys.has(key) && isServerAttribute(key, partLiteral[key])) {
+        attributes[key] = partLiteral[key];
+      }
+    }
+  }
+  const consumerLiteral = consumer.literal;
+  for (const key in consumerLiteral) {
+    if (isServerAttribute(key, consumerLiteral[key])) {
+      attributes[key] = consumerLiteral[key];
+    }
+  }
+
+  const state = spec.state;
+  const writeState =
+    state && spec.stateAttributes !== false
+      ? (spec.stateWriter ?? compileStateAttributes(state, spec.mapping))
+      : undefined;
+  const previousTarget = serverTarget;
+  const previousKeys = serverKeys;
+  serverTarget = attributes;
+  serverKeys = keys;
+  try {
+    writeState?.(state!, setServerAttribute);
+    spec.attributes?.(setServerAttribute);
+  } finally {
+    serverTarget = previousTarget;
+    serverKeys = previousKeys;
+  }
+  readReactiveProps(props, consumer.reactive, attributes);
+  if ('class' in props) {
+    const value = resolveClass(source.class, state);
+    if (value !== undefined) {
+      attributes.class = value;
+    }
+  }
+  const styleOverride = spec.styleOverride;
+  const partStyle = spec.partStyle;
+  const hasStyle = 'style' in props;
+  if (hasStyle || styleOverride || partStyle) {
+    let value = hasStyle ? resolveStyle(source.style, state, partStyle?.()) : partStyle?.();
+    const override = styleOverride?.();
+    if (override) {
+      value = value ? combineStyle(value, override) : override;
+    }
+    if (value !== undefined) {
+      attributes.style = value;
+    }
+  }
+
+  let children: unknown;
+  if (spec.children) {
+    children = spec.children;
+  } else if (spec.consumerChildren !== false && 'children' in props) {
+    children = isStatic(props, 'children') ? source.children : () => source.children;
+  }
+  return ssrElement(element.tag, attributes, children as never, true) as unknown as Element;
+}
+
 /**
  * Renders `el` as the part's element for `props`: the consumer's literal keys and the handler
  * dispatchers once, the part's and the reactive keys from one effect (none when nothing can
@@ -232,11 +326,21 @@ export function renderNativeElement<State extends object>(
   props: object,
   spec: NativeElementSpec<State>,
 ): Element {
+  // Separate functions: the client's writers live in a closure context that V8 allocates on entry.
+  return isServer
+    ? renderServerElement(element, props, spec)
+    : renderClientElement(element, props, spec);
+}
+
+function renderClientElement<State extends object>(
+  element: Element | NativeElementTemplate,
+  props: object,
+  spec: NativeElementSpec<State>,
+): Element {
   // The body runs untracked (`createComponent`): reads here subscribe to nothing.
   const owner = getOwner();
   const source = props as Record<string, any>;
-  // The server renders no handlers: nothing to compose.
-  const wrap = isServer ? undefined : spec.wrapHandler;
+  const wrap = spec.wrapHandler;
   const consumer = classifyConsumerProps(props, spec.own, wrap);
   const keys = consumer.keys;
 
@@ -316,30 +420,6 @@ export function renderNativeElement<State extends object>(
   };
 
   const consumerChildren = spec.consumerChildren !== false && 'children' in props;
-
-  if (isServer) {
-    // One pass, as the client's first write: the same attributes, no handlers, refs or effect.
-    // `ssrElement` prints the hydration key the client's compiled template claims.
-    if (!isTemplate(element)) {
-      throw new Error(
-        'Base UI: a native part rendered on the server needs an element template ({ tag, create }), not an element. Pass a template so the server can render the tag.',
-      );
-    }
-    const attributes: Record<string, unknown> = { ...element.attributes };
-    for (const key in literal) {
-      if (key !== 'ref' && typeof literal[key] !== 'function' && !isHandlerKey(key)) {
-        attributes[key] = literal[key];
-      }
-    }
-    write(attributes, false);
-    let children: unknown;
-    if (spec.children) {
-      children = spec.children;
-    } else if (consumerChildren) {
-      children = isStatic(props, 'children') ? source.children : () => source.children;
-    }
-    return ssrElement(element.tag, attributes, children as never, true) as unknown as Element;
-  }
 
   const el = isTemplate(element) ? element.create() : element;
   const hydrating = isHydrating();

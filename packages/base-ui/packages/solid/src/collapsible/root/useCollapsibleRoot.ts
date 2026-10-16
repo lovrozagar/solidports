@@ -27,6 +27,7 @@ export function useCollapsibleRoot(
         name: 'Collapsible',
         state: 'open',
         staticInputs: parameters.staticOpen,
+        direct: true,
       });
 
   // A root that starts closed has no transition until it first opens: its status machinery (two

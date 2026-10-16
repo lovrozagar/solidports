@@ -26,6 +26,11 @@ export interface UseControlledProps<T = unknown> {
    * first render. The dev checks only report changes, so they are skipped and cost no node.
    */
   staticInputs?: boolean | undefined;
+  /**
+   * Solid: read a controlled value straight from `controlled` instead of through a memo. For a
+   * value that is cheap to read (a prop), the memo is a node per part that saves nothing.
+   */
+  direct?: boolean | undefined;
 }
 
 export type ControlledSetter<T> = (newValue: T | ((prevValue: T) => T)) => void;
@@ -59,11 +64,12 @@ export function useControlled<T = unknown>(
   // Keep the initial mode, but use the initial default if a controlled value disappears. A
   // controlled value goes through one memo (a derived value, such as a group's membership, then
   // reaches readers only when it changes); an uncontrolled one is the signal itself.
+  const readControlled = () => {
+    const controlled = controlledProp();
+    return controlled !== undefined ? controlled : valueState();
+  };
   const committedValue: Accessor<T> = isControlled
-    ? (createMemo(() => {
-        const controlled = controlledProp();
-        return controlled !== undefined ? controlled : valueState();
-      }) as Accessor<T>)
+    ? ((props.direct ? readControlled : createMemo(readControlled)) as Accessor<T>)
     : (valueState as Accessor<T>);
 
   // Solid applies writes at the next flush. Untracked reads (event handlers, effect callbacks)
