@@ -9,6 +9,7 @@ import { Collapsible } from '@solidports/base-ui/collapsible';
 import { createRenderer } from '#test-utils';
 import { renderServer } from '../../../test/ssrFixtures';
 import accordionFixtures from '../../accordion/root/AccordionRoot.ssr-fixtures';
+import fixtures from './CollapsibleRoot.ssr-fixtures';
 
 describe('<Collapsible.Root /> after hydration', () => {
   const { render } = createRenderer();
@@ -27,5 +28,23 @@ describe('<Collapsible.Root /> after hydration', () => {
     ));
 
     expect(screen.getByRole('button', { name: 'Client trigger' })).toBeInTheDocument();
+  });
+});
+
+describe('<Collapsible.Root /> hydration', () => {
+  it('renders the client state when it changes while hydrating', async () => {
+    const { hydrate } = renderServer(fixtures, 'openedDuringHydration');
+    const root = screen.getByTestId('root');
+    expect(root).toHaveAttribute('data-closed');
+    hydrate();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    });
+    expect(root).toHaveAttribute('data-open');
+    expect(root).not.toHaveAttribute('data-closed');
+    expect(screen.getByRole('button', { name: 'Toggle' })).toHaveAttribute('data-panel-open');
   });
 });
