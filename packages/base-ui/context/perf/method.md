@@ -1,6 +1,6 @@
 ---
 tags: [perf, benchmark, ssr, cost]
-sources: [packages/base-ui/test/perf-solid/run.mjs, packages/base-ui/test/perf-solid/shared/manifest.ts, packages/base-ui/test/perf-solid/shared/step.ts, scripts/base-ui-perf-manifest.test.ts, scripts/base-ui-perf-step.test.ts, packages/base-ui/test/perf-solid/shared/harness.ts, packages/base-ui/test/perf-solid/shared/scenarios, packages/base-ui/test/perf-solid/known-differences.json, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/test/perf-solid/profile.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
+sources: [packages/base-ui/test/perf-solid/run.mjs, packages/base-ui/test/perf-solid/shared/manifest.ts, packages/base-ui/test/perf-solid/shared/step.ts, packages/base-ui/test/perf-solid/shared/filter.mjs, packages/base-ui/test/perf-solid/ssr/cases.ts, scripts/base-ui-perf-manifest.test.ts, scripts/base-ui-perf-filter.test.ts, scripts/base-ui-perf-step.test.ts, packages/base-ui/test/perf-solid/shared/harness.ts, packages/base-ui/test/perf-solid/shared/scenarios, packages/base-ui/test/perf-solid/known-differences.json, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/test/perf-solid/profile.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
 verified: 2026-10-16
 ---
 
@@ -21,7 +21,7 @@ Every scenario declares `components` (primary first; the id prefix names it, exc
 
 The spec for the tooling phase 1 builds. Each item moves into the sections below when it lands.
 
-- Component-scoped run: `bun run bench:component <name>[,...]` builds once, then runs the scenarios whose `components` include a name, that component's SSR fixtures (`ssr/run.mjs` takes the same filter as `run.mjs`) and its cost tests. It writes one report (md plus json) to the gitignored results folder.
+- Component-scoped run: `bun run bench:component <name>[,...]` builds once, then runs the scenarios whose `components` include a name, that component's SSR cases (through the shared filter) and its cost tests. It writes one report (md plus json) to the gitignored results folder.
 - Baseline and compare: `--save-baseline <label>` stores the SHA, the build hash and the results. `--compare <label>` builds the baseline SHA from a worktree copy through `SOLID_SRC` and runs it interleaved with the working tree and React in one session. A step regresses when its ratio is worse than the baseline's by more than the p90 spread of both sides.
 - Engines: `ENGINE=chromium|firefox|webkit` in `run.mjs`. Outside Chromium only `sync` and `paint` exist (`performance.now`), and the CDP columns are marked absent. `--remote mac` serves the builds on 0.0.0.0 and drives real Safari over `ssh mac`. Chromium gates every iteration; the other engines run at family milestones. Never mix machines in one ratio.
 - Floor: a hand-written Solid `floor/` app per pilot component runs as a third `VARIANTS` entry, so every report shows React, the port and the floor.
@@ -36,7 +36,10 @@ Identical scenarios mounted by `@base-ui/react` (`react/`) and `@solidports/base
 bun run bench:solid:build              # both production builds
 bun run bench:solid                    # 8 measured runs, every scenario
 node test/perf-solid/run.mjs 8 select,menu   # scenario id prefixes
+node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 ```
+
+- Filter (`shared/filter.mjs`, the same for `run.mjs` and `ssr/run.mjs`): comma-separated terms, each an id prefix, `component:<name>` (any declared component, not only the id prefix) or `tag:<tag>`. Positive terms are OR'd; `!` excludes; exclusions alone start from everything. An unknown term kind throws, and a filter that matches nothing exits 1.
 
 - Scenarios: `shared/scenarios/*.ts`, one file per component (32 files plus `index.ts`), 77 scenarios and 387 steps in CI. Each `Scenario` has `id`, `fixture`, `components`, `tags`, `steps`, optional `verifyMount`; `mount` and `unmount` steps are added and timed automatically (`shared/harness.ts`).
 - Env: `VARIANTS=name:lib:dir,...` (A/B of several builds), `THROTTLE=4` (CPU throttling), `SIZE=large` (5x fixture sizes), `WARMUP` (default 2). Build env: `SOLID_SRC=<abs path>` builds the Solid app from a copy of the source, `OUT=<dir>`, `MINIFY=0`, `BENCH_DEV=1` (dev runtime).
@@ -72,10 +75,10 @@ node test/perf-solid/run.mjs 8 select,menu   # scenario id prefixes
 
 ## SSR bench (`test/perf-solid/ssr/run.mjs`)
 
-`bun run bench:solid:ssr [runs=20]` from `packages/base-ui`. Not in CI.
+`bun run bench:solid:ssr [runs=20] [filter,...]` from `packages/base-ui`, with the same filter as the Chromium benchmark. Not in CI.
 
 - Builds a server bundle per library (`vite build --ssr`; framework packages external so Node loads their server builds) and a hydratable client bundle. `NO_BUILD=1` reuses builds; `SERVER_ONLY=1` skips Chromium.
-- Fixtures (`ssr/<lib>/fixtures.tsx`): select/1000, checkbox/1000, dialog/page, form/50, accordion/300, tabs/200.
+- Cases (`ssr/cases.ts`): accordion/300, checkbox/1000, dialog/page, form/50, select/1000, tabs/200, each with `components` and `tags` (always `ssr` and `hydrate`) from the scenario manifest. Each library registers them in `ssr/<lib>/fixtures/<component>.tsx`, one file per primary component, collected by `fixtures/index.ts`. The server bundles export the case list, and the runner exits 1 when either library registers a different id set. The manifest test checks the cases and the per-file registrations.
 - Server ms: median of `render(key)` in Node after 3 warmups. HTML bytes are reported.
 - Hydration: a fresh Chromium page per run; `__hydrate` returns its synchronous time, then two frames settle; script ms is the `ScriptDuration` change.
 - React's `hydrateRoot` schedules its work, so React's sync column (about 0.9 ms) excludes most of it. Solid hydrates synchronously and its script column reads lower than its sync column, so cross-library hydration numbers are not settled; compare server ms, and compare hydration only Solid-to-Solid.

@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { hydrateRoot } from 'react-dom/client';
-import { ssrFixtures } from './fixtures';
+import { ssrFixtures } from './fixtures/index';
 
 (window as unknown as { __hydrate: (key: string) => number }).__hydrate = (key) => {
   const Fixture = ssrFixtures[key];

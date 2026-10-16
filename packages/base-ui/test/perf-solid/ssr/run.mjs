@@ -1,9 +1,10 @@
 // Server render + hydration benchmark, React (@base-ui/react) vs Solid (@solidports/base-ui), on
-// identical fixtures (`<lib>/fixtures.tsx`). Production builds: a server bundle per library
-// (`vite build --ssr`, framework packages external so Node resolves their server builds) and a
-// hydratable client bundle per library.
+// identical fixtures (cases in `cases.ts`, registered by `<lib>/fixtures/<component>.tsx`).
+// Production builds: a server bundle per library (`vite build --ssr`, framework packages external
+// so Node resolves their server builds) and a hydratable client bundle per library.
 //
-// Usage (from packages/base-ui): node test/perf-solid/ssr/run.mjs [runs=20]
+// Usage (from packages/base-ui): node test/perf-solid/ssr/run.mjs [runs=20] [filter,...]
+//   filter: as `../run.mjs`, terms from `../shared/filter.mjs` (id prefix, component:, tag:, !)
 // Env: NO_BUILD=1 reuses the last builds; SERVER_ONLY=1 skips the browser (hydration) part.
 // Results: <repo>/.tmp/grunt/bench-results/ssr-<timestamp>.{md,json}. Exit 1 when hydration
 // logs a mismatch or the hydrated DOM summaries differ between libraries.
@@ -14,6 +15,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import react from '@vitejs/plugin-react';
 import solid from '@solidjs/vite-plugin';
 import { build } from 'vite';
+import { matchesFilter, parseFilter } from '../shared/filter.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packages = path.resolve(here, '../../../packages');
@@ -21,6 +23,7 @@ const repo = path.resolve(here, '../../../../..');
 const builds = path.join(repo, '.tmp/grunt/bench-builds');
 const resultsDir = path.join(repo, '.tmp/grunt/bench-results');
 const RUNS = Number(process.argv[2] ?? 20);
+const FILTER = parseFilter(process.argv[3]);
 const WARMUP = 3;
 const LIBS = ['react', 'solid'];
 
@@ -77,7 +80,20 @@ for (const lib of LIBS) {
   const entry = path.join(builds, `ssr-${lib}`, 'server', 'entry-server.mjs');
   server[lib] = await import(pathToFileURL(entry).href);
 }
-const keys = server.react.keys.filter((key) => server.solid.keys.includes(key));
+// Every case is registered by both libraries, and nothing else is: a drift fails the run.
+const caseIds = server.react.cases.map((c) => c.id).sort();
+for (const lib of LIBS) {
+  const registered = [...server[lib].keys].sort();
+  if (JSON.stringify(registered) !== JSON.stringify(caseIds)) {
+    console.error(`${lib} registers ${registered.join(', ')}; cases are ${caseIds.join(', ')}`);
+    process.exit(1);
+  }
+}
+const keys = server.react.cases.filter((c) => matchesFilter(c, FILTER)).map((c) => c.id);
+if (keys.length === 0) {
+  console.error(`No SSR case matches "${process.argv[3]}"; cases: ${caseIds.join(', ')}`);
+  process.exit(1);
+}
 const results = {};
 const htmlByLib = {};
 for (const key of keys) {
@@ -208,7 +224,7 @@ const ratio = (a, b) => (a && b != null ? `${(b / a).toFixed(2)}x` : '-');
 const lines = [
   `# Base UI SSR bench ${new Date().toISOString()}`,
   '',
-  `runs ${RUNS} · warmup ${WARMUP} · production builds`,
+  `runs ${RUNS} · warmup ${WARMUP} · production builds${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
   '',
   '| fixture | server ms R / S | ratio | HTML bytes R / S | hydrate sync ms R / S | ratio | hydrate script ms R / S | ratio |',
   '|---|---|---|---|---|---|---|---|',

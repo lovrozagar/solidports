@@ -36,6 +36,8 @@ export function installHarness(lib: Lib) {
     list: () =>
       scenarios.map((scenario) => ({
         id: scenario.id,
+        components: scenario.components,
+        tags: scenario.tags,
         steps: allSteps(scenario).map((step) => step.name),
       })),
     async step(id: string, index: number): Promise<StepResult> {
