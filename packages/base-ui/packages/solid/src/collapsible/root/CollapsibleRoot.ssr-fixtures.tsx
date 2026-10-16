@@ -1,4 +1,5 @@
 import { createSignal, merge } from 'solid-js';
+import { isServer } from '@solidjs/web';
 import { Collapsible } from '@solidports/base-ui/collapsible';
 import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
 
@@ -69,6 +70,26 @@ export default defineSsrFixtures(import.meta.url, {
         <Collapsible.Trigger>Toggle</Collapsible.Trigger>
         <Collapsible.Panel id={id()}>Content</Collapsible.Panel>
       </Collapsible.Root>
+    );
+  },
+  openedDuringHydration: () => {
+    // The server renders the root closed; the client opens it while hydrating (from a later
+    // element's ref, which runs inside `hydrate()`), when Solid skips attribute writes. The
+    // parts must end up with the open attributes.
+    const [open, setOpen] = createSignal(false);
+    return (
+      <>
+        <Collapsible.Root open={open()} data-testid="root">
+          <Collapsible.Trigger>Toggle</Collapsible.Trigger>
+        </Collapsible.Root>
+        <span
+          ref={() => {
+            if (!isServer) {
+              setOpen(true);
+            }
+          }}
+        />
+      </>
     );
   },
   mixedTree: () => (

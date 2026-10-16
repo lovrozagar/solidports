@@ -19,6 +19,7 @@ import { assign, insert, isServer, ssrElement } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
+import { warn } from '../warn';
 import {
   applyRefs,
   attachNativeAttributes,
@@ -218,15 +219,47 @@ function applyPartRefs(el: Element, refs: readonly unknown[]): boolean {
   return true;
 }
 
-/** An element's attributes as the server rendered them (hydration keys aside). */
-function readServerAttributes(el: Element): Map<string, string> {
-  const attributes = new Map<string, string>();
-  for (const name of el.getAttributeNames()) {
-    if (name !== '_hk' && name !== 'data-hk') {
-      attributes.set(name, el.getAttribute(name)!);
+/** The keys of a write that are element attributes: no refs, children, handlers or functions. */
+function attributesOf(written: Record<string, unknown>): Record<string, unknown> {
+  const attributes: Record<string, unknown> = {};
+  for (const key in written) {
+    if (
+      key !== 'ref' &&
+      key !== 'children' &&
+      !isHandlerKey(key) &&
+      typeof written[key] !== 'function'
+    ) {
+      attributes[key] = written[key];
     }
   }
   return attributes;
+}
+
+/**
+ * Dev only: the attributes a hydrated element holds (the server's markup) against the ones the
+ * client's first write expected it to hold. A difference means the two sides computed the part's
+ * attributes from different inputs, which the post-hydration diff would not see.
+ */
+function checkHydratedAttributes(el: Element, ...expected: Record<string, unknown>[]) {
+  const rendered = new Set<string>();
+  for (const attributes of expected) {
+    for (const key of Object.keys(attributes)) {
+      const value = attributes[key];
+      if (value != null && value !== false) {
+        rendered.add(key.toLowerCase());
+      }
+    }
+  }
+  const server = el.getAttributeNames().filter((name) => name !== '_hk' && name !== 'data-hk');
+  const extra = server.filter((name) => !rendered.has(name));
+  const missing = [...rendered].filter((name) => !el.hasAttribute(name));
+  if (extra.length > 0 || missing.length > 0) {
+    warn(
+      `The server rendered <${el.localName}> with attributes the hydrating client did not compute (server only: ${extra.join(', ') || 'none'}; client only: ${missing.join(', ') || 'none'}).`,
+      'Hydration keeps the server markup and corrects only what changes after it, so these stay wrong.',
+      'Render the part from the same props and state on the server and the client.',
+    );
+  }
 }
 
 /** The part's state for consumer functions, created on first use from a factory and kept. */
@@ -455,12 +488,24 @@ function renderClientElement<State extends object>(
 
   const el = isTemplate(element) ? element.create() : element;
   const hydrating = isHydrating();
-  // The server's attributes as claimed, to remove the ones the client no longer renders once
-  // hydration is over (see the reconcile below).
-  const serverAttributes = hydrating ? readServerAttributes(el) : undefined;
+  // While hydrating, the first write stands for what the server rendered: the same writer on the
+  // same inputs. The reconcile below diffs against it instead of reading the element back. The
+  // literal attributes are written once, outside the effect, and the template's own attributes
+  // are never written (the compiled element carries them).
+  let hydratedWrite: Record<string, unknown> | undefined;
+  const takeHydratedWrite = (write: Record<string, unknown>) => {
+    hydratedWrite = { ...attributesOf(literal), ...attributesOf(write) };
+    if (process.env.NODE_ENV !== 'production') {
+      // Now, while the element still holds the server markup.
+      checkHydratedAttributes(el, isTemplate(element) ? (element.attributes ?? {}) : {}, hydratedWrite);
+    }
+  };
 
   if (!needsEffect) {
     write(literal, false);
+    if (hydrating) {
+      takeHydratedWrite({});
+    }
   }
   attachNativeAttributes(el, literal, undefined, owner);
   const previous: Record<string, unknown> = {};
@@ -475,6 +520,9 @@ function renderClientElement<State extends object>(
       createRenderEffect(
         () => write({}, true),
         (next) => {
+          if (hydrating && hydratedWrite === undefined) {
+            takeHydratedWrite(next);
+          }
           const style = next.style;
           if (typeof style === 'string' && style === previous.style) {
             delete next.style;
@@ -490,12 +538,12 @@ function renderClientElement<State extends object>(
     );
   }
 
-  if (serverAttributes) {
+  if (hydrating) {
     // Solid skips attribute writes for the whole synchronous `hydrate()` call (it trusts the server
-    // markup) but records them as applied, so a value that differs from the server's, or changed
-    // inside that call, would be lost. A microtask runs once `hydrate()` has returned: re-apply the
-    // current attributes then, and remove server attributes the client no longer renders (only
-    // those still holding their server value). Handlers attached during hydration stay.
+    // markup) but records them as applied, so a value that changed inside that call would be lost.
+    // A microtask runs once `hydrate()` has returned: diff the current attributes against the
+    // first write (what the element holds) and write only the difference. Handlers attached
+    // during hydration stay.
     let disposed = false;
     void onCleanup(() => {
       disposed = true;
@@ -504,26 +552,10 @@ function renderClientElement<State extends object>(
       if (disposed) {
         return;
       }
-      const all = untrack(() => (needsEffect ? write({}, true) : literal));
-      const current: Record<string, unknown> = {};
-      for (const key in all) {
-        if (
-          key !== 'ref' &&
-          key !== 'children' &&
-          !isHandlerKey(key) &&
-          typeof all[key] !== 'function'
-        ) {
-          current[key] = all[key];
-        }
-      }
-      const rendered = new Set(Object.keys(current).map((key) => key.toLowerCase()));
-      const stale: Record<string, unknown> = {};
-      for (const [name, value] of serverAttributes) {
-        if (!rendered.has(name) && el.getAttribute(name) === value) {
-          stale[name] = value;
-        }
-      }
-      assign(el, current, true, stale, true);
+      const current = needsEffect
+        ? { ...attributesOf(literal), ...attributesOf(untrack(() => write({}, true))) }
+        : attributesOf(literal);
+      assign(el, current, true, hydratedWrite!, true);
       Object.assign(previous, current);
     });
   }
