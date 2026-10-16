@@ -143,6 +143,15 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   collapsible: [
     'native disclosure part cost > a closed Collapsible (Root + Trigger + Panel) costs at most 12 nodes (dev)',
     'native disclosure part cost > an open Collapsible (Root + Trigger + rendered Panel) costs at most 18 nodes (dev)',
+
+    'collapsible cost against the hand-written floor > the floor renders the same DOM as Collapsible, closed and open',
+    'collapsible cost against the hand-written floor > Root costs at most 3 nodes: dev root, context owner, one grouped effect',
+    'collapsible cost against the hand-written floor > Trigger costs at most 2 nodes: dev root, one grouped effect',
+    'collapsible cost against the hand-written floor > a closed Panel costs at most 1 node: its dev root',
+    'collapsible cost against the hand-written floor > Root costs no more than the floor root',
+    'collapsible cost against the hand-written floor > Trigger costs no more than the floor trigger',
+    'collapsible cost against the hand-written floor > a closed Panel costs no more than the floor closed panel (no transition machinery)',
+    'collapsible cost against the hand-written floor > an open Collapsible costs no more than the open floor',
   ],
   combobox: [closedRoot('Combobox')],
   'context-menu': [closedRoot('ContextMenu')],
