@@ -79,6 +79,8 @@ export default mergeConfig(
         resolve(__dirname, 'test/disableAutoCleanup.ts'),
         resolve(__dirname, 'test/setupSolid.ts'),
       ],
+      // The only browser project in its run: a taken port fails it rather than moving it.
+      browser: { api: { strictPort: true } },
       // TODO: Remove this once we have solved the PopoverPopup test timeout issue.
       // testTimeout: 500,
       server: {

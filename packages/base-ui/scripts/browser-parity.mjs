@@ -9,6 +9,10 @@
 // passes it in one (or upstream has no such test); the others are listed as flaky. Only confirmed
 // failures fail the check, so one-off browser timing in either suite does not.
 //
+// Each report must cover its suite: every test file on disk under its source folder ran at least
+// one test (passed, failed or skipped). A run that never started, or a file that failed to load,
+// fails the check on its own, so it can neither pass nor pass for Solid-only failures.
+//
 // Usage: node scripts/browser-parity.mjs <react-report.json> <solid-report.json> [--confirm <browser>]
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -38,6 +42,23 @@ function results(reportPath, sourceRoot) {
   return tests;
 }
 
+/** The test files on disk under `dir` (relative to it) that `reportPath` ran no test in. */
+function unrunFiles(reportPath, dir) {
+  const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+  const ran = new Set();
+  for (const file of report.testResults) {
+    const index = file.name.indexOf(`${dir}/`);
+    if (index !== -1 && file.assertionResults.length > 0) {
+      ran.add(file.name.slice(index + dir.length + 1));
+    }
+  }
+  const onDisk = fs
+    .readdirSync(dir, { recursive: true })
+    .map(String)
+    .filter((file) => /\.test\.tsx?$/.test(file));
+  return { total: onDisk.length, missing: onDisk.filter((file) => !ran.has(file)).sort() };
+}
+
 /** Runs one suite's test files again with a JSON report; returns the parsed results. */
 function rerun(script, files, sourceRoot) {
   const outputFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'parity-')), 'report.json');
@@ -61,6 +82,22 @@ if (!reactPath || !solidPath || (confirmIndex !== -1 && !browser)) {
     'Usage: node scripts/browser-parity.mjs <react-report.json> <solid-report.json> [--confirm <browser>]',
   );
   process.exit(2);
+}
+
+for (const [suite, reportPath, dir] of [
+  ['upstream', reactPath, 'packages/react/src'],
+  ['Solid', solidPath, 'packages/solid/src'],
+]) {
+  const { total, missing } = unrunFiles(reportPath, dir);
+  if (missing.length > 0) {
+    console.error(
+      `${suite} ran tests in ${total - missing.length} of ${total} test files under ${dir}; the run is incomplete, so the comparison would be meaningless. Files without a test result:\n${missing
+        .slice(0, 20)
+        .map((file) => `  ${file}`)
+        .join('\n')}${missing.length > 20 ? `\n  … and ${missing.length - 20} more` : ''}`,
+    );
+    process.exit(1);
+  }
 }
 
 const react = results(reactPath, 'packages/react/src/');
