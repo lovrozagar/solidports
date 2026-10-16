@@ -1,7 +1,7 @@
 ---
 tags: [lint, format, eslint, oxlint]
 sources: [packages/base-ui/eslint.config.mjs, packages/base-ui/packages/solid/eslint.config.mjs, packages/base-ui/docs/solid/eslint.config.mjs, packages/base-ui/scripts/eslint/testRules.mjs, packages/base-ui/prettier.config.mjs, packages/base-ui/stylelint.config.mjs, packages/base-ui/.vale.ini, .oxlintrc.json, oxlint.base.json, .oxfmtrc.jsonc]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Lint and format
@@ -35,7 +35,7 @@ The Solid-side `no-restricted-imports` root pattern targets `@base-ui/react/...`
 - `oxlint.base.json` (managed by `~/Development/standards`): plugins `typescript`, `unicorn`, `oxc`; `correctness` error, `suspicious` warn.
 - `.oxlintrc.json` (repo-owned): extends the base, ignores `packages/base-ui/**` and `packages/recharts/**`. Root `lint` is `oxlint --config .oxlintrc.json scripts`.
 - `.oxfmtrc.jsonc` (managed): tabs, `printWidth` 120, `semi: false`, double quotes; ignores `packages/base-ui/**`, `packages/recharts/**`.
-- oxlint 1.88.0 and oxfmt 0.73.0 (root `devDependencies`). lefthook pre-commit runs `oxlint --fix`, `oxfmt` and their checks on staged files; Base UI files fall under the ignores. See [standards](standards.md).
+- oxlint 1.88.0 and oxfmt 0.73.0 (root `devDependencies`). lefthook pre-commit runs `oxlint --fix`, `oxfmt` and their checks on staged files; Base UI files fall under the ignores, and the `base-ui-eslint` job lints the staged Base UI Solid files with ESLint instead. See [standards](standards.md).
 
 ## Direction: oxlint for the Solid tree
 

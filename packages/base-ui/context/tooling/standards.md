@@ -1,7 +1,7 @@
 ---
 tags: [standards, gates, hooks, tdd]
 sources: [scripts/verify.ts, scripts/pre-push.ts, scripts/standards-check.ts, lefthook.yml, lefthook.base.yml, oxlint.base.json, .oxlintrc.json, .oxfmtrc.jsonc, package.json]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Standards
@@ -19,7 +19,7 @@ The rules themselves live in `.claude/rules/standards.md` (TDD, gates, managed f
 | Whole file | `.oxfmtrc.jsonc` (now `semi: false`) |
 | `package.json` keys | the `scripts`, `devDependencies` and `standards` entries sync sets; `standards` is `{ repo: "solidports", gates: ["test:scripts", "test:solid-table"] }` |
 
-Repo-owned: `lefthook.yml` (extends `lefthook.base.yml`, adds no jobs today), `.oxlintrc.json`, and the root `lint/` plugin (planned, see [lint and format](lint-and-format.md)). Base UI's ESLint, Prettier, stylelint, Vale and markdownlint configs are upstream's and outside standards.
+Repo-owned: `lefthook.yml` (extends `lefthook.base.yml` and adds the `base-ui-eslint` pre-commit job), `.oxlintrc.json`, and the root `lint/` plugin (planned, see [lint and format](lint-and-format.md)). Base UI's ESLint, Prettier, stylelint, Vale and markdownlint configs are upstream's and outside standards.
 
 ## Gates
 
@@ -38,7 +38,7 @@ None of these run Base UI's tests or its ESLint. For Base UI changes, run `bun
 
 ## Hooks (lefthook)
 
-- pre-commit, on staged files: `oxlint --fix` and `oxfmt` (restaged), then `oxfmt --check`, `oxlint`, and the full `bun run typecheck`.
+- pre-commit, on staged files: `oxlint --fix` and `oxfmt` (restaged), then `oxfmt --check`, `oxlint`, and the full `bun run typecheck`. This repo adds `base-ui-eslint`: Base UI's ESLint on the staged `packages/base-ui/{packages,docs}/solid` files, which the oxlint jobs skip.
 - commit-msg: commitlint (Conventional Commits, `.commitlintrc.json`).
 - pre-push: `fmt:check` and `lint` on the whole tree, `scripts/standards-check.ts`, then `scripts/pre-push.ts`, which refuses any pushed commit without a verify stamp.
 
