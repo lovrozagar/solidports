@@ -34,7 +34,7 @@ const OWN_KEYS: ReadonlySet<string> = new Set([
  * Documentation: [Base UI Tabs](https://base-ui.com/react/components/tabs)
  */
 export function TabsRoot(componentProps: TabsRoot.Props): JSX.Element {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX and the root context on one owner; the panel list stays `CompositeList`.
   if (canRenderNative(componentProps)) {
     const root = createTabsRoot(componentProps);

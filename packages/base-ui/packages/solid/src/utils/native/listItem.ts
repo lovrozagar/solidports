@@ -1,5 +1,5 @@
 /*
- * Composite list registration for native parts (plan 8 step 3.2): `useCompositeListItem` for an
+ * Composite list registration for native parts: `useCompositeListItem` for an
  * item with an automatic index, no label and no text ref. The registration data is read once when
  * it is static; a reactive metadata accessor re-registers from one effect. One signal (the index)
  * instead of the hook's signal + effect + render effect; the list sees the same registrations in

@@ -140,7 +140,7 @@ describe('popup parts do not rebuild their props on open and close', () => {
       ]);
     }
     // Triggers ending in a button prop getter rebuild at most once per change (the getter's
-    // memo re-runs when a handler source changes; plan 7 step 3.4 removes it).
+    // memo re-runs when a handler source changes).
     for (const name of ['DialogTrigger', 'ComboboxTrigger']) {
       expect(delta(name, mounted, opened)).toBeLessThanOrEqual(1);
       expect(delta(name, opened, counts)).toBeLessThanOrEqual(1);

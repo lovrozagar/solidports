@@ -35,7 +35,7 @@ const OWN_KEYS: ReadonlySet<string> = new Set([
  * Documentation: [Base UI Button](https://base-ui.com/react/components/button)
  */
 export function Button(componentProps: Button.Props) {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a native `<button>` outside a
+  // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` outside a
   // composite root, rendered with direct JSX. Everything else (a `render` prop, spread props, a
   // composite item, a non-native button, the server and hydration) keeps `useRenderElement`.
   if (

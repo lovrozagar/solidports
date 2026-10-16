@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
- * Parity (plan 8 step 3.1): `Checkbox.Root` rendered through its Solid-native fast path and through
+ * Parity: `Checkbox.Root` rendered through its Solid-native fast path and through
  * the `useRenderElement` slow path (`render="span"`, the same tag) must produce identical DOM for
  * the root, the hidden input and the indicator, the same handler order and the same Field wiring.
  */

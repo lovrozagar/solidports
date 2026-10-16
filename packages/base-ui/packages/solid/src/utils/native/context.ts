@@ -1,5 +1,5 @@
 /*
- * Context provision for native parts (plan 8 step 3.2). A `<Provider>` costs a root, a lazy
+ * Context provision for native parts. A `<Provider>` costs a root, a lazy
  * children memo and (through `provideContext`) a keep-alive render effect per part; a native part
  * provides its context on one plain owner instead and renders its children under it. Client only:
  * the server and hydration renders keep `provideContext` (same owners as the server).

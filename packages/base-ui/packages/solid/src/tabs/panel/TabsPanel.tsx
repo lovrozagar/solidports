@@ -40,7 +40,7 @@ const TABPANEL: Record<string, unknown> = { role: 'tabpanel' };
  * Documentation: [Base UI Tabs](https://base-ui.com/react/components/tabs)
  */
 export function TabsPanel(componentProps: TabsPanel.Props): JSX.Element {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; a hidden panel creates its transition, completion and registration machinery when it
   // first renders.
   if (canRenderNative(componentProps)) {

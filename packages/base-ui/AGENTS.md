@@ -13,7 +13,7 @@ packages/utils/     @base-ui/utils snapshot — same
 packages/solid/     @solidports/base-ui — only living library
 docs/react/         mui/base-ui `docs/` at the same tag — snapshot
 docs/solid/         Solid docs app, generated from docs/react by scripts/docs
-.kb/                maintainer/agent notes for the Solid port
+context/            agent context for the port (start at context/INDEX.md)
 ```
 
 Snapshot in, Solid out. Do not rewrite `packages/react`, `packages/utils`, or
@@ -60,11 +60,25 @@ bun run test:solid:chromium NumberField --no-watch
 From the monorepo root: `bun run fmt`, `bun run lint`, `bun run typecheck`,
 `bun run test:base-ui`.
 
+## Context
+
+`context/INDEX.md` maps the agent context for this fork: architecture, Solid notes, testing,
+perf, tooling, workflows, components and decisions, one topic per file. Read the map once; when a
+row matches the work, read that file in full before changing code.
+
+- Each file has frontmatter: `tags`, `sources` (the repo paths it describes, which must exist)
+  and `verified` (the date it was last checked against the code). Update `verified` when you
+  re-check a file, and fix the file when the code it describes changes.
+- After adding or editing a file, run `bun scripts/context-map.ts` from the monorepo root to
+  rewrite `INDEX.md`. `bun run test:scripts` fails on a stale map, a missing source path or a
+  broken link.
+- Record decisions in `context/decisions/log.md` as new dated entries; never edit old ones.
+
 ## Solid
 
 Follow the monorepo root `AGENTS.md` reactivity rules (no prop destructure,
 `createMemo` for derived values, `createEffect(compute, apply)` or
-`createTrackedEffect` + `onCleanup`, `onSettled`). Porting notes: `.kb/README.md`.
+`createTrackedEffect` + `onCleanup`, `onSettled`).
 
 ## Tests
 

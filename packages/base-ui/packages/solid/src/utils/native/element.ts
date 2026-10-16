@@ -1,10 +1,10 @@
 /*
- * Native element renderer (plan 8 step 3.2): the one routine a Solid-native part runs to turn an
- * element it created with direct JSX into its rendered element. It generalizes the Button pilot:
- * literal attributes once, one owned render effect for everything that can change, handlers
- * composed in React's order, part refs with `null` on unmount, children inserted directly.
- * Contract: `.kb/solid/native-parts.md`. Nothing here creates a reactive node beyond the one
- * attribute effect (when needed) and the children insert.
+ * Native element renderer: the one routine a Solid-native part runs to turn an element it created
+ * with direct JSX into its rendered element. It generalizes the Button pilot: literal attributes
+ * once, one owned render effect for everything that can change, handlers composed in React's
+ * order, part refs with `null` on unmount, children inserted directly.
+ * Contract: `context/architecture/render-pipeline.md`. Nothing here creates a reactive node beyond
+ * the one attribute effect (when needed) and the children insert.
  */
 import { createRenderEffect, getOwner, isStatic, onCleanup, runWithOwner, untrack } from 'solid-js';
 import { assign, insert } from '@solidjs/web';

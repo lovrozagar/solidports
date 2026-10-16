@@ -32,7 +32,7 @@ const HANDLER_KEYS = ['onClick', 'onKeyDown', 'onPointerDown'] as const;
  * Documentation: [Base UI Collapsible](https://base-ui.com/react/components/collapsible)
  */
 export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JSX.Element {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a native `<button>` rendered
+  // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined below.
   if (
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&

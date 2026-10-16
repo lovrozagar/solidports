@@ -77,7 +77,7 @@ const NATIVE_STATIC_KEYS = ['nativeButton', 'inputRef'] as const;
  * Documentation: [Base UI Switch](https://base-ui.com/react/components/switch)
  */
 export function SwitchRoot(componentProps: SwitchRoot.Props) {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): the `<span role="switch">` and
+  // Native fast path (`context/architecture/render-pipeline.md`): the `<span role="switch">` and
   // its hidden input rendered with direct JSX. A `render` prop, spread props, a native `<button>`
   // (`nativeButton`), the server and hydration keep the slow path.
   if (

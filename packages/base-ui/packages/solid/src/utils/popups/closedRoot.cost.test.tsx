@@ -1,5 +1,5 @@
 /*
- * Reactive cost of a closed popup root (plan 7 step 5.3): the reactive nodes (owners and
+ * Reactive cost of a closed popup root: the reactive nodes (owners and
  * computations) one closed root with its trigger and unopened popup parts adds, counted with
  * Solid's dev `onOwner` hook. A closed root builds its interaction machinery on first intent or
  * open, so these stay at the cost of the store and the trigger element.

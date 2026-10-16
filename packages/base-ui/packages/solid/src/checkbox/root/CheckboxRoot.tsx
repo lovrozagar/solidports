@@ -86,7 +86,7 @@ const NO_GROUP_PROPS: Partial<GroupProps> = {};
  * Documentation: [Base UI Checkbox](https://base-ui.com/react/components/checkbox)
  */
 export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): the `<span role="checkbox">`
+  // Native fast path (`context/architecture/render-pipeline.md`): the `<span role="checkbox">`
   // and its hidden input rendered with direct JSX. A `render` prop, spread props, a native
   // `<button>` (`nativeButton`), a reactive `parent`, the server and hydration keep the slow path.
   if (
@@ -499,7 +499,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
   const element = useRenderElement('span', componentProps, {
     state,
     ref: [buttonRef, controlRef, setRootElement],
-    // Built once (plan 7 step 3.4): the button's attributes below the part's props, its handlers
+    // Built once: the button's attributes below the part's props, its handlers
     // above them (wrapping the part's and the consumer's handlers, as `getButtonProps` did).
     props: [
       ...buttonSources.attributes,

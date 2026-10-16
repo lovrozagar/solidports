@@ -183,7 +183,7 @@ export function useRenderElement<
     // the chain (user ref, part refs, trigger registration) runs untracked.
     // Read the `render` prop once per change: a JSX-valued prop is a getter that re-creates its
     // element on every read, and the branch below must not re-run for unrelated prop changes.
-    // No `render` prop, or one that can never change: read it once, no memo (plan 7 step 3.7).
+    // No `render` prop, or one that can never change: read it once, no memo.
     // Server and hydration renders always take the memo paths below: the server and the client
     // compile can disagree on which props are static, and both renders must create the same owners
     // (hydration keys).

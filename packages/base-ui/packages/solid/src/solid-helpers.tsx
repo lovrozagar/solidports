@@ -152,7 +152,7 @@ export type Args<T extends ((...args: any[]) => any) | undefined | null> = Param
 >;
 
 /**
- * The element props of a part (plan 7 step 3.6): `props` without `class`, `render` and the part's
+ * The element props of a part: `props` without `class`, `render` and the part's
  * own `keys`, as one Solid `omit` view. Replaces `splitComponentProps`: the part reads its own
  * props directly (`componentProps.disabled`), so no getter is defined per picked key.
  */

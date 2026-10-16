@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
- * Parity harness (plan 8 step 1.1): a part rendered through its Solid-native fast path and through
+ * Parity harness: a part rendered through its Solid-native fast path and through
  * the existing `useRenderElement` slow path, with the same props, must produce identical DOM
  * (attributes, values, children), the same ref calls and the same handler behavior. The slow path
  * is forced with `render="button"`, which renders the same tag through `useRenderElement`.

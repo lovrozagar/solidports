@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
- * Native vs slow path parity for Tabs (plan 8 step 3.2): the same tree through the native fast
+ * Native vs slow path parity for Tabs: the same tree through the native fast
  * paths and through `useRenderElement` (`render="<tag>"` on every part) must produce identical
  * DOM after mount and after every interaction (clicks, keyboard navigation, controlled changes),
  * and call handlers in the same order.

@@ -283,7 +283,7 @@ export function SelectItem(componentProps: SelectItem.Props) {
   };
 
   const element = useRenderElement('div', componentProps, {
-    // Built once (plan 7 step 3.4): the button's attributes below, its handlers above (wrapping).
+    // Built once: the button's attributes below, its handlers above (wrapping).
     props: [
       ...buttonSources.attributes,
       rootProps,

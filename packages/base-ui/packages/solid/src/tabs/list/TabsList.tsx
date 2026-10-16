@@ -103,7 +103,7 @@ export function TabsList(componentProps: TabsList.Props): JSX.Element {
     tabsListElement,
   };
 
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): `CompositeRoot`'s composition
+  // Native fast path (`context/architecture/render-pipeline.md`): `CompositeRoot`'s composition
   // (its hook, context and item list) with the `<div>` rendered through direct JSX.
   if (canRenderNative(componentProps)) {
     const direction = useDirection();

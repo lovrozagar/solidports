@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
- * Parity (plan 8 step 3.1): `Radio.Root` (+ Indicator) inside a `RadioGroup`, and the `RadioGroup`
+ * Parity: `Radio.Root` (+ Indicator) inside a `RadioGroup`, and the `RadioGroup`
  * itself, rendered through their Solid-native fast paths and through the `useRenderElement` slow
  * path (`render="span"` / `render="div"`, the same tags) must produce identical DOM, handler
  * order, roving tab stop, value changes and Field wiring.

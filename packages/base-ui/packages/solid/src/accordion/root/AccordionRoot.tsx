@@ -39,7 +39,7 @@ const OWN_KEYS: ReadonlySet<string> = new Set([
 export function AccordionRoot<Value = any>(
   componentProps: AccordionRoot.Props<Value>,
 ): JSX.Element {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX and the root context on one owner; the item list stays `CompositeList`.
   if (canRenderNative(componentProps)) {
     const root = createAccordionRoot(componentProps);

@@ -4,7 +4,7 @@ const baseline = createBaseConfig();
 
 export default {
   ...baseline,
-  ignores: [...(baseline.ignores ?? []), 'IMPLEMENTATION_SUMMARY.md', '.kb/_snapshots/**', 'docs/docs-infra/**'],
+  ignores: [...(baseline.ignores ?? []), 'IMPLEMENTATION_SUMMARY.md', 'docs/docs-infra/**'],
   config: {
     ...baseline.config,
     MD038: false, // false positives in MDX

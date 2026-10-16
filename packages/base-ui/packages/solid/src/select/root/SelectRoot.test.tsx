@@ -6311,7 +6311,7 @@ describe('<Select.Root />', () => {
     });
 
     // Solid: React loses the consumer's `overflow` on the popup after the aligned-to-fallback switch
-    // and scrolls the document instead (plan 7.3); the port keeps the consumer's styles and scrolls
+    // and scrolls the document instead; the port keeps the consumer's styles and scrolls
     // the popup, so the selected item is shown without moving the page.
     it.skipIf(isJSDOM)(
       'shows a preselected item far down the list inside the popup without scrolling the page',

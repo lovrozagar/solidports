@@ -170,7 +170,7 @@ export function TabsIndicator(componentProps: TabsIndicator.Props) {
     },
   };
 
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<span>` rendered with direct
+  // Native fast path (`context/architecture/render-pipeline.md`): a `<span>` rendered with direct
   // JSX; the measurement memos above are the same in both paths.
   const element = canRenderNative(componentProps)
     ? () =>
