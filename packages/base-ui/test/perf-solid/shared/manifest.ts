@@ -146,7 +146,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
 
     'collapsible cost against the hand-written floor > the floor renders the same DOM as Collapsible, closed and open',
     'collapsible cost against the hand-written floor > Root costs at most 3 nodes: dev root, context owner, one grouped effect',
-    'collapsible cost against the hand-written floor > Trigger costs at most 2 nodes: dev root, one grouped effect',
+    'collapsible cost against the hand-written floor > Root with a Trigger costs at most 6 nodes: two dev roots, context owner, two grouped effects, the children insert',
     'collapsible cost against the hand-written floor > a closed Panel costs at most 2 nodes: its dev root and the conditional insert',
     'collapsible cost against the hand-written floor > Root costs at most the floor root plus 25%',
     'collapsible cost against the hand-written floor > Trigger costs at most the floor trigger plus 25%',

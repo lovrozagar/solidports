@@ -26,6 +26,7 @@ export function useCollapsibleRoot(
         default: () => access(parameters.defaultOpen) ?? false,
         name: 'Collapsible',
         state: 'open',
+        staticInputs: parameters.staticOpen,
       });
 
   // A root that starts closed has no transition until it first opens: its status machinery (two
@@ -109,6 +110,10 @@ export interface UseCollapsibleRootParameters {
    * read directly and `setOpen` is a no-op, as `useControlled`'s controlled mode behaves.
    */
   alwaysControlled?: boolean | undefined;
+  /**
+   * Solid: `open` and `defaultOpen` read static props, so `useControlled` skips its change checks.
+   */
+  staticOpen?: boolean | undefined;
   /**
    * Whether the collapsible panel is currently open.
    *

@@ -21,6 +21,11 @@ export interface UseControlledProps<T = unknown> {
    * The name of the state variable displayed in warnings.
    */
   state?: string | undefined;
+  /**
+   * Solid: `controlled` and `default` read plain (static) props, so neither can change after the
+   * first render. The dev checks only report changes, so they are skipped and cost no node.
+   */
+  staticInputs?: boolean | undefined;
 }
 
 export type ControlledSetter<T> = (newValue: T | ((prevValue: T) => T)) => void;
@@ -72,7 +77,7 @@ export function useControlled<T = unknown>(
     return latestWrite !== null ? latestWrite.value : untrack(committedValue);
   };
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !props.staticInputs) {
     // One effect for both checks, so a controlled part pays one dev-only node rather than two.
     const initialDefault = serializeToDevModeString(untrack(defaultProp));
     let previousDefault: string | undefined;
