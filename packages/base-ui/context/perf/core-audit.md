@@ -40,9 +40,9 @@ Replaces `useRenderElement` and the three native renderers. The full sketch is i
 
 ### S2. `provide(entries, render)`: one transparent owner per part
 
-One `createOwner({ transparent: true })` plus one `setContext` per context, on every side. It replaces 41 `provideContext` sites and 70 JSX providers.
+On the client, one `createOwner({ transparent: true })` plus one `setContext` per context. It replaces 41 `provideContext` sites and 70 JSX providers.
 
-Blocker, must go first: prove with an SSR plus hydration test that the server's transparent `createOwner` takes no id. If it does take one, `provide` needs a server variant that consumes the same ids as the client.
+The server and hydration render the context's provider instead (D5). The server's owners are `solid-js`'s own, and `solid-js` exports no `setContext`. The `@solidjs/signals` `setContext` writes a field that the production server never reads (`test/ssr/production.test.ts`). The server's transparent `createOwner` takes no id (`context.ssr-fixtures.tsx`), but on the dev builds only, so it carries no context in production.
 
 ### S3. Effects in one node
 
@@ -68,7 +68,7 @@ These are not needed for the pilot:
 
 1. **3.1, failing tests:**
    - Collapsible budgets: Trigger 1 node plus 1 per reactive group, closed panel transitions 0, zero hydration-id delta against the compiled-JSX equivalent.
-   - Server render within 1.5x of direct JSX.
+   - Server render within 1.25x of direct JSX, the plan's exit bar.
    - The S2 server transparent-owner test.
    - Re-measure the prototype component anomaly (a test-file component measured 2 nodes above the direct call) inside a real part file before fixing the numbers.
 2. **3.2, core:** S1, S2, S3 and S5. Move Collapsible's `createNativeElement` uses to compiled templates.
