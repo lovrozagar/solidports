@@ -27,6 +27,11 @@ export const ssrCases: readonly SsrCase[] = [
     tags: ['ssr', 'hydrate', 'scale-100', 'controlled'],
   },
   {
+    id: 'collapsible/300-floor',
+    components: ['collapsible'],
+    tags: ['ssr', 'hydrate', 'scale-100', 'controlled'],
+  },
+  {
     id: 'dialog/page',
     components: ['dialog'],
     tags: ['ssr', 'hydrate', 'scale-1', 'uncontrolled', 'open', 'portal'],

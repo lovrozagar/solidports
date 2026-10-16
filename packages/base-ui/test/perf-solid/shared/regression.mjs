@@ -20,8 +20,8 @@ export const p90 = (values) => {
 
 /**
  * Metrics the rule decides on. Paint (frame-aligned) and layout/style (noise at these sizes) are
- * reported only. Hydration is compared Solid to Solid (base vs cur), never against React, whose
- * hydrateRoot schedules its work. Heap is read only where both sides exceed 100 KB (GC noise).
+ * reported only. The base-vs-cur rule reads Solid's sync hydration time (saved baselines hold it);
+ * the exit bar reads hydration to the commit, which React reaches after `hydrateRoot` returns. Heap is read only where both sides exceed 100 KB (GC noise).
  * @type {Record<string, { floor: number, minBoth?: number }>}
  */
 export const GATED = {
@@ -57,4 +57,43 @@ export function judge(base, cur, rule) {
   if (delta > tolerance) return { verdict: 'regressed', ...result };
   if (-delta > tolerance) return { verdict: 'improved', ...result };
   return { verdict: 'same', ...result };
+}
+
+/** Plan 3's exit bar: a part at most this many times its hand-written floor, and faster than React. */
+export const EXIT_BAR = 1.25;
+
+/** The SSR metrics the exit bar judges: server render and hydration to the commit. */
+const EXIT_BAR_METRICS = ['serverMs', 'hydrateCommitMs'];
+
+/**
+ * Judges every SSR case that has a `<id>-floor` twin (the same case written as the Solid floor) on
+ * medians: `solid` names the port's variant, `react` the first. Each verdict carries the three
+ * ratios a report shows: port vs floor, port vs React, floor vs React.
+ * @param {Record<string, Record<string, Record<string, number>>>} results `run.mjs` results by key
+ * @param {string} solid
+ */
+export function exitBar(results, solid) {
+  const verdicts = [];
+  for (const [key, row] of Object.entries(results)) {
+    const floorRow = results[`${key}-floor`];
+    if (!floorRow) continue;
+    for (const metric of EXIT_BAR_METRICS) {
+      const port = row[solid]?.[metric];
+      const floor = floorRow[solid]?.[metric];
+      const react = row.react?.[metric];
+      if (port == null || floor == null || react == null) continue;
+      verdicts.push({
+        key,
+        metric,
+        port,
+        floor,
+        react,
+        portVsFloor: port / floor,
+        portVsReact: port / react,
+        floorVsReact: floor / react,
+        pass: port <= floor * EXIT_BAR && port < react,
+      });
+    }
+  }
+  return verdicts;
 }

@@ -29,9 +29,14 @@ interface FloorCollapsible {
 
 const FloorContext = createContext<FloorCollapsible>();
 
-export function FloorCollapsibleRoot(props: { defaultOpen?: boolean; children?: JSX.Element }) {
-  // The default is read once, as an uncontrolled default.
-  const [open, setOpen] = createSignal(props.defaultOpen ?? false);
+export function FloorCollapsibleRoot(props: {
+  open?: boolean;
+  defaultOpen?: boolean;
+  children?: JSX.Element;
+}) {
+  // The default is read once, as an uncontrolled default; `open` controls when set.
+  const [internalOpen, setOpen] = createSignal(props.defaultOpen ?? false);
+  const open = () => props.open ?? internalOpen();
   const value = { open, setOpen, panelId: createUniqueId() };
   return (
     <div data-open={open() ? '' : undefined} data-closed={open() ? undefined : ''}>

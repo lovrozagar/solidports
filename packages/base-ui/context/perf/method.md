@@ -82,10 +82,9 @@ node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 `bun run bench:solid:ssr [runs=20] [filter,...]` from `packages/base-ui`, with the same filter as the Chromium benchmark. Not in CI.
 
 - Builds a server bundle per variant (`vite build --ssr`; framework packages external so Node loads their server builds) and a hydratable client bundle. `SSR_VARIANTS=name:lib[:solidSrc[:outDir]],...` (default `react:react,solid:solid`) lets a Solid variant build from another copy of the library source. `NO_BUILD=1` reuses every build, `NO_BUILD=a,b` some; `BUILD_ONLY=1` builds and exits; `SERVER_ONLY=1` skips Chromium; `RESULTS_FILE` names the output.
-- Cases (`ssr/cases.ts`): accordion/300, checkbox/1000, dialog/page, form/50, select/1000, tabs/200, each with `components` and `tags` (always `ssr` and `hydrate`) from the scenario manifest. Each library registers them in `ssr/<lib>/fixtures/<component>.tsx`, one file per primary component, collected by `fixtures/index.ts`. The server bundles export the case list, and the runner exits 1 when either library registers a different id set. The manifest test checks the cases and the per-file registrations.
+- Cases (`ssr/cases.ts`): accordion/300, checkbox/1000, collapsible/300, collapsible/300-floor (Solid's hand-written floor, `packages/solid/test/floor`, against React's parts), dialog/page, form/50, select/1000, tabs/200, each with `components` and `tags` (always `ssr` and `hydrate`) from the scenario manifest. Each library registers them in `ssr/<lib>/fixtures/<component>.tsx`, one file per primary component, collected by `fixtures/index.ts`. The server bundles export the case list, and the runner exits 1 when either library registers a different id set. The manifest test checks the cases and the per-file registrations.
 - Server ms: median of `render(key)` in Node after 3 warmups, variants alternating run by run. HTML bytes are reported. Hydration pages alternate the same way.
-- Hydration: a fresh Chromium page per run; `__hydrate` returns its synchronous time, then two frames settle; script ms is the `ScriptDuration` change.
-- React's `hydrateRoot` schedules its work, so React's sync column (about 0.9 ms) excludes most of it. Solid hydrates synchronously and its script column reads lower than its sync column, so cross-library hydration numbers are not settled; compare server ms, and compare hydration only Solid-to-Solid.
+- Hydration: a fresh Chromium page per run. Hydrate ms runs from the hydrate call to the commit: React's root layout effect (`hydrateRoot` is concurrent and returns after scheduling), Solid's `hydrate` plus `flush` (synchronous). Then two frames settle; script ms is the `ScriptDuration` change. The JSON keeps the sync time (`hydrateSyncMs`, React's scheduling only) for the Solid-to-Solid regression rule.
 - Exit 1 on a hydration mismatch log or differing hydrated DOM summaries.
 
 ## Component runs and baselines (`scripts/bench-component.mjs`)
@@ -108,6 +107,10 @@ Per step and metric, from one interleaved session: `cur` regresses when `median(
 | heap after mount | 0 | judged only when both medians exceed 100 KB |
 
 Below `MIN_SAMPLES` (10) on either side the verdict is `insufficient`, never a pass or a fail: with 4 samples p90 is the maximum, the spread collapses onto the floor, and an A/A run of identical code flagged a 0.2 ms shift. Use `--runs 5` or more (two rounds give 10 samples). Raw floor scenarios (tag `raw`) never use the library, so their base/cur difference is session noise; they are reported as `unjudged (raw floor)`. `paint` (frame-aligned) and layout/style (noise at these sizes) are reported, not gated. Hydration is judged only `base` against `cur`, never against React. `scripts/base-ui-perf-regression.test.ts` and `scripts/base-ui-perf-report.test.ts` cover the rule and the summary.
+
+### Exit bar (`exitBar` in `shared/regression.mjs`)
+
+Plan 3's bar, judged on production builds: every SSR case with a `<id>-floor` twin (the same case written as the Solid floor) needs the port within `EXIT_BAR` (1.25x) of the floor and below React, on medians of `serverMs` and `hydrateCommitMs`. `bench:component` reports the three ratios per metric (port vs React, floor vs React, port vs floor) and adds a failure for every miss. Dev-mode unit tests keep only deterministic guards (hydration keys, node counts), never timings.
 
 ## Reactive-node cost tests
 

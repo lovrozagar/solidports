@@ -68,7 +68,7 @@ These are not needed for the pilot:
 
 1. **3.1, failing tests:**
    - Collapsible budgets: Trigger 1 node plus 1 per reactive group, closed panel transitions 0, zero hydration-id delta against the compiled-JSX equivalent.
-   - Server render within 1.25x of direct JSX, the plan's exit bar.
+   - Server render and hydration within 1.25x of the floor and below React, judged on production builds by `bench:component`'s exit bar (the dev unit suite keeps only deterministic guards).
    - The S2 server transparent-owner test.
    - Re-measure the prototype component anomaly (a test-file component measured 2 nodes above the direct call) inside a real part file before fixing the numbers.
 2. **3.2, core:** S1, S2, S3 and S5. Move Collapsible's `createNativeElement` uses to compiled templates.
