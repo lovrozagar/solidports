@@ -21,6 +21,14 @@ import { useAccordionItemContext } from '../item/AccordionItemContext';
 /** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
 const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
 /** The part's own props: never forwarded to the element. */
+/** The trigger's element: a focusable `<button>`; the server renders the same literals. */
+const BUTTON = {
+  tag: 'button',
+  attributes: { type: 'button', tabindex: '0' },
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
+  create: () => (<button type="button" tabindex="0" />) as unknown as Element,
+};
+
 const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'id', 'nativeButton']);
 /** Handler keys the trigger needs even without a consumer handler. */
 const HANDLER_KEYS = ['onClick', 'onKeyDown', 'onPointerDown'] as const;
@@ -41,7 +49,7 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
   // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined.
   if (
-    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true) &&
     // Static once `canRenderNative` passes: a plain value, read without tracking anything.
     (componentProps.nativeButton ?? true) === true
   ) {
@@ -109,8 +117,7 @@ function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
 
   const registerId = createIdRegistration(props, 'id', setTriggerId, itemOwner);
 
-  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
-  return renderNativeElement((<button type="button" tabindex="0" />) as unknown as Element, props, {
+  return renderNativeElement(BUTTON, props, {
     refs: registerId ? [registerId] : undefined,
     own: OWN_KEYS,
     state,

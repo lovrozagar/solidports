@@ -9,6 +9,9 @@ import { useAccordionItemContext } from '../item/AccordionItemContext';
 import { accordionStateAttributesMapping } from '../item/stateAttributesMapping';
 
 /** The part has no props of its own. */
+/** The header's element: an `<h3>`; the server renders the same tag. */
+const H3 = { tag: 'h3', create: () => (<h3 />) as unknown as Element };
+
 const OWN_KEYS: ReadonlySet<string> = new Set();
 
 /**
@@ -20,10 +23,11 @@ const OWN_KEYS: ReadonlySet<string> = new Set();
 export function AccordionHeader(componentProps: AccordionHeader.Props) {
   const { state } = useAccordionItemContext();
 
-  // Native fast path (`context/architecture/render-pipeline.md`): an `<h3>` rendered with direct JSX.
-  if (canRenderNative(componentProps)) {
+  // Native fast path (`context/architecture/render-pipeline.md`): an `<h3>` rendered with direct JSX,
+  // on the client, the server and while hydrating.
+  if (canRenderNative(componentProps, undefined, true)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
-    return renderNativeElement((<h3 />) as unknown as Element, componentProps, {
+    return renderNativeElement(H3, componentProps, {
       own: OWN_KEYS,
       state,
       mapping: accordionStateAttributesMapping,

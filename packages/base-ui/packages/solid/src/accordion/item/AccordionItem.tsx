@@ -20,6 +20,9 @@ import { AccordionItemContext } from './AccordionItemContext';
 import { accordionStateAttributesMapping } from './stateAttributesMapping';
 
 /** The part's own props: never forwarded to the element. */
+/** The item's element: a `<div>`; the server renders the same tag. */
+const ITEM_DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+
 const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'onOpenChange', 'value']);
 /** Items rendered in DOM order get their index on the first render (the list's flush confirms it). */
 const GUESS_INDEX = { guessIndex: true };
@@ -32,8 +35,9 @@ const GUESS_INDEX = { guessIndex: true };
  */
 export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
-  // JSX, its two contexts on plain owners and a lean list registration.
-  if (canRenderNative(componentProps)) {
+  // JSX, its two contexts on plain owners and a lean list registration, on the client, the server
+  // and while hydrating.
+  if (canRenderNative(componentProps, undefined, true)) {
     const listItem = createNativeListItem<null>(null, GUESS_INDEX);
     const item = createAccordionItem(componentProps, listItem.index);
     return provideNativeContexts(
@@ -42,7 +46,7 @@ export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element 
       AccordionItemContext,
       item.accordionItemContext,
       () =>
-        renderNativeElement((<div />) as unknown as Element, componentProps, {
+        renderNativeElement(ITEM_DIV, componentProps, {
           own: OWN_KEYS,
           state: item.state,
           mapping: accordionStateAttributesMapping,

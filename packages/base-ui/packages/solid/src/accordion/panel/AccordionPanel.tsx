@@ -38,7 +38,7 @@ const REGION: Record<string, unknown> = { role: 'region' };
 export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; the panel's measurement machinery is created when the panel first renders.
-  if (canRenderNative(componentProps)) {
+  if (canRenderNative(componentProps, undefined, true)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeAccordionPanel(componentProps);
   }
