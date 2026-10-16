@@ -51,7 +51,11 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 
 | path | title | tags | summary |
 | --- | --- | --- | --- |
+| perf/audit/lists-floating.md | Audit: composite lists and floating (plan 3, leaves 2.1–2.3) | `perf`, `audit`, `composite`, `floating`, `lists` | Scope: `internals/composite/**`, `utils/native/listItem.ts`, `floating-ui-solid/**`,… |
+| perf/audit/reactive-plumbing.md | Audit: reactive plumbing (plan 3, leaves 2.1–2.3) | `perf`, `audit`, `reactivity`, `store`, `transitions` | Scope: `solid-helpers.tsx`, `solid-1-compat.ts`, `utils/native/context.ts`, `SolidStore` (`utils/store/SolidStoreV2.ts`… |
+| perf/audit/render-path.md | Render path audit (plan 3, leaves 2.1–2.3) | `perf`, `audit`, `render`, `native` | Scope: `utils/useRenderElement.tsx`, `utils/propsView.ts`, `utils/native/*`, and how parts choose between them. Solid 2… |
 | perf/baseline.md | Perf baseline | `perf`, `benchmark`, `baseline`, `ssr` | On CI run 38882393542 (commit b9b813c9, Solid 2.0.0-rc.15) Solid is 1.67x slower than React to mount, 1.35x slower to u… |
+| perf/core-audit.md | Core audit | `perf`, `native`, `audit`, `solid2`, `spec` | The 2026-10-16 audit of the shared core (plan 3, leaves 2.1–2.3) finds that the native kit already matches compiled JSX… |
 | perf/method.md | Perf method | `perf`, `benchmark`, `ssr`, `cost` | Three instruments: the Chromium benchmark (React vs Solid production builds, in CI with no thresholds), the local-only… |
 | perf/optimization-map.md | Optimization map | `perf`, `native`, `optimization`, `planning` | Ten ranked opportunities from the 2026-10-14 audit, re-checked at b9b813c9: the automatic native lane comes first, and… |
 | perf/target-architecture.md | Target architecture | `perf`, `native`, `architecture`, `solid2` | The Solid-native shape the perf rewrite aims at: compiled JSX with the tag chosen once, one grouped attribute binding p… |
