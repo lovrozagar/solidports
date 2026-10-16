@@ -4,9 +4,14 @@
 // failed. A suite that cannot run on this machine is reported as "not run", never left out.
 // Logs go to .tmp/base-ui-test-all/<suite>.log at the monorepo root.
 //
+// Suites marked `exclusive` (they launch browsers or bind fixed ports) run each command under an
+// flock on a machine-wide lock shared with other repos' gates, so two sessions never fight over a
+// port or a browser; the lock waits rather than fails, and says so in the log.
+//
 // Usage (from the monorepo root): bun run test:base-ui:all [--only <suite>,<suite>] [--list]
 import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,9 +20,16 @@ const baseUi = 'packages/base-ui';
 const solid = 'packages/base-ui/packages/solid';
 const logDir = path.join(root, '.tmp/base-ui-test-all');
 
+/**
+ * The lock flare's gates take around their Playwright runs (`~/.cache/flare-gates/heavy.lock`), so
+ * the two repos exclude each other; `GATES_LOCK` overrides it.
+ */
+export const EXCLUSIVE_LOCK =
+  process.env.GATES_LOCK ?? path.join(os.homedir(), '.cache/flare-gates/heavy.lock');
+
 // One entry per workflow step, grouped by job. `generated` fails the step when it changes the
 // working tree (the workflow's `git diff --exit-code`, without discarding local changes first).
-const suites = [
+export const suites = [
   { job: 'Linting', name: 'format', cwd: '.', run: ['bun run fmt:check'] },
   { job: 'Linting', name: 'oxlint', cwd: '.', run: ['bun run lint'] },
   {
@@ -52,7 +64,12 @@ const suites = [
     generated: true,
     run: ['bun run inline-scripts'],
   },
-  { job: 'Generated files', name: 'test-parity', cwd: baseUi, run: ['node scripts/test-parity.mjs'] },
+  {
+    job: 'Generated files',
+    name: 'test-parity',
+    cwd: baseUi,
+    run: ['node scripts/test-parity.mjs'],
+  },
   {
     job: 'Typechecking',
     name: 'typecheck',
@@ -105,6 +122,7 @@ const suites = [
     job: 'Browser tests',
     name: 'chromium',
     cwd: baseUi,
+    exclusive: true,
     run: ['bun run test:solid:chromium --run --maxWorkers=2'],
   },
   // The browser parity workflow: upstream's suite and the Solid suite in Firefox and WebKit, failing
@@ -113,23 +131,32 @@ const suites = [
     job: 'Browser parity',
     name: `parity-${browser}`,
     cwd: baseUi,
+    exclusive: true,
     run: [
       `bun run test:${browser} --run --maxWorkers=2 --reporter=json --outputFile=../../.tmp/base-ui-test-all/react-${browser}.json || true`,
       `bun run test:solid:${browser} --run --maxWorkers=2 --reporter=json --outputFile=../../.tmp/base-ui-test-all/solid-${browser}.json || true`,
       `node scripts/browser-parity.mjs ../../.tmp/base-ui-test-all/react-${browser}.json ../../.tmp/base-ui-test-all/solid-${browser}.json --confirm ${browser}`,
     ],
   })),
-  { job: 'E2E tests', name: 'e2e', cwd: baseUi, run: ['bun run test:e2e:solid'] },
+  {
+    job: 'E2E tests',
+    name: 'e2e',
+    cwd: baseUi,
+    exclusive: true,
+    run: ['bun run test:e2e:solid'],
+  },
   {
     job: 'Regression tests',
     name: 'regressions',
     cwd: baseUi,
+    exclusive: true,
     run: ['bun run test:regressions:solid:build', 'bun run test:regressions:solid'],
   },
   {
     job: 'Screen Reader',
     name: 'screen-reader',
     cwd: baseUi,
+    exclusive: true,
     // NVDA, which the suite drives, runs only on Windows; CI runs it on windows-2025.
     unavailable: process.platform === 'win32' ? null : 'needs Windows and NVDA; CI runs it',
     run: [
@@ -149,12 +176,14 @@ const suites = [
     job: 'Validating Docs',
     name: 'docs-hydration',
     cwd: baseUi,
+    exclusive: true,
     run: ['bun run docs:check-hydration --serve'],
   },
   {
     job: 'Benchmark tests',
     name: 'benchmark',
     cwd: baseUi,
+    exclusive: true,
     run: ['bun run bench:solid:build', 'bun run bench:solid'],
   },
 ];
@@ -186,6 +215,15 @@ function changedPaths(before, after) {
   return [...lines(after)].filter((line) => !previous.has(line)).map((line) => line.slice(3));
 }
 
+const quote = (text) => `'${text.replaceAll("'", "'\\''")}'`;
+
+/** The shell command for one step: under the machine lock when the suite is exclusive. */
+export function commandFor(suite, command, lock = EXCLUSIVE_LOCK) {
+  if (!suite.exclusive) return command;
+  const l = quote(lock);
+  return `mkdir -p ${quote(path.dirname(lock))}; flock -n ${l} true || echo "test-all: waiting for ${lock} (another gate holds it)"; flock ${l} sh -c ${quote(command)}`;
+}
+
 function runCommand(command, cwd, log) {
   fs.appendFileSync(log, `\n$ ${command}\n`);
   const fd = fs.openSync(log, 'a');
@@ -207,7 +245,7 @@ function runSuite(suite) {
 
   const before = suite.generated ? treeState() : null;
   for (const command of suite.run) {
-    if (!runCommand(command, suite.cwd, log)) {
+    if (!runCommand(commandFor(suite, command), suite.cwd, log)) {
       return { status: 'fail', detail: `\`${command}\` failed` };
     }
   }
@@ -224,43 +262,50 @@ function runSuite(suite) {
   return { status: 'pass', detail: '' };
 }
 
-const options = parseArgs(process.argv.slice(2));
-if (options.list) {
-  for (const suite of suites) {
-    console.log(`${suite.name.padEnd(20)} ${suite.job}`);
+function main() {
+  const options = parseArgs(process.argv.slice(2));
+  if (options.list) {
+    for (const suite of suites) {
+      console.log(`${suite.name.padEnd(20)} ${suite.job}`);
+    }
+    process.exit(0);
   }
-  process.exit(0);
-}
-const unknown = (options.only ?? []).filter((name) => !suites.some((suite) => suite.name === name));
-if (unknown.length > 0) {
-  console.error(`Unknown suite: ${unknown.join(', ')} (see --list)`);
-  process.exit(2);
-}
-
-fs.mkdirSync(logDir, { recursive: true });
-const results = [];
-for (const suite of suites) {
-  if (options.only && !options.only.includes(suite.name)) {
-    results.push({ suite, status: 'not run', detail: 'not selected (--only)', seconds: 0 });
-    continue;
-  }
-  console.log(`▶ ${suite.job} / ${suite.name}`);
-  const start = Date.now();
-  const result = runSuite(suite);
-  const seconds = Math.round((Date.now() - start) / 1000);
-  results.push({ suite, ...result, seconds });
-  console.log(`  ${result.status}${result.detail ? ` (${result.detail})` : ''} in ${seconds}s`);
-}
-
-const count = (status) => results.filter((result) => result.status === status).length;
-console.log(
-  `\n${count('fail')} failed, ${count('pass')} passed, ${count('not run')} not run, of ${results.length} suites\n`,
-);
-for (const result of results) {
-  const log =
-    result.status === 'fail' ? ` → .tmp/base-ui-test-all/${result.suite.name}.log` : '';
-  console.log(
-    `${result.status.padEnd(8)} ${result.suite.name.padEnd(20)} ${result.suite.job}${result.detail ? ` (${result.detail})` : ''}${log}`,
+  const unknown = (options.only ?? []).filter(
+    (name) => !suites.some((suite) => suite.name === name),
   );
+  if (unknown.length > 0) {
+    console.error(`Unknown suite: ${unknown.join(', ')} (see --list)`);
+    process.exit(2);
+  }
+
+  fs.mkdirSync(logDir, { recursive: true });
+  const results = [];
+  for (const suite of suites) {
+    if (options.only && !options.only.includes(suite.name)) {
+      results.push({ suite, status: 'not run', detail: 'not selected (--only)', seconds: 0 });
+      continue;
+    }
+    console.log(`▶ ${suite.job} / ${suite.name}`);
+    const start = Date.now();
+    const result = runSuite(suite);
+    const seconds = Math.round((Date.now() - start) / 1000);
+    results.push({ suite, ...result, seconds });
+    console.log(`  ${result.status}${result.detail ? ` (${result.detail})` : ''} in ${seconds}s`);
+  }
+
+  const count = (status) => results.filter((result) => result.status === status).length;
+  console.log(
+    `\n${count('fail')} failed, ${count('pass')} passed, ${count('not run')} not run, of ${results.length} suites\n`,
+  );
+  for (const result of results) {
+    const log = result.status === 'fail' ? ` → .tmp/base-ui-test-all/${result.suite.name}.log` : '';
+    console.log(
+      `${result.status.padEnd(8)} ${result.suite.name.padEnd(20)} ${result.suite.job}${result.detail ? ` (${result.detail})` : ''}${log}`,
+    );
+  }
+  process.exit(count('fail') > 0 ? 1 : 0);
 }
-process.exit(count('fail') > 0 ? 1 : 0);
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
+}

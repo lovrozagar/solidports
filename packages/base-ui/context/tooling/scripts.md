@@ -12,7 +12,8 @@ Inventory of `packages/base-ui/scripts/`, `packages/base-ui/packages/solid/scrip
 
 | Path | Does | Wired by | Origin |
 | :--- | :--- | :--- | :--- |
-| `test-all.mjs` | Runs every suite of the Base UI tests, browser parity and typescript@next workflows (27 suites), logs to `.tmp/base-ui-test-all/`, prints pass/fail/not run. `--only`, `--list`. | root `test:base-ui:all` | port |
+| `test-all.mjs` | Runs every suite of the Base UI tests, browser parity and typescript@next workflows (27 suites), logs to `.tmp/base-ui-test-all/`, prints pass/fail/not run. `--only`, `--list`. Suites that launch browsers or bind fixed ports run under an flock on the machine-wide gate lock (`GATES_LOCK`, default flare's `~/.cache/flare-gates/heavy.lock`). | root `test:base-ui:all` | port |
+| `assert-port-free.mjs` | Exits 1 naming the port when anything answers on it over IPv4 or IPv6. | the four fixed-port `serve` scripts (`test:e2e*:server`, `test:regressions*:server`) | port |
 | `test-parity.mjs` | Compares upstream tests with Solid tests, file by file and title by title, over four tree pairs (`packages/react/src`, `packages/react/test`, `packages/utils/src`, `docs/react` → Solid counterparts); flags missing files and titles, `skipIf` skips where upstream runs, and any `.skip`/`.todo`/`.fails`. `--json <file>`. | CI "Generated files verification"; `test-all` | port |
 | `browser-parity.mjs` | Compares upstream and Solid Vitest JSON reports for one browser; `--confirm <browser>` reruns Solid-only failures twice and fails only on confirmed ones. | `base-ui-browser-parity.yml`; `test-all` `parity-firefox`/`parity-webkit` | port |
 | `compare-regressions.mjs` | Pixel diff of React vs Solid regression screenshots; `REGRESSIONS_MAX_DIFF` (default 0.001); `accepted.json` entries need a reason. | `test/regressions-solid/run.mjs` (`test:regressions:solid`) | port |
