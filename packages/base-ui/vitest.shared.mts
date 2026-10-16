@@ -40,11 +40,13 @@ function getBrowserConfig(): BrowserModeConfig {
     provider: playwright({ contextOptions: { timezoneId: 'UTC' } }),
     screenshotFailures: false,
     headless: true,
-    // One address, strictly: with only a port, Vite binds `localhost` beside another process that
-    // holds the same port on the other address family, and the browser can then load that process
-    // into the test iframe ("Cannot connect to the iframe ... unknown due to CORS"). Pinning the host
-    // makes a held port fail the run and keeps the iframe URLs on this server.
-    api: { host: '127.0.0.1', port: 63315, strictPort: true },
+    // One address: with only a port, Vite binds `localhost` beside another process that holds the
+    // same port on the other address family, and the browser can then load that process into the
+    // test iframe ("Cannot connect to the iframe ... unknown due to CORS"). Pinning the host keeps
+    // the iframe URLs on this server. Not strict here: upstream's run starts two browser projects
+    // (`@base-ui/react`, `@base-ui/utils`) in one process, and the second takes the next port. The
+    // Solid project, alone in its run, makes a taken port fail it (`packages/solid/vitest.config.mts`).
+    api: { host: '127.0.0.1', port: 63315 },
     instances,
   };
 }

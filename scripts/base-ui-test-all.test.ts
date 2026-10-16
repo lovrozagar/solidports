@@ -89,11 +89,15 @@ describe("test:base-ui:all machine lock", () => {
 		expect(Object.entries(timeouts).filter(([name, t]) => name !== "benchmark" && t !== undefined)).toEqual([])
 	})
 
-	test("the vitest browser server binds its port strictly", async () => {
+	test("the vitest browser servers stay on one address, and the Solid project binds its port strictly", async () => {
 		process.env.VITEST_ENV = "chromium"
-		const { default: config } = await import(`../packages/base-ui/vitest.shared.mts?strict=${Date.now()}`)
+		const { default: shared } = await import(`../packages/base-ui/vitest.shared.mts?strict=${Date.now()}`)
+		const { default: solid } = await import(`../packages/base-ui/packages/solid/vitest.config.mts?strict=${Date.now()}`)
 		delete process.env.VITEST_ENV
-		expect(config.test.browser.api).toEqual({ host: "127.0.0.1", port: 63315, strictPort: true })
+		// Upstream's run starts two browser projects (react, utils): the second takes the next port.
+		expect(shared.test.browser.api).toEqual({ host: "127.0.0.1", port: 63315 })
+		// The Solid project is alone in its run: a taken port fails it.
+		expect(solid.test.browser.api).toEqual({ host: "127.0.0.1", port: 63315, strictPort: true })
 	})
 })
 
