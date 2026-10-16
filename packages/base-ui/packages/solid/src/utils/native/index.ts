@@ -1,7 +1,7 @@
 /*
- * Native kit (plan 8): the plain functions a Solid-native part uses to render its element with
+ * Native kit: the plain functions a Solid-native part uses to render its element with
  * direct JSX instead of `useRenderElement`. Nothing here creates a reactive node of its own; the
- * part owns its one attribute effect (if any). Contract: `.kb/solid/native-parts.md`.
+ * part owns its one attribute effect (if any). Contract: `context/architecture/render-pipeline.md`.
  */
 import {
   $PROXY,

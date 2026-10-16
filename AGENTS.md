@@ -47,6 +47,9 @@ Unless the request says otherwise, a feature or fix applies only to:
 `packages/base-ui/packages/react` is the upstream reference. Do not "fix" it to
 match Solid. Docs live in `packages/base-ui/docs/solid`. `packages/base-ui/docs/react` is the upstream docs snapshot.
 
+Per-package agent context: `packages/<pkg>/context/INDEX.md` when present. Read it once; when a row
+matches the work, read that file in full.
+
 ## Solid reactivity
 
 - Never destructure props at the call site. `props.foo`, not `const { foo } = props`.

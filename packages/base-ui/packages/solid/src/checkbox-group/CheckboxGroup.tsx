@@ -193,7 +193,7 @@ export function CheckboxGroup(componentProps: CheckboxGroup.Props) {
     registerControlId,
   };
 
-  // Solid-native fast path (plan 8): the `<div role="group">` rendered directly.
+  // Solid-native fast path: the `<div role="group">` rendered directly.
   if (canRenderNative(componentProps)) {
     const fieldRootContext = useFieldRootContext();
     const inField = fieldRootContext !== DEFAULT_FIELD_ROOT_CONTEXT;

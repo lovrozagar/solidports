@@ -1,6 +1,6 @@
 /* eslint-disable solid/prefer-for -- counts each part's own reactive nodes; <For> would add its own */
 /*
- * Reactive cost per part (plan 7 step 3): the reactive nodes (owners and computations) one part
+ * Reactive cost per part: the reactive nodes (owners and computations) one part
  * creates, counted with Solid's dev `onOwner` hook. Budgets are the render-core v3 targets.
  */
 import { DEV, flush } from 'solid-js';
@@ -52,7 +52,7 @@ describe('render core cost', () => {
   // Per-part ceilings at the measured counts: a change that adds a node fails here. Checkbox.Root's
   // nodes are the parent's insert, its context provider (owner, lazy children and keep-alive), the
   // root's and the input's attribute effects, and `useControlled`'s dev-only warning effect.
-  // Met by the Solid-native Button (plan 8): the parent's insert plus the dev component root.
+  // Met by the Solid-native Button: the parent's insert plus the dev component root.
   it('Button costs at most 3 reactive nodes', () => {
     const cost = perPart(() => <Button>Button</Button>);
     expect(cost, `Button: ${cost} nodes`).toBeLessThanOrEqual(3);

@@ -277,7 +277,7 @@ export function useButton(parameters: useButton.Parameters = {}): useButton.Retu
     ]) as ReturnType<typeof mergeProps<'button'>>;
   }
 
-  // The button's props as plain sources (plan 7 step 3.4): no function entry, no view, no memo.
+  // The button's props as plain sources: no function entry, no view, no memo.
   // `attributes` go below the consumer's props (the consumer's `type` or `tabindex` wins, as with
   // `getButtonProps`); `handlers` go above them and wrap the lower-priority handlers, calling
   // `next` where `getButtonProps` called the consumer's handler.

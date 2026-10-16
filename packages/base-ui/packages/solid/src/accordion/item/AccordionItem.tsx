@@ -31,7 +31,7 @@ const GUESS_INDEX = { guessIndex: true };
  * Documentation: [Base UI Accordion](https://base-ui.com/solid/components/accordion)
  */
 export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX, its two contexts on plain owners and a lean list registration.
   if (canRenderNative(componentProps)) {
     const listItem = createNativeListItem<null>(null, GUESS_INDEX);

@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
- * Native vs slow path parity for Collapsible (plan 8 step 3.2): the same tree through the native
+ * Native vs slow path parity for Collapsible: the same tree through the native
  * fast paths and through `useRenderElement` (`render="<tag>"` on every part) must produce
  * identical DOM after mount and after every interaction, call handlers in the same order and
  * apply refs the same way.

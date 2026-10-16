@@ -1,2 +1,2 @@
 @AGENTS.md
-@.kb/README.md
+@context/INDEX.md

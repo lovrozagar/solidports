@@ -38,7 +38,7 @@ const stateAttributesMapping: StateAttributesMapping<AccordionTriggerState> = {
  */
 
 export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.Element {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a native `<button>` rendered
+  // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined.
   if (
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&

@@ -19,7 +19,7 @@ import { collapsibleStateAttributesMapping } from './stateAttributesMapping';
  * Documentation: [Base UI Collapsible](https://base-ui.com/solid/components/collapsible)
  */
 export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX and its context on one owner. A `render` prop, spread props, the server and hydration
   // keep `useRenderElement`.
   if (canRenderNative(componentProps)) {

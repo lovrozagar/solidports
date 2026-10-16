@@ -1,5 +1,5 @@
 /*
- * Id registration for native parts (plan 8 step 3.2): a panel or trigger publishes its `id` prop
+ * Id registration for native parts: a panel or trigger publishes its `id` prop
  * to its root (`setPanelIdState`, `setTriggerId`) and clears it on unmount, as the slow path's
  * `createDepsRenderEffect(registeredId, …)`. A static id is written from the element's ref (the
  * root reads the registration only while the element is rendered) and cleared from the part's

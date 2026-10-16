@@ -1,5 +1,5 @@
 /*
- * Cost budgets for the native disclosure parts (plan 8 step 3.2): reactive nodes (owners and
+ * Cost budgets for the native disclosure parts: reactive nodes (owners and
  * computations, Solid's dev `onOwner` hook) one more copy of a part adds next to the same tree,
  * beyond a plain element in the same position. The dev runtime wraps every component in one
  * root (`observedComponent`, not in production): each part's floor beyond its element is 1.

@@ -29,7 +29,7 @@ import { runInLazyScope } from '../../utils/runInLazyScope';
  * Documentation: [Base UI Collapsible](https://base-ui.com/react/components/collapsible)
  */
 export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a `<div>` rendered with direct
+  // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; the panel's measurement machinery is created when the panel first renders.
   if (canRenderNative(componentProps)) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime

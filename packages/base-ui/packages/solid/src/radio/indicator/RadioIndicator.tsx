@@ -31,7 +31,7 @@ import { mergeProps as solidMergeProps } from '../../solid-1-compat';
  * Documentation: [Base UI Radio](https://base-ui.com/react/components/radio-group)
  */
 export function RadioIndicator(componentProps: RadioIndicator.Props) {
-  // Solid-native fast path (plan 8): the `<span>` with its state attributes rendered directly;
+  // Solid-native fast path: the `<span>` with its state attributes rendered directly;
   // no props split and no merged state proxy (the native element reads the state by key).
   const native = canRenderNative(componentProps);
   const keepMounted = () => componentProps.keepMounted ?? false;

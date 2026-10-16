@@ -271,7 +271,7 @@ function ComboboxItemInner(props: ComboboxItemInnerProps) {
       setItemElement(el as HTMLDivElement | null | undefined);
     },
     state,
-    // Built once (plan 7 step 3.4): the root's item props as an accessor source, the button's
+    // Built once: the root's item props as an accessor source, the button's
     // attributes below the part's props and its handlers above them (wrapping, as
     // `getButtonProps` did).
     props: [

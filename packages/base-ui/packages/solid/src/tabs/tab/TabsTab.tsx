@@ -40,7 +40,7 @@ const HANDLER_KEYS = ['onClick', 'onFocus', 'onPointerDown', 'onKeyDown', 'onKey
  * Documentation: [Base UI Tabs](https://base-ui.com/react/components/tabs)
  */
 export function TabsTab(componentProps: TabsTab.Props): JSX.Element {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a native `<button>` rendered
+  // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` and `useCompositeItem` for a native composite item are inlined.
   if (
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&

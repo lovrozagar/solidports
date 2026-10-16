@@ -1,5 +1,5 @@
 /*
- * Conditional rendering for native parts (plan 8 step 3.2): the part returns an accessor the
+ * Conditional rendering for native parts: the part returns an accessor the
  * parent's insert tracks, so the condition costs no node of its own (`<Show>` is a condition memo
  * plus a children memo). The branch lives in a root owned by the part, created when the condition
  * turns true and disposed when it turns false (the branch's cleanups run then, as a `Show`

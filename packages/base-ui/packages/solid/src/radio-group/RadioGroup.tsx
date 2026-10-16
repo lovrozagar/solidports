@@ -276,7 +276,7 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     touched,
   };
 
-  // Solid-native fast path (plan 8): the `<div role="radiogroup">` rendered directly as a
+  // Solid-native fast path: the `<div role="radiogroup">` rendered directly as a
   // composite root (roving focus) with the Field wiring inlined.
   if (canRenderNative(componentProps)) {
     const model: NativeRadioGroup = {

@@ -1,5 +1,5 @@
 /*
- * Several dependency-gated effects on one reactive node (plan 8 step 3.2). Each part keeps the
+ * Several dependency-gated effects on one reactive node. Each part keeps the
  * semantics of its own `createDepsEffect`: its apply runs on the first pass and whenever one of
  * its dependency values changes (`shallowEqual`), its previous cleanup runs before the next apply
  * and once more when the group is disposed. Parts apply in order, in the same effect pass they

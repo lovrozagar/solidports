@@ -142,7 +142,8 @@ packages/recharts/examples/       basic / react / shadcn / visual harnesses
 packages/solid-table/             published `@solidports/solid-table`
 ```
 
-Porting notes live in each package's `.kb/`.
+Agent context lives in `packages/<pkg>/context/` (start at its `INDEX.md`); Recharts still keeps its notes in
+`packages/recharts/.kb/`.
 
 ## Develop
 

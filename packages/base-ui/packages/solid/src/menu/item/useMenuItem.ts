@@ -55,7 +55,7 @@ export function useMenuItem(params: useMenuItem.Parameters): useMenuItem.ReturnV
     },
   });
 
-  // Plain sources (plan 7 step 3.4): the button's attributes and the item's common props below the
+  // Plain sources: the button's attributes and the item's common props below the
   // part's props, the button's handlers above them (wrapping, as `getButtonProps` did).
   const itemSources: useMenuItem.Sources = {
     attributes: [

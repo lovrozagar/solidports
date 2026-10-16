@@ -1,5 +1,5 @@
 /*
- * Consumer props (plan 8 native kit): the one-time classification of a consumer's props at a native
+ * Consumer props (native kit): the one-time classification of a consumer's props at a native
  * part's setup, and the handler helpers it composes. Every native element reads its consumer's key
  * set here exactly once; reactive keys are then read inside the part's attribute effect.
  */

@@ -1,5 +1,5 @@
 /*
- * Cost budget for native parts (plan 8 step 1.3): the reactive nodes (owners and computations) a
+ * Cost budget for native parts: the reactive nodes (owners and computations) a
  * native part creates beyond a plain element rendered the same way, counted with Solid's dev
  * `onOwner` hook. The dev runtime wraps every component in one root (`observedComponent`, not in
  * production), so a part's floor beyond a plain element is 1. A native Button with literal props

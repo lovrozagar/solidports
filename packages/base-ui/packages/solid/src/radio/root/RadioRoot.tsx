@@ -81,7 +81,7 @@ const NATIVE_STATIC_KEYS = ['nativeButton', 'inputRef'] as const;
  * Documentation: [Base UI Radio](https://base-ui.com/react/components/radio-group)
  */
 export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): the `<span role="radio">` and
+  // Native fast path (`context/architecture/render-pipeline.md`): the `<span role="radio">` and
   // its hidden input rendered with direct JSX, registered with the group's composite list. A
   // `render` prop, spread props, a native `<button>`, the server and hydration keep the slow path.
   if (
@@ -368,7 +368,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
   };
 
   const refs = [radioRef, buttonRef];
-  // Built once (plan 7 step 3.4): the button's handlers above the part's props (wrapping them, as
+  // Built once: the button's handlers above the part's props (wrapping them, as
   // `getButtonProps` did). Its attributes go below every other source, the composite item's
   // roving `tabindex` included, as the consumer-side props overrode them in `getButtonProps`.
   const props = [

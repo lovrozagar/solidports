@@ -1,5 +1,5 @@
 /*
- * Cost budgets for the toggles batch (plan 8 step 3.1): reactive nodes (owners and computations)
+ * Cost budgets for the toggles batch: reactive nodes (owners and computations)
  * a native part creates beyond a plain element written by hand with the same DOM, counted with
  * Solid's dev `onOwner` hook (`native.cost.test.tsx` explains the dev component root floor of 1).
  * Each budget names what the nodes are spent on.

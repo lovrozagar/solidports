@@ -77,7 +77,7 @@ export function MenuLinkItem(componentProps: MenuLinkItem.Props) {
   };
 
   const element = useRenderElement('a', withFilterChildren(componentProps, filterItem), {
-    // Built once (plan 7 step 3.4): the button's attributes and the item's common props below the
+    // Built once: the button's attributes and the item's common props below the
     // part's props, the button's handlers above them (wrapping, as `getButtonProps` did).
     props: [
       ...buttonSources.attributes,

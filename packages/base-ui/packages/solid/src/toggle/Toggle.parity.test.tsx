@@ -1,6 +1,6 @@
 /* eslint-disable testing-library/no-container -- compares the two renders' DOM directly */
 /*
- * Parity (plan 8 step 3.1): `Toggle` (alone, in a `ToggleGroup`, in a `Toolbar`) and
+ * Parity: `Toggle` (alone, in a `ToggleGroup`, in a `Toolbar`) and
  * `ToggleGroup` rendered through their Solid-native fast paths and through the `useRenderElement`
  * slow path (`render="button"` / `render="div"`, the same tags) must produce identical DOM, the
  * same handler order, the same roving focus and the same group value changes.

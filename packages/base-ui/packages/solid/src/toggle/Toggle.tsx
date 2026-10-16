@@ -38,7 +38,7 @@ const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
  * Documentation: [Base UI Toggle](https://base-ui.com/react/components/toggle)
  */
 export function Toggle<Value extends string>(componentProps: Toggle.Props<Value>) {
-  // Solid-native fast path (plan 8, `.kb/solid/native-parts.md`): a native `<button>` rendered
+  // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX, inside a composite root (ToggleGroup, Toolbar) or not. A `render` prop,
   // spread props, a non-native button, the server and hydration keep the slow path.
   if (
