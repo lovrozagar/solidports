@@ -16,7 +16,7 @@ function Select1000() {
       </Select.Trigger>
       <Select.Portal>
         <Select.Positioner sideOffset={4}>
-          <Select.Popup style={{ 'max-height': '300px', overflow: 'auto' }}>
+          <Select.Popup style={{ 'max-height': '300px', 'overflow-y': 'auto' }}>
             <Select.List>
               <For each={selectItems}>
                 {(it) => (

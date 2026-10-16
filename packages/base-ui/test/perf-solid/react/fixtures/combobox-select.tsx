@@ -7,7 +7,9 @@ import { setters, useExposed } from '../exposed';
 
 type Item = { value: string; label: string };
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
-const popupStyle = { maxHeight: '300px', overflow: 'auto' } as const;
+// `overflowY`, not the `overflow` shorthand: Select's popup takes longhand overflow styles until its
+// list mounts, and React clearing those longhands would clear a shorthand set beside them.
+const popupStyle = { maxHeight: '300px', overflowY: 'auto' } as const;
 
 function SelectFixture(props: {
   count: number;
