@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { commandFor, EXCLUSIVE_LOCK, suites } from "../packages/base-ui/scripts/test-all.mjs"
 
 const BASE_UI = resolve(import.meta.dir, "../packages/base-ui")
@@ -94,5 +94,23 @@ describe("test:base-ui:all machine lock", () => {
 		const { default: config } = await import(`../packages/base-ui/vitest.shared.mts?strict=${Date.now()}`)
 		delete process.env.VITEST_ENV
 		expect(config.test.browser.api).toEqual({ host: "127.0.0.1", port: 63315, strictPort: true })
+	})
+})
+
+describe("test:base-ui:all on a machine without pnpm", () => {
+	test("reports error-codes as not run instead of failing it", () => {
+		const module = join(import.meta.dir, "../packages/base-ui/scripts/test-all.mjs")
+		const probe = `const m = await import(${JSON.stringify(module)}); console.log(String(m.suites.find((s) => s.name === "error-codes").unavailable))`
+		const read = (path: string) =>
+			Bun.spawnSync([process.execPath, "-e", probe], { env: { ...process.env, PATH: path } })
+				.stdout.toString()
+				.trim()
+		// Only the runtime's own folder and the system tools: no pnpm.
+		expect(read(`${dirname(process.execPath)}:/usr/bin:/bin`)).toBe(
+			"needs pnpm (code-infra lists the workspace with it)",
+		)
+		expect(read(process.env.PATH ?? "")).toBe(
+			Bun.which("pnpm") ? "null" : "needs pnpm (code-infra lists the workspace with it)",
+		)
 	})
 })

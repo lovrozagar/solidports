@@ -28,6 +28,12 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const baseUi = 'packages/base-ui';
 const solid = 'packages/base-ui/packages/solid';
+
+/** Whether `command` is on PATH. */
+function hasCommand(command) {
+  return spawnSync('sh', ['-c', `command -v ${command}`], { stdio: 'ignore' }).status === 0;
+}
+
 const logRoot = path.join(root, '.tmp/base-ui-test-all');
 
 /**
@@ -74,6 +80,8 @@ export const suites = [
     cwd: baseUi,
     generated: ['packages/base-ui/docs/react/src/error-codes.json'],
     run: ['bun run extract-error-codes'],
+    // code-infra's extractor lists the workspace with `pnpm ls`.
+    unavailable: hasCommand('pnpm') ? null : 'needs pnpm (code-infra lists the workspace with it)',
   },
   {
     job: 'Generated files',
