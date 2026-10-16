@@ -1,12 +1,21 @@
 /*
- * The hand-written Solid floor for Collapsible: idiomatic Solid 2 with the same DOM and ARIA as
- * `Collapsible.Root` / `.Trigger` / `.Panel` render by default (no animation measurement, no
- * controlled-state plumbing). Cost tests compare each part against its floor counterpart of the
- * same shape, so the dev runtime's per-component nodes are on both sides.
+ * The hand-written Solid floor for Collapsible: the fewest reactive nodes plain Solid 2 needs for the
+ * same DOM and ARIA as `Collapsible.Root` / `.Trigger` / `.Panel` render by default. Context rides
+ * one transparent owner (no JSX provider), and the panel is a plain conditional (no `<Show>`). Cost
+ * tests and the bench compare the parts against it: the exit bar is at most the floor plus 25%.
  */
-import { Show, createContext, createSignal, createUniqueId, useContext } from 'solid-js';
+import {
+  createContext,
+  createOwner,
+  createSignal,
+  createUniqueId,
+  runWithOwner,
+  useContext,
+} from 'solid-js';
 import type { Accessor, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+// `solid-js` does not re-export `setContext`; `@solidjs/signals` is the same core.
+import { setContext } from '@solidjs/signals';
 
 interface FloorCollapsible {
   open: Accessor<boolean>;
@@ -19,13 +28,12 @@ const FloorContext = createContext<FloorCollapsible>();
 export function FloorCollapsibleRoot(props: { defaultOpen?: boolean; children?: JSX.Element }) {
   // The default is read once, as an uncontrolled default.
   const [open, setOpen] = createSignal(props.defaultOpen ?? false);
-  const value: FloorCollapsible = { open, setOpen, panelId: createUniqueId() };
+  const owner = createOwner({ transparent: true });
+  setContext(FloorContext, { open, setOpen, panelId: createUniqueId() }, owner);
   return (
-    <FloorContext value={value}>
-      <div data-open={open() ? '' : undefined} data-closed={open() ? undefined : ''}>
-        {props.children}
-      </div>
-    </FloorContext>
+    <div data-open={open() ? '' : undefined} data-closed={open() ? undefined : ''}>
+      {runWithOwner(owner, () => props.children)}
+    </div>
   );
 }
 
@@ -47,8 +55,8 @@ export function FloorCollapsibleTrigger(props: { children?: JSX.Element }) {
 
 export function FloorCollapsiblePanel(props: { children?: JSX.Element }) {
   const root = useContext(FloorContext)!;
-  return (
-    <Show when={root.open()}>
+  return (() =>
+    root.open() ? (
       <div
         data-open=""
         id={root.panelId}
@@ -60,6 +68,5 @@ export function FloorCollapsiblePanel(props: { children?: JSX.Element }) {
       >
         {props.children}
       </div>
-    </Show>
-  );
+    ) : undefined) as unknown as JSX.Element;
 }
