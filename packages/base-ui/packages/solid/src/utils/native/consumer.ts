@@ -22,6 +22,12 @@ export const NATIVE_RESERVED_KEYS: readonly string[] = [
 const RESERVED: ReadonlySet<string> = new Set(NATIVE_RESERVED_KEYS);
 const EMPTY_KEYS: ReadonlySet<string> = new Set();
 const EMPTY_LIST: readonly string[] = [];
+/** The classification of props with no consumer keys: shared, as nothing writes to it. */
+const NO_CONSUMER_PROPS: ConsumerProps = Object.freeze({
+  keys: EMPTY_KEYS,
+  literal: Object.freeze({}) as Record<string, unknown>,
+  reactive: EMPTY_LIST,
+});
 
 /** Whether `key` names an event handler prop (`onClick`). */
 export const isHandlerKey = isEventHandlerKey;
@@ -105,9 +111,11 @@ export function classifyConsumerProps(
   let reactive: string[] | undefined;
   // As the props view: the first key seen per lowercase handler name is the one the element gets.
   let handlerNames: Set<string> | undefined;
-  const literal: Record<string, unknown> = {};
+  let literal: Record<string, unknown> | undefined;
   const source = props as AnyProps;
-  for (const key of Object.keys(source)) {
+  // `for…in` visits a props object's own keys in `Object.keys` order without building the array
+  // (native parts never receive a proxy, whose prototype could add keys).
+  for (const key in source) {
     if (own.has(key) || RESERVED.has(key)) {
       continue;
     }
@@ -123,14 +131,17 @@ export function classifyConsumerProps(
     (keys ??= new Set()).add(key);
     if (handler) {
       const consumer = () => readHandler(source, key);
-      literal[key] = wrap?.(key, consumer) ?? composeHandler(consumer);
+      (literal ??= {})[key] = wrap?.(key, consumer) ?? composeHandler(consumer);
     } else if (isStatic(source, key)) {
-      literal[key] = source[key];
+      (literal ??= {})[key] = source[key];
     } else {
       (reactive ??= []).push(key);
     }
   }
-  return { keys: keys ?? EMPTY_KEYS, literal, reactive: reactive ?? EMPTY_LIST };
+  if (keys === undefined) {
+    return NO_CONSUMER_PROPS;
+  }
+  return { keys, literal: literal ?? NO_CONSUMER_PROPS.literal, reactive: reactive ?? EMPTY_LIST };
 }
 
 /** Reads the reactive consumer keys into `target` (inside the part's attribute effect). */

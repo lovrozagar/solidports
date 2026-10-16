@@ -6,12 +6,30 @@
  * cleanup: no reactive node. A reactive id keeps the memo + render effect, on the server too: they
  * take hydration ids, which the client's must match.
  */
-import { createMemo, isDisposed, isStatic, onCleanup, untrack } from 'solid-js';
-import type { Owner, Setter } from 'solid-js';
+import { createMemo, createSignal, isDisposed, isStatic, onCleanup, untrack } from 'solid-js';
+import type { Accessor, Owner, Setter } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { createLayoutEffect, shallowEqual } from '../../solid-helpers';
 
 type IdSetter = Setter<string | null | undefined>;
+
+type IdRegistry = [Accessor<string | null | undefined>, IdSetter];
+
+const SERVER_ID_REGISTRY: IdRegistry = [() => undefined, (() => undefined) as unknown as IdSetter];
+
+/**
+ * The id a part registers with its root through `createIdRegistration`: `undefined` until one
+ * registers, `null` once it unmounts. Solid: the part clears its registration from an unmount
+ * cleanup, so the signal allows owned writes. The server never registers (refs, cleanups and layout
+ * applies do not run there) and a signal takes no hydration id, so the server shares one constant
+ * pair.
+ */
+export function createIdRegistry(): IdRegistry {
+  if (isServer) {
+    return SERVER_ID_REGISTRY;
+  }
+  return createSignal<string | null | undefined>(undefined, { ownedWrite: true });
+}
 
 function apply(setId: IdSetter, registered: string | undefined) {
   setId((currentId) => registered ?? (currentId === null ? undefined : currentId));

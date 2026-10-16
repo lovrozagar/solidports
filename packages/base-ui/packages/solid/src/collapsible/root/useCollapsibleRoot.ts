@@ -11,6 +11,7 @@ import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useTransitionStatus } from '../../utils/useTransitionStatus';
 import type { CollapsibleRoot, CollapsibleRootState } from './CollapsibleRoot';
 import { runInLazyScope } from '../../utils/runInLazyScope';
+import { createIdRegistry } from '../../utils/native/registration';
 
 /** How the root's `open` is read, fixed by the first render as in React. */
 type OpenMode = 'always' | 'controlled' | 'uncontrolled';
@@ -117,12 +118,7 @@ export class CollapsibleRootModel {
     }
 
     this.defaultPanelId = useBaseUiId();
-    // Solid: the panel clears its registration from an unmount cleanup, so the signal allows owned
-    // writes.
-    [this.registeredPanelId, this.setPanelIdState] = createSignal<string | null | undefined>(
-      undefined,
-      { ownedWrite: true },
-    );
+    [this.registeredPanelId, this.setPanelIdState] = createIdRegistry();
 
     this.publicState = undefined;
     this.stateView = new CollapsibleStateView(this);

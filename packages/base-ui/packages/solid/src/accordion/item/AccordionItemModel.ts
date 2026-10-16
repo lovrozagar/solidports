@@ -1,10 +1,11 @@
-import { createSignal, getOwner, untrack } from 'solid-js';
+import { getOwner, untrack } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import type { CollapsibleRoot } from '../../collapsible/root/CollapsibleRoot';
 import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
 import type { CollapsibleRootModel } from '../../collapsible/root/useCollapsibleRoot';
 import { isStaticProp } from '../../solid-helpers';
 import { compileStateWriter } from '../../utils/native/element';
+import { createIdRegistry } from '../../utils/native/registration';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import type { AccordionRootContext } from '../root/AccordionRootContext';
 import { useAccordionRootContext } from '../root/AccordionRootContext';
@@ -102,12 +103,7 @@ export class AccordionItemModel {
       disabled: () => this.disabled(),
     });
     this.defaultTriggerId = useBaseUiId();
-    // Solid: the trigger clears its registration from an unmount cleanup, so the signal allows
-    // owned writes.
-    [this.registeredTriggerId, this.setTriggerId] = createSignal<string | null | undefined>(
-      undefined,
-      { ownedWrite: true },
-    );
+    [this.registeredTriggerId, this.setTriggerId] = createIdRegistry();
     this.owner = getOwner();
     this.stateView = new AccordionItemStateView(this);
   }
