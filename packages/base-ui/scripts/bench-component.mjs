@@ -1,0 +1,490 @@
+#!/usr/bin/env bun
+// bench:component: one report per component across every perf instrument (plan 3, leaves 1.5–1.7).
+//
+//   bun run bench:component <name>[,...]|all [--runs 8] [--ssr-runs 10] [--filter <terms>]
+//                           [--save-baseline <label>] [--compare <label>]
+//
+// Builds once, then runs the browser scenarios that list a component (`component:<name>` terms,
+// plus any `--filter` terms, browser only), the SSR cases that list it, and the cost tests
+// `COST_TESTS` assigns it; a component with neither a cost test nor a `PENDING_COST` entry fails.
+// `--save-baseline` stores the run under a label and refuses a dirty tree. `--compare` builds the
+// labelled commit's library source (extracted with `git archive`, so it is the commit and nothing
+// else), caches that build by SHA and harness hash, runs it interleaved with the working tree and
+// React in one session, and fails on any regression under the 1.6 rule. Run with Bun: it imports
+// the TypeScript manifests directly.
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { closest, matchesFilter, parseFilter } from '../test/perf-solid/shared/filter.mjs';
+import { compareVariants } from '../test/perf-solid/shared/report.mjs';
+import { GATED, judge } from '../test/perf-solid/shared/regression.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const baseUi = path.resolve(here, '..');
+const repo = path.resolve(baseUi, '../..');
+const perf = path.join(baseUi, 'test/perf-solid');
+const builds = path.join(repo, '.tmp/grunt/bench-builds');
+const resultsDir = path.join(repo, '.tmp/grunt/bench-results');
+const USAGE =
+  'bench:component <name>[,...]|all [--runs N] [--ssr-runs N] [--filter terms] [--save-baseline label | --compare label]';
+
+/** @param {string[]} argv */
+export function parseArgs(argv) {
+  const options = {
+    names: [],
+    runs: 8,
+    ssrRuns: 10,
+    filter: null,
+    saveBaseline: null,
+    compare: null,
+  };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    const value = () => {
+      const next = argv[(i += 1)];
+      if (next === undefined) throw new Error(`${arg} needs a value; usage: ${USAGE}`);
+      return next;
+    };
+    if (arg === '--runs') options.runs = Number(value());
+    else if (arg === '--ssr-runs') options.ssrRuns = Number(value());
+    else if (arg === '--filter') options.filter = value();
+    else if (arg === '--save-baseline') options.saveBaseline = value();
+    else if (arg === '--compare') options.compare = value();
+    else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}; usage: ${USAGE}`);
+    else options.names.push(...arg.split(',').filter(Boolean));
+  }
+  if (options.names.length === 0) throw new Error(`usage: ${USAGE}`);
+  if (options.saveBaseline && options.compare) {
+    throw new Error('--save-baseline and --compare are separate runs; pass one');
+  }
+  return options;
+}
+
+/** @param {string[]} names @param {readonly string[]} known */
+export function resolveComponents(names, known) {
+  if (names.includes('all')) return [...known];
+  for (const name of names) {
+    if (!known.includes(name)) {
+      throw new Error(`Unknown component "${name}"; did you mean "${closest(name, known)}"?`);
+    }
+  }
+  return [...new Set(names)];
+}
+
+/**
+ * The cost tests to run for `components`, each once, plus the pending ones and any component with
+ * neither (an error the caller reports).
+ */
+export function costPlan(components, costTests, pending) {
+  const names = [];
+  const pendingOut = {};
+  const missing = [];
+  for (const component of components) {
+    if (costTests[component]) {
+      for (const name of costTests[component]) if (!names.includes(name)) names.push(name);
+    } else if (pending[component]) {
+      pendingOut[component] = pending[component];
+    } else {
+      missing.push(component);
+    }
+  }
+  return { names, pending: pendingOut, missing };
+}
+
+/** vitest's `-t` matches the space-joined full name; `vitest list` prints `describe > it`. */
+export const vitestName = (name) => name.split(' > ').join(' ');
+
+/** An anchored `-t` pattern for exactly these full names. */
+export function costPattern(names) {
+  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return `^(?:${names.map((name) => escape(vitestName(name))).join('|')})$`;
+}
+
+function git(cwd, args, encoding = 'utf8') {
+  const run = spawnSync('git', args, { cwd, encoding, maxBuffer: 1 << 30 });
+  if (run.status !== 0) throw new Error(`git ${args.join(' ')}: ${run.stderr}`);
+  return run.stdout;
+}
+
+const sha256 = () => createHash('sha256');
+
+/**
+ * The commit a run measured and whether the tree matched it. A dirty tree also gets a hash of
+ * `git diff HEAD` plus every untracked file's path and content, so two dirty runs can be told apart.
+ */
+export function gitProvenance(cwd) {
+  const sha = git(cwd, ['rev-parse', 'HEAD']).trim();
+  const dirty = git(cwd, ['status', '--porcelain', '--untracked-files=all']).trim() !== '';
+  const untracked = git(cwd, ['ls-files', '--others', '--exclude-standard'])
+    .split('\n')
+    .filter(Boolean)
+    .sort();
+  if (!dirty) return { sha, dirty, diffSha256: null, untracked };
+  const hash = sha256().update(git(cwd, ['diff', 'HEAD', '--binary'], 'buffer'));
+  for (const file of untracked)
+    hash.update(`\0${file}\0`).update(fs.readFileSync(path.join(cwd, file)));
+  return { sha, dirty, diffSha256: hash.digest('hex'), untracked };
+}
+
+/**
+ * True when the working tree's bun.lock differs from the baseline commit's: `--compare` builds the
+ * baseline's library source against today's node_modules, so a dependency change between the two
+ * would otherwise read as no difference.
+ */
+export function depsDrift(cwd, baseSha) {
+  const run = spawnSync('git', ['diff', '--quiet', baseSha, '--', 'bun.lock'], { cwd });
+  if (run.status !== 0 && run.status !== 1)
+    throw new Error(`git diff ${baseSha} -- bun.lock failed`);
+  return run.status === 1;
+}
+
+/** Hash of the tracked and untracked (not ignored) files under `paths`, by path and content. */
+export function treeHash(cwd, paths) {
+  const files = git(cwd, ['ls-files', '-co', '--exclude-standard', '--', ...paths])
+    .split('\n')
+    .filter(Boolean)
+    .sort();
+  const hash = sha256();
+  for (const file of files) {
+    const abs = path.join(cwd, file);
+    if (fs.existsSync(abs)) hash.update(`${file}\0`).update(fs.readFileSync(abs)).update('\0');
+  }
+  return hash.digest('hex');
+}
+
+/** Hash of every file under `dir`, by relative path and content. */
+export function dirHash(dir) {
+  const files = [];
+  const walk = (current) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const abs = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(abs);
+      else files.push(path.relative(dir, abs));
+    }
+  };
+  walk(dir);
+  const hash = sha256();
+  for (const file of files.sort()) {
+    hash
+      .update(`${file}\0`)
+      .update(fs.readFileSync(path.join(dir, file)))
+      .update('\0');
+  }
+  return hash.digest('hex');
+}
+
+/** True when `dir` holds a build whose recorded hash still matches its files. */
+function cachedBuild(dir) {
+  const record = `${dir}.build-hash`;
+  return (
+    fs.existsSync(dir) && fs.existsSync(record) && fs.readFileSync(record, 'utf8') === dirHash(dir)
+  );
+}
+
+function run(command, args, { env = {}, cwd = baseUi, allowFail = false } = {}) {
+  console.log(
+    `\n$ ${Object.entries(env)
+      .map(([k, v]) => `${k}=${v} `)
+      .join('')}${command} ${args.join(' ')}`,
+  );
+  const result = spawnSync(command, args, {
+    cwd,
+    env: { ...process.env, ...env },
+    stdio: 'inherit',
+  });
+  if (result.status !== 0 && !allowFail) {
+    throw new Error(`${command} ${args.join(' ')} exited ${result.status}`);
+  }
+  return result.status ?? 1;
+}
+
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+  const manifest = await import('../test/perf-solid/shared/manifest.ts');
+  const { ssrCases } = await import('../test/perf-solid/ssr/cases.ts');
+  const components = resolveComponents(options.names, manifest.COMPONENTS);
+  const cur = gitProvenance(repo);
+  if (options.saveBaseline && cur.dirty) {
+    throw new Error('--save-baseline needs a clean tree: a baseline is a commit. Commit first.');
+  }
+  const plan = costPlan(components, manifest.COST_TESTS, manifest.PENDING_COST);
+  if (plan.missing.length) {
+    throw new Error(
+      `No cost test or PENDING_COST entry for ${plan.missing.join(', ')} (shared/manifest.ts)`,
+    );
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const label = components.length > 3 ? `${components.length}-components` : components.join('+');
+  const out = path.join(resultsDir, `component-${label}-${stamp}`);
+  fs.mkdirSync(resultsDir, { recursive: true });
+
+  // --- Builds (once) ---
+  run('bun', ['run', 'bench:solid:build']);
+  let base = null;
+  const browserVariants = ['react:react:dist'];
+  const ssrVariants = ['react:react'];
+  if (options.compare) {
+    const file = path.join(resultsDir, 'baselines', `${options.compare}.json`);
+    if (!fs.existsSync(file)) throw new Error(`No baseline "${options.compare}" at ${file}`);
+    const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const harness = treeHash(repo, [path.relative(repo, perf), 'bun.lock']);
+    const key = `${saved.sha.slice(0, 12)}-${harness.slice(0, 12)}`;
+    const browserDir = path.join(builds, 'solid', `base-${key}`);
+    const ssrDir = path.join(builds, `ssr-base-${key}`);
+    const src = path.join(repo, '.tmp/grunt/bench-src', saved.sha);
+    const needBrowser = !cachedBuild(browserDir);
+    const needSsr = !cachedBuild(ssrDir);
+    if (needBrowser || needSsr) {
+      fs.rmSync(src, { recursive: true, force: true });
+      fs.mkdirSync(src, { recursive: true });
+      const archive = spawnSync(
+        'git',
+        ['archive', saved.sha, 'packages/base-ui/packages/solid/src'],
+        {
+          cwd: repo,
+          maxBuffer: 1 << 30,
+        },
+      );
+      if (archive.status !== 0) throw new Error(`git archive ${saved.sha}: ${archive.stderr}`);
+      const untar = spawnSync('tar', ['-x', '-C', src], { input: archive.stdout });
+      if (untar.status !== 0) throw new Error(`tar: ${untar.stderr}`);
+    }
+    const srcRoot = path.join(src, 'packages/base-ui/packages/solid/src');
+    try {
+      if (needBrowser) {
+        run('bun', ['x', 'vite', 'build', '-c', 'test/perf-solid/vite.config.mjs'], {
+          env: { LIB: 'solid', SOLID_SRC: srcRoot, OUT: `base-${key}` },
+        });
+        fs.writeFileSync(`${browserDir}.build-hash`, dirHash(browserDir));
+      }
+      run('node', ['test/perf-solid/ssr/run.mjs'], {
+        env: {
+          BUILD_ONLY: '1',
+          SSR_VARIANTS: `react:react,cur:solid,base:solid:${srcRoot}:ssr-base-${key}`,
+          ...(needSsr ? {} : { NO_BUILD: 'base' }),
+        },
+      });
+      if (needSsr) fs.writeFileSync(`${ssrDir}.build-hash`, dirHash(ssrDir));
+    } finally {
+      fs.rmSync(src, { recursive: true, force: true });
+    }
+    base = {
+      label: options.compare,
+      sha: saved.sha,
+      dirty: false,
+      cachedBuild: !needBrowser && !needSsr,
+      depsFromWorkingTree: depsDrift(repo, saved.sha),
+      buildHash: { browser: dirHash(browserDir), ssr: dirHash(ssrDir) },
+    };
+    browserVariants.push(`base:solid:base-${key}`, 'cur:solid:dist');
+    ssrVariants.push(`base:solid:${srcRoot}:ssr-base-${key}`, 'cur:solid');
+  } else {
+    browserVariants.push('solid:solid:dist');
+    ssrVariants.push('solid:solid');
+    run('node', ['test/perf-solid/ssr/run.mjs'], {
+      env: { BUILD_ONLY: '1', SSR_VARIANTS: ssrVariants.join(',') },
+    });
+  }
+  const curBuildHash = { browser: dirHash(path.join(builds, 'solid', 'dist')) };
+
+  // --- Browser scenarios ---
+  const browserFilter = [...components.map((c) => `component:${c}`), options.filter]
+    .filter(Boolean)
+    .join(',');
+  const browserExit = run(
+    'node',
+    ['test/perf-solid/run.mjs', String(options.runs), browserFilter],
+    {
+      env: { VARIANTS: browserVariants.join(','), RESULTS_FILE: `${out}-browser` },
+      allowFail: true,
+    },
+  );
+  const browser = fs.existsSync(`${out}-browser.json`)
+    ? JSON.parse(fs.readFileSync(`${out}-browser.json`, 'utf8'))
+    : null;
+
+  // --- SSR cases ---
+  const ssrTerms = parseFilter(components.map((c) => `component:${c}`).join(','), {
+    ids: ssrCases.map((c) => c.id),
+    components: manifest.COMPONENTS,
+    tags: manifest.SCENARIO_TAGS,
+  });
+  const ssrIds = ssrCases.filter((c) => matchesFilter(c, ssrTerms)).map((c) => c.id);
+  let ssr = null;
+  let ssrExit = 0;
+  if (ssrIds.length) {
+    ssrExit = run(
+      'node',
+      ['test/perf-solid/ssr/run.mjs', String(options.ssrRuns), ssrIds.join(',')],
+      {
+        env: { NO_BUILD: '1', SSR_VARIANTS: ssrVariants.join(','), RESULTS_FILE: `${out}-ssr` },
+        allowFail: true,
+      },
+    );
+    ssr = fs.existsSync(`${out}-ssr.json`)
+      ? JSON.parse(fs.readFileSync(`${out}-ssr.json`, 'utf8'))
+      : null;
+  }
+
+  // --- Cost tests (working tree; budgets are absolute) ---
+  const cost = { tests: [], pending: plan.pending, problems: [] };
+  if (plan.names.length) {
+    const report = `${out}-cost.json`;
+    run(
+      'bun',
+      [
+        'x',
+        'vitest',
+        'run',
+        '--project',
+        '@solidports/base-ui',
+        '.cost.test.tsx',
+        '-t',
+        costPattern(plan.names),
+        '--reporter=json',
+        `--outputFile=${report}`,
+      ],
+      { env: { TZ: 'UTC', VITEST_ENV: 'jsdom' }, allowFail: true },
+    );
+    const ran = new Map();
+    if (fs.existsSync(report)) {
+      for (const file of JSON.parse(fs.readFileSync(report, 'utf8')).testResults) {
+        for (const assertion of file.assertionResults) {
+          if (assertion.status !== 'skipped' && assertion.status !== 'pending') {
+            ran.set(assertion.fullName, assertion.status);
+          }
+        }
+      }
+    }
+    for (const name of plan.names) {
+      const status = ran.get(vitestName(name)) ?? 'did not run';
+      cost.tests.push({ name, status });
+      if (status !== 'passed') cost.problems.push(`${name}: ${status}`);
+    }
+  }
+
+  // --- Verdicts (1.6) ---
+  const regressions = [];
+  const verdicts = { browser: [], ssr: [] };
+  if (base && browser) {
+    verdicts.browser = compareVariants(browser.summary, 'base', 'cur');
+  }
+  if (base && ssr) {
+    for (const [key, row] of Object.entries(ssr.results)) {
+      for (const metric of ['serverMs', 'hydrateSyncMs']) {
+        const a = row.base?.samples[metric] ?? [];
+        const b = row.cur?.samples[metric] ?? [];
+        if (a.length && b.length) verdicts.ssr.push({ key, metric, ...judge(a, b, GATED[metric]) });
+      }
+    }
+  }
+  for (const verdict of [...verdicts.browser, ...verdicts.ssr]) {
+    if (verdict.verdict === 'regressed') regressions.push(verdict);
+  }
+
+  // --- Report ---
+  const failures = [
+    ...(browserExit
+      ? [`browser bench exited ${browserExit}${browser ? '' : ' without results'}`]
+      : []),
+    ...(ssrExit ? [`SSR bench exited ${ssrExit}${ssr ? '' : ' without results'}`] : []),
+    ...(browser?.problems ?? []).map((p) => `browser: ${p}`),
+    ...(ssr?.problems ?? []).map((p) => `ssr: ${p}`),
+    ...cost.problems.map((p) => `cost: ${p}`),
+    ...regressions.map(
+      (r) =>
+        `regressed: ${r.key} ${r.metric} ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (tolerance ${r.tolerance.toFixed(2)})`,
+    ),
+  ];
+  const result = {
+    components,
+    runs: options.runs,
+    ssrRuns: options.ssrRuns,
+    filter: options.filter,
+    cur: { ...cur, buildHash: curBuildHash },
+    base,
+    browser: browser && { variants: browser.variants, file: `${out}-browser.json` },
+    ssr: ssr
+      ? { variants: ssr.variants, cases: ssrIds, file: `${out}-ssr.json` }
+      : { skipped: 'no SSR case lists these components' },
+    cost,
+    verdicts,
+    failures,
+  };
+  fs.writeFileSync(`${out}.json`, JSON.stringify(result, null, 2));
+  const fmt = (n) => (n == null ? '-' : n.toFixed(2));
+  const md = [
+    `# bench:component ${components.join(', ')}`,
+    '',
+    `cur ${cur.sha.slice(0, 12)}${cur.dirty ? ` · working tree dirty (diff ${cur.diffSha256.slice(0, 12)}, ${cur.untracked.length} untracked)` : ' · clean'}${base ? ` · base ${base.label} ${base.sha.slice(0, 12)}${base.cachedBuild ? ' (cached build)' : ''}${base.depsFromWorkingTree ? ' · baseline built with working-tree dependencies (bun.lock differs)' : ''}` : ''}`,
+    '',
+    '## Browser',
+    '',
+    browser
+      ? fs.readFileSync(`${out}-browser.md`, 'utf8').split('\n').slice(2).join('\n')
+      : 'no results',
+    '',
+    '## SSR',
+    '',
+    ssr
+      ? fs.readFileSync(`${out}-ssr.md`, 'utf8').split('\n').slice(2).join('\n')
+      : (result.ssr.skipped ?? 'no results'),
+    '',
+    '## Cost tests (working tree)',
+    '',
+    ...cost.tests.map((t) => `- ${t.status}: ${t.name}`),
+    ...Object.entries(cost.pending).map(([c, leaf]) => `- pending: ${c} (${leaf})`),
+  ];
+  if (base) {
+    md.push(
+      '',
+      '## cur vs base (1.6 rule)',
+      '',
+      '| key | metric | base | cur | delta | tolerance | verdict |',
+      '|---|---|---|---|---|---|---|',
+    );
+    for (const v of [...verdicts.browser, ...verdicts.ssr]) {
+      md.push(
+        `| ${v.key} | ${v.metric} | ${fmt(v.base)} | ${fmt(v.cur)} | ${fmt(v.delta)} | ${fmt(v.tolerance)} | ${v.verdict} |`,
+      );
+    }
+  }
+  if (failures.length) md.push('', '## Failures', '', ...failures.map((f) => `- ${f}`));
+  fs.writeFileSync(`${out}.md`, md.join('\n'));
+  console.log(`\n${md.join('\n')}\n\nwritten ${out}.{md,json}`);
+
+  if (options.saveBaseline) {
+    if (failures.length) throw new Error('Not saving a baseline from a run with failures');
+    const dir = path.join(resultsDir, 'baselines');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${options.saveBaseline}.json`);
+    const browserResults = browser && JSON.parse(fs.readFileSync(`${out}-browser.json`, 'utf8'));
+    const ssrResults = ssr && JSON.parse(fs.readFileSync(`${out}-ssr.json`, 'utf8'));
+    fs.writeFileSync(
+      file,
+      JSON.stringify(
+        {
+          label: options.saveBaseline,
+          sha: cur.sha,
+          buildHash: curBuildHash,
+          result,
+          browser: browserResults,
+          ssr: ssrResults,
+        },
+        null,
+        2,
+      ),
+    );
+    console.log(`saved baseline ${options.saveBaseline} → ${file}`);
+  }
+  process.exit(failures.length ? 1 : 0);
+}
+
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exit(1);
+  });
+}

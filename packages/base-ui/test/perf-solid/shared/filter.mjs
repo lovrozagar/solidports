@@ -27,7 +27,7 @@ function distance(a, b) {
 }
 
 /** @param {string} value @param {readonly string[]} options */
-const closest = (value, options) =>
+export const closest = (value, options) =>
   options.reduce((best, option) =>
     distance(value, option) < distance(value, best) ? option : best,
   );

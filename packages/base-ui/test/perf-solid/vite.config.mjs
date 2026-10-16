@@ -24,8 +24,14 @@ export default defineConfig({
       '@base-ui/utils': path.join(base, 'utils/src'),
       '@solidports/base-ui': process.env.SOLID_SRC || path.join(base, 'solid/src'),
     },
-    dedupe: ['react', 'react-dom', 'solid-js', '@solidjs/web'],
+    // One reactive core even when SOLID_SRC points at a baseline copy of the source.
+    dedupe: ['react', 'react-dom', 'solid-js', '@solidjs/web', '@solidjs/signals'],
   },
-  build: { outDir: path.join(builds, lib, process.env.OUT || 'dist'), emptyOutDir: true, minify: process.env.MINIFY !== '0', chunkSizeWarningLimit: 99999 },
+  build: {
+    outDir: path.join(builds, lib, process.env.OUT || 'dist'),
+    emptyOutDir: true,
+    minify: process.env.MINIFY !== '0',
+    chunkSizeWarningLimit: 99999,
+  },
   logLevel: 'warn',
 });
