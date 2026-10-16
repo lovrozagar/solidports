@@ -161,6 +161,12 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
   return <Show when={panel.shouldRender()}>{element()}</Show>;
 }
 
+/** The panel's state attributes, compiled once: the item's keys, then the transition status. */
+const writePanelState = compileStateWriter(
+  [...ITEM_STATE_KEYS, 'transitionStatus'],
+  accordionStateAttributesMapping,
+);
+
 function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
   const owner = getOwner();
   const accordionRoot = useAccordionRootContext();
@@ -207,12 +213,6 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
     );
   }) as unknown as JSX.Element;
 }
-
-/** The panel's state attributes, compiled once: the item's keys, then the transition status. */
-const writePanelState = compileStateWriter(
-  [...ITEM_STATE_KEYS, 'transitionStatus'],
-  accordionStateAttributesMapping,
-);
 
 type CollapsiblePanelHook = ReturnType<typeof useCollapsiblePanel>;
 
