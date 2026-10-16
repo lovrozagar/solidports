@@ -60,6 +60,30 @@ describe('<Collapsible.Panel />', () => {
     }
   });
 
+  // Solid: static props are checked once at setup (no node); reactive ones keep re-checking.
+  it('warns when a reactive hiddenUntilFound starts overriding keepMounted={false}', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const [hiddenUntilFound, setHiddenUntilFound] = createSignal(false);
+
+    try {
+      await render(() => (
+        <Collapsible.Root>
+          <Collapsible.Panel hiddenUntilFound={hiddenUntilFound()} keepMounted={false}>
+            {PANEL_CONTENT}
+          </Collapsible.Panel>
+        </Collapsible.Root>
+      ));
+      expect(warnSpy).not.toHaveBeenCalled();
+
+      await act(() => setHiddenUntilFound(true));
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Base UI: The `keepMounted={false}` prop on `Collapsible.Panel` is ignored when `hiddenUntilFound` is enabled, since the panel must remain mounted while closed.',
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   describe('prop: keepMounted', () => {
     it('does not unmount the panel when true', async () => {
       function App() {
