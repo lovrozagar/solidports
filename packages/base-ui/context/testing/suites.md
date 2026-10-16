@@ -17,6 +17,11 @@ From the repo root: `bun run test:base-ui:all` (`packages/base-ui/scripts/test-a
 - Generated-file suites fail when they change the tree, compared against the tree state before the suite (local edits are not discarded).
 - Each suite's log goes to a gitignored folder at the repo root, one `<suite>.log` per suite; a failing row prints its path.
 
+## Local setup
+
+- Playwright browsers: CI installs them per job (`bunx playwright install --with-deps chromium` in the workflows), and nothing installs them locally. After `bun install` or any Playwright bump, run `bunx playwright install chromium firefox webkit` from `packages/base-ui`. `regressions` launches full Chromium (`~/.cache/ms-playwright/chromium-<rev>`), not only the headless shell; when that is missing it fails with "Executable doesn't exist" and the runner then throws `ENOENT` renaming `screenshots/chrome`.
+- `/tmp` quota: on this machine `/tmp` (and `/dev/shm`) is a tmpfs mounted with `usrquota`, and uid 1000 has a 12.18 GiB block limit shared by every process of the user, every Claude session included. Playwright writes its browser profiles and artifacts there. Near the limit, `chromium` dies about 30 files in, with `Unknown system error -122` (EDQUOT) on writes, `Failed to fetch dynamically imported module`, and `Cannot connect to the iframe`; the files pass when run alone. The disk itself has room, so `df` hides this. Read usage against the limit with the `quotactl_fd` syscall (no quota tools are installed), and delete stale test scratch in `/tmp` before a full run.
+
 ## Suites and CI jobs
 
 Workflow `.github/workflows/base-ui-tests.yml` runs on push to `main`, pull requests, dispatch, and from the release workflow. Commands run from `packages/base-ui` unless the cwd says otherwise.
