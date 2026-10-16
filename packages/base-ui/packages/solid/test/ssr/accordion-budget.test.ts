@@ -40,6 +40,15 @@ afterAll(async () => {
 const keys = (html: string) => html.match(/ _hk=/g)?.length ?? 0;
 
 describe('accordion server budget', () => {
+  // The native path guesses each item's index from its creation order, as the hydrating client
+  // does; the slow path renders -1 until the client registers the items.
+  it('renders the item indexes on the server, as the native parts do', () => {
+    const view = fixture.renderPart(false);
+    expect(view.match(/<div[^>]* data-index="(\d+)"/g)?.length).toBe(2);
+    expect(view).toContain('data-index="0"');
+    expect(view).toContain('data-index="1"');
+  });
+
   it.each([false, true])('renders no more hydration keys than the floor (open: %s)', (open) => {
     const part = keys(fixture.renderPart(open));
     const floor = keys(fixture.renderFloor(open));
