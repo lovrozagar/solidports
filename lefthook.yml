@@ -2,3 +2,12 @@
 # jobs below. Edit this file by hand.
 extends:
   - lefthook.base.yml
+
+pre-commit:
+  jobs:
+    # Base UI lints with upstream's ESLint stack (D2 moves it to oxlint), which the shared oxlint jobs
+    # do not run: check the staged Solid library and docs files with it before the commit lands.
+    - name: base-ui-eslint
+      root: "packages/base-ui/"
+      glob: "**/{packages/solid,docs/solid}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
+      run: bunx eslint --report-unused-disable-directives --max-warnings 0 --no-warn-ignored {staged_files}
