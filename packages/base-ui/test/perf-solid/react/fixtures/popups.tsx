@@ -16,7 +16,7 @@ function Select1000() {
       </Select.Trigger>
       <Select.Portal>
         <Select.Positioner sideOffset={4}>
-          <Select.Popup style={{ maxHeight: '300px', overflow: 'auto' }}>
+          <Select.Popup style={{ maxHeight: '300px', overflowY: 'auto' }}>
             <Select.List>
               {selectItems.map((it) => (
                 <Select.Item key={it.value} value={it.value}>

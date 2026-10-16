@@ -7,7 +7,8 @@ import { setters, useExposed } from '../exposed';
 
 type Item = { value: string; label: string };
 const setExposed = (key: string) => (value: unknown) => setters[key](value);
-const popupStyle = { 'max-height': '300px', overflow: 'auto' } as const;
+// `overflow-y`, as the React fixture (which avoids the `overflow` shorthand on Select's popup).
+const popupStyle = { 'max-height': '300px', 'overflow-y': 'auto' } as const;
 
 function SelectFixture(props: {
   count: number;
