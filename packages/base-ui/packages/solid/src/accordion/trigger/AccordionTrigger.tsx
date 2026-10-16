@@ -1,5 +1,6 @@
 import { untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import {
   wrapDisclosureTriggerHandler,
@@ -55,9 +56,9 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
   ]);
   const nativeButton = () => local.nativeButton ?? true;
 
-  const { panelId, open, handleTrigger, disabled: contextDisabled } = useCollapsibleRootContext();
+  const root = useCollapsibleRootContext();
 
-  const disabled = () => (local.disabled ?? false) || contextDisabled();
+  const disabled = () => (local.disabled ?? false) || root.disabled();
 
   const { buttonSources, buttonRef } = useButton({
     disabled,
@@ -79,15 +80,15 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
 
   const props: HTMLProps = {
     get 'aria-controls'() {
-      return open() ? panelId() : undefined;
+      return root.open() ? root.panelId() : undefined;
     },
     get 'aria-expanded'() {
-      return open() ? 'true' : 'false';
+      return root.open() ? 'true' : 'false';
     },
     get id() {
       return id();
     },
-    onClick: handleTrigger,
+    onClick: root.handleTrigger,
   };
 
   const element = useRenderElement('button', componentProps, {
@@ -101,9 +102,9 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
 }
 
 function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
-  const { panelId, open, handleTrigger, disabled: contextDisabled } = useCollapsibleRootContext();
+  const root = useCollapsibleRootContext();
   const { defaultTriggerId, owner: itemOwner, state, setTriggerId } = useAccordionItemContext();
-  const disabled = () => (props.disabled ?? false) || contextDisabled();
+  const disabled = () => (props.disabled ?? false) || root.disabled();
   const id = () => (props.id || undefined) ?? defaultTriggerId?.();
 
   const registerId = createIdRegistration(props, 'id', setTriggerId, itemOwner);
@@ -116,10 +117,13 @@ function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
     mapping: stateAttributesMapping,
     reactive: true,
     attributes: (set) => {
-      writeDisclosureTriggerAttributes(set, open(), panelId(), disabled());
+      writeDisclosureTriggerAttributes(set, root.open(), root.panelId(), disabled());
       set('id', id());
     },
-    wrapHandler: (key, read) => wrapDisclosureTriggerHandler(disabled, handleTrigger, key, read),
+    // The server renders no handlers: no wrapper to create.
+    wrapHandler: isServer
+      ? undefined
+      : (key, read) => wrapDisclosureTriggerHandler(disabled, root.handleTrigger, key, read),
     handlerKeys: HANDLER_KEYS,
   }) as unknown as JSX.Element;
 }

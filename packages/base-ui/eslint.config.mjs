@@ -161,6 +161,18 @@ export default defineConfig(
     },
   },
   {
+    // Collapsible and Accordion share `CollapsibleRootModel`, whose members are prototype methods: a
+    // detached method loses `this`.
+    files: [
+      `packages/solid/src/collapsible/**/*${EXTENSION_TS}`,
+      `packages/solid/src/accordion/**/*${EXTENSION_TS}`,
+    ],
+    ignores: [`**/*${EXTENSION_TEST_FILE}`, `**/*.spec${EXTENSION_TS}`],
+    rules: {
+      '@typescript-eslint/unbound-method': 'error',
+    },
+  },
+  {
     files: [
       // matching the pattern of the test runner
       `**/*${EXTENSION_TEST_FILE}`,

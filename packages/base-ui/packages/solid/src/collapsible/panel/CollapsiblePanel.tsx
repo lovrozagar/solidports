@@ -16,6 +16,7 @@ import { propsSourceAccessor } from '../../utils/propsView';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
 import { useCollapsibleRootContext } from '../root/CollapsibleRootContext';
+import { panelRootParameters } from '../root/useCollapsibleRoot';
 import type { CollapsibleRootState } from '../root/CollapsibleRoot';
 import {
   collapsibleStateAttributesMapping,
@@ -60,29 +61,19 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
     );
   }
 
-  const {
-    defaultPanelId,
-    mounted,
-    onOpenChange,
-    open,
-    setMounted,
-    setPanelIdState,
-    setOpen,
-    state,
-    transitionStatus,
-  } = useCollapsibleRootContext();
+  const root = useCollapsibleRootContext();
 
   const hiddenUntilFound = () => local.hiddenUntilFound ?? false;
   const keepMounted = () => local.keepMounted ?? false;
   const registeredId = () => local.id || undefined;
-  const id = () => registeredId() ?? defaultPanelId();
+  const id = () => registeredId() ?? root.defaultPanelId();
 
   createDepsRenderEffect(registeredId, (currentRegisteredId) => {
-    setPanelIdState(
+    root.setPanelIdState(
       (currentId) => currentRegisteredId ?? (currentId === null ? undefined : currentId),
     );
     return () => {
-      setPanelIdState((currentId) => (currentId === currentRegisteredId ? null : currentId));
+      root.setPanelIdState((currentId) => (currentId === currentRegisteredId ? null : currentId));
     };
   });
 
@@ -94,20 +85,16 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
     hiddenUntilFound,
     id,
     keepMounted,
-    mounted,
-    onOpenChange,
-    open,
-    setMounted,
-    setOpen,
-    transitionStatus,
+    ...panelRootParameters(root),
   });
 
+  const rootState = root.state;
   const panelState: CollapsiblePanelState = {
     get open() {
-      return state.open;
+      return rootState.open;
     },
     get disabled() {
-      return state.disabled;
+      return rootState.disabled;
     },
     get transitionStatus() {
       return panel.transitionStatus();
@@ -204,7 +191,7 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
 
   const root = useCollapsibleRootContext();
   const registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
-  const initialOpen = untrack(root.open);
+  const initialOpen = untrack(() => root.open());
   // A closed panel without `keepMounted` never renders: it allocates only this condition. The
   // measurement and transition machinery and the panel's state are created when the panel first
   // renders and kept for the part's lifetime, owned by the part.
@@ -249,13 +236,8 @@ function createRenderedPanel(
         id,
         initialOpen,
         keepMounted,
-        mounted: root.mounted,
         native: true,
-        onOpenChange: root.onOpenChange,
-        open: root.open,
-        setMounted: root.setMounted,
-        setOpen: root.setOpen,
-        transitionStatus: root.transitionStatus,
+        ...panelRootParameters(root),
       }),
     ),
   )!;

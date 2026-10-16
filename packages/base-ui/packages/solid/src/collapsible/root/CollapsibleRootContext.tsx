@@ -1,11 +1,8 @@
 import { createContext, useContext } from 'solid-js';
-import type { UseCollapsibleRootReturnValue } from './useCollapsibleRoot';
-import type { CollapsibleRoot, CollapsibleRootState } from './CollapsibleRoot';
+import type { CollapsibleRootModel } from './useCollapsibleRoot';
 
-export interface CollapsibleRootContext extends UseCollapsibleRootReturnValue {
-  onOpenChange: (open: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => void;
-  state: CollapsibleRootState;
-}
+/** A Collapsible.Root's or an Accordion.Item's model (`useCollapsibleRoot`). */
+export type CollapsibleRootContext = CollapsibleRootModel;
 
 export const CollapsibleRootContext = createContext<CollapsibleRootContext | null>(null);
 

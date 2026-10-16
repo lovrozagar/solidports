@@ -84,44 +84,7 @@ export function useControlled<T = unknown>(
   };
 
   if (process.env.NODE_ENV !== 'production' && !props.staticInputs) {
-    // One effect for both checks, so a controlled part pays one dev-only node rather than two.
-    const initialDefault = serializeToDevModeString(untrack(defaultProp));
-    let previousDefault: string | undefined;
-    createEffect(
-      () => ({ controlled: controlledProp(), defaultValue: defaultProp() }),
-      ({ controlled, defaultValue }) => {
-        if (isControlled !== (controlled !== undefined)) {
-          error(
-            [
-              `A component is changing the ${
-                isControlled ? '' : 'un'
-              }controlled ${state()} state of ${props.name} to be ${isControlled ? 'un' : ''}controlled.`,
-              'Elements should not switch from uncontrolled to controlled (or vice versa).',
-              `Decide between using a controlled or uncontrolled ${props.name} ` +
-                'element for the lifetime of the component.',
-              "The nature of the state is determined during the first render. It's considered controlled if the value is not `undefined`.",
-              'More info: https://fb.me/react-controlled-components',
-            ].join('\n'),
-          );
-        }
-
-        const nextDefault = serializeToDevModeString(defaultValue);
-        // Only a change of the default warns, not a change of the controlled value.
-        if (
-          !isControlled &&
-          nextDefault !== (previousDefault ?? initialDefault) &&
-          nextDefault !== initialDefault
-        ) {
-          error(
-            [
-              `A component is changing the default ${state()} state of an uncontrolled ${props.name} after being initialized. ` +
-                `To suppress this warning opt to use a controlled ${props.name}.`,
-            ].join('\n'),
-          );
-        }
-        previousDefault = nextDefault;
-      },
-    );
+    createControlledDevChecks(controlledProp, defaultProp, isControlled, props.name, state);
   }
 
   function setValueIfUncontrolled(newValue: T | ((prevValue: T) => T)) {
@@ -136,6 +99,57 @@ export function useControlled<T = unknown>(
   }
 
   return [value, setValueIfUncontrolled as ControlledSetter<T | undefined>];
+}
+
+/**
+ * The dev-only checks of a controlled value: a part switching between controlled and uncontrolled,
+ * or changing its default while uncontrolled. `isControlled` is the mode the first render fixed.
+ */
+export function createControlledDevChecks(
+  controlledProp: () => unknown,
+  defaultProp: () => unknown,
+  isControlled: boolean,
+  name: string,
+  state: () => string,
+) {
+  // One effect for both checks, so a controlled part pays one dev-only node rather than two.
+  const initialDefault = serializeToDevModeString(untrack(defaultProp));
+  let previousDefault: string | undefined;
+  createEffect(
+    () => ({ controlled: controlledProp(), defaultValue: defaultProp() }),
+    ({ controlled, defaultValue }) => {
+      if (isControlled !== (controlled !== undefined)) {
+        error(
+          [
+            `A component is changing the ${
+              isControlled ? '' : 'un'
+            }controlled ${state()} state of ${name} to be ${isControlled ? 'un' : ''}controlled.`,
+            'Elements should not switch from uncontrolled to controlled (or vice versa).',
+            `Decide between using a controlled or uncontrolled ${name} ` +
+              'element for the lifetime of the component.',
+            "The nature of the state is determined during the first render. It's considered controlled if the value is not `undefined`.",
+            'More info: https://fb.me/react-controlled-components',
+          ].join('\n'),
+        );
+      }
+
+      const nextDefault = serializeToDevModeString(defaultValue);
+      // Only a change of the default warns, not a change of the controlled value.
+      if (
+        !isControlled &&
+        nextDefault !== (previousDefault ?? initialDefault) &&
+        nextDefault !== initialDefault
+      ) {
+        error(
+          [
+            `A component is changing the default ${state()} state of an uncontrolled ${name} after being initialized. ` +
+              `To suppress this warning opt to use a controlled ${name}.`,
+          ].join('\n'),
+        );
+      }
+      previousDefault = nextDefault;
+    },
+  );
 }
 
 /** Stable dev-only comparison of default values, so equal object literals do not warn. */
