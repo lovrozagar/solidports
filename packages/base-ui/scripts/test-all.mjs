@@ -37,6 +37,12 @@ const logRoot = path.join(root, '.tmp/base-ui-test-all');
 export const EXCLUSIVE_LOCK =
   process.env.GATES_LOCK ?? path.join(os.homedir(), '.cache/flare-gates/heavy.lock');
 
+/**
+ * Seconds an exclusive command may hold the lock before `timeout` kills it (SIGTERM, then SIGKILL
+ * 30 s later), so a hung browser run cannot block other gates; a suite may set `timeoutSeconds`.
+ */
+export const LOCK_TIMEOUT_SECONDS = Number(process.env.GATES_TIMEOUT ?? 1200);
+
 // One entry per workflow step, grouped by job. `generated` lists the paths the step may rewrite;
 // it fails when it changes any of them (the workflow's `git diff --exit-code`, scoped so suites
 // running beside it cannot be blamed on it, and without discarding local changes first).
@@ -217,6 +223,8 @@ export const suites = [
     cwd: baseUi,
     heavy: true,
     exclusive: true,
+    // The measured run (`--full-bench`) takes about half an hour.
+    timeoutSeconds: 3600,
     run: ['bun run bench:solid:build', 'WARMUP=0 node test/perf-solid/run.mjs 1'],
     fullRun: ['bun run bench:solid:build', 'bun run bench:solid'],
   },
@@ -389,11 +397,15 @@ function changedPaths(before, after) {
 
 const quote = (text) => `'${text.replaceAll("'", "'\\''")}'`;
 
-/** The shell command for one step: under the machine lock when the suite is exclusive. */
+/**
+ * The shell command for one step: under the machine lock, with a timeout, when the suite is
+ * exclusive.
+ */
 export function commandFor(suite, command, lock = EXCLUSIVE_LOCK) {
   if (!suite.exclusive) return command;
   const l = quote(lock);
-  return `mkdir -p ${quote(path.dirname(lock))}; flock -n ${l} true || echo "test-all: waiting for ${lock} (another gate holds it)"; flock ${l} sh -c ${quote(command)}`;
+  const seconds = suite.timeoutSeconds ?? LOCK_TIMEOUT_SECONDS;
+  return `mkdir -p ${quote(path.dirname(lock))}; flock -n ${l} true || echo "test-all: waiting for ${lock} (another gate holds it)"; flock ${l} timeout -k 30 ${seconds} sh -c ${quote(command)}`;
 }
 
 function runCommand(command, cwd, log, runDir) {

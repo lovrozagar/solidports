@@ -8,6 +8,7 @@ import {
 	depsDrift,
 	dirHash,
 	gitProvenance,
+	lockedCommand,
 	parseArgs,
 	resolveComponents,
 	treeHash,
@@ -108,6 +109,13 @@ describe("bench:component driver", () => {
 		expect(depsDrift(dir, base)).toBe(true)
 		git(dir, "commit", "-q", "--no-verify", "-am", "lock v2")
 		expect(depsDrift(dir, base)).toBe(true)
+	})
+
+	test("browser and SSR runs take the machine lock with a timeout, so a hang can never hold it", () => {
+		expect(lockedCommand("node", ["run.mjs", "8"], { lock: "/l.lock", timeoutSeconds: 1200 })).toEqual([
+			"flock",
+			["/l.lock", "timeout", "-k", "30", "1200", "node", "run.mjs", "8"],
+		])
 	})
 
 	test("treeHash covers tracked and untracked file contents under the given paths", () => {

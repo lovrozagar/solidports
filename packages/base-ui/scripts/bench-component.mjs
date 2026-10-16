@@ -19,6 +19,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { closest, matchesFilter, parseFilter } from '../test/perf-solid/shared/filter.mjs';
 import { compareVariants } from '../test/perf-solid/shared/report.mjs';
+import { EXCLUSIVE_LOCK, LOCK_TIMEOUT_SECONDS } from './test-all.mjs';
 import { GATED, judge } from '../test/perf-solid/shared/regression.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -183,7 +184,22 @@ function cachedBuild(dir) {
   );
 }
 
-function run(command, args, { env = {}, cwd = baseUi, allowFail = false } = {}) {
+/**
+ * `command args` under the machine lock with a timeout: browser and SSR runs launch Chromium, like
+ * the exclusive gate suites, and a hung one must not hold the lock.
+ */
+export function lockedCommand(command, args, { lock, timeoutSeconds }) {
+  return ['flock', [lock, 'timeout', '-k', '30', String(timeoutSeconds), command, ...args]];
+}
+
+function run(command, args, { env = {}, cwd = baseUi, allowFail = false, locked = false } = {}) {
+  if (locked) {
+    fs.mkdirSync(path.dirname(EXCLUSIVE_LOCK), { recursive: true });
+    [command, args] = lockedCommand(command, args, {
+      lock: EXCLUSIVE_LOCK,
+      timeoutSeconds: LOCK_TIMEOUT_SECONDS,
+    });
+  }
   console.log(
     `\n$ ${Object.entries(env)
       .map(([k, v]) => `${k}=${v} `)
@@ -299,6 +315,7 @@ async function main() {
     {
       env: { VARIANTS: browserVariants.join(','), RESULTS_FILE: `${out}-browser` },
       allowFail: true,
+      locked: true,
     },
   );
   const browser = fs.existsSync(`${out}-browser.json`)
@@ -321,6 +338,7 @@ async function main() {
       {
         env: { NO_BUILD: '1', SSR_VARIANTS: ssrVariants.join(','), RESULTS_FILE: `${out}-ssr` },
         allowFail: true,
+        locked: true,
       },
     );
     ssr = fs.existsSync(`${out}-ssr.json`)
