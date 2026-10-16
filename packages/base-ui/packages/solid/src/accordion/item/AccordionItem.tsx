@@ -1,6 +1,6 @@
 import { createMemo, createSignal, getOwner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import type { CollapsibleRoot, CollapsibleRootState } from '../../collapsible/root/CollapsibleRoot';
+import type { CollapsibleRoot } from '../../collapsible/root/CollapsibleRoot';
 import { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
 import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
@@ -104,8 +104,8 @@ function createAccordionItem(
     handleValueChange(value(), nextOpen, eventDetails);
   };
 
-  // `open` is always this item's membership in the root's value: `useControlled` has no mode to
-  // decide, so the collapsible root reads it directly.
+  // `open` is always this item's membership in the root's value: there is no mode to decide, so
+  // the collapsible root reads it directly.
   const collapsible = useCollapsibleRoot({
     alwaysControlled: true,
     open: isOpen,
@@ -113,23 +113,7 @@ function createAccordionItem(
     disabled,
   });
 
-  const collapsibleState: CollapsibleRootState = {
-    get open() {
-      return collapsible.open();
-    },
-    get disabled() {
-      return collapsible.disabled();
-    },
-    get transitionStatus() {
-      return collapsible.transitionStatus();
-    },
-  };
-
-  const collapsibleContext: CollapsibleRootContext = {
-    ...collapsible,
-    onOpenChange,
-    state: collapsibleState,
-  };
+  const collapsibleContext: CollapsibleRootContext = collapsible;
 
   const state: AccordionItemState = {
     get value() {

@@ -33,42 +33,16 @@ export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
     'open',
   ]);
 
-  // Solid: a handler reading the latest prop is React's stable callback.
-  const onOpenChange = (open: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) =>
-    local.onOpenChange?.(open, eventDetails);
-
-  const collapsible = useCollapsibleRoot({
-    open: () => local.open,
-    defaultOpen: () => local.defaultOpen ?? false,
-    onOpenChange,
-    disabled: () => local.disabled ?? false,
-  });
-
-  const state: CollapsibleRootState = {
-    get open() {
-      return collapsible.open();
-    },
-    get disabled() {
-      return collapsible.disabled();
-    },
-    get transitionStatus() {
-      return collapsible.transitionStatus();
-    },
-  };
-
-  const contextValue: CollapsibleRootContext = {
-    ...collapsible,
-    onOpenChange,
-    state,
-  };
+  // The root's own props are the hook's parameters, read live.
+  const collapsible = useCollapsibleRoot(local);
 
   const element = useRenderElement('div', componentProps, {
-    state,
+    state: collapsible.state,
     props: elementProps,
     stateAttributesMapping: collapsibleStateAttributesMapping,
   });
 
-  return provideContext(CollapsibleRootContext, contextValue, element);
+  return provideContext(CollapsibleRootContext, collapsible, element);
 }
 
 /** The root's element: a `<div>`. */
@@ -78,38 +52,20 @@ const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
 const OWN_KEYS: ReadonlySet<string> = new Set(['defaultOpen', 'disabled', 'onOpenChange', 'open']);
 
 function NativeCollapsibleRoot(props: CollapsibleRoot.Props) {
-  const onOpenChange = (open: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) =>
-    props.onOpenChange?.(open, eventDetails);
+  // The root's own props are the hook's parameters, read live; the dev checks only need the
+  // static test.
+  const collapsible = useCollapsibleRoot(
+    props,
+    process.env.NODE_ENV !== 'production' &&
+      isStaticProp(props, 'open') &&
+      isStaticProp(props, 'defaultOpen'),
+  );
 
-  const collapsible = useCollapsibleRoot({
-    open: () => props.open,
-    defaultOpen: () => props.defaultOpen ?? false,
-    staticOpen: isStaticProp(props, 'open') && isStaticProp(props, 'defaultOpen'),
-    onOpenChange,
-    disabled: () => props.disabled ?? false,
-  });
-
-  const state: CollapsibleRootState = {
-    get open() {
-      return collapsible.open();
-    },
-    get disabled() {
-      return collapsible.disabled();
-    },
-    get transitionStatus() {
-      return collapsible.transitionStatus();
-    },
-  };
-
-  // The hook's own object becomes the context: no copy of its members per root.
-  const contextValue = collapsible as CollapsibleRootContext;
-  contextValue.onOpenChange = onOpenChange;
-  contextValue.state = state;
-
-  return provideNativeContext(CollapsibleRootContext, contextValue, () =>
+  return provideNativeContext(CollapsibleRootContext, collapsible, () =>
     renderNativeElement(DIV, props, {
       own: OWN_KEYS,
-      state,
+      state: () => collapsible.state,
+      stateView: collapsible.stateView,
       mapping: collapsibleStateAttributesMapping,
       stateWriter: writeCollapsibleState,
       reactive: true,

@@ -8,6 +8,7 @@ import {
 } from '../../collapsible/panel/CollapsiblePanel';
 import { useCollapsiblePanel } from '../../collapsible/panel/useCollapsiblePanel';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
+import { panelRootParameters } from '../../collapsible/root/useCollapsibleRoot';
 import { createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
@@ -52,32 +53,23 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
   const { hiddenUntilFound: contextHiddenUntilFound, keepMounted: contextKeepMounted } =
     useAccordionRootContext();
 
-  const {
-    defaultPanelId,
-    mounted,
-    onOpenChange,
-    open,
-    setMounted,
-    setOpen,
-    setPanelIdState,
-    transitionStatus,
-  } = useCollapsibleRootContext();
+  const root = useCollapsibleRootContext();
 
   const hiddenUntilFound = () => local.hiddenUntilFound ?? contextHiddenUntilFound();
   const keepMounted = () => local.keepMounted ?? contextKeepMounted();
   const registeredId = () => local.id || undefined;
-  const id = () => local.id ?? defaultPanelId();
+  const id = () => local.id ?? root.defaultPanelId();
 
   if (process.env.NODE_ENV !== 'production') {
     warnKeepMountedIgnored(hiddenUntilFound, () => local.keepMounted, KEEP_MOUNTED_WARNING);
   }
 
   createDepsRenderEffect(registeredId, (currentRegisteredId) => {
-    setPanelIdState(
+    root.setPanelIdState(
       (currentId) => currentRegisteredId ?? (currentId === null ? undefined : currentId),
     );
     return () => {
-      setPanelIdState((currentId) => (currentId === currentRegisteredId ? null : currentId));
+      root.setPanelIdState((currentId) => (currentId === currentRegisteredId ? null : currentId));
     };
   });
 
@@ -89,12 +81,7 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
     hiddenUntilFound,
     id,
     keepMounted,
-    mounted,
-    onOpenChange,
-    open,
-    setMounted,
-    setOpen,
-    transitionStatus,
+    ...panelRootParameters(root),
   });
 
   const { state, triggerId } = useAccordionItemContext();
@@ -175,33 +162,23 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
   const { hiddenUntilFound: contextHiddenUntilFound, keepMounted: contextKeepMounted } =
     useAccordionRootContext();
 
-  const {
-    defaultPanelId,
-    mounted,
-    onOpenChange,
-    open,
-    owner: rootOwner,
-    setMounted,
-    setOpen,
-    setPanelIdState,
-    transitionStatus,
-  } = useCollapsibleRootContext();
+  const root = useCollapsibleRootContext();
 
   const { state, triggerId } = useAccordionItemContext();
 
   const hiddenUntilFound = () => props.hiddenUntilFound ?? contextHiddenUntilFound();
   const keepMounted = () => props.keepMounted ?? contextKeepMounted();
-  const id = () => props.id ?? defaultPanelId();
+  const id = () => props.id ?? root.defaultPanelId();
 
   if (process.env.NODE_ENV !== 'production') {
     warnKeepMountedIgnored(hiddenUntilFound, () => props.keepMounted, KEEP_MOUNTED_WARNING);
   }
 
-  const registerId = createIdRegistration(props, 'id', setPanelIdState, rootOwner);
+  const registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
 
   // The measurement and transition machinery is created when the panel first renders (a closed
   // panel without `keepMounted` never does) and kept for the part's lifetime, owned by the part.
-  const initialOpen = untrack(open);
+  const initialOpen = untrack(() => root.open());
   let panel: ReturnType<typeof useCollapsiblePanel> | undefined;
   const getPanel = () => {
     panel ??= runInLazyScope(owner, () =>
@@ -215,13 +192,8 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
           id,
           initialOpen,
           keepMounted,
-          mounted,
           native: true,
-          onOpenChange,
-          open,
-          setMounted,
-          setOpen,
-          transitionStatus,
+          ...panelRootParameters(root),
         }),
       ),
     )!;
@@ -252,7 +224,7 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
     },
   };
 
-  const shouldRender = () => keepMounted() || hiddenUntilFound() || mounted() || open();
+  const shouldRender = () => keepMounted() || hiddenUntilFound() || root.mounted() || root.open();
 
   return createNativeConditional(owner, shouldRender, () =>
     renderNativePanel(

@@ -1,5 +1,6 @@
 import { untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
 import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
@@ -56,16 +57,10 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
     return NativeCollapsibleTrigger(componentProps);
   }
 
-  const {
-    panelId,
-    open,
-    handleTrigger,
-    state,
-    disabled: contextDisabled,
-  } = useCollapsibleRootContext();
+  const root = useCollapsibleRootContext();
 
   const [, local, elementProps] = splitComponentProps(componentProps, ['disabled', 'nativeButton']);
-  const disabled = () => local.disabled ?? contextDisabled();
+  const disabled = () => local.disabled ?? root.disabled();
   const nativeButton = () => local.nativeButton ?? true;
 
   const { buttonSources, buttonRef } = useButton({
@@ -75,16 +70,16 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
 
   const props: HTMLProps = {
     get 'aria-controls'() {
-      return open() ? panelId() : undefined;
+      return root.open() ? root.panelId() : undefined;
     },
     get 'aria-expanded'() {
-      return open() ? 'true' : 'false';
+      return root.open() ? 'true' : 'false';
     },
-    onClick: handleTrigger,
+    onClick: root.handleTrigger,
   };
 
   const element = useRenderElement('button', componentProps, {
-    state,
+    state: root.state,
     ref: buttonRef,
     props: [...buttonSources.attributes, props, elementProps, buttonSources.handlers],
     stateAttributesMapping,
@@ -155,23 +150,22 @@ export function writeDisclosureTriggerAttributes(
 }
 
 function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element {
-  const {
-    panelId,
-    open,
-    handleTrigger,
-    state,
-    disabled: contextDisabled,
-  } = useCollapsibleRootContext();
-  const disabled = () => Boolean(props.disabled ?? contextDisabled());
+  const root = useCollapsibleRootContext();
+  const disabled = () => Boolean(props.disabled ?? root.disabled());
 
   return renderNativeElement(BUTTON, props, {
     own: OWN_KEYS,
-    state,
+    state: () => root.state,
+    stateView: root.stateView,
     mapping: stateAttributesMapping,
     stateWriter: writeTriggerState,
     reactive: true,
-    attributes: (set) => writeDisclosureTriggerAttributes(set, open(), panelId(), disabled()),
-    wrapHandler: (key, read) => wrapDisclosureTriggerHandler(disabled, handleTrigger, key, read),
+    attributes: (set) =>
+      writeDisclosureTriggerAttributes(set, root.open(), root.panelId(), disabled()),
+    // The server renders no handlers: no wrapper to create.
+    wrapHandler: isServer
+      ? undefined
+      : (key, read) => wrapDisclosureTriggerHandler(disabled, root.handleTrigger, key, read),
     handlerKeys: HANDLER_KEYS,
   }) as unknown as JSX.Element;
 }

@@ -59,12 +59,19 @@ export interface NativeElementSpec<State extends object> {
   own: ReadonlySet<string>;
   /**
    * The part's state: `class`/`style` functions receive it and, unless `stateAttributes` is
-   * `false`, every key becomes a `data-*` attribute as `getStateAttributesProps` maps it.
+   * `false`, every key becomes a `data-*` attribute as `getStateAttributesProps` maps it. A
+   * factory is called on first use, so a part whose consumer passes no function never builds it.
    */
-  state?: State | undefined;
+  state?: State | (() => State) | undefined;
   mapping?: StateAttributesMapping<State> | undefined;
   /** `state`'s attributes precompiled at module level (`compileStateWriter`); else compiled here. */
   stateWriter?: StateWriter | undefined;
+  /**
+   * What `stateWriter` reads instead of `state`: an object with the same keys, which may be
+   * prototype getters (a class instance costs far less to create than an object literal's own
+   * getters). Requires `stateWriter`.
+   */
+  stateView?: object | undefined;
   stateAttributes?: boolean | undefined;
   /** Literal part attributes (`role`, …), written once below `attributes`. */
   literal?: Record<string, unknown> | undefined;
@@ -222,6 +229,36 @@ function readServerAttributes(el: Element): Map<string, string> {
   return attributes;
 }
 
+/** The part's state for consumer functions, created on first use from a factory and kept. */
+function partState<State extends object>(spec: NativeElementSpec<State>): State | undefined {
+  const state = spec.state;
+  if (typeof state === 'function') {
+    // The spec is the element's own object: the created state replaces its factory.
+    const created = (state as () => State)();
+    spec.state = created;
+    return created;
+  }
+  return state;
+}
+
+/** The writer of the part's state attributes, and the object it reads. */
+function stateAttributes<State extends object>(
+  spec: NativeElementSpec<State>,
+): [StateWriter, object] | undefined {
+  if (spec.state === undefined || spec.stateAttributes === false) {
+    return undefined;
+  }
+  if (spec.stateWriter) {
+    return [spec.stateWriter, spec.stateView ?? partState(spec)!];
+  }
+  const state = partState(spec)!;
+  return [compileStateAttributes(state, spec.mapping), state];
+}
+
+/** A `class`/`style` value for `resolveClass`/`resolveStyle`: functions receive the state. */
+const consumerState = <State extends object>(spec: NativeElementSpec<State>, value: unknown) =>
+  typeof value === 'function' ? partState(spec) : undefined;
+
 // The server writes one element's attributes at a time: one writer serves every element (saved and
 // restored around each write, in case a state getter renders).
 let serverTarget: Record<string, unknown> = {};
@@ -270,17 +307,13 @@ function renderServerElement<State extends object>(
     }
   }
 
-  const state = spec.state;
-  const writeState =
-    state && spec.stateAttributes !== false
-      ? (spec.stateWriter ?? compileStateAttributes(state, spec.mapping))
-      : undefined;
+  const written = stateAttributes(spec);
   const previousTarget = serverTarget;
   const previousKeys = serverKeys;
   serverTarget = attributes;
   serverKeys = keys;
   try {
-    writeState?.(state!, setServerAttribute);
+    written?.[0](written[1], setServerAttribute);
     spec.attributes?.(setServerAttribute);
   } finally {
     serverTarget = previousTarget;
@@ -288,7 +321,7 @@ function renderServerElement<State extends object>(
   }
   readReactiveProps(props, consumer.reactive, attributes);
   if ('class' in props) {
-    const value = resolveClass(source.class, state);
+    const value = resolveClass(source.class, consumerState(spec, source.class));
     if (value !== undefined) {
       attributes.class = value;
     }
@@ -297,7 +330,9 @@ function renderServerElement<State extends object>(
   const partStyle = spec.partStyle;
   const hasStyle = 'style' in props;
   if (hasStyle || styleOverride || partStyle) {
-    let value = hasStyle ? resolveStyle(source.style, state, partStyle?.()) : partStyle?.();
+    let value = hasStyle
+      ? resolveStyle(source.style, consumerState(spec, source.style), partStyle?.())
+      : partStyle?.();
     const override = styleOverride?.();
     if (override) {
       value = value ? combineStyle(value, override) : override;
@@ -365,11 +400,9 @@ function renderClientElement<State extends object>(
     }
   }
 
-  const state = spec.state;
-  const writeState =
-    state && spec.stateAttributes !== false
-      ? (spec.stateWriter ?? compileStateAttributes(state, spec.mapping))
-      : undefined;
+  const written = stateAttributes(spec);
+  const writeState = written?.[0];
+  const writtenState = written?.[1];
   const hasClass = 'class' in props;
   const hasStyle = 'style' in props;
   const styleOverride = spec.styleOverride;
@@ -397,17 +430,19 @@ function renderClientElement<State extends object>(
   const write = (into: Record<string, unknown>, keepUndefined: boolean) => {
     target = into;
     const set = keepUndefined ? setKeep : setDefined;
-    writeState?.(state!, set);
+    writeState?.(writtenState!, set);
     spec.attributes?.(set);
     readReactiveProps(props, consumer.reactive, target);
     if (hasClass) {
-      const value = resolveClass(source.class, state);
+      const value = resolveClass(source.class, consumerState(spec, source.class));
       if (keepUndefined || value !== undefined) {
         target.class = value;
       }
     }
     if (hasStyle || styleOverride || partStyle) {
-      let value = hasStyle ? resolveStyle(source.style, state, partStyle?.()) : partStyle?.();
+      let value = hasStyle
+        ? resolveStyle(source.style, consumerState(spec, source.style), partStyle?.())
+        : partStyle?.();
       const override = styleOverride?.();
       if (override) {
         value = value ? combineStyle(value, override) : override;
