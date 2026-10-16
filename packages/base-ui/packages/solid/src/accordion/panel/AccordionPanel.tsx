@@ -1,4 +1,5 @@
 import { getOwner, omit, Show, untrack } from 'solid-js';
+import type { Owner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { createNativeConditional } from '../../utils/native/conditional';
@@ -13,12 +14,15 @@ import { createDepsRenderEffect, isStaticProp, splitComponentProps } from '../..
 import type { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
 import { canRenderNative } from '../../utils/native';
+import { compileStateWriter } from '../../utils/native/element';
 import { createIdRegistration } from '../../utils/native/registration';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { propsSourceAccessor } from '../../utils/propsView';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import type { AccordionItemState } from '../item/AccordionItem';
 import { useAccordionItemContext } from '../item/AccordionItemContext';
+import { ITEM_STATE_KEYS } from '../item/AccordionItemModel';
+import type { AccordionItemStateView } from '../item/AccordionItemModel';
 import { accordionStateAttributesMapping } from '../item/stateAttributesMapping';
 import type { AccordionRoot } from '../root/AccordionRoot';
 import { useAccordionRootContext } from '../root/AccordionRootContext';
@@ -84,7 +88,8 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
     ...panelRootParameters(root),
   });
 
-  const { state, triggerId } = useAccordionItemContext();
+  const item = useAccordionItemContext();
+  const { state } = item;
 
   const panelState: AccordionPanelState = {
     get value() {
@@ -121,7 +126,7 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
         panelProps,
         {
           get 'aria-labelledby'() {
-            return triggerId?.();
+            return item.triggerId();
           },
           role: 'region',
           // The client writes measured sizes to these variables directly (see
@@ -158,17 +163,12 @@ export function AccordionPanel(componentProps: AccordionPanel.Props): JSX.Elemen
 
 function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
   const owner = getOwner();
-
-  const { hiddenUntilFound: contextHiddenUntilFound, keepMounted: contextKeepMounted } =
-    useAccordionRootContext();
-
+  const accordionRoot = useAccordionRootContext();
   const root = useCollapsibleRootContext();
+  const item = useAccordionItemContext();
 
-  const { state, triggerId } = useAccordionItemContext();
-
-  const hiddenUntilFound = () => props.hiddenUntilFound ?? contextHiddenUntilFound();
-  const keepMounted = () => props.keepMounted ?? contextKeepMounted();
-  const id = () => props.id ?? root.defaultPanelId();
+  const hiddenUntilFound = () => props.hiddenUntilFound ?? accordionRoot.hiddenUntilFound();
+  const keepMounted = () => props.keepMounted ?? accordionRoot.keepMounted();
 
   if (process.env.NODE_ENV !== 'production') {
     // The warning needs the panel's own `keepMounted={false}`: when that prop is static and not
@@ -183,31 +183,120 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
 
   const registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
 
-  // The measurement and transition machinery is created when the panel first renders (a closed
-  // panel without `keepMounted` never does) and kept for the part's lifetime, owned by the part.
+  // A closed panel without `keepMounted` never renders: it allocates only this condition. The
+  // measurement and transition machinery and the panel's state are created when the panel first
+  // renders and kept for the part's lifetime, owned by the part.
   const initialOpen = untrack(() => root.open());
-  let panel: ReturnType<typeof useCollapsiblePanel> | undefined;
-  const getPanel = () => {
-    panel ??= runInLazyScope(owner, () =>
-      untrack(() =>
-        useCollapsiblePanel({
-          dimensionCssVars: {
-            height: AccordionPanelCssVars.accordionPanelHeight,
-            width: AccordionPanelCssVars.accordionPanelWidth,
-          },
-          hiddenUntilFound,
-          id,
-          initialOpen,
-          keepMounted,
-          native: true,
-          ...panelRootParameters(root),
-        }),
-      ),
-    )!;
-    return panel;
-  };
+  const shouldRender = () => keepMounted() || hiddenUntilFound() || root.mounted() || root.open();
+  let rendered: ReturnType<typeof createRenderedPanel> | undefined;
 
-  const panelState: AccordionPanelState = {
+  return createNativeConditional(owner, shouldRender, () => {
+    rendered ??= createRenderedPanel(props, root, item, owner, initialOpen, hiddenUntilFound, keepMounted);
+    const panel = rendered;
+    return renderNativePanel(
+      props,
+      () => panel.state,
+      panel.panel,
+      panel.id,
+      accordionStateAttributesMapping,
+      REGION,
+      (set) => set('aria-labelledby', item.triggerId()),
+      registerId,
+      writePanelState,
+      panel.view,
+    );
+  }) as unknown as JSX.Element;
+}
+
+/** The panel's state attributes, compiled once: the item's keys, then the transition status. */
+const writePanelState = compileStateWriter(
+  [...ITEM_STATE_KEYS, 'transitionStatus'],
+  accordionStateAttributesMapping,
+);
+
+type CollapsiblePanelHook = ReturnType<typeof useCollapsiblePanel>;
+
+/** A panel's state keys as prototype getters, for `writePanelState`. */
+class AccordionPanelStateView {
+  declare private readonly item: AccordionItemStateView;
+  declare private readonly panel: CollapsiblePanelHook;
+
+  constructor(item: AccordionItemStateView, panel: CollapsiblePanelHook) {
+    this.item = item;
+    this.panel = panel;
+  }
+
+  get value() {
+    return this.item.value;
+  }
+
+  get orientation() {
+    return this.item.orientation;
+  }
+
+  get hidden() {
+    return this.item.hidden;
+  }
+
+  get index() {
+    return this.item.index;
+  }
+
+  get disabled() {
+    return this.item.disabled;
+  }
+
+  get open() {
+    return this.item.open;
+  }
+
+  get transitionStatus() {
+    return this.panel.transitionStatus();
+  }
+}
+
+/** The machinery, ids and state of a panel that renders, created on its first render. */
+function createRenderedPanel(
+  props: AccordionPanel.Props,
+  root: ReturnType<typeof useCollapsibleRootContext>,
+  item: ReturnType<typeof useAccordionItemContext>,
+  owner: Owner | null,
+  initialOpen: boolean,
+  hiddenUntilFound: () => boolean,
+  keepMounted: () => boolean,
+) {
+  const id = () => props.id ?? root.defaultPanelId();
+  const panel = runInLazyScope(owner, () =>
+    untrack(() =>
+      useCollapsiblePanel({
+        dimensionCssVars: {
+          height: AccordionPanelCssVars.accordionPanelHeight,
+          width: AccordionPanelCssVars.accordionPanelWidth,
+        },
+        hiddenUntilFound,
+        id,
+        initialOpen,
+        keepMounted,
+        native: true,
+        ...panelRootParameters(root),
+      }),
+    ),
+  )!;
+  let publicState: AccordionPanelState | undefined;
+  return {
+    id,
+    panel,
+    view: new AccordionPanelStateView(item.stateView, panel),
+    get state(): AccordionPanelState {
+      publicState ??= createPanelState(item.state, panel);
+      return publicState;
+    },
+  };
+}
+
+/** The public panel state: the item's state and the transition status, as own getters. */
+function createPanelState(state: AccordionItemState, panel: CollapsiblePanelHook): AccordionPanelState {
+  return {
     get value() {
       return state.value;
     },
@@ -227,24 +316,9 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
       return state.open;
     },
     get transitionStatus() {
-      return getPanel().transitionStatus();
+      return panel.transitionStatus();
     },
   };
-
-  const shouldRender = () => keepMounted() || hiddenUntilFound() || root.mounted() || root.open();
-
-  return createNativeConditional(owner, shouldRender, () =>
-    renderNativePanel(
-      props,
-      panelState,
-      getPanel(),
-      id,
-      accordionStateAttributesMapping,
-      REGION,
-      (set) => set('aria-labelledby', triggerId?.()),
-      registerId,
-    ),
-  ) as unknown as JSX.Element;
 }
 
 export interface AccordionPanelState extends AccordionItemState {

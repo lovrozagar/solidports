@@ -11,12 +11,13 @@ import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { accordionStateAttributesMapping } from '../item/stateAttributesMapping';
 import { canRenderNative } from '../../utils/native';
-import { renderNativeElement } from '../../utils/native/element';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
 import { createIdRegistration } from '../../utils/native/registration';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { AccordionItemState } from '../item/AccordionItem';
 import { useAccordionItemContext } from '../item/AccordionItemContext';
+import { ITEM_STATE_KEYS } from '../item/AccordionItemModel';
 
 /** Props the native path reads once, as the slow path does (`useButton` reads `native` at setup). */
 const NATIVE_STATIC_KEYS = ['nativeButton'] as const;
@@ -37,6 +38,9 @@ const stateAttributesMapping: StateAttributesMapping<AccordionTriggerState> = {
   ...accordionStateAttributesMapping,
   ...triggerOpenStateMapping,
 };
+
+/** The trigger's state attributes, compiled once (the item's state keys, in order). */
+const writeTriggerState = compileStateWriter(ITEM_STATE_KEYS, stateAttributesMapping);
 
 /**
  * A button that opens and closes the corresponding panel.
@@ -111,16 +115,19 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
 
 function NativeAccordionTrigger(props: AccordionTrigger.Props): JSX.Element {
   const root = useCollapsibleRootContext();
-  const { defaultTriggerId, owner: itemOwner, state, setTriggerId } = useAccordionItemContext();
+  const item = useAccordionItemContext();
+  const { defaultTriggerId, setTriggerId } = item;
   const disabled = () => (props.disabled ?? false) || root.disabled();
   const id = () => (props.id || undefined) ?? defaultTriggerId?.();
 
-  const registerId = createIdRegistration(props, 'id', setTriggerId, itemOwner);
+  const registerId = createIdRegistration(props, 'id', setTriggerId, item.owner);
 
   return renderNativeElement(BUTTON, props, {
     refs: registerId ? [registerId] : undefined,
     own: OWN_KEYS,
-    state,
+    state: () => item.state,
+    stateView: item.stateView,
+    stateWriter: writeTriggerState,
     mapping: stateAttributesMapping,
     reactive: true,
     attributes: (set) => {
