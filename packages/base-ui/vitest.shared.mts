@@ -40,6 +40,11 @@ function getBrowserConfig(): BrowserModeConfig {
     provider: playwright({ contextOptions: { timezoneId: 'UTC' } }),
     screenshotFailures: false,
     headless: true,
+    // One address, strictly: with only a port, Vite binds `localhost` beside another process that
+    // holds the same port on the other address family, and the browser can then load that process
+    // into the test iframe ("Cannot connect to the iframe ... unknown due to CORS"). Pinning the host
+    // makes a held port fail the run and keeps the iframe URLs on this server.
+    api: { host: '127.0.0.1', port: 63315, strictPort: true },
     instances,
   };
 }
