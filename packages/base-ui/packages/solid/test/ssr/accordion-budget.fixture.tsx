@@ -43,3 +43,21 @@ export function renderFloor(open: boolean) {
     </FloorAccordionRoot>
   ));
 }
+
+/** Accordion items with the given values, server-rendered: which items the server opens. */
+export function renderValues(defaultValue: unknown[], values: unknown[]) {
+  return renderToString(() => (
+    <Accordion.Root defaultValue={defaultValue} multiple>
+      <For each={values}>
+        {(value) => (
+          <Accordion.Item value={value}>
+            <Accordion.Header>
+              <Accordion.Trigger>Toggle</Accordion.Trigger>
+            </Accordion.Header>
+            <Accordion.Panel>Content</Accordion.Panel>
+          </Accordion.Item>
+        )}
+      </For>
+    </Accordion.Root>
+  ));
+}
