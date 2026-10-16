@@ -18,10 +18,17 @@ function exportSubpaths(): string[] {
 	return Object.keys(pkg.exports)
 }
 
+function matchesPattern(pattern: string, subpath: string): boolean {
+	return pattern.endsWith("/*") ? subpath.startsWith(pattern.slice(0, -1)) : subpath === pattern
+}
+
 function isNonComponent(subpath: string): boolean {
-	return Object.keys(NON_COMPONENT_EXPORTS).some((pattern) =>
-		pattern.endsWith("/*") ? subpath.startsWith(pattern.slice(0, -1)) : subpath === pattern,
-	)
+	return Object.keys(NON_COMPONENT_EXPORTS).some((pattern) => matchesPattern(pattern, subpath))
+}
+
+/** Allowlist keys that match no export, so a removed export cannot leave a stale entry. */
+function unmatchedAllowlistKeys(patterns: string[], subpaths: string[]): string[] {
+	return patterns.filter((pattern) => !subpaths.some((s) => matchesPattern(pattern, s)))
 }
 
 async function loadScenarios(): Promise<{ file: string; scenario: Scenario }[]> {
@@ -41,10 +48,16 @@ describe("base-ui perf scenario manifest", () => {
 			.map((subpath) => subpath.slice(2))
 			.sort()
 		expect([...COMPONENTS].sort()).toEqual(fromExports)
-		for (const [pattern, reason] of Object.entries(NON_COMPONENT_EXPORTS)) {
-			expect(exportSubpaths().some((s) => isNonComponent(s) && (s === pattern || pattern.endsWith("/*")))).toBe(true)
-			expect(reason.length).toBeGreaterThan(0)
-		}
+		expect(unmatchedAllowlistKeys(Object.keys(NON_COMPONENT_EXPORTS), exportSubpaths())).toEqual([])
+		for (const reason of Object.values(NON_COMPONENT_EXPORTS)) expect(reason.length).toBeGreaterThan(0)
+	})
+
+	test("an allowlist key that matches no export is reported, wildcard or exact", () => {
+		const subpaths = [".", "./types", "./accordion"]
+		expect(unmatchedAllowlistKeys([".", "./types", "./internals/*", "./merge-props"], subpaths)).toEqual([
+			"./internals/*",
+			"./merge-props",
+		])
 	})
 
 	test("every scenario declares known components and closed-vocabulary tags", async () => {
