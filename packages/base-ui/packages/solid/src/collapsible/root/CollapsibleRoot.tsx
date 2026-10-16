@@ -22,7 +22,7 @@ export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX and its context on one owner, on the client, the server and while hydrating. A `render`
   // prop or spread props keep `useRenderElement`.
-  if (canRenderNative(componentProps, [], { ssr: true })) {
+  if (canRenderNative(componentProps, undefined, true)) {
     return NativeCollapsibleRoot(componentProps);
   }
 

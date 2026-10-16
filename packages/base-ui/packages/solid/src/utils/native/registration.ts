@@ -32,13 +32,14 @@ export function createIdRegistration(
   /** The registry's owner: when it is disposed with the part, the unmount write has no reader. */
   registryOwner?: Owner | null,
 ): ((element: Element | null) => void) | undefined {
+  const isStaticKey = !(key in props) || isStatic(props, key);
+  // The server never calls refs and never unmounts: a static id has nothing to register.
+  if (isStaticKey && isServer) {
+    return undefined;
+  }
   const read = () =>
     ((props as Record<string, string | undefined>)[key] || undefined) as string | undefined;
-  if (!(key in props) || isStatic(props, key)) {
-    // The server never calls refs and never unmounts: nothing to register.
-    if (isServer) {
-      return undefined;
-    }
+  if (isStaticKey) {
     const registered = untrack(read);
     void onCleanup(() => {
       if (registryOwner && isDisposed(registryOwner)) {

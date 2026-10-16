@@ -1,4 +1,3 @@
-import { untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { useCollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
@@ -43,7 +42,8 @@ export function AccordionTrigger(componentProps: AccordionTrigger.Props): JSX.El
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined.
   if (
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
-    untrack(() => componentProps.nativeButton ?? true) === true
+    // Static once `canRenderNative` passes: a plain value, read without tracking anything.
+    (componentProps.nativeButton ?? true) === true
   ) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeAccordionTrigger(componentProps);
