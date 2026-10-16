@@ -39,7 +39,9 @@ node test/perf-solid/run.mjs 8 select,menu   # scenario id prefixes
 node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 ```
 
-- Filter (`shared/filter.mjs`, the same for `run.mjs` and `ssr/run.mjs`): comma-separated terms, each an id prefix, `component:<name>` (any declared component, not only the id prefix) or `tag:<tag>`. Positive terms are OR'd; `!` excludes; exclusions alone start from everything. An unknown term kind throws, and a filter that matches nothing exits 1.
+- Filter (`shared/filter.mjs`, the same for `run.mjs` and `ssr/run.mjs`): comma-separated terms, each an id prefix, `component:<name>` or `tag:<tag>`. Positive terms are OR'd; `!` excludes; exclusions alone start from everything.
+  - `component:X` matches every entry that lists X, wherever X appears, so `component:toggle` also selects `composition/direction-500`. An id prefix selects by the primary component, the one the id names.
+  - Every value is checked: an unknown term kind, a `component:` outside `COMPONENTS`, a `tag:` outside `SCENARIO_TAGS`, or an id prefix that no id starts with exits 1 with the closest valid value. Exclusions are checked too, so `!tag:rwa` fails instead of silently keeping the raw floors. The runners read the vocabularies from the bundles (`window.bench.vocab`, the SSR server bundles' `vocab`). A filter that matches nothing also exits 1.
 
 - Scenarios: `shared/scenarios/*.ts`, one file per component (32 files plus `index.ts`), 77 scenarios and 387 steps in CI. Each `Scenario` has `id`, `fixture`, `components`, `tags`, `steps`, optional `verifyMount`; `mount` and `unmount` steps are added and timed automatically (`shared/harness.ts`).
 - Env: `VARIANTS=name:lib:dir,...` (A/B of several builds), `THROTTLE=4` (CPU throttling), `SIZE=large` (5x fixture sizes), `WARMUP` (default 2). Build env: `SOLID_SRC=<abs path>` builds the Solid app from a copy of the source, `OUT=<dir>`, `MINIFY=0`, `BENCH_DEV=1` (dev runtime).
