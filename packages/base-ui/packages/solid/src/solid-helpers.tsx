@@ -132,6 +132,11 @@ export function createDepsRenderEffect<T>(deps: () => T, effect: DepsEffectFn<T>
   createLayoutEffect(createMemo(deps, { equals: shallowEqual }), effect);
 }
 
+/** Whether `props[key]` is absent or a plain value: there is no getter, so it never changes. */
+export function isStaticProp(props: object, key: string) {
+  return !(key in props) || isStatic(props, key);
+}
+
 /**
  * An accessor for the latest value: it subscribes inside computations and reads untracked
  * elsewhere (event handlers, effect callbacks and cleanups), as React code reads refs and stores

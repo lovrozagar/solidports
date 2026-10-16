@@ -1,5 +1,5 @@
 import type { JSX } from '@solidjs/web';
-import { splitComponentProps, provideContext } from '../../solid-helpers';
+import { isStaticProp, splitComponentProps, provideContext } from '../../solid-helpers';
 import { canRenderNative } from '../../utils/native';
 import { provideNativeContext } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
@@ -81,6 +81,7 @@ function NativeCollapsibleRoot(props: CollapsibleRoot.Props) {
   const collapsible = useCollapsibleRoot({
     open: () => props.open,
     defaultOpen: () => props.defaultOpen ?? false,
+    staticOpen: isStaticProp(props, 'open') && isStaticProp(props, 'defaultOpen'),
     onOpenChange,
     disabled: () => props.disabled ?? false,
   });

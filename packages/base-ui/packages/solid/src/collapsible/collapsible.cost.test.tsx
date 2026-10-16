@@ -131,9 +131,11 @@ describe('collapsible cost against the hand-written floor', () => {
     expect(cost, `Root ${cost} nodes beyond a plain div`).toBeLessThanOrEqual(3);
   });
 
-  it('Trigger costs at most 2 nodes: dev root, one grouped effect', () => {
-    const cost = perCopy(part.rootTrigger) - perCopy(part.root);
-    expect(cost, `Trigger ${cost} nodes`).toBeLessThanOrEqual(2);
+  // A Root with any child gains its children insert, so the Trigger is measured together with its
+  // Root: two dev roots, the context owner, two grouped effects and that insert.
+  it('Root with a Trigger costs at most 6 nodes: two dev roots, context owner, two grouped effects, the children insert', () => {
+    const cost = perCopy(part.rootTrigger) - perCopy(() => <div />);
+    expect(cost, `Root + Trigger ${cost} nodes beyond a plain div`).toBeLessThanOrEqual(6);
   });
 
   // A panel that renders conditionally returns an accessor, and the parent's insert wraps it in one

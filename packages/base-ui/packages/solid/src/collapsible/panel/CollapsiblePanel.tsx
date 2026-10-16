@@ -1,8 +1,13 @@
-import { getOwner, isStatic, omit, Show, untrack } from 'solid-js';
+import { getOwner, omit, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { createNativeConditional } from '../../utils/native/conditional';
-import { createDepsEffect, createDepsRenderEffect, splitComponentProps } from '../../solid-helpers';
+import {
+  createDepsEffect,
+  createDepsRenderEffect,
+  isStaticProp,
+  splitComponentProps,
+} from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { resolveStyle } from '../../utils/resolveStyle';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -145,11 +150,6 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   });
 
   return <Show when={panel.shouldRender()}>{element()}</Show>;
-}
-
-/** Whether `props[key]` is absent or a plain value (no getter to re-read). */
-function isStaticProp(props: object, key: string) {
-  return !(key in props) || isStatic(props, key);
 }
 
 /** The part's own props: never forwarded to the element. */
