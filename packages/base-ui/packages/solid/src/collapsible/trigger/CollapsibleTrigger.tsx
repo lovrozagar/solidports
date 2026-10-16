@@ -1,4 +1,3 @@
-import { untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { splitComponentProps } from '../../solid-helpers';
@@ -50,8 +49,9 @@ export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JS
   // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined below.
   if (
-    canRenderNative(componentProps, NATIVE_STATIC_KEYS, { ssr: true }) &&
-    untrack(() => componentProps.nativeButton ?? true) === true
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS, true) &&
+    // Static once `canRenderNative` passes: a plain value, read without tracking anything.
+    (componentProps.nativeButton ?? true) === true
   ) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeCollapsibleTrigger(componentProps);

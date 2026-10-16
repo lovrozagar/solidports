@@ -241,19 +241,17 @@ function partState<State extends object>(spec: NativeElementSpec<State>): State 
   return state;
 }
 
-/** The writer of the part's state attributes, and the object it reads. */
-function stateAttributes<State extends object>(
-  spec: NativeElementSpec<State>,
-): [StateWriter, object] | undefined {
+/** The writer of the part's state attributes, if it writes any. */
+function stateWriterOf<State extends object>(spec: NativeElementSpec<State>): StateWriter | undefined {
   if (spec.state === undefined || spec.stateAttributes === false) {
     return undefined;
   }
-  if (spec.stateWriter) {
-    return [spec.stateWriter, spec.stateView ?? partState(spec)!];
-  }
-  const state = partState(spec)!;
-  return [compileStateAttributes(state, spec.mapping), state];
+  return spec.stateWriter ?? compileStateAttributes(partState(spec)!, spec.mapping);
 }
+
+/** What the part's state writer reads: the `stateView` it was compiled for, or the state. */
+const writtenStateOf = <State extends object>(spec: NativeElementSpec<State>): object =>
+  (spec.stateWriter && spec.stateView) || partState(spec)!;
 
 /** A `class`/`style` value for `resolveClass`/`resolveStyle`: functions receive the state. */
 const consumerState = <State extends object>(spec: NativeElementSpec<State>, value: unknown) =>
@@ -307,13 +305,13 @@ function renderServerElement<State extends object>(
     }
   }
 
-  const written = stateAttributes(spec);
+  const writeState = stateWriterOf(spec);
   const previousTarget = serverTarget;
   const previousKeys = serverKeys;
   serverTarget = attributes;
   serverKeys = keys;
   try {
-    written?.[0](written[1], setServerAttribute);
+    writeState?.(writtenStateOf(spec), setServerAttribute);
     spec.attributes?.(setServerAttribute);
   } finally {
     serverTarget = previousTarget;
@@ -400,9 +398,8 @@ function renderClientElement<State extends object>(
     }
   }
 
-  const written = stateAttributes(spec);
-  const writeState = written?.[0];
-  const writtenState = written?.[1];
+  const writeState = stateWriterOf(spec);
+  const writtenState = writeState && writtenStateOf(spec);
   const hasClass = 'class' in props;
   const hasStyle = 'style' in props;
   const styleOverride = spec.styleOverride;

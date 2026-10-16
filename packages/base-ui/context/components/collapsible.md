@@ -22,12 +22,22 @@ Collapsible renders all three parts natively when props are plain; the panel's m
 
 ## Native fast path
 
-Yes, per part, chosen once at setup:
+Yes, per part, chosen once at setup, on the client, the server and while hydrating:
 
-- Root (`CollapsibleRoot.tsx:25`) and Panel (`CollapsiblePanel.tsx:34`): `canRenderNative(props)` (`packages/base-ui/packages/solid/src/utils/native/index.ts:65-81`): client, not hydrating, no store proxy from `{...props}`, no `render`, static `ref`.
-- Trigger (`CollapsibleTrigger.tsx:37-40`): the same plus a static `nativeButton` that resolves to `true`.
+- Root (`CollapsibleRoot.tsx:25`) and Panel (`CollapsiblePanel.tsx:44`): `canRenderNative(props, [], { ssr: true })` (`packages/base-ui/packages/solid/src/utils/native/index.ts:66`): no store proxy from `{...props}`, no `render`, static `ref`.
+- Trigger (`CollapsibleTrigger.tsx:53`): the same plus a static `nativeButton` that resolves to `true`.
+- Context: on the client a transparent owner; on the server and while hydrating the context's provider, since the server's owners are not `@solidjs/signals`'s (D5 in [the decision log](../decisions/log.md)).
+- A closed panel allocates only its render condition; the machinery and state are created on first render.
 
 See [render pipeline](../architecture/render-pipeline.md) and [transitions](../architecture/transitions.md).
+
+## Root model
+
+`useCollapsibleRoot` returns a `CollapsibleRootModel` (`root/useCollapsibleRoot.ts:48`), shared by `Collapsible.Root` and `Accordion.Item` as `CollapsibleRootContext`:
+
+- Members are prototype methods: call them on the object (`root.open()`), never detached; `@typescript-eslint/unbound-method` guards `collapsible/**` and `accordion/**`. Callbacks that escape (`handleTrigger`, `setPanelIdState`, `onOpenChange`) are fields, and `panelRootParameters(root)` binds the members `useCollapsiblePanel` takes.
+- A Collapsible root passes its props as the parameters. A controlled root reads `open` directly (no memo, no uncontrolled signal); the dev switch checks run unless `open` and `defaultOpen` are static.
+- `root.state` (own getters, safe to spread or compare) is created on first read. The parts' attribute writers read `root.stateView` (`CollapsibleStateView`, prototype getters), which costs 40 B to create instead of 572 B.
 
 ## Reactive cost
 
@@ -54,6 +64,10 @@ CI run 38882393542, commit b9b813c9, Solid rc.15. `raw-*` rows are hand-written 
 | `collapsible/raw-300` close all | 2.0 | 3.2 | 1.60x |
 
 Heap after mount (`collapsible/300`): 3100 KB React vs 1712 KB Solid.
+
+## Server render (production)
+
+`collapsible/300` on a production server bundle, interleaved with the hand-written floor (`packages/solid/test/floor/collapsible.tsx`), 2026-10-16: 2311 KB allocated per render against the floor's 1532 KB, about 1.6-1.7x the floor's time (2.81x before the S1 work). `bench:component collapsible` judges the exit bar on production builds: within 1.25x of the floor and below React, for server and hydrate.
 
 ## Hot spots
 
