@@ -1,4 +1,5 @@
 import { getOwner, omit, Show, untrack } from 'solid-js';
+import type { Owner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { createNativeConditional } from '../../utils/native/conditional';
@@ -201,81 +202,76 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
     );
   }
 
-  const {
-    defaultPanelId,
-    mounted,
-    onOpenChange,
-    open,
-    setMounted,
-    owner: rootOwner,
-    setPanelIdState,
-    setOpen,
-    state,
-    transitionStatus,
-  } = useCollapsibleRootContext();
+  const root = useCollapsibleRootContext();
+  const registerId = createIdRegistration(props, 'id', root.setPanelIdState, root.owner);
+  const initialOpen = untrack(root.open);
+  // A closed panel without `keepMounted` never renders: it allocates only this condition. The
+  // measurement and transition machinery and the panel's state are created when the panel first
+  // renders and kept for the part's lifetime, owned by the part.
+  const shouldRender = () =>
+    Boolean(props.keepMounted || props.hiddenUntilFound) || root.mounted() || root.open();
+  let rendered: ReturnType<typeof createRenderedPanel> | undefined;
 
-  const hiddenUntilFound = () => props.hiddenUntilFound ?? false;
-  const keepMounted = () => props.keepMounted ?? false;
-  const id = () => (props.id || undefined) ?? defaultPanelId();
-
-  const registerId = createIdRegistration(props, 'id', setPanelIdState, rootOwner);
-
-  // The measurement and transition machinery is created when the panel first renders (a closed
-  // panel without `keepMounted` never does) and kept for the part's lifetime, owned by the part.
-  const initialOpen = untrack(open);
-  let panel: ReturnType<typeof useCollapsiblePanel> | undefined;
-  const getPanel = () => {
-    panel ??= runInLazyScope(owner, () =>
-      untrack(() =>
-        useCollapsiblePanel({
-          dimensionCssVars: {
-            height: CollapsiblePanelCssVars.collapsiblePanelHeight,
-            width: CollapsiblePanelCssVars.collapsiblePanelWidth,
-          },
-          hiddenUntilFound,
-          id,
-          initialOpen,
-          keepMounted,
-          mounted,
-          native: true,
-          onOpenChange,
-          open,
-          setMounted,
-          setOpen,
-          transitionStatus,
-        }),
-      ),
-    )!;
-    return panel;
-  };
-
-  const panelState: CollapsiblePanelState = {
-    get open() {
-      return state.open;
-    },
-    get disabled() {
-      return state.disabled;
-    },
-    get transitionStatus() {
-      return getPanel().transitionStatus();
-    },
-  };
-
-  const shouldRender = () => keepMounted() || hiddenUntilFound() || mounted() || open();
-
-  return createNativeConditional(owner, shouldRender, () =>
-    renderNativePanel(
+  return createNativeConditional(owner, shouldRender, () => {
+    rendered ??= createRenderedPanel(props, root, owner, initialOpen);
+    return renderNativePanel(
       props,
-      panelState,
-      getPanel(),
-      id,
+      rendered.state,
+      rendered.panel,
+      rendered.id,
       collapsibleStateAttributesMapping,
       undefined,
       undefined,
       registerId,
       writeCollapsibleState,
+    );
+  }) as unknown as JSX.Element;
+}
+
+/** A native panel's machinery and state, created on its first render. */
+function createRenderedPanel(
+  props: CollapsiblePanel.Props,
+  root: ReturnType<typeof useCollapsibleRootContext>,
+  owner: Owner | null,
+  initialOpen: boolean,
+) {
+  const hiddenUntilFound = () => props.hiddenUntilFound ?? false;
+  const keepMounted = () => props.keepMounted ?? false;
+  const id = () => (props.id || undefined) ?? root.defaultPanelId();
+  const panel = runInLazyScope(owner, () =>
+    untrack(() =>
+      useCollapsiblePanel({
+        dimensionCssVars: {
+          height: CollapsiblePanelCssVars.collapsiblePanelHeight,
+          width: CollapsiblePanelCssVars.collapsiblePanelWidth,
+        },
+        hiddenUntilFound,
+        id,
+        initialOpen,
+        keepMounted,
+        mounted: root.mounted,
+        native: true,
+        onOpenChange: root.onOpenChange,
+        open: root.open,
+        setMounted: root.setMounted,
+        setOpen: root.setOpen,
+        transitionStatus: root.transitionStatus,
+      }),
     ),
-  ) as unknown as JSX.Element;
+  )!;
+  const rootState = root.state;
+  const state: CollapsiblePanelState = {
+    get open() {
+      return rootState.open;
+    },
+    get disabled() {
+      return rootState.disabled;
+    },
+    get transitionStatus() {
+      return panel.transitionStatus();
+    },
+  };
+  return { id, panel, state };
 }
 
 /**
