@@ -32,7 +32,10 @@ describe("test:base-ui:all machine lock", () => {
 		const exclusive = { exclusive: true }
 		expect(commandFor({}, "bun run lint")).toBe("bun run lint")
 		const wrapped = commandFor(exclusive, "bun run test:e2e:solid", "/tmp/l.lock")
-		expect(wrapped).toContain("flock '/tmp/l.lock' sh -c 'bun run test:e2e:solid'")
+		expect(wrapped).toContain("flock '/tmp/l.lock' timeout -k 30 1200 sh -c 'bun run test:e2e:solid'")
+		expect(commandFor({ exclusive: true, timeoutSeconds: 60 }, "x", "/tmp/l.lock")).toContain(
+			"timeout -k 30 60 sh -c 'x'",
+		)
 		expect(wrapped).toContain("flock -n '/tmp/l.lock' true || echo")
 		expect(commandFor(exclusive, "echo 'it''s'", "/tmp/l.lock")).toContain(`sh -c 'echo '\\''it'\\'''\\''s'\\'''`)
 	})
@@ -59,6 +62,31 @@ describe("test:base-ui:all machine lock", () => {
 		const lines = readFileSync(log, "utf8").trim().split("\n")
 		expect(lines.map((l) => l.split(" ")[1])).toEqual(["start", "end", "start", "end"])
 		expect(lines[0].split(" ")[0]).toBe(lines[1].split(" ")[0])
+	})
+
+	test("a hung exclusive command is killed at its timeout and the lock is free again", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "gates-lock-"))
+		temps.push(dir)
+		const lock = join(dir, "heavy.lock")
+		const started = Date.now()
+		const hung = Bun.spawn(["sh", "-c", commandFor({ exclusive: true, timeoutSeconds: 1 }, "sleep 30", lock)], {
+			stdout: "ignore",
+		})
+		const code = await hung.exited
+		expect(code).not.toBe(0)
+		expect(Date.now() - started).toBeLessThan(10_000)
+		const probe = Bun.spawnSync(["flock", "-n", lock, "true"])
+		expect(probe.exitCode).toBe(0)
+	})
+
+	test("the measured benchmark gets an hour; every other exclusive suite the default 20 minutes", () => {
+		const timeouts = Object.fromEntries(
+			suites
+				.filter((s: { exclusive?: boolean }) => s.exclusive)
+				.map((s: { name: string; timeoutSeconds?: number }) => [s.name, s.timeoutSeconds]),
+		)
+		expect(timeouts.benchmark).toBe(3600)
+		expect(Object.entries(timeouts).filter(([name, t]) => name !== "benchmark" && t !== undefined)).toEqual([])
 	})
 
 	test("the vitest browser server binds its port strictly", async () => {
