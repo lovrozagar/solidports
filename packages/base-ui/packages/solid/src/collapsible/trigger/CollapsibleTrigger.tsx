@@ -5,7 +5,7 @@ import { useButton } from '../../internals/use-button';
 import { triggerOpenStateMapping } from '../../utils/collapsibleOpenStateMapping';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { canRenderNative, composeHandler } from '../../utils/native';
-import { renderNativeElement } from '../../utils/native/element';
+import { compileStateWriter, renderNativeElement } from '../../utils/native/element';
 import type { SetAttribute } from '../../utils/native/element';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
 import type { BaseUIComponentProps, HTMLProps, NativeButtonProps } from '../../utils/types';
@@ -31,6 +31,12 @@ const HANDLER_KEYS = ['onClick', 'onKeyDown', 'onPointerDown'] as const;
  *
  * Documentation: [Base UI Collapsible](https://base-ui.com/react/components/collapsible)
  */
+/** The trigger's state attributes, compiled once (the root's state keys, in order). */
+const writeTriggerState = compileStateWriter(
+  ['open', 'disabled', 'transitionStatus'],
+  stateAttributesMapping,
+);
+
 /** The trigger's element: a focusable `<button>`; the server renders the same literals. */
 const BUTTON = {
   tag: 'button',
@@ -162,6 +168,7 @@ function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element 
     own: OWN_KEYS,
     state,
     mapping: stateAttributesMapping,
+    stateWriter: writeTriggerState,
     reactive: true,
     attributes: (set) => writeDisclosureTriggerAttributes(set, open(), panelId(), disabled()),
     wrapHandler: (key, read) => wrapDisclosureTriggerHandler(disabled, handleTrigger, key, read),

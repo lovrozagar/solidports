@@ -10,7 +10,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { useCollapsibleRoot } from './useCollapsibleRoot';
 import { CollapsibleRootContext } from './CollapsibleRootContext';
-import { collapsibleStateAttributesMapping } from './stateAttributesMapping';
+import { collapsibleStateAttributesMapping, writeCollapsibleState } from './stateAttributesMapping';
 
 /**
  * Groups all parts of the collapsible.
@@ -112,6 +112,7 @@ function NativeCollapsibleRoot(props: CollapsibleRoot.Props) {
       own: OWN_KEYS,
       state,
       mapping: collapsibleStateAttributesMapping,
+      stateWriter: writeCollapsibleState,
       reactive: true,
     }),
   ) as unknown as JSX.Element;
