@@ -1,10 +1,10 @@
 /*
  * The hand-written Solid floor for Collapsible: the fewest reactive nodes plain Solid 2 needs for the
  * same DOM and ARIA as `Collapsible.Root` / `.Trigger` / `.Panel` render by default. On the client
- * context rides one transparent owner (no JSX provider); the server and hydration use the provider,
- * since the server's owners are not `@solidjs/signals`'s. The panel is a plain conditional (no
- * `<Show>`). Cost tests and the bench compare the parts against it: the exit bar is at most the
- * floor plus 25%.
+ * context rides one transparent owner (no JSX provider); the server uses the provider, since its
+ * owners are not `@solidjs/signals`'s, and hydration rebuilds the provider's owners. The panel is a
+ * plain conditional (no `<Show>`). Cost tests and the bench compare the parts against it: the exit
+ * bar is at most the floor plus 25%.
  */
 import {
   createContext,
@@ -46,8 +46,18 @@ export function FloorCollapsibleRoot(props: {
 }
 
 function provideFloorContext(value: FloorCollapsible, render: () => JSX.Element) {
-  if (isServer || isHydrating()) {
+  if (isServer) {
     return <FloorContext value={value}>{render()}</FloorContext>;
+  }
+  if (isHydrating()) {
+    // The server provider's owners that hydration ids depend on, without its computations: its
+    // root and its children memo (GOTCHA-017).
+    const root = createOwner();
+    setContext(FloorContext, value, root);
+    return runWithOwner(
+      runWithOwner(root, () => createOwner()),
+      render,
+    );
   }
   const owner = createOwner({ transparent: true });
   setContext(FloorContext, value, owner);

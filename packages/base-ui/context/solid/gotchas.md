@@ -86,6 +86,11 @@ Rules for editing: never renumber. Add new entries at the end. When an entry sto
 - **Symptom:** storing a function value calls it. A written value is replaced when a dependency of the function changes (`signals.js:72`).
 - **Fix:** store functions as `createSignal(() => fn)`. `useControlled` does this only for function values (`src/utils/useControlled.ts`).
 
+## GOTCHA-017: hydration rebuilds the provider's owners (rc-version-coupled)
+
+- **Cause:** the server's owners are `solid-js`'s own and accept no `setContext`, so a native part renders the context's provider on the server. The hydrating client must create the owners that took hydration ids there: the provider's root, then its lazy children memo, both through `inheritId` (rc.15).
+- **Fix:** `hydrateProviderOwners` (`src/utils/native/context.ts`) rebuilds that root and children owner without the provider's two computations, and the Collapsible floor does the same. This couples the port to rc.15's provider internals: `src/utils/native/context.shape.test.tsx` compares the rebuilt ids with Solid's own provider and fails when a Solid release changes them.
+
 ## Retired
 
 - **GOTCHA-001** (type duplication across `floating-ui-solid`): `floating-ui-solid` mirrors `floating-ui-react` file for file by design, including `utils/composite.ts`, so the duplication is not a defect.
