@@ -37,6 +37,8 @@ const scenarios: Scenario[] = [
         name: 'leave',
         run: () => unhover(qa('[data-testid="tooltip-trigger"]')[0]),
         settle: true,
+        // safePolygon closes on a 40 ms timer once the pointer leaves inside its polygon.
+        until: () => qa('[data-testid="tooltip-popup"]').length === 0,
         verify: summary,
       },
       sweep('[data-testid="tooltip-trigger"]'),
