@@ -18,6 +18,7 @@ let server: ViteDevServer;
 let fixture: {
   renderPart: (open: boolean) => string;
   renderFloor: (open: boolean) => string;
+  renderValues: (defaultValue: unknown[], values: unknown[]) => string;
 };
 
 beforeAll(async () => {
@@ -47,6 +48,30 @@ describe('accordion server budget', () => {
     expect(view.match(/<div[^>]* data-index="(\d+)"/g)?.length).toBe(2);
     expect(view).toContain('data-index="0"');
     expect(view).toContain('data-index="1"');
+  });
+
+  // Which items the server opens, in DOM order (panels, also indexed, are left out): a number value is not its string, and any other
+  // value matches by identity.
+  const openItems = (html: string) =>
+    [...html.matchAll(/<div[^>]* data-index="\d+"[^>]*>/g)]
+      .filter((match) => !match[0].includes('role="region"'))
+      .map((match) => (match[0].includes(' data-open') ? 'open' : 'closed'));
+
+  it('opens the items whose values are open, keeping numbers and strings apart', () => {
+    expect(openItems(fixture.renderValues([1, 'b'], [1, '1', 'b', 2]))).toEqual([
+      'open',
+      'closed',
+      'open',
+      'closed',
+    ]);
+  });
+
+  it('opens an item whose value is an object by identity', () => {
+    const value = { id: 1 };
+    expect(openItems(fixture.renderValues([value], [value, { id: 1 }]))).toEqual([
+      'open',
+      'closed',
+    ]);
   });
 
   it.each([false, true])('renders no more hydration keys than the floor (open: %s)', (open) => {

@@ -1,5 +1,6 @@
 import { createProjection } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import { isServer } from '@solidjs/web';
 
 type Key = string | number;
 
@@ -14,7 +15,8 @@ const slot = (key: Key) => (typeof key === 'number' ? `n${key}` : `s${key}`);
  * projection created by the list's owner (core spec S4): `isSelected(key)` reads only `key`'s
  * entry, so a change of `values` re-runs only the readers of the keys that joined or left it,
  * where a memo per item re-runs every item. A key that is neither a string nor a number is
- * compared by identity against `values` itself.
+ * compared by identity against `values` itself. The projection exists on both sides (hydration ids
+ * align); the server reads `values` directly.
  */
 export function createKeyedSelector(values: Accessor<readonly unknown[]>): (key: unknown) => boolean {
   const membership = createProjection<Record<string, true>>((draft) => {
@@ -34,5 +36,11 @@ export function createKeyedSelector(values: Accessor<readonly unknown[]>): (key:
       }
     }
   }, {});
+  // The server renders once, so nothing re-runs: a key is looked up in `values`, as the floor does,
+  // instead of read from the projection (a proxy read and a property name per call). `includes`
+  // keeps numbers and strings apart and compares anything else by identity, as the projection does.
+  if (isServer) {
+    return (key) => values().includes(key);
+  }
   return (key) => (isKey(key) ? membership[slot(key)] === true : values().includes(key));
 }
