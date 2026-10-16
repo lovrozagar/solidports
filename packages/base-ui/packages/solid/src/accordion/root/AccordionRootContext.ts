@@ -10,6 +10,8 @@ export interface AccordionRootContext<Value = any> {
     eventDetails: AccordionRoot.ChangeEventDetails,
   ) => void;
   hiddenUntilFound: Accessor<boolean>;
+  /** Whether the item with `value` is open; reads only that item's membership. */
+  isOpen: (value: AccordionRoot.Value<Value>[number]) => boolean;
   keepMounted: Accessor<boolean>;
   state: AccordionRoot.State<Value>;
   value: Accessor<AccordionRoot.Value<Value>>;

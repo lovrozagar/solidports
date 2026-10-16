@@ -9,6 +9,7 @@ import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDeta
 import { EMPTY_ARRAY } from '../../utils/empty';
 import type { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps, Orientation } from '../../utils/types';
+import { createKeyedSelector } from '../../utils/createKeyedSelector';
 import { useControlled } from '../../utils/useControlled';
 import { useRenderElement } from '../../utils/useRenderElement';
 import { warn } from '../../utils/warn';
@@ -179,6 +180,8 @@ function createAccordionRoot<Value>(
     disabled,
     handleValueChange,
     hiddenUntilFound: () => local.hiddenUntilFound ?? false,
+    // One keyed selector for every item: an item re-reads only its own membership (S4).
+    isOpen: createKeyedSelector(value),
     keepMounted: () => local.keepMounted ?? false,
     state,
     value,
