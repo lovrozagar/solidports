@@ -25,12 +25,6 @@ const OWN_KEYS: ReadonlySet<string> = new Set(['disabled', 'nativeButton']);
 /** Handler keys the trigger needs even without a consumer handler. */
 const HANDLER_KEYS = ['onClick', 'onKeyDown', 'onPointerDown'] as const;
 
-/**
- * A button that opens and closes the collapsible panel.
- * Renders a `<button>` element.
- *
- * Documentation: [Base UI Collapsible](https://base-ui.com/react/components/collapsible)
- */
 /** The trigger's state attributes, compiled once (the root's state keys, in order). */
 const writeTriggerState = compileStateWriter(
   ['open', 'disabled', 'transitionStatus'],
@@ -45,6 +39,12 @@ const BUTTON = {
   create: () => (<button type="button" tabindex="0" />) as unknown as Element,
 };
 
+/**
+ * A button that opens and closes the collapsible panel.
+ * Renders a `<button>` element.
+ *
+ * Documentation: [Base UI Collapsible](https://base-ui.com/react/components/collapsible)
+ */
 export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined below.
