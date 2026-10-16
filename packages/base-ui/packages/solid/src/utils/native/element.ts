@@ -219,6 +219,20 @@ function applyPartRefs(el: Element, refs: readonly unknown[]): boolean {
   return true;
 }
 
+/** Form controls, whose properties (`value`, `checked`) Solid writes apart from attributes. */
+const STATEFUL_TAGS: ReadonlySet<string> = new Set(['INPUT', 'SELECT', 'TEXTAREA', 'OPTION']);
+
+/**
+ * Whether Solid's `assign` would only record `next` on `el`: a claimed (connected) element while
+ * hydrating, with no object `class` (whose classes Solid records on the node even then) and no
+ * form-control properties.
+ */
+const recordsOnly = (el: Element, next: Record<string, unknown>) =>
+  isHydrating() &&
+  el.isConnected &&
+  !STATEFUL_TAGS.has(el.nodeName) &&
+  (next.class == null || typeof next.class !== 'object');
+
 /** The keys of a write that are element attributes: no refs, children, handlers or functions. */
 function attributesOf(written: Record<string, unknown>): Record<string, unknown> {
   const attributes: Record<string, unknown> = {};
@@ -522,6 +536,18 @@ function renderClientElement<State extends object>(
         (next) => {
           if (hydrating && hydratedWrite === undefined) {
             takeHydratedWrite(next);
+          }
+          if (hydrating && recordsOnly(el, next)) {
+            // Solid writes nothing to a claimed element while hydrating and only records the
+            // write as applied (the reconcile above corrects what changed): record it here,
+            // without assign's per-key work.
+            for (const key in previous) {
+              if (!(key in next)) {
+                previous[key] = null;
+              }
+            }
+            Object.assign(previous, next);
+            return;
           }
           const style = next.style;
           if (typeof style === 'string' && style === previous.style) {
