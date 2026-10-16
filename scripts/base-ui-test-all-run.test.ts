@@ -9,6 +9,18 @@ afterEach(() => {
 	for (const dir of temps.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
+// Processes with an open descriptor on `file` (Linux /proc).
+const holdersOf = (file: string) =>
+	readdirSync("/proc")
+		.filter((pid) => /^\d+$/.test(pid))
+		.filter((pid) => {
+			try {
+				return readdirSync(`/proc/${pid}/fd`).some((fd) => readlinkSync(`/proc/${pid}/fd/${fd}`) === file)
+			} catch {
+				return false
+			}
+		})
+
 describe("test:base-ui:all run isolation", () => {
 	test("a second run in the same tree is refused, naming the PID that holds the run lock", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "test-all-run-"))
@@ -22,18 +34,6 @@ describe("test:base-ui:all run isolation", () => {
 		const again = await acquireRunLock(lock)
 		await again.release()
 	})
-
-	// Processes with an open descriptor on `file` (Linux /proc).
-	const holdersOf = (file: string) =>
-		readdirSync("/proc")
-			.filter((pid) => /^\d+$/.test(pid))
-			.filter((pid) => {
-				try {
-					return readdirSync(`/proc/${pid}/fd`).some((fd) => readlinkSync(`/proc/${pid}/fd/${fd}`) === file)
-				} catch {
-					return false
-				}
-			})
 
 	test.skipIf(!existsSync("/proc/self/fd"))(
 		"only the holder keeps the lock, so it is free as soon as release resolves",
