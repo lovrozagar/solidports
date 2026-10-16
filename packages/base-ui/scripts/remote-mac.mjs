@@ -56,14 +56,19 @@ export function parseArgs(argv) {
 export const quote = (value) => `'${String(value).replace(/'/g, `'\\''`)}'`;
 
 export const FLOCK_SHIM = `#!/usr/bin/env python3
-# flock [-n] [-E code] <file> [command...]: an fcntl lock on <file>, held while the command runs.
+# flock [-n] [-o] [-E code] <file> [command...]: an fcntl lock on <file>, held while the command
+# runs; the command inherits it unless -o.
 import fcntl, os, subprocess, sys
 args = sys.argv[1:]
 block = True
+inherit = True
 conflict = 1
-while args and args[0] in ('-n', '-E'):
+while args and args[0] in ('-n', '-o', '-E'):
     if args[0] == '-n':
         block = False
+        args = args[1:]
+    elif args[0] == '-o':
+        inherit = False
         args = args[1:]
     else:
         conflict = int(args[1])
@@ -75,7 +80,7 @@ except BlockingIOError:
     sys.exit(conflict)
 os.ftruncate(fd, 0)
 os.write(fd, str(os.getpid()).encode())
-sys.exit(subprocess.call(args[1:], pass_fds=(fd,)) if len(args) > 1 else 0)
+sys.exit(subprocess.call(args[1:], pass_fds=(fd,) if inherit else ()) if len(args) > 1 else 0)
 `;
 
 export const TIMEOUT_SHIM = `#!/usr/bin/env python3

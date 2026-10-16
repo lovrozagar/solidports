@@ -138,7 +138,8 @@ export const suites = [
     cwd: baseUi,
     heavy: true,
     vitest: true,
-    run: ['bun run test:solid:jsdom --run --maxWorkers=2'],
+    // As the workflow: the package tests check each export's declaration file in `types/`.
+    run: ['bun run --cwd packages/solid types', 'bun run test:solid:jsdom --run --maxWorkers=2'],
   },
   {
     job: 'Browser tests',
@@ -261,7 +262,10 @@ export function planSuites(options) {
       detail = selected ? undefined : 'not selected (--changed)';
       if (selected) {
         const since = options.changed ? ` ${options.changed}` : '';
-        run = run.map((command) => `${command} --changed${since} --passWithNoTests`);
+        // Only the vitest commands: a quick diff run skips the preparation steps (`types`).
+        run = run
+          .filter((command) => command.startsWith('bun run test:solid:'))
+          .map((command) => `${command} --changed${since} --passWithNoTests`);
       }
     }
     if (selected && options.only && !options.only.includes(suite.name)) {
@@ -339,6 +343,8 @@ export function acquireRunLock(lock) {
       'flock',
       [
         '-n',
+        // The shell below must not inherit the lock: then the lock is free once the holder exits.
+        '-o',
         '-E',
         '75',
         lock,
