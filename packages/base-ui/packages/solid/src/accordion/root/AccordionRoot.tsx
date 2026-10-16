@@ -18,6 +18,9 @@ const rootStateAttributesMapping = {
   value: () => null,
 };
 /** The part's own props: never forwarded to the element. */
+/** The root's element: a `<div>`; the server renders the same tag. */
+const ROOT_DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+
 const OWN_KEYS: ReadonlySet<string> = new Set([
   'disabled',
   'hiddenUntilFound',
@@ -40,15 +43,16 @@ export function AccordionRoot<Value = any>(
   componentProps: AccordionRoot.Props<Value>,
 ): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
-  // JSX and the root context on one owner; the item list stays `CompositeList`.
-  if (canRenderNative(componentProps)) {
+  // JSX and the root context on one owner, on the client, the server and while hydrating; the item
+  // list stays `CompositeList`.
+  if (canRenderNative(componentProps, undefined, true)) {
     const root = createAccordionRoot(componentProps);
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return provideNativeContext(AccordionRootContext, root.contextValue, () =>
       createComponent(CompositeList, {
         refs: { elements: root.accordionItemElements },
         get children() {
-          return renderNativeElement((<div />) as unknown as Element, componentProps, {
+          return renderNativeElement(ROOT_DIV, componentProps, {
             own: OWN_KEYS,
             state: root.state,
             mapping: rootStateAttributesMapping,

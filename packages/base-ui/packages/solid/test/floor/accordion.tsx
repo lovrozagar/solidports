@@ -4,8 +4,7 @@
  * default (vertical, items open by value, a closed panel unmounted). On the client each context
  * rides one transparent owner; the server uses the provider, since its owners are not
  * `@solidjs/signals`'s, and hydration rebuilds the provider's owners (GOTCHA-017). An item's index
- * is its creation order; the server renders it as -1, as the parts do, and a hydrated item takes
- * it once settled. Cost tests and the bench compare the parts against it: the exit bar is at most
+ * is its creation order on every side, as the parts guess it. Cost tests and the bench compare the parts against it: the exit bar is at most
  * the floor plus 25%.
  */
 import {
@@ -15,7 +14,6 @@ import {
   createSignal,
   createUniqueId,
   isHydrating,
-  onSettled,
   runWithOwner,
   useContext,
 } from 'solid-js';
@@ -104,21 +102,9 @@ export function FloorAccordionRoot(props: {
 export function FloorAccordionItem(props: { value: string; children?: JSX.Element }) {
   const root = useContext(RootContext)!;
   const open = () => root.value().includes(props.value);
-  // The client knows the item's index when it creates it; the server renders -1, and a hydrated
-  // item takes its index once settled (a write while hydrating is not applied).
-  let index: Accessor<number>;
-  if (isServer) {
-    index = () => -1;
-  } else if (isHydrating()) {
-    const [settledIndex, setIndex] = createSignal(-1);
-    onSettled(() => {
-      setIndex(root.nextIndex());
-    });
-    index = settledIndex;
-  } else {
-    const created = root.nextIndex();
-    index = () => created;
-  }
+  // The item's index is its creation order, the same on the server and the hydrating client.
+  const created = root.nextIndex();
+  const index = () => created;
   const item: FloorItem = {
     open,
     index,
