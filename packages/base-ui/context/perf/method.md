@@ -1,6 +1,6 @@
 ---
 tags: [perf, benchmark, ssr, cost]
-sources: [packages/base-ui/test/perf-solid/run.mjs, packages/base-ui/test/perf-solid/shared/manifest.ts, packages/base-ui/test/perf-solid/shared/step.ts, packages/base-ui/test/perf-solid/shared/filter.mjs, packages/base-ui/test/perf-solid/ssr/cases.ts, scripts/base-ui-perf-manifest.test.ts, scripts/base-ui-perf-filter.test.ts, scripts/base-ui-perf-step.test.ts, packages/base-ui/test/perf-solid/shared/harness.ts, packages/base-ui/test/perf-solid/shared/scenarios, packages/base-ui/test/perf-solid/known-differences.json, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/test/perf-solid/profile.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
+sources: [packages/base-ui/test/perf-solid/run.mjs, packages/base-ui/test/perf-solid/shared/manifest.ts, packages/base-ui/test/perf-solid/shared/step.ts, packages/base-ui/test/perf-solid/shared/filter.mjs, packages/base-ui/test/perf-solid/shared/regression.mjs, packages/base-ui/test/perf-solid/shared/report.mjs, packages/base-ui/scripts/bench-component.mjs, packages/base-ui/test/perf-solid/ssr/cases.ts, scripts/base-ui-perf-manifest.test.ts, scripts/base-ui-perf-filter.test.ts, scripts/base-ui-perf-regression.test.ts, scripts/base-ui-perf-report.test.ts, scripts/base-ui-bench-component.test.ts, scripts/base-ui-perf-step.test.ts, packages/base-ui/test/perf-solid/shared/harness.ts, packages/base-ui/test/perf-solid/shared/scenarios, packages/base-ui/test/perf-solid/known-differences.json, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/test/perf-solid/profile.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
 verified: 2026-10-16
 ---
 
@@ -21,8 +21,6 @@ Every scenario declares `components` (primary first; the id prefix names it, exc
 
 The spec for the tooling phase 1 builds. Each item moves into the sections below when it lands.
 
-- Component-scoped run: `bun run bench:component <name>[,...]` builds once, then runs the scenarios whose `components` include a name, that component's SSR cases (through the shared filter) and its cost tests. It writes one report (md plus json) to the gitignored results folder.
-- Baseline and compare: `--save-baseline <label>` stores the SHA, the build hash and the results. `--compare <label>` builds the baseline SHA from a worktree copy through `SOLID_SRC` and runs it interleaved with the working tree and React in one session. A step regresses when its ratio is worse than the baseline's by more than the p90 spread of both sides.
 - Engines: `ENGINE=chromium|firefox|webkit` in `run.mjs`. Outside Chromium only `sync` and `paint` exist (`performance.now`), and the CDP columns are marked absent. `--remote mac` serves the builds on 0.0.0.0 and drives real Safari over `ssh mac`. Chromium gates every iteration; the other engines run at family milestones. Never mix machines in one ratio.
 - Floor: a hand-written Solid `floor/` app per pilot component runs as a third `VARIANTS` entry, so every report shows React, the port and the floor.
 - Warning census: the dev bench build (`BENCH_DEV=1`) records every `console.warn`, `console.error` and `pageerror` per scenario, and fails on any entry missing from `known-warnings.json` (each entry with a reason). The unit setup reports warnings per suite, including the `FLUSH_IN_EFFECT_CALLBACK` hits that `setupSolid.ts` swallows, split into library and harness frames. The docs hydration crawl collects console output the same way. Counts live in the Warnings section of [baseline](baseline.md) and may only go down.
@@ -59,10 +57,14 @@ node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 | `script` | change in CDP `ScriptDuration`, ms |
 | layout, style | change in `LayoutDuration`, `RecalcStyleDuration` (JSON only) |
 | heap after mount KB | `usedJSHeapSize` after the mount step minus before it, both after `gc()` (`--expose-gc`) |
+| settled | steps with `until` only: ms from step start until `until` first held, minus the step's `timerMs` |
 
 - Settle steps (mount, unmount, and any step with `settle`) wait two more frames before `verify`.
-- A step whose end state arrives on the library's own timer declares `until`: after settling, the harness polls it once per frame, untimed, and fails the step after `UNTIL_TIMEOUT_MS` (2 s). The hover-leave steps of Popover, PreviewCard and Tooltip use it, because safePolygon closes on a 40 ms timer when the pointer leaves inside its polygon (`floating-ui-solid/safePolygon.ts`). A fixed frame count lands on either side of that timer depending on load, so the summaries flipped between React and Solid from run to run. Never paper over such a race with a `known-differences.json` entry. The step runner lives in `shared/step.ts`; `scripts/base-ui-perf-step.test.ts` covers it.
-- Ratios are `solid/react` of the medians. The report table and JSON land in the results folder; CI prints the table to the job log.
+- A step whose end state arrives on the library's own timer declares `until` and `timerMs` (the manifest test requires both or neither). The hover-leave steps of Popover, PreviewCard and Tooltip use them, because safePolygon closes on a 40 ms timer when the pointer leaves inside its polygon (`floating-ui-solid/safePolygon.ts`); a fixed frame count lands on either side of that timer depending on load, so the summaries flipped between React and Solid from run to run. Never paper over such a race with a `known-differences.json` entry.
+  - Before the action, the runner attaches a MutationObserver to `document` for that step only, and records the time inside the first mutation batch where `until` holds. After settling it polls `until` once per frame as the fallback for state no mutation reports, and fails the step after `UNTIL_TIMEOUT_MS` (2 s). An `until` that already holds before the action is an error, since it would measure nothing.
+  - `settled` is that time minus `timerMs`, so a slow close render shows up instead of hiding behind the timer; `sync` and `paint` never include it, and CDP `script` covers the whole step. The observer's cost lands on those three steps only, and equally on every variant.
+  - The step runner lives in `shared/step.ts`; `scripts/base-ui-perf-step.test.ts` covers it.
+- Ratios are each variant's median over the first variant's (`solid/react` by default; `base/react` and `cur/react` in a compare). `shared/report.mjs` builds the summary, which keeps every variant's raw `sync`, `script`, `settled` and heap samples for the regression rule. `RESULTS_FILE=<path without extension>` names the output; otherwise it lands in the results folder. CI prints the table to the job log.
 
 ### Correctness gate, not a speed gate
 
@@ -79,12 +81,33 @@ node test/perf-solid/run.mjs 8 component:collapsible,!tag:raw
 
 `bun run bench:solid:ssr [runs=20] [filter,...]` from `packages/base-ui`, with the same filter as the Chromium benchmark. Not in CI.
 
-- Builds a server bundle per library (`vite build --ssr`; framework packages external so Node loads their server builds) and a hydratable client bundle. `NO_BUILD=1` reuses builds; `SERVER_ONLY=1` skips Chromium.
+- Builds a server bundle per variant (`vite build --ssr`; framework packages external so Node loads their server builds) and a hydratable client bundle. `SSR_VARIANTS=name:lib[:solidSrc[:outDir]],...` (default `react:react,solid:solid`) lets a Solid variant build from another copy of the library source. `NO_BUILD=1` reuses every build, `NO_BUILD=a,b` some; `BUILD_ONLY=1` builds and exits; `SERVER_ONLY=1` skips Chromium; `RESULTS_FILE` names the output.
 - Cases (`ssr/cases.ts`): accordion/300, checkbox/1000, dialog/page, form/50, select/1000, tabs/200, each with `components` and `tags` (always `ssr` and `hydrate`) from the scenario manifest. Each library registers them in `ssr/<lib>/fixtures/<component>.tsx`, one file per primary component, collected by `fixtures/index.ts`. The server bundles export the case list, and the runner exits 1 when either library registers a different id set. The manifest test checks the cases and the per-file registrations.
-- Server ms: median of `render(key)` in Node after 3 warmups. HTML bytes are reported.
+- Server ms: median of `render(key)` in Node after 3 warmups, variants alternating run by run. HTML bytes are reported. Hydration pages alternate the same way.
 - Hydration: a fresh Chromium page per run; `__hydrate` returns its synchronous time, then two frames settle; script ms is the `ScriptDuration` change.
 - React's `hydrateRoot` schedules its work, so React's sync column (about 0.9 ms) excludes most of it. Solid hydrates synchronously and its script column reads lower than its sync column, so cross-library hydration numbers are not settled; compare server ms, and compare hydration only Solid-to-Solid.
 - Exit 1 on a hydration mismatch log or differing hydrated DOM summaries.
+
+## Component runs and baselines (`scripts/bench-component.mjs`)
+
+`bun run bench:component <name>[,...]|all [--runs 8] [--ssr-runs 10] [--filter terms] [--save-baseline label | --compare label]` from `packages/base-ui` (Bun, which imports the TypeScript manifests).
+
+- Validates names against `COMPONENTS`, builds once, then runs the browser scenarios that list a component (`component:` terms plus `--filter`, browser only), the SSR cases that list it (skipped with a line when none does), and exactly the cost tests `COST_TESTS` assigns it, through `vitest -t` with anchored names; every expected cost test must run and pass. A component with neither a cost test nor a `PENDING_COST` entry fails the run. Cost tests run on the working tree only, since budgets are absolute.
+- Writes `component-<names>-<stamp>.{md,json}` (plus `-browser`, `-ssr`, `-cost` part files) to the results folder. The JSON records the working tree's provenance: SHA, dirty flag, and when dirty the sha256 of `git diff HEAD` plus every untracked file, with the untracked paths, so two dirty runs can be told apart. Exit 1 on any failed part, problem or regression.
+- `--save-baseline <label>` refuses a dirty tree (a baseline is a commit) and a run with failures, then writes `baselines/<label>.json`: SHA, build hash, and the full browser and SSR results.
+- `--compare <label>` runs React, `base` (the baseline commit's library) and `cur` (the working tree) interleaved in one session, in the browser and in SSR, and judges `cur` against `base` with the rule below. The baseline library comes from `git archive <sha> packages/base-ui/packages/solid/src`, extracted under `.tmp/grunt/bench-src/` and deleted right after the build. That is exactly the commit's content, and it resolves dependencies from the main `node_modules`, so there is one reactive core (`@solidjs/signals` is deduped too). Builds are cached by `<sha>-<hash of test/perf-solid and bun.lock>`; each carries a `.build-hash` checked on reuse. When `bun.lock` differs between the baseline commit and the working tree, the headline says "baseline built with working-tree dependencies" and the JSON sets `base.depsFromWorkingTree`, because a dependency change would otherwise read as no difference.
+- A dirty working tree is allowed for `--compare` (iteration happens on uncommitted code) and is flagged in the headline and the JSON.
+
+### Regression rule (`shared/regression.mjs`)
+
+Per step and metric, from one interleaved session: `cur` regresses when `median(cur) - median(base)` exceeds `(p90(cur) - median(cur)) + (p90(base) - median(base))`, and never by less than an absolute floor; the mirror case is an improvement. Decisions use samples, not ratios: React is shared within the session, so the ratio form is the same test.
+
+| metric | floor | note |
+| --- | --- | --- |
+| `sync`, `script`, `settled`, SSR `serverMs` and `hydrateSyncMs` | 0.1 ms | `performance.now` is coarsened to 100 µs without cross-origin isolation |
+| heap after mount | 0 | judged only when both medians exceed 100 KB |
+
+`paint` (frame-aligned) and layout/style (noise at these sizes) are reported, not gated. Hydration is judged only `base` against `cur`, never against React. `scripts/base-ui-perf-regression.test.ts` and `scripts/base-ui-perf-report.test.ts` cover the rule and the summary.
 
 ## Reactive-node cost tests
 
@@ -98,7 +121,7 @@ Counting technique (all five files): set `DEV.hooks.onOwner` to count every non-
 | `src/utils/native/toggles.cost.test.tsx` | beyond hand-written markup: Checkbox+Indicator 19, Switch+Thumb 10, Toggle 5, grouped Toggle 5, Radio+Indicator 18 |
 | `src/utils/native/disclosure.cost.test.tsx` | Collapsible closed 12, open 18; closed Accordion item 14; Tab plus hidden Panel 4 |
 
-No cost test covers Progress, Meter, Avatar, Separator or `useRender`, the slowest mount scenarios in [baseline](baseline.md). No bench scenario covers Fieldset, FilterDropdown or `unstable-use-media-query`.
+`shared/manifest.ts` maps each component to its cost tests by full name (`COST_TESTS`); components without one name the leaf that adds it (`PENDING_COST`), render-core guards are listed in `GENERIC_COST_TESTS`, and the manifest test checks every name against `vitest list` and fails on an unclaimed cost test. No cost test covers Progress, Meter, Avatar, Separator or `useRender`, the slowest mount scenarios in [baseline](baseline.md). No bench scenario covers Fieldset, FilterDropdown or `unstable-use-media-query`.
 
 ### Probing a count
 

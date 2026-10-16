@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
+import { summarize } from './shared/report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const builds = path.resolve(here, '../../../../.tmp/grunt/bench-builds');
@@ -47,15 +48,6 @@ const server = http
   })
   .listen(0);
 const port = server.address().port;
-
-const median = (values) => {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
-};
-const p90 = (values) => {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))];
-};
 
 async function openPage(browser, name) {
   const page = await browser.newPage();
@@ -101,6 +93,7 @@ if (list.length === 0) {
 const results = {};
 const problems = [];
 const knownHits = [];
+const timers = Object.fromEntries(list.map((scenario) => [scenario.id, scenario.timers]));
 for (const { id, steps } of list) {
   results[id] = {};
   for (let round = 0; round < 2; round += 1) {
@@ -126,12 +119,14 @@ for (const { id, steps } of list) {
               script: [],
               layout: [],
               style: [],
+              settled: [],
             });
             step.sync.push(result.sync);
             step.paint.push(result.paint);
             step.script.push((after.ScriptDuration - before.ScriptDuration) * 1000);
             step.layout.push((after.LayoutDuration - before.LayoutDuration) * 1000);
             step.style.push((after.RecalcStyleDuration - before.RecalcStyleDuration) * 1000);
+            if (result.settled !== null) step.settled.push(result.settled);
           }
           if (index === 0 && run >= WARMUP) {
             await page.evaluate('gc()');
@@ -180,52 +175,33 @@ await browser.close();
 server.close();
 
 const fmt = (n) => (n == null ? '-' : n.toFixed(1));
+const summary = summarize(results, NAMES, timers);
+const ratioNames = NAMES.slice(1).map((name) => `${name}/${NAMES[0]}`);
 const lines = [
   `# Base UI bench ${new Date().toISOString()}`,
   '',
-  `runs ${RUNS} · warmup ${WARMUP} · throttle ${THROTTLE}x · size ${process.env.SIZE ?? 'default'} · variants ${NAMES.join(', ')}`,
+  `runs ${RUNS} · warmup ${WARMUP} · throttle ${THROTTLE}x · size ${process.env.SIZE ?? 'default'} · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
   '',
-  `| scenario › step | ${NAMES.map((n) => `${n} sync / paint / script`).join(' | ')} | ${NAMES[1]}/${NAMES[0]} sync | ${NAMES[1]}/${NAMES[0]} script |`,
-  `|---|${NAMES.map(() => '---').join('|')}|---|---|`,
+  "settled: ms from step start until `until` held, minus the step's `timerMs` (steps with `until` only).",
+  '',
+  `| scenario › step | ${NAMES.map((n) => `${n} sync / paint / script / settled`).join(' | ')} | ${ratioNames.map((r) => `${r} sync / script`).join(' | ')} |`,
+  `|---|${NAMES.map(() => '---').join('|')}|${ratioNames.map(() => '---').join('|')}|`,
 ];
-const summary = {};
-for (const [id, byName] of Object.entries(results)) {
-  for (const step of Object.keys(byName[NAMES[0]].steps)) {
-    const cells = NAMES.map((name) => {
-      const s = byName[name].steps[step];
-      return `${fmt(median(s.sync))} / ${fmt(median(s.paint))} / ${fmt(median(s.script))}`;
-    });
-    const a = byName[NAMES[0]].steps[step];
-    const b = byName[NAMES[1]]?.steps[step];
-    const syncRatio = b ? median(b.sync) / median(a.sync) : null;
-    const scriptRatio = b ? median(b.script) / Math.max(median(a.script), 0.01) : null;
-    summary[`${id} › ${step}`] = {
-      ...Object.fromEntries(
-        NAMES.map((name) => {
-          const s = byName[name].steps[step];
-          return [
-            name,
-            {
-              sync: median(s.sync),
-              syncP90: p90(s.sync),
-              paint: median(s.paint),
-              script: median(s.script),
-              layout: median(s.layout),
-              style: median(s.style),
-            },
-          ];
-        }),
-      ),
-      syncRatio,
-      scriptRatio,
-    };
+for (const [key, entry] of Object.entries(summary)) {
+  if (key.endsWith('heap after mount KB')) {
     lines.push(
-      `| ${id} › ${step} | ${cells.join(' | ')} | ${syncRatio?.toFixed(2) ?? '-'}x | ${scriptRatio?.toFixed(2) ?? '-'}x |`,
+      `| ${key} | ${NAMES.map((name) => fmt(entry[name].heapKB)).join(' | ')} | ${ratioNames.map(() => '').join(' | ')} |`,
     );
+    continue;
   }
-  lines.push(
-    `| ${id} › heap after mount KB | ${NAMES.map((name) => fmt(median(byName[name].heapKB))).join(' | ')} | | |`,
+  const cells = NAMES.map((name) => {
+    const v = entry[name];
+    return `${fmt(v.sync)} / ${fmt(v.paint)} / ${fmt(v.script)} / ${fmt(v.settled)}`;
+  });
+  const ratios = ratioNames.map(
+    (r) => `${entry.ratios[r].sync.toFixed(2)}x / ${entry.ratios[r].script.toFixed(2)}x`,
   );
+  lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
 }
 if (knownHits.length) {
   lines.push(
@@ -240,11 +216,18 @@ if (problems.length) {
 }
 fs.mkdirSync(resultsDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+// RESULTS_FILE (a path without extension) lets a driver read the result it asked for.
+const out = process.env.RESULTS_FILE ?? path.join(resultsDir, stamp);
+fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(
-  path.join(resultsDir, `${stamp}.json`),
-  JSON.stringify({ summary, problems }, null, 2),
+  `${out}.json`,
+  JSON.stringify(
+    { variants: NAMES, runs: RUNS, filter: process.argv[3] ?? null, summary, problems },
+    null,
+    2,
+  ),
 );
-fs.writeFileSync(path.join(resultsDir, `${stamp}.md`), lines.join('\n'));
+fs.writeFileSync(`${out}.md`, lines.join('\n'));
 console.log(lines.join('\n'));
-console.log(`\nwritten ${path.join(resultsDir, stamp)}.{md,json}`);
+console.log(`\nwritten ${out}.{md,json}`);
 process.exit(problems.length ? 1 : 0);

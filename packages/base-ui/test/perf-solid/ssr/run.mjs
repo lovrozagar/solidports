@@ -1,13 +1,19 @@
 // Server render + hydration benchmark, React (@base-ui/react) vs Solid (@solidports/base-ui), on
 // identical fixtures (cases in `cases.ts`, registered by `<lib>/fixtures/<component>.tsx`).
-// Production builds: a server bundle per library (`vite build --ssr`, framework packages external
-// so Node resolves their server builds) and a hydratable client bundle per library.
+// Production builds: a server bundle per variant (`vite build --ssr`, framework packages external
+// so Node resolves their server builds) and a hydratable client bundle per variant.
 //
 // Usage (from packages/base-ui): node test/perf-solid/ssr/run.mjs [runs=20] [filter,...]
 //   filter: as `../run.mjs`, terms from `../shared/filter.mjs` (id prefix, component:, tag:, !)
-// Env: NO_BUILD=1 reuses the last builds; SERVER_ONLY=1 skips the browser (hydration) part.
-// Results: <repo>/.tmp/grunt/bench-results/ssr-<timestamp>.{md,json}. Exit 1 when hydration
-// logs a mismatch or the hydrated DOM summaries differ between libraries.
+// Env:
+//   SSR_VARIANTS=name:lib[:solidSrc[:outDir]],...  default react:react,solid:solid; a Solid variant
+//     may build from another copy of the library source (a baseline) into its own build folder
+//     (default ssr-<name>). Ratios are taken against the first.
+//   NO_BUILD=1 reuses every build; NO_BUILD=a,b reuses those variants' builds only.
+//   BUILD_ONLY=1 builds and exits. SERVER_ONLY=1 skips the browser (hydration) part.
+//   RESULTS_FILE=<path without extension>.
+// Server renders and hydration pages alternate between variants run by run. Exit 1 when hydration
+// logs a mismatch or a variant's hydrated DOM summary differs from the first variant's.
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -16,6 +22,7 @@ import react from '@vitejs/plugin-react';
 import solid from '@solidjs/vite-plugin';
 import { build } from 'vite';
 import { matchesFilter, parseFilter } from '../shared/filter.mjs';
+import { median } from '../shared/regression.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const packages = path.resolve(here, '../../../packages');
@@ -24,15 +31,21 @@ const builds = path.join(repo, '.tmp/grunt/bench-builds');
 const resultsDir = path.join(repo, '.tmp/grunt/bench-results');
 const RUNS = Number(process.argv[2] ?? 20);
 const WARMUP = 3;
-const LIBS = ['react', 'solid'];
 
-const alias = {
-  '@base-ui/react': path.join(packages, 'react/src'),
-  '@base-ui/utils': path.join(packages, 'utils/src'),
-  '@solidports/base-ui': path.join(packages, 'solid/src'),
-};
+const VARIANTS = Object.fromEntries(
+  (process.env.SSR_VARIANTS ?? 'react:react,solid:solid').split(',').map((entry) => {
+    const [name, lib, src, out] = entry.split(':');
+    if (lib !== 'react' && lib !== 'solid') {
+      throw new Error(`SSR variant ${entry}: lib must be react or solid`);
+    }
+    return [name, { lib, src: src || path.join(packages, 'solid/src'), out: out || `ssr-${name}` }];
+  }),
+);
+const NAMES = Object.keys(VARIANTS);
+const outDir = (name) => path.join(builds, VARIANTS[name].out);
 
-function config(lib, ssr) {
+function config(name, ssr) {
+  const { lib, src } = VARIANTS[name];
   return {
     configFile: false,
     root: path.join(here, lib),
@@ -41,19 +54,27 @@ function config(lib, ssr) {
     logLevel: 'warn',
     define: { 'process.env.NODE_ENV': '"production"' },
     plugins: [lib === 'react' ? react() : solid({ ssr: true })],
-    resolve: { alias, dedupe: ['react', 'react-dom', 'solid-js', '@solidjs/web'] },
+    resolve: {
+      alias: {
+        '@base-ui/react': path.join(packages, 'react/src'),
+        '@base-ui/utils': path.join(packages, 'utils/src'),
+        '@solidports/base-ui': src,
+      },
+      // One reactive core even when a variant builds from a baseline copy of the source.
+      dedupe: ['react', 'react-dom', 'solid-js', '@solidjs/web', '@solidjs/signals'],
+    },
     // Framework and utility packages stay external on the server, so Node resolves their
     // production server builds; the libraries' source is bundled.
     ssr: ssr ? { noExternal: [/@base-ui|@solidports/] } : undefined,
     build: ssr
       ? {
           ssr: path.join(here, lib, 'entry-server.tsx'),
-          outDir: path.join(builds, `ssr-${lib}`, 'server'),
+          outDir: path.join(outDir(name), 'server'),
           emptyOutDir: true,
           minify: true,
         }
       : {
-          outDir: path.join(builds, `ssr-${lib}`, 'client'),
+          outDir: path.join(outDir(name), 'client'),
           emptyOutDir: true,
           minify: true,
           chunkSizeWarningLimit: 99999,
@@ -61,60 +82,62 @@ function config(lib, ssr) {
   };
 }
 
-if (!process.env.NO_BUILD) {
-  for (const lib of LIBS) {
-    await build(config(lib, true));
-    await build(config(lib, false));
-  }
+const reuse = process.env.NO_BUILD === '1' ? NAMES : (process.env.NO_BUILD ?? '').split(',');
+for (const name of NAMES) {
+  if (reuse.includes(name)) continue;
+  await build(config(name, true));
+  await build(config(name, false));
 }
-
-const median = (values) => {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)];
-};
+if (process.env.BUILD_ONLY) process.exit(0);
 
 // --- Server render (Node) ---
 const server = {};
-for (const lib of LIBS) {
-  const entry = path.join(builds, `ssr-${lib}`, 'server', 'entry-server.mjs');
-  server[lib] = await import(pathToFileURL(entry).href);
+for (const name of NAMES) {
+  const entry = path.join(outDir(name), 'server', 'entry-server.mjs');
+  server[name] = await import(pathToFileURL(entry).href);
 }
-// Every case is registered by both libraries, and nothing else is: a drift fails the run.
-const caseIds = server.react.cases.map((c) => c.id).sort();
-for (const lib of LIBS) {
-  const registered = [...server[lib].keys].sort();
+const first = server[NAMES[0]];
+// Every case is registered by every variant, and nothing else is: a drift fails the run.
+const caseIds = first.cases.map((c) => c.id).sort();
+for (const name of NAMES) {
+  const registered = [...server[name].keys].sort();
   if (JSON.stringify(registered) !== JSON.stringify(caseIds)) {
-    console.error(`${lib} registers ${registered.join(', ')}; cases are ${caseIds.join(', ')}`);
+    console.error(`${name} registers ${registered.join(', ')}; cases are ${caseIds.join(', ')}`);
     process.exit(1);
   }
 }
 let FILTER;
 try {
-  FILTER = parseFilter(process.argv[3], { ids: caseIds, ...server.react.vocab });
+  FILTER = parseFilter(process.argv[3], { ids: caseIds, ...first.vocab });
 } catch (error) {
   console.error(error.message);
   process.exit(1);
 }
-const keys = server.react.cases.filter((c) => matchesFilter(c, FILTER)).map((c) => c.id);
+const keys = first.cases.filter((c) => matchesFilter(c, FILTER)).map((c) => c.id);
 if (keys.length === 0) {
   console.error(`No SSR case matches "${process.argv[3]}"; cases: ${caseIds.join(', ')}`);
   process.exit(1);
 }
 const results = {};
-const htmlByLib = {};
+const html = {};
 for (const key of keys) {
   results[key] = {};
-  for (const lib of LIBS) {
-    let html = '';
-    const times = [];
-    for (let run = 0; run < WARMUP + RUNS; run += 1) {
+  for (const name of NAMES) {
+    results[key][name] = { samples: { serverMs: [], hydrateSyncMs: [], hydrateScriptMs: [] } };
+  }
+  for (let run = 0; run < WARMUP + RUNS; run += 1) {
+    for (const name of NAMES) {
       const start = performance.now();
-      html = server[lib].render(key);
+      const markup = server[name].render(key);
       const elapsed = performance.now() - start;
-      if (run >= WARMUP) times.push(elapsed);
+      if (run >= WARMUP) results[key][name].samples.serverMs.push(elapsed);
+      (html[name] ??= {})[key] = markup;
     }
-    (htmlByLib[lib] ??= {})[key] = html;
-    results[key][lib] = { serverMs: median(times), htmlBytes: Buffer.byteLength(html) };
+  }
+  for (const name of NAMES) {
+    const entry = results[key][name];
+    entry.serverMs = median(entry.samples.serverMs);
+    entry.htmlBytes = Buffer.byteLength(html[name][key]);
   }
 }
 
@@ -123,28 +146,28 @@ const problems = [];
 if (!process.env.SERVER_ONLY) {
   const { chromium } = await import('playwright');
   const templates = Object.fromEntries(
-    LIBS.map((lib) => [
-      lib,
-      fs.readFileSync(path.join(builds, `ssr-${lib}`, 'client', 'index.html'), 'utf8'),
+    NAMES.map((name) => [
+      name,
+      fs.readFileSync(path.join(outDir(name), 'client', 'index.html'), 'utf8'),
     ]),
   );
   const httpServer = http
     .createServer((req, res) => {
       const url = new URL(req.url, 'http://localhost');
-      const [lib, ...rest] = url.pathname.slice(1).split('/');
-      if (!LIBS.includes(lib)) {
+      const [name, ...rest] = url.pathname.slice(1).split('/');
+      if (!NAMES.includes(name)) {
         res.writeHead(404).end();
         return;
       }
       if (rest.join('/') === '' || rest.join('/') === 'index.html') {
         const key = url.searchParams.get('fixture');
-        const page = templates[lib]
-          .replace('<!--ssr-head-->', server[lib].head())
-          .replace('<!--ssr-outlet-->', htmlByLib[lib][key]);
+        const page = templates[name]
+          .replace('<!--ssr-head-->', server[name].head())
+          .replace('<!--ssr-outlet-->', html[name][key]);
         res.writeHead(200, { 'content-type': 'text/html' }).end(page);
         return;
       }
-      const file = path.join(builds, `ssr-${lib}`, 'client', rest.join('/'));
+      const file = path.join(outDir(name), 'client', rest.join('/'));
       if (!fs.existsSync(file)) {
         res.writeHead(404).end();
         return;
@@ -161,11 +184,9 @@ if (!process.env.SERVER_ONLY) {
     );
   for (const key of keys) {
     const summaries = {};
-    for (const lib of LIBS) {
-      const sync = [];
-      const script = [];
-      const total = [];
-      for (let run = 0; run < WARMUP + RUNS; run += 1) {
+    const total = Object.fromEntries(NAMES.map((name) => [name, []]));
+    for (let run = 0; run < WARMUP + RUNS; run += 1) {
+      for (const name of NAMES) {
         const page = await browser.newPage();
         const logs = [];
         page.on('console', (message) => {
@@ -175,7 +196,7 @@ if (!process.env.SERVER_ONLY) {
         page.on('pageerror', (error) => logs.push(`pageerror: ${String(error).slice(0, 200)}`));
         const cdp = await page.context().newCDPSession(page);
         await cdp.send('Performance.enable');
-        await page.goto(`http://localhost:${port}/${lib}/?fixture=${encodeURIComponent(key)}`);
+        await page.goto(`http://localhost:${port}/${name}/?fixture=${encodeURIComponent(key)}`);
         await page.waitForFunction(() => '__hydrate' in window);
         const before = await cdp.send('Performance.getMetrics');
         const result = await page.evaluate(
@@ -189,14 +210,18 @@ if (!process.env.SERVER_ONLY) {
           [key, settle.toString()],
         );
         const after = await cdp.send('Performance.getMetrics');
-        const metric = (list, name) => list.metrics.find((m) => m.name === name)?.value ?? 0;
+        const metric = (list, metricName) =>
+          list.metrics.find((m) => m.name === metricName)?.value ?? 0;
         if (run >= WARMUP) {
-          sync.push(result.syncMs);
-          total.push(result.totalMs);
-          script.push((metric(after, 'ScriptDuration') - metric(before, 'ScriptDuration')) * 1000);
+          const samples = results[key][name].samples;
+          samples.hydrateSyncMs.push(result.syncMs);
+          samples.hydrateScriptMs.push(
+            (metric(after, 'ScriptDuration') - metric(before, 'ScriptDuration')) * 1000,
+          );
+          total[name].push(result.totalMs);
         }
         if (run === WARMUP) {
-          summaries[lib] = await page.evaluate(() => ({
+          summaries[name] = await page.evaluate(() => ({
             nodes: document.body.querySelectorAll('*').length,
             expanded: document.querySelectorAll('[aria-expanded="true"]').length,
             checkboxes: document.querySelectorAll('[role="checkbox"]').length,
@@ -204,20 +229,23 @@ if (!process.env.SERVER_ONLY) {
             tabsSelected: document.querySelectorAll('[role="tab"][aria-selected="true"]').length,
             labelled: document.querySelectorAll('[aria-labelledby]').length,
           }));
-          for (const log of new Set(logs)) problems.push(`${key} [${lib}] ${log}`);
+          for (const log of new Set(logs)) problems.push(`${key} [${name}] ${log}`);
         }
         await page.close();
       }
-      Object.assign(results[key][lib], {
-        hydrateSyncMs: median(sync),
-        hydrateTotalMs: median(total),
-        hydrateScriptMs: median(script),
-      });
     }
-    if (JSON.stringify(summaries.react) !== JSON.stringify(summaries.solid)) {
-      problems.push(
-        `${key}: hydrated DOM differs: react ${JSON.stringify(summaries.react)} ≠ solid ${JSON.stringify(summaries.solid)}`,
-      );
+    for (const name of NAMES) {
+      const entry = results[key][name];
+      entry.hydrateSyncMs = median(entry.samples.hydrateSyncMs);
+      entry.hydrateTotalMs = median(total[name]);
+      entry.hydrateScriptMs = median(entry.samples.hydrateScriptMs);
+    }
+    for (const name of NAMES.slice(1)) {
+      if (JSON.stringify(summaries[NAMES[0]]) !== JSON.stringify(summaries[name])) {
+        problems.push(
+          `${key}: hydrated DOM differs: ${NAMES[0]} ${JSON.stringify(summaries[NAMES[0]])} ≠ ${name} ${JSON.stringify(summaries[name])}`,
+        );
+      }
     }
     results[key].summaries = summaries;
   }
@@ -227,29 +255,40 @@ if (!process.env.SERVER_ONLY) {
 
 const fmt = (n) => (n == null ? '-' : n.toFixed(2));
 const ratio = (a, b) => (a && b != null ? `${(b / a).toFixed(2)}x` : '-');
+const others = NAMES.slice(1);
 const lines = [
   `# Base UI SSR bench ${new Date().toISOString()}`,
   '',
-  `runs ${RUNS} · warmup ${WARMUP} · production builds${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
+  `runs ${RUNS} · warmup ${WARMUP} · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
   '',
-  '| fixture | server ms R / S | ratio | HTML bytes R / S | hydrate sync ms R / S | ratio | hydrate script ms R / S | ratio |',
-  '|---|---|---|---|---|---|---|---|',
+  `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate sync ms / hydrate script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate sync`).join(' | ')} |`,
+  `|---|${NAMES.map(() => '---').join('|')}|${others.map(() => '---').join('|')}|`,
 ];
 for (const key of keys) {
-  const r = results[key].react;
-  const s = results[key].solid;
-  lines.push(
-    `| ${key} | ${fmt(r.serverMs)} / ${fmt(s.serverMs)} | ${ratio(r.serverMs, s.serverMs)} | ${r.htmlBytes} / ${s.htmlBytes} | ${fmt(r.hydrateSyncMs)} / ${fmt(s.hydrateSyncMs)} | ${ratio(r.hydrateSyncMs, s.hydrateSyncMs)} | ${fmt(r.hydrateScriptMs)} / ${fmt(s.hydrateScriptMs)} | ${ratio(r.hydrateScriptMs, s.hydrateScriptMs)} |`,
+  const row = results[key];
+  const cells = NAMES.map(
+    (n) =>
+      `${fmt(row[n].serverMs)} / ${row[n].htmlBytes} / ${fmt(row[n].hydrateSyncMs)} / ${fmt(row[n].hydrateScriptMs)}`,
   );
+  const ratios = others.map(
+    (n) =>
+      `${ratio(row[NAMES[0]].serverMs, row[n].serverMs)} / ${ratio(row[NAMES[0]].hydrateSyncMs, row[n].hydrateSyncMs)}`,
+  );
+  lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
 }
 if (problems.length) lines.push('', '## Problems', '', ...problems.map((p) => `- ${p}`));
-fs.mkdirSync(resultsDir, { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+const out = process.env.RESULTS_FILE ?? path.join(resultsDir, `ssr-${stamp}`);
+fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(
-  path.join(resultsDir, `ssr-${stamp}.json`),
-  JSON.stringify({ results, problems }, null, 2),
+  `${out}.json`,
+  JSON.stringify(
+    { variants: NAMES, runs: RUNS, filter: process.argv[3] ?? null, results, problems },
+    null,
+    2,
+  ),
 );
-fs.writeFileSync(path.join(resultsDir, `ssr-${stamp}.md`), lines.join('\n'));
+fs.writeFileSync(`${out}.md`, lines.join('\n'));
 console.log(lines.join('\n'));
-console.log(`\nwritten ${path.join(resultsDir, `ssr-${stamp}`)}.{md,json}`);
+console.log(`\nwritten ${out}.{md,json}`);
 process.exit(problems.length ? 1 : 0);

@@ -47,12 +47,13 @@ describe("perf regression rule", () => {
 		expect(() => judge([], [1], { floor: 0.1 })).toThrow("no samples")
 	})
 
-	test("gated metrics: sync, script, settled and server ms on a 0.1 ms floor; heap above 100 KB", () => {
+	test("gated metrics: sync, script, settled, server and hydration ms on a 0.1 ms floor; heap above 100 KB", () => {
 		expect(GATED).toEqual({
 			sync: { floor: 0.1 },
 			script: { floor: 0.1 },
 			settled: { floor: 0.1 },
 			serverMs: { floor: 0.1 },
+			hydrateSyncMs: { floor: 0.1 },
 			heapKB: { floor: 0, minBoth: 100 },
 		})
 	})

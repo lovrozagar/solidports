@@ -17,7 +17,8 @@ export const p90 = (values) => {
 
 /**
  * Metrics the rule decides on. Paint (frame-aligned) and layout/style (noise at these sizes) are
- * reported only. Heap is read only where both sides exceed 100 KB (GC noise below that).
+ * reported only. Hydration is compared Solid to Solid (base vs cur), never against React, whose
+ * hydrateRoot schedules its work. Heap is read only where both sides exceed 100 KB (GC noise).
  * @type {Record<string, { floor: number, minBoth?: number }>}
  */
 export const GATED = {
@@ -25,6 +26,7 @@ export const GATED = {
   script: { floor: 0.1 },
   settled: { floor: 0.1 },
   serverMs: { floor: 0.1 },
+  hydrateSyncMs: { floor: 0.1 },
   heapKB: { floor: 0, minBoth: 100 },
 };
 

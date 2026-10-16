@@ -65,6 +65,7 @@
     "@types/react-dom": "^19.2.3"
   },
   "scripts": {
+    "bench:component": "bun scripts/bench-component.mjs",
     "bench:solid": "node test/perf-solid/run.mjs",
     "bench:solid:build": "LIB=react vite build -c test/perf-solid/vite.config.mjs && LIB=solid vite build -c test/perf-solid/vite.config.mjs",
     "bench:solid:profile": "node test/perf-solid/profile.mjs",
