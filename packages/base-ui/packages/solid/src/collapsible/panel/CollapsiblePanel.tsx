@@ -1,4 +1,4 @@
-import { getOwner, omit, Show, untrack } from 'solid-js';
+import { getOwner, isStatic, omit, Show, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import { createNativeConditional } from '../../utils/native/conditional';
@@ -147,20 +147,33 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   return <Show when={panel.shouldRender()}>{element()}</Show>;
 }
 
+/** Whether `props[key]` is absent or a plain value (no getter to re-read). */
+function isStaticProp(props: object, key: string) {
+  return !(key in props) || isStatic(props, key);
+}
+
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: ReadonlySet<string> = new Set(['hiddenUntilFound', 'keepMounted', 'id']);
 /** The temporary style that neutralizes an author-defined open animation. */
 const ANIMATION_NONE: JSX.CSSProperties = { 'animation-name': 'none' };
 
 /**
- * Warns in development when `keepMounted={false}` is ignored because `hiddenUntilFound` is set
- * (both read reactively, as the slow path's effect).
+ * Warns in development when `keepMounted={false}` is ignored because `hiddenUntilFound` is set, on
+ * mount and whenever either changes, as upstream's effect. With `reactive: false` (both inputs are
+ * static props) there is nothing to re-check, so it checks once at setup and creates no node.
  */
 export function warnKeepMountedIgnored(
   hiddenUntilFound: () => boolean | undefined,
   keepMounted: () => boolean | undefined,
   message: string,
+  reactive = true,
 ) {
+  if (!reactive) {
+    if (untrack(hiddenUntilFound) && untrack(keepMounted) === false) {
+      warn(message);
+    }
+    return;
+  }
   createDepsEffect(
     () => ({ hiddenUntilFound: hiddenUntilFound(), keepMounted: keepMounted() }),
     (deps) => {
@@ -179,6 +192,7 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
       () => props.hiddenUntilFound,
       () => props.keepMounted,
       'The `keepMounted={false}` prop on `Collapsible.Panel` is ignored when `hiddenUntilFound` is enabled, since the panel must remain mounted while closed.',
+      !isStaticProp(props, 'hiddenUntilFound') || !isStaticProp(props, 'keepMounted'),
     );
   }
 

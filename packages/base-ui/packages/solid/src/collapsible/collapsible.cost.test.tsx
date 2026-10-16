@@ -125,7 +125,7 @@ describe('collapsible cost against the hand-written floor', () => {
 
   // Absolute dev budgets from the core spec (S1, S2, S5): beyond a plain element, every component
   // carries one dev root; Root adds its context owner and one grouped effect, Trigger one grouped
-  // effect, and a closed Panel nothing (no transition machinery, no warning nodes).
+  // effect, and a closed Panel only its conditional insert (no transition or warning nodes).
   it('Root costs at most 3 nodes: dev root, context owner, one grouped effect', () => {
     const cost = perCopy(part.root) - perCopy(() => <div />);
     expect(cost, `Root ${cost} nodes beyond a plain div`).toBeLessThanOrEqual(3);
@@ -136,9 +136,11 @@ describe('collapsible cost against the hand-written floor', () => {
     expect(cost, `Trigger ${cost} nodes`).toBeLessThanOrEqual(2);
   });
 
-  it('a closed Panel costs at most 1 node: its dev root', () => {
+  // A panel that renders conditionally returns an accessor, and the parent's insert wraps it in one
+  // computation: the optimal floor's closed panel costs exactly these 2 nodes too.
+  it('a closed Panel costs at most 2 nodes: its dev root and the conditional insert', () => {
     const cost = perCopy(part.closed) - perCopy(part.rootTrigger);
-    expect(cost, `closed Panel ${cost} nodes`).toBeLessThanOrEqual(1);
+    expect(cost, `closed Panel ${cost} nodes`).toBeLessThanOrEqual(2);
   });
 
   it('Root costs at most the floor root plus 25%', () => {
