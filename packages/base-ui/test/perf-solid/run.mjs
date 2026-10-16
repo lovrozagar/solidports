@@ -19,7 +19,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const builds = path.resolve(here, '../../../../.tmp/grunt/bench-builds');
 const resultsDir = path.resolve(here, '../../../../.tmp/grunt/bench-results');
 const RUNS = Number(process.argv[2] ?? 8);
-const FILTER = parseFilter(process.argv[3]);
 const WARMUP = Number(process.env.WARMUP ?? 2);
 const THROTTLE = Number(process.env.THROTTLE ?? 1);
 const QUERY = process.env.SIZE === 'large' ? '?size=large' : '';
@@ -81,9 +80,17 @@ const browser = await chromium.launch({
   args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
 });
 const probe = await openPage(browser, NAMES[0]);
-const list = (await probe.page.evaluate(() => window.bench.list())).filter((scenario) =>
-  matchesFilter(scenario, FILTER),
-);
+const all = await probe.page.evaluate(() => window.bench.list());
+const vocab = await probe.page.evaluate(() => window.bench.vocab);
+let FILTER;
+try {
+  FILTER = parseFilter(process.argv[3], { ids: all.map((s) => s.id), ...vocab });
+} catch (error) {
+  console.error(error.message);
+  await browser.close();
+  process.exit(1);
+}
+const list = all.filter((scenario) => matchesFilter(scenario, FILTER));
 await probe.page.close();
 if (list.length === 0) {
   console.error(`No scenario matches "${process.argv[3]}"`);

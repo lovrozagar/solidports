@@ -23,7 +23,6 @@ const repo = path.resolve(here, '../../../../..');
 const builds = path.join(repo, '.tmp/grunt/bench-builds');
 const resultsDir = path.join(repo, '.tmp/grunt/bench-results');
 const RUNS = Number(process.argv[2] ?? 20);
-const FILTER = parseFilter(process.argv[3]);
 const WARMUP = 3;
 const LIBS = ['react', 'solid'];
 
@@ -88,6 +87,13 @@ for (const lib of LIBS) {
     console.error(`${lib} registers ${registered.join(', ')}; cases are ${caseIds.join(', ')}`);
     process.exit(1);
   }
+}
+let FILTER;
+try {
+  FILTER = parseFilter(process.argv[3], { ids: caseIds, ...server.react.vocab });
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
 }
 const keys = server.react.cases.filter((c) => matchesFilter(c, FILTER)).map((c) => c.id);
 if (keys.length === 0) {

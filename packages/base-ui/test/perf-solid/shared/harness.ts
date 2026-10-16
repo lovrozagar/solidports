@@ -1,3 +1,4 @@
+import { COMPONENTS, SCENARIO_TAGS } from './manifest';
 import { scenarios } from './scenarios';
 import { runStep, type StepResult } from './step';
 import type { Lib, Scenario, Step, StepContext } from './types';
@@ -33,6 +34,8 @@ export function installHarness(lib: Lib) {
     lib: lib.name,
     /** Debugging: mount / unmount / set a fixture directly. */
     debug: lib,
+    /** The manifest vocabularies, so the runner validates its filter. */
+    vocab: { components: COMPONENTS, tags: SCENARIO_TAGS },
     list: () =>
       scenarios.map((scenario) => ({
         id: scenario.id,
