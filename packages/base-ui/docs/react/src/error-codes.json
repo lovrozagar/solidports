@@ -103,5 +103,6 @@
   "104": "Base UI: <Menu.%s> must be placed in a menu wrapped in <Menu.FilterProvider>. It reads the filter query and the matching items from the provider, which a plain menu does not have. Wrap the <Menu.Root> or <Menu.SubmenuRoot> it belongs to in <Menu.FilterProvider>. See https://base-ui.com/react/components/menu#filtering",
   "105": "Base UI: MenuFilterProviderContext is missing. Filter parts must be placed within <Menu.FilterProvider>.",
   "106": "Base UI: SolidStore.select called but no selectors were provided.",
-  "107": "Base UI: SolidStore.observe with key selector requires selectors."
+  "107": "Base UI: SolidStore.observe with key selector requires selectors.",
+  "108": "Base UI: a native part rendered on the server needs an element template ({ tag, create }), not an element. Pass a template so the server can render the tag."
 }
