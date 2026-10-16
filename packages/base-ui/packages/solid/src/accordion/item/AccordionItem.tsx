@@ -1,4 +1,4 @@
-import { createMemo, createSignal, getOwner } from 'solid-js';
+import { createSignal, getOwner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import type { CollapsibleRoot } from '../../collapsible/root/CollapsibleRoot';
 import { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
@@ -86,7 +86,7 @@ function createAccordionItem(
     disabled: contextDisabled,
     handleValueChange,
     state: rootState,
-    value: openValues,
+    isOpen: isValueOpen,
   } = useAccordionRootContext();
 
   const fallbackValue = useBaseUiId();
@@ -95,7 +95,7 @@ function createAccordionItem(
 
   const disabled = () => (local.disabled ?? false) || contextDisabled();
 
-  const isOpen = createMemo(() => openValues().indexOf(value()) !== -1);
+  const isOpen = () => isValueOpen(value());
 
   // Solid: a handler reading the latest props is React's stable callback.
   const onOpenChange = (nextOpen: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => {
