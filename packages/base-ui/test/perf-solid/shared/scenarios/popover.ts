@@ -49,6 +49,7 @@ const scenarios: Scenario[] = [
         settle: true,
         // safePolygon closes on a 40 ms timer once the pointer leaves inside its polygon.
         until: () => popups().length === 0,
+        timerMs: 40,
         verify: summary,
       },
     ],

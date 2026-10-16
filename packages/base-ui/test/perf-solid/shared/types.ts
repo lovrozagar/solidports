@@ -30,6 +30,11 @@ export interface Step {
    */
   until?(ctx: StepContext): boolean;
   /**
+   * The library's own wait before `until` can hold (40 for safePolygon's close), required with
+   * `until`. The report shows `settled - timerMs`, the render cost after the timer fires.
+   */
+  timerMs?: number;
+  /**
    * Reads the DOM after the step and returns a JSON-able summary. The runner fails the scenario
    * when the summaries differ between libraries; throw for a hard expectation.
    */
