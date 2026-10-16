@@ -218,10 +218,7 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
   const keepMounted = () => props.keepMounted ?? false;
   const id = () => (props.id || undefined) ?? defaultPanelId();
 
-  // The registration runs from the element's ref, which the server never calls.
-  const registerId = isServer
-    ? undefined
-    : createIdRegistration(props, 'id', setPanelIdState, rootOwner);
+  const registerId = createIdRegistration(props, 'id', setPanelIdState, rootOwner);
 
   // The measurement and transition machinery is created when the panel first renders (a closed
   // panel without `keepMounted` never does) and kept for the part's lifetime, owned by the part.
