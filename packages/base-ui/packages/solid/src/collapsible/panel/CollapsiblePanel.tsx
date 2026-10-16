@@ -263,7 +263,7 @@ function createRenderedPanel(
  */
 export function renderNativePanel<State extends CollapsiblePanelState>(
   props: object,
-  panelState: State,
+  panelState: State | (() => State),
   panel: ReturnType<typeof useCollapsiblePanel>,
   id: () => JSX.HTMLAttributes<Element>['id'],
   mapping: StateAttributesMapping<State>,
@@ -271,12 +271,14 @@ export function renderNativePanel<State extends CollapsiblePanelState>(
   attributes?: (set: SetAttribute) => void,
   registerId?: ((element: Element | null) => void) | undefined,
   stateWriter?: StateWriter | undefined,
+  stateView?: object | undefined,
 ): JSX.Element {
   return renderNativeElement(PANEL_DIV, props, {
     own: OWN_KEYS,
     state: panelState,
     mapping,
     stateWriter,
+    stateView,
     reactive: true,
     literal,
     attributes: (set) => {

@@ -6,6 +6,7 @@ import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { AccordionItemState } from '../item/AccordionItem';
 import { useAccordionItemContext } from '../item/AccordionItemContext';
+import { writeItemState } from '../item/AccordionItemModel';
 import { accordionStateAttributesMapping } from '../item/stateAttributesMapping';
 
 /** The part has no props of its own. */
@@ -21,7 +22,7 @@ const OWN_KEYS: ReadonlySet<string> = new Set();
  * Documentation: [Base UI Accordion](https://base-ui.com/solid/components/accordion)
  */
 export function AccordionHeader(componentProps: AccordionHeader.Props) {
-  const { state } = useAccordionItemContext();
+  const item = useAccordionItemContext();
 
   // Native fast path (`context/architecture/render-pipeline.md`): an `<h3>` rendered with direct JSX,
   // on the client, the server and while hydrating.
@@ -29,7 +30,9 @@ export function AccordionHeader(componentProps: AccordionHeader.Props) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return renderNativeElement(H3, componentProps, {
       own: OWN_KEYS,
-      state,
+      state: () => item.state,
+      stateView: item.stateView,
+      stateWriter: writeItemState,
       mapping: accordionStateAttributesMapping,
       reactive: true,
     }) as unknown as JSX.Element;
@@ -39,7 +42,7 @@ export function AccordionHeader(componentProps: AccordionHeader.Props) {
 
   const element = useRenderElement('h3', componentProps, {
     props: elementProps,
-    state,
+    state: item.state,
     stateAttributesMapping: accordionStateAttributesMapping,
   });
 

@@ -1,8 +1,5 @@
-import { createSignal, getOwner } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import type { CollapsibleRoot } from '../../collapsible/root/CollapsibleRoot';
 import { CollapsibleRootContext } from '../../collapsible/root/CollapsibleRootContext';
-import { useCollapsibleRoot } from '../../collapsible/root/useCollapsibleRoot';
 import { useCompositeListItem } from '../../internals/composite/list/useCompositeListItem';
 import { splitComponentProps, provideContext } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -12,11 +9,10 @@ import { renderNativeElement } from '../../utils/native/element';
 import { createNativeListItem } from '../../utils/native/listItem';
 import type { REASONS } from '../../utils/reasons';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useBaseUiId } from '../../utils/useBaseUiId';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { AccordionRootState } from '../root/AccordionRoot';
-import { useAccordionRootContext } from '../root/AccordionRootContext';
 import { AccordionItemContext } from './AccordionItemContext';
+import { AccordionItemModel, writeItemState } from './AccordionItemModel';
 import { accordionStateAttributesMapping } from './stateAttributesMapping';
 
 /** The part's own props: never forwarded to the element. */
@@ -39,16 +35,18 @@ export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element 
   // and while hydrating.
   if (canRenderNative(componentProps, undefined, true)) {
     const listItem = createNativeListItem<null>(null, GUESS_INDEX);
-    const item = createAccordionItem(componentProps, listItem.index);
+    const item = new AccordionItemModel(componentProps, listItem.index);
     return provideNativeContexts(
       CollapsibleRootContext,
-      item.collapsibleContext,
+      item.collapsible,
       AccordionItemContext,
-      item.accordionItemContext,
+      item,
       () =>
         renderNativeElement(ITEM_DIV, componentProps, {
           own: OWN_KEYS,
-          state: item.state,
+          state: () => item.state,
+          stateView: item.stateView,
+          stateWriter: writeItemState,
           mapping: accordionStateAttributesMapping,
           reactive: true,
           refs: [listItem.setRef],
@@ -63,7 +61,7 @@ export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element 
   ]);
 
   const { setRef: listItemRef, index } = useCompositeListItem();
-  const item = createAccordionItem(local, index);
+  const item = new AccordionItemModel(local, index);
 
   const element = useRenderElement('div', componentProps, {
     state: item.state,
@@ -72,95 +70,9 @@ export function AccordionItem(componentProps: AccordionItem.Props): JSX.Element 
     stateAttributesMapping: accordionStateAttributesMapping,
   });
 
-  return provideContext(CollapsibleRootContext, item.collapsibleContext, () =>
-    provideContext(AccordionItemContext, item.accordionItemContext, element),
+  return provideContext(CollapsibleRootContext, item.collapsible, () =>
+    provideContext(AccordionItemContext, item, element),
   );
-}
-
-/** The item's open state, collapsible root and contexts, shared by both render paths. */
-function createAccordionItem(
-  local: Pick<AccordionItem.Props, 'disabled' | 'onOpenChange' | 'value'>,
-  index: () => number,
-) {
-  const {
-    disabled: contextDisabled,
-    handleValueChange,
-    state: rootState,
-    isOpen: isValueOpen,
-  } = useAccordionRootContext();
-
-  const fallbackValue = useBaseUiId();
-
-  const value = () => local.value ?? fallbackValue();
-
-  const disabled = () => (local.disabled ?? false) || contextDisabled();
-
-  const isOpen = () => isValueOpen(value());
-
-  // Solid: a handler reading the latest props is React's stable callback.
-  const onOpenChange = (nextOpen: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => {
-    local.onOpenChange?.(nextOpen, eventDetails);
-
-    if (eventDetails.isCanceled) {
-      return;
-    }
-
-    handleValueChange(value(), nextOpen, eventDetails);
-  };
-
-  // `open` is always this item's membership in the root's value: there is no mode to decide, so
-  // the collapsible root reads it directly.
-  const collapsible = useCollapsibleRoot({
-    alwaysControlled: true,
-    open: isOpen,
-    onOpenChange,
-    disabled,
-  });
-
-  const collapsibleContext: CollapsibleRootContext = collapsible;
-
-  const state: AccordionItemState = {
-    get value() {
-      return rootState.value;
-    },
-    get orientation() {
-      return rootState.orientation;
-    },
-    get hidden() {
-      return !isOpen() && !collapsible.mounted();
-    },
-    get index() {
-      return index();
-    },
-    get disabled() {
-      return disabled();
-    },
-    get open() {
-      return isOpen();
-    },
-  };
-
-  const defaultTriggerId = useBaseUiId();
-  // `undefined` uses the initial generated fallback; `null` means the trigger unmounted.
-  // Solid: the trigger clears its registration from an unmount cleanup, so the signal allows owned writes.
-  const [registeredTriggerId, setTriggerId] = createSignal<string | null | undefined>(undefined, {
-    ownedWrite: true,
-  });
-  const triggerId = () => {
-    const registered = registeredTriggerId();
-    return registered === null ? undefined : (registered ?? defaultTriggerId());
-  };
-
-  const accordionItemContext: AccordionItemContext = {
-    defaultTriggerId,
-    open: isOpen,
-    owner: getOwner(),
-    state,
-    setTriggerId,
-    triggerId,
-  };
-
-  return { accordionItemContext, collapsibleContext, state };
 }
 
 export interface AccordionItemState extends AccordionRootState {
