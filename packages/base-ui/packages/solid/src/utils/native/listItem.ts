@@ -7,9 +7,12 @@
  */
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
+import { isServer } from '@solidjs/web';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { useCompositeListContext } from '../../internals/composite/list/CompositeListContext';
 import type { CompositeListRegistration } from '../../internals/composite/list/CompositeListContext';
+
+const noop = () => {};
 
 export interface NativeListItem {
   /** Registers the element (with `null`: unregisters it), as the hook's ref. */
@@ -31,11 +34,20 @@ export function createNativeListItem<Metadata>(
     guessed = nextIndexRef.current;
     nextIndexRef.current += 1;
   }
+  const reactive = typeof metadata === 'function';
+  if (isServer) {
+    // The server never calls refs and its list never flushes: the index stays the guess. A
+    // reactive metadata accessor still gets its effect, which takes a hydration id the client's
+    // matches.
+    if (reactive) {
+      createEffect(metadata as Accessor<Metadata | null>, () => {});
+    }
+    return { setRef: noop, index: () => guessed };
+  }
   const [index, setIndex] = createSignal(guessed);
   // Identifies this item's registration when nested items share one DOM node.
   const owner = {};
   let element: Element | null = null;
-  const reactive = typeof metadata === 'function';
   const readMetadata = reactive ? (metadata as Accessor<Metadata | null>) : () => metadata;
   let registration: CompositeListRegistration<Metadata> | null = null;
 
