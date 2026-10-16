@@ -2,12 +2,15 @@
 // bench:component: one report per component across every perf instrument (plan 3, leaves 1.5–1.7).
 //
 //   bun run bench:component <name>[,...]|all [--runs 8] [--ssr-runs 10] [--filter <terms>]
-//                           [--save-baseline <label>] [--compare <label>]
+//                           [--save-baseline <label> [--at <sha>]] [--compare <label>]
 //
 // Builds once, then runs the browser scenarios that list a component (`component:<name>` terms,
 // plus any `--filter` terms, browser only), the SSR cases that list it, and the cost tests
 // `COST_TESTS` assigns it; a component with neither a cost test nor a `PENDING_COST` entry fails.
-// `--save-baseline` stores the run under a label and refuses a dirty tree. `--compare` builds the
+// `--save-baseline` stores the run under a label and refuses a dirty tree; with `--at <sha>` it
+// measures that commit's library instead of the working tree's (built as `--compare` builds a
+// baseline, so an old commit gets today's harness) and skips the working tree's cost tests. Only
+// correctness failures block a baseline: exit-bar misses are recorded as targets. `--compare` builds the
 // labelled commit's library source (extracted with `git archive`, so it is the commit and nothing
 // else), caches that build by SHA and harness hash, runs it interleaved with the working tree and
 // React in one session, and fails on any regression under the 1.6 rule. Run with Bun: it imports
@@ -29,7 +32,7 @@ const perf = path.join(baseUi, 'test/perf-solid');
 const builds = path.join(repo, '.tmp/grunt/bench-builds');
 const resultsDir = path.join(repo, '.tmp/grunt/bench-results');
 const USAGE =
-  'bench:component <name>[,...]|all [--runs N] [--ssr-runs N] [--filter terms] [--save-baseline label | --compare label]';
+  'bench:component <name>[,...]|all [--runs N] [--ssr-runs N] [--filter terms] [--save-baseline label [--at sha] | --compare label]';
 
 /** @param {string[]} argv */
 export function parseArgs(argv) {
@@ -39,6 +42,7 @@ export function parseArgs(argv) {
     ssrRuns: 10,
     filter: null,
     saveBaseline: null,
+    at: null,
     compare: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -53,6 +57,7 @@ export function parseArgs(argv) {
     else if (arg === '--filter') options.filter = value();
     else if (arg === '--save-baseline') options.saveBaseline = value();
     else if (arg === '--compare') options.compare = value();
+    else if (arg === '--at') options.at = value();
     else if (arg.startsWith('--')) throw new Error(`Unknown option ${arg}; usage: ${USAGE}`);
     else options.names.push(...arg.split(',').filter(Boolean));
   }
@@ -60,8 +65,19 @@ export function parseArgs(argv) {
   if (options.saveBaseline && options.compare) {
     throw new Error('--save-baseline and --compare are separate runs; pass one');
   }
+  if (options.at && !options.saveBaseline) {
+    throw new Error('--at names the commit a baseline measures; pass it with --save-baseline');
+  }
   return options;
 }
+
+/**
+ * The failures that keep a run from becoming a baseline: all but exit-bar misses, which a baseline
+ * records as targets (its `exitBar`).
+ * @param {string[]} failures
+ */
+export const baselineBlockers = (failures) =>
+  failures.filter((failure) => !failure.startsWith('exit bar: '));
 
 /** @param {string[]} names @param {readonly string[]} known */
 export function resolveComponents(names, known) {
@@ -216,6 +232,60 @@ function run(command, args, { env = {}, cwd = baseUi, allowFail = false, locked 
   return result.status ?? 1;
 }
 
+/**
+ * Builds the library of commit `sha`, extracted with `git archive` (the commit and nothing else),
+ * for the browser bench and the SSR bench, cached by SHA and harness hash. `name` is the SSR
+ * variant's name; `others` are the other SSR variants built alongside.
+ */
+function buildArchived(sha, name, others) {
+  const harness = treeHash(repo, [path.relative(repo, perf), 'bun.lock']);
+  const key = `${sha.slice(0, 12)}-${harness.slice(0, 12)}`;
+  const browserOut = `${name}-${key}`;
+  const browserDir = path.join(builds, 'solid', browserOut);
+  const ssrOut = `ssr-${name}-${key}`;
+  const ssrDir = path.join(builds, ssrOut);
+  const src = path.join(repo, '.tmp/grunt/bench-src', sha);
+  const needBrowser = !cachedBuild(browserDir);
+  const needSsr = !cachedBuild(ssrDir);
+  if (needBrowser || needSsr) {
+    fs.rmSync(src, { recursive: true, force: true });
+    fs.mkdirSync(src, { recursive: true });
+    const archive = spawnSync('git', ['archive', sha, 'packages/base-ui/packages/solid/src'], {
+      cwd: repo,
+      maxBuffer: 1 << 30,
+    });
+    if (archive.status !== 0) throw new Error(`git archive ${sha}: ${archive.stderr}`);
+    const untar = spawnSync('tar', ['-x', '-C', src], { input: archive.stdout });
+    if (untar.status !== 0) throw new Error(`tar: ${untar.stderr}`);
+  }
+  const srcRoot = path.join(src, 'packages/base-ui/packages/solid/src');
+  const ssrVariant = `${name}:solid:${srcRoot}:${ssrOut}`;
+  try {
+    if (needBrowser) {
+      run('bun', ['x', 'vite', 'build', '-c', 'test/perf-solid/vite.config.mjs'], {
+        env: { LIB: 'solid', SOLID_SRC: srcRoot, OUT: browserOut },
+      });
+      fs.writeFileSync(`${browserDir}.build-hash`, dirHash(browserDir));
+    }
+    run('node', ['test/perf-solid/ssr/run.mjs'], {
+      env: {
+        BUILD_ONLY: '1',
+        SSR_VARIANTS: ['react:react', ...others, ssrVariant].join(','),
+        ...(needSsr ? {} : { NO_BUILD: name }),
+      },
+    });
+    if (needSsr) fs.writeFileSync(`${ssrDir}.build-hash`, dirHash(ssrDir));
+  } finally {
+    fs.rmSync(src, { recursive: true, force: true });
+  }
+  return {
+    browserOut,
+    ssrVariant,
+    cached: !needBrowser && !needSsr,
+    buildHash: { browser: dirHash(browserDir), ssr: dirHash(ssrDir) },
+  };
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const manifest = await import('../test/perf-solid/shared/manifest.ts');
@@ -239,63 +309,31 @@ async function main() {
   // --- Builds (once) ---
   run('bun', ['run', 'bench:solid:build']);
   let base = null;
+  /** With `--at`, the commit measured instead of the working tree. */
+  let measured = null;
   const browserVariants = ['react:react:dist'];
   const ssrVariants = ['react:react'];
   if (options.compare) {
     const file = path.join(resultsDir, 'baselines', `${options.compare}.json`);
     if (!fs.existsSync(file)) throw new Error(`No baseline "${options.compare}" at ${file}`);
     const saved = JSON.parse(fs.readFileSync(file, 'utf8'));
-    const harness = treeHash(repo, [path.relative(repo, perf), 'bun.lock']);
-    const key = `${saved.sha.slice(0, 12)}-${harness.slice(0, 12)}`;
-    const browserDir = path.join(builds, 'solid', `base-${key}`);
-    const ssrDir = path.join(builds, `ssr-base-${key}`);
-    const src = path.join(repo, '.tmp/grunt/bench-src', saved.sha);
-    const needBrowser = !cachedBuild(browserDir);
-    const needSsr = !cachedBuild(ssrDir);
-    if (needBrowser || needSsr) {
-      fs.rmSync(src, { recursive: true, force: true });
-      fs.mkdirSync(src, { recursive: true });
-      const archive = spawnSync(
-        'git',
-        ['archive', saved.sha, 'packages/base-ui/packages/solid/src'],
-        {
-          cwd: repo,
-          maxBuffer: 1 << 30,
-        },
-      );
-      if (archive.status !== 0) throw new Error(`git archive ${saved.sha}: ${archive.stderr}`);
-      const untar = spawnSync('tar', ['-x', '-C', src], { input: archive.stdout });
-      if (untar.status !== 0) throw new Error(`tar: ${untar.stderr}`);
-    }
-    const srcRoot = path.join(src, 'packages/base-ui/packages/solid/src');
-    try {
-      if (needBrowser) {
-        run('bun', ['x', 'vite', 'build', '-c', 'test/perf-solid/vite.config.mjs'], {
-          env: { LIB: 'solid', SOLID_SRC: srcRoot, OUT: `base-${key}` },
-        });
-        fs.writeFileSync(`${browserDir}.build-hash`, dirHash(browserDir));
-      }
-      run('node', ['test/perf-solid/ssr/run.mjs'], {
-        env: {
-          BUILD_ONLY: '1',
-          SSR_VARIANTS: `react:react,cur:solid,base:solid:${srcRoot}:ssr-base-${key}`,
-          ...(needSsr ? {} : { NO_BUILD: 'base' }),
-        },
-      });
-      if (needSsr) fs.writeFileSync(`${ssrDir}.build-hash`, dirHash(ssrDir));
-    } finally {
-      fs.rmSync(src, { recursive: true, force: true });
-    }
+    const built = buildArchived(saved.sha, 'base', ['cur:solid']);
     base = {
       label: options.compare,
       sha: saved.sha,
       dirty: false,
-      cachedBuild: !needBrowser && !needSsr,
+      cachedBuild: built.cached,
       depsFromWorkingTree: depsDrift(repo, saved.sha),
-      buildHash: { browser: dirHash(browserDir), ssr: dirHash(ssrDir) },
+      buildHash: built.buildHash,
     };
-    browserVariants.push(`base:solid:base-${key}`, 'cur:solid:dist');
-    ssrVariants.push(`base:solid:${srcRoot}:ssr-base-${key}`, 'cur:solid');
+    browserVariants.push(`base:solid:${built.browserOut}`, 'cur:solid:dist');
+    ssrVariants.push(built.ssrVariant, 'cur:solid');
+  } else if (options.at) {
+    const sha = git(repo, ['rev-parse', options.at]).trim();
+    const built = buildArchived(sha, 'at', []);
+    measured = { sha, buildHash: built.buildHash };
+    browserVariants.push(`solid:solid:${built.browserOut}`);
+    ssrVariants.push(built.ssrVariant.replace(/^at:/, 'solid:'));
   } else {
     browserVariants.push('solid:solid:dist');
     ssrVariants.push('solid:solid');
@@ -303,7 +341,7 @@ async function main() {
       env: { BUILD_ONLY: '1', SSR_VARIANTS: ssrVariants.join(',') },
     });
   }
-  const curBuildHash = { browser: dirHash(path.join(builds, 'solid', 'dist')) };
+  const curBuildHash = measured?.buildHash ?? { browser: dirHash(path.join(builds, 'solid', 'dist')) };
 
   // --- Browser scenarios ---
   const browserFilter = [...components.map((c) => `component:${c}`), options.filter]
@@ -347,8 +385,13 @@ async function main() {
   }
 
   // --- Cost tests (working tree; budgets are absolute) ---
-  const cost = { tests: [], pending: plan.pending, problems: [] };
-  if (plan.names.length) {
+  const cost = {
+    tests: [],
+    pending: plan.pending,
+    problems: [],
+    ...(options.at ? { skipped: `measures ${options.at}, not the working tree` } : {}),
+  };
+  if (plan.names.length && !options.at) {
     const report = `${out}-cost.json`;
     run(
       'bun',
@@ -497,7 +540,10 @@ async function main() {
   console.log(`\n${md.join('\n')}\n\nwritten ${out}.{md,json}`);
 
   if (options.saveBaseline) {
-    if (failures.length) throw new Error('Not saving a baseline from a run with failures');
+    const blockers = baselineBlockers(failures);
+    if (blockers.length) {
+      throw new Error(`Not saving a baseline from a run with failures: ${blockers.join('; ')}`);
+    }
     const dir = path.join(resultsDir, 'baselines');
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `${options.saveBaseline}.json`);
@@ -508,7 +554,7 @@ async function main() {
       JSON.stringify(
         {
           label: options.saveBaseline,
-          sha: cur.sha,
+          sha: measured?.sha ?? cur.sha,
           buildHash: curBuildHash,
           result,
           browser: browserResults,
@@ -519,6 +565,7 @@ async function main() {
       ),
     );
     console.log(`saved baseline ${options.saveBaseline} → ${file}`);
+    process.exit(0);
   }
   process.exit(failures.length ? 1 : 0);
 }

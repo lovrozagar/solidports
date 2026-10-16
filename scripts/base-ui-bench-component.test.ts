@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
+	baselineBlockers,
 	costPattern,
 	costPlan,
 	depsDrift,
@@ -48,12 +49,30 @@ describe("bench:component driver", () => {
 			ssrRuns: 10,
 			filter: "!tag:raw",
 			saveBaseline: null,
+			at: null,
 			compare: "b0",
 		})
 		expect(() => parseArgs([])).toThrow("bench:component <name>[,...]|all")
 		expect(() => parseArgs(["button", "--save-baseline", "b0", "--compare", "b0"])).toThrow(
 			"--save-baseline and --compare",
 		)
+	})
+
+	test("--at names the commit a baseline measures, and only with --save-baseline", () => {
+		expect(parseArgs(["accordion", "--save-baseline", "b0", "--at", "d2164d9d"])).toMatchObject({
+			saveBaseline: "b0",
+			at: "d2164d9d",
+		})
+		expect(() => parseArgs(["accordion", "--at", "d2164d9d"])).toThrow("pass it with --save-baseline")
+	})
+
+	test("a baseline records exit-bar misses as targets; every other failure blocks it", () => {
+		const bar = "exit bar: collapsible/300 serverMs 1.94 ms is 1.53x the floor and 0.55x React"
+		expect(baselineBlockers([bar])).toEqual([])
+		expect(baselineBlockers([bar, "ssr: accordion/300 [solid] hydration mismatch", "cost: x: failed"])).toEqual([
+			"ssr: accordion/300 [solid] hydration mismatch",
+			"cost: x: failed",
+		])
 	})
 
 	test("resolveComponents expands all and rejects an unknown name with the closest one", () => {
