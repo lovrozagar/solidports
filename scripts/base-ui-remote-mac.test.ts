@@ -1,9 +1,26 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { spawn, spawnSync } from "node:child_process"
-import { chmodSync, existsSync, mkdtempSync, readdirSync, readlinkSync, rmSync, writeFileSync } from "node:fs"
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	readlinkSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { FLOCK_SHIM, parseArgs, quote, remoteScript, TIMEOUT_SHIM } from "../packages/base-ui/scripts/remote-mac.mjs"
+import {
+	FLOCK_SHIM,
+	lockedRun,
+	parseArgs,
+	quote,
+	remoteScript,
+	TIMEOUT_SHIM,
+} from "../packages/base-ui/scripts/remote-mac.mjs"
 
 const temps: string[] = []
 afterEach(() => {
@@ -105,4 +122,67 @@ describe("macOS stand-ins", () => {
 		expect(killed.stderr).toContain("killed after 0.5s")
 		expect(Date.now() - started).toBeLessThan(10_000)
 	}, 20_000)
+})
+
+/** Whether process `pid` is alive. */
+const alive = (pid: number) => {
+	try {
+		process.kill(pid, 0)
+		return true
+	} catch {
+		return false
+	}
+}
+
+/** Waits up to `ms` for `check` to hold. */
+function waitFor(check: () => boolean, ms = 10_000) {
+	const deadline = Date.now() + ms
+	while (!check() && Date.now() < deadline) Bun.sleepSync(50)
+	return check()
+}
+
+/** Starts `bin/<shim> ...args` running `sh` that records its own pid, and returns both pids. */
+function startRecording(dir: string, shimArgs: string[]) {
+	const pidFile = join(dir, "command.pid")
+	const shim = spawn(join(dir, shimArgs[0]), [...shimArgs.slice(1), "sh", "-c", `echo $$ > ${pidFile}; exec sleep 30`])
+	expect(waitFor(() => Bun.file(pidFile).size > 0)).toBe(true)
+	return { shim, command: Number(readFileSync(pidFile, "utf8").trim()) }
+}
+
+describe("stopping a Mac run", () => {
+	test("TERM to the timeout stand-in ends its command", () => {
+		const { dir } = shims()
+		const { shim, command } = startRecording(dir, ["timeout", "-k", "1", "60"])
+		shim.kill("SIGTERM")
+		expect(waitFor(() => !alive(command))).toBe(true)
+	}, 20_000)
+
+	test("TERM to the flock stand-in reaches its command", () => {
+		const { dir, lock } = shims()
+		const { shim, command } = startRecording(dir, ["flock", lock])
+		shim.kill("SIGTERM")
+		expect(waitFor(() => !alive(command))).toBe(true)
+	}, 20_000)
+
+	test("a locked run ends when the session that started it goes away", async () => {
+		const { dir } = shims()
+		const home = join(dir, "home")
+		mkdirSync(join(home, ".gates"), { recursive: true })
+		const session = Bun.spawn(["sleep", "60"])
+		const pidFile = join(dir, "command.pid")
+		const run = Bun.spawn(["bash", "-c", lockedRun(60, ["sh", "-c", `echo $$ > ${pidFile}; exec sleep 30`])], {
+			env: { ...process.env, HOME: home, PATH: `${dir}:${process.env.PATH}`, REMOTE_MAC_WATCH: String(session.pid) },
+			stdout: "ignore",
+			stderr: "ignore",
+		})
+		expect(waitFor(() => Bun.file(pidFile).size > 0)).toBe(true)
+		const command = Number(readFileSync(pidFile, "utf8").trim())
+		expect(alive(command)).toBe(true)
+		session.kill("SIGKILL")
+		// Reaped, so the watcher sees it gone (a zombie still answers `kill -0`).
+		await session.exited
+		expect(waitFor(() => !alive(command))).toBe(true)
+		// The stand-in reports the signal that stopped it.
+		expect(await run.exited).toBe(143)
+	}, 30_000)
 })
