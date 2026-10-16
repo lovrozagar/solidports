@@ -16,10 +16,13 @@ import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import { warn } from '../../utils/warn';
 import { useCollapsibleRootContext } from '../root/CollapsibleRootContext';
 import type { CollapsibleRootState } from '../root/CollapsibleRoot';
-import { collapsibleStateAttributesMapping } from '../root/stateAttributesMapping';
+import {
+  collapsibleStateAttributesMapping,
+  writeCollapsibleState,
+} from '../root/stateAttributesMapping';
 import { canRenderNative } from '../../utils/native';
 import { renderNativeElement } from '../../utils/native/element';
-import type { SetAttribute } from '../../utils/native/element';
+import type { SetAttribute, StateWriter } from '../../utils/native/element';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { createIdRegistration } from '../../utils/native/registration';
 import { useCollapsiblePanel } from './useCollapsiblePanel';
@@ -215,7 +218,10 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
   const keepMounted = () => props.keepMounted ?? false;
   const id = () => (props.id || undefined) ?? defaultPanelId();
 
-  const registerId = createIdRegistration(props, 'id', setPanelIdState, rootOwner);
+  // The registration runs from the element's ref, which the server never calls.
+  const registerId = isServer
+    ? undefined
+    : createIdRegistration(props, 'id', setPanelIdState, rootOwner);
 
   // The measurement and transition machinery is created when the panel first renders (a closed
   // panel without `keepMounted` never does) and kept for the part's lifetime, owned by the part.
@@ -270,6 +276,7 @@ function NativeCollapsiblePanel(props: CollapsiblePanel.Props): JSX.Element {
       undefined,
       undefined,
       registerId,
+      writeCollapsibleState,
     ),
   ) as unknown as JSX.Element;
 }
@@ -288,11 +295,13 @@ export function renderNativePanel<State extends CollapsiblePanelState>(
   literal?: Record<string, unknown>,
   attributes?: (set: SetAttribute) => void,
   registerId?: ((element: Element | null) => void) | undefined,
+  stateWriter?: StateWriter | undefined,
 ): JSX.Element {
   return renderNativeElement(PANEL_DIV, props, {
     own: OWN_KEYS,
     state: panelState,
     mapping,
+    stateWriter,
     reactive: true,
     literal,
     attributes: (set) => {

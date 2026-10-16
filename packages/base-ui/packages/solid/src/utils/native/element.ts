@@ -63,6 +63,8 @@ export interface NativeElementSpec<State extends object> {
    */
   state?: State | undefined;
   mapping?: StateAttributesMapping<State> | undefined;
+  /** `state`'s attributes precompiled at module level (`compileStateWriter`); else compiled here. */
+  stateWriter?: StateWriter | undefined;
   stateAttributes?: boolean | undefined;
   /** Literal part attributes (`role`, …), written once below `attributes`. */
   literal?: Record<string, unknown> | undefined;
@@ -122,6 +124,71 @@ export function writeStateAttributes<State extends object>(
   }
 }
 
+/** Writes a state's `data-*` attributes, reading the state live (see `compileStateWriter`). */
+export type StateWriter = (state: object, set: SetAttribute) => void;
+
+/**
+ * `writeStateAttributes` compiled for one state shape (`keys`, in the state object's order) and
+ * mapping: attribute names and mappers are resolved once, so a write only reads each key and calls
+ * `set`. A part compiles its writer once at module level and passes it as `stateWriter`.
+ */
+export function compileStateWriter(
+  keys: readonly string[],
+  mapping: StateAttributesMapping<any> | undefined,
+): StateWriter {
+  const count = keys.length;
+  const names = keys.map((key) => `data-${key.toLowerCase()}`);
+  const mappers = keys.map(
+    (key) =>
+      (
+        mapping as
+          Record<string, ((value: never) => Record<string, unknown> | null) | undefined> | undefined
+      )?.[key],
+  );
+  return (target, set) => {
+    const values = target as Record<string, unknown>;
+    for (let i = 0; i < count; i += 1) {
+      const value = values[keys[i]];
+      const mapper = mappers[i];
+      if (mapper) {
+        const custom = mapper(value as never);
+        if (custom != null) {
+          for (const attribute of Object.keys(custom)) {
+            set(attribute, custom[attribute]);
+          }
+        }
+      } else if (value === true) {
+        set(names[i], '');
+      } else if (value) {
+        set(names[i], String(value));
+      }
+    }
+  };
+}
+
+const DEFAULT_MAPPING = {};
+const compiledWriters = new WeakMap<object, Map<string, StateWriter>>();
+
+/** `compileStateWriter` for a part that passes no `stateWriter`: cached per mapping and shape. */
+export function compileStateAttributes<State extends object>(
+  state: State,
+  mapping: StateAttributesMapping<State> | undefined,
+): StateWriter {
+  const keys = Object.keys(state);
+  const signature = keys.join('\0');
+  let byShape = compiledWriters.get(mapping ?? DEFAULT_MAPPING);
+  if (!byShape) {
+    byShape = new Map();
+    compiledWriters.set(mapping ?? DEFAULT_MAPPING, byShape);
+  }
+  let writer = byShape.get(signature);
+  if (!writer) {
+    writer = compileStateWriter(keys, mapping);
+    byShape.set(signature, writer);
+  }
+  return writer;
+}
+
 /**
  * Applies a part's refs (plain callbacks, as parts pass them) ownerless and untracked, as
  * `applyRefs` does, without its per-call sets; anything else goes through `applyRefs`. Returns
@@ -168,7 +235,8 @@ export function renderNativeElement<State extends object>(
   // The body runs untracked (`createComponent`): reads here subscribe to nothing.
   const owner = getOwner();
   const source = props as Record<string, any>;
-  const wrap = spec.wrapHandler;
+  // The server renders no handlers: nothing to compose.
+  const wrap = isServer ? undefined : spec.wrapHandler;
   const consumer = classifyConsumerProps(props, spec.own, wrap);
   const keys = consumer.keys;
 
@@ -194,6 +262,10 @@ export function renderNativeElement<State extends object>(
   }
 
   const state = spec.state;
+  const writeState =
+    state && spec.stateAttributes !== false
+      ? (spec.stateWriter ?? compileStateAttributes(state, spec.mapping))
+      : undefined;
   const hasClass = 'class' in props;
   const hasStyle = 'style' in props;
   const styleOverride = spec.styleOverride;
@@ -221,9 +293,7 @@ export function renderNativeElement<State extends object>(
   const write = (into: Record<string, unknown>, keepUndefined: boolean) => {
     target = into;
     const set = keepUndefined ? setKeep : setDefined;
-    if (state && spec.stateAttributes !== false) {
-      writeStateAttributes(state, spec.mapping, set);
-    }
+    writeState?.(state!, set);
     spec.attributes?.(set);
     readReactiveProps(props, consumer.reactive, target);
     if (hasClass) {
