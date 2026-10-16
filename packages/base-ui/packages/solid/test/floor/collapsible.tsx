@@ -2,8 +2,9 @@
  * The hand-written Solid floor for Collapsible: the fewest reactive nodes plain Solid 2 needs for the
  * same DOM and ARIA as `Collapsible.Root` / `.Trigger` / `.Panel` render by default. On the client
  * context rides one transparent owner (no JSX provider); the server uses the provider, since its
- * owners are not `@solidjs/signals`'s, and hydration rebuilds the provider's owners. The panel is a
- * plain conditional (no `<Show>`). Cost tests and the bench compare the parts against it: the exit
+ * owners are not `@solidjs/signals`'s, and hydration rebuilds the provider's owners. The panel
+ * renders through `conditional` (a root per shown branch, no `<Show>` memos), which keeps its
+ * hydration keys where the server put them. Cost tests and the bench compare the parts against it: the exit
  * bar is at most the floor plus 25%.
  */
 import {
@@ -20,6 +21,7 @@ import { isServer } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 // `solid-js` does not re-export `setContext`; `@solidjs/signals` is the same core in the browser.
 import { setContext } from '@solidjs/signals';
+import { conditional } from './conditional';
 
 interface FloorCollapsible {
   open: Accessor<boolean>;
@@ -82,8 +84,9 @@ export function FloorCollapsibleTrigger(props: { children?: JSX.Element }) {
 
 export function FloorCollapsiblePanel(props: { children?: JSX.Element }) {
   const root = useContext(FloorContext)!;
-  return (() =>
-    root.open() ? (
+  return conditional(
+    () => root.open(),
+    () => (
       <div
         data-open=""
         id={root.panelId}
@@ -95,5 +98,6 @@ export function FloorCollapsiblePanel(props: { children?: JSX.Element }) {
       >
         {props.children}
       </div>
-    ) : undefined) as unknown as JSX.Element;
+    ),
+  ) as unknown as JSX.Element;
 }
