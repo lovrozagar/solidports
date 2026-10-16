@@ -129,6 +129,13 @@ const RADIO =
 export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   accordion: [
     'native disclosure part cost > a closed Accordion item (Item + Header + Trigger + Panel) costs at most 14 nodes (dev)',
+
+    'accordion cost against the hand-written floor > the floor renders the same DOM as Accordion, closed and open',
+    "accordion cost against the hand-written floor > an Item costs at most the floor's plus 25%",
+    "accordion cost against the hand-written floor > a Header costs at most the floor's plus 25%",
+    "accordion cost against the hand-written floor > a Trigger costs at most the floor's plus 25%",
+    "accordion cost against the hand-written floor > a closed Panel costs at most the floor's plus 25%",
+    'accordion cost against the hand-written floor > an open item costs at most the open floor item plus 25%',
   ],
   'alert-dialog': [closedRoot('AlertDialog')],
   button: [

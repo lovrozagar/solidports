@@ -17,6 +17,11 @@ export const ssrCases: readonly SsrCase[] = [
     tags: ['ssr', 'hydrate', 'scale-100', 'controlled'],
   },
   {
+    id: 'accordion/300-floor',
+    components: ['accordion'],
+    tags: ['ssr', 'hydrate', 'scale-100', 'controlled'],
+  },
+  {
     id: 'checkbox/1000',
     components: ['checkbox'],
     tags: ['ssr', 'hydrate', 'scale-1000', 'uncontrolled'],
