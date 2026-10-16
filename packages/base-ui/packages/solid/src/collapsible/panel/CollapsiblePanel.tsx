@@ -36,7 +36,7 @@ import { runInLazyScope } from '../../utils/runInLazyScope';
 export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
   // JSX; the panel's measurement machinery is created when the panel first renders.
-  if (canRenderNative(componentProps)) {
+  if (canRenderNative(componentProps, [], { ssr: true })) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
     return NativeCollapsiblePanel(componentProps);
   }
@@ -154,6 +154,8 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
 
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: ReadonlySet<string> = new Set(['hiddenUntilFound', 'keepMounted', 'id']);
+/** The panel's element: a `<div>`. */
+const PANEL_DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
 /** The temporary style that neutralizes an author-defined open animation. */
 const ANIMATION_NONE: JSX.CSSProperties = { 'animation-name': 'none' };
 
@@ -287,7 +289,7 @@ export function renderNativePanel<State extends CollapsiblePanelState>(
   attributes?: (set: SetAttribute) => void,
   registerId?: ((element: Element | null) => void) | undefined,
 ): JSX.Element {
-  return renderNativeElement((<div />) as unknown as Element, props, {
+  return renderNativeElement(PANEL_DIV, props, {
     own: OWN_KEYS,
     state: panelState,
     mapping,

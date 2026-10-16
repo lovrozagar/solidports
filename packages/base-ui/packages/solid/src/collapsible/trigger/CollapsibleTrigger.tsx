@@ -31,11 +31,19 @@ const HANDLER_KEYS = ['onClick', 'onKeyDown', 'onPointerDown'] as const;
  *
  * Documentation: [Base UI Collapsible](https://base-ui.com/react/components/collapsible)
  */
+/** The trigger's element: a focusable `<button>`; the server renders the same literals. */
+const BUTTON = {
+  tag: 'button',
+  attributes: { type: 'button', tabindex: '0' },
+  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
+  create: () => (<button type="button" tabindex="0" />) as unknown as Element,
+};
+
 export function CollapsibleTrigger(componentProps: CollapsibleTrigger.Props): JSX.Element {
   // Native fast path (`context/architecture/render-pipeline.md`): a native `<button>` rendered
   // with direct JSX; `useButton` for a focusable-when-disabled native button is inlined below.
   if (
-    canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
+    canRenderNative(componentProps, NATIVE_STATIC_KEYS, { ssr: true }) &&
     untrack(() => componentProps.nativeButton ?? true) === true
   ) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
@@ -150,8 +158,7 @@ function NativeCollapsibleTrigger(props: CollapsibleTrigger.Props): JSX.Element 
   } = useCollapsibleRootContext();
   const disabled = () => Boolean(props.disabled ?? contextDisabled());
 
-  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- the template button is labelled by the part's children
-  return renderNativeElement((<button type="button" tabindex="0" />) as unknown as Element, props, {
+  return renderNativeElement(BUTTON, props, {
     own: OWN_KEYS,
     state,
     mapping: stateAttributesMapping,

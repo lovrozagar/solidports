@@ -20,9 +20,9 @@ import { collapsibleStateAttributesMapping } from './stateAttributesMapping';
  */
 export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
   // Native fast path (`context/architecture/render-pipeline.md`): a `<div>` rendered with direct
-  // JSX and its context on one owner. A `render` prop, spread props, the server and hydration
-  // keep `useRenderElement`.
-  if (canRenderNative(componentProps)) {
+  // JSX and its context on one owner, on the client, the server and while hydrating. A `render`
+  // prop or spread props keep `useRenderElement`.
+  if (canRenderNative(componentProps, [], { ssr: true })) {
     return NativeCollapsibleRoot(componentProps);
   }
 
@@ -71,6 +71,9 @@ export function CollapsibleRoot(componentProps: CollapsibleRoot.Props) {
   return provideContext(CollapsibleRootContext, contextValue, element);
 }
 
+/** The root's element: a `<div>`. */
+const DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
+
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: ReadonlySet<string> = new Set(['defaultOpen', 'disabled', 'onOpenChange', 'open']);
 
@@ -105,7 +108,7 @@ function NativeCollapsibleRoot(props: CollapsibleRoot.Props) {
   };
 
   return provideNativeContext(CollapsibleRootContext, contextValue, () =>
-    renderNativeElement((<div />) as unknown as Element, props, {
+    renderNativeElement(DIV, props, {
       own: OWN_KEYS,
       state,
       mapping: collapsibleStateAttributesMapping,
