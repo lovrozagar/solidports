@@ -11,6 +11,7 @@
 //     (default ssr-<name>). Ratios are taken against the first.
 //   NO_BUILD=1 reuses every build; NO_BUILD=a,b reuses those variants' builds only.
 //   BUILD_ONLY=1 builds and exits. SERVER_ONLY=1 skips the browser (hydration) part.
+//   SSR_MINIFY=0 keeps the bundles readable (function names for profile.mjs).
 //   RESULTS_FILE=<path without extension>.
 // Hydrate ms runs from the hydrate call to the commit: React's root layout effect (`hydrateRoot` is
 // concurrent, so its sync time is only scheduling), Solid's `hydrate` plus `flush`.
@@ -73,12 +74,12 @@ function config(name, ssr) {
           ssr: path.join(here, lib, 'entry-server.tsx'),
           outDir: path.join(outDir(name), 'server'),
           emptyOutDir: true,
-          minify: true,
+          minify: process.env.SSR_MINIFY !== '0',
         }
       : {
           outDir: path.join(outDir(name), 'client'),
           emptyOutDir: true,
-          minify: true,
+          minify: process.env.SSR_MINIFY !== '0',
           chunkSizeWarningLimit: 99999,
         },
   };

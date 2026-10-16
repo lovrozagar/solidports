@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { spawn, spawnSync } from "node:child_process"
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdtempSync, readdirSync, readlinkSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { FLOCK_SHIM, parseArgs, quote, remoteScript, TIMEOUT_SHIM } from "../packages/base-ui/scripts/remote-mac.mjs"
@@ -71,6 +71,28 @@ describe("macOS stand-ins", () => {
 		// A holder killed outright leaves no stale lock.
 		expect(tryLock(dir, lock, "-n")).toBe(0)
 	}, 20_000)
+
+	test.skipIf(!existsSync("/proc/self/fd"))(
+		"flock -o keeps the lock out of the command",
+		() => {
+			const { dir, lock } = shims()
+			const holder = spawn(join(dir, "flock"), ["-o", lock, "sleep", "30"], { detached: true })
+			const deadline = Date.now() + 5000
+			while (tryLock(dir, lock, "-n") === 0 && Date.now() < deadline) Bun.sleepSync(20)
+			const holders = readdirSync("/proc")
+				.filter((pid) => /^\d+$/.test(pid))
+				.filter((pid) => {
+					try {
+						return readdirSync(`/proc/${pid}/fd`).some((fd) => readlinkSync(`/proc/${pid}/fd/${fd}`) === lock)
+					} catch {
+						return false
+					}
+				})
+			process.kill(-holder.pid!, "SIGKILL")
+			expect(holders).toEqual([String(holder.pid)])
+		},
+		20_000,
+	)
 
 	test("timeout returns the command's code, or kills its process group with 124", () => {
 		const { dir } = shims()
