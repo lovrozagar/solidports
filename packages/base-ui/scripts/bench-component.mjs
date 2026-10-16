@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { closest, matchesFilter, parseFilter } from '../test/perf-solid/shared/filter.mjs';
 import { compareVariants } from '../test/perf-solid/shared/report.mjs';
 import { EXCLUSIVE_LOCK, LOCK_TIMEOUT_SECONDS } from './test-all.mjs';
-import { GATED, judge } from '../test/perf-solid/shared/regression.mjs';
+import { EXIT_BAR, exitBar, GATED, judge } from '../test/perf-solid/shared/regression.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const baseUi = path.resolve(here, '..');
@@ -401,6 +401,8 @@ async function main() {
   for (const verdict of [...verdicts.browser, ...verdicts.ssr]) {
     if (verdict.verdict === 'regressed') regressions.push(verdict);
   }
+  // Plan 3's exit bar on production builds: every SSR case with a floor twin.
+  const bar = ssr ? exitBar(ssr.results, base ? 'cur' : 'solid') : [];
 
   // --- Report ---
   const failures = [
@@ -411,6 +413,12 @@ async function main() {
     ...(browser?.problems ?? []).map((p) => `browser: ${p}`),
     ...(ssr?.problems ?? []).map((p) => `ssr: ${p}`),
     ...cost.problems.map((p) => `cost: ${p}`),
+    ...bar
+      .filter((v) => !v.pass)
+      .map(
+        (v) =>
+          `exit bar: ${v.key} ${v.metric} ${v.port.toFixed(2)} ms is ${v.portVsFloor.toFixed(2)}x the floor and ${v.portVsReact.toFixed(2)}x React (floor ${v.floorVsReact.toFixed(2)}x React); the bar is ${EXIT_BAR}x the floor and below React`,
+      ),
     ...regressions.map(
       (r) =>
         `regressed: ${r.key} ${r.metric} ${r.base.toFixed(2)} → ${r.cur.toFixed(2)} (tolerance ${r.tolerance.toFixed(2)})`,
@@ -429,6 +437,7 @@ async function main() {
       : { skipped: 'no SSR case lists these components' },
     cost,
     verdicts,
+    exitBar: bar,
     failures,
   };
   fs.writeFileSync(`${out}.json`, JSON.stringify(result, null, 2));
@@ -455,6 +464,20 @@ async function main() {
     ...cost.tests.map((t) => `- ${t.status}: ${t.name}`),
     ...Object.entries(cost.pending).map(([c, leaf]) => `- pending: ${c} (${leaf})`),
   ];
+  if (bar.length) {
+    md.push(
+      '',
+      `## Exit bar (port ≤ ${EXIT_BAR}x floor and < React)`,
+      '',
+      '| key | metric | port ms | port vs React | floor vs React | port vs floor | pass |',
+      '|---|---|---|---|---|---|---|',
+    );
+    for (const v of bar) {
+      md.push(
+        `| ${v.key} | ${v.metric} | ${fmt(v.port)} | ${fmt(v.portVsReact)}x | ${fmt(v.floorVsReact)}x | ${fmt(v.portVsFloor)}x | ${v.pass ? 'yes' : 'no'} |`,
+      );
+    }
+  }
   if (base) {
     md.push(
       '',

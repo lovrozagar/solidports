@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { GATED, judge, MIN_SAMPLES, median, p90 } from "../packages/base-ui/test/perf-solid/shared/regression.mjs"
+import {
+	EXIT_BAR,
+	exitBar,
+	GATED,
+	judge,
+	MIN_SAMPLES,
+	median,
+	p90,
+} from "../packages/base-ui/test/perf-solid/shared/regression.mjs"
 
 const repeat = (value: number, count = 10) => Array.from({ length: count }, () => value)
 
@@ -62,5 +70,52 @@ describe("perf regression rule", () => {
 			hydrateSyncMs: { floor: 0.1 },
 			heapKB: { floor: 0, minBoth: 100 },
 		})
+	})
+})
+
+describe("plan 3 exit bar", () => {
+	const row = (react: number, solid: number) => ({
+		react: { serverMs: react, hydrateCommitMs: react },
+		cur: { serverMs: solid, hydrateCommitMs: solid },
+	})
+
+	test("the port must be within 1.25x of its floor and faster than React, per metric", () => {
+		expect(EXIT_BAR).toBe(1.25)
+		const results = { "x/300": row(10, 5), "x/300-floor": row(10, 4) }
+		expect(exitBar(results, "cur")).toEqual([
+			{
+				key: "x/300",
+				metric: "serverMs",
+				port: 5,
+				floor: 4,
+				react: 10,
+				portVsFloor: 1.25,
+				portVsReact: 0.5,
+				floorVsReact: 0.4,
+				pass: true,
+			},
+			{
+				key: "x/300",
+				metric: "hydrateCommitMs",
+				port: 5,
+				floor: 4,
+				react: 10,
+				portVsFloor: 1.25,
+				portVsReact: 0.5,
+				floorVsReact: 0.4,
+				pass: true,
+			},
+		])
+	})
+
+	test("fails above 1.25x of the floor, or at or above React", () => {
+		expect(exitBar({ "x/1": row(10, 5.1), "x/1-floor": row(10, 4) }, "cur").every((v) => !v.pass)).toBe(true)
+		expect(exitBar({ "x/1": row(5, 5), "x/1-floor": row(5, 4.5) }, "cur").every((v) => !v.pass)).toBe(true)
+	})
+
+	test("judges only cases with a floor twin, and skips a metric either side lacks", () => {
+		expect(exitBar({ "x/1": row(10, 5) }, "cur")).toEqual([])
+		const results = { "x/1": row(10, 5), "x/1-floor": { react: { serverMs: 10 }, cur: { serverMs: 4 } } }
+		expect(exitBar(results, "cur").map((v) => v.metric)).toEqual(["serverMs"])
 	})
 })

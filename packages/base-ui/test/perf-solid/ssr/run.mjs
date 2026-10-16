@@ -12,6 +12,8 @@
 //   NO_BUILD=1 reuses every build; NO_BUILD=a,b reuses those variants' builds only.
 //   BUILD_ONLY=1 builds and exits. SERVER_ONLY=1 skips the browser (hydration) part.
 //   RESULTS_FILE=<path without extension>.
+// Hydrate ms runs from the hydrate call to the commit: React's root layout effect (`hydrateRoot` is
+// concurrent, so its sync time is only scheduling), Solid's `hydrate` plus `flush`.
 // Server renders and hydration pages alternate between variants run by run. Exit 1 when hydration
 // logs a mismatch or a variant's hydrated DOM summary differs from the first variant's.
 import fs from 'node:fs';
@@ -123,7 +125,9 @@ const html = {};
 for (const key of keys) {
   results[key] = {};
   for (const name of NAMES) {
-    results[key][name] = { samples: { serverMs: [], hydrateSyncMs: [], hydrateScriptMs: [] } };
+    results[key][name] = {
+      samples: { serverMs: [], hydrateSyncMs: [], hydrateCommitMs: [], hydrateScriptMs: [] },
+    };
   }
   for (let run = 0; run < WARMUP + RUNS; run += 1) {
     for (const name of NAMES) {
@@ -203,9 +207,10 @@ if (!process.env.SERVER_ONLY) {
           async ([fixture, settleSource]) => {
             const settleFn = new Function(`return (${settleSource})()`);
             const start = performance.now();
-            const syncMs = window.__hydrate(fixture);
+            const { syncMs, committed } = window.__hydrate(fixture);
+            const commitMs = await committed;
             await settleFn();
-            return { syncMs, totalMs: performance.now() - start };
+            return { syncMs, commitMs, totalMs: performance.now() - start };
           },
           [key, settle.toString()],
         );
@@ -215,6 +220,7 @@ if (!process.env.SERVER_ONLY) {
         if (run >= WARMUP) {
           const samples = results[key][name].samples;
           samples.hydrateSyncMs.push(result.syncMs);
+          samples.hydrateCommitMs.push(result.commitMs);
           samples.hydrateScriptMs.push(
             (metric(after, 'ScriptDuration') - metric(before, 'ScriptDuration')) * 1000,
           );
@@ -237,6 +243,7 @@ if (!process.env.SERVER_ONLY) {
     for (const name of NAMES) {
       const entry = results[key][name];
       entry.hydrateSyncMs = median(entry.samples.hydrateSyncMs);
+      entry.hydrateCommitMs = median(entry.samples.hydrateCommitMs);
       entry.hydrateTotalMs = median(total[name]);
       entry.hydrateScriptMs = median(entry.samples.hydrateScriptMs);
     }
@@ -261,18 +268,18 @@ const lines = [
   '',
   `runs ${RUNS} · warmup ${WARMUP} · production builds · variants ${NAMES.join(', ')}${process.argv[3] ? ` · filter ${process.argv[3]}` : ''}`,
   '',
-  `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate sync ms / hydrate script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate sync`).join(' | ')} |`,
+  `| fixture | ${NAMES.map((n) => `${n} server ms / HTML bytes / hydrate ms / hydrate script ms`).join(' | ')} | ${others.map((n) => `${n}/${NAMES[0]} server / hydrate`).join(' | ')} |`,
   `|---|${NAMES.map(() => '---').join('|')}|${others.map(() => '---').join('|')}|`,
 ];
 for (const key of keys) {
   const row = results[key];
   const cells = NAMES.map(
     (n) =>
-      `${fmt(row[n].serverMs)} / ${row[n].htmlBytes} / ${fmt(row[n].hydrateSyncMs)} / ${fmt(row[n].hydrateScriptMs)}`,
+      `${fmt(row[n].serverMs)} / ${row[n].htmlBytes} / ${fmt(row[n].hydrateCommitMs)} / ${fmt(row[n].hydrateScriptMs)}`,
   );
   const ratios = others.map(
     (n) =>
-      `${ratio(row[NAMES[0]].serverMs, row[n].serverMs)} / ${ratio(row[NAMES[0]].hydrateSyncMs, row[n].hydrateSyncMs)}`,
+      `${ratio(row[NAMES[0]].serverMs, row[n].serverMs)} / ${ratio(row[NAMES[0]].hydrateCommitMs, row[n].hydrateCommitMs)}`,
   );
   lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
 }
