@@ -56,3 +56,9 @@ Append-only record of decisions for the Base UI port: dated `### D<n> — title
 - Kept on purpose: it is the correct markup, the hydrating client guesses the same indexes (no mismatch, no post-hydration write per item), and the list's registration corrects any item rendered conditionally, reordered or behind a client-only branch (`AccordionRoot.hydration.test.tsx`).
 - The difference is noted in [the Accordion context](../components/accordion.md).
 
+### D8 — A floor implements the same contract with the least work Solid allows (2026-10-17)
+
+- A floor is the hand-written Solid equivalent a family is measured against (`packages/solid/test/floor`). It implements the same public contract as the parts: the same DOM and ARIA, and the contexts that other parts rely on. It does that with the least work plain Solid 2 allows. The exit bar is at most the floor plus 25%.
+- Accordion's contract includes `CollapsibleRootContext` on every item, as upstream's `AccordionItem` provides it so Collapsible parts work inside an item. The Accordion floor therefore provides two contexts per item.
+- The `solid-js` server has no public way to put two contexts on one owner. Its provider is a `createRoot` that sets one context, and `setContext` is not exported. On the server, the parts and the floor both render two nested providers.
+- Every floor also hydrates cleanly, checked by a `floor` SSR fixture that the hydration suite claims. The Accordion and Collapsible floors' panels returned a raw conditional, whose open branch missed its hydration key. They now render through a rooted conditional, as the parts do. The bench cases render every panel closed, so no measured floor number changes.

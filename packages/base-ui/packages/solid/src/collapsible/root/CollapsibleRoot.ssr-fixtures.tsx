@@ -2,12 +2,24 @@ import { createSignal, merge } from 'solid-js';
 import { isServer } from '@solidjs/web';
 import { Collapsible } from '@solidports/base-ui/collapsible';
 import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
+import {
+  FloorCollapsiblePanel,
+  FloorCollapsibleRoot,
+  FloorCollapsibleTrigger,
+} from '../../../test/floor/collapsible';
 
 // Collapsible renders natively on the server and while hydrating, and falls back to
 // `useRenderElement` for some props. The choice must come out the same on both sides, or every
 // hydration key after the part shifts: each shape below hydrates with every node claimed.
 
 export default defineSsrFixtures(import.meta.url, {
+  // The hand-written floor the bench measures hydration against: it must hydrate cleanly too.
+  floor: () => (
+    <FloorCollapsibleRoot defaultOpen>
+      <FloorCollapsibleTrigger>Toggle</FloorCollapsibleTrigger>
+      <FloorCollapsiblePanel>Contents</FloorCollapsiblePanel>
+    </FloorCollapsibleRoot>
+  ),
   nativeClosed: () => (
     <Collapsible.Root>
       <Collapsible.Trigger>Toggle</Collapsible.Trigger>

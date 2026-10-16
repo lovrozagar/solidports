@@ -1,8 +1,9 @@
 /*
  * The hand-written Solid floor for Accordion: the fewest reactive nodes plain Solid 2 needs for the
  * same DOM and ARIA as `Accordion.Root` / `.Item` / `.Header` / `.Trigger` / `.Panel` render by
- * default (vertical, items open by value, a closed panel unmounted). On the client each context
- * rides one transparent owner; the server uses the provider, since its owners are not
+ * default (vertical, items open by value, a closed panel unmounted), under the same contract:
+ * each item provides its collapsible root and itself, as two contexts. On the client a context
+ * rides a transparent owner; the server uses the provider, since its owners are not
  * `@solidjs/signals`'s, and hydration rebuilds the provider's owners (GOTCHA-017). An item's index
  * is its creation order on every side, as the parts guess it. Cost tests and the bench compare the parts against it: the exit bar is at most
  * the floor plus 25%.
@@ -22,6 +23,7 @@ import { isServer } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 // `solid-js` does not re-export `setContext`; `@solidjs/signals` is the same core in the browser.
 import { setContext } from '@solidjs/signals';
+import { conditional } from './conditional';
 
 interface FloorRoot {
   value: Accessor<readonly string[]>;
@@ -40,6 +42,12 @@ interface FloorItem {
 
 const RootContext = createContext<FloorRoot>();
 const ItemContext = createContext<FloorItem>();
+/**
+ * The item's collapsible root, as `Accordion.Item` provides `CollapsibleRootContext` so Collapsible
+ * parts work inside an item (upstream's contract). The item object is its value: the floor pays
+ * for the provision, not for a second object.
+ */
+const CollapsibleContext = createContext<FloorItem>();
 
 /** Renders `render` with `context = value`: one transparent owner, or the server's provider shape. */
 function provide<T>(context: Context<T>, value: T, render: () => JSX.Element): JSX.Element {
@@ -66,6 +74,23 @@ function provide<T>(context: Context<T>, value: T, render: () => JSX.Element): J
   }
   const owner = createOwner({ transparent: true });
   setContext(context, value, owner);
+  return runWithOwner(owner, render);
+}
+
+/** `provide` for two contexts: one owner on the client, the server's two nested providers. */
+function provideTwo<A, B>(
+  contextA: Context<A>,
+  valueA: A,
+  contextB: Context<B>,
+  valueB: B,
+  render: () => JSX.Element,
+): JSX.Element {
+  if (isServer || isHydrating()) {
+    return provide(contextA, valueA, () => provide(contextB, valueB, render));
+  }
+  const owner = createOwner({ transparent: true });
+  setContext(contextA, valueA, owner);
+  setContext(contextB, valueB, owner);
   return runWithOwner(owner, render);
 }
 
@@ -121,7 +146,7 @@ export function FloorAccordionItem(props: { value: string; children?: JSX.Elemen
       data-open={open() ? '' : undefined}
       data-closed={open() ? undefined : ''}
     >
-      {provide(ItemContext, item, () => props.children)}
+      {provideTwo(CollapsibleContext, item, ItemContext, item, () => props.children)}
     </div>
   );
 }
@@ -163,8 +188,9 @@ export function FloorAccordionTrigger(props: { children?: JSX.Element }) {
 
 export function FloorAccordionPanel(props: { children?: JSX.Element }) {
   const item = useContext(ItemContext)!;
-  return (() =>
-    item.open() ? (
+  return conditional(
+    () => item.open(),
+    () => (
       <div
         data-orientation="vertical"
         data-index={item.index()}
@@ -180,5 +206,6 @@ export function FloorAccordionPanel(props: { children?: JSX.Element }) {
       >
         {props.children}
       </div>
-    ) : undefined) as unknown as JSX.Element;
+    ),
+  ) as unknown as JSX.Element;
 }

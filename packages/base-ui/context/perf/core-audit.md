@@ -1,7 +1,7 @@
 ---
 tags: [perf, native, audit, solid2, spec]
 sources: [packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/propsView.ts, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/store/SolidStoreV2.ts, packages/base-ui/packages/solid/src/utils/useTransitionStatus.ts, packages/base-ui/packages/solid/src/utils/useOpenChangeComplete.tsx, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Core audit
@@ -74,6 +74,10 @@ These are not needed for the pilot:
 2. **3.2, core:** S1, S2, S3 and S5. Move Collapsible's `createNativeElement` uses to compiled templates.
 3. **3.3, Collapsible:** Root, Trigger and Panel on S1, S2 and S5 on all three sides in one commit; retire `canRenderNative` for the family. Then Accordion: items keep the `createNativeListItem` contract, and `isOpen` (`AccordionItem.tsx:94`) uses S4.
 4. **After the pilot:** route intrinsic static tags in `useRenderElement` through S1, so the other 150 callers benefit (map item 1).
+
+## Floors
+
+A floor (`packages/solid/test/floor`) implements the same public contract as the family's parts: the same DOM and ARIA, and the contexts other parts rely on. It uses the least work plain Solid 2 allows ([D8](../decisions/log.md)). Where Solid offers no cheaper public route, the parts and the floor pay the same cost; for example, Accordion's two contexts per item are two nested providers on the server. Every floor has a `floor` SSR fixture, so the hydration suite checks that it hydrates as cleanly as the parts.
 
 ## Hydration rules for every step
 
