@@ -2,7 +2,7 @@
 /*
  * Collapsible's server budgets against its hand-written floor (plan 3 leaf 3.1): the same number of
  * hydration keys in the server HTML (no id-consuming element beyond the floor's), and a server
- * render within 1.5x of the floor's, as medians of interleaved batches.
+ * render within 1.25x of the floor's (the plan's exit bar), as medians of interleaved batches.
  */
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,7 +50,7 @@ describe('collapsible server budget', () => {
     expect(part, `part ${part} keys, floor ${floor}`).toBeLessThanOrEqual(floor);
   });
 
-  it('renders 300 closed collapsibles within 1.5x of the floor', () => {
+  it('renders 300 closed collapsibles within 1.25x of the floor', () => {
     const batch = (render: () => string) => {
       const start = performance.now();
       render();
@@ -73,6 +73,6 @@ describe('collapsible server budget', () => {
     expect(
       ratio,
       `part ${median(part).toFixed(2)} ms, floor ${median(floor).toFixed(2)} ms`,
-    ).toBeLessThanOrEqual(1.5);
+    ).toBeLessThanOrEqual(1.25);
   }, 60_000);
 });

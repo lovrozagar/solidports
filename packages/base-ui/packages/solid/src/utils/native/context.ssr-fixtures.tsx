@@ -2,10 +2,10 @@ import { createContext, createMemo, useContext } from 'solid-js';
 import { defineSsrFixtures } from '../../../test/defineSsrFixtures';
 import { provideNativeContext, provideNativeContexts } from './context';
 
-// Transparent context owners on every side (core spec S2): the server's `createOwner({ transparent:
-// true })` must take no hydration id, as the client's does not, or every key under it shifts. Each
-// reader creates an id-consuming memo and elements under the owner, so a mismatch leaves server
-// nodes unclaimed and moves the sentinel.
+// Native context provision on every side (core spec S2, D5): the server and hydration render the
+// provider, the client after hydration a transparent owner. Each reader creates an id-consuming
+// memo and elements under it, so a server and hydration mismatch leaves server nodes unclaimed and
+// moves the sentinel.
 
 const Label = createContext('none');
 const Count = createContext(0);
