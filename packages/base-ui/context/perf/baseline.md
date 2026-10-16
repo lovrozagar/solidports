@@ -86,7 +86,7 @@ combobox/5000 close 0.01x, checkbox/uncontrolled-1000 click 100 0.04x, combobox/
 | accordion/300 | 3.35 / 32.43 | 9.67x | 8.82x | 0.25x | 96798 / 115453 |
 | tabs/200 | 1.50 / 9.89 | 6.59x | 8.50x | 0.15x | 38697 / 46477 |
 
-Hydration columns are not comparable across libraries (see [perf method](method.md)).
+The hydrate script ratios above came from `ScriptDuration` and a hydrate time that stopped when React's `hydrateRoot` returned, after it had only scheduled its work, so they are not comparable across libraries or with later runs. Since 2026-10-16, hydrate ms runs from the hydrate call to the commit on both sides (see [perf method](method.md)). The identical React fixture read 54 ms and 26 ms total in one run before the change, and 17.0 ms and 16.4 ms after it.
 
 ## Reactive-node counts
 

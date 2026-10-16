@@ -3,10 +3,12 @@
  * to its root (`setPanelIdState`, `setTriggerId`) and clears it on unmount, as the slow path's
  * `createDepsRenderEffect(registeredId, …)`. A static id is written from the element's ref (the
  * root reads the registration only while the element is rendered) and cleared from the part's
- * cleanup: no reactive node. A reactive id keeps the memo + render effect.
+ * cleanup: no reactive node. A reactive id keeps the memo + render effect, on the server too: they
+ * take hydration ids, which the client's must match.
  */
 import { createMemo, isDisposed, isStatic, onCleanup, untrack } from 'solid-js';
 import type { Owner, Setter } from 'solid-js';
+import { isServer } from '@solidjs/web';
 import { createLayoutEffect, shallowEqual } from '../../solid-helpers';
 
 type IdSetter = Setter<string | null | undefined>;
@@ -33,6 +35,10 @@ export function createIdRegistration(
   const read = () =>
     ((props as Record<string, string | undefined>)[key] || undefined) as string | undefined;
   if (!(key in props) || isStatic(props, key)) {
+    // The server never calls refs and never unmounts: nothing to register.
+    if (isServer) {
+      return undefined;
+    }
     const registered = untrack(read);
     void onCleanup(() => {
       if (registryOwner && isDisposed(registryOwner)) {

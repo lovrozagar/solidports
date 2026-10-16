@@ -61,6 +61,16 @@ export default defineSsrFixtures(import.meta.url, {
       </Collapsible.Root>
     );
   },
+  reactivePanelId: () => {
+    // A reactive `id`: the panel registers it with the root from a memo and an effect.
+    const [id] = createSignal('reactive-panel');
+    return (
+      <Collapsible.Root defaultOpen>
+        <Collapsible.Trigger>Toggle</Collapsible.Trigger>
+        <Collapsible.Panel id={id()}>Content</Collapsible.Panel>
+      </Collapsible.Root>
+    );
+  },
   mixedTree: () => (
     <Collapsible.Root defaultOpen>
       <Collapsible.Trigger render={(props) => <button type="button" {...props} />}>
