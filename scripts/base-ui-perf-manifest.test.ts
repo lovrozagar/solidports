@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 import {
 	COMPONENTS,
+	COST_TESTS,
+	GENERIC_COST_TESTS,
+	PENDING_COST,
 	NON_COMPONENT_EXPORTS,
 	PENDING_COVERAGE,
 	SCENARIO_TAGS,
@@ -84,6 +87,10 @@ describe("base-ui perf scenario manifest", () => {
 				if (scenario.tags.filter((t) => t.startsWith("scale-")).length !== 1)
 					problems.push(`${where}: needs exactly one scale-* tag`)
 			}
+			for (const step of scenario.steps) {
+				if ((step.until === undefined) !== (step.timerMs === undefined))
+					problems.push(`${where} › ${step.name}: until and timerMs go together`)
+			}
 		}
 		expect(problems).toEqual([])
 	})
@@ -141,6 +148,34 @@ describe("base-ui perf scenario manifest", () => {
 			}
 		}
 	})
+
+	test("every component claims its cost tests or names the leaf that adds them, and every cost test is claimed", () => {
+		const list = join(BASE_UI, "../../.tmp/grunt/cost-test-list.json")
+		const run = Bun.spawnSync(
+			["bun", "x", "vitest", "list", "--project", "@solidports/base-ui", ".cost.test.tsx", `--json=${list}`],
+			{ cwd: BASE_UI, env: { ...process.env, TZ: "UTC", VITEST_ENV: "jsdom" }, stdout: "pipe", stderr: "pipe" },
+		)
+		expect({ code: run.exitCode, err: run.exitCode ? run.stderr.toString().slice(-400) : "" }).toEqual({
+			code: 0,
+			err: "",
+		})
+		const real = new Set<string>((JSON.parse(readFileSync(list, "utf8")) as { name: string }[]).map((t) => t.name))
+		const claimed = new Set(Object.values(COST_TESTS).flat())
+		const both = COMPONENTS.filter((c) => c in COST_TESTS && c in PENDING_COST)
+		const neither = COMPONENTS.filter((c) => !(c in COST_TESTS) && !(c in PENDING_COST))
+		const missingNames = [...claimed, ...Object.keys(GENERIC_COST_TESTS)].filter((name) => !real.has(name))
+		const unclaimed = [...real].filter((name) => !claimed.has(name) && !(name in GENERIC_COST_TESTS))
+		const empty = Object.entries(COST_TESTS)
+			.filter(([, names]) => names.length === 0)
+			.map(([c]) => c)
+		expect({ both, neither, missingNames, unclaimed, empty }).toEqual({
+			both: [],
+			neither: [],
+			missingNames: [],
+			unclaimed: [],
+			empty: [],
+		})
+	}, 60_000)
 
 	test("scenario sources typecheck, so a tag or component typo fails", () => {
 		const run = Bun.spawnSync(["bun", "run", "--cwd", PERF, "tsc", "-p", "tsconfig.json"], {
