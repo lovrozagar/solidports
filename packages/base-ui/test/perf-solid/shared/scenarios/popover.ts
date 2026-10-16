@@ -47,6 +47,8 @@ const scenarios: Scenario[] = [
         name: 'hover leave',
         run: () => unhover(q('[data-testid="hover-trigger"]')),
         settle: true,
+        // safePolygon closes on a 40 ms timer once the pointer leaves inside its polygon.
+        until: () => popups().length === 0,
         verify: summary,
       },
     ],

@@ -1,6 +1,6 @@
 ---
 tags: [perf, benchmark, ssr, cost]
-sources: [packages/base-ui/test/perf-solid/run.mjs, packages/base-ui/test/perf-solid/shared/manifest.ts, scripts/base-ui-perf-manifest.test.ts, packages/base-ui/test/perf-solid/shared/harness.ts, packages/base-ui/test/perf-solid/shared/scenarios, packages/base-ui/test/perf-solid/known-differences.json, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/test/perf-solid/profile.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
+sources: [packages/base-ui/test/perf-solid/run.mjs, packages/base-ui/test/perf-solid/shared/manifest.ts, packages/base-ui/test/perf-solid/shared/step.ts, scripts/base-ui-perf-manifest.test.ts, scripts/base-ui-perf-step.test.ts, packages/base-ui/test/perf-solid/shared/harness.ts, packages/base-ui/test/perf-solid/shared/scenarios, packages/base-ui/test/perf-solid/known-differences.json, packages/base-ui/test/perf-solid/ssr/run.mjs, packages/base-ui/test/perf-solid/profile.mjs, packages/base-ui/packages/solid/src/utils/popups/closedRoot.cost.test.tsx, packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx]
 verified: 2026-10-16
 ---
 
@@ -56,6 +56,7 @@ node test/perf-solid/run.mjs 8 select,menu   # scenario id prefixes
 | heap after mount KB | `usedJSHeapSize` after the mount step minus before it, both after `gc()` (`--expose-gc`) |
 
 - Settle steps (mount, unmount, and any step with `settle`) wait two more frames before `verify`.
+- A step whose end state arrives on the library's own timer declares `until`: after settling, the harness polls it once per frame, untimed, and fails the step after `UNTIL_TIMEOUT_MS` (2 s). The hover-leave steps of Popover, PreviewCard and Tooltip use it, because safePolygon closes on a 40 ms timer when the pointer leaves inside its polygon (`floating-ui-solid/safePolygon.ts`). A fixed frame count lands on either side of that timer depending on load, so the summaries flipped between React and Solid from run to run. Never paper over such a race with a `known-differences.json` entry. The step runner lives in `shared/step.ts`; `scripts/base-ui-perf-step.test.ts` covers it.
 - Ratios are `solid/react` of the medians. The report table and JSON land in the results folder; CI prints the table to the job log.
 
 ### Correctness gate, not a speed gate

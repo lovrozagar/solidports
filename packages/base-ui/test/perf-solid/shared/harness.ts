@@ -1,14 +1,6 @@
-import { nextPaint } from './drivers';
-import type { Lib, Scenario, Step, StepContext } from './types';
 import { scenarios } from './scenarios';
-
-export interface StepResult {
-  sync: number;
-  paint: number;
-  /** JSON summary from the step's `verify` (compared across libraries by the runner). */
-  summary: string | null;
-  error: string | null;
-}
+import { runStep, type StepResult } from './step';
+import type { Lib, Scenario, Step, StepContext } from './types';
 
 function allSteps(scenario: Scenario): Step[] {
   return [
@@ -52,30 +44,7 @@ export function installHarness(lib: Lib) {
         throw new Error(`Unknown scenario ${id}`);
       }
       const step = allSteps(scenario)[index];
-      let error: string | null = null;
-      const start = performance.now();
-      try {
-        await step.run(ctx);
-        lib.flush();
-      } catch (caught) {
-        error = String((caught as Error)?.stack ?? caught).slice(0, 400);
-      }
-      const sync = performance.now() - start;
-      await nextPaint();
-      const paint = performance.now() - start;
-      if (step.settle) {
-        await nextPaint();
-        await nextPaint();
-      }
-      let summary: string | null = null;
-      if (!error && step.verify) {
-        try {
-          summary = JSON.stringify(step.verify(ctx));
-        } catch (caught) {
-          error = `verify: ${String((caught as Error)?.message ?? caught).slice(0, 300)}`;
-        }
-      }
-      return { sync, paint, summary, error };
+      return runStep(step, ctx);
     },
   };
 }

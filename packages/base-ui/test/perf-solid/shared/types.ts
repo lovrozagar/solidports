@@ -24,6 +24,12 @@ export interface Step {
   /** Waits three frames after the step (positioning, animations-finished checks). */
   settle?: boolean;
   /**
+   * Waits after settling, untimed, until this holds; the step fails if it does not within
+   * `UNTIL_TIMEOUT_MS`. For end states a library reaches on its own timer (a hover close on
+   * safePolygon's 40 ms timeout), which a fixed frame count races.
+   */
+  until?(ctx: StepContext): boolean;
+  /**
    * Reads the DOM after the step and returns a JSON-able summary. The runner fails the scenario
    * when the summaries differ between libraries; throw for a hard expectation.
    */
