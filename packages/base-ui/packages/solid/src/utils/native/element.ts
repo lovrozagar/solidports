@@ -661,7 +661,8 @@ function renderClientElement<State extends object>(
     // markup) but records them as applied, so a value that changed inside that call would be lost.
     // A microtask runs once `hydrate()` has returned: diff the current attributes against the
     // first write (what the element holds) and write only the difference. Handlers attached
-    // during hydration stay.
+    // during hydration stay. The effect's later writes diff against its own attributes only, as
+    // outside hydration: the literal ones are written once and must not read as removed.
     let disposed = false;
     void onCleanup(() => {
       disposed = true;
@@ -670,11 +671,9 @@ function renderClientElement<State extends object>(
       if (disposed) {
         return;
       }
-      const current = needsEffect
-        ? { ...attributesOf(literal), ...attributesOf(untrack(() => write({}, true))) }
-        : attributesOf(literal);
-      assign(el, current, true, hydratedWrite!, true);
-      Object.assign(previous, current);
+      const written = needsEffect ? attributesOf(untrack(() => write({}, true))) : {};
+      assign(el, { ...attributesOf(literal), ...written }, true, hydratedWrite!, true);
+      Object.assign(previous, written);
     });
   }
 
