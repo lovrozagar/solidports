@@ -7,6 +7,11 @@ import { calibrateScript, collectGarbage, evaluateInTask } from "../packages/bas
 // CI's script job installs no browser; the benches run the same check at startup.
 const hasChromium = existsSync(chromium.executablePath())
 
+// Launching and closing a browser run under the stamp's `nice -n 19 ionice -c3`: a close under
+// load 50 on 16 cores took up to 10.5 s there (12 closes; launches under 0.1 s), past Bun's 5 s
+// default. Every hook and test here that launches or closes a browser gets this room.
+const BROWSER_MS = 60_000
+
 let browser: Browser
 let page: Page
 let cdp: CDPSession
@@ -16,13 +21,10 @@ beforeAll(async () => {
 	page = await browser.newPage()
 	cdp = await page.context().newCDPSession(page)
 	await cdp.send("Performance.enable")
-})
-// Closing waits for Chromium's shutdown, which a starved process drags out: the verify stamp runs
-// at `nice -n 19 ionice -c3`, where 12 closes under load 50 on 16 cores took up to 10.5 s (launches
-// under 0.1 s), past Bun's 5 s hook default.
+}, BROWSER_MS)
 afterAll(async () => {
 	await browser?.close()
-}, 60_000)
+}, BROWSER_MS)
 
 const scriptMs = async (run: () => Promise<unknown>) => {
 	const read = async () =>
@@ -61,27 +63,31 @@ describe.skipIf(!hasChromium)("bench script metric (Chromium)", () => {
 describe.skipIf(!hasChromium)("bench heap reading (Chromium)", () => {
 	// A positive control for the heap samples: a full collection releases what nothing reaches
 	// any more, with the flags the benches launch Chromium with.
-	test("collectGarbage releases an allocation once nothing reaches it", async () => {
-		const gcBrowser = await chromium.launch({ args: ["--js-flags=--expose-gc", "--enable-precise-memory-info"] })
-		try {
-			const gcPage = await gcBrowser.newPage()
-			const gcCdp = await gcPage.context().newCDPSession(gcPage)
-			const used = () =>
-				gcPage.evaluate(
-					() => (performance as unknown as { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize / 1024,
-				)
-			await gcPage.evaluate(() => {
-				;(window as unknown as { held?: number[] }).held = Array.from({ length: 2_500_000 }, () => 1.5)
-			})
-			await collectGarbage(gcCdp)
-			const held = await used()
-			await gcPage.evaluate(() => {
-				delete (window as unknown as { held?: number[] }).held
-			})
-			await collectGarbage(gcCdp)
-			expect(held - (await used())).toBeGreaterThan(15_000)
-		} finally {
-			await gcBrowser.close()
-		}
-	})
+	test(
+		"collectGarbage releases an allocation once nothing reaches it",
+		async () => {
+			const gcBrowser = await chromium.launch({ args: ["--js-flags=--expose-gc", "--enable-precise-memory-info"] })
+			try {
+				const gcPage = await gcBrowser.newPage()
+				const gcCdp = await gcPage.context().newCDPSession(gcPage)
+				const used = () =>
+					gcPage.evaluate(
+						() => (performance as unknown as { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize / 1024,
+					)
+				await gcPage.evaluate(() => {
+					;(window as unknown as { held?: number[] }).held = Array.from({ length: 2_500_000 }, () => 1.5)
+				})
+				await collectGarbage(gcCdp)
+				const held = await used()
+				await gcPage.evaluate(() => {
+					delete (window as unknown as { held?: number[] }).held
+				})
+				await collectGarbage(gcCdp)
+				expect(held - (await used())).toBeGreaterThan(15_000)
+			} finally {
+				await gcBrowser.close()
+			}
+		},
+		BROWSER_MS,
+	)
 })
