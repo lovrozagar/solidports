@@ -1,7 +1,6 @@
 import {
   isDisposed,
   createEffect,
-  createOwner,
   createMemo,
   createSignal,
   getObserver,
@@ -66,14 +65,15 @@ export function SolidStore<
   const context = initialContext;
   const [state, setState] = createInitialStore(initialState);
   // Keyed selectors' memberships (`keyedSelector`), one per selector, created on its first tracked
-  // read in a lazy scope of the owner the store was created under: they live as long as the store.
-  // A store created outside any owner (a detached trigger's handle) gets an owner of its own, as a
-  // first read can come from an effect callback, where an ownerless computation is an error.
-  const storeOwner = getOwner() ?? (selectors && !isServer ? createOwner() : null);
+  // read in a lazy scope of the owner the store was created under: they live as long as the store
+  // and are disposed with it. A store created outside any owner reads them directly: those are the
+  // handles' inert stand-ins (`NullStore`), whose state never changes, and an ownerless projection
+  // would be an error when the first read comes from an effect callback.
+  const storeOwner = getOwner();
   const memberships = new Map<KeyedSelector, (id: unknown) => boolean>();
 
   function selectKeyed(selector: KeyedSelector, id: Accessor<unknown>): boolean {
-    if (isServer || getObserver() === null || (storeOwner !== null && isDisposed(storeOwner))) {
+    if (isServer || storeOwner === null || getObserver() === null || isDisposed(storeOwner)) {
       return selector(state, id);
     }
     let isCurrent = memberships.get(selector);
