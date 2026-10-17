@@ -24,4 +24,10 @@ export default defineSsrFixtures(import.meta.url, {
       <Tooltip.Trigger data-testid="trigger">Open</Tooltip.Trigger>
     </Tooltip.Root>
   ),
+  openTriggers: () => (
+    <Tooltip.Root defaultOpen>
+      <Tooltip.Trigger data-testid="trigger">Open</Tooltip.Trigger>
+      <Tooltip.Trigger>Other</Tooltip.Trigger>
+    </Tooltip.Root>
+  ),
 });

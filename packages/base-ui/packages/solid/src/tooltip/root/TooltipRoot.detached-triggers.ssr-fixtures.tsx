@@ -72,6 +72,19 @@ export default defineSsrFixtures(import.meta.url, {
       </Loading>
     </>
   ),
+  // Open from the start with a trigger active: every trigger reads the keyed trigger selectors
+  // while hydrating.
+  activeTrigger: () => (
+    <>
+      <Tooltip.Root handle={fixtureState.handle} defaultOpen defaultTriggerId="trigger-a" />
+      <Tooltip.Trigger handle={fixtureState.handle} id="trigger-a">
+        Trigger A
+      </Tooltip.Trigger>
+      <Tooltip.Trigger handle={fixtureState.handle} id="trigger-b">
+        Trigger B
+      </Tooltip.Trigger>
+    </>
+  ),
   switchingApp: () => <SwitchingApp />,
   triggerB: () => (
     <Tooltip.Trigger handle={fixtureState.handle} id="trigger-b">
