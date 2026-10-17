@@ -24,10 +24,18 @@ export interface CensusEntry {
   swallowed: boolean;
 }
 
-/** The location in one V8 stack line: `at fn (location)` or `at location`. */
+/**
+ * The location in one stack line: V8's `at fn (location)` or `at location`, or Firefox's and
+ * WebKit's `fn@location` (the first `@`: a location can hold one, as a scoped package's path does).
+ * A line that is not a frame (V8's leading `Error` line) has none.
+ */
 const locationOf = (line: string) => {
-  const match = /\((.*)\)\s*$/.exec(line) ?? /at\s+(.*)$/.exec(line);
-  return match ? match[1] : '';
+  if (line.startsWith('at ')) {
+    const match = /\((.*)\)\s*$/.exec(line) ?? /^at\s+(.*)$/.exec(line);
+    return match ? match[1] : '';
+  }
+  const at = line.indexOf('@');
+  return at === -1 ? '' : line.slice(at + 1);
 };
 
 const HARNESS_PACKAGES =
@@ -36,7 +44,7 @@ const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?(\?|:|$)/;
 
 /** The origin of the code that logged, from its stack (jsdom paths or browser-mode URLs). */
 export function originOf(stack: string): Origin {
-  for (const line of stack.split('\n').slice(1)) {
+  for (const line of stack.split('\n')) {
     const location = locationOf(line.trim());
     if (!location || /warningCensus\.ts/.test(location)) {
       continue;
