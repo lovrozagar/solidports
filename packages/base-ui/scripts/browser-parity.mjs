@@ -139,6 +139,18 @@ function rerun(script, files, sourceRoot) {
   return fs.existsSync(outputFile) ? results(outputFile, sourceRoot) : new Map();
 }
 
+/** A rerun result for the report: both counts and p, or no upstream count for a Solid-only test. */
+export function describeCounts(entry) {
+  if (entry.runs === undefined) {
+    return '';
+  }
+  const upstream =
+    entry.upstream === 'absent'
+      ? 'upstream absent'
+      : `upstream passed ${entry.upstreamPassed}/${entry.runs}, p ${entry.p.toPrecision(2)}`;
+  return ` (Solid failed ${entry.solidFailed}/${entry.runs}, ${upstream})`;
+}
+
 function main() {
   const args = process.argv.slice(2);
   const confirmIndex = args.indexOf('--confirm');
@@ -238,17 +250,13 @@ function main() {
     solidOnly = confirmed;
   }
 
-  const counts = (entry) =>
-    entry.runs === undefined
-      ? ''
-      : ` (Solid failed ${entry.solidFailed}/${entry.runs}, upstream passed ${entry.upstreamPassed}/${entry.runs}, p ${entry.p.toPrecision(2)})`;
   for (const entry of solidOnly.sort((a, b) => a.key.localeCompare(b.key))) {
     console.log(
-      `- [upstream: ${entry.upstream}] ${entry.key}${counts(entry)}\n    ${entry.message}`,
+      `- [upstream: ${entry.upstream}] ${entry.key}${describeCounts(entry)}\n    ${entry.message}`,
     );
   }
   for (const entry of unconfirmed) {
-    console.log(`- not confirmed${counts(entry)}: ${entry.key}`);
+    console.log(`- not confirmed${describeCounts(entry)}: ${entry.key}`);
   }
   console.log(
     `\nSolid failures: ${solidFailures}; shared with upstream: ${shared}; Solid-only: ${solidOnly.length}${
