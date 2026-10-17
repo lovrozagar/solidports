@@ -30,6 +30,10 @@ Measurements are dev runtime, jsdom, Solid 2.0.0-rc.15, nodes beyond a plain ele
 
 The profiling pass at `main` put the slow path (`useRenderElement`, the props view, `mergeProps`) at 34% of the library's browser script and half of its server JavaScript, three times the next candidate. Plan 3's 4.3 took what its tested contracts allow: 4.3a stopped `useInteractions` re-merging list items' props on every open and close. A per-key read cache (4.3b) broke the per-key contract. Of what remains, Resolved's own time splits into DOM creation (about 30%, paid by any renderer), creating the path's reactive nodes (about 30%, D14's node count) and its setup code (about 12%). Children flattening and the component-tag spread, the only pieces outside the contracts, are each under 10%. The slow path's remaining share can only shrink by moving parts off it: phase 5's per-family native ports are the lever for the biggest bucket.
 
+### The native kit after 4.7 (2026-10-17)
+
+A probe of 1000 Checkbox roots put the kit's grouped attribute effect (the dynamic record and Solid's `assign`) at 0.8 of 40.8 ms of mount (2%) and 3.5 of 21.5 ms of a toggle: the profile's time at the effect's apply is mostly the DOM writes and Solid's work below it. Handler dispatch tuples (one shared handler and the element's data, instead of a closure per element) save a few allocations an element, under that 2%, so they were skipped. The rest of a Checkbox mount is the part's own setup, which phase 5's Checkbox port takes.
+
 ### S1. `renderElement(props, spec)`: one element binding for every part
 
 A part declares its spec; `useRenderElement` cannot infer one (D14). The slow path keeps its per-key binding, and parts move to the native kit one family at a time.
