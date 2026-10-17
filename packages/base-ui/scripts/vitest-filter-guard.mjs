@@ -4,6 +4,7 @@
 // `packages/base-ui`, so a path filter is resolved from there (`packages/solid/src/…`).
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseCLI } from 'vitest/node';
 
 /**
  * The filters a run's test files do not satisfy: a filter no file matched, or a path filter that
@@ -36,6 +37,36 @@ export function filterMisses(filters, matched, cwd, filesUnder) {
   return misses;
 }
 
+/**
+ * The file filters on a Vitest command line (`argv` after the script), read with Vitest's own
+ * parser, so option values (`--project @solidports/base-ui`) are not taken for filters.
+ * @param {readonly string[]} argv
+ * @returns {string[]}
+ */
+export function cliFilters(argv) {
+  return parseCLI(['vitest', ...argv], { allowUnknownOptions: true }).filter.map(String);
+}
+
+/**
+ * The filters to check: Vitest's record of them (`filenamePattern`, internal in Vitest 4.1). When
+ * the command line has filters but that record is missing, Vitest's internals changed and the
+ * guard would pass every run: fail instead.
+ * @param {unknown} recorded
+ * @param {readonly string[]} cli
+ * @returns {readonly string[]}
+ */
+export function runFilters(recorded, cli) {
+  if (cli.length === 0) {
+    return [];
+  }
+  if (!Array.isArray(recorded)) {
+    throw new Error(
+      'Base UI tests: filter guard: vitest internals changed, update vitest-filter-guard.mjs',
+    );
+  }
+  return recorded;
+}
+
 /** The reporter: checks the run's filters once its test files are known. */
 export default class VitestFilterGuard {
   onInit(vitest) {
@@ -43,9 +74,8 @@ export default class VitestFilterGuard {
   }
 
   async onTestRunStart(specifications) {
-    // Vitest's record of the CLI file filters (`start(filters)`), internal in Vitest 4.1.
-    const filters = this.vitest.filenamePattern;
-    if (!filters?.length) {
+    const filters = runFilters(this.vitest.filenamePattern, cliFilters(process.argv.slice(2)));
+    if (filters.length === 0) {
       return;
     }
     const matched = specifications.map((specification) => specification.moduleId);
