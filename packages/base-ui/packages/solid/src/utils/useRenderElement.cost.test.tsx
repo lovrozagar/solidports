@@ -63,7 +63,7 @@ describe('render core cost', () => {
     expect(cost, `Checkbox.Root: ${cost} nodes`).toBeLessThanOrEqual(10);
   });
 
-  it('Select.Item costs at most 27 reactive nodes', () => {
+  it('Select.Item costs at most 26 reactive nodes', () => {
     const list = (items: string[]) => () => (
       <Select.Root defaultOpen>
         <Select.Trigger>
@@ -81,7 +81,7 @@ describe('render core cost', () => {
       </Select.Root>
     );
     const cost = nodes(list(['a', 'b'])) - nodes(list(['a']));
-    expect(cost, `Select.Item: ${cost} nodes`).toBeLessThanOrEqual(27);
+    expect(cost, `Select.Item: ${cost} nodes`).toBeLessThanOrEqual(26);
   });
 
   it('static attributes create no reactive nodes', () => {

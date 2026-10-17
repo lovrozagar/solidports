@@ -183,7 +183,7 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
   ],
   radio: [RADIO, RADIO_INDICATOR],
   'radio-group': [RADIO],
-  select: [closedRoot('Select'), 'render core cost > Select.Item costs at most 27 reactive nodes'],
+  select: [closedRoot('Select'), 'render core cost > Select.Item costs at most 26 reactive nodes'],
   separator: [
     staticPart('a Separator with a literal orientation costs at most 1 node'),
     staticPart('a Separator with a reactive orientation costs at most 2 nodes'),

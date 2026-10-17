@@ -3,7 +3,7 @@ import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { createLayoutEffect } from '../../../solid-helpers';
 import { CompositeListContext } from './CompositeListContext';
-import type { CompositeListRegistration } from './CompositeListContext';
+import type { CompositeListIndexSink, CompositeListRegistration } from './CompositeListContext';
 
 export type CompositeMetadata<CustomMetadata> = {
   index?: number | null | undefined;
@@ -13,11 +13,13 @@ interface CompositeListItem<Metadata> {
   index: number;
   element: HTMLElement;
   registration: CompositeListRegistration<Metadata>;
+  entries: OwnedRegistration<Metadata>[];
 }
 
 interface OwnedRegistration<Metadata> {
   owner: object;
   registration: CompositeListRegistration<Metadata>;
+  sink: CompositeListIndexSink | undefined;
 }
 
 /**
@@ -52,16 +54,18 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
     node: Element,
     registration: CompositeListRegistration<Metadata>,
     owner: object,
+    sink?: CompositeListIndexSink,
   ) {
     const entries = map.get(node);
     if (!entries) {
-      map.set(node, [{ owner, registration }]);
+      map.set(node, [{ owner, registration, sink }]);
     } else {
       const entry = entries.find((candidate) => candidate.owner === owner);
       if (entry) {
         entry.registration = registration;
+        entry.sink = sink;
       } else {
-        entries.push({ owner, registration });
+        entries.push({ owner, registration, sink });
       }
     }
     scheduleMapUpdate();
@@ -192,6 +196,16 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
       return;
     }
 
+    // Only the items whose index moved hear about it: an insertion updates the items after it, and
+    // a flush that confirms every guessed index updates none.
+    nextItems.forEach((item) => {
+      item.entries.forEach(({ sink }) => {
+        if (sink && sink.current !== item.index) {
+          sink.current = item.index;
+          sink.set(item.index);
+        }
+      });
+    });
     listeners.forEach((listener) => listener(nextMap));
     // Solid: consumers receive the sorted items as an array instead of a Map.
     props.onMapChange?.(Array.from(nextMap, ([element, metadata]) => ({ element, metadata })));
@@ -259,6 +273,7 @@ function getCompositeListSnapshot<Metadata>(map: Map<Element, OwnedRegistration<
       index: index ?? -1,
       element: node as HTMLElement,
       registration,
+      entries,
     };
 
     if (index === null) {

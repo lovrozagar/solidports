@@ -41,7 +41,6 @@ import { DEFAULT_LABELABLE_CONTEXT } from '../../internals/labelable-provider/La
 import type { LabelableContext } from '../../internals/labelable-provider/LabelableContext';
 import { useCompositeListContext } from '../../internals/composite/list/CompositeListContext';
 import type { CompositeListRegistration } from '../../internals/composite/list/CompositeListContext';
-import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { classifyConsumerProps, composeHandler, readHandler, readReactiveProps } from './consumer';
 
 type AnyProps = Record<string, any>;
@@ -376,10 +375,12 @@ export interface CompositeItemRegistration {
 export function createCompositeItemRegistration<Metadata>(
   metadata?: Accessor<Metadata | undefined>,
 ): CompositeItemRegistration {
-  const { register, unregister, subscribeMapChange, nextIndexRef } = useCompositeListContext();
+  const { register, unregister, nextIndexRef } = useCompositeListContext();
   const guessed = nextIndexRef.current;
   nextIndexRef.current += 1;
   const [index, setIndex] = createSignal(guessed);
+  // The list sets the index only when a flush moves it.
+  const sink = { current: guessed, set: setIndex };
   const owner = {};
   let node: HTMLElement | null = null;
   let last: CompositeListRegistration<Metadata> | null = null;
@@ -397,20 +398,12 @@ export function createCompositeItemRegistration<Metadata>(
       (value) => {
         if (node && last && last.metadata !== value) {
           last = registration(value);
-          register(node, last, owner);
+          register(node, last, owner, sink);
         }
       },
     );
   }
 
-  void onCleanup(
-    subscribeMapChange((map: Map<Element, CompositeMetadata<Metadata>>) => {
-      const next = node ? map.get(node)?.index : null;
-      if (next != null) {
-        setIndex(next);
-      }
-    }),
-  );
   void onCleanup(() => {
     if (node) {
       unregister(node, owner);
@@ -425,7 +418,7 @@ export function createCompositeItemRegistration<Metadata>(
       }
       node = el;
       last = registration(untrack(() => metadata?.() ?? null));
-      register(el, last, owner);
+      register(el, last, owner, sink);
     },
   };
 }

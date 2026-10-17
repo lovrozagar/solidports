@@ -8,7 +8,6 @@
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import { isServer } from '@solidjs/web';
-import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { useCompositeListContext } from '../../internals/composite/list/CompositeListContext';
 import type { CompositeListRegistration } from '../../internals/composite/list/CompositeListContext';
 
@@ -25,7 +24,7 @@ export function createNativeListItem<Metadata>(
   metadata: Metadata | null | Accessor<Metadata | null>,
   options?: { guessIndex?: boolean | undefined },
 ): NativeListItem {
-  const { register, unregister, subscribeMapChange, nextIndexRef } = useCompositeListContext();
+  const { register, unregister, nextIndexRef } = useCompositeListContext();
   // `guessIndex`: the index is guessed from the creation order (`IndexGuessBehavior.GuessFromOrder`)
   // so a list rendered in DOM order is right on its first render and the list's flush confirms it
   // (no effect re-runs); a wrong guess is corrected by the flush.
@@ -45,6 +44,8 @@ export function createNativeListItem<Metadata>(
     return { setRef: noop, index: () => guessed };
   }
   const [index, setIndex] = createSignal(guessed);
+  // The list sets the index only when a flush moves it.
+  const sink = { current: guessed, set: setIndex };
   // Identifies this item's registration when nested items share one DOM node.
   const owner = {};
   let element: Element | null = null;
@@ -53,7 +54,7 @@ export function createNativeListItem<Metadata>(
 
   const registerNode = (node: Element, data: Metadata | null) => {
     registration = { metadata: data, index: null, label: undefined, textRef: undefined };
-    register(node, registration, owner);
+    register(node, registration, owner, sink);
   };
 
   const setRef = (node: HTMLElement | null | undefined) => {
@@ -74,15 +75,7 @@ export function createNativeListItem<Metadata>(
     });
   }
 
-  const unsubscribe = subscribeMapChange((map: Map<Element, CompositeMetadata<Metadata>>) => {
-    const next = element ? map.get(element)?.index : null;
-    if (next != null) {
-      setIndex(next);
-    }
-  });
-
   void onCleanup(() => {
-    unsubscribe();
     if (element) {
       unregister(element, owner);
     }
