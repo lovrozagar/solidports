@@ -30,6 +30,7 @@ import { MERGED_REFS, combineStyle } from '../../merge-props/mergeProps';
 import { markRenderPath } from '../renderPath';
 import { isHandlerKey as isConsumerHandlerKey } from './consumer';
 import { serverElement } from './serverElement';
+import { HydrationState } from './hydrationState';
 import type { StateAttributesMapping } from '../getStateAttributesProps';
 import { warn } from '../warn';
 import {
@@ -245,77 +246,11 @@ const STATEFUL_TAGS: ReadonlySet<string> = new Set(['INPUT', 'SELECT', 'TEXTAREA
  * hydrating, with no object `class` (whose classes Solid records on the node even then) and no
  * form-control properties.
  */
-let pendingReconciles: Array<[Element, () => void]> | undefined;
-
-/**
- * Runs `reconcile` once the current `hydrate()` call has returned (a microtask), in one shared
- * microtask for every element that needs it. An element disconnected by then (its part was
- * disposed) is skipped.
- */
-function afterHydration(el: Element, reconcile: () => void): void {
-  if (pendingReconciles === undefined) {
-    pendingReconciles = [];
-    queueMicrotask(() => {
-      const pending = pendingReconciles!;
-      pendingReconciles = undefined;
-      for (const [element, run] of pending) {
-        if (element.isConnected) {
-          run();
-        }
-      }
-    });
-  }
-  pendingReconciles.push([el, reconcile]);
-}
-
 const recordsOnly = (el: Element, next: Record<string, unknown>) =>
   isHydrating() &&
   el.isConnected &&
   !STATEFUL_TAGS.has(el.nodeName) &&
   (next.class == null || typeof next.class !== 'object');
-
-/** The keys of a write that are element attributes: no refs, children, handlers or functions. */
-function attributesOf(written: Record<string, unknown>): Record<string, unknown> {
-  const attributes: Record<string, unknown> = {};
-  for (const key in written) {
-    if (
-      key !== 'ref' &&
-      key !== 'children' &&
-      !isHandlerKey(key) &&
-      typeof written[key] !== 'function'
-    ) {
-      attributes[key] = written[key];
-    }
-  }
-  return attributes;
-}
-
-/**
- * Dev only: the attributes a hydrated element holds (the server's markup) against the ones the
- * client's first write expected it to hold. A difference means the two sides computed the part's
- * attributes from different inputs, which the post-hydration diff would not see.
- */
-function checkHydratedAttributes(el: Element, ...expected: Record<string, unknown>[]) {
-  const rendered = new Set<string>();
-  for (const attributes of expected) {
-    for (const key of Object.keys(attributes)) {
-      const value = attributes[key];
-      if (value != null && value !== false) {
-        rendered.add(key.toLowerCase());
-      }
-    }
-  }
-  const server = el.getAttributeNames().filter((name) => name !== '_hk' && name !== 'data-hk');
-  const extra = server.filter((name) => !rendered.has(name));
-  const missing = [...rendered].filter((name) => !el.hasAttribute(name));
-  if (extra.length > 0 || missing.length > 0) {
-    warn(
-      `The server rendered <${el.localName}> with attributes the hydrating client did not compute (server only: ${extra.join(', ') || 'none'}; client only: ${missing.join(', ') || 'none'}).`,
-      'Hydration keeps the server markup and corrects only what changes after it, so these stay wrong.',
-      'Render the part from the same props and state on the server and the client.',
-    );
-  }
-}
 
 /** The part's state for consumer functions, created on first use from a factory and kept. */
 function partState<State extends object>(spec: NativeElementSpec<State>): State | undefined {
@@ -975,66 +910,6 @@ function withKeys(keys: ReadonlySet<string>, extra: Record<string, unknown>): Re
   return all;
 }
 
-/**
- * A hydrating element's reconcile state (see `renderClientElement`): its first write, which stands
- * for the server's markup, and the one reconcile after `hydrate()` returns when its effect applied
- * again while hydrating. Solid: the members are prototype methods, so the state is one object.
- */
-class HydrationState {
-  declare firstWrite: Record<string, unknown> | undefined;
-  declare private scheduled: boolean;
-  declare private readonly el: Element;
-  declare private readonly element: Element | NativeElementTemplate;
-  declare private readonly literal: Record<string, unknown>;
-  declare private readonly write: ClientWriter['write'];
-  declare private readonly needsEffect: boolean;
-  declare private readonly previous: Record<string, unknown>;
-
-  constructor(
-    el: Element,
-    element: Element | NativeElementTemplate,
-    literal: Record<string, unknown>,
-    write: ClientWriter['write'],
-    needsEffect: boolean,
-    previous: Record<string, unknown>,
-  ) {
-    this.firstWrite = undefined;
-    this.scheduled = false;
-    this.el = el;
-    this.element = element;
-    this.literal = literal;
-    this.write = write;
-    this.needsEffect = needsEffect;
-    this.previous = previous;
-  }
-
-  takeFirstWrite(written: Record<string, unknown>) {
-    this.firstWrite = written;
-    if (process.env.NODE_ENV !== 'production') {
-      // Now, while the element still holds the server markup.
-      const element = this.element;
-      checkHydratedAttributes(this.el, isTemplate(element) ? (element.attributes ?? {}) : {}, {
-        ...attributesOf(this.literal),
-        ...attributesOf(written),
-      });
-    }
-  }
-
-  scheduleReconcile() {
-    if (!this.scheduled) {
-      this.scheduled = true;
-      afterHydration(this.el, () => this.reconcile());
-    }
-  }
-
-  private reconcile() {
-    const written = this.needsEffect ? attributesOf(untrack(() => this.write({}, true))) : {};
-    const hydratedWrite = { ...attributesOf(this.literal), ...attributesOf(this.firstWrite ?? {}) };
-    assign(this.el, { ...attributesOf(this.literal), ...written }, true, hydratedWrite, true);
-    Object.assign(this.previous, written);
-  }
-}
-
 function renderClientElement<State extends object>(
   element: Element | NativeElementTemplate,
   props: object,
@@ -1062,7 +937,14 @@ function renderClientElement<State extends object>(
   const previous: Record<string, unknown> = {};
   // Only an element created while hydrating can need it (a client render has nothing to match).
   const hydration = hydrating
-    ? new HydrationState(el, element, literal, write, needsEffect, previous)
+    ? new HydrationState(
+        el,
+        isTemplate(element) ? (element.attributes ?? {}) : {},
+        literal,
+        write,
+        needsEffect,
+        previous,
+      )
     : undefined;
 
   if (!needsEffect) {

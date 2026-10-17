@@ -123,6 +123,11 @@ Plan 3's bar, judged on production builds: every SSR case with a `<id>-floor` tw
 - Collection time is shared out by allocated bytes and reported as each bucket's GC share beside its self time.
 - Read shares only: unminified, uninlined builds run at other absolute speeds than the minified bench. A candidate's expected gain in ms is its share times its family's time in the latest minified `bench:component --compare` at `main`.
 - `ATTRIBUTION_SRC` profiles another copy of the library (`setLibraryRoot` makes its paths library code).
+- Local profiles name functions but cannot size them on this workstation at load 60 and above. `profile.mjs` samples every 50 µs and the heap every 512 bytes, inlined frames are credited to their callers, and small counts round to whole samples (2026-10-17: `inheritId`, a one-line read, showed 29.9 ms of self time, and 600 ids showed 251 KB). Size a candidate before coding it with a direct measure:
+  - a count of what runs (a counter on the function, or a read count through a wrapper, as the cost tests do);
+  - or retained heap per item from two V8 snapshots in jsdom, one before mounting N items and one after (`writeHeapSnapshot`, `gc()` twice before each), diffed by constructor and closure name.
+
+  `process.memoryUsage().heapUsed` deltas taken back to back are order-dependent: a previous tree's garbage lands in the next measurement. The Mac A/B then judges the gain.
 - `test/perf-solid/attribution-control.mjs` is the positive control through the real builds and maps, with fixed bars: a copy of the library with an allocation-free busy loop in the native kit and a counted 16 KB array per native context owner (4096 elements at 4 bytes: Chromium compresses pointers) must credit `native-kit` with the added collapsible/300 mount time within ±25% and `providers` with the injected bytes within ±10%. Measured on Linux Chromium: CPU 111–123%, allocations 101–103%; CPU shares are accurate to about a quarter. It caught three faults while the tool was built: library copies outside the working tree read as runtime, collected objects missing from heap samples, and inlined frames hiding allocations. `scripts/base-ui-perf-attribution.test.ts` covers the rules on synthetic profiles.
 
 ## Reactive-node cost tests
