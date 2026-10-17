@@ -1,7 +1,7 @@
 ---
 tags: [collapsible, native, disclosure, perf]
 sources: [packages/base-ui/packages/solid/src/collapsible, packages/base-ui/packages/solid/src/collapsible/panel/useCollapsiblePanel.ts, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/disclosure.cost.test.tsx]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Collapsible
@@ -28,6 +28,7 @@ Yes, per part, chosen once at setup, on the client, the server and while hydrati
 - Trigger (`CollapsibleTrigger.tsx:53`): the same plus a static `nativeButton` that resolves to `true`.
 - Context: on the client a transparent owner; on the server and while hydrating the context's provider, since the server's owners are not `@solidjs/signals`'s (D5 in [the decision log](../decisions/log.md)).
 - A closed panel allocates only its render condition; the machinery and state are created on first render.
+- A panel open since its part was created (a page that renders it open, hydrated or not) renders through `DeferredPanel` (D11): the server panel's attributes, with the open animation suppressed, until the root's state first changes. The first read that sees the change builds the machinery in the part's lazy scope and hands it the element. A panel that opens later, or renders closed (`keepMounted`, `hiddenUntilFound`), builds it at once.
 
 See [render pipeline](../architecture/render-pipeline.md) and [transitions](../architecture/transitions.md).
 

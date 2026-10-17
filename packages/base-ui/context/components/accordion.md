@@ -1,7 +1,7 @@
 ---
 tags: [accordion, native, disclosure, perf]
 sources: [packages/base-ui/packages/solid/src/accordion, packages/base-ui/packages/solid/src/collapsible/root/useCollapsibleRoot.ts, packages/base-ui/packages/solid/src/utils/native/listItem.ts, packages/base-ui/packages/solid/src/utils/native/disclosure.cost.test.tsx]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Accordion
@@ -63,7 +63,7 @@ Heap after mount (`accordion/300`): 5841 KB React vs 2569 KB Solid.
 
 ## Known issues and divergences
 
-- Contexts sit on plain owners and the panel machinery is created on first render; behavior matches upstream per `Accordion.parity.test.tsx`.
+- Contexts sit on plain owners and the panel machinery is created on first render; behavior matches upstream per `Accordion.parity.test.tsx`. An item open since its panel was created defers the machinery to its first change, as Collapsible's panel does (D11).
 
 ## Docs
 

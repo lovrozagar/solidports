@@ -27,7 +27,7 @@ import { renderNativeElement } from '../../utils/native/element';
 import type { SetAttribute, StateWriter } from '../../utils/native/element';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { createIdRegistration } from '../../utils/native/registration';
-import { ServerPanel, useCollapsiblePanel } from './useCollapsiblePanel';
+import { DeferredPanel, ServerPanel, useCollapsiblePanel } from './useCollapsiblePanel';
 import * as CollapsiblePanelCssVars from './CollapsiblePanelCssVars';
 import * as CollapsiblePanelDataAttributes from './CollapsiblePanelDataAttributes';
 import { runInLazyScope } from '../../utils/runInLazyScope';
@@ -250,7 +250,10 @@ class CollapsiblePanelStateView {
 }
 
 /** The panel's dimension variables. */
-const PANEL_DIMENSIONS = { height: CollapsiblePanelCssVars.collapsiblePanelHeight, width: CollapsiblePanelCssVars.collapsiblePanelWidth };
+const PANEL_DIMENSIONS = {
+  height: CollapsiblePanelCssVars.collapsiblePanelHeight,
+  width: CollapsiblePanelCssVars.collapsiblePanelWidth,
+};
 
 function createRenderedPanel(
   props: CollapsiblePanel.Props,
@@ -262,21 +265,33 @@ function createRenderedPanel(
   const keepMounted = () => props.keepMounted ?? false;
   const id = () => (props.id || undefined) ?? root.defaultPanelId();
   // The server's panel creates no reactive node (D9), so it needs no lazy scope.
-  const panel = isServer
-    ? new ServerPanel(root, hiddenUntilFound, keepMounted, PANEL_DIMENSIONS, initialOpen)
-    : runInLazyScope(owner, () =>
-        untrack(() =>
-          useCollapsiblePanel({
-            dimensionCssVars: PANEL_DIMENSIONS,
-            hiddenUntilFound,
-            id,
-            initialOpen,
-            keepMounted,
-            native: true,
-            ...panelRootParameters(root),
-          }),
-        ),
-      )!;
+  const createPanel = () =>
+    runInLazyScope(owner, () =>
+      untrack(() =>
+        useCollapsiblePanel({
+          dimensionCssVars: PANEL_DIMENSIONS,
+          hiddenUntilFound,
+          id,
+          initialOpen,
+          keepMounted,
+          native: true,
+          ...panelRootParameters(root),
+        }),
+      ),
+    )!;
+  // A panel open since its part was created (a page that renders it open, hydrated or not) builds
+  // its client machinery on its first state change, which may never come: until then it suppresses
+  // the open animation, as the machinery would. A panel that opens later animates that opening, and
+  // one that renders closed (`keepMounted`, `hiddenUntilFound`) needs its `beforematch` listener
+  // and the next open's measurement: both build it at once.
+  let panel: ReturnType<typeof useCollapsiblePanel>;
+  if (isServer) {
+    panel = new ServerPanel(root, hiddenUntilFound, keepMounted, PANEL_DIMENSIONS, initialOpen);
+  } else if (initialOpen && untrack(() => root.open())) {
+    panel = new DeferredPanel(root, hiddenUntilFound, keepMounted, PANEL_DIMENSIONS, createPanel);
+  } else {
+    panel = createPanel();
+  }
   let publicState: CollapsiblePanelState | undefined;
   return {
     id,
@@ -290,7 +305,10 @@ function createRenderedPanel(
 }
 
 /** The public panel state, as consumer functions and render props receive it. */
-function createPanelState(rootState: CollapsibleRootState, panel: PanelHook): CollapsiblePanelState {
+function createPanelState(
+  rootState: CollapsibleRootState,
+  panel: PanelHook,
+): CollapsiblePanelState {
   return {
     get open() {
       return rootState.open;
