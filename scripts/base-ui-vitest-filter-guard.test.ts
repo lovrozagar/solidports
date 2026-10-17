@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { resolve } from "node:path"
-import { filterMisses } from "../packages/base-ui/scripts/vitest-filter-guard.mjs"
+import { cliFilters, filterMisses, runFilters } from "../packages/base-ui/scripts/vitest-filter-guard.mjs"
 
 const BASE_UI = resolve(import.meta.dir, "../packages/base-ui")
 const file = (rel: string) => resolve(BASE_UI, rel)
@@ -34,6 +34,29 @@ describe("vitest filter guard", () => {
 	test("a name filter that matched some file passes", () => {
 		const matched = [file("packages/solid/src/utils/native/native.cost.test.tsx")]
 		expect(filterMisses(["cost.test"], matched, BASE_UI, under({}))).toEqual([])
+	})
+
+	test("reads the CLI's file filters, not option values", () => {
+		expect(
+			cliFilters([
+				"--hideSkippedTests",
+				"--project",
+				"@solidports/base-ui",
+				"packages/solid/src/a",
+				"b",
+				"--run",
+				"--maxWorkers=2",
+			]),
+		).toEqual(["packages/solid/src/a", "b"])
+		expect(cliFilters(["--project", "@solidports/base-ui", "--run"])).toEqual([])
+	})
+
+	test("fails when the CLI has filters but Vitest no longer records them where the guard reads", () => {
+		expect(() => runFilters(undefined, ["packages/solid/src/a"])).toThrow(
+			"filter guard: vitest internals changed, update vitest-filter-guard.mjs",
+		)
+		expect(runFilters(undefined, [])).toEqual([])
+		expect(runFilters(["a"], ["a"])).toEqual(["a"])
 	})
 
 	test("a jsdom run with one filter that misses exits non-zero and names it", () => {
