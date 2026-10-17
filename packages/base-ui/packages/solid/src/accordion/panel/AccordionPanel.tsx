@@ -215,7 +215,7 @@ function NativeAccordionPanel(props: AccordionPanel.Props): JSX.Element {
       panel.id,
       accordionStateAttributesMapping,
       REGION,
-      (set) => set('aria-labelledby', item.triggerId()),
+      (w) => w.set('aria-labelledby', item.triggerId()),
       registerId,
       writePanelState,
       panel.view,

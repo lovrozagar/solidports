@@ -36,7 +36,7 @@ export function Separator(componentProps: Separator.Props) {
       state,
       stateWriter: writeSeparatorState,
       literal: SEPARATOR,
-      attributes: (set) => set('aria-orientation', orientation()),
+      attributes: (w) => w.set('aria-orientation', orientation()),
       reactive: !isStatic(componentProps, 'orientation'),
     }) as unknown as JSX.Element;
   }

@@ -289,13 +289,13 @@ function NativeTabsPanel(props: TabsPanel.Props): JSX.Element {
       mapping: stateAttributesMapping,
       reactive: true,
       literal: TABPANEL,
-      attributes: (set) => {
-        set('aria-labelledby', correspondingTabId());
-        set('hidden', !mounted());
-        set('id', id());
-        set('tabindex', open() ? 0 : -1);
-        set('inert', !open());
-        set(TabsPanelDataAttributes.index, getListItem().index());
+      attributes: (w) => {
+        w.set('aria-labelledby', correspondingTabId());
+        w.set('hidden', !mounted());
+        w.set('id', id());
+        w.set('tabindex', open() ? 0 : -1);
+        w.set('inert', !open());
+        w.set(TabsPanelDataAttributes.index, getListItem().index());
       },
       refs: [setPanelRef],
     }),

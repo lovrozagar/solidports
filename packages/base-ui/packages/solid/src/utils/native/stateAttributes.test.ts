@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { compileStateAttributes, writeStateAttributes } from './element';
+import type { SetAttribute } from './element';
 
-const collect = (write: (set: (key: string, value: unknown) => void) => void) => {
+const collect = (write: (set: SetAttribute) => void) => {
   const out: Record<string, unknown> = {};
-  write((key, value) => {
-    out[key] = value;
+  write({
+    set(key, value) {
+      out[key] = value;
+    },
   });
   return out;
 };

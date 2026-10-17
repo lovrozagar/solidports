@@ -336,7 +336,7 @@ export function renderNativePanel<State extends CollapsiblePanelState>(
   id: () => JSX.HTMLAttributes<Element>['id'],
   mapping: StateAttributesMapping<State>,
   literal?: Record<string, unknown>,
-  attributes?: (set: SetAttribute) => void,
+  attributes?: (w: SetAttribute) => void,
   registerId?: ((element: Element | null) => void) | undefined,
   stateWriter?: StateWriter | undefined,
   stateView?: object | undefined,
@@ -353,13 +353,13 @@ export function renderNativePanel<State extends CollapsiblePanelState>(
     stateView,
     reactive: true,
     literal,
-    attributes: (set) => {
+    attributes: (w) => {
       if (panel.shouldPersistHiddenTransitionStyles()) {
-        set(CollapsiblePanelDataAttributes.startingStyle, '');
+        w.set(CollapsiblePanelDataAttributes.startingStyle, '');
       }
-      set('hidden', panel.hiddenAttribute());
-      set('id', id());
-      attributes?.(set);
+      w.set('hidden', panel.hiddenAttribute());
+      w.set('id', id());
+      attributes?.(w);
     },
     // The suppressed open animation, then the unmeasured dimension variables, on the server and in
     // the client's first render (D9), above the consumer's style: the client writes the measured
