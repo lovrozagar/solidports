@@ -119,8 +119,16 @@ export function costPattern(names) {
   return `^(?:${names.map((name) => escape(vitestName(name))).join('|')})$`;
 }
 
+/**
+ * The environment for git commands aimed at the repo in `cwd`: without git's own variables
+ * (`GIT_DIR`, `GIT_INDEX_FILE` and the rest), which a process started under a git hook inherits
+ * and which would aim the command at another repo.
+ */
+const repoEnv = () =>
+  Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
+
 function git(cwd, args, encoding = 'utf8') {
-  const run = spawnSync('git', args, { cwd, encoding, maxBuffer: 1 << 30 });
+  const run = spawnSync('git', args, { cwd, encoding, env: repoEnv(), maxBuffer: 1 << 30 });
   if (run.status !== 0) throw new Error(`git ${args.join(' ')}: ${run.stderr}`);
   return run.stdout;
 }
@@ -151,7 +159,10 @@ export function gitProvenance(cwd) {
  * would otherwise read as no difference.
  */
 export function depsDrift(cwd, baseSha) {
-  const run = spawnSync('git', ['diff', '--quiet', baseSha, '--', 'bun.lock'], { cwd });
+  const run = spawnSync('git', ['diff', '--quiet', baseSha, '--', 'bun.lock'], {
+    cwd,
+    env: repoEnv(),
+  });
   if (run.status !== 0 && run.status !== 1)
     throw new Error(`git diff ${baseSha} -- bun.lock failed`);
   return run.status === 1;
@@ -252,6 +263,7 @@ function buildArchived(sha, name, others) {
     fs.mkdirSync(src, { recursive: true });
     const archive = spawnSync('git', ['archive', sha, 'packages/base-ui/packages/solid/src'], {
       cwd: repo,
+      env: repoEnv(),
       maxBuffer: 1 << 30,
     });
     if (archive.status !== 0) throw new Error(`git archive ${sha}: ${archive.stderr}`);
