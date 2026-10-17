@@ -16,7 +16,7 @@ import {
   FloorAccordionRoot,
   FloorAccordionTrigger,
 } from '../../test/floor/accordion';
-import { startingTimeline } from '../../test/floor/startingTimeline';
+import { startingTimeline, withoutSizes } from '../../test/floor/startingTimeline';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
 const hooks = (DEV as unknown as { hooks: Hooks }).hooks;
@@ -253,10 +253,10 @@ describe('accordion cost against the hand-written floor', () => {
 
   it("the floor's starting-style timeline matches Accordion's with motion", async () => {
     const part = await timeline(controlled.part, true);
-    expect(part).toEqual({
+    expect(withoutSizes(part)).toEqual({
       beforePaint:
-        'div | --accordion-panel-height:0px;--accordion-panel-width:0px;align-content:initial;align-items:initial;justify-content:initial;justify-items:initial',
-      afterFrame: 'div | --accordion-panel-height:0px;--accordion-panel-width:0px',
+        'div | --accordion-panel-height:Npx;--accordion-panel-width:Npx;align-content:initial;align-items:initial;justify-content:initial;justify-items:initial',
+      afterFrame: 'div | --accordion-panel-height:Npx;--accordion-panel-width:Npx',
       afterTask: ' | --accordion-panel-height:auto;--accordion-panel-width:auto',
     });
     expect(await timeline(controlled.floor, true)).toEqual(part);

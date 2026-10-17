@@ -62,3 +62,13 @@ export async function startingTimeline(container: HTMLElement, open: () => void,
     container.removeAttribute('data-motion');
   }
 }
+
+/** The samples with every measured size as `Npx`: jsdom measures 0, a browser the real size. */
+export function withoutSizes(samples: Record<string, string>) {
+  return Object.fromEntries(
+    Object.entries(samples).map(([step, sample]) => [
+      step,
+      sample.replace(/\d+(?:\.\d+)?px/g, 'Npx'),
+    ]),
+  );
+}
