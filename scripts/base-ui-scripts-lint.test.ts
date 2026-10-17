@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 
 // The root oxlint ignores packages/base-ui (it keeps its own linters), and Base UI's ESLint runs on
-// the library and the docs app only, so its scripts and perf harness had no lint at all: a `const`
+// the library, the docs app and the perf harness, so its scripts had no lint at all: a `const`
 // in bench-component's main shadowed the module's `run()` and the earlier calls hit its temporal
 // dead zone, which only a Mac run caught. These two rules hold them; hoisted function
 // declarations are allowed, since only `const`, `let` and `class` have a dead zone.

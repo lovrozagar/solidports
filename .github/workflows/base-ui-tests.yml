@@ -150,7 +150,7 @@ jobs:
       - name: eslint
         if: ${{ !cancelled() }}
         working-directory: packages/base-ui
-        run: bunx eslint packages/solid/src packages/solid/test docs/solid/src --report-unused-disable-directives --max-warnings 0
+        run: bunx eslint packages/solid/src packages/solid/test docs/solid/src test/perf-solid --report-unused-disable-directives --max-warnings 0
       - name: eslint rule tests
         if: ${{ !cancelled() }}
         working-directory: packages/base-ui

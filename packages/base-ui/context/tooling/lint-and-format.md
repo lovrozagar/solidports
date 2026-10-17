@@ -12,7 +12,7 @@ Base UI lints with upstream's ESLint 10 stack plus `eslint-plugin-solid`, while
 
 | Tool | Config | CI step (Linting job, `base-ui-tests.yml`) |
 | :--- | :--- | :--- |
-| ESLint 10.11 | `packages/base-ui/eslint.config.mjs` → `packages/solid/eslint.config.mjs` → `docs/solid/eslint.config.mjs` | `bunx eslint packages/solid/src packages/solid/test docs/solid/src --report-unused-disable-directives --max-warnings 0` |
+| ESLint 10.11 | `packages/base-ui/eslint.config.mjs` → `packages/solid/eslint.config.mjs` → `docs/solid/eslint.config.mjs` → `test/perf-solid/eslint.config.mjs` | `bunx eslint packages/solid/src packages/solid/test docs/solid/src test/perf-solid --report-unused-disable-directives --max-warnings 0` |
 | ESLint RuleTester | `scripts/eslint/testRules.test.mjs` | `bun run test:lint-rules` |
 | stylelint 17 | `packages/base-ui/stylelint.config.mjs` | `docs/solid/**/*.css` only |
 | Vale 3.24 | `packages/base-ui/.vale.ini` (MUI + Google styles) | `bun run valelint`: every tracked `.md`/`.mdx` except `docs/docs-infra`, error level |
