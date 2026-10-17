@@ -310,9 +310,11 @@ const consumerState = <State extends object>(spec: NativeElementSpec<State>, val
 // write of a key winning as on the client; a key the attribute object already holds (a template or
 // literal attribute it overrides), `class` and `style` go into the object, copied before its first
 // write since it starts as the template's shared attributes. The write lists are shared by every
-// element: an element rendered while another writes appends after it and truncates back.
+// element: an element rendered while another writes appends after it and moves the top back. The
+// lists never shrink, so their storage is allocated once, not per element.
 const writeKeys: string[] = [];
 const writeValues: unknown[] = [];
+let writeTop = 0;
 let serverObject: Record<string, unknown> = {};
 let serverObjectShared = false;
 let serverKeys: ReadonlySet<string> = new Set();
@@ -334,20 +336,26 @@ const setServerAttribute: SetAttribute = (key, value) => {
     ownServerObject()[key] = value;
     return;
   }
-  writeKeys.push(key);
-  writeValues.push(value);
+  writeKeys[writeTop] = key;
+  writeValues[writeTop] = value;
+  writeTop += 1;
 };
 
 /**
- * The markup of the writes from `start` on: each key once, its last write winning (the client's
- * object keeps the last write), every value escaped as `ssrElement` escapes attributes. Development
- * warns about a key written twice. Empties the lists back to `start`.
+ * The markup of the writes from `start` to `end`: each key once, its last write winning (the
+ * client's object keeps the last write), every value escaped as `ssrElement` escapes attributes.
+ * Development warns about a key written twice.
  */
-export function takeServerMarkup(keys: string[], values: unknown[], start: number): string {
+export function takeServerMarkup(
+  keys: string[],
+  values: unknown[],
+  start: number,
+  end: number = keys.length,
+): string {
   let markup = '';
-  for (let i = start; i < keys.length; i += 1) {
+  for (let i = start; i < end; i += 1) {
     const key = keys[i];
-    if (keys.indexOf(key, i + 1) !== -1) {
+    if (lastIndexBefore(keys, key, i + 1, end) !== -1) {
       if (process.env.NODE_ENV !== 'production') {
         warn(
           `A native part wrote the \`${key}\` attribute twice on the server; its last write is kept, as on the client. Write each attribute once per element.`,
@@ -364,9 +372,17 @@ export function takeServerMarkup(keys: string[], values: unknown[], start: numbe
       markup += value === '' ? ` ${key}` : ` ${key}="${escape(value as string, true)}"`;
     }
   }
-  keys.length = start;
-  values.length = start;
   return markup;
+}
+
+/** The index of `key` in `keys` from `from` to `end`, or -1. */
+function lastIndexBefore(keys: string[], key: string, from: number, end: number) {
+  for (let i = from; i < end; i += 1) {
+    if (keys[i] === key) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 /** A literal the server renders as an attribute: no ref, handler or function. */
@@ -398,7 +414,7 @@ function renderServerElement<State extends object>(
   const previousObject = serverObject;
   const previousShared = serverObjectShared;
   const previousKeys = serverKeys;
-  const start = writeKeys.length;
+  const start = writeTop;
   serverObject = element.attributes ?? NO_ATTRIBUTES;
   serverObjectShared = true;
   serverKeys = keys;
@@ -448,10 +464,9 @@ function renderServerElement<State extends object>(
       }
     }
     attributes = serverObject;
-    markup = takeServerMarkup(writeKeys, writeValues, start);
+    markup = takeServerMarkup(writeKeys, writeValues, start, writeTop);
   } finally {
-    writeKeys.length = Math.min(writeKeys.length, start);
-    writeValues.length = Math.min(writeValues.length, start);
+    writeTop = start;
     serverObject = previousObject;
     serverObjectShared = previousShared;
     serverKeys = previousKeys;
