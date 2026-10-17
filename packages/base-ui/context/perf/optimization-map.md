@@ -1,7 +1,7 @@
 ---
 tags: [perf, native, optimization, planning]
 sources: [packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useInteractions.ts, packages/base-ui/packages/solid/src/floating-ui-solid/hooks/useFloatingRootContext.ts, packages/base-ui/packages/solid/src/internals/composite/list/CompositeList.tsx, packages/base-ui/packages/solid/src/internals/composite/item/useCompositeItem.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/toast/store.ts, packages/base-ui/packages/solid/src/utils/popups/useInteractionIntent.ts]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Optimization map
@@ -16,6 +16,7 @@ Line numbers were read at b9b813c9. Benchmark ratios are `solid/react` sync from
 - What: when the tag is intrinsic, `render` and sources are static, and the render is a non-hydrating client render, take the native path inside `useRenderElement` itself, so the 150 files that never call the kit benefit.
 - Evidence: Button 11 nodes slow vs 2 native. Slowest mounts are all slow-path: static/progress-meter-1000 7.79x, static/use-render-1000 7.25x, static/separator-input-1000 4.94x, static/button-render-fn-1000 4.11x, toolbar/200 4.66x; heap 3–14x on the same scenarios.
 - Expected: about 9 fewer nodes per simple element; the largest mount and heap gain in the map.
+- Outcome (2026-10-17, D14): rejected. A shared binding either re-reads every key's getter on any change or drops the structure effect that runtime key sets need, and both break `useRenderElement`'s tested contracts; about 1 node of 14 is safe to save generically. The static family is ported part by part through the native kit instead.
 
 ## 2. Accept proxied props in `canRenderNative`
 
