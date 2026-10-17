@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { printCode, transformReactToSolid } from './react-to-solid.mjs';
 
@@ -1083,9 +1085,30 @@ export function Box(props: { render?: unknown }) {
       return props.render;
     },
   });
-  return <>{element}</>;
+  return element();
 }`,
       );
+    });
+
+    it('calls the element useRender returns, so the component creates it', () => {
+      // Solid's useRender returns a function that creates the element. Inserted as a child
+      // (`<>{element}</>`), it would be called inside its parent's insert effect, which would own
+      // the element and re-create it whenever the parent re-ran.
+      const demos = ['render', 'render-callback'].map((name) =>
+        readFileSync(
+          resolve(
+            import.meta.dirname,
+            `../../docs/react/src/app/(docs)/react/utils/use-render/demos/${name}/css-modules/index.tsx`,
+          ),
+          'utf8',
+        ),
+      );
+      for (const demo of demos) {
+        expect(demo).toMatch(/return element;/);
+        const output = transformReactToSolid(demo, { filename: 'index.tsx' });
+        expect(output).toMatch(/return element\(\);/);
+        expect(output).not.toMatch(/\{element\}/);
+      }
     });
   });
 

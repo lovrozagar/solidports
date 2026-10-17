@@ -20,7 +20,7 @@ function Text(props: TextProps) {
       );
     },
   });
-  return <>{element}</>;
+  return element();
 }
 export default function ExampleText() {
   return (

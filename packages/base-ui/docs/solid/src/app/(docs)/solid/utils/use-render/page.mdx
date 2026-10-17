@@ -105,7 +105,7 @@ const Text = function Text(
       return props.render;
     },
   });
-  return <>{element}</>;
+  return element();
 };
 ```
 
@@ -138,7 +138,7 @@ function Button(props: ButtonProps) {
       return mergeProps<'button'>(defaultProps, rest);
     },
   });
-  return <>{element}</>;
+  return element();
 }
 ```
 
@@ -184,7 +184,7 @@ function Button(props) {
       return rest;
     },
   });
-  return <>{_useRender}</>;
+  return _useRender();
 }
 
 // Usage
