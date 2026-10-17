@@ -94,6 +94,12 @@ export interface NativeElementSpec<State extends object> {
   partStyle?: (() => JSX.CSSProperties | undefined) | undefined;
   /** A part style combined above the consumer's (its keys win), e.g. a temporary `animation-name`. */
   styleOverride?: (() => JSX.CSSProperties | undefined) | undefined;
+  /**
+   * The part's write reads a value no signal tracks (a measured animation type), which can change
+   * while hydrating without re-running the attribute effect: reconcile after hydration in any case.
+   * Other parts reconcile only when their effect applied again while hydrating.
+   */
+  reconcileAfterHydration?: boolean | undefined;
   /** Part refs: called with the element on attach and with `null` on unmount. */
   refs?: readonly unknown[] | undefined;
   /** Children the part owns; otherwise the consumer's `children` are inserted. */
@@ -227,6 +233,29 @@ const STATEFUL_TAGS: ReadonlySet<string> = new Set(['INPUT', 'SELECT', 'TEXTAREA
  * hydrating, with no object `class` (whose classes Solid records on the node even then) and no
  * form-control properties.
  */
+let pendingReconciles: Array<[Element, () => void]> | undefined;
+
+/**
+ * Runs `reconcile` once the current `hydrate()` call has returned (a microtask), in one shared
+ * microtask for every element that needs it. An element disconnected by then (its part was
+ * disposed) is skipped.
+ */
+function afterHydration(el: Element, reconcile: () => void): void {
+  if (pendingReconciles === undefined) {
+    pendingReconciles = [];
+    queueMicrotask(() => {
+      const pending = pendingReconciles!;
+      pendingReconciles = undefined;
+      for (const [element, run] of pending) {
+        if (element.isConnected) {
+          run();
+        }
+      }
+    });
+  }
+  pendingReconciles.push([el, reconcile]);
+}
+
 const recordsOnly = (el: Element, next: Record<string, unknown>) =>
   isHydrating() &&
   el.isConnected &&
@@ -595,26 +624,48 @@ function renderClientElement<State extends object>(
   const el = isTemplate(element) ? element.create() : element;
   const hydrating = isHydrating();
   // While hydrating, the first write stands for what the server rendered: the same writer on the
-  // same inputs. The reconcile below diffs against it instead of reading the element back. The
-  // literal attributes are written once, outside the effect, and the template's own attributes
-  // are never written (the compiled element carries them).
-  let hydratedWrite: Record<string, unknown> | undefined;
-  const takeHydratedWrite = (write: Record<string, unknown>) => {
-    hydratedWrite = { ...attributesOf(literal), ...attributesOf(write) };
+  // same inputs (the development check below compares them). Solid writes nothing to a claimed
+  // element while hydrating and only records each write as applied, so an element whose effect
+  // applies again before `hydrate()` returns holds a stale value: only then does it reconcile,
+  // after `hydrate()` has returned, diffing its current attributes against the first write
+  // (kept by reference) instead of reading the element back. A part whose write reads a value no
+  // signal tracks reconciles in any case (`reconcileAfterHydration`). The literal attributes are
+  // written once, outside the effect, and the template's own attributes are never written (the
+  // compiled element carries them).
+  /** The attributes the effect last wrote (or, while hydrating, recorded). */
+  const previous: Record<string, unknown> = {};
+  let firstWrite: Record<string, unknown> | undefined;
+  let reconcileScheduled = false;
+  const reconcile = () => {
+    const written = needsEffect ? attributesOf(untrack(() => write({}, true))) : {};
+    const hydratedWrite = { ...attributesOf(literal), ...attributesOf(firstWrite ?? {}) };
+    assign(el, { ...attributesOf(literal), ...written }, true, hydratedWrite, true);
+    Object.assign(previous, written);
+  };
+  const scheduleReconcile = () => {
+    if (!reconcileScheduled) {
+      reconcileScheduled = true;
+      afterHydration(el, reconcile);
+    }
+  };
+  const takeFirstWrite = (written: Record<string, unknown>) => {
+    firstWrite = written;
     if (process.env.NODE_ENV !== 'production') {
       // Now, while the element still holds the server markup.
-      checkHydratedAttributes(el, isTemplate(element) ? (element.attributes ?? {}) : {}, hydratedWrite);
+      checkHydratedAttributes(el, isTemplate(element) ? (element.attributes ?? {}) : {}, {
+        ...attributesOf(literal),
+        ...attributesOf(written),
+      });
     }
   };
 
   if (!needsEffect) {
     write(literal, false);
-    if (hydrating) {
-      takeHydratedWrite({});
+    if (hydrating && process.env.NODE_ENV !== 'production') {
+      takeFirstWrite({});
     }
   }
   attachNativeAttributes(el, literal, undefined, owner);
-  const previous: Record<string, unknown> = {};
   if (needsEffect) {
     // As `attachNativeAttributes`' effect, with one difference: Solid's `assign` re-sets a string
     // `style` as `cssText` on every run (no equality check), which would wipe properties a part
@@ -626,8 +677,12 @@ function renderClientElement<State extends object>(
       createRenderEffect(
         () => write({}, true),
         (next) => {
-          if (hydrating && hydratedWrite === undefined) {
-            takeHydratedWrite(next);
+          if (hydrating) {
+            if (firstWrite === undefined) {
+              takeFirstWrite(next);
+            } else if (isHydrating()) {
+              scheduleReconcile();
+            }
           }
           if (hydrating && recordsOnly(el, next)) {
             // Solid writes nothing to a claimed element while hydrating and only records the
@@ -656,25 +711,10 @@ function renderClientElement<State extends object>(
     );
   }
 
-  if (hydrating) {
-    // Solid skips attribute writes for the whole synchronous `hydrate()` call (it trusts the server
-    // markup) but records them as applied, so a value that changed inside that call would be lost.
-    // A microtask runs once `hydrate()` has returned: diff the current attributes against the
-    // first write (what the element holds) and write only the difference. Handlers attached
-    // during hydration stay. The effect's later writes diff against its own attributes only, as
-    // outside hydration: the literal ones are written once and must not read as removed.
-    let disposed = false;
-    void onCleanup(() => {
-      disposed = true;
-    });
-    queueMicrotask(() => {
-      if (disposed) {
-        return;
-      }
-      const written = needsEffect ? attributesOf(untrack(() => write({}, true))) : {};
-      assign(el, { ...attributesOf(literal), ...written }, true, hydratedWrite!, true);
-      Object.assign(previous, written);
-    });
+  if (hydrating && needsEffect && spec.reconcileAfterHydration) {
+    // The effect's later writes diff against its own attributes only, as outside hydration: the
+    // literal ones are written once and must not read as removed.
+    scheduleReconcile();
   }
 
   if (source.ref != null) {
