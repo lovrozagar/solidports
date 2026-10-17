@@ -1,6 +1,6 @@
 ---
 tags: [testing, ci, vitest, browsers]
-sources: [package.json, scripts/pinned-bun-test.ts, .github/workflows/base-ui-tests.yml, .github/workflows/base-ui-browser-parity.yml, .github/workflows/base-ui-typescript-next.yml, .github/workflows/ci.yml, packages/base-ui/scripts/test-all.mjs, packages/base-ui/packages/solid/vitest.config.mts, packages/base-ui/packages/solid/vitest.ssr.config.mts, packages/base-ui/vitest.shared.mts, scripts/verify.ts]
+sources: [package.json, packages/base-ui/packages/solid/test/warningCensus.ts, packages/base-ui/scripts/warning-census.mjs, scripts/pinned-bun-test.ts, .github/workflows/base-ui-tests.yml, .github/workflows/base-ui-browser-parity.yml, .github/workflows/base-ui-typescript-next.yml, .github/workflows/ci.yml, packages/base-ui/scripts/test-all.mjs, packages/base-ui/packages/solid/vitest.config.mts, packages/base-ui/packages/solid/vitest.ssr.config.mts, packages/base-ui/vitest.shared.mts, scripts/verify.ts]
 verified: 2026-10-17
 ---
 
@@ -95,6 +95,15 @@ Other workflows:
 - `packages/solid/vitest.ssr.config.mts`: project `@solidports/base-ui:ssr`, Node environment, `test/ssr/**/*.test.ts`.
 - CI retries a failed test once (`retry: process.env.CI ? 1 : 0`).
 - Single component: `bun run test:solid:jsdom NumberField --no-watch` (or `test:solid:chromium`).
+
+## Warning census
+
+`vitest-fail-on-console` fails a test that logs, so a green suite shows no warnings, yet two kinds pass unseen: what `setupSolid.ts` drops (Solid's `[FLUSH_IN_EFFECT_CALLBACK]` about the harness's own flush after an event, which happens when an effect dispatches one, as a browser's parallel iframes do) and what tests assert (`toWarnDev`, `toErrorDev`, `vi.spyOn(console, …)`). The census (`packages/solid/test/warningCensus.ts`, plan 3 leaf 1.10) records every `console.warn` and `console.error` that reaches the console during a test, before any filter: suite, test, Solid code, first line, origin (the first stack frame outside dependencies: `library` under `src/`, `harness` under `test/` or testing-library, `test` in a test file, `dependency` otherwise) and whether the harness swallows it. Asserted messages are expected behavior and stay outside it: the assertion replaces the console method for its span.
+
+    SOLID_WARNING_CENSUS=$PWD/.tmp/census.jsonl bun run test:solid:chromium --run   # or test:solid:jsdom
+    node scripts/warning-census.mjs .tmp/census.jsonl [out.md]
+
+Both environments record: jsdom appends with Node's `fs`, browser mode through the `appendWarningCensus` command in `packages/solid/vitest.config.mts` (the file path is substituted at transform time, since browser mode has no `process.env`). The report counts per suite by kind, origin and swallowed, and lists distinct messages by code or text.
 
 ## Engine matrix
 

@@ -1,7 +1,7 @@
 import { cleanup } from '@solidjs/testing-library';
 import { configure } from '@testing-library/dom';
 import { flush } from 'solid-js';
-import { vi } from 'vitest';
+import { expect, vi } from 'vitest';
 import { reset as resetErrorLog } from '../src/utils/error';
 import { isSurfacedRenderError } from './createRenderer';
 import { resetBrowserPointer } from './resetBrowserPointer';
@@ -155,11 +155,16 @@ function flushAfterEvent() {
   }
 }
 
+/** Whether `message` is Solid's report about the harness's own flush, which the harness drops. */
+function isHarnessFlushReport(message: string) {
+  return harnessFlushDepth > 0 && message.startsWith('[FLUSH_IN_EFFECT_CALLBACK]');
+}
+
 // Registered after the shared setup's console check, so it wraps that check's `console.warn`.
 beforeEach(() => {
   const warn = console.warn;
   console.warn = (...args: unknown[]) => {
-    if (harnessFlushDepth > 0 && String(args[0] ?? '').startsWith('[FLUSH_IN_EFFECT_CALLBACK]')) {
+    if (isHarnessFlushReport(String(args[0] ?? ''))) {
       return;
     }
     warn(...args);
@@ -314,4 +319,42 @@ if (diagFile) {
       return original(...args);
     };
   });
+}
+
+/*
+ * The warning census (`warningCensus.ts`, plan 3 leaf 1.10): with `SOLID_WARNING_CENSUS` naming a
+ * file, every `console.warn` and `console.error` a test logs is appended to it as JSONL with its
+ * suite, test, code and origin. Registered last, so it wraps every filter above and records what
+ * they drop. jsdom writes with Node's `fs`; browser mode sends each line to the Vitest server
+ * (`appendWarningCensus` in `vitest.config.mts`). Not seen: messages logged outside a test,
+ * and the ones a test asserts (`toWarnDev`, `toErrorDev` and `vi.spyOn(console, …)` replace the
+ * console method for their span), which are expected behavior rather than noise.
+ */
+const censusFile = process.env.SOLID_WARNING_CENSUS;
+if (censusFile) {
+  const { createCensus } = await import('./warningCensus');
+  let append: (line: string) => void;
+  if (typeof window !== 'undefined' && !navigator.userAgent.includes('jsdom')) {
+    const { commands } = await import('vitest/browser');
+    const send = (
+      commands as unknown as Record<string, (file: string, line: string) => Promise<void>>
+    ).appendWarningCensus;
+    append = (line) => void send(censusFile, line);
+  } else {
+    const { appendFileSync } = await import('node:fs');
+    append = (line) => appendFileSync(censusFile, line);
+  }
+  const census = createCensus({
+    target: console,
+    write: (entry) => append(`${JSON.stringify(entry)}\n`),
+    context: () => {
+      const state = expect.getState();
+      return {
+        file: (state.testPath ?? '').replace(/^.*packages\/solid\//, ''),
+        test: state.currentTestName ?? '',
+      };
+    },
+    swallowed: isHarnessFlushReport,
+  });
+  beforeEach(() => census.install());
 }
