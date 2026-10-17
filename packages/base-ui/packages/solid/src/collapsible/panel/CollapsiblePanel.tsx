@@ -147,8 +147,20 @@ export function CollapsiblePanel(componentProps: CollapsiblePanel.Props) {
 const OWN_KEYS: ReadonlySet<string> = new Set(['hiddenUntilFound', 'keepMounted', 'id']);
 /** The panel's element: a `<div>`. */
 const PANEL_DIV = { tag: 'div', create: () => (<div />) as unknown as Element };
-/** The temporary style that neutralizes an author-defined open animation. */
-const ANIMATION_NONE: JSX.CSSProperties = { 'animation-name': 'none' };
+const withoutAnimation = new WeakMap<JSX.CSSProperties, JSX.CSSProperties>();
+
+/**
+ * The temporary style that neutralizes an author-defined open animation, followed by
+ * `dimensions`: one shared object per dimension style.
+ */
+function withAnimationNone(dimensions: JSX.CSSProperties): JSX.CSSProperties {
+  let style = withoutAnimation.get(dimensions);
+  if (!style) {
+    style = { 'animation-name': 'none', ...dimensions };
+    withoutAnimation.set(dimensions, style);
+  }
+  return style;
+}
 
 /**
  * Warns in development when `keepMounted={false}` is ignored because `hiddenUntilFound` is set, on
@@ -289,7 +301,13 @@ export function renderNativePanel<State extends CollapsiblePanelState>(
       set('id', id());
       attributes?.(set);
     },
-    styleOverride: () => (panel.shouldPreventOpenAnimation() ? ANIMATION_NONE : undefined),
+    // The suppressed open animation, then the unmeasured dimension variables, on the server and in
+    // the client's first render (D9), above the consumer's style: the client writes the measured
+    // sizes over them, as the slow path's panel writes its variables after the consumer's style.
+    styleOverride: () =>
+      panel.shouldPreventOpenAnimation()
+        ? withAnimationNone(panel.dimensionStyle)
+        : panel.dimensionStyle,
     refs: registerId ? [panel.ref, registerId] : [panel.ref],
   }) as unknown as JSX.Element;
 }
