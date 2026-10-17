@@ -1,7 +1,7 @@
 ---
 tags: [ssr, hydration, testing, native]
 sources: [packages/base-ui/packages/solid/test/hydration, packages/base-ui/packages/solid/test/ssr, packages/base-ui/packages/solid/test/ssrFixtures.ts, packages/base-ui/packages/solid/test/hydrationSentinel.tsx, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/runInLazyScope.ts, packages/base-ui/packages/solid/src/utils/useId.ts, packages/base-ui/scripts/docs/templates/src/adapters/react.ts]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # SSR and hydration
@@ -22,7 +22,7 @@ Verified against the published rc.15 `solid-js`, `@solidjs/web` and `@solidjs/si
 
 Rules that follow for library code:
 
-- Create id-consuming primitives unconditionally and in the same order on both sides. Never branch on `isServer` or `isHydrating()` in a way that changes how many such nodes exist.
+- Create id-consuming primitives unconditionally and in the same order on both sides. Never branch in a way that makes hydration's owners differ from the server's. A branch on `isHydrating()` is safe when the hydrating side creates what the server did: nothing created outside hydration is claimed (the slow path's branch renders `<Dynamic>` while hydrating, as the server does, and the element directly otherwise).
 - Machinery created later (first open, first read) goes through `runInLazyScope(owner, create)` (`src/utils/runInLazyScope.ts`). It wraps the work in an owner with its own id (`<owner id>-<n>-`), so the owner's later children keep the server's keys. A single late computation can pass `transparent: true` instead.
 
 ## Why the native kit opts out
