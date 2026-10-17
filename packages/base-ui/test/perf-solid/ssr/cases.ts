@@ -22,6 +22,16 @@ export const ssrCases: readonly SsrCase[] = [
     tags: ['ssr', 'hydrate', 'scale-100', 'controlled'],
   },
   {
+    id: 'accordion/300-open',
+    components: ['accordion'],
+    tags: ['ssr', 'hydrate', 'scale-100', 'controlled', 'open'],
+  },
+  {
+    id: 'accordion/300-open-floor',
+    components: ['accordion'],
+    tags: ['ssr', 'hydrate', 'scale-100', 'controlled', 'open'],
+  },
+  {
     id: 'checkbox/1000',
     components: ['checkbox'],
     tags: ['ssr', 'hydrate', 'scale-1000', 'uncontrolled'],
@@ -35,6 +45,16 @@ export const ssrCases: readonly SsrCase[] = [
     id: 'collapsible/300-floor',
     components: ['collapsible'],
     tags: ['ssr', 'hydrate', 'scale-100', 'controlled'],
+  },
+  {
+    id: 'collapsible/300-open',
+    components: ['collapsible'],
+    tags: ['ssr', 'hydrate', 'scale-100', 'controlled', 'open'],
+  },
+  {
+    id: 'collapsible/300-open-floor',
+    components: ['collapsible'],
+    tags: ['ssr', 'hydrate', 'scale-100', 'controlled', 'open'],
   },
   {
     id: 'dialog/page',
