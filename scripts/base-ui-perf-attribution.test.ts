@@ -143,6 +143,19 @@ describe("perf attribution", () => {
 		expect(result.totalMs).toBe(30.5)
 	})
 
+	test("flushSync is a funnel: the work it flushes goes to the code that called it", () => {
+		const flush = frame(`${SRC}/utils/flushSync.ts`, "flushSync")
+		const caller = frame(`${SRC}/utils/popups/popupStoreUtils.ts`, "changeState")
+		const result = attributeCpu(
+			cpuProfile([
+				{ stack: [caller, flush, runtime], ms: 3 },
+				{ stack: [caller, flush], ms: 0.5 },
+			]),
+			resolve,
+		)
+		expect(result.ms).toEqual({ "file:utils/popups/popupStoreUtils.ts": 3, flush: 0.5 })
+	})
+
 	test("allocations go to the same buckets by the same rule", () => {
 		const bytes = attributeAllocations(
 			heapProfile([
