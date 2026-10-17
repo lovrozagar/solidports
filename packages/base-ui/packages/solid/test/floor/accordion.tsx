@@ -11,6 +11,7 @@
 import {
   createComponent,
   createContext,
+  createMemo,
   createOwner,
   createSignal,
   createUniqueId,
@@ -27,6 +28,8 @@ import { conditional } from './conditional';
 
 interface FloorRoot {
   value: Accessor<readonly string[]>;
+  /** Whether `item` is open: one set per root value, so a read is constant time. */
+  isOpen: (item: string) => boolean;
   toggle: (item: string, open: boolean) => void;
   nextIndex: () => number;
 }
@@ -103,9 +106,11 @@ export function FloorAccordionRoot(props: {
   // The default is read once, as an uncontrolled default; `value` controls when set.
   const [internalValue, setValue] = createSignal<readonly string[]>(props.defaultValue ?? []);
   const value = () => props.value ?? internalValue();
+  const openItems = createMemo(() => new Set(value()));
   let count = 0;
   const root: FloorRoot = {
     value,
+    isOpen: (item) => openItems().has(item),
     toggle: (item, open) => {
       const current = value();
       if (open) {
@@ -126,7 +131,7 @@ export function FloorAccordionRoot(props: {
 
 export function FloorAccordionItem(props: { value: string; children?: JSX.Element }) {
   const root = useContext(RootContext)!;
-  const open = () => root.value().includes(props.value);
+  const open = () => root.isOpen(props.value);
   // The item's index is its creation order, the same on the server and the hydrating client.
   const created = root.nextIndex();
   const index = () => created;

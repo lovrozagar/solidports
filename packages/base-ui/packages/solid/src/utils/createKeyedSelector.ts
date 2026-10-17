@@ -37,10 +37,22 @@ export function createKeyedSelector(values: Accessor<readonly unknown[]>): (key:
     }
   }, {});
   // The server renders once, so nothing re-runs: a key is looked up in `values`, as the floor does,
-  // instead of read from the projection (a proxy read and a property name per call). `includes`
+  // instead of read from the projection (a proxy read and a property name per call). The lookup
   // keeps numbers and strings apart and compares anything else by identity, as the projection does.
   if (isServer) {
-    return (key) => values().includes(key);
+    // One set per values array: an item reads its membership several times, and a page renders
+    // every item, so `includes` per read is quadratic when many items are open. `Set` compares as
+    // `includes` does (SameValueZero).
+    let last: readonly unknown[] | undefined;
+    let members: ReadonlySet<unknown> = new Set();
+    return (key) => {
+      const current = values();
+      if (current !== last) {
+        last = current;
+        members = new Set(current);
+      }
+      return members.has(key);
+    };
   }
   return (key) => (isKey(key) ? membership[slot(key)] === true : values().includes(key));
 }
