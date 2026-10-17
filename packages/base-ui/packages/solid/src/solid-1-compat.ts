@@ -56,17 +56,35 @@ export function mergeProps<T extends (object | null | undefined)[]>(
   return target as MergePropsResult<T>;
 }
 
+interface Picked {
+  props: Record<PropertyKey, unknown>;
+  // Prop keys are strings (or symbols): what a proxy's `ownKeys` may list.
+  keys: readonly (string | symbol)[];
+}
+
+// One handler for every picked group: a group is a view over `props` limited to its keys, each
+// read live, as a getter per key was. A getter defined per key on every call was the shims' largest
+// cost on the server, where each picked key is read about once; a group is read a handful of times
+// at most, under the 70 reads a pick where a getter's faster read would pay for its definition.
+const pickedHandler: ProxyHandler<Picked> = {
+  get: (target, key) => (target.keys.includes(key) ? target.props[key] : undefined),
+  has: (target, key) => target.keys.includes(key),
+  ownKeys: (target) => [...target.keys],
+  getOwnPropertyDescriptor: (target, key) =>
+    target.keys.includes(key)
+      ? { configurable: true, enumerable: true, get: () => target.props[key], set() {} }
+      : undefined,
+  // Writes are ignored, as a getter without a working setter ignored them.
+  set: () => true,
+  defineProperty: () => true,
+  deleteProperty: () => true,
+};
+
 function pickProps<T extends object>(props: T, keys: readonly (keyof T)[]) {
-  const picked: Partial<T> = {};
-  for (const key of keys) {
-    Object.defineProperty(picked, key, {
-      enumerable: true,
-      configurable: true,
-      get: () => props[key],
-      set() {},
-    });
-  }
-  return picked as Pick<T, (typeof keys)[number]>;
+  return new Proxy<Picked>(
+    { props: props as Record<PropertyKey, unknown>, keys: keys as readonly (string | symbol)[] },
+    pickedHandler,
+  ) as unknown as Pick<T, (typeof keys)[number]>;
 }
 
 export type SplitProps<T, K extends (readonly (keyof T)[])[]> = [
