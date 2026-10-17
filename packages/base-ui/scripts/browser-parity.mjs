@@ -5,12 +5,13 @@
 // environment's, not the port's.
 //
 // With `--confirm <browser>`, the files of the Solid-only failures run again for both suites
-// (CONFIRM_RUNS times). A failure is confirmed when Solid fails it in every rerun and upstream
-// passes it in at least one (or upstream has no such test); the others are listed as not
-// confirmed, with both sides' counts. Only confirmed failures fail the check. Ten reruns hold both
-// errors under 1% for a test that fails in both suites: on CI's WebKit, upstream fails some
-// Popover tests in a third to four fifths of its runs, and two reruns confirmed a Solid test
-// failing 60% of runs by chance.
+// (CONFIRM_RUNS times). A failure is confirmed when Solid fails it in every rerun and fails it
+// significantly more often than upstream: a one-sided Fisher exact p under ALPHA (or upstream has
+// no such test). A failure Solid failed in every rerun that the reruns cannot settle runs 10 more
+// times, all such files together, and is decided at MAX_CONFIRM_RUNS. The rest are listed as not
+// confirmed; every line prints both counts and p. Only confirmed failures fail the check. On CI's
+// WebKit both suites fail some tests in many runs (upstream fails Popover's Enter-or-Space test
+// in 7 of 10 reruns), so a rule that needs only one passing upstream rerun confirms by chance.
 //
 // Each report must cover its suite: every test file on disk under its source folder ran at least
 // one test (passed, failed or skipped). A run that never started, or a file that failed to load,
@@ -23,29 +24,67 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/**
- * Reruns per suite. For a test failing 60% of runs in Solid and 37% upstream, a Solid flake
- * confirms with 0.6^10 (0.6%) and a deterministic Solid break goes unconfirmed with 0.37^10.
- */
+/** Reruns per suite in the first stage; a Solid flake failing 60% of runs passes one of them but 0.6%. */
 export const CONFIRM_RUNS = 10;
+/** Reruns per suite after the second stage, for failures the first could not settle. */
+export const MAX_CONFIRM_RUNS = 20;
+/** The p a confirmed failure stays under at each look (two looks: at most 2% per test). */
+export const ALPHA = 0.01;
+
+const choose = (n, k) => {
+  let value = 1;
+  for (let i = 0; i < k; i += 1) {
+    value = (value * (n - i)) / (i + 1);
+  }
+  return value;
+};
+
+/**
+ * The one-sided Fisher exact p that Solid fails at least `solidFailed` of `solidRuns` reruns
+ * when both suites share one failure rate, given upstream failed `upstreamFailed` of
+ * `upstreamRuns`.
+ */
+export function fisherOneSided(solidFailed, solidRuns, upstreamFailed, upstreamRuns) {
+  const failures = solidFailed + upstreamFailed;
+  const total = solidRuns + upstreamRuns;
+  let p = 0;
+  for (let x = solidFailed; x <= Math.min(solidRuns, failures); x += 1) {
+    p += (choose(failures, x) * choose(total - failures, solidRuns - x)) / choose(total, solidRuns);
+  }
+  return Math.min(1, p);
+}
 
 /**
  * Splits Solid-only failures (`{ key, upstream }`) by the reruns of both suites (maps from test
- * key to result): confirmed when Solid fails the test in every rerun and upstream passes it in at
- * least one (or has no such test), not confirmed otherwise. Each entry gets the counts:
- * `solidFailed` and `upstreamPassed` of `runs`.
+ * key to result): confirmed when Solid fails the test in every rerun and the one-sided Fisher
+ * exact p of Solid failing more than upstream is under ALPHA (or upstream has no such test). Each
+ * entry gets `solidFailed`, `upstreamPassed`, `runs` and `p`, and `inconclusive` when Solid failed
+ * every rerun but fewer than MAX_CONFIRM_RUNS ran and p is not yet under ALPHA.
  */
 export function confirm(entries, solidRuns, reactRuns) {
   const confirmed = [];
   const unconfirmed = [];
   for (const entry of entries) {
+    const runs = solidRuns.length;
     const solidFailed = solidRuns.filter((run) => run.get(entry.key)?.status === 'failed').length;
+    const upstreamFailed = reactRuns.filter(
+      (run) => run.get(entry.key)?.status === 'failed',
+    ).length;
     const upstreamPassed = reactRuns.filter(
       (run) => run.get(entry.key)?.status === 'passed',
     ).length;
-    const counted = { ...entry, solidFailed, upstreamPassed, runs: solidRuns.length };
-    const isConfirmed =
-      solidFailed === solidRuns.length && (entry.upstream === 'absent' || upstreamPassed > 0);
+    const absent = entry.upstream === 'absent';
+    const p = absent ? 0 : fisherOneSided(solidFailed, runs, upstreamFailed, reactRuns.length);
+    const solidAlwaysFails = solidFailed === runs;
+    const isConfirmed = solidAlwaysFails && (absent || p < ALPHA);
+    const counted = {
+      ...entry,
+      solidFailed,
+      upstreamPassed,
+      runs,
+      p,
+      inconclusive: solidAlwaysFails && !isConfirmed && runs < MAX_CONFIRM_RUNS,
+    };
     (isConfirmed ? confirmed : unconfirmed).push(counted);
   }
   return { confirmed, unconfirmed };
@@ -145,7 +184,11 @@ function main() {
     if (react.get(key)?.status === 'failed') {
       shared += 1;
     } else {
-      solidOnly.push({ key, message: result.message, upstream: react.get(key)?.status ?? 'absent' });
+      solidOnly.push({
+        key,
+        message: result.message,
+        upstream: react.get(key)?.status ?? 'absent',
+      });
     }
   }
   const upstreamOnly = [...react].filter(
@@ -155,24 +198,42 @@ function main() {
   const unconfirmed = [];
   if (browser && solidOnly.length > 0) {
     const relative = (file) => path.relative(process.cwd(), file);
-    const solidFiles = [...new Set(solidOnly.map(({ key }) => relative(solid.get(key).file)))];
-    const reactFiles = [
-      ...new Set(
-        solidOnly
-          .map(({ key }) => react.get(key)?.file)
-          .filter(Boolean)
-          .map(relative),
-      ),
-    ];
     const solidRuns = [];
     const reactRuns = [];
-    for (let attempt = 0; attempt < CONFIRM_RUNS; attempt += 1) {
-      solidRuns.push(rerun(`test:solid:${browser}`, solidFiles, 'packages/solid/src/'));
-      if (reactFiles.length > 0) {
-        reactRuns.push(rerun(`test:${browser}`, reactFiles, 'packages/react/src/'));
+    /** Reruns both suites' files of `entries` `count` times, one invocation per suite each time. */
+    const rerunFiles = (entries, count) => {
+      const files = (results) => [
+        ...new Set(
+          entries
+            .map((entry) => results.get(entry.key)?.file)
+            .filter(Boolean)
+            .map(relative),
+        ),
+      ];
+      const solidFiles = files(solid);
+      const reactFiles = files(react);
+      for (let attempt = 0; attempt < count; attempt += 1) {
+        solidRuns.push(rerun(`test:solid:${browser}`, solidFiles, 'packages/solid/src/'));
+        if (reactFiles.length > 0) {
+          reactRuns.push(rerun(`test:${browser}`, reactFiles, 'packages/react/src/'));
+        }
       }
+    };
+    rerunFiles(solidOnly, CONFIRM_RUNS);
+    let { confirmed, unconfirmed: notConfirmed } = confirm(solidOnly, solidRuns, reactRuns);
+    const open = notConfirmed.filter((entry) => entry.inconclusive);
+    if (open.length > 0) {
+      // All the open failures' files in one batch, not one per test, so the extra time stays
+      // bounded: about 22 s per rerun pair on CI, so the 10 more add about 4 minutes. Every rerun
+      // so far ran their files, so they are judged on all MAX_CONFIRM_RUNS.
+      rerunFiles(open, MAX_CONFIRM_RUNS - CONFIRM_RUNS);
+      const second = confirm(open, solidRuns, reactRuns);
+      confirmed = [...confirmed, ...second.confirmed];
+      notConfirmed = [
+        ...notConfirmed.filter((entry) => !entry.inconclusive),
+        ...second.unconfirmed,
+      ];
     }
-    const { confirmed, unconfirmed: notConfirmed } = confirm(solidOnly, solidRuns, reactRuns);
     unconfirmed.push(...notConfirmed);
     solidOnly = confirmed;
   }
@@ -180,9 +241,11 @@ function main() {
   const counts = (entry) =>
     entry.runs === undefined
       ? ''
-      : ` (Solid failed ${entry.solidFailed}/${entry.runs}, upstream passed ${entry.upstreamPassed}/${entry.runs})`;
+      : ` (Solid failed ${entry.solidFailed}/${entry.runs}, upstream passed ${entry.upstreamPassed}/${entry.runs}, p ${entry.p.toPrecision(2)})`;
   for (const entry of solidOnly.sort((a, b) => a.key.localeCompare(b.key))) {
-    console.log(`- [upstream: ${entry.upstream}] ${entry.key}${counts(entry)}\n    ${entry.message}`);
+    console.log(
+      `- [upstream: ${entry.upstream}] ${entry.key}${counts(entry)}\n    ${entry.message}`,
+    );
   }
   for (const entry of unconfirmed) {
     console.log(`- not confirmed${counts(entry)}: ${entry.key}`);
