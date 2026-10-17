@@ -83,6 +83,29 @@ class Scheduler {
 
 let scheduler = new Scheduler();
 
+/** The callbacks queued for the task after the current frame, which runs them together. */
+let afterFrame: Array<() => void> = [];
+let afterFrameTimer: ReturnType<typeof setTimeout> | undefined;
+
+function runAfterFrame() {
+  const callbacks = afterFrame;
+  afterFrame = [];
+  afterFrameTimer = undefined;
+  for (const callback of callbacks) {
+    callback();
+  }
+}
+
+/**
+ * Queues `callback` for one task shared by every callback queued before it runs: called from frame
+ * callbacks, every element's after-paint work of one frame runs in a single task, so its writes
+ * flush once, where a task each would flush once per element.
+ */
+export function queueAfterFrame(callback: () => void) {
+  afterFrame.push(callback);
+  afterFrameTimer ??= setTimeout(runAfterFrame);
+}
+
 /**
  * Replaces the shared scheduler and drops all pending animation frame callbacks.
  *
@@ -92,6 +115,8 @@ let scheduler = new Scheduler();
  * such leftovers.
  */
 export function resetAnimationFrameScheduler() {
+  afterFrame = [];
+  afterFrameTimer = undefined;
   const previous = scheduler;
   scheduler = new Scheduler();
   // Continue the id sequence so `cancel()` calls from `AnimationFrame` instances created before the

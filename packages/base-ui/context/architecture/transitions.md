@@ -23,13 +23,13 @@ Open/close animation runs on a four-value `transitionStatus` machine (`useTransi
 | `ending` | `open` is false, element still mounted, exit animation runs | `data-ending-style` |
 | `undefined` | Closed and unmounted, or open without the idle state | none |
 
-Signature: `useTransitionStatus(open, enableIdleState?, deferEndingState?, animateInitialOpen?, canStayMounted?)`, all `MaybeAccessor`. It returns `{ mounted, setMounted, transitionStatus }`.
+Signature: `useTransitionStatus(open, enableIdleState?, deferEndingState?, animateInitialOpen?, canStayMounted?)`: `open`, `animateInitialOpen` and `canStayMounted` are `MaybeAccessor`, `enableIdleState` and `deferEndingState` plain booleans fixed for the element's lifetime (the frames are scheduled from them). It returns `{ mounted, setMounted, transitionStatus }`.
 
 - `mounted` and `transitionStatus` are function-form `createSignal`s (writable computeds). They re-derive when `open` changes and keep values written by frame callbacks or `setMounted` until the next input change. React sets them during render; copying them from an effect would render one flush with a stale status.
 - `setMounted(false)` bumps an unmount-request signal that the `mounted` computed reads, so a reopen in the same flush still wins, as React's `open && !mounted` does.
 - An element that mounts already open skips `starting` (goes to `idle`, or `undefined` without the idle state) unless `animateInitialOpen` is set.
-- Two frame effects run in one `createEffectGroup` node: the deferred `ending` (one `AnimationFrame` after close when `deferEndingState`) and the `starting` → `idle` step. They are created lazily, through `runInLazyScope`, the first time the element is open or mounted, so a closed element pays for two computeds only.
-- `starting` → `idle` uses `requestAfterPaint`: a `setTimeout` queued from a rAF. Solid 2 flushes a write in the rAF callback itself, before style recalc, so a plain rAF would remove `data-starting-style` before the browser ever styled it and CSS transitions would never start.
+- The two frames, the deferred `ending` (one `AnimationFrame` after close when `deferEndingState`) and the `starting` → `idle` step, are scheduled by the `transitionStatus` computation itself when their inputs change (open for the idle step; open, mounted and the new status for the ending), cancelled when those change again, and cancelled on cleanup. No effect node: an element costs its two computeds, open or closed (plan 3 leaf 5.1.3; the effect group it replaced was a node on every first open).
+- `starting` → `idle` uses `requestAfterPaint`: a task queued from a rAF. Solid 2 flushes a write in the rAF callback itself, before style recalc, so a plain rAF would remove `data-starting-style` before the browser ever styled it and CSS transitions would never start. Every element's after-paint callback of one frame runs in one shared task (`queueAfterFrame` in `useAnimationFrame.ts`, reset with the frame scheduler), so their writes flush once: 300 panels opening together leave `starting` in one batch, where a task each cost a flush each.
 
 ## Animations finished
 

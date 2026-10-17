@@ -1,9 +1,7 @@
-import { createSignal, getOwner, untrack } from 'solid-js';
-import { createEffectGroup } from './native/effectGroup';
+import { createSignal, onCleanup, untrack } from 'solid-js';
 import { access } from '../solid-helpers';
 import type { MaybeAccessor } from '../solid-helpers';
-import { AnimationFrame } from './useAnimationFrame';
-import { runInLazyScope } from './runInLazyScope';
+import { AnimationFrame, queueAfterFrame } from './useAnimationFrame';
 
 export type TransitionStatus = 'starting' | 'ending' | 'idle' | undefined;
 
@@ -12,23 +10,30 @@ export type TransitionStatus = 'starting' | 'ending' | 'idle' | undefined;
  * scheduler task after that frame paints, so `[data-starting-style]` is styled for one frame.
  * Solid 2 flushes the write in the rAF callback itself, before the frame's style recalc, and CSS
  * transitions never start; a task queued from the rAF runs after the frame renders, as React's.
+ * Every element's callback of one frame runs in the same task (`queueAfterFrame`), so their writes
+ * flush once: 300 panels opening together leave `'starting'` in one batch, not a task each.
  */
 function requestAfterPaint(callback: () => void) {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let cancelled = false;
   const frame = AnimationFrame.request(() => {
-    timeout = setTimeout(callback);
+    queueAfterFrame(() => {
+      if (!cancelled) {
+        callback();
+      }
+    });
   });
   return () => {
+    cancelled = true;
     AnimationFrame.cancel(frame);
-    clearTimeout(timeout);
   };
 }
 
 /**
  * Provides a status string for CSS animations.
  * @param open - an accessor to a boolean that determines if the element is open.
- * @param enableIdleState - a boolean that enables the `'idle'` state between `'starting'` and `'ending'`
- * @param deferEndingState - a boolean that delays the `'ending'` state by a frame
+ * @param enableIdleState - enables the `'idle'` state between `'starting'` and `'ending'`; a plain
+ *   boolean, fixed for the element's lifetime (the frames are scheduled from it)
+ * @param deferEndingState - delays the `'ending'` state by a frame; a plain boolean, as above
  * @param animateInitialOpen - a boolean that makes an element which mounts already open still go
  *   through `'starting'`. Off by default so content that was open on the first render (a
  *   `defaultOpen` popup on page load, SSR'd markup) doesn't animate in.
@@ -37,14 +42,14 @@ function requestAfterPaint(callback: () => void) {
  */
 export function useTransitionStatus(
   open: MaybeAccessor<boolean>,
-  enableIdleState: MaybeAccessor<boolean> = false,
-  deferEndingState: MaybeAccessor<boolean> = false,
+  enableIdleState = false,
+  deferEndingState = false,
   animateInitialOpen: MaybeAccessor<boolean> = false,
   canStayMounted: MaybeAccessor<boolean> = true,
 ) {
   const openProp = () => Boolean(access(open));
-  const enableIdleStateProp = () => Boolean(access(enableIdleState));
-  const deferEndingStateProp = () => Boolean(access(deferEndingState));
+  const idleEnabled = enableIdleState;
+  const deferEnding = deferEndingState;
 
   // React updates `mounted` and `transitionStatus` during render when `open` flips. Solid derives
   // them in the same flush instead: writable memos re-derive whenever their inputs change, and keep
@@ -71,28 +76,64 @@ export function useTransitionStatus(
   // `setMounted(false)` unmounts even when a reopen in the same flush re-derives `mounted` as
   // `true`, so the reopen enters `'starting'` as React's `open && !mounted` does.
   let unmountedExplicitly = false;
-  // The two frame-scheduling effects below only have work once the element is open or mounted:
-  // an element that starts closed (a collapsed panel, a closed popup) gets them when it first
-  // opens, owned by this hook's owner. Each keeps its own dependencies and cleanup.
-  const owner = getOwner();
-  let effectsCreated = false;
-  // The status signal is created below; its initial computation must not create the effects (they
-  // read the signal), so the creation from the computation starts after the initial one.
-  let initialized = false;
-  const ensureEffects = () => {
-    if (effectsCreated) {
-      return;
-    }
-    effectsCreated = true;
-    runInLazyScope(owner, () => untrack(createEffects));
-  };
+  // The two frames React's effects schedule (the idle status after the opening frame paints, and a
+  // deferred `'ending'`) are scheduled here, from the status computation, when their inputs change,
+  // and cancelled when those change again or the element is disposed: an effect per element would
+  // be a node each, created on every first open. Neither frame's write can start the other's
+  // (`'idle'` is written while open, `'ending'` while closed), so nothing a write changes needs a
+  // new decision.
+  let wasOpenForIdle: boolean | undefined;
+  let cancelIdle: (() => void) | undefined;
+  let endingInputs: string | undefined;
+  let endingFrame: ReturnType<typeof AnimationFrame.request> | undefined;
+  void onCleanup(() => {
+    cancelIdle?.();
+    cancelEnding();
+  });
   const [transitionStatus, setTransitionStatus] = createSignal<TransitionStatus>((prev) => {
     const isOpen = openProp();
     const isMounted = mounted();
-    if (initialized && (isOpen || isMounted)) {
-      ensureEffects();
+    const next = nextStatus(prev, isOpen, isMounted);
+    scheduleFrames(isOpen, isMounted, next);
+    return next;
+  });
+
+  function cancelEnding() {
+    if (endingFrame !== undefined) {
+      AnimationFrame.cancel(endingFrame);
+      endingFrame = undefined;
     }
-    const deferEnding = deferEndingStateProp();
+  }
+
+  // Function declarations, so the status computation can call them; their frame callbacks write
+  // the status, after it exists.
+  function scheduleFrames(isOpen: boolean, isMounted: boolean, status: TransitionStatus) {
+    if (isOpen !== wasOpenForIdle) {
+      wasOpenForIdle = isOpen;
+      cancelIdle?.();
+      cancelIdle = undefined;
+      // Nothing to clear when the element mounted open or reopened after its exit settled.
+      if (isOpen && (idleEnabled || status !== undefined)) {
+        cancelIdle = requestAfterPaint(() => {
+          cancelIdle = undefined;
+          setTransitionStatus(idleEnabled ? 'idle' : undefined);
+        });
+      }
+    }
+    const inputs = `${isOpen}|${isMounted}|${status}`;
+    if (inputs !== endingInputs) {
+      endingInputs = inputs;
+      cancelEnding();
+      if (!isOpen && isMounted && status !== 'ending' && deferEnding) {
+        endingFrame = AnimationFrame.request(() => {
+          endingFrame = undefined;
+          setTransitionStatus('ending');
+        });
+      }
+    }
+  }
+
+  function nextStatus(prev: TransitionStatus, isOpen: boolean, isMounted: boolean) {
     const wasOpen = previouslyOpen;
     const wasMounted = (previouslyMounted && !unmountedExplicitly) || mountedExplicitly;
     previouslyOpen = isOpen;
@@ -109,7 +150,7 @@ export function useTransitionStatus(
       if (untrack(() => access(animateInitialOpen))) {
         return 'starting';
       }
-      return untrack(enableIdleStateProp) ? 'idle' : undefined;
+      return idleEnabled ? 'idle' : undefined;
     }
 
     if (isOpen) {
@@ -117,7 +158,7 @@ export function useTransitionStatus(
         return prev;
       }
       // With the idle state, React's idle effect restarts `'starting'` for a reopened element.
-      return wasMounted && !untrack(enableIdleStateProp) ? prev : 'starting';
+      return wasMounted && !idleEnabled ? prev : 'starting';
     }
 
     if (isMounted) {
@@ -125,40 +166,6 @@ export function useTransitionStatus(
     }
 
     return prev === 'ending' ? undefined : prev;
-  });
-
-  function createEffects() {
-    // One node for both frame-scheduling effects; each keeps its own deps and cleanup.
-    createEffectGroup([
-      {
-        deps: () => [openProp(), mounted(), transitionStatus(), deferEndingStateProp()] as const,
-        apply([isOpen, isMounted, status, deferEnding]) {
-          if (!isOpen && isMounted && status !== 'ending' && deferEnding) {
-            const frame = AnimationFrame.request(() => setTransitionStatus('ending'));
-            return () => AnimationFrame.cancel(frame);
-          }
-          return undefined;
-        },
-      },
-      {
-        deps: () => [openProp(), enableIdleStateProp()] as const,
-        apply([isOpen, idleEnabled]) {
-          // Nothing to clear when the element mounted open or reopened after its exit settled.
-          if (!isOpen || (!idleEnabled && untrack(transitionStatus) === undefined)) {
-            return undefined;
-          }
-
-          return requestAfterPaint(() => setTransitionStatus(idleEnabled ? 'idle' : undefined));
-        },
-      },
-    ]);
-  }
-
-  // The initial status is computed above; an element that starts open or mounted has its effects
-  // already. One that starts closed creates them from the status computation when it first opens.
-  initialized = true;
-  if (untrack(() => openProp() || mounted())) {
-    ensureEffects();
   }
 
   return {
