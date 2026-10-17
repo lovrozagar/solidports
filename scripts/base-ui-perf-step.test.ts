@@ -48,12 +48,17 @@ const ctx = {
 } as unknown as StepContext
 
 /** A popup that closes on a timer after the action, as safePolygon's 40 ms close does. */
+/** When the closing step ran and when its close landed, by `performance.now()`. */
+const closing = { ranAt: 0, closedAt: 0 }
+
 function closingStep(): Step {
 	let open = true
 	return {
 		name: "leave",
 		run: () => {
+			closing.ranAt = performance.now()
 			setTimeout(() => {
+				closing.closedAt = performance.now()
 				open = false
 				mutate()
 			}, 40)
@@ -82,7 +87,9 @@ describe("perf harness step", () => {
 		frameMs = 200
 		const result = await runStep(closingStep(), ctx)
 		expect(result.error).toBeNull()
-		expect(result.settled).toBeGreaterThanOrEqual(40)
+		// At the close, measured from the step's start, which comes just before it runs. Not at 40:
+		// a timer can fire early on this clock (Bun 1.3.11 fired a 40 ms timeout at 39.2 ms).
+		expect(result.settled).toBeGreaterThanOrEqual(closing.closedAt - closing.ranAt)
 		expect(result.settled).toBeLessThan(200)
 	})
 
