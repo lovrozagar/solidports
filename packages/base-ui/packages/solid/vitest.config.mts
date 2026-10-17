@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import solidPlugin from '@solidjs/vite-plugin';
@@ -6,11 +6,11 @@ import { defineProject, mergeConfig } from 'vitest/config';
 // eslint-disable-next-line import/no-relative-packages
 import sharedConfig from '../../vitest.shared.mts';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_DIR = dirname(fileURLToPath(import.meta.url));
 const IN_BROWSER = ['chromium', 'firefox', 'webkit', 'all-browsers'].includes(
   process.env.VITEST_ENV ?? '',
 );
-const WORKSPACE_ROOT = resolve(__dirname, '../..');
+const WORKSPACE_ROOT = resolve(PACKAGE_DIR, '../..');
 
 /*
  * Every dependency the browser tests load, optimized in one pass up front. Vite otherwise discovers
@@ -23,7 +23,7 @@ const DATE_FNS_MODULES = [
   'src/internals/temporal-adapter-date-fns/TemporalAdapterDateFns.test.ts',
 ].flatMap((file) =>
   Array.from(
-    readFileSync(resolve(__dirname, file), 'utf8').matchAll(/from '(date-fns\/[^']+)'/g),
+    readFileSync(resolve(PACKAGE_DIR, file), 'utf8').matchAll(/from '(date-fns\/[^']+)'/g),
     (match) => match[1],
   ),
 );
@@ -53,6 +53,10 @@ export default mergeConfig(
   defineProject({
     define: {
       'process.env.NODE_ENV': JSON.stringify('test'),
+      // The warning census's file (`test/warningCensus.ts`), substituted so browser mode sees it.
+      ...(process.env.SOLID_WARNING_CENSUS
+        ? { 'process.env.SOLID_WARNING_CENSUS': JSON.stringify(process.env.SOLID_WARNING_CENSUS) }
+        : {}),
     },
     plugins: [solidPlugin({ solid: { hydratable: true } }) as any],
     optimizeDeps: {
@@ -60,7 +64,7 @@ export default mergeConfig(
     },
     resolve: {
       alias: {
-        '@solidports/base-ui': resolve(__dirname, 'src'),
+        '@solidports/base-ui': resolve(PACKAGE_DIR, 'src'),
       },
     },
     server: {
@@ -74,18 +78,32 @@ export default mergeConfig(
       // the shipped files with Node APIs: they run under jsdom, and browsers can't load them.
       exclude: ['test/ssr/**', ...(IN_BROWSER ? ['test/package/**'] : [])],
       // Hydration fixtures are server-rendered in Node up front (browser mode has no SSR loader).
-      globalSetup: [resolve(__dirname, 'test/hydration/globalSetup.ts')],
+      globalSetup: [resolve(PACKAGE_DIR, 'test/hydration/globalSetup.ts')],
       setupFiles: [
-        resolve(__dirname, 'test/disableAutoCleanup.ts'),
-        resolve(__dirname, 'test/setupSolid.ts'),
+        resolve(PACKAGE_DIR, 'test/disableAutoCleanup.ts'),
+        resolve(PACKAGE_DIR, 'test/setupSolid.ts'),
       ],
       // The only browser project in its run: a taken port fails it rather than moving it.
-      browser: { api: { strictPort: true } },
+      browser: {
+        api: { strictPort: true },
+        // The warning census (`test/warningCensus.ts`) appends its lines through the server in
+        // browser mode, where the test has no file system.
+        commands: {
+          appendWarningCensus: (_context, file: string, line: string) => {
+            appendFileSync(file, line);
+          },
+        },
+      },
       // TODO: Remove this once we have solved the PopoverPopup test timeout issue.
       // testTimeout: 500,
       server: {
         deps: {
-          inline: [/^solid-js/, /^@solidjs\//, /solid-js\/dist/, /@solidjs\/(web|signals|testing-library|router)/],
+          inline: [
+            /^solid-js/,
+            /^@solidjs\//,
+            /solid-js\/dist/,
+            /@solidjs\/(web|signals|testing-library|router)/,
+          ],
         },
       },
     },
