@@ -46,6 +46,46 @@ const scenarios: Scenario[] = [
       },
     ],
   },
+  // The coverage matrix's remaining axes (plan 3, leaf 1.13).
+  {
+    id: 'collapsible/1',
+    fixture: 'collapsible/1',
+    components: ['collapsible'],
+    tags: ['scale-1', 'uncontrolled', 'static-props', 'pointer', 'open', 'close'],
+    steps: [
+      {
+        name: 'click open',
+        run: () => click(qa('[aria-expanded]')[0]),
+        settle: true,
+        verify: expanded,
+      },
+      {
+        name: 'click close',
+        run: () => click(qa('[aria-expanded]')[0]),
+        settle: true,
+        verify: expanded,
+      },
+    ],
+  },
+  ...(
+    [
+      ['collapsible/1000', ['scale-1000', 'controlled', 'reactive-props']],
+      ['collapsible/wrapper-300', ['scale-100', 'controlled', 'wrapper']],
+      ['collapsible/render-fn-300', ['scale-100', 'controlled', 'render-fn']],
+      ['collapsible/render-element-300', ['scale-100', 'controlled', 'render-element']],
+    ] as const
+  ).map(
+    ([id, tags]): Scenario => ({
+      id,
+      fixture: id,
+      components: ['collapsible'],
+      tags: [...tags, 'open', 'close', 'toggle-all'],
+      steps: [
+        { name: 'open all', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: expanded },
+        { name: 'close all', run: (ctx) => ctx.lib.set('open', false), settle: true, verify: expanded },
+      ],
+    }),
+  ),
 ];
 
 export default scenarios;

@@ -59,6 +59,46 @@ const scenarios: Scenario[] = [
       },
     ],
   },
+  // The coverage matrix's remaining axes (plan 3, leaf 1.13).
+  {
+    id: 'accordion/1',
+    fixture: 'accordion/1',
+    components: ['accordion'],
+    tags: ['scale-1', 'uncontrolled', 'static-props', 'pointer', 'open', 'close'],
+    steps: [
+      {
+        name: 'click open',
+        run: () => click(qa('[aria-expanded]')[0]),
+        settle: true,
+        verify: expanded,
+      },
+      {
+        name: 'click close',
+        run: () => click(qa('[aria-expanded]')[0]),
+        settle: true,
+        verify: expanded,
+      },
+    ],
+  },
+  ...(
+    [
+      ['accordion/1000', ['scale-1000', 'controlled', 'reactive-props']],
+      ['accordion/wrapper-300', ['scale-100', 'controlled', 'wrapper']],
+      ['accordion/render-fn-300', ['scale-100', 'controlled', 'render-fn']],
+      ['accordion/render-element-300', ['scale-100', 'controlled', 'render-element']],
+    ] as const
+  ).map(
+    ([id, tags]): Scenario => ({
+      id,
+      fixture: id,
+      components: ['accordion'],
+      tags: [...tags, 'open', 'close', 'toggle-all'],
+      steps: [
+        { name: 'open all', run: (ctx) => ctx.lib.set('value', all()), settle: true, verify: expanded },
+        { name: 'close all', run: (ctx) => ctx.lib.set('value', []), settle: true, verify: expanded },
+      ],
+    }),
+  ),
 ];
 
 export default scenarios;
