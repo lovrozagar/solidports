@@ -6,7 +6,9 @@ const items = () => qa('[role="menuitem"]');
 const openMenus = () => menus().length;
 
 async function frames(count: number) {
-  for (let i = 0; i < count; i += 1) await nextPaint();
+  for (let i = 0; i < count; i += 1) {
+    await nextPaint();
+  }
 }
 
 async function keys(ctx: StepContext, name: string, count: number) {

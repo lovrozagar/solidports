@@ -75,7 +75,9 @@ function CollapsiblesRenderFn() {
                 </button>
               )}
             />
-            <Collapsible.Panel render={(props) => <section {...props} />}>Panel {i}</Collapsible.Panel>
+            <Collapsible.Panel render={(props) => <section {...props} />}>
+              Panel {i}
+            </Collapsible.Panel>
           </Collapsible.Root>
         )}
       </For>
@@ -140,7 +142,10 @@ function AccordionOne() {
   );
 }
 
-function controlledAccordion(count: number, item: (it: { value: string; label: string }) => JSX.Element) {
+function controlledAccordion(
+  count: number,
+  item: (it: { value: string; label: string }) => JSX.Element,
+) {
   return function ControlledAccordion() {
     const value = useExposed('value', [] as string[]);
     const list = items(size(count));
@@ -194,7 +199,9 @@ export const fixtures: Record<string, () => unknown> = {
           )}
         />
       </Accordion.Header>
-      <Accordion.Panel render={(props) => <section {...props} />}>Content {it.label}</Accordion.Panel>
+      <Accordion.Panel render={(props) => <section {...props} />}>
+        Content {it.label}
+      </Accordion.Panel>
     </Accordion.Item>
   )),
   'accordion/render-element-300': controlledAccordion(300, (it) => (

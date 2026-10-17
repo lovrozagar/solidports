@@ -83,7 +83,9 @@ export function setLibraryRoot(root) {
 
 /** A source's path under the library's `src/`, or `null` outside the library. */
 const libraryPath = (source) => {
-  if (libraryRoot && source.startsWith(libraryRoot)) return source.slice(libraryRoot.length);
+  if (libraryRoot && source.startsWith(libraryRoot)) {
+    return source.slice(libraryRoot.length);
+  }
   const index = source.indexOf(SRC);
   return index >= 0 ? source.slice(index + SRC.length) : null;
 };
@@ -95,11 +97,15 @@ const libraryPath = (source) => {
  * @param {{ source: string, name: string }} frame
  */
 export function bucketOf(frame) {
-  if (/\/test\/perf-solid\/|\/packages\/solid\/test\//.test(frame.source)) return 'bench-harness';
+  if (/\/test\/perf-solid\/|\/packages\/solid\/test\//.test(frame.source)) {
+    return 'bench-harness';
+  }
   const path = libraryPath(frame.source);
   const key = path ?? frame.source;
   for (const candidate of CANDIDATES) {
-    if (candidate.matches(key, frame.name)) return candidate.id;
+    if (candidate.matches(key, frame.name)) {
+      return candidate.id;
+    }
   }
   return path === null ? null : `file:${path}`;
 }
@@ -115,8 +121,12 @@ const PASS_THROUGH = new Set(['bench-harness', 'flush']);
  */
 export function packageOf(source) {
   const match = /node_modules\/((?:@[^/]+\/)?[^/]+)/.exec(source);
-  if (match) return match[1];
-  if (source.startsWith('node:')) return 'node';
+  if (match) {
+    return match[1];
+  }
+  if (source.startsWith('node:')) {
+    return 'node';
+  }
   return source.split('/').pop() || 'other';
 }
 
@@ -130,12 +140,16 @@ export function attributeCpu(profile, resolve) {
   const byId = new Map(profile.nodes.map((node) => [node.id, node]));
   const parent = new Map();
   for (const node of profile.nodes) {
-    for (const child of node.children ?? []) parent.set(child, node.id);
+    for (const child of node.children ?? []) {
+      parent.set(child, node.id);
+    }
   }
   const bucketCache = new Map();
   /** The sample's bucket and the function of the frame that decided it. */
   const nodeBucket = (id) => {
-    if (bucketCache.has(id)) return bucketCache.get(id);
+    if (bucketCache.has(id)) {
+      return bucketCache.get(id);
+    }
     let found = null;
     for (let current = id; current !== undefined && found === null; current = parent.get(current)) {
       const callFrame = byId.get(current).callFrame;
@@ -193,7 +207,8 @@ export function attributeCpu(profile, resolve) {
     result.ms[bucket] = (result.ms[bucket] ?? 0) + ms;
     if (decided && isCandidate(bucket)) {
       // A candidate's time by function, so a unit can be scoped to what dominates inside it.
-      const fns = (result.fns[bucket] ??= {});
+      result.fns[bucket] ??= {};
+      const fns = result.fns[bucket];
       fns[decided.name] = (fns[decided.name] ?? 0) + ms;
     }
     if (bucket === 'runtime') {
@@ -220,7 +235,9 @@ export function attributeAllocations(profile, resolve) {
       const key = bucket ?? (own && PASS_THROUGH.has(own) ? own : 'runtime');
       bytes[key] = (bytes[key] ?? 0) + node.selfSize;
     }
-    for (const child of node.children) walk(child, bucket);
+    for (const child of node.children) {
+      walk(child, bucket);
+    }
   };
   walk(profile.head, null);
   return bytes;
@@ -229,7 +246,9 @@ export function attributeAllocations(profile, resolve) {
 /** `gcMs` shared out in proportion to each bucket's allocated bytes. */
 export function distributeGc(gcMs, bytesByBucket) {
   const total = Object.values(bytesByBucket).reduce((sum, value) => sum + value, 0);
-  if (!total) return {};
+  if (!total) {
+    return {};
+  }
   return Object.fromEntries(
     Object.entries(bytesByBucket).map(([bucket, value]) => [bucket, (gcMs * value) / total]),
   );

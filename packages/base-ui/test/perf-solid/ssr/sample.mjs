@@ -41,7 +41,9 @@ export function sampleServer(
     for (const name of names) {
       gc();
       const start = now();
-      for (let i = 0; i < batch; i += 1) renders[name]();
+      for (let i = 0; i < batch; i += 1) {
+        renders[name]();
+      }
       samples[name].push((now() - start) / batch);
     }
   }

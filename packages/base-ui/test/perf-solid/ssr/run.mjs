@@ -111,11 +111,15 @@ function config(name, ssr) {
 
 const reuse = process.env.NO_BUILD === '1' ? NAMES : (process.env.NO_BUILD ?? '').split(',');
 for (const name of NAMES) {
-  if (reuse.includes(name)) continue;
+  if (reuse.includes(name)) {
+    continue;
+  }
   await build(config(name, true));
   await build(config(name, false));
 }
-if (process.env.BUILD_ONLY) process.exit(0);
+if (process.env.BUILD_ONLY) {
+  process.exit(0);
+}
 
 // --- Server render (Node) ---
 const server = {};
@@ -189,7 +193,9 @@ for (const key of keys) {
         return [
           name,
           () => {
-            for (let i = 0; i < repeat; i += 1) server[name].render(key);
+            for (let i = 0; i < repeat; i += 1) {
+              server[name].render(key);
+            }
           },
         ];
       }),
@@ -249,10 +255,6 @@ if (!process.env.SERVER_ONLY) {
     await assertScriptMetric(page, cdp);
     await page.close();
   }
-  const settle = () =>
-    new Promise((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0))),
-    );
   for (const key of keys) {
     const summaries = {};
     const total = Object.fromEntries(NAMES.map((name) => [name, []]));
@@ -262,7 +264,9 @@ if (!process.env.SERVER_ONLY) {
         const logs = [];
         page.on('console', (message) => {
           const text = message.text();
-          if (/hydrat|mismatch|unclaimed/i.test(text)) logs.push(text.slice(0, 200));
+          if (/hydrat|mismatch|unclaimed/i.test(text)) {
+            logs.push(text.slice(0, 200));
+          }
         });
         page.on('pageerror', (error) => logs.push(`pageerror: ${String(error).slice(0, 200)}`));
         const cdp = await page.context().newCDPSession(page);
@@ -283,10 +287,13 @@ if (!process.env.SERVER_ONLY) {
           key,
         );
         const atCommit = await cdp.send('Performance.getMetrics');
-        const totalMs = await page.evaluate(async (settleSource) => {
-          await new Function(`return (${settleSource})()`)();
+        const totalMs = await page.evaluate(async () => {
+          // Two frames and a task: what the page's hydration work schedules has run.
+          await new Promise((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0)));
+          });
           return performance.now() - window.__benchStart;
-        }, settle.toString());
+        });
         const result = { ...committed, totalMs };
         const after = await cdp.send('Performance.getMetrics');
         const metric = (list, metricName) =>
@@ -312,18 +319,24 @@ if (!process.env.SERVER_ONLY) {
             tabsSelected: document.querySelectorAll('[role="tab"][aria-selected="true"]').length,
             labelled: document.querySelectorAll('[aria-labelledby]').length,
           }));
-          for (const log of new Set(logs)) problems.push(`${key} [${name}] ${log}`);
+          for (const log of new Set(logs)) {
+            problems.push(`${key} [${name}] ${log}`);
+          }
         }
         const beforeClose = await cdp.send('Performance.getMetrics');
-        const closeMs = await page.evaluate(async (settleSource) => {
+        const closeMs = await page.evaluate(async () => {
           const trigger = document.querySelector('[aria-expanded="true"]');
-          if (!trigger) return null;
-          const settleFn = new Function(`return (${settleSource})()`);
+          if (!trigger) {
+            return null;
+          }
           const start = performance.now();
           trigger.click();
-          await settleFn();
+          // Two frames and a task, as after hydration.
+          await new Promise((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0)));
+          });
           return performance.now() - start;
-        }, settle.toString());
+        });
         const afterClose = await cdp.send('Performance.getMetrics');
         if (run >= WARMUP && closeMs != null) {
           const samples = results[key][name].samples;
@@ -391,7 +404,9 @@ for (const key of keys) {
   lines.push(`| ${key} | ${cells.join(' | ')} | ${ratios.join(' | ')} |`);
 }
 lines.push(...mainThreadLines(keys, results, NAMES));
-if (problems.length) lines.push('', '## Problems', '', ...problems.map((p) => `- ${p}`));
+if (problems.length) {
+  lines.push('', '## Problems', '', ...problems.map((p) => `- ${p}`));
+}
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const out = process.env.RESULTS_FILE ?? path.join(resultsDir, `ssr-${stamp}`);
 fs.mkdirSync(path.dirname(out), { recursive: true });

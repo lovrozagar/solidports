@@ -27,7 +27,9 @@ const scenarios: Scenario[] = [
         name: 'click 100',
         run: () => {
           const boxes = qa('[role="checkbox"]');
-          for (let i = 0; i < 100; i += 1) click(boxes[i * 10]);
+          for (let i = 0; i < 100; i += 1) {
+            click(boxes[i * 10]);
+          }
         },
         verify: () => checked(),
       },

@@ -46,7 +46,9 @@ export const GATED = {
 
 /** The standard normal upper tail, P(Z > z) (Abramowitz–Stegun 26.2.17, |error| < 7.5e-8). */
 function upperTail(z) {
-  if (z < 0) return 1 - upperTail(-z);
+  if (z < 0) {
+    return 1 - upperTail(-z);
+  }
   const t = 1 / (1 + 0.2316419 * z);
   const poly =
     t *
@@ -73,18 +75,26 @@ export function mannWhitney(base, cur) {
   let ties = 0;
   for (let i = 0; i < all.length;) {
     let j = i;
-    while (j + 1 < all.length && all[j + 1].value === all[i].value) j += 1;
+    while (j + 1 < all.length && all[j + 1].value === all[i].value) {
+      j += 1;
+    }
     const rank = (i + j + 2) / 2;
     const size = j - i + 1;
     ties += size ** 3 - size;
-    for (let k = i; k <= j; k += 1) if (all[k].cur) rankSum += rank;
+    for (let k = i; k <= j; k += 1) {
+      if (all[k].cur) {
+        rankSum += rank;
+      }
+    }
     i = j + 1;
   }
   const n = n1 + n2;
   const u = rankSum - (n2 * (n2 + 1)) / 2;
   const mean = (n1 * n2) / 2;
   const variance = ((n1 * n2) / 12) * (n + 1 - ties / (n * (n - 1)));
-  if (variance <= 0) return { greater: 1, less: 1 };
+  if (variance <= 0) {
+    return { greater: 1, less: 1 };
+  }
   const sd = Math.sqrt(variance);
   return {
     greater: upperTail((u - mean - 0.5) / sd),
@@ -93,6 +103,7 @@ export function mannWhitney(base, cur) {
 }
 
 /** A seeded uniform [0, 1) source (mulberry32): the bootstrap is reproducible run to run. */
+/* eslint-disable no-bitwise -- mulberry32 is 32-bit integer arithmetic: its shifts and xors are the algorithm */
 function seeded(seed) {
   let state = seed >>> 0;
   return () => {
@@ -103,6 +114,7 @@ function seeded(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+/* eslint-enable no-bitwise */
 
 const BOOTSTRAP_RESAMPLES = 2000;
 
@@ -154,8 +166,9 @@ function compare(base, cur, rule) {
     cur: curMedian,
   };
   let status = 'judged';
-  if (base.length < MIN_SAMPLES || cur.length < MIN_SAMPLES) status = 'insufficient';
-  else if (
+  if (base.length < MIN_SAMPLES || cur.length < MIN_SAMPLES) {
+    status = 'insufficient';
+  } else if (
     rule.minBoth !== undefined &&
     (baseMedian <= rule.minBoth || curMedian <= rule.minBoth)
   ) {
@@ -166,8 +179,12 @@ function compare(base, cur, rule) {
 
 /** The verdict of a judged comparison whose test passed (`significant`): the margin decides. */
 function decide(result, significant) {
-  if (significant.greater && result.ci[0] > result.minEffect) return 'regressed';
-  if (significant.less && -result.ci[1] > result.minEffect) return 'improved';
+  if (significant.greater && result.ci[0] > result.minEffect) {
+    return 'regressed';
+  }
+  if (significant.less && -result.ci[1] > result.minEffect) {
+    return 'improved';
+  }
   return 'same';
 }
 
@@ -241,12 +258,16 @@ export function exitBar(results, solid) {
   const verdicts = [];
   for (const [key, row] of Object.entries(results)) {
     const floorRow = results[`${key}-floor`];
-    if (!floorRow) continue;
+    if (!floorRow) {
+      continue;
+    }
     for (const metric of EXIT_BAR_METRICS) {
       const port = row[solid]?.[metric];
       const floor = floorRow[solid]?.[metric];
       const react = row.react?.[metric];
-      if (port == null || floor == null || react == null) continue;
+      if (port == null || floor == null || react == null) {
+        continue;
+      }
       verdicts.push({
         key,
         metric,

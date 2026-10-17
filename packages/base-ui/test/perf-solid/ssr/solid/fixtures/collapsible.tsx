@@ -1,13 +1,15 @@
 import { For } from 'solid-js';
 import { Collapsible } from '@solidports/base-ui/collapsible';
-import { fixtures as toggles } from '../../../solid/fixtures/toggles';
-import { useExposed } from '../../../solid/exposed';
-import { size } from '../../../shared/sizes';
+/* eslint-disable import/no-relative-packages -- the floors are the Solid package's test files, which it does not export */
 import {
   FloorCollapsiblePanel,
   FloorCollapsibleRoot,
   FloorCollapsibleTrigger,
 } from '../../../../../packages/solid/test/floor/collapsible';
+/* eslint-enable import/no-relative-packages */
+import { fixtures as toggles } from '../../../solid/fixtures/toggles';
+import { useExposed } from '../../../solid/exposed';
+import { size } from '../../../shared/sizes';
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 

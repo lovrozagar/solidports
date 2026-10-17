@@ -128,17 +128,20 @@ const RADIO_INDICATOR =
 
 /** Plan 3 leaf 5.1.2's budgets for each `render` value on a family's Trigger and Panel. */
 const renderFormCosts = (family: 'accordion' | 'collapsible') =>
-  ['a tag', 'a component config', 'a consumer component', 'a render function'].flatMap((form) =>
-    [
-      'a Trigger costs at most the plain Trigger plus its own element',
-      'a closed Panel costs at most the plain closed Panel',
-      'an open Panel costs at most the plain open Panel plus its own element',
-    ].map(
-      (test) => `${family} cost against the hand-written floor > with ${form} as render > ${test}`,
-    ),
-  ).concat(
-    `${family} cost against the hand-written floor > a Trigger with a tag or a tag config costs exactly the plain Trigger`,
-  );
+  ['a tag', 'a component config', 'a consumer component', 'a render function']
+    .flatMap((form) =>
+      [
+        'a Trigger costs at most the plain Trigger plus its own element',
+        'a closed Panel costs at most the plain closed Panel',
+        'an open Panel costs at most the plain open Panel plus its own element',
+      ].map(
+        (test) =>
+          `${family} cost against the hand-written floor > with ${form} as render > ${test}`,
+      ),
+    )
+    .concat(
+      `${family} cost against the hand-written floor > a Trigger with a tag or a tag config costs exactly the plain Trigger`,
+    );
 
 /**
  * The `*.cost.test.tsx` tests each component owns, by full name (`describe > it`, as `vitest list`
@@ -183,7 +186,10 @@ export const COST_TESTS: Partial<Record<ComponentName, readonly string[]>> = {
     'collapsible cost against the hand-written floor > an open Collapsible costs at most the open floor plus 25%',
     ...renderFormCosts('collapsible'),
   ],
-  combobox: [closedRoot('Combobox'), 'render core cost > Combobox.Item costs at most 23 reactive nodes'],
+  combobox: [
+    closedRoot('Combobox'),
+    'render core cost > Combobox.Item costs at most 23 reactive nodes',
+  ],
   'context-menu': [closedRoot('ContextMenu')],
   dialog: [closedRoot('Dialog')],
   drawer: [closedRoot('Drawer')],

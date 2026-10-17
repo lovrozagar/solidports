@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { hydrateRoot } from 'react-dom/client';
+import * as ReactDOMClient from 'react-dom/client';
 import { ssrFixtures } from './fixtures/index';
 
 /** Calls `onCommit` from the root's layout effect, which React runs once the tree is committed. */
@@ -22,7 +22,7 @@ function Committed(props: { onCommit: () => void; children: React.ReactNode }) {
   const start = performance.now();
   // `hydrateRoot` is concurrent: it schedules the work and returns, so the sync time is not the
   // hydration; the commit is.
-  hydrateRoot(
+  ReactDOMClient.hydrateRoot(
     document.getElementById('root')!,
     <Committed onCommit={() => resolveCommitted(performance.now() - start)}>
       <Fixture />

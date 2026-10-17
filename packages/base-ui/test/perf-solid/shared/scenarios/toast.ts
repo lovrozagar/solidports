@@ -85,12 +85,16 @@ const scenarios: Scenario[] = [
           let previous: string | undefined;
           for (let i = 0; i < 100; i += 1) {
             const id = manager().add({ title: `Toast ${i}` });
-            if (previous) manager().close(previous);
+            if (previous) {
+              manager().close(previous);
+            }
             previous = id;
             ctx.lib.flush();
             await yieldTask();
           }
-          if (previous) manager().close(previous);
+          if (previous) {
+            manager().close(previous);
+          }
         },
         settle: true,
         verify: summary,

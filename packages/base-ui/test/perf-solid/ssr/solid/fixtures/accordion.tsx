@@ -1,8 +1,6 @@
 import { For } from 'solid-js';
 import { Accordion } from '@solidports/base-ui/accordion';
-import { fixtures as basics } from '../../../solid/fixtures/basics';
-import { useExposed } from '../../../solid/exposed';
-import { items, size } from '../../../shared/sizes';
+/* eslint-disable import/no-relative-packages -- the floors are the Solid package's test files, which it does not export */
 import {
   FloorAccordionHeader,
   FloorAccordionItem,
@@ -10,6 +8,10 @@ import {
   FloorAccordionRoot,
   FloorAccordionTrigger,
 } from '../../../../../packages/solid/test/floor/accordion';
+/* eslint-enable import/no-relative-packages */
+import { fixtures as basics } from '../../../solid/fixtures/basics';
+import { useExposed } from '../../../solid/exposed';
+import { items, size } from '../../../shared/sizes';
 
 const floorItems = items(size(300));
 

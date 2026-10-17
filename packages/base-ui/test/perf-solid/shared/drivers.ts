@@ -1,7 +1,9 @@
 // DOM input drivers shared by both apps: real event sequences as a browser dispatches them.
 
 export const nextPaint = () =>
-  new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => setTimeout(resolve, 0));
+  });
 
 /** Yields to the event loop without the 4 ms timer clamp (a new task, as between user events). */
 export const yieldTask = () =>

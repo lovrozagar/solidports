@@ -10,7 +10,9 @@ const sweep = (selector: string): Step => ({
   run: async (ctx) => {
     const triggers = qa(selector);
     for (let i = 0; i < 50; i += 1) {
-      if (i > 0) unhover(triggers[i - 1]);
+      if (i > 0) {
+        unhover(triggers[i - 1]);
+      }
       hover(triggers[i]);
       ctx.lib.flush();
       await yieldTask();

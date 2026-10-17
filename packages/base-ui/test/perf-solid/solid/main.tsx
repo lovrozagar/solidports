@@ -19,7 +19,9 @@ installHarness({
   name: 'solid',
   mount(key) {
     const Fixture = fixtures[key];
-    if (!Fixture) throw new Error(`No Solid fixture ${key}`);
+    if (!Fixture) {
+      throw new Error(`No Solid fixture ${key}`);
+    }
     dispose = render(() => createComponent(Fixture as () => any, {}), container);
     flush();
   },

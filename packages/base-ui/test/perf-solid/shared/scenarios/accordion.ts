@@ -88,18 +88,21 @@ const scenarios: Scenario[] = [
       ['accordion/render-element-300', ['scale-100', 'controlled', 'render-element']],
       ['accordion/render-component-300', ['scale-100', 'controlled', 'render-component']],
     ] as const
-  ).map(
-    ([id, tags]): Scenario => ({
-      id,
-      fixture: id,
-      components: ['accordion'],
-      tags: [...tags, 'open', 'close', 'toggle-all'],
-      steps: [
-        { name: 'open all', run: (ctx) => ctx.lib.set('value', all()), settle: true, verify: expanded },
-        { name: 'close all', run: (ctx) => ctx.lib.set('value', []), settle: true, verify: expanded },
-      ],
-    }),
-  ),
+  ).map(([id, tags]): Scenario => ({
+    id,
+    fixture: id,
+    components: ['accordion'],
+    tags: [...tags, 'open', 'close', 'toggle-all'],
+    steps: [
+      {
+        name: 'open all',
+        run: (ctx) => ctx.lib.set('value', all()),
+        settle: true,
+        verify: expanded,
+      },
+      { name: 'close all', run: (ctx) => ctx.lib.set('value', []), settle: true, verify: expanded },
+    ],
+  })),
 ];
 
 export default scenarios;

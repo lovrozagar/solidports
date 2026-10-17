@@ -75,7 +75,9 @@ function run(command, args, env) {
     env: { ...process.env, ...env },
     stdio: 'inherit',
   });
-  if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} exited ${result.status}`);
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} exited ${result.status}`);
+  }
 }
 
 if (!process.env.NO_BUILD) {
@@ -119,7 +121,9 @@ function fileOf(url) {
       url.slice(browserUrlPrefix.length).split('?')[0],
     );
   }
-  if (url.startsWith('file://')) return fileURLToPath(url);
+  if (url.startsWith('file://')) {
+    return fileURLToPath(url);
+  }
   return null;
 }
 
@@ -127,7 +131,9 @@ const resolved = new Map();
 /** A CDP call frame's original source and function name. */
 function resolve(callFrame) {
   const key = `${callFrame.url}:${callFrame.lineNumber}:${callFrame.columnNumber}:${callFrame.functionName}`;
-  if (resolved.has(key)) return resolved.get(key);
+  if (resolved.has(key)) {
+    return resolved.get(key);
+  }
   const file = fileOf(callFrame.url);
   const map = file && mapOf(file);
   let source = callFrame.url;
@@ -148,7 +154,9 @@ function resolve(callFrame) {
 }
 
 const add = (into, from) => {
-  for (const [key, value] of Object.entries(from)) into[key] = (into[key] ?? 0) + value;
+  for (const [key, value] of Object.entries(from)) {
+    into[key] = (into[key] ?? 0) + value;
+  }
 };
 
 /** One profiled span's attribution: self ms, allocated bytes and GC share per bucket. */
@@ -178,7 +186,9 @@ const empty = () => ({
 });
 function merge(into, part) {
   add(into.ms, part.ms);
-  for (const [bucket, fns] of Object.entries(part.fns ?? {})) add((into.fns[bucket] ??= {}), fns);
+  for (const [bucket, fns] of Object.entries(part.fns ?? {})) {
+    add((into.fns[bucket] ??= {}), fns);
+  }
   add(into.runtime, part.runtime);
   add(into.bytes, part.bytes);
   add(into.gcShare, part.gcShare);
@@ -252,9 +262,12 @@ if (!process.env.SERVER_ONLY) {
         if (measured) {
           const { profile: cpu } = await cdp.send('Profiler.stop');
           const { profile: heap } = await cdp.send('HeapProfiler.stopSampling');
-          const step = (entry.steps[scenario.steps[index]] ??= empty());
+          entry.steps[scenario.steps[index]] ??= empty();
+          const step = entry.steps[scenario.steps[index]];
           merge(step, attribute(cpu, heap));
-          if (PROBE) step.probe = (step.probe ?? 0) + (await readProbe(page)) - probeBefore;
+          if (PROBE) {
+            step.probe = (step.probe ?? 0) + (await readProbe(page)) - probeBefore;
+          }
         }
       }
     }
@@ -283,11 +296,17 @@ if (!process.env.BROWSER_ONLY) {
   await session.post('Profiler.setSamplingInterval', { interval: CPU_INTERVAL_US });
   await session.post('HeapProfiler.enable');
   for (const ssrCase of ssrCases) {
-    if (!serverBundle.keys.includes(ssrCase.id) || !matchesFilter(ssrCase, filter)) continue;
-    for (let i = 0; i < 3; i += 1) serverBundle.render(ssrCase.id);
+    if (!serverBundle.keys.includes(ssrCase.id) || !matchesFilter(ssrCase, filter)) {
+      continue;
+    }
+    for (let i = 0; i < 3; i += 1) {
+      serverBundle.render(ssrCase.id);
+    }
     await session.post('HeapProfiler.startSampling', HEAP_SAMPLING);
     await session.post('Profiler.start');
-    for (let i = 0; i < SSR_RENDERS; i += 1) serverBundle.render(ssrCase.id);
+    for (let i = 0; i < SSR_RENDERS; i += 1) {
+      serverBundle.render(ssrCase.id);
+    }
     const { profile: cpu } = await session.post('Profiler.stop');
     const { profile: heap } = await session.post('HeapProfiler.stopSampling');
     results.ssr[ssrCase.id] = { components: ssrCase.components, server: attribute(cpu, heap) };
@@ -310,7 +329,9 @@ for (const [, scenario] of Object.entries(results.browser)) {
     merge((totals.byComponent[scenario.components[0]] ??= empty()), part);
   }
 }
-for (const [, ssrCase] of Object.entries(results.ssr)) merge(totals.ssr, ssrCase.server);
+for (const [, ssrCase] of Object.entries(results.ssr)) {
+  merge(totals.ssr, ssrCase.server);
+}
 
 const fmt = (n) => (n ?? 0).toFixed(1);
 const mb = (n) => ((n ?? 0) / 1048576).toFixed(1);
@@ -352,7 +373,9 @@ const files = {};
 for (const side of [totals.browser, totals.ssr]) {
   for (const source of [side.ms, side.gcShare]) {
     for (const [key, value] of Object.entries(source)) {
-      if (key.startsWith('file:')) files[key] = (files[key] ?? 0) + value;
+      if (key.startsWith('file:')) {
+        files[key] = (files[key] ?? 0) + value;
+      }
     }
   }
 }
@@ -378,7 +401,9 @@ lines.push(
   '',
   ...CANDIDATES.flatMap((candidate) => {
     const fns = {};
-    for (const side of [totals.browser, totals.ssr]) add(fns, side.fns[candidate.id] ?? {});
+    for (const side of [totals.browser, totals.ssr]) {
+      add(fns, side.fns[candidate.id] ?? {});
+    }
     const top = Object.entries(fns)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8);

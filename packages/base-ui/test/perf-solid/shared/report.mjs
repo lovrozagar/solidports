@@ -66,11 +66,11 @@ export function compareVariants(summary, base, cur, options = {}) {
  */
 export function judgeRun(pairs) {
   const judged = judgeAll(pairs.filter((pair) => !pair.raw));
-  let next = 0;
+  const judgedVerdicts = judged.verdicts.values();
   const verdicts = pairs.map(({ base, cur, rule, ...rest }) =>
     rest.raw
       ? Object.assign(judge(base, cur, rule), rest, { verdict: 'unjudged (raw floor)' })
-      : judged.verdicts[next++],
+      : judgedVerdicts.next().value,
   );
   return { verdicts, pairs: judged.pairs, threshold: judged.threshold };
 }
@@ -88,7 +88,9 @@ export function variantPairs(summary, base, cur, options = {}) {
     for (const metric of metrics) {
       const a = entry[base].samples[metric];
       const b = entry[cur].samples[metric];
-      if (!a?.length && !b?.length) continue;
+      if (!a?.length && !b?.length) {
+        continue;
+      }
       const id = key.slice(0, key.indexOf(' › '));
       pairs.push({ key, metric, base: a, cur: b, rule: GATED[metric], raw: raw.has(id) });
     }

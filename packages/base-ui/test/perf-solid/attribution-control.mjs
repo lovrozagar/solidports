@@ -58,7 +58,9 @@ function attribution(src, out, results) {
     },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
-  if (run.status !== 0) throw new Error(`attribution.mjs (${out}) exited ${run.status}`);
+  if (run.status !== 0) {
+    throw new Error(`attribution.mjs (${out}) exited ${run.status}`);
+  }
   return JSON.parse(fs.readFileSync(`${results}.json`, 'utf8')).results.browser;
 }
 
@@ -122,8 +124,9 @@ const gcShare = delta(before.gcShare, after.gcShare);
       `alloc control: providers got ${providers} of ${injected} injected bytes (bar ±${BYTES_TOLERANCE * 100}%)`,
     );
   }
-  if (!((gcShare.providers ?? 0) > 0))
+  if (!((gcShare.providers ?? 0) > 0)) {
     failures.push('alloc control: the providers GC share did not grow');
+  }
 }
 
 if (failures.length) {

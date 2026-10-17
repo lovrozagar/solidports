@@ -111,7 +111,6 @@ function SliderControlled() {
   );
 }
 
-
 export const fixtures: Record<string, React.FC> = {
   'button/raw': RawButtons,
   'button/list': Buttons,

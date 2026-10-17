@@ -9,8 +9,7 @@ import {
   type,
   yieldTask,
 } from '../drivers';
-import type { StepContext } from '../types';
-import type { Scenario } from '../types';
+import type { StepContext, Scenario } from '../types';
 
 const rows = () => qa('[role="option"]').length;
 const input = () => q<HTMLInputElement>('[data-testid="input"]');

@@ -66,7 +66,9 @@ const scenarios: Scenario[] = [
       {
         name: 'open/close x20',
         run: async (ctx) => {
-          for (let i = 0; i < 20; i += 1) await cycle(ctx, () => key('Escape'));
+          for (let i = 0; i < 20; i += 1) {
+            await cycle(ctx, () => key('Escape'));
+          }
         },
         settle: true,
         verify: summary,

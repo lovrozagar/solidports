@@ -11,8 +11,18 @@ const scenarios: Scenario[] = [
     components: ['fieldset'],
     tags: ['scale-100', 'reactive-props'],
     steps: [
-      { name: 'disable all', run: (ctx) => ctx.lib.set('disabled', true), settle: true, verify: disabled },
-      { name: 'enable all', run: (ctx) => ctx.lib.set('disabled', false), settle: true, verify: disabled },
+      {
+        name: 'disable all',
+        run: (ctx) => ctx.lib.set('disabled', true),
+        settle: true,
+        verify: disabled,
+      },
+      {
+        name: 'enable all',
+        run: (ctx) => ctx.lib.set('disabled', false),
+        settle: true,
+        verify: disabled,
+      },
     ],
   },
 ];
