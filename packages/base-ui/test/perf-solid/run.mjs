@@ -84,7 +84,9 @@ async function openPage(browser, name) {
   const cdp = ENGINE.cdp ? await page.context().newCDPSession(page) : null;
   if (cdp) {
     await cdp.send('Performance.enable');
-    if (THROTTLE > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+    if (THROTTLE > 1) {
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+    }
   }
   await page.goto(`http://localhost:${port}/${name}/${QUERY}`);
   await page.waitForFunction(() => 'bench' in window);
@@ -101,7 +103,9 @@ async function metrics(cdp) {
   );
 }
 
-const browser = await { chromium, firefox, webkit }[ENGINE.name].launch({ args: ENGINE.launchArgs });
+const browser = await { chromium, firefox, webkit }[ENGINE.name].launch({
+  args: ENGINE.launchArgs,
+});
 const probe = await openPage(browser, NAMES[0]);
 if (probe.cdp) {
   await assertScriptMetric(probe.page, probe.cdp);
@@ -135,7 +139,8 @@ for (const { id, steps } of list) {
   for (let round = 0; round < 2; round += 1) {
     for (const name of NAMES) {
       const { page, cdp, errors, logs } = await openPage(browser, name);
-      const entry = (results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], errors: [] });
+      results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], errors: [] };
+      const entry = results[id][name];
       // Without CDP there is no forced full collection: the cycles skip it.
       const collect = cdp ? () => collectGarbage(cdp) : async () => {};
       const readHeap = () => page.evaluate('performance.memory.usedJSHeapSize');
@@ -154,17 +159,24 @@ for (const { id, steps } of list) {
       for (let run = 0; run < WARMUP + RUNS; run += 1) {
         const timed = await timingCycle({ collect, runStep, stepCount });
         timed.forEach(({ result, before, after }, index) => {
-          if (result.error) entry.errors.push(`${steps[index]}: ${result.error}`);
-          if (run === WARMUP && round === 0) entry.summaries[steps[index]] = result.summary;
-          if (run < WARMUP) return;
-          const step = (entry.steps[steps[index]] ??= {
+          if (result.error) {
+            entry.errors.push(`${steps[index]}: ${result.error}`);
+          }
+          if (run === WARMUP && round === 0) {
+            entry.summaries[steps[index]] = result.summary;
+          }
+          if (run < WARMUP) {
+            return;
+          }
+          entry.steps[steps[index]] ??= {
             sync: [],
             paint: [],
             script: [],
             layout: [],
             style: [],
             settled: [],
-          });
+          };
+          const step = entry.steps[steps[index]];
           step.sync.push(result.sync);
           step.paint.push(result.paint);
           if (before && after) {
@@ -172,7 +184,9 @@ for (const { id, steps } of list) {
             step.layout.push((after.LayoutDuration - before.LayoutDuration) * 1000);
             step.style.push((after.RecalcStyleDuration - before.RecalcStyleDuration) * 1000);
           }
-          if (result.settled !== null) step.settled.push(result.settled);
+          if (result.settled !== null) {
+            step.settled.push(result.settled);
+          }
         });
       }
       for (let run = 0; ENGINE.heap && run < HEAP_RUNS; run += 1) {
@@ -195,8 +209,12 @@ for (const { id, steps } of list) {
         // (`fields`); every other part of the summary must still match.
         const without = (summary) => {
           const value = { ...JSON.parse(summary ?? '{}') };
-          for (const field of known?.fields ?? []) delete value[field];
-          if (known?.nodesDelta !== undefined) value.nodes = 0;
+          for (const field of known?.fields ?? []) {
+            delete value[field];
+          }
+          if (known?.nodesDelta !== undefined) {
+            value.nodes = 0;
+          }
           return JSON.stringify(value);
         };
         const nodesOk =
@@ -210,8 +228,9 @@ for (const { id, steps } of list) {
     }
   }
   for (const name of NAMES) {
-    for (const error of new Set(results[id][name].errors))
+    for (const error of new Set(results[id][name].errors)) {
       problems.push(`${id} [${name}] ${error}`);
+    }
   }
 }
 await browser.close();

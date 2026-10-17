@@ -9,7 +9,9 @@ const summary = () => ({
 });
 
 async function frames(count: number) {
-  for (let i = 0; i < count; i += 1) await nextPaint();
+  for (let i = 0; i < count; i += 1) {
+    await nextPaint();
+  }
 }
 
 const scenarios: Scenario[] = [

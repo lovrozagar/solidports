@@ -21,7 +21,9 @@ export async function timingCycle({ collect, runStep, stepCount }) {
   await runStep(stepCount - 1);
   const results = [await runStep(0)];
   await collect();
-  for (let index = 1; index < stepCount; index += 1) results.push(await runStep(index));
+  for (let index = 1; index < stepCount; index += 1) {
+    results.push(await runStep(index));
+  }
   return results;
 }
 

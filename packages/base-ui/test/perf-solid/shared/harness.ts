@@ -1,6 +1,7 @@
 import { COMPONENTS, SCENARIO_TAGS } from './manifest';
 import { scenarios } from './scenarios';
-import { runStep, type StepResult } from './step';
+import { runStep } from './step';
+import type { StepResult } from './step';
 import type { Lib, Scenario, Step, StepContext } from './types';
 
 function allSteps(scenario: Scenario): Step[] {

@@ -20,7 +20,10 @@ const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 function TabsVariant(props: { keepMounted?: boolean; vertical?: boolean }) {
   const tabItems = items(size(200));
   return (
-    <Tabs.Root defaultValue={tabItems[0].value} orientation={props.vertical ? 'vertical' : 'horizontal'}>
+    <Tabs.Root
+      defaultValue={tabItems[0].value}
+      orientation={props.vertical ? 'vertical' : 'horizontal'}
+    >
       <Tabs.List>
         {tabItems.map((it) => (
           <Tabs.Tab key={it.value} value={it.value}>
@@ -45,7 +48,7 @@ const ANIMATION_CSS = `
 
 function AccordionAnimated() {
   return (
-    <>
+    <React.Fragment>
       <style>{ANIMATION_CSS}</style>
       <Accordion.Root>
         {items(size(300)).map((it) => (
@@ -57,7 +60,7 @@ function AccordionAnimated() {
           </Accordion.Item>
         ))}
       </Accordion.Root>
-    </>
+    </React.Fragment>
   );
 }
 
@@ -192,12 +195,24 @@ function ToolbarFixture() {
 }
 
 // Raw-React floors: the same DOM as the parts, written by hand (one state per element).
-const HIDDEN: React.CSSProperties = { border: 0, clipPath: 'inset(50%)', height: 1, margin: -1, overflow: 'hidden', padding: 0, whiteSpace: 'nowrap', width: 1, left: 0, position: 'fixed', top: 0 };
+const HIDDEN: React.CSSProperties = {
+  border: 0,
+  clipPath: 'inset(50%)',
+  height: 1,
+  margin: -1,
+  overflow: 'hidden',
+  padding: 0,
+  whiteSpace: 'nowrap',
+  width: 1,
+  left: 0,
+  position: 'fixed',
+  top: 0,
+};
 
 function RawCheckbox() {
   const [checked, setChecked] = React.useState(false);
   return (
-    <>
+    <React.Fragment>
       <span
         role="checkbox"
         tabIndex={0}
@@ -210,17 +225,31 @@ function RawCheckbox() {
       >
         {checked ? <span data-checked="">✓</span> : null}
       </span>
-      <input type="checkbox" tabIndex={-1} aria-hidden="true" style={HIDDEN} checked={checked} onChange={() => {}} />
-    </>
+      <input
+        type="checkbox"
+        tabIndex={-1}
+        aria-hidden="true"
+        style={HIDDEN}
+        checked={checked}
+        onChange={() => {}}
+      />
+    </React.Fragment>
   );
 }
 function RawCheckboxes() {
-  return <div>{range(size(1000)).map((i) => <RawCheckbox key={i} />)}</div>;
+  return (
+    <div>
+      {range(size(1000)).map((i) => (
+        <RawCheckbox key={i} />
+      ))}
+    </div>
+  );
 }
 function RawSwitch() {
   const [checked, setChecked] = React.useState(false);
   return (
-    <>
+    <React.Fragment>
+      {/* eslint-disable-next-line jsx-a11y/control-has-associated-label -- the floor mirrors Switch.Root, whose label the consumer provides */}
       <span
         role="switch"
         tabIndex={0}
@@ -233,12 +262,25 @@ function RawSwitch() {
       >
         <span data-checked={checked ? '' : undefined} data-unchecked={checked ? undefined : ''} />
       </span>
-      <input type="checkbox" tabIndex={-1} aria-hidden="true" style={HIDDEN} checked={checked} onChange={() => {}} />
-    </>
+      <input
+        type="checkbox"
+        tabIndex={-1}
+        aria-hidden="true"
+        style={HIDDEN}
+        checked={checked}
+        onChange={() => {}}
+      />
+    </React.Fragment>
   );
 }
 function RawSwitches() {
-  return <div>{range(size(1000)).map((i) => <RawSwitch key={i} />)}</div>;
+  return (
+    <div>
+      {range(size(1000)).map((i) => (
+        <RawSwitch key={i} />
+      ))}
+    </div>
+  );
 }
 function RawToggle({ label }: { label: string }) {
   const [pressed, setPressed] = React.useState(false);
@@ -256,12 +298,19 @@ function RawToggle({ label }: { label: string }) {
   );
 }
 function RawToggles() {
-  return <div>{range(size(1000)).map((i) => <RawToggle key={i} label={`T${i}`} />)}</div>;
+  return (
+    <div>
+      {range(size(1000)).map((i) => (
+        <RawToggle key={i} label={`T${i}`} />
+      ))}
+    </div>
+  );
 }
 function RawToggleGroup() {
   const [value, setValue] = React.useState<string[]>([]);
   const [highlighted, setHighlighted] = React.useState(0);
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the floor mirrors ToggleGroup, whose root handles its items' arrow keys
     <div role="group" data-orientation="horizontal" onKeyDown={() => {}}>
       {items(size(300)).map((it, index) => (
         <button
@@ -285,6 +334,7 @@ function RawRadios() {
   const [value, setValue] = React.useState('item-0');
   const [highlighted, setHighlighted] = React.useState(0);
   return (
+    // eslint-disable-next-line jsx-a11y/interactive-supports-focus -- the floor mirrors RadioGroup, whose focus is on the checked radio
     <div role="radiogroup" onKeyDown={() => {}}>
       {items(size(300)).map((it, index) => (
         <React.Fragment key={it.value}>
@@ -302,7 +352,15 @@ function RawRadios() {
           >
             {value === it.value ? <span data-checked="" /> : null}
           </span>
-          <input type="radio" tabIndex={-1} aria-hidden="true" style={HIDDEN} value={it.value} checked={value === it.value} onChange={() => {}} />
+          <input
+            type="radio"
+            tabIndex={-1}
+            aria-hidden="true"
+            style={HIDDEN}
+            value={it.value}
+            checked={value === it.value}
+            onChange={() => {}}
+          />
         </React.Fragment>
       ))}
     </div>

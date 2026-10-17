@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { createRoot, type Root } from 'react-dom/client';
-import { flushSync } from 'react-dom';
+import * as ReactDOM from 'react-dom';
+import * as ReactDOMClient from 'react-dom/client';
 import { installHarness } from '../shared/harness';
 import { setters } from './exposed';
 
@@ -14,22 +14,24 @@ const fixtures: Record<string, React.FC> = Object.assign(
 );
 
 const container = document.getElementById('root')!;
-let root: Root | null = null;
+let root: ReactDOMClient.Root | null = null;
 
 installHarness({
   name: 'react',
   mount(key) {
     const Fixture = fixtures[key];
-    if (!Fixture) throw new Error(`No React fixture ${key}`);
-    root = createRoot(container);
-    flushSync(() => root!.render(<Fixture />));
+    if (!Fixture) {
+      throw new Error(`No React fixture ${key}`);
+    }
+    root = ReactDOMClient.createRoot(container);
+    ReactDOM.flushSync(() => root!.render(<Fixture />));
   },
   unmount() {
-    flushSync(() => root!.unmount());
+    ReactDOM.flushSync(() => root!.unmount());
     root = null;
   },
   set(key, value) {
-    flushSync(() => setters[key](value));
+    ReactDOM.flushSync(() => setters[key](value));
   },
   flush() {},
 });

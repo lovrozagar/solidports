@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { renderToString } from 'react-dom/server';
+import * as ReactDOMServer from 'react-dom/server';
 import { COMPONENTS, SCENARIO_TAGS } from '../../shared/manifest';
 import { ssrCases } from '../cases';
 import { ssrFixtures } from './fixtures/index';
@@ -14,7 +14,7 @@ export const vocab = { components: COMPONENTS, tags: SCENARIO_TAGS };
 
 export function render(key: string): string {
   const Fixture = ssrFixtures[key];
-  return renderToString(<Fixture />);
+  return ReactDOMServer.renderToString(<Fixture />);
 }
 
 export const head = () => '';

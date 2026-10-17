@@ -32,7 +32,9 @@ export async function runStep(step: Step, ctx: StepContext): Promise<StepResult>
       error = 'until: held before the step ran, so it measures nothing';
     } else {
       observer = new MutationObserver(() => {
-        if (settledAt === null && until(ctx)) settledAt = performance.now();
+        if (settledAt === null && until(ctx)) {
+          settledAt = performance.now();
+        }
       });
       observer.observe(document, {
         subtree: true,

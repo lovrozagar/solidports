@@ -16,7 +16,9 @@ const scenarios: Scenario[] = [
       {
         name: '300 updates',
         run: (ctx) => {
-          for (let i = 1; i <= 300; i += 1) ctx.lib.set('value', i);
+          for (let i = 1; i <= 300; i += 1) {
+            ctx.lib.set('value', i);
+          }
         },
         verify: () => q('input[type="range"]').getAttribute('aria-valuenow'),
       },

@@ -73,14 +73,20 @@ export function parseFilter(raw, known) {
 
 /** @param {Entry} entry @param {Term} term */
 function matchesTerm(entry, term) {
-  if (term.kind === 'component') return (entry.components ?? []).includes(term.value);
-  if (term.kind === 'tag') return (entry.tags ?? []).includes(term.value);
+  if (term.kind === 'component') {
+    return (entry.components ?? []).includes(term.value);
+  }
+  if (term.kind === 'tag') {
+    return (entry.tags ?? []).includes(term.value);
+  }
   return entry.id.startsWith(term.value);
 }
 
 /** @param {Entry} entry @param {Term[]} terms */
 export function matchesFilter(entry, terms) {
   const include = terms.filter((term) => !term.exclude);
-  if (include.length > 0 && !include.some((term) => matchesTerm(entry, term))) return false;
+  if (include.length > 0 && !include.some((term) => matchesTerm(entry, term))) {
+    return false;
+  }
   return !terms.some((term) => term.exclude && matchesTerm(entry, term));
 }

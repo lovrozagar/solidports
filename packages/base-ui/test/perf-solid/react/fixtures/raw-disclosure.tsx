@@ -10,7 +10,15 @@ const setExposed = (key: string) => (value: unknown) => setters[key](value);
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 const noop = () => {};
 
-function RawCollapsible({ index, open, toggle }: { index: number; open: boolean; toggle: () => void }) {
+function RawCollapsible({
+  index,
+  open,
+  toggle,
+}: {
+  index: number;
+  open: boolean;
+  toggle: () => void;
+}) {
   const panelId = `raw-panel-${index}`;
   return (
     <div data-open={open ? '' : undefined} data-closed={open ? undefined : ''}>

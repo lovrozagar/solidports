@@ -70,7 +70,9 @@ function Tabs200() {
         <For each={tabItems}>{(it) => <Tabs.Tab value={it.value}>{it.label}</Tabs.Tab>}</For>
         <Tabs.Indicator />
       </Tabs.List>
-      <For each={tabItems}>{(it) => <Tabs.Panel value={it.value}>Panel {it.label}</Tabs.Panel>}</For>
+      <For each={tabItems}>
+        {(it) => <Tabs.Panel value={it.value}>Panel {it.label}</Tabs.Panel>}
+      </For>
     </Tabs.Root>
   );
 }

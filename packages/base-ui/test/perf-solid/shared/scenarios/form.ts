@@ -6,7 +6,7 @@ const summary = () => ({
   touched: controls().filter((c) => c.hasAttribute('data-touched')).length,
   invalid: controls().filter((c) => c.hasAttribute('data-invalid')).length,
   errors: qa('[data-testid="form"] [data-testid="error"]')
-    .map((e) => e.textContent?.trim())
+    .map((element) => element.textContent?.trim())
     .filter(Boolean).length,
   firstError:
     q('[data-testid="form"]').querySelector('[data-testid="error"]')?.textContent?.trim() ?? null,

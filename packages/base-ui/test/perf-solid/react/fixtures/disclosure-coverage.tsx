@@ -68,7 +68,9 @@ function CollapsiblesRenderFn() {
               </button>
             )}
           />
-          <Collapsible.Panel render={(props) => <section {...props} />}>Panel {i}</Collapsible.Panel>
+          <Collapsible.Panel render={(props) => <section {...props} />}>
+            Panel {i}
+          </Collapsible.Panel>
         </Collapsible.Root>
       ))}
     </div>
@@ -81,6 +83,7 @@ function CollapsiblesRenderElement() {
     <div>
       {range(size(300)).map((i) => (
         <Collapsible.Root key={i} open={open}>
+          {/* eslint-disable-next-line jsx-a11y/control-has-associated-label -- the part labels it from its children, as the component it measures does */}
           <Collapsible.Trigger render={<button type="button" />}>Trigger {i}</Collapsible.Trigger>
           <Collapsible.Panel render={<section />}>Panel {i}</Collapsible.Panel>
         </Collapsible.Root>
@@ -183,12 +186,15 @@ export const fixtures: Record<string, React.FC> = {
           )}
         />
       </Accordion.Header>
-      <Accordion.Panel render={(props) => <section {...props} />}>Content {it.label}</Accordion.Panel>
+      <Accordion.Panel render={(props) => <section {...props} />}>
+        Content {it.label}
+      </Accordion.Panel>
     </Accordion.Item>
   )),
   'accordion/render-element-300': controlledAccordion(300, (it) => (
     <Accordion.Item key={it.value} value={it.value}>
       <Accordion.Header>
+        {/* eslint-disable-next-line jsx-a11y/control-has-associated-label -- the part labels it from its children, as the component it measures does */}
         <Accordion.Trigger render={<button type="button" />}>{it.label}</Accordion.Trigger>
       </Accordion.Header>
       <Accordion.Panel render={<section />}>Content {it.label}</Accordion.Panel>

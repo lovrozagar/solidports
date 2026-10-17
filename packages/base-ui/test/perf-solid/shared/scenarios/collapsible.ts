@@ -75,18 +75,21 @@ const scenarios: Scenario[] = [
       ['collapsible/render-element-300', ['scale-100', 'controlled', 'render-element']],
       ['collapsible/render-component-300', ['scale-100', 'controlled', 'render-component']],
     ] as const
-  ).map(
-    ([id, tags]): Scenario => ({
-      id,
-      fixture: id,
-      components: ['collapsible'],
-      tags: [...tags, 'open', 'close', 'toggle-all'],
-      steps: [
-        { name: 'open all', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: expanded },
-        { name: 'close all', run: (ctx) => ctx.lib.set('open', false), settle: true, verify: expanded },
-      ],
-    }),
-  ),
+  ).map(([id, tags]): Scenario => ({
+    id,
+    fixture: id,
+    components: ['collapsible'],
+    tags: [...tags, 'open', 'close', 'toggle-all'],
+    steps: [
+      { name: 'open all', run: (ctx) => ctx.lib.set('open', true), settle: true, verify: expanded },
+      {
+        name: 'close all',
+        run: (ctx) => ctx.lib.set('open', false),
+        settle: true,
+        verify: expanded,
+      },
+    ],
+  })),
 ];
 
 export default scenarios;

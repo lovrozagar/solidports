@@ -40,7 +40,10 @@ function touch(type: string, element: Element) {
   );
 }
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const scenarios: Scenario[] = [
   {

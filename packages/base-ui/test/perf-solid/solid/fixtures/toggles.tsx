@@ -20,7 +20,10 @@ const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 function TabsVariant(props: { keepMounted?: boolean; vertical?: boolean }) {
   const tabItems = items(size(200));
   return (
-    <Tabs.Root defaultValue={tabItems[0].value} orientation={props.vertical ? 'vertical' : 'horizontal'}>
+    <Tabs.Root
+      defaultValue={tabItems[0].value}
+      orientation={props.vertical ? 'vertical' : 'horizontal'}
+    >
       <Tabs.List>
         <For each={tabItems}>{(it) => <Tabs.Tab value={it.value}>{it.label}</Tabs.Tab>}</For>
         <Tabs.Indicator />
@@ -189,7 +192,19 @@ function ToolbarFixture() {
 
 // Raw-Solid floors: the same DOM as the parts, written by hand (one signal and one attribute
 // effect per element); what a native part could cost at best.
-const HIDDEN = { border: 0, 'clip-path': 'inset(50%)', height: '1px', margin: '-1px', overflow: 'hidden', padding: 0, 'white-space': 'nowrap', width: '1px', left: 0, position: 'fixed', top: 0 } as const;
+const HIDDEN = {
+  border: 0,
+  'clip-path': 'inset(50%)',
+  height: '1px',
+  margin: '-1px',
+  overflow: 'hidden',
+  padding: 0,
+  'white-space': 'nowrap',
+  width: '1px',
+  left: 0,
+  position: 'fixed',
+  top: 0,
+} as const;
 
 function RawCheckbox() {
   const [checked, setChecked] = createSignal(false);
@@ -222,6 +237,7 @@ function RawSwitch() {
   const [checked, setChecked] = createSignal(false);
   return (
     <>
+      {/* eslint-disable-next-line jsx-a11y/control-has-associated-label -- the floor mirrors Switch.Root, whose label the consumer provides */}
       <span
         role="switch"
         tabindex="0"
@@ -232,7 +248,10 @@ function RawSwitch() {
         onKeyDown={() => {}}
         onKeyUp={() => {}}
       >
-        <span data-checked={checked() ? '' : undefined} data-unchecked={checked() ? undefined : ''} />
+        <span
+          data-checked={checked() ? '' : undefined}
+          data-unchecked={checked() ? undefined : ''}
+        />
       </span>
       <input type="checkbox" tabindex="-1" aria-hidden="true" style={HIDDEN} checked={checked()} />
     </>
@@ -271,6 +290,7 @@ function RawToggleGroup() {
   const [value, setValue] = createSignal<string[]>([]);
   const [highlighted, setHighlighted] = createSignal(0);
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the floor mirrors ToggleGroup, whose root handles its items' arrow keys
     <div role="group" data-orientation="horizontal" onKeyDown={() => {}}>
       <For each={items(size(300))}>
         {(it, index) => (
@@ -295,6 +315,7 @@ function RawRadios() {
   const [value, setValue] = createSignal('item-0');
   const [highlighted, setHighlighted] = createSignal(0);
   return (
+    // eslint-disable-next-line jsx-a11y/interactive-supports-focus -- the floor mirrors RadioGroup, whose focus is on the checked radio
     <div role="radiogroup" onKeyDown={() => {}}>
       <For each={items(size(300))}>
         {(it, index) => (
@@ -313,7 +334,14 @@ function RawRadios() {
             >
               {value() === it.value ? <span data-checked="" /> : null}
             </span>
-            <input type="radio" tabindex="-1" aria-hidden="true" style={HIDDEN} value={it.value} checked={value() === it.value} />
+            <input
+              type="radio"
+              tabindex="-1"
+              aria-hidden="true"
+              style={HIDDEN}
+              value={it.value}
+              checked={value() === it.value}
+            />
           </>
         )}
       </For>

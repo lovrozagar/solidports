@@ -1,6 +1,5 @@
 import { click, highlightedText, hover, key, q, qa, yieldTask } from '../drivers';
-import type { StepContext } from '../types';
-import type { Scenario, Step } from '../types';
+import type { StepContext, Scenario, Step } from '../types';
 
 const listbox = () => document.querySelector('[role="listbox"]');
 const options = () => qa('[role="option"]');

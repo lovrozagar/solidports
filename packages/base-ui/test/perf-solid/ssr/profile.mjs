@@ -29,21 +29,21 @@ const dir = path.join(builds, build);
 const server = await import(pathToFileURL(path.join(dir, 'server/entry-server.mjs')).href);
 const floorKey = `${key}-floor`;
 const hasFloor = server.keys.includes(floorKey);
-const median = (values) => [...values].sort((a, b) => a - b)[values.length >> 1];
+const median = (values) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
 const label = (frame) =>
   `${frame.functionName || '(anon)'} ${path.basename(frame.url)}:${frame.lineNumber + 1}`;
 
 /** Self time by function, summed over `profiles`, per `per` units, top `top`. */
 function selfTime(profiles, per, top = 40) {
-  const self = new Map();
+  const selfMs = new Map();
   for (const profile of profiles) {
     const byId = new Map(profile.nodes.map((n) => [n.id, n]));
     profile.samples.forEach((id, i) => {
       const name = label(byId.get(id).callFrame);
-      self.set(name, (self.get(name) ?? 0) + (profile.timeDeltas[i] ?? 0));
+      selfMs.set(name, (selfMs.get(name) ?? 0) + (profile.timeDeltas[i] ?? 0));
     });
   }
-  return [...self]
+  return [...selfMs]
     .filter(([name]) => !name.startsWith('(idle)') && !name.startsWith('(program)'))
     .sort((a, b) => b[1] - a[1])
     .slice(0, top)
@@ -52,14 +52,18 @@ function selfTime(profiles, per, top = 40) {
 
 if (mode === 'server') {
   const renders = Number(countArg ?? 300);
-  for (let i = 0; i < 100; i += 1) server.render(key);
+  for (let i = 0; i < 100; i += 1) {
+    server.render(key);
+  }
   const session = new inspector.Session();
   session.connect();
   await session.post('Profiler.enable');
   await session.post('Profiler.setSamplingInterval', { interval: 20 });
   await session.post('Profiler.start');
   const start = performance.now();
-  for (let i = 0; i < renders; i += 1) server.render(key);
+  for (let i = 0; i < renders; i += 1) {
+    server.render(key);
+  }
   const ms = (performance.now() - start) / renders;
   const { profile } = await session.post('Profiler.stop');
   await session.post('HeapProfiler.enable');
@@ -68,7 +72,9 @@ if (mode === 'server') {
     includeObjectsCollectedByMajorGC: true,
     includeObjectsCollectedByMinorGC: true,
   });
-  for (let i = 0; i < renders; i += 1) server.render(key);
+  for (let i = 0; i < renders; i += 1) {
+    server.render(key);
+  }
   const { profile: heap } = await session.post('HeapProfiler.stopSampling');
   const allocated = new Map();
   let total = 0;
@@ -89,7 +95,9 @@ if (mode === 'server') {
   if (hasFloor) {
     const batch = (name) => {
       const t = performance.now();
-      for (let i = 0; i < 10; i += 1) server.render(name);
+      for (let i = 0; i < 10; i += 1) {
+        server.render(name);
+      }
       return (performance.now() - t) / 10;
     };
     for (let i = 0; i < 50; i += 1) {
@@ -113,13 +121,17 @@ if (mode === 'server') {
 const { chromium } = await import('playwright');
 const template = fs.readFileSync(path.join(dir, 'client/index.html'), 'utf8');
 const page = (name) =>
-  template.replace('<!--ssr-head-->', server.head()).replace('<!--ssr-outlet-->', server.render(name));
+  template
+    .replace('<!--ssr-head-->', server.head())
+    .replace('<!--ssr-outlet-->', server.render(name));
 const pages = { [key]: page(key), ...(hasFloor ? { [floorKey]: page(floorKey) } : {}) };
 const httpServer = http
   .createServer((req, res) => {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname === '/' || url.pathname === '/index.html') {
-      res.writeHead(200, { 'content-type': 'text/html' }).end(pages[url.searchParams.get('fixture')]);
+      res
+        .writeHead(200, { 'content-type': 'text/html' })
+        .end(pages[url.searchParams.get('fixture')]);
       return;
     }
     const file = path.join(dir, 'client', url.pathname);
@@ -161,7 +173,9 @@ for (let i = 0; i < samples + 2; i += 1) {
     profiles.push(profile);
   }
 }
-console.log(`${key}: hydrate ${median(commits).toFixed(2)} ms to the commit (median of ${samples})`);
+console.log(
+  `${key}: hydrate ${median(commits).toFixed(2)} ms to the commit (median of ${samples})`,
+);
 console.log('\nCPU self time per page:');
 console.log(selfTime(profiles, samples).join('\n'));
 if (hasFloor) {

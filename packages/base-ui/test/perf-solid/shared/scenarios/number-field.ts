@@ -65,7 +65,9 @@ const scenarios: Scenario[] = [
             buttons: 1,
           };
           button.dispatchEvent(new PointerEvent('pointerdown', init));
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => {
+            setTimeout(resolve, 1000);
+          });
           document.dispatchEvent(new PointerEvent('pointerup', { ...init, buttons: 0 }));
           button.dispatchEvent(new PointerEvent('pointerup', { ...init, buttons: 0 }));
           (window as unknown as { __holdBefore: number }).__holdBefore = before;

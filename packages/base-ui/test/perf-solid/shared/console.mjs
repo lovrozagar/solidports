@@ -18,8 +18,11 @@ export function matchConsole(entries, known) {
         k.kind === entry.kind &&
         k.regex.test(entry.text),
     );
-    if (hit) result.known.push({ ...entry, reason: hit.reason });
-    else result.unknown.push(entry);
+    if (hit) {
+      result.known.push({ ...entry, reason: hit.reason });
+    } else {
+      result.unknown.push(entry);
+    }
   }
   return result;
 }

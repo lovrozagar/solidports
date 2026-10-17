@@ -1,4 +1,5 @@
-import { For, type Accessor } from 'solid-js';
+import { For } from 'solid-js';
+import type { Accessor } from 'solid-js';
 import { Select } from '@solidports/base-ui/select';
 import { Combobox } from '@solidports/base-ui/combobox';
 import { Autocomplete } from '@solidports/base-ui/autocomplete';
@@ -16,6 +17,7 @@ function SelectFixture(props: {
   defaultValue?: string | string[];
 }) {
   const open = useExposed('open', false);
+  // eslint-disable-next-line solid/reactivity -- the fixture's size is fixed for the scenario: read once
   const list = items(props.count);
   return (
     <Select.Root
@@ -50,6 +52,7 @@ function SelectFixture(props: {
 
 function ComboboxFixture(props: { count: number }) {
   const open = useExposed('open', false);
+  // eslint-disable-next-line solid/reactivity -- the fixture's size is fixed for the scenario: read once
   const list = useExposed<Item[]>('items', items(props.count));
   return (
     <Combobox.Root
