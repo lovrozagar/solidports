@@ -1,7 +1,7 @@
 ---
 tags: [render, native, props, perf]
-sources: [packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/propsView.ts, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/native/consumer.ts, packages/base-ui/packages/solid/src/merge-props/mergeProps.ts]
-verified: 2026-10-16
+sources: [packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/propsView.ts, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/element.ts, packages/base-ui/packages/solid/src/utils/native/consumer.ts, packages/base-ui/packages/solid/src/merge-props/mergeProps.ts, packages/base-ui/packages/solid/src/utils/renderPath.ts]
+verified: 2026-10-17
 ---
 
 # Render pipeline
@@ -91,4 +91,4 @@ Reactive nodes per instance. Dev-mode probe, 2026-10-14, Solid rc.13; re-measure
 | Accordion.Item | 14 | 84 |
 | Tabs.Tab | 3 | 27 |
 
-A `{...props}` wrapper fails `canRenderNative`: Button then costs 15, Checkbox 58. See [perf method](../perf/method.md), [primitive costs](../solid/primitive-costs.md), and [SSR and hydration](ssr-hydration.md).
+A `{...props}` wrapper fails `canRenderNative`: Button then costs 15, Checkbox 58. The fall back is silent and both paths render the same DOM, so a test meant for the native path can pass on the slow one. In development, `src/utils/renderPath.ts` records the path that rendered each part's element (`attachNativeAttributes` marks `native`, `useRenderElement`'s ref marks `slow`), and the test utils assert it: `expectNativePath(...elements)`, `expectSlowPath(...elements)` and `expectNoSlowPath(container)`. The native cost tests, the hydration literal checks and the D9/D11 panel tests use them. See [perf method](../perf/method.md), [primitive costs](../solid/primitive-costs.md), and [SSR and hydration](ssr-hydration.md).

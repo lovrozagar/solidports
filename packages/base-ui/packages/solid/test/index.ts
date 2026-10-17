@@ -20,3 +20,4 @@ export { detachedTriggersConformanceTests } from './detachedTriggersConformanceT
 export { dialogRootSharedTests } from './dialogRootSharedTests';
 export { popupFocusPropsTests } from './popupFocusPropsTests';
 export { popupListConformanceTests } from './popupListConformanceTests';
+export { expectNativePath, expectNoSlowPath, expectSlowPath } from './renderPath';

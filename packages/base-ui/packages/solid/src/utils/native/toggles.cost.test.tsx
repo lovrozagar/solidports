@@ -12,7 +12,7 @@ import { Toggle } from '@solidports/base-ui/toggle';
 import { ToggleGroup } from '@solidports/base-ui/toggle-group';
 import { Radio } from '@solidports/base-ui/radio';
 import { RadioGroup } from '@solidports/base-ui/radio-group';
-import { createRenderer } from '#test-utils';
+import { createRenderer, expectNoSlowPath } from '#test-utils';
 import type { JSX } from '@solidjs/web';
 
 type Hooks = { onOwner?: (owner: unknown) => void };
@@ -37,6 +37,8 @@ describe('native toggles cost', () => {
     flush();
     hooks.onOwner = undefined;
     const created = count;
+    // The budgets are the native path's: a part that fell back to the slow path fails here.
+    expectNoSlowPath(view.container);
     view.unmount();
     return created;
   }

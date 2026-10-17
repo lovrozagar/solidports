@@ -19,6 +19,7 @@ import {
 import type { Accessor, Owner } from 'solid-js';
 import { assign, createComponent, insert, isServer } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
+import { markRenderPath } from '../renderPath';
 import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { CompositeRootContext } from '../../internals/composite/root/CompositeRootContext';
 import type { CompositeRootContext as CompositeRootContextValue } from '../../internals/composite/root/CompositeRootContext';
@@ -221,6 +222,9 @@ export function attachNativeAttributes(
   afterApply?: () => void,
   onAttach?: () => void,
 ): void {
+  if (process.env.NODE_ENV !== 'production') {
+    markRenderPath(el, 'native');
+  }
   assign(el, literal, true, {}, true);
   if (!dynamic) {
     onAttach?.();
