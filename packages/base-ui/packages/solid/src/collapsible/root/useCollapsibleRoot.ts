@@ -1,4 +1,4 @@
-import { createSignal, getObserver, getOwner, untrack } from 'solid-js';
+import { createMemo, createSignal, getObserver, getOwner, untrack } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { access } from '../../solid-helpers';
@@ -54,7 +54,10 @@ export class CollapsibleRootModel {
   /** `undefined` uses the generated fallback; `null` means the panel unmounted. */
   declare readonly setPanelIdState: Setter<string | null | undefined>;
   /** Event handler called when the panel is opened or closed. */
-  declare readonly onOpenChange: (open: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => void;
+  declare readonly onOpenChange: (
+    open: boolean,
+    eventDetails: CollapsibleRoot.ChangeEventDetails,
+  ) => void;
   /** What the parts' attribute writers read: `state`'s keys, live (see `CollapsibleStateView`). */
   declare readonly stateView: CollapsibleStateView;
   /** Toggles the panel from a trigger's press. A field: triggers pass it on as a callback. */
@@ -220,8 +223,7 @@ export interface UseCollapsibleRootParameters {
    * Event handler called when the panel is opened or closed.
    */
   onOpenChange?:
-    | ((open: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => void)
-    | undefined;
+    ((open: boolean, eventDetails: CollapsibleRoot.ChangeEventDetails) => void) | undefined;
   /**
    * Whether the component should ignore user interaction.
    * @default false
@@ -262,10 +264,14 @@ export type UseCollapsibleRootReturnValue = CollapsibleRootModel;
  * a closed panel pays for none of them.
  */
 export function panelRootParameters(root: CollapsibleRootModel) {
+  // The panel's machinery reads `open` in every dependency and derivation of each of its passes
+  // (34 reads per open of an Accordion item, each a lookup in the root's keyed selector): one
+  // transparent memo, created with the panel, reads the root once per change.
+  const open = createMemo(() => root.open(), { transparent: true });
   return {
     mounted: () => root.mounted(),
     onOpenChange: root.onOpenChange,
-    open: () => root.open(),
+    open,
     setMounted: (mounted: boolean) => root.setMounted(mounted),
     setOpen: (open: boolean) => root.setOpen(open),
     transitionStatus: () => root.transitionStatus(),
