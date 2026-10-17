@@ -266,22 +266,24 @@ function createRenderedPanel(
   keepMounted: () => boolean,
 ) {
   const id = () => props.id ?? root.defaultPanelId();
-  const panel = runInLazyScope(owner, () =>
+  // The server's panel creates no reactive node (D9), so it needs no scope; a lazy scope takes no
+  // slot of its owner, so skipping it moves no id.
+  const createPanel = () =>
     untrack(() =>
-      useCollapsiblePanel({
-        dimensionCssVars: {
-          height: AccordionPanelCssVars.accordionPanelHeight,
-          width: AccordionPanelCssVars.accordionPanelWidth,
-        },
-        hiddenUntilFound,
-        id,
-        initialOpen,
-        keepMounted,
-        native: true,
-        ...panelRootParameters(root),
-      }),
-    ),
-  )!;
+    useCollapsiblePanel({
+      dimensionCssVars: {
+        height: AccordionPanelCssVars.accordionPanelHeight,
+        width: AccordionPanelCssVars.accordionPanelWidth,
+      },
+      hiddenUntilFound,
+      id,
+      initialOpen,
+      keepMounted,
+      native: true,
+      ...panelRootParameters(root),
+    }),
+  );
+  const panel = isServer ? createPanel() : runInLazyScope(owner, createPanel)!;
   let publicState: AccordionPanelState | undefined;
   return {
     id,

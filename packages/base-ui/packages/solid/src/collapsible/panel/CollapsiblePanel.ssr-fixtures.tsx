@@ -11,28 +11,37 @@ function IdSibling() {
 }
 
 export default defineSsrFixtures(import.meta.url, {
-  // The panel's server state (D9): each panel's server attributes equal the client's first render.
+  // The server state (D9): the root's, trigger's and panel's server attributes equal the client's.
   open: () => (
-    <Collapsible.Root defaultOpen>
-      <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+    <Collapsible.Root data-testid="root" defaultOpen>
+      <Collapsible.Trigger data-testid="trigger">Trigger</Collapsible.Trigger>
       <Collapsible.Panel data-testid="panel">{PANEL_CONTENT}</Collapsible.Panel>
     </Collapsible.Root>
   ),
   keepMountedClosed: () => (
-    <Collapsible.Root>
-      <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+    <Collapsible.Root data-testid="root">
+      <Collapsible.Trigger data-testid="trigger">Trigger</Collapsible.Trigger>
       <Collapsible.Panel data-testid="panel" keepMounted>
         {PANEL_CONTENT}
       </Collapsible.Panel>
     </Collapsible.Root>
   ),
   hiddenUntilFoundClosed: () => (
-    <Collapsible.Root>
-      <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+    <Collapsible.Root data-testid="root">
+      <Collapsible.Trigger data-testid="trigger">Trigger</Collapsible.Trigger>
       <Collapsible.Panel data-testid="panel" hiddenUntilFound>
         {PANEL_CONTENT}
       </Collapsible.Panel>
     </Collapsible.Root>
+  ),
+  openRootBeforeIdSibling: () => (
+    <>
+      <Collapsible.Root defaultOpen>
+        <Collapsible.Trigger>Trigger</Collapsible.Trigger>
+        <Collapsible.Panel>{PANEL_CONTENT}</Collapsible.Panel>
+      </Collapsible.Root>
+      <IdSibling />
+    </>
   ),
   openBeforeIdSibling: () => (
     <Collapsible.Root defaultOpen>
