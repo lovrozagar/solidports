@@ -64,13 +64,18 @@ export function SolidStore<
   let controlledValues: Map<keyof State, boolean> | undefined;
   const context = initialContext;
   const [state, setState] = createInitialStore(initialState);
-  // Keyed selectors' memberships (`keyedSelector`), one per selector, created on its first tracked
-  // read in a lazy scope of the owner the store was created under: they live as long as the store
-  // and are disposed with it. A store created outside any owner reads them directly: those are the
-  // handles' inert stand-ins (`NullStore`), whose state never changes, and an ownerless projection
-  // would be an error when the first read comes from an effect callback.
+  // Keyed selectors' memberships (`keyedSelector`), one per selector, created when its current id
+  // first changes, in a lazy scope of the owner the store was created under: they live as long as
+  // the store and are disposed with it. Until then readers compare directly, subscribed to what the
+  // current id reads, and `firstKeys` holds the id they first saw: a store whose current id never
+  // moves (every closed popup root) creates nothing, and the first change, which re-runs every
+  // reader as a plain selector would, moves them onto the projection, so later changes re-run only
+  // the old and the new id's readers. A store created outside any owner reads them directly: those
+  // are the handles' inert stand-ins (`NullStore`), whose state never changes, and an ownerless
+  // projection would be an error when the first read comes from an effect callback.
   const storeOwner = getOwner();
   const memberships = new Map<KeyedSelector, (id: unknown) => boolean>();
+  const firstKeys = new Map<KeyedSelector, unknown>();
 
   function selectKeyed(selector: KeyedSelector, id: Accessor<unknown>): boolean {
     if (isServer || storeOwner === null || getObserver() === null || isDisposed(storeOwner)) {
@@ -79,10 +84,23 @@ export function SolidStore<
     let isCurrent = memberships.get(selector);
     if (isCurrent === undefined) {
       const key = keyedSelectorKeys.get(selector)!;
+      // Compared untracked: the reader that sees the change reads through the projection only, so
+      // it does not stay subscribed to the raw current id.
+      const current = untrack(() => key(state));
+      if (!firstKeys.has(selector)) {
+        firstKeys.set(selector, current);
+      }
+      if (Object.is(firstKeys.get(selector), current)) {
+        // Subscribes to what the current id reads, so its first change re-runs this reader.
+        key(state);
+        const value = id();
+        return value !== undefined && current === value;
+      }
+      firstKeys.delete(selector);
       isCurrent = runInLazyScope(storeOwner, () =>
         createKeyedSelector(() => {
-          const current = key(state);
-          return current === undefined ? [] : [current];
+          const next = key(state);
+          return next === undefined ? [] : [next];
         }),
       );
       memberships.set(selector, isCurrent);
