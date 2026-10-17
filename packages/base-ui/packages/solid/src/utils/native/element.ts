@@ -975,6 +975,66 @@ function withKeys(keys: ReadonlySet<string>, extra: Record<string, unknown>): Re
   return all;
 }
 
+/**
+ * A hydrating element's reconcile state (see `renderClientElement`): its first write, which stands
+ * for the server's markup, and the one reconcile after `hydrate()` returns when its effect applied
+ * again while hydrating. Solid: the members are prototype methods, so the state is one object.
+ */
+class HydrationState {
+  declare firstWrite: Record<string, unknown> | undefined;
+  declare private scheduled: boolean;
+  declare private readonly el: Element;
+  declare private readonly element: Element | NativeElementTemplate;
+  declare private readonly literal: Record<string, unknown>;
+  declare private readonly write: ClientWriter['write'];
+  declare private readonly needsEffect: boolean;
+  declare private readonly previous: Record<string, unknown>;
+
+  constructor(
+    el: Element,
+    element: Element | NativeElementTemplate,
+    literal: Record<string, unknown>,
+    write: ClientWriter['write'],
+    needsEffect: boolean,
+    previous: Record<string, unknown>,
+  ) {
+    this.firstWrite = undefined;
+    this.scheduled = false;
+    this.el = el;
+    this.element = element;
+    this.literal = literal;
+    this.write = write;
+    this.needsEffect = needsEffect;
+    this.previous = previous;
+  }
+
+  takeFirstWrite(written: Record<string, unknown>) {
+    this.firstWrite = written;
+    if (process.env.NODE_ENV !== 'production') {
+      // Now, while the element still holds the server markup.
+      const element = this.element;
+      checkHydratedAttributes(this.el, isTemplate(element) ? (element.attributes ?? {}) : {}, {
+        ...attributesOf(this.literal),
+        ...attributesOf(written),
+      });
+    }
+  }
+
+  scheduleReconcile() {
+    if (!this.scheduled) {
+      this.scheduled = true;
+      afterHydration(this.el, () => this.reconcile());
+    }
+  }
+
+  private reconcile() {
+    const written = this.needsEffect ? attributesOf(untrack(() => this.write({}, true))) : {};
+    const hydratedWrite = { ...attributesOf(this.literal), ...attributesOf(this.firstWrite ?? {}) };
+    assign(this.el, { ...attributesOf(this.literal), ...written }, true, hydratedWrite, true);
+    Object.assign(this.previous, written);
+  }
+}
+
 function renderClientElement<State extends object>(
   element: Element | NativeElementTemplate,
   props: object,
@@ -1000,35 +1060,15 @@ function renderClientElement<State extends object>(
   // compiled element carries them).
   /** The attributes the effect last wrote (or, while hydrating, recorded). */
   const previous: Record<string, unknown> = {};
-  let firstWrite: Record<string, unknown> | undefined;
-  let reconcileScheduled = false;
-  const reconcile = () => {
-    const written = needsEffect ? attributesOf(untrack(() => write({}, true))) : {};
-    const hydratedWrite = { ...attributesOf(literal), ...attributesOf(firstWrite ?? {}) };
-    assign(el, { ...attributesOf(literal), ...written }, true, hydratedWrite, true);
-    Object.assign(previous, written);
-  };
-  const scheduleReconcile = () => {
-    if (!reconcileScheduled) {
-      reconcileScheduled = true;
-      afterHydration(el, reconcile);
-    }
-  };
-  const takeFirstWrite = (written: Record<string, unknown>) => {
-    firstWrite = written;
-    if (process.env.NODE_ENV !== 'production') {
-      // Now, while the element still holds the server markup.
-      checkHydratedAttributes(el, isTemplate(element) ? (element.attributes ?? {}) : {}, {
-        ...attributesOf(literal),
-        ...attributesOf(written),
-      });
-    }
-  };
+  // Only an element created while hydrating can need it (a client render has nothing to match).
+  const hydration = hydrating
+    ? new HydrationState(el, element, literal, write, needsEffect, previous)
+    : undefined;
 
   if (!needsEffect) {
     write(literal, false);
-    if (hydrating && process.env.NODE_ENV !== 'production') {
-      takeFirstWrite({});
+    if (hydration && process.env.NODE_ENV !== 'production') {
+      hydration.takeFirstWrite({});
     }
   }
   attachNativeAttributes(el, literal, undefined, owner);
@@ -1043,11 +1083,11 @@ function renderClientElement<State extends object>(
       createRenderEffect(
         () => write({}, true),
         (next) => {
-          if (hydrating) {
-            if (firstWrite === undefined) {
-              takeFirstWrite(next);
+          if (hydration) {
+            if (hydration.firstWrite === undefined) {
+              hydration.takeFirstWrite(next);
             } else if (isHydrating()) {
-              scheduleReconcile();
+              hydration.scheduleReconcile();
             }
           }
           if (hydrating && recordsOnly(el, next)) {
@@ -1077,10 +1117,10 @@ function renderClientElement<State extends object>(
     );
   }
 
-  if (hydrating && needsEffect && spec.reconcileAfterHydration) {
+  if (hydration && needsEffect && spec.reconcileAfterHydration) {
     // The effect's later writes diff against its own attributes only, as outside hydration: the
     // literal ones are written once and must not read as removed.
-    scheduleReconcile();
+    hydration.scheduleReconcile();
   }
 
   if (source.ref != null) {

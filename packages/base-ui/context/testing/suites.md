@@ -97,6 +97,7 @@ Other workflows:
 - `packages/solid/vitest.ssr.config.mts`: project `@solidports/base-ui:ssr`, Node environment, `test/ssr/**/*.test.ts`.
 - CI retries a failed test once (`retry: process.env.CI ? 1 : 0`).
 - Single component: `bun run test:solid:jsdom NumberField --no-watch` (or `test:solid:chromium`).
+- A browser run over many families at once (eight filters, about 60 files) can also lose its iframe on this machine under load 60 and above, a different file failing each time, while each family alone passes. Run the families one after another when a combined run fails that way.
 - Filters that overlap (`collapsible accordion parity`, where `Collapsible.parity.test.tsx` matches two of them) schedule a file twice. In browser mode the two runs share one iframe, and the run fails within seconds on "Cannot connect to the iframe" and failed dynamic imports. That is the runner's, not the tests': pass filters that do not overlap, or run them one after another.
 
 ## Warning census
