@@ -9,7 +9,6 @@ import {
 } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { isServer } from '@solidjs/web';
 import { access } from '../../solid-helpers';
 import type { MaybeAccessor } from '../../solid-helpers';
 import { createEffectGroup } from '../../utils/native/effectGroup';
@@ -78,75 +77,78 @@ function autoDimensions(vars: { height: string; width: string }): JSX.CSSPropert
   return style;
 }
 
+/** What a native panel reads from its collapsible root. */
+export interface PanelRoot {
+  open(): boolean;
+  mounted(): boolean;
+  transitionStatus(): TransitionStatus;
+}
+
 /**
  * A native panel on the server (D9): the attributes its first client render writes, and none of
- * the measurement and transition machinery, which only acts on a mounted element. A native part
- * creates the hook in its lazy scope (`runInLazyScope`), whose ids no element takes, so the client
- * builds the machinery there while hydrating and every server key stays where it was. Solid: the
- * members are prototype methods, so a panel allocates one object; the part calls them on it.
+ * the measurement and transition machinery, which only acts on a mounted element. The client
+ * builds that machinery in the part's lazy scope while hydrating, where no element takes a key.
+ * Solid: the members are prototype methods, so a panel allocates one object; the part calls them on
+ * it.
  */
-class ServerPanel implements UseCollapsiblePanelReturnValue {
+export class ServerPanel implements UseCollapsiblePanelReturnValue {
   declare readonly dimensionStyle: JSX.CSSProperties;
   declare readonly props: Accessor<HTMLProps>;
   declare readonly ref: (element: HTMLDivElement | null) => void;
-  declare private readonly parameters: UseCollapsiblePanelParameters;
+  declare private readonly root: PanelRoot;
+  declare private readonly hiddenUntilFound: () => boolean;
+  declare private readonly keepMounted: () => boolean;
   /** The client suppresses an initially open panel's open animation until it first closes. */
   declare private readonly initialOpen: boolean;
 
-  constructor(parameters: UseCollapsiblePanelParameters) {
-    this.parameters = parameters;
-    this.initialOpen = parameters.initialOpen ?? Boolean(untrack(() => access(parameters.open)));
-    this.dimensionStyle = autoDimensions(parameters.dimensionCssVars);
+  constructor(
+    root: PanelRoot,
+    hiddenUntilFound: () => boolean,
+    keepMounted: () => boolean,
+    dimensionCssVars: { height: string; width: string },
+    initialOpen: boolean,
+  ) {
+    this.root = root;
+    this.hiddenUntilFound = hiddenUntilFound;
+    this.keepMounted = keepMounted;
+    this.initialOpen = initialOpen;
+    this.dimensionStyle = autoDimensions(dimensionCssVars);
     this.props = EMPTY_PROPS;
     this.ref = noop;
   }
 
   private hidden() {
-    return !access(this.parameters.open) && !access(this.parameters.mounted);
+    return !this.root.open() && !this.root.mounted();
   }
 
   hiddenAttribute() {
     if (!this.hidden()) {
       return undefined;
     }
-    return access(this.parameters.hiddenUntilFound) ? 'until-found' : true;
+    return this.hiddenUntilFound() ? 'until-found' : true;
   }
 
   /** No animation type is known before the client measures, as on the client's first render. */
   shouldPersistHiddenTransitionStyles() {
-    return Boolean(access(this.parameters.hiddenUntilFound)) && this.hidden();
+    return this.hiddenUntilFound() && this.hidden();
   }
 
   shouldPreventOpenAnimation() {
-    return Boolean(access(this.parameters.open)) && this.initialOpen;
+    return this.root.open() && this.initialOpen;
   }
 
   shouldRender() {
-    const parameters = this.parameters;
-    return Boolean(
-      access(parameters.keepMounted) ||
-        access(parameters.hiddenUntilFound) ||
-        access(parameters.mounted) ||
-        access(parameters.open),
-    );
+    return this.keepMounted() || this.hiddenUntilFound() || this.root.mounted() || this.root.open();
   }
 
   transitionStatus() {
-    return access(this.parameters.transitionStatus);
+    return this.root.transitionStatus();
   }
 }
 
 export function useCollapsiblePanel(
   parameters: UseCollapsiblePanelParameters,
 ): UseCollapsiblePanelReturnValue {
-  // Separate functions: V8 allocates a function's closure context when it is entered, so the
-  // server would pay for the client's closures even when it returns before creating them.
-  return isServer && parameters.native === true
-    ? new ServerPanel(parameters)
-    : createClientPanel(parameters);
-}
-
-function createClientPanel(parameters: UseCollapsiblePanelParameters): UseCollapsiblePanelReturnValue {
   const hiddenUntilFound = () => access(parameters.hiddenUntilFound);
   const idParam = () => access(parameters.id);
   const keepMounted = () => access(parameters.keepMounted);
