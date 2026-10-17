@@ -209,3 +209,78 @@ describe("stopping a Mac run", () => {
 		expect(await run.exited).toBe(143)
 	}, 30_000)
 })
+
+describe("queued Mac runs", () => {
+	test("two runs started together check out and run one after the other", async () => {
+		const { dir } = shims()
+		const home = join(dir, "home")
+		const bin = join(home, ".bun/bin")
+		mkdirSync(join(home, "solidports-ci/.git"), { recursive: true })
+		mkdirSync(bin, { recursive: true })
+		const events = join(dir, "events")
+		// Stand-ins for git and bun: a checkout takes a moment, so an unlocked second run would land
+		// between the first run's checkout and its command.
+		writeFileSync(
+			join(bin, "git"),
+			`#!/bin/sh\nif [ "$1" = checkout ]; then echo "$RUN_ID checkout" >> ${events}; sleep 0.5; fi\nexit 0\n`,
+		)
+		writeFileSync(join(bin, "bun"), "#!/bin/sh\nexit 0\n")
+		chmodSync(join(bin, "git"), 0o755)
+		chmodSync(join(bin, "bun"), 0o755)
+		const start = (id: string) =>
+			Bun.spawn(
+				[
+					"bash",
+					"-c",
+					remoteScript({
+						sha: "abc",
+						timeout: 60,
+						command: ["sh", "-c", `echo "$RUN_ID command" >> ${events}; sleep 0.5`],
+						bundle: `solidports-remote-${id}.bundle`,
+						ref: `refs/remote-mac/${id}`,
+						fetch: [],
+						outDir: `remote-mac-out/${id}`,
+					}),
+				],
+				{ env: { ...process.env, HOME: home, RUN_ID: id }, stdout: "ignore", stderr: "ignore" },
+			)
+		const runs = [start("a"), start("b")]
+		expect(await Promise.all(runs.map((run) => run.exited))).toEqual([0, 0])
+		const lines = readFileSync(events, "utf8").trim().split("\n")
+		const [first, second] = [lines[0].split(" ")[0], lines[2]?.split(" ")[0]]
+		expect(lines).toEqual([`${first} checkout`, `${first} command`, `${second} checkout`, `${second} command`])
+		expect(new Set([first, second])).toEqual(new Set(["a", "b"]))
+	}, 30_000)
+
+	test("a run copies its --fetch files to its own folder before the next run starts", async () => {
+		const { dir } = shims()
+		const home = join(dir, "home")
+		const bin = join(home, ".bun/bin")
+		mkdirSync(join(home, "solidports-ci/.git"), { recursive: true })
+		mkdirSync(bin, { recursive: true })
+		writeFileSync(join(bin, "git"), "#!/bin/sh\nexit 0\n")
+		writeFileSync(join(bin, "bun"), "#!/bin/sh\nexit 0\n")
+		chmodSync(join(bin, "git"), 0o755)
+		chmodSync(join(bin, "bun"), 0o755)
+		const run = Bun.spawn(
+			[
+				"bash",
+				"-c",
+				remoteScript({
+					sha: "abc",
+					timeout: 60,
+					command: ["sh", "-c", "mkdir -p out && echo result > out/r.json; exit 3"],
+					bundle: "b.bundle",
+					ref: "refs/remote-mac/x",
+					fetch: ["out/r.json", "missing.json"],
+					outDir: ".gates/remote-mac-out/x",
+				}),
+			],
+			{ env: { ...process.env, HOME: home }, stdout: "pipe", stderr: "ignore" },
+		)
+		// The command's exit code survives the copy.
+		expect(await run.exited).toBe(3)
+		expect(readFileSync(join(home, ".gates/remote-mac-out/x/out/r.json"), "utf8")).toBe("result\n")
+		expect(await new Response(run.stdout).text()).toContain("remote-mac: could not collect missing.json")
+	}, 30_000)
+})
