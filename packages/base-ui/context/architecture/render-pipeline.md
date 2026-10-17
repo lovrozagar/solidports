@@ -68,6 +68,7 @@ Parts add conditions; `Button` also needs no composite root and a static, `true`
 - Consumer refs apply once (`applyRefs`); part refs also get `null` on dispose (`releasePartRefs`).
 - Contexts on one transparent owner (`native/context.ts`). Helpers: `createNativeConditional`, `createEffectGroup`, `createIdRegistration`, `createNativeListItem`, `createCompositeItemRegistration`.
 - `createNativeElement` uses `document.createElement`, not a template clone.
+- Hydration (`native/element.ts`): the first write stands for the server markup (development checks it) and is kept by reference. An element reconciles after `hydrate()` returns only when its attribute effect applied again while hydrating (Solid records such writes without making them) or its spec sets `reconcileAfterHydration` (a panel with its machinery, whose measured animation type is a plain variable). Every such element reconciles in one shared microtask; the others queue nothing and write nothing (`hydrationCost.test.tsx`). As compiled JSX, a value the client computes differently from the server keeps the server's attribute.
 
 Two renderers coexist: `renderNativeElement(spec)` in `native/index.ts` (`CheckboxGroup`, `RadioGroup`) takes a part-built writer. `renderNativeElement(el, props, spec)` in `native/element.ts` (Collapsible, Accordion, Tabs) writes state attributes itself and skips re-writing an unchanged string `style`, since `assign` resets `cssText` and would wipe CSS variables a part set. Checkbox, Radio, and Switch roots use `createLayout` with module-level attribute functions.
 

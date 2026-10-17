@@ -343,6 +343,10 @@ export function renderNativePanel<State extends CollapsiblePanelState>(
     own: OWN_KEYS,
     state: panelState,
     mapping,
+    // The machinery's measured animation type (a plain variable, set from computed style while
+    // hydrating) decides `[data-starting-style]`. A server or deferred panel builds no machinery
+    // while hydrating.
+    reconcileAfterHydration: !(panel instanceof ServerPanel),
     stateWriter,
     stateView,
     reactive: true,

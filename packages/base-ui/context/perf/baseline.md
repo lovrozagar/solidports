@@ -88,6 +88,19 @@ combobox/5000 close 0.01x, checkbox/uncontrolled-1000 click 100 0.04x, combobox/
 
 The hydrate script ratios above came from `ScriptDuration` and a hydrate time that stopped when React's `hydrateRoot` returned, after it had only scheduled its work, so they are not comparable across libraries or with later runs. Since 2026-10-16, hydrate ms runs from the hydrate call to the commit on both sides (see [perf method](method.md)). The identical React fixture read 54 ms and 26 ms total in one run before the change, and 17.0 ms and 16.4 ms after it. The aggregates above use in-page `sync` ratios, which CDP's `ScriptDuration` gap (fixed 2026-10-17; see [perf method](method.md)) does not affect; any `script` figure from these runs left out each step's synchronous work.
 
+### Main-thread hydration time (Mac, 2026-10-17)
+
+`ssr/run.mjs 10 collapsible/300,accordion/300` on the Mac, production builds, at 75bdb4e3 (D11) with the bench's main-thread table: CDP `TaskDuration` up to the commit plus over the two settled frames, which counts script on both sides (React's later tasks and Solid's synchronous hydrate alike). The floor is the hand-written Solid contract floor of the same fixture. React's hydrate ms (to its commit) leaves out much of its own work: accordion/300-open reads 25.5 ms against 48.5 ms of main-thread time.
+
+| fixture | React ms | port ms | floor ms | port / React | port / floor | React hydrate ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| collapsible/300 | 22.1 | 17.5 | 12.3 | 0.79x | 1.42x | 20.2 |
+| accordion/300 | 40.9 | 28.1 | 14.0 | 0.69x | 2.00x | 23.5 |
+| collapsible/300-open | 24.4 | 26.5 | 14.2 | 1.09x | 1.87x | 21.3 |
+| accordion/300-open | 48.5 | 45.2 | 17.9 | 0.93x | 2.53x | 25.5 |
+
+No variant lays out or recalculates style while hydrating (0 in both steps), so the gap to the floor is script.
+
 ## Reactive-node counts
 
 Closed popup root budgets (`closedRoot.cost.test.tsx`, dev mode; "before" is the count before interactions were deferred to first intent): Tooltip 83 (110), Menu 142 (189), ContextMenu 103 (153), Popover 94 (113), PreviewCard 83 (99), Dialog 73 (94), AlertDialog 73 (94), Drawer 101 (125), Select 123 (188), Combobox 149 (210), NavigationMenu 230 (not deferred).
