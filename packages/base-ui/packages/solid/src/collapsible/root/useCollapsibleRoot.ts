@@ -1,6 +1,7 @@
 import { createSignal, getObserver, getOwner, untrack } from 'solid-js';
 import type { Accessor, Owner, Setter } from 'solid-js';
 import type { JSX } from '@solidjs/web';
+import { isServer } from '@solidjs/web';
 import { access } from '../../solid-helpers';
 import type { MaybeAccessor } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -40,6 +41,38 @@ export class CollapsibleStateView {
   }
 }
 
+/** What a root reads from its transition: the status machinery, or its server stand-in. */
+interface RootTransition {
+  mounted(): boolean;
+  setMounted(mounted: boolean): unknown;
+  transitionStatus(): TransitionStatus;
+}
+
+/**
+ * An initially open root's transition on the server (D9), where it renders once: mounted while
+ * open, and `'idle'` while open, as `useTransitionStatus` starts with the idle state enabled.
+ * Nothing changes it there; the client creates the real machinery while hydrating.
+ */
+class ServerTransition implements RootTransition {
+  declare private readonly root: CollapsibleRootModel;
+
+  constructor(root: CollapsibleRootModel) {
+    this.root = root;
+  }
+
+  mounted() {
+    return this.root.open();
+  }
+
+  transitionStatus(): TransitionStatus {
+    return this.root.open() ? 'idle' : undefined;
+  }
+
+  setMounted() {
+    return false;
+  }
+}
+
 /**
  * A collapsible root's state and actions, shared with its parts as `CollapsibleRootContext`.
  * Solid: the members are prototype methods, so a root allocates one object rather than a closure
@@ -68,7 +101,7 @@ export class CollapsibleRootModel {
   declare private readonly writeOpen: Setter<boolean> | undefined;
   /** Untracked reads (event handlers, effect callbacks) see the latest write at once. */
   declare private latestWrite: boolean | undefined;
-  declare private transition: ReturnType<typeof useTransitionStatus> | undefined;
+  declare private transition: RootTransition | undefined;
   declare private readonly registeredPanelId: Accessor<string | null | undefined>;
   declare private publicState: CollapsibleRootState | undefined;
 
@@ -112,9 +145,15 @@ export class CollapsibleRootModel {
     // closed values (`mounted` false, status `undefined`). Every reader also reads `open`, so it
     // re-runs on the first open and creates the machinery; `animateInitialOpen` makes that open
     // enter `'starting'`, as an eagerly created instance does when it goes from closed to open.
+    // A root that starts open creates it now, in a lazy scope as a later open does: the scope
+    // takes no slot of the root's owner, and no element takes a key inside it. On the server the
+    // root renders once, so its transition is the initial one, with nothing to schedule, and it
+    // creates no reactive node there (D9).
     this.owner = getOwner();
     if (untrack(() => this.open())) {
-      this.transition = useTransitionStatus(() => this.open(), true, true);
+      this.transition = isServer
+        ? new ServerTransition(this)
+        : runInLazyScope(this.owner, () => useTransitionStatus(() => this.open(), true, true))!;
     }
 
     this.defaultPanelId = useBaseUiId();

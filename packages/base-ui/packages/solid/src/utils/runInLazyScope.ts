@@ -13,6 +13,12 @@ const scopeCounts = new WeakMap<Owner, number>();
  * without an id (a client render) has no ids to keep: `create` runs under it directly.
  *
  * A single computation needs no scope: pass it `transparent: true`.
+ *
+ * Nothing a hydration claims may live in a scope: no element, and no computation whose value is
+ * serialized. A scope's number follows the order scopes are created in its owner, and the server
+ * and the client differ there: a part's scope can open while it renders on one side and after its
+ * siblings on the other, or not at all on the server, where a part's machinery has a stand-in
+ * that creates no node (D9).
  */
 export function runInLazyScope<T>(owner: Owner | null, create: () => T): T {
   if (owner?.id == null) {

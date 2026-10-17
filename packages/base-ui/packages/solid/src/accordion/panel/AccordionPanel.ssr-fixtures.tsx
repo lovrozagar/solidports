@@ -19,9 +19,9 @@ function Item(props: {
 }) {
   return (
     <Accordion.Root defaultValue={props.open ? [0] : []}>
-      <Accordion.Item value={0}>
+      <Accordion.Item data-testid="root" value={0}>
         <Accordion.Header>
-          <Accordion.Trigger>Trigger</Accordion.Trigger>
+          <Accordion.Trigger data-testid="trigger">Trigger</Accordion.Trigger>
         </Accordion.Header>
         {props.panel(PANEL_CONTENT)}
         {props.after}
@@ -31,7 +31,7 @@ function Item(props: {
 }
 
 export default defineSsrFixtures(import.meta.url, {
-  // The panel's server state (D9): each panel's server attributes equal the client's first render.
+  // The server state (D9): the item's, trigger's and panel's server attributes equal the client's.
   open: () => (
     <Item open panel={(content) => <Accordion.Panel data-testid="panel">{content}</Accordion.Panel>} />
   ),
