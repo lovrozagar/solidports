@@ -59,7 +59,7 @@ Heap after mount (`accordion/300`): 5841 KB React vs 2569 KB Solid.
 
 ## Hot spots
 
-- `open all` is the only step slower than React; it pays the panel's first-render machinery per item (`AccordionPanel.tsx:202`), the same cost as Collapsible's first open. Script time is 9.2 ms Solid vs 0.6 ms React.
+- `open all` is the only step slower than React; it pays the panel's first-render machinery per item (`AccordionPanel.tsx:202`), the same cost as Collapsible's first open. Script time read 9.2 ms Solid vs 0.6 ms React, measured before 2026-10-17, when the bench's `script` left out each step's synchronous work (see [perf method](../perf/method.md)): re-measure before relying on it.
 
 ## Known issues and divergences
 
