@@ -12,6 +12,7 @@
 //   NO_BUILD=1 reuses every build; NO_BUILD=a,b reuses those variants' builds only.
 //   BUILD_ONLY=1 builds and exits. SERVER_ONLY=1 skips the browser (hydration) part.
 //   SSR_MINIFY=0 keeps the bundles readable (function names for profile.mjs).
+//   SSR_SOURCEMAP=1 writes sourcemaps (the profiling pass, `../attribution.mjs`).
 //   RESULTS_FILE=<path without extension>.
 //   SSR_REPEAT=name:N renders that variant's case N times per server render: a known slowdown, to
 //     check that the instrument sees it (`bench:component` never sets it).
@@ -96,11 +97,13 @@ function config(name, ssr) {
           outDir: path.join(outDir(name), 'server'),
           emptyOutDir: true,
           minify: process.env.SSR_MINIFY !== '0',
+          sourcemap: process.env.SSR_SOURCEMAP === '1',
         }
       : {
           outDir: path.join(outDir(name), 'client'),
           emptyOutDir: true,
           minify: process.env.SSR_MINIFY !== '0',
+          sourcemap: process.env.SSR_SOURCEMAP === '1',
           chunkSizeWarningLimit: 99999,
         },
   };

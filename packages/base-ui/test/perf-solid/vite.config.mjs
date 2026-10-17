@@ -31,6 +31,8 @@ export default defineConfig({
     outDir: path.join(builds, lib, process.env.OUT || 'dist'),
     emptyOutDir: true,
     minify: process.env.MINIFY !== '0',
+    // The profiling pass (`attribution.mjs`) maps samples back to the source.
+    sourcemap: process.env.SOURCEMAP === '1',
     chunkSizeWarningLimit: 99999,
   },
   logLevel: 'warn',
