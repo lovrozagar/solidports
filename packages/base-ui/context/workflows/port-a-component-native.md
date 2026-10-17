@@ -32,6 +32,7 @@ The living playbook for moving a family onto the native kit (D15): read it befor
 - In a real browser `toHaveStyle` compares computed values (a `40%` width reads in pixels): assert the inline `element.style` instead, and type query helpers as `HTMLElement`.
 - The server prints numbers as written (`inset-inline-start:0`) where the CSSOM reports `0px`: compare hydrated styles through the CSSOM.
 - `typecheck` (pre-commit and verify) covers the whole working tree, so uncommitted work can fail an unrelated commit and a rebuilt tree can fail verify: typecheck before rebuilding a commit.
+- A tooling change needs its end-to-end path run, not only its unit tests: a `const` shadowing `run()` in `bench:component`'s main passed every unit test and failed on the Mac. `base-ui-bench-component-main.test.ts` and `base-ui-scripts-lint.test.ts` now catch that class locally.
 - A generic native lane inside `useRenderElement` breaks its per-key and dynamic-key contracts (D14): port per part.
 - Before D16 the rule's tolerance was the summed p90 spreads, which one slow sample per side decides at ten samples: a 2x server drop at 597b2a75 (96.9 to 47.4 ms) read "same". Read verdicts from runs before D16 as unjudged.
 

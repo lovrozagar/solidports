@@ -55,6 +55,10 @@ Details of the docs scripts: [docs pipeline](docs-pipeline.md). Upstream's `api-
 | `standards-check.ts` | Drift check against `~/Development/standards/sync.ts`; skips when absent. | `lefthook.base.yml` pre-push | standards |
 | `pinned-bun-test.ts` + `.test.ts` | Runs `bun test ./scripts` under the Bun `packageManager` pins (`bunx bun@<pin>`, the version CI installs) when the local Bun is another version; does nothing when they match. | `lefthook.yml` pre-push | repo |
 
+| `perf-noise-model.ts` | A seeded clock with the Mac bench's noise (GC pauses, stalls, first-run outliers) for the perf rule's tests (D16). | `base-ui-perf-*.test.ts` | port |
+
+Two root tests guard `packages/base-ui/scripts` beyond its unit tests. `base-ui-scripts-lint.test.ts` runs oxlint with `no-shadow` and `no-use-before-define` (hoisted functions allowed) over the tooling scripts and `test/perf-solid`, which no other linter covers: root oxlint ignores `packages/base-ui`, and Base UI's ESLint covers the library and the docs app. The docs generator under `scripts/docs` is outside it (eight hits there). `base-ui-bench-component-main.test.ts` drives `bench:component`'s `main` end to end with canned runner output (builds, browser and SSR runs, the cost run) through compare, judging and the report.
+
 `test:scripts` (`bun test ./scripts`) runs the root tests and is a verify gate. Root `lint` lints only `scripts/`. Release flow: [release](release.md); gates: [standards](standards.md).
 
 ## `package.json` wiring
