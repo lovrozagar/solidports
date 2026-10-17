@@ -79,22 +79,55 @@ describe('native toggles cost', () => {
     );
   }
 
-  it('Checkbox.Root + Indicator: ≤ 19 nodes beyond a hand-written checkbox', () => {
+  it('Checkbox.Root + Indicator: ≤ 13 nodes beyond a hand-written checkbox', () => {
     const raw = perPart(() => <RawCheckbox />);
     const part = perPart(() => (
       <Checkbox.Root>
         <Checkbox.Indicator>✓</Checkbox.Indicator>
       </Checkbox.Root>
     ));
-    // Measured 2026-10-06 (dev runtime): dev component roots (root, indicator, context provider),
+    // Measured 2026-10-17 (dev runtime): dev component roots (root, indicator, context provider),
     // the provider owner, the controlled state (signal + dev-only warning effect), the root's
     // attribute effect, the hidden input's effect, the label-fallback effect, the children
-    // insert, and the indicator's Show, transition status (2 writable memos + effect) and
-    // open-change-complete effect. Tighten as the machinery gets lazier.
+    // insert, and the indicator's Show. Its transition machinery is created when it is first
+    // checked (4.8a).
     expect(
       part - raw,
       `Checkbox: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
-    ).toBeLessThanOrEqual(19);
+    ).toBeLessThanOrEqual(13);
+  });
+
+  it('an unchecked Checkbox.Indicator: ≤ 7 nodes beyond its root, its transition machinery not yet made', () => {
+    // Plan 3, 4.8a: the indicator built its transition status (two writable memos) and its
+    // open-change-complete effect while unchecked, when it renders nothing (10 nodes). Left: the
+    // dev component roots (2), the `<Show>` (its condition, memo and value) and two inserts.
+    const root = perPart(() => <Checkbox.Root />);
+    const part = perPart(() => (
+      <Checkbox.Root>
+        <Checkbox.Indicator />
+      </Checkbox.Root>
+    ));
+    expect(part - root, `indicator: ${part - root} nodes (${part} vs ${root})`).toBeLessThanOrEqual(
+      7,
+    );
+  });
+
+  it('an unchecked Radio.Indicator: ≤ 7 nodes beyond its root, its transition machinery not yet made', () => {
+    const root = perPart(
+      () => <Radio.Root value="b" />,
+      (children) => <RadioGroup defaultValue="a">{children}</RadioGroup>,
+    );
+    const part = perPart(
+      () => (
+        <Radio.Root value="b">
+          <Radio.Indicator />
+        </Radio.Root>
+      ),
+      (children) => <RadioGroup defaultValue="a">{children}</RadioGroup>,
+    );
+    expect(part - root, `indicator: ${part - root} nodes (${part} vs ${root})`).toBeLessThanOrEqual(
+      7,
+    );
   });
 
   it('Switch.Root + Thumb: ≤ 10 nodes beyond a hand-written switch', () => {
@@ -156,7 +189,7 @@ describe('native toggles cost', () => {
     ).toBeLessThanOrEqual(5);
   });
 
-  it('Radio.Root + Indicator in a RadioGroup: ≤ 18 nodes beyond a hand-written radio', () => {
+  it('Radio.Root + Indicator in a RadioGroup: ≤ 13 nodes beyond a hand-written radio', () => {
     const [value, setValue] = createSignal('a');
     const raw = perPart(
       () => (
@@ -185,6 +218,6 @@ describe('native toggles cost', () => {
     expect(
       part - raw,
       `Radio: ${part - raw} nodes beyond raw (${part} vs ${raw})`,
-    ).toBeLessThanOrEqual(18);
+    ).toBeLessThanOrEqual(13);
   });
 });

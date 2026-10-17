@@ -16,8 +16,7 @@ import {
 import { splitComponentProps, useRef } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
-import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
-import { useTransitionStatus } from '../../utils/useTransitionStatus';
+import { createLazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import type { RadioRootState } from '../root/RadioRoot';
 import { useRadioRootContext } from '../root/RadioRootContext';
@@ -40,7 +39,15 @@ export function RadioIndicator(componentProps: RadioIndicator.Props) {
 
   const rendered = () => rootState.checked;
 
-  const { mounted, transitionStatus, setMounted } = useTransitionStatus(rendered);
+  const indicatorRef = useRef<HTMLSpanElement | null | undefined>(null);
+
+  // The transition machinery is created when the radio is first checked; an unchecked indicator
+  // renders nothing and needs none.
+  const transition = createLazyTransitionStatus(rendered, {
+    closeComplete: { batch: true, ref: () => indicatorRef.current },
+  });
+  const transitionStatus = () => transition.transitionStatus();
+  const mounted = () => transition.mounted();
 
   const state: RadioIndicatorState = native
     ? (Object.create(rootState, {
@@ -51,8 +58,6 @@ export function RadioIndicator(componentProps: RadioIndicator.Props) {
           return transitionStatus();
         },
       });
-
-  const indicatorRef = useRef<HTMLSpanElement | null | undefined>(null);
 
   const shouldRender = () => keepMounted() || mounted();
 
@@ -65,18 +70,6 @@ export function RadioIndicator(componentProps: RadioIndicator.Props) {
         props: splitComponentProps(componentProps, ['keepMounted'])[2],
         stateAttributesMapping,
       });
-
-  useOpenChangeComplete({
-    batch: true,
-    enabled: () => !rendered(),
-    open: rendered,
-    ref: () => indicatorRef.current,
-    onComplete() {
-      if (!rendered()) {
-        setMounted(false);
-      }
-    },
-  });
 
   return <Show when={shouldRender()}>{element()}</Show>;
 }

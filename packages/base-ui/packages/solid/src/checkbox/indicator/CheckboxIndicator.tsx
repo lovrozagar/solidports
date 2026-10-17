@@ -18,8 +18,7 @@ import { useRenderElement } from '../../utils/useRenderElement';
 import { getCheckboxStateAttributesMapping } from '../utils/getCheckboxStateAttributesMapping';
 import type { CheckboxRootState } from '../root/CheckboxRoot';
 import type { BaseUIComponentProps } from '../../utils/types';
-import { useOpenChangeComplete } from '../../utils/useOpenChangeComplete';
-import { useTransitionStatus } from '../../utils/useTransitionStatus';
+import { createLazyTransitionStatus } from '../../utils/createLazyTransitionStatus';
 import type { TransitionStatus } from '../../utils/useTransitionStatus';
 import type { StateAttributesMapping } from '../../utils/getStateAttributesProps';
 import { transitionStatusMapping } from '../../utils/stateAttributesMapping';
@@ -42,9 +41,15 @@ export function CheckboxIndicator(componentProps: CheckboxIndicator.Props) {
 
   const rendered = () => rootState.checked || rootState.indeterminate;
 
-  const { mounted, transitionStatus, setMounted } = useTransitionStatus(rendered);
-
   const indicatorRef = useRef<HTMLSpanElement | null | undefined>(null);
+
+  // The transition machinery is created when the checkbox is first checked; an unchecked
+  // indicator renders nothing and needs none.
+  const transition = createLazyTransitionStatus(rendered, {
+    closeComplete: { batch: true, ref: () => indicatorRef.current },
+  });
+  const transitionStatus = () => transition.transitionStatus();
+  const mounted = () => transition.mounted();
 
   const state: CheckboxIndicatorState = native
     ? (Object.create(rootState, {
@@ -55,18 +60,6 @@ export function CheckboxIndicator(componentProps: CheckboxIndicator.Props) {
           return transitionStatus();
         },
       });
-
-  useOpenChangeComplete({
-    batch: true,
-    enabled: () => !rendered(),
-    open: rendered,
-    ref: () => indicatorRef.current,
-    onComplete() {
-      if (!rendered()) {
-        setMounted(false);
-      }
-    },
-  });
 
   const baseStateAttributesMapping = getCheckboxStateAttributesMapping(rootState);
 
