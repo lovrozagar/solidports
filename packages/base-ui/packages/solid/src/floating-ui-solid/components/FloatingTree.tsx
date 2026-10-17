@@ -1,7 +1,7 @@
 import { createContext, useContext, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { access, live, createLayoutEffect } from '../../solid-helpers';
+import { access, live, createLayoutEffect, provideContext } from '../../solid-helpers';
 import type { MaybeAccessor } from '../../solid-helpers';
 import { useId } from '../../utils/useId';
 import type { FloatingContext, FloatingNodeType, FloatingTreeType } from '../types';
@@ -132,5 +132,5 @@ export function FloatingTree(props: FloatingTreeProps): JSX.Element {
   // Fixed on creation, as React's `useRefWithInit`.
   const fixedTree = untrack(() => props.externalTree) ?? new FloatingTreeStore();
   const tree = () => fixedTree;
-  return <FloatingTreeContext value={tree}>{props.children}</FloatingTreeContext>;
+  return provideContext(FloatingTreeContext, tree, () => props.children);
 }

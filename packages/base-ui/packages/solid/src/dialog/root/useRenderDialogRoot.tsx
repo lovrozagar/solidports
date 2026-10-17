@@ -1,6 +1,11 @@
 import { Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
-import { ComponentWithPayload, createDepsRenderEffect, isAbsentProp } from '../../solid-helpers';
+import {
+  ComponentWithPayload,
+  createDepsRenderEffect,
+  isAbsentProp,
+  provideContext,
+} from '../../solid-helpers';
 import { DialogInteractions } from './useDialogRoot';
 import { DialogRootContext, useDialogRootContext } from './DialogRootContext';
 import { DialogStore } from '../store/DialogStore';
@@ -125,8 +130,8 @@ export function useRenderDialogRoot<Payload>(
     createHandleAttachment(() => props.handle, store);
   }
 
-  return (
-    <DialogRootContext value={store as DialogStore<unknown>}>
+  return provideContext(DialogRootContext, store as DialogStore<unknown>, () => (
+    <>
       <Show when={shouldRenderInteractions()}>
         <DialogInteractions
           store={store}
@@ -135,8 +140,8 @@ export function useRenderDialogRoot<Payload>(
         />
       </Show>
       <ComponentWithPayload payload={payload} children={props.children} />
-    </DialogRootContext>
-  );
+    </>
+  ));
 }
 
 export type DialogRootMode = 'dialog' | 'drawer' | 'alert-dialog';

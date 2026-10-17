@@ -1,7 +1,7 @@
 ---
 tags: [solid, perf, primitives, compiler, ssr]
 sources: [packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/native/index.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Primitive costs
@@ -47,7 +47,7 @@ The port's compat `createSelector` (`solid-1-compat.ts:143`) is the predicate sh
 
 | Construct | Source | What it creates |
 | --- | --- | --- |
-| Context provider | `solid.js:6` | `createRoot` + `setContext` + `children()` (2 lazy memos). `provideContext` adds a keep-alive render effect (`solid-helpers.tsx:263`). |
+| Context provider | `solid.js:6` | `createRoot` + `setContext` + `children()` (2 lazy memos), and in dev the component's own owner. `provideContext` renders it only on the server and while hydrating; on the client it is one transparent owner (`createContextOwner`, `solid-helpers.tsx`). |
 | Native context | `src/utils/native/context.ts` | One transparent owner plus `setContext` per part |
 | `children(fn)` | `solid.js:21` | 2 lazy memos |
 | `Show` | `solid.js:1494` | 3 memos (2 when `keyed`) |

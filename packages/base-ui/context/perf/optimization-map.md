@@ -58,7 +58,7 @@ Line numbers were read at b9b813c9. Benchmark ratios are `solid/react` sync from
 
 ## 7. Native context; derived signals instead of signal-writing effects
 
-- Where: `solid-helpers.tsx:263` `provideContext` (41 call sites: owner, lazy memo, keep-alive effect each); `solid-helpers.tsx:103` `createDepsEffect` (71 call sites, memo plus effect); 117 `createEffect(` in non-test source.
+- Where: `solid-helpers.tsx` `provideContext` (one transparent owner on the client since plan 3 leaf 4.10; it was a provider root, lazy memo and keep-alive effect each); `solid-helpers.tsx:103` `createDepsEffect` (71 call sites, memo plus effect); 117 `createEffect(` in non-test source.
 - What: `utils/native/context.ts` pattern (one transparent owner plus `setContext`); replace effects that only write signals with derived values.
 - Expected: about two nodes fewer per provider (three nodes become one transparent owner), and fewer extra flush passes.
 
@@ -79,7 +79,7 @@ Line numbers were read at b9b813c9. Benchmark ratios are `solid/react` sync from
 ## 10. Defer trigger hooks to first intent (shipped, except NavigationMenu)
 
 - Where: `utils/popups/useInteractionIntent.ts`: one capture listener per event type and document; a closed root builds its interactions on first intent.
-- Status: done for Tooltip, Menu, ContextMenu, Popover, PreviewCard, Dialog, AlertDialog, Drawer, Select and Combobox (closed-root budgets fell 16–35%). NavigationMenu still builds hover and click hooks up front (budget 230).
+- Status: done for Tooltip, Menu, ContextMenu, Popover, PreviewCard, Dialog, AlertDialog, Drawer, Select and Combobox (closed-root budgets fell 16–35%). NavigationMenu still builds hover and click hooks up front (budget 206).
 - Remaining evidence: popover/roots-500 mount 4.63x, tooltip/roots-500 3.86x, menu/many-roots-500 2.96x; these now point at items 1, 6 and 7.
 
 ## Cross-cutting rules for the plan

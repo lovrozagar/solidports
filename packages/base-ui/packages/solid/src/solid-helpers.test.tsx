@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { createContext, createRoot, flush, onCleanup, useContext } from 'solid-js';
+import { screen } from '@solidjs/testing-library';
+import { renderServer } from '../test/ssrFixtures';
 import { createStore } from './solid-1-compat';
 import { provideContext } from './solid-helpers';
+import fixtures, { showLateReaders } from './solid-helpers.ssr-fixtures';
 
 describe('provideContext', () => {
   const Context = createContext<string>('default');
@@ -43,6 +46,22 @@ describe('provideContext', () => {
       dispose();
     });
     expect(cleaned).toBe(1);
+  });
+
+  it('readers mounted after hydration read a provider hydration created and one the client creates', () => {
+    // Hydration renders the provider (D5); a provider created after it is one transparent owner.
+    const { hydrate } = renderServer(fixtures, 'lateMounts');
+    hydrate();
+    expect(screen.getByTestId('early')).toHaveTextContent('hydrated');
+    try {
+      showLateReaders(true);
+      flush();
+      expect(screen.getByTestId('late-under-hydrated')).toHaveTextContent('hydrated');
+      expect(screen.getByTestId('late-under-client')).toHaveTextContent('client');
+    } finally {
+      showLateReaders(false);
+      flush();
+    }
   });
 });
 

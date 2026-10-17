@@ -38,7 +38,7 @@ Dev probe 2026-10-14, rc.13 (Root + Thumb):
 | Switch fast | 13 | 460 |
 | Switch slow | 57 | 613 |
 
-Budget (current): `packages/base-ui/packages/solid/src/utils/native/toggles.cost.test.tsx:98-108`, Root + Thumb ≤ 10 nodes beyond a hand-written switch.
+Budget (current): `packages/base-ui/packages/solid/src/utils/native/toggles.cost.test.tsx:98-108`, Root + Thumb ≤ 6 nodes beyond a hand-written switch.
 
 ## Benchmarks
 

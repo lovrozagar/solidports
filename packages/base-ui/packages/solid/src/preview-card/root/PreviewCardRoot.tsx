@@ -2,7 +2,12 @@ import { onSettled, Show, untrack } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { FloatingTree, useDismiss } from '../../floating-ui-solid';
-import { ComponentWithPayload, createDepsRenderEffect, isAbsentProp } from '../../solid-helpers';
+import {
+  ComponentWithPayload,
+  createDepsRenderEffect,
+  isAbsentProp,
+  provideContext,
+} from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -101,14 +106,15 @@ function PreviewCardRootComponent<Payload>(
     createHandleAttachment(() => props.handle, store);
   }
 
-  const renderContent = () => (
-    <PreviewCardRootContext value={{ store } as PreviewCardRootContext}>
-      <Show when={shouldRenderInteractions()}>
-        <PreviewCardInteractions store={store} />
-      </Show>
-      <ComponentWithPayload payload={payload} children={props.children} />
-    </PreviewCardRootContext>
-  );
+  const renderContent = () =>
+    provideContext(PreviewCardRootContext, { store } as PreviewCardRootContext, () => (
+      <>
+        <Show when={shouldRenderInteractions()}>
+          <PreviewCardInteractions store={store} />
+        </Show>
+        <ComponentWithPayload payload={payload} children={props.children} />
+      </>
+    ));
 
   if (props.nestedInPreviewCardRoot) {
     // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime

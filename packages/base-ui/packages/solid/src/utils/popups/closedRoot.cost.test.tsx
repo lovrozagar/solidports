@@ -62,7 +62,7 @@ describe('closed popup root cost', () => {
   const roots: [name: string, budget: number, root: () => JSX.Element][] = [
     [
       'Tooltip', // before: 110
-      83,
+      77,
       () => (
         <Tooltip.Root>
           <Tooltip.Trigger>Trigger</Tooltip.Trigger>
@@ -76,7 +76,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Menu', // before: 189
-      142,
+      124,
       () => (
         <Menu.Root>
           <Menu.Trigger>Trigger</Menu.Trigger>
@@ -92,7 +92,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'ContextMenu', // before: 153
-      103,
+      90,
       () => (
         <ContextMenu.Root>
           <ContextMenu.Trigger>Area</ContextMenu.Trigger>
@@ -108,7 +108,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Popover', // before: 113
-      94,
+      84,
       () => (
         <Popover.Root>
           <Popover.Trigger>Trigger</Popover.Trigger>
@@ -122,7 +122,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'PreviewCard', // before: 99
-      83,
+      73,
       () => (
         <PreviewCard.Root>
           <PreviewCard.Trigger href="#">Trigger</PreviewCard.Trigger>
@@ -136,7 +136,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Dialog', // before: 94
-      73,
+      67,
       () => (
         <Dialog.Root>
           <Dialog.Trigger>Trigger</Dialog.Trigger>
@@ -148,7 +148,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'AlertDialog', // before: 94
-      73,
+      67,
       () => (
         <AlertDialog.Root>
           <AlertDialog.Trigger>Trigger</AlertDialog.Trigger>
@@ -160,7 +160,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Drawer', // before: 125
-      101,
+      95,
       () => (
         <Drawer.Root>
           <Drawer.Trigger>Trigger</Drawer.Trigger>
@@ -209,7 +209,7 @@ describe('closed popup root cost', () => {
     [
       // Not deferred: its trigger's hover and click hooks cost one node each.
       'NavigationMenu',
-      230,
+      206,
       () => (
         <NavigationMenu.Root>
           <NavigationMenu.List>

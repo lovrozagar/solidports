@@ -1,7 +1,7 @@
 ---
 tags: [react, porting, idioms, hooks]
 sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/store/SolidStoreV2.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/popover/root/PopoverRoot.tsx, packages/base-ui/packages/solid/src/select/root/SelectRoot.tsx, packages/base-ui/packages/react/src/popover/root/PopoverRoot.tsx, packages/base-ui/packages/utils/src/store/ReactStore.ts]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # React to Solid idiom map
@@ -62,7 +62,7 @@ Compare `packages/react/src/popover/root/PopoverRoot.tsx` with `packages/solid/s
 | React | Solid port |
 | --- | --- |
 | `React.createContext<T \| undefined>(undefined)` | `createContext<T \| null>(null)`, compared with `!= null` ([GOTCHA-015](../solid/gotchas.md#gotcha-015-undefined-context-defaults-throw)) |
-| `<Ctx.Provider value>{children}</Ctx.Provider>` | `provideContext(Ctx, value, () => children)` (`solid-helpers.tsx:263`, 41 sites). Native parts use `provideNativeContext` with one transparent owner (`solid/src/utils/native/context.ts`). |
+| `<Ctx.Provider value>{children}</Ctx.Provider>` | `provideContext(Ctx, value, () => children)` (`solid-helpers.tsx`): one transparent owner on the client, the provider on the server and while hydrating. Native parts use `provideNativeContext` (`solid/src/utils/native/context.ts`). |
 | `React.useContext(Ctx)` | `useContext(Ctx)`. Values are stable objects with getters or accessors, so nothing re-renders. |
 
 ## Lists, ids, timers, rendering

@@ -3,17 +3,20 @@ import {
   children,
   createEffect,
   createMemo,
+  createOwner,
   createRenderEffect,
   getObserver,
   isHydrating,
   isStatic,
   omit,
+  runWithOwner,
   Show,
   untrack,
 } from 'solid-js';
-import type { Accessor, Context } from 'solid-js';
-// `solid-js` does not re-export `hasStaticKeys`; `@solidjs/signals` is the same core.
-import { hasStaticKeys } from '@solidjs/signals';
+import type { Accessor, Context, Owner } from 'solid-js';
+// `solid-js` does not re-export `hasStaticKeys` or `setContext`; `@solidjs/signals` is a peer pinned
+// to the solid-js range, so this is the same core solid-js runs on in the browser.
+import { hasStaticKeys, setContext } from '@solidjs/signals';
 import type { JSX } from '@solidjs/web';
 import { isServer } from '@solidjs/web';
 import type { PayloadChildRenderFunction } from './utils/popups';
@@ -267,47 +270,40 @@ export function ComponentWithPayload<Payload>(props: {
     </Show>
   );
 }
-const NOOP_APPLY = () => {};
+const TRANSPARENT = { transparent: true };
 
 /**
- * `<Context value={value}>{render()}</Context>` that hands back `render`'s own result. Outside SSR
- * and hydration, the provider runs `render` once (untracked, as a component body) and its children
- * memo stays internal: a part whose element is a plain node then gives its parent a node, not a
- * memo, so a list of parts adds nothing per row to the list's insert.
+ * An owner, child of the current one, that carries `context = value` for everything created under
+ * it. Transparent: it takes no hydration id of its own, so its children consume ids from the
+ * nearest id-carrying ancestor, as without it. Client only, outside hydration.
+ */
+export function createContextOwner<T>(context: Context<T>, value: T): Owner {
+  const owner = createOwner(TRANSPARENT);
+  setContext(context, value, owner);
+  return owner;
+}
+
+/**
+ * `<Context value={value}>{render()}</Context>` that hands back `render`'s own result. On the
+ * client after hydration, `render` runs once (untracked, as a component body) under one
+ * transparent owner that carries the context (`createContextOwner`): no provider root and no lazy
+ * children memo, so a part costs one owner instead of four nodes, and a part whose element is a
+ * plain node gives its parent a node. The server and hydration render the provider (D5): the
+ * server's owners are `solid-js`'s own, which a signals `setContext` does not reach, and
+ * hydration must create the owners the server did.
  */
 export function provideContext<T>(
   context: Context<T>,
   value: T,
   render: () => JSX.Element,
 ): JSX.Element {
-  const Provider = context as unknown as (props: {
-    value: T;
-    children: JSX.Element;
-  }) => JSX.Element;
   if (isServer || isHydrating()) {
+    const Provider = context as unknown as (props: {
+      value: T;
+      children: JSX.Element;
+    }) => JSX.Element;
     // Hydration must create the same owners the server did.
     return <Provider value={value}>{render()}</Provider>;
   }
-  let result: JSX.Element;
-  let rendered = false;
-  const resolveChildren = Provider({
-    value,
-    get children() {
-      rendered = true;
-      result = untrack(render);
-      return undefined;
-    },
-  }) as unknown as () => unknown;
-  // Once Solid's hydration runtime is enabled (any `hydrate()` on the page), the provider can hand
-  // back its lazy children memo instead of that memo's value; read through it until the children
-  // getter has run, or parts mounted after hydration render nothing.
-  let next: unknown = resolveChildren;
-  for (let depth = 0; !rendered && typeof next === 'function' && depth < 3; depth += 1) {
-    next = untrack(next as () => unknown);
-  }
-  // `render` built its reactive graph inside the provider's lazy children memo. The production
-  // runtime disposes an unobserved lazy memo, and every effect `render` created with it (the part
-  // would freeze after its first paint), so keep the memo observed for the part's lifetime.
-  createRenderEffect(resolveChildren, NOOP_APPLY);
-  return result;
+  return runWithOwner(createContextOwner(context, value), () => untrack(render));
 }

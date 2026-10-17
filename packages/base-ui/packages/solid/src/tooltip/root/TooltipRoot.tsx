@@ -3,7 +3,12 @@ import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { EMPTY_OBJECT } from '../../utils/empty';
 import { useClientPoint, useDismiss } from '../../floating-ui-solid';
-import { ComponentWithPayload, createDepsRenderEffect, isAbsentProp } from '../../solid-helpers';
+import {
+  ComponentWithPayload,
+  createDepsRenderEffect,
+  isAbsentProp,
+  provideContext,
+} from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -160,8 +165,8 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
     createHandleAttachment(() => props.handle, store);
   }
 
-  return (
-    <TooltipRootContext value={{ store } as TooltipRootContext}>
+  return provideContext(TooltipRootContext, { store } as TooltipRootContext, () => (
+    <>
       <Show when={shouldRenderInteractions()}>
         <TooltipInteractions
           store={store}
@@ -170,8 +175,8 @@ export function TooltipRoot<Payload>(props: TooltipRoot.Props<Payload>) {
         />
       </Show>
       <ComponentWithPayload payload={payload} children={props.children} />
-    </TooltipRootContext>
-  );
+    </>
+  ));
 }
 
 export interface TooltipRootState {}

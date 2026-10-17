@@ -45,7 +45,7 @@ Dev probe 2026-10-14, rc.13 (Root + Indicator):
 Budgets (current):
 
 - `packages/base-ui/packages/solid/src/utils/native/toggles.cost.test.tsx:80-95`: Root + Indicator ≤ 19 nodes beyond a hand-written checkbox.
-- `packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx:61-63`: Checkbox.Root ≤ 10 nodes.
+- `packages/base-ui/packages/solid/src/utils/useRenderElement.cost.test.tsx:61-63`: Checkbox.Root ≤ 7 nodes.
 
 ## Benchmarks
 
