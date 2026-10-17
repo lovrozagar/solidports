@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { matchConsole } from './shared/console.mjs';
 import { matchesFilter, parseFilter } from './shared/filter.mjs';
-import { assertScriptMetric, evaluateInTask } from './shared/measure.mjs';
+import { assertScriptMetric, collectGarbage, evaluateInTask } from './shared/measure.mjs';
 import { summarize } from './shared/report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -121,7 +121,7 @@ for (const { id, steps } of list) {
       const { page, cdp, errors, logs } = await openPage(browser, name);
       const entry = (results[id][name] ??= { steps: {}, summaries: {}, heapKB: [], errors: [] });
       for (let run = 0; run < WARMUP + RUNS; run += 1) {
-        await page.evaluate('gc()');
+        await collectGarbage(cdp);
         const heapBefore = await page.evaluate('performance.memory.usedJSHeapSize');
         for (let index = 0; index < steps.length; index += 1) {
           const before = await metrics(cdp);
@@ -151,7 +151,7 @@ for (const { id, steps } of list) {
             if (result.settled !== null) step.settled.push(result.settled);
           }
           if (index === 0 && run >= WARMUP) {
-            await page.evaluate('gc()');
+            await collectGarbage(cdp);
             entry.heapKB.push(
               ((await page.evaluate('performance.memory.usedJSHeapSize')) - heapBefore) / 1024,
             );

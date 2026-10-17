@@ -53,3 +53,14 @@ export async function assertScriptMetric(page, cdp) {
     process.exit(1);
   }
 }
+
+/**
+ * Collects every object nothing reaches, as a heap snapshot does, before a heap reading. The page's
+ * own `gc()` collects V8's heap but not what Blink's DOM nodes keep alive: a removed element's
+ * wrapper reaches the handlers and data Solid keeps on it, and through them the whole unmounted
+ * tree, until Blink's side is collected too. With `gc()` alone, half of the readings after an
+ * unmount still counted the previous tree (500 tooltip roots read 1.5 MB or 23.4 MB at random).
+ */
+export async function collectGarbage(cdp) {
+  await cdp.send('HeapProfiler.collectGarbage');
+}

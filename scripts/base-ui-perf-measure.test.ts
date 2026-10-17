@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test"
 import { existsSync } from "node:fs"
 import { type Browser, type CDPSession, type Page, chromium } from "playwright"
-import { calibrateScript, evaluateInTask } from "../packages/base-ui/test/perf-solid/shared/measure.mjs"
+import { calibrateScript, collectGarbage, evaluateInTask } from "../packages/base-ui/test/perf-solid/shared/measure.mjs"
 
 // A positive control for the benches' `script` metric (CDP `ScriptDuration`), in a real Chromium.
 // CI's script job installs no browser; the benches run the same check at startup.
@@ -55,5 +55,33 @@ describe.skipIf(!hasChromium)("bench script metric (Chromium)", () => {
 
 	test("calibrates: a 10 ms burn reads at least 9 ms of script", async () => {
 		expect(await calibrateScript(page, cdp)).toBeGreaterThanOrEqual(9)
+	})
+})
+
+describe.skipIf(!hasChromium)("bench heap reading (Chromium)", () => {
+	// A positive control for the heap samples: a full collection releases what nothing reaches
+	// any more, with the flags the benches launch Chromium with.
+	test("collectGarbage releases an allocation once nothing reaches it", async () => {
+		const gcBrowser = await chromium.launch({ args: ["--js-flags=--expose-gc", "--enable-precise-memory-info"] })
+		try {
+			const gcPage = await gcBrowser.newPage()
+			const gcCdp = await gcPage.context().newCDPSession(gcPage)
+			const used = () =>
+				gcPage.evaluate(
+					() => (performance as unknown as { memory: { usedJSHeapSize: number } }).memory.usedJSHeapSize / 1024,
+				)
+			await gcPage.evaluate(() => {
+				;(window as unknown as { held?: number[] }).held = Array.from({ length: 2_500_000 }, () => 1.5)
+			})
+			await collectGarbage(gcCdp)
+			const held = await used()
+			await gcPage.evaluate(() => {
+				delete (window as unknown as { held?: number[] }).held
+			})
+			await collectGarbage(gcCdp)
+			expect(held - (await used())).toBeGreaterThan(15_000)
+		} finally {
+			await gcBrowser.close()
+		}
 	})
 })
