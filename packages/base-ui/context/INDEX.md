@@ -75,6 +75,7 @@ After adding or editing a file, run `bun scripts/context-map.ts` from the repo r
 | path | title | tags | summary |
 | --- | --- | --- | --- |
 | workflows/fix-a-failing-test.md | Fix a failing test | `testing`, `debugging`, `workflow`, `gates` | A red test in any Base UI suite is the only work until it is green: reproduce it in its environment, compare it with up… |
+| workflows/port-a-component-native.md | Port a component to the native path | `porting`, `native`, `perf`, `workflow`, `playbook` | The living playbook for moving a family onto the native kit (D15): read it before writing a family's leaves, and add to… |
 | workflows/port-a-component.md | Port a component | `porting`, `workflow`, `tdd`, `components` | Port a Base UI part from `packages/react/src/<name>/` to `packages/solid/src/<name>/` test-first: upstream's tests come… |
 | workflows/upstream-sync.md | Upstream sync | `upstream`, `sync`, `snapshot`, `workflow` | Moving the port to a new `@base-ui/react` version: replace the three snapshots, regenerate and validate the docs, then… |
 
