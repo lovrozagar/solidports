@@ -70,12 +70,12 @@ const last = (testId: string) => () => screen.queryAllByTestId(testId).at(-1);
 const clickTrigger = () => fireEvent.click(last('trigger')()!);
 const findPanel = () => fireEvent(last('panel')()!, new Event('beforematch'));
 
-const renderDiv = (props: object) => <div {...props} />;
 /**
- * A call, which the compiler passes as a getter: a reactive `render`, which keeps the slow path (a
- * static render function renders natively).
+ * Spread props: the compiler hands the part a merged proxy, which keeps every part on the slow path
+ * (a reactive `render` renders natively in the disclosure parts since plan 3 leaf 5.1.2b, and a
+ * JSX `ref` always compiles to a static function). Empty: it adds no prop.
  */
-const slowRender = () => renderDiv;
+const SLOW_PATH: Record<string, never> = {};
 
 /** The fixture's panel created open on the client on the slow path. */
 function CreatedOpen(props: { keepMounted?: boolean; hiddenUntilFound?: boolean; open?: boolean }) {
@@ -89,7 +89,7 @@ function CreatedOpen(props: { keepMounted?: boolean; hiddenUntilFound?: boolean;
           data-testid="panel"
           keepMounted={props.keepMounted}
           hiddenUntilFound={props.hiddenUntilFound}
-          render={slowRender()}
+          {...SLOW_PATH}
         >
           Content
         </Collapsible.Panel>

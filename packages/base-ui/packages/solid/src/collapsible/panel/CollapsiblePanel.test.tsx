@@ -469,7 +469,7 @@ describe('<Collapsible.Panel />', () => {
       expect(screen.getByTestId('panel')).toBe(panel);
     });
 
-    // Solid: a member-expression `render` compiles to a getter, which keeps the slow path, where an
+    // Solid: spread props reach the part as a merged proxy, which keeps the slow path, where an
     // initially open panel watches its open animation from mount, as upstream's panel does.
     it('keeps the measured size when an open animation finishes during a close commit', async () => {
       const animationsDisabled = globalThis.BASE_UI_ANIMATIONS_DISABLED;
@@ -492,15 +492,6 @@ describe('<Collapsible.Panel />', () => {
         return null;
       }
 
-      const slow: { render: Collapsible.Panel.Props['render'] } = {
-        render: (props, state) => (
-          <div {...props}>
-            <ResolveAnimationOnClose open={state.open} />
-            {props.children}
-          </div>
-        ),
-      };
-
       const setPanelRef = (node: HTMLDivElement | null) => {
         if (node) {
           node.getAnimations = () => {
@@ -514,16 +505,24 @@ describe('<Collapsible.Panel />', () => {
         }
       };
 
+      const slow: {
+        render: Collapsible.Panel.Props['render'];
+        ref: (node: HTMLDivElement | null) => void;
+      } = {
+        ref: setPanelRef,
+        render: (props, state) => (
+          <div {...props}>
+            <ResolveAnimationOnClose open={state.open} />
+            {props.children}
+          </div>
+        ),
+      };
+
       try {
         await render(() => (
           <Collapsible.Root defaultOpen>
             <Collapsible.Trigger>Trigger</Collapsible.Trigger>
-            <Collapsible.Panel
-              ref={setPanelRef}
-              keepMounted
-              render={slow.render}
-              style={{ transition: 'height 10s linear' }}
-            >
+            <Collapsible.Panel {...slow} keepMounted style={{ transition: 'height 10s linear' }}>
               {PANEL_CONTENT}
             </Collapsible.Panel>
           </Collapsible.Root>

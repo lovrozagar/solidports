@@ -8,6 +8,7 @@ import { flush } from 'solid-js';
 import { createComponent } from '@solidjs/web';
 import type { JSX } from '@solidjs/web';
 import { expect } from 'vitest';
+import { renderPathOf } from '../src/utils/renderPath';
 
 /** The subtree as a string with sorted attributes and normalized generated ids. */
 export function normalizeTree(root: Element): string {
@@ -72,6 +73,12 @@ export function mountParity(
   const slowResult = render(() => make(true));
   const fast = fastResult.container;
   const slow = slowResult.container;
+  // Each tree took the path it stands for: a forcing that stops forcing (a reactive `render` that
+  // a part learned to render natively) would compare the native path with itself.
+  const paths = (root: HTMLElement) =>
+    [...root.querySelectorAll('*')].map((el) => renderPathOf(el)).filter(Boolean);
+  expect(paths(slow), 'the slow tree rendered an element natively').not.toContain('native');
+  expect(paths(fast), 'the fast tree rendered nothing natively').toContain('native');
   const same = () => expect(normalizeTree(fast)).toBe(normalizeTree(slow));
   return {
     fast,
@@ -102,11 +109,12 @@ export function mountParity(
 }
 
 /**
- * Creates `Component` with `props` (own-property getters kept). On the slow path `render` becomes
- * a getter: a reactive `render` always takes `useRenderElement`, while a static one (a tag, a
- * `{ component }` config or a function) may render natively. The getter returns `props.render`
- * when the case passes one, else the part's own tag. A JSX spread would hand the part a proxy and
- * disable its fast path, so the props object is built by hand.
+ * Creates `Component` with `props` (own-property getters kept). On the slow path `ref` and
+ * `render` become getters: a reactive `ref` always takes `useRenderElement`, and a reactive
+ * `render` does too in every part that does not render it natively (the disclosure parts do since
+ * plan 3 leaf 5.1.2b). The `render` getter returns `props.render` when the case passes one, else
+ * the part's own tag; the `ref` getter returns the case's ref. A JSX spread would hand the part a
+ * proxy and disable its fast path, so the props object is built by hand.
  */
 export function part<P extends object>(
   Component: (props: P) => JSX.Element,
@@ -119,6 +127,12 @@ export function part<P extends object>(
     const render = 'render' in merged ? (merged as { render: unknown }).render : tag;
     Object.defineProperty(merged, 'render', {
       get: () => render,
+      enumerable: true,
+      configurable: true,
+    });
+    const ref = (merged as { ref?: unknown }).ref;
+    Object.defineProperty(merged, 'ref', {
+      get: () => ref,
       enumerable: true,
       configurable: true,
     });

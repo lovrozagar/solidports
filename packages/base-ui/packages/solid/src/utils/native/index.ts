@@ -65,14 +65,17 @@ const NO_KEYS: readonly string[] = [];
  * on the server and hydrates, `ssr`), a props object that is not a Solid proxy (its key set could
  * change), a static `ref`, and static `staticKeys` (props the part reads once, as the slow path
  * does). A `render` key keeps `useRenderElement` unless the part passes `render`, a check of the
- * value (`isNativeRender`), and the value is static: a reactive `render` always takes the slow path.
- * Anything else keeps `useRenderElement`.
+ * value (`isNativeRender`), and the value is static. A part that passes `dynamicRender` also takes
+ * a reactive `render` (a getter, as a wrapper forwarding `render={props.render}` passes) whose
+ * current value the check accepts: `renderNativeElement` reads it under one branch memo. Without
+ * `dynamicRender`, a reactive `render` takes the slow path. Anything else keeps `useRenderElement`.
  */
 export function canRenderNative(
   props: object,
   staticKeys: readonly string[] = NO_KEYS,
   ssr = false,
   render?: (value: unknown) => boolean,
+  dynamicRender = false,
 ): boolean {
   if (!ssr && (isServer || isHydrating())) {
     return false;
@@ -86,8 +89,8 @@ export function canRenderNative(
   if (
     'render' in props &&
     (render === undefined ||
-      !isStatic(props, 'render') ||
-      !render((props as { render?: unknown }).render))
+      (!dynamicRender && !isStatic(props, 'render')) ||
+      !render(untrack(() => (props as { render?: unknown }).render)))
   ) {
     return false;
   }

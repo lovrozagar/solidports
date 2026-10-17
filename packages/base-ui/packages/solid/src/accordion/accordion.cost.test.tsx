@@ -447,6 +447,66 @@ describe('accordion cost against the hand-written floor', () => {
           );
         });
       }
+
+      // A wrapper forwarding its `render` (`render={props.render}`) hands the part a getter. It
+      // costs at most the direct form (through wrappers of the same shape) plus one branch memo per
+      // part and the insert below (plan 3 leaf 5.1.2b), not the slow path's 9 to 13 nodes.
+      describe('forwarded through a wrapper', () => {
+        function ForwardTrigger(props: { render?: unknown; children?: JSX.Element }) {
+          return (
+            <Accordion.Trigger render={props.render as never}>{props.children}</Accordion.Trigger>
+          );
+        }
+        function ForwardPanel(props: { render?: unknown; children?: JSX.Element }) {
+          return <Accordion.Panel render={props.render as never}>{props.children}</Accordion.Panel>;
+        }
+        function PlainTrigger(props: { children?: JSX.Element }) {
+          return <Accordion.Trigger>{props.children}</Accordion.Trigger>;
+        }
+        function PlainPanel(props: { children?: JSX.Element }) {
+          return <Accordion.Panel>{props.children}</Accordion.Panel>;
+        }
+        const item =
+          (
+            Trigger: (props: { render?: unknown; children?: JSX.Element }) => JSX.Element,
+            Panel: (props: { render?: unknown; children?: JSX.Element }) => JSX.Element,
+            withRender: boolean,
+          ) =>
+          () => (
+            <Accordion.Item value="a">
+              <Accordion.Header>
+                <Trigger render={withRender ? triggerRender : undefined}>Toggle</Trigger>
+              </Accordion.Header>
+              <Panel render={withRender ? panelRender : undefined}>Content</Panel>
+            </Accordion.Item>
+          );
+        const DirectTrigger = (props: { render?: unknown; children?: JSX.Element }) => (
+          <Accordion.Trigger render={triggerRender}>{props.children}</Accordion.Trigger>
+        );
+        const DirectPanel = (props: { render?: unknown; children?: JSX.Element }) => (
+          <Accordion.Panel render={panelRender}>{props.children}</Accordion.Panel>
+        );
+
+        for (const open of [false, true]) {
+          it(`${open ? 'an open' : 'a closed'} item's Trigger and Panel cost at most the direct form plus a memo each and the Header's insert`, () => {
+            const cost = perItem(partRoot(open), item(ForwardTrigger, ForwardPanel, true));
+            const direct = perItem(partRoot(open), item(DirectTrigger, DirectPanel, false));
+            const wrappers =
+              perItem(partRoot(open), item(PlainTrigger, PlainPanel, false)) -
+              perItem(partRoot(open), part.full);
+            // The direct form's own wrappers (`DirectTrigger`, `DirectPanel`) are components too.
+            // Beyond them: a branch memo per part, and one insert. A tag or a config returns the
+            // part's own element, which the Header inserts as it is; behind the memo the Trigger
+            // returns an accessor, which the Header resolves in one more computation (a render
+            // function returns one either way, and the Panel's own conditional resolves its).
+            const budget = direct + 3;
+            expect(
+              cost,
+              `forwarded ${cost} nodes, direct ${direct} (wrappers ${wrappers}) + 3 = ${budget}`,
+            ).toBeLessThanOrEqual(budget);
+          });
+        }
+      });
     });
   }
 });
