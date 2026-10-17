@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { compareVariants, summarize } from "../packages/base-ui/test/perf-solid/shared/report.mjs"
+import { compareVariants, mainThreadLines, summarize } from "../packages/base-ui/test/perf-solid/shared/report.mjs"
 
 // Ten samples per side: the rule judges nothing below MIN_SAMPLES.
 const ten = (values: number[]) => Array.from({ length: 10 }, (_, i) => values[i % values.length])
@@ -71,5 +71,31 @@ describe("perf report", () => {
 		])
 		const heap = verdicts.find((v) => v.metric === "heapKB")
 		expect(heap?.verdict).toBe("same")
+	})
+})
+
+describe("SSR main-thread table", () => {
+	const measured = {
+		commitTaskMs: 1.5,
+		commitLayoutMs: 0,
+		commitStyleMs: 0,
+		commitLayouts: 0,
+		commitStyles: 0,
+		settleTaskMs: 0.4,
+		settleLayoutMs: 0,
+		settleStyleMs: 0,
+	}
+
+	test("writes one row per fixture with both steps", () => {
+		const lines = mainThreadLines(["a/1"], { "a/1": { react: measured, solid: measured } }, ["react", "solid"])
+		expect(lines.at(-1)).toBe(
+			"| a/1 | 1.50 / 0.00 / 0.00 / 0 / 0 · 0.40 / 0.00 / 0.00 | 1.50 / 0.00 / 0.00 / 0 / 0 · 0.40 / 0.00 / 0.00 |",
+		)
+	})
+
+	test("writes nothing when hydration did not run (SERVER_ONLY)", () => {
+		expect(
+			mainThreadLines(["a/1"], { "a/1": { react: { serverMs: 1 }, solid: { serverMs: 1 } } }, ["react", "solid"]),
+		).toEqual([])
 	})
 })
