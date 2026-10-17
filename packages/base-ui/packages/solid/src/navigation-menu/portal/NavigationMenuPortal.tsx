@@ -3,6 +3,7 @@ import { FloatingPortal } from '../../floating-ui-solid';
 import { useNavigationMenuRootContext } from '../root/NavigationMenuRootContext';
 import { NavigationMenuPortalContext } from './NavigationMenuPortalContext';
 import { splitProps } from '../../solid-1-compat';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -21,9 +22,9 @@ export function NavigationMenuPortal(props: NavigationMenuPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <NavigationMenuPortalContext value={keepMounted}>
+      {provideContext(NavigationMenuPortalContext, keepMounted, () => (
         <FloatingPortal {...portalProps} ref={props.ref} />
-      </NavigationMenuPortalContext>
+      ))}
     </Show>
   );
 }

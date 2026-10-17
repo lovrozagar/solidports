@@ -4,6 +4,7 @@ import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import { useDialogRootContext } from '../root/DialogRootContext';
 import { DialogPortalContext } from './DialogPortalContext';
 import { splitProps } from '../../solid-1-compat';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -25,7 +26,7 @@ export function DialogPortal(props: DialogPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <DialogPortalContext value={keepMounted}>
+      {provideContext(DialogPortalContext, keepMounted, () => (
         <FloatingPortal {...portalProps} ref={props.ref}>
           <Show when={mounted() && modal() === true}>
             <InternalBackdrop
@@ -38,7 +39,7 @@ export function DialogPortal(props: DialogPortal.Props) {
           </Show>
           {props.children}
         </FloatingPortal>
-      </DialogPortalContext>
+      ))}
     </Show>
   );
 }

@@ -89,7 +89,7 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     !untrack(() => componentProps.nativeButton)
   ) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return NativeRadioRoot(componentProps as RadioRoot.Props<unknown>);
   }
 
@@ -395,8 +395,8 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
     stateAttributesMapping,
   });
 
-  return (
-    <RadioRootContext value={contextValue}>
+  return provideContext(RadioRootContext, contextValue, () => (
+    <>
       <Show when={isRadioGroup} fallback={element()}>
         <CompositeItem
           tag="span"
@@ -412,8 +412,8 @@ export function RadioRoot<Value>(componentProps: RadioRoot.Props<Value>) {
         </CompositeItem>
       </Show>
       <input {...inputProps} />
-    </RadioRootContext>
-  );
+    </>
+  ));
 }
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: readonly string[] = [

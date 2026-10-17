@@ -3,6 +3,7 @@ import { FloatingPortal } from '../../floating-ui-solid';
 import { useMenuRootContext } from '../root/MenuRootContext';
 import { MenuPortalContext } from './MenuPortalContext';
 import { splitProps } from '../../solid-1-compat';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -27,10 +28,12 @@ export function MenuPortal(props: MenuPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <MenuPortalContext value={keepMounted}>
-        {/* The hidden `aria-owns` owner needs `group` only under role-constrained parents. */}
-        <FloatingPortal {...portalProps} portalOwnerRole={portalOwnerRole} />
-      </MenuPortalContext>
+      {provideContext(MenuPortalContext, keepMounted, () => (
+        <>
+          {/* The hidden `aria-owns` owner needs `group` only under role-constrained parents. */}
+          <FloatingPortal {...portalProps} portalOwnerRole={portalOwnerRole} />
+        </>
+      ))}
     </Show>
   );
 }

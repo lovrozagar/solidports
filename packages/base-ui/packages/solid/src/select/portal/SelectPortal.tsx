@@ -2,6 +2,7 @@ import { Show } from 'solid-js';
 import { FloatingPortal } from '../../floating-ui-solid';
 import { useSelectRootContext } from '../root/SelectRootContext';
 import { SelectPortalContext } from './SelectPortalContext';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -19,9 +20,9 @@ export function SelectPortal(props: SelectPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <SelectPortalContext value>
+      {provideContext(SelectPortalContext, true, () => (
         <FloatingPortal {...props} ref={props.ref} />
-      </SelectPortalContext>
+      ))}
     </Show>
   );
 }

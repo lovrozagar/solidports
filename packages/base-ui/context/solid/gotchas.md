@@ -1,6 +1,6 @@
 ---
 tags: [solid, gotchas, registry]
-sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts]
+sources: [packages/base-ui/packages/solid/src/solid-helpers.tsx, packages/base-ui/packages/solid/src/combobox/root/AriaCombobox.tsx, packages/base-ui/packages/solid/src/number-field/root/NumberFieldRoot.tsx, packages/base-ui/packages/solid/src/solid-1-compat.ts, packages/base-ui/packages/solid/src/utils/useRenderElement.tsx, packages/base-ui/packages/solid/src/utils/withCaptureListeners.ts, packages/base-ui/packages/solid/src/utils/native/context.ts, packages/base-ui/packages/solid/src/utils/useControlled.ts, packages/base-ui/packages/solid/src/utils/native/element.ts]
 verified: 2026-10-17
 ---
 
@@ -90,6 +90,12 @@ Rules for editing: never renumber. Add new entries at the end. When an entry sto
 
 - **Cause:** the server's owners are `solid-js`'s own and accept no `setContext`, so a native part renders the context's provider on the server. The hydrating client must create the owners that took hydration ids there: the provider's root, then its lazy children memo, both through `inheritId` (rc.15).
 - **Fix:** `hydrateProviderOwners` (`src/utils/native/context.ts`) rebuilds that root and children owner without the provider's two computations, and the Collapsible floor does the same. This couples the port to rc.15's provider internals: `src/utils/native/context.shape.test.tsx` compares the rebuilt ids with Solid's own provider and fails when a Solid release changes them.
+
+## GOTCHA-019: removing a provider's memos reorders the effects under it
+
+- **Symptom:** moving a JSX provider onto `provideContext` (one transparent owner) changed behavior in `AriaCombobox` (Autocomplete's `mode="both"` kept a temporary inline value over an external controlled update) and `NumberFieldRoot` (a Field with `validationMode="onSubmit"` marked the input invalid on input).
+- **Cause:** a flush applies its user effects by reactive height, and a provider's two lazy children memos raise the height of everything under it. Without them, effects created in the provider's children run earlier against the root's own effects; `AriaCombobox`'s `ValueChangeEffects` is rendered last for exactly that order.
+- **Fix:** those two keep their JSX providers. Making the order explicit (not by height) is a follow-up before they move.
 
 ## Retired
 

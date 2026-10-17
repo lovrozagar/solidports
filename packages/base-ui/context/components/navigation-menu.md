@@ -6,7 +6,7 @@ verified: 2026-10-16
 
 # Navigation menu
 
-NavigationMenu is fully ported and is the costliest closed popup root (206-node budget) because its triggers are not deferred to the first intent. It has no native fast path.
+NavigationMenu is fully ported and is the costliest closed popup root (189-node budget) because its triggers are not deferred to the first intent. It has no native fast path.
 
 ## Status
 

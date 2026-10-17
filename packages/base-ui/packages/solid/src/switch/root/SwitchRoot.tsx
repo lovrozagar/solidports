@@ -85,7 +85,7 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     !untrack(() => componentProps.nativeButton)
   ) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return NativeSwitchRoot(componentProps);
   }
 
@@ -350,8 +350,8 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
     stateAttributesMapping,
   });
 
-  return (
-    <SwitchRootContext value={state}>
+  return provideContext(SwitchRootContext, state, () => (
+    <>
       {element()}
       {!checked() && name() && local.uncheckedValue !== undefined && (
         <input
@@ -363,8 +363,8 @@ export function SwitchRoot(componentProps: SwitchRoot.Props) {
         />
       )}
       <input {...(inputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)} />
-    </SwitchRootContext>
-  );
+    </>
+  ));
 }
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: readonly string[] = [

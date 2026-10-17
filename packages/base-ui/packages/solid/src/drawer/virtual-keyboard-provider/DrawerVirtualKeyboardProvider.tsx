@@ -18,7 +18,7 @@ import { getElementAtPoint } from '../../utils/getElementAtPoint';
 import * as DrawerViewportCssVars from '../viewport/DrawerViewportCssVars';
 import { DrawerVirtualKeyboardContext } from './DrawerVirtualKeyboardContext';
 import type { DrawerVirtualKeyboardContext as DrawerVirtualKeyboardContextValue } from './DrawerVirtualKeyboardContext';
-import { createDepsEffect } from '../../solid-helpers';
+import { createDepsEffect, provideContext } from '../../solid-helpers';
 
 const KEYBOARD_RESIZE_THRESHOLD = 60;
 const KEYBOARD_VISIBILITY_MARGIN = 16;
@@ -719,11 +719,7 @@ export function DrawerVirtualKeyboardProvider(props: DrawerVirtualKeyboardProvid
     onTouchCancel: resetTouchTrackingState,
   };
 
-  return (
-    <DrawerVirtualKeyboardContext value={contextValue}>
-      {props.children}
-    </DrawerVirtualKeyboardContext>
-  );
+  return provideContext(DrawerVirtualKeyboardContext, contextValue, () => <>{props.children}</>);
 }
 
 export interface DrawerVirtualKeyboardProviderState {}

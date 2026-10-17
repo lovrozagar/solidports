@@ -29,7 +29,7 @@ import {
   isOutsideEvent,
 } from '../utils';
 import { createAttribute } from '../utils/createAttribute';
-import { createDepsEffect } from '../../solid-helpers';
+import { createDepsEffect, provideContext } from '../../solid-helpers';
 
 type FocusManagerState = null | {
   modal: boolean;
@@ -295,64 +295,66 @@ export function FloatingPortal(
   return (
     <>
       {portalSubtree()}
-      <PortalContext value={portalContextValue}>
-        <Show when={shouldRenderGuards() && portalNode()}>
-          <FocusGuard
-            data-type="outside"
-            ref={setBeforeOutsideRef}
-            onFocus={(event) => {
-              const node = portalNode();
-              if (!node) {
-                return;
-              }
-              if (isOutsideEvent(event, node)) {
-                // Solid's `onFocus` is the native non-bubbling `focus` event, which fires before
-                // the portal node's capture `focusin` listener re-enables the inside tabbables.
-                enableFocusInside(node);
-                beforeInsideRef()?.focus();
-              } else {
-                const domReference = focusManagerState()?.domReference ?? null;
-                const prevTabbable = getPreviousTabbable(domReference);
-                prevTabbable?.focus();
-              }
-            }}
-          />
-        </Show>
-        <Show when={shouldRenderGuards() && portalNode()}>
-          <span
-            role={componentProps.portalOwnerRole}
-            aria-owns={portalNodeId()}
-            style={ownerVisuallyHidden}
-          />
-        </Show>
-        <Show when={portalNode()} keyed>
-          {(node) => <Portal mount={node}>{componentProps.children}</Portal>}
-        </Show>
-        <Show when={shouldRenderGuards() && portalNode()}>
-          <FocusGuard
-            data-type="outside"
-            ref={setAfterOutsideRef}
-            onFocus={(event) => {
-              const node = portalNode();
-              if (!node) {
-                return;
-              }
-              if (isOutsideEvent(event, node)) {
-                enableFocusInside(node);
-                afterInsideRef()?.focus();
-              } else {
-                const state = focusManagerState();
-                const nextTabbable = getNextTabbable(state?.domReference ?? null);
-                nextTabbable?.focus();
-
-                if (state?.closeOnFocusOut) {
-                  state.onOpenChange(false, createChangeEventDetails(REASONS.focusOut, event));
+      {provideContext(PortalContext, portalContextValue, () => (
+        <>
+          <Show when={shouldRenderGuards() && portalNode()}>
+            <FocusGuard
+              data-type="outside"
+              ref={setBeforeOutsideRef}
+              onFocus={(event) => {
+                const node = portalNode();
+                if (!node) {
+                  return;
                 }
-              }
-            }}
-          />
-        </Show>
-      </PortalContext>
+                if (isOutsideEvent(event, node)) {
+                  // Solid's `onFocus` is the native non-bubbling `focus` event, which fires before
+                  // the portal node's capture `focusin` listener re-enables the inside tabbables.
+                  enableFocusInside(node);
+                  beforeInsideRef()?.focus();
+                } else {
+                  const domReference = focusManagerState()?.domReference ?? null;
+                  const prevTabbable = getPreviousTabbable(domReference);
+                  prevTabbable?.focus();
+                }
+              }}
+            />
+          </Show>
+          <Show when={shouldRenderGuards() && portalNode()}>
+            <span
+              role={componentProps.portalOwnerRole}
+              aria-owns={portalNodeId()}
+              style={ownerVisuallyHidden}
+            />
+          </Show>
+          <Show when={portalNode()} keyed>
+            {(node) => <Portal mount={node}>{componentProps.children}</Portal>}
+          </Show>
+          <Show when={shouldRenderGuards() && portalNode()}>
+            <FocusGuard
+              data-type="outside"
+              ref={setAfterOutsideRef}
+              onFocus={(event) => {
+                const node = portalNode();
+                if (!node) {
+                  return;
+                }
+                if (isOutsideEvent(event, node)) {
+                  enableFocusInside(node);
+                  afterInsideRef()?.focus();
+                } else {
+                  const state = focusManagerState();
+                  const nextTabbable = getNextTabbable(state?.domReference ?? null);
+                  nextTabbable?.focus();
+
+                  if (state?.closeOnFocusOut) {
+                    state.onOpenChange(false, createChangeEventDetails(REASONS.focusOut, event));
+                  }
+                }
+              }}
+            />
+          </Show>
+        </>
+      ))}
     </>
   );
 }

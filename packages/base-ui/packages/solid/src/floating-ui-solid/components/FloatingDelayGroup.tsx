@@ -1,7 +1,7 @@
 import { createContext, createEffect, createSignal, untrack, useContext } from 'solid-js';
 import type { Accessor } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { createDepsEffect, defaultProps, live, useRef } from '../../solid-helpers';
+import { createDepsEffect, defaultProps, live, provideContext, useRef } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -92,20 +92,18 @@ export function FloatingDelayGroup(componentProps: FloatingDelayGroupProps): JSX
     },
   );
 
-  return (
-    <FloatingDelayGroupContext
-      value={{
-        currentContextRef,
-        currentIdRef,
-        delayRef,
-        hasProvider: true,
-        initialDelayRef,
-        timeout,
-        timeoutMs,
-      }}
-    >
-      {props.children}
-    </FloatingDelayGroupContext>
+  return provideContext(
+    FloatingDelayGroupContext,
+    {
+      currentContextRef,
+      currentIdRef,
+      delayRef,
+      hasProvider: true,
+      initialDelayRef,
+      timeout,
+      timeoutMs,
+    },
+    () => <>{props.children}</>,
   );
 }
 

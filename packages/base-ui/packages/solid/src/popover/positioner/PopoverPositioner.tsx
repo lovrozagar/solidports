@@ -1,7 +1,7 @@
 import { Show } from 'solid-js';
 import { usePositioner } from '../../utils/usePositioner';
 import { FloatingNode, useFloatingNodeId } from '../../floating-ui-solid';
-import { splitComponentProps } from '../../solid-helpers';
+import { provideContext, splitComponentProps } from '../../solid-helpers';
 import { POPUP_COLLISION_AVOIDANCE } from '../../utils/constants';
 import { InternalBackdrop } from '../../utils/InternalBackdrop';
 import { REASONS } from '../../utils/reasons';
@@ -143,8 +143,8 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
     },
   });
 
-  return (
-    <PopoverPositionerContext value={positioning}>
+  return provideContext(PopoverPositionerContext, positioning, () => (
+    <>
       <Show when={mounted() && modal() === true && openReason() !== REASONS.triggerHover}>
         <InternalBackdrop
           managed
@@ -157,8 +157,8 @@ export function PopoverPositioner(componentProps: PopoverPositioner.Props) {
       </Show>
 
       <FloatingNode id={nodeId()}>{element()}</FloatingNode>
-    </PopoverPositionerContext>
-  );
+    </>
+  ));
 }
 
 export interface PopoverPositionerState {

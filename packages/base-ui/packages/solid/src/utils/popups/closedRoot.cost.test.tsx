@@ -92,7 +92,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'ContextMenu', // before: 153
-      90,
+      84,
       () => (
         <ContextMenu.Root>
           <ContextMenu.Trigger>Area</ContextMenu.Trigger>
@@ -160,7 +160,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Drawer', // before: 125
-      95,
+      92,
       () => (
         <Drawer.Root>
           <Drawer.Trigger>Trigger</Drawer.Trigger>
@@ -172,7 +172,7 @@ describe('closed popup root cost', () => {
     ],
     [
       'Select', // before: 188
-      123,
+      112,
       () => (
         <Select.Root>
           <Select.Trigger>
@@ -209,7 +209,7 @@ describe('closed popup root cost', () => {
     [
       // Not deferred: its trigger's hover and click hooks cost one node each.
       'NavigationMenu',
-      206,
+      189,
       () => (
         <NavigationMenu.Root>
           <NavigationMenu.List>

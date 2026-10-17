@@ -1,7 +1,7 @@
 /* eslint-disable no-bitwise */
 import { createEffect, createSignal, onCleanup, untrack } from 'solid-js';
 import type { JSX } from '@solidjs/web';
-import { createLayoutEffect } from '../../../solid-helpers';
+import { createLayoutEffect, provideContext } from '../../../solid-helpers';
 import { CompositeListContext } from './CompositeListContext';
 import type { CompositeListIndexSink, CompositeListRegistration } from './CompositeListContext';
 
@@ -250,10 +250,10 @@ export function CompositeList<Metadata>(props: CompositeList.Props<Metadata>) {
     };
   }
 
-  return (
-    <CompositeListContext value={{ register, unregister, subscribeMapChange, nextIndexRef }}>
-      {props.children}
-    </CompositeListContext>
+  return provideContext(
+    CompositeListContext,
+    { register, unregister, subscribeMapChange, nextIndexRef },
+    () => <>{props.children}</>,
   );
 }
 

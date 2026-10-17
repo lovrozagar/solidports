@@ -94,7 +94,7 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     canRenderNative(componentProps, NATIVE_STATIC_KEYS) &&
     !untrack(() => componentProps.nativeButton)
   ) {
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return NativeCheckboxRoot(componentProps);
   }
 
@@ -548,8 +548,8 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
     );
   }
 
-  return (
-    <CheckboxRootContext value={state}>
+  return provideContext(CheckboxRootContext, state, () => (
+    <>
       {element()}
       <Show
         when={
@@ -569,8 +569,8 @@ export function CheckboxRoot(componentProps: CheckboxRoot.Props) {
         />
       </Show>
       <input {...(inputProps() as JSX.InputHTMLAttributes<HTMLInputElement>)} />
-    </CheckboxRootContext>
-  );
+    </>
+  ));
 }
 /** The part's own props: never forwarded to the element. */
 const OWN_KEYS: readonly string[] = [

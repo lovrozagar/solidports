@@ -2,6 +2,7 @@ import { createMemo } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { FloatingDelayGroup } from '../../floating-ui-solid';
 import { TooltipProviderContext } from './TooltipProviderContext';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * Provides a shared delay for multiple tooltips. The grouping logic ensures that
@@ -14,12 +15,14 @@ export function TooltipProvider(props: TooltipProvider.Props) {
 
   const delayValue = createMemo(() => ({ open: props.delay, close: props.closeDelay }));
 
-  return (
-    <TooltipProviderContext value={() => props.delay}>
+  return provideContext(
+    TooltipProviderContext,
+    () => props.delay,
+    () => (
       <FloatingDelayGroup delay={delayValue()} timeoutMs={timeout()}>
         {props.children}
       </FloatingDelayGroup>
-    </TooltipProviderContext>
+    ),
   );
 }
 

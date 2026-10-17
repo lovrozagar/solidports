@@ -5,6 +5,7 @@ import { mergeProps } from '../../solid-1-compat';
 import type { BaseUIHTMLProps, HTMLProps } from '../../utils/types';
 import { useBaseUiId } from '../../utils/useBaseUiId';
 import { LabelableContext, useLabelableContext } from './LabelableContext';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * @internal
@@ -125,7 +126,7 @@ export function LabelableProvider(props: LabelableProvider.Props) {
     describedBy,
   };
 
-  return <LabelableContext value={contextValue}>{props.children}</LabelableContext>;
+  return provideContext(LabelableContext, contextValue, () => <>{props.children}</>);
 }
 
 export interface LabelableProviderState {}

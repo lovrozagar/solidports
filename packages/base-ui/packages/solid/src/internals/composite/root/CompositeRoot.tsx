@@ -1,6 +1,6 @@
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../../../direction-provider/DirectionContext';
-import { access, defaultProps, splitComponentProps } from '../../../solid-helpers';
+import { access, defaultProps, provideContext, splitComponentProps } from '../../../solid-helpers';
 import type { ReactLikeRef } from '../../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../../utils/constants';
 import type { StateAttributesMapping } from '../../../utils/getStateAttributesProps';
@@ -115,19 +115,17 @@ export function CompositeRoot<Metadata extends {}, State extends Record<string, 
     },
   });
 
-  return (
-    <CompositeRootContext value={contextValue}>
-      <CompositeList<Metadata>
-        refs={elementsRefs}
-        onMapChange={(newMap) => {
-          props.onMapChange?.(newMap);
-          onMapChangeUnwrapped(newMap);
-        }}
-      >
-        {element()}
-      </CompositeList>
-    </CompositeRootContext>
-  );
+  return provideContext(CompositeRootContext, contextValue, () => (
+    <CompositeList<Metadata>
+      refs={elementsRefs}
+      onMapChange={(newMap) => {
+        props.onMapChange?.(newMap);
+        onMapChangeUnwrapped(newMap);
+      }}
+    >
+      {element()}
+    </CompositeList>
+  ));
 }
 
 type AllowedProps = Record<string, any> & { children?: never | undefined };

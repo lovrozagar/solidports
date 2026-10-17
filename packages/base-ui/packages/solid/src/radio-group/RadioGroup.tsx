@@ -29,7 +29,7 @@ import { SHIFT } from '../internals/composite/composite';
 import { CompositeRoot } from '../internals/composite/root/CompositeRoot';
 import { useRegisterFieldControl } from '../internals/field-register-control/useRegisterFieldControl';
 import { useValueChanged } from '../internals/useValueChanged';
-import { splitComponentProps } from '../solid-helpers';
+import { provideContext, splitComponentProps } from '../solid-helpers';
 import type { ReactLikeRef } from '../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../utils/createBaseUIEventDetails';
 import type { REASONS } from '../utils/reasons';
@@ -285,9 +285,9 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
       checkedValue,
       setTouched,
     };
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
-    return (
-      <RadioGroupContext value={contextValue}>
+     
+    return provideContext(RadioGroupContext, contextValue, () => (
+      <>
         {NativeRadioGroupElement(
           model,
           state,
@@ -297,8 +297,8 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
           required,
           readOnly,
         )}
-      </RadioGroupContext>
-    );
+      </>
+    ));
   }
 
   // Solid: the consumer's ref is read when applied, as `forwardedRef` is in React.
@@ -352,26 +352,24 @@ export function RadioGroup<Value>(componentProps: RadioGroup.Props<Value>) {
     }),
   };
 
-  return (
-    <RadioGroupContext value={contextValue}>
-      <CompositeRoot
-        render={renderProps.render}
-        class={renderProps.class}
-        state={state}
-        props={[
-          defaultProps,
-          elementProps,
-          (props: HTMLProps) => validation.getValidationProps(disabled() ?? false, props),
-        ]}
-        refs={[forwardedRef]}
-        stateAttributesMapping={fieldValidityMapping}
-        enableHomeAndEndKeys={false}
-        modifierKeys={MODIFIER_KEYS}
-      >
-        {local.children}
-      </CompositeRoot>
-    </RadioGroupContext>
-  );
+  return provideContext(RadioGroupContext, contextValue, () => (
+    <CompositeRoot
+      render={renderProps.render}
+      class={renderProps.class}
+      state={state}
+      props={[
+        defaultProps,
+        elementProps,
+        (props: HTMLProps) => validation.getValidationProps(disabled() ?? false, props),
+      ]}
+      refs={[forwardedRef]}
+      stateAttributesMapping={fieldValidityMapping}
+      enableHomeAndEndKeys={false}
+      modifierKeys={MODIFIER_KEYS}
+    >
+      {local.children}
+    </CompositeRoot>
+  ));
 }
 
 const OWN_KEYS: readonly string[] = [

@@ -1,5 +1,5 @@
 import { LabelableProvider } from '../../internals/labelable-provider';
-import { splitComponentProps } from '../../solid-helpers';
+import { provideContext, splitComponentProps } from '../../solid-helpers';
 import type { BaseUIComponentProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
 import type { FieldRootState } from '../root/FieldRoot';
@@ -38,7 +38,9 @@ export function FieldItem(componentProps: FieldItem.Props) {
 
   return (
     <LabelableProvider>
-      <FieldItemContext value={fieldItemContext}>{element()}</FieldItemContext>
+      {provideContext(FieldItemContext, fieldItemContext, () => (
+        <>{element()}</>
+      ))}
     </LabelableProvider>
   );
 }

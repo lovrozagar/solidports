@@ -23,7 +23,7 @@ import type { ElementProps } from '../../floating-ui-solid/types';
 import { useTriggerInteractions, attachPreventUnmountOnClose } from '../../utils/popups';
 import { useFormContext } from '../../form/FormContext';
 import { useLabelableId } from '../../internals/labelable-provider/useLabelableId';
-import { createDepsMemo, useRef } from '../../solid-helpers';
+import { createDepsMemo, provideContext, useRef } from '../../solid-helpers';
 import type { ReactLikeRef } from '../../solid-helpers';
 import { EMPTY_ARRAY, EMPTY_OBJECT } from '../../utils/constants';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -663,9 +663,9 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
 
   const hiddenInputName = () => (multiple() ? undefined : name());
 
-  return (
-    <SelectRootContext value={contextValue}>
-      <SelectFloatingContext value={floatingContext}>
+  return provideContext(SelectRootContext, contextValue, () =>
+    provideContext(SelectFloatingContext, floatingContext, () => (
+      <>
         {props.children}
         <input
           {...(validation.getValidationProps(disabled(), {
@@ -766,8 +766,8 @@ export function SelectRoot<Value, Multiple extends boolean | undefined = false>(
             )}
           </For>
         </Show>
-      </SelectFloatingContext>
-    </SelectRootContext>
+      </>
+    )),
   );
 }
 

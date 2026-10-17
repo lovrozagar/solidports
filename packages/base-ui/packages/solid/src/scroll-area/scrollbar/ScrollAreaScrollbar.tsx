@@ -2,7 +2,7 @@ import { Show } from 'solid-js';
 import type { JSX } from '@solidjs/web';
 import { useDirection } from '../../direction-provider/DirectionContext';
 import { contains, getTarget } from '../../floating-ui-solid/utils';
-import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
+import { createDepsEffect, provideContext, splitComponentProps } from '../../solid-helpers';
 import { addEventListener } from '../../utils/addEventListener';
 import type { BaseUIComponentProps, HTMLProps } from '../../utils/types';
 import { useRenderElement } from '../../utils/useRenderElement';
@@ -269,7 +269,9 @@ export function ScrollAreaScrollbar(componentProps: ScrollAreaScrollbar.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <ScrollAreaScrollbarContext value={contextValue}>{element()}</ScrollAreaScrollbarContext>
+      {provideContext(ScrollAreaScrollbarContext, contextValue, () => (
+        <>{element()}</>
+      ))}
     </Show>
   );
 }

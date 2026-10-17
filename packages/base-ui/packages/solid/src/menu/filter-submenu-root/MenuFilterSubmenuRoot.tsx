@@ -1,7 +1,12 @@
 import type { JSX } from '@solidjs/web';
 import { isHTMLElement } from '@floating-ui/utils/dom';
 import { useDirection } from '../../direction-provider/DirectionContext';
-import { ComponentWithPayload, createLayoutEffect, useRef } from '../../solid-helpers';
+import {
+  ComponentWithPayload,
+  createLayoutEffect,
+  provideContext,
+  useRef,
+} from '../../solid-helpers';
 import { activeElement, contains } from '../../utils/shadowDom';
 import { ownerDocument } from '../../utils/owner';
 import { createChangeEventDetails } from '../../utils/createBaseUIEventDetails';
@@ -257,16 +262,14 @@ function MenuFilterSubmenuNavigation(props: {
     }
   }
 
-  return (
-    <MenuSubmenuRootContext
-      value={{
-        getReturnElement: handleReturnFocus,
-        onTriggerKeyDown: handleTriggerKeyDown,
-        onPopupKeyDown: handlePopupKeyDown,
-      }}
-    >
-      {props.children}
-    </MenuSubmenuRootContext>
+  return provideContext(
+    MenuSubmenuRootContext,
+    {
+      getReturnElement: handleReturnFocus,
+      onTriggerKeyDown: handleTriggerKeyDown,
+      onPopupKeyDown: handlePopupKeyDown,
+    },
+    () => <>{props.children}</>,
   );
 }
 

@@ -1,7 +1,7 @@
 import { createMemo, createSignal } from 'solid-js';
 import type { CompositeMetadata } from '../../internals/composite/list/CompositeList';
 import { CompositeRoot } from '../../internals/composite/root/CompositeRoot';
-import { splitComponentProps } from '../../solid-helpers';
+import { provideContext, splitComponentProps } from '../../solid-helpers';
 import type {
   Orientation as BaseOrientation,
   BaseUIComponentProps,
@@ -68,23 +68,21 @@ export function ToolbarRoot(componentProps: ToolbarRoot.Props) {
     role: 'toolbar',
   };
 
-  return (
-    <ToolbarRootContext value={toolbarRootContext}>
-      <CompositeRoot
-        render={renderProps.render}
-        class={renderProps.class}
-        state={state}
-        ref={componentProps.ref}
-        props={[defaultProps, elementProps]}
-        disabledIndices={disabledIndices()}
-        loopFocus={loopFocus()}
-        onMapChange={setItemMap}
-        orientation={orientation()}
-      >
-        {local.children}
-      </CompositeRoot>
-    </ToolbarRootContext>
-  );
+  return provideContext(ToolbarRootContext, toolbarRootContext, () => (
+    <CompositeRoot
+      render={renderProps.render}
+      class={renderProps.class}
+      state={state}
+      ref={componentProps.ref}
+      props={[defaultProps, elementProps]}
+      disabledIndices={disabledIndices()}
+      loopFocus={loopFocus()}
+      onMapChange={setItemMap}
+      orientation={orientation()}
+    >
+      {local.children}
+    </CompositeRoot>
+  ));
 }
 
 export interface ToolbarRootItemMetadata {

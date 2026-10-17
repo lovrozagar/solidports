@@ -49,7 +49,7 @@ Each tracked read pays a Proxy trap plus Map lookups. Repeated `createMemo(() =>
 | `createDepsRenderEffect` | Same, layout timing | memo + render effect | 35 |
 | `createLayoutEffect` | Render effect; on the server the node exists (ids align) but the apply does not run | render effect | 64 |
 | `createDepsMemo` | `shallowEqual` memo | memo | 4 |
-| `provideContext` | Client after hydration: runs `render` once untracked under one transparent owner that carries the context (`createContextOwner`, S2). Server or hydrating: `<Provider>` JSX so owners match (D5). | 1 owner (client) | 50 |
+| `provideContext` | Client after hydration: runs `render` once untracked under one transparent owner that carries the context (`createContextOwner`, S2). Server or hydrating: `<Provider>` JSX so owners match (D5). | 1 owner (client) | 111 |
 | `useRef(v)` | `{ current: v }`, not reactive | None | 154 |
 | `omitComponentProps` | Solid `omit` view without `class`, `render`, own keys | Proxy | 17 |
 | `defaultProps` | Compat `mergeProps(defaults, props)` | Proxy | 17 |

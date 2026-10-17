@@ -3,6 +3,7 @@ import { FloatingPortal } from '../../floating-ui-solid';
 import { usePopoverRootContext } from '../root/PopoverRootContext';
 import { PopoverPortalContext } from './PopoverPortalContext';
 import { splitProps } from '../../solid-1-compat';
+import { provideContext } from '../../solid-helpers';
 
 /**
  * A portal element that moves the popup to a different part of the DOM.
@@ -22,9 +23,9 @@ export function PopoverPortal(props: PopoverPortal.Props) {
 
   return (
     <Show when={shouldRender()}>
-      <PopoverPortalContext value={keepMounted}>
+      {provideContext(PopoverPortalContext, keepMounted, () => (
         <FloatingPortal {...portalProps} ref={props.ref} />
-      </PopoverPortalContext>
+      ))}
     </Show>
   );
 }

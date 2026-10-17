@@ -4,7 +4,7 @@ import { CompositeList } from '../../internals/composite/list/CompositeList';
 import { canRenderNative } from '../../utils/native';
 import { provideNativeContext } from '../../utils/native/context';
 import { renderNativeElement } from '../../utils/native/element';
-import { createDepsEffect, splitComponentProps } from '../../solid-helpers';
+import { createDepsEffect, provideContext, splitComponentProps } from '../../solid-helpers';
 import type { BaseUIChangeEventDetails } from '../../utils/createBaseUIEventDetails';
 import { EMPTY_ARRAY } from '../../utils/empty';
 import type { REASONS } from '../../utils/reasons';
@@ -48,7 +48,7 @@ export function AccordionRoot<Value = any>(
   // list stays `CompositeList`.
   if (canRenderNative(componentProps, undefined, true)) {
     const root = createAccordionRoot(componentProps);
-    // eslint-disable-next-line solid/components-return-once -- the branch is chosen once at setup from information fixed for the part's lifetime
+     
     return provideNativeContext(AccordionRootContext, root.contextValue, () =>
       createComponent(CompositeList, {
         refs: { elements: root.accordionItemElements },
@@ -83,11 +83,9 @@ export function AccordionRoot<Value = any>(
     stateAttributesMapping: rootStateAttributesMapping,
   });
 
-  return (
-    <AccordionRootContext value={root.contextValue}>
-      <CompositeList refs={{ elements: root.accordionItemElements }}>{element()}</CompositeList>
-    </AccordionRootContext>
-  );
+  return provideContext(AccordionRootContext, root.contextValue, () => (
+    <CompositeList refs={{ elements: root.accordionItemElements }}>{element()}</CompositeList>
+  ));
 }
 
 /** The root's value state and context, shared by both render paths (`local` reads the props). */

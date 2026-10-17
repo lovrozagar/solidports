@@ -1,6 +1,7 @@
 import type { JSX } from '@solidjs/web';
 import { CSPContext } from './CSPContext';
 import type { CSPContextValue } from './CSPContext';
+import { provideContext } from '../solid-helpers';
 
 /**
  * Provides a default Content Security Policy (CSP) configuration for Base UI components that
@@ -14,7 +15,7 @@ export function CSPProvider(props: CSPProvider.Props) {
     nonce: () => props.nonce,
   };
 
-  return <CSPContext value={contextValue}>{props.children}</CSPContext>;
+  return provideContext(CSPContext, contextValue, () => <>{props.children}</>);
 }
 
 export interface CSPProviderState {}

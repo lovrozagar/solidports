@@ -109,7 +109,7 @@ export function FloatingNode(props: FloatingNodeProps): JSX.Element {
   const parentId = useFloatingParentNodeId();
   const contextValue = { id: () => props.id, parentId: () => parentId };
 
-  return <FloatingNodeContext value={contextValue}>{props.children}</FloatingNodeContext>;
+  return provideContext(FloatingNodeContext, contextValue, () => <>{props.children}</>);
 }
 
 export interface FloatingTreeProps {
@@ -132,5 +132,7 @@ export function FloatingTree(props: FloatingTreeProps): JSX.Element {
   // Fixed on creation, as React's `useRefWithInit`.
   const fixedTree = untrack(() => props.externalTree) ?? new FloatingTreeStore();
   const tree = () => fixedTree;
+  // Read once: every caller passes an already rendered tree (a root's content), not a reactive
+  // expression, which the provider's children memo would otherwise have tracked.
   return provideContext(FloatingTreeContext, tree, () => props.children);
 }
