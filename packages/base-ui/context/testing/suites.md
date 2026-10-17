@@ -1,7 +1,7 @@
 ---
 tags: [testing, ci, vitest, browsers]
 sources: [.github/workflows/base-ui-tests.yml, .github/workflows/base-ui-browser-parity.yml, .github/workflows/base-ui-typescript-next.yml, .github/workflows/ci.yml, packages/base-ui/scripts/test-all.mjs, packages/base-ui/packages/solid/vitest.config.mts, packages/base-ui/packages/solid/vitest.ssr.config.mts, packages/base-ui/vitest.shared.mts, scripts/verify.ts]
-verified: 2026-10-16
+verified: 2026-10-17
 ---
 
 # Test suites
@@ -102,6 +102,22 @@ Other workflows:
 | Firefox, WebKit | not run | browser parity workflow, measured against upstream's results in the same browser |
 
 Upstream mui/base-ui runs `test:jsdom` and `test:chromium` on CircleCI, and its e2e and regression jobs install only Chromium. Its `browserstack-force` pipeline parameter is still declared, but no job runs BrowserStack. E2E and regressions stay Chromium-only here too.
+
+### Mac parity baseline
+
+The Mac test machine (`remote-mac.mjs`) runs macOS 14.6 with Playwright's `webkit_mac14_arm64_special-2251` WebKit and `firefox-1532`. CI's browser parity runs on Linux, which is the parity authority for landing. On the Mac, the WebKit suite fails these 43 tests that upstream's passes. They fail the same way at `main` 4562ec2b: 73 failures in their files at both 4562ec2b and 64de52e9, the same tests. So they belong to that engine and not to a change. A Mac parity run is judged on the tests outside this set.
+
+- `test/hydration/ssrFixtures.hydration`, in the string, stream and streamBoundaries renders (36):
+  - `menu/filter-root/MenuFilterRoot.ssr-fixtures.tsx`: `relationships`, `submenu`.
+  - `menu/root/MenuRoot.ssr-fixtures.tsx`: `filterableIndicators`, `filterProvider`, `plainTrigger`, `renderTrigger`, `submenuTrigger`, `wrapped`, `wrappedFilterProvider`.
+  - `navigation-menu/content/NavigationMenuContent.ssr-fixtures.tsx`: `keepMounted`.
+  - `popover/root/PopoverRoot.ssr-fixtures.tsx`: `plainTrigger`, `renderTrigger`.
+- `combobox/root/ComboboxRoot`: dialog pattern, "clears the highlight when a keepMounted dialog closes", with `multiple=false` and `multiple=true` (`query=""`).
+- `drawer/virtual-keyboard-provider/DrawerVirtualKeyboardProvider`: "compensates for keyboard overlap without adding extra spacing and centers the focused input", and "restores keyboard scroll slack when the drawer closes".
+- `menu/filter-root/MenuFilterRoot.react17`: "omits partial ids during SSR and wires relationships after hydration", and "registers a submenu trigger after fallback ids resolve".
+- `menu/filter-submenu-root/MenuFilterSubmenuRoot`: closing a filtered submenu from the keyboard, "does not wrap a filterable parent when closing from its first item (filterable submenu: true)".
+
+Firefox on the Mac has no such set. `utils/popups/useTriggerFocusGuards`'s "uses the current tab order when an adjacent control is inserted during close" failed once in a full parity run at 64de52e9. It then passed alone 5 of 5 times at both 4562ec2b and 64de52e9, and in the full parity run at 26819b60.
 
 ## Root gates
 
