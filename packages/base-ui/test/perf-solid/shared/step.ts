@@ -15,6 +15,8 @@ export interface StepResult {
   /** JSON summary from the step's `verify` (compared across libraries by the runner). */
   summary: string | null;
   error: string | null;
+  /** Why the step did not run on this engine (an input it `requires` is missing), or `null`. */
+  skipped: string | null;
 }
 
 /**
@@ -23,6 +25,16 @@ export interface StepResult {
  * so a close that lands early is still timed; steps without one pay nothing.
  */
 export async function runStep(step: Step, ctx: StepContext): Promise<StepResult> {
+  if (step.requires === 'touch' && typeof Touch !== 'function') {
+    return {
+      sync: 0,
+      paint: 0,
+      settled: null,
+      summary: null,
+      error: null,
+      skipped: 'needs Touch',
+    };
+  }
   let error: string | null = null;
   let settledAt: number | null = null;
   let observer: MutationObserver | null = null;
@@ -84,5 +96,5 @@ export async function runStep(step: Step, ctx: StepContext): Promise<StepResult>
     }
   }
   const settled = settledAt === null || error ? null : settledAt - start;
-  return { sync, paint, settled, summary, error };
+  return { sync, paint, settled, summary, error, skipped: null };
 }

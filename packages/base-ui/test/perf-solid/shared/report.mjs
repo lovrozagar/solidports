@@ -3,6 +3,8 @@
 import { GATED, judge, judgeAll, median, p90 } from './regression.mjs';
 
 const HEAP = 'heap after mount KB';
+/** A variant that did not measure a step: no samples, which `unmeasuredPairs` reports. */
+const NO_SAMPLES = { sync: [], paint: [], script: [], layout: [], style: [], settled: [] };
 
 /**
  * @param {Record<string, Record<string, { steps: Record<string, Record<string, number[]>>, heapKB: number[] }>>} results
@@ -17,7 +19,7 @@ export function summarize(results, names, timers) {
       const timer = timers[id]?.[step];
       const entry = { ratios: {} };
       for (const name of names) {
-        const s = byName[name].steps[step];
+        const s = byName[name].steps[step] ?? NO_SAMPLES;
         const settled = timer === undefined ? [] : (s.settled ?? []).map((value) => value - timer);
         entry[name] = {
           sync: median(s.sync),
@@ -88,7 +90,8 @@ export function variantPairs(summary, base, cur, options = {}) {
     for (const metric of metrics) {
       const a = entry[base].samples[metric];
       const b = entry[cur].samples[metric];
-      if (!a?.length && !b?.length) {
+      // A side without samples has nothing to judge: `unmeasuredPairs` lists the one-sided ones.
+      if (!a?.length || !b?.length) {
         continue;
       }
       const id = key.slice(0, key.indexOf(' › '));
@@ -96,6 +99,25 @@ export function variantPairs(summary, base, cur, options = {}) {
     }
   }
   return pairs;
+}
+
+/**
+ * The metrics only one side measured, as `variantPairs` reads them: never judged, so reported as
+ * not measured rather than read as a pass.
+ */
+export function unmeasuredPairs(summary, base, cur) {
+  const lines = [];
+  for (const [key, entry] of Object.entries(summary)) {
+    const metrics = key.endsWith(HEAP) ? ['heapKB'] : ['sync', 'script', 'settled'];
+    for (const metric of metrics) {
+      const a = entry[base].samples[metric]?.length ?? 0;
+      const b = entry[cur].samples[metric]?.length ?? 0;
+      if (a > 0 !== b > 0) {
+        lines.push(`${key} ${metric}: measured by ${a > 0 ? base : cur} only`);
+      }
+    }
+  }
+  return lines;
 }
 
 const fmtMs = (n) => (n == null ? '-' : n.toFixed(2));

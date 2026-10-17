@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { compareVariants, mainThreadLines, summarize } from "../packages/base-ui/test/perf-solid/shared/report.mjs"
+import {
+	compareVariants,
+	mainThreadLines,
+	summarize,
+	unmeasuredPairs,
+	variantPairs,
+} from "../packages/base-ui/test/perf-solid/shared/report.mjs"
 
 // Ten samples per side: the rule judges nothing below MIN_SAMPLES.
 const ten = (values: number[]) => Array.from({ length: 10 }, (_, i) => values[i % values.length])
@@ -97,5 +103,30 @@ describe("SSR main-thread table", () => {
 		expect(
 			mainThreadLines(["a/1"], { "a/1": { react: { serverMs: 1 }, solid: { serverMs: 1 } } }, ["react", "solid"]),
 		).toEqual([])
+	})
+})
+
+// A metric only one side measured (a step one engine skips, an SSR fixture one variant did not
+// hydrate) is never judged: an empty side would read as a pass. It is listed as not measured.
+describe("one-sided samples", () => {
+	const sample = (values: number[]) => ({ samples: { sync: values, script: values, settled: [] } })
+	const summary = {
+		"menu/200 › open": { base: sample([1, 2, 3]), cur: sample([1, 2, 3]) },
+		"menu/200 › long-press": { base: sample([5, 6]), cur: sample([]) },
+	}
+
+	test("pairs only metrics both sides measured", () => {
+		const pairs = variantPairs(summary, "base", "cur")
+		expect(pairs.map((pair) => `${pair.key} ${pair.metric}`)).toEqual([
+			"menu/200 › open sync",
+			"menu/200 › open script",
+		])
+	})
+
+	test("lists the metrics one side did not measure", () => {
+		expect(unmeasuredPairs(summary, "base", "cur")).toEqual([
+			"menu/200 › long-press sync: measured by base only",
+			"menu/200 › long-press script: measured by base only",
+		])
 	})
 })

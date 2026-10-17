@@ -129,6 +129,8 @@ if (list.length === 0) {
 }
 
 const results = {};
+/** `scenario › step` → why this engine skipped it (a step's `requires`). */
+const notMeasured = new Map();
 const problems = [];
 const knownHits = [];
 /** Every console warning and error the pages logged, by scenario and variant. */
@@ -159,6 +161,11 @@ for (const { id, steps } of list) {
       for (let run = 0; run < WARMUP + RUNS; run += 1) {
         const timed = await timingCycle({ collect, runStep, stepCount });
         timed.forEach(({ result, before, after }, index) => {
+          // A step this engine cannot run (`requires`) records nothing: the report leaves it out.
+          if (result.skipped) {
+            notMeasured.set(`${id} › ${steps[index]}`, result.skipped);
+            return;
+          }
           if (result.error) {
             entry.errors.push(`${steps[index]}: ${result.error}`);
           }
@@ -296,6 +303,14 @@ if (consoleCheck.known.length) {
     ...[...counts].map(([key, count]) => `- ${count}× ${key}`),
   );
 }
+if (notMeasured.size) {
+  lines.push(
+    '',
+    `## Not measured on ${ENGINE.name}`,
+    '',
+    ...[...notMeasured].map(([key, reason]) => `- ${key}: ${reason}`),
+  );
+}
 if (problems.length) {
   lines.push('', '## Problems', '', ...problems.map((problem) => `- ${problem}`));
 }
@@ -315,6 +330,7 @@ fs.writeFileSync(
       filter: process.argv[3] ?? null,
       raw: list.filter((scenario) => scenario.tags.includes('raw')).map((scenario) => scenario.id),
       summary,
+      notMeasured: Object.fromEntries(notMeasured),
       console: consoleEntries,
       problems,
     },
